@@ -3,10 +3,13 @@
 `rust/native-core-ffi-poc`, cut from `rust/direct-message-impls`.
 
 **This branch is never merged.** It exists to answer one question with evidence,
-and the only artifact that is taken into account at the end is
-[`REPORT.md`](REPORT.md). Everything else here (slices, generators, harnesses,
-logs, per-language findings) is working material kept in version control so that
-a figure in the report can be traced back to the thing that produced it.
+and the only artifact taken into account at the end is [`REPORT.md`](REPORT.md).
+Everything else here (slices, generators, harnesses, logs, per-slice journals) is
+working material kept in version control so that a figure in the report can be
+traced back to the thing that produced it.
+
+Working in this directory? Read [`CLAUDE.md`](CLAUDE.md) first: it is the
+operating contract between the aggregating session and the slice agents.
 
 ## 1. The question
 
@@ -49,10 +52,9 @@ descriptor, so it is not a per-language workaround.
 **A crossing is not one price, it is a price per runtime.** Same work, measured
 per reverse call: about 0.25 ns in C++, 7.5 to 12 ns on .NET 8, about 73 ns on
 Mono 6.8, 98.4 ns through JNI, 33.8 ns through FFM. The design rule that follows
-is the one to carry into every remaining POC: **make the crossings fewer, not
-cheaper.**
+is the one to carry into every slice: **make the crossings fewer, not cheaper.**
 
-### The base design is out of date, and that is work item 1
+### The base design is out of date, and that is work item W1
 
 The base design predates both managed-host reports. The ABI it draws in "What
 crosses" is the one the C# report measures as a regression, and the amendments
@@ -68,6 +70,8 @@ Written down so that the report cannot quietly inherit an assumption.
 - **Python has no POC at all.** It is also the language whose incumbent is
   already native (protobuf-python on upb, grpcio on the gRPC C core), so it is
   the one where the crossing argument could land differently from every other.
+- **Rust has no POC either**, which leaves every other slice's number without a
+  denominator. See section 4.1.
 - **C++ has never been measured on the amended ABI.** The amendments were
   motivated by managed hosts; the claim that C++ pays nothing for them is
   currently an argument, not a measurement.
@@ -90,36 +94,116 @@ Written down so that the report cannot quietly inherit an assumption.
 - **Concurrency, real hardware, streaming, TLS, the server seam.** Every slice so
   far is single-threaded or two-vCPU, unary, loopback, client-side.
 
-## 4. What this branch does
+## 4. The slices
 
-Six work items. W1 blocks the per-language work; W2 to W5 are independent of each
-other; W6 is the deliverable.
+Five, one per language, each implementing the same shapes (section 6) over the
+same payloads, so that the columns of the final table mean the same thing.
+
+| Slice | Incumbent it is measured against | The question it answers |
+|---|---|---|
+| `rust` | prost and tonic | What a host language loses against full Rust, and what the new design costs against what `packages/rust` does today. The denominator for everything else. |
+| `cpp` | protobuf C++ (arena and non-arena), grpc++ | Does the amended ABI still work for the language the design was drafted for, under the C++11 floor? |
+| `csharp` | `Google.Protobuf`, `Grpc.Net.Client` | Closing the two gaps its own report names: a managed decode control, and oneofs plus explicit presence. |
+| `java` | protobuf-java, grpc-java | Does the encode regression survive the reconciled ABI, and does the generated-Java-codec fallback stay ahead? |
+| `python` | protobuf (upb), grpcio | Section 9. The one language whose incumbent is already native. |
+
+### 4.1 Why Rust is a slice, and not just a floor
+
+Every existing report quotes prost as a floor and stops there, which leaves each
+language's result as one number with two things mixed into it: what the
+**interface** costs, and what that language's **runtime** costs on top of it. The
+Rust slice separates them, because a Rust host pays a crossing price close to
+C's, so an FFI arm in Rust is the interface with the runtime tax removed.
+
+Four arms, in one process:
+
+| Arm | What it is | What it prices |
+|---|---|---|
+| `prost` | prost's generated structs, tonic's codec | Today's floor, and the comparator the other reports already quote |
+| `armonik` | the in-repo crate: hand-written types implementing `prost::Message` directly, no conversion layer | Whether hand-written types plus a generated codec cost anything against generated structs, which is the bet `packages/rust` already made |
+| `core-native` | the new design's generated codec, called from Rust, no FFI | What the core costs as the core sees itself, against both of the above |
+| `core-ffi-rust` | the same core reached through the C ABI from a Rust host | **The interface cost with the runtime tax removed** |
+
+That gives every other slice a decomposition rather than a number:
+
+```
+cost(host H)  =  cost(core-ffi-rust)      the interface
+              +  (cost(H) - cost(core-ffi-rust))   H's runtime tax
+```
+
+and it gives the report the one comparison the proposal is actually about:
+`cost(H) / cost(armonik)`, what a binding loses against writing it in Rust.
+
+It also answers a question the design has never asked out loud: **does the new
+design beat tonic plus prost on the Rust side too**, or is Rust paying for the
+other four? `packages/rust` is the one implementation that would carry the core
+natively, so a regression there is a cost with no offsetting binding.
+
+## 5. Language levels: floors are constraints, targets are where the clock runs
+
+Two different things, and conflating them is how a design gets rejected for a
+number taken on a runtime nobody deploys for throughput.
+
+| Slice | Floor (design constraint: must compile, must pass correctness) | Target (where performance is measured) | Note |
+|---|---|---|---|
+| C++ | C++11 | C++17 | A customer is pinned to C++11. The repo's own CMake currently sets `CXX_STANDARD 14`, so which of the two is the real floor is open question 3. |
+| C# | netstandard2.0, and failing that .NET Framework 4.8 | .NET 8 | No `UnmanagedCallersOnly`, no `SuppressGCTransition` on the floor, so the vtable is delegate pointers there. |
+| Java | Java 8 | Java 17 | FFM is a JDK 22 API, so the floor and the target are both JNI. FFM is a secondary arm, not a target. |
+| Python | the floor `pyproject.toml` declares (`>=3.7`), see open question 4 | to be decided, proposal 3.11 | |
+| Rust | MSRV 1.88 | MSRV 1.88 | One configuration; the floor is the target. |
+
+**The rule that follows.** A slice must *build and pass the correctness suite* on
+its floor, and reports **no timings from it** except one number: the cost of the
+floor mechanism against the target mechanism on the same machine, which is what
+tells a reader whether the floor is a viable deployment or only a viable
+compile. Everything else is measured on the target.
+
+## 6. The same shapes everywhere
+
+[`design/SHAPES.md`](design/SHAPES.md) fixes the message shapes, the field
+shapes and the payload set. **Every slice implements all of it**, or records in
+its journal which item it does not and why, and that omission goes in the report.
+
+A slice is free to add an arm; it is not free to change the shapes, because a
+column of the final table that covers a different set of shapes is not a column,
+it is a second table. The shape list is weighted by a census of the real schema
+(string 174, int32 33, bool 14, int64 10, bytes 8 across 413 fields; 19 oneofs;
+21 enums; 3 packed repeated fields, all enums; 2 maps, both
+`map<string, string>`), so a verdict read off a shape the schema has three of is
+labelled as a control rather than a result.
+
+## 7. Work items
+
+W1 and W2 block the slices. W3 to W7 are independent of each other. W9 is the
+deliverable.
 
 | # | Work item | Done when |
 |---|---|---|
-| W1 | **Reconcile the ABI.** One specification, in this branch, merging the base design with the amendments from the C# and Java reports. Every amendment carries the figure that motivated it and the language it came from. | `design/ABI.md` exists and every later slice is built against it rather than against a report. |
-| W2 | **Bring the C# and Java slices in.** They were built outside this repository. Import the sources, make them build and run from `ffi/poc/`, then close the gaps their own reports name (C# managed decode control; oneofs and explicit presence on .NET; the transcoder triple measured on .NET). | Both slices run from a clean checkout, and the two named gaps have numbers. |
-| W3 | **Re-validate C++ on the amended ABI.** Rebuild the C++ slice against W1 and re-measure against protobuf C++ (arena and non-arena). | The amended ABI has a C++ column, and the claim that the managed amendments are free in C++ is a measurement. |
-| W4 | **Build the Python POC.** Section 6. | Python has a verdict of the same shape as the other three, or a stated reason why the question is different there. |
-| W5 | **Build the conformance corpus.** Section 7. | Every slice produces and consumes the same bytes, and the corpus is generated rather than curated. |
-| W6 | **Write the report.** | `REPORT.md` states a recommendation, the evidence for it, and what it does not establish. |
+| W1 | **Reconcile the ABI.** One specification, in this branch, merging the base design with the amendments from the C# and Java reports. Every amendment carries the figure that motivated it and the language it came from. | `design/ABI.md` exists and every slice is built against it rather than against a report. |
+| W2 | **Freeze the shapes and the payload set.** | `design/SHAPES.md` is agreed and no slice has a shape the others lack. |
+| W3 | **Rust slice.** Section 4.1. | The four arms exist and the interface-cost decomposition is available to every other slice. |
+| W4 | **C++ slice on the amended ABI.** Rebuild against W1, re-measure against protobuf C++, and demonstrate the C++11 floor. | The amended ABI has a C++ column, and "the managed amendments are free in C++" is a measurement. |
+| W5 | **C# slice.** Import the existing slice, rebuild against W1, then close its two named gaps: a managed decode control, and oneofs plus explicit presence. | Both gaps have numbers, and the floor (netstandard2.0 or net48) compiles and passes correctness. |
+| W6 | **Java slice.** Import, rebuild against W1, re-measure encode, and keep the generated-Java-codec arm as a first-class candidate. | The encode verdict is stated against the reconciled ABI, on JDK 17 with JNI, with the Java 8 floor demonstrated. |
+| W7 | **Python slice.** Section 9. | Python has a verdict of the same shape as the others, or a stated reason why the question is different there. |
+| W8 | **Conformance corpus.** Section 10. | Every slice produces and consumes the same bytes, and the corpus is generated rather than curated. |
+| W9 | **The report.** | `REPORT.md` states a recommendation, the evidence for it, and what it does not establish. |
 
-**Keep the POCs small.** No slice needs to cover every message or every RPC. A
-slice covers the field shapes that decide the answer, and nothing else. Where a
-shape is not covered, that goes in the "not measured" list rather than into a
-larger slice.
+**Keep the slices small.** No slice covers every message or every RPC. It covers
+the shapes in `design/SHAPES.md` and nothing else. Where something is not
+covered, it goes in the "not measured" list rather than into a larger slice.
 
-## 5. How a POC is conducted
+## 8. How a slice is conducted
 
-These rules are what make five separate slices comparable, and most of them were
-learned the hard way in the three that already exist. A slice that breaks one of
-them produces a number that cannot be used.
+These rules are what make five separate slices comparable, and most were learned
+the hard way in the three that already exist. A slice that breaks one produces a
+number that cannot be used.
 
-**R1. One schema description drives everything.** One description per slice emits
-the `.proto`, the facade, the Rust codec, the binding, the no-boundary control
-codec and the payloads. No hand-written codec anywhere in the comparison, so a
-defect in one arm is a defect in a generator backend, which is what it would be
-in production.
+**R1. One schema description drives everything.** One description emits the
+`.proto`, the facade, the Rust codec, the binding, the no-boundary control codec
+and the payloads. No hand-written codec anywhere in the comparison, so a defect
+in one arm is a defect in a generator backend, which is what it would be in
+production.
 
 **R2. Correctness before timing, and byte identity across every arm.** Every
 encoder in a slice produces bytes that prost, the incumbent and the control codec
@@ -129,49 +213,51 @@ each arm.
 **R3. Three arms minimum, in one process.** The incumbent that language ships
 today (the baseline every ratio is against), the C ABI arm, and a **no-boundary
 control**: the same generated codec emitted into the host language, over the same
-facade objects. prost appears as a floor, never as a candidate. The control is
-not optional: on Java it is the arm that changed the recommendation.
+facade objects. The control is not optional: on Java it is the arm that changed
+the recommendation.
 
 **R4. Every ratio is formed inside one process on one runtime.** Absolutes do not
 travel between runs on shared hardware; ratios within one process do. Any
-comparison that cannot share a process (two incumbent versions, a different
-runtime) says so and carries an in-process control column.
+comparison that cannot share a process (two incumbent versions, two runtimes)
+says so and carries an in-process control column.
 
 **R5. Count the crossings, do not infer them.** Every slice reports boundary-call
 counts per payload per direction, from a counting build. The crossing count is
 what makes a result portable to a runtime nobody measured.
 
-**R6. The payload set is shared.** P1, P2, P3, P6, P7, P11 as defined in the C#
-and Java reports (flat small, flat large, nested small, nested large, repeated
-strings, packed scalars), plus P12 (oneof and explicit presence), P13 (the
-`Output` adapter), P14 (bulk `bytes`, the result upload and download shapes),
-P16 and P17 (**everything absent or empty**, which is where offset defects hide).
-A payload generator that fills every field cannot reach the absent path, and a
-defect that lived there passed every other payload in the Java slice.
+**R6. The payload set is shared**, and it includes the absent path. A payload
+generator that fills every field cannot reach any path conditioned on emptiness,
+which is exactly where an offset defect hides: one such defect passed all seven
+standard payloads in the Java slice.
 
 **R7. Name the configuration.** Runtime version, incumbent library version,
 binding mechanism, machine. A ratio between an arm on one binding mechanism and
 an arm on another is a comparison of mechanisms, not of ABI shapes, and mistaking
 one for the other has already produced retracted figures.
 
-**R8. State the measurement hazards you are exposed to, per table.** The known
-ones: JIT tiering and PGO off handicaps a managed incumbent; on JDK 21 and later
-a single `String.format` with a numeric conversion permanently deoptimises every
+**R8. The floor is a correctness gate; the target is where the clock runs.**
+Section 5.
+
+**R9. State the measurement hazards each table is exposed to.** The known ones:
+JIT tiering and PGO off handicaps a managed incumbent; on JDK 21 and later a
+single `String.format` with a numeric conversion permanently deoptimises every
 `char` narrowing loop in the process, which is protobuf-java's own encoder; two
 vCPUs is the smallest contention a shared cache line can have, so a concurrency
 figure from it is a lower bound and not a figure.
 
-**R9. Keep a defect log.** Each slice records the defects found in it and what
+**R10. Keep a defect log.** Each slice records the defects found in it and what
 found them. Three of the most useful findings in the existing reports are defects
 in a generator, not properties of an interface, and the rule they produced
 ("sweep a codegen rule across the generator, do not fix it where it was found")
 is worth more than most of the timings.
 
-**R10. Every slice ends with "what is not measured".** A slice that does not name
+**R11. Every slice ends with "what is not measured".** A slice that does not name
 its gaps is not finished, and the report is assembled from those lists as much as
 from the verdicts.
 
-## 6. The Python POC
+**R12. A slice agent never writes a report.** Section 11.
+
+## 9. The Python slice
 
 Stated in more detail because it is the one with no prior art.
 
@@ -190,11 +276,10 @@ Stated in more detail because it is the one with no prior art.
 - **Also worth knowing**: `packages/python` reads no transport environment
   configuration at all today, so the configuration-homogeneity half of the
   argument is a pure gain there rather than a migration.
-- **Minimum slice**: the same messages as the other slices, the shared payload
-  set, one binding mechanism measured against the other two on a microbenchmark
-  before the full slice commits to one.
+- **Minimum slice**: the shapes of section 6, with one binding mechanism chosen
+  by microbenchmark before the full slice commits to it.
 
-## 7. The conformance corpus
+## 10. The conformance corpus
 
 A fixed set of byte vectors every language must both produce and consume, checked
 in, run in CI, and **generated from the descriptor rather than curated**. It is
@@ -207,9 +292,9 @@ between them establish exactly what it has to contain:
    level. A corpus generated from the schema that reads it never executes the
    unknown-field skip, which is the whole of protobuf's forward compatibility.
 2. **Fields that are absent or empty.** See R6.
-3. **Every field shape, mechanically.** 413 fields, 19 oneofs, 21 enums, two
-   maps. A curated corpus covers the shapes somebody thought of, and the ones
-   nobody thought of are the ones a new backend gets wrong.
+3. **Every field shape, mechanically.** A curated corpus covers the shapes
+   somebody thought of, and the ones nobody thought of are the ones a new backend
+   gets wrong.
 4. **The transcode pair.** Encode transcodes in the core, decode transcodes in
    the host, so the two have to agree on malformed input and on the
    unpaired-surrogate substitution across every facade. Java and .NET do not
@@ -220,21 +305,71 @@ interface that lets the host choose emission order gives up byte identity by
 construction, so the corpus cannot validate it. That belongs in the ABI decision,
 not after it.
 
-## 8. Layout and deliverables
+## 11. How the work is run
+
+Three roles, and the separation between them is what keeps the report honest.
+
+### The aggregating session (this one)
+
+Owns `README.md`, `CLAUDE.md`, `design/**`, `findings/**`, `REPORT.md`, and the
+decision about what gets built next. It spawns the slice agents, reads what they
+produced, and **is the only role that writes prose about results**. It does not
+run benchmarks itself.
+
+### Slice agents, one per language, resumable
+
+One agent per slice (`ffi-slice`), responsible for building that slice and
+running its benchmarks. Each owns exactly `ffi/poc/<lang>/**` and
+`ffi/logs/<lang>/**`, and writes three things there:
+
+- `STATE.md`, the handoff contract, rewritten at the end of every work unit;
+- `JOURNAL.md`, what was tried, what it measured, what refuted it, in order;
+- raw logs under `ffi/logs/<lang>/`, which is what a figure is traced back to.
+
+**A slice agent never edits `REPORT.md`, `findings/**`, `design/**` or this
+file.** It reports its findings back, and the aggregating session decides what
+they mean. The reason is not bureaucracy: a slice agent that writes the verdict
+on its own slice has every incentive to write the verdict its last measurement
+suggested, and three of the most important findings so far are corrections of
+exactly that.
+
+**Resuming.** Within one session, send the live agent another message rather than
+spawning a new one, so its context survives. Across sessions, context does not
+survive, so `STATE.md` is the resume mechanism: a fresh agent reads it first, and
+it is a defect for it to be stale. That is why it is rewritten at the end of
+every work unit and not at the end of the slice.
+
+### Review agents, adversarial, read-only
+
+Spawned when a review is asked for (`ffi-review`, or the `/ffi-review` command).
+They read the slice, the journal and the logs, and hunt for the reasons a number
+is wrong: an arm that is not running, a ratio formed across processes, a control
+that shares the defect it is controlling for, a codegen rule applied in one path
+and not swept.
+
+**A review agent never writes code and never writes files.** It cannot confirm a
+finding by building something, which is deliberate: confirmation is handed to the
+slice agent that owns the code, so the same role never both raises and clears a
+finding. A review agent's output is a list of findings, each with the evidence it
+rests on and what would refute it.
+
+## 12. Layout and deliverables
 
 ```
 ffi/
   README.md              this document: the goal, the rules, the plan
+  CLAUDE.md              the operating contract for anyone working in here
   REPORT.md              the deliverable. The only thing that counts at the end
   design/
     ABI.md               W1: the reconciled ABI specification
+    SHAPES.md            W2: the shapes and payloads every slice implements
     DESIGN.md            the base design, updated as findings land
-  poc/
-    cpp/  csharp/  java/  python/
+  poc/<lang>/            one slice per language, agent-owned
+    STATE.md             the handoff contract. Read first, written last
+    JOURNAL.md           what was tried, measured, refuted, in order
   corpus/                the generated conformance corpus and its generator
-  findings/
-    cpp.md  csharp.md  java.md  python.md
-  logs/                  raw measurement logs a figure can be traced back to
+  findings/<lang>.md     the aggregating session's reading of a slice
+  logs/<lang>/           raw measurement logs a figure traces back to
 ```
 
 Rules that go with the layout:
@@ -242,12 +377,13 @@ Rules that go with the layout:
 - **Markdown in this branch is the source of truth.** Published artifacts are
   renderings of it. On a disagreement, the file in the branch wins.
 - **Nothing under `packages/` changes.** The diff against `main` stays readable,
-  and the branch cannot accidentally become a half-migration.
+  and the branch cannot accidentally become a half-migration. The Rust slice
+  *reads* `packages/rust` and measures against it; it does not edit it.
 - **Every figure in a report names the log it comes from.** A figure with no log
   is a claim, and the reports are already carrying retractions of exactly that
   kind.
 
-## 9. How the branch reaches a recommendation
+## 13. How the branch reaches a recommendation
 
 The bar is not "is the Rust core the fastest possible codec for language X". It
 is **what a unified core costs each language against what ArmoniK ships today**,
@@ -269,32 +405,35 @@ Three outcomes are possible and all three are acceptable results for this branch
 
 The report states which, and states the evidence that rules out the other two.
 
-## 10. Out of scope
+## 14. Out of scope
 
 - **The browser.** `packages/web` and `packages/angular` cannot load a native
   library, so they stay on generated gRPC-web whatever this branch concludes.
-  Node through a native addon was considered and is not in scope for this branch.
+  Node through a native addon was considered and is not in scope.
 - **Shipping anything.** No packaging, no release, no migration of a real
   consumer. Where those costs matter to the recommendation they are estimated and
   labelled as estimates.
-- **Completeness.** Not every message, not every RPC, not every field shape. See
-  R10.
+- **Completeness.** Not every message, not every RPC, not every field shape.
 
-## 11. Open questions for this document
+## 15. Open questions
 
-To settle while iterating on it, before the slices start.
-
-1. **W2 scope.** "Bring the C# and Java slices in" can mean import and re-run as
-   they are, or rebuild both against the reconciled ABI of W1. The second is
-   strictly better evidence and roughly doubles W2.
-2. **Does the reconciled ABI get a C++11 re-check as part of W1**, or does W3
+1. **W5 and W6 scope.** Importing the C# and Java slices and rebuilding them
+   against the reconciled ABI is strictly better evidence than importing and
+   re-running them as they are, and it roughly doubles both items.
+2. **Does the reconciled ABI get a C++11 re-check as part of W1**, or does W4
    discover it? The C++11 pin is the one constraint that can disqualify an
    amendment rather than cost it.
-3. **How much of the real schema does a slice cover?** The existing slices use 8
+3. **Is the C++ floor C++11 or C++14?** The design says a customer is pinned to
+   C++11; `packages/cpp` sets `CXX_STANDARD 14` on every target today.
+4. **Python floor and target.** `pyproject.toml` declares `>=3.7`. Holding 3.7 as
+   the floor rules out some binding mechanisms outright; and 3.13 free-threaded
+   changes the GIL argument, so whether it is a target, an arm or out of scope
+   needs deciding.
+5. **How much of the real schema does a slice cover?** The existing slices use 8
    to 10 messages. The alternative is to drive every slice off the real
-   `Protos/V1` descriptor and pick messages from it, which makes the corpus of
-   section 7 a by-product rather than a separate build.
-4. **Who is the audience for `REPORT.md`?** A decision record for the team, or an
+   `Protos/V1` descriptor, which makes the corpus of section 10 a by-product
+   rather than a separate build.
+6. **Who is the audience for `REPORT.md`?** A decision record for the team, or an
    AEP-shaped proposal. The base design notes this would be the largest breaking
    change in the repository's history and that an AEP process exists for exactly
    that.
