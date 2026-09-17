@@ -48,10 +48,15 @@ survives, so:
   `packages/rust`; it does not edit it.
 - **The shapes are fixed by `design/SHAPES.md`.** A slice may add an arm. It may
   not change a shape, because a column covering different shapes is not a column.
-- **The floor is a correctness gate, the target is where the clock runs.** See
-  README section 5. No timing from a floor configuration goes in a comparison
-  table, with one exception: floor mechanism against target mechanism on the same
-  machine.
+- **The floor is a correctness gate, the target is where the clock runs**, and
+  the two are allowed to be different code where that makes the target faster
+  (`#if NET8_0_OR_GREATER`, a JDK 17 source tree, `if constexpr`). Conditions:
+  one generator with a target level rather than a hand-maintained second tree;
+  identical wire bytes across levels, checked by running the corpus on each; the
+  public surface unchanged, or the divergence reported as a cost; and in C++
+  nothing that changes the layout of an installed header type, because the
+  consumer picks `-std` and we do not. The floor is measured as arms a, b and c
+  of README section 5.2, and only arm a produces ratios.
 - **Correctness before timing.** Byte identity across every arm, including the
   absent-field and unknown-field payloads, before any number is recorded.
 - **Count crossings, do not infer them.** Every measured payload has a

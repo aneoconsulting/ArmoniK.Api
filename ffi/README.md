@@ -152,11 +152,67 @@ number taken on a runtime nobody deploys for throughput.
 | Python | the floor `pyproject.toml` declares (`>=3.7`), see open question 4 | to be decided, proposal 3.11 | |
 | Rust | MSRV 1.88 | MSRV 1.88 | One configuration; the floor is the target. |
 
-**The rule that follows.** A slice must *build and pass the correctness suite* on
-its floor, and reports **no timings from it** except one number: the cost of the
-floor mechanism against the target mechanism on the same machine, which is what
-tells a reader whether the floor is a viable deployment or only a viable
-compile. Everything else is measured on the target.
+**A slice builds and passes the correctness suite on its floor**, and quotes no
+ratio from it. What the floor produces is one standalone number (section 5.2),
+not a column in a comparison table.
+
+### 5.1 The floor and the target may be different code
+
+They are allowed to diverge, and where the target is faster for it they should:
+`#if NET8_0_OR_GREATER` against `#if NETSTANDARD2_0`, a JDK 17 source tree
+against a Java 8 one, `if constexpr` and `std::variant` against a hand-rolled
+union. The floor's job is that the design is *reachable* from a pinned consumer,
+not that the target is held back to it.
+
+Four conditions, and they are what keep the divergence from quietly becoming two
+implementations.
+
+**One generator, target level as a parameter.** A second tree maintained by hand
+is the thing this whole proposal exists to stop, and it does not become
+acceptable because the two trees are in one language. Java has no preprocessor,
+so there it is literally one emitted source tree per target level; C# and C++
+get the same thing spelled as defines.
+
+**The wire bytes are identical across target levels.** The conformance corpus
+runs on every level a slice claims, and a divergence between them is a defect,
+never a variant. This is the invariant that lets the floor and the target be
+different code at all.
+
+**The public surface should not diverge, and where it must, that is a reported
+cost.** A consumer's source compiling against one level and not the other is a
+migration cost with a number attached, not an implementation detail.
+
+**In C++ the divergence must not reach the layout of an installed header type**,
+and this one is a hard stop rather than a preference. The consumer picks `-std`,
+we do not, so a facade type whose layout depends on the standard level is an ODR
+violation waiting for a consumer who compiles at a different level than the
+library was built at. The base design deliberately verified its optional and its
+sum type ABI-identical from C++11 through C++23; `std::variant` in a public
+header gives that property up. Diverge inside the codec and the binding freely;
+in the headers, only where the layout is provably unchanged, or by surrendering
+the property on purpose and saying so.
+
+### 5.2 How the floor is measured
+
+Three arms, so that "the floor costs X" separates what the missing APIs cost
+from what the old runtime costs. Only the first is a headline figure.
+
+| Arm | Build | Runtime | What it prices |
+|---|---|---|---|
+| a | target implementation | target runtime | the headline. Every ratio in the report comes from here |
+| b | **floor implementation** | **target runtime** | what the floor's missing APIs cost, runtime held constant. The only fair floor-against-target ratio |
+| c | floor implementation | floor runtime | what a pinned consumer actually gets. Quoted as a standalone number, never as a ratio against a |
+
+Arm b is the one that answers "is the floor a viable deployment or only a viable
+compile", and it is cheap: the same sources, one define flipped, on the runtime
+already under the harness. Arm c mixes implementation and runtime by
+construction, which is why its number stands alone. The C# report already works
+this way and it is where its "the fallback costs nothing on the new ABI" result
+comes from, measured as separate arms rather than inferred.
+
+Where a language cannot run arm b (Java 8 bytecode on JDK 17 is fine; an FFM
+arm below JDK 22 does not exist at all), the slice says so rather than
+substituting a different comparison.
 
 ## 6. The same shapes everywhere
 
@@ -235,8 +291,10 @@ binding mechanism, machine. A ratio between an arm on one binding mechanism and
 an arm on another is a comparison of mechanisms, not of ABI shapes, and mistaking
 one for the other has already produced retracted figures.
 
-**R8. The floor is a correctness gate; the target is where the clock runs.**
-Section 5.
+**R8. The floor is a correctness gate; the target is where the clock runs**, and
+the two may be different code. One generator with a target level, identical wire
+bytes across levels, and in C++ no divergence that reaches the layout of an
+installed header type. Section 5.
 
 **R9. State the measurement hazards each table is exposed to.** The known ones:
 JIT tiering and PGO off handicaps a managed incumbent; on JDK 21 and later a

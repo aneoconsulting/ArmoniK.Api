@@ -49,6 +49,10 @@ Everything. This list is filled as the slice narrows it.
 - `packages/python` reads no transport environment configuration today, so configuration homogeneity is a pure gain rather than a migration.
 - A pure-Python control may lose to the native incumbent by an order of magnitude. That is a result, not a defect: it says the codec question in Python is native-against-native.
 
+- Floor and target may be different code, gated at import rather than compiled
+  out. The floor question decides more here than elsewhere, because it
+  constrains which binding mechanisms are available at all.
+
 ## Log index
 
 | Log | Configuration | What it establishes |

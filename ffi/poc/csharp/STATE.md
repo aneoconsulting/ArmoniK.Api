@@ -48,6 +48,14 @@ Everything. This list is filled as the slice narrows it.
 - The managed decode control is the single measurement that would change the recommendation: if C# looks like Java on decode, the conclusion is that the codec half does not suit managed runtimes, not that Java is special.
 - An accessor that cannot fail is a process abort: a managed exception inside `[UnmanagedCallersOnly]` does not propagate. Every generated accessor needs the guard, and the published margins were measured without it.
 
+- Floor and target may be different code. `<TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>`
+  with `NET8_0_OR_GREATER` against `NETSTANDARD2_0`, both emitted by one
+  generator flag. The floor has no `UnmanagedCallersOnly` and no
+  `SuppressGCTransition`, so its vtable is delegate pointers, and the delegates
+  must be rooted for the lifetime of the vtable or the collector reclaims a thunk
+  the codec still holds, which is a crash rather than a slowdown. Arm b of README
+  5.2 is the floor sources built for net8 and run on it.
+
 ## Log index
 
 | Log | Configuration | What it establishes |
