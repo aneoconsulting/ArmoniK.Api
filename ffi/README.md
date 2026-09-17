@@ -295,7 +295,7 @@ deliverable.
 
 | # | Work item | Done when |
 |---|---|---|
-| W1 | **Reconcile the ABI.** One specification, in this branch, merging the base design with the amendments from the C# and Java reports. Every amendment carries the figure that motivated it and the language it came from. | `design/ABI.md` exists and every slice is built against it rather than against a report. |
+| W1 | **Reconcile the ABI.** One specification, in this branch, merging the base design with the amendments from the C# and Java reports. Every amendment carries the figure that motivated it and the language it came from. | **Drafted.** `design/ABI.md` exists with 10 open decisions; agreed when decision 1 (is every amendment free at the C++11 floor) is settled and the rest are accepted or scheduled. |
 | W2 | **Freeze the shapes and the payload set.** | `design/SHAPES.md` is agreed and no slice has a shape the others lack. |
 | W3 | **Rust slice.** Section 4.1. | The four arms exist and the interface-cost decomposition is available to every other slice. |
 | W4 | **C++ slice on the amended ABI.** Rebuild against W1, re-measure against protobuf C++, and demonstrate the C++11 floor. | The amended ABI has a C++ column, and "the managed amendments are free in C++" is a measurement. |

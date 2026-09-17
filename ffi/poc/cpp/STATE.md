@@ -7,7 +7,7 @@ session, which makes it the most expensive defect in this directory.
 | | |
 |---|---|
 | **Status** | not started |
-| **Blocked on** | W1 (`design/ABI.md`) and W2 (`design/SHAPES.md`) |
+| **Blocked on** | W1 (`design/ABI.md`, drafted, 10 open decisions) and W2 (`design/SHAPES.md`, drafted) |
 | **Floor** (must build and pass correctness) | C++11 (customer pin). Open question: `packages/cpp` sets `CXX_STANDARD 14` today |
 | **Target** (where the clock runs) | C++17 |
 | **Incumbent** (the baseline every ratio is against) | protobuf C++ (arena and non-arena), grpc++ |

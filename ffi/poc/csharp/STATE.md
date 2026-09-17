@@ -7,7 +7,7 @@ session, which makes it the most expensive defect in this directory.
 | | |
 |---|---|
 | **Status** | not started |
-| **Blocked on** | W1 (`design/ABI.md`) and W2 (`design/SHAPES.md`) |
+| **Blocked on** | W1 (`design/ABI.md`, drafted, 10 open decisions) and W2 (`design/SHAPES.md`, drafted) |
 | **Floor** (must build and pass correctness) | netstandard2.0, and failing that .NET Framework 4.8 |
 | **Target** (where the clock runs) | .NET 8 |
 | **Incumbent** (the baseline every ratio is against) | `Google.Protobuf` and `Grpc.Net.Client` |
