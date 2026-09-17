@@ -192,17 +192,30 @@ library was built at. The base design deliberately verified its optional and its
 sum type ABI-identical from C++11 through C++23. Diverge inside the codec and the
 binding freely; in the headers, only under the two rules below.
 
-#### 5.1.1 C++ vocabulary types are ours, not the standard library's
+#### 5.1.1 A post-C++11 vocabulary type is ours; a C++11 one is the standard's
 
-A convenience type the facade exposes is reimplemented rather than aliased to its
-standard counterpart: one concrete type at every standard level, with the
-conversions to and from the standard type guarded by the feature macro. That is
-already the house pattern.
-`packages/cpp/ArmoniK.Api.Common/header/utils/string_view.h` is exactly this and
-says so in its own header comment, so `armonik::string_view` is the precedent and
-a hand-rolled variant would be its sibling. The cost is real (a five-variant sum
-type was ~105 lines of C++11 against Rust's 14) and it is what buys a single ABI
-across the levels a consumer might compile at.
+The rule is about availability, not about taste. `std::string`, `std::vector`,
+`std::map`, `std::shared_ptr` and the rest of the C++11 library are used
+directly: they exist at every level the facade supports, so a header naming them
+means the same thing at each. **A type that arrives after C++11 is
+reimplemented**: `string_view` (C++17), `optional` (C++17), `variant` (C++17),
+`span` (C++20), `expected` (C++23). Those are exactly the ones whose presence
+depends on `-std`, so aliasing one makes a public header's meaning depend on a
+switch the consumer owns.
+
+The shape is one concrete type at every level, with the conversions to and from
+the standard counterpart guarded by the feature macro. That is already the house
+pattern: `packages/cpp/ArmoniK.Api.Common/header/utils/string_view.h` is a C++11
+type that says so in its own header comment and guards only its
+`std::string_view` conversions, so `armonik::string_view` is the precedent and a
+hand-rolled sum type is its sibling. The cost is real (a five-variant sum type
+was ~105 lines of C++11 against Rust's 14) and it is what buys one ABI across the
+levels a consumer might compile at.
+
+This buys agreement across `-std`, and nothing else. A standard type's layout can
+still differ across standard *library* versions and across
+`_GLIBCXX_USE_CXX11_ABI`, which is a toolchain question rather than a language
+level one, and it is exactly the exposure `packages/cpp` already has today.
 
 #### 5.1.2 Additive interfaces per level are allowed
 
