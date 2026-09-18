@@ -92,7 +92,11 @@ def _stmt(f):
     on the one that showed it.
     """
     n, t = "self.%s" % f.name, f.tag
-    if f.kind == "enum":
+    if f.card == "packed" and f.kind == "enum":
+        # A packed enum is a packed int32 on the wire; the facade holds real enum values.
+        return ("if !%s.is_empty() { let v: Vec<i32> = %s.iter().map(|x| x.to_i32()).collect();"
+                " ::prost::encoding::int32::encode_packed(%d, &v, buf); }" % (n, n, t))
+    if f.kind == "enum" and f.card == "singular":
         return ("{ let v = %s.to_i32(); if v != 0 { ::prost::encoding::int32::encode(%d, &v, buf); } }"
                 % (n, t))
     if f.kind == "message" and f.card == "singular":
@@ -125,7 +129,10 @@ def _stmt(f):
 def _len_stmt(f):
     """The same, for encoded_len: one evaluation of the field, not two."""
     n, t = "self.%s" % f.name, f.tag
-    if f.kind == "enum":
+    if f.card == "packed" and f.kind == "enum":
+        return ("if !%s.is_empty() { let v: Vec<i32> = %s.iter().map(|x| x.to_i32()).collect();"
+                " n += ::prost::encoding::int32::encoded_len_packed(%d, &v); }" % (n, n, t))
+    if f.kind == "enum" and f.card == "singular":
         return ("{ let v = %s.to_i32(); if v != 0 { n += ::prost::encoding::int32::encoded_len(%d, &v); } }"
                 % (n, t))
     if f.kind == "message" and f.card == "singular":
@@ -214,7 +221,11 @@ def _merge(f):
             return "::prost::encoding::message::merge_repeated(wire_type, &mut %s, buf, ctx)" % n
         return ("::prost::encoding::message::merge(wire_type, "
                 "%s.get_or_insert_with(Default::default), buf, ctx)" % n)
-    if f.kind == "enum":
+    if f.card == "packed" and f.kind == "enum":
+        return ("{ let mut v: Vec<i32> = Vec::new();"
+                " let r = ::prost::encoding::int32::merge_repeated(wire_type, &mut v, buf, ctx);"
+                " %s.extend(v.into_iter().map(%s::from_i32)); r }" % (n, f.of))
+    if f.kind == "enum" and f.card == "singular":
         return ("{ let mut v = %s.to_i32(); let r = ::prost::encoding::int32::merge("
                 "wire_type, &mut v, buf, ctx); %s = %s::from_i32(v); r }"
                 % (n, n, f.of))

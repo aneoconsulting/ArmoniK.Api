@@ -1,0 +1,217 @@
+# ffi/logs/rust/stage3-M4-M7.log
+# W3 stage 3 parts 4 to 7: M4 (the adapter site), M5 (bulk bytes and the
+# direct-argument path), M6 (packed) and M7 (interleaved repeated fields).
+# With this, every shape and every payload of design/SHAPES.md is covered.
+# 2026-09-18
+#
+# CONFIGURATION (R7)
+#   machine        4 vCPU Intel Xeon @ 2.80GHz, 15 GB, Ubuntu 24.04.4, Linux 6.18.44 x86_64,
+#                  container. No CPU pinning, no governor control.
+#   rust           rustc/cargo 1.94.1, release. MSRV 1.88 declared, NOT verified.
+#   incumbent      prost 0.14.4
+#   LINKAGE        cdylib (libak_core.so), dynamic linker. Not a static link.
+#   guard          on.  content set: ascii.
+#
+# CLASS IS PER ROW, NOT PER TABLE (design/SHAPES.md)
+#   M4 TaskSummary            REAL     the only `with` adapter in the Rust crate
+#   M5 UploadResultData       REAL     the result upload and download path
+#   M6 ticks/values/codes/flags  CONTROL  the schema has no packed scalar at all
+#   M6 statuses               REAL     the schema's 3 packed fields are all enums
+#   M7 DualResponse           CONTROL  legal wire no group buffer keyed by type decodes
+#   M6 is therefore a MIXED table and is labelled as one; quoting P6.1 as a control
+#   result or as a real one would both be wrong.
+#
+# M7 IS DECODE ONLY
+#   No canonical writer can produce its bytes, so no arm is asked to. The check is that
+#   all four arms decode the committed vector to the same value and that a contiguous
+#   re-encode is a PERMUTATION of the same (tag, wire type, body) triples, which is the
+#   method stage 1 used and the only statement that can be made about it.
+#
+# THE DIRECT-ARGUMENT PATH (ABI v1 section 8), AND WHAT RUST CANNOT SAY ABOUT IT
+#   Built: ak_str.data carries AK_STR_DIRECT and the bytes are an argument of the call.
+#   Its value is on the JVM, where the host holds GetPrimitiveArrayCritical or FFM's
+#   critical(true) across the whole call -- which it can only do if the codec makes no
+#   reverse call, hence the refusal below. ON A RUST HOST IT BUYS NOTHING: there is no
+#   pinning to avoid and the copy is a copy either way. So this slice shows the path
+#   works and CANNOT confirm the win; the P5.3 and P5.4 rows are not evidence for it.
+#
+# HAZARDS (R9)
+#   - The adapter section is checked by STATE, not by payload, because P4.1 exercises
+#     only the one case that works. Its rows come from hand-written facade code.
+#   - 4 shared vCPUs; ratios are formed in one process from interleaved rounds (R4).
+#   - P5.3 and P5.4 are one element of 1 MB and 4 MB; their rows are a memcpy figure.
+
+===== ABI v1 section 8: the generator-time refusal =====
+# ABI v1 section 8: the generator-time refusal
+
+case                                                 outcome
+#   - P5.4's rows carry a RAW MEMCPY CONTROL, because a bulk payload is a copy plus a
+#     handful of varints: any arm far from that number is doing something other than
+#     copying. It is what makes the 0.08 ratio safe to read.
+
+===== ABI v1 section 8: the generator-time refusal =====
+# ABI v1 section 8: the generator-time refusal
+
+case                                                 outcome
+M5 as the schema declares it                         accepted, as it must be
+a direct field on a message that needs a reverse call refused
+                                                       REFUSED: ListTasksDetailedResponse declares a direct-argument field (tasks_payload_blob) and also needs a reverse call for tasks, parent_task_ids, dat
+a second direct field in the same tree               refused
+                                                       REFUSED: UploadResultDataMessage declares 2 direct-argument fields (upload_data_chunk, upload_payload_blob). ABI v1 section 8 builds the path for ONE 
+
+0 case(s) wrong
+
+===== byte identity, M4 to M7, four arms =====
+payload class     arm                 want B     got B  bytes    sha256   decode round trip
+P4.1    real      prost                69551     69551  ok       ok       ok
+P4.1    real      armonik              69551     69551  ok       ok       ok
+P4.1    real      core-native          69551     69551  ok       ok       ok
+P4.1    real      core-ffi-rust        69551     69551  ok       ok       ok
+P5.1    real      prost                  116       116  ok       ok       ok
+P5.1    real      armonik                116       116  ok       ok       ok
+P5.1    real      core-native            116       116  ok       ok       ok
+P5.1    real      core-ffi-rust          116       116  ok       ok       ok
+P5.2    real      prost                65620     65620  ok       ok       ok
+P5.2    real      armonik              65620     65620  ok       ok       ok
+P5.2    real      core-native          65620     65620  ok       ok       ok
+P5.2    real      core-ffi-rust        65620     65620  ok       ok       ok
+P5.3    real      prost              1048660   1048660  ok       ok       ok
+P5.3    real      armonik            1048660   1048660  ok       ok       ok
+P5.3    real      core-native        1048660   1048660  ok       ok       ok
+P5.3    real      core-ffi-rust      1048660   1048660  ok       ok       ok
+P5.4    real      prost              4194390   4194390  ok       ok       ok
+P5.4    real      armonik            4194390   4194390  ok       ok       ok
+P5.4    real      core-native        4194390   4194390  ok       ok       ok
+P5.4    real      core-ffi-rust      4194390   4194390  ok       ok       ok
+P6.1    mixed     prost               123354    123354  ok       ok       ok
+P6.1    mixed     armonik             123354    123354  ok       ok       ok
+P6.1    mixed     core-native         123354    123354  ok       ok       ok
+P6.1    mixed     core-ffi-rust       123354    123354  ok       ok       ok
+                  ^ M6 is MIXED: ticks/values/codes/flags are CONTROL
+                    (the schema has no packed scalar); statuses is REAL
+                    (all 3 packed fields in the schema are enums).
+P7.1    CONTROL   4 arms, decode          98        98  ok       ok       re-encode is a permutation of the same triples
+                  ^ CONTROL, and DECODE ONLY: no canonical writer can
+                    produce these bytes, so no arm is asked to.
+
+VERDICT: every arm is byte-identical to the validated manifest on every payload it covers.
+
+===== shape coverage: the adapter, both wire forms =====
+# M4: the adapter site. One facade type, two wire forms.
+#   Checked by state and not by payload: P4.1's `error` is a sentence in all
+#   200 elements, so the payload exercises the ONE case that works. The states
+#   where the map is not injective never occur in it.
+
+state              -> nested wire             nested round trip    -> plain wire              plain round trip
+Invalid            <field absent>             ok                   ""                         ok
+Ok                 success=true, error=""     ok                   ""                         LOSES -> Invalid
+Error("boom")      success=false, error="boom" ok                   "boom"                     ok
+
+#   The nested form round-trips every state. The PLAIN form cannot: `Ok` and
+#   `Invalid` both encode to the empty string, so one of them must come back
+#   wrong whatever the adapter author chooses. This one returns `Invalid`,
+#   which loses `Ok`; the intuitive alternative returns `Ok`, which silently
+#   claims success for a task that reported no outcome at all. That is the
+#   defect design/SHAPES.md says only a byte corpus catches, and the corpus
+#   as it stands does not: no payload reaches either state.
+
+#   The nested site has a worse problem, reported and not fixed: the payload
+#   generator fills TaskOutput.success and TaskOutput.error INDEPENDENTLY, so
+#   P2.x contains `success=true, error=<sentence>` -- a state no adapter over
+#   {Ok, Error(d)} can represent at all. Counted over 200 elements the only
+#   combinations present are (true, non-empty) and (false, non-empty); the
+#   success state (true, empty) never occurs.
+
+VERDICT: every shape above is exercised and every arm agrees.
+
+===== timings, three runs, filtered to M4 to M7 =====
+--- run 1 ---
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+P4.1    encode    prost                       308      81192.4      80809.2      85440.1      1.000
+P4.1    encode    core-native                 723      34979.4      34702.3      35589.1      0.431
+P4.1    encode    core-ffi-rust               381      65146.4      64691.6      66434.7      0.802
+P4.1    decode    prost                        83     307260.6     304812.6     324714.7      1.000
+P4.1    decode    core-native                  96     264527.9     262580.2     275553.7      0.861
+P4.1    decode    core-ffi-rust                92     280567.5     278174.1     284208.5      0.913
+P5.3    encode    prost                       365      66310.5      61858.2      69193.7      1.000
+P5.3    encode    core-native                 364      66216.6      62311.1      69803.6      0.999
+P5.3    encode    core-ffi-rust               364      65608.7      61809.0      70432.1      0.989
+P5.3    decode    prost                        33     143599.4     133997.3     157007.1      1.000
+P5.3    decode    core-native                 357      65662.0      61583.1      73761.1      0.457
+P5.3    decode    core-ffi-rust               350      65747.5      61238.9      74831.0      0.458
+P5.4    encode    prost                        11     334565.4     316524.0     374056.4      1.000
+P5.4    encode    core-native                   9     352458.0     336667.0     398340.3      1.053
+P5.4    encode    core-ffi-rust                12     321575.7     303516.0     373942.3      0.961
+P5.4    decode    prost                         5    3251331.2    3126366.4    3871310.2      1.000
+P5.4    decode    core-native                  88     280647.6     265992.1     301517.2      0.086
+P5.4    decode    core-ffi-rust                88     268201.6     253208.2     289602.1      0.082
+P6.1    encode    prost                       152     163314.8     162548.0     164485.0      1.000
+P6.1    encode    core-native                 277      90222.2      89586.9      90927.3      0.552
+P6.1    encode    core-ffi-rust               244     100794.8     100147.9     102695.6      0.617
+P6.1    decode    prost                        86     280448.5     276270.9     298411.2      1.000
+P6.1    decode    core-native                 103     240684.9     238599.2     252309.7      0.858
+P6.1    decode    core-ffi-rust               119     159008.4     158493.2     174494.2      0.567
+P5.4    decode    memcpy control (Bytes)       88     280666.1     261781.1     313717.4      0.086
+P5.4    decode    memcpy control (Vec)         88     271677.9     253759.8     301846.7      0.084
+-       crossing  forward (no-op)        12500000          2.1          2.1          2.2          -
+-       crossing  fwd+reverse (no-op)    20000000          1.8          1.8          1.8          -
+--- run 2 ---
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+P4.1    encode    prost                       302      81856.4      80690.9      93124.4      1.000
+P4.1    encode    core-native                 707      34210.9      33946.4      37312.9      0.418
+P4.1    encode    core-ffi-rust               378      65335.9      64954.7      67812.4      0.798
+P4.1    decode    prost                        84     306608.2     305886.0     322163.4      1.000
+P4.1    decode    core-native                  94     264906.8     262746.9     281536.9      0.864
+P4.1    decode    core-ffi-rust                90     282628.0     280405.8     305740.2      0.922
+P5.3    encode    prost                       364      64475.1      62558.6      68340.5      1.000
+P5.3    encode    core-native                 362      66102.5      64066.4      69603.6      1.025
+P5.3    encode    core-ffi-rust               361      65653.4      63512.3      71365.6      1.018
+P5.3    decode    prost                        31     148014.6     137762.5     155115.4      1.000
+P5.3    decode    core-native                 375      67932.7      63063.6      70070.7      0.459
+P5.3    decode    core-ffi-rust               374      67875.2      63027.5      70501.0      0.459
+P5.4    encode    prost                        11     340841.7     328750.6     354915.7      1.000
+P5.4    encode    core-native                   9     357071.3     339182.9     394670.0      1.048
+P5.4    encode    core-ffi-rust                88     280781.4     269980.2     321086.2      0.824
+P5.4    decode    prost                         5    3498950.2    3287451.4    3977183.8      1.000
+P5.4    decode    core-native                  86     294989.3     275287.3     317739.0      0.084
+P5.4    decode    core-ffi-rust                87     271387.1     262253.5     292551.7      0.078
+P6.1    encode    prost                       123     164075.8     163170.7     171725.4      1.000
+P6.1    encode    core-native                 275      90826.7      90460.6      95975.5      0.554
+P6.1    encode    core-ffi-rust               238     101569.1     100405.4     103859.7      0.619
+P6.1    decode    prost                        89     279236.7     273791.2     306246.6      1.000
+P6.1    decode    core-native                 100     241085.6     238020.0     249743.8      0.863
+P6.1    decode    core-ffi-rust               157     159636.1     158540.1     161863.4      0.572
+P5.4    decode    memcpy control (Bytes)       92     278945.1     269184.0     296641.7      0.080
+P5.4    decode    memcpy control (Vec)         92     277063.9     258844.4     286336.5      0.079
+-       crossing  forward (no-op)        12500000          2.1          2.1          2.2          -
+-       crossing  fwd+reverse (no-op)    20000000          1.8          1.8          1.9          -
+--- run 3 ---
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+P4.1    encode    prost                       303      81356.6      80852.9      84589.4      1.000
+P4.1    encode    core-native                 724      34661.9      34263.4      35095.3      0.426
+P4.1    encode    core-ffi-rust               368      66577.5      65766.1      72287.0      0.818
+P4.1    decode    prost                        84     307668.7     304756.0     316732.6      1.000
+P4.1    decode    core-native                  65     264710.4     261412.8     291061.7      0.860
+P4.1    decode    core-ffi-rust                91     281799.6     277843.5     300375.7      0.916
+P5.3    encode    prost                       366      66018.9      62626.5      73307.2      1.000
+P5.3    encode    core-native                 391      63742.9      60502.2      67016.5      0.966
+P5.3    encode    core-ffi-rust               381      66407.2      62915.7      71681.2      1.006
+P5.3    decode    prost                        32     143639.5     134859.3     181871.2      1.000
+P5.3    decode    core-native                 356      65950.7      62395.8      74448.5      0.459
+P5.3    decode    core-ffi-rust               379      65298.4      61618.8      73931.5      0.455
+P5.4    encode    prost                        10     347607.8     326505.7     377521.0      1.000
+P5.4    encode    core-native                   9     353908.0     339977.4     387135.3      1.018
+P5.4    encode    core-ffi-rust                92     277344.5     261805.6     312445.5      0.798
+P5.4    decode    prost                         5    3373942.2    3300527.0    3658327.4      1.000
+P5.4    decode    core-native                  88     283559.8     267779.1     321327.1      0.084
+P5.4    decode    core-ffi-rust                91     269520.7     255343.8     306793.5      0.080
+P6.1    encode    prost                       152     163681.2     162484.7     165162.2      1.000
+P6.1    encode    core-native                 275      90829.4      90359.9      94004.8      0.555
+P6.1    encode    core-ffi-rust               247     101932.4     100716.9     106939.6      0.623
+P6.1    decode    prost                        89     281145.0     275079.0     300657.4      1.000
+P6.1    decode    core-native                 101     243663.2     240059.5     267422.2      0.867
+P6.1    decode    core-ffi-rust               132     159679.9     158007.5     163781.4      0.568
+P5.4    decode    memcpy control (Bytes)       91     277197.3     271488.7     292300.0      0.082
+P5.4    decode    memcpy control (Vec)         92     270497.9     262217.3     302704.3      0.080
+-       crossing  forward (no-op)        12500000          2.1          2.1          2.2          -
+-       crossing  fwd+reverse (no-op)    20000000          1.8          1.8          1.9          -

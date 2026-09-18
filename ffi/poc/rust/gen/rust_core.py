@@ -181,6 +181,9 @@ class NativeEnc:
             o.append("        for v in &o.%s { e.buf.extend_from_slice(&v.to_le_bytes()); }" % f.name)
         elif f.kind == "bool":
             o.append("        for v in &o.%s { e.varint(*v as u64); }" % f.name)
+        elif f.kind == "enum":
+            # The one packed shape the real schema has: 3 packed fields, all enums.
+            o.append("        for v in &o.%s { e.varint(v.to_i32() as i64 as u64); }" % f.name)
         elif f.kind == "int32":
             o.append("        for v in &o.%s { e.varint(*v as i64 as u64); }" % f.name)
         else:
@@ -302,9 +305,11 @@ class NativeDec:
         # A decoder must accept both forms whatever the writer emits: proto3 makes packed
         # the default, it does not make the unpacked form illegal.
         rd = {"double": "sub.f64()", "bool": "sub.varint() != 0",
-              "int32": "sub.varint() as i32", "int64": "sub.varint() as i64"}[f.kind]
+              "int32": "sub.varint() as i32", "int64": "sub.varint() as i64",
+              "enum": "%s::from_i32(sub.varint() as i32)" % f.of}[f.kind]
         rd1 = {"double": "d.f64()", "bool": "d.varint() != 0",
-               "int32": "d.varint() as i32", "int64": "d.varint() as i64"}[f.kind]
+               "int32": "d.varint() as i32", "int64": "d.varint() as i64",
+               "enum": "%s::from_i32(d.varint() as i32)" % f.of}[f.kind]
         o.append("            %d if wire == 2 => {" % f.tag)
         o.append("                let (off, n) = d.len_body();")
         o.append("                let mut sub = Dec::new(&buf[off..off + n]);")

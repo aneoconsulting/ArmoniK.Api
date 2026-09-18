@@ -425,6 +425,66 @@ pub const AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION: u32 = 1 << 11;
 pub const AK_DFIX_TASKDETAILED_PRESENT_PROCESSED_AT: u32 = 1 << 12;
 pub const AK_DFIX_TASKDETAILED_PRESENT_FETCHED_AT: u32 = 1 << 13;
 
+/// Encode group for `TaskSummary`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_efix_TaskSummary {
+    pub id: ak_str,
+    pub session_id: ak_str,
+    pub options: ak_efix_TaskOptions,
+    pub status: i32,
+    pub created_at: ak_efix_Timestamp,
+    pub error: ak_str,
+    pub status_message: ak_str,
+    pub count_data_dependencies: i64,
+    pub presence: u32,
+}
+impl ak_efix_TaskSummary {
+    pub const ZERO: Self = ak_efix_TaskSummary {
+        id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        session_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        options: ak_efix_TaskOptions::ZERO,
+        status: 0,
+        created_at: ak_efix_Timestamp::ZERO,
+        error: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        status_message: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        count_data_dependencies: 0,
+        presence: 0,
+    };
+}
+pub const AK_EFIX_TASKSUMMARY_PRESENT_OPTIONS: u32 = 1 << 0;
+pub const AK_EFIX_TASKSUMMARY_PRESENT_CREATED_AT: u32 = 1 << 1;
+
+/// Decode group for `TaskSummary`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dfix_TaskSummary {
+    pub id: ak_span,
+    pub session_id: ak_span,
+    pub options: ak_dfix_TaskOptions,
+    pub status: i32,
+    pub created_at: ak_dfix_Timestamp,
+    pub error: ak_span,
+    pub status_message: ak_span,
+    pub count_data_dependencies: i64,
+    pub presence: u32,
+}
+impl ak_dfix_TaskSummary {
+    pub const ZERO: Self = ak_dfix_TaskSummary {
+        id: ak_span { off: 0, len: 0, coder: 0 },
+        session_id: ak_span { off: 0, len: 0, coder: 0 },
+        options: ak_dfix_TaskOptions::ZERO,
+        status: 0,
+        created_at: ak_dfix_Timestamp::ZERO,
+        error: ak_span { off: 0, len: 0, coder: 0 },
+        status_message: ak_span { off: 0, len: 0, coder: 0 },
+        count_data_dependencies: 0,
+        presence: 0,
+    };
+}
+pub const AK_DFIX_TASKSUMMARY_PRESENT_OPTIONS: u32 = 1 << 0;
+pub const AK_DFIX_TASKSUMMARY_PRESENT_CREATED_AT: u32 = 1 << 1;
+
 /// Encode group for `Probe`.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -519,6 +579,102 @@ impl ak_dfix_Empty {
     };
 }
 
+/// Encode group for `UploadResultData`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_efix_UploadResultData {
+    pub session_id: ak_str,
+    pub result_id: ak_str,
+    pub data_chunk: ak_str,
+    pub presence: u32,
+}
+impl ak_efix_UploadResultData {
+    pub const ZERO: Self = ak_efix_UploadResultData {
+        session_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        result_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        data_chunk: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        presence: 0,
+    };
+}
+
+/// Decode group for `UploadResultData`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dfix_UploadResultData {
+    pub session_id: ak_span,
+    pub result_id: ak_span,
+    pub data_chunk: ak_span,
+    pub presence: u32,
+}
+impl ak_dfix_UploadResultData {
+    pub const ZERO: Self = ak_dfix_UploadResultData {
+        session_id: ak_span { off: 0, len: 0, coder: 0 },
+        result_id: ak_span { off: 0, len: 0, coder: 0 },
+        data_chunk: ak_span { off: 0, len: 0, coder: 0 },
+        presence: 0,
+    };
+}
+
+/// Encode group for `MetricsBatch`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_efix_MetricsBatch {
+    pub id: ak_str,
+    pub presence: u32,
+}
+impl ak_efix_MetricsBatch {
+    pub const ZERO: Self = ak_efix_MetricsBatch {
+        id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        presence: 0,
+    };
+}
+
+/// Decode group for `MetricsBatch`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dfix_MetricsBatch {
+    pub id: ak_span,
+    pub presence: u32,
+}
+impl ak_dfix_MetricsBatch {
+    pub const ZERO: Self = ak_dfix_MetricsBatch {
+        id: ak_span { off: 0, len: 0, coder: 0 },
+        presence: 0,
+    };
+}
+
+/// Encode group for `Pair`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_efix_Pair {
+    pub key: ak_str,
+    pub value: i32,
+    pub presence: u32,
+}
+impl ak_efix_Pair {
+    pub const ZERO: Self = ak_efix_Pair {
+        key: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        value: 0,
+        presence: 0,
+    };
+}
+
+/// Decode group for `Pair`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dfix_Pair {
+    pub key: ak_span,
+    pub value: i32,
+    pub presence: u32,
+}
+impl ak_dfix_Pair {
+    pub const ZERO: Self = ak_dfix_Pair {
+        key: ak_span { off: 0, len: 0, coder: 0 },
+        value: 0,
+        presence: 0,
+    };
+}
+
 /// Encode group for `ListResultsResponse`.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -583,6 +739,30 @@ impl ak_dfix_ListTasksDetailedResponse {
     };
 }
 
+/// Encode group for `ListTaskSummaryResponse`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_efix_ListTaskSummaryResponse {
+    pub presence: u32,
+}
+impl ak_efix_ListTaskSummaryResponse {
+    pub const ZERO: Self = ak_efix_ListTaskSummaryResponse {
+        presence: 0,
+    };
+}
+
+/// Decode group for `ListTaskSummaryResponse`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dfix_ListTaskSummaryResponse {
+    pub presence: u32,
+}
+impl ak_dfix_ListTaskSummaryResponse {
+    pub const ZERO: Self = ak_dfix_ListTaskSummaryResponse {
+        presence: 0,
+    };
+}
+
 /// Encode group for `ListProbeResponse`.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -603,6 +783,84 @@ pub struct ak_dfix_ListProbeResponse {
 }
 impl ak_dfix_ListProbeResponse {
     pub const ZERO: Self = ak_dfix_ListProbeResponse {
+        presence: 0,
+    };
+}
+
+/// Encode group for `ListMetricsResponse`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_efix_ListMetricsResponse {
+    pub presence: u32,
+}
+impl ak_efix_ListMetricsResponse {
+    pub const ZERO: Self = ak_efix_ListMetricsResponse {
+        presence: 0,
+    };
+}
+
+/// Decode group for `ListMetricsResponse`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dfix_ListMetricsResponse {
+    pub presence: u32,
+}
+impl ak_dfix_ListMetricsResponse {
+    pub const ZERO: Self = ak_dfix_ListMetricsResponse {
+        presence: 0,
+    };
+}
+
+/// Encode group for `UploadResultDataMessage`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_efix_UploadResultDataMessage {
+    pub upload: ak_efix_UploadResultData,
+    pub presence: u32,
+}
+impl ak_efix_UploadResultDataMessage {
+    pub const ZERO: Self = ak_efix_UploadResultDataMessage {
+        upload: ak_efix_UploadResultData::ZERO,
+        presence: 0,
+    };
+}
+pub const AK_EFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD: u32 = 1 << 0;
+
+/// Decode group for `UploadResultDataMessage`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dfix_UploadResultDataMessage {
+    pub upload: ak_dfix_UploadResultData,
+    pub presence: u32,
+}
+impl ak_dfix_UploadResultDataMessage {
+    pub const ZERO: Self = ak_dfix_UploadResultDataMessage {
+        upload: ak_dfix_UploadResultData::ZERO,
+        presence: 0,
+    };
+}
+pub const AK_DFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD: u32 = 1 << 0;
+
+/// Encode group for `DualResponse`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_efix_DualResponse {
+    pub presence: u32,
+}
+impl ak_efix_DualResponse {
+    pub const ZERO: Self = ak_efix_DualResponse {
+        presence: 0,
+    };
+}
+
+/// Decode group for `DualResponse`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dfix_DualResponse {
+    pub presence: u32,
+}
+impl ak_dfix_DualResponse {
+    pub const ZERO: Self = ak_dfix_DualResponse {
         presence: 0,
     };
 }
@@ -693,10 +951,134 @@ pub struct ak_dvt_ListProbeResponse {
     >,
 }
 
+/// Encode vtable for `ListTaskSummaryResponse`. One slot per field that could not ride in the group.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_evt_ListTaskSummaryResponse {
+    pub loop_tasks: Option<ak_loop_f>,
+    /// The element type has loop slots of its own, so the codec
+    /// needs its vtable to reach them (ABI v1 section 6).
+    pub elem_tasks: *const ak_evt_TaskSummary,
+}
+
+/// Decode vtable for `ListTaskSummaryResponse` (the push family, ABI v1 section 7.1).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dvt_ListTaskSummaryResponse {
+    pub apply: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListTaskSummaryResponse),
+    >,
+    /// NOT batchable: `TaskSummary` carries repeated or map fields of its own,
+    /// so there would be nothing to attach the inner elements to
+    /// (ABI v1 section 7.2). Two calls per element, `new` then
+    /// `apply`, plus one run per inner field that occurred.
+    pub new_tasks: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void) -> i64,
+    >,
+    pub apply_tasks: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_TaskSummary),
+    >,
+    pub add_tasks_options_options: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_TaskOptionsOptionsEntry, i32),
+    >,
+}
+
+/// Encode vtable for `UploadResultDataMessage`. Empty: nothing in this message needs a call.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_evt_UploadResultDataMessage {
+    /// Reserved. An empty struct has no defined size in C, so a vtable
+    /// for a message that needs no call still carries one slot.
+    pub _reserved: *const c_void,
+}
+
+/// Decode vtable for `UploadResultDataMessage` (the push family, ABI v1 section 7.1).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dvt_UploadResultDataMessage {
+    pub apply: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_UploadResultDataMessage),
+    >,
+}
+
+/// Encode vtable for `ListMetricsResponse`. One slot per field that could not ride in the group.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_evt_ListMetricsResponse {
+    pub loop_batches: Option<ak_loop_f>,
+    /// The element type has loop slots of its own, so the codec
+    /// needs its vtable to reach them (ABI v1 section 6).
+    pub elem_batches: *const ak_evt_MetricsBatch,
+}
+
+/// Decode vtable for `ListMetricsResponse` (the push family, ABI v1 section 7.1).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dvt_ListMetricsResponse {
+    pub apply: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListMetricsResponse),
+    >,
+    /// NOT batchable: `MetricsBatch` carries repeated or map fields of its own,
+    /// so there would be nothing to attach the inner elements to
+    /// (ABI v1 section 7.2). Two calls per element, `new` then
+    /// `apply`, plus one run per inner field that occurred.
+    pub new_batches: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void) -> i64,
+    >,
+    pub apply_batches: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_MetricsBatch),
+    >,
+    pub add_batches_ticks: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const i64, i32),
+    >,
+    pub add_batches_values: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const f64, i32),
+    >,
+    pub add_batches_codes: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const i32, i32),
+    >,
+    pub add_batches_flags: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const u8, i32),
+    >,
+    pub add_batches_statuses: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const i32, i32),
+    >,
+}
+
+/// Encode vtable for `DualResponse`. One slot per field that could not ride in the group.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_evt_DualResponse {
+    pub loop_left: Option<ak_loop_f>,
+    pub loop_right: Option<ak_loop_f>,
+}
+
+/// Decode vtable for `DualResponse` (the push family, ABI v1 section 7.1).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dvt_DualResponse {
+    pub apply: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_DualResponse),
+    >,
+    /// Batchable: the element type is a leaf, so a run crosses once
+    /// per chunk. Append; never size to the count you were handed.
+    pub add_left: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_Pair, i32),
+    >,
+    /// Batchable: the element type is a leaf, so a run crosses once
+    /// per chunk. Append; never size to the count you were handed.
+    pub add_right: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_Pair, i32),
+    >,
+}
+
 /// Encode vtable for `TaskOptionsOptionsEntry`. Empty: nothing in this message needs a call.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_evt_TaskOptionsOptionsEntry {
+    /// Reserved. An empty struct has no defined size in C, so a vtable
+    /// for a message that needs no call still carries one slot.
+    pub _reserved: *const c_void,
 }
 
 /// Decode vtable for `TaskOptionsOptionsEntry` (the push family, ABI v1 section 7.1).
@@ -712,6 +1094,9 @@ pub struct ak_dvt_TaskOptionsOptionsEntry {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_evt_ResultRaw {
+    /// Reserved. An empty struct has no defined size in C, so a vtable
+    /// for a message that needs no call still carries one slot.
+    pub _reserved: *const c_void,
 }
 
 /// Decode vtable for `ResultRaw` (the push family, ABI v1 section 7.1).
@@ -768,10 +1153,34 @@ pub struct ak_dvt_TaskDetailed {
     >,
 }
 
+/// Encode vtable for `TaskSummary`. One slot per field that could not ride in the group.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_evt_TaskSummary {
+    pub loop_options_options: Option<ak_loop_f>,
+}
+
+/// Decode vtable for `TaskSummary` (the push family, ABI v1 section 7.1).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dvt_TaskSummary {
+    pub apply: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_TaskSummary),
+    >,
+    /// Batchable: the element type is a leaf, so a run crosses once
+    /// per chunk. Append; never size to the count you were handed.
+    pub add_options_options: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_TaskOptionsOptionsEntry, i32),
+    >,
+}
+
 /// Encode vtable for `Probe`. Empty: nothing in this message needs a call.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_evt_Probe {
+    /// Reserved. An empty struct has no defined size in C, so a vtable
+    /// for a message that needs no call still carries one slot.
+    pub _reserved: *const c_void,
 }
 
 /// Decode vtable for `Probe` (the push family, ABI v1 section 7.1).
@@ -780,6 +1189,69 @@ pub struct ak_evt_Probe {
 pub struct ak_dvt_Probe {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_Probe),
+    >,
+}
+
+/// Encode vtable for `MetricsBatch`. One slot per field that could not ride in the group.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_evt_MetricsBatch {
+    pub loop_ticks: Option<ak_loop_f>,
+    pub loop_values: Option<ak_loop_f>,
+    pub loop_codes: Option<ak_loop_f>,
+    pub loop_flags: Option<ak_loop_f>,
+    pub loop_statuses: Option<ak_loop_f>,
+}
+
+/// Decode vtable for `MetricsBatch` (the push family, ABI v1 section 7.1).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dvt_MetricsBatch {
+    pub apply: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_MetricsBatch),
+    >,
+    /// Batchable: the element type is a leaf, so a run crosses once
+    /// per chunk. Append; never size to the count you were handed.
+    pub add_ticks: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const i64, i32),
+    >,
+    /// Batchable: the element type is a leaf, so a run crosses once
+    /// per chunk. Append; never size to the count you were handed.
+    pub add_values: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const f64, i32),
+    >,
+    /// Batchable: the element type is a leaf, so a run crosses once
+    /// per chunk. Append; never size to the count you were handed.
+    pub add_codes: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const i32, i32),
+    >,
+    /// Batchable: the element type is a leaf, so a run crosses once
+    /// per chunk. Append; never size to the count you were handed.
+    pub add_flags: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const u8, i32),
+    >,
+    /// Batchable: the element type is a leaf, so a run crosses once
+    /// per chunk. Append; never size to the count you were handed.
+    pub add_statuses: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const i32, i32),
+    >,
+}
+
+/// Encode vtable for `Pair`. Empty: nothing in this message needs a call.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_evt_Pair {
+    /// Reserved. An empty struct has no defined size in C, so a vtable
+    /// for a message that needs no call still carries one slot.
+    pub _reserved: *const c_void,
+}
+
+/// Decode vtable for `Pair` (the push family, ABI v1 section 7.1).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dvt_Pair {
+    pub apply: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_Pair),
     >,
 }
 
@@ -825,6 +1297,73 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_ListProbeResponse,
     ) -> i32;
+    pub fn ak_encode_ListTaskSummaryResponse(
+        obj: *const c_void,
+        ctx: *mut ak_enc_ctx,
+        vt: *const ak_evt_ListTaskSummaryResponse,
+        fix: *const ak_efix_ListTaskSummaryResponse,
+    ) -> isize;
+    pub fn ak_decode_ListTaskSummaryResponse(
+        ctx: *mut ak_dec_ctx,
+        obj: *mut c_void,
+        buf: *const u8,
+        len: usize,
+        vt: *const ak_dvt_ListTaskSummaryResponse,
+    ) -> i32;
+    pub fn ak_encode_UploadResultDataMessage(
+        obj: *const c_void,
+        ctx: *mut ak_enc_ctx,
+        vt: *const ak_evt_UploadResultDataMessage,
+        fix: *const ak_efix_UploadResultDataMessage,
+        // ABI v1 section 8: the one direct-argument field of this tree.
+        direct: *const u8,
+        direct_len: usize,
+    ) -> isize;
+    pub fn ak_decode_UploadResultDataMessage(
+        ctx: *mut ak_dec_ctx,
+        obj: *mut c_void,
+        buf: *const u8,
+        len: usize,
+        vt: *const ak_dvt_UploadResultDataMessage,
+    ) -> i32;
+    pub fn ak_encode_ListMetricsResponse(
+        obj: *const c_void,
+        ctx: *mut ak_enc_ctx,
+        vt: *const ak_evt_ListMetricsResponse,
+        fix: *const ak_efix_ListMetricsResponse,
+    ) -> isize;
+    pub fn ak_decode_ListMetricsResponse(
+        ctx: *mut ak_dec_ctx,
+        obj: *mut c_void,
+        buf: *const u8,
+        len: usize,
+        vt: *const ak_dvt_ListMetricsResponse,
+    ) -> i32;
+    pub fn ak_encode_DualResponse(
+        obj: *const c_void,
+        ctx: *mut ak_enc_ctx,
+        vt: *const ak_evt_DualResponse,
+        fix: *const ak_efix_DualResponse,
+    ) -> isize;
+    pub fn ak_decode_DualResponse(
+        ctx: *mut ak_dec_ctx,
+        obj: *mut c_void,
+        buf: *const u8,
+        len: usize,
+        vt: *const ak_dvt_DualResponse,
+    ) -> i32;
+    /// Unrestricted form: names element i as `tok0 + i` from a contiguous
+    /// token range the host allocated, because the codec has to call back
+    /// into the host mid-run for `MetricsBatch`'s own repeated fields.
+    pub fn ak_elemu_MetricsBatch(
+        ctx: *mut ak_enc_ctx,
+        elems: *const ak_efix_MetricsBatch,
+        n: i32,
+        tok0: i64,
+    ) -> i32;
+    /// Leaf form: `Pair` is transitively free of repeated and map fields,
+    /// so the codec makes no reverse call during a run.
+    pub fn ak_elem_Pair(ctx: *mut ak_enc_ctx, elems: *const ak_efix_Pair, n: i32) -> i32;
     /// Leaf form: `Probe` is transitively free of repeated and map fields,
     /// so the codec makes no reverse call during a run.
     pub fn ak_elem_Probe(ctx: *mut ak_enc_ctx, elems: *const ak_efix_Probe, n: i32) -> i32;
@@ -843,6 +1382,15 @@ unsafe extern "C" {
     /// Leaf form: `TaskOptionsOptionsEntry` is transitively free of repeated and map fields,
     /// so the codec makes no reverse call during a run.
     pub fn ak_elem_TaskOptionsOptionsEntry(ctx: *mut ak_enc_ctx, elems: *const ak_efix_TaskOptionsOptionsEntry, n: i32) -> i32;
+    /// Unrestricted form: names element i as `tok0 + i` from a contiguous
+    /// token range the host allocated, because the codec has to call back
+    /// into the host mid-run for `TaskSummary`'s own repeated fields.
+    pub fn ak_elemu_TaskSummary(
+        ctx: *mut ak_enc_ctx,
+        elems: *const ak_efix_TaskSummary,
+        n: i32,
+        tok0: i64,
+    ) -> i32;
     /// A run of strings or bytes under the repeated field the codec has open.
     /// `n == 1` is the unbatched call, exactly as for elements.
     pub fn ak_blob_run(ctx: *mut ak_enc_ctx, elems: *const ak_str, n: i32) -> i32;
@@ -858,7 +1406,7 @@ unsafe extern "C" {
 /// What each length-prefix site of the core is, in site order, so a miss count
 /// can name the field it came from (ABI v1 open decision 5). A descriptor fact,
 /// so it lives in the header both sides compile against.
-pub const SITE_NAMES: [&str; 53] = [
+pub const SITE_NAMES: [&str; 82] = [
     "blob/TaskOptionsOptionsEntry/key",
     "blob/TaskOptionsOptionsEntry/value",
     "blob/ResultRaw/session_id",
@@ -904,12 +1452,41 @@ pub const SITE_NAMES: [&str; 53] = [
     "child/TaskDetailed/fetched_at",
     "blob/TaskDetailed/payload_id",
     "blob/TaskDetailed/created_by",
+    "blob/TaskSummary/id",
+    "blob/TaskSummary/session_id",
+    "child/TaskSummary/options",
+    "loop/TaskSummary/options.options",
+    "child/TaskSummary/options.max_duration",
+    "blob/TaskSummary/options.partition_id",
+    "blob/TaskSummary/options.application_name",
+    "blob/TaskSummary/options.application_version",
+    "blob/TaskSummary/options.application_namespace",
+    "blob/TaskSummary/options.application_service",
+    "blob/TaskSummary/options.engine_type",
+    "child/TaskSummary/created_at",
+    "blob/TaskSummary/error",
+    "blob/TaskSummary/status_message",
     "blob/Probe/id",
     "blob/Probe/opt_label",
     "oneofmsg/Probe/body",
     "oneofblob/Probe/body.as_text",
     "oneofblob/Probe/body.as_blob",
+    "blob/MetricsBatch/id",
+    "loop/MetricsBatch/ticks",
+    "loop/MetricsBatch/values",
+    "loop/MetricsBatch/codes",
+    "loop/MetricsBatch/flags",
+    "loop/MetricsBatch/statuses",
+    "blob/Pair/key",
     "loop/ListResultsResponse/results",
     "loop/ListTasksDetailedResponse/tasks",
+    "loop/ListTaskSummaryResponse/tasks",
     "loop/ListProbeResponse/probes",
+    "loop/ListMetricsResponse/batches",
+    "child/UploadResultDataMessage/upload",
+    "blob/UploadResultDataMessage/upload.session_id",
+    "blob/UploadResultDataMessage/upload.result_id",
+    "blob/UploadResultDataMessage/upload.data_chunk",
+    "loop/DualResponse/left",
+    "loop/DualResponse/right",
 ];

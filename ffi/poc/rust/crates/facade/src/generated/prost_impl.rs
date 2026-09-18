@@ -295,6 +295,51 @@ impl ::prost::Message for TaskDetailed {
     fn clear(&mut self) { *self = Default::default(); }
 }
 
+impl ::prost::Message for TaskSummary {
+    fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+        if !self.id.is_empty() { ::prost::encoding::string::encode(1, &self.id, buf); }
+        if !self.session_id.is_empty() { ::prost::encoding::string::encode(2, &self.session_id, buf); }
+        if let Some(v) = &self.options { ::prost::encoding::message::encode(3, v, buf); }
+        { let v = self.status.to_i32(); if v != 0 { ::prost::encoding::int32::encode(4, &v, buf); } }
+        if let Some(v) = &self.created_at { ::prost::encoding::message::encode(5, v, buf); }
+        if !self.error.is_empty() { ::prost::encoding::string::encode(8, &self.error, buf); }
+        if !self.status_message.is_empty() { ::prost::encoding::string::encode(9, &self.status_message, buf); }
+        if self.count_data_dependencies != 0 { ::prost::encoding::int64::encode(11, &self.count_data_dependencies, buf); }
+    }
+    fn encoded_len(&self) -> usize {
+        let mut n = 0usize;
+        if !self.id.is_empty() { n += ::prost::encoding::string::encoded_len(1, &self.id); }
+        if !self.session_id.is_empty() { n += ::prost::encoding::string::encoded_len(2, &self.session_id); }
+        if let Some(v) = &self.options { n += ::prost::encoding::message::encoded_len(3, v); }
+        { let v = self.status.to_i32(); if v != 0 { n += ::prost::encoding::int32::encoded_len(4, &v); } }
+        if let Some(v) = &self.created_at { n += ::prost::encoding::message::encoded_len(5, v); }
+        if !self.error.is_empty() { n += ::prost::encoding::string::encoded_len(8, &self.error); }
+        if !self.status_message.is_empty() { n += ::prost::encoding::string::encoded_len(9, &self.status_message); }
+        if self.count_data_dependencies != 0 { n += ::prost::encoding::int64::encoded_len(11, &self.count_data_dependencies); }
+        n
+    }
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: ::prost::encoding::WireType,
+        buf: &mut impl ::prost::bytes::Buf,
+        ctx: ::prost::encoding::DecodeContext,
+    ) -> Result<(), ::prost::DecodeError> {
+        match tag {
+            1 => ::prost::encoding::string::merge(wire_type, &mut self.id, buf, ctx),
+            2 => ::prost::encoding::string::merge(wire_type, &mut self.session_id, buf, ctx),
+            3 => ::prost::encoding::message::merge(wire_type, self.options.get_or_insert_with(Default::default), buf, ctx),
+            4 => { let mut v = self.status.to_i32(); let r = ::prost::encoding::int32::merge(wire_type, &mut v, buf, ctx); self.status = TaskStatus::from_i32(v); r },
+            5 => ::prost::encoding::message::merge(wire_type, self.created_at.get_or_insert_with(Default::default), buf, ctx),
+            8 => ::prost::encoding::string::merge(wire_type, &mut self.error, buf, ctx),
+            9 => ::prost::encoding::string::merge(wire_type, &mut self.status_message, buf, ctx),
+            11 => ::prost::encoding::int64::merge(wire_type, &mut self.count_data_dependencies, buf, ctx),
+            _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+    fn clear(&mut self) { *self = Default::default(); }
+}
+
 impl ::prost::Message for Probe {
     fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
         if !self.id.is_empty() { ::prost::encoding::string::encode(1, &self.id, buf); }
@@ -372,6 +417,102 @@ impl ::prost::Message for Empty {
     fn clear(&mut self) { *self = Default::default(); }
 }
 
+impl ::prost::Message for UploadResultData {
+    fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+        if !self.session_id.is_empty() { ::prost::encoding::string::encode(1, &self.session_id, buf); }
+        if !self.result_id.is_empty() { ::prost::encoding::string::encode(2, &self.result_id, buf); }
+        if !self.data_chunk.is_empty() { ::prost::encoding::bytes::encode(3, &self.data_chunk, buf); }
+    }
+    fn encoded_len(&self) -> usize {
+        let mut n = 0usize;
+        if !self.session_id.is_empty() { n += ::prost::encoding::string::encoded_len(1, &self.session_id); }
+        if !self.result_id.is_empty() { n += ::prost::encoding::string::encoded_len(2, &self.result_id); }
+        if !self.data_chunk.is_empty() { n += ::prost::encoding::bytes::encoded_len(3, &self.data_chunk); }
+        n
+    }
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: ::prost::encoding::WireType,
+        buf: &mut impl ::prost::bytes::Buf,
+        ctx: ::prost::encoding::DecodeContext,
+    ) -> Result<(), ::prost::DecodeError> {
+        match tag {
+            1 => ::prost::encoding::string::merge(wire_type, &mut self.session_id, buf, ctx),
+            2 => ::prost::encoding::string::merge(wire_type, &mut self.result_id, buf, ctx),
+            3 => ::prost::encoding::bytes::merge(wire_type, &mut self.data_chunk, buf, ctx),
+            _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+    fn clear(&mut self) { *self = Default::default(); }
+}
+
+impl ::prost::Message for MetricsBatch {
+    fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+        if !self.id.is_empty() { ::prost::encoding::string::encode(1, &self.id, buf); }
+        if !self.ticks.is_empty() { ::prost::encoding::int64::encode_packed(2, &self.ticks, buf); }
+        if !self.values.is_empty() { ::prost::encoding::double::encode_packed(3, &self.values, buf); }
+        if !self.codes.is_empty() { ::prost::encoding::int32::encode_packed(4, &self.codes, buf); }
+        if !self.flags.is_empty() { ::prost::encoding::bool::encode_packed(5, &self.flags, buf); }
+        if !self.statuses.is_empty() { let v: Vec<i32> = self.statuses.iter().map(|x| x.to_i32()).collect(); ::prost::encoding::int32::encode_packed(6, &v, buf); }
+    }
+    fn encoded_len(&self) -> usize {
+        let mut n = 0usize;
+        if !self.id.is_empty() { n += ::prost::encoding::string::encoded_len(1, &self.id); }
+        if !self.ticks.is_empty() { n += ::prost::encoding::int64::encoded_len_packed(2, &self.ticks); }
+        if !self.values.is_empty() { n += ::prost::encoding::double::encoded_len_packed(3, &self.values); }
+        if !self.codes.is_empty() { n += ::prost::encoding::int32::encoded_len_packed(4, &self.codes); }
+        if !self.flags.is_empty() { n += ::prost::encoding::bool::encoded_len_packed(5, &self.flags); }
+        if !self.statuses.is_empty() { let v: Vec<i32> = self.statuses.iter().map(|x| x.to_i32()).collect(); n += ::prost::encoding::int32::encoded_len_packed(6, &v); }
+        n
+    }
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: ::prost::encoding::WireType,
+        buf: &mut impl ::prost::bytes::Buf,
+        ctx: ::prost::encoding::DecodeContext,
+    ) -> Result<(), ::prost::DecodeError> {
+        match tag {
+            1 => ::prost::encoding::string::merge(wire_type, &mut self.id, buf, ctx),
+            2 => ::prost::encoding::int64::merge_repeated(wire_type, &mut self.ticks, buf, ctx),
+            3 => ::prost::encoding::double::merge_repeated(wire_type, &mut self.values, buf, ctx),
+            4 => ::prost::encoding::int32::merge_repeated(wire_type, &mut self.codes, buf, ctx),
+            5 => ::prost::encoding::bool::merge_repeated(wire_type, &mut self.flags, buf, ctx),
+            6 => { let mut v: Vec<i32> = Vec::new(); let r = ::prost::encoding::int32::merge_repeated(wire_type, &mut v, buf, ctx); self.statuses.extend(v.into_iter().map(TaskStatus::from_i32)); r },
+            _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+    fn clear(&mut self) { *self = Default::default(); }
+}
+
+impl ::prost::Message for Pair {
+    fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+        if !self.key.is_empty() { ::prost::encoding::string::encode(1, &self.key, buf); }
+        if self.value != 0 { ::prost::encoding::int32::encode(2, &self.value, buf); }
+    }
+    fn encoded_len(&self) -> usize {
+        let mut n = 0usize;
+        if !self.key.is_empty() { n += ::prost::encoding::string::encoded_len(1, &self.key); }
+        if self.value != 0 { n += ::prost::encoding::int32::encoded_len(2, &self.value); }
+        n
+    }
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: ::prost::encoding::WireType,
+        buf: &mut impl ::prost::bytes::Buf,
+        ctx: ::prost::encoding::DecodeContext,
+    ) -> Result<(), ::prost::DecodeError> {
+        match tag {
+            1 => ::prost::encoding::string::merge(wire_type, &mut self.key, buf, ctx),
+            2 => ::prost::encoding::int32::merge(wire_type, &mut self.value, buf, ctx),
+            _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+    fn clear(&mut self) { *self = Default::default(); }
+}
+
 impl ::prost::Message for ListResultsResponse {
     fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
         if !self.results.is_empty() { ::prost::encoding::message::encode_repeated(1, &self.results, buf); }
@@ -432,6 +573,30 @@ impl ::prost::Message for ListTasksDetailedResponse {
     fn clear(&mut self) { *self = Default::default(); }
 }
 
+impl ::prost::Message for ListTaskSummaryResponse {
+    fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+        if !self.tasks.is_empty() { ::prost::encoding::message::encode_repeated(1, &self.tasks, buf); }
+    }
+    fn encoded_len(&self) -> usize {
+        let mut n = 0usize;
+        if !self.tasks.is_empty() { n += ::prost::encoding::message::encoded_len_repeated(1, &self.tasks); }
+        n
+    }
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: ::prost::encoding::WireType,
+        buf: &mut impl ::prost::bytes::Buf,
+        ctx: ::prost::encoding::DecodeContext,
+    ) -> Result<(), ::prost::DecodeError> {
+        match tag {
+            1 => ::prost::encoding::message::merge_repeated(wire_type, &mut self.tasks, buf, ctx),
+            _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+    fn clear(&mut self) { *self = Default::default(); }
+}
+
 impl ::prost::Message for ListProbeResponse {
     fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
         if !self.probes.is_empty() { ::prost::encoding::message::encode_repeated(1, &self.probes, buf); }
@@ -450,6 +615,81 @@ impl ::prost::Message for ListProbeResponse {
     ) -> Result<(), ::prost::DecodeError> {
         match tag {
             1 => ::prost::encoding::message::merge_repeated(wire_type, &mut self.probes, buf, ctx),
+            _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+    fn clear(&mut self) { *self = Default::default(); }
+}
+
+impl ::prost::Message for ListMetricsResponse {
+    fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+        if !self.batches.is_empty() { ::prost::encoding::message::encode_repeated(1, &self.batches, buf); }
+    }
+    fn encoded_len(&self) -> usize {
+        let mut n = 0usize;
+        if !self.batches.is_empty() { n += ::prost::encoding::message::encoded_len_repeated(1, &self.batches); }
+        n
+    }
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: ::prost::encoding::WireType,
+        buf: &mut impl ::prost::bytes::Buf,
+        ctx: ::prost::encoding::DecodeContext,
+    ) -> Result<(), ::prost::DecodeError> {
+        match tag {
+            1 => ::prost::encoding::message::merge_repeated(wire_type, &mut self.batches, buf, ctx),
+            _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+    fn clear(&mut self) { *self = Default::default(); }
+}
+
+impl ::prost::Message for UploadResultDataMessage {
+    fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+        if let Some(v) = &self.upload { ::prost::encoding::message::encode(1, v, buf); }
+    }
+    fn encoded_len(&self) -> usize {
+        let mut n = 0usize;
+        if let Some(v) = &self.upload { n += ::prost::encoding::message::encoded_len(1, v); }
+        n
+    }
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: ::prost::encoding::WireType,
+        buf: &mut impl ::prost::bytes::Buf,
+        ctx: ::prost::encoding::DecodeContext,
+    ) -> Result<(), ::prost::DecodeError> {
+        match tag {
+            1 => ::prost::encoding::message::merge(wire_type, self.upload.get_or_insert_with(Default::default), buf, ctx),
+            _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+    fn clear(&mut self) { *self = Default::default(); }
+}
+
+impl ::prost::Message for DualResponse {
+    fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+        if !self.left.is_empty() { ::prost::encoding::message::encode_repeated(1, &self.left, buf); }
+        if !self.right.is_empty() { ::prost::encoding::message::encode_repeated(2, &self.right, buf); }
+    }
+    fn encoded_len(&self) -> usize {
+        let mut n = 0usize;
+        if !self.left.is_empty() { n += ::prost::encoding::message::encoded_len_repeated(1, &self.left); }
+        if !self.right.is_empty() { n += ::prost::encoding::message::encoded_len_repeated(2, &self.right); }
+        n
+    }
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: ::prost::encoding::WireType,
+        buf: &mut impl ::prost::bytes::Buf,
+        ctx: ::prost::encoding::DecodeContext,
+    ) -> Result<(), ::prost::DecodeError> {
+        match tag {
+            1 => ::prost::encoding::message::merge_repeated(wire_type, &mut self.left, buf, ctx),
+            2 => ::prost::encoding::message::merge_repeated(wire_type, &mut self.right, buf, ctx),
             _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
         }
     }

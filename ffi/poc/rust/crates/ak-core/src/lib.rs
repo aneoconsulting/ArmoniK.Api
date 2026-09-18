@@ -59,6 +59,9 @@ pub struct EncCtxImpl {
     /// the object pointer back to the host and never dereferences it.
     pub open_vt: *const c_void,
     pub open_obj: *const c_void,
+    /// The direct argument of the call (ABI v1 section 8), if this message tree has one.
+    pub direct: *const u8,
+    pub direct_len: usize,
 }
 
 #[repr(C)]
@@ -82,6 +85,8 @@ pub extern "C" fn ak_enc_ctx_new() -> *mut ak_enc_ctx {
         open_kind: 0,
         open_vt: core::ptr::null(),
         open_obj: core::ptr::null(),
+        direct: core::ptr::null(),
+        direct_len: 0,
     });
     Box::into_raw(b) as *mut ak_enc_ctx
 }
@@ -349,6 +354,17 @@ pub extern "C" fn ak_tc_bytes() -> ak_transcode_fn {
 /// asks the price of.
 #[inline]
 pub(crate) unsafe fn enc_blob(cx: *mut EncCtxImpl, tag: u32, site: u32, s: &ak_str) -> bool {
+    // The direct-argument path: the bytes are an argument of the call rather than a pointer
+    // into staging, so there is no transcoder to invoke and nothing to validate.
+    if s.data == ak_abi::AK_STR_DIRECT {
+        let (p, n) = ((*cx).direct, (*cx).direct_len);
+        let e = &mut (*cx).e;
+        e.key(tag, ak_rt::WIRE_LEN);
+        e.varint(n as u64);
+        e.buf.extend_from_slice(core::slice::from_raw_parts(p, n));
+        let _ = site;
+        return true;
+    }
     let tc = match s.tc {
         Some(tc) => tc,
         None => return true,

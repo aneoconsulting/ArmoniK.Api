@@ -13,7 +13,7 @@ use ak_rt::dec::Dec;
 use ak_rt::Enc;
 
 /// One learned length-prefix slot per site in this file (ABI v1 section 6).
-pub const SITES: usize = 23;
+pub const SITES: usize = 35;
 
 #[inline]
 fn enc_timestamp(o: &Timestamp, e: &mut Enc) {
@@ -167,6 +167,26 @@ fn enc_task_detailed(o: &TaskDetailed, e: &mut Enc) {
 }
 
 #[inline]
+fn enc_task_summary(o: &TaskSummary, e: &mut Enc) {
+    if !o.id.is_empty() { e.blob_field(1, o.id.as_bytes()); }
+    if !o.session_id.is_empty() { e.blob_field(2, o.session_id.as_bytes()); }
+    if let Some(c) = &o.options {
+        let mk = e.begin(3, 18);
+        enc_task_options(c, e);
+        e.end(mk);
+    }
+    { let v = o.status.to_i32(); if v != 0 { e.varint_field(4, v as i64 as u64); } }
+    if let Some(c) = &o.created_at {
+        let mk = e.begin(5, 19);
+        enc_timestamp(c, e);
+        e.end(mk);
+    }
+    if !o.error.is_empty() { e.blob_field(8, o.error.as_bytes()); }
+    if !o.status_message.is_empty() { e.blob_field(9, o.status_message.as_bytes()); }
+    if o.count_data_dependencies != 0 { e.varint_field(11, o.count_data_dependencies as u64); }
+}
+
+#[inline]
 fn enc_probe(o: &Probe, e: &mut Enc) {
     if !o.id.is_empty() { e.blob_field(1, o.id.as_bytes()); }
     if let Some(v) = &o.opt_count { e.varint_field(2, *v as i64 as u64); }
@@ -178,12 +198,12 @@ fn enc_probe(o: &Probe, e: &mut Enc) {
             ProbeBody::AsText(x) => e.blob_field(11, x.as_bytes()),
             ProbeBody::AsBlob(x) => e.blob_field(12, x),
             ProbeBody::AsStamp(x) => {
-                let mk = e.begin(13, 18);
+                let mk = e.begin(13, 20);
                 enc_timestamp(x, e);
                 e.end(mk);
             }
             ProbeBody::AsNothing(x) => {
-                let mk = e.begin(14, 19);
+                let mk = e.begin(14, 21);
                 enc_empty(x, e);
                 e.end(mk);
             }
@@ -196,9 +216,52 @@ fn enc_empty(o: &Empty, e: &mut Enc) {
 }
 
 #[inline]
+fn enc_upload_result_data(o: &UploadResultData, e: &mut Enc) {
+    if !o.session_id.is_empty() { e.blob_field(1, o.session_id.as_bytes()); }
+    if !o.result_id.is_empty() { e.blob_field(2, o.result_id.as_bytes()); }
+    if !o.data_chunk.is_empty() { e.blob_field(3, &o.data_chunk); }
+}
+
+#[inline]
+fn enc_metrics_batch(o: &MetricsBatch, e: &mut Enc) {
+    if !o.id.is_empty() { e.blob_field(1, o.id.as_bytes()); }
+    if !o.ticks.is_empty() {
+        let mk = e.begin(2, 22);
+        for v in &o.ticks { e.varint(*v as u64); }
+        e.end(mk);
+    }
+    if !o.values.is_empty() {
+        let mk = e.begin(3, 23);
+        for v in &o.values { e.buf.extend_from_slice(&v.to_le_bytes()); }
+        e.end(mk);
+    }
+    if !o.codes.is_empty() {
+        let mk = e.begin(4, 24);
+        for v in &o.codes { e.varint(*v as i64 as u64); }
+        e.end(mk);
+    }
+    if !o.flags.is_empty() {
+        let mk = e.begin(5, 25);
+        for v in &o.flags { e.varint(*v as u64); }
+        e.end(mk);
+    }
+    if !o.statuses.is_empty() {
+        let mk = e.begin(6, 26);
+        for v in &o.statuses { e.varint(v.to_i32() as i64 as u64); }
+        e.end(mk);
+    }
+}
+
+#[inline]
+fn enc_pair(o: &Pair, e: &mut Enc) {
+    if !o.key.is_empty() { e.blob_field(1, o.key.as_bytes()); }
+    if o.value != 0 { e.varint_field(2, o.value as i64 as u64); }
+}
+
+#[inline]
 fn enc_list_results_response(o: &ListResultsResponse, e: &mut Enc) {
     for c in &o.results {
-        let mk = e.begin(1, 20);
+        let mk = e.begin(1, 27);
         enc_result_raw(c, e);
         e.end(mk);
     }
@@ -209,7 +272,7 @@ fn enc_list_results_response(o: &ListResultsResponse, e: &mut Enc) {
 #[inline]
 fn enc_list_tasks_detailed_response(o: &ListTasksDetailedResponse, e: &mut Enc) {
     for c in &o.tasks {
-        let mk = e.begin(1, 21);
+        let mk = e.begin(1, 28);
         enc_task_detailed(c, e);
         e.end(mk);
     }
@@ -218,10 +281,51 @@ fn enc_list_tasks_detailed_response(o: &ListTasksDetailedResponse, e: &mut Enc) 
 }
 
 #[inline]
+fn enc_list_task_summary_response(o: &ListTaskSummaryResponse, e: &mut Enc) {
+    for c in &o.tasks {
+        let mk = e.begin(1, 29);
+        enc_task_summary(c, e);
+        e.end(mk);
+    }
+}
+
+#[inline]
 fn enc_list_probe_response(o: &ListProbeResponse, e: &mut Enc) {
     for c in &o.probes {
-        let mk = e.begin(1, 22);
+        let mk = e.begin(1, 30);
         enc_probe(c, e);
+        e.end(mk);
+    }
+}
+
+#[inline]
+fn enc_list_metrics_response(o: &ListMetricsResponse, e: &mut Enc) {
+    for c in &o.batches {
+        let mk = e.begin(1, 31);
+        enc_metrics_batch(c, e);
+        e.end(mk);
+    }
+}
+
+#[inline]
+fn enc_upload_result_data_message(o: &UploadResultDataMessage, e: &mut Enc) {
+    if let Some(c) = &o.upload {
+        let mk = e.begin(1, 32);
+        enc_upload_result_data(c, e);
+        e.end(mk);
+    }
+}
+
+#[inline]
+fn enc_dual_response(o: &DualResponse, e: &mut Enc) {
+    for c in &o.left {
+        let mk = e.begin(1, 33);
+        enc_pair(c, e);
+        e.end(mk);
+    }
+    for c in &o.right {
+        let mk = e.begin(2, 34);
+        enc_pair(c, e);
         e.end(mk);
     }
 }
@@ -597,6 +701,58 @@ fn dec_task_detailed(d: &mut Dec, out: &mut TaskDetailed) {
 }
 
 #[inline]
+fn dec_task_summary(d: &mut Dec, out: &mut TaskSummary) {
+    #[allow(unused_variables)]
+    let buf = d.buf;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        match tag {
+            1 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            2 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.session_id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            3 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = TaskOptions::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_task_options(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.options = Some(c);
+            }
+            4 if wire == 0 => out.status = TaskStatus::from_i32(d.varint() as i32),
+            5 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = Timestamp::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_timestamp(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.created_at = Some(c);
+            }
+            8 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.error = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            9 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.status_message = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            11 if wire == 0 => out.count_data_dependencies = d.varint() as i64,
+            _ => d.skip(wire),
+        }
+    }
+}
+
+#[inline]
 fn dec_probe(d: &mut Dec, out: &mut Probe) {
     #[allow(unused_variables)]
     let buf = d.buf;
@@ -661,6 +817,108 @@ fn dec_empty(d: &mut Dec, out: &mut Empty) {
 }
 
 #[inline]
+fn dec_upload_result_data(d: &mut Dec, out: &mut UploadResultData) {
+    #[allow(unused_variables)]
+    let buf = d.buf;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        match tag {
+            1 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.session_id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            2 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.result_id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            3 if wire == 2 => {
+                let (off, n) = d.len_body();
+                out.data_chunk = ::bytes::Bytes::copy_from_slice(&buf[off..off + n]);
+            }
+            _ => d.skip(wire),
+        }
+    }
+}
+
+#[inline]
+fn dec_metrics_batch(d: &mut Dec, out: &mut MetricsBatch) {
+    #[allow(unused_variables)]
+    let buf = d.buf;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        match tag {
+            1 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            2 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                while !sub.at_end() { out.ticks.push(sub.varint() as i64); }
+                if sub.err != 0 { d.err = sub.err; }
+            }
+            2 => out.ticks.push(d.varint() as i64),
+            3 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                while !sub.at_end() { out.values.push(sub.f64()); }
+                if sub.err != 0 { d.err = sub.err; }
+            }
+            3 => out.values.push(d.f64()),
+            4 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                while !sub.at_end() { out.codes.push(sub.varint() as i32); }
+                if sub.err != 0 { d.err = sub.err; }
+            }
+            4 => out.codes.push(d.varint() as i32),
+            5 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                while !sub.at_end() { out.flags.push(sub.varint() != 0); }
+                if sub.err != 0 { d.err = sub.err; }
+            }
+            5 => out.flags.push(d.varint() != 0),
+            6 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                while !sub.at_end() { out.statuses.push(TaskStatus::from_i32(sub.varint() as i32)); }
+                if sub.err != 0 { d.err = sub.err; }
+            }
+            6 => out.statuses.push(TaskStatus::from_i32(d.varint() as i32)),
+            _ => d.skip(wire),
+        }
+    }
+}
+
+#[inline]
+fn dec_pair(d: &mut Dec, out: &mut Pair) {
+    #[allow(unused_variables)]
+    let buf = d.buf;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        match tag {
+            1 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.key = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            2 if wire == 0 => out.value = d.varint() as i32,
+            _ => d.skip(wire),
+        }
+    }
+}
+
+#[inline]
 fn dec_list_results_response(d: &mut Dec, out: &mut ListResultsResponse) {
     #[allow(unused_variables)]
     let buf = d.buf;
@@ -709,6 +967,28 @@ fn dec_list_tasks_detailed_response(d: &mut Dec, out: &mut ListTasksDetailedResp
 }
 
 #[inline]
+fn dec_list_task_summary_response(d: &mut Dec, out: &mut ListTaskSummaryResponse) {
+    #[allow(unused_variables)]
+    let buf = d.buf;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        match tag {
+            1 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = TaskSummary::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_task_summary(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.tasks.push(c);
+            }
+            _ => d.skip(wire),
+        }
+    }
+}
+
+#[inline]
 fn dec_list_probe_response(d: &mut Dec, out: &mut ListProbeResponse) {
     #[allow(unused_variables)]
     let buf = d.buf;
@@ -724,6 +1004,80 @@ fn dec_list_probe_response(d: &mut Dec, out: &mut ListProbeResponse) {
                 dec_probe(&mut sub, &mut c);
                 if sub.err != 0 { d.err = sub.err; }
                 out.probes.push(c);
+            }
+            _ => d.skip(wire),
+        }
+    }
+}
+
+#[inline]
+fn dec_list_metrics_response(d: &mut Dec, out: &mut ListMetricsResponse) {
+    #[allow(unused_variables)]
+    let buf = d.buf;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        match tag {
+            1 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = MetricsBatch::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_metrics_batch(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.batches.push(c);
+            }
+            _ => d.skip(wire),
+        }
+    }
+}
+
+#[inline]
+fn dec_upload_result_data_message(d: &mut Dec, out: &mut UploadResultDataMessage) {
+    #[allow(unused_variables)]
+    let buf = d.buf;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        match tag {
+            1 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = UploadResultData::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_upload_result_data(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.upload = Some(c);
+            }
+            _ => d.skip(wire),
+        }
+    }
+}
+
+#[inline]
+fn dec_dual_response(d: &mut Dec, out: &mut DualResponse) {
+    #[allow(unused_variables)]
+    let buf = d.buf;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        match tag {
+            1 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = Pair::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_pair(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.left.push(c);
+            }
+            2 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = Pair::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_pair(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.right.push(c);
             }
             _ => d.skip(wire),
         }
@@ -787,5 +1141,85 @@ pub fn decode_list_probe_response(b: &[u8]) -> Result<ListProbeResponse, i32> {
     let mut d = Dec::new(b);
     let mut out = ListProbeResponse::default();
     dec_list_probe_response(&mut d, &mut out);
+    if d.err != 0 { Err(d.err) } else { Ok(out) }
+}
+
+pub fn encode_list_task_summary_response(o: &ListTaskSummaryResponse) -> Vec<u8> {
+    let mut e = Enc::new(SITES);
+    enc_list_task_summary_response(o, &mut e);
+    e.buf
+}
+
+/// Encode into a context that is reused, so the learned widths survive and the
+/// allocation is not part of what is timed. This is the shape a real host uses.
+pub fn encode_into_list_task_summary_response(o: &ListTaskSummaryResponse, e: &mut Enc) {
+    e.reset();
+    enc_list_task_summary_response(o, e);
+}
+
+pub fn decode_list_task_summary_response(b: &[u8]) -> Result<ListTaskSummaryResponse, i32> {
+    let mut d = Dec::new(b);
+    let mut out = ListTaskSummaryResponse::default();
+    dec_list_task_summary_response(&mut d, &mut out);
+    if d.err != 0 { Err(d.err) } else { Ok(out) }
+}
+
+pub fn encode_upload_result_data_message(o: &UploadResultDataMessage) -> Vec<u8> {
+    let mut e = Enc::new(SITES);
+    enc_upload_result_data_message(o, &mut e);
+    e.buf
+}
+
+/// Encode into a context that is reused, so the learned widths survive and the
+/// allocation is not part of what is timed. This is the shape a real host uses.
+pub fn encode_into_upload_result_data_message(o: &UploadResultDataMessage, e: &mut Enc) {
+    e.reset();
+    enc_upload_result_data_message(o, e);
+}
+
+pub fn decode_upload_result_data_message(b: &[u8]) -> Result<UploadResultDataMessage, i32> {
+    let mut d = Dec::new(b);
+    let mut out = UploadResultDataMessage::default();
+    dec_upload_result_data_message(&mut d, &mut out);
+    if d.err != 0 { Err(d.err) } else { Ok(out) }
+}
+
+pub fn encode_list_metrics_response(o: &ListMetricsResponse) -> Vec<u8> {
+    let mut e = Enc::new(SITES);
+    enc_list_metrics_response(o, &mut e);
+    e.buf
+}
+
+/// Encode into a context that is reused, so the learned widths survive and the
+/// allocation is not part of what is timed. This is the shape a real host uses.
+pub fn encode_into_list_metrics_response(o: &ListMetricsResponse, e: &mut Enc) {
+    e.reset();
+    enc_list_metrics_response(o, e);
+}
+
+pub fn decode_list_metrics_response(b: &[u8]) -> Result<ListMetricsResponse, i32> {
+    let mut d = Dec::new(b);
+    let mut out = ListMetricsResponse::default();
+    dec_list_metrics_response(&mut d, &mut out);
+    if d.err != 0 { Err(d.err) } else { Ok(out) }
+}
+
+pub fn encode_dual_response(o: &DualResponse) -> Vec<u8> {
+    let mut e = Enc::new(SITES);
+    enc_dual_response(o, &mut e);
+    e.buf
+}
+
+/// Encode into a context that is reused, so the learned widths survive and the
+/// allocation is not part of what is timed. This is the shape a real host uses.
+pub fn encode_into_dual_response(o: &DualResponse, e: &mut Enc) {
+    e.reset();
+    enc_dual_response(o, e);
+}
+
+pub fn decode_dual_response(b: &[u8]) -> Result<DualResponse, i32> {
+    let mut d = Dec::new(b);
+    let mut out = DualResponse::default();
+    dec_dual_response(&mut d, &mut out);
     if d.err != 0 { Err(d.err) } else { Ok(out) }
 }

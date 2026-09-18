@@ -24,6 +24,10 @@ echo "===== 2. conformance: byte identity across the arms ====="
 cargo run --release -q -p harness --bin conformance 2>/dev/null
 
 echo
+echo "===== 1b. ABI v1 section 8: the generator-time refusal ====="
+python3 gen/check_direct.py
+
+echo
 echo "===== 2b. shape coverage: explicit presence, the oneof, unknown fields ====="
 cargo run --release -q -p harness --bin shapes 2>/dev/null
 
@@ -50,6 +54,10 @@ done
 echo
 echo "===== 6. timings, guard OFF (a second process; prost is the control column) ====="
 cargo run --release -q -p harness --no-default-features --bin bench 2>/dev/null
+
+echo
+echo "===== 6b. M4 to M7 timings (filtered; the crossing and decision 5 rows come along) ====="
+AK_BENCH_ONLY=P4.1,P5.3,P5.4,P6.1 cargo run --release -q -p harness --bin bench 2>/dev/null
 
 echo
 echo "===== 7. content sets on the string path (ABI v1 open decision 3) ====="

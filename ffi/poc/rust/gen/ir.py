@@ -33,6 +33,10 @@ class Field:
         self.oneof = f.get("oneof")
         # Set by Ir._synthesise_entry for a map field: the pair message it becomes.
         self.entry = None
+        # ABI v1 section 8: a bulk `bytes` field crosses as a DIRECT ARGUMENT of the call
+        # rather than as a pointer into staging, so a JNI host can hold a critical section
+        # across it. The descriptor says which: `"value": "bulk"`.
+        self.direct = f.get("value") == "bulk"
         self.value_rule = f.get("value", "word")
         self.adapter_site = f.get("adapter_site")
         self.wire = WIRE[self.kind] if self.kind != "map" else LEN
@@ -165,3 +169,61 @@ def loop_slots(ir, name, prefix=()):
 
 def slot_name(path):
     return "_".join(path)
+
+
+def direct_fields(ir, name, prefix=(), seen=None):
+    """Every direct-argument field ANYWHERE in the tree rooted at `name`.
+
+    Through every edge, not only singular children: a direct field declared on a repeated
+    element type is still a direct field of the tree, and walking only singular children is
+    how the first version of this check found nothing and refused nothing.
+    """
+    seen = seen or set()
+    if name in seen:
+        return []
+    seen = seen | {name}
+    out = []
+    for f in ir.msg(name).fields:
+        if f.direct:
+            out.append((prefix + (f.name,), f))
+        elif f.kind == "message":
+            out.extend(direct_fields(ir, f.of, prefix + (f.name,), seen))
+    return out
+
+
+def check_direct(ir, root):
+    """ABI v1 section 8: "a direct field declared on a message that does make a reverse call
+    should be a generator-time refusal and currently is not."
+
+    It is now. A direct argument exists so a host can pin its buffer across the whole call --
+    `GetPrimitiveArrayCritical` on JNI, `critical(true)` on FFM -- and a critical section and
+    an upcall are mutually exclusive. So a message tree that carries a direct field and also
+    needs a reverse call is a contract no host can honour, and the honest place to say so is
+    here rather than in a comment in the specification.
+
+    Also refused: more than one direct field in one tree. The path is built for one field of
+    one root message and nothing has tested it otherwise; silently generalising it is how an
+    untested path ships.
+    """
+    ds = direct_fields(ir, root)
+    if not ds:
+        return
+    # Every reverse call the tree would make, not only the root's own.
+    slots = list(loop_slots(ir, root))
+    for n in ir.messages:
+        if n == root:
+            continue
+        if direct_fields(ir, n):
+            slots.extend(loop_slots(ir, n))
+    if slots:
+        raise NotImplementedError(
+            "REFUSED: %s declares a direct-argument field (%s) and also needs a reverse call "
+            "for %s. ABI v1 section 8: a direct argument exists so the host can pin its "
+            "buffer across the call, and a critical section and an upcall are mutually "
+            "exclusive, so no host can honour both."
+            % (root, slot_name(ds[0][0]), ", ".join(slot_name(p) for p, _ in slots)))
+    if len(ds) > 1:
+        raise NotImplementedError(
+            "REFUSED: %s declares %d direct-argument fields (%s). ABI v1 section 8 builds the "
+            "path for ONE field of one root message and nothing tests it otherwise."
+            % (root, len(ds), ", ".join(slot_name(p) for p, _ in ds)))

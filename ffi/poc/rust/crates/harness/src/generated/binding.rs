@@ -304,6 +304,28 @@ fn make_task_detailed(o: &TaskDetailed, tc: (ak_transcode_fn, ak_transcode_fn)) 
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
+fn make_task_summary(o: &TaskSummary, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_TaskSummary {
+    ak_efix_TaskSummary {
+        id: str_arg(&o.id, tc.0),
+        session_id: str_arg(&o.session_id, tc.0),
+        options: match &o.options {
+            Some(c) => make_task_options(c, tc),
+            None => ak_efix_TaskOptions::ZERO,
+        },
+        status: o.status.to_i32(),
+        created_at: match &o.created_at {
+            Some(c) => make_timestamp(c, tc),
+            None => ak_efix_Timestamp::ZERO,
+        },
+        error: str_arg(&o.error, tc.0),
+        status_message: str_arg(&o.status_message, tc.0),
+        count_data_dependencies: o.count_data_dependencies,
+        presence: ((o.options.is_some() as u32) << 0) | ((o.created_at.is_some() as u32) << 1),
+    }
+}
+
+/// Total fill: every group field assigned, presence assigned and not OR-ed.
+#[inline(always)]
 fn make_probe(o: &Probe, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Probe {
     ak_efix_Probe {
         id: str_arg(&o.id, tc.0),
@@ -355,6 +377,38 @@ fn make_empty(o: &Empty, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Empt
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
+fn make_upload_result_data(o: &UploadResultData, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_UploadResultData {
+    ak_efix_UploadResultData {
+        session_id: str_arg(&o.session_id, tc.0),
+        result_id: str_arg(&o.result_id, tc.0),
+        // ABI v1 section 8: the sentinel says the bytes are an
+        // argument of the call, not a pointer into staging.
+        data_chunk: ak_str { data: AK_STR_DIRECT, len: o.data_chunk.len(), tc: None },
+        presence: 0,
+    }
+}
+
+/// Total fill: every group field assigned, presence assigned and not OR-ed.
+#[inline(always)]
+fn make_metrics_batch(o: &MetricsBatch, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_MetricsBatch {
+    ak_efix_MetricsBatch {
+        id: str_arg(&o.id, tc.0),
+        presence: 0,
+    }
+}
+
+/// Total fill: every group field assigned, presence assigned and not OR-ed.
+#[inline(always)]
+fn make_pair(o: &Pair, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Pair {
+    ak_efix_Pair {
+        key: str_arg(&o.key, tc.0),
+        value: o.value,
+        presence: 0,
+    }
+}
+
+/// Total fill: every group field assigned, presence assigned and not OR-ed.
+#[inline(always)]
 fn make_list_results_response(o: &ListResultsResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_ListResultsResponse {
     ak_efix_ListResultsResponse {
         page: o.page,
@@ -375,8 +429,44 @@ fn make_list_tasks_detailed_response(o: &ListTasksDetailedResponse, tc: (ak_tran
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
+fn make_list_task_summary_response(o: &ListTaskSummaryResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_ListTaskSummaryResponse {
+    ak_efix_ListTaskSummaryResponse {
+        presence: 0,
+    }
+}
+
+/// Total fill: every group field assigned, presence assigned and not OR-ed.
+#[inline(always)]
 fn make_list_probe_response(o: &ListProbeResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_ListProbeResponse {
     ak_efix_ListProbeResponse {
+        presence: 0,
+    }
+}
+
+/// Total fill: every group field assigned, presence assigned and not OR-ed.
+#[inline(always)]
+fn make_list_metrics_response(o: &ListMetricsResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_ListMetricsResponse {
+    ak_efix_ListMetricsResponse {
+        presence: 0,
+    }
+}
+
+/// Total fill: every group field assigned, presence assigned and not OR-ed.
+#[inline(always)]
+fn make_upload_result_data_message(o: &UploadResultDataMessage, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_UploadResultDataMessage {
+    ak_efix_UploadResultDataMessage {
+        upload: match &o.upload {
+            Some(c) => make_upload_result_data(c, tc),
+            None => ak_efix_UploadResultData::ZERO,
+        },
+        presence: ((o.upload.is_some() as u32) << 0),
+    }
+}
+
+/// Total fill: every group field assigned, presence assigned and not OR-ed.
+#[inline(always)]
+fn make_dual_response(o: &DualResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_DualResponse {
+    ak_efix_DualResponse {
         presence: 0,
     }
 }
@@ -695,6 +785,328 @@ pub fn encode_into_list_probe_response(ctx: *mut ak_enc_ctx, o: &ListProbeRespon
     }
 }
 
+unsafe extern "C" fn loop_list_task_summary_response_tasks(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListTaskSummaryResponse);
+        let tc = tcs();
+        let src = &o.tasks;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_TaskSummary>());
+        let mut chunk: [::core::mem::MaybeUninit<ak_efix_TaskSummary>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            chunk[i].write(make_task_summary(v, tc));
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_elemu_TaskSummary(ctx, chunk.as_ptr() as *const ak_efix_TaskSummary, i as i32, done as i64);
+                if rc < 0 { return rc; }
+                done += i;
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_elemu_TaskSummary(ctx, chunk.as_ptr() as *const ak_efix_TaskSummary, i as i32, done as i64);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_list_task_summary_response_tasks_options_options(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListTaskSummaryResponse);
+        let tc = tcs();
+        let e = &o.tasks[token as usize];
+        let Some(c0) = &e.options else { return AK_OK };
+        let src = &c0.options;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_TaskOptionsOptionsEntry>());
+        let mut chunk: [::core::mem::MaybeUninit<ak_efix_TaskOptionsOptionsEntry>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for (k, v) in src.iter() {
+            chunk[i].write(ak_efix_TaskOptionsOptionsEntry {
+                key: str_arg(k, tc.0),
+                value: str_arg(v, tc.0),
+                presence: 0,
+            });
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_elem_TaskOptionsOptionsEntry(ctx, chunk.as_ptr() as *const ak_efix_TaskOptionsOptionsEntry, i as i32);
+                if rc < 0 { return rc; }
+                done += i;
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_elem_TaskOptionsOptionsEntry(ctx, chunk.as_ptr() as *const ak_efix_TaskOptionsOptionsEntry, i as i32);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
+static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSummary {
+    loop_options_options: Some(loop_list_task_summary_response_tasks_options_options),
+};
+
+pub fn encode_into_list_task_summary_response(ctx: *mut ak_enc_ctx, o: &ListTaskSummaryResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_ListTaskSummaryResponse {
+            loop_tasks: Some(loop_list_task_summary_response_tasks),
+            elem_tasks: &ELEM_VT_ListTaskSummaryResponse_tasks,
+        };
+        let fix = make_list_task_summary_response(o, (t.utf8, t.bytes));
+        let rc = ak_encode_ListTaskSummaryResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
+pub fn encode_into_upload_result_data_message(ctx: *mut ak_enc_ctx, o: &UploadResultDataMessage, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_UploadResultDataMessage {
+            _reserved: ::core::ptr::null(),
+        };
+        let fix = make_upload_result_data_message(o, (t.utf8, t.bytes));
+        let d = &o.upload.as_ref().map(|x| x).unwrap().data_chunk;
+        let rc = ak_encode_UploadResultDataMessage(o as *const _ as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
+unsafe extern "C" fn loop_list_metrics_response_batches(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListMetricsResponse);
+        let tc = tcs();
+        let src = &o.batches;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_MetricsBatch>());
+        let mut chunk: [::core::mem::MaybeUninit<ak_efix_MetricsBatch>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            chunk[i].write(make_metrics_batch(v, tc));
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_elemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_efix_MetricsBatch, i as i32, done as i64);
+                if rc < 0 { return rc; }
+                done += i;
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_elemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_efix_MetricsBatch, i as i32, done as i64);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_list_metrics_response_batches_ticks(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListMetricsResponse);
+        let tc = tcs();
+        let e = &o.batches[token as usize];
+        let src = &e.ticks;
+        let rc = ak_run_i64(ctx, src.as_ptr(), src.len());
+        if rc < 0 { return rc; }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_list_metrics_response_batches_values(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListMetricsResponse);
+        let tc = tcs();
+        let e = &o.batches[token as usize];
+        let src = &e.values;
+        let rc = ak_run_f64(ctx, src.as_ptr(), src.len());
+        if rc < 0 { return rc; }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_list_metrics_response_batches_codes(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListMetricsResponse);
+        let tc = tcs();
+        let e = &o.batches[token as usize];
+        let src = &e.codes;
+        let rc = ak_run_i32(ctx, src.as_ptr(), src.len());
+        if rc < 0 { return rc; }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_list_metrics_response_batches_flags(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListMetricsResponse);
+        let tc = tcs();
+        let e = &o.batches[token as usize];
+        let src = &e.flags;
+        // bool and enum have no contiguous host layout of their own, so
+        // the binding materialises one. A host that already stores the
+        // wire representation hands over a pointer and copies nothing.
+        let tmp: Vec<u8> = src.iter().map(|x| *x as u8).collect();
+        let rc = ak_run_u8(ctx, tmp.as_ptr(), tmp.len());
+        if rc < 0 { return rc; }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_list_metrics_response_batches_statuses(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListMetricsResponse);
+        let tc = tcs();
+        let e = &o.batches[token as usize];
+        let src = &e.statuses;
+        // bool and enum have no contiguous host layout of their own, so
+        // the binding materialises one. A host that already stores the
+        // wire representation hands over a pointer and copies nothing.
+        let tmp: Vec<i32> = src.iter().map(|x| x.to_i32()).collect();
+        let rc = ak_run_i32(ctx, tmp.as_ptr(), tmp.len());
+        if rc < 0 { return rc; }
+        AK_OK
+    })
+}
+
+static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+    loop_ticks: Some(loop_list_metrics_response_batches_ticks),
+    loop_values: Some(loop_list_metrics_response_batches_values),
+    loop_codes: Some(loop_list_metrics_response_batches_codes),
+    loop_flags: Some(loop_list_metrics_response_batches_flags),
+    loop_statuses: Some(loop_list_metrics_response_batches_statuses),
+};
+
+pub fn encode_into_list_metrics_response(ctx: *mut ak_enc_ctx, o: &ListMetricsResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_ListMetricsResponse {
+            loop_batches: Some(loop_list_metrics_response_batches),
+            elem_batches: &ELEM_VT_ListMetricsResponse_batches,
+        };
+        let fix = make_list_metrics_response(o, (t.utf8, t.bytes));
+        let rc = ak_encode_ListMetricsResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
+unsafe extern "C" fn loop_dual_response_left(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const DualResponse);
+        let tc = tcs();
+        let src = &o.left;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_Pair>());
+        let mut chunk: [::core::mem::MaybeUninit<ak_efix_Pair>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            chunk[i].write(make_pair(v, tc));
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_elem_Pair(ctx, chunk.as_ptr() as *const ak_efix_Pair, i as i32);
+                if rc < 0 { return rc; }
+                done += i;
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_elem_Pair(ctx, chunk.as_ptr() as *const ak_efix_Pair, i as i32);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_dual_response_right(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const DualResponse);
+        let tc = tcs();
+        let src = &o.right;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_Pair>());
+        let mut chunk: [::core::mem::MaybeUninit<ak_efix_Pair>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            chunk[i].write(make_pair(v, tc));
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_elem_Pair(ctx, chunk.as_ptr() as *const ak_efix_Pair, i as i32);
+                if rc < 0 { return rc; }
+                done += i;
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_elem_Pair(ctx, chunk.as_ptr() as *const ak_efix_Pair, i as i32);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
+pub fn encode_into_dual_response(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_DualResponse {
+            loop_left: Some(loop_dual_response_left),
+            loop_right: Some(loop_dual_response_right),
+        };
+        let fix = make_dual_response(o, (t.utf8, t.bytes));
+        let rc = ak_encode_DualResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
 pub unsafe fn encoded<'a>(ctx: *mut ak_enc_ctx) -> &'a [u8] {
     let mut p: *const u8 = ::core::ptr::null();
     let mut n: usize = 0;
@@ -848,6 +1260,29 @@ unsafe fn fill_task_detailed(dst: &mut TaskDetailed, f: &ak_dfix_TaskDetailed, b
     dst.created_by = s_of(base, f.created_by);
 }
 
+/// In place, never constructed: `TaskSummary` carries a repeated or map field,
+/// and `apply` arrives AFTER the runs that populated it.
+#[inline(always)]
+unsafe fn fill_task_summary(dst: &mut TaskSummary, f: &ak_dfix_TaskSummary, base: *const u8) {
+    dst.id = s_of(base, f.id);
+    dst.session_id = s_of(base, f.session_id);
+    if f.presence & AK_DFIX_TASKSUMMARY_PRESENT_OPTIONS != 0 {
+        let d2 = dst.options.get_or_insert_with(Default::default);
+        fill_task_options(d2, &f.options, base);
+    } else {
+        dst.options = None;
+    }
+    dst.status = TaskStatus::from_i32(f.status);
+    dst.created_at = if f.presence & AK_DFIX_TASKSUMMARY_PRESENT_CREATED_AT != 0 {
+        Some(from_timestamp(&f.created_at, base))
+    } else {
+        None
+    };
+    dst.error = s_of(base, f.error);
+    dst.status_message = s_of(base, f.status_message);
+    dst.count_data_dependencies = f.count_data_dependencies;
+}
+
 #[inline(always)]
 unsafe fn from_probe(f: &ak_dfix_Probe, base: *const u8) -> Probe {
     Probe {
@@ -872,6 +1307,30 @@ unsafe fn from_empty(f: &ak_dfix_Empty, base: *const u8) -> Empty {
     }
 }
 
+#[inline(always)]
+unsafe fn from_upload_result_data(f: &ak_dfix_UploadResultData, base: *const u8) -> UploadResultData {
+    UploadResultData {
+        session_id: s_of(base, f.session_id),
+        result_id: s_of(base, f.result_id),
+        data_chunk: b_of(base, f.data_chunk),
+    }
+}
+
+/// In place, never constructed: `MetricsBatch` carries a repeated or map field,
+/// and `apply` arrives AFTER the runs that populated it.
+#[inline(always)]
+unsafe fn fill_metrics_batch(dst: &mut MetricsBatch, f: &ak_dfix_MetricsBatch, base: *const u8) {
+    dst.id = s_of(base, f.id);
+}
+
+#[inline(always)]
+unsafe fn from_pair(f: &ak_dfix_Pair, base: *const u8) -> Pair {
+    Pair {
+        key: s_of(base, f.key),
+        value: f.value,
+    }
+}
+
 /// In place, never constructed: `ListResultsResponse` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
@@ -888,10 +1347,35 @@ unsafe fn fill_list_tasks_detailed_response(dst: &mut ListTasksDetailedResponse,
     dst.total = f.total;
 }
 
+/// In place, never constructed: `ListTaskSummaryResponse` carries a repeated or map field,
+/// and `apply` arrives AFTER the runs that populated it.
+#[inline(always)]
+unsafe fn fill_list_task_summary_response(dst: &mut ListTaskSummaryResponse, f: &ak_dfix_ListTaskSummaryResponse, base: *const u8) {
+}
+
 /// In place, never constructed: `ListProbeResponse` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
 unsafe fn fill_list_probe_response(dst: &mut ListProbeResponse, f: &ak_dfix_ListProbeResponse, base: *const u8) {
+}
+
+/// In place, never constructed: `ListMetricsResponse` carries a repeated or map field,
+/// and `apply` arrives AFTER the runs that populated it.
+#[inline(always)]
+unsafe fn fill_list_metrics_response(dst: &mut ListMetricsResponse, f: &ak_dfix_ListMetricsResponse, base: *const u8) {
+}
+
+#[inline(always)]
+unsafe fn from_upload_result_data_message(f: &ak_dfix_UploadResultDataMessage, base: *const u8) -> UploadResultDataMessage {
+    UploadResultDataMessage {
+        upload: if f.presence & AK_DFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD != 0 { Some(from_upload_result_data(&f.upload, base)) } else { None },
+    }
+}
+
+/// In place, never constructed: `DualResponse` carries a repeated or map field,
+/// and `apply` arrives AFTER the runs that populated it.
+#[inline(always)]
+unsafe fn fill_dual_response(dst: &mut DualResponse, f: &ak_dfix_DualResponse, base: *const u8) {
 }
 
 /// What the host hands the codec as `obj` on decode: the destination, plus
@@ -1135,6 +1619,323 @@ pub fn decode_with_list_probe_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result
             add_probes: Some(add_list_probe_response_probes),
         };
         ak_decode_ListProbeResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// What the host hands the codec as `obj` on decode: the destination, plus
+/// the base pointer the spans are offsets into (ABI v1 section 7.4).
+pub struct SinkListTaskSummaryResponse<'a> {
+    pub out: &'a mut ListTaskSummaryResponse,
+    pub base: *const u8,
+}
+
+unsafe extern "C" fn apply_list_task_summary_response(
+    _ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    fx: *const ak_dfix_ListTaskSummaryResponse,
+) {
+    dguard(_ctx, || {
+        let s = &mut *(obj as *mut SinkListTaskSummaryResponse);
+        let f = &*fx;
+    })
+}
+
+unsafe extern "C" fn new_list_task_summary_response_tasks(_ctx: *mut ak_dec_ctx, obj: *mut c_void) -> i64 {
+    dguard_i64(_ctx, || {
+        let s = &mut *(obj as *mut SinkListTaskSummaryResponse);
+        s.out.tasks.push(Default::default());
+        (s.out.tasks.len() - 1) as i64
+    })
+}
+
+unsafe extern "C" fn apply_list_task_summary_response_tasks(
+    _ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    tok: i64,
+    fx: *const ak_dfix_TaskSummary,
+) {
+    dguard(_ctx, || {
+        let s = &mut *(obj as *mut SinkListTaskSummaryResponse);
+        let base = s.base;
+        fill_task_summary(&mut s.out.tasks[tok as usize], &*fx, base);
+    })
+}
+
+unsafe extern "C" fn add_list_task_summary_response_tasks_options_options(
+    _ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    tok: i64,
+    elems: *const ak_dfix_TaskOptionsOptionsEntry,
+    n: i32,
+) {
+    dguard(_ctx, || {
+        let s = &mut *(obj as *mut SinkListTaskSummaryResponse);
+        let base = s.base;
+        // ABI v1 7.4: a batched add may be called more than once per field.
+        let dst = &mut s.out.tasks[tok as usize].options.get_or_insert_with(Default::default).options;
+        for i in 0..n as usize {
+            let e = &*elems.add(i);
+            dst.insert(s_of(base, e.key), s_of(base, e.value));
+        }
+    })
+}
+
+pub fn decode_with_list_task_summary_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListTaskSummaryResponse, i32> {
+    let mut out = ListTaskSummaryResponse::default();
+    let rc = unsafe {
+        let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr() };
+        let vt = ak_dvt_ListTaskSummaryResponse {
+            apply: Some(apply_list_task_summary_response),
+            new_tasks: Some(new_list_task_summary_response_tasks),
+            apply_tasks: Some(apply_list_task_summary_response_tasks),
+            add_tasks_options_options: Some(add_list_task_summary_response_tasks_options_options),
+        };
+        ak_decode_ListTaskSummaryResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// What the host hands the codec as `obj` on decode: the destination, plus
+/// the base pointer the spans are offsets into (ABI v1 section 7.4).
+pub struct SinkUploadResultDataMessage<'a> {
+    pub out: &'a mut UploadResultDataMessage,
+    pub base: *const u8,
+}
+
+unsafe extern "C" fn apply_upload_result_data_message(
+    _ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    fx: *const ak_dfix_UploadResultDataMessage,
+) {
+    dguard(_ctx, || {
+        let s = &mut *(obj as *mut SinkUploadResultDataMessage);
+        let f = &*fx;
+        s.out.upload = if f.presence & AK_DFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD != 0 {
+            Some(from_upload_result_data(&f.upload, s.base))
+        } else {
+            None
+        };
+    })
+}
+
+pub fn decode_with_upload_result_data_message(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<UploadResultDataMessage, i32> {
+    let mut out = UploadResultDataMessage::default();
+    let rc = unsafe {
+        let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr() };
+        let vt = ak_dvt_UploadResultDataMessage {
+            apply: Some(apply_upload_result_data_message),
+        };
+        ak_decode_UploadResultDataMessage(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// What the host hands the codec as `obj` on decode: the destination, plus
+/// the base pointer the spans are offsets into (ABI v1 section 7.4).
+pub struct SinkListMetricsResponse<'a> {
+    pub out: &'a mut ListMetricsResponse,
+    pub base: *const u8,
+}
+
+unsafe extern "C" fn apply_list_metrics_response(
+    _ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    fx: *const ak_dfix_ListMetricsResponse,
+) {
+    dguard(_ctx, || {
+        let s = &mut *(obj as *mut SinkListMetricsResponse);
+        let f = &*fx;
+    })
+}
+
+unsafe extern "C" fn new_list_metrics_response_batches(_ctx: *mut ak_dec_ctx, obj: *mut c_void) -> i64 {
+    dguard_i64(_ctx, || {
+        let s = &mut *(obj as *mut SinkListMetricsResponse);
+        s.out.batches.push(Default::default());
+        (s.out.batches.len() - 1) as i64
+    })
+}
+
+unsafe extern "C" fn apply_list_metrics_response_batches(
+    _ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    tok: i64,
+    fx: *const ak_dfix_MetricsBatch,
+) {
+    dguard(_ctx, || {
+        let s = &mut *(obj as *mut SinkListMetricsResponse);
+        let base = s.base;
+        fill_metrics_batch(&mut s.out.batches[tok as usize], &*fx, base);
+    })
+}
+
+unsafe extern "C" fn add_list_metrics_response_batches_ticks(
+    _ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    tok: i64,
+    elems: *const i64,
+    n: i32,
+) {
+    dguard(_ctx, || {
+        let s = &mut *(obj as *mut SinkListMetricsResponse);
+        let base = s.base;
+        // ABI v1 7.4: a batched add may be called more than once per field.
+        let dst = &mut s.out.batches[tok as usize].ticks;
+        dst.reserve(n as usize);
+        for i in 0..n as usize { dst.push(*elems.add(i)); }
+    })
+}
+
+unsafe extern "C" fn add_list_metrics_response_batches_values(
+    _ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    tok: i64,
+    elems: *const f64,
+    n: i32,
+) {
+    dguard(_ctx, || {
+        let s = &mut *(obj as *mut SinkListMetricsResponse);
+        let base = s.base;
+        // ABI v1 7.4: a batched add may be called more than once per field.
+        let dst = &mut s.out.batches[tok as usize].values;
+        dst.reserve(n as usize);
+        for i in 0..n as usize { dst.push(*elems.add(i)); }
+    })
+}
+
+unsafe extern "C" fn add_list_metrics_response_batches_codes(
+    _ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    tok: i64,
+    elems: *const i32,
+    n: i32,
+) {
+    dguard(_ctx, || {
+        let s = &mut *(obj as *mut SinkListMetricsResponse);
+        let base = s.base;
+        // ABI v1 7.4: a batched add may be called more than once per field.
+        let dst = &mut s.out.batches[tok as usize].codes;
+        dst.reserve(n as usize);
+        for i in 0..n as usize { dst.push(*elems.add(i)); }
+    })
+}
+
+unsafe extern "C" fn add_list_metrics_response_batches_flags(
+    _ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    tok: i64,
+    elems: *const u8,
+    n: i32,
+) {
+    dguard(_ctx, || {
+        let s = &mut *(obj as *mut SinkListMetricsResponse);
+        let base = s.base;
+        // ABI v1 7.4: a batched add may be called more than once per field.
+        let dst = &mut s.out.batches[tok as usize].flags;
+        dst.reserve(n as usize);
+        for i in 0..n as usize { dst.push(*elems.add(i) != 0); }
+    })
+}
+
+unsafe extern "C" fn add_list_metrics_response_batches_statuses(
+    _ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    tok: i64,
+    elems: *const i32,
+    n: i32,
+) {
+    dguard(_ctx, || {
+        let s = &mut *(obj as *mut SinkListMetricsResponse);
+        let base = s.base;
+        // ABI v1 7.4: a batched add may be called more than once per field.
+        let dst = &mut s.out.batches[tok as usize].statuses;
+        dst.reserve(n as usize);
+        for i in 0..n as usize { dst.push(TaskStatus::from_i32(*elems.add(i))); }
+    })
+}
+
+pub fn decode_with_list_metrics_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListMetricsResponse, i32> {
+    let mut out = ListMetricsResponse::default();
+    let rc = unsafe {
+        let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr() };
+        let vt = ak_dvt_ListMetricsResponse {
+            apply: Some(apply_list_metrics_response),
+            new_batches: Some(new_list_metrics_response_batches),
+            apply_batches: Some(apply_list_metrics_response_batches),
+            add_batches_ticks: Some(add_list_metrics_response_batches_ticks),
+            add_batches_values: Some(add_list_metrics_response_batches_values),
+            add_batches_codes: Some(add_list_metrics_response_batches_codes),
+            add_batches_flags: Some(add_list_metrics_response_batches_flags),
+            add_batches_statuses: Some(add_list_metrics_response_batches_statuses),
+        };
+        ak_decode_ListMetricsResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// What the host hands the codec as `obj` on decode: the destination, plus
+/// the base pointer the spans are offsets into (ABI v1 section 7.4).
+pub struct SinkDualResponse<'a> {
+    pub out: &'a mut DualResponse,
+    pub base: *const u8,
+}
+
+unsafe extern "C" fn apply_dual_response(
+    _ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    fx: *const ak_dfix_DualResponse,
+) {
+    dguard(_ctx, || {
+        let s = &mut *(obj as *mut SinkDualResponse);
+        let f = &*fx;
+    })
+}
+
+unsafe extern "C" fn add_dual_response_left(
+    _ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    tok: i64,
+    elems: *const ak_dfix_Pair,
+    n: i32,
+) {
+    dguard(_ctx, || {
+        let s = &mut *(obj as *mut SinkDualResponse);
+        let base = s.base;
+        // ABI v1 7.4: a batched add may be called more than once per field.
+        let dst = &mut s.out.left;
+        dst.reserve(n as usize);
+        for i in 0..n as usize { dst.push(from_pair(&*elems.add(i), base)); }
+    })
+}
+
+unsafe extern "C" fn add_dual_response_right(
+    _ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    tok: i64,
+    elems: *const ak_dfix_Pair,
+    n: i32,
+) {
+    dguard(_ctx, || {
+        let s = &mut *(obj as *mut SinkDualResponse);
+        let base = s.base;
+        // ABI v1 7.4: a batched add may be called more than once per field.
+        let dst = &mut s.out.right;
+        dst.reserve(n as usize);
+        for i in 0..n as usize { dst.push(from_pair(&*elems.add(i), base)); }
+    })
+}
+
+pub fn decode_with_dual_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<DualResponse, i32> {
+    let mut out = DualResponse::default();
+    let rc = unsafe {
+        let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr() };
+        let vt = ak_dvt_DualResponse {
+            apply: Some(apply_dual_response),
+            add_left: Some(add_dual_response_left),
+            add_right: Some(add_dual_response_right),
+        };
+        ak_decode_DualResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }

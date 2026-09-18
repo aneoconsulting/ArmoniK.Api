@@ -106,6 +106,12 @@ def _value(ir, m, f):
 
     if f.card == "packed":
         n = f.raw.get("count", 30)
+        if f.kind == "enum":
+            # `oneof_member`-style cycling by the same rule the singular enums use, so a
+            # packed run reaches the large value too.
+            table = {"ResultStatus": "RESULT_STATUS", "TaskStatus": "TASK_STATUS"}[f.of]
+            return ("(0..%di64).map(|j| %s::from_i32(v::enum_value(&v::%s, idx * 97 + j))).collect()"
+                    % (n, f.of, table))
         return "(0..%di64).map(|j| %s).collect()" % (n, _scalar_expr(f, fp, "idx * 97 + j"))
 
     if f.card == "repeated":
@@ -219,6 +225,15 @@ def emit_payloads(ir):
         m = ir.msg(root)
         fn = "payload_" + pid.replace(".", "_").lower()
         ids.append((pid, fn, root))
+        if spec.get("interleaved"):
+            # No canonical writer can produce P7.1: it interleaves two repeated fields on
+            # purpose, and every writer here emits a field contiguously. So there is no
+            # builder for it, and M7 is validated by DECODE (design/SHAPES.md, P7.1's row).
+            o.append("/// %s has no builder: no canonical writer can produce it." % pid)
+            o.append("pub const %s_DECODE_ONLY: bool = true;" % fn.upper())
+            o.append("")
+            ids.pop()
+            continue
         o.append("/// %s: %s, %s" % (pid, root, spec.get("mode", "full")))
         o.append("pub fn %s() -> %s {" % (fn, root))
         if "bulk" in spec:
@@ -230,8 +245,6 @@ def emit_payloads(ir):
             o.append("}")
             o.append("")
             continue
-        if spec.get("interleaved"):
-            raise NotImplementedError("P7.1's builder arrives with stage 3")
         field = next(f for f in m.plain if f.name == spec["field"])
         reps = spec.get("repeats", 3)
         reps = reps if isinstance(reps, list) else [reps]
