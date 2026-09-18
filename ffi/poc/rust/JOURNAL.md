@@ -1335,3 +1335,68 @@ A worktree with its own target directory takes five minutes and is the whole exp
 first attempt, `git stash` plus a rebuild in place, segfaulted because the on-disk cdylib no
 longer matched the host that loaded it — which is its own small lesson about measuring an ABI
 by swapping half of it.
+
+
+## The re-run: a ratio does reproduce, and the published one cannot be rebuilt
+
+**Log**: `ffi/logs/rust/stage3-reproducibility.log`. **Driver**: `gen/stability.sh`.
+
+R4 now says ratios do not travel between builds of the same source. The task was to re-take
+M1 and M2 under it and give a verdict on which column is right.
+
+### The instrument, after the obvious one turned out to be empty
+
+"Rebuild between run groups" was the thing to vary — except the release binary is
+**bit-identical** across rebuilds of unchanged source (sha256 twice, after `touch`ing
+lib.rs). So rebuilding on its own varies nothing, and the drift cannot be a rebuild artefact.
+What actually changed between the published table and today is that the crate GREW, which
+moves addresses. So the instrument became a **semantically neutral layout perturbation**: k
+exported no-op functions that no arm calls, k in {0, 3, 11}. The binary hash changes every
+time and the size barely moves, which is what a pure layout change looks like.
+
+### The answer, which was not the one I expected
+
+**The ratio is reproducible.** Across three builds and five to six runs, most rows have a
+total spread under 0.05, and the across-build component is no larger than the same-binary
+component on nearly every row. Layout is not the driver. The container is not unstable.
+
+**And the published figures are 0.10 to 0.27 away** — five to ten times that band.
+
+### Then the decisive experiment refused to run, which was itself the answer
+
+To settle it I went to build `cc7f68c6`, the commit behind `stage2-four-arms-M1.log`:
+
+```
+error: can't find bin `bench` at path `crates/harness/src/bin/bench.rs`
+```
+
+**The benchmark binary is not in that commit.** The bins were untracked until `7fb30be5`
+because of the root `.gitignore`'s `[Bb]in/` — **defect D19, which I recorded as hygiene and
+which turns out to be the whole answer.** Counted per tree: `cc7f68c6` 0 bins, `d03c5161` 0,
+`7fb30be5` 7, `160c37be` 9. Dependency versions identical throughout (prost 0.14.4, bytes
+1.12.1), so no bump is in play.
+
+So the verdict is not "the container drifted" and not "the numbers are noisy". It is: **the
+published column is unreproducible because the code that produced it was never committed**,
+and the oldest rebuildable commit agrees with today. I wrote D19 up as "the logs were
+committed and the code that produced them was not"; this is what that costs when a figure is
+questioned, and it is worth more as a demonstrated consequence than it was as a rule.
+
+### What the re-take costs the headline
+
+`core-ffi-rust` P1.2 encode is **0.982** against 0.706–0.716 published: through the C ABI the
+core is **at parity with prost on encode for the uniform payloads, not thirty percent
+faster**. The no-boundary arm survives intact — `core-native` 0.42–0.54 on every encode row —
+so the codec is about twice prost and the C ABI gives that back. The decode side largely
+reproduces. The encode side moved and the decode side did not, and no single arm's code
+explains that pattern, which is why the log names no cause.
+
+### The re-confirmation that also demonstrates the new rule
+
+All three qualitative findings hold. The one worth singling out: UTF-8 validation on
+non-ASCII reads **2.75–3.74 of prost** today against a published 2.0–2.6 — the `/ prost`
+column moved with everything else — while **the same finding expressed as a within-arm delta
+reproduces almost exactly**: 2.17–3.37 times its own ASCII cost against a published 2.2–3.0.
+Same measurement, same session, two forms; the cross-arm ratio drifted and the within-arm
+delta held. That is R4's new half demonstrated rather than argued, and it is the argument for
+writing findings as deltas wherever the question allows it.
