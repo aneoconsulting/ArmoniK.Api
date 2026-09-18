@@ -618,6 +618,29 @@ the half whose case is
 behavioural rather than performance: one retry set, one backoff, one TLS
 configuration, one cancellation contract, enforced rather than copied.
 
+**Two crossings per call, zero per field, and it is a property of the code rather
+than a measurement.** The Rust slice built it and neither its RPC crate nor the
+core's RPC module mentions a message type anywhere: the half dispatches on a path
+string and moves opaque bytes, so there is no place a per-field cost could enter.
+This is what the "adopt the RPC layer, generate the codec" fallback rests on, and
+it is now checkable by reading two files rather than by trusting this paragraph.
+
+**What that is worth, in a form that does not depend on the host.** Two crossings
+of 1.8 ns against a call of about 1.5 ms of CPU is roughly four parts in a
+million. A host whose crossing costs 98 ns through JNI pays 196 ns on the same
+call: 0.013 percent. Measured end to end the Rust arm is 0.91 to 1.10 of tonic at
+1, 8 and 16 in flight, which on four shared vCPUs is no measurable difference
+rather than a win. **The arithmetic is the transferable part; the ratio is not.**
+
+**A client handle is usable from many threads at once**, which "ownership between
+handles is internal" in section 3 implies and which is easy to build wrongly: a
+call must take a shared reference to its client and clone the cheap transport
+handle, not take a mutable one. Built the other way first in the Rust slice, it
+worked at 1 call in flight and failed outright at 8, which is the good failure
+mode; the bad one is a wrong byte under contention. That it was found by a
+throughput arm asking for 8 in flight, rather than by the concurrency suite of
+obligation 12.5, is an argument for that suite rather than against it.
+
 ```c
 ak_status ak_call_unary   (ak_client*, ak_bytes_in path, ak_bytes_in req,
                            ak_call_opts*, ak_bytes *out, ak_call **handle, ak_err*);
@@ -720,7 +743,11 @@ forbidden. Under callback delivery, "returned" means the completion has fired.
    `ProcessRequest` and encodes three request types, so two decoders read one
    buffer and a disagreement is silent. CI asserts that the fields Rust reads are
    a subset of what the facade encodes, for those five messages.
-5. **A concurrency suite that runs at least two payload shapes** of at least one
+5. **A concurrency suite that runs at least two payload shapes**, and it is the
+   obligation with the most evidence behind it and the least existence: the Rust
+   slice found a shared-mutable-client defect (section 9) *by accident*, because
+   stage 4 happened to ask for 8 calls in flight, and nothing in any slice looks
+   for that class on purpose. Of at least one
    message type, with threads run in sequence as well as together, and every
    encode asserted against a reference rather than counted. A suite with one
    shape reports zero wrong bytes with a per-thread-state defect present and
@@ -891,12 +918,20 @@ Each blocks something. None is settled by a measurement that exists today.
    nothing today. It is the largest unpriced behaviour change the branch has
    found, and it was found by a shape-coverage vector rather than by a benchmark.**
 
-12. **The diagnostic contract.** `ak_init` now owns the log and tracing bridges
-   (section 3), which settles *who*. What is still open is *what*: five distinct
-   transport failures currently render as one string, so `ak_err` needs a
-   machine-readable failure class and the flattened source chain, and a host
-   needs a restart-only transport-diagnostics dial. Today `GRPC_TRACE` is what an
-   SRE reaches for at 03:00 and there is no counterpart.
+12. **The diagnostic contract**, and it is worse than "five failures render as
+   one string". `ak_init` now owns the log and tracing bridges (section 3), which
+   settles *who*. What is still open is *what*: five distinct transport failures
+   currently render as one string, so `ak_err` needs a machine-readable failure
+   class and the flattened source chain, and a host needs a restart-only
+   transport-diagnostics dial. Today `GRPC_TRACE` is what an SRE reaches for at
+   03:00 and there is no counterpart.
+
+   **One level below that, the ABI has nowhere to put a cause at all.** The Rust
+   slice's RPC path reported a real failure as `AK_ERR_HOST` with the cause
+   discarded, because the call mapped its error away; that code was correct
+   against this specification, which asks for a code and a message and provides no
+   channel for a source chain. An error channel that discards the error is not an
+   error channel, and the fix belongs to this decision rather than to a slice.
 
 **Settled since the first draft**, kept here so a reader of an earlier version
 does not look for them: the accessor error channel is now section 5 rather than a
