@@ -7,8 +7,9 @@
 # 3. boundary-call counts from a counting build, with the per-site length-prefix misses
 #    that ABI v1 open decision 5 turns on, and the regression that catches an open-state
 #    leak;
-# 4. R5's second half: the entry points are unresolved imports in the built artifact, shown
-#    from the artifact rather than claimed in the log;
+# 4. R5's two proofs from the artifact rather than claimed in the log: the FFI entry points
+#    are unresolved imports, AND the no-boundary control is not fused into the benchmark
+#    loop (an arm named 'no boundary' is a control only if it is not one);
 # 5. timings, all arms, one process, guard on (R3, R4), three runs, ending with the
 #    decision 5 isolation;
 # 6. the same with the guard off, a second process, prost carried as the control column.
@@ -36,13 +37,20 @@ echo "===== 3. boundary-call counts, and decision 5 by site ====="
 cargo run --release -q -p harness --features count --bin counts 2>/dev/null
 
 echo
-echo "===== 4. the boundary is real (README R5, second half) ====="
+echo "===== 4. the boundary is real (README R5) ====="
 cargo build --release -q -p harness 2>/dev/null
 BIN=target/release/conformance
 echo "# ABI entry points the host imports from the core, resolved by the dynamic linker."
 nm -D --undefined-only "$BIN" | grep ' ak_' || echo "NONE -- the boundary is gone"
 echo
 readelf -d "$BIN" | grep NEEDED | grep ak_core || echo "libak_core.so NOT a dependency"
+
+echo
+echo "===== 4b. the NO-BOUNDARY CONTROL is a control (README R5) ====="
+echo "# An arm named 'no boundary' is one only if it is NOT fused into the benchmark loop,"
+echo "# and that depends on LTO, on #[inline] on the entry point, and on whether the entry"
+echo "# point is generic -- none of which appear in a configuration line."
+./gen/inline_check.sh
 
 echo
 echo "===== 5. timings, guard ON, three runs ====="

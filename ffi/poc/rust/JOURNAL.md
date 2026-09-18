@@ -1242,3 +1242,24 @@ The difference matters because it names a failure mode: **if the generator ever 
 true again with LTO still off**, and the published ratios would quietly start including an
 inlining advantage. `gen/inline_check.sh` would catch it — the closure would grow past the
 traversal — which is the reason that check is a script rather than a paragraph in a log.
+
+
+### R5 grew a second half, so the check moved out of its own driver
+
+The aggregating session generalised the narrowing correction into R5: a slice must now prove
+from the artifact that its **no-boundary control is not fused into the benchmark loop**, both
+directions, **as a build step** — the mirror of the existing proof that the FFI boundary is
+real.
+
+`gen/inline_check.sh` already did exactly that, but it ran only from `gen/inlining.sh`, which
+is the one-off audit driver. A check that runs only when you go looking for the problem is not
+a build step. It is now a step of `gen/stage2.sh` and `gen/stage3.sh`, next to the
+`nm -D --undefined-only` proof, so both halves of R5 are exercised by the standard suite and a
+future session cannot regress the control without the log saying so.
+
+Worth naming the symmetry, because it is the same mistake twice in opposite directions: D3 was
+an arm that claimed a boundary and did not have one (rlib, everything inlined, counters still
+incrementing because the counting code inlined too). This is the shape where an arm claims
+**no** boundary and might not have that either. Both were invisible to R7's configuration
+discipline, because neither LTO nor `#[inline]` nor genericity appears in a configuration line,
+and both are only visible from the built artifact.
