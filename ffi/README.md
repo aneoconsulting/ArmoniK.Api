@@ -79,6 +79,13 @@ Written down so that the report cannot quietly inherit an assumption.
   0.83 to 0.92 through the C ABI on every uniform payload; **decode is at parity
   with prost on M2 and the reason is allocation, not crossings**; and the by-value
   group inverts the verdict on the absent path.
+- **UTF-8 validation, not the interface, is the largest single effect measured
+  so far.** On non-ASCII content the scalar validator turns the core's encode win
+  against prost into a 2.0 to 2.6 loss, because its cost tracks non-ASCII bytes
+  rather than bytes; a SIMD validator with the identical contract recovers half to
+  two thirds. ABI v1 open decision 3 is therefore about *which validator*, not
+  about whether to trust the host. An encode figure measured on ASCII alone is not
+  a figure about the string path.
 - **The decode half of the argument is bounded by allocation, and that is new.**
   On the string-dense payload the control plane actually moves, the no-boundary
   control is at parity with the incumbent too, so the codec is not what decode
@@ -492,7 +499,13 @@ between them establish exactly what it has to contain:
 4. **The transcode pair.** Encode transcodes in the core, decode transcodes in
    the host, so the two have to agree on malformed input and on the
    unpaired-surrogate substitution across every facade. Java and .NET do not
-   currently agree on it.
+   currently agree on it. **The Rust slice cannot reach this one at all**: a Rust
+   `String` cannot hold an unpaired surrogate, so no content set constructed in
+   Rust produces the disagreeing input. The corpus therefore has to carry those
+   vectors as **raw bytes produced by something other than a Rust host**, and the
+   pair has to be run by the slices whose string type can hold the input, which is
+   C# and Java. This is a constraint on who validates what, not only on what the
+   corpus contains.
 5. **Distinct tags across a nesting level, and enough elements to force more
    than one chunk.** The Rust slice found an element run that read the open
    field's tag from the context at entry, so a host that chunked wrote its later

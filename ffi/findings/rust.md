@@ -5,9 +5,9 @@ as the slice's own `STATE.md`. What is here is what the slice's results mean for
 the branch: what is now established, what the other four slices have to do
 differently because of it, and what is still an argument.
 
-**Covers stages 1 to 3 part 1**: the payload manifest validated against prost,
-and four arms over M1 (P1.1 to P1.3) and M2 (P2.1 to P2.5). M3 to M7, the content
-sets and the RPC arm are not built.
+**Covers stages 1 to 3 part 2**: the payload manifest validated against prost,
+four arms over M1 (P1.1 to P1.3) and M2 (P2.1 to P2.5), and the three content
+sets on P1.2 and P2.2. M3 to M7 and the RPC arm are not built.
 
 ## Configuration, once, for everything below
 
@@ -71,6 +71,51 @@ hosts cannot inline across the boundary and are safe from this one.
 The inverse matters too and is now in R7: **1.8 ns is a shared-library crossing.**
 A C++ host that statically links gets a direct call and pays less. A C++ column
 and this one are not measuring the same mechanism unless both say which.
+
+## The string path: validation is the largest effect in the branch
+
+The ASCII pass priced UTF-8 validation at 25 to 30 percent of an encode. **That
+was not the cost.** `core::str::from_utf8` consumes a `usize` at a time on ASCII
+and one byte at a time otherwise, so its cost tracks *non-ASCII bytes*, not bytes.
+On the two non-ASCII content sets the scalar validator costs 2.2 to 3.0 times its
+own ASCII cost, and turns a 0.72 to 0.81 win against prost into a **2.0 to 2.6
+loss**. It is the largest single effect measured anywhere in this branch, and an
+ASCII-only pass cannot see any of it. This is why SHAPES.md's rule that a
+string-path number without a content set is half a number is a rule and not a
+formality.
+
+**The slice answered it with an arm rather than an argument**, which is the right
+instinct and worth recording as such. `ak_tc_utf8_simd` has the identical
+contract, verified here in the source: the same refusal of malformed input, the
+same grow and capacity handling, `simdutf8::basic` in place of the scalar DFA. It
+recovers half to two thirds of the penalty (1.27 to 1.50 of prost) and is not
+faster on ASCII, because the scalar ASCII path is already eight bytes an
+iteration. The accept and reject sets being identical is what makes it admissible
+here: a validator that differed on any input would make the core's bytes depend on
+which one a build chose.
+
+**What it does to the ruling on trusting the host: nothing, and that is the
+point.** The reason for refusing a trusted transcoder is unchanged, since it is a
+correctness contract a host can be wrong about. What the measurement changes is
+the price of refusing it, from 2.6 to about 1.4. Most of what trusting was buying
+turns out to be available without giving up the contract.
+
+**What it does not settle**, and the slice says so itself: one x86-64 machine with
+AVX2; runtime CPU dispatch with a fallback, which makes it a floor question in C++
+as much as in Rust; and a dependency inside the core rather than in a binding,
+which is an unpriced packaging cost.
+
+**Decode is unaffected**, and that is worth stating rather than passing over.
+Every arm validates on decode, so all three sets cost every arm 1.2 to 1.7 times
+its ASCII self and no ordering moves. That is exactly what ABI v1's asymmetry
+predicts, the core transcoding on encode and the host on decode, and it also holds
+the allocation-bound decode result up under a second content set.
+
+**One thing this slice cannot reach at all.** A Rust `String` cannot hold an
+unpaired surrogate, so the transcode pair of README section 10 item 4 is
+*unreachable* here rather than unbuilt. The corpus has to carry those vectors as
+raw bytes produced by a non-Rust host, and C# and Java are the slices that have to
+run that pair. Correctly logged as unreachable rather than quietly omitted.
 
 ## Decode is allocation-bound, and it bounds the argument for every language
 
@@ -223,8 +268,11 @@ and the invariant does not hold? **C++ answers it for `std::string`, Python for
   the bet `packages/rust` actually made; two statements of emitted code closed it
   to 0.94 to 1.03. A verdict on the in-repo crate needs its own measurement,
   quoted standalone and never as a ratio against these columns.
-- **ASCII only.** SHAPES.md's own rule is that a string-path number without a
-  content set is half a number. The Latin-1 and above-U+00FF sets are not run.
+- **The content sets are run on P1.2 and P2.2 only**, and on one x86-64 machine
+  with AVX2. The SIMD validator's behaviour where those features are absent is
+  not measured, and it is a floor question rather than a target one.
+- **The transcode pair is unreachable from this slice** (above), so nothing here
+  bears on the Java/.NET substitution disagreement.
 - **One machine, one configuration, no concurrency, container, shared hardware.**
 - **MSRV declared, not verified.**
 - **One open defect in the slice, carried deliberately**: `ak_fail` casts its

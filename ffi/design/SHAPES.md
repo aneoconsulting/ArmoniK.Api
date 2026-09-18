@@ -164,6 +164,21 @@ path, where they are named in the table rather than assumed:
 A slice that reports one string-path number without saying which content set it
 came from has reported half a number.
 
+**What these sets price is not the same thing in every host, and a column must
+not be read across.** On .NET and the JVM the host holds UTF-16, so they make a
+*narrowing transcoder* do real work or fail. A Rust `String` is already UTF-8, so
+there is no narrowing and no transcoding at all: what changes there is the byte
+width of the same character count and which path the *validator* takes. The Rust
+slice's content-set rows therefore price **validation and width**, and a managed
+slice's price a transcoder. Both belong in the report; neither is the other's
+comparator. (Measured wire sizes, Rust slice: Latin-1 is 1.70 to 1.75 times ASCII,
+above U+00FF is 2.39 to 2.50 times.)
+
+**No manifest oracle covers them**, because `schema/` emits the ASCII set only. A
+slice checks a content set by byte identity of all its arms against the
+*incumbent* arm, which the manifest validated on ASCII, plus a decode round trip
+per set.
+
 The published wire sizes also differ between the C# and Java slices for what was
 nominally the same payload (P7 is 958 B in one and 1,016 B in the other), because
 the two generators were not driven by the same description. **Under R1 that is a
