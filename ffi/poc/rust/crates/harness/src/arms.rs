@@ -188,3 +188,87 @@ pub mod armonik_arm {
         ListResultsResponse::decode(b).unwrap()
     }
 }
+
+/// Two no-boundary variants of `core-native`, added to audit a claim rather than to make a
+/// new one.
+///
+/// **The claim being audited.** The P1.3 inversion (`core-ffi-rust` above `core-native` on
+/// the absent path) was attributed to the by-value group, with a per-element interface cost
+/// obtained by subtracting `core-native` from `core-ffi-rust`. That subtraction bundles two
+/// things: "crossed a boundary and materialised a 200-byte group" and "was not inlined".
+/// `core-native` is compiled into the harness and the FFI arm cannot be, so the second term
+/// was being charged to the first.
+///
+/// **It is not a hypothetical.** In the built `bench` binary there are ZERO call sites to
+/// `facade::generated::core_native::encode_into_list_results_response` and zero to
+/// `decode_list_results_response`: both bodies are fused into the benchmark closure. The
+/// exported symbols exist only because the functions are `pub`. `gen/inline_check.sh` shows
+/// this from the artifact rather than asserting it.
+///
+/// So two variants, at the granularity the FFI call sits at -- the per-message entry point,
+/// not the inner per-element traversal:
+///
+/// | arm | what it stops | what it still allows |
+/// |---|---|---|
+/// | `core-native-noinline` | inlining into the loop | rustc still reasons about the body: same crate, argument attributes, no aliasing surprises. A **lower bound** on the penalty |
+/// | `core-native-opaque` | inlining, devirtualisation and constant propagation across the call | nothing. The pointer has been through `black_box`. The closer model of a dynamic call into a cdylib, **minus the group** |
+///
+/// Neither changes the codec: both call the same generated traversal, so any byte
+/// difference from `core-native` would be a defect in this module and nothing else.
+pub mod core_native_noinline {
+    use ak_rt::Enc;
+    use facade::generated::core_native;
+    use facade::ListResultsResponse;
+
+    #[inline(never)]
+    pub fn encode_into(o: &ListResultsResponse, e: &mut Enc) {
+        core_native::encode_into_list_results_response(o, e)
+    }
+
+    #[inline(never)]
+    pub fn decode_res(b: &[u8]) -> Result<ListResultsResponse, i32> {
+        core_native::decode_list_results_response(b)
+    }
+
+    pub fn encode(o: &ListResultsResponse) -> Vec<u8> {
+        let mut e = Enc::new(core_native::SITES);
+        encode_into(o, &mut e);
+        e.buf.clone()
+    }
+
+    pub fn decode(b: &[u8]) -> ListResultsResponse {
+        decode_res(b).expect("core-native-noinline decode")
+    }
+}
+
+pub mod core_native_opaque {
+    use ak_rt::Enc;
+    use facade::generated::core_native;
+    use facade::ListResultsResponse;
+
+    pub type EncFn = fn(&ListResultsResponse, &mut Enc);
+    pub type DecFn = fn(&[u8]) -> Result<ListResultsResponse, i32>;
+
+    /// The entry point as a value the optimiser cannot see through. `black_box` is an empty
+    /// inline-asm block that consumes and returns the pointer, so LLVM must treat the result
+    /// as unknown: it cannot inline through it, cannot devirtualise it back to the known
+    /// callee, and cannot propagate anything about the arguments across it. Taken ONCE,
+    /// outside every timed region.
+    pub fn enc_fn() -> EncFn {
+        std::hint::black_box(core_native::encode_into_list_results_response as EncFn)
+    }
+
+    pub fn dec_fn() -> DecFn {
+        std::hint::black_box(core_native::decode_list_results_response as DecFn)
+    }
+
+    pub fn encode(o: &ListResultsResponse) -> Vec<u8> {
+        let mut e = Enc::new(core_native::SITES);
+        (enc_fn())(o, &mut e);
+        e.buf.clone()
+    }
+
+    pub fn decode(b: &[u8]) -> ListResultsResponse {
+        (dec_fn())(b).expect("core-native-opaque decode")
+    }
+}
