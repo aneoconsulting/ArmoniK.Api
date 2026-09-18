@@ -51,6 +51,17 @@ pub struct ak_str {
     pub tc: Option<ak_transcode_fn>,
 }
 
+/// ABI v1 section 8: a small range of `ak_str.data` values is reserved as sentinels meaning
+/// *this field is a direct argument of the call* rather than a pointer into staging.
+///
+/// It is one sentence in the specification and the one unambiguous win on the JVM: the host
+/// can hold `GetPrimitiveArrayCritical` or FFM's `critical(true)` across the whole call,
+/// which it can only do if the codec makes no reverse call -- hence the generator-time
+/// refusal that goes with it. **On a Rust host it buys nothing**: there is no pinning to
+/// avoid and the copy is a copy either way, so this slice can show the path works and cannot
+/// confirm the win.
+pub const AK_STR_DIRECT: *const core::ffi::c_void = 1usize as *const core::ffi::c_void;
+
 impl Default for ak_str {
     fn default() -> Self {
         ak_str { data: core::ptr::null(), len: 0, tc: None }

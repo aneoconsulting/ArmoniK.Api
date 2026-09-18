@@ -718,3 +718,139 @@ and no codec can avoid, so the denser the element's container graph, the smaller
 decode any codec owns. That is the statement I would carry rather than "allocation-bound",
 which is true but attributes it to the wrong thing: P3.1 and P1.2 allocate plenty of
 `String`s and still show the win.
+
+### 2026-09-18 — stage 3, parts 4 to 7: M4 to M7, and every shape covered
+
+With this, **every message and every payload of `design/SHAPES.md` has all four arms
+byte-identical to the validated manifest**, P7.1 included by the only method available to it.
+Log: `ffi/logs/rust/stage3-M4-M7.log`.
+
+#### M4: the adapter, checked by state because the payload cannot reach it
+
+`P4.1`'s `error` is a sentence in all 200 elements, so the payload exercises exactly the one
+case that works. The adapter is therefore checked by **state**, over hand-written facade code
+modelled on `packages/rust`'s `armonik::Output` — whose own doc comment makes the distinction
+that matters: `Invalid` is "no member set", distinct from `Ok`, which carries nothing but *is*
+set, because a peer that reports no outcome is not a peer that reports success.
+
+| state | nested wire | round trip | plain wire | round trip |
+|---|---|---|---|---|
+| `Invalid` | field absent | ok | `""` | ok |
+| `Ok` | `success=true, error=""` | ok | `""` | **loses, comes back `Invalid`** |
+| `Error("boom")` | `success=false, error="boom"` | ok | `"boom"` | ok |
+
+The nested form round-trips every state. **The plain form cannot**: `Ok` and `Invalid` both
+encode to the empty string, so one of them must come back wrong whatever the adapter author
+chooses. This one returns `Invalid` and loses `Ok`; the intuitive alternative returns `Ok`
+and silently claims success for a task that reported no outcome. That is precisely the defect
+`SHAPES.md` says only a byte corpus catches — **and the corpus as it stands does not, because
+no payload reaches either state.**
+
+**A fourth shape-coverage finding, and the worst of the four.** At the nested site
+`emit/payloads.py` fills `TaskOutput.success` and `TaskOutput.error` **independently**:
+`scalar_bool` for one, `sentence` for the other. Counted over 200 elements the only
+combinations that occur are `(true, non-empty)` and `(false, non-empty)`. The success state
+`(true, empty)` never occurs, and `(true, non-empty)` is a state **no adapter over
+`{Ok, Error(d)}` can represent at all**. So a facade that used the adapter at the nested site
+could not round-trip P2.x byte-identically, and this slice's facade therefore keeps
+`TaskOutput` as a plain struct there. The shape `SHAPES.md` calls "the only `with` adapter in
+the Rust crate" is not reachable from the payload set in either of its two sites.
+
+#### M5: the direct-argument path, and the refusal that goes with it
+
+Built, and byte-identical on all four sizes. `ak_str.data` carries `AK_STR_DIRECT` and the
+bytes are an argument of the call rather than a pointer into staging.
+
+**Its value is on the JVM and this slice cannot confirm it.** The path exists so a host can
+hold `GetPrimitiveArrayCritical` or FFM's `critical(true)` across the whole call, which it can
+only do if the codec makes no reverse call. On a Rust host there is no pinning to avoid and
+the copy is a copy either way, so P5.3 and P5.4 are a memcpy figure and are **not** evidence
+for section 8's 0.16-to-0.34 claim.
+
+**The refusal section 8 asks for now exists** (`gen/check_direct.py`, and it runs as step 1b
+of `gen/stage3.sh`). Two configurations are refused at generator time, before a line is
+emitted:
+
+- a direct field on a message tree that also needs a reverse call, because a critical section
+  and an upcall are mutually exclusive, so it is a contract no host can honour;
+- more than one direct field in one tree, because section 8 builds the path for one field of
+  one root message and "it generalises untested" — silently generalising it is how an
+  untested path ships.
+
+It was **not awkward to express**, which is the answer to the question that came with the
+instruction: it is a predicate over the descriptor, computed where every other predicate in
+this generator is computed, and it is eleven lines. The only thing that made it subtle is
+that the first version walked singular message children only and therefore found nothing and
+refused nothing — the same class of mistake as D12, and caught the same way, by running it
+against a case that must fail rather than by reading it.
+
+#### M6: a mixed table, labelled per row
+
+`ticks`, `values`, `codes` and `flags` are **controls**: the schema has no packed scalar at
+all. `statuses` is **real**: all three packed fields in the schema are enums. Quoting P6.1 as
+a control result or as a real one would both be wrong, so the log labels rows.
+
+The packed path is the one shape that crosses **once per field however long it is** — the
+host's own array handed over whole. For `bool` and `enum` the binding materialises a
+contiguous array first, because a `Vec<TaskStatus>` is not the wire representation; a host
+that already stores the wire form hands over a pointer and copies nothing. That is a real
+per-host cost the ABI's "one symbol per host layout" wording implies and does not state.
+
+#### M7: decode only, and the permutation is the whole statement
+
+No canonical writer can produce its bytes. All four arms decode the committed vector to the
+same value, and a contiguous re-encode is a permutation of the same (tag, wire type, body)
+triples — the method stage 1 used, and the only statement that can be made about it.
+
+#### What the timings say, and one number that needed a control before it was safe
+
+Ratios to prost, three runs (`ffi/logs/rust/stage3-M4-M7.log`):
+
+| payload | direction | core-native | core-ffi-rust |
+|---|---|---|---|
+| P4.1 (adapter site) | encode | 0.45 - 0.47 | 0.80 - 0.82 |
+| P4.1 | decode | 0.84 - 0.86 | 0.90 - 0.92 |
+| P5.3 (1 MB bulk) | encode | 0.96 - 0.97 | 1.00 - 1.01 |
+| P5.3 | decode | 0.45 - 0.46 | 0.45 - 0.46 |
+| P5.4 (4 MB bulk) | encode | 1.01 - 1.04 | 0.79 - 0.83 |
+| P5.4 | decode | **0.084** | **0.080** |
+| P6.1 (mixed) | encode | 0.55 - 0.56 | 0.61 - 0.62 |
+| P6.1 | decode | 0.86 - 0.87 | 0.56 - 0.60 |
+
+**Two things in this table were my harness and not the codec, and one of them would have been
+published as a finding.**
+
+First: `core-native` on P5.4 encode measured **1.412** of prost. The arm was allocating a
+fresh `Vec` per call and growing it by doubling from 4 KB to 4 MB — about eleven
+reallocations and 8 MB of copying — while every other arm reused a warm buffer. prost's
+`encode_to_vec` computes the length first and allocates once, so the comparison was a
+growth-policy comparison. Fixed by giving the arm the same reused `Enc` the M1 to M3 cases
+use: **1.412 becomes 1.018**. A false regression, caught only because a 4 MB payload made it
+large enough to disbelieve.
+
+Second, and the reason a control exists in this log: **P5.4 decode at 0.08** is a twelve-fold
+win, which is not a number to report without asking what the floor is. So the bench gained a
+raw copy of the same 4 MB as a case:
+
+| P5.4 decode | ns | / prost |
+|---|---|---|
+| prost | 3,373,942 | 1.000 |
+| `core-native` | 283,560 | 0.084 |
+| `core-ffi-rust` | 269,521 | 0.080 |
+| **raw `Bytes::copy_from_slice`** | **277,197** | **0.082** |
+| **raw `slice.to_vec()`** | **270,498** | **0.080** |
+
+The core arms are **on the memcpy floor, to within the noise**. So the honest statement is not
+"the core is twelve times faster than prost"; it is **"a 4 MB bulk decode costs exactly one
+copy in the core, and costs prost twelve"**. That is a bounded claim about both sides rather
+than an unbounded one about ours, and the control is what makes it safe to quote. The
+mechanism on prost's side is a suspicion and not a measurement: its `bytes = "vec"` merge
+runs over a `Take<&[u8]>` inside the nested message, and the penalty grows with size (about
+2x at 1 MB, about 12x at 4 MB), which is consistent with a chunked copy and not with a single
+`extend_from_slice`. **Not verified, and labelled as such.**
+
+It also bears on ABI v1 section 8's claim, which is that the direct-argument path takes a
+4 MB upload to 0.16 to 0.34 of protobuf-java. The Rust equivalent of that claim is
+*decode*-side here and it is stronger, but it is a statement about where the incumbent sits
+relative to a copy, not about what the ABI bought: `core-native` makes no crossings at all and
+is on the same floor.

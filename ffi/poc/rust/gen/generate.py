@@ -34,10 +34,22 @@ ROOT = os.path.dirname(HERE)
 
 # Stage 2 covers M1 over P1.1 and P1.2. Stage 3 adds the rest of design/SHAPES.md by
 # adding roots here; nothing else in the generator is per-payload.
-ROOTS = ["ListResultsResponse", "ListTasksDetailedResponse", "ListProbeResponse"]
+ROOTS = [
+    "ListResultsResponse",          # M1
+    "ListTasksDetailedResponse",    # M2
+    "ListProbeResponse",            # M3
+    "ListTaskSummaryResponse",      # M4, the adapter site
+    "UploadResultDataMessage",      # M5, bulk bytes
+    "ListMetricsResponse",          # M6, packed scalars (control) and a packed enum (not)
+    "DualResponse",                 # M7, control, decode only
+]
 
 
 def targets(ir):
+    # ABI v1 section 8's refusal, at generator time, before a line is emitted.
+    for root in ir.roots:
+        IR.check_direct(ir, root)
+
     # The codec is emitted FIRST because it allocates the length-prefix sites, and the
     # header carries their names.
     codec = rust_abi.emit_codec(ir)

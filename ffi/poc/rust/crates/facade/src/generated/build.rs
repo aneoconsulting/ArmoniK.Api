@@ -120,6 +120,19 @@ pub fn build_task_detailed(path: &str, idx: i64, mode: Mode, repeats: i64, bulk:
     }
 }
 
+pub fn build_task_summary(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> TaskSummary {
+    TaskSummary {
+        id: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.id"), idx) },
+        session_id: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.session_id"), idx) },
+        options: if mode == Mode::AllAbsent { None } else { Some(build_task_options(&format!("{path}.options"), idx, mode, repeats, bulk)) },
+        status: if mode == Mode::AllAbsent { Default::default() } else { TaskStatus::from_i32(v::enum_value(&v::TASK_STATUS, idx)) },
+        created_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n } }) },
+        error: if mode == Mode::AllAbsent { String::new() } else { v::sentence(&format!("{path}.error"), idx) },
+        status_message: if mode == Mode::AllAbsent { String::new() } else { v::sentence(&format!("{path}.status_message"), idx) },
+        count_data_dependencies: if mode == Mode::AllAbsent { 0 } else { v::scalar_i64(&format!("{path}.count_data_dependencies"), idx) },
+    }
+}
+
 pub fn build_probe(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> Probe {
     Probe {
         id: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.id"), idx) },
@@ -141,6 +154,32 @@ pub fn build_empty(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) 
     }
 }
 
+pub fn build_upload_result_data(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> UploadResultData {
+    UploadResultData {
+        session_id: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.session_id"), idx) },
+        result_id: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.result_id"), idx) },
+        data_chunk: if mode == Mode::AllAbsent { Default::default() } else { ::bytes::Bytes::from(v::bulk(bulk)) },
+    }
+}
+
+pub fn build_metrics_batch(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> MetricsBatch {
+    MetricsBatch {
+        id: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.id"), idx) },
+        ticks: if mode == Mode::AllAbsent { Vec::new() } else { (0..30i64).map(|j| v::scalar_i64(&format!("{path}.ticks"), idx * 97 + j)).collect() },
+        values: if mode == Mode::AllAbsent { Vec::new() } else { (0..30i64).map(|j| v::scalar_f64(&format!("{path}.values"), idx * 97 + j)).collect() },
+        codes: if mode == Mode::AllAbsent { Vec::new() } else { (0..30i64).map(|j| v::scalar_i32(&format!("{path}.codes"), idx * 97 + j)).collect() },
+        flags: if mode == Mode::AllAbsent { Vec::new() } else { (0..30i64).map(|j| v::scalar_bool(&format!("{path}.flags"), idx * 97 + j)).collect() },
+        statuses: if mode == Mode::AllAbsent { Vec::new() } else { (0..30i64).map(|j| TaskStatus::from_i32(v::enum_value(&v::TASK_STATUS, idx * 97 + j))).collect() },
+    }
+}
+
+pub fn build_pair(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> Pair {
+    Pair {
+        key: if mode == Mode::AllAbsent { String::new() } else { v::word(&format!("{path}.key"), idx) },
+        value: if mode == Mode::AllAbsent { 0 } else { v::scalar_i32(&format!("{path}.value"), idx) },
+    }
+}
+
 pub fn build_list_results_response(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> ListResultsResponse {
     ListResultsResponse {
         results: if mode == Mode::AllAbsent { Vec::new() } else { (0..repeats).map(|j| build_result_raw(&format!("{path}.results"), j, mode, repeats, bulk)).collect() },
@@ -157,9 +196,34 @@ pub fn build_list_tasks_detailed_response(path: &str, idx: i64, mode: Mode, repe
     }
 }
 
+pub fn build_list_task_summary_response(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> ListTaskSummaryResponse {
+    ListTaskSummaryResponse {
+        tasks: if mode == Mode::AllAbsent { Vec::new() } else { (0..repeats).map(|j| build_task_summary(&format!("{path}.tasks"), j, mode, repeats, bulk)).collect() },
+    }
+}
+
 pub fn build_list_probe_response(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> ListProbeResponse {
     ListProbeResponse {
         probes: if mode == Mode::AllAbsent { Vec::new() } else { (0..repeats).map(|j| build_probe(&format!("{path}.probes"), j, mode, repeats, bulk)).collect() },
+    }
+}
+
+pub fn build_list_metrics_response(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> ListMetricsResponse {
+    ListMetricsResponse {
+        batches: if mode == Mode::AllAbsent { Vec::new() } else { (0..repeats).map(|j| build_metrics_batch(&format!("{path}.batches"), j, mode, repeats, bulk)).collect() },
+    }
+}
+
+pub fn build_upload_result_data_message(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> UploadResultDataMessage {
+    UploadResultDataMessage {
+        upload: if mode == Mode::AllAbsent { None } else { Some(build_upload_result_data(&format!("{path}.upload"), idx, mode, repeats, bulk)) },
+    }
+}
+
+pub fn build_dual_response(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> DualResponse {
+    DualResponse {
+        left: if mode == Mode::AllAbsent { Vec::new() } else { (0..repeats).map(|j| build_pair(&format!("{path}.left"), j, mode, repeats, bulk)).collect() },
+        right: if mode == Mode::AllAbsent { Vec::new() } else { (0..repeats).map(|j| build_pair(&format!("{path}.right"), j, mode, repeats, bulk)).collect() },
     }
 }
 
@@ -272,5 +336,56 @@ pub fn payload_p3_1() -> ListProbeResponse {
     }
 }
 
+/// P4.1: ListTaskSummaryResponse, full
+pub fn payload_p4_1() -> ListTaskSummaryResponse {
+    const REPEATS: [i64; 1] = [3];
+    ListTaskSummaryResponse {
+        tasks: (0..200i64)
+            .map(|j| build_task_summary("TaskSummary", j, Mode::Full, REPEATS[(j as usize) % REPEATS.len()], 0))
+            .collect(),
+    }
+}
+
+/// P5.1: UploadResultDataMessage, full
+pub fn payload_p5_1() -> UploadResultDataMessage {
+    UploadResultDataMessage {
+        upload: Some(build_upload_result_data("UploadResultData", 0, Mode::Full, 3, 36)),
+    }
+}
+
+/// P5.2: UploadResultDataMessage, full
+pub fn payload_p5_2() -> UploadResultDataMessage {
+    UploadResultDataMessage {
+        upload: Some(build_upload_result_data("UploadResultData", 0, Mode::Full, 3, 65536)),
+    }
+}
+
+/// P5.3: UploadResultDataMessage, full
+pub fn payload_p5_3() -> UploadResultDataMessage {
+    UploadResultDataMessage {
+        upload: Some(build_upload_result_data("UploadResultData", 0, Mode::Full, 3, 1048576)),
+    }
+}
+
+/// P5.4: UploadResultDataMessage, full
+pub fn payload_p5_4() -> UploadResultDataMessage {
+    UploadResultDataMessage {
+        upload: Some(build_upload_result_data("UploadResultData", 0, Mode::Full, 3, 4194304)),
+    }
+}
+
+/// P6.1: ListMetricsResponse, full
+pub fn payload_p6_1() -> ListMetricsResponse {
+    const REPEATS: [i64; 1] = [3];
+    ListMetricsResponse {
+        batches: (0..200i64)
+            .map(|j| build_metrics_batch("MetricsBatch", j, Mode::Full, REPEATS[(j as usize) % REPEATS.len()], 0))
+            .collect(),
+    }
+}
+
+/// P7.1 has no builder: no canonical writer can produce it.
+pub const PAYLOAD_P7_1_DECODE_ONLY: bool = true;
+
 /// Every payload this build covers, by the id design/SHAPES.md uses.
-pub const COVERED: [&str; 9] = ["P1.1", "P1.2", "P1.3", "P2.1", "P2.2", "P2.3", "P2.4", "P2.5", "P3.1"];
+pub const COVERED: [&str; 15] = ["P1.1", "P1.2", "P1.3", "P2.1", "P2.2", "P2.3", "P2.4", "P2.5", "P3.1", "P4.1", "P5.1", "P5.2", "P5.3", "P5.4", "P6.1"];

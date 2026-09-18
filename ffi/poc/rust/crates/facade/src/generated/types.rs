@@ -195,6 +195,19 @@ pub struct TaskDetailed {
     pub created_by: String,
 }
 
+/// Protos/V1/tasks_common.proto, reduced to the fields the adapter site needs
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct TaskSummary {
+    pub id: String,
+    pub session_id: String,
+    pub options: Option<TaskOptions>,
+    pub status: TaskStatus,
+    pub created_at: Option<Timestamp>,
+    pub error: String,
+    pub status_message: String,
+    pub count_data_dependencies: i64,
+}
+
 /// The `body` oneof of `Probe`. Exactly one member, and `None` for none:
 /// a member being there is what selects the variant, so presence is
 /// information and the payload-free member is a variant like any other.
@@ -222,6 +235,32 @@ pub struct Probe {
 pub struct Empty {
 }
 
+/// adapted from UploadResultDataRequest: flattened out of its oneof stream so that one message carries the bulk field
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct UploadResultData {
+    pub session_id: String,
+    pub result_id: String,
+    pub data_chunk: ::bytes::Bytes,
+}
+
+/// invented. The four scalar packed fields are a CONTROL: the real schema has 3 packed repeated fields and all of them are enums. `statuses` is the real shape, relocated: every packed field in Protos/V1 sits on a filter or request message (submitter_common.proto `repeated task_status.TaskStatus statuses`, results_common.proto `repeated result_status.ResultStatus fetch_statuses`), and this payload set carries responses only. So M6's scalar rows are a control and its enum row is not.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct MetricsBatch {
+    pub id: String,
+    pub ticks: Vec<i64>,
+    pub values: Vec<f64>,
+    pub codes: Vec<i32>,
+    pub flags: Vec<bool>,
+    pub statuses: Vec<TaskStatus>,
+}
+
+/// invented, the element of M7
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Pair {
+    pub key: String,
+    pub value: i32,
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ListResultsResponse {
     pub results: Vec<ResultRaw>,
@@ -237,6 +276,28 @@ pub struct ListTasksDetailedResponse {
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
+pub struct ListTaskSummaryResponse {
+    pub tasks: Vec<TaskSummary>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct ListProbeResponse {
     pub probes: Vec<Probe>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ListMetricsResponse {
+    pub batches: Vec<MetricsBatch>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct UploadResultDataMessage {
+    pub upload: Option<UploadResultData>,
+}
+
+/// invented. CONTROL: legal wire that no group buffer keyed by type can decode
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct DualResponse {
+    pub left: Vec<Pair>,
+    pub right: Vec<Pair>,
 }
