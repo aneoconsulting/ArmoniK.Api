@@ -1,0 +1,15 @@
+[package]
+name = "rpc"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+bytes.workspace = true
+tonic = { workspace = true, features = ["codegen", "transport", "server", "router"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "macros", "sync", "time"] }
+http.workspace = true
+http-body.workspace = true
+http-body-util.workspace = true
+tower-service.workspace = true

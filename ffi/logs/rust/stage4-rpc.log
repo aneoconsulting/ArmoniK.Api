@@ -1,0 +1,57 @@
+# ffi/logs/rust/stage4-rpc.log
+# W3 stage 4: the RPC arm. One unary RPC carrying P2.2 over loopback against tonic.
+# 2026-09-18
+#
+# CONFIGURATION (R7)
+#   machine        4 vCPU Intel Xeon @ 2.80GHz, 15 GB, Ubuntu 24.04.4, Linux 6.18.44,
+#                  container. No pinning, no governor control.
+#   rust           rustc/cargo 1.94.1, release. MSRV 1.88 declared, NOT verified.
+#   incumbent      tonic 0.14 over hyper 1.x, the transport packages/rust uses
+#   arm            core-ffi-rust: ak_call_unary through the C ABI, opaque bytes
+#   transport      loopback TCP, h2, NO TLS
+#   LINKAGE        cdylib (libak_core.so), dynamic linker
+#   server         in the same process, 2 tokio worker threads, answers a fixed body
+#   concurrency    BOTH arms drive N host threads, each blocking in one unary call.
+#                  Giving tonic N futures on a runtime instead would compare two
+#                  concurrency mechanisms rather than two RPC paths, and a sync tonic
+#                  user does what the tonic arm does here.
+#
+# WHAT design/SHAPES.md ASKS FOR, AND WHICH OF IT THIS ANSWERS
+#   1. CPU and allocation per RPC at 1, 8 and 16 in flight -- answered, with the
+#      hazards below, which are large.
+#   2. the crossing count per RPC, and whether it is two rather than a function of
+#      field count -- answered, and it is the one number here other slices cannot get
+#      from their own.
+#   3. whether the language's idiomatic wait can be satisfied without pinning a carrier
+#      thread -- NOT ANSWERED AND NOT SUBSTITUTED FOR. Rust has no carrier thread to
+#      pin: there are no virtual threads, and a blocking call from a host thread blocks
+#      that thread and nothing else. **Rust cannot test what that requirement exists
+#      for.** It is a JVM question and the Java slice is where it is answered. README
+#      R8's rule applies: a slice that cannot run an arm says so rather than putting a
+#      different comparison in the row.
+
+## CPU per RPC, and allocation
+
+arm              flight    CPU us/RPC   wall us/RPC  CPU/tonic    bytes/RPC
+tonic                 1        1550.0       32984.5      1.000       540422
+tonic                 8        1450.0         855.2      1.000       540422
+tonic                16        1770.8         943.2      1.000       540422
+core-ffi-rust         1        1600.0       31739.6      1.032       540422
+core-ffi-rust         8        1550.0         899.4      1.069       540422
+core-ffi-rust        16        1614.6         714.6      0.912       540422
+
+# HAZARDS (R9), and they are large here.
+
+
+===== second run, a different process =====
+## CPU per RPC, and allocation
+
+arm              flight    CPU us/RPC   wall us/RPC  CPU/tonic    bytes/RPC
+tonic                 1        1600.0       31939.3      1.000       540422
+tonic                 8        1500.0         813.0      1.000       540422
+tonic                16        1614.6         782.6      1.000       540422
+core-ffi-rust         1        1600.0       32279.8      1.000       540422
+core-ffi-rust         8        1450.0         819.0      0.967       540422
+core-ffi-rust        16        1770.8         850.4      1.097       540422
+
+# HAZARDS (R9), and they are large here.

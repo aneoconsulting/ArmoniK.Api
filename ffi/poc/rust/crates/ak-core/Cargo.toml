@@ -23,3 +23,10 @@ count = ["ak-rt/count"]
 ak-abi = { path = "../ak-abi" }
 ak-rt = { path = "../ak-rt" }
 simdutf8.workspace = true
+# ABI v1 section 9: the RPC half. It moves opaque bytes and dispatches on a path string, so
+# it is the same crate as the codec but knows nothing the codec knows.
+rpc = { path = "../rpc" }
+tonic = { workspace = true, features = ["codegen", "transport"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "time"] }
+bytes.workspace = true
+http.workspace = true

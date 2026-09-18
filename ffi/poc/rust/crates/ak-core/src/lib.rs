@@ -11,6 +11,8 @@ use ak_abi::*;
 use ak_rt::Enc;
 use core::ffi::c_void;
 
+pub mod rpc;
+
 pub mod generated {
     pub mod codec;
 }

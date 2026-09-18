@@ -147,6 +147,44 @@ unsafe extern "C" {
     pub fn ak_noop_reverse(f: unsafe extern "C" fn(u64) -> u64, x: u64) -> u64;
 }
 
+// ---- section 9: the RPC half. It moves opaque bytes and dispatches on a path string.
+
+pub enum ak_runtime {}
+pub enum ak_client {}
+
+/// A byte range the core owns until the host releases it.
+#[repr(C)]
+pub struct ak_bytes {
+    pub ptr: *const u8,
+    pub len: usize,
+    /// The core's handle on the allocation. The host passes it back and does not read it.
+    pub owner: *mut c_void,
+}
+
+impl Default for ak_bytes {
+    fn default() -> Self {
+        ak_bytes { ptr: core::ptr::null(), len: 0, owner: core::ptr::null_mut() }
+    }
+}
+
+unsafe extern "C" {
+    pub fn ak_runtime_new(worker_threads: u32) -> *mut ak_runtime;
+    pub fn ak_runtime_destroy(r: *mut ak_runtime);
+    pub fn ak_client_new(r: *mut ak_runtime, uri: *const u8, uri_len: usize) -> *mut ak_client;
+    pub fn ak_client_destroy(c: *mut ak_client);
+    /// One crossing in.
+    pub fn ak_call_unary(
+        c: *mut ak_client,
+        path: *const u8,
+        path_len: usize,
+        req: *const u8,
+        req_len: usize,
+        out: *mut ak_bytes,
+    ) -> i32;
+    /// The second crossing, and the only other one.
+    pub fn ak_bytes_free(b: *mut ak_bytes);
+}
+
 /// Boundary-call counts, from the counting build (README R5). Counted in the CORE, so a
 /// call that the optimiser removed is not counted, and a count that is right is evidence
 /// the arm is running.

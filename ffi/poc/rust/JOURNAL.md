@@ -904,3 +904,94 @@ aggregating session should not decide from a distance that ratios have not moved
 **New**: M4 gains timing rows it did not have, now that the shape is real: encode 0.411 to
 0.415 (`core-native`) and 0.789 to 0.816 (`core-ffi-rust`); decode 0.861 to 0.864 and 0.916
 to 0.920.
+
+### 2026-09-18 — stage 4: the RPC arm
+
+Deliberately small, as `design/SHAPES.md` says it should be. One unary RPC carrying P2.2 over
+loopback against tonic 0.14, the crossing count per RPC, and CPU at 1, 8 and 16 in flight.
+Log: `ffi/logs/rust/stage4-rpc.log`.
+
+#### The number other slices cannot get from their own
+
+**Two crossings per RPC, and zero per field.** `ak_call_unary` in, `ak_bytes_free` out, and
+nothing else. The reason is structural rather than measured and it is worth stating that way:
+**nothing in `crates/rpc` or in `ak-core`'s `rpc` module mentions a message type.** The RPC
+half dispatches on a path string and moves opaque bytes, so there is no place for a per-field
+cost to enter. If the count were a function of field count, something in those two files would
+have to know about fields, and nothing in them does.
+
+That is the claim the "adopt the RPC layer, generate the codec" fallback rests on, and it is
+now a property of code rather than a sentence in a specification. The codec's crossings are
+separate and already counted: 10.02 per element on encode and 7.00 on decode for this message.
+
+#### CPU per RPC
+
+| arm | in flight | CPU µs/RPC | wall µs/RPC | CPU / tonic |
+|---|---|---|---|---|
+| tonic | 1 | 1550 | 32,985 | 1.000 |
+| tonic | 8 | 1450 | 855 | 1.000 |
+| tonic | 16 | 1771 | 943 | 1.000 |
+| `core-ffi-rust` | 1 | 1600 | 31,740 | 1.032 |
+| `core-ffi-rust` | 8 | 1550 | 900 | 1.069 |
+| `core-ffi-rust` | 16 | 1615 | 715 | 0.912 |
+
+A second run, a different process, gives 1.000, 0.967 and 1.097 for the same three rows. So
+across two processes the arm sits at **0.91 to 1.10 of tonic**, and with a 10 ms CPU clock and
+four shared vCPUs that is **no measurable difference**, not a win and not a loss.
+
+That is what two crossings of 1.8 ns against a 1.5 ms call should look like: the boundary is
+about four parts in a million of the call and is invisible. The useful form of the result is
+therefore not the ratio but its arithmetic — **the RPC half cannot cost a host anything
+measurable, because two crossings per call is two crossings per call whatever the runtime**.
+A host whose crossing costs 98 ns through JNI pays 196 ns on a call of this size, which is
+0.013 percent. That is the number this slice can hand the other four, and it does not depend
+on Rust being the host.
+
+**CPU and wall differ by a factor of twenty at one in flight, and that is h2 flow control
+rather than the RPC path.** A 540 KB response exceeds the default 64 KB stream window, so a
+single call in flight spends most of its time idle waiting for `WINDOW_UPDATE`; with eight in
+flight the stalls overlap and wall-clock collapses to 855 µs. `SHAPES.md` asks for **CPU** per
+RPC and the first version of this harness reported wall-clock, which would have said the RPC
+path costs 33 ms per call — a statement about a default h2 window and about nothing this
+branch is deciding. CPU is process `utime + stime` from `/proc/self/stat`, 10 ms resolution,
+divided by the calls in a round; it is a per-round measurement and a per-call division, not a
+per-call measurement.
+
+#### A defect the concurrency arm found, which is what it is for
+
+`ak_call_unary` took `*mut ak_client` and did `&mut *c`, so `cl.grpc.ready()` and
+`cl.grpc.unary()` mutated state shared by every host thread. At one in flight it worked. At
+eight it failed outright — the arm did not produce a wrong number, it produced no number.
+
+The fix is the shape ABI v1 section 9 already implies: the client holds the **`Channel`**, not
+a `Grpc`, a call clones it (cheap, and clones share the connection) and builds its own `Grpc`,
+and `ak_call_unary` takes a shared reference. Section 9 says "Ownership between handles is
+internal. A call holds an `Arc` on its client's storage" — a client handle is meant to be
+usable from many threads at once, and my first implementation was not. Recorded as D16.
+
+**Two smaller process notes from the same episode**, both mine:
+
+- The first attempt to apply that fix **silently matched nothing**: a `str.replace` with no
+  assertion, on text I had already changed. It compiled, so I believed it, and it took a
+  panic to find out. Every scripted edit in this slice now asserts its pattern matched.
+- The failure surfaced as `AK_ERR_HOST` with the cause thrown away, because the call did
+  `.map_err(|_| ())`. An error channel that discards the error is not an error channel; the
+  trace behind `AK_RPC_TRACE` exists now, and ABI v1 open decision 9 (the diagnostic
+  contract, "five distinct transport failures currently render as one string") is exactly
+  this problem one level up.
+
+#### What stage 4 does not measure, and does not substitute for
+
+Beyond the carrier-thread row above: the callback and completion-queue delivery modes, TLS,
+retry and backoff, metadata, deadlines, the gRPC status code as a number, cancellation
+(section 9 gives the blocking call a handle so it can be cancelled and `ak_call_unary` takes
+none), streaming, a real network, failure injection and the server side. **The RPC half's case
+is behavioural** — one retry set, one backoff, one TLS configuration, one cancellation
+contract — and none of that is exercised here. This measures the call path only, and the call
+path is the half of section 9 whose case was never in doubt.
+
+The concurrency rows are a **lower bound and an upper bound on nothing**: four vCPUs carry the
+server's two worker threads, the client's runtime and N host threads, so at 8 and 16 the
+machine is oversubscribed before the measurement starts. What survives that is the two arms'
+relative behaviour under identical oversubscription, which is why the ratio column exists and
+the absolute column is there to be reproducible rather than to be quoted.
