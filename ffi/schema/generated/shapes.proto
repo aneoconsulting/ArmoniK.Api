@@ -154,13 +154,14 @@ message UploadResultData {
   bytes data_chunk = 3;
 }
 
-// invented. CONTROL: the real schema has 3 packed repeated fields and all of them are enums
+// invented. The four scalar packed fields are a CONTROL: the real schema has 3 packed repeated fields and all of them are enums. `statuses` is the real shape, relocated: every packed field in Protos/V1 sits on a filter or request message (submitter_common.proto `repeated task_status.TaskStatus statuses`, results_common.proto `repeated result_status.ResultStatus fetch_statuses`), and this payload set carries responses only. So M6's scalar rows are a control and its enum row is not.
 message MetricsBatch {
   string id = 1;
   repeated int64 ticks = 2;
   repeated double values = 3;
   repeated int32 codes = 4;
   repeated bool flags = 5;
+  repeated TaskStatus statuses = 6;
 }
 
 // invented, the element of M7

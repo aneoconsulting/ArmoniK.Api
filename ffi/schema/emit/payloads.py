@@ -90,6 +90,14 @@ def enc_field(schema, f, path, idx, mode, repeats, bulk):
 
     if c == "packed":
         n = f.get("count", 30)
+        if kind == "enum":
+            # The one packed shape the real schema has. Cycled by the same rule the
+            # singular enums use, so a packed run reaches the large value too, and a
+            # packed field is written even when every member is the proto zero:
+            # the omit-when-zero rule is about a leaf, not about a run.
+            vals = [V.enum_value(schema["enums"][f["of"]]["values"], idx * 97 + j)
+                    for j in range(n)]
+            return W.packed_varint(f["tag"], vals)
         vals = [V.scalar(kind, path, idx * 97 + j) for j in range(n)]
         if kind == "double":
             return W.packed_f64(f["tag"], vals)

@@ -44,7 +44,7 @@ headline figures.
 | M3 | `Probe` | one oneof of 5 variants including a payload-free member, plus 3 `optional` scalars (explicit presence) | invented, but both shapes are real: 19 oneofs in the schema |
 | M4 | `TaskSummary` | the `Output` adapter: one facade type with two wire forms, a nested message at one site and a plain string at another | real, and the only `with` adapter in the Rust crate |
 | M5 | `UploadResultData` | two ids and one payload-sized `bytes` field | real |
-| M6 | `MetricsBatch` | one string id and four packed repeated scalar fields (`int64`, `double`, `int32`, `bool`) | **control**: the schema has 3 packed fields and they are all enums |
+| M6 | `MetricsBatch` | one string id, four packed repeated scalar fields (`int64`, `double`, `int32`, `bool`) and one packed repeated enum | **split**. The four scalar fields are a **control**: the schema has no packed scalar. `statuses` is **real**, and it is the only place the schema's actual packed shape is reachable, relocated from the filter and request messages that carry it because this payload set has none |
 | M7 | `DualResponse` | two repeated fields of the same message type, built so the wire order interleaves them | **control**: legal wire that no group buffer keyed by type can decode |
 
 ## Field shapes every slice must exercise
@@ -60,13 +60,13 @@ does not cover one records it in `STATE.md` and it goes in the report.
 | `bytes`, multi-megabyte | M5 | the result upload and download path, named as common and performance sensitive |
 | explicit presence (`optional` scalar) | M3 | a by-value group reports absent and empty identically unless designed not to. Unmeasured on .NET today |
 | singular nested message | M1, M2 | |
-| nested message, depth up to 6 | M2 | the schema's maximum static depth |
+| nested message, 4 levels (3 edges) | M2 | `ListTasksDetailedResponse -> TaskDetailed -> TaskOptions -> Duration`. **Not the schema's maximum**: this row claimed depth 6 and the description reaches 4. The real 6-level chains are all on filter and request messages (`ListTasksRequest -> Filters -> ...`), and this payload set carries responses only, so deepening it would be inventing depth rather than reproducing it. Levels 5 and 6, and the filter/request family with them, are **not measured**, which also leaves ABI v1 open decision 7 (the decode recursion limit) unexercised |
 | repeated string | M2 | the shape the C++ slice could not see, having 2 of 11 repeated fields |
 | repeated message, leaf element | M2 | the batched-run case |
 | repeated message, non-leaf element | M2, M7 | the case batching must refuse, transitively |
 | `map<string, string>` | M2 | and the ABI must not give it a case of its own |
 | packed repeated scalar | M6 (control) | the host's own array, handed over whole |
-| packed repeated enum | M2 | what the real schema actually has |
+| packed repeated enum | M6 | what the real schema actually has: all 3 of its packed fields are enums. **This row claimed M2 and was wrong** until the Rust slice checked it: `TaskDetailed` has no packed field at all, and the description had no packed enum anywhere. `MetricsBatch.statuses` now carries it, so M6's scalar rows stay a control and its enum row is a result |
 | oneof, including a payload-free member | M3 | the group does not reach it. Unmeasured on .NET today |
 | open enum with an unknown value | M1, M2 | an unknown wire value must round-trip losslessly |
 | an adapter site (`with`) | M4 | one facade type, two wire forms. Only a byte corpus catches a wrong one |

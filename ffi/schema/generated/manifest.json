@@ -120,8 +120,8 @@
       "root": "ListMetricsResponse",
       "elements": 200,
       "strings": 200,
-      "bytes": 116954,
-      "sha256": "80d39ecb57ae48536e62ffeb5340e60daf1d01679585fe479cb60eb07989eb15"
+      "bytes": 123354,
+      "sha256": "115d4410844a087c257361aa479921aa7079a68213bcb17a8c335bcc5e929c9b"
     },
     "P7.1": {
       "root": "DualResponse",
