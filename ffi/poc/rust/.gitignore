@@ -1,4 +1,13 @@
 # Cargo build output, and the generator's bytecode cache. `ffi/.gitignore` re-includes
-# `logs/**` and `poc/*/gen/**`, so this file has nothing else to say.
+# `logs/**` and `poc/*/gen/**`.
 target/
 __pycache__/
+
+# The repository-wide .gitignore excludes any directory named `[Bb]in/` (line 30, meant for
+# .NET build output). That silently excluded EVERY measurement binary in this slice --
+# conformance, counts, bench, content, shapes, rpcbench, decpolicy -- from stage 2 onward.
+# The logs were committed and the code that produced them was not, which is the same defect
+# as D11 with the sides swapped. Same class as `ffi/.gitignore`'s `logs/` and `gen/`
+# re-inclusions, found the same way: by looking at what `git status` did NOT list.
+!crates/*/src/bin/
+!crates/*/src/bin/**

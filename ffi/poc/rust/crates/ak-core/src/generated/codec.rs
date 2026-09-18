@@ -2480,6 +2480,12 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
 ) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
+    // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
+    // about ONE operation. A new decode starts here, so nothing can be lost by
+    // clearing it and a context that carried a failure would otherwise poison every
+    // later decode. Doing it here rather than in the host costs no extra crossing
+    // and takes the obligation off the binding author.
+    (*dcx).hdr.err = AK_OK;
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -2552,6 +2558,12 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
 ) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
+    // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
+    // about ONE operation. A new decode starts here, so nothing can be lost by
+    // clearing it and a context that carried a failure would otherwise poison every
+    // later decode. Doing it here rather than in the host costs no extra crossing
+    // and takes the obligation off the binding author.
+    (*dcx).hdr.err = AK_OK;
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -2604,6 +2616,12 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
 ) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
+    // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
+    // about ONE operation. A new decode starts here, so nothing can be lost by
+    // clearing it and a context that carried a failure would otherwise poison every
+    // later decode. Doing it here rather than in the host costs no extra crossing
+    // and takes the obligation off the binding author.
+    (*dcx).hdr.err = AK_OK;
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -2668,6 +2686,12 @@ pub unsafe extern "C" fn ak_decode_ListTaskSummaryResponse(
 ) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
+    // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
+    // about ONE operation. A new decode starts here, so nothing can be lost by
+    // clearing it and a context that carried a failure would otherwise poison every
+    // later decode. Doing it here rather than in the host costs no extra crossing
+    // and takes the obligation off the binding author.
+    (*dcx).hdr.err = AK_OK;
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -2712,6 +2736,12 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
 ) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
+    // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
+    // about ONE operation. A new decode starts here, so nothing can be lost by
+    // clearing it and a context that carried a failure would otherwise poison every
+    // later decode. Doing it here rather than in the host costs no extra crossing
+    // and takes the obligation off the binding author.
+    (*dcx).hdr.err = AK_OK;
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -2781,6 +2811,12 @@ pub unsafe extern "C" fn ak_decode_ListMetricsResponse(
 ) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
+    // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
+    // about ONE operation. A new decode starts here, so nothing can be lost by
+    // clearing it and a context that carried a failure would otherwise poison every
+    // later decode. Doing it here rather than in the host costs no extra crossing
+    // and takes the obligation off the binding author.
+    (*dcx).hdr.err = AK_OK;
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -2825,6 +2861,12 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
 ) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
+    // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
+    // about ONE operation. A new decode starts here, so nothing can be lost by
+    // clearing it and a context that carried a failure would otherwise poison every
+    // later decode. Doing it here rather than in the host costs no extra crossing
+    // and takes the obligation off the binding author.
+    (*dcx).hdr.err = AK_OK;
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);

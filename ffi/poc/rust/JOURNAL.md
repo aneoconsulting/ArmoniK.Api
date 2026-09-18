@@ -995,3 +995,85 @@ server's two worker threads, the client's runtime and N host threads, so at 8 an
 machine is oversubscribed before the measurement starts. What survives that is the two arms'
 relative behaviour under identical oversubscription, which is why the ratio column exists and
 the absolute column is there to be reproducible rather than to be quoted.
+
+## Decision 3, third framing: the UTF-8 check moves to decode, and is priced there
+
+**Log**: `ffi/logs/rust/stage3-decode-utf8-policy.log`. **Driver**: `gen/decpolicy.sh`.
+**Bin**: `crates/harness/src/bin/decpolicy.rs`.
+
+The coordinator's third framing removes UTF-8 validation from encode entirely and asks what
+validate-and-**reject** costs on decode, both validators, all three content sets, with the
+encode rows falling back to the passthrough already measured.
+
+### What was built
+
+`crates/ak-rt/src/strings.rs`: `decode_str`, one function, three build-time policies
+(`lossy` by default, `dec-reject` = `core::str::from_utf8`, `dec-reject-simd` =
+`simdutf8::basic`). The **generator was swept, not the call site patched**: every string
+materialisation in the generated `core_native.rs` (37 sites) and every `s_of` in the
+generated `binding.rs` (38 sites) routes through it, and `from_utf8_lossy` no longer appears
+in either generated file. `s_of` now takes the decode context so a malformed span reports
+through `ak_fail` — which is the first thing in this slice to reach the decode error channel
+D7 built, previously "reachable only through a panic".
+
+### What it measured
+
+**On the string path alone, in ONE process** (section 4, the table that does not depend on
+three builds agreeing): scalar validate-and-reject is **0.54 to 0.75 of today's lossy path on
+ascii, 0.83 to 0.97 on latin1, 0.94 to 1.10 on wide**. With `simdutf8::basic` it is **0.36 to
+0.71 of lossy on every content set**. `from_utf8_lossy` already validates; it substitutes
+instead of failing, and its chunked recovery path is slower than `from_utf8`.
+
+**On a whole decode** (section 3, three builds, prost as the in-process control): P1.2 ascii
+goes from 0.87-0.91 of prost under lossy to 0.75-0.79 scalar and 0.73-0.75 simd; P1.2 wide
+from 0.78-0.80 to 0.80-0.82 scalar and **0.49-0.51 simd**; P2.2 wide from 0.86-0.96 to
+0.87-0.98 scalar and 0.62-0.73 simd.
+
+### What it refuted
+
+- **That validation has a price wherever it is put.** It does not. The encode-side figure
+  (2.0 to 2.6 of prost on non-ASCII, `stage3-content-sets.log`) came from adding a scan to a
+  memcpy. On decode the scan is already there, so rejecting is free to cheaper and the
+  worst case measured is a tenth of the string path on the widest content.
+- **That a rejecting decode would cost the comparison against prost.** The opposite: prost
+  rejects too, so the two sides now do the same thing and the ratio moves in this slice's
+  favour. The earlier decode column was **pessimistic**, not flattering — it was paying for a
+  slower validator to get a weaker guarantee.
+- **That the SIMD arm was an encode-side curiosity.** On decode it is the largest single
+  effect measured in this slice after the boundary itself.
+
+### Two defects and one hazard found on the way
+
+- **The sticky error slot was never cleared on decode.** `ak_decode_X` returned
+  `(*dcx).hdr.err` and nothing set it back to `AK_OK`, so the first rejected decode poisoned
+  every later one on that context. Invisible while nothing could fail. Fixed in the
+  generator: the entry point clears it, which costs no crossing (counts re-run: M1 9/6, M2
+  10.024/7.004, unchanged to the digit) and takes the obligation off the binding author. A
+  host-side `ak_dec_err_reset` was written first and reverted, because it is one extra
+  forward crossing per decode for nothing. The regression is in the bin: a good decode after
+  a rejected one must succeed.
+- **The first driver built and ran each policy in turn, so lossy was always first.** Its
+  `core-native` P1.2 ascii row read 0.778 of prost in one invocation and 0.88 in the next,
+  from the same source, with the prost control unmoved. Ordering and code placement, not
+  policy. The driver now builds all three binaries first and runs them **round robin with a
+  rotating order**, and section 4 was added so the policy question has an answer that does
+  not depend on three builds agreeing about anything. The control row still drifts up to 7
+  percent on the two `wide` rows and the log says so rather than smoothing it.
+- **The corpus is harvested by reflection** over the descriptor (`prost-reflect`), not by a
+  hand-written list of string fields, so "every string in the payload" is a fact about the
+  descriptor. The first attempt used the wrong package name (`armonik.api.grpc.v1` instead
+  of `armonik.ffi.shapes.v1`) and panicked, which is the right failure mode for it.
+
+### What was deliberately not done
+
+The opt-in diagnostic encode mode, by instruction. No new encode measurement: `Ctx::new()`
+already builds `Tcs::trusted()`, so every `core-ffi-rust` encode figure in this slice was
+already the passthrough column. `ak_tc_bytes()` and `ak_tc_utf8_trusted()` return the **same
+function pointer** in this tree, so the collapse the design predicts has already happened.
+
+### One thing raised and not taken
+
+The rejecting path returns `AK_ERR_TRANSCODE` (-6), because that is the code the design text
+names for this case. `AK_ERR_MALFORMED` (-2, "invalid wire") is the other defensible reading:
+proto3 makes invalid UTF-8 a **parse** error and the rejecting path has no transcoder on it.
+That is not a slice's choice to make.

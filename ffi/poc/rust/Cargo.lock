@@ -32,6 +32,9 @@ dependencies = [
 [[package]]
 name = "ak-rt"
 version = "0.0.0"
+dependencies = [
+ "simdutf8",
+]
 
 [[package]]
 name = "anyhow"
@@ -302,11 +305,13 @@ dependencies = [
  "facade",
  "http",
  "prost",
+ "prost-reflect",
  "rpc",
  "serde_json",
  "sha2",
  "shapes-prost",
  "shapes-values",
+ "simdutf8",
  "stage1-validate",
  "tokio",
  "tonic",

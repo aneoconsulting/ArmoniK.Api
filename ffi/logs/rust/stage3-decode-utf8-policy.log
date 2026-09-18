@@ -1,0 +1,837 @@
+# ffi/logs/rust/stage3-decode-utf8-policy.log
+# W3: the DECODE side's UTF-8 policy, priced. ABI v1 open decision 3, THIRD framing.
+# 2026-09-18
+#
+# CONFIGURATION (R7)
+#   machine        4 vCPU Intel Xeon @ 2.80GHz, 15 GB, Ubuntu 24.04.4, Linux 6.18.44 x86_64,
+#                  container, NOT an isolated host. No CPU pinning, no governor control.
+#   rust           rustc/cargo 1.94.1, profile release (opt-level 3, lto off)
+#   MSRV declared  1.88. NOT VERIFIED: no 1.88 toolchain exists in this container.
+#   incumbent      prost 0.14.4
+#   LINKAGE        cdylib (libak_core.so), dynamic linker. Not a static link.
+#   guard          on
+#   validators     core::str::from_utf8 (scalar, std) and simdutf8 0.1 (basic). simdutf8
+#                  dispatches on runtime CPU features (AVX2 here); on a machine without
+#                  them it falls back, so this row is machine-dependent in a way the
+#                  scalar row is not.
+#   class          M1 (P1.2) and M2 (P2.2) are both REAL messages (design/SHAPES.md).
+#                  No control payloads here.
+#   content sets   ascii / latin1 (U+00A0-U+00FF, 2 bytes each) / wide (above U+00FF,
+#                  3 bytes each). IN RUST these price VALIDATION AND WIDTH, not a
+#                  transcoder: a Rust String is UTF-8 already, so there is no narrowing
+#                  and no conversion. A managed slice must not read these rows across.
+#
+# WHAT CHANGED, AND WHY THIS LOG EXISTS
+#   The earlier decision-3 work priced UTF-8 validation on ENCODE. The third framing
+#   removes it from there entirely: a `string` field on the wire is a length prefix and a
+#   byte copy, the receiving parser cannot trust the bytes whatever the sender did, and
+#   proto3 puts the obligation on parsers. So the question moved sides, and this log
+#   answers the moved question: what does validate-and-REJECT cost on decode, against the
+#   lossy decode this slice shipped before.
+#
+#   Confirmed in this tree, not inferred: `ak_tc_bytes()` and `ak_tc_utf8_trusted()`
+#   return the SAME function pointer (`tc_utf8_trusted`, crates/ak-core/src/lib.rs:342-348).
+#   The collapse the design predicts has already happened in the implementation.
+#
+#   The encode rows elsewhere in this slice already quote the passthrough:
+#   `Ctx::new()` builds `Tcs::trusted()` (crates/harness/src/arms.rs:125), so every
+#   `core-ffi-rust` encode figure in stage2-four-arms-M1.log, stage3-*.log and
+#   stage3-content-sets.log is ALREADY the passthrough column. The `core-ffi (valid utf8)`
+#   and `core-ffi (valid, simd)` rows in stage3-content-sets.log are the retired
+#   measurement of the previous framing and must not be quoted as a default.
+#
+# WHAT WAS BUILT FOR THIS LOG
+#   crates/ak-rt/src/strings.rs: `decode_str`, one place, three BUILD-TIME policies.
+#     default              lossy   String::from_utf8_lossy, U+FFFD, cannot fail
+#     --features dec-reject         reject  core::str::from_utf8      -> AK_ERR_TRANSCODE
+#     --features dec-reject-simd    reject  simdutf8::basic           -> AK_ERR_TRANSCODE
+#   The generator was swept, not patched at a site: every string materialisation in
+#   crates/facade/src/generated/core_native.rs (37 sites) and every `s_of` in
+#   crates/harness/src/generated/binding.rs (38 sites) goes through it. `from_utf8_lossy`
+#   no longer appears in either generated file.
+#
+#   The error code is AK_ERR_TRANSCODE (-6), because that is the code the design text
+#   names for this case. AK_ERR_MALFORMED (-2, "invalid wire") is the other defensible
+#   reading -- proto3 makes invalid UTF-8 a PARSE error and the rejecting path has no
+#   transcoder on it. That choice is not a slice's to settle; it is raised, not taken.
+#
+# MEASUREMENT HAZARDS THIS TABLE IS EXPOSED TO (R9)
+#   1. THE POLICY IS A BUILD-TIME CHOICE, SO THE THREE COLUMNS ARE THREE PROCESSES.
+#      R4 does not hold across them. The in-process control is the `prost` row: prost
+#      validates UTF-8 on decode under every one of these builds and the feature flag
+#      cannot reach it. `/ prost` is therefore the only column that travels between the
+#      three policy sections, and it is also the direct answer to "what does a rejecting
+#      decode do to the ratio against the incumbent".
+#   2. A runtime-dispatched policy was deliberately NOT built: a branch per string would
+#      be a cost of its own inside the measurement it exists to make, and it would put
+#      that cost into the shipped decode path as well.
+#   3. Container, shared vCPU, no pinning. Run-to-run spread is reported per row
+#      (`spread %` = (max-min)/median over 11 rounds) and two runs per policy are printed
+#      so a reader can see the spread rather than take a median on trust.
+#   4. Decode here materialises a full owned facade value in every arm, so a string cost
+#      is a validation cost ON TOP OF an allocation and a copy that all three policies
+#      pay equally. A zero-copy decode would show the validation as a larger fraction.
+#
+# THE CASE THAT MUST FAIL (D13)
+#   Section 2 of each run plants a 10-byte ASCII marker in ResultRaw.name, finds it in the
+#   encoded bytes (asserting it occurs exactly once), and overwrites its first byte with
+#   0xFF -- never a legal UTF-8 lead byte. The length prefix is unchanged, so the WIRE is
+#   still well formed and nothing but the UTF-8 policy can notice. prost rejects it in
+#   every build, which is what makes prost usable as the reference for "what a conformant
+#   parser does". The sticky error slot is then proved cleared: a good decode after a
+#   rejected one must succeed, or every timing below would be measuring a poisoned context.
+#
+# A HAZARD FOUND WHILE TAKING THESE NUMBERS, AND WHAT WAS DONE ABOUT IT
+#   The first version of the driver built and ran each policy in turn, so the lossy build
+#   was always the first process. Its `core-native` P1.2 ascii row came out at 0.778 of
+#   prost in one invocation and 0.88 in the next, from the SAME source, with the prost
+#   control unmoved. A rebuilt binary moves by more than the effect on some rows, and with
+#   a fixed order that movement is indistinguishable from a policy effect.
+#   Two things were changed and both are in this log:
+#     - the three binaries are built FIRST and then run ROUND ROBIN with a rotating order
+#       (rounds 1-3 below), so no policy is always first and the prost control can be read
+#       across the three builds to see whether the machine moved;
+#     - section 4 was added, which prices the three policies AGAINST EACH OTHER IN ONE
+#       PROCESS over the string corpus, so the policy question has an answer that does not
+#       depend on three builds agreeing about anything.
+#   Section 4 and section 3 agree in direction and magnitude, which is why the numbers are
+#   reported rather than a third attempt made.
+#
+# WHAT SECTION 4 IS AND IS NOT
+#   It is the string materialisation alone -- validate, then allocate and copy -- over
+#   EVERY `string` field of the decoded payload, harvested by reflection over the
+#   descriptor so that "every" is a fact about the descriptor and not a hand-written list.
+#   It is NOT a decode: it has no wire reading, no container construction and no boundary.
+#   Section 3 is what the policy does to a decode; section 4 is what the policy costs.
+#
+# WHAT THIS LOG SAYS, BEFORE THE NUMBERS
+#   1. VALIDATE-AND-REJECT IS NOT A COST ON DECODE. On the string path alone (section 4,
+#      one process) the scalar rejecting policy is 0.54 to 0.75 of today's lossy path on
+#      ascii, 0.83 to 0.97 on latin1 and 0.94 to 1.10 on wide. The reason is that
+#      `from_utf8_lossy` ALREADY VALIDATES -- it substitutes instead of failing -- and its
+#      chunked recovery path is slower than `from_utf8`. Rejecting buys correctness and
+#      costs, at worst, a tenth of the string path on the widest content.
+#   2. WITH `simdutf8::basic` IT IS CHEAPER THAN TODAY'S DECODE ON EVERY CONTENT SET:
+#      0.53 to 0.71 of lossy on ascii, 0.45 to 0.68 on latin1, 0.36 to 0.60 on wide.
+#   3. THIS EXACTLY INVERTS THE ENCODE RESULT. The same scalar validator, on encode, turned
+#      a 0.72-0.81 win against prost into a 2.0-2.6 loss (stage3-content-sets.log), because
+#      there it was pure ADDED work on top of a memcpy. On decode it replaces work that was
+#      already being done. "Expensive checking where it is redundant, silent substitution
+#      where proto3 says a parser must validate" now has a price on both sides.
+#   4. A REJECTING DECODE DOES NOT COST THE COMPARISON AGAINST PROST -- IT IMPROVES IT.
+#      prost rejects malformed UTF-8 (its message is in section 2 of every run below), so
+#      moving to reject makes the two sides do the same thing, and the ratio moves in our
+#      favour or not at all: on P1.2 ascii from 0.87-0.91 to 0.73-0.79, on P1.2 wide from
+#      0.78-0.80 to 0.49-0.51 with the SIMD validator. The previous decode column was
+#      PESSIMISTIC, not flattering: it was paying for a slower validator to get a weaker
+#      guarantee.
+#   5. THE MAIN DECODE TABLES IN STATE.md WERE TAKEN WITH THE LOSSY POLICY and are not
+#      rewritten here. If the design adopts a rejecting decode, the ASCII decode column
+#      improves by roughly 0.08-0.12 on M1 and 0.03-0.08 on M2, in this slice's favour.
+#
+===== 0. generator is current (R1) =====
+ok    crates/facade/src/generated/types.rs
+ok    crates/facade/src/generated/prost_impl.rs
+ok    crates/facade/src/generated/build.rs
+ok    crates/facade/src/generated/core_native.rs
+ok    crates/ak-abi/src/generated/abi.rs
+ok    crates/ak-core/src/generated/codec.rs
+ok    crates/harness/src/generated/binding.rs
+
+===== build: lossy  <default> =====
+--- conformance: byte identity against the validated manifest ---
+
+VERDICT: every arm is byte-identical to the validated manifest on every payload it covers.
+
+===== build: reject-scalar  --features dec-reject =====
+--- conformance: byte identity against the validated manifest ---
+
+VERDICT: every arm is byte-identical to the validated manifest on every payload it covers.
+
+===== build: reject-simd  --features dec-reject-simd =====
+--- conformance: byte identity against the validated manifest ---
+
+VERDICT: every arm is byte-identical to the validated manifest on every payload it covers.
+
+==============================================================================
+===== round 1, policy lossy =====
+==============================================================================
+# decode UTF-8 policy (ABI v1 open decision 3, third framing)
+#   POLICY IN THIS BUILD: lossy (from_utf8_lossy, U+FFFD)
+#   guard: on
+#   control column: prost, which validates on decode under every policy here.
+
+## 1. correctness on VALID input: value identity, every set, every arm
+payload set          bytes native == v    ffi == v
+P1.2    ascii       218121 ok             ok
+P2.2    ascii       540422 ok             ok
+P1.2    latin1      370110 ok             ok
+P2.2    latin1      944454 ok             ok
+P1.2    wide        522099 ok             ok
+P2.2    wide       1348486 ok             ok
+
+## 2. correctness on MALFORMED input: one string byte replaced with 0xFF
+prost            rejected: failed to decode Protobuf message: ResultRaw.name: ListResultsResponse.results: invalid string value: data is not UTF-8 encoded
+core-native      ACCEPTED (substituted)
+core-ffi-rust    ACCEPTED (substituted)
+expected for this build: both core arms must ACCEPT (lossy) -> ok
+a good decode after a rejected one: ok
+
+## 3. decode, one process, three content sets, rounds interleaved
+
+payload set      arm               median ns       min ns    / prost     spread %
+P1.2    ascii    prost              461442.8     452725.7      1.000          3.5
+P1.2    ascii    core-native        412633.1     405819.6      0.894          2.8
+P1.2    ascii    core-ffi-rust      402316.8     395070.7      0.872          3.7
+
+P1.2    latin1   prost              639512.0     630472.6      1.000          9.4
+P1.2    latin1   core-native        516683.4     509398.4      0.808          4.7
+P1.2    latin1   core-ffi-rust      504120.1     498871.6      0.788          1.3
+
+P1.2    wide     prost              845480.9     836046.7      1.000          8.4
+P1.2    wide     core-native        671825.9     663450.6      0.795          9.1
+P1.2    wide     core-ffi-rust      666202.5     656414.1      0.788         13.4
+
+P2.2    ascii    prost             1585999.0    1573777.6      1.000          2.1
+P2.2    ascii    core-native       1504739.8    1494154.6      0.949          4.1
+P2.2    ascii    core-ffi-rust     1673398.9    1656459.5      1.055          3.4
+
+P2.2    latin1   prost             2064483.0    2046595.5      1.000          4.1
+P2.2    latin1   core-native       1793346.9    1774108.8      0.869          3.1
+P2.2    latin1   core-ffi-rust     1987220.5    1958690.0      0.963          7.6
+
+P2.2    wide     prost             2693458.5    2622147.5      1.000         33.4
+P2.2    wide     core-native       2325594.4    2274157.8      0.863          7.2
+P2.2    wide     core-ffi-rust     2516469.3    2484788.0      0.934         11.3
+
+# `/ prost` is the column to carry between the three policy builds. The absolute
+#   nanoseconds are per-process and must not be compared across them.
+
+## 4. the policy alone, ONE process, over every string in the payload
+#   corpus: every `string` field of the decoded payload, harvested by
+#   REFLECTION over the descriptor, so completeness is a fact and not a claim.
+
+payload set      strings      bytes     B/str    lossy ns   scalar ns     simd ns  sc/loss  si/loss
+P1.2    ascii       5000     151989      30.4    193604.0    103653.0    103297.0    0.535    0.534
+P2.2    ascii      17167     412032      24.0    666317.0    441620.0    431524.0    0.663    0.648
+P1.2    latin1      5000     303978      60.8    283059.0    266847.0    151630.0    0.943    0.536
+P2.2    latin1     17167     816064      47.5    929108.0    890965.0    621629.0    0.959    0.669
+P1.2    wide        5000     455967      91.2    424965.0    469597.0    155112.0    1.105    0.365
+P2.2    wide       17167    1220096      71.1   1311277.0   1368917.0    659816.0    1.044    0.503
+#   ns are for the WHOLE corpus of that row, one pass, median of 11.
+#   `sc/loss` and `si/loss` are the two rejecting policies against today's lossy one.
+
+==============================================================================
+===== round 1, policy reject-scalar =====
+==============================================================================
+# decode UTF-8 policy (ABI v1 open decision 3, third framing)
+#   POLICY IN THIS BUILD: reject (core::str::from_utf8)
+#   guard: on
+#   control column: prost, which validates on decode under every policy here.
+
+## 1. correctness on VALID input: value identity, every set, every arm
+payload set          bytes native == v    ffi == v
+P1.2    ascii       218121 ok             ok
+P2.2    ascii       540422 ok             ok
+P1.2    latin1      370110 ok             ok
+P2.2    latin1      944454 ok             ok
+P1.2    wide        522099 ok             ok
+P2.2    wide       1348486 ok             ok
+
+## 2. correctness on MALFORMED input: one string byte replaced with 0xFF
+prost            rejected: failed to decode Protobuf message: ResultRaw.name: ListResultsResponse.results: invalid string value: data is not UTF-8 encoded
+core-native      rejected, code -6
+core-ffi-rust    rejected, code -6
+expected for this build: both core arms must REJECT -> ok
+a good decode after a rejected one: ok
+
+## 3. decode, one process, three content sets, rounds interleaved
+
+payload set      arm               median ns       min ns    / prost     spread %
+P1.2    ascii    prost              461646.2     457815.3      1.000          9.2
+P1.2    ascii    core-native        351171.1     340132.0      0.761         18.0
+P1.2    ascii    core-ffi-rust      356406.5     344398.2      0.772         10.2
+
+P1.2    latin1   prost              642350.1     631552.8      1.000          4.9
+P1.2    latin1   core-native        493806.0     489823.4      0.769          3.4
+P1.2    latin1   core-ffi-rust      498336.0     491646.5      0.776          4.7
+
+P1.2    wide     prost              777753.8     770603.6      1.000          4.1
+P1.2    wide     core-native        622624.3     614059.9      0.801         11.0
+P1.2    wide     core-ffi-rust      635807.1     626791.3      0.817          5.2
+
+P2.2    ascii    prost             1627520.4    1608108.4      1.000         28.2
+P2.2    ascii    core-native       1408049.8    1388069.2      0.865         15.4
+P2.2    ascii    core-ffi-rust     1654096.3    1632064.6      1.016         10.0
+
+P2.2    latin1   prost             2072154.1    2060611.0      1.000          4.4
+P2.2    latin1   core-native       1786356.5    1756992.8      0.862          4.2
+P2.2    latin1   core-ffi-rust     1989117.8    1974209.7      0.960          2.8
+
+P2.2    wide     prost             2480926.7    2452539.1      1.000          4.4
+P2.2    wide     core-native       2197560.4    2169290.6      0.886         12.6
+P2.2    wide     core-ffi-rust     2423308.0    2400232.5      0.977         15.4
+
+# `/ prost` is the column to carry between the three policy builds. The absolute
+#   nanoseconds are per-process and must not be compared across them.
+
+## 4. the policy alone, ONE process, over every string in the payload
+#   corpus: every `string` field of the decoded payload, harvested by
+#   REFLECTION over the descriptor, so completeness is a fact and not a claim.
+
+payload set      strings      bytes     B/str    lossy ns   scalar ns     simd ns  sc/loss  si/loss
+P1.2    ascii       5000     151989      30.4    185910.0    109068.0    105963.0    0.587    0.570
+P2.2    ascii      17167     412032      24.0    647529.0    456428.0    428257.0    0.705    0.661
+P1.2    latin1      5000     303978      60.8    319912.0    270191.0    154946.0    0.845    0.484
+P2.2    latin1     17167     816064      47.5   1038266.0    881855.0    612293.0    0.849    0.590
+P1.2    wide        5000     455967      91.2    399128.0    373903.0    154246.0    0.937    0.386
+P2.2    wide       17167    1220096      71.1   1201399.0   1155919.0    654592.0    0.962    0.545
+#   ns are for the WHOLE corpus of that row, one pass, median of 11.
+#   `sc/loss` and `si/loss` are the two rejecting policies against today's lossy one.
+
+==============================================================================
+===== round 1, policy reject-simd =====
+==============================================================================
+# decode UTF-8 policy (ABI v1 open decision 3, third framing)
+#   POLICY IN THIS BUILD: reject (simdutf8::basic)
+#   guard: on
+#   control column: prost, which validates on decode under every policy here.
+
+## 1. correctness on VALID input: value identity, every set, every arm
+payload set          bytes native == v    ffi == v
+P1.2    ascii       218121 ok             ok
+P2.2    ascii       540422 ok             ok
+P1.2    latin1      370110 ok             ok
+P2.2    latin1      944454 ok             ok
+P1.2    wide        522099 ok             ok
+P2.2    wide       1348486 ok             ok
+
+## 2. correctness on MALFORMED input: one string byte replaced with 0xFF
+prost            rejected: failed to decode Protobuf message: ResultRaw.name: ListResultsResponse.results: invalid string value: data is not UTF-8 encoded
+core-native      rejected, code -6
+core-ffi-rust    rejected, code -6
+expected for this build: both core arms must REJECT -> ok
+a good decode after a rejected one: ok
+
+## 3. decode, one process, three content sets, rounds interleaved
+
+payload set      arm               median ns       min ns    / prost     spread %
+P1.2    ascii    prost              472957.4     461290.6      1.000         22.7
+P1.2    ascii    core-native        350302.5     343073.2      0.741          5.3
+P1.2    ascii    core-ffi-rust      345433.1     337553.4      0.730         26.3
+
+P1.2    latin1   prost              648715.2     632655.6      1.000         86.4
+P1.2    latin1   core-native        367267.4     362153.2      0.566         47.9
+P1.2    latin1   core-ffi-rust      376480.8     368985.8      0.580         47.6
+
+P1.2    wide     prost              784819.4     774248.8      1.000          3.8
+P1.2    wide     core-native        386987.8     380567.0      0.493          9.8
+P1.2    wide     core-ffi-rust      398200.4     386648.9      0.507         23.0
+
+P2.2    ascii    prost             1637742.9    1600554.5      1.000         76.8
+P2.2    ascii    core-native       1480014.8    1461760.3      0.904         69.1
+P2.2    ascii    core-ffi-rust     1696740.4    1656184.9      1.036         46.1
+
+P2.2    latin1   prost             2097911.6    2052175.3      1.000         15.9
+P2.2    latin1   core-native       1461076.8    1432766.0      0.696         12.6
+P2.2    latin1   core-ffi-rust     1651826.7    1619017.4      0.787          6.5
+
+P2.2    wide     prost             2551311.2    2482489.8      1.000          4.6
+P2.2    wide     core-native       1586167.5    1549895.6      0.622          8.7
+P2.2    wide     core-ffi-rust     1839785.8    1779803.2      0.721          9.1
+
+# `/ prost` is the column to carry between the three policy builds. The absolute
+#   nanoseconds are per-process and must not be compared across them.
+
+## 4. the policy alone, ONE process, over every string in the payload
+#   corpus: every `string` field of the decoded payload, harvested by
+#   REFLECTION over the descriptor, so completeness is a fact and not a claim.
+
+payload set      strings      bytes     B/str    lossy ns   scalar ns     simd ns  sc/loss  si/loss
+P1.2    ascii       5000     151989      30.4    183582.0    110414.0    108388.0    0.601    0.590
+P2.2    ascii      17167     412032      24.0    635626.0    474114.0    452288.0    0.746    0.712
+P1.2    latin1      5000     303978      60.8    321412.0    271106.0    153267.0    0.843    0.477
+P2.2    latin1     17167     816064      47.5    986965.0    893025.0    618524.0    0.905    0.627
+P1.2    wide        5000     455967      91.2    377221.0    373236.0    156042.0    0.989    0.414
+P2.2    wide       17167    1220096      71.1   1205550.0   1186170.0    651436.0    0.984    0.540
+#   ns are for the WHOLE corpus of that row, one pass, median of 11.
+#   `sc/loss` and `si/loss` are the two rejecting policies against today's lossy one.
+
+==============================================================================
+===== round 2, policy reject-scalar =====
+==============================================================================
+# decode UTF-8 policy (ABI v1 open decision 3, third framing)
+#   POLICY IN THIS BUILD: reject (core::str::from_utf8)
+#   guard: on
+#   control column: prost, which validates on decode under every policy here.
+
+## 1. correctness on VALID input: value identity, every set, every arm
+payload set          bytes native == v    ffi == v
+P1.2    ascii       218121 ok             ok
+P2.2    ascii       540422 ok             ok
+P1.2    latin1      370110 ok             ok
+P2.2    latin1      944454 ok             ok
+P1.2    wide        522099 ok             ok
+P2.2    wide       1348486 ok             ok
+
+## 2. correctness on MALFORMED input: one string byte replaced with 0xFF
+prost            rejected: failed to decode Protobuf message: ResultRaw.name: ListResultsResponse.results: invalid string value: data is not UTF-8 encoded
+core-native      rejected, code -6
+core-ffi-rust    rejected, code -6
+expected for this build: both core arms must REJECT -> ok
+a good decode after a rejected one: ok
+
+## 3. decode, one process, three content sets, rounds interleaved
+
+payload set      arm               median ns       min ns    / prost     spread %
+P1.2    ascii    prost              459915.5     453593.1      1.000          8.8
+P1.2    ascii    core-native        346824.3     340183.9      0.754          6.2
+P1.2    ascii    core-ffi-rust      349373.8     342046.7      0.760          3.4
+
+P1.2    latin1   prost              638696.2     629040.4      1.000         28.2
+P1.2    latin1   core-native        493938.3     491073.9      0.773         11.2
+P1.2    latin1   core-ffi-rust      500926.6     492573.4      0.784         21.6
+
+P1.2    wide     prost              782145.2     764264.2      1.000         62.9
+P1.2    wide     core-native        622153.3     608444.1      0.795         23.3
+P1.2    wide     core-ffi-rust      632717.6     627074.7      0.809         10.1
+
+P2.2    ascii    prost             1621063.8    1605962.9      1.000          2.6
+P2.2    ascii    core-native       1404142.8    1393121.9      0.866          1.9
+P2.2    ascii    core-ffi-rust     1649186.4    1643544.8      1.017          2.4
+
+P2.2    latin1   prost             2095801.6    2051305.5      1.000          6.6
+P2.2    latin1   core-native       1780553.7    1755706.9      0.850          4.4
+P2.2    latin1   core-ffi-rust     2005268.2    1977894.9      0.957          9.0
+
+P2.2    wide     prost             2529267.7    2490955.7      1.000          3.0
+P2.2    wide     core-native       2195301.1    2172732.4      0.868         17.1
+P2.2    wide     core-ffi-rust     2434849.4    2414543.6      0.963         14.5
+
+# `/ prost` is the column to carry between the three policy builds. The absolute
+#   nanoseconds are per-process and must not be compared across them.
+
+## 4. the policy alone, ONE process, over every string in the payload
+#   corpus: every `string` field of the decoded payload, harvested by
+#   REFLECTION over the descriptor, so completeness is a fact and not a claim.
+
+payload set      strings      bytes     B/str    lossy ns   scalar ns     simd ns  sc/loss  si/loss
+P1.2    ascii       5000     151989      30.4    188402.0    109347.0    108737.0    0.580    0.577
+P2.2    ascii      17167     412032      24.0    642517.0    467825.0    444728.0    0.728    0.692
+P1.2    latin1      5000     303978      60.8    324718.0    270848.0    151236.0    0.834    0.466
+P2.2    latin1     17167     816064      47.5   1016638.0    889131.0    617248.0    0.875    0.607
+P1.2    wide        5000     455967      91.2    378980.0    388194.0    155685.0    1.024    0.411
+P2.2    wide       17167    1220096      71.1   1199091.0   1158291.0    715539.0    0.966    0.597
+#   ns are for the WHOLE corpus of that row, one pass, median of 11.
+#   `sc/loss` and `si/loss` are the two rejecting policies against today's lossy one.
+
+==============================================================================
+===== round 2, policy reject-simd =====
+==============================================================================
+# decode UTF-8 policy (ABI v1 open decision 3, third framing)
+#   POLICY IN THIS BUILD: reject (simdutf8::basic)
+#   guard: on
+#   control column: prost, which validates on decode under every policy here.
+
+## 1. correctness on VALID input: value identity, every set, every arm
+payload set          bytes native == v    ffi == v
+P1.2    ascii       218121 ok             ok
+P2.2    ascii       540422 ok             ok
+P1.2    latin1      370110 ok             ok
+P2.2    latin1      944454 ok             ok
+P1.2    wide        522099 ok             ok
+P2.2    wide       1348486 ok             ok
+
+## 2. correctness on MALFORMED input: one string byte replaced with 0xFF
+prost            rejected: failed to decode Protobuf message: ResultRaw.name: ListResultsResponse.results: invalid string value: data is not UTF-8 encoded
+core-native      rejected, code -6
+core-ffi-rust    rejected, code -6
+expected for this build: both core arms must REJECT -> ok
+a good decode after a rejected one: ok
+
+## 3. decode, one process, three content sets, rounds interleaved
+
+payload set      arm               median ns       min ns    / prost     spread %
+P1.2    ascii    prost              468691.4     458907.9      1.000         10.8
+P1.2    ascii    core-native        347127.6     341526.0      0.741         36.6
+P1.2    ascii    core-ffi-rust      342880.0     337130.9      0.732         26.9
+
+P1.2    latin1   prost              642692.5     636578.5      1.000         16.0
+P1.2    latin1   core-native        366226.9     361949.4      0.570         10.0
+P1.2    latin1   core-ffi-rust      370832.7     368313.7      0.577          4.1
+
+P1.2    wide     prost              784653.1     772799.9      1.000          4.7
+P1.2    wide     core-native        385498.4     379847.1      0.491          5.1
+P1.2    wide     core-ffi-rust      387046.6     381155.9      0.493          2.4
+
+P2.2    ascii    prost             1621864.6    1596492.1      1.000         52.8
+P2.2    ascii    core-native       1479193.7    1460495.2      0.912         41.5
+P2.2    ascii    core-ffi-rust     1671390.1    1649242.4      1.031          6.1
+
+P2.2    latin1   prost             2078243.2    2051749.1      1.000          4.3
+P2.2    latin1   core-native       1445945.8    1428240.2      0.696          6.9
+P2.2    latin1   core-ffi-rust     1669755.8    1631513.8      0.803         11.9
+
+P2.2    wide     prost             2488197.8    2459475.8      1.000         26.2
+P2.2    wide     core-native       1567362.9    1545651.2      0.630          8.0
+P2.2    wide     core-ffi-rust     1813949.5    1792014.2      0.729          5.3
+
+# `/ prost` is the column to carry between the three policy builds. The absolute
+#   nanoseconds are per-process and must not be compared across them.
+
+## 4. the policy alone, ONE process, over every string in the payload
+#   corpus: every `string` field of the decoded payload, harvested by
+#   REFLECTION over the descriptor, so completeness is a fact and not a claim.
+
+payload set      strings      bytes     B/str    lossy ns   scalar ns     simd ns  sc/loss  si/loss
+P1.2    ascii       5000     151989      30.4    184925.0    109932.0    109675.0    0.594    0.593
+P2.2    ascii      17167     412032      24.0    630959.0    468255.0    434438.0    0.742    0.689
+P1.2    latin1      5000     303978      60.8    343899.0    290946.0    154827.0    0.846    0.450
+P2.2    latin1     17167     816064      47.5   1002321.0    898902.0    615105.0    0.897    0.614
+P1.2    wide        5000     455967      91.2    385448.0    372200.0    156739.0    0.966    0.407
+P2.2    wide       17167    1220096      71.1   1198923.0   1181130.0    652320.0    0.985    0.544
+#   ns are for the WHOLE corpus of that row, one pass, median of 11.
+#   `sc/loss` and `si/loss` are the two rejecting policies against today's lossy one.
+
+==============================================================================
+===== round 2, policy lossy =====
+==============================================================================
+# decode UTF-8 policy (ABI v1 open decision 3, third framing)
+#   POLICY IN THIS BUILD: lossy (from_utf8_lossy, U+FFFD)
+#   guard: on
+#   control column: prost, which validates on decode under every policy here.
+
+## 1. correctness on VALID input: value identity, every set, every arm
+payload set          bytes native == v    ffi == v
+P1.2    ascii       218121 ok             ok
+P2.2    ascii       540422 ok             ok
+P1.2    latin1      370110 ok             ok
+P2.2    latin1      944454 ok             ok
+P1.2    wide        522099 ok             ok
+P2.2    wide       1348486 ok             ok
+
+## 2. correctness on MALFORMED input: one string byte replaced with 0xFF
+prost            rejected: failed to decode Protobuf message: ResultRaw.name: ListResultsResponse.results: invalid string value: data is not UTF-8 encoded
+core-native      ACCEPTED (substituted)
+core-ffi-rust    ACCEPTED (substituted)
+expected for this build: both core arms must ACCEPT (lossy) -> ok
+a good decode after a rejected one: ok
+
+## 3. decode, one process, three content sets, rounds interleaved
+
+payload set      arm               median ns       min ns    / prost     spread %
+P1.2    ascii    prost              454632.2     448672.5      1.000         38.8
+P1.2    ascii    core-native        415592.4     408349.6      0.914          3.4
+P1.2    ascii    core-ffi-rust      399999.2     394889.7      0.880          8.4
+
+P1.2    latin1   prost              635593.3     629046.7      1.000          1.9
+P1.2    latin1   core-native        516811.2     513323.1      0.813          1.2
+P1.2    latin1   core-ffi-rust      502027.7     497811.2      0.790          1.5
+
+P1.2    wide     prost              844153.8     835317.6      1.000          1.9
+P1.2    wide     core-native        672436.1     668475.4      0.797          2.2
+P1.2    wide     core-ffi-rust      660062.0     653452.0      0.782          3.7
+
+P2.2    ascii    prost             1594375.9    1580054.2      1.000         10.8
+P2.2    ascii    core-native       1503149.8    1491703.7      0.943          2.0
+P2.2    ascii    core-ffi-rust     1667044.6    1652679.7      1.046          4.0
+
+P2.2    latin1   prost             2065275.2    2054651.2      1.000          3.8
+P2.2    latin1   core-native       1780681.4    1768320.5      0.862          1.5
+P2.2    latin1   core-ffi-rust     1968159.4    1949663.0      0.953          4.3
+
+P2.2    wide     prost             2654579.7    2621496.3      1.000         12.0
+P2.2    wide     core-native       2293500.0    2277131.5      0.864         10.5
+P2.2    wide     core-ffi-rust     2502006.6    2480386.4      0.943          1.3
+
+# `/ prost` is the column to carry between the three policy builds. The absolute
+#   nanoseconds are per-process and must not be compared across them.
+
+## 4. the policy alone, ONE process, over every string in the payload
+#   corpus: every `string` field of the decoded payload, harvested by
+#   REFLECTION over the descriptor, so completeness is a fact and not a claim.
+
+payload set      strings      bytes     B/str    lossy ns   scalar ns     simd ns  sc/loss  si/loss
+P1.2    ascii       5000     151989      30.4    192964.0    105674.0    103219.0    0.548    0.535
+P2.2    ascii      17167     412032      24.0    661331.0    437035.0    423919.0    0.661    0.641
+P1.2    latin1      5000     303978      60.8    290975.0    270235.0    154771.0    0.929    0.532
+P2.2    latin1     17167     816064      47.5    918207.0    893166.0    624058.0    0.973    0.680
+P1.2    wide        5000     455967      91.2    424116.0    443191.0    153465.0    1.045    0.362
+P2.2    wide       17167    1220096      71.1   1306394.0   1369428.0    658915.0    1.048    0.504
+#   ns are for the WHOLE corpus of that row, one pass, median of 11.
+#   `sc/loss` and `si/loss` are the two rejecting policies against today's lossy one.
+
+==============================================================================
+===== round 3, policy reject-simd =====
+==============================================================================
+# decode UTF-8 policy (ABI v1 open decision 3, third framing)
+#   POLICY IN THIS BUILD: reject (simdutf8::basic)
+#   guard: on
+#   control column: prost, which validates on decode under every policy here.
+
+## 1. correctness on VALID input: value identity, every set, every arm
+payload set          bytes native == v    ffi == v
+P1.2    ascii       218121 ok             ok
+P2.2    ascii       540422 ok             ok
+P1.2    latin1      370110 ok             ok
+P2.2    latin1      944454 ok             ok
+P1.2    wide        522099 ok             ok
+P2.2    wide       1348486 ok             ok
+
+## 2. correctness on MALFORMED input: one string byte replaced with 0xFF
+prost            rejected: failed to decode Protobuf message: ResultRaw.name: ListResultsResponse.results: invalid string value: data is not UTF-8 encoded
+core-native      rejected, code -6
+core-ffi-rust    rejected, code -6
+expected for this build: both core arms must REJECT -> ok
+a good decode after a rejected one: ok
+
+## 3. decode, one process, three content sets, rounds interleaved
+
+payload set      arm               median ns       min ns    / prost     spread %
+P1.2    ascii    prost              461963.3     457897.7      1.000          7.3
+P1.2    ascii    core-native        344390.1     340604.6      0.745          9.1
+P1.2    ascii    core-ffi-rust      341819.3     338434.1      0.740         35.0
+
+P1.2    latin1   prost              641463.6     630188.9      1.000         62.4
+P1.2    latin1   core-native        364106.1     362224.3      0.568         57.2
+P1.2    latin1   core-ffi-rust      373705.2     371142.4      0.583          3.2
+
+P1.2    wide     prost              784025.0     770818.6      1.000          4.7
+P1.2    wide     core-native        379985.2     377327.1      0.485          3.7
+P1.2    wide     core-ffi-rust      386170.7     380678.2      0.493          4.0
+
+P2.2    ascii    prost             1605910.5    1597021.1      1.000         63.4
+P2.2    ascii    core-native       1470886.6    1455439.1      0.916         44.5
+P2.2    ascii    core-ffi-rust     1667583.1    1652123.3      1.038          4.6
+
+P2.2    latin1   prost             2061651.6    2041356.1      1.000          3.8
+P2.2    latin1   core-native       1437604.6    1429621.7      0.697          2.8
+P2.2    latin1   core-ffi-rust     1637602.6    1628568.5      0.794          2.4
+
+P2.2    wide     prost             2478917.4    2450241.6      1.000          3.0
+P2.2    wide     core-native       1559241.2    1548462.1      0.629          7.7
+P2.2    wide     core-ffi-rust     1792560.4    1783081.2      0.723          4.8
+
+# `/ prost` is the column to carry between the three policy builds. The absolute
+#   nanoseconds are per-process and must not be compared across them.
+
+## 4. the policy alone, ONE process, over every string in the payload
+#   corpus: every `string` field of the decoded payload, harvested by
+#   REFLECTION over the descriptor, so completeness is a fact and not a claim.
+
+payload set      strings      bytes     B/str    lossy ns   scalar ns     simd ns  sc/loss  si/loss
+P1.2    ascii       5000     151989      30.4    186722.0    111077.0    109410.0    0.595    0.586
+P2.2    ascii      17167     412032      24.0    634473.0    463193.0    446471.0    0.730    0.704
+P1.2    latin1      5000     303978      60.8    284912.0    272134.0    153316.0    0.955    0.538
+P2.2    latin1     17167     816064      47.5   1012685.0    889439.0    619064.0    0.878    0.611
+P1.2    wide        5000     455967      91.2    380631.0    374664.0    156786.0    0.984    0.412
+P2.2    wide       17167    1220096      71.1   1193538.0   1183276.0    653871.0    0.991    0.548
+#   ns are for the WHOLE corpus of that row, one pass, median of 11.
+#   `sc/loss` and `si/loss` are the two rejecting policies against today's lossy one.
+
+==============================================================================
+===== round 3, policy lossy =====
+==============================================================================
+# decode UTF-8 policy (ABI v1 open decision 3, third framing)
+#   POLICY IN THIS BUILD: lossy (from_utf8_lossy, U+FFFD)
+#   guard: on
+#   control column: prost, which validates on decode under every policy here.
+
+## 1. correctness on VALID input: value identity, every set, every arm
+payload set          bytes native == v    ffi == v
+P1.2    ascii       218121 ok             ok
+P2.2    ascii       540422 ok             ok
+P1.2    latin1      370110 ok             ok
+P2.2    latin1      944454 ok             ok
+P1.2    wide        522099 ok             ok
+P2.2    wide       1348486 ok             ok
+
+## 2. correctness on MALFORMED input: one string byte replaced with 0xFF
+prost            rejected: failed to decode Protobuf message: ResultRaw.name: ListResultsResponse.results: invalid string value: data is not UTF-8 encoded
+core-native      ACCEPTED (substituted)
+core-ffi-rust    ACCEPTED (substituted)
+expected for this build: both core arms must ACCEPT (lossy) -> ok
+a good decode after a rejected one: ok
+
+## 3. decode, one process, three content sets, rounds interleaved
+
+payload set      arm               median ns       min ns    / prost     spread %
+P1.2    ascii    prost              457919.0     451852.2      1.000         10.4
+P1.2    ascii    core-native        412912.0     408161.4      0.902          2.5
+P1.2    ascii    core-ffi-rust      400492.1     394092.8      0.875          4.8
+
+P1.2    latin1   prost              636560.6     628878.5      1.000          4.5
+P1.2    latin1   core-native        519244.1     511099.3      0.816          5.4
+P1.2    latin1   core-ffi-rust      505226.6     502352.3      0.794          5.2
+
+P1.2    wide     prost              840352.2     830099.4      1.000          5.3
+P1.2    wide     core-native        669929.1     666195.1      0.797          1.6
+P1.2    wide     core-ffi-rust      662589.8     656050.9      0.788          7.3
+
+P2.2    ascii    prost             1583816.3    1570507.7      1.000          3.5
+P2.2    ascii    core-native       1511087.7    1496189.7      0.954          3.0
+P2.2    ascii    core-ffi-rust     1693294.5    1672021.5      1.069          5.3
+
+P2.2    latin1   prost             2066863.1    2044179.6      1.000          4.1
+P2.2    latin1   core-native       1794251.5    1767924.4      0.868          4.7
+P2.2    latin1   core-ffi-rust     1985808.4    1957916.2      0.961          4.0
+
+P2.2    wide     prost             2654508.7    2634618.0      1.000          7.0
+P2.2    wide     core-native       2297828.6    2272297.8      0.866          7.4
+P2.2    wide     core-ffi-rust     2536289.6    2480863.0      0.955         12.6
+
+# `/ prost` is the column to carry between the three policy builds. The absolute
+#   nanoseconds are per-process and must not be compared across them.
+
+## 4. the policy alone, ONE process, over every string in the payload
+#   corpus: every `string` field of the decoded payload, harvested by
+#   REFLECTION over the descriptor, so completeness is a fact and not a claim.
+
+payload set      strings      bytes     B/str    lossy ns   scalar ns     simd ns  sc/loss  si/loss
+P1.2    ascii       5000     151989      30.4    188770.0    107938.0    108730.0    0.572    0.576
+P2.2    ascii      17167     412032      24.0    657194.0    434202.0    435933.0    0.661    0.663
+P1.2    latin1      5000     303978      60.8    290065.0    266021.0    150191.0    0.917    0.518
+P2.2    latin1     17167     816064      47.5    932325.0    889930.0    623063.0    0.955    0.668
+P1.2    wide        5000     455967      91.2    413932.0    445614.0    156613.0    1.077    0.378
+P2.2    wide       17167    1220096      71.1   1303013.0   1366797.0    671098.0    1.049    0.515
+#   ns are for the WHOLE corpus of that row, one pass, median of 11.
+#   `sc/loss` and `si/loss` are the two rejecting policies against today's lossy one.
+
+==============================================================================
+===== round 3, policy reject-scalar =====
+==============================================================================
+# decode UTF-8 policy (ABI v1 open decision 3, third framing)
+#   POLICY IN THIS BUILD: reject (core::str::from_utf8)
+#   guard: on
+#   control column: prost, which validates on decode under every policy here.
+
+## 1. correctness on VALID input: value identity, every set, every arm
+payload set          bytes native == v    ffi == v
+P1.2    ascii       218121 ok             ok
+P2.2    ascii       540422 ok             ok
+P1.2    latin1      370110 ok             ok
+P2.2    latin1      944454 ok             ok
+P1.2    wide        522099 ok             ok
+P2.2    wide       1348486 ok             ok
+
+## 2. correctness on MALFORMED input: one string byte replaced with 0xFF
+prost            rejected: failed to decode Protobuf message: ResultRaw.name: ListResultsResponse.results: invalid string value: data is not UTF-8 encoded
+core-native      rejected, code -6
+core-ffi-rust    rejected, code -6
+expected for this build: both core arms must REJECT -> ok
+a good decode after a rejected one: ok
+
+## 3. decode, one process, three content sets, rounds interleaved
+
+payload set      arm               median ns       min ns    / prost     spread %
+P1.2    ascii    prost              462090.7     454614.2      1.000          9.4
+P1.2    ascii    core-native        363721.5     359439.3      0.787          3.7
+P1.2    ascii    core-ffi-rust      350460.0     344536.4      0.758          3.2
+
+P1.2    latin1   prost              637245.1     628439.8      1.000          9.0
+P1.2    latin1   core-native        512796.2     505691.9      0.805          5.6
+P1.2    latin1   core-ffi-rust      500353.8     494039.5      0.785         16.9
+
+P1.2    wide     prost              784730.2     766776.6      1.000          4.8
+P1.2    wide     core-native        641799.6     629962.3      0.818          5.6
+P1.2    wide     core-ffi-rust      637824.5     626751.0      0.813         10.8
+
+P2.2    ascii    prost             1680286.0    1658666.9      1.000          9.7
+P2.2    ascii    core-native       1464750.8    1450095.8      0.872          8.8
+P2.2    ascii    core-ffi-rust     1713931.9    1682115.9      1.020          4.4
+
+P2.2    latin1   prost             2172807.0    2127903.4      1.000          6.6
+P2.2    latin1   core-native       1838984.5    1815903.4      0.846          9.4
+P2.2    latin1   core-ffi-rust     2049255.7    2029542.4      0.943          2.8
+
+P2.2    wide     prost             2610163.8    2503448.8      1.000         42.9
+P2.2    wide     core-native       2261338.2    2206431.0      0.866         52.0
+P2.2    wide     core-ffi-rust     2525607.6    2446219.4      0.968         44.9
+
+# `/ prost` is the column to carry between the three policy builds. The absolute
+#   nanoseconds are per-process and must not be compared across them.
+
+## 4. the policy alone, ONE process, over every string in the payload
+#   corpus: every `string` field of the decoded payload, harvested by
+#   REFLECTION over the descriptor, so completeness is a fact and not a claim.
+
+payload set      strings      bytes     B/str    lossy ns   scalar ns     simd ns  sc/loss  si/loss
+P1.2    ascii       5000     151989      30.4    184575.0    109573.0    107770.0    0.594    0.584
+P2.2    ascii      17167     412032      24.0    645509.0    478627.0    452846.0    0.741    0.702
+P1.2    latin1      5000     303978      60.8    343467.0    284500.0    153413.0    0.828    0.447
+P2.2    latin1     17167     816064      47.5   1027834.0    890297.0    620265.0    0.866    0.603
+P1.2    wide        5000     455967      91.2    401656.0    392074.0    156544.0    0.976    0.390
+P2.2    wide       17167    1220096      71.1   1196766.0   1158859.0    658032.0    0.968    0.550
+#   ns are for the WHOLE corpus of that row, one pass, median of 11.
+#   `sc/loss` and `si/loss` are the two rejecting policies against today's lossy one.
+
+# =============================================================================
+# SUMMARY, DERIVED FROM THE NINE RUNS ABOVE AND FROM NOTHING ELSE
+# =============================================================================
+#
+# SECTION 3, whole decode, ratio to prost. min-max over the 3 runs of each build.
+#
+# payload set     arm             lossy (today)    reject scalar      reject simd
+# P1.2    ascii   core-native       0.894-0.914      0.754-0.787      0.741-0.745
+# P1.2    ascii   core-ffi-rust     0.872-0.880      0.758-0.772      0.730-0.740
+# P1.2    ascii   prost  (control)   455-461 us       460-462 us       462-473 us
+# P1.2    latin1  core-native       0.808-0.816      0.769-0.805      0.566-0.570
+# P1.2    latin1  core-ffi-rust     0.788-0.794      0.776-0.785      0.577-0.583
+# P1.2    latin1  prost  (control)   636-640 us       637-642 us       641-649 us
+# P1.2    wide    core-native       0.795-0.797      0.795-0.818      0.485-0.493
+# P1.2    wide    core-ffi-rust     0.782-0.788      0.809-0.817      0.493-0.507
+# P1.2    wide    prost  (control)   840-845 us       778-785 us       784-785 us
+# P2.2    ascii   core-native       0.943-0.954      0.865-0.872      0.904-0.916
+# P2.2    ascii   core-ffi-rust     1.046-1.069      1.016-1.020      1.031-1.038
+# P2.2    ascii   prost  (control) 1584-1594 us     1621-1680 us     1606-1638 us
+# P2.2    latin1  core-native       0.862-0.869      0.846-0.862      0.696-0.697
+# P2.2    latin1  core-ffi-rust     0.953-0.963      0.943-0.960      0.787-0.803
+# P2.2    latin1  prost  (control) 2064-2067 us     2072-2173 us     2062-2098 us
+# P2.2    wide    core-native       0.863-0.866      0.866-0.886      0.622-0.630
+# P2.2    wide    core-ffi-rust     0.934-0.955      0.963-0.977      0.721-0.729
+# P2.2    wide    prost  (control) 2655-2693 us     2481-2610 us     2479-2551 us
+#
+#   THE CONTROL ROW IS NOT PERFECTLY FLAT. prost moves by up to 7 percent between the
+#   three builds on the two `wide` rows (P1.2 840-845 against 778-785; P2.2 2655-2693
+#   against 2479-2610) although the flag cannot reach it. That is the between-build drift
+#   the round robin exposes rather than hides, and it is why the `wide` rows are quoted as
+#   ranges and why section 4 exists. Effects smaller than about 5 points of ratio on those
+#   two rows are not distinguishable from it.
+#
+# SECTION 4, the policy alone, ONE process, min-max over all nine runs.
+#
+# payload set     strings    bytes  B/str   scalar/lossy    simd/lossy
+# P1.2    ascii      5000   151989   30.4    0.535-0.601   0.534-0.593
+# P1.2    latin1     5000   303978   60.8    0.828-0.955   0.447-0.538
+# P1.2    wide       5000   455967   91.2    0.937-1.105   0.362-0.414
+# P2.2    ascii     17167   412032   24.0    0.661-0.746   0.641-0.712
+# P2.2    latin1    17167   816064   47.5    0.849-0.973   0.590-0.680
+# P2.2    wide      17167  1220096   71.1    0.962-1.049   0.503-0.597
+#
+#   The string path is a large share of a decode here: on P1.2 ascii the corpus costs
+#   about 190 us against a whole core-native decode of about 410 us in the same build, so
+#   section 3's movements are the size section 4 predicts. The two tables were taken by
+#   different means and agree in direction and in magnitude.
+#
+# CORRECTNESS, EVERY RUN
+#   - byte identity against the validated manifest under all three policy builds
+#     (conformance, above), so no policy changes an encode or a valid decode;
+#   - value identity of both core arms against the facade value, on all three content
+#     sets, in every run;
+#   - the malformed case: prost rejects it in every build; the core arms substitute under
+#     the lossy build and return -6 (AK_ERR_TRANSCODE) through `ak_fail` under both
+#     rejecting builds; and a good decode after a rejected one succeeds, which is the
+#     sticky slot being cleared and not a poisoned context.
+#
+# WHAT THIS LOG DOES NOT MEASURE
+#   - The ENCODE side is untouched here. The encode rows elsewhere already quote the
+#     passthrough; no new encode measurement was taken and none was needed.
+#   - The opt-in diagnostic encode mode was NOT built, by instruction.
+#   - Only P1.2 and P2.2. The other payloads' decode figures in the other logs remain
+#     lossy-policy figures.
+#   - One machine, AVX2 present. The `simdutf8` rows in particular are one machine; on a
+#     host without AVX2 `simdutf8::basic` falls back and this table's second conclusion
+#     does not automatically hold.
+#   - Nothing here prices what a REJECT does to a caller. A conformant parser rejects the
+#     whole message, so a single bad string loses a batch of a thousand results. That is a
+#     behavioural cost this slice cannot put a number on.

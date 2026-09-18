@@ -261,15 +261,25 @@ class NativeDec:
         o.append("            %d if wire == 2 => {" % f.tag)
         o.append("                let (off, n) = d.len_body();")
         if f.explicit:
-            body = ("String::from_utf8_lossy(&buf[off..off + n]).into_owned()"
-                    if f.kind == "string"
-                    else "::bytes::Bytes::copy_from_slice(&buf[off..off + n])")
-            o.append("                out.%s = Some(%s);" % (f.name, body))
+            if f.kind == "string":
+                o.append("                match ak_rt::strings::decode_str(&buf[off..off + n]) {")
+                o.append("                    Ok(s) => out.%s = Some(s)," % f.name)
+                o.append("                    Err(e) => { d.err = e; return; }")
+                o.append("                }")
+            else:
+                o.append("                out.%s = Some(::bytes::Bytes::copy_from_slice(&buf[off..off + n]));"
+                         % f.name)
             o.append("            }")
             return
         if f.kind == "string":
-            o.append("                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.")
-            o.append("                out.%s = String::from_utf8_lossy(&buf[off..off + n]).into_owned();" % f.name)
+            o.append("                // ABI v1 open decision 3: the decoder carries the UTF-8")
+            o.append("                // guarantee, because the encoder's check bought nothing and")
+            o.append("                // the parser cannot trust the wire. The policy is one")
+            o.append("                // build-time choice in ak_rt::strings, not a per-site one.")
+            o.append("                match ak_rt::strings::decode_str(&buf[off..off + n]) {")
+            o.append("                    Ok(s) => out.%s = s," % f.name)
+            o.append("                    Err(e) => { d.err = e; return; }")
+            o.append("                }")
         else:
             o.append("                out.%s = ::bytes::Bytes::copy_from_slice(&buf[off..off + n]);" % f.name)
         o.append("            }")
@@ -294,8 +304,10 @@ class NativeDec:
         o.append("            %d if wire == 2 => {" % f.tag)
         o.append("                let (off, n) = d.len_body();")
         if f.kind == "string":
-            o.append("                out.%s.push(String::from_utf8_lossy(&buf[off..off + n]).into_owned());"
-                     % f.name)
+            o.append("                match ak_rt::strings::decode_str(&buf[off..off + n]) {")
+            o.append("                    Ok(s) => out.%s.push(s)," % f.name)
+            o.append("                    Err(e) => { d.err = e; return; }")
+            o.append("                }")
         else:
             o.append("                out.%s.push(::bytes::Bytes::copy_from_slice(&buf[off..off + n]));"
                      % f.name)
@@ -324,12 +336,16 @@ class NativeDec:
         for g in members:
             v = camel(g.name)
             if g.kind in ("string", "bytes"):
-                body = ("String::from_utf8_lossy(&buf[off..off + n]).into_owned()"
-                        if g.kind == "string"
-                        else "::bytes::Bytes::copy_from_slice(&buf[off..off + n])")
                 o.append("            %d if wire == 2 => {" % g.tag)
                 o.append("                let (off, n) = d.len_body();")
-                o.append("                out.%s = Some(%s::%s(%s));" % (oname, ty, v, body))
+                if g.kind == "string":
+                    o.append("                match ak_rt::strings::decode_str(&buf[off..off + n]) {")
+                    o.append("                    Ok(s) => out.%s = Some(%s::%s(s))," % (oname, ty, v))
+                    o.append("                    Err(e) => { d.err = e; return; }")
+                    o.append("                }")
+                else:
+                    o.append("                out.%s = Some(%s::%s(::bytes::Bytes::copy_from_slice(&buf[off..off + n])));"
+                             % (oname, ty, v))
                 o.append("            }")
             elif g.kind == "message":
                 o.append("            %d if wire == 2 => {" % g.tag)
@@ -358,9 +374,11 @@ class NativeDec:
         o.append("                    let (et, ew) = ((kk >> 3) as u32, (kk & 7) as u32);")
         o.append("                    match et {")
         o.append("                        1 if ew == 2 => { let (a, b) = sub.len_body();")
-        o.append("                            k = String::from_utf8_lossy(&eb[a..a + b]).into_owned(); }")
+        o.append("                            match ak_rt::strings::decode_str(&eb[a..a + b]) {")
+        o.append("                                Ok(s) => k = s, Err(e) => { d.err = e; return; } } }")
         o.append("                        2 if ew == 2 => { let (a, b) = sub.len_body();")
-        o.append("                            val = String::from_utf8_lossy(&eb[a..a + b]).into_owned(); }")
+        o.append("                            match ak_rt::strings::decode_str(&eb[a..a + b]) {")
+        o.append("                                Ok(s) => val = s, Err(e) => { d.err = e; return; } } }")
         o.append("                        _ => sub.skip(ew),")
         o.append("                    }")
         o.append("                }")

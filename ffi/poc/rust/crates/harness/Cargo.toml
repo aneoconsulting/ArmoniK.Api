@@ -12,6 +12,10 @@ default = ["guard"]
 guard = []
 # README R5: the counting build.
 count = ["ak-rt/count", "ak-core/count"]
+# ABI v1 open decision 3 (third framing): the decode side's UTF-8 policy.
+# Default = lossy. These two make decode validate and REJECT.
+dec-reject = ["ak-rt/dec-reject"]
+dec-reject-simd = ["ak-rt/dec-reject-simd"]
 
 [dependencies]
 # Build-ordering and feature plumbing only. `ak-core` is a cdylib: it is linked by
@@ -32,6 +36,12 @@ tonic = { workspace = true, features = ["codegen", "transport"] }
 tonic-prost.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "net", "macros", "time"] }
 http.workspace = true
+# Section 4 only: a provably COMPLETE string corpus, harvested by reflection rather than
+# by hand, so "every string field" is a fact about the descriptor and not a claim.
+prost-reflect = "0.16"
+# Section 4 only: the three policies priced side by side IN ONE PROCESS, which the
+# build-time cfg cannot do.
+simdutf8.workspace = true
 
 [build-dependencies]
 
@@ -58,3 +68,7 @@ path = "src/bin/bench.rs"
 [[bin]]
 name = "counts"
 path = "src/bin/counts.rs"
+
+[[bin]]
+name = "decpolicy"
+path = "src/bin/decpolicy.rs"

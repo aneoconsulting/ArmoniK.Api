@@ -43,6 +43,12 @@ pub mod prost_arm {
         p::ListResultsResponse::decode(b).unwrap()
     }
 
+    /// The same decode without the unwrap, for the malformed-input case: prost validates
+    /// UTF-8 on decode, so it is the reference for what a conformant parser does.
+    pub fn decode_res(b: &[u8]) -> Result<p::ListResultsResponse, prost::DecodeError> {
+        p::ListResultsResponse::decode(b)
+    }
+
     // The hand-written builder of stage 1, kept here so arm `prost` constructs its objects
     // by a different route from the facade arms.
     fn build_list(count: i64, absent: bool) -> p::ListResultsResponse {
