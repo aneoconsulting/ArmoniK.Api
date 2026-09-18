@@ -72,3 +72,7 @@ path = "src/bin/counts.rs"
 [[bin]]
 name = "decpolicy"
 path = "src/bin/decpolicy.rs"
+
+[[bin]]
+name = "inlining"
+path = "src/bin/inlining.rs"

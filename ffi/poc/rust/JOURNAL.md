@@ -1077,3 +1077,73 @@ The rejecting path returns `AK_ERR_TRANSCODE` (-6), because that is the code the
 names for this case. `AK_ERR_MALFORMED` (-2, "invalid wire") is the other defensible reading:
 proto3 makes invalid UTF-8 a **parse** error and the rejecting path has no transcoder on it.
 That is not a slice's choice to make.
+
+
+## Auditing the per-element interface cost: was it the group, or was it inlining?
+
+**Log**: `ffi/logs/rust/stage3-inlining-term.log`. **Driver**: `gen/inlining.sh` and
+`gen/inline_check.sh`. **Bin**: `crates/harness/src/bin/inlining.rs`.
+
+The objection: `core-native` is compiled into the harness, so rustc fuses the traversal into
+the benchmark loop and keeps writer state in registers, and the FFI arm cannot. Then
+`core-ffi-rust − core-native` bundles "was not inlined" into "crossed a boundary and
+materialised a group", and the quoted per-element figure is an upper bound.
+
+### What I did first, and it turned out to be the answer
+
+Before building anything I asked whether the premise was even true, from the artifact rather
+than from reasoning — the same move as R5's `nm -D` check. In the `bench` binary that
+produced the published numbers:
+
+```
+enc_list_results_response                4,299 bytes
+decode_list_results_response            11,311 bytes
+encode_into_list_results_response           20 bytes   (a thunk)
+largest bench::main::{{closure}}           472 bytes
+```
+
+**No benchmark closure can hold an inlined copy of either traversal.** Both entry points are
+exported globals in a PIE, so they are reached with `call *0x..(%rip)` through the GOT — an
+indirect call, structurally the same shape as the call into the cdylib. `core-native` was
+never inlined, so there was no inlining advantage to subtract.
+
+### The two arms, built anyway, because the artifact check is an argument and not a measurement
+
+`core-native-noinline` (`#[inline(never)]` on the per-message entry point: a real call, same
+crate, rustc may still reason about the body — a lower bound) and `core-native-opaque` (the
+same entry point through a `black_box`ed function pointer: no inlining, no devirtualisation,
+no constant propagation across). Both at the granularity the FFI call sits at, both calling
+the same generated traversal, both checked byte-identical against the validated manifest.
+
+### What it measured
+
+The inlining term, ns per element, min..max over three runs:
+
+| payload | dir | inlining | inlining_lo | group+call |
+|---|---|---|---|---|
+| P1.3 | encode | −0.10 .. 0.01 | 0.13 .. 0.17 | 11.29 .. 11.42 |
+| P1.3 | decode | −1.03 .. −0.82 | 0.49 .. 0.66 | 27.63 .. 28.36 |
+| P1.2 | encode | 0.19 .. 0.60 | −0.47 .. 0.70 | 43.23 .. 45.13 |
+| P1.1 | encode | −0.20 .. 0.17 | −0.34 .. 0.65 | 29.60 .. 30.46 |
+
+**The absent-path inversion is not an inlining artifact.** And the dynamic call is not the
+cost either: at 9 crossings per 1000 elements and 1.8 ns each it is about 0.02 ns per
+element, so `group+call` is group materialisation with a rounding error attached.
+
+### What it refuted, including one thing I had published
+
+- That `core-native` is inlined into the benchmark loop. It is not, in either binary.
+- That the per-element figure is substantially an optimiser artifact. It is 0 to 1.4 percent
+  of it on encode.
+- **And one of my own rows**: on P1.1 and P1.2 DECODE, `core-native` and `core-ffi-rust` are
+  inside each other's spread and the sign flips between builds — `core-native` faster in
+  `bench`, `core-ffi-rust` faster in `inlining`. A per-element interface cost should not be
+  quoted for those two rows in either direction. That is a correction to the published
+  table, but not the one the objection predicted.
+
+### What I would have missed by building first
+
+If I had built the two arms and measured "no difference", the honest first hypothesis is the
+branch's own rule — *a combination of A and B that measures equal to B alone means A is not
+in the build* — and I would have spent a session hunting a defect in the arms. The artifact
+check says why there is no difference, so the null result is a result rather than a suspect.

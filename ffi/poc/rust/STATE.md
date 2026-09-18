@@ -35,6 +35,8 @@ gen/stage1_isolate.py       the stage 1 candidate fix, on a scratch copy
 gen/stage2.sh               stage 2 end to end: check, conformance, counts, boundary, timings
 gen/dump_payloads.py        all 16 payloads to a scratch dir
 gen/decpolicy.sh            the decode UTF-8 policy: three builds, round robin, rotating order
+gen/inlining.sh             arm 1: the inlining term, separated from the interface term
+gen/inline_check.sh         is core-native inlined? Answered from the built artifact
 
 crates/shapes-prost         protox 0.9 -> prost-build 0.14 over the generated .proto
 crates/shapes-values        the value rules of emit/values.py, hand-re-derived
@@ -47,7 +49,7 @@ crates/harness              the binding, the arms table, conformance, counts, be
 ```
 
 Binaries: `conformance` (byte identity), `counts` (`--features count`), `bench`,
-`shapes`, `content`, `rpcbench`, `decpolicy`.
+`shapes`, `content`, `rpcbench`, `decpolicy`, `inlining`.
 Features: `guard` (on by default, ABI v1 section 5), `count`, and the decode UTF-8 policy
 `dec-reject` / `dec-reject-simd` (default: lossy).
 
@@ -99,6 +101,25 @@ separate processes.
   insert and four vector growths are work every arm does identically, so the denser the
   element's container graph the smaller the share of decode any codec owns. This supersedes
   the looser "decode is allocation-bound" from part 1, which attributed it to the wrong thing.
+- **The per-element interface cost is the GROUP, not the optimiser** (`stage3-inlining-term.log`).
+  The figure was obtained by subtracting `core-native` from `core-ffi-rust`, and the
+  objection was that `core-native` is inlined into the benchmark loop and the FFI arm cannot
+  be. **The premise is false for these binaries and the artifact says so**: the largest
+  `bench::main::{{closure}}` is 472 bytes and the traversal it would have to contain is
+  4,299 (encode) / 11,311 (decode); both entry points are exported globals in a PIE and are
+  reached by GOT-indirect calls. Two added no-boundary arms — `core-native-noinline`
+  (`#[inline(never)]`, a lower bound) and `core-native-opaque` (a `black_box`ed function
+  pointer, no inlining, devirtualisation or constant propagation) — measure the same as
+  `core-native` everywhere. On **P1.3 encode** the inlining term is −0.10 to +0.01 ns per
+  element against 11.3–11.4 for the group; on **P1.3 decode** it is −1.03 to −0.82 against
+  27.6–28.4. At 9 crossings per 1000 elements the dynamic call is about 0.02 ns/element, so
+  that column is group materialisation with a rounding error attached.
+- **One correction the audit did find, and it is not the one predicted**: on **P1.1 and P1.2
+  DECODE** `core-native` and `core-ffi-rust` are inside each other's spread and the sign of
+  the difference flips between builds (`core-native` faster in `bench`, `core-ffi-rust`
+  faster in `inlining`). **No per-element interface cost should be quoted for those two rows
+  in either direction.** P1.1's per-element column is also a per-MESSAGE cost divided by
+  four and is not comparable with P1.2's.
 - **The oneof and explicit presence cost no crossings at all**: 3 for 200 elements in both
   directions. Both ride in the group.
 - **A 4 MB bulk decode costs exactly one copy in the core and twelve in prost.** P5.4 decode
@@ -325,6 +346,7 @@ Four, all reported to the aggregating session and none fixed here:
 | `ffi/logs/rust/stage3-M2-M4-revalidated.log` | as stage3-M2 | M2 and M4 re-measured after `0c2d4d7f`. Crossings and decision 5 unchanged to the digit; ratios tighter and two moved toward parity. **Supersedes the M2 rows of `stage3-M2.log` and the M4 rows of `stage3-M4-M7.log`** |
 | `ffi/logs/rust/stage3-M4-M7.log` | as stage3-M2, ASCII, guard on | M4 to M7: byte identity on P4.1, P5.1 to P5.4, P6.1 and P7.1, with the class labelled per row; ABI v1 section 8's generator-time refusal exercised; the adapter's two wire forms checked by state; M7 by decode and permutation |
 | `ffi/logs/rust/stage3-M3.log` | as stage3-M2, ASCII, guard on | M3: byte identity on P3.1; explicit presence as three cases x three fields x four arms, all agreeing; the oneof by member including the payload-free one; seven unknown-field vectors, hand-built; 3 crossings per 200 elements in both directions; one timing row set |
+| `ffi/logs/rust/stage3-inlining-term.log` | rustc 1.94.1 release (lto OFF, PIE), prost 0.14.4, cdylib boundary, guard on, ASCII; five arms in one process, three runs, plus an artifact check | **The audit of the per-element interface cost.** `core-native` is NOT inlined into the benchmark loop in the binaries the published figures came from (largest closure 472 B against a 4,299/11,311 B traversal), so there was no inlining advantage to subtract. Two added no-boundary arms confirm it: the inlining term is −0.10 to +0.01 ns/element on P1.3 encode against 11.3–11.4 for the group. Also finds that P1.1/P1.2 decode should carry no per-element figure at all |
 | `ffi/logs/rust/stage3-decode-utf8-policy.log` | rustc 1.94.1 release, prost 0.14.4, cdylib boundary, guard on; three POLICY BUILDS run round robin with a rotating order, plus one in-process table; simdutf8 0.1, AVX2 present | **ABI v1 open decision 3, third framing.** Validate-and-reject on decode costs 0.54 to 1.10 of today's lossy string path depending on content set, and 0.36 to 0.71 with `simdutf8::basic`, because `from_utf8_lossy` already validates. It moves the decode ratio against prost in this slice's favour and makes the comparison like-for-like, since prost rejects too. Carries the malformed-input case, the sticky-slot regression (D17) and the ordering hazard (D18) |
 | `ffi/logs/rust/stage3-content-sets.log` | as stage3-M2, plus simdutf8 0.1 as one arm; encode and decode over P1.2 and P2.2, all three content sets in ONE process | ABI v1 open decision 3: the scalar validator costs 2.2 to 3.0 times its ASCII self on non-ASCII content and loses 2.0 to 2.6 to prost; a SIMD validator with the same contract recovers half to two thirds of it; decode is unaffected in ordering |
 | `ffi/logs/rust/stage3-M2.log` | rustc 1.94.1 release, prost 0.14.4, cdylib boundary, guard on (section 6 off), ASCII, 4 shared vCPUs | M2 over P2.1 to P2.5: byte identity across four arms plus value identity across the three facade decoders; 7.004 crossings per task on decode and 10.02 on encode; ABI v1 open decision 5 answered and isolated; the two shape-coverage findings; the guard priced on a shape that makes 7 to 10 reverse calls per element |
