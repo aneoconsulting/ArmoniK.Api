@@ -84,17 +84,18 @@ Written down so that the report cannot quietly inherit an assumption.
   unmeasured. **The RPC half's case is behavioural, and none of that behaviour is
   exercised**; what stage 4 measured is the call path, whose cost was never the
   question.
-- **UTF-8 validation was the largest single effect measured, and it is on the
-  wrong side of the boundary.** On non-ASCII content the scalar validator turns
-  the core's encode win into a 2.0 to 2.6 loss. But an encoder does not need a
-  `string`'s bytes to be valid, and a decoder cannot trust them whatever the
-  encoder did, so proto3 puts the obligation on parsers and the encode-side check
-  is redundant with one that must happen anyway. ABI v1 open decision 3 now says
-  the passthrough is a memcpy. What is *not* established is the decode policy that
-  then carries the whole guarantee: the Rust slice decodes through a lossy
-  conversion at 37 sites and rejects at none, so today the only place protobuf
-  requires a check is the place that silently substitutes. An encode figure
-  measured on ASCII alone is still not a figure about the string path.
+- **The string path is settled, and the old arrangement was strictly dominated.**
+  UTF-8 validation was the largest single effect measured anywhere, and it was on
+  the wrong side of the boundary: an encoder does not need a `string`'s bytes to be
+  valid, a decoder cannot trust them whatever the encoder did, and proto3 puts the
+  obligation on parsers. Encode is now a memcpy (0.75 of prost on non-ASCII,
+  against 2.0 to 2.6 validating), and decode rejects, which measures **free to
+  cheaper than the lossy conversion it replaces**, because a lossy conversion
+  already validates and its recovery path is slower. It also improves the
+  comparison against prost, which rejects too. The earlier design paid for a slower
+  validator to get a weaker guarantee, on both sides at once. ABI v1 decision 3 is
+  settled rather than open. An encode figure measured on ASCII alone is still not a
+  figure about the string path.
 - **The decode half of the argument is bounded by host-side container
   construction, and that is new.** Across three message shapes the core's decode
   goes from 0.81 to 0.96 of prost as the element gains vectors and a map, and the
@@ -334,7 +335,7 @@ deliverable.
 
 | # | Work item | Done when |
 |---|---|---|
-| W1 | **Specify ABI v1.** One specification, in this branch, merging the base design with the amendments from the C# and Java reports. Every amendment carries the figure that motivated it and the language it came from. | **Drafted.** `design/ABI-v1.md` carries **12** open decisions; agreed when decision 1 (is every amendment free at the C++11 floor) is settled and the rest are accepted or scheduled. The Rust slice has moved all of the movement so far: **5** (the grow path) is answered and closed; **3** was reframed twice and is now about which UTF-8 validator rather than whether to validate; and **9** (does the group need an empty-element path), **10** (can decode deliver the group before the runs) and **11** (does the core retain unknown fields) are new and all three come from it. 11 is the one to read first: it is a behaviour change for four of the five languages. |
+| W1 | **Specify ABI v1.** One specification, in this branch, merging the base design with the amendments from the C# and Java reports. Every amendment carries the figure that motivated it and the language it came from. | **Drafted.** `design/ABI-v1.md` carries 12 decisions, of which **2 are now settled**: 5 (the grow path, keep the learned width) and 3 (the string path: no check on encode, reject on decode, free in both directions). The Rust slice produced all of the movement, and also created three: **9** (does the group need an empty-element path), **10** (can decode deliver the group before the runs) and **11** (does the core retain unknown fields). **11 is the one to read first**: it is a behaviour change for four of the five languages. Decision 1 (is every amendment free at the C++11 floor) still gates agreement, and the C++ slice settles it. |
 | W2 | **Freeze the shapes and the payload set.** | **Done.** `schema/shapes.json` is the description, `schema/generated/` carries the emitted `.proto` and a payload manifest with a hash per payload, and the Rust slice has confirmed every hash against prost 0.14.4 and a second, independent encoder. One defect was found and fixed in `emit/payloads.py`; 8 of 16 hashes moved. A slice that disagrees with a hash now has a defect in itself. |
 | W3 | **Rust slice.** Section 4.1. | **Done.** Four arms over every message and payload of `design/SHAPES.md`, all byte-identical to the validated manifest, plus the three content sets, the unknown-field vectors and the RPC arm. The decomposition every other slice subtracts is available: **a crossing costs 1.8 ns through a shared library**, and the RPC half costs **two crossings per call, zero per field**. See [`findings/rust.md`](findings/rust.md) for what it does not establish, which is longer than what it does. |
 | W4 | **C++ slice on the amended ABI.** Rebuild against W1, re-measure against protobuf C++, and demonstrate the C++11 floor. | The amended ABI has a C++ column, and "the managed amendments are free in C++" is a measurement. |

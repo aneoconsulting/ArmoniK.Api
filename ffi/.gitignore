@@ -1,10 +1,17 @@
-# The repository-wide .gitignore excludes `[Ll]ogs/` and any directory named
-# `gen`, both of which this exploration uses by name. Without these re-inclusions
-# a slice agent commits its generator and its raw logs as nothing at all, and
-# finds out a session later. `schema/` sidesteps it by avoiding the names; the
-# slices do not, because `poc/<lang>/gen/` and `logs/<lang>/` are what
-# README section 12 tells them to write.
+# The repository-wide .gitignore is written for .NET and Node build output, and it
+# excludes three words this exploration uses as SOURCE directory names: `[Ll]ogs/`,
+# any directory called `gen`, and `[Bb]in/`. Without these re-inclusions a slice
+# agent commits its generator, its measurement binaries and its raw logs as nothing
+# at all, and finds out a session later. That has now happened three times, once per
+# word, so the rule is: a new source directory here is checked with `git check-ignore`
+# before it is filled, not after.
+#
+# `schema/` sidesteps the first two by avoiding the names. The slices cannot:
+# `poc/<lang>/gen/` and `logs/<lang>/` are what README section 12 tells them to
+# write, and `src/bin/` is where a Cargo harness keeps its binaries.
 !logs/
 !logs/**
 !poc/*/gen/
 !poc/*/gen/**
+!**/bin/
+!**/bin/**

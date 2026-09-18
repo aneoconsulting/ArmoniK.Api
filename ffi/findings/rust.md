@@ -132,7 +132,36 @@ ASCII-only pass cannot see any of it. This is why SHAPES.md's rule that a
 string-path number without a content set is half a number is a rule and not a
 formality.
 
-**Superseded: the question was on the wrong side of the boundary.** Everything
+**Settled, and the answer is that the old arrangement was strictly dominated.**
+Everything below stands as measurement; none of it stands as a reason to validate
+on encode. The encoder does not need a `string`'s bytes to be valid; the decoder
+cannot trust them whatever the encoder did; proto3 puts the obligation on parsers.
+So encode became a memcpy, and **decode became rejecting at no cost at all**:
+validate-and-reject measures 0.54 to 0.75 of the lossy conversion it replaces on
+ASCII, and 0.36 to 0.71 with the SIMD validator on every content set, because a
+lossy conversion already validates and its recovery path is slower than failing.
+
+It also **improves** the comparison against prost rather than costing it, since
+prost rejects too: P1.2 ASCII moves from 0.87-0.91 to 0.73-0.79, and P1.2 wide from
+0.78-0.80 to 0.49-0.51. The decode column this slice has been quoting was
+pessimistic, not flattering.
+
+So the design the slice started with paid for a slower validator to get a weaker
+guarantee, on both sides of the boundary at once, and the fix is cheaper in both
+directions. That is the cleanest result in the slice and it came from a question
+about the specification rather than from a benchmark.
+
+**Two defects the re-measurement produced, both worth the rule they carry.** The
+decode entry point returned the sticky error slot and nothing ever cleared it, so
+one rejected decode poisoned every later decode in that context — now a stated
+requirement in ABI v1 section 5, because "the first error wins" is incomplete
+without saying when the slate is wiped. And the first driver ran the policies in a
+fixed order, where the always-first build read 0.778 in one invocation and 0.88 in
+the next; round robin with a rotating order fixed it. An ordering artifact that
+large would have been invisible in any single run.
+
+**Superseded, kept for the record: the question was on the wrong side of the
+boundary.** Everything
 below stands as measurement and none of it stands as a reason to validate on
 encode. The encoder does not need a `string`'s bytes to be valid, since it writes
 a length and copies; the decoder cannot trust them whatever the encoder did; and
@@ -461,6 +490,9 @@ and the invariant does not hold? **C++ answers it for `std::string`, Python for
   the bet `packages/rust` actually made; two statements of emitted code closed it
   to 0.94 to 1.03. A verdict on the in-repo crate needs its own measurement,
   quoted standalone and never as a ratio against these columns.
+- **The main decode tables in this document were taken with the lossy policy**
+  and are not restated. If a rejecting decode is adopted they improve by roughly
+  0.08 to 0.12 on M1 and 0.03 to 0.08 on M2, in this slice's favour.
 - **The content sets are run on P1.2 and P2.2 only**, and on one x86-64 machine
   with AVX2. The SIMD validator's behaviour where those features are absent is
   not measured, and it is a floor question rather than a target one.
