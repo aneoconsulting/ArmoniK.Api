@@ -687,3 +687,21 @@ That is three separate defects in two stages whose detection depended on the
 absent path or on the standing question "is this arm actually running". Both are
 already rules (R6, and the slice agents' brief); the slice is evidence they earn
 their place rather than decoration.
+
+**The slice's largest methodological contribution is one observation seen twice,
+in opposite directions**, and it is what both halves of R5 now say:
+
+- an arm that **claims a boundary and has none** — the core as an rlib, every
+  entry point inlined, and the boundary counters still reporting the right counts
+  because the counting code inlined with them;
+- an arm that **claims no boundary and might have one** — a control that could be
+  fused into the benchmark loop, which would make the subtraction that isolates
+  the interface flatter it by whatever the optimiser found.
+
+Neither is visible to R7's configuration discipline, because LTO, `#[inline]` and
+genericity do not appear in a configuration line. Both are visible only from the
+built artifact. **An arm is not what its name says until the artifact agrees**,
+and both directions are now checked as a build step of the slice's own suite
+rather than by an audit that runs when someone goes looking. The C++ slice inherits
+the inverse hazard, where the question is `-flto` over the *control* rather than
+over the core, and can lift the check rather than re-derive it.
