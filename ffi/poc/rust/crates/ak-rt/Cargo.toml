@@ -1,0 +1,12 @@
+[package]
+name = "ak-rt"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[features]
+# README R5: a counting build, so a crossing count is counted and not inferred.
+count = []
+
+[dependencies]

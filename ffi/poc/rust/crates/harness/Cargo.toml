@@ -1,0 +1,42 @@
+[package]
+name = "harness"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[features]
+default = ["guard"]
+# ABI v1 section 5. On by default, because every published managed figure was taken
+# WITHOUT it and this slice is not going to repeat that.
+guard = []
+# README R5: the counting build.
+count = ["ak-rt/count", "ak-core/count"]
+
+[dependencies]
+# Build-ordering and feature plumbing only. `ak-core` is a cdylib: it is linked by
+# build.rs through the dynamic linker, never `use`d, so nothing here can inline it.
+ak-core = { path = "../ak-core" }
+facade = { path = "../facade" }
+shapes-prost = { path = "../shapes-prost" }
+shapes-values = { path = "../shapes-values" }
+ak-abi = { path = "../ak-abi" }
+ak-rt = { path = "../ak-rt" }
+prost.workspace = true
+bytes.workspace = true
+sha2.workspace = true
+serde_json.workspace = true
+
+[build-dependencies]
+
+[[bin]]
+name = "conformance"
+path = "src/bin/conformance.rs"
+
+[[bin]]
+name = "bench"
+path = "src/bin/bench.rs"
+
+[[bin]]
+name = "counts"
+path = "src/bin/counts.rs"

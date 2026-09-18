@@ -1,0 +1,37 @@
+"""Rust spellings shared by every backend, so two backends cannot disagree on a name."""
+
+SCALAR = {"int32": "i32", "int64": "i64", "bool": "bool", "double": "f64"}
+
+
+def screaming(camel):
+    out = []
+    for i, c in enumerate(camel):
+        if c.isupper() and i:
+            out.append("_")
+        out.append(c.upper())
+    return "".join(out)
+
+
+def variant(enum_name, value_name):
+    """RESULT_STATUS_CREATED, in enum ResultStatus, is Created."""
+    prefix = screaming(enum_name) + "_"
+    tail = value_name[len(prefix):] if value_name.startswith(prefix) else value_name
+    return "".join(p.capitalize() for p in tail.split("_"))
+
+
+def facade_type(f):
+    """The idiomatic Rust type of one field, in the style packages/rust already uses:
+    String, bytes::Bytes, a real enum with a lossless Unknown, Option for a message."""
+    if f.card == "map":
+        return "::std::collections::BTreeMap<String, String>"
+    base = ("String" if f.kind == "string"
+            else "::bytes::Bytes" if f.kind == "bytes"
+            else f.of if f.kind in ("enum", "message")
+            else SCALAR[f.kind])
+    if f.card in ("repeated", "packed"):
+        return "Vec<%s>" % base
+    if f.kind == "message":
+        return "Option<%s>" % base
+    if f.explicit:
+        return "Option<%s>" % base
+    return base

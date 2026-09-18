@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/shapes-prost", "crates/shapes-values", "crates/stage1-validate"]
+members = ["crates/shapes-prost", "crates/shapes-values", "crates/stage1-validate", "crates/facade", "crates/harness", "crates/ak-abi", "crates/ak-rt", "crates/ak-core"]
 
 [workspace.package]
 edition = "2021"
