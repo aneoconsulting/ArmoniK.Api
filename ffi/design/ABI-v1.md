@@ -333,6 +333,23 @@ int32_t ak_elemu_TaskDetailed(void *ctx, const struct ak_efix_TaskDetailed *elem
 | repeated message, leaf element (maps included) | element call, group filled by the host | N+1, or 1 per chunk |
 | repeated message, non-leaf element | the same, plus a token per element | N+1, or 1 per chunk |
 
+**A oneof is a discriminant plus every member inlined flat, not a union.** The
+discriminant carries the active member's tag. A union would make the group's
+layout depend on which member is largest, and section 10 requires group layouts to
+be exported and asserted precisely because a host that reproduces offsets by hand
+(FFM, any manual-layout binding) can get them silently wrong; a layout that also
+depends on the widest member is a worse thing to reproduce. The cost is group
+size, five slots where one would do for `Probe`, and it is paid on a shape the
+schema has 19 of. **The union is an unmeasured alternative rather than an
+equivalent**: nothing has priced it, and a slice that wants it priced adds an arm.
+
+**Measured, a oneof and an explicit-presence scalar each cost zero crossings**:
+both ride in the group entirely, 3 crossings for 200 elements in both directions.
+An explicit field's encode branches on the presence bit and never on the value or
+the length, which is what lets a present-and-empty string be written as present.
+That is the mechanism the .NET gap left untested, and it is the part for a managed
+binding to copy, rather than the counts.
+
 **One element entry point taking a count, not two symbols.** `n = 1` is the
 unbatched call. One codec body serves both shapes at no measurable cost and in
 less compiled code, and the alternative is a second protocol with its own
@@ -428,8 +445,15 @@ quote the group's worth from a full payload alone.
 owns the bytes: the span points into the buffer the host handed in, so there is
 nothing to reserve, size or transcode.
 
-**And on a string-dense message, decode is allocation-bound rather than
-codec-bound**, which bounds what any of this machinery can be worth. Measured in
+**And decode converges to parity with the incumbent in proportion to how much
+host-side container construction an element needs**, which bounds what any of this
+machinery can be worth. Three shapes measured in the Rust slice, `core-native`
+against prost: a flat 5-field message with one or two strings decodes at 0.81 to
+0.82; a 10-field message with six blobs and two optional children at 0.83 to 0.86;
+a 27-field message with four `Vec<String>`, a `BTreeMap` and a nested child at 0.89
+to 0.96. Strings alone do not explain it, since the first two allocate plenty; a
+map insert and four vector growths are work every arm does identically and no
+codec can avoid. Measured in
 the Rust slice on P2.2, the shape the control plane actually moves: 17,500 strings
 and 2,000 map entries in 551 KB, where both core arms land at parity with prost
 (0.81 to 1.21) against 0.75 to 0.89 on the flat M1 payloads. The crossings are not
@@ -817,7 +841,39 @@ Each blocks something. None is settled by a measurement that exists today.
    7's measured note says is the one still available on decode: one construction
    per element is allocation, and allocation is what decode turns out to be.
 
-11. **The diagnostic contract.** `ak_init` now owns the log and tracing bridges
+11. **Does the core retain unknown fields?** Today it does not, and neither does
+   prost, so nothing in this design carries an unrecognised field from decode to
+   re-encode. **That is a behaviour change for four of the five languages.**
+   proto3 has preserved unknown fields since protobuf 3.5, so
+   `Google.Protobuf`, protobuf-java, protobuf C++ and upb all retain them and
+   re-emit them; Rust is the one incumbent that already drops them. Adopting the
+   core would therefore remove a protobuf guarantee from C#, Java, C++ and Python
+   rather than from nobody.
+
+   The Rust slice established the wire half of this rather than the policy half,
+   and the wire half is not in dispute: an unrecognised tag cannot be
+   distinguished from any other unknown field, so an unknown *oneof* member leaves
+   the case at the last known member and the payload is dropped. Seven hand-built
+   vectors, all four arms agreeing on the decoded value and the re-encoded bytes.
+   What it did not price is what retention would cost, and the cost is not
+   obviously small: a decode that keeps unknown bytes has to store them somewhere
+   the host can hold, which is a host-visible allocation on a path the whole design
+   works to keep allocation-free.
+
+   **Who this bites is specific rather than general.** A client that decodes a
+   response and never re-encodes it loses nothing. A proxy, a worker that forwards
+   a `ProcessRequest`, or anything that round-trips a message between two versions
+   of the schema loses the field silently. Obligation 12.4 already treats the
+   worker path as the place two decoders meet over one buffer; this is the same
+   seam seen from the other side.
+
+   **Settled by**: deciding whether ArmoniK re-encodes anything it decoded, which
+   is a question about the product rather than about the ABI, and then either
+   pricing retention or writing the loss into the migration notes. **Blocks:
+   nothing today. It is the largest unpriced behaviour change the branch has
+   found, and it was found by a shape-coverage vector rather than by a benchmark.**
+
+12. **The diagnostic contract.** `ak_init` now owns the log and tracing bridges
    (section 3), which settles *who*. What is still open is *what*: five distinct
    transport failures currently render as one string, so `ak_err` needs a
    machine-readable failure class and the flattened source chain, and a host

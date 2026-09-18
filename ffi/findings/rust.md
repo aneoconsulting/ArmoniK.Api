@@ -5,9 +5,9 @@ as the slice's own `STATE.md`. What is here is what the slice's results mean for
 the branch: what is now established, what the other four slices have to do
 differently because of it, and what is still an argument.
 
-**Covers stages 1 to 3 part 2**: the payload manifest validated against prost,
-four arms over M1 (P1.1 to P1.3) and M2 (P2.1 to P2.5), and the three content
-sets on P1.2 and P2.2. M3 to M7 and the RPC arm are not built.
+**Covers stages 1 to 3 part 3**: the payload manifest validated against prost,
+four arms over M1, M2 and M3, the three content sets on P1.2 and P2.2, and the
+unknown-field vectors. M4 to M7 and the RPC arm are not built.
 
 ## Configuration, once, for everything below
 
@@ -117,28 +117,70 @@ unpaired surrogate, so the transcode pair of README section 10 item 4 is
 raw bytes produced by a non-Rust host, and C# and Java are the slices that have to
 run that pair. Correctly logged as unreachable rather than quietly omitted.
 
-## Decode is allocation-bound, and it bounds the argument for every language
+## Unknown fields: the branch's largest unpriced behaviour change
 
-The largest result so far, and it is a limit rather than a win.
+The slice set out to cover a shape and turned up a migration question instead.
 
-On M1 both core arms decode at 0.75 to 0.89 of prost. On **P2.2, the payload
-SHAPES.md says to read first because it is the shape the control plane actually
-moves**, they land at parity: `core-native` 0.89 to 1.07, `core-ffi-rust` 0.81 to
-1.21.
+**At the wire level there is no such thing as an unknown oneof member.** The
+grouping exists only in the descriptor, so a parser cannot tell an unrecognised
+oneof tag from any other unknown field: the case stays at the last known member
+and the payload is dropped. Seven hand-built vectors, all four arms agreeing on
+the decoded value *and* the re-encoded bytes. The contrast the slice draws is the
+useful part: an unknown *enum value* round-trips losslessly, because the field is
+known and only the value is not, while an unknown *field* cannot round-trip at all
+in any arm. SHAPES.md had these as one row and now has two.
 
-**The crossings are not the reason, and that is what makes this portable rather
-than a Rust result.** Seven crossings per element at 1.8 ns is 12.6 ns against
-about 2,200 ns per element: 0.6 percent. The no-boundary control makes no
-crossings at all and is at parity too. P2.2 carries 17,500 strings and 2,000 map
-entries in 551 KB, so decode is dominated by `String` allocation and map
-insertion, which every arm performs identically. On the shape that matters, the
-codec is not what decode costs.
+**What the slice did not draw, and this session did.** "Nothing retains unknown
+fields" is not a neutral property of the design, because four of the five
+languages retain them today. proto3 has preserved unknown fields since protobuf
+3.5, so `Google.Protobuf`, protobuf-java, protobuf C++ and upb all carry an
+unrecognised field from decode through to re-encode. prost does not, and the core
+follows prost. **So adopting the core removes a protobuf guarantee from every
+language except the one whose incumbent already lacked it** — and Rust, the
+language that loses nothing here, is the one the slice was written in, which is
+exactly how a divergence like this stays invisible.
+
+It is now ABI v1 open decision 11. Two things about it worth keeping:
+
+- **Who it bites is specific.** A client that decodes and never re-encodes loses
+  nothing. A proxy, a worker forwarding a `ProcessRequest`, anything round-tripping
+  between two schema versions loses the field silently. That is the same seam as
+  conformance obligation 12.4, seen from the other side.
+- **Retention is not obviously cheap.** Keeping unknown bytes means storing them
+  somewhere the host can hold, which is a host-visible allocation on a path this
+  design works to keep allocation-free. Nobody has priced it.
+
+This is the kind of finding the branch exists for: not a number, and not
+discoverable by a benchmark. A shape-coverage vector found it.
+
+## Decode is bounded by container construction, not by allocation in general
+
+Stage 3 part 1 read this as "decode is allocation-bound". M3 sharpens it, and the
+sharper version is more useful to the other slices because it tells them which of
+their messages to expect parity on.
+
+`core-native` decode against prost, by element shape:
+
+| payload | what an element costs the host | decode |
+|---|---|---|
+| P3.1 | flat, 5 fields, 1 to 2 strings | 0.81 to 0.82 |
+| P1.2 | 6 blobs, 2 optional children, no container | 0.83 to 0.86 |
+| P2.2 | 4 `Vec<String>`, a `BTreeMap`, 27 fields | 0.89 to 0.96 |
+
+**Decode converges to parity in proportion to host-side container construction**,
+not to bytes and not to strings: P3.1 and P1.2 allocate plenty of `String`s and
+still show the win. A map insert and four vector growths are work every arm does
+identically and no codec can avoid.
+
+**The crossings are not the reason**, which is what makes this portable rather
+than a Rust result: seven per element at 1.8 ns is 12.6 ns against about 2,200 ns,
+0.6 percent, and the no-boundary control converges too.
 
 Three consequences, and the second is the one I would hold other slices to.
 
 - The interface cost is still real and still small underneath: about 6 percent of
   decode on M2, about 2 percent on M1.
-- **A decode win measured on a thinner payload may not survive P2.2.** The
+- **A decode win measured on a container-light message may not survive P2.2.** The
   published managed decode figures deserve re-reading on that basis before the
   report quotes them, because if they came from less string-dense payloads the
   win shrinks on the shape ArmoniK actually sends. This does not overturn them; it
@@ -151,6 +193,26 @@ run-to-run spread than anything in stage 2, `core-ffi-rust` on P2.3 ranging 0.81
 to 0.953 across three processes, because each decode builds a 15,000-`String`
 object graph and allocator state varies. Read the ranges, not the medians. The
 encode ratios are tight.
+
+## The two shapes .NET could not measure cost nothing
+
+`Probe`'s oneof and its three `optional` scalars ride in the group entirely: **3
+crossings for 200 elements, in both directions**, and every arm byte-identical.
+Explicit presence was exercised rather than merely present, with all three cases
+occurring on all three fields (absent, present-and-zero, present-and-nonzero), and
+the payload-free oneof member reached 40 times in 200 elements.
+
+The mechanism is the part for the C# slice to copy rather than the counts: an
+explicit field's encode branches on **the presence bit**, never on the value or
+the length, which is what lets a present-and-empty string be written as present.
+A by-value group reports absent and empty identically unless it is built this way.
+
+One layout decision the slice made and flagged, now in ABI v1 section 6: a oneof
+is a discriminant plus every member inlined flat, **not a union**, because a union
+makes the group's layout depend on which member is largest and section 10 already
+requires layouts to be reproducible by hand. It costs group size on a shape the
+schema has 19 of, and the union is recorded as an unmeasured alternative rather
+than an equivalent.
 
 ## Encode survives the harder shape
 

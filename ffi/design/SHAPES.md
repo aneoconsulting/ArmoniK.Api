@@ -68,7 +68,8 @@ does not cover one records it in `STATE.md` and it goes in the report.
 | packed repeated scalar | M6 (control) | the host's own array, handed over whole |
 | packed repeated enum | M6 | what the real schema actually has: all 3 of its packed fields are enums. **This row claimed M2 and was wrong** until the Rust slice checked it: `TaskDetailed` has no packed field at all, and the description had no packed enum anywhere. `MetricsBatch.statuses` now carries it, so M6's scalar rows stay a control and its enum row is a result |
 | oneof, including a payload-free member | M3 | the group does not reach it. Unmeasured on .NET today |
-| open enum with an unknown value | M1, M2 | an unknown wire value must round-trip losslessly |
+| open enum with an **unknown value** | M1, M2 | the field is known and only the value is not, so the wire says exactly where to put it and it **does** round-trip losslessly. Measured: `status = 999` survives as `Unknown(999)` in all four arms |
+| an **unknown field**, oneof members included | corpus | **cannot round-trip at all**, in any arm, and this row exists because the one above is easy to read as covering it. A parser cannot tell an unrecognised oneof tag from any other unknown field, since the grouping lives only in the descriptor: the case stays at the last known member and the payload is dropped. That is protobuf, not the ABI, but whether the core should *retain* unknown fields is ABI v1 open decision 11, and it is a behaviour change for four of the five languages |
 | an adapter site (`with`) | M4 | one facade type, two wire forms. Only a byte corpus catches a wrong one |
 | unknown fields on the wire | corpus | protobuf's forward compatibility, never executed by a corpus generated from the schema that reads it |
 | absent and empty everywhere | P1.3, P2.5 | where offset defects hide |
