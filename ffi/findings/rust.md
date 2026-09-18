@@ -132,6 +132,19 @@ ASCII-only pass cannot see any of it. This is why SHAPES.md's rule that a
 string-path number without a content set is half a number is a rule and not a
 formality.
 
+**Superseded: the question was on the wrong side of the boundary.** Everything
+below stands as measurement and none of it stands as a reason to validate on
+encode. The encoder does not need a `string`'s bytes to be valid, since it writes
+a length and copies; the decoder cannot trust them whatever the encoder did; and
+proto3 requires parsers to validate. So the encode-side check is redundant with
+one that has to happen anyway, `ak_tc_utf8` collapses into `ak_tc_bytes`, and the
+whole 2.0-to-2.6 penalty below is a cost paid for nothing. ABI v1 decision 3
+carries the rewritten form. **The slice's own arrangement is the inversion in
+miniature**: it validates on encode at 25 to 30 percent of ASCII cost, and decodes
+through `String::from_utf8_lossy` at 37 sites while rejecting at none, so the only
+place protobuf actually requires a check is the place it silently substitutes.
+Nobody chose that; it is what a facade written the obvious way does.
+
 **The slice answered it with an arm rather than an argument**, which is the right
 instinct and worth recording as such. `ak_tc_utf8_simd` has the identical
 contract, verified here in the source: the same refusal of malformed input, the
@@ -142,11 +155,19 @@ iteration. The accept and reject sets being identical is what makes it admissibl
 here: a validator that differed on any input would make the core's bytes depend on
 which one a build chose.
 
-**What it does to the ruling on trusting the host: nothing, and that is the
-point.** The reason for refusing a trusted transcoder is unchanged, since it is a
-correctness contract a host can be wrong about. What the measurement changes is
-the price of refusing it, from 2.6 to about 1.4. Most of what trusting was buying
-turns out to be available without giving up the contract.
+**What it did to the ruling on trusting the host: nothing, and that ruling still
+stands on its own terms.** A *trusted* transcoder makes validity a contract a host
+can be wrong about, picked per host type, and that is refused. The later proposal
+to drop encode-side validation outright is a different thing and the objection
+does not reach it: it extends trust to nobody, no generator chooses per type,
+every host gets the same passthrough, and the parser checks. There is no contract,
+so there is nothing to be wrong about.
+
+**And the measurement for it already exists**: `ak_tc_utf8_trusted` is that
+proposal, so 0.59 to 0.72 on M1 ASCII, 0.80 to 0.85 on M2 and 0.75 on both
+non-ASCII sets are the figures, with no new run needed. The SIMD validator is not
+wasted by this, but it moves: validation on decode is mandatory, and that is where
+a fast validator earns its place.
 
 **What it does not settle**, and the slice says so itself: one x86-64 machine with
 AVX2; runtime CPU dispatch with a fallback, which makes it a floor question in C++

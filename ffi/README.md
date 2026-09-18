@@ -84,13 +84,17 @@ Written down so that the report cannot quietly inherit an assumption.
   unmeasured. **The RPC half's case is behavioural, and none of that behaviour is
   exercised**; what stage 4 measured is the call path, whose cost was never the
   question.
-- **UTF-8 validation, not the interface, is the largest single effect measured
-  so far.** On non-ASCII content the scalar validator turns the core's encode win
-  against prost into a 2.0 to 2.6 loss, because its cost tracks non-ASCII bytes
-  rather than bytes; a SIMD validator with the identical contract recovers half to
-  two thirds. ABI v1 open decision 3 is therefore about *which validator*, not
-  about whether to trust the host. An encode figure measured on ASCII alone is not
-  a figure about the string path.
+- **UTF-8 validation was the largest single effect measured, and it is on the
+  wrong side of the boundary.** On non-ASCII content the scalar validator turns
+  the core's encode win into a 2.0 to 2.6 loss. But an encoder does not need a
+  `string`'s bytes to be valid, and a decoder cannot trust them whatever the
+  encoder did, so proto3 puts the obligation on parsers and the encode-side check
+  is redundant with one that must happen anyway. ABI v1 open decision 3 now says
+  the passthrough is a memcpy. What is *not* established is the decode policy that
+  then carries the whole guarantee: the Rust slice decodes through a lossy
+  conversion at 37 sites and rejects at none, so today the only place protobuf
+  requires a check is the place that silently substitutes. An encode figure
+  measured on ASCII alone is still not a figure about the string path.
 - **The decode half of the argument is bounded by host-side container
   construction, and that is new.** Across three message shapes the core's decode
   goes from 0.81 to 0.96 of prost as the element gains vectors and a map, and the
