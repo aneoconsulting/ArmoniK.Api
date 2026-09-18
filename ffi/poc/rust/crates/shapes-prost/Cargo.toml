@@ -1,0 +1,18 @@
+[package]
+name = "shapes-prost"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+prost.workspace = true
+bytes.workspace = true
+
+[build-dependencies]
+prost-build.workspace = true
+protox.workspace = true
+
+[dev-dependencies]
+sha2.workspace = true
+prost-reflect = "0.16"

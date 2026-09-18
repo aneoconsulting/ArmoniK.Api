@@ -1,0 +1,136 @@
+# ffi/logs/rust/stage1-manifest-vs-prost.log
+# W3 stage 1: is ffi/schema/generated/manifest.json right?
+# 2026-09-18
+#
+# CONFIGURATION (R7)
+#   machine        4 vCPU Intel Xeon @ 2.80GHz, 15 GB, Ubuntu 24.04.4, Linux 6.18.44 x86_64, container
+#   rust           rustc/cargo 1.94.1; profile: release (opt-level 3, no lto set)
+#   MSRV declared  1.88 (README section 5: for Rust the floor IS the target).
+#                  NOTE: no 1.88 toolchain is installed in this container. Only 1.94.1 is.
+#                  The crates declare rust-version = 1.88 and nothing newer is used, but
+#                  the MSRV is NOT verified by a build. Do not read it as verified.
+#   incumbent      prost 0.14.4, prost-build 0.14.4, protox 0.9.1 (no protoc in this container)
+#   2nd encoder    prost-reflect 0.16.5, DynamicMessage over the same descriptor
+#   description    ffi/schema/shapes.json -> ffi/schema/generated/shapes.proto (unmodified)
+#   maps           prost-build btree_map(".") so map entries sort by key, per the canonical form
+#   python         3.11.15, ffi/schema/emit/* unmodified
+#
+# HAZARDS (R9): none that matter. Nothing here is timed. The one judgement call is the
+#   message heuristic in the reporting diff (a length-delimited field that parses as a
+#   message is descended into), which can mislabel a string; the byte comparison itself
+#   does not use it.
+#
+# WHAT IS COMPARED: bytes, not hashes. Eleven of the sixteen payloads have no committed
+#   vector, so they are regenerated with ffi/schema/emit/payloads.py first.
+
+P1.1         862 B  elements=4     strings=20
+P1.2      218125 B  elements=1000  strings=5000
+P1.3         605 B  elements=300   strings=0
+P2.1        1073 B  elements=1     strings=35
+P2.2      551696 B  elements=500   strings=17500
+P2.3      649809 B  elements=125   strings=17875
+P2.4      981256 B  elements=80    strings=26320
+P2.5       19658 B  elements=20    strings=680
+P3.1       12097 B  elements=200   strings=350
+P4.1       69557 B  elements=200   strings=3600
+P5.1         116 B  elements=1     strings=2
+P5.2       65620 B  elements=1     strings=2
+P5.3     1048660 B  elements=1     strings=2
+P5.4     4194390 B  elements=1     strings=2
+P6.1      116954 B  elements=200   strings=200
+P7.1          98 B  elements=6     strings=6
+
+# stage 1: ffi/schema/generated/manifest.json against prost
+#
+# configuration
+#   rustc          rustc 1.94.1 (e408947bf 2026-03-25)
+#   prost          0.14 (prost-build 0.14, protox 0.9; no protoc in this container)
+#   description    ffi/schema/shapes.json, ffi/schema/generated/shapes.proto
+#   manifest       generated_by = "emit/payloads.py from shapes.json"
+#   maps           prost-build btree_map("."): BTreeMap, so map entries sort by key
+#   host           vm
+
+payload manifest B    prost B  bytes    sha256   note
+P1.1          862        858  DIFFER   DIFFER   MISMATCH
+P1.2       218125     218121  DIFFER   DIFFER   MISMATCH
+P1.3          605        605  ok       ok       identical
+P2.1         1073       1039  DIFFER   DIFFER   MISMATCH
+P2.2       551696     551662  DIFFER   DIFFER   MISMATCH
+P2.3       649809     649775  DIFFER   DIFFER   MISMATCH
+P2.4       981256     981222  DIFFER   DIFFER   MISMATCH
+P2.5        19658      19632  DIFFER   DIFFER   MISMATCH
+P3.1        12097      12097  ok       ok       identical
+P4.1        69557      69551  DIFFER   DIFFER   MISMATCH
+P5.1          116        116  ok       ok       identical
+P5.2        65620      65620  ok       ok       identical
+P5.3      1048660    1048660  ok       ok       identical
+P5.4      4194390    4194390  ok       ok       identical
+P6.1       116954     116954  ok       ok       identical
+P7.1           98          -  n/a      n/a      decoded to the predicted value; contiguous re-encode is 98 B and a permutation of the 98 B interleaved form
+
+# prost encode/decode round trip
+#   P1.2   ok
+#   P1.3   ok
+#   P2.2   ok
+#   P2.5   ok
+#   P3.1   ok
+#   P4.1   ok
+#   P6.1   ok
+
+VERDICT: 8 disagreement(s).
+
+P1.1: prost and emit/wire.py disagree
+  first differing byte: 0x1
+  walked: manifest ok (63 items), prost ok (61 items)
+  first divergence at item 6:
+    manifest: tag path 1.5.2 wt0 @0x63  00 |.|
+    prost   : tag path 1.6{ wt2 @0x63   ||
+
+P1.2: prost and emit/wire.py disagree
+  first differing byte: 0x1
+  walked: manifest ok (15460 items), prost ok (15458 items)
+  first divergence at item 6:
+    manifest: tag path 1.5.2 wt0 @0x63  00 |.|
+    prost   : tag path 1.6{ wt2 @0x63   ||
+
+P2.1: prost and emit/wire.py disagree
+  first differing byte: 0x1
+  walked: manifest ok (88 items), prost ok (71 items)
+  first divergence at item 32:
+    manifest: tag path 1.10.2{ wt2 @0x2c5   ||
+    prost   : tag path 1.10.2 wt2 @0x2c5   ||
+
+P2.2: prost and emit/wire.py disagree
+  first differing byte: 0x1
+  walked: manifest ok (42587 items), prost ok (42570 items)
+  first divergence at item 32:
+    manifest: tag path 1.10.2{ wt2 @0x2c5   ||
+    prost   : tag path 1.10.2 wt2 @0x2c5   ||
+
+P2.3: prost and emit/wire.py disagree
+  first differing byte: 0x1
+  walked: manifest ok (24168 items), prost ok (24151 items)
+  first divergence at item 140:
+    manifest: tag path 1.10.2{ wt2 @0x12cd   ||
+    prost   : tag path 1.10.2 wt2 @0x12cd   ||
+
+P2.4: prost and emit/wire.py disagree
+  first differing byte: 0x1
+  walked: manifest ok (30390 items), prost ok (30373 items)
+  first divergence at item 32:
+    manifest: tag path 1.10.2{ wt2 @0x2c5   ||
+    prost   : tag path 1.10.2 wt2 @0x2c5   ||
+
+P2.5: prost and emit/wire.py disagree
+  first differing byte: 0x1
+  walked: manifest ok (1368 items), prost ok (1355 items)
+  first divergence at item 28:
+    manifest: tag path 1.10.2{ wt2 @0x2b2   ||
+    prost   : tag path 1.10.2 wt2 @0x2b2   ||
+
+P4.1: prost and emit/wire.py disagree
+  first differing byte: 0x1
+  walked: manifest ok (6917 items), prost ok (6914 items)
+  first divergence at item 18:
+    manifest: tag path 1.3.2{ wt2 @0xb1   ||
+    prost   : tag path 1.3.2 wt2 @0xb1   ||

@@ -1,0 +1,49 @@
+# ffi/logs/rust/stage1-isolate-zero-leaf.log
+# W3 stage 1: is the implicit-presence zero leaf the ONLY disagreement?
+# 2026-09-18
+# Configuration as in stage1-manifest-vs-prost.log. Nothing timed.
+#
+# Nothing under ffi/schema/ is edited. The candidate change is applied to a COPY in a
+# scratch directory, purely to find out whether one change accounts for all eight
+# disagreeing payloads. The change itself is a finding for the aggregating session.
+
+patched enc_field
+patched oneof_member
+
+# sizes with the candidate change
+P1.1         858 B
+P1.2      218121 B
+P1.3         605 B
+P2.1        1039 B
+P2.2      551662 B
+P2.3      649775 B
+P2.4      981222 B
+P2.5       19632 B
+P3.1       12097 B
+P4.1       69551 B
+P5.1         116 B
+P5.2       65620 B
+P5.3     1048660 B
+P5.4     4194390 B
+P6.1      116954 B
+P7.1          98 B
+wrote prost encodings to /tmp/claude-0/-home-user-ArmoniK-Api/38022ecc-c0ea-5b90-93d9-ac0e2f25abd9/scratchpad/isolate/prost-bytes
+
+# byte comparison: prost against the CANDIDATE emitters
+P1_1.bin   identical
+P1_2.bin   identical
+P1_3.bin   identical
+P2_1.bin   identical
+P2_2.bin   identical
+P2_3.bin   identical
+P2_4.bin   identical
+P2_5.bin   identical
+P3_1.bin   identical
+P4_1.bin   identical
+P5_1.bin   identical
+P5_2.bin   identical
+P5_3.bin   identical
+P5_4.bin   identical
+P6_1.bin   identical
+
+0 payload(s) still disagree with prost after the candidate change
