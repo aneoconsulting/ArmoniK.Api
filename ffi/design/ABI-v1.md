@@ -189,6 +189,14 @@ ak_transcode_fn ak_tc_ucs4(void);    /* CPython 4-byte */
 ak_transcode_fn ak_tc_bytes(void);   /* memcpy, no validation */
 ```
 
+**The UTF-8 entry is a passthrough, and passthroughs do not validate.** Nothing
+in the encoder needs a `string` field's bytes to be valid: it writes a length and
+copies. The decoder cannot trust them whatever the encoder did, since they arrive
+off a wire, and proto3 requires a parser to check. So `ak_tc_utf8` and
+`ak_tc_bytes` are the same memcpy, and the check lives on decode where it is not
+redundant. The other three entries convert, so they keep an explicit
+malformed-input policy: see open decision 3.
+
 **Why the transcoder is data rather than a callback.** There are not many
 representations a host actually holds, so the core implements all of them once
 for every language, and every managed host stops maintaining a UTF-8 encoder.
@@ -484,7 +492,14 @@ Consuming UTF-8 has no per-character loop to take over, and measured, the
 transcoder on decode is a wash (0.86 to 1.08).
 
 **That creates the one policy the ABI must state rather than leave to defaults:
-malformed input.** Both halves replace it with U+FFFD. This is not cosmetic:
+malformed input** — and with encode-side validation gone (decision 3), decode is
+now the *only* place a `string` field's bytes are ever checked, so this policy
+carries the whole of protobuf's UTF-8 guarantee rather than half of it. A facade
+written the obvious way does not implement it: the Rust slice decodes through a
+lossy conversion at 37 sites and rejects at none, so bad input silently becomes
+U+FFFD. Whether the answer is reject or substitute, it is generated and asserted
+rather than left to whichever call a facade author reached for. Both halves
+replace it with U+FFFD. This is not cosmetic:
 protobuf-java writes `?` for an unpaired surrogate and Google.Protobuf writes
 U+FFFD, today, silently, and one shared transcoder cannot reproduce both. Moving
 the transcoder into the core changes the observable bytes of at least one host
@@ -764,51 +779,69 @@ Each blocks something. None is settled by a measurement that exists today.
 2. **Which decode family does each binding take** (7.1), and is the single
    parameterised emitter actually buildable? Settled by the first two slices that
    pick different families.
-3. **Which UTF-8 validator?** It was framed as semantics (fail, or substitute;
-   the Java slice chose fail), then as a cost (the Rust slice priced validation at
-   25 to 30 percent of an encode on ASCII, and proposed trusting a host type that
-   carries the invariant). **The content-set pass reframed it again, and this
-   framing is the one to carry**: the choice that matters is not whether to
-   validate but *which validator*, because most of what trusting was buying is
-   available without giving up the contract.
+3. **Where does UTF-8 get checked?** Asked three times now, and the third
+   framing dissolves most of it: **not on encode, because nothing there needs it.**
 
-   **The ASCII figure was not the cost.** `core::str::from_utf8` consumes a
-   `usize` at a time on ASCII and one byte at a time otherwise, so its cost tracks
-   **non-ASCII bytes, not bytes**. On the Latin-1 and above-U+00FF content sets the
-   scalar validator costs 2.2 to 3.0 times its own ASCII cost and turns a 0.72 to
-   0.81 win against prost into a **2.0 to 2.6 loss**: the largest single effect
-   measured anywhere in this branch, and invisible to an ASCII-only pass.
+   The earlier framings were "fail or substitute" (semantics), then "validate or
+   trust the host's type" (a cost: 25 to 30 percent of an encode on ASCII and 2.0
+   to 2.6 times prost on non-ASCII content), then "which validator" (a SIMD one
+   recovers half to two thirds). All three assumed the check belongs on the encode
+   path. It does not:
 
-   **A SIMD validator with the identical contract recovers half to two thirds of
-   it**, to 1.27 to 1.50 of prost. Same refusal of malformed input, no trust
-   extended to anyone, `simdutf8::basic` in place of the scalar DFA. It is not
-   faster on ASCII, because the scalar ASCII path is already eight bytes an
-   iteration. **The accept and reject sets are identical**, which is the condition
-   that makes it safe here: a validator that differed on any input would make the
-   core's output depend on which one a build chose, and that is the one thing this
-   branch does not permit.
+   - **The codec does not need validity to encode.** A `string` field is a length
+     prefix and a byte copy. Validity changes nothing about the framing, so the
+     check buys the *encoder* nothing at all.
+   - **The decoder cannot trust the bytes whatever the encoder did**, because they
+     came off a wire that anything may have written. proto3 requires parsers to
+     validate for exactly this reason. So the check is mandatory on decode and
+     therefore *redundant* on encode: the same bytes get checked by the only party
+     whose check can be relied on.
+   - **So `ak_tc_utf8` collapses into `ak_tc_bytes`**, which in the Rust slice are
+     already literally the same function. The passthrough transcoder is a memcpy
+     and says so.
 
-   **What survives of the earlier framings.** Trusting the host is still refused,
-   and for the unchanged reason: it is a correctness contract a host can be wrong
-   about, which is exactly what dropping `max_bytes_per_unit` removed, and being
-   wrong about that one was measured as silent wire corruption. What changed is
-   the price of refusing it: the gap between validating with SIMD and trusting is
-   now 1.27 to 1.50 against 0.72 to 0.85, so trusting is still worth something and
-   is no longer worth 2.6.
+   **This is not the trusted transcoder that was refused, and the distinction is
+   the whole point.** That proposal made validity a *contract a host could be
+   wrong about*, picked per host type, which is the failure mode dropping
+   `max_bytes_per_unit` removed. This one extends trust to nobody: no host
+   promises anything, no generator chooses per type, every host gets the same
+   non-validating passthrough, and the parser checks. There is no contract, so
+   there is nothing to be wrong about.
 
-   **So the question put to the slices changes.** Not "does your host type carry
-   the invariant" but **"what does your platform's UTF-8 validator cost on
-   non-ASCII input, and is a faster one with the same contract available?"** For
-   C++ that is a real choice, and simdjson's validator is the same family. For
-   Python the incumbent is upb, which already validates in C, so the comparison
-   may be nearly free, which would itself be informative.
+   **It is already measured.** `ak_tc_utf8_trusted` is this proposal, so the
+   figures exist without a new run: 0.59 to 0.72 of prost on M1 ASCII, 0.80 to
+   0.85 on M2, and 0.75 on both non-ASCII content sets, against 2.0 to 2.6 for the
+   scalar validator on non-ASCII. It also retires the `simdutf8` dependency inside
+   the core and the AVX2 floor question with it.
 
-   **Not settled, and none of it by this slice**: one x86-64 machine with AVX2;
-   `simdutf8::basic` dispatches on runtime CPU features and falls back where they
-   are absent, which makes it a **floor** question in C++ as much as in Rust; and
-   it is a dependency inside the core rather than in a binding, so it carries a
-   packaging cost nobody has priced. **Blocks: nothing; the default is unchanged
-   and `ak_tc_utf8` remains what the specification names.**
+   **What does not disappear, and must not be lost with it.**
+
+   - **The malformed-input policy stays, for the *converting* transcoders.**
+     `ak_tc_utf16`, `ak_tc_latin1` and `ak_tc_ucs4` are not passthroughs: an
+     unpaired surrogate is not representable in UTF-8, so those must still
+     substitute or fail, and section 12.2's transcode pair is still a pair. What
+     the change removes is a *validation* on a path that does no conversion, not
+     the policy on paths that do.
+   - **The decode side must now state its policy, and today it has none.** The
+     Rust slice decodes through `String::from_utf8_lossy` at 37 sites and returns
+     `AK_ERR_TRANSCODE` from zero of them, so invalid input is silently replaced
+     with U+FFFD. That arrangement is exactly inverted: expensive checking where it
+     is redundant, silent substitution where proto3 says a parser must validate.
+     **Nobody chose it**; it is what a facade written the obvious way does.
+   - **Encode validation has one real value, and it is diagnostic**: it surfaces a
+     bad string at the caller that produced it, with the field in hand, rather than
+     at a receiver in another language and another process, where a conformant
+     parser rejects the *whole message* rather than the field. That is worth
+     offering as a mode a deployment can switch on, which is close to what
+     protobuf C++ already does (warn on serialize, allow it through). It is not
+     worth 25 to 30 percent of every encode by default.
+
+   **So the decision to take**: passthrough is a memcpy; the converting
+   transcoders keep an explicit malformed-input policy; decode validates and the
+   ABI says whether it rejects or substitutes; encode validation survives only as
+   an opt-in diagnostic. **Settled by**: the decode policy, which needs stating
+   and costing, and the Rust slice is the cheapest place to cost it since its
+   validator work is already built and merely on the wrong side.
 
 4. **Is `ak_span.coder` in the shared struct or out?** It is a JVM-specific hint
    in a struct every language reads.
