@@ -2,6 +2,7 @@
 
 pub mod arms;
 pub mod arms_m2;
+pub mod arms_m3;
 pub mod generated {
     pub mod binding;
 }

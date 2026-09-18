@@ -108,6 +108,10 @@ unsafe extern "C" {
     /// allocates, never throws, safe from inside a reverse-call frame (section 5).
     pub fn ak_fail(ctx: *mut c_void, code: i32, msg: *const u8, msg_len: u32);
     pub fn ak_enc_err(ctx: *const ak_enc_ctx) -> i32;
+    /// What the host reported through `ak_fail` on a DECODE context. `ak_fail` takes either
+    /// kind: both contexts begin with the same header, so the error slot is at one offset.
+    pub fn ak_dec_err(ctx: *const ak_dec_ctx) -> i32;
+    pub fn ak_dec_err_reset(ctx: *mut ak_dec_ctx);
 
     /// The transcoders the core implements once for every language (section 4).
     pub fn ak_tc_utf8() -> ak_transcode_fn;

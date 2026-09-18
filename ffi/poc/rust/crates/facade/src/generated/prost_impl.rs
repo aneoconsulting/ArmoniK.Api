@@ -295,6 +295,83 @@ impl ::prost::Message for TaskDetailed {
     fn clear(&mut self) { *self = Default::default(); }
 }
 
+impl ::prost::Message for Probe {
+    fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+        if !self.id.is_empty() { ::prost::encoding::string::encode(1, &self.id, buf); }
+        if let Some(v) = &self.opt_count { ::prost::encoding::int32::encode(2, v, buf); }
+        if let Some(v) = &self.opt_label { ::prost::encoding::string::encode(3, v, buf); }
+        if let Some(v) = &self.opt_flag { ::prost::encoding::bool::encode(4, v, buf); }
+        if let Some(v) = &self.body {
+            match v {
+                ProbeBody::AsInt(x) => ::prost::encoding::int64::encode(10, x, buf),
+                ProbeBody::AsText(x) => ::prost::encoding::string::encode(11, x, buf),
+                ProbeBody::AsBlob(x) => ::prost::encoding::bytes::encode(12, x, buf),
+                ProbeBody::AsStamp(x) => ::prost::encoding::message::encode(13, x, buf),
+                ProbeBody::AsNothing(x) => ::prost::encoding::message::encode(14, x, buf),
+            }
+        }
+    }
+    fn encoded_len(&self) -> usize {
+        let mut n = 0usize;
+        if !self.id.is_empty() { n += ::prost::encoding::string::encoded_len(1, &self.id); }
+        if let Some(v) = &self.opt_count { n += ::prost::encoding::int32::encoded_len(2, v); }
+        if let Some(v) = &self.opt_label { n += ::prost::encoding::string::encoded_len(3, v); }
+        if let Some(v) = &self.opt_flag { n += ::prost::encoding::bool::encoded_len(4, v); }
+        if let Some(v) = &self.body {
+            match v {
+                ProbeBody::AsInt(x) => n += ::prost::encoding::int64::encoded_len(10, x),
+                ProbeBody::AsText(x) => n += ::prost::encoding::string::encoded_len(11, x),
+                ProbeBody::AsBlob(x) => n += ::prost::encoding::bytes::encoded_len(12, x),
+                ProbeBody::AsStamp(x) => n += ::prost::encoding::message::encoded_len(13, x),
+                ProbeBody::AsNothing(x) => n += ::prost::encoding::message::encoded_len(14, x),
+            }
+        }
+        n
+    }
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: ::prost::encoding::WireType,
+        buf: &mut impl ::prost::bytes::Buf,
+        ctx: ::prost::encoding::DecodeContext,
+    ) -> Result<(), ::prost::DecodeError> {
+        match tag {
+            1 => ::prost::encoding::string::merge(wire_type, &mut self.id, buf, ctx),
+            2 => ::prost::encoding::int32::merge(wire_type, self.opt_count.get_or_insert_with(Default::default), buf, ctx),
+            3 => ::prost::encoding::string::merge(wire_type, self.opt_label.get_or_insert_with(Default::default), buf, ctx),
+            4 => ::prost::encoding::bool::merge(wire_type, self.opt_flag.get_or_insert_with(Default::default), buf, ctx),
+            10 => { let mut v = Default::default(); let r = ::prost::encoding::int64::merge(wire_type, &mut v, buf, ctx); self.body = Some(ProbeBody::AsInt(v)); r },
+            11 => { let mut v = String::new(); let r = ::prost::encoding::string::merge(wire_type, &mut v, buf, ctx); self.body = Some(ProbeBody::AsText(v)); r },
+            12 => { let mut v = Default::default(); let r = ::prost::encoding::bytes::merge(wire_type, &mut v, buf, ctx); self.body = Some(ProbeBody::AsBlob(v)); r },
+            13 => { let mut v = Timestamp::default(); let r = ::prost::encoding::message::merge(wire_type, &mut v, buf, ctx); self.body = Some(ProbeBody::AsStamp(v)); r },
+            14 => { let mut v = Empty::default(); let r = ::prost::encoding::message::merge(wire_type, &mut v, buf, ctx); self.body = Some(ProbeBody::AsNothing(v)); r },
+            _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+    fn clear(&mut self) { *self = Default::default(); }
+}
+
+impl ::prost::Message for Empty {
+    fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+    }
+    fn encoded_len(&self) -> usize {
+        let mut n = 0usize;
+        n
+    }
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: ::prost::encoding::WireType,
+        buf: &mut impl ::prost::bytes::Buf,
+        ctx: ::prost::encoding::DecodeContext,
+    ) -> Result<(), ::prost::DecodeError> {
+        match tag {
+            _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+    fn clear(&mut self) { *self = Default::default(); }
+}
+
 impl ::prost::Message for ListResultsResponse {
     fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
         if !self.results.is_empty() { ::prost::encoding::message::encode_repeated(1, &self.results, buf); }
@@ -349,6 +426,30 @@ impl ::prost::Message for ListTasksDetailedResponse {
             1 => ::prost::encoding::message::merge_repeated(wire_type, &mut self.tasks, buf, ctx),
             2 => ::prost::encoding::int32::merge(wire_type, &mut self.page, buf, ctx),
             3 => ::prost::encoding::int32::merge(wire_type, &mut self.total, buf, ctx),
+            _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+    fn clear(&mut self) { *self = Default::default(); }
+}
+
+impl ::prost::Message for ListProbeResponse {
+    fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+        if !self.probes.is_empty() { ::prost::encoding::message::encode_repeated(1, &self.probes, buf); }
+    }
+    fn encoded_len(&self) -> usize {
+        let mut n = 0usize;
+        if !self.probes.is_empty() { n += ::prost::encoding::message::encoded_len_repeated(1, &self.probes); }
+        n
+    }
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: ::prost::encoding::WireType,
+        buf: &mut impl ::prost::bytes::Buf,
+        ctx: ::prost::encoding::DecodeContext,
+    ) -> Result<(), ::prost::DecodeError> {
+        match tag {
+            1 => ::prost::encoding::message::merge_repeated(wire_type, &mut self.probes, buf, ctx),
             _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
         }
     }

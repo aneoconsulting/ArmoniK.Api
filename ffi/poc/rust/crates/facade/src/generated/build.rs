@@ -120,6 +120,27 @@ pub fn build_task_detailed(path: &str, idx: i64, mode: Mode, repeats: i64, bulk:
     }
 }
 
+pub fn build_probe(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> Probe {
+    Probe {
+        id: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.id"), idx) },
+        opt_count: if mode == Mode::AllAbsent { None } else { explicit_present(2, idx).then(|| if idx % 7 == 0 { 0 } else { v::scalar_i32(&format!("{path}.opt_count"), idx) }) },
+        opt_label: if mode == Mode::AllAbsent { None } else { explicit_present(3, idx).then(|| if idx % 7 == 0 { String::new() } else { v::word(&format!("{path}.opt_label"), idx) }) },
+        opt_flag: if mode == Mode::AllAbsent { None } else { explicit_present(4, idx).then(|| if idx % 7 == 0 { false } else { v::scalar_bool(&format!("{path}.opt_flag"), idx) }) },
+        body: Some(match idx % 5 {
+            0 => ProbeBody::AsInt(v::scalar_i64("Probe.as_int", idx)),
+            1 => ProbeBody::AsText(v::word("Probe.as_text", idx)),
+            2 => ProbeBody::AsBlob(::bytes::Bytes::from(v::blob("Probe.as_blob", idx, 16))),
+            3 => ProbeBody::AsStamp({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n } }),
+            _ => ProbeBody::AsNothing(Empty {}),
+        }),
+    }
+}
+
+pub fn build_empty(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> Empty {
+    Empty {
+    }
+}
+
 pub fn build_list_results_response(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> ListResultsResponse {
     ListResultsResponse {
         results: if mode == Mode::AllAbsent { Vec::new() } else { (0..repeats).map(|j| build_result_raw(&format!("{path}.results"), j, mode, repeats, bulk)).collect() },
@@ -133,6 +154,12 @@ pub fn build_list_tasks_detailed_response(path: &str, idx: i64, mode: Mode, repe
         tasks: if mode == Mode::AllAbsent { Vec::new() } else { (0..repeats).map(|j| build_task_detailed(&format!("{path}.tasks"), j, mode, repeats, bulk)).collect() },
         page: if mode == Mode::AllAbsent { 0 } else { v::scalar_i32(&format!("{path}.page"), idx) },
         total: if mode == Mode::AllAbsent { 0 } else { v::scalar_i32(&format!("{path}.total"), idx) },
+    }
+}
+
+pub fn build_list_probe_response(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> ListProbeResponse {
+    ListProbeResponse {
+        probes: if mode == Mode::AllAbsent { Vec::new() } else { (0..repeats).map(|j| build_probe(&format!("{path}.probes"), j, mode, repeats, bulk)).collect() },
     }
 }
 
@@ -235,5 +262,15 @@ pub fn payload_p2_5() -> ListTasksDetailedResponse {
     }
 }
 
+/// P3.1: ListProbeResponse, full
+pub fn payload_p3_1() -> ListProbeResponse {
+    const REPEATS: [i64; 1] = [3];
+    ListProbeResponse {
+        probes: (0..200i64)
+            .map(|j| build_probe("Probe", j, Mode::Full, REPEATS[(j as usize) % REPEATS.len()], 0))
+            .collect(),
+    }
+}
+
 /// Every payload this build covers, by the id design/SHAPES.md uses.
-pub const COVERED: [&str; 8] = ["P1.1", "P1.2", "P1.3", "P2.1", "P2.2", "P2.3", "P2.4", "P2.5"];
+pub const COVERED: [&str; 9] = ["P1.1", "P1.2", "P1.3", "P2.1", "P2.2", "P2.3", "P2.4", "P2.5", "P3.1"];

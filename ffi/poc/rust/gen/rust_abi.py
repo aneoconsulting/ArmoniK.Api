@@ -30,6 +30,10 @@ CSCALAR = {"int32": "i32", "int64": "i64", "bool": "u8", "double": "f64", "enum"
 ZERO = {"i32": "0", "i64": "0", "u8": "0", "f64": "0.0"}
 
 
+def _camel(snake_name):
+    return "".join(p.capitalize() for p in snake_name.split("_"))
+
+
 def snake(camel):
     out = []
     for i, c in enumerate(camel):
@@ -52,6 +56,19 @@ def presence_bits(m):
 
 
 def group_fields(m, enc):
+    """The group's fields, in tag order.
+
+    A oneof becomes a `<name>_case` discriminant carrying the ACTIVE MEMBER'S TAG, plus every
+    member inlined beside it. Not a union: ABI v1 section 6 says a group needs a fixed shape
+    and not a size bound, and a union would make the group's layout depend on which member is
+    largest, which is a thing a host reproducing offsets by hand can get wrong silently. The
+    cost is the size of the group; a union is an unmeasured alternative and is recorded as
+    such rather than assumed equivalent.
+
+    `<name>_case == 0` means no member is set. A value the codec does not recognise is
+    refused with AK_ERR_ABI rather than encoded as nothing, because a host generated against
+    a newer descriptor sending an unknown case is exactly the skew that must be loud.
+    """
     out = []
     for f in m.plain:
         if f.oneof or f.card != "singular":
@@ -62,7 +79,20 @@ def group_fields(m, enc):
             out.append((f.name, "ak_%sfix_%s" % ("e" if enc else "d", f.of)))
         else:
             out.append((f.name, CSCALAR[f.kind]))
+    for oname, members in m.oneofs.items():
+        out.append(("%s_case" % oname, "u32"))
+        for g in members:
+            n = "%s_%s" % (oname, g.name)
+            if g.kind in ("string", "bytes"):
+                out.append((n, "ak_str" if enc else "ak_span"))
+            elif g.kind == "message":
+                out.append((n, "ak_%sfix_%s" % ("e" if enc else "d", g.of)))
+            else:
+                out.append((n, CSCALAR[g.kind]))
     return out
+
+
+ZERO["u32"] = "0"
 
 
 def _zero_of(ty):
@@ -287,6 +317,19 @@ def element_types(ir):
     return out
 
 
+def oneof_message_members(ir):
+    """A message-typed oneof member is reached through a group encoder of its own rather
+    than inlined, because a oneof writes exactly one member and inlining all of them would
+    duplicate every member's walk into every arm."""
+    out = set()
+    for name in ir.abi_order:
+        for _, members in ir.msg(name).oneofs.items():
+            for g in members:
+                if g.kind == "message":
+                    out.add(g.of)
+    return out
+
+
 # ============================================================== the core
 
 def has_slots(ir, name):
@@ -345,15 +388,29 @@ def emit_codec(ir):
                 o.append("    }")
             elif f.card == "singular" and f.kind in ("string", "bytes"):
                 s = _site(sites, ("blob", owner, path))
-                cond = "%s.%s.tc.is_some()" % (gexpr, f.name)
-                if not f.explicit:
-                    cond += " && %s.%s.len != 0" % (gexpr, f.name)
+                if f.explicit:
+                    # Explicit presence is carried by the presence WORD, not by the length:
+                    # a present-and-empty string has len 0 and must still be written, and
+                    # that is the case a by-value group reports identically to absent unless
+                    # it is designed not to (design/SHAPES.md, M3).
+                    cond = "%s.presence & AK_EFIX_%s_PRESENT_%s != 0" % (
+                        gexpr, name.upper(), f.name.upper())
+                else:
+                    cond = "%s.%s.tc.is_some() && %s.%s.len != 0" % (
+                        gexpr, f.name, gexpr, f.name)
                 o.append("    if %s {" % cond)
                 o.append("        if !enc_blob(cx, %d, %d, &%s.%s) { return %s; }"
                          % (f.tag, s, gexpr, f.name, fail))
                 o.append("    }")
             elif f.card == "singular" and f.kind in ("int32", "int64", "bool", "enum"):
                 n = "%s.%s" % (gexpr, f.name)
+                if f.explicit:
+                    bit = "AK_EFIX_%s_PRESENT_%s" % (name.upper(), f.name.upper())
+                    conv = "%s as u64" % n if f.kind == "bool" else (
+                        "%s as i64 as u64" % n if f.kind in ("int32", "enum") else "%s as u64" % n)
+                    o.append("    if %s.presence & %s != 0 { (*cx).e.varint_field(%d, %s); }"
+                             % (gexpr, bit, f.tag, conv))
+                    continue
                 if f.kind == "bool":
                     o.append("    if %s != 0 { (*cx).e.varint_field(%d, 1); }" % (n, f.tag))
                 elif f.kind in ("int32", "enum"):
@@ -380,10 +437,42 @@ def emit_codec(ir):
                 o.append("    }")
             else:
                 raise NotImplementedError("encode %s.%s (%s %s)" % (name, f.name, f.card, f.kind))
+        for oname, members in m.oneofs.items():
+            s = _site(sites, ("oneofmsg", owner, prefix + (oname,)))
+            o.append("    match %s.%s_case {" % (gexpr, oname))
+            o.append("        0 => {}")
+            for g in members:
+                n = "%s.%s_%s" % (gexpr, oname, g.name)
+                o.append("        %d => {" % g.tag)
+                if g.kind in ("string", "bytes"):
+                    o.append("            if !enc_blob(cx, %d, %d, &%s) { return %s; }"
+                             % (g.tag, _site(sites, ("oneofblob", owner, prefix + (oname, g.name))),
+                                n, fail))
+                elif g.kind == "message":
+                    o.append("            let mk = (*cx).e.begin(%d, %d);" % (g.tag, s))
+                    o.append("            if !enc_%s_group(&%s, cx) { return %s; }"
+                             % (snake(g.of), n, fail))
+                    o.append("            (*cx).e.end(mk);")
+                elif g.kind == "double":
+                    o.append("            (*cx).e.f64_field(%d, %s);" % (g.tag, n))
+                elif g.kind == "bool":
+                    o.append("            (*cx).e.varint_field(%d, %s as u64);" % (g.tag, n))
+                elif g.kind in ("int32", "enum"):
+                    o.append("            (*cx).e.varint_field(%d, %s as i64 as u64);" % (g.tag, n))
+                else:
+                    o.append("            (*cx).e.varint_field(%d, %s as u64);" % (g.tag, n))
+                o.append("        }")
+            o.append("        // A case this build does not know: a host generated against a")
+            o.append("        // newer descriptor. Refused loudly rather than encoded as")
+            o.append("        // nothing, because silence here is a message that lost a field.")
+            o.append("        _ => { (*cx).e.fail(AK_ERR_ABI); return %s; }" % fail)
+            o.append("    }")
 
     for name in ir.abi_order:
         m = ir.msg(name)
-        if name not in vtable_messages(ir) and name not in element_types(ir):
+        if (name not in vtable_messages(ir)
+                and name not in element_types(ir)
+                and name not in oneof_message_members(ir)):
             continue
         slots = has_slots(ir, name)
         body.append("#[inline]")
@@ -602,6 +691,9 @@ def _emit_decode(ir, sites):
                 o.append("                let (off, n) = %s.len_body();" % ("cd" if depth else "d"))
                 o.append("                %s.%s = ak_span { off: (%s + off) as u32, len: n as u32, coder: 0 };"
                          % (fxexpr, f.name, basename))
+                if f.explicit:
+                    o.append("                %s.presence |= AK_DFIX_%s_PRESENT_%s;"
+                             % (fxexpr, name.upper(), f.name.upper()))
                 o.append("            }")
             elif f.card == "singular" and f.kind in ("int32", "int64", "bool", "enum", "double"):
                 rd = {"bool": "(%s.varint() != 0)", "int32": "%s.varint() as i32",
@@ -612,6 +704,9 @@ def _emit_decode(ir, sites):
                 o.append("            %d if wire == %d => {" % (f.tag, w))
                 o.append("                if cur != 0 { flush!(); cur = 0; }")
                 o.append("                %s.%s = %s%s;" % (fxexpr, f.name, rd, cast))
+                if f.explicit:
+                    o.append("                %s.presence |= AK_DFIX_%s_PRESENT_%s;"
+                             % (fxexpr, name.upper(), f.name.upper()))
                 o.append("            }")
             elif f.card in ("repeated", "packed", "map"):
                 sid = slot_id[sn]
@@ -665,6 +760,35 @@ def _emit_decode(ir, sites):
                     o.append("            }")
             else:
                 raise NotImplementedError("decode %s.%s (%s %s)" % (name, f.name, f.card, f.kind))
+        for oname, members in m.oneofs.items():
+            dd = "cd" if depth else "d"
+            for g in members:
+                n = "%s.%s_%s" % (fxexpr, oname, g.name)
+                if g.kind in ("string", "bytes"):
+                    o.append("            %d if wire == 2 => {" % g.tag)
+                    o.append("                if cur != 0 { flush!(); cur = 0; }")
+                    o.append("                let (off, n) = %s.len_body();" % dd)
+                    o.append("                %s = ak_span { off: (%s + off) as u32, len: n as u32, coder: 0 };"
+                             % (n, basename))
+                elif g.kind == "message":
+                    o.append("            %d if wire == 2 => {" % g.tag)
+                    o.append("                if cur != 0 { flush!(); cur = 0; }")
+                    o.append("                let (off, n) = %s.len_body();" % dd)
+                    o.append("                let mut os = Dec::new(&%s[off..off + n]);" % bufname)
+                    o.append("                %s = dec_%s_fix(&mut os, %s + off);" % (n, snake(g.of), basename))
+                    o.append("                if os.err != 0 { %s.err = os.err; }" % dd)
+                else:
+                    w = 1 if g.kind == "double" else 0
+                    rd = ("%s.f64()" % dd if g.kind == "double"
+                          else "(%s.varint() != 0) as u8" % dd if g.kind == "bool"
+                          else "%s.varint() as i32" % dd if g.kind in ("int32", "enum")
+                          else "%s.varint() as i64" % dd)
+                    o.append("            %d if wire == %d => {" % (g.tag, w))
+                    o.append("                if cur != 0 { flush!(); cur = 0; }")
+                    o.append("                %s = %s;" % (n, rd))
+                o.append("                // Last one wins: a later member replaces the case.")
+                o.append("                %s.%s_case = %d;" % (fxexpr, oname, g.tag))
+                o.append("            }")
 
     def arena_decl(sn, dty, o, indent="    "):
         o.append("%s// ABI v1 7.3: a byte budget divided by the group size, not an element" % indent)
@@ -697,8 +821,8 @@ def _emit_decode(ir, sites):
         o.append("        };")
         o.append("    }")
 
-    # ---- leaf-element fix decoders (unchanged shape from stage 2)
-    for name in sorted(element_types(ir)):
+    # ---- leaf fix decoders: element types, and the message members of a oneof
+    for name in sorted(element_types(ir) | oneof_message_members(ir)):
         if not ir.msg(name).leaf:
             continue
         out.append("#[inline]")
@@ -750,6 +874,9 @@ def _emit_decode(ir, sites):
             out.append("        }")
             out.append("        None => return,")
             out.append("    };")
+            out.append("    if tok < 0 || (*dcx).hdr.err != AK_OK {")
+            out.append("        return;")
+            out.append("    }")
             out.append("    let mut out = ak_dfix_%s::ZERO;" % et)
             out.append("    #[allow(unused_variables)]")
             out.append("    let buf0 = d.buf;")
@@ -822,7 +949,9 @@ def _emit_decode(ir, sites):
         out.append("        ak_rt::bump!((*dcx).c, reverse);")
         out.append("        apply(ctx, obj, &out);")
         out.append("    }")
-        out.append("    if d.err != 0 { d.err } else { AK_OK }")
+        out.append("    // The host may have failed the operation from inside a reverse call; the")
+        out.append("    // sticky slot in the context is where it said so (ABI v1 section 5).")
+        out.append("    if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }")
         out.append("}")
         out.append("")
     return out
@@ -878,26 +1007,46 @@ fn guard<F: FnOnce() -> i32>(ctx: *mut ak_enc_ctx, f: F) -> i32 {
     }
 }
 
+/// The decode side of the same guard. It reports through `ak_fail` on the DECODE context,
+/// which it could not do until the context gained an error channel: before that `ak_fail`
+/// cast unconditionally to an encode context, so a decode-side failure would have corrupted
+/// one (this slice's defect D7).
 #[inline]
-fn dguard<F: FnOnce()>(f: F) {
+fn dguard<F: FnOnce()>(ctx: *mut ak_dec_ctx, f: F) {
     #[cfg(feature = "guard")]
     {
-        let _ = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(f));
+        if ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(f)).is_err() {
+            unsafe {
+                let m = b"host panic in a decode reverse call";
+                ak_fail(ctx as *mut c_void, AK_ERR_HOST, m.as_ptr(), m.len() as u32);
+            }
+        }
     }
     #[cfg(not(feature = "guard"))]
     {
+        let _ = ctx;
         f()
     }
 }
 
+/// An element maker that fails returns a token the codec must not use. -1 is that token,
+/// and the codec stops on the sticky error rather than on the value.
 #[inline]
-fn dguard_i64<F: FnOnce() -> i64>(f: F) -> i64 {
+fn dguard_i64<F: FnOnce() -> i64>(ctx: *mut ak_dec_ctx, f: F) -> i64 {
     #[cfg(feature = "guard")]
     {
-        ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(f)).unwrap_or(-1)
+        match ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(f)) {
+            Ok(v) => v,
+            Err(_) => unsafe {
+                let m = b"host panic making an element";
+                ak_fail(ctx as *mut c_void, AK_ERR_HOST, m.as_ptr(), m.len() as u32);
+                -1
+            },
+        }
     }
     #[cfg(not(feature = "guard"))]
     {
+        let _ = ctx;
         f()
     }
 }
@@ -998,6 +1147,28 @@ def emit_binding(ir):
         for f in m.plain:
             if f.card != "singular":
                 continue
+            if f.explicit:
+                # Total fill: an absent field still gets all three words of its ak_str and
+                # its scalar written, and the presence WORD is what says it is absent. A
+                # partial fill does not fail, it inherits the previous element's value.
+                if f.kind == "string":
+                    o.append("        %s: match &o.%s {" % (f.name, f.name))
+                    o.append("            Some(v) => str_arg(v, tc.0),")
+                    o.append("            None => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
+                    o.append("        },")
+                elif f.kind == "bytes":
+                    o.append("        %s: match &o.%s {" % (f.name, f.name))
+                    o.append("            Some(v) => ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) },")
+                    o.append("            None => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
+                    o.append("        },")
+                elif f.kind == "bool":
+                    o.append("        %s: o.%s.unwrap_or(false) as u8," % (f.name, f.name))
+                elif f.kind == "enum":
+                    o.append("        %s: o.%s.map(|v| v.to_i32()).unwrap_or(0)," % (f.name, f.name))
+                else:
+                    o.append("        %s: o.%s.unwrap_or(0)," % (f.name, f.name))
+                pres.append("((o.%s.is_some() as u32) << %d)" % (f.name, bits[f.name]))
+                continue
             if f.kind == "string":
                 o.append("        %s: str_arg(&o.%s, tc.0)," % (f.name, f.name))
             elif f.kind == "bytes":
@@ -1015,6 +1186,35 @@ def emit_binding(ir):
                 o.append("        %s: o.%s as u8," % (f.name, f.name))
             else:
                 o.append("        %s: o.%s," % (f.name, f.name))
+        for oname, members in m.oneofs.items():
+            ty = "%s%s" % (name, "".join(p.capitalize() for p in oname.split("_")))
+            o.append("        %s_case: match &o.%s {" % (oname, oname))
+            o.append("            None => 0,")
+            for g in members:
+                o.append("            Some(%s::%s(_)) => %d," % (ty, _camel(g.name), g.tag))
+            o.append("        },")
+            for g in members:
+                o.append("        %s_%s: match &o.%s {" % (oname, g.name, oname))
+                if g.kind == "string":
+                    o.append("            Some(%s::%s(v)) => str_arg(v, tc.0)," % (ty, _camel(g.name)))
+                    o.append("            _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
+                elif g.kind == "bytes":
+                    o.append("            Some(%s::%s(v)) => ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) },"
+                             % (ty, _camel(g.name)))
+                    o.append("            _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
+                elif g.kind == "message":
+                    o.append("            Some(%s::%s(v)) => make_%s(v, tc)," % (ty, _camel(g.name), snake(g.of)))
+                    o.append("            _ => ak_efix_%s::ZERO," % g.of)
+                elif g.kind == "bool":
+                    o.append("            Some(%s::%s(v)) => *v as u8," % (ty, _camel(g.name)))
+                    o.append("            _ => 0,")
+                elif g.kind == "enum":
+                    o.append("            Some(%s::%s(v)) => v.to_i32()," % (ty, _camel(g.name)))
+                    o.append("            _ => 0,")
+                else:
+                    o.append("            Some(%s::%s(v)) => *v," % (ty, _camel(g.name)))
+                    o.append("            _ => %s," % ("0.0" if g.kind == "double" else "0"))
+                o.append("        },")
         o.append("        presence: %s," % (" | ".join(pres) if pres else "0"))
         o.append("    }")
         o.append("}")
@@ -1082,6 +1282,11 @@ def emit_binding(ir):
                 if fl.card != "singular":
                     continue
                 o.extend("    " + ln for ln in _assign(ir, name, fl, "dst", "f", "base"))
+            for oname, members in m.oneofs.items():
+                lines = _oneof_back(ir, name, oname, members, "f", "base")
+                o.append("    dst.%s = %s" % (oname, lines[0]))
+                o.extend("    " + ln for ln in lines[1:-1])
+                o.append("    };")
             o.append("}")
         else:
             o.append("#[inline(always)]")
@@ -1093,6 +1298,11 @@ def emit_binding(ir):
                     o.append("        %s: Default::default()," % fl.name)
                     continue
                 o.append("        %s: %s," % (fl.name, _ctor_expr(ir, name, fl, "f", "base")))
+            for oname, members in m.oneofs.items():
+                lines = _oneof_back(ir, name, oname, members, "f", "base")
+                o.append("        %s: %s" % (oname, lines[0]))
+                o.extend("        " + ln for ln in lines[1:-1])
+                o.append("        },")
             o.append("    }")
             o.append("}")
         o.append("")
@@ -1111,13 +1321,18 @@ def emit_binding(ir):
         o.append("    obj: *mut c_void,")
         o.append("    fx: *const ak_dfix_%s," % root)
         o.append(") {")
-        o.append("    dguard(|| {")
+        o.append("    dguard(_ctx, || {")
         o.append("        let s = &mut *(obj as *mut Sink%s);" % root)
         o.append("        let f = &*fx;")
         for fl in ir.msg(root).plain:
             if fl.card != "singular":
                 continue
             o.extend("        " + ln for ln in _assign(ir, root, fl, "s.out", "f", "s.base"))
+        for oname, members in ir.msg(root).oneofs.items():
+            lines = _oneof_back(ir, root, oname, members, "f", "s.base")
+            o.append("        s.out.%s = %s" % (oname, lines[0]))
+            o.extend("        " + ln for ln in lines[1:-1])
+            o.append("        };")
         o.append("    })")
         o.append("}")
         o.append("")
@@ -1129,7 +1344,7 @@ def emit_binding(ir):
             if et and not ir.msg(et).leaf:
                 o.append("unsafe extern \"C\" fn new_%s_%s(_ctx: *mut ak_dec_ctx, obj: *mut c_void) -> i64 {"
                          % (rs, sn))
-                o.append("    dguard_i64(|| {")
+                o.append("    dguard_i64(_ctx, || {")
                 o.append("        let s = &mut *(obj as *mut Sink%s);" % root)
                 o.append("        s.out.%s.push(Default::default());" % sn)
                 o.append("        (s.out.%s.len() - 1) as i64" % sn)
@@ -1142,7 +1357,7 @@ def emit_binding(ir):
                 o.append("    tok: i64,")
                 o.append("    fx: *const ak_dfix_%s," % et)
                 o.append(") {")
-                o.append("    dguard(|| {")
+                o.append("    dguard(_ctx, || {")
                 o.append("        let s = &mut *(obj as *mut Sink%s);" % root)
                 o.append("        let base = s.base;")
                 o.append("        fill_%s(&mut s.out.%s[tok as usize], &*fx, base);" % (snake(et), sn))
@@ -1183,6 +1398,16 @@ def emit_binding(ir):
 def _assign(ir, owner, f, dst, fx, base):
     """One group field, assigned in place. Used by a `fill_` and by `apply`."""
     bit = "AK_DFIX_%s_PRESENT_%s" % (owner.upper(), f.name.upper())
+    if f.explicit:
+        # The presence WORD decides, not the value: present-and-zero and present-and-empty
+        # are both `Some`, and only the bit tells them from absent.
+        inner = {"string": "s_of(%s, %s.%s)" % (base, fx, f.name),
+                 "bytes": "b_of(%s, %s.%s)" % (base, fx, f.name),
+                 "bool": "%s.%s != 0" % (fx, f.name),
+                 "enum": "%s::from_i32(%s.%s)" % (f.of, fx, f.name)}.get(
+                     f.kind, "%s.%s" % (fx, f.name))
+        return ["%s.%s = if %s.presence & %s != 0 { Some(%s) } else { None };"
+                % (dst, f.name, fx, bit, inner)]
     if f.kind == "string":
         return ["%s.%s = s_of(%s, %s.%s);" % (dst, f.name, base, fx, f.name)]
     if f.kind == "bytes":
@@ -1213,6 +1438,13 @@ def _assign(ir, owner, f, dst, fx, base):
 
 def _ctor_expr(ir, owner, f, fx, base):
     bit = "AK_DFIX_%s_PRESENT_%s" % (owner.upper(), f.name.upper())
+    if f.explicit:
+        inner = {"string": "s_of(%s, %s.%s)" % (base, fx, f.name),
+                 "bytes": "b_of(%s, %s.%s)" % (base, fx, f.name),
+                 "bool": "%s.%s != 0" % (fx, f.name),
+                 "enum": "%s::from_i32(%s.%s)" % (f.of, fx, f.name)}.get(
+                     f.kind, "%s.%s" % (fx, f.name))
+        return "if %s.presence & %s != 0 { Some(%s) } else { None }" % (fx, bit, inner)
     if f.kind == "string":
         return "s_of(%s, %s.%s)" % (base, fx, f.name)
     if f.kind == "bytes":
@@ -1226,6 +1458,35 @@ def _ctor_expr(ir, owner, f, fx, base):
                 % (fx, bit, snake(f.of), fx, f.name, base))
     return "%s.%s" % (fx, f.name)
 
+
+
+def _oneof_back(ir, name, oname, members, fx, base):
+    """Map the decode group's discriminant back to the facade's oneof.
+
+    A case the binding does not know cannot happen from the wire -- the codec only ever sets
+    a case it decoded -- but it CAN happen if the two sides were generated from different
+    descriptors, which ABI v1 section 11 says is a codegen bug rather than a runtime
+    condition. `None` is the honest answer here: the alternative is to invent a member.
+    """
+    ty = "%s%s" % (name, _camel(oname))
+    out = ["match %s.%s_case {" % (fx, oname)]
+    for g in members:
+        if g.kind == "string":
+            v = "s_of(%s, %s.%s_%s)" % (base, fx, oname, g.name)
+        elif g.kind == "bytes":
+            v = "b_of(%s, %s.%s_%s)" % (base, fx, oname, g.name)
+        elif g.kind == "message":
+            v = "from_%s(&%s.%s_%s, %s)" % (snake(g.of), fx, oname, g.name, base)
+        elif g.kind == "bool":
+            v = "%s.%s_%s != 0" % (fx, oname, g.name)
+        elif g.kind == "enum":
+            v = "%s::from_i32(%s.%s_%s)" % (g.of, fx, oname, g.name)
+        else:
+            v = "%s.%s_%s" % (fx, oname, g.name)
+        out.append("    %d => Some(%s::%s(%s))," % (g.tag, ty, _camel(g.name), v))
+    out.append("    _ => None,")
+    out.append("}")
+    return out
 
 def _emit_add(ir, o, root, et, sn, path, f):
     """The batched `add` for one loop slot. ABI v1 7.4: append, never size to the count."""
@@ -1241,7 +1502,7 @@ def _emit_add(ir, o, root, et, sn, path, f):
     o.append("    elems: *const %s," % dty)
     o.append("    n: i32,")
     o.append(") {")
-    o.append("    dguard(|| {")
+    o.append("    dguard(_ctx, || {")
     o.append("        let s = &mut *(obj as *mut Sink%s);" % root)
     o.append("        let base = s.base;")
     if et:

@@ -19,6 +19,15 @@ def variant(enum_name, value_name):
     return "".join(p.capitalize() for p in tail.split("_"))
 
 
+def camel(snake_name):
+    return "".join(p.capitalize() for p in snake_name.split("_"))
+
+
+def oneof_type(msg_name, oneof_name):
+    """The Rust enum a oneof becomes: `Probe`'s `body` is `ProbeBody`."""
+    return "%s%s" % (msg_name, camel(oneof_name))
+
+
 def facade_type(f):
     """The idiomatic Rust type of one field, in the style packages/rust already uses:
     String, bytes::Bytes, a real enum with a lossless Unknown, Option for a message."""

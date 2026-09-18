@@ -6,7 +6,7 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | stages 1 and 2 done. **Stage 3 parts 1 and 2 done**: M2 over P2.1 to P2.5 with ABI v1 open decision 5 answered, and the `latin1`/`wide` content-set pass with decision 3 reframed. M3 to M7 and stage 4 not started |
+| **Status** | stages 1 and 2 done. **Stage 3 parts 1 to 3 done**: M2 with decision 5 answered, the content-set pass with decision 3 reframed, and M3 with the oneof, explicit presence and the unknown-field vectors. M4 to M7 and stage 4 not started |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88 declared. **Not verified: no 1.88 toolchain exists in this container, only 1.94.1** |
 | **Target** (where the clock runs) | the same, one configuration (README section 5) |
@@ -72,6 +72,8 @@ separate processes.
 | P2.3 | decode | 1.017 - 1.017 | 0.932 - 1.068 | 0.819 - 0.953 |
 | P2.4 | decode | 0.967 - 0.970 | 0.897 - 1.067 | 0.809 - 0.981 |
 | P2.5 | decode | 0.995 - 1.010 | 0.919 - 0.992 | 0.944 - 1.033 |
+| P3.1 | encode | 0.966 - 0.975 | 0.406 - 0.410 | 0.846 - 0.853 |
+| P3.1 | decode | 0.961 - 0.968 | 0.811 - 0.824 | 0.834 - 0.838 |
 
 - **One crossing costs 1.8 ns** here (forward, and forward-plus-reverse), measured in the
   same process and build as the arms.
@@ -80,9 +82,14 @@ separate processes.
   **10.02 per task on encode**, which nothing had predicted.
 - **Encode survives the harder shape**: the core is 0.46 to 0.57 of prost natively and 0.83
   to 0.92 through the C ABI on every uniform M2 payload.
-- **Decode does not.** On M2 both core arms are at parity with prost. It is not the
-  crossings (7 x 1.8 ns against ~2,200 ns per element): P2.2 carries 17,500 strings in
-  551 KB, so decode is allocation-bound and the codec stops mattering.
+- **Decode converges to parity in proportion to host-side CONTAINER construction per
+  element**, not to bytes or strings. P3.1 (flat, 5 fields) 0.81; P1.2 (6 blobs, 2 optional
+  messages) 0.83; P2.2 (4 `Vec<String>`, a `BTreeMap`, a 27-field struct) 0.89 to 0.96. A map
+  insert and four vector growths are work every arm does identically, so the denser the
+  element's container graph the smaller the share of decode any codec owns. This supersedes
+  the looser "decode is allocation-bound" from part 1, which attributed it to the wrong thing.
+- **The oneof and explicit presence cost no crossings at all**: 3 for 200 elements in both
+  directions. Both ride in the group.
 - **The accessor guard is not measurable** on Rust, on M1 or on M2, and M2 makes 7 to 10
   reverse calls per element.
 - **UTF-8 validation on non-ASCII content is the largest single effect in the slice.** The
@@ -103,14 +110,13 @@ separate processes.
 **Stage 3, parts 2 to 5.** Each is a backend gap with a `NotImplementedError` raised at the
 right place, so the generator says what it refuses:
 
-1. **M3 (`Probe`)**: a oneof including the payload-free member, and explicit presence. Both
-   backends and the payload builder refuse a oneof today, deliberately. These are the two
-   shapes unmeasured on .NET.
-2. **M4**, the adapter site: one facade type with two wire forms.
-3. **M5**, bulk bytes, including the direct-argument path of ABI v1 section 8.
-4. **M6** (packed scalars) and **M7** (`DualResponse`), both **CONTROLS**: their rows are
-   labelled as such in the log, not only in SHAPES.md. M7 is decode only, because no
-   canonical writer can produce it.
+1. **M4**, the adapter site: one facade type with two wire forms. The only `with` adapter in
+   the Rust crate, and the shape only a byte corpus catches.
+2. **M5**, bulk bytes, including the direct-argument path of ABI v1 section 8.
+3. **M6**: packed scalars (**CONTROL**) and the packed enum `945d3cd1` added (**not** a
+   control: it is the one packed shape the real schema has). The two must be labelled
+   differently in the same table.
+4. **M7** (`DualResponse`), **CONTROL**, decode only: no canonical writer can produce it.
 
 Then **stage 4**: the RPC arm over P2.2 against tonic, 1/8/16 in flight, crossings per RPC.
 
@@ -138,16 +144,22 @@ Done as part 2 and no longer pending: the `latin1` and `wide` content sets.
 | D4 | `gen/rust_build.py` | `all_absent` was short-circuited by the `half_absent` rule for even-tag Timestamps | **fixed** and swept: one `absent_expr`/`zero_expr` pair for every kind |
 | D5 | `gen/rust_facade.py` | the enum guard ran `to_i32()` twice, and `is_some()` was followed by `as_ref().unwrap()` | **fixed** and swept: guard and value emitted as one statement per field |
 | D6 | `gen/rust_abi.py` | a zero-length span went through the lossy-UTF-8 path in the generated accessor | **fixed**: empty fast path in `s_of` and `b_of` |
-| D7 | `crates/ak-core/src/lib.rs` | `ak_fail` casts its context to `EncCtxImpl` unconditionally; a decode-side failure would corrupt a `DecCtxImpl` | **open**, agreed with the aggregating session to fix with the decode error channel rather than bolt on a tag. Not reachable today: nothing on the decode path calls it, and the decode guard swallows a panic instead |
+| D7 | `crates/ak-core/src/lib.rs` | `ak_fail` cast its context to `EncCtxImpl` unconditionally | **closed with M3**, as agreed: both contexts begin with a `CtxHeader { kind, err }`, the decode guard reports through `ak_fail`, and the decode entry point returns it |
 | D8 | `gen/rust_abi.py` | the emitted arm for a singular message child read its length prefix from the root reader instead of the reader at its own depth | **fixed**. Only reachable at depth two or more, so M1 could not see it |
 | D10 | `crates/stage1-validate/src/build.rs` | the hand-written prost builder did not know M6's new packed enum field | **fixed**, and P6.1 re-validated against prost at 123,354 bytes, with the log to show it: `stage1-manifest-vs-prost-packed-enum.log` |
+| D12 | `gen/rust_core.py`, `gen/rust_abi.py` | every backend iterated `Message.plain`, which excludes oneof members, so adding `ListProbeResponse` produced a complete-looking codec that ignored `Probe.body` and said nothing | **fixed**: both walkers call `b.oneof(...)` explicitly, so a backend that cannot do the shape raises rather than skipping it |
 | D11 | this slice's reporting | P6.1's re-validation was reported with no log behind it, against a stale log that still showed the old size | **fixed**. Every schema change now re-runs `gen/stage1.sh` into a dated log before the result is quoted |
 | D9 | `gen/rust_abi.py` | an element run did not restore the codec's open-field state, so the second and later chunks read whatever the last element left behind. It cost 448 length-prefix misses in 500 elements, and it reads `open_tag` too, so a host that chunks would write later chunks under the inner field's tag | **fixed**: every element and run entry point saves and restores the open state, and `gen/stage3.sh` step 3 carries a regression for it. **The payload set could not have caught it**: byte identity passed only because `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1 |
 
 ## What is not measured
 
-- **Shapes**: M1 and M2. Still missing: oneof, explicit presence, the adapter site, bulk
-  bytes, packed scalars and interleaved repeated fields. That is M3 to M7.
+- **Shapes**: M1, M2 and M3. Still missing: the adapter site, bulk bytes, packed scalars and
+  interleaved repeated fields. That is M4 to M7.
+- **An unknown oneof `body_case` from a host generated against a newer descriptor.** The
+  codec refuses it with `AK_ERR_ABI`; nothing in this build can produce one, so the path is
+  built and not exercised.
+- **A union group layout for a oneof**, which would be smaller than the flat one built here.
+  Recorded as an alternative, not measured.
 - **Two shapes `design/SHAPES.md` claims are covered and are not, reported to the aggregating
   session**: a packed repeated ENUM (nothing in `shapes.json` has one; M2 has no packed field
   at all and M6's are int64/double/int32/bool), and nesting to depth 6 (the maximum static
@@ -195,6 +207,7 @@ Done as part 2 and no longer pending: the `latin1` and `wide` content sets.
 | `ffi/logs/rust/stage1-second-encoder.log` | as above, plus prost-reflect 0.16.5 | the rule is protobuf's, not prost's; the corrected sizes and hashes |
 | `ffi/logs/rust/stage1-manifest-vs-prost-after-fix.log` | as above, **schema at `07d3e05`** | 16 of 16 after the zero-leaf fix. **Its P6.1 row (116,954 B) is superseded by the log below**; every other row still stands |
 | `ffi/logs/rust/stage1-manifest-vs-prost-packed-enum.log` | as above, **schema at `945d3cd1`** | 16 of 16 including P6.1 at 123,354 B, the payload the packed enum moved and the one nothing had checked |
+| `ffi/logs/rust/stage3-M3.log` | as stage3-M2, ASCII, guard on | M3: byte identity on P3.1; explicit presence as three cases x three fields x four arms, all agreeing; the oneof by member including the payload-free one; seven unknown-field vectors, hand-built; 3 crossings per 200 elements in both directions; one timing row set |
 | `ffi/logs/rust/stage3-content-sets.log` | as stage3-M2, plus simdutf8 0.1 as one arm; encode and decode over P1.2 and P2.2, all three content sets in ONE process | ABI v1 open decision 3: the scalar validator costs 2.2 to 3.0 times its ASCII self on non-ASCII content and loses 2.0 to 2.6 to prost; a SIMD validator with the same contract recovers half to two thirds of it; decode is unaffected in ordering |
 | `ffi/logs/rust/stage3-M2.log` | rustc 1.94.1 release, prost 0.14.4, cdylib boundary, guard on (section 6 off), ASCII, 4 shared vCPUs | M2 over P2.1 to P2.5: byte identity across four arms plus value identity across the three facade decoders; 7.004 crossings per task on decode and 10.02 on encode; ABI v1 open decision 5 answered and isolated; the two shape-coverage findings; the guard priced on a shape that makes 7 to 10 reverse calls per element |
 | `ffi/logs/rust/stage2-four-arms-M1.log` | rustc 1.94.1 release, prost 0.14.4, cdylib boundary, guard on (section 6 off), ASCII, 4 shared vCPUs | byte identity across four arms; crossing counts; the boundary is a real dynamic import; the crossing costs 1.8 ns; the ratio table above; the guard is free; UTF-8 validation costs 25-30 percent of an encode |

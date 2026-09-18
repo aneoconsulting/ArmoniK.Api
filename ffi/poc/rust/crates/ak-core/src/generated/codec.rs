@@ -11,7 +11,7 @@ use ak_rt::dec::Dec;
 use core::ffi::c_void;
 
 /// One learned length-prefix slot per site. Per context, never process-global.
-pub const SITES: usize = 47;
+pub const SITES: usize = 53;
 
 #[inline]
 unsafe fn enc_task_options_options_entry_group(g: &ak_efix_TaskOptionsOptionsEntry, cx: *mut EncCtxImpl) -> bool {
@@ -21,6 +21,13 @@ unsafe fn enc_task_options_options_entry_group(g: &ak_efix_TaskOptionsOptionsEnt
     if g.value.tc.is_some() && g.value.len != 0 {
         if !enc_blob(cx, 2, 1, &g.value) { return false; }
     }
+    true
+}
+
+#[inline]
+unsafe fn enc_timestamp_group(g: &ak_efix_Timestamp, cx: *mut EncCtxImpl) -> bool {
+    if g.seconds != 0 { (*cx).e.varint_field(1, g.seconds as u64); }
+    if g.nanos != 0 { (*cx).e.varint_field(2, g.nanos as i64 as u64); }
     true
 }
 
@@ -254,6 +261,50 @@ unsafe fn enc_task_detailed_group(
 }
 
 #[inline]
+unsafe fn enc_probe_group(g: &ak_efix_Probe, cx: *mut EncCtxImpl) -> bool {
+    if g.id.tc.is_some() && g.id.len != 0 {
+        if !enc_blob(cx, 1, 45, &g.id) { return false; }
+    }
+    if g.presence & AK_EFIX_PROBE_PRESENT_OPT_COUNT != 0 { (*cx).e.varint_field(2, g.opt_count as i64 as u64); }
+    if g.presence & AK_EFIX_PROBE_PRESENT_OPT_LABEL != 0 {
+        if !enc_blob(cx, 3, 46, &g.opt_label) { return false; }
+    }
+    if g.presence & AK_EFIX_PROBE_PRESENT_OPT_FLAG != 0 { (*cx).e.varint_field(4, g.opt_flag as u64); }
+    match g.body_case {
+        0 => {}
+        10 => {
+            (*cx).e.varint_field(10, g.body_as_int as u64);
+        }
+        11 => {
+            if !enc_blob(cx, 11, 48, &g.body_as_text) { return false; }
+        }
+        12 => {
+            if !enc_blob(cx, 12, 49, &g.body_as_blob) { return false; }
+        }
+        13 => {
+            let mk = (*cx).e.begin(13, 47);
+            if !enc_timestamp_group(&g.body_as_stamp, cx) { return false; }
+            (*cx).e.end(mk);
+        }
+        14 => {
+            let mk = (*cx).e.begin(14, 47);
+            if !enc_empty_group(&g.body_as_nothing, cx) { return false; }
+            (*cx).e.end(mk);
+        }
+        // A case this build does not know: a host generated against a
+        // newer descriptor. Refused loudly rather than encoded as
+        // nothing, because silence here is a message that lost a field.
+        _ => { (*cx).e.fail(AK_ERR_ABI); return false; }
+    }
+    true
+}
+
+#[inline]
+unsafe fn enc_empty_group(g: &ak_efix_Empty, cx: *mut EncCtxImpl) -> bool {
+    true
+}
+
+#[inline]
 unsafe fn enc_list_results_response_group(
     g: &ak_efix_ListResultsResponse,
     cx: *mut EncCtxImpl,
@@ -263,7 +314,7 @@ unsafe fn enc_list_results_response_group(
 ) -> bool {
     if let Some(lp) = (*vt).loop_results {
         (*cx).open_tag = 1;
-        (*cx).open_site = 45;
+        (*cx).open_site = 50;
         (*cx).open_kind = 0;
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
@@ -285,7 +336,7 @@ unsafe fn enc_list_tasks_detailed_response_group(
 ) -> bool {
     if let Some(lp) = (*vt).loop_tasks {
         (*cx).open_tag = 1;
-        (*cx).open_site = 46;
+        (*cx).open_site = 51;
         (*cx).open_kind = 0;
         (*cx).open_vt = (*vt).elem_tasks as *const c_void;
         ak_rt::bump!((*cx).e.c, reverse);
@@ -296,6 +347,57 @@ unsafe fn enc_list_tasks_detailed_response_group(
     if g.page != 0 { (*cx).e.varint_field(2, g.page as i64 as u64); }
     if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
     true
+}
+
+#[inline]
+unsafe fn enc_list_probe_response_group(
+    g: &ak_efix_ListProbeResponse,
+    cx: *mut EncCtxImpl,
+    vt: *const ak_evt_ListProbeResponse,
+    obj: *const c_void,
+    token: i64,
+) -> bool {
+    if let Some(lp) = (*vt).loop_probes {
+        (*cx).open_tag = 1;
+        (*cx).open_site = 52;
+        (*cx).open_kind = 0;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return false; }
+        if (*cx).e.err != 0 { return false; }
+    }
+    true
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ak_elem_Probe(
+    ctx: *mut ak_enc_ctx,
+    elems: *const ak_efix_Probe,
+    n: i32,
+) -> i32 {
+    let cx = ctx as *mut EncCtxImpl;
+    ak_rt::bump!((*cx).e.c, forward);
+    // ABI v1: an element entry point must leave the codec's open-field state as it found
+    // it. The host drives iteration over its own container and calls this once per chunk;
+    // encoding an element sets the open state for the element's OWN repeated fields, so
+    // without this the second chunk reads whatever the first element left behind. It was
+    // found as a length-prefix site that would not converge, but the failure is worse than
+    // that: `open_tag` is read here too, so a host that chunks would write the later chunks
+    // under the inner field's tag. It did not corrupt this payload set only because
+    // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
+    let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    let (tag, site) = ((*cx).open_tag, (*cx).open_site);
+    for i in 0..n as usize {
+        let mk = (*cx).e.begin(tag, site);
+        if !enc_probe_group(&*elems.add(i), cx) { return (*cx).e.err; }
+        (*cx).e.end(mk);
+    }
+    (*cx).open_tag = saved.0;
+    (*cx).open_site = saved.1;
+    (*cx).open_kind = saved.2;
+    (*cx).open_vt = saved.3;
+    (*cx).open_obj = saved.4;
+    AK_OK
 }
 
 #[no_mangle]
@@ -413,7 +515,7 @@ pub unsafe extern "C" fn ak_encode_ListResultsResponse(
     let _ = token;
     if let Some(lp) = (*vt).loop_results {
         (*cx).open_tag = 1;
-        (*cx).open_site = 45;
+        (*cx).open_site = 50;
         (*cx).open_kind = 0;
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
@@ -441,7 +543,7 @@ pub unsafe extern "C" fn ak_encode_ListTasksDetailedResponse(
     let _ = token;
     if let Some(lp) = (*vt).loop_tasks {
         (*cx).open_tag = 1;
-        (*cx).open_site = 46;
+        (*cx).open_site = 51;
         (*cx).open_kind = 0;
         (*cx).open_vt = (*vt).elem_tasks as *const c_void;
         ak_rt::bump!((*cx).e.c, reverse);
@@ -451,6 +553,32 @@ pub unsafe extern "C" fn ak_encode_ListTasksDetailedResponse(
     }
     if g.page != 0 { (*cx).e.varint_field(2, g.page as i64 as u64); }
     if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
+    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    (*cx).e.buf.len() as isize
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ak_encode_ListProbeResponse(
+    obj: *const c_void,
+    ctx: *mut ak_enc_ctx,
+    vt: *const ak_evt_ListProbeResponse,
+    fix: *const ak_efix_ListProbeResponse,
+) -> isize {
+    let cx = ctx as *mut EncCtxImpl;
+    ak_rt::bump!((*cx).e.c, forward);
+    (*cx).open_obj = obj;
+    let g = &*fix;
+    let token = AK_TOKEN_ROOT;
+    let _ = token;
+    if let Some(lp) = (*vt).loop_probes {
+        (*cx).open_tag = 1;
+        (*cx).open_site = 52;
+        (*cx).open_kind = 0;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
+        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    }
     if (*cx).e.err != 0 { return (*cx).e.err as isize; }
     (*cx).e.buf.len() as isize
 }
@@ -536,6 +664,103 @@ pub unsafe extern "C" fn ak_run_u8(ctx: *mut ak_enc_ctx, p: *const u8, n: usize)
     }
     (*cx).e.end(mk);
     AK_OK
+}
+
+#[inline]
+unsafe fn dec_empty_fix(d: &mut Dec, base: usize) -> ak_dfix_Empty {
+    let mut out = ak_dfix_Empty::ZERO;
+    #[allow(unused_variables)]
+    let buf0 = d.buf;
+    let base0 = base;
+    let mut cur = 0u32;
+    macro_rules! flush { () => { }; }
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        match tag {
+            _ => d.skip(wire),
+        }
+    }
+    out
+}
+
+#[inline]
+unsafe fn dec_probe_fix(d: &mut Dec, base: usize) -> ak_dfix_Probe {
+    let mut out = ak_dfix_Probe::ZERO;
+    #[allow(unused_variables)]
+    let buf0 = d.buf;
+    let base0 = base;
+    let mut cur = 0u32;
+    macro_rules! flush { () => { }; }
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        match tag {
+            1 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
+            }
+            2 if wire == 0 => {
+                if cur != 0 { flush!(); cur = 0; }
+                out.opt_count = d.varint() as i32;
+                out.presence |= AK_DFIX_PROBE_PRESENT_OPT_COUNT;
+            }
+            3 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                out.opt_label = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
+                out.presence |= AK_DFIX_PROBE_PRESENT_OPT_LABEL;
+            }
+            4 if wire == 0 => {
+                if cur != 0 { flush!(); cur = 0; }
+                out.opt_flag = (d.varint() != 0) as u8;
+                out.presence |= AK_DFIX_PROBE_PRESENT_OPT_FLAG;
+            }
+            10 if wire == 0 => {
+                if cur != 0 { flush!(); cur = 0; }
+                out.body_as_int = d.varint() as i64;
+                // Last one wins: a later member replaces the case.
+                out.body_case = 10;
+            }
+            11 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                out.body_as_text = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
+                // Last one wins: a later member replaces the case.
+                out.body_case = 11;
+            }
+            12 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                out.body_as_blob = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
+                // Last one wins: a later member replaces the case.
+                out.body_case = 12;
+            }
+            13 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                let mut os = Dec::new(&buf0[off..off + n]);
+                out.body_as_stamp = dec_timestamp_fix(&mut os, base0 + off);
+                if os.err != 0 { d.err = os.err; }
+                // Last one wins: a later member replaces the case.
+                out.body_case = 13;
+            }
+            14 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                let mut os = Dec::new(&buf0[off..off + n]);
+                out.body_as_nothing = dec_empty_fix(&mut os, base0 + off);
+                if os.err != 0 { d.err = os.err; }
+                // Last one wins: a later member replaces the case.
+                out.body_case = 14;
+            }
+            _ => d.skip(wire),
+        }
+    }
+    out
 }
 
 #[inline]
@@ -678,6 +903,33 @@ unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize) -> ak_dfi
     out
 }
 
+#[inline]
+unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize) -> ak_dfix_Timestamp {
+    let mut out = ak_dfix_Timestamp::ZERO;
+    #[allow(unused_variables)]
+    let buf0 = d.buf;
+    let base0 = base;
+    let mut cur = 0u32;
+    macro_rules! flush { () => { }; }
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        match tag {
+            1 if wire == 0 => {
+                if cur != 0 { flush!(); cur = 0; }
+                out.seconds = d.varint() as i64;
+            }
+            2 if wire == 0 => {
+                if cur != 0 { flush!(); cur = 0; }
+                out.nanos = d.varint() as i32;
+            }
+            _ => d.skip(wire),
+        }
+    }
+    out
+}
+
 /// `TaskDetailed` is not batchable: it carries repeated or map fields of its own,
 /// so there would be nothing to attach the inner elements to. Two calls
 /// per element -- `new` then `apply` -- plus one run per inner field that
@@ -697,6 +949,9 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
         }
         None => return,
     };
+    if tok < 0 || (*dcx).hdr.err != AK_OK {
+        return;
+    }
     let mut out = ak_dfix_TaskDetailed::ZERO;
     #[allow(unused_variables)]
     let buf0 = d.buf;
@@ -1365,7 +1620,9 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
         ak_rt::bump!((*dcx).c, reverse);
         apply(ctx, obj, &out);
     }
-    if d.err != 0 { d.err } else { AK_OK }
+    // The host may have failed the operation from inside a reverse call; the
+    // sticky slot in the context is where it said so (ABI v1 section 5).
+    if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
 }
 
 #[no_mangle]
@@ -1415,5 +1672,71 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
         ak_rt::bump!((*dcx).c, reverse);
         apply(ctx, obj, &out);
     }
-    if d.err != 0 { d.err } else { AK_OK }
+    // The host may have failed the operation from inside a reverse call; the
+    // sticky slot in the context is where it said so (ABI v1 section 5).
+    if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ak_decode_ListProbeResponse(
+    ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    buf: *const u8,
+    len: usize,
+    vt: *const ak_dvt_ListProbeResponse,
+) -> i32 {
+    let dcx = ctx as *mut DecCtxImpl;
+    ak_rt::bump!((*dcx).c, forward);
+    let buf0 = ::core::slice::from_raw_parts(buf, len);
+    let base0 = 0usize;
+    let mut d = Dec::new(buf0);
+    let mut out = ak_dfix_ListProbeResponse::ZERO;
+    // ABI v1 7.3: a byte budget divided by the group size, not an element
+    // count, so the scratch is the same 32 KB whatever the schema does.
+    const N_PROBES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_Probe>());
+    let mut a_probes: [::core::mem::MaybeUninit<ak_dfix_Probe>; N_PROBES] =
+        [const { ::core::mem::MaybeUninit::uninit() }; N_PROBES];
+    let mut n_probes: usize = 0;
+    macro_rules! flush_probes {
+        () => {
+            if n_probes > 0 {
+                if let Some(add) = (*vt).add_probes {
+                    ak_rt::bump!((*dcx).c, reverse);
+                    add(ctx, obj, AK_TOKEN_ROOT, a_probes.as_ptr() as *const ak_dfix_Probe, n_probes as i32);
+                }
+                n_probes = 0;
+            }
+        };
+    }
+    macro_rules! flush {
+        () => {
+            flush_probes!();
+        };
+    }
+    let mut cur = 0u32;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        match tag {
+            1 if wire == 2 => {
+                if cur != 1 { flush!(); cur = 1; }
+                if n_probes == N_PROBES { flush_probes!(); }
+                let (off, n) = d.len_body();
+                let mut es = Dec::new(&buf0[off..off + n]);
+                a_probes[n_probes].write(dec_probe_fix(&mut es, base0 + off));
+                if es.err != 0 { d.err = es.err; }
+                n_probes += 1;
+            }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+        }
+    }
+    flush!();
+    if let Some(apply) = (*vt).apply {
+        ak_rt::bump!((*dcx).c, reverse);
+        apply(ctx, obj, &out);
+    }
+    // The host may have failed the operation from inside a reverse call; the
+    // sticky slot in the context is where it said so (ABI v1 section 5).
+    if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
 }

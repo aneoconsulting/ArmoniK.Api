@@ -53,7 +53,13 @@ class Sites:
 # ============================================================== the traversal, once
 
 def walk_encode(ir, m, b, o):
-    """Emit the body of one message's encoder. `b` is the backend."""
+    """Emit the body of one message's encoder. `b` is the backend.
+
+    A oneof is emitted through `b.oneof`, NOT skipped. It was skipped once, silently,
+    because `Message.plain` excludes oneof members and every backend iterated that: the
+    generator produced a codec that ignored `Probe.body` entirely and said nothing. A
+    backend that cannot do a shape raises here.
+    """
     for f in m.plain:
         if f.oneof:
             continue
@@ -76,6 +82,8 @@ def walk_encode(ir, m, b, o):
         else:
             raise NotImplementedError("encode %s.%s (%s %s): stage 3"
                                       % (m.name, f.name, f.card, f.kind))
+    for oname, members in m.oneofs.items():
+        b.oneof(m, oname, members, o)
 
 
 def walk_decode(ir, m, b, o):
@@ -102,6 +110,8 @@ def walk_decode(ir, m, b, o):
         else:
             raise NotImplementedError("decode %s.%s (%s %s): stage 3"
                                       % (m.name, f.name, f.card, f.kind))
+    for oname, members in m.oneofs.items():
+        b.oneof(m, oname, members, o)
 
 
 # ============================================================== backend: core-native
@@ -127,10 +137,22 @@ class NativeEnc:
         o.append("    }")
 
     def blob(self, m, f, o):
+        if f.explicit:
+            # Explicit presence: written when SET, zero or not. Present-and-empty is a
+            # different thing from absent, and this is the field shape that difference is
+            # for (design/SHAPES.md, M3).
+            acc = "v.as_bytes()" if f.kind == "string" else "&v[..]"
+            o.append("    if let Some(v) = &o.%s { e.blob_field(%d, %s); }" % (f.name, f.tag, acc))
+            return
         acc = "o.%s.as_bytes()" % f.name if f.kind == "string" else "&o.%s" % f.name
         o.append("    if !o.%s.is_empty() { e.blob_field(%d, %s); }" % (f.name, f.tag, acc))
 
     def scalar(self, m, f, o):
+        if f.explicit:
+            conv = {"bool": "*v as u64", "int32": "*v as i64 as u64", "int64": "*v as u64",
+                    "enum": "v.to_i32() as i64 as u64"}[f.kind]
+            o.append("    if let Some(v) = &o.%s { e.varint_field(%d, %s); }" % (f.name, f.tag, conv))
+            return
         n = "o.%s" % f.name
         if f.kind == "enum":
             o.append("    { let v = %s.to_i32(); if v != 0 { e.varint_field(%d, v as i64 as u64); } }"
@@ -166,6 +188,35 @@ class NativeEnc:
         o.append("        e.end(mk);")
         o.append("    }")
 
+    def oneof(self, m, oname, members, o):
+        from rustnames import camel, oneof_type
+        ty = oneof_type(m.name, oname)
+        o.append("    if let Some(v) = &o.%s {" % oname)
+        o.append("        match v {")
+        for g in members:
+            v = camel(g.name)
+            if g.kind == "string":
+                o.append("            %s::%s(x) => e.blob_field(%d, x.as_bytes())," % (ty, v, g.tag))
+            elif g.kind == "bytes":
+                o.append("            %s::%s(x) => e.blob_field(%d, x)," % (ty, v, g.tag))
+            elif g.kind == "message":
+                s_ = self.sites.id(("oneof", m.name, oname, g.name))
+                o.append("            %s::%s(x) => {" % (ty, v))
+                o.append("                let mk = e.begin(%d, %d);" % (g.tag, s_))
+                o.append("                enc_%s(x, e);" % snake(g.of))
+                o.append("                e.end(mk);")
+                o.append("            }")
+            elif g.kind == "double":
+                o.append("            %s::%s(x) => e.f64_field(%d, *x)," % (ty, v, g.tag))
+            elif g.kind == "bool":
+                o.append("            %s::%s(x) => e.varint_field(%d, *x as u64)," % (ty, v, g.tag))
+            elif g.kind == "int32":
+                o.append("            %s::%s(x) => e.varint_field(%d, *x as i64 as u64)," % (ty, v, g.tag))
+            else:
+                o.append("            %s::%s(x) => e.varint_field(%d, *x as u64)," % (ty, v, g.tag))
+        o.append("        }")
+        o.append("    }")
+
     def map(self, m, f, o):
         # No map case: a pair message, written through the same length-prefixed path as any
         # other repeated message (ABI v1 section 11). BTreeMap iterates in key order, which
@@ -180,6 +231,9 @@ class NativeEnc:
 
 
 class NativeDec:
+    def __init__(self, sites=None):
+        self.sites = sites
+
     def child(self, m, f, o):
         o.append("            %d if wire == 2 => {" % f.tag)
         o.append("                let (off, n) = d.len_body();")
@@ -203,6 +257,13 @@ class NativeDec:
     def blob(self, m, f, o):
         o.append("            %d if wire == 2 => {" % f.tag)
         o.append("                let (off, n) = d.len_body();")
+        if f.explicit:
+            body = ("String::from_utf8_lossy(&buf[off..off + n]).into_owned()"
+                    if f.kind == "string"
+                    else "::bytes::Bytes::copy_from_slice(&buf[off..off + n])")
+            o.append("                out.%s = Some(%s);" % (f.name, body))
+            o.append("            }")
+            return
         if f.kind == "string":
             o.append("                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.")
             o.append("                out.%s = String::from_utf8_lossy(&buf[off..off + n]).into_owned();" % f.name)
@@ -212,6 +273,11 @@ class NativeDec:
 
     def scalar(self, m, f, o):
         cast = {"int32": "as i32", "int64": "as i64", "bool": "!= 0", "enum": "as i32"}[f.kind]
+        if f.explicit:
+            v = ("%s::from_i32(d.varint() as i32)" % f.of if f.kind == "enum"
+                 else "d.varint() %s" % cast)
+            o.append("            %d if wire == 0 => out.%s = Some(%s)," % (f.tag, f.name, v))
+            return
         if f.kind == "enum":
             o.append("            %d if wire == 0 => out.%s = %s::from_i32(d.varint() as i32),"
                      % (f.tag, f.name, f.of))
@@ -246,6 +312,35 @@ class NativeDec:
         o.append("                if sub.err != 0 { d.err = sub.err; }")
         o.append("            }")
         o.append("            %d => out.%s.push(%s)," % (f.tag, f.name, rd1))
+
+    def oneof(self, m, oname, members, o):
+        from rustnames import camel, oneof_type
+        ty = oneof_type(m.name, oname)
+        for g in members:
+            v = camel(g.name)
+            if g.kind in ("string", "bytes"):
+                body = ("String::from_utf8_lossy(&buf[off..off + n]).into_owned()"
+                        if g.kind == "string"
+                        else "::bytes::Bytes::copy_from_slice(&buf[off..off + n])")
+                o.append("            %d if wire == 2 => {" % g.tag)
+                o.append("                let (off, n) = d.len_body();")
+                o.append("                out.%s = Some(%s::%s(%s));" % (oname, ty, v, body))
+                o.append("            }")
+            elif g.kind == "message":
+                o.append("            %d if wire == 2 => {" % g.tag)
+                o.append("                let (off, n) = d.len_body();")
+                o.append("                let mut c = %s::default();" % g.of)
+                o.append("                let mut sub = Dec::new(&buf[off..off + n]);")
+                o.append("                dec_%s(&mut sub, &mut c);" % snake(g.of))
+                o.append("                if sub.err != 0 { d.err = sub.err; }")
+                o.append("                out.%s = Some(%s::%s(c));" % (oname, ty, v))
+                o.append("            }")
+            elif g.kind == "double":
+                o.append("            %d if wire == 1 => out.%s = Some(%s::%s(d.f64()))," % (g.tag, oname, ty, v))
+            else:
+                cast = {"int32": "as i32", "int64": "as i64", "bool": "!= 0"}[g.kind]
+                o.append("            %d if wire == 0 => out.%s = Some(%s::%s(d.varint() %s)),"
+                         % (g.tag, oname, ty, v, cast))
 
     def map(self, m, f, o):
         o.append("            %d if wire == 2 => {" % f.tag)

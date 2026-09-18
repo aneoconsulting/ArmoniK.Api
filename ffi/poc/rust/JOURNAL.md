@@ -595,3 +595,126 @@ enforce: a schema change re-runs `gen/stage1.sh` into a dated log before any num
 is quoted.** The stage 1 harness is cheap to run and it is the only thing standing between
 this slice and a wrong denominator, so there is no reason to quote it from memory. Noted as
 D11 so it is visible in the defect log rather than only in prose.
+
+### 2026-09-18 — stage 3, part 3: M3, the oneof and explicit presence, and D7 closed
+
+Kept small on instruction: one payload, one timing row set, and the substance in a
+correctness binary (`crates/harness/src/bin/shapes.rs`). Log: `ffi/logs/rust/stage3-M3.log`.
+
+**D7 is closed.** Both contexts now begin with a `CtxHeader { kind, err }`, so `ak_fail` is
+the one entry point ABI v1 section 5 says it is — "any host code holding a context may fail
+the operation" — without knowing which kind it was handed. The decode guard reports through
+it, the decode entry point returns it, and an element maker that fails returns a token the
+codec refuses to use. It was unreachable until M3 and M3 is where that stopped being true.
+
+#### A generator that omitted a shape and said nothing
+
+`Message.plain` excludes oneof members, and every backend iterated `m.plain`. So when
+`ListProbeResponse` was added as a root, the generator emitted a complete-looking codec for
+`Probe` that **ignored `body` entirely**, with no error. It would have been caught by the
+first conformance run, but only because a byte comparison existed; a slice with a weaker
+oracle would have measured a message with its oneof silently missing. Both walkers now call
+`b.oneof(...)` explicitly, so a backend that cannot do the shape raises instead of skipping
+it. Recorded as D12.
+
+#### Explicit presence, as three cases rather than one column
+
+200 elements, all four arms, and the three cases are three columns because that is the whole
+point of the shape:
+
+| field | absent | present+zero | present+nonzero |
+|---|---|---|---|
+| `opt_count` (int32) | 67 | 19 | 114 |
+| `opt_label` (string) | 50 | 21 | 129 |
+| `opt_flag` (bool) | 40 | 92 | 68 |
+
+Identical across `prost`, `armonik`, `core-native` and `core-ffi-rust`. **Every case occurs
+on every field**, so the shape is exercised and not merely present. `present+zero` is the one
+a by-value group cannot tell from absent unless its presence *word* carries it, and the group
+here carries it: an explicit field's encode branches on the presence bit, never on the value
+or on the length. A present-and-empty string has `len == 0` and is still written.
+
+#### The oneof, including its payload-free member
+
+40 of each of the five members over 200 elements, none unset, all four arms agreeing.
+`as_nothing` is reached 40 times, so the payload-free member — present, empty, selected by
+its presence alone — is exercised rather than assumed.
+
+The group layout: a `body_case` discriminant carrying the **active member's tag**, plus every
+member inlined beside it. Not a union, because ABI v1 section 6 says a group needs a fixed
+shape rather than a size bound, and a union makes the layout depend on which member is
+largest, which a host reproducing offsets by hand can get wrong silently. The cost is the
+size of the group, and **a union is an unmeasured alternative rather than an equivalent one**.
+A `body_case` the codec does not recognise is refused with `AK_ERR_ABI` rather than encoded
+as nothing, since a host generated against a newer descriptor is the skew that must be loud —
+built, but not exercised, because nothing in this build can produce an unknown case.
+
+#### Fields the reader does not know, which nothing had executed
+
+README section 10 item 1 says a corpus generated from the schema that reads it can never
+contain one, so these are hand-built wire with no manifest hash. The check is that all four
+arms agree on the decoded value **and** on the re-encoded bytes, with prost as the
+independent fourth opinion.
+
+| vector | arms agree | re-encode | does the unknown survive |
+|---|---|---|---|
+| unknown oneof tag 15 after a known member | ok | ok | no: the oneof stays at `as_int` |
+| unknown oneof tag 15 before a known member | ok | ok | no: the oneof stays at `as_int` |
+| unknown oneof tag 15 alone | ok | ok | no: the oneof is `None` |
+| unknown fields, all four wire types, top level | ok | ok | no |
+| unknown field inside a nested message | ok | ok | no |
+| unknown field before every known field | ok | ok | no |
+| `ResultRaw.status = 999` (unknown enum **value**) | ok | ok | **yes, as `Unknown(999)`** |
+
+**The result on the unknown oneof member is that there is no such thing at the wire level.**
+A parser cannot tell an unknown oneof tag from any other unknown field — the oneof grouping
+exists only in the descriptor — so it goes to the unknown set and the case stays at the last
+**known** member. Every arm here does that, prost included, and none of them retains unknown
+fields, so the value is lost identically by all four. That is protobuf's behaviour and not a
+property of this ABI, and the ABI cannot improve on it without retaining unknown fields,
+which nothing in this design does.
+
+**The contrast with the unknown enum value is the useful part.** There the field is known and
+only the value is not, so the wire tells the reader exactly where to put it, and it round-trips
+losslessly through `Unknown(999)` in the facade and through `i32` in prost. So of the two
+"unknown" shapes `design/SHAPES.md` names, one round-trips by construction and the other
+cannot round-trip at all in any of these arms. Worth stating plainly, because "an unknown
+value must round-trip losslessly" is easy to read as covering both.
+
+#### Crossings: the oneof and explicit presence cost none
+
+| payload | direction | elements | forward | reverse | crossings |
+|---|---|---|---|---|---|
+| P3.1 | encode | 200 | 2 | 1 | 3 |
+| P3.1 | decode | 200 | 1 | 2 | 3 |
+
+Three crossings for 200 elements in both directions. Both shapes ride in the group entirely,
+so neither adds a crossing — which is the claim the .NET gap left untested, and it is now
+counted rather than argued.
+
+#### Timings, and what they do to part 1's decode finding
+
+Ratios to prost, range over three runs:
+
+| direction | armonik | core-native | core-ffi-rust |
+|---|---|---|---|
+| encode | 0.966 - 0.975 | 0.406 - 0.410 | 0.846 - 0.853 |
+| decode | 0.961 - 0.968 | 0.811 - 0.824 | 0.834 - 0.838 |
+
+**M3 decode is a win, where M2 decode was parity**, and that sharpens part 1's conclusion
+rather than contradicting it. The one-line version there was "decode is allocation-bound".
+The more accurate version, now that a third shape has been measured, is that **decode
+converges to parity in proportion to how much host-side CONTAINER construction an element
+needs**, not how many bytes or strings it has:
+
+| payload | per element | decode, core-native |
+|---|---|---|
+| P3.1 | a flat 5-field message, 1 to 2 strings | 0.81 - 0.82 |
+| P1.2 | 6 strings or bytes, 2 optional messages, no container | 0.83 - 0.86 |
+| P2.2 | 4 `Vec<String>`, a `BTreeMap`, 8 optional messages, a 27-field struct | 0.89 - 0.96 |
+
+A `BTreeMap` insert and four `Vec` growths per element are work every arm does identically
+and no codec can avoid, so the denser the element's container graph, the smaller the share of
+decode any codec owns. That is the statement I would carry rather than "allocation-bound",
+which is true but attributes it to the wrong thing: P3.1 and P1.2 allocate plenty of
+`String`s and still show the win.

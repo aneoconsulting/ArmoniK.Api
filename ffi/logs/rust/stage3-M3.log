@@ -1,0 +1,143 @@
+# ffi/logs/rust/stage3-M3.log
+# W3 stage 3 part 3: M3 (Probe in ListProbeResponse) over P3.1.
+# A oneof of five members including a payload-free one, and three optional scalars.
+# Both shapes are UNMEASURED ON .NET, so these rows will be read across by the C# slice.
+# 2026-09-18
+#
+# CONFIGURATION (R7)
+#   machine        4 vCPU Intel Xeon @ 2.80GHz, 15 GB, Ubuntu 24.04.4, Linux 6.18.44 x86_64,
+#                  container. No CPU pinning, no governor control.
+#   rust           rustc/cargo 1.94.1, release. MSRV 1.88 declared, NOT verified.
+#   incumbent      prost 0.14.4
+#   LINKAGE        cdylib (libak_core.so), dynamic linker. Not a static link.
+#   guard          on
+#   content set    ascii
+#   class          M3 is a REAL shape by design/SHAPES.md: invented as a message, but
+#                  both of its shapes are real, and the schema has 19 oneofs in 413
+#                  fields. It is NOT a control. M6 and M7 are the controls and are not
+#                  built yet.
+#
+# WHAT M3 IS FOR, AND WHAT IT IS NOT
+#   It is shape coverage, not a timing table. One payload, one timing row set, and the
+#   substance in section 2b. Kept small deliberately.
+#
+# THE GROUP LAYOUT CHOSEN FOR A ONEOF, AND THE ALTERNATIVE NOT MEASURED
+#   A oneof becomes a <name>_case discriminant carrying the ACTIVE MEMBER'S TAG, plus
+#   every member inlined beside it. Not a union: ABI v1 section 6 says a group needs a
+#   fixed shape and not a size bound, and a union makes the layout depend on which
+#   member is largest, which a host reproducing offsets by hand can get wrong silently.
+#   The cost is the size of the group. A union is an unmeasured alternative and is
+#   recorded as one rather than assumed equivalent.
+#
+#   A <name>_case the codec does not recognise is refused with AK_ERR_ABI rather than
+#   encoded as nothing: a host generated against a newer descriptor is exactly the skew
+#   that must be loud. That path is not exercised by any vector here, because nothing
+#   in this build can produce an unknown case; it is stated as built, not as measured.
+#
+# HAZARDS (R9)
+#   - The unknown-field vectors in section 2b are HAND-BUILT wire with no manifest hash.
+#     A corpus generated from the schema that reads it cannot contain a field the reader
+#     does not know, which is README section 10 item 1 and the reason they are built
+#     here. Their check is agreement of all four arms on the decoded value AND on the
+#     re-encoded bytes, with prost as the fourth, independent opinion.
+#   - P3.1 is 12 KB and 200 elements; its timing rows are a mid-size figure, and the
+#     run-to-run spread is the figure, not the median.
+
+===== byte identity, P3.1, four arms =====
+payload arm                 want B     got B  bytes    sha256     decode round trip
+P3.1    prost                12097     12097  ok       ok         ok
+P3.1    armonik              12097     12097  ok       ok         ok
+P3.1    core-native          12097     12097  ok       ok         ok
+P3.1    core-ffi-rust        12097     12097  ok       ok         ok
+VERDICT: every arm is byte-identical to the validated manifest on every payload it covers.
+
+===== shape coverage =====
+# M3: explicit presence, as three cases and not one column
+#   design/SHAPES.md: a by-value group reports absent and empty identically
+#   unless it is designed not to. These are the three rows that say whether it
+#   was. 200 elements; presence cycles per field and one element in seven is
+#   present AND zero.
+
+field                arm                absent   present+zero   present+nonzero  total
+opt_count (int32)    armonik                67             19               114    200
+opt_label (string)   armonik                50             21               129    200
+opt_flag  (bool)     armonik                40             92                68    200
+opt_count (int32)    core-native            67             19               114    200
+opt_label (string)   core-native            50             21               129    200
+opt_flag  (bool)     core-native            40             92                68    200
+opt_count (int32)    core-ffi-rust          67             19               114    200
+opt_label (string)   core-ffi-rust          50             21               129    200
+opt_flag  (bool)     core-ffi-rust          40             92                68    200
+opt_count (int32)    prost                  67             19               114    200
+opt_label (string)   prost                  50             21               129    200
+opt_flag  (bool)     prost                  40             92                68    200
+
+#   All three cases occur on every field, so the shape is exercised and not
+#   merely present. present+zero is the one a group cannot tell from absent
+#   unless its presence WORD carries it, which is what makes these rows a test.
+
+# M3: the oneof, by member
+
+member                         count
+as_int (int64)                    40
+as_text (string)                  40
+as_blob (bytes)                   40
+as_stamp (message)                40
+as_nothing (payload-free)         40
+none set                           0
+
+#   `as_nothing` is the payload-free member: present, empty, and selected by
+#   its presence alone. It is 40 of 200 here, so it is reached.
+
+# Fields the reader does not know (README section 10 item 1)
+#   Hand-built wire. No manifest hash: a corpus generated from the schema that
+#   reads it cannot contain one of these. The check is that all four arms agree
+#   on the decoded value and on the re-encoded bytes.
+
+vector                                       arms agree   re-encode    unknown survives
+unknown oneof tag 15 AFTER a known member    ok           ok           no: the oneof stays at as_int
+unknown oneof tag 15 BEFORE a known member   ok           ok           no: the oneof stays at as_int
+unknown oneof tag 15 ALONE                   ok           ok           no: the oneof is None
+unknown fields, all four wire types, top level ok           ok           no
+unknown field inside a nested message        ok           ok           no
+unknown field BEFORE every known field       ok           ok           no
+ResultRaw.status = 999 (unknown enum value)  ok           ok           YES: round-trips as Unknown(999)
+
+VERDICT: every shape above is exercised and every arm agrees.
+
+===== boundary-call counts =====
+P3.1    real     enc cold        200        2        1          3     430                0      2
+P3.1    real     enc warm        200        2        1          3     430                0      0
+P3.1    real     decode          200        1        2          3       0                0      0
+
+===== timings, three runs =====
+--- run 1 ---
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+P3.1    encode    prost                      2344      10599.2      10546.7      11097.8      1.000
+P3.1    encode    armonik                    2475      10162.4      10107.9      10332.4      0.959
+P3.1    encode    core-native                5751       4341.0       4321.1       4438.9      0.410
+P3.1    encode    core-ffi-rust              2750       9251.4       9180.5       9505.6      0.873
+P3.1    decode    prost                       674      38736.4      37911.5      47461.5      1.000
+P3.1    decode    armonik                     679      37083.7      36733.1      38401.1      0.957
+P3.1    decode    core-native                 810      31141.6      30664.6      32175.7      0.804
+P3.1    decode    core-ffi-rust               792      32440.1      31998.7      39142.7      0.837
+--- run 2 ---
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+P3.1    encode    prost                      2253      10686.1      10645.0      16776.9      1.000
+P3.1    encode    armonik                    2441      10320.0      10203.1      12722.4      0.966
+P3.1    encode    core-native                5723       4378.3       4351.2       4427.1      0.410
+P3.1    encode    core-ffi-rust              2771       9117.5       9088.8       9550.7      0.853
+P3.1    decode    prost                       638      38589.6      37888.9      42060.8      1.000
+P3.1    decode    armonik                     699      37074.7      36345.1      39480.4      0.961
+P3.1    decode    core-native                 806      31291.8      30784.5      32656.0      0.811
+P3.1    decode    core-ffi-rust               790      32167.1      31836.8      32408.3      0.834
+--- run 3 ---
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+P3.1    encode    prost                      2346      10613.5      10542.8      12340.9      1.000
+P3.1    encode    armonik                    2454      10349.3      10315.2      10420.1      0.975
+P3.1    encode    core-native                5777       4310.4       4280.0       4415.8      0.406
+P3.1    encode    core-ffi-rust              2800       8979.6       8942.5       9074.9      0.846
+P3.1    decode    prost                       663      38333.5      37730.5      40025.2      1.000
+P3.1    decode    armonik                     689      37124.3      36408.0      37894.0      0.968
+P3.1    decode    core-native                 807      31572.8      31069.2      36382.5      0.824
+P3.1    decode    core-ffi-rust               781      32128.9      31786.9      33670.3      0.838
