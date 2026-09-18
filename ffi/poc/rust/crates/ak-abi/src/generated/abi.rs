@@ -425,6 +425,100 @@ pub const AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION: u32 = 1 << 11;
 pub const AK_DFIX_TASKDETAILED_PRESENT_PROCESSED_AT: u32 = 1 << 12;
 pub const AK_DFIX_TASKDETAILED_PRESENT_FETCHED_AT: u32 = 1 << 13;
 
+/// Encode group for `Probe`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_efix_Probe {
+    pub id: ak_str,
+    pub opt_count: i32,
+    pub opt_label: ak_str,
+    pub opt_flag: u8,
+    pub body_case: u32,
+    pub body_as_int: i64,
+    pub body_as_text: ak_str,
+    pub body_as_blob: ak_str,
+    pub body_as_stamp: ak_efix_Timestamp,
+    pub body_as_nothing: ak_efix_Empty,
+    pub presence: u32,
+}
+impl ak_efix_Probe {
+    pub const ZERO: Self = ak_efix_Probe {
+        id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        opt_count: 0,
+        opt_label: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        opt_flag: 0,
+        body_case: 0,
+        body_as_int: 0,
+        body_as_text: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        body_as_blob: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        body_as_stamp: ak_efix_Timestamp::ZERO,
+        body_as_nothing: ak_efix_Empty::ZERO,
+        presence: 0,
+    };
+}
+pub const AK_EFIX_PROBE_PRESENT_OPT_COUNT: u32 = 1 << 0;
+pub const AK_EFIX_PROBE_PRESENT_OPT_LABEL: u32 = 1 << 1;
+pub const AK_EFIX_PROBE_PRESENT_OPT_FLAG: u32 = 1 << 2;
+
+/// Decode group for `Probe`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dfix_Probe {
+    pub id: ak_span,
+    pub opt_count: i32,
+    pub opt_label: ak_span,
+    pub opt_flag: u8,
+    pub body_case: u32,
+    pub body_as_int: i64,
+    pub body_as_text: ak_span,
+    pub body_as_blob: ak_span,
+    pub body_as_stamp: ak_dfix_Timestamp,
+    pub body_as_nothing: ak_dfix_Empty,
+    pub presence: u32,
+}
+impl ak_dfix_Probe {
+    pub const ZERO: Self = ak_dfix_Probe {
+        id: ak_span { off: 0, len: 0, coder: 0 },
+        opt_count: 0,
+        opt_label: ak_span { off: 0, len: 0, coder: 0 },
+        opt_flag: 0,
+        body_case: 0,
+        body_as_int: 0,
+        body_as_text: ak_span { off: 0, len: 0, coder: 0 },
+        body_as_blob: ak_span { off: 0, len: 0, coder: 0 },
+        body_as_stamp: ak_dfix_Timestamp::ZERO,
+        body_as_nothing: ak_dfix_Empty::ZERO,
+        presence: 0,
+    };
+}
+pub const AK_DFIX_PROBE_PRESENT_OPT_COUNT: u32 = 1 << 0;
+pub const AK_DFIX_PROBE_PRESENT_OPT_LABEL: u32 = 1 << 1;
+pub const AK_DFIX_PROBE_PRESENT_OPT_FLAG: u32 = 1 << 2;
+
+/// Encode group for `Empty`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_efix_Empty {
+    pub presence: u32,
+}
+impl ak_efix_Empty {
+    pub const ZERO: Self = ak_efix_Empty {
+        presence: 0,
+    };
+}
+
+/// Decode group for `Empty`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dfix_Empty {
+    pub presence: u32,
+}
+impl ak_dfix_Empty {
+    pub const ZERO: Self = ak_dfix_Empty {
+        presence: 0,
+    };
+}
+
 /// Encode group for `ListResultsResponse`.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -485,6 +579,30 @@ impl ak_dfix_ListTasksDetailedResponse {
     pub const ZERO: Self = ak_dfix_ListTasksDetailedResponse {
         page: 0,
         total: 0,
+        presence: 0,
+    };
+}
+
+/// Encode group for `ListProbeResponse`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_efix_ListProbeResponse {
+    pub presence: u32,
+}
+impl ak_efix_ListProbeResponse {
+    pub const ZERO: Self = ak_efix_ListProbeResponse {
+        presence: 0,
+    };
+}
+
+/// Decode group for `ListProbeResponse`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dfix_ListProbeResponse {
+    pub presence: u32,
+}
+impl ak_dfix_ListProbeResponse {
+    pub const ZERO: Self = ak_dfix_ListProbeResponse {
         presence: 0,
     };
 }
@@ -551,6 +669,27 @@ pub struct ak_dvt_ListTasksDetailedResponse {
     >,
     pub add_tasks_options_options: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_TaskOptionsOptionsEntry, i32),
+    >,
+}
+
+/// Encode vtable for `ListProbeResponse`. One slot per field that could not ride in the group.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_evt_ListProbeResponse {
+    pub loop_probes: Option<ak_loop_f>,
+}
+
+/// Decode vtable for `ListProbeResponse` (the push family, ABI v1 section 7.1).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dvt_ListProbeResponse {
+    pub apply: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListProbeResponse),
+    >,
+    /// Batchable: the element type is a leaf, so a run crosses once
+    /// per chunk. Append; never size to the count you were handed.
+    pub add_probes: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_Probe, i32),
     >,
 }
 
@@ -629,6 +768,21 @@ pub struct ak_dvt_TaskDetailed {
     >,
 }
 
+/// Encode vtable for `Probe`. Empty: nothing in this message needs a call.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_evt_Probe {
+}
+
+/// Decode vtable for `Probe` (the push family, ABI v1 section 7.1).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dvt_Probe {
+    pub apply: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_Probe),
+    >,
+}
+
 // ABI v1 section 6: what a host calls in the codec are PLAIN EXPORTS, not a
 // table, so a missing symbol is a load failure, which is loud.
 unsafe extern "C" {
@@ -658,6 +812,22 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_ListTasksDetailedResponse,
     ) -> i32;
+    pub fn ak_encode_ListProbeResponse(
+        obj: *const c_void,
+        ctx: *mut ak_enc_ctx,
+        vt: *const ak_evt_ListProbeResponse,
+        fix: *const ak_efix_ListProbeResponse,
+    ) -> isize;
+    pub fn ak_decode_ListProbeResponse(
+        ctx: *mut ak_dec_ctx,
+        obj: *mut c_void,
+        buf: *const u8,
+        len: usize,
+        vt: *const ak_dvt_ListProbeResponse,
+    ) -> i32;
+    /// Leaf form: `Probe` is transitively free of repeated and map fields,
+    /// so the codec makes no reverse call during a run.
+    pub fn ak_elem_Probe(ctx: *mut ak_enc_ctx, elems: *const ak_efix_Probe, n: i32) -> i32;
     /// Leaf form: `ResultRaw` is transitively free of repeated and map fields,
     /// so the codec makes no reverse call during a run.
     pub fn ak_elem_ResultRaw(ctx: *mut ak_enc_ctx, elems: *const ak_efix_ResultRaw, n: i32) -> i32;
@@ -688,7 +858,7 @@ unsafe extern "C" {
 /// What each length-prefix site of the core is, in site order, so a miss count
 /// can name the field it came from (ABI v1 open decision 5). A descriptor fact,
 /// so it lives in the header both sides compile against.
-pub const SITE_NAMES: [&str; 47] = [
+pub const SITE_NAMES: [&str; 53] = [
     "blob/TaskOptionsOptionsEntry/key",
     "blob/TaskOptionsOptionsEntry/value",
     "blob/ResultRaw/session_id",
@@ -734,6 +904,12 @@ pub const SITE_NAMES: [&str; 47] = [
     "child/TaskDetailed/fetched_at",
     "blob/TaskDetailed/payload_id",
     "blob/TaskDetailed/created_by",
+    "blob/Probe/id",
+    "blob/Probe/opt_label",
+    "oneofmsg/Probe/body",
+    "oneofblob/Probe/body.as_text",
+    "oneofblob/Probe/body.as_blob",
     "loop/ListResultsResponse/results",
     "loop/ListTasksDetailedResponse/tasks",
+    "loop/ListProbeResponse/probes",
 ];

@@ -48,26 +48,46 @@ fn guard<F: FnOnce() -> i32>(ctx: *mut ak_enc_ctx, f: F) -> i32 {
     }
 }
 
+/// The decode side of the same guard. It reports through `ak_fail` on the DECODE context,
+/// which it could not do until the context gained an error channel: before that `ak_fail`
+/// cast unconditionally to an encode context, so a decode-side failure would have corrupted
+/// one (this slice's defect D7).
 #[inline]
-fn dguard<F: FnOnce()>(f: F) {
+fn dguard<F: FnOnce()>(ctx: *mut ak_dec_ctx, f: F) {
     #[cfg(feature = "guard")]
     {
-        let _ = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(f));
+        if ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(f)).is_err() {
+            unsafe {
+                let m = b"host panic in a decode reverse call";
+                ak_fail(ctx as *mut c_void, AK_ERR_HOST, m.as_ptr(), m.len() as u32);
+            }
+        }
     }
     #[cfg(not(feature = "guard"))]
     {
+        let _ = ctx;
         f()
     }
 }
 
+/// An element maker that fails returns a token the codec must not use. -1 is that token,
+/// and the codec stops on the sticky error rather than on the value.
 #[inline]
-fn dguard_i64<F: FnOnce() -> i64>(f: F) -> i64 {
+fn dguard_i64<F: FnOnce() -> i64>(ctx: *mut ak_dec_ctx, f: F) -> i64 {
     #[cfg(feature = "guard")]
     {
-        ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(f)).unwrap_or(-1)
+        match ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(f)) {
+            Ok(v) => v,
+            Err(_) => unsafe {
+                let m = b"host panic making an element";
+                ak_fail(ctx as *mut c_void, AK_ERR_HOST, m.as_ptr(), m.len() as u32);
+                -1
+            },
+        }
     }
     #[cfg(not(feature = "guard"))]
     {
+        let _ = ctx;
         f()
     }
 }
@@ -284,6 +304,57 @@ fn make_task_detailed(o: &TaskDetailed, tc: (ak_transcode_fn, ak_transcode_fn)) 
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
+fn make_probe(o: &Probe, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Probe {
+    ak_efix_Probe {
+        id: str_arg(&o.id, tc.0),
+        opt_count: o.opt_count.unwrap_or(0),
+        opt_label: match &o.opt_label {
+            Some(v) => str_arg(v, tc.0),
+            None => ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        },
+        opt_flag: o.opt_flag.unwrap_or(false) as u8,
+        body_case: match &o.body {
+            None => 0,
+            Some(ProbeBody::AsInt(_)) => 10,
+            Some(ProbeBody::AsText(_)) => 11,
+            Some(ProbeBody::AsBlob(_)) => 12,
+            Some(ProbeBody::AsStamp(_)) => 13,
+            Some(ProbeBody::AsNothing(_)) => 14,
+        },
+        body_as_int: match &o.body {
+            Some(ProbeBody::AsInt(v)) => *v,
+            _ => 0,
+        },
+        body_as_text: match &o.body {
+            Some(ProbeBody::AsText(v)) => str_arg(v, tc.0),
+            _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        },
+        body_as_blob: match &o.body {
+            Some(ProbeBody::AsBlob(v)) => ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) },
+            _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        },
+        body_as_stamp: match &o.body {
+            Some(ProbeBody::AsStamp(v)) => make_timestamp(v, tc),
+            _ => ak_efix_Timestamp::ZERO,
+        },
+        body_as_nothing: match &o.body {
+            Some(ProbeBody::AsNothing(v)) => make_empty(v, tc),
+            _ => ak_efix_Empty::ZERO,
+        },
+        presence: ((o.opt_count.is_some() as u32) << 0) | ((o.opt_label.is_some() as u32) << 1) | ((o.opt_flag.is_some() as u32) << 2),
+    }
+}
+
+/// Total fill: every group field assigned, presence assigned and not OR-ed.
+#[inline(always)]
+fn make_empty(o: &Empty, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Empty {
+    ak_efix_Empty {
+        presence: 0,
+    }
+}
+
+/// Total fill: every group field assigned, presence assigned and not OR-ed.
+#[inline(always)]
 fn make_list_results_response(o: &ListResultsResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_ListResultsResponse {
     ak_efix_ListResultsResponse {
         page: o.page,
@@ -298,6 +369,14 @@ fn make_list_tasks_detailed_response(o: &ListTasksDetailedResponse, tc: (ak_tran
     ak_efix_ListTasksDetailedResponse {
         page: o.page,
         total: o.total,
+        presence: 0,
+    }
+}
+
+/// Total fill: every group field assigned, presence assigned and not OR-ed.
+#[inline(always)]
+fn make_list_probe_response(o: &ListProbeResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_ListProbeResponse {
+    ak_efix_ListProbeResponse {
         presence: 0,
     }
 }
@@ -571,6 +650,51 @@ pub fn encode_into_list_tasks_detailed_response(ctx: *mut ak_enc_ctx, o: &ListTa
     }
 }
 
+unsafe extern "C" fn loop_list_probe_response_probes(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListProbeResponse);
+        let tc = tcs();
+        let src = &o.probes;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_Probe>());
+        let mut chunk: [::core::mem::MaybeUninit<ak_efix_Probe>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            chunk[i].write(make_probe(v, tc));
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_elem_Probe(ctx, chunk.as_ptr() as *const ak_efix_Probe, i as i32);
+                if rc < 0 { return rc; }
+                done += i;
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_elem_Probe(ctx, chunk.as_ptr() as *const ak_efix_Probe, i as i32);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
+pub fn encode_into_list_probe_response(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_ListProbeResponse {
+            loop_probes: Some(loop_list_probe_response_probes),
+        };
+        let fix = make_list_probe_response(o, (t.utf8, t.bytes));
+        let rc = ak_encode_ListProbeResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
 pub unsafe fn encoded<'a>(ctx: *mut ak_enc_ctx) -> &'a [u8] {
     let mut p: *const u8 = ::core::ptr::null();
     let mut n: usize = 0;
@@ -724,6 +848,30 @@ unsafe fn fill_task_detailed(dst: &mut TaskDetailed, f: &ak_dfix_TaskDetailed, b
     dst.created_by = s_of(base, f.created_by);
 }
 
+#[inline(always)]
+unsafe fn from_probe(f: &ak_dfix_Probe, base: *const u8) -> Probe {
+    Probe {
+        id: s_of(base, f.id),
+        opt_count: if f.presence & AK_DFIX_PROBE_PRESENT_OPT_COUNT != 0 { Some(f.opt_count) } else { None },
+        opt_label: if f.presence & AK_DFIX_PROBE_PRESENT_OPT_LABEL != 0 { Some(s_of(base, f.opt_label)) } else { None },
+        opt_flag: if f.presence & AK_DFIX_PROBE_PRESENT_OPT_FLAG != 0 { Some(f.opt_flag != 0) } else { None },
+        body: match f.body_case {
+            10 => Some(ProbeBody::AsInt(f.body_as_int)),
+            11 => Some(ProbeBody::AsText(s_of(base, f.body_as_text))),
+            12 => Some(ProbeBody::AsBlob(b_of(base, f.body_as_blob))),
+            13 => Some(ProbeBody::AsStamp(from_timestamp(&f.body_as_stamp, base))),
+            14 => Some(ProbeBody::AsNothing(from_empty(&f.body_as_nothing, base))),
+            _ => None,
+        },
+    }
+}
+
+#[inline(always)]
+unsafe fn from_empty(f: &ak_dfix_Empty, base: *const u8) -> Empty {
+    Empty {
+    }
+}
+
 /// In place, never constructed: `ListResultsResponse` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
@@ -740,6 +888,12 @@ unsafe fn fill_list_tasks_detailed_response(dst: &mut ListTasksDetailedResponse,
     dst.total = f.total;
 }
 
+/// In place, never constructed: `ListProbeResponse` carries a repeated or map field,
+/// and `apply` arrives AFTER the runs that populated it.
+#[inline(always)]
+unsafe fn fill_list_probe_response(dst: &mut ListProbeResponse, f: &ak_dfix_ListProbeResponse, base: *const u8) {
+}
+
 /// What the host hands the codec as `obj` on decode: the destination, plus
 /// the base pointer the spans are offsets into (ABI v1 section 7.4).
 pub struct SinkListResultsResponse<'a> {
@@ -752,7 +906,7 @@ unsafe extern "C" fn apply_list_results_response(
     obj: *mut c_void,
     fx: *const ak_dfix_ListResultsResponse,
 ) {
-    dguard(|| {
+    dguard(_ctx, || {
         let s = &mut *(obj as *mut SinkListResultsResponse);
         let f = &*fx;
         s.out.page = f.page;
@@ -767,7 +921,7 @@ unsafe extern "C" fn add_list_results_response_results(
     elems: *const ak_dfix_ResultRaw,
     n: i32,
 ) {
-    dguard(|| {
+    dguard(_ctx, || {
         let s = &mut *(obj as *mut SinkListResultsResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
@@ -802,7 +956,7 @@ unsafe extern "C" fn apply_list_tasks_detailed_response(
     obj: *mut c_void,
     fx: *const ak_dfix_ListTasksDetailedResponse,
 ) {
-    dguard(|| {
+    dguard(_ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let f = &*fx;
         s.out.page = f.page;
@@ -811,7 +965,7 @@ unsafe extern "C" fn apply_list_tasks_detailed_response(
 }
 
 unsafe extern "C" fn new_list_tasks_detailed_response_tasks(_ctx: *mut ak_dec_ctx, obj: *mut c_void) -> i64 {
-    dguard_i64(|| {
+    dguard_i64(_ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         s.out.tasks.push(Default::default());
         (s.out.tasks.len() - 1) as i64
@@ -824,7 +978,7 @@ unsafe extern "C" fn apply_list_tasks_detailed_response_tasks(
     tok: i64,
     fx: *const ak_dfix_TaskDetailed,
 ) {
-    dguard(|| {
+    dguard(_ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let base = s.base;
         fill_task_detailed(&mut s.out.tasks[tok as usize], &*fx, base);
@@ -838,7 +992,7 @@ unsafe extern "C" fn add_list_tasks_detailed_response_tasks_parent_task_ids(
     elems: *const ak_span,
     n: i32,
 ) {
-    dguard(|| {
+    dguard(_ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
@@ -855,7 +1009,7 @@ unsafe extern "C" fn add_list_tasks_detailed_response_tasks_data_dependencies(
     elems: *const ak_span,
     n: i32,
 ) {
-    dguard(|| {
+    dguard(_ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
@@ -872,7 +1026,7 @@ unsafe extern "C" fn add_list_tasks_detailed_response_tasks_expected_output_ids(
     elems: *const ak_span,
     n: i32,
 ) {
-    dguard(|| {
+    dguard(_ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
@@ -889,7 +1043,7 @@ unsafe extern "C" fn add_list_tasks_detailed_response_tasks_retry_of_ids(
     elems: *const ak_span,
     n: i32,
 ) {
-    dguard(|| {
+    dguard(_ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
@@ -906,7 +1060,7 @@ unsafe extern "C" fn add_list_tasks_detailed_response_tasks_options_options(
     elems: *const ak_dfix_TaskOptionsOptionsEntry,
     n: i32,
 ) {
-    dguard(|| {
+    dguard(_ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
@@ -933,6 +1087,54 @@ pub fn decode_with_list_tasks_detailed_response(ctx: *mut ak_dec_ctx, b: &[u8]) 
             add_tasks_options_options: Some(add_list_tasks_detailed_response_tasks_options_options),
         };
         ak_decode_ListTasksDetailedResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// What the host hands the codec as `obj` on decode: the destination, plus
+/// the base pointer the spans are offsets into (ABI v1 section 7.4).
+pub struct SinkListProbeResponse<'a> {
+    pub out: &'a mut ListProbeResponse,
+    pub base: *const u8,
+}
+
+unsafe extern "C" fn apply_list_probe_response(
+    _ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    fx: *const ak_dfix_ListProbeResponse,
+) {
+    dguard(_ctx, || {
+        let s = &mut *(obj as *mut SinkListProbeResponse);
+        let f = &*fx;
+    })
+}
+
+unsafe extern "C" fn add_list_probe_response_probes(
+    _ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    tok: i64,
+    elems: *const ak_dfix_Probe,
+    n: i32,
+) {
+    dguard(_ctx, || {
+        let s = &mut *(obj as *mut SinkListProbeResponse);
+        let base = s.base;
+        // ABI v1 7.4: a batched add may be called more than once per field.
+        let dst = &mut s.out.probes;
+        dst.reserve(n as usize);
+        for i in 0..n as usize { dst.push(from_probe(&*elems.add(i), base)); }
+    })
+}
+
+pub fn decode_with_list_probe_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListProbeResponse, i32> {
+    let mut out = ListProbeResponse::default();
+    let rc = unsafe {
+        let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr() };
+        let vt = ak_dvt_ListProbeResponse {
+            apply: Some(apply_list_probe_response),
+            add_probes: Some(add_list_probe_response_probes),
+        };
+        ak_decode_ListProbeResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }

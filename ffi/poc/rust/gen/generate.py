@@ -34,7 +34,7 @@ ROOT = os.path.dirname(HERE)
 
 # Stage 2 covers M1 over P1.1 and P1.2. Stage 3 adds the rest of design/SHAPES.md by
 # adding roots here; nothing else in the generator is per-payload.
-ROOTS = ["ListResultsResponse", "ListTasksDetailedResponse"]
+ROOTS = ["ListResultsResponse", "ListTasksDetailedResponse", "ListProbeResponse"]
 
 
 def targets(ir):

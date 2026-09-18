@@ -24,6 +24,10 @@ echo "===== 2. conformance: byte identity across the arms ====="
 cargo run --release -q -p harness --bin conformance 2>/dev/null
 
 echo
+echo "===== 2b. shape coverage: explicit presence, the oneof, unknown fields ====="
+cargo run --release -q -p harness --bin shapes 2>/dev/null
+
+echo
 echo "===== 3. boundary-call counts, and decision 5 by site ====="
 cargo run --release -q -p harness --features count --bin counts 2>/dev/null
 

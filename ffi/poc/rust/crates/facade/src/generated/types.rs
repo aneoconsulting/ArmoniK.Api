@@ -195,6 +195,33 @@ pub struct TaskDetailed {
     pub created_by: String,
 }
 
+/// The `body` oneof of `Probe`. Exactly one member, and `None` for none:
+/// a member being there is what selects the variant, so presence is
+/// information and the payload-free member is a variant like any other.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ProbeBody {
+    AsInt(i64),
+    AsText(String),
+    AsBlob(::bytes::Bytes),
+    AsStamp(Timestamp),
+    AsNothing(Empty),
+}
+
+/// invented; both shapes are real, the schema has 19 oneofs in 413 fields
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Probe {
+    pub id: String,
+    pub opt_count: Option<i32>,
+    pub opt_label: Option<String>,
+    pub opt_flag: Option<bool>,
+    pub body: Option<ProbeBody>,
+}
+
+/// Protos/V1/objects.proto
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Empty {
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ListResultsResponse {
     pub results: Vec<ResultRaw>,
@@ -207,4 +234,9 @@ pub struct ListTasksDetailedResponse {
     pub tasks: Vec<TaskDetailed>,
     pub page: i32,
     pub total: i32,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ListProbeResponse {
+    pub probes: Vec<Probe>,
 }

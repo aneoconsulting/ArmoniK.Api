@@ -23,7 +23,28 @@ pub fn link_anchor() -> u32 {
 
 // ---- contexts ---------------------------------------------------------------------
 
+/// The first field of every context, so `ak_fail` can be the one entry point ABI v1
+/// section 5 says it is -- "any host code holding a context may fail the operation" --
+/// without knowing which kind of context it was handed.
+///
+/// Before this, `ak_fail` cast unconditionally to `EncCtxImpl` (defect D7). It was not
+/// reachable while nothing on the decode path could fail, and M3 is where that stopped
+/// being true: an accessor for a oneof member can be handed a case the host does not know.
+#[repr(C)]
+pub struct CtxHeader {
+    /// AK_CTX_ENC or AK_CTX_DEC. Read by nothing in the fast path; it exists so a wrong
+    /// pointer is a diagnosable bug rather than a silent one.
+    pub kind: u32,
+    /// Sticky: the first error wins, so unwinding cannot overwrite the cause.
+    pub err: i32,
+}
+
+pub const AK_CTX_ENC: u32 = 0x41_4B_45_43;
+pub const AK_CTX_DEC: u32 = 0x41_4B_44_43;
+
+#[repr(C)]
 pub struct EncCtxImpl {
+    pub hdr: CtxHeader,
     pub e: Enc,
     /// Which repeated field is open, so the element entry point does not have to be told
     /// its own tag: the codec drives, and it knows the field (ABI v1 rule 2). Read into
@@ -40,8 +61,9 @@ pub struct EncCtxImpl {
     pub open_obj: *const c_void,
 }
 
+#[repr(C)]
 pub struct DecCtxImpl {
-    pub err: i32,
+    pub hdr: CtxHeader,
     pub c: ak_rt::Counters,
 }
 
@@ -53,6 +75,7 @@ pub extern "C" fn ak_abi_version() -> u32 {
 #[no_mangle]
 pub extern "C" fn ak_enc_ctx_new() -> *mut ak_enc_ctx {
     let b = Box::new(EncCtxImpl {
+        hdr: CtxHeader { kind: AK_CTX_ENC, err: AK_OK },
         e: Enc::new(generated::codec::SITES),
         open_tag: 0,
         open_site: 0,
@@ -72,7 +95,9 @@ pub unsafe extern "C" fn ak_enc_ctx_free(ctx: *mut ak_enc_ctx) {
 
 #[no_mangle]
 pub unsafe extern "C" fn ak_enc_reset(ctx: *mut ak_enc_ctx) {
-    (*(ctx as *mut EncCtxImpl)).e.reset();
+    let cx = &mut *(ctx as *mut EncCtxImpl);
+    cx.e.reset();
+    cx.hdr.err = AK_OK;
 }
 
 #[no_mangle]
@@ -89,12 +114,20 @@ pub unsafe extern "C" fn ak_enc_take(
 
 #[no_mangle]
 pub unsafe extern "C" fn ak_enc_err(ctx: *const ak_enc_ctx) -> i32 {
-    (*(ctx as *const EncCtxImpl)).e.err
+    let cx = &*(ctx as *const EncCtxImpl);
+    if cx.hdr.err != AK_OK {
+        cx.hdr.err
+    } else {
+        cx.e.err
+    }
 }
 
 #[no_mangle]
 pub extern "C" fn ak_dec_ctx_new() -> *mut ak_dec_ctx {
-    Box::into_raw(Box::new(DecCtxImpl { err: 0, c: Default::default() })) as *mut ak_dec_ctx
+    Box::into_raw(Box::new(DecCtxImpl {
+        hdr: CtxHeader { kind: AK_CTX_DEC, err: AK_OK },
+        c: Default::default(),
+    })) as *mut ak_dec_ctx
 }
 
 #[no_mangle]
@@ -107,12 +140,29 @@ pub unsafe extern "C" fn ak_dec_ctx_free(ctx: *mut ak_dec_ctx) {
 /// Sticky: the first error wins, so unwinding cannot overwrite the cause. Never allocates,
 /// never throws, safe from inside a reverse-call frame (ABI v1 section 5). The message is
 /// dropped in this slice; nothing here reports one.
+///
+/// It takes `void*` because it takes EITHER context. Both begin with a `CtxHeader`, so the
+/// error slot is at one offset and this does not have to know which it was given.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fail(ctx: *mut c_void, code: i32, _msg: *const u8, _msg_len: u32) {
-    // Both contexts start with their error slot reachable through this one entry point;
-    // the harness only ever hands an encode context, which is what the loop callbacks get.
-    let cx = &mut *(ctx as *mut EncCtxImpl);
-    cx.e.fail(code);
+    if ctx.is_null() || code >= 0 {
+        return;
+    }
+    let h = &mut *(ctx as *mut CtxHeader);
+    if h.err == AK_OK {
+        h.err = code;
+    }
+}
+
+/// What the host reported through `ak_fail` on a decode context, or AK_OK.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_err(ctx: *const ak_dec_ctx) -> i32 {
+    (*(ctx as *const DecCtxImpl)).hdr.err
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_err_reset(ctx: *mut ak_dec_ctx) {
+    (*(ctx as *mut DecCtxImpl)).hdr.err = AK_OK;
 }
 
 // ---- counters ---------------------------------------------------------------------

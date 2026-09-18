@@ -13,7 +13,7 @@ use ak_rt::dec::Dec;
 use ak_rt::Enc;
 
 /// One learned length-prefix slot per site in this file (ABI v1 section 6).
-pub const SITES: usize = 20;
+pub const SITES: usize = 23;
 
 #[inline]
 fn enc_timestamp(o: &Timestamp, e: &mut Enc) {
@@ -167,9 +167,38 @@ fn enc_task_detailed(o: &TaskDetailed, e: &mut Enc) {
 }
 
 #[inline]
+fn enc_probe(o: &Probe, e: &mut Enc) {
+    if !o.id.is_empty() { e.blob_field(1, o.id.as_bytes()); }
+    if let Some(v) = &o.opt_count { e.varint_field(2, *v as i64 as u64); }
+    if let Some(v) = &o.opt_label { e.blob_field(3, v.as_bytes()); }
+    if let Some(v) = &o.opt_flag { e.varint_field(4, *v as u64); }
+    if let Some(v) = &o.body {
+        match v {
+            ProbeBody::AsInt(x) => e.varint_field(10, *x as u64),
+            ProbeBody::AsText(x) => e.blob_field(11, x.as_bytes()),
+            ProbeBody::AsBlob(x) => e.blob_field(12, x),
+            ProbeBody::AsStamp(x) => {
+                let mk = e.begin(13, 18);
+                enc_timestamp(x, e);
+                e.end(mk);
+            }
+            ProbeBody::AsNothing(x) => {
+                let mk = e.begin(14, 19);
+                enc_empty(x, e);
+                e.end(mk);
+            }
+        }
+    }
+}
+
+#[inline]
+fn enc_empty(o: &Empty, e: &mut Enc) {
+}
+
+#[inline]
 fn enc_list_results_response(o: &ListResultsResponse, e: &mut Enc) {
     for c in &o.results {
-        let mk = e.begin(1, 18);
+        let mk = e.begin(1, 20);
         enc_result_raw(c, e);
         e.end(mk);
     }
@@ -180,12 +209,21 @@ fn enc_list_results_response(o: &ListResultsResponse, e: &mut Enc) {
 #[inline]
 fn enc_list_tasks_detailed_response(o: &ListTasksDetailedResponse, e: &mut Enc) {
     for c in &o.tasks {
-        let mk = e.begin(1, 19);
+        let mk = e.begin(1, 21);
         enc_task_detailed(c, e);
         e.end(mk);
     }
     if o.page != 0 { e.varint_field(2, o.page as i64 as u64); }
     if o.total != 0 { e.varint_field(3, o.total as i64 as u64); }
+}
+
+#[inline]
+fn enc_list_probe_response(o: &ListProbeResponse, e: &mut Enc) {
+    for c in &o.probes {
+        let mk = e.begin(1, 22);
+        enc_probe(c, e);
+        e.end(mk);
+    }
 }
 
 #[inline]
@@ -559,6 +597,70 @@ fn dec_task_detailed(d: &mut Dec, out: &mut TaskDetailed) {
 }
 
 #[inline]
+fn dec_probe(d: &mut Dec, out: &mut Probe) {
+    #[allow(unused_variables)]
+    let buf = d.buf;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        match tag {
+            1 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            2 if wire == 0 => out.opt_count = Some(d.varint() as i32),
+            3 if wire == 2 => {
+                let (off, n) = d.len_body();
+                out.opt_label = Some(String::from_utf8_lossy(&buf[off..off + n]).into_owned());
+            }
+            4 if wire == 0 => out.opt_flag = Some(d.varint() != 0),
+            10 if wire == 0 => out.body = Some(ProbeBody::AsInt(d.varint() as i64)),
+            11 if wire == 2 => {
+                let (off, n) = d.len_body();
+                out.body = Some(ProbeBody::AsText(String::from_utf8_lossy(&buf[off..off + n]).into_owned()));
+            }
+            12 if wire == 2 => {
+                let (off, n) = d.len_body();
+                out.body = Some(ProbeBody::AsBlob(::bytes::Bytes::copy_from_slice(&buf[off..off + n])));
+            }
+            13 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = Timestamp::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_timestamp(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.body = Some(ProbeBody::AsStamp(c));
+            }
+            14 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = Empty::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_empty(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.body = Some(ProbeBody::AsNothing(c));
+            }
+            _ => d.skip(wire),
+        }
+    }
+}
+
+#[inline]
+fn dec_empty(d: &mut Dec, out: &mut Empty) {
+    #[allow(unused_variables)]
+    let buf = d.buf;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        match tag {
+            _ => d.skip(wire),
+        }
+    }
+}
+
+#[inline]
 fn dec_list_results_response(d: &mut Dec, out: &mut ListResultsResponse) {
     #[allow(unused_variables)]
     let buf = d.buf;
@@ -606,6 +708,28 @@ fn dec_list_tasks_detailed_response(d: &mut Dec, out: &mut ListTasksDetailedResp
     }
 }
 
+#[inline]
+fn dec_list_probe_response(d: &mut Dec, out: &mut ListProbeResponse) {
+    #[allow(unused_variables)]
+    let buf = d.buf;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        match tag {
+            1 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = Probe::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_probe(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.probes.push(c);
+            }
+            _ => d.skip(wire),
+        }
+    }
+}
+
 pub fn encode_list_results_response(o: &ListResultsResponse) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_list_results_response(o, &mut e);
@@ -643,5 +767,25 @@ pub fn decode_list_tasks_detailed_response(b: &[u8]) -> Result<ListTasksDetailed
     let mut d = Dec::new(b);
     let mut out = ListTasksDetailedResponse::default();
     dec_list_tasks_detailed_response(&mut d, &mut out);
+    if d.err != 0 { Err(d.err) } else { Ok(out) }
+}
+
+pub fn encode_list_probe_response(o: &ListProbeResponse) -> Vec<u8> {
+    let mut e = Enc::new(SITES);
+    enc_list_probe_response(o, &mut e);
+    e.buf
+}
+
+/// Encode into a context that is reused, so the learned widths survive and the
+/// allocation is not part of what is timed. This is the shape a real host uses.
+pub fn encode_into_list_probe_response(o: &ListProbeResponse, e: &mut Enc) {
+    e.reset();
+    enc_list_probe_response(o, e);
+}
+
+pub fn decode_list_probe_response(b: &[u8]) -> Result<ListProbeResponse, i32> {
+    let mut d = Dec::new(b);
+    let mut out = ListProbeResponse::default();
+    dec_list_probe_response(&mut d, &mut out);
     if d.err != 0 { Err(d.err) } else { Ok(out) }
 }

@@ -35,6 +35,10 @@ name = "conformance"
 path = "src/bin/conformance.rs"
 
 [[bin]]
+name = "shapes"
+path = "src/bin/shapes.rs"
+
+[[bin]]
 name = "content"
 path = "src/bin/content.rs"
 
