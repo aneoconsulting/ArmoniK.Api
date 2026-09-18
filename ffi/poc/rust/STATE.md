@@ -6,7 +6,7 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | stages 1, 2 and **3 complete**. Every message and every payload of `design/SHAPES.md` has all four arms byte-identical to the validated manifest. Stage 4 (the RPC arm) not started |
+| **Status** | **stages 1 to 4 complete.** Every message and payload of `design/SHAPES.md` has all four arms byte-identical to the validated manifest, and the RPC arm is measured. Ready for the aggregating session to assemble |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88 declared. **Not verified: no 1.88 toolchain exists in this container, only 1.94.1** |
 | **Target** (where the clock runs) | the same, one configuration (README section 5) |
@@ -123,18 +123,22 @@ separate processes.
 
 ## Next step
 
-**Stage 4: the RPC arm** (`design/SHAPES.md`, "The RPC arm"). One unary RPC carrying P2.2
-against tonic over loopback:
+Nothing is outstanding. The slice has done what W3 asked: four arms, every shape, and the
+interface-cost decomposition available to every other slice.
 
-- CPU and allocation per RPC at 1, 8 and 16 calls in flight;
-- the crossing count per RPC, which should be **two** and not a function of field count;
-- whether an idiomatic Rust wait (a `Future`) is satisfiable without pinning a carrier
-  thread — which in Rust is trivially yes, so the honest form of that row is that Rust cannot
-  test what the requirement exists for.
+If more is wanted, in the order I would do it:
 
-None of the RPC half of ABI v1 section 9 is built yet: no `ak_init`, no runtime, context or
-client, no completion queue, no metadata or deadlines. Streaming, TLS, a real network,
-failure injection and the server side are out of scope even then and stay in the list below.
+1. **The `latin1`/`wide` sets on the remaining payloads**, and the SIMD validator on a
+   machine without AVX2. One machine is one machine.
+2. **A concurrency suite** (ABI v1 obligation 12.5): two payload shapes, threads in sequence
+   and together, every encode asserted against a reference. The learned-width table is per
+   context and has never been touched by two threads, which is the case section 6 says a
+   global table fails at. Stage 4's defect D16 is what that suite exists to catch, and it
+   was found by accident rather than by a suite.
+3. **`ak_init` and the lifecycle** (section 3), which is unbuilt, so "every entry point
+   requires `ak_init`" is unexercised.
+4. **The pull decode family**, to turn "push is the right default at 1.8 ns" from an argument
+   into a measurement.
 
 ## Correctness
 
@@ -161,6 +165,7 @@ failure injection and the server side are out of scope even then and stay in the
 | D7 | `crates/ak-core/src/lib.rs` | `ak_fail` cast its context to `EncCtxImpl` unconditionally | **closed with M3**, as agreed: both contexts begin with a `CtxHeader { kind, err }`, the decode guard reports through `ak_fail`, and the decode entry point returns it |
 | D8 | `gen/rust_abi.py` | the emitted arm for a singular message child read its length prefix from the root reader instead of the reader at its own depth | **fixed**. Only reachable at depth two or more, so M1 could not see it |
 | D10 | `crates/stage1-validate/src/build.rs` | the hand-written prost builder did not know M6's new packed enum field | **fixed**, and P6.1 re-validated against prost at 123,354 bytes, with the log to show it: `stage1-manifest-vs-prost-packed-enum.log` |
+| D16 | `crates/ak-core/src/rpc.rs` | `ak_call_unary` took `*mut ak_client` and mutated a shared `Grpc`, so two host threads calling it at once raced. It worked at 1 in flight and failed outright at 8 | **fixed**: the client holds the `Channel`, a call clones it and builds its own `Grpc`, and the call takes a shared reference — the shape section 9 already implies. Found by the concurrency arm, which is what it is for |
 | D15 | `crates/stage1-validate/src/build.rs` | the hand-written prost builder still used the old adapter rule after `0c2d4d7f` | **fixed**, and the conformance run is what said so: the three generated-builder arms matched the new hashes and the prost arm did not. First time the two independent construction routes have caught anything |
 | D14 | `crates/harness/src/bin/bench.rs` | the M4 to M7 `core-native` encode case allocated a fresh `Vec` per call and grew it by doubling, while every other arm reused a buffer. It measured `core-native` at **1.412** of prost on P5.4, a false regression | **fixed**: the arm uses the same reused `Enc` as M1 to M3, and 1.412 became 1.018 |
 | D13 | `gen/ir.py` | the first `direct_fields` walked singular message children only, so ABI v1 section 8's refusal found nothing and refused nothing | **fixed**, and `gen/check_direct.py` exercises both refusal cases on every run. Same class as D12, caught the same way: by running it against a case that must fail |
@@ -210,9 +215,13 @@ Four, all reported to the aggregating session and none fixed here:
 - **The pull decode family** (section 7.1): only push is built, which is the right default for
   a host whose reverse call costs 1.8 ns, but the claim that pull would be no better here is
   an argument and not a measurement.
-- **The whole RPC half** (section 9): `ak_call_unary`, the completion queue, metadata,
-  deadlines, status codes, streaming, cancellation. That is stage 4, and streaming is out of
-  scope even then.
+- **Most of the RPC half** (section 9). Built and measured: the blocking unary call over a
+  channel. **Not built**: the callback and completion-queue delivery modes, metadata,
+  deadlines, the gRPC status code as a number, cancellation (section 9 gives the blocking
+  call a handle so it can be cancelled and `ak_call_unary` takes none), retry and backoff,
+  TLS, streaming, a real network, failure injection and the server side. The RPC half's case
+  is **behavioural** and none of that behaviour is exercised: stage 4 measures the call path,
+  which is the half of section 9 whose case was never in doubt.
 - **`ak_init` and the lifecycle** (section 3): no runtime, context or client, no crypto
   provider, no log or tracing bridge, no panic hook, no `worker_threads` default. The codec
   half needs none of it and this slice built none of it, so section 3's claim that every entry
@@ -279,6 +288,7 @@ Four, all reported to the aggregating session and none fixed here:
 | `ffi/logs/rust/stage1-second-encoder.log` | as above, plus prost-reflect 0.16.5 | the rule is protobuf's, not prost's; the corrected sizes and hashes |
 | `ffi/logs/rust/stage1-manifest-vs-prost-after-fix.log` | as above, **schema at `07d3e05`** | 16 of 16 after the zero-leaf fix. **Its P6.1 row (116,954 B) is superseded by the log below**; every other row still stands |
 | `ffi/logs/rust/stage1-manifest-vs-prost-packed-enum.log` | as above, **schema at `945d3cd1`** | 16 of 16 including P6.1 at 123,354 B, the payload the packed enum moved and the one nothing had checked |
+| `ffi/logs/rust/stage4-rpc.log` | rustc 1.94.1 release, tonic 0.14 over loopback h2 no TLS, cdylib boundary, server in-process, 4 shared vCPUs | **Two crossings per RPC and zero per field.** CPU per RPC 0.91 to 1.10 of tonic over two processes at 1, 8 and 16 in flight: no measurable difference. The carrier-thread row is reported empty and not substituted for |
 | `ffi/logs/rust/stage1-manifest-vs-prost-adapter.log` | as above, **schema at `0c2d4d7f`** | 16 of 16 after the adapter fix. Supersedes the P2.x and P4.1 rows of the two earlier stage 1 logs |
 | `ffi/logs/rust/stage3-M2-M4-revalidated.log` | as stage3-M2 | M2 and M4 re-measured after `0c2d4d7f`. Crossings and decision 5 unchanged to the digit; ratios tighter and two moved toward parity. **Supersedes the M2 rows of `stage3-M2.log` and the M4 rows of `stage3-M4-M7.log`** |
 | `ffi/logs/rust/stage3-M4-M7.log` | as stage3-M2, ASCII, guard on | M4 to M7: byte identity on P4.1, P5.1 to P5.4, P6.1 and P7.1, with the class labelled per row; ABI v1 section 8's generator-time refusal exercised; the adapter's two wire forms checked by state; M7 by decode and permutation |

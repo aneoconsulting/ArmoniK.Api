@@ -27,12 +27,21 @@ prost.workspace = true
 bytes.workspace = true
 sha2.workspace = true
 serde_json.workspace = true
+rpc = { path = "../rpc" }
+tonic = { workspace = true, features = ["codegen", "transport"] }
+tonic-prost.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "macros", "time"] }
+http.workspace = true
 
 [build-dependencies]
 
 [[bin]]
 name = "conformance"
 path = "src/bin/conformance.rs"
+
+[[bin]]
+name = "rpcbench"
+path = "src/bin/rpcbench.rs"
 
 [[bin]]
 name = "shapes"
