@@ -11,6 +11,9 @@ pub struct Counters {
     pub reverse: u64,
     pub transcode: u64,
     pub prefix_moves: u64,
+    /// Bytes memmoved by those resizes. A move of a 24 KB element body and a move of a
+    /// 30-byte map entry are both one miss and are not the same cost.
+    pub prefix_bytes: u64,
     pub grows: u64,
 }
 

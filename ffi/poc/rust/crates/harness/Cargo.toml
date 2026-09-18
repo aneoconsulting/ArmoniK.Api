@@ -20,6 +20,7 @@ ak-core = { path = "../ak-core" }
 facade = { path = "../facade" }
 shapes-prost = { path = "../shapes-prost" }
 shapes-values = { path = "../shapes-values" }
+stage1-validate = { path = "../stage1-validate" }
 ak-abi = { path = "../ak-abi" }
 ak-rt = { path = "../ak-rt" }
 prost.workspace = true

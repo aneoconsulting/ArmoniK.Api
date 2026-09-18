@@ -1,6 +1,7 @@
 //! What the arms have in common: the payload table, the manifest, and the reference bytes.
 
 pub mod arms;
+pub mod arms_m2;
 pub mod generated {
     pub mod binding;
 }

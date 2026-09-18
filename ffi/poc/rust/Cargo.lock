@@ -175,6 +175,7 @@ dependencies = [
  "sha2",
  "shapes-prost",
  "shapes-values",
+ "stage1-validate",
 ]
 
 [[package]]

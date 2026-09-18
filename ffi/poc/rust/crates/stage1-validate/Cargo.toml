@@ -5,6 +5,14 @@ rust-version.workspace = true
 version.workspace = true
 publish.workspace = true
 
+[lib]
+name = "stage1_validate"
+path = "src/lib.rs"
+
+[[bin]]
+name = "stage1-validate"
+path = "src/main.rs"
+
 [dependencies]
 shapes-prost = { path = "../shapes-prost" }
 shapes-values = { path = "../shapes-values" }

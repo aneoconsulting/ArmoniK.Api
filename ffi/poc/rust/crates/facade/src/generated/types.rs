@@ -44,9 +44,83 @@ impl ResultStatus {
     }
 }
 
+/// Open enum: an unknown wire value round-trips losslessly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TaskStatus {
+    Unspecified,
+    Creating,
+    Submitted,
+    Dispatched,
+    Completed,
+    Error,
+    Timeout,
+    Cancelling,
+    Cancelled,
+    Processing,
+    Processed,
+    Retried,
+    Pending,
+    Paused,
+    /// A value this build was not generated against. Kept so that it
+    /// round-trips: the open-enum case of design/SHAPES.md.
+    Unknown(i32),
+}
+impl Default for TaskStatus {
+    fn default() -> Self { Self::Unspecified }
+}
+impl TaskStatus {
+    #[inline]
+    pub fn to_i32(self) -> i32 {
+        match self {
+            Self::Unspecified => 0,
+            Self::Creating => 1,
+            Self::Submitted => 2,
+            Self::Dispatched => 3,
+            Self::Completed => 4,
+            Self::Error => 5,
+            Self::Timeout => 6,
+            Self::Cancelling => 7,
+            Self::Cancelled => 8,
+            Self::Processing => 9,
+            Self::Processed => 10,
+            Self::Retried => 11,
+            Self::Pending => 12,
+            Self::Paused => 13,
+            Self::Unknown(v) => v,
+        }
+    }
+    #[inline]
+    pub fn from_i32(v: i32) -> Self {
+        match v {
+            0 => Self::Unspecified,
+            1 => Self::Creating,
+            2 => Self::Submitted,
+            3 => Self::Dispatched,
+            4 => Self::Completed,
+            5 => Self::Error,
+            6 => Self::Timeout,
+            7 => Self::Cancelling,
+            8 => Self::Cancelled,
+            9 => Self::Processing,
+            10 => Self::Processed,
+            11 => Self::Retried,
+            12 => Self::Pending,
+            13 => Self::Paused,
+            other => Self::Unknown(other),
+        }
+    }
+}
+
 /// google.protobuf.Timestamp, copied rather than imported
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Timestamp {
+    pub seconds: i64,
+    pub nanos: i32,
+}
+
+/// google.protobuf.Duration, copied rather than imported
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Duration {
     pub seconds: i64,
     pub nanos: i32,
 }
@@ -67,9 +141,70 @@ pub struct ResultRaw {
     pub manual_deletion: bool,
 }
 
+/// Protos/V1/objects.proto
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct TaskOptions {
+    pub options: ::std::collections::BTreeMap<String, String>,
+    pub max_duration: Option<Duration>,
+    pub max_retries: i32,
+    pub priority: i32,
+    pub partition_id: String,
+    pub application_name: String,
+    pub application_version: String,
+    pub application_namespace: String,
+    pub application_service: String,
+    pub engine_type: String,
+}
+
+/// Protos/V1/tasks_common.proto, TaskDetailed.Output, hoisted out of its parent
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct TaskOutput {
+    pub success: bool,
+    pub error: String,
+}
+
+/// Protos/V1/tasks_common.proto, tags preserved
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct TaskDetailed {
+    pub id: String,
+    pub session_id: String,
+    pub owner_pod_id: String,
+    pub parent_task_ids: Vec<String>,
+    pub data_dependencies: Vec<String>,
+    pub expected_output_ids: Vec<String>,
+    pub retry_of_ids: Vec<String>,
+    pub status: TaskStatus,
+    pub status_message: String,
+    pub options: Option<TaskOptions>,
+    pub created_at: Option<Timestamp>,
+    pub submitted_at: Option<Timestamp>,
+    pub started_at: Option<Timestamp>,
+    pub ended_at: Option<Timestamp>,
+    pub pod_ttl: Option<Timestamp>,
+    pub output: Option<TaskOutput>,
+    pub pod_hostname: String,
+    pub received_at: Option<Timestamp>,
+    pub acquired_at: Option<Timestamp>,
+    pub creation_to_end_duration: Option<Duration>,
+    pub processing_to_end_duration: Option<Duration>,
+    pub initial_task_id: String,
+    pub received_to_end_duration: Option<Duration>,
+    pub processed_at: Option<Timestamp>,
+    pub fetched_at: Option<Timestamp>,
+    pub payload_id: String,
+    pub created_by: String,
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ListResultsResponse {
     pub results: Vec<ResultRaw>,
+    pub page: i32,
+    pub total: i32,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ListTasksDetailedResponse {
+    pub tasks: Vec<TaskDetailed>,
     pub page: i32,
     pub total: i32,
 }
