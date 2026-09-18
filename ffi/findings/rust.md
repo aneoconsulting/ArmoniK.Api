@@ -5,16 +5,19 @@ as the slice's own `STATE.md`. What is here is what the slice's results mean for
 the branch: what is now established, what the other four slices have to do
 differently because of it, and what is still an argument.
 
-**Covers stage 3, complete**: every message and every payload of `SHAPES.md`,
-four arms, all byte-identical to the validated manifest, plus the three content
-sets and the unknown-field vectors. The RPC arm (stage 4) is not built.
+**W3 is done.** Four arms over every message and every payload of `SHAPES.md`,
+all byte-identical to the validated manifest, plus the three content sets, the
+unknown-field vectors and the RPC arm. The manifest was re-validated against prost
+after this session's adapter fix (16 of 16) and M2 and M4 were re-measured rather
+than assumed: the mechanisms held to the digit (10.024 crossings per task on
+encode, 7.004 on decode, decision 5 unchanged), most ratios did not move, and the
+new runs are tighter, so they supersede.
 
-**Note on the hashes.** After stage 3 finished, this session changed
-`emit/payloads.py` so the `Output` adapter's three states are reachable (below),
-which moved P2.1 to P2.4 and P4.1. The slice's M2 and M4 figures below were taken
-on the previous bytes; the change is a few bytes per element and does not move a
-ratio, but the numbers are re-run rather than assumed before the report quotes
-them.
+**What that re-run also demonstrated, which nothing had yet**: the three facade
+arms matched the new hashes as soon as the generator was re-run, and the `prost`
+arm did not, because its objects come from a separately hand-written builder. Two
+construction routes were kept apart for exactly that reason and this is the first
+time the separation fired.
 
 ## Configuration, once, for everything below
 
@@ -27,6 +30,44 @@ detail. Accessor guard on. ASCII content set only. MSRV 1.88 is declared and
 
 Ratios are formed inside one process from interleaved rounds; three processes
 were run and what is quoted is the range across them.
+
+## The RPC half: two crossings per call, zero per field
+
+The number no other slice can get from its own measurements, and the one the
+"adopt the RPC layer, generate the codec" fallback rests on.
+
+**It is a property of the code rather than a measurement**, which is the stronger
+form: neither the slice's RPC crate nor the core's RPC module mentions a message
+type anywhere, verified here by reading both. The half dispatches on a path string
+and moves opaque bytes, so there is no place a per-field cost could enter. If the
+count were a function of field count, one of those files would have to know about
+fields.
+
+**The transferable form is the arithmetic, not the ratio.** Two crossings of 1.8
+ns against a call costing about 1.5 ms of CPU is roughly four parts in a million.
+A host paying 98 ns per crossing through JNI pays 196 ns on the same call: 0.013
+percent. End to end the Rust arm is 0.91 to 1.10 of tonic at 1, 8 and 16 in
+flight, which on four shared vCPUs is no measurable difference rather than a win,
+and is the less useful half of the result.
+
+**A hazard every slice's RPC arm will hit**, now rule R9: P2.2 is 540 KB and the
+default HTTP/2 stream window is 64 KB, so a single call in flight spends most of
+its wall-clock idle waiting for `WINDOW_UPDATE`. The slice's first version would
+have reported 33 ms per call for a path costing 1.5 ms of CPU. Measure CPU.
+
+**The concurrency defect, and what it says about obligation 12.5.** The client
+handle was built taking a mutable reference, so two host threads mutated shared
+state. It worked at 1 call in flight and failed outright at 8 — the good failure
+mode, since the bad one is a wrong byte under contention. It was found *by
+accident*, because stage 4 asked for 8 in flight. The conformance obligation that
+exists to catch exactly this class still has no implementation in any slice, and
+this is the best argument for it so far.
+
+**And the error channel discarded the cause.** The failure surfaced as
+`AK_ERR_HOST` with nothing attached, and the slice's code was correct against ABI
+v1 as written: the specification asks for a code and a message and gives no
+channel for a source chain. An error channel that discards the error is not an
+error channel. That is now part of open decision 12 rather than a slice's bug.
 
 ## What is now established
 
@@ -412,6 +453,19 @@ and the invariant does not hold? **C++ answers it for `std::string`, Python for
   error channel in stage 3. Worth watching, because it is the error channel ABI
   v1 section 5 calls the widest hole in the drafted interface.
 
+## The RPC half's case is behavioural, and none of the behaviour is measured
+
+This is the most important sentence in this document and it should survive into
+the report unsoftened. The argument for putting the RPC layer on the C ABI is that
+five implementations currently disagree about which status codes are retried, what
+`AllowUnsafeConnection` disables, and the write-then-notify ordering. **Stage 4
+measured none of that.** It measured the call path, whose cost was never the
+question, and found it free.
+
+Unmeasured on the RPC side: the callback and completion-queue delivery modes,
+metadata, deadlines, the gRPC status code as a number, cancellation, retry,
+backoff, TLS, streaming, a real network, failure injection and the server seam.
+
 ## The specified surface that is not built
 
 From the slice's completeness pass, and it belongs in the report rather than in a
@@ -427,6 +481,24 @@ footnote, because a specification is not evidence:
   decode family and the whole RPC half** are specified and unbuilt here.
 - **Malformed wire is unexercised**, and `ak_fail` is reachable only through a
   panic.
+
+## What I would do next, if this slice is reopened
+
+In the order the slice itself proposes, which I agree with:
+
+1. **A concurrency suite** per conformance obligation 12.5. It is the only item on
+   this list with a defect already found by accident and nothing looking for the
+   class on purpose.
+2. **`ak_init` and the lifecycle**, so that section 3 stops being unexercised
+   specification.
+3. **The pull decode family**, to turn "push is the right default at a 1.8 ns
+   crossing" from an argument into a measurement. Rust is the cheapest place to
+   learn whether one traversal emitter can really serve both families, which is
+   ABI v1 open decision 2 and a condition the whole decode design rests on.
+4. **The remaining content sets, and the SIMD validator on a machine without
+   AVX2**, which is the floor question behind the reframed decision 3.
+
+None of it blocks another slice. Everything another slice needs from Rust exists.
 
 ## What the slice's own defect log says about method
 
