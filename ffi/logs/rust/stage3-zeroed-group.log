@@ -1,0 +1,541 @@
+# ffi/logs/rust/stage3-zeroed-group.log
+# W3: the ZEROED-GROUP variant of the element fill, built as an ARM.
+# ABI v1 open decision 9 candidate. 2026-09-18
+#
+# CONFIGURATION (R7)
+#   machine        4 vCPU Intel Xeon @ 2.80GHz, 15 GB, Ubuntu 24.04.4, Linux 6.18.44 x86_64,
+#                  container, NOT an isolated host. No CPU pinning, no governor control.
+#   rust           rustc/cargo 1.94.1, profile release (opt-level 3, lto off)
+#   MSRV declared  1.88. NOT VERIFIED: no 1.88 toolchain exists in this container.
+#   incumbent      prost 0.14.4, carried as the in-process control on every row
+#   LINKAGE        cdylib (libak_core.so), dynamic linker. Not a static link.
+#   guard          on
+#   content        ASCII.
+#   class          M1 (P1.2, P1.3), M2 (P2.2, P2.5) and M3 (P3.1) are all REAL messages
+#                  (design/SHAPES.md). No control payloads here.
+#
+# THE PROPOSAL, AND WHAT IT ACTUALLY TRADES
+#   The element-group array is zeroed once per chunk with a memset and the host then assigns
+#   only the fields that are not at their default, instead of the total fill ABI v1 section 6
+#   requires.
+#
+#   **One correction to the framing, and it matters for reading the numbers.** Section 6 says
+#   the total fill buys "the codec does not reset the element group between elements, worth
+#   5.4 ns per ResultRaw and 24.4 per TaskDetailed". This proposal does NOT give that back:
+#   the array is the HOST's chunk buffer, so under this variant the codec still never resets
+#   anything. What changes is only the host's fill -- an unconditional store of every field
+#   becomes a bulk memset plus a conditional store of the fields that differ. The reset moved
+#   from a per-field reset the codec would have done to a bulk memset the host does, and a
+#   bulk memset is cheaper per byte than scattered stores. That is why it can win at all, and
+#   it is why the 5.4/24.4 figure is the right THRESHOLD to judge the cost against but is not
+#   the cost being paid back.
+#
+# WHAT IS BUILT, AND WHAT IS NOT
+#   The generator emits `fill_<msg>_sparse` for every group type and `loop_<root>_<slot>_zeroed`
+#   plus `encode_into_<root>_zeroed` for every top-level repeated-message slot, ALONGSIDE the
+#   default path. **Nothing the default path uses changed**: the conformance run and the
+#   boundary-call counts in sections 1 and 2 below are the same figures as before, to the digit.
+#   Only the TOP-LEVEL element group is filled this way; a nested loop inside an element keeps
+#   the total fill, so on M2 this prices the outer `TaskDetailed` group and not the inner runs.
+#   Encode only: decode has no host-side group fill to change.
+#
+# THE RULE THE SPARSE FILL MUST NOT BREAK
+#   For an EXPLICIT-PRESENCE field the test is PRESENCE, not value: `Some(0)` and `Some("")`
+#   are at their default value and must still be written, or present-and-zero silently becomes
+#   absent. For an implicit-presence field the test is the value, because proto3 says an
+#   implicit zero is not on the wire. Getting that backwards is the defect this variant invites,
+#   and it is what positive control 3 below is for.
+#
+# THREE POSITIVE CONTROLS: THE CASES THAT MUST FAIL (D13)
+#   A zeroed arm that silently fell back to the total fill would pass byte identity and measure
+#   the same, which is exactly the situation the branch's rule is about. So each was broken on
+#   purpose, one line at a time, in `crates/harness/src/generated/binding.rs`, and the tree was
+#   restored with `python3 gen/generate.py` afterwards. Transcripts:
+#
+#   CONTROL 1 -- drop `ResultRaw.name` from the sparse fill:
+#     delete: if !o.name.is_empty() { d.name = str_arg(&o.name, tc.0); }
+#     P1.1  core-ffi-rust      858     858 ok      ok
+#     P1.1  core-ffi-zeroed    858     818 DIFFER  DIFFER
+#     P1.2  core-ffi-rust   218121  218121 ok      ok
+#     P1.2  core-ffi-zeroed 218121  208132 DIFFER  DIFFER
+#     P1.3  core-ffi-zeroed    605     605 ok      ok      <- P1.3's names are all empty
+#     -> the M1 zeroed path is the one being exercised.
+#
+#   CONTROL 2 -- drop `TaskDetailed.owner_pod_id` from the sparse fill:
+#     P2.1  core-ffi-zeroed   1037     999 DIFFER  DIFFER
+#     P2.2  core-ffi-zeroed 540422  521422 DIFFER  DIFFER
+#     P2.3  core-ffi-zeroed 647024  642274 DIFFER  DIFFER
+#     P2.4  core-ffi-zeroed 979465  976425 DIFFER  DIFFER
+#     P2.5  core-ffi-zeroed  19632   18872 DIFFER  DIFFER
+#     -> the M2 zeroed path is the one being exercised, and P2.5 is NOT fully absent.
+#
+#   CONTROL 3 -- turn the presence test into a value test on `Probe.opt_count`:
+#     if let Some(v) = o.opt_count { if v != 0 { ... } }
+#     P3.1  core-ffi-rust    12097   12097 ok      ok
+#     P3.1  core-ffi-zeroed  12097   12059 DIFFER  DIFFER
+#     -> present-and-zero is load-bearing, and M3 catches it. This is the defect the
+#        variant invites and the reason M3 is in the conformance list at all.
+#
+# MEASUREMENT HAZARDS THIS TABLE IS EXPOSED TO (R9)
+#   1. Container, shared vCPUs, no pinning. Spread is printed per row and reaches 50 percent
+#      on some encode rows; six runs are printed and the ranges below are over all six.
+#   2. The per-element deltas are differences of two numbers of the same size. On P1.2 and
+#      P2.5 the delta is inside the spread of zero and should be read as "no measurable
+#      change", not as the sign of the midpoint.
+#   3. This is one host language. The proposal's cost is a conditional store per field, and
+#      what a branch costs depends on the host: a JIT with a profile may do better, and a
+#      host whose fields are boxed may do worse. A Rust figure here does not settle it for
+#      the managed slices.
+#   4. Crossing counts are unchanged by the variant: it changes what the host writes into the
+#      group before each `ak_elem` call and not how many calls there are.
+#
+# WHAT THIS LOG SAYS, BEFORE THE NUMBERS
+#   1. IT WINS DECISIVELY ON M1's ABSENT PATH and removes the encode inversion there.
+#      P1.3 goes from 1.108-1.188 of prost under the total fill to 0.815-0.857 under the
+#      zeroed group: 0.719 to 0.766 of the total fill's own time, 4.06 to 4.98 ns saved per
+#      element.
+#   2. IT COSTS NOTHING MEASURABLE WHERE IT WAS EXPECTED TO LOSE. P1.2, every field
+#      populated, is 0.986 to 1.014 of the total fill: -1.66 to +1.70 ns per element, inside
+#      the spread of zero.
+#   3. AND P2.2 -- THE SHAPE THE CONTROL PLANE ACTUALLY MOVES, AND THE ROW THAT DECIDES IT --
+#      DOES NOT LOSE EITHER. It is 0.970 to 0.985 of the total fill, a consistent small
+#      SAVING of 13 to 26 ns per element across all six runs. `TaskDetailed` carries 27
+#      fields and many of them are at their default even on a fully populated payload, and
+#      the per-element cost on M2 is dominated by ten crossings and the inner runs rather
+#      than by the outer group fill.
+#   4. P2.5, M2's absent path, shows no measurable change (-0.42 to +0.17 ns per element).
+#      Positive control 2 explains why: P2.5 is not fully absent, so there is little for a
+#      sparse fill to skip.
+#   5. SO THE CONDITION SET FOR DECISION 9 IS MET on every payload measured: it wins on the
+#      absent path and costs less than 5.4 ns per element everywhere else -- the worst case
+#      measured is +1.70 ns, and two of the four rows are savings.
+#   6. WHAT IT DOES NOT DO: it does not help M2's absent path, it is encode-only, and it
+#      applies to the top-level element group only. The nested groups inside an element keep
+#      the total fill and were not measured separately.
+#
+===== 0. generator is current (R1) =====
+ok    crates/facade/src/generated/types.rs
+ok    crates/facade/src/generated/prost_impl.rs
+ok    crates/facade/src/generated/build.rs
+ok    crates/facade/src/generated/core_native.rs
+ok    crates/ak-abi/src/generated/abi.rs
+ok    crates/ak-core/src/generated/codec.rs
+ok    crates/harness/src/generated/binding.rs
+
+===== 1. the default path is untouched: conformance, all arms, all payloads =====
+
+VERDICT: every arm is byte-identical to the validated manifest on every payload it covers.
+
+===== 2. boundary-call counts, DEFAULT path, unchanged by the added arm =====
+payload class    direction  elements  forward  reverse  crossings  transc           prefix  grows
+P1.1    real     enc cold          4        2        1          3      24        1 (207 B)      0
+P1.1    real     enc warm          4        2        1          3      24                0      0
+                   per elem                                  0.750                                
+P1.1    real     decode            4        1        2          3       0                0      0
+                   per elem                                  0.750                                
+P1.2    real     enc cold       1000        8        1          9    6000        1 (207 B)      4
+P1.2    real     enc warm       1000        8        1          9    6000                0      0
+                   per elem                                  0.009                                
+P1.2    real     decode         1000        1        5          6       0                0      0
+                   per elem                                  0.006                                
+P1.3    real     enc cold        300        3        1          4       0                0      0
+P1.3    real     enc warm        300        3        1          4       0                0      0
+                   per elem                                  0.013                                
+P1.3    real     decode          300        1        3          4       0                0      0
+                   per elem                                  0.013                                
+P2.1    real     enc cold          1        7        6         13      35       2 (1209 B)      0
+P2.1    real     enc warm          1        7        6         13      35                0      0
+                   per elem                                 13.000                                
+P2.1    real     decode            1        1        8          9       0                0      0
+                   per elem                                  9.000                                
+P2.2    real     enc cold        500     2511     2501       5012   17167       2 (1209 B)      7
+P2.2    real     enc warm        500     2511     2501       5012   17167                0      0
+                   per elem                                 10.024                                
+P2.2    real     decode          500        1     3501       3502       0                0      0
+                   per elem                                  7.004                                
+P2.3    real     enc cold        125      629      626       1255   17792       2 (5313 B)      8
+P2.3    real     enc warm        125      629      626       1255   17792                0      0
+
+==============================================================================
+===== 3. run 1 =====
+==============================================================================
+# the zeroed-group variant (ABI v1 open decision 9 candidate), as an ARM
+#   guard: on
+#   counting build: no
+#   rounds: 15, interleaved, one process (R4)
+
+## 1. byte identity against the validated manifest, total fill and zeroed
+payload arm                   want B     got B bytes    sha256  
+P1.1    core-ffi-rust            858       858 ok       ok      
+P1.1    core-ffi-zeroed          858       858 ok       ok      
+P1.2    core-ffi-rust         218121    218121 ok       ok      
+P1.2    core-ffi-zeroed       218121    218121 ok       ok      
+P1.3    core-ffi-rust            605       605 ok       ok      
+P1.3    core-ffi-zeroed          605       605 ok       ok      
+P3.1    core-ffi-rust          12097     12097 ok       ok      
+P3.1    core-ffi-zeroed        12097     12097 ok       ok      
+P2.1    core-ffi-rust           1037      1037 ok       ok      
+P2.1    core-ffi-zeroed         1037      1037 ok       ok      
+P2.2    core-ffi-rust         540422    540422 ok       ok      
+P2.2    core-ffi-zeroed       540422    540422 ok       ok      
+P2.3    core-ffi-rust         647024    647024 ok       ok      
+P2.3    core-ffi-zeroed       647024    647024 ok       ok      
+P2.4    core-ffi-rust         979465    979465 ok       ok      
+P2.4    core-ffi-zeroed       979465    979465 ok       ok      
+P2.5    core-ffi-rust          19632     19632 ok       ok      
+P2.5    core-ffi-zeroed        19632     19632 ok       ok      
+
+## 2. encode medians, one process, interleaved
+payload arm                   median ns       min ns   / prost  spread %
+P1.2    prost                  171955.2     162355.9     1.000      15.5
+P1.2    core-ffi-rust          119548.8     117692.0     0.695      10.6
+P1.2    core-ffi-zeroed        120373.2     118525.4     0.700       5.7
+
+P1.3    prost                    4656.0       4384.1     1.000       9.9
+P1.3    core-ffi-rust            5211.2       5140.0     1.119       1.7
+P1.3    core-ffi-zeroed          3992.5       3945.5     0.857       2.0
+
+P2.2    prost                  543582.2     517430.0     1.000      10.8
+P2.2    core-ffi-rust          424768.8     415719.8     0.781       5.7
+P2.2    core-ffi-zeroed        416801.2     408785.9     0.767       3.8
+
+P2.5    prost                   17079.5      16860.6     1.000       3.2
+P2.5    core-ffi-rust           12441.6      12284.5     0.728       2.0
+P2.5    core-ffi-zeroed         12229.0      12172.6     0.716       3.0
+
+## 3. what the zeroed group costs or saves, per element
+#   positive = the zeroed variant is SLOWER than the total fill.
+#   The trade it reverses is 5.4 ns per ResultRaw and 24.4 per TaskDetailed.
+
+payload  elems  total fill ns      zeroed ns  zeroed-total/el zeroed/tot
+P1.2      1000       119548.8       120373.2            0.824      1.007
+P1.3       300         5211.2         3992.5           -4.062      0.766
+P2.2       500       424768.8       416801.2          -15.935      0.981
+P2.5       500        12441.6        12229.0           -0.425      0.983
+
+==============================================================================
+===== 3. run 2 =====
+==============================================================================
+# the zeroed-group variant (ABI v1 open decision 9 candidate), as an ARM
+#   guard: on
+#   counting build: no
+#   rounds: 15, interleaved, one process (R4)
+
+## 1. byte identity against the validated manifest, total fill and zeroed
+payload arm                   want B     got B bytes    sha256  
+P1.1    core-ffi-rust            858       858 ok       ok      
+P1.1    core-ffi-zeroed          858       858 ok       ok      
+P1.2    core-ffi-rust         218121    218121 ok       ok      
+P1.2    core-ffi-zeroed       218121    218121 ok       ok      
+P1.3    core-ffi-rust            605       605 ok       ok      
+P1.3    core-ffi-zeroed          605       605 ok       ok      
+P3.1    core-ffi-rust          12097     12097 ok       ok      
+P3.1    core-ffi-zeroed        12097     12097 ok       ok      
+P2.1    core-ffi-rust           1037      1037 ok       ok      
+P2.1    core-ffi-zeroed         1037      1037 ok       ok      
+P2.2    core-ffi-rust         540422    540422 ok       ok      
+P2.2    core-ffi-zeroed       540422    540422 ok       ok      
+P2.3    core-ffi-rust         647024    647024 ok       ok      
+P2.3    core-ffi-zeroed       647024    647024 ok       ok      
+P2.4    core-ffi-rust         979465    979465 ok       ok      
+P2.4    core-ffi-zeroed       979465    979465 ok       ok      
+P2.5    core-ffi-rust          19632     19632 ok       ok      
+P2.5    core-ffi-zeroed        19632     19632 ok       ok      
+
+## 2. encode medians, one process, interleaved
+payload arm                   median ns       min ns   / prost  spread %
+P1.2    prost                  172461.7     160346.2     1.000      14.0
+P1.2    core-ffi-rust          119925.6     119152.3     0.695       1.6
+P1.2    core-ffi-zeroed        118269.2     117476.0     0.686       5.7
+
+P1.3    prost                    4635.0       4470.5     1.000       7.2
+P1.3    core-ffi-rust            5134.9       5087.2     1.108       3.5
+P1.3    core-ffi-zeroed          3778.6       3726.9     0.815       3.4
+
+P2.2    prost                  546770.0     530391.9     1.000       4.4
+P2.2    core-ffi-rust          424191.8     417220.5     0.776       3.6
+P2.2    core-ffi-zeroed        417683.2     411192.1     0.764       2.4
+
+P2.5    prost                   16844.4      16388.7     1.000       5.5
+P2.5    core-ffi-rust           12267.2      12201.4     0.728       1.6
+P2.5    core-ffi-zeroed         12306.5      12217.4     0.731       1.7
+
+## 3. what the zeroed group costs or saves, per element
+#   positive = the zeroed variant is SLOWER than the total fill.
+#   The trade it reverses is 5.4 ns per ResultRaw and 24.4 per TaskDetailed.
+
+payload  elems  total fill ns      zeroed ns  zeroed-total/el zeroed/tot
+P1.2      1000       119925.6       118269.2           -1.656      0.986
+P1.3       300         5134.9         3778.6           -4.521      0.736
+P2.2       500       424191.8       417683.2          -13.017      0.985
+P2.5       500        12267.2        12306.5            0.079      1.003
+
+==============================================================================
+===== 3. run 3 =====
+==============================================================================
+# the zeroed-group variant (ABI v1 open decision 9 candidate), as an ARM
+#   guard: on
+#   counting build: no
+#   rounds: 15, interleaved, one process (R4)
+
+## 1. byte identity against the validated manifest, total fill and zeroed
+payload arm                   want B     got B bytes    sha256  
+P1.1    core-ffi-rust            858       858 ok       ok      
+P1.1    core-ffi-zeroed          858       858 ok       ok      
+P1.2    core-ffi-rust         218121    218121 ok       ok      
+P1.2    core-ffi-zeroed       218121    218121 ok       ok      
+P1.3    core-ffi-rust            605       605 ok       ok      
+P1.3    core-ffi-zeroed          605       605 ok       ok      
+P3.1    core-ffi-rust          12097     12097 ok       ok      
+P3.1    core-ffi-zeroed        12097     12097 ok       ok      
+P2.1    core-ffi-rust           1037      1037 ok       ok      
+P2.1    core-ffi-zeroed         1037      1037 ok       ok      
+P2.2    core-ffi-rust         540422    540422 ok       ok      
+P2.2    core-ffi-zeroed       540422    540422 ok       ok      
+P2.3    core-ffi-rust         647024    647024 ok       ok      
+P2.3    core-ffi-zeroed       647024    647024 ok       ok      
+P2.4    core-ffi-rust         979465    979465 ok       ok      
+P2.4    core-ffi-zeroed       979465    979465 ok       ok      
+P2.5    core-ffi-rust          19632     19632 ok       ok      
+P2.5    core-ffi-zeroed        19632     19632 ok       ok      
+
+## 2. encode medians, one process, interleaved
+payload arm                   median ns       min ns   / prost  spread %
+P1.2    prost                  174444.3     169812.7     1.000      18.8
+P1.2    core-ffi-rust          120434.8     118926.5     0.690      58.6
+P1.2    core-ffi-zeroed        118776.5     117112.3     0.681      26.4
+
+P1.3    prost                    4572.3       4474.8     1.000      15.6
+P1.3    core-ffi-rust            5074.7       5033.9     1.110      19.0
+P1.3    core-ffi-zeroed          3788.1       3740.6     0.828       9.0
+
+P2.2    prost                  544219.9     511128.2     1.000       9.9
+P2.2    core-ffi-rust          429766.2     425674.4     0.790       5.5
+P2.2    core-ffi-zeroed        421111.0     411890.9     0.774       6.9
+
+P2.5    prost                   16892.9      16541.8     1.000       4.4
+P2.5    core-ffi-rust           12372.2      12197.3     0.732       2.9
+P2.5    core-ffi-zeroed         12425.6      12325.2     0.736      15.2
+
+## 3. what the zeroed group costs or saves, per element
+#   positive = the zeroed variant is SLOWER than the total fill.
+#   The trade it reverses is 5.4 ns per ResultRaw and 24.4 per TaskDetailed.
+
+payload  elems  total fill ns      zeroed ns  zeroed-total/el zeroed/tot
+P1.2      1000       120434.8       118776.5           -1.658      0.986
+P1.3       300         5074.7         3788.1           -4.289      0.746
+P2.2       500       429766.2       421111.0          -17.311      0.980
+P2.5       500        12372.2        12425.6            0.107      1.004
+===== 3. run 1 =====
+==============================================================================
+# the zeroed-group variant (ABI v1 open decision 9 candidate), as an ARM
+#   guard: on
+#   counting build: no
+#   rounds: 15, interleaved, one process (R4)
+
+## 1. byte identity against the validated manifest, total fill and zeroed
+payload arm                   want B     got B bytes    sha256  
+P1.1    core-ffi-rust            858       858 ok       ok      
+P1.1    core-ffi-zeroed          858       858 ok       ok      
+P1.2    core-ffi-rust         218121    218121 ok       ok      
+P1.2    core-ffi-zeroed       218121    218121 ok       ok      
+P1.3    core-ffi-rust            605       605 ok       ok      
+P1.3    core-ffi-zeroed          605       605 ok       ok      
+P3.1    core-ffi-rust          12097     12097 ok       ok      
+P3.1    core-ffi-zeroed        12097     12097 ok       ok      
+P2.1    core-ffi-rust           1037      1037 ok       ok      
+P2.1    core-ffi-zeroed         1037      1037 ok       ok      
+P2.2    core-ffi-rust         540422    540422 ok       ok      
+P2.2    core-ffi-zeroed       540422    540422 ok       ok      
+P2.3    core-ffi-rust         647024    647024 ok       ok      
+P2.3    core-ffi-zeroed       647024    647024 ok       ok      
+P2.4    core-ffi-rust         979465    979465 ok       ok      
+P2.4    core-ffi-zeroed       979465    979465 ok       ok      
+P2.5    core-ffi-rust          19632     19632 ok       ok      
+P2.5    core-ffi-zeroed        19632     19632 ok       ok      
+
+## 2. encode medians, one process, interleaved
+payload arm                   median ns       min ns   / prost  spread %
+P1.2    prost                  170975.6     162520.4     1.000      11.0
+P1.2    core-ffi-rust          121118.5     119110.1     0.708       4.7
+P1.2    core-ffi-zeroed        119679.1     116971.6     0.700       5.7
+
+P1.3    prost                    4588.6       4524.9     1.000       3.6
+P1.3    core-ffi-rust            5283.1       5197.7     1.151       4.4
+P1.3    core-ffi-zeroed          3816.2       3766.8     0.832       2.1
+
+P2.2    prost                  542753.7     521240.3     1.000       8.7
+P2.2    core-ffi-rust          431236.6     424378.6     0.795       4.6
+P2.2    core-ffi-zeroed        418144.1     410086.8     0.770      48.2
+
+P2.5    prost                   16956.7      16798.5     1.000      11.0
+P2.5    core-ffi-rust           12385.9      12243.5     0.730      24.0
+P2.5    core-ffi-zeroed         12468.6      12287.9     0.735      11.1
+
+## 3. what the zeroed group costs or saves, per element
+#   positive = the zeroed variant is SLOWER than the total fill.
+#   The trade it reverses is 5.4 ns per ResultRaw and 24.4 per TaskDetailed.
+
+payload  elems  total fill ns      zeroed ns  zeroed-total/el zeroed/tot
+P1.2      1000       121118.5       119679.1           -1.439      0.988
+P1.3       300         5283.1         3816.2           -4.890      0.722
+P2.2       500       431236.6       418144.1          -26.185      0.970
+P2.5       500        12385.9        12468.6            0.165      1.007
+
+==============================================================================
+===== 3. run 2 =====
+==============================================================================
+# the zeroed-group variant (ABI v1 open decision 9 candidate), as an ARM
+#   guard: on
+#   counting build: no
+#   rounds: 15, interleaved, one process (R4)
+
+## 1. byte identity against the validated manifest, total fill and zeroed
+payload arm                   want B     got B bytes    sha256  
+P1.1    core-ffi-rust            858       858 ok       ok      
+P1.1    core-ffi-zeroed          858       858 ok       ok      
+P1.2    core-ffi-rust         218121    218121 ok       ok      
+P1.2    core-ffi-zeroed       218121    218121 ok       ok      
+P1.3    core-ffi-rust            605       605 ok       ok      
+P1.3    core-ffi-zeroed          605       605 ok       ok      
+P3.1    core-ffi-rust          12097     12097 ok       ok      
+P3.1    core-ffi-zeroed        12097     12097 ok       ok      
+P2.1    core-ffi-rust           1037      1037 ok       ok      
+P2.1    core-ffi-zeroed         1037      1037 ok       ok      
+P2.2    core-ffi-rust         540422    540422 ok       ok      
+P2.2    core-ffi-zeroed       540422    540422 ok       ok      
+P2.3    core-ffi-rust         647024    647024 ok       ok      
+P2.3    core-ffi-zeroed       647024    647024 ok       ok      
+P2.4    core-ffi-rust         979465    979465 ok       ok      
+P2.4    core-ffi-zeroed       979465    979465 ok       ok      
+P2.5    core-ffi-rust          19632     19632 ok       ok      
+P2.5    core-ffi-zeroed        19632     19632 ok       ok      
+
+## 2. encode medians, one process, interleaved
+payload arm                   median ns       min ns   / prost  spread %
+P1.2    prost                  169695.2     159739.7     1.000      12.1
+P1.2    core-ffi-rust          120438.0     118272.3     0.710       3.8
+P1.2    core-ffi-zeroed        122137.1     119250.1     0.720       4.3
+
+P1.3    prost                    4653.2       4527.7     1.000       5.5
+P1.3    core-ffi-rust            5337.9       5244.7     1.147      10.4
+P1.3    core-ffi-zeroed          3843.2       3767.7     0.826       7.8
+
+P2.2    prost                  555327.7     540226.7     1.000       7.9
+P2.2    core-ffi-rust          437679.2     426406.1     0.788       5.8
+P2.2    core-ffi-zeroed        425494.3     417476.1     0.766       6.2
+
+P2.5    prost                   16985.2      16610.0     1.000       4.7
+P2.5    core-ffi-rust           12705.1      12416.4     0.748       5.3
+P2.5    core-ffi-zeroed         12507.2      12239.2     0.736       6.3
+
+## 3. what the zeroed group costs or saves, per element
+#   positive = the zeroed variant is SLOWER than the total fill.
+#   The trade it reverses is 5.4 ns per ResultRaw and 24.4 per TaskDetailed.
+
+payload  elems  total fill ns      zeroed ns  zeroed-total/el zeroed/tot
+P1.2      1000       120438.0       122137.1            1.699      1.014
+P1.3       300         5337.9         3843.2           -4.982      0.720
+P2.2       500       437679.2       425494.3          -24.370      0.972
+P2.5       500        12705.1        12507.2           -0.396      0.984
+
+==============================================================================
+===== 3. run 3 =====
+==============================================================================
+# the zeroed-group variant (ABI v1 open decision 9 candidate), as an ARM
+#   guard: on
+#   counting build: no
+#   rounds: 15, interleaved, one process (R4)
+
+## 1. byte identity against the validated manifest, total fill and zeroed
+payload arm                   want B     got B bytes    sha256  
+P1.1    core-ffi-rust            858       858 ok       ok      
+P1.1    core-ffi-zeroed          858       858 ok       ok      
+P1.2    core-ffi-rust         218121    218121 ok       ok      
+P1.2    core-ffi-zeroed       218121    218121 ok       ok      
+P1.3    core-ffi-rust            605       605 ok       ok      
+P1.3    core-ffi-zeroed          605       605 ok       ok      
+P3.1    core-ffi-rust          12097     12097 ok       ok      
+P3.1    core-ffi-zeroed        12097     12097 ok       ok      
+P2.1    core-ffi-rust           1037      1037 ok       ok      
+P2.1    core-ffi-zeroed         1037      1037 ok       ok      
+P2.2    core-ffi-rust         540422    540422 ok       ok      
+P2.2    core-ffi-zeroed       540422    540422 ok       ok      
+P2.3    core-ffi-rust         647024    647024 ok       ok      
+P2.3    core-ffi-zeroed       647024    647024 ok       ok      
+P2.4    core-ffi-rust         979465    979465 ok       ok      
+P2.4    core-ffi-zeroed       979465    979465 ok       ok      
+P2.5    core-ffi-rust          19632     19632 ok       ok      
+P2.5    core-ffi-zeroed        19632     19632 ok       ok      
+
+## 2. encode medians, one process, interleaved
+payload arm                   median ns       min ns   / prost  spread %
+P1.2    prost                  167965.9     160079.6     1.000      10.4
+P1.2    core-ffi-rust          119281.6     117607.8     0.710       8.5
+P1.2    core-ffi-zeroed        120506.1     117428.6     0.717       6.1
+
+P1.3    prost                    4468.9       4328.2     1.000       4.9
+P1.3    core-ffi-rust            5308.4       5156.1     1.188       4.1
+P1.3    core-ffi-zeroed          3814.6       3760.2     0.854       5.9
+
+P2.2    prost                  542888.5     521070.0     1.000       6.3
+P2.2    core-ffi-rust          424708.8     419340.3     0.782       6.7
+P2.2    core-ffi-zeroed        416130.8     409492.8     0.767      40.6
+
+P2.5    prost                   16933.6      16709.0     1.000       5.4
+P2.5    core-ffi-rust           12489.0      12347.4     0.738       6.4
+P2.5    core-ffi-zeroed         12387.2      12201.2     0.732       4.7
+
+## 3. what the zeroed group costs or saves, per element
+#   positive = the zeroed variant is SLOWER than the total fill.
+#   The trade it reverses is 5.4 ns per ResultRaw and 24.4 per TaskDetailed.
+
+payload  elems  total fill ns      zeroed ns  zeroed-total/el zeroed/tot
+P1.2      1000       119281.6       120506.1            1.224      1.010
+P1.3       300         5308.4         3814.6           -4.979      0.719
+P2.2       500       424708.8       416130.8          -17.156      0.980
+P2.5       500        12489.0        12387.2           -0.204      0.992
+
+# =============================================================================
+# SUMMARY, DERIVED FROM THE SIX RUNS ABOVE AND FROM NOTHING ELSE
+# =============================================================================
+#
+# ZEROED GROUP AGAINST THE TOTAL FILL, encode, min .. max over six runs
+#
+# payload  what it is                 ns per element        zeroed/total
+# P1.2     M1, every field present    -1.66 ..  +1.70       0.986 .. 1.014
+# P1.3     M1, the absent path        -4.98 ..  -4.06       0.719 .. 0.766
+# P2.2     M2, the deciding shape    -26.18 .. -13.02       0.970 .. 0.985
+# P2.5     M2, the absent path        -0.42 ..  +0.17       0.983 .. 1.007
+#
+#   Negative is a saving. The threshold to judge the cost against is the 5.4 ns per
+#   ResultRaw and 24.4 per TaskDetailed that ABI v1 section 6 prices the CODEC-side reset
+#   at; the worst cost measured here is +1.70 ns per element.
+#
+# RATIO TO PROST, min .. max over six runs, encode
+#
+# payload  arm                 / prost
+# P1.2     core-ffi-rust       0.690 .. 0.710
+# P1.2     core-ffi-zeroed     0.681 .. 0.720
+# P1.3     core-ffi-rust       1.108 .. 1.188      <- the absent-path inversion
+# P1.3     core-ffi-zeroed     0.815 .. 0.857      <- gone
+# P2.2     core-ffi-rust       0.776 .. 0.795
+# P2.2     core-ffi-zeroed     0.764 .. 0.774
+# P2.5     core-ffi-rust       0.728 .. 0.748
+# P2.5     core-ffi-zeroed     0.716 .. 0.736
+#
+# CORRECTNESS
+#   Byte identity against the validated manifest on ALL EIGHT M1/M2 payloads plus P3.1,
+#   under both the total fill and the zeroed group, in every run. P3.1 is in the list
+#   because explicit presence and the oneof are where a sparse fill can be WRONG rather
+#   than merely slow, and positive control 3 shows that row does its job.
+#
+# WHAT IS NOT MEASURED
+#   - Decode. There is no host-side group fill on decode to change.
+#   - The nested groups inside an element: only the top-level element group is zeroed.
+#   - M4 to M7. The generator emits the variant for every root, so the arms exist; only
+#     M1, M2 and M3 are exercised here.
+#   - What this costs a host that is not Rust. The proposal replaces an unconditional store
+#     per field with a branch per field, and what a branch costs is a property of the host.
+#   - Whether the ABI SHOULD change. This is an arm and a set of numbers; the contract
+#     change and its cost to every other binding are not this slice's to weigh.

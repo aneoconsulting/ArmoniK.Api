@@ -136,3 +136,24 @@ pub fn oneof_census(v: &Facade) -> [(&'static str, usize); 6] {
     }
     n
 }
+
+/// The zeroed-group arm on M3, which is where it can go WRONG rather than merely slow.
+/// Explicit presence and the oneof are the two cases a sparse fill breaks if it tests the
+/// VALUE instead of the presence: `Some(0)` and `Some("")` are at their default value and
+/// must still be written. The generated sparse fill tests presence for those fields, and
+/// this arm is what would catch it if it did not.
+pub mod core_ffi_zeroed {
+    use super::*;
+    use crate::arms::core_ffi_arm::Ctx;
+    use crate::generated::binding;
+
+    pub fn encode_into<'a>(c: &'a Ctx, v: &Facade) -> &'a [u8] {
+        binding::encode_into_list_probe_response_zeroed(c.enc, v, &c.tcs)
+            .expect("core-ffi-zeroed encode M3");
+        unsafe { binding::encoded(c.enc) }
+    }
+
+    pub fn encode(c: &Ctx, v: &Facade) -> Vec<u8> {
+        encode_into(c, v).to_vec()
+    }
+}
