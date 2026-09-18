@@ -333,11 +333,29 @@ finding conveniently exonerates a claim this document had already made:
 - The call sites inside those closures are `call *0x…(%rip)` — **indirect calls
   through the GOT**, the same shape as the call into the cdylib.
 
-The mechanism is mundane: the profile carries no `[profile.release]` section, so
-cargo's default applies and **LTO is off**. The traversal lives in the `facade`
-crate and the closure in `harness`, and without LTO or `#[inline]` rustc cannot
-inline across that boundary. So both arms were already paying an indirect call,
-and there was no inlining advantage to subtract.
+The mechanism, stated narrowly because the broad version of it is false: the
+profile carries no `[profile.release]` section, so cargo's default applies and
+**LTO is off**; and the two entry points the benchmark actually calls are
+**non-generic `pub fn` with no `#[inline]`**, so their MIR is not exported and
+their bodies cannot cross into `harness` at all. That is the load-bearing fact.
+
+It is *not* true that nothing in `facade` can cross. `core_native.rs` carries 38
+`#[inline]` functions, `enc_list_results_response` among them, and an `#[inline]`
+function's MIR **is** exported cross-crate with LTO off. That traversal was not
+inlined on cost grounds — 4,299 bytes into a 472-byte closure — and the benchmark
+never calls it directly anyway; it calls the 20-byte entry thunk, which is the one
+that genuinely cannot cross. (The symbol table shows this from the other side:
+the traversal is a *local* symbol, instantiated into the binary, while the entry
+point is a global from the rlib.)
+
+**The distinction names a failure mode rather than splitting hairs.** If the
+generator ever put `#[inline]` on a per-message entry point, or made one generic,
+the objection this audit refutes would become true again **with LTO still off**,
+and the published ratios would quietly begin carrying an inlining advantage.
+`gen/inline_check.sh` catches it — the closure would grow past the traversal —
+which is why that check is a script run every build rather than a paragraph in a
+log. So both arms were already paying an indirect call, and there was no inlining
+advantage to subtract.
 
 Two arms confirm it by measurement rather than by reading the disassembly:
 `core-native-noinline` (`#[inline(never)]`, a lower bound, since IPO survives it)
