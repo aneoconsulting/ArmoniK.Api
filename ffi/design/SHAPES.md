@@ -80,8 +80,12 @@ output: **once every slice is driven by the same description, two slices
 disagreeing on the wire size of a payload is a defect, not a difference.**
 
 Sizes below are what `../schema/emit/payloads.py` produces today, and every
-payload also carries a sha256 in `../schema/generated/manifest.json`. They are
-provisional until the Rust slice checks them against prost.
+payload also carries a sha256 in `../schema/generated/manifest.json`. **They are
+no longer provisional**: the Rust slice checked every one of them against prost
+0.14.4 and against `prost_reflect::DynamicMessage` over the same descriptor, and
+the one defect it found (two message leaves written when they held the proto
+zero) is fixed. P7.1 is the exception and it is validated by decode rather than
+by encode, for the reason given in its row below.
 
 | Payload | Message | Elements | What it tests |
 |---|---|---|---|
@@ -100,7 +104,14 @@ provisional until the Rust slice checks them against prost.
 | P5.3 | M5, 1 MB | 1 | result upload and download, medium |
 | P5.4 | M5, 4 MB | 1 | result upload and download, the size the direct-argument path exists for |
 | P6.1 | M6 | 200 | packed scalars. A control, and the string path's control too: 200 strings cannot move it |
-| P7.1 | M7 | 3 + 3 | interleaved repeated fields of one type |
+| P7.1 | M7 | 3 + 3 | interleaved repeated fields of one type. **No canonical writer can produce it**, prost included: a writer that emits a repeated field contiguously cannot interleave two of them, which is the entire point of the control. A slice validates it by *decoding* it and by re-encoding contiguously to a permutation of the same (tag, wire type, body) triples; no slice is asked to reproduce its bytes |
+
+**Present and zero is the third case, and it is now deliberate.** The payload set
+was designed around absent and present, and it reached present-and-zero at leaf
+depth only because `timestamp(0).nanos` and `duration(0)` happen to be zero. That
+accident is what caught the only defect the schema directory has had, while P1.3
+and P2.5 passed it untouched, so it is now a property rather than a coincidence:
+a value rule may not be tuned so that no implicit-presence leaf lands on zero.
 
 **P1.3 and P2.5 are not optional.** A payload generator that gives every string a
 value and every optional child an instance cannot reach any path conditioned on

@@ -71,7 +71,8 @@ Written down so that the report cannot quietly inherit an assumption.
   already native (protobuf-python on upb, grpcio on the gRPC C core), so it is
   the one where the crossing argument could land differently from every other.
 - **Rust has no POC either**, which leaves every other slice's number without a
-  denominator. See section 4.1.
+  denominator. See section 4.1. The slice is under way: its first task, validating
+  the payload manifest against prost, is done and is what settled W2.
 - **C++ has never been measured on the amended ABI.** The amendments were
   motivated by managed hosts; the claim that C++ pays nothing for them is
   currently an argument, not a measurement.
@@ -296,7 +297,7 @@ deliverable.
 | # | Work item | Done when |
 |---|---|---|
 | W1 | **Specify ABI v1.** One specification, in this branch, merging the base design with the amendments from the C# and Java reports. Every amendment carries the figure that motivated it and the language it came from. | **Drafted.** `design/ABI-v1.md` exists with 10 open decisions; agreed when decision 1 (is every amendment free at the C++11 floor) is settled and the rest are accepted or scheduled. |
-| W2 | **Freeze the shapes and the payload set.** | **Built.** `schema/shapes.json` is the description, `schema/generated/` carries the emitted `.proto` and a payload manifest with a hash per payload. Agreed once the Rust slice confirms the hashes against prost. |
+| W2 | **Freeze the shapes and the payload set.** | **Done.** `schema/shapes.json` is the description, `schema/generated/` carries the emitted `.proto` and a payload manifest with a hash per payload, and the Rust slice has confirmed every hash against prost 0.14.4 and a second, independent encoder. One defect was found and fixed in `emit/payloads.py`; 8 of 16 hashes moved. A slice that disagrees with a hash now has a defect in itself. |
 | W3 | **Rust slice.** Section 4.1. | The four arms exist and the interface-cost decomposition is available to every other slice. |
 | W4 | **C++ slice on the amended ABI.** Rebuild against W1, re-measure against protobuf C++, and demonstrate the C++11 floor. | The amended ABI has a C++ column, and "the managed amendments are free in C++" is a measurement. |
 | W5 | **C# slice.** Import the existing slice, rebuild against W1, then close its two named gaps: a managed decode control, and oneofs plus explicit presence. | Both gaps have numbers, and the floor (netstandard2.0 or net48) compiles and passes correctness. |

@@ -37,17 +37,43 @@ description. **A slice never edits `shapes.json`**: a shape that is wrong is a
 finding, because changing one silently turns a column of the final table into a
 different table.
 
-## The caveat that matters
+## The caveat that mattered, and how it was discharged
 
-**Every hash in `generated/manifest.json` is provisional.** They were produced by
-`emit/wire.py`, a protobuf writer written for this purpose, which no protobuf
-implementation has checked. `emit/check.py` proves the framing holds, which is the
-class of defect that writer could plausibly have, but it cannot prove the
-semantics: it has nothing to compare against.
+**Every hash in `generated/manifest.json` was provisional, and is no longer.**
+They were produced by `emit/wire.py`, a protobuf writer written for this purpose,
+which no protobuf implementation had checked. `emit/check.py` proves the framing
+holds, which is the class of defect that writer could plausibly have, but it
+cannot prove the semantics: it has nothing to compare against.
 
-**The Rust slice validates them with prost, and that is its first task.** Until
-it does, a slice that disagrees with a hash has found a defect in this directory
-rather than in itself.
+**The Rust slice validated them with prost, and that was its first task.** The
+check found one defect, and it found it in this directory rather than in the
+slice:
+
+> `enc_field` wrote the two leaves of a `Timestamp` and a `Duration`
+> unconditionally, the proto zero included, which contradicts the canonical form
+> stated three lines above in this file and in `emit/wire.py`'s own docstring.
+> Every other scalar path in `payloads.py` already guarded on the value. It moved
+> 8 of the 16 payloads by 4 to 34 bytes, all of it on element 0, where the
+> deterministic value rules happen to land on zero.
+
+It is fixed as one `stamp_body()` helper rather than at the three call sites,
+because the first spelling of the rule was wrong at all three. Confirmed by two
+independent encoders (prost's derive, and `prost_reflect::DynamicMessage` over
+the same descriptor), so the correction does not rest on prost's derive alone:
+`ffi/logs/rust/stage1-manifest-vs-prost.log` and `stage1-second-encoder.log`.
+
+**A slice that disagrees with a hash has now found a defect in itself.**
+
+Two things the episode establishes, kept because they cost a session to learn:
+
+- **Framing is not semantics.** `check.py` passed the whole time. A `nanos = 0`
+  field is correctly framed; it simply should not have been there. A writer with
+  nothing to compare against can only be checked by an implementation that shares
+  no code with it.
+- **The absent-path payloads did not catch it.** P1.3 was byte-identical
+  throughout, precisely because everything in it is absent and the shortcut is
+  never reached. What caught it was *present and zero*, the third case, at leaf
+  depth inside a nested message. See below.
 
 ## Canonical form
 
@@ -64,13 +90,20 @@ payload is a defect rather than a difference:
   fixed here: without that there is no byte identity to check, and sorted is what
   a deterministic serializer already produces.
 
-## Two things the payload set does on purpose
+## Three things the payload set does on purpose
 
 **The absent path.** `P1.3` is 300 elements that each encode to *nothing*, and
 `P2.5` removes the adapter child and empties half the map values. A generator
 that fills every field cannot reach any code conditioned on emptiness, and that
 is where an offset defect hides: one such defect passed all seven standard
 payloads in the Java slice.
+
+**Present and zero, at leaf depth.** `timestamp(0).nanos` is 0 and
+`duration(0)` is `(0, 0)`, so element 0 of every payload carrying a `Timestamp`
+or a `Duration` exercises an implicit-presence leaf that is present in the value
+and absent from the wire. That started as an accident of the value rules and is
+now deliberate: it is the case that caught the only defect this directory has
+had, and **a value rule may not be tuned so that no leaf lands on zero.**
 
 **Explicit presence that is sometimes absent, and sometimes present and zero.**
 `Probe`'s three `optional` fields cycle their presence per element, and one

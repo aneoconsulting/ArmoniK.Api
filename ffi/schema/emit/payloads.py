@@ -57,6 +57,17 @@ def absent(f, mode, idx):
     return False
 
 
+def stamp_body(t):
+    """A two-leaf Timestamp or Duration body.
+
+    Both leaves are implicit presence, so a leaf holding the proto zero is
+    omitted: the canonical form in wire.py, and the rule every other scalar
+    path in this file already applies. Written once rather than at each of the
+    three call sites, because the first spelling of it was wrong at all three.
+    """
+    return (W.i(1, t["seconds"]) if t["seconds"] else b"") + (W.i(2, t["nanos"]) if t["nanos"] else b"")
+
+
 def enc_field(schema, f, path, idx, mode, repeats, bulk):
     kind, c = f["kind"], S.card(f)
     if absent(f, mode, idx):
@@ -132,11 +143,9 @@ def enc_field(schema, f, path, idx, mode, repeats, bulk):
         return W.f64(f["tag"], v) if v else b""
     if kind == "message":
         if f["of"] == "Timestamp":
-            t = V.timestamp(path, idx)
-            return W.ld(f["tag"], W.i(1, t["seconds"]) + W.i(2, t["nanos"]))
+            return W.ld(f["tag"], stamp_body(V.timestamp(path, idx)))
         if f["of"] == "Duration":
-            t = V.duration(path, idx)
-            return W.ld(f["tag"], W.i(1, t["seconds"]) + W.i(2, t["nanos"]))
+            return W.ld(f["tag"], stamp_body(V.duration(path, idx)))
         return W.ld(f["tag"], enc_message(schema, f["of"], path, idx, mode, repeats, bulk))
     raise NotImplementedError(kind)
 
@@ -160,8 +169,7 @@ def oneof_member(schema, msg_name, idx):
     if f["kind"] == "message" and f["of"] == "Empty":
         return W.ld(f["tag"], b"")        # the payload-free member: present, empty
     if f["kind"] == "message":
-        t = V.timestamp(path, idx)
-        return W.ld(f["tag"], W.i(1, t["seconds"]) + W.i(2, t["nanos"]))
+        return W.ld(f["tag"], stamp_body(V.timestamp(path, idx)))
     raise NotImplementedError(f["kind"])
 
 
@@ -215,9 +223,12 @@ def main():
 
     manifest = {
         "generated_by": "emit/payloads.py from shapes.json",
-        "status": "PROVISIONAL: produced by emit/wire.py, which no protobuf "
-                  "implementation has yet checked. The Rust slice validates it "
-                  "with prost before any other slice trusts a hash.",
+        "status": "VALIDATED against prost 0.14.4 and prost-reflect 0.16.5 by the "
+                  "Rust slice (ffi/logs/rust/stage1-*). Every payload but P7.1 is "
+                  "byte-identical to prost; P7.1 interleaves two repeated fields on "
+                  "purpose, so no canonical writer can produce it and it is validated "
+                  "by decode instead. A slice that disagrees with a hash has found a "
+                  "defect in itself.",
         "canonical_form": [
             "fields ascending by tag, DualResponse excepted (it interleaves on purpose)",
             "an implicit-presence leaf holding the proto zero is omitted",

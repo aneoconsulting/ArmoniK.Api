@@ -1,6 +1,6 @@
 {
   "generated_by": "emit/payloads.py from shapes.json",
-  "status": "PROVISIONAL: produced by emit/wire.py, which no protobuf implementation has yet checked. The Rust slice validates it with prost before any other slice trusts a hash.",
+  "status": "VALIDATED against prost 0.14.4 and prost-reflect 0.16.5 by the Rust slice (ffi/logs/rust/stage1-*). Every payload but P7.1 is byte-identical to prost; P7.1 interleaves two repeated fields on purpose, so no canonical writer can produce it and it is validated by decode instead. A slice that disagrees with a hash has found a defect in itself.",
   "canonical_form": [
     "fields ascending by tag, DualResponse excepted (it interleaves on purpose)",
     "an implicit-presence leaf holding the proto zero is omitted",
@@ -14,16 +14,16 @@
       "root": "ListResultsResponse",
       "elements": 4,
       "strings": 20,
-      "bytes": 862,
-      "sha256": "478dbf8718e3990d0329348a950c5b38a2878c677167a4e8a12adfddd70c5bb9",
+      "bytes": 858,
+      "sha256": "5df5eb5f3f51ae920f64ed07108d7158e0f559cda2be692f550767a9f39d3206",
       "vector": "payloads/P1_1.bin"
     },
     "P1.2": {
       "root": "ListResultsResponse",
       "elements": 1000,
       "strings": 5000,
-      "bytes": 218125,
-      "sha256": "d084cff973da4aedd20199a1634fac8d05add79b2a9ebdc4024a882e37bc92ef"
+      "bytes": 218121,
+      "sha256": "eed4817ef84c1f7b8d66693a9249fdbb4f75fec436264a922523fafe21124588"
     },
     "P1.3": {
       "root": "ListResultsResponse",
@@ -38,37 +38,37 @@
       "root": "ListTasksDetailedResponse",
       "elements": 1,
       "strings": 35,
-      "bytes": 1073,
-      "sha256": "69805a0287f8c796f661c04118072357905b52f76503db0e07663c40ed9fc72f",
+      "bytes": 1039,
+      "sha256": "2ca90e7c8d2ec199c388cd51fe32eb0543ff0bbc3c6c04ddc9f18728122b462c",
       "vector": "payloads/P2_1.bin"
     },
     "P2.2": {
       "root": "ListTasksDetailedResponse",
       "elements": 500,
       "strings": 17500,
-      "bytes": 551696,
-      "sha256": "72f0a99adc9eabac6ee1a51a63058834c809b21521786ac43947c822b1ad941c"
+      "bytes": 551662,
+      "sha256": "b6a567c4cb00892b48831d322f699a11eed931ea07acd4a0c9194cd861712a5a"
     },
     "P2.3": {
       "root": "ListTasksDetailedResponse",
       "elements": 125,
       "strings": 17875,
-      "bytes": 649809,
-      "sha256": "94c42dbea2213ca77064aad6ce2fa2751eab7735b926989ee3c942c980bbcf3f"
+      "bytes": 649775,
+      "sha256": "7a568a80081b7e8db04c0b30887e5f0d3a45c93348218979b7e297b6611780a6"
     },
     "P2.4": {
       "root": "ListTasksDetailedResponse",
       "elements": 80,
       "strings": 26320,
-      "bytes": 981256,
-      "sha256": "4ed210bf6531646685fbd16f41ccb33b6a8a718c605fa29093628eeb0ac34908"
+      "bytes": 981222,
+      "sha256": "c3b97a1c4b16d177825521f4ca624792e8634e8323db579bfc7e3616402655c2"
     },
     "P2.5": {
       "root": "ListTasksDetailedResponse",
       "elements": 20,
       "strings": 680,
-      "bytes": 19658,
-      "sha256": "8e8b59db0b979e32caa18df65638471e1718cfbd8d23d6f8849d6dbebaf3b05c",
+      "bytes": 19632,
+      "sha256": "45b808464f5de225cc020fdee91e655014f54812fdc0c38e56a91d80bb801094",
       "mode": "half_absent",
       "vector": "payloads/P2_5.bin"
     },
@@ -84,8 +84,8 @@
       "root": "ListTaskSummaryResponse",
       "elements": 200,
       "strings": 3600,
-      "bytes": 69557,
-      "sha256": "67589f663ef4249850091468c6f102912eecae3bf25843c8d2c2f26a1a572e30"
+      "bytes": 69551,
+      "sha256": "692fd8b91695546c67aeae57c077ebd6236b0752ed448b54341d330318244e58"
     },
     "P5.1": {
       "root": "UploadResultDataMessage",
