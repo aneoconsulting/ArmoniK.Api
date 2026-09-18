@@ -14,3 +14,5 @@ pub fn abi_version() -> u32 {
     unsafe { ak_abi::ak_abi_version() }
 }
 pub mod manifest;
+/// A layout perturbation used by `gen/stability.sh`; empty in a normal build.
+pub mod pad;

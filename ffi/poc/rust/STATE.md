@@ -41,6 +41,7 @@ gen/inline_check.sh         R5's control half: is core-native fused into the loo
 gen/zeroed.sh               arm 2: the zeroed-group element fill, decision 9 candidate
 gen/unknown.sh              the unknown-field bag, decision 11
 gen/unknown_predicate.py    does the bag break the batching predicate? Run this FIRST
+gen/stability.sh            is a ratio reproducible across BUILDS? (R4, as sharpened)
 
 crates/shapes-prost         protox 0.9 -> prost-build 0.14 over the generated .proto
 crates/shapes-values        the value rules of emit/values.py, hand-re-derived
@@ -150,16 +151,31 @@ separate processes.
   changes is only the host's fill — an unconditional store per field becomes a bulk memset
   plus a conditional store. The 5.4/24.4 figure is the right threshold to judge the cost
   against, and is not the cost being paid back.
-- **THE PUBLISHED M1/M2 RATIOS NO LONGER REPRODUCE ON THIS CONTAINER**, measured today in
-  two fresh worktrees at `4afffd9b` (HEAD) and `7fb30be5`. P1.2 encode: `armonik` 1.150 /
-  1.146 against a published 0.967–1.032; `core-native` 0.564 / 0.544 against 0.425–0.438;
-  `core-ffi-rust` 1.011 / 0.992 against 0.706–0.716. P1.3 decode `core-ffi-rust` 1.725
-  against 1.313–1.393. **Every arm moved together, including `armonik`, which is prost's own
-  codec over the facade types and touches nothing this slice has changed.** The bisect shows
-  the drift predates the zeroed-group work, so it is not a regression from it. The most
-  likely cause is the container. **Consequence: absolutes and cross-log ratios from this
-  slice should be treated as reproducible only within their own run**, and every new figure
-  is a delta formed inside one process.
+- **THE PUBLISHED M1/M2 TABLE IS RETIRED AND RE-TAKEN** (`stage3-reproducibility.log`).
+  **A ratio IS reproducible here**, to ±0.02–0.05: three builds with a semantically neutral
+  layout perturbation, five to six runs, every arm rebuilt together, and the across-build
+  spread is no larger than the same-binary spread on nearly every row. The published encode
+  figures are 0.10–0.27 away — five to ten times that band.
+  **And the published column cannot be re-derived at all**: `cc7f68c6`, the commit behind
+  `stage2-four-arms-M1.log`, does not contain the benchmark binary (D19 — the bins were
+  untracked until `7fb30be5`), so a worktree there fails with "can't find bin `bench`". The
+  oldest rebuildable commit, `7fb30be5`, agrees with today and not with the published table.
+  **So the question is not answerable by re-measurement, and the container is not the
+  problem: the published numbers are unreproducible because the code that made them was
+  never committed.** The table in `stage3-reproducibility.log` is the one to use.
+- **What that costs the headline**: `core-ffi-rust` P1.2 encode is **0.982** today against
+  0.706–0.716 published, so **through the C ABI the core is at parity with prost on encode
+  for the uniform payloads, not thirty percent faster**. What survives intact is the
+  no-boundary arm — `core-native` is 0.42–0.54 of prost on every encode row — so the codec is
+  about twice prost's speed and the C ABI gives that back. The decode side largely
+  reproduces.
+- **The three large-effect qualitative findings all re-confirm.** The P1.3 inversion keeps
+  its sign and its published magnitude on encode (1.190–1.210 against `core-native` 0.416–0.424).
+  UTF-8 validation on non-ASCII is confirmed and **larger** than published: 2.75–3.74 of prost
+  for the scalar validator against 2.0–2.6, and — the point worth keeping — **its within-arm
+  form reproduces almost exactly** (2.17–3.37 times its own ASCII cost against a published
+  2.2–3.0), which is R4's new half demonstrated rather than argued. Decode converging to
+  parity with container density keeps its ordering (P1.2 0.861, P2.2 0.978).
 - **The unknown-field bag answers decision 11 for Rust** (`stage3-unknown-fields.log`).
   **Structure first**: as one opaque `bytes` blob the bag changes the leafness of no message;
   as a repeated field it takes the schema from 9 leaf messages to **0** and every batched run
@@ -423,6 +439,7 @@ Four, all reported to the aggregating session and none fixed here:
 | `ffi/logs/rust/stage3-M2-M4-revalidated.log` | as stage3-M2 | M2 and M4 re-measured after `0c2d4d7f`. Crossings and decision 5 unchanged to the digit; ratios tighter and two moved toward parity. **Supersedes the M2 rows of `stage3-M2.log` and the M4 rows of `stage3-M4-M7.log`** |
 | `ffi/logs/rust/stage3-M4-M7.log` | as stage3-M2, ASCII, guard on | M4 to M7: byte identity on P4.1, P5.1 to P5.4, P6.1 and P7.1, with the class labelled per row; ABI v1 section 8's generator-time refusal exercised; the adapter's two wire forms checked by state; M7 by decode and permutation |
 | `ffi/logs/rust/stage3-M3.log` | as stage3-M2, ASCII, guard on | M3: byte identity on P3.1; explicit presence as three cases x three fields x four arms, all agreeing; the oneof by member including the payload-free one; seven unknown-field vectors, hand-built; 3 crossings per 200 elements in both directions; one timing row set |
+| `ffi/logs/rust/stage3-reproducibility.log` | rustc 1.94.1 release, prost 0.14.4, guard on, ASCII; 3 builds under a layout perturbation, 5–6 runs, every arm rebuilt together | **The M1 and M2 tables re-taken under R4 as sharpened, and the verdict.** A ratio reproduces to ±0.02–0.05 here; the published encode figures are 0.10–0.27 away and cannot be re-derived, because `cc7f68c6` does not contain the benchmark binary (D19). Carries the replacement table, the two artifact facts it rests on, and the re-confirmation of the three qualitative findings |
 | `ffi/logs/rust/stage3-unknown-fields.log` | rustc 1.94.1 release, prost 0.14.4, cdylib boundary, guard on, ASCII; three runs, plus the predicate check and a positive control | **ABI v1 open decision 11, as an arm.** The bag as ONE bytes blob leaves the batching predicate untouched; as a repeated field it destroys it (9 leaf messages to 0). The empty bag is free on decode and costs 1–12% of an encode, with the decision-9 interaction going both ways. The bag's bytes round-trip exactly; the layout does not when an unknown tag is interleaved. **Also records that the published M1/M2 ratios no longer reproduce on this container** |
 | `ffi/logs/rust/stage3-zeroed-group.log` | rustc 1.94.1 release, prost 0.14.4, cdylib boundary, guard on, ASCII; six runs, plus three deliberate-break positive controls | **ABI v1 open decision 9 candidate, as an arm.** The zeroed-group element fill: 0.719–0.766 of the total fill on M1's absent path (the encode inversion goes 1.11–1.19 → 0.82–0.86 of prost), 0.986–1.014 on M1's full path, 0.970–0.985 on P2.2, 0.983–1.007 on P2.5. Carries the three controls that prove the zeroed path is the one running and that present-and-zero is load-bearing |
 | `ffi/logs/rust/stage3-inlining-term.log` | rustc 1.94.1 release (lto OFF, PIE), prost 0.14.4, cdylib boundary, guard on, ASCII; five arms in one process, three runs, plus an artifact check | **The audit of the per-element interface cost.** `core-native` is NOT inlined into the benchmark loop in the binaries the published figures came from (largest closure 472 B against a 4,299/11,311 B traversal), so there was no inlining advantage to subtract. Two added no-boundary arms confirm it: the inlining term is −0.10 to +0.01 ns/element on P1.3 encode against 11.3–11.4 for the group. Also finds that P1.1/P1.2 decode should carry no per-element figure at all |

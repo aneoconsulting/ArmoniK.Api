@@ -1,0 +1,968 @@
+# ffi/logs/rust/stage3-reproducibility.log
+# W3: is a ratio reproducible across builds? The M1 and M2 tables re-taken under R4 as
+# sharpened, and a verdict on which column is right. 2026-09-18
+#
+# CONFIGURATION (R7)
+#   machine        4 vCPU Intel Xeon @ 2.80GHz, 15 GB, Ubuntu 24.04.4, Linux 6.18.44 x86_64,
+#                  container, NOT an isolated host. No CPU pinning, no governor control.
+#   rust           rustc/cargo 1.94.1, profile release (opt-level 3, lto off, PIE)
+#   incumbent      prost 0.14.4, bytes 1.12.1 -- UNCHANGED in the lockfile at every commit
+#                  checked (cc7f68c6, d03c5161, 7fb30be5, HEAD), so no dependency bump is
+#                  in play
+#   LINKAGE        cdylib (libak_core.so), dynamic linker
+#   guard          on;  content ASCII;  bench settings 15 rounds, 25 ms per round
+#   arms rebuilt   EVERY arm from one `cargo build` per group, so no row comes from a
+#                  different binary than the row beside it
+#
+# ============================================================================
+# THE VERDICT, FIRST
+# ============================================================================
+#   1. **A ratio IS reproducible on this container, to about +-0.02 to +-0.05.** Three
+#      builds, five to six runs, every arm rebuilt together: most rows have a total spread
+#      under 0.05, and the ACROSS-BUILD component is no larger than the SAME-BINARY
+#      component on nearly every row. Layout is not the driver.
+#   2. **The published encode figures are 0.10 to 0.27 away from today** -- five to ten
+#      times that band. That is not noise and it is not a rebuild artefact.
+#   3. **AND THE PUBLISHED COLUMN CANNOT BE RE-DERIVED AT ALL.** `cc7f68c6`, the commit that
+#      produced `stage2-four-arms-M1.log`, does not contain the benchmark binary: the bins
+#      were untracked until `7fb30be5` (defect D19, the root `.gitignore`'s `[Bb]in/`). A
+#      worktree at `cc7f68c6` fails to build with "can't find bin `bench`". **The oldest
+#      commit from which the M1 table can be rebuilt is `7fb30be5`, and it agrees with today
+#      (core-ffi-rust P1.2 encode 0.992) and not with the published table (0.706-0.716).**
+#   4. So the question "which column is right" is **not answerable by re-measurement**, and
+#      the answer is not "the container is unstable" -- it is stable. The published column
+#      is unreproducible because the code that produced it was never committed. **The table
+#      below is the one that can be checked, and it is the one to use.**
+#   5. **What that costs the headline.** `core-ffi-rust` on P1.2 encode reads 0.982 today
+#      against 0.706-0.716 published: through the C ABI the core is **at parity with prost
+#      on encode for the uniform payloads, not thirty percent faster**. What survives intact
+#      is the no-boundary arm: `core-native` is 0.42 to 0.54 of prost on every encode row,
+#      so the codec is about twice prost's speed and the C ABI gives that back.
+#
+# ============================================================================
+# HOW REPRODUCIBILITY WAS MEASURED, SINCE "REBUILD" ALONE VARIES NOTHING
+# ============================================================================
+#   The release binary is BIT-IDENTICAL across rebuilds of unchanged source (checked:
+#   sha256 90d08e36d17173be twice, after `touch`ing lib.rs). So rebuilding proves nothing.
+#   What changed between the published table and today is that the crate GREW, which moves
+#   code and data addresses. `gen/stability.sh` therefore perturbs the LAYOUT and nothing
+#   else: k exported no-op functions in the harness that no arm calls, k in {0, 3, 11}. The
+#   binary hash changes every time (4d61ea4e -> 762c2fde -> 8cbb9b0c) and the size barely
+#   moves (1180096 -> 1180096 -> 1180104), which is what a pure layout perturbation looks
+#   like. Two runs per build; the sweep was stopped after three builds because the answer
+#   was already outside any plausible noise band.
+#
+# ============================================================================
+# MEASUREMENT HAZARDS (R9)
+# ============================================================================
+#   1. Two rows are genuinely noisy and their figures should be read as bands, not values:
+#      P1.3 decode (total spread 0.12 to 0.24 across arms) and P2.1 encode `core-ffi-rust`
+#      (0.16). P1.3 has 300 all-absent elements and P2.1 has ONE element, so both are
+#      dominated by per-message cost.
+#   2. Three builds and six runs is a small sample for a distribution. The columns below are
+#      min / median / max, not a fitted interval.
+#   3. This says nothing about why the published numbers differ, only that they cannot be
+#      reproduced or rebuilt. A different physical host is the obvious candidate and is not
+#      checkable from inside the container.
+#   4. Everything here is ASCII, guard on, one toolchain.
+#
+# ============================================================================
+# THE M1 AND M2 TABLES, RE-TAKEN. Ratio to prost, median of 5-6 runs over 3 builds.
+# `spread` is max-min over all runs; `x-build` is the spread of the per-build medians.
+# Every row's prost control ran in the same interleaved rounds as the row.
+# ============================================================================
+#
+# payload dir     arm                  min     med     max  spread  same-bin  x-build   published
+# P1.1    encode  armonik            1.085   1.136   1.153   0.068     0.046    0.036    0.941-0.954
+# P1.1    encode  core-native        0.426   0.447   0.449   0.023     0.019    0.014    0.343-0.349
+# P1.1    encode  core-ffi-rust      0.933   0.989   1.013   0.080     0.080    0.020    0.593-0.622
+# P1.1    decode  armonik            1.209   1.226   1.237   0.028     0.011    0.022    0.889-0.939
+# P1.1    decode  core-native        1.007   1.009   1.010   0.003     0.003    0.001    0.751-0.861
+# P1.1    decode  core-ffi-rust      1.030   1.049   1.062   0.032     0.013    0.025    0.779-0.889
+# P1.2    encode  armonik            1.138   1.147   1.151   0.013     0.013    0.006    0.967-1.032
+# P1.2    encode  core-native        0.537   0.538   0.544   0.007     0.004    0.005    0.425-0.438
+# P1.2    encode  core-ffi-rust      0.976   0.982   0.987   0.011     0.005    0.007    0.706-0.716
+# P1.2    decode  armonik            1.051   1.065   1.077   0.026     0.021    0.005    0.896-0.935
+# P1.2    decode  core-native        0.852   0.863   0.866   0.014     0.009    0.009    0.832-0.861
+# P1.2    decode  core-ffi-rust      0.836   0.843   0.861   0.025     0.020    0.015    0.848-0.879
+# P1.3    encode  armonik            1.049   1.054   1.064   0.015     0.010    0.010    1.173-1.306
+# P1.3    encode  core-native        0.416   0.422   0.424   0.008     0.006    0.004    0.468-0.475
+# P1.3    encode  core-ffi-rust      1.190   1.209   1.210   0.020     0.019    0.010    1.162-1.295
+# P1.3    decode  armonik            1.222   1.299   1.419   0.197     0.077    0.159    0.965-1.047
+# P1.3    decode  core-native        0.946   1.002   1.062   0.116     0.052    0.090    0.726-0.838
+# P1.3    decode  core-ffi-rust      1.623   1.655   1.858   0.235     0.050    0.214    1.313-1.393
+# P2.1    encode  armonik            1.008   1.014   1.016   0.008     0.008    0.002    0.963-0.974
+# P2.1    encode  core-native        0.478   0.481   0.482   0.004     0.004    0.002    0.457-0.460
+# P2.1    encode  core-ffi-rust      1.092   1.158   1.250   0.158     0.126    0.062    0.944-0.993
+# P2.1    decode  armonik            1.009   1.027   1.044   0.035     0.014    0.028    0.958-0.966
+# P2.1    decode  core-native        0.904   0.913   0.927   0.023     0.014    0.017    0.984-0.999
+# P2.1    decode  core-ffi-rust      1.074   1.097   1.195   0.121     0.107    0.056    1.251-1.296
+# P2.2    encode  armonik            1.022   1.032   1.045   0.023     0.013    0.012    0.989-0.999
+# P2.2    encode  core-native        0.505   0.516   0.522   0.017     0.011    0.012    0.493-0.499
+# P2.2    encode  core-ffi-rust      0.977   0.990   1.022   0.045     0.035    0.033    0.863-0.874
+# P2.2    decode  armonik            1.023   1.031   1.040   0.017     0.001    0.017    0.967-0.974
+# P2.2    decode  core-native        0.897   0.906   0.917   0.020     0.011    0.014    0.922-0.927
+# P2.2    decode  core-ffi-rust      0.962   0.973   0.983   0.021     0.009    0.021    1.025-1.034
+# P2.3    encode  armonik            0.986   1.000   1.011   0.025     0.025    0.002    0.982-0.990
+# P2.3    encode  core-native        0.448   0.460   0.462   0.014     0.012    0.006    0.484-0.492
+# P2.3    encode  core-ffi-rust      0.976   0.999   1.011   0.035     0.023    0.023    0.952-0.953
+# P2.3    decode  armonik            0.997   1.003   1.010   0.013     0.008    0.008    0.985-1.002
+# P2.3    decode  core-native        0.984   0.988   1.000   0.016     0.016    0.010    1.030-1.038
+# P2.3    decode  core-ffi-rust      0.881   0.884   0.902   0.021     0.014    0.019    0.940-0.949
+# P2.4    encode  armonik            1.014   1.039   1.046   0.032     0.007    0.025    0.993-0.996
+# P2.4    encode  core-native        0.521   0.525   0.531   0.010     0.001    0.009    0.567-0.574
+# P2.4    encode  core-ffi-rust      1.137   1.152   1.172   0.035     0.024    0.026    1.107-1.123
+# P2.4    decode  armonik            0.949   0.954   0.962   0.013     0.004    0.011    0.942-0.950
+# P2.4    decode  core-native        0.967   0.982   0.986   0.019     0.007    0.015    1.033-1.037
+# P2.4    decode  core-ffi-rust      0.886   0.905   0.909   0.023     0.005    0.018    0.959-0.963
+# P2.5    encode  armonik            0.992   1.005   1.011   0.019     0.019    0.003    0.976-1.009
+# P2.5    encode  core-native        0.480   0.484   0.492   0.012     0.008    0.007    0.454-0.486
+# P2.5    encode  core-ffi-rust      1.072   1.102   1.132   0.060     0.051    0.041    0.891-0.948
+# P2.5    decode  armonik            1.039   1.048   1.063   0.024     0.022    0.008    0.974-0.998
+# P2.5    decode  core-native        0.925   0.935   0.950   0.025     0.018    0.011    0.937-0.963
+# P2.5    decode  core-ffi-rust      0.974   0.988   1.022   0.048     0.042    0.015    1.046-1.072
+#
+# WHAT MOVED AND WHAT DID NOT
+#   The ENCODE side moved and the DECODE side largely did not. `core-ffi-rust` encode is
+#   0.10 to 0.27 above its published value on P1.1, P1.2, P2.2, P2.3 and P2.5 and inside the
+#   published band on P1.3 and P2.4; every `core-ffi-rust` DECODE row except P1.3 and P2.1 is
+#   within about 0.06 of its published band, and three are inside it. `armonik` -- prost's
+#   own codec over the facade types, whose code this slice has not changed -- moved by up to
+#   0.2 on M1 and by almost nothing on M2. No single arm's code explains that pattern, which
+#   is the reason this log does not name a cause.
+#
+# ============================================================================
+# THE THREE QUALITATIVE FINDINGS, RE-CONFIRMED
+# ============================================================================
+#   1. THE SIGN OF THE P1.3 INVERSION: CONFIRMED, and the magnitude is inside the published
+#      band on encode. `core-ffi-rust` 1.190-1.210 encode and 1.623-1.858 decode against
+#      `core-native` at 0.416-0.424 and 0.946-1.062. The absent path still turns a win in
+#      both directions into a loss in both, and the group is still the explanation
+#      (`stage3-inlining-term.log` audited the alternative away).
+#   2. UTF-8 VALIDATION ON NON-ASCII: CONFIRMED, and LARGER than published. The scalar
+#      validator reads 2.783 and 3.743 of prost on P1.2 latin1 and wide, 2.750 and 2.747 on
+#      P2.2, against a published 2.0-2.6. The SIMD validator with the same contract recovers
+#      it to 1.430-1.795 against a published 1.27-1.50.
+#      **And the within-arm form of that finding reproduces almost exactly**: against its own
+#      ASCII cost the scalar validator is 2.545 and 3.365 on P1.2, 2.169 and 2.679 on P2.2,
+#      against a published "2.2 to 3.0 times its own ASCII cost". That is R4's new half
+#      demonstrated rather than argued: the `/ prost` column moved and the delta taken
+#      between two rows of the SAME ARM in the SAME PROCESS held.
+#   3. DECODE CONVERGING TO PARITY AS AN ELEMENT GAINS CONTAINERS: CONFIRMED, same ordering.
+#      `core-ffi-rust` decode 0.861 on P1.2 (6 blobs, 2 optional messages) and 0.978 on P2.2
+#      (4 `Vec<String>`, a `BTreeMap`, a 27-field struct), with `core-native` at 0.875 and
+#      0.911. The denser the element's container graph, the smaller the share of a decode any
+#      codec owns.
+#
+# ============================================================================
+# WHAT THIS DOES NOT ESTABLISH
+# ============================================================================
+#   - Why the published figures differ. Not checkable: the code is not in the repository at
+#     that commit, and a different physical host cannot be ruled in or out from inside a
+#     container.
+#   - Anything about M3 to M7, which were not in this sweep.
+#   - A distribution in any statistical sense. Three builds, six runs, min/median/max.
+#   - That today's figures will reproduce in a month. The only claim is that they reproduce
+#     across three builds and six runs in one session, which is what R4 now asks for.
+
+==============================================================================
+===== pad=0  binary=4d61ea4ed436a5f1  size=1180096  run=1 =====
+==============================================================================
+# stage 2 timings
+#   arms:   prost | armonik | core-native | core-ffi-rust, one process
+#   guard:  ON (ABI v1 section 5)
+#   counting build: no
+#   rounds: 15, interleaved; per-round target 25 ms
+#   shapes: M1 (P1.x) and M2 (P2.x), both REAL messages. No control rows here:
+#           M6 and M7 are the controls in design/SHAPES.md and are not built yet.
+
+#   filtered: AK_BENCH_ONLY=P1.1,P1.2,P1.3,P2.1,P2.2,P2.3,P2.4,P2.5 (74 cases)
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+
+P1.1    encode    prost                     43936        576.2        573.6        931.0      1.000
+P1.1    encode    armonik                   35919        664.5        658.5        747.9      1.153
+P1.1    encode    core-native               95419        258.6        256.1        274.4      0.449
+P1.1    encode    core-ffi-rust             43706        566.0        558.4        578.6      0.982
+P1.1    encode    core-ffi (valid utf8)     31210        763.3        756.8        816.0      1.325
+
+P1.1    decode    prost                     12019       2098.8       2049.8       2917.2      1.000
+P1.1    decode    armonik                    9827       2572.8       2433.8       2923.3      1.226
+P1.1    decode    core-native               11950       2118.6       2020.0       2198.3      1.009
+P1.1    decode    core-ffi-rust             11671       2201.1       2078.7       2243.9      1.049
+
+P1.2    encode    prost                       155     161153.5     160030.1     175202.3      1.000
+P1.2    encode    armonik                     131     185523.8     183781.9     210849.1      1.151
+P1.2    encode    core-native                 293      86944.5      85919.0     137421.0      0.540
+P1.2    encode    core-ffi-rust               159     157994.8     156476.5     291219.9      0.980
+P1.2    encode    core-ffi (valid utf8)       124     203655.1     202230.5     316868.6      1.264
+
+P1.2    decode    prost                        37     647207.5     643037.5     698382.3      1.000
+P1.2    decode    armonik                      37     680521.5     673813.4     731275.0      1.051
+P1.2    decode    core-native                  45     551581.6     545477.1     567956.5      0.852
+P1.2    decode    core-ffi-rust                45     540778.8     533556.2     562671.4      0.836
+
+P1.3    encode    prost                      4074       6092.8       6042.3       6135.7      1.000
+P1.3    encode    armonik                    3855       6481.5       6404.0       7092.8      1.064
+P1.3    encode    core-native                9648       2585.3       2564.1       2624.8      0.424
+P1.3    encode    core-ffi-rust              3405       7366.0       7109.9       7599.6      1.209
+P1.3    encode    core-ffi (valid utf8)      3395       7352.3       7134.6       7786.2      1.207
+
+P1.3    decode    prost                      2636      10845.8      10652.8      12340.2      1.000
+P1.3    decode    armonik                    2211      13257.8      12055.2      16283.3      1.222
+P1.3    decode    core-native                2919      10255.0       9205.0      12303.1      0.946
+P1.3    decode    core-ffi-rust              1361      18146.2      18028.0      25971.8      1.673
+
+P2.1    encode    prost                     28153        778.8        773.7       1032.1      1.000
+P2.1    encode    armonik                   30339        791.0        787.6        826.6      1.016
+P2.1    encode    core-native               65104        374.3        373.0        444.9      0.481
+P2.1    encode    core-ffi-rust             26427        973.6        963.3       1055.3      1.250
+P2.1    encode    core-ffi (valid utf8)     20226       1250.2       1242.0       1700.0      1.605
+
+P2.1    decode    prost                      8300       2985.2       2925.4       3890.2      1.000
+P2.1    decode    armonik                    8185       3065.8       3011.1       3624.2      1.027
+P2.1    decode    core-native                9293       2765.8       2717.7       3237.9      0.927
+P2.1    decode    core-ffi-rust              6967       3566.2       3464.2       4576.3      1.195
+
+P2.2    encode    prost                        43     585922.5     570506.1     764730.0      1.000
+P2.2    encode    armonik                      38     612133.5     594407.7     656234.6      1.045
+P2.2    encode    core-native                  87     302516.0     297806.6     324614.6      0.516
+P2.2    encode    core-ffi-rust                38     579827.4     570317.3     677070.1      0.990
+P2.2    encode    core-ffi (valid utf8)        31     764914.8     751322.0     833643.5      1.305
+
+P2.2    decode    prost                         9    2119371.1    2097630.8    2376635.8      1.000
+P2.2    decode    armonik                      10    2203739.7    2167994.5    2293330.6      1.040
+P2.2    decode    core-native                  12    1943673.8    1905904.4    2049066.8      0.917
+P2.2    decode    core-ffi-rust                11    2081258.8    2052178.9    2520021.6      0.982
+
+P2.3    encode    prost                        70     340530.8     334190.0     364904.4      1.000
+P2.3    encode    armonik                      74     342534.7     337276.5     353801.4      1.006
+P2.3    encode    core-native                 161     157455.5     155011.4     171936.6      0.462
+P2.3    encode    core-ffi-rust                74     341861.5     335355.3     370155.8      1.004
+P2.3    encode    core-ffi (valid utf8)        48     487998.7     483897.0     537827.8      1.433
+
+P2.3    decode    prost                        12    1842843.0    1806611.9    2171251.5      1.000
+P2.3    decode    armonik                      13    1848721.0    1806738.4    1936069.4      1.003
+P2.3    decode    core-native                  13    1842816.8    1813427.7    1937183.8      1.000
+P2.3    decode    core-ffi-rust                15    1655381.3    1618797.1    1797901.1      0.898
+
+P2.4    encode    prost                        62     413021.9     406758.6     460959.2      1.000
+P2.4    encode    armonik                      61     421847.7     413937.7     430376.0      1.021
+P2.4    encode    core-native                 118     215773.9     211006.9     225359.4      0.522
+P2.4    encode    core-ffi-rust                46     469803.7     466496.6     544972.5      1.137
+P2.4    encode    core-ffi (valid utf8)        35     670975.9     665346.2     699413.1      1.625
+
+P2.4    decode    prost                         7    2526365.6    2490656.3    2628316.9      1.000
+P2.4    decode    armonik                      10    2398367.1    2366468.2    2415014.0      0.949
+P2.4    decode    core-native                   9    2491753.7    2446680.8    2582057.9      0.986
+P2.4    decode    core-ffi-rust                10    2296893.9    2261536.8    2563590.8      0.909
+
+P2.5    encode    prost                       958      15480.4      15352.8      17361.0      1.000
+P2.5    encode    armonik                    1019      15633.6      15533.2      23523.7      1.010
+P2.5    encode    core-native                2308       7528.0       7458.5       8281.8      0.486
+P2.5    encode    core-ffi-rust              1460      16879.7      16734.5      17282.9      1.090
+P2.5    encode    core-ffi (valid utf8)      1086      22741.4      22567.4      23142.4      1.469
+
+P2.5    decode    prost                       339      76567.4      74781.9      77444.1      1.000
+P2.5    decode    armonik                     310      79716.4      78445.3      83656.5      1.041
+P2.5    decode    core-native                 360      71359.4      69422.0      75737.8      0.932
+P2.5    decode    core-ffi-rust               327      78253.1      76185.5      85960.2      1.022
+
+-       crossing  forward (no-op)        20000000          1.8          1.8          2.2          -
+-       crossing  fwd+reverse (no-op)    12500000          2.1          2.1          2.5          -
+
+# ABI v1 open decision 5: what the grow path costs, isolated
+
+arm                         P2.4 ns     P2.4a ns     P2.4b ns  mean(a,b)    excess
+
+# prost's excess is the floor: it has no learned width, so its number is what
+# this construction costs on its own. The mechanism's cost is the difference
+# between a core arm's excess and prost's.
+
+==============================================================================
+===== pad=0  binary=4d61ea4ed436a5f1  size=1180096  run=2 =====
+==============================================================================
+# stage 2 timings
+#   arms:   prost | armonik | core-native | core-ffi-rust, one process
+#   guard:  ON (ABI v1 section 5)
+#   counting build: no
+#   rounds: 15, interleaved; per-round target 25 ms
+#   shapes: M1 (P1.x) and M2 (P2.x), both REAL messages. No control rows here:
+#           M6 and M7 are the controls in design/SHAPES.md and are not built yet.
+
+#   filtered: AK_BENCH_ONLY=P1.1,P1.2,P1.3,P2.1,P2.2,P2.3,P2.4,P2.5 (74 cases)
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+
+P1.1    encode    prost                     43029        576.5        572.5        632.5      1.000
+P1.1    encode    armonik                   38109        655.2        650.9        796.0      1.136
+P1.1    encode    core-native               98039        258.6        256.1        272.2      0.449
+P1.1    encode    core-ffi-rust             42589        579.6        575.3        610.8      1.005
+P1.1    encode    core-ffi (valid utf8)     32765        755.1        750.9        777.9      1.310
+
+P1.1    decode    prost                     12297       2097.1       2058.0       2156.3      1.000
+P1.1    decode    armonik                    9574       2594.2       2490.5       2682.1      1.237
+P1.1    decode    core-native               11611       2116.6       2026.3       2175.2      1.009
+P1.1    decode    core-ffi-rust             11410       2227.6       2171.6       2314.1      1.062
+
+P1.2    encode    prost                       152     162377.0     161021.9     165541.2      1.000
+P1.2    encode    armonik                     139     184796.7     181970.0     197089.0      1.138
+P1.2    encode    core-native                 253      88316.0      87201.1      95763.8      0.544
+P1.2    encode    core-ffi-rust               161     158435.9     156223.5     168896.7      0.976
+P1.2    encode    core-ffi (valid utf8)       125     204315.8     201252.8     207798.7      1.258
+
+P1.2    decode    prost                        39     651500.1     637351.7     680673.0      1.000
+P1.2    decode    armonik                      35     698335.7     681498.8     778183.4      1.072
+P1.2    decode    core-native                  45     560699.7     546400.8     586245.7      0.861
+P1.2    decode    core-ffi-rust                46     548925.6     536256.4     557977.8      0.843
+
+P1.3    encode    prost                      4038       6097.8       6041.4       6540.9      1.000
+P1.3    encode    armonik                    3888       6426.6       6409.1       6652.0      1.054
+P1.3    encode    core-native                9697       2575.4       2562.4       2626.0      0.422
+P1.3    encode    core-ffi-rust              3386       7381.2       7129.8       7794.2      1.210
+P1.3    encode    core-ffi (valid utf8)      3363       7332.8       7129.0       7503.3      1.203
+
+P1.3    decode    prost                      2730      11999.8      11830.0      12455.3      1.000
+P1.3    decode    armonik                    2076      15592.5      14786.0      16138.5      1.299
+P1.3    decode    core-native                2958      11976.9      11211.3      12265.6      0.998
+P1.3    decode    core-ffi-rust              1403      19479.1      19336.4      24705.4      1.623
+
+P2.1    encode    prost                     32010        783.9        774.8       1451.5      1.000
+P2.1    encode    armonik                   31446        789.8        786.4        895.0      1.008
+P2.1    encode    core-native               66844        374.5        372.8        381.3      0.478
+P2.1    encode    core-ffi-rust             29585        881.3        868.0        889.7      1.124
+P2.1    encode    core-ffi (valid utf8)     21097       1182.1       1173.9       1274.5      1.508
+
+P2.1    decode    prost                      8564       2995.1       2973.1       3446.7      1.000
+P2.1    decode    armonik                    8185       3101.2       3068.6       3623.4      1.035
+P2.1    decode    core-native                9197       2734.3       2684.7       3218.4      0.913
+P2.1    decode    core-ffi-rust              7612       3257.5       3229.9       4129.1      1.088
+
+P2.2    encode    prost                        42     584621.3     573007.5     715963.0      1.000
+P2.2    encode    armonik                      42     603050.4     593436.4     968386.6      1.032
+P2.2    encode    core-native                  85     302436.1     297457.2     335573.9      0.517
+P2.2    encode    core-ffi-rust                41     577424.3     566375.3     613634.1      0.988
+P2.2    encode    core-ffi (valid utf8)        31     763107.9     745296.7     793642.9      1.305
+
+P2.2    decode    prost                         9    2116570.4    2103257.6    2224225.3      1.000
+P2.2    decode    armonik                      10    2200829.2    2171727.4    2262967.5      1.040
+P2.2    decode    core-native                  12    1918181.2    1902665.5    1966628.2      0.906
+P2.2    decode    core-ffi-rust                12    2058393.1    2035681.8    2296251.3      0.973
+
+P2.3    encode    prost                        71     345380.4     335524.1     354724.3      1.000
+P2.3    encode    armonik                      73     342028.9     335056.2     358842.8      0.990
+P2.3    encode    core-native                 166     155786.9     154526.3     160543.1      0.451
+P2.3    encode    core-ffi-rust                75     338707.9     333205.4     357195.6      0.981
+P2.3    encode    core-ffi (valid utf8)        49     489977.8     483347.4     509068.8      1.419
+
+P2.3    decode    prost                        11    1854188.6    1828603.5    2116720.5      1.000
+P2.3    decode    armonik                      13    1847888.6    1830327.5    1890481.8      0.997
+P2.3    decode    core-native                  12    1825280.9    1812580.0    1856246.8      0.984
+P2.3    decode    core-ffi-rust                15    1639472.1    1625115.3    1707447.3      0.884
+
+P2.4    encode    prost                        49     414815.2     405510.7     448700.9      1.000
+P2.4    encode    armonik                      61     420523.3     415887.0     468714.4      1.014
+P2.4    encode    core-native                 119     215913.7     212785.5     223057.4      0.521
+P2.4    encode    core-ffi-rust                47     474650.3     462399.6     578004.3      1.144
+P2.4    encode    core-ffi (valid utf8)        35     675803.9     664227.2     693122.2      1.629
+
+P2.4    decode    prost                         7    2529952.1    2492506.7    3697636.0      1.000
+P2.4    decode    armonik                      10    2405906.7    2368166.8    4140446.7      0.951
+P2.4    decode    core-native                   9    2479620.2    2452060.7    2869687.9      0.980
+P2.4    decode    core-ffi-rust                10    2289461.9    2258541.6    2404664.6      0.905
+
+P2.5    encode    prost                      1614      15585.3      15409.8      27321.3      1.000
+P2.5    encode    armonik                    1615      15561.9      15475.4      20297.1      0.998
+P2.5    encode    core-native                3292       7541.3       7490.0       7673.1      0.484
+P2.5    encode    core-ffi-rust              1503      16724.7      16588.3      18638.0      1.073
+P2.5    encode    core-ffi (valid utf8)       962      22564.1      22377.1      23451.2      1.448
+
+P2.5    decode    prost                       339      77142.5      74946.8      82792.3      1.000
+P2.5    decode    armonik                     319      82031.5      79031.3      83605.7      1.063
+P2.5    decode    core-native                 352      73308.6      69699.3      76927.3      0.950
+P2.5    decode    core-ffi-rust               342      75584.8      74296.8      78722.2      0.980
+
+-       crossing  forward (no-op)        20000000          1.8          1.8          1.8          -
+-       crossing  fwd+reverse (no-op)    12500000          2.1          2.1          2.1          -
+
+# ABI v1 open decision 5: what the grow path costs, isolated
+
+arm                         P2.4 ns     P2.4a ns     P2.4b ns  mean(a,b)    excess
+
+# prost's excess is the floor: it has no learned width, so its number is what
+# this construction costs on its own. The mechanism's cost is the difference
+# between a core arm's excess and prost's.
+
+==============================================================================
+===== pad=3  binary=762c2fdea15944aa  size=1180096  run=1 =====
+==============================================================================
+# stage 2 timings
+#   arms:   prost | armonik | core-native | core-ffi-rust, one process
+#   guard:  ON (ABI v1 section 5)
+#   counting build: no
+#   rounds: 15, interleaved; per-round target 25 ms
+#   shapes: M1 (P1.x) and M2 (P2.x), both REAL messages. No control rows here:
+#           M6 and M7 are the controls in design/SHAPES.md and are not built yet.
+
+#   filtered: AK_BENCH_ONLY=P1.1,P1.2,P1.3,P2.1,P2.2,P2.3,P2.4,P2.5 (74 cases)
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+
+P1.1    encode    prost                     43630        582.0        572.7        737.8      1.000
+P1.1    encode    armonik                   37993        658.1        649.5        791.4      1.131
+P1.1    encode    core-native               94696        258.8        256.0        274.7      0.445
+P1.1    encode    core-ffi-rust             41876        589.5        584.0        965.7      1.013
+P1.1    encode    core-ffi (valid utf8)     32637        764.1        756.7       1307.4      1.313
+
+P1.1    decode    prost                     12177       2103.2       2065.6       2921.8      1.000
+P1.1    decode    armonik                    9484       2570.5       2463.7       2750.5      1.222
+P1.1    decode    core-native               11967       2117.2       2084.9       2967.8      1.007
+P1.1    decode    core-ffi-rust             11584       2217.5       2100.0       2519.6      1.054
+
+P1.2    encode    prost                       156     163638.4     159619.3     174882.4      1.000
+P1.2    encode    armonik                     129     187690.2     182936.1     238367.5      1.147
+P1.2    encode    core-native                 288      87899.9      86021.4     102110.4      0.537
+P1.2    encode    core-ffi-rust               150     161580.3     157173.6     177902.8      0.987
+P1.2    encode    core-ffi (valid utf8)       124     206431.6     203005.9     307618.7      1.262
+
+P1.2    decode    prost                        39     650279.0     638663.4     671739.5      1.000
+P1.2    decode    armonik                      35     700221.8     684165.3     758441.1      1.077
+P1.2    decode    core-native                  45     561339.0     549602.8     598454.4      0.863
+P1.2    decode    core-ffi-rust                46     560004.5     546288.7     613221.4      0.861
+
+P1.3    encode    prost                      3961       6186.6       6050.8       6846.1      1.000
+P1.3    encode    armonik                    3831       6491.3       6409.1       6872.4      1.049
+P1.3    encode    core-native                9574       2576.5       2549.8       2645.2      0.416
+P1.3    encode    core-ffi-rust              3417       7364.8       7104.8       7649.6      1.190
+P1.3    encode    core-ffi (valid utf8)      3374       7359.5       7155.4       7521.1      1.190
+
+P1.3    decode    prost                      2692      12096.4      10547.4      12585.9      1.000
+P1.3    decode    armonik                    1937      15836.2      13795.6      17803.4      1.309
+P1.3    decode    core-native                2987      12128.0      10199.4      12730.5      1.003
+P1.3    decode    core-ffi-rust              1323      19761.2      17695.1      20274.2      1.634
+
+P2.1    encode    prost                     32299        787.8        775.1        881.3      1.000
+P2.1    encode    armonik                   30048        800.6        787.1        879.8      1.016
+P2.1    encode    core-native               67204        376.3        371.8        412.9      0.478
+P2.1    encode    core-ffi-rust             28153        860.1        852.4        964.5      1.092
+P2.1    encode    core-ffi (valid utf8)     19577       1194.9       1184.1       1243.7      1.517
+
+P2.1    decode    prost                      8054       3033.6       2944.8       3456.2      1.000
+P2.1    decode    armonik                    8264       3062.2       3019.1       3827.3      1.009
+P2.1    decode    core-native                8732       2741.8       2686.3       3215.6      0.904
+P2.1    decode    core-ffi-rust              7436       3256.9       3202.6       3592.9      1.074
+
+P2.2    encode    prost                        42     591303.3     573612.3     663492.6      1.000
+P2.2    encode    armonik                      41     609923.8     596399.5     795222.0      1.031
+P2.2    encode    core-native                  76     305320.2     296559.1     334594.9      0.516
+P2.2    encode    core-ffi-rust                40     577598.1     568703.6     620979.4      0.977
+P2.2    encode    core-ffi (valid utf8)        31     758785.0     746915.4     971134.5      1.283
+
+P2.2    decode    prost                         9    2145904.1    2116705.2    3317279.2      1.000
+P2.2    decode    armonik                      10    2194385.2    2161528.0    3649800.8      1.023
+P2.2    decode    core-native                  11    1943826.1    1914002.0    2240875.2      0.906
+P2.2    decode    core-ffi-rust                11    2063867.4    2019833.8    2212013.8      0.962
+
+P2.3    encode    prost                        70     357023.2     350056.5     413192.6      1.000
+P2.3    encode    armonik                      74     351965.7     336485.0     412343.3      0.986
+P2.3    encode    core-native                 157     160024.0     155200.1     177412.6      0.448
+P2.3    encode    core-ffi-rust                75     348580.7     335290.8     449173.5      0.976
+P2.3    encode    core-ffi (valid utf8)        48     494050.8     482264.3     805356.1      1.384
+
+P2.3    decode    prost                        11    1883551.5    1833806.5    2169796.5      1.000
+P2.3    decode    armonik                      13    1887534.7    1855471.0    2062584.3      1.002
+P2.3    decode    core-native                  13    1861641.7    1812270.2    1983595.0      0.988
+P2.3    decode    core-ffi-rust                14    1665095.8    1610630.2    1813960.5      0.884
+
+P2.4    encode    prost                        62     414108.6     406303.0     442228.8      1.000
+P2.4    encode    armonik                      58     430149.7     417340.2     464132.7      1.039
+P2.4    encode    core-native                 120     219984.5     212690.6     241649.8      0.531
+P2.4    encode    core-ffi-rust                49     473708.4     464716.2     534244.2      1.144
+P2.4    encode    core-ffi (valid utf8)        35     684794.2     663685.0    1022605.1      1.654
+
+P2.4    decode    prost                         7    2564770.6    2521034.7    2847589.4      1.000
+P2.4    decode    armonik                      10    2461313.5    2420169.5    2592890.5      0.960
+P2.4    decode    core-native                  10    2481272.2    2448801.8    2639338.4      0.967
+P2.4    decode    core-ffi-rust                10    2272727.1    2251280.1    2411272.5      0.886
+
+P2.5    encode    prost                      1622      15592.1      15457.8      16372.1      1.000
+P2.5    encode    armonik                    1585      15758.2      15549.2      16811.0      1.011
+P2.5    encode    core-native                2957       7512.5       7446.3       8606.4      0.482
+P2.5    encode    core-ffi-rust              1482      16717.0      16542.1      17525.3      1.072
+P2.5    encode    core-ffi (valid utf8)      1115      22831.1      22465.2      30367.3      1.464
+
+P2.5    decode    prost                       322      78093.9      76340.3      85780.2      1.000
+P2.5    decode    armonik                     323      81144.4      79101.9      88765.5      1.039
+P2.5    decode    core-native                 365      72947.9      69836.5      75746.7      0.934
+P2.5    decode    core-ffi-rust               345      76035.7      74597.4      84439.1      0.974
+
+-       crossing  forward (no-op)        20000000          1.8          1.8          1.9          -
+-       crossing  fwd+reverse (no-op)    12500000          2.1          2.1          2.3          -
+
+# ABI v1 open decision 5: what the grow path costs, isolated
+
+arm                         P2.4 ns     P2.4a ns     P2.4b ns  mean(a,b)    excess
+
+# prost's excess is the floor: it has no learned width, so its number is what
+# this construction costs on its own. The mechanism's cost is the difference
+# between a core arm's excess and prost's.
+
+==============================================================================
+===== pad=3  binary=762c2fdea15944aa  size=1180096  run=2 =====
+==============================================================================
+# stage 2 timings
+#   arms:   prost | armonik | core-native | core-ffi-rust, one process
+#   guard:  ON (ABI v1 section 5)
+#   counting build: no
+#   rounds: 15, interleaved; per-round target 25 ms
+#   shapes: M1 (P1.x) and M2 (P2.x), both REAL messages. No control rows here:
+#           M6 and M7 are the controls in design/SHAPES.md and are not built yet.
+
+#   filtered: AK_BENCH_ONLY=P1.1,P1.2,P1.3,P2.1,P2.2,P2.3,P2.4,P2.5 (74 cases)
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+
+P1.1    encode    prost                     40192        612.0        605.4        675.7      1.000
+P1.1    encode    armonik                   38226        663.8        654.8        803.7      1.085
+P1.1    encode    core-native               97276        260.9        256.9        283.3      0.426
+P1.1    encode    core-ffi-rust             41666        570.7        566.6        642.9      0.933
+P1.1    encode    core-ffi (valid utf8)     32175        776.3        765.3        843.6      1.268
+
+P1.1    decode    prost                     12363       2096.0       2040.7       2320.3      1.000
+P1.1    decode    armonik                    9881       2580.0       2544.8       2727.0      1.231
+P1.1    decode    core-native               12019       2116.3       2023.9       2376.6      1.010
+P1.1    decode    core-ffi-rust             11693       2196.4       2114.9       2330.5      1.048
+
+P1.2    encode    prost                       151     162520.4     159361.6     182865.0      1.000
+P1.2    encode    armonik                     135     185229.5     184259.6     207820.6      1.140
+P1.2    encode    core-native                 292      87317.7      86120.1      94862.9      0.537
+P1.2    encode    core-ffi-rust               154     159578.3     157011.7     170697.9      0.982
+P1.2    encode    core-ffi (valid utf8)       125     206103.3     203535.1     240377.6      1.268
+
+P1.2    decode    prost                        36     650027.1     637650.7     685656.3      1.000
+P1.2    decode    armonik                      37     686916.7     674977.0     725176.6      1.057
+P1.2    decode    core-native                  46     562706.5     547481.0     640260.0      0.866
+P1.2    decode    core-ffi-rust                43     546355.7     533683.6     640950.1      0.841
+
+P1.3    encode    prost                      4132       6183.4       6078.6       7234.8      1.000
+P1.3    encode    armonik                    3901       6495.2       6407.4       7024.2      1.050
+P1.3    encode    core-native                9758       2611.5       2553.5       2718.3      0.422
+P1.3    encode    core-ffi-rust              2764       7473.5       7307.8       7746.4      1.209
+P1.3    encode    core-ffi (valid utf8)      3368       7364.0       7185.6       7570.1      1.191
+
+P1.3    decode    prost                      2650      12213.6      11472.2      13228.4      1.000
+P1.3    decode    armonik                    2206      15120.1      13422.0      16636.6      1.238
+P1.3    decode    core-native                2938      12240.4      10207.0      12727.7      1.002
+P1.3    decode    core-ffi-rust              1391      20212.6      18330.0      24027.8      1.655
+
+P2.1    encode    prost                     32299        783.6        774.2        907.5      1.000
+P2.1    encode    armonik                   31565        792.9        787.9        807.9      1.012
+P2.1    encode    core-native               67204        377.8        372.1        412.8      0.482
+P2.1    encode    core-ffi-rust             28184        907.7        894.2        970.2      1.158
+P2.1    encode    core-ffi (valid utf8)     21186       1178.9       1165.0       1357.9      1.504
+
+P2.1    decode    prost                      8403       3022.9       2961.5       3542.1      1.000
+P2.1    decode    armonik                    8188       3093.6       3032.4       3654.8      1.023
+P2.1    decode    core-native                9328       2736.0       2693.8       3283.7      0.905
+P2.1    decode    core-ffi-rust              7617       3315.8       3262.9       4158.0      1.097
+
+P2.2    encode    prost                        39     598940.1     577865.6     668283.5      1.000
+P2.2    encode    armonik                      40     612290.3     586117.6     662489.8      1.022
+P2.2    encode    core-native                  83     302423.2     298075.2     331075.6      0.505
+P2.2    encode    core-ffi-rust                37     606277.7     589883.0     650375.3      1.012
+P2.2    encode    core-ffi (valid utf8)        29     760378.0     753613.2     859031.3      1.270
+
+P2.2    decode    prost                         9    2145733.0    2086179.3    2277357.4      1.000
+P2.2    decode    armonik                      10    2197906.1    2159209.1    2608915.9      1.024
+P2.2    decode    core-native                  13    1924494.5    1898523.0    2138589.9      0.897
+P2.2    decode    core-ffi-rust                11    2065756.8    2027242.7    2161541.4      0.963
+
+P2.3    encode    prost                        75     344049.6     332650.9     365431.1      1.000
+P2.3    encode    armonik                      73     347741.5     337046.4     386031.7      1.011
+P2.3    encode    core-native                 162     158153.7     155529.1     171263.1      0.460
+P2.3    encode    core-ffi-rust                73     343683.8     339109.6     369330.8      0.999
+P2.3    encode    core-ffi (valid utf8)        46     491161.3     482497.9     531029.2      1.428
+
+P2.3    decode    prost                        11    1855058.1    1829440.5    2155858.1      1.000
+P2.3    decode    armonik                      13    1872829.4    1847544.4    2108475.6      1.010
+P2.3    decode    core-native                  13    1833022.8    1810356.8    1926619.9      0.988
+P2.3    decode    core-ffi-rust                15    1633623.4    1610601.3    1828563.5      0.881
+
+P2.4    encode    prost                        62     409717.1     404101.5     464935.4      1.000
+P2.4    encode    armonik                      60     428743.2     419250.1     512527.6      1.046
+P2.4    encode    core-native                 119     216994.6     214478.5     339219.0      0.530
+P2.4    encode    core-ffi-rust                48     478386.0     469426.1     826490.4      1.168
+P2.4    encode    core-ffi (valid utf8)        35     676416.5     664307.4    1103124.6      1.651
+
+P2.4    decode    prost                         7    2556122.7    2511431.7    3043183.6      1.000
+P2.4    decode    armonik                       9    2460191.0    2410867.7    2645115.3      0.962
+P2.4    decode    core-native                   8    2490145.6    2442556.4    2744961.0      0.974
+P2.4    decode    core-ffi-rust                11    2278295.7    2250039.1    2602964.7      0.891
+
+P2.5    encode    prost                      1604      15734.0      15584.1      16119.0      1.000
+P2.5    encode    armonik                    1546      15608.6      15442.8      17808.1      0.992
+P2.5    encode    core-native                3313       7550.4       7471.1       8344.6      0.480
+P2.5    encode    core-ffi-rust              1433      17669.0      17478.7      20139.2      1.123
+P2.5    encode    core-ffi (valid utf8)      1099      23022.7      22771.9      25383.7      1.463
+
+P2.5    decode    prost                       327      75945.7      74317.9      88377.8      1.000
+P2.5    decode    armonik                     322      79657.7      77927.6      86940.8      1.049
+P2.5    decode    core-native                 363      71585.7      68849.5      76312.4      0.943
+P2.5    decode    core-ffi-rust               343      75966.0      72757.6      82680.6      1.000
+
+-       crossing  forward (no-op)        20000000          1.8          1.8          2.2          -
+-       crossing  fwd+reverse (no-op)    12500000          2.1          2.1          2.3          -
+
+# ABI v1 open decision 5: what the grow path costs, isolated
+
+arm                         P2.4 ns     P2.4a ns     P2.4b ns  mean(a,b)    excess
+
+# prost's excess is the floor: it has no learned width, so its number is what
+# this construction costs on its own. The mechanism's cost is the difference
+# between a core arm's excess and prost's.
+
+==============================================================================
+===== pad=11  binary=8cbb9b0c2ba9eb42  size=1180104  run=1 =====
+==============================================================================
+# stage 2 timings
+#   arms:   prost | armonik | core-native | core-ffi-rust, one process
+#   guard:  ON (ABI v1 section 5)
+#   counting build: no
+#   rounds: 15, interleaved; per-round target 25 ms
+#   shapes: M1 (P1.x) and M2 (P2.x), both REAL messages. No control rows here:
+#           M6 and M7 are the controls in design/SHAPES.md and are not built yet.
+
+#   filtered: AK_BENCH_ONLY=P1.1,P1.2,P1.3,P2.1,P2.2,P2.3,P2.4,P2.5 (74 cases)
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+
+P1.1    encode    prost                     42808        575.7        573.2        593.5      1.000
+P1.1    encode    armonik                   38226        654.0        651.3        681.7      1.136
+P1.1    encode    core-native               98425        257.5        255.5        283.6      0.447
+P1.1    encode    core-ffi-rust             41946        569.3        563.4        585.3      0.989
+P1.1    encode    core-ffi (valid utf8)     32679        764.3        760.5        787.4      1.328
+
+P1.1    decode    prost                     12036       2135.5       2085.7       2348.3      1.000
+P1.1    decode    armonik                    9904       2582.4       2520.9       2742.8      1.209
+P1.1    decode    core-native               11938       2153.0       2022.9       2192.8      1.008
+P1.1    decode    core-ffi-rust             11574       2199.3       2130.9       2240.1      1.030
+
+P1.2    encode    prost                       149     161866.2     159867.3     182014.9      1.000
+P1.2    encode    armonik                     134     186186.0     183950.0     194209.0      1.150
+P1.2    encode    core-native                 278      87159.7      86253.8      88937.4      0.538
+P1.2    encode    core-ffi-rust               154     159417.1     156764.1     163839.4      0.985
+P1.2    encode    core-ffi (valid utf8)       122     205121.7     202541.1     215894.5      1.267
+
+P1.2    decode    prost                        38     645795.2     640047.8     726276.1      1.000
+P1.2    decode    armonik                      37     687651.2     677794.2     716643.0      1.065
+P1.2    decode    core-native                  45     559435.3     552760.3     582678.6      0.866
+P1.2    decode    core-ffi-rust                46     551661.5     538609.0     578031.3      0.854
+
+P1.3    encode    prost                      4068       6109.2       6050.7       6600.4      1.000
+P1.3    encode    armonik                    3927       6451.4       6412.2       6701.3      1.056
+P1.3    encode    core-native                9723       2569.3       2544.3       2680.0      0.421
+P1.3    encode    core-ffi-rust              3416       7337.5       7092.3       7797.7      1.201
+P1.3    encode    core-ffi (valid utf8)      3380       7437.9       7139.9       8223.7      1.217
+
+P1.3    decode    prost                      1732      10575.8       9758.9      12094.5      1.000
+P1.3    decode    armonik                    2056      15003.4      13508.2      16270.5      1.419
+P1.3    decode    core-native                2554      11235.9       9212.8      12322.2      1.062
+P1.3    decode    core-ffi-rust              1420      19648.3      17711.7      19874.9      1.858
+
+P2.1    encode    prost                     28409        781.0        775.2        840.4      1.000
+P2.1    encode    armonik                   18768        792.1        785.9        871.4      1.014
+P2.1    encode    core-native               66844        375.4        373.6        391.9      0.481
+P2.1    encode    core-ffi-rust             24271        909.7        900.4        963.9      1.165
+P2.1    encode    core-ffi (valid utf8)     19857       1198.4       1180.6       1239.1      1.534
+
+P2.1    decode    prost                      8434       2975.9       2960.7       3447.0      1.000
+P2.1    decode    armonik                    7431       3107.9       3060.1       4395.6      1.044
+P2.1    decode    core-native                9455       2744.7       2721.1       3278.1      0.922
+P2.1    decode    core-ffi-rust              7280       3333.9       3311.0       3793.3      1.120
+
+P2.2    encode    prost                        41     586757.0     578417.7     647528.8      1.000
+P2.2    encode    armonik                      40     607370.5     599134.6     635573.8      1.035
+P2.2    encode    core-native                  62     306241.1     300351.7     315110.1      0.522
+P2.2    encode    core-ffi-rust                37     599595.3     593543.0     631835.1      1.022
+P2.2    encode    core-ffi (valid utf8)        28     760085.7     753498.2     844514.6      1.295
+
+P2.2    decode    prost                         9    2108780.8    2088409.8    2165787.4      1.000
+P2.2    decode    armonik                      10    2175049.2    2137987.7    2340812.7      1.031
+P2.2    decode    core-native                  13    1930474.4    1884921.4    2072112.1      0.915
+P2.2    decode    core-ffi-rust                11    2072279.4    2018467.9    2209506.9      0.983
+
+P2.3    encode    prost                        76     344046.3     337231.5     360536.7      1.000
+P2.3    encode    armonik                      76     343963.3     336459.2     355810.0      1.000
+P2.3    encode    core-native                 167     158276.3     155534.9     164177.5      0.460
+P2.3    encode    core-ffi-rust                75     347996.3     341151.4     377056.2      1.011
+P2.3    encode    core-ffi (valid utf8)        53     487034.0     485567.1     496947.3      1.416
+
+P2.3    decode    prost                        12    1831944.2    1819313.9    1892054.4      1.000
+P2.3    decode    armonik                      13    1845974.8    1833194.9    1885571.8      1.008
+P2.3    decode    core-native                  13    1827742.9    1812372.2    2553313.0      0.998
+P2.3    decode    core-ffi-rust                15    1652446.2    1624752.8    1695612.1      0.902
+
+P2.4    encode    prost                        63     412909.6     407484.6     437802.2      1.000
+P2.4    encode    armonik                      62     430031.5     414649.3     461895.2      1.041
+P2.4    encode    core-native                 118     216718.9     213747.0     225684.6      0.525
+P2.4    encode    core-ffi-rust                46     479246.3     473819.3     515598.9      1.161
+P2.4    encode    core-ffi (valid utf8)        33     673234.0     663893.7     702115.5      1.630
+
+P2.4    decode    prost                         7    2519565.0    2495502.0    2663530.3      1.000
+P2.4    decode    armonik                      10    2399099.2    2386681.2    2526886.8      0.952
+P2.4    decode    core-native                  10    2484850.5    2456484.4    2660441.8      0.986
+P2.4    decode    core-ffi-rust                10    2283871.0    2250774.0    2545414.6      0.906
+
+P2.5    encode    prost                      1625      15545.6      15432.3      17729.3      1.000
+P2.5    encode    armonik                    1617      15592.2      15465.2      16419.3      1.003
+P2.5    encode    core-native                3282       7640.9       7600.6       7997.1      0.492
+P2.5    encode    core-ffi-rust              1436      17596.9      17426.2      18565.6      1.132
+P2.5    encode    core-ffi (valid utf8)      1115      22620.3      22461.6      23718.4      1.455
+
+P2.5    decode    prost                       336      75331.3      74380.8      79217.8      1.000
+P2.5    decode    armonik                     314      78941.3      77783.9      90436.2      1.048
+P2.5    decode    core-native                 361      70419.3      69148.5      73761.6      0.935
+P2.5    decode    core-ffi-rust               346      74983.3      73432.3      83092.1      0.995
+
+-       crossing  forward (no-op)        20000000          1.8          1.8          1.9          -
+-       crossing  fwd+reverse (no-op)    12500000          2.1          2.1          2.2          -
+
+# ABI v1 open decision 5: what the grow path costs, isolated
+
+arm                         P2.4 ns     P2.4a ns     P2.4b ns  mean(a,b)    excess
+
+# prost's excess is the floor: it has no learned width, so its number is what
+# this construction costs on its own. The mechanism's cost is the difference
+# between a core arm's excess and prost's.
+
+==============================================================================
+===== pad=11  binary=8cbb9b0c2ba9eb42  size=1180104  run=2 =====
+==============================================================================
+# stage 2 timings
+#   arms:   prost | armonik | core-native | core-ffi-rust, one process
+#   guard:  ON (ABI v1 section 5)
+#   counting build: no
+#   rounds: 15, interleaved; per-round target 25 ms
+#   shapes: M1 (P1.x) and M2 (P2.x), both REAL messages. No control rows here:
+#           M6 and M7 are the controls in design/SHAPES.md and are not built yet.
+
+#   filtered: AK_BENCH_ONLY=P1.1,P1.2,P1.3,P2.1,P2.2,P2.3,P2.4,P2.5 (74 cases)
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+
+P1.1    encode    prost                     43252        581.2        579.2        663.3      1.000
+P1.1    encode    armonik                   38051        667.4        657.0        857.0      1.148
+P1.1    encode    core-native               96153        265.0        263.0        276.2      0.456
+P1.1    encode    core-ffi-rust             40518        590.7        586.5        673.5      1.016
+P1.1    encode    core-ffi (valid utf8)     31887        772.5        759.6       1386.8      1.329
+
+P1.1    decode    prost                     12007       2103.3       2059.7       3140.8      1.000
+P1.1    decode    armonik                   10000       2571.9       2558.8       3431.5      1.223
+P1.1    decode    core-native               11770       2161.4       2005.8       3085.5      1.028
+P1.1    decode    core-ffi-rust             11235       2215.9       2106.8       3216.6      1.054
+
+P1.2    encode    prost                       139     161467.3     159517.4     217926.8      1.000
+P1.2    encode    armonik                     140     185519.2     182108.0     308507.0      1.149
+P1.2    encode    core-native                 265      87306.2      86185.4     135291.1      0.541
+P1.2    encode    core-ffi-rust               111     160424.3     158591.9     186248.5      0.994
+P1.2    encode    core-ffi (valid utf8)       121     206351.7     202553.1     241642.7      1.278
+
+P1.2    decode    prost                        33     642473.5     634399.4     689785.7      1.000
+P1.2    decode    armonik                      38     681952.1     663033.9     893497.3      1.061
+P1.2    decode    core-native                  44     557045.1     544563.8     733788.3      0.867
+P1.2    decode    core-ffi-rust                46     544577.2     533750.5     569023.3      0.848
+
+P1.3    encode    prost                      4074       6131.3       6058.8       6844.0      1.000
+P1.3    encode    armonik                    3808       6471.1       6408.0       8212.5      1.055
+P1.3    encode    core-native                9659       2574.7       2546.0       2822.1      0.420
+P1.3    encode    core-ffi-rust              3046       7355.5       7323.7       7840.4      1.200
+P1.3    encode    core-ffi (valid utf8)      3387       7459.2       7417.2       8793.2      1.217
+
+P1.3    decode    prost                      2178      12821.8      12006.4      17176.0      1.000
+P1.3    decode    armonik                    1790      14763.7      14515.5      17731.0      1.151
+P1.3    decode    core-native                2929       9254.2       9171.7      11081.9      0.722
+P1.3    decode    core-ffi-rust              1392      18162.7      17924.5      20712.5      1.417
+
+P2.1    encode    prost                     32216        782.5        773.9       1262.2      1.000
+P2.1    encode    armonik                   32133        790.6        787.0        845.2      1.010
+P2.1    encode    core-native               66666        374.2        372.0        387.6      0.478
+P2.1    encode    core-ffi-rust             28735        880.2        875.3        906.1      1.125
+P2.1    encode    core-ffi (valid utf8)     21114       1196.6       1190.1       1349.1      1.529
+
+P2.1    decode    prost                      8532       3043.0       2948.5       3517.7      1.000
+P2.1    decode    armonik                    8138       3104.2       3027.5       3821.1      1.020
+P2.1    decode    core-native                8925       2781.9       2741.9       3263.3      0.914
+P2.1    decode    core-ffi-rust              7555       3374.5       3280.6       3669.0      1.109
+
+P2.2    encode    prost                        42     588924.7     571131.9     616606.4      1.000
+P2.2    encode    armonik                      39     602889.9     591672.2     633855.7      1.024
+P2.2    encode    core-native                  86     300923.0     293658.1     328470.0      0.511
+P2.2    encode    core-ffi-rust                39     587235.5     574414.2     650787.1      0.997
+P2.2    encode    core-ffi (valid utf8)        30     769506.4     755745.3     803189.0      1.307
+
+P2.2    decode    prost                         9    2107265.6    2087974.9    2204079.4      1.000
+P2.2    decode    armonik                      10    2192155.6    2146362.9    2332232.7      1.040
+P2.2    decode    core-native                  13    1908644.8    1897841.1    2072318.4      0.906
+P2.2    decode    core-ffi-rust                12    2059776.4    2026152.8    2288153.2      0.977
+
+P2.3    encode    prost                        71     339224.1     334893.8     377053.4      1.000
+P2.3    encode    armonik                      73     351771.3     347553.2     372238.6      1.037
+P2.3    encode    core-native                 163     155066.7     153890.6     162412.0      0.457
+P2.3    encode    core-ffi-rust                70     341038.2     334703.5     387325.2      1.005
+P2.3    encode    core-ffi (valid utf8)        45     490412.0     485150.1     502719.9      1.446
+
+P2.3    decode    prost                        11    1825321.8    1814373.0    2129631.8      1.000
+P2.3    decode    armonik                      13    1832617.3    1818471.3    1889256.5      1.004
+P2.3    decode    core-native                  13    1811550.8    1798945.2    2169190.2      0.992
+P2.3    decode    core-ffi-rust                14    1627843.2    1612459.9    1805355.4      0.892
+
+P2.4    encode    prost                        60     407064.6     401659.7     434975.4      1.000
+P2.4    encode    armonik                      60     420909.1     415153.0     442002.3      1.034
+P2.4    encode    core-native                 117     214494.9     211995.6     225086.9      0.527
+P2.4    encode    core-ffi-rust                33     477253.9     468022.6     492605.5      1.172
+P2.4    encode    core-ffi (valid utf8)        35     667989.6     663805.4     718239.3      1.641
+
+P2.4    decode    prost                         7    2512981.9    2474518.6    2648591.0      1.000
+P2.4    decode    armonik                      10    2401637.9    2371712.7    2841358.7      0.956
+P2.4    decode    core-native                  10    2471983.6    2456192.1    2665914.2      0.984
+P2.4    decode    core-ffi-rust                10    2271637.7    2248795.5    2607069.2      0.904
+
+P2.5    encode    prost                      1625      15461.3      15378.4      17162.0      1.000
+P2.5    encode    armonik                    1267      15567.0      15478.4      17699.3      1.007
+P2.5    encode    core-native                3134       7482.6       7440.3       7959.9      0.484
+P2.5    encode    core-ffi-rust              1413      17221.8      17045.7      31868.2      1.114
+P2.5    encode    core-ffi (valid utf8)       742      23031.1      22772.3      42277.9      1.490
+
+P2.5    decode    prost                       334      75202.1      73819.1      83408.9      1.000
+P2.5    decode    armonik                     320      78970.2      77721.7     112032.1      1.050
+P2.5    decode    core-native                 365      69570.4      68516.8     105618.8      0.925
+P2.5    decode    core-ffi-rust               342      73438.8      72639.8      80952.3      0.977
+
+-       crossing  forward (no-op)        20000000          1.8          1.8          1.9          -
+-       crossing  fwd+reverse (no-op)    12500000          2.1          2.1          2.2          -
+
+# ABI v1 open decision 5: what the grow path costs, isolated
+
+arm                         P2.4 ns     P2.4a ns     P2.4b ns  mean(a,b)    excess
+
+# prost's excess is the floor: it has no learned width, so its number is what
+# this construction costs on its own. The mechanism's cost is the difference
+# between a core arm's excess and prost's.
+
+# =============================================================================
+# APPENDIX A: the two artifact facts the verdict rests on
+# =============================================================================
+#
+# A1. THE RELEASE BINARY IS BIT-IDENTICAL ACROSS REBUILDS OF UNCHANGED SOURCE, which is why
+#     the layout perturbation exists at all:
+#
+#       $ cargo build --release -p harness --bin bench && sha256sum target/release/bench
+#       90d08e36d17173be...
+#       $ touch crates/harness/src/lib.rs
+#       $ cargo build --release -p harness --bin bench && sha256sum target/release/bench
+#       90d08e36d17173be...
+#
+# A2. THE COMMIT THAT PRODUCED THE PUBLISHED TABLE CANNOT BE BUILT. `cc7f68c6` is the stage 2
+#     commit behind `stage2-four-arms-M1.log`:
+#
+#       $ git worktree add .../s2-wt cc7f68c6
+#       $ cargo build --release -p harness --bin bench
+#       error: can't find bin `bench` at path `crates/harness/src/bin/bench.rs`
+#
+#     Because the measurement binaries were untracked until `7fb30be5` -- the root
+#     `.gitignore`'s `[Bb]in/`, defect D19. Confirmed by counting them in each tree:
+#
+#       cc7f68c6: 0     d03c5161: 0     7fb30be5: 7     160c37be: 9
+#
+#     And the dependency versions are identical at every one of those commits
+#     (prost 0.14.4, bytes 1.12.1), so no bump is in play.
+#
+#     **This is D19 biting.** It was recorded as a hygiene defect -- "the logs were committed
+#     and the code that produced them was not" -- and the cost of it is exactly this: a
+#     published table that cannot be re-derived when it is questioned.
+
+# =============================================================================
+# APPENDIX B: the content-set re-run behind qualitative finding 2
+# =============================================================================
+# content sets on the string path, M1 (P1.2) and M2 (P2.2)
+#   guard: on
+#   both messages are REAL (design/SHAPES.md). No control rows here.
+
+## byte identity across the arms, per content set
+#   reference: the prost arm. There is no manifest for latin1 or wide.
+
+payload set           bytes   B/ascii arms agree decode round trip
+P1.2    ascii        218121      1.00 ok         ok
+P2.2    ascii        540422      1.00 ok         ok
+P1.2    latin1       370110      1.70 ok         ok
+P2.2    latin1       944454      1.75 ok         ok
+P1.2    wide         522099      2.39 ok         ok
+P2.2    wide        1348486      2.50 ok         ok
+
+## encode and decode, all three sets, one process, rounds interleaved
+
+payload direction arm                         set     median ns        min ns   / prost / its ascii
+P1.2    encode    prost                     ascii      168218.2      165569.6     1.000     1.000
+P1.2    encode    prost                    latin1      185522.9      183563.3     1.000     1.103
+P1.2    encode    prost                      wide      182415.9      179301.9     1.000     1.084
+
+P1.2    encode    core-native               ascii       91145.7       88443.7     0.542     1.000
+P1.2    encode    core-native              latin1       98281.2       96973.4     0.530     1.078
+P1.2    encode    core-native                wide       97259.3       95863.3     0.533     1.067
+
+P1.2    encode    core-ffi-rust             ascii      157064.9      154025.3     0.934     1.000
+P1.2    encode    core-ffi-rust            latin1      167640.2      165345.3     0.904     1.067
+P1.2    encode    core-ffi-rust              wide      160632.1      159538.7     0.881     1.023
+
+P1.2    encode    core-ffi (valid utf8)     ascii      202895.5      201380.5     1.206     1.000
+P1.2    encode    core-ffi (valid utf8)    latin1      516393.8      511560.2     2.783     2.545
+P1.2    encode    core-ffi (valid utf8)      wide      682717.0      681135.6     3.743     3.365
+
+P1.2    encode    core-ffi (valid, simd)    ascii      203311.6      199658.3     1.209     1.000
+P1.2    encode    core-ffi (valid, simd)   latin1      278093.3      274356.6     1.499     1.368
+P1.2    encode    core-ffi (valid, simd)     wide      275030.2      272604.9     1.508     1.353
+
+P1.2    decode    prost                     ascii      634613.9      625996.4     1.000     1.000
+P1.2    decode    prost                    latin1      945572.3      939702.6     1.000     1.490
+P1.2    decode    prost                      wide     1148580.2     1141122.9     1.000     1.810
+
+P1.2    decode    core-native               ascii      555452.4      551782.8     0.875     1.000
+P1.2    decode    core-native              latin1      936387.9      930386.4     0.990     1.686
+P1.2    decode    core-native                wide     1083899.3     1077408.0     0.944     1.951
+
+P1.2    decode    core-ffi-rust             ascii      546658.9      539865.8     0.861     1.000
+P1.2    decode    core-ffi-rust            latin1      924117.9      913970.0     0.977     1.690
+P1.2    decode    core-ffi-rust              wide     1065308.5     1057665.1     0.928     1.949
+
+
+
+P2.2    encode    prost                     ascii      575090.7      562355.3     1.000     1.000
+P2.2    encode    prost                    latin1      593863.2      583093.9     1.000     1.033
+P2.2    encode    prost                      wide      734285.9      703547.1     1.000     1.277
+
+P2.2    encode    core-native               ascii      298126.5      291323.3     0.518     1.000
+P2.2    encode    core-native              latin1      337832.4      330732.3     0.569     1.133
+P2.2    encode    core-native                wide      316123.9      310228.5     0.431     1.060
+
+P2.2    encode    core-ffi-rust             ascii      560482.7      548677.2     0.975     1.000
+P2.2    encode    core-ffi-rust            latin1      598330.9      588559.7     1.008     1.068
+P2.2    encode    core-ffi-rust              wide      556859.3      545718.6     0.758     0.994
+
+P2.2    encode    core-ffi (valid utf8)     ascii      752842.7      722954.9     1.309     1.000
+P2.2    encode    core-ffi (valid utf8)    latin1     1633059.8     1612377.3     2.750     2.169
+P2.2    encode    core-ffi (valid utf8)      wide     2016725.2     1990198.4     2.747     2.679
+
+P2.2    encode    core-ffi (valid, simd)    ascii      754720.8      736106.0     1.312     1.000
+P2.2    encode    core-ffi (valid, simd)   latin1     1066206.2     1052346.3     1.795     1.413
+P2.2    encode    core-ffi (valid, simd)     wide     1050039.0     1043061.5     1.430     1.391
+
+P2.2    decode    prost                     ascii     2080678.1     2061526.6     1.000     1.000
+P2.2    decode    prost                    latin1     3005601.3     2985957.0     1.000     1.445
+P2.2    decode    prost                      wide     3542672.2     3487873.8     1.000     1.703
+
+P2.2    decode    core-native               ascii     1896178.0     1868846.2     0.911     1.000
+P2.2    decode    core-native              latin1     2908267.7     2875253.2     0.968     1.534
+P2.2    decode    core-native                wide     3387071.6     3355060.2     0.956     1.786
+
+P2.2    decode    core-ffi-rust             ascii     2035791.4     2017756.0     0.978     1.000
+P2.2    decode    core-ffi-rust            latin1     3048351.0     3021503.0     1.014     1.497
+P2.2    decode    core-ffi-rust              wide     3528506.0     3490485.8     0.996     1.733
+
+
+
+# `/ its ascii` is the same arm against itself on the ascii set, so it isolates
+#   what the content costs that arm, with the arm held constant.
