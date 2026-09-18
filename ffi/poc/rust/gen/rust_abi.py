@@ -944,6 +944,10 @@ impl Tcs {
     pub fn validating() -> Self {
         unsafe { Tcs { utf8: ak_tc_utf8(), bytes: ak_tc_bytes() } }
     }
+    /// Validate-and-fail, SIMD validator. Same contract as `validating`.
+    pub fn validating_simd() -> Self {
+        unsafe { Tcs { utf8: ak_tc_utf8_simd(), bytes: ak_tc_bytes() } }
+    }
 }
 
 thread_local! {

@@ -114,6 +114,8 @@ unsafe extern "C" {
     /// UTF-8 passthrough with no validation, for a host whose type already carries the
     /// invariant. ABI v1 open decision 3 is about which of these `ak_tc_utf8` should be.
     pub fn ak_tc_utf8_trusted() -> ak_transcode_fn;
+    /// Validate-and-fail, with a SIMD validator rather than the scalar one.
+    pub fn ak_tc_utf8_simd() -> ak_transcode_fn;
     pub fn ak_tc_bytes() -> ak_transcode_fn;
 
     /// Counting build only (`--features count`). The counters live in the contexts, not in

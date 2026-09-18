@@ -124,6 +124,11 @@ pub mod core_ffi_arm {
             c.tcs = binding::Tcs::validating();
             c
         }
+        pub fn validating_simd() -> Self {
+            let mut c = Self::new();
+            c.tcs = binding::Tcs::validating_simd();
+            c
+        }
     }
 
     impl Drop for Ctx {

@@ -22,3 +22,4 @@ count = ["ak-rt/count"]
 [dependencies]
 ak-abi = { path = "../ak-abi" }
 ak-rt = { path = "../ak-rt" }
+simdutf8.workspace = true

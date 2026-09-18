@@ -1,0 +1,133 @@
+# ffi/logs/rust/stage3-content-sets.log
+# W3 stage 3: the latin1 and wide content sets on the string path, M1 (P1.2) and
+# M2 (P2.2). ABI v1 open decision 3.
+# 2026-09-18
+#
+# CONFIGURATION (R7)
+#   machine        4 vCPU Intel Xeon @ 2.80GHz, 15 GB, Ubuntu 24.04.4, Linux 6.18.44 x86_64,
+#                  container, NOT an isolated host. No CPU pinning, no governor control.
+#   rust           rustc/cargo 1.94.1, profile release (opt-level 3, lto off)
+#   MSRV declared  1.88. NOT VERIFIED: no 1.88 toolchain exists in this container.
+#   incumbent      prost 0.14.4
+#   LINKAGE        cdylib (libak_core.so), dynamic linker. Not a static link.
+#   guard          on
+#   validators     core::str::from_utf8 (scalar, std) and simdutf8 0.1 (basic), the
+#                  latter added as ONE ARM to separate 'validation costs this' from
+#                  'this validator costs this'. simdutf8::basic dispatches on runtime
+#                  CPU features (AVX2 here); on a machine without them it falls back.
+#   class          M1 and M2 are both REAL messages (design/SHAPES.md). No controls here.
+#
+# WHAT THE CONTENT SETS MEAN IN RUST, AND WHY A MANAGED SLICE MUST NOT COPY THESE ROWS
+#   On .NET or the JVM these sets make a NARROWING transcoder do real work or fail
+#   outright, because the host holds UTF-16. A Rust String is UTF-8 already: there is no
+#   narrowing and no transcoding at all. What changes here is the BYTE WIDTH of the same
+#   character count (1, 2 and 3 bytes) and which path the UTF-8 validator takes. So these
+#   rows price VALIDATION and WIDTH, not a transcoder.
+#
+# HOW THE CONTENT IS PRODUCED, AND WHAT CHECKS IT
+#   ffi/schema/ emits ASCII payloads only, so there are no manifest hashes for latin1 or
+#   wide and no external oracle. The recode is in crates/shapes-values: each ASCII
+#   character maps to one character of the target range, so the character count is held
+#   and only the width moves. Correctness here is byte identity of all four arms against
+#   the PROST arm, which is an independent encoder validated against the manifest on
+#   ASCII, plus a decode round trip on every set. The map key prefix 'kNN-' stays ASCII
+#   so BTreeMap ordering is identical across sets and the comparison is not confounded
+#   by a different element order.
+#
+# HAZARDS (R9)
+#   - All three sets are measured in ONE process with the rounds interleaved (R4), so the
+#     '/ its ascii' column is a within-process comparison.
+#   - 4 shared vCPUs in a container; read the spreads.
+#   - simdutf8 is one x86-64 machine with AVX2. Nothing here says what it does elsewhere.
+#   - ENCODE only for the transcoder question. On decode every arm validates (prost with
+#     str::from_utf8, the core arms with from_utf8_lossy), so the content set scales all
+#     of them and changes no decode verdict; the decode rows are below to show that.
+
+# content sets on the string path, M1 (P1.2) and M2 (P2.2)
+#   guard: on
+#   both messages are REAL (design/SHAPES.md). No control rows here.
+
+## byte identity across the arms, per content set
+#   reference: the prost arm. There is no manifest for latin1 or wide.
+
+payload set           bytes   B/ascii arms agree decode round trip
+P1.2    ascii        218121      1.00 ok         ok
+P2.2    ascii        551662      1.00 ok         ok
+P1.2    latin1       370110      1.70 ok         ok
+P2.2    latin1       965578      1.75 ok         ok
+P1.2    wide         522099      2.39 ok         ok
+P2.2    wide        1379494      2.50 ok         ok
+
+## encode and decode, all three sets, one process, rounds interleaved
+
+payload direction arm                         set     median ns        min ns   / prost / its ascii
+P1.2    encode    prost                     ascii      165758.4      164287.4     1.000     1.000
+P1.2    encode    prost                    latin1      169391.2      168544.5     1.000     1.022
+P1.2    encode    prost                      wide      173315.8      170808.0     1.000     1.046
+
+P1.2    encode    core-native               ascii       72040.0       71729.3     0.435     1.000
+P1.2    encode    core-native              latin1       79228.9       78627.8     0.468     1.100
+P1.2    encode    core-native                wide       87761.1       86920.6     0.506     1.218
+
+P1.2    encode    core-ffi-rust             ascii      120459.0      119899.5     0.727     1.000
+P1.2    encode    core-ffi-rust            latin1      127878.5      126710.5     0.755     1.062
+P1.2    encode    core-ffi-rust              wide      130603.9      129350.2     0.754     1.084
+
+P1.2    encode    core-ffi (valid utf8)     ascii      152934.7      151891.0     0.923     1.000
+P1.2    encode    core-ffi (valid utf8)    latin1      329749.3      328368.7     1.947     2.156
+P1.2    encode    core-ffi (valid utf8)      wide      454863.6      448840.2     2.624     2.974
+
+P1.2    encode    core-ffi (valid, simd)    ascii      157461.5      156754.9     0.950     1.000
+P1.2    encode    core-ffi (valid, simd)   latin1      215662.1      213576.0     1.273     1.370
+P1.2    encode    core-ffi (valid, simd)     wide      221923.1      218024.8     1.280     1.409
+
+P1.2    decode    prost                     ascii      462350.5      459941.9     1.000     1.000
+P1.2    decode    prost                    latin1      649933.4      638694.7     1.000     1.406
+P1.2    decode    prost                      wide      773508.6      764493.8     1.000     1.673
+
+P1.2    decode    core-native               ascii      377177.0      373353.2     0.816     1.000
+P1.2    decode    core-native              latin1      517006.5      510551.1     0.795     1.371
+P1.2    decode    core-native                wide      619665.4      611084.0     0.801     1.643
+
+P1.2    decode    core-ffi-rust             ascii      360195.7      354096.4     0.779     1.000
+P1.2    decode    core-ffi-rust            latin1      500916.1      498617.4     0.771     1.391
+P1.2    decode    core-ffi-rust              wide      613333.0      604962.1     0.793     1.703
+
+
+
+P2.2    encode    prost                     ascii      522002.4      513492.0     1.000     1.000
+P2.2    encode    prost                    latin1      526863.6      523634.5     1.000     1.009
+P2.2    encode    prost                      wide      545310.4      532509.0     1.000     1.045
+
+P2.2    encode    core-native               ascii      255054.4      252193.8     0.489     1.000
+P2.2    encode    core-native              latin1      277086.0      275559.8     0.526     1.086
+P2.2    encode    core-native                wide      279466.2      274595.6     0.512     1.096
+
+P2.2    encode    core-ffi-rust             ascii      422287.7      411358.1     0.809     1.000
+P2.2    encode    core-ffi-rust            latin1      446426.4      441546.4     0.847     1.057
+P2.2    encode    core-ffi-rust              wide      425888.6      423156.8     0.781     1.009
+
+P2.2    encode    core-ffi (valid utf8)     ascii      582965.5      578254.8     1.117     1.000
+P2.2    encode    core-ffi (valid utf8)    latin1     1075301.0     1067182.5     2.041     1.845
+P2.2    encode    core-ffi (valid utf8)      wide     1393397.0     1385023.0     2.555     2.390
+
+P2.2    encode    core-ffi (valid, simd)    ascii      599142.6      593964.9     1.148     1.000
+P2.2    encode    core-ffi (valid, simd)   latin1      805476.0      798644.2     1.529     1.344
+P2.2    encode    core-ffi (valid, simd)     wide      805605.3      802495.3     1.477     1.345
+
+P2.2    decode    prost                     ascii     1619693.6     1603785.3     1.000     1.000
+P2.2    decode    prost                    latin1     2125473.5     2104533.2     1.000     1.312
+P2.2    decode    prost                      wide     2560479.5     2510028.8     1.000     1.581
+
+P2.2    decode    core-native               ascii     1469109.6     1453730.5     0.907     1.000
+P2.2    decode    core-native              latin1     1859081.6     1828525.8     0.875     1.265
+P2.2    decode    core-native                wide     2214309.1     2184747.1     0.865     1.507
+
+P2.2    decode    core-ffi-rust             ascii     1548082.2     1537260.7     0.956     1.000
+P2.2    decode    core-ffi-rust            latin1     1968962.3     1943470.0     0.926     1.272
+P2.2    decode    core-ffi-rust              wide     2365033.1     2326392.6     0.924     1.528
+
+
+
+# `/ its ascii` is the same arm against itself on the ascii set, so it isolates
+#   what the content costs that arm, with the arm held constant.
