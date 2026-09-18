@@ -575,3 +575,23 @@ one machine. Not covered: the other payloads, the unpaired-surrogate case (which
 `String` cannot hold, so this slice cannot produce the transcode-pair disagreement README
 section 10 item 4 is about), and any content set on the bulk `bytes` path, where there is
 nothing to validate.
+
+### 2026-09-18 — a figure with no log, and the rule that catches it
+
+The P6.1 re-validation after `945d3cd1` was reported without a log. The claim was true — the
+builder change is in `crates/stage1-validate/src/build.rs` and the run happened — but
+`stage1-manifest-vs-prost-after-fix.log` was run against the schema at `07d3e05` and still
+showed P6.1 at 116,954 bytes, so the only stage 1 log in the tree contradicted the number
+being quoted. Under this branch's own rule that is a claim, not a figure, and it was the
+figure that mattered most: P6.1 was the one payload no protobuf implementation had seen.
+
+Re-run and committed as `stage1-manifest-vs-prost-packed-enum.log`: **16 of 16, P6.1 at
+123,354 bytes**. The older log is kept and its P6.1 row is marked superseded in the log
+index rather than deleted, because every other row in it still stands and it is the record
+of the zero-leaf fix.
+
+**The rule this produces, and it is mine to keep rather than the aggregating session's to
+enforce: a schema change re-runs `gen/stage1.sh` into a dated log before any number from it
+is quoted.** The stage 1 harness is cheap to run and it is the only thing standing between
+this slice and a wrong denominator, so there is no reason to quote it from memory. Noted as
+D11 so it is visible in the defect log rather than only in prose.
