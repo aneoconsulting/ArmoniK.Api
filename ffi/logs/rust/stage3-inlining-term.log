@@ -49,6 +49,32 @@
 #      call contributes about 0.02 ns per element. The `group+call` column is group
 #      materialisation with a rounding error attached.
 #
+# WHY IT IS NOT INLINED: THE MECHANISM, STATED PRECISELY
+#   Added after the fact, because the artifact evidence above is the symptom and this is the
+#   reason. It is also narrower than "LTO is off, so nothing crosses the crate boundary",
+#   which is NOT true of this file.
+#
+#   - The workspace `Cargo.toml` has NO `[profile.release]` section, so cargo's default
+#     applies: opt-level 3, `lto = false`, codegen-units 16.
+#   - With LTO off, a function in `facade` is available for inlining into `harness` only if
+#     its MIR is exported cross-crate, which means generic or `#[inline]`.
+#   - **The two entry points the benchmark calls are neither.**
+#     `encode_into_list_results_response` and `decode_list_results_response` are plain
+#     non-generic `pub fn` with no `#[inline]`, so their bodies cannot cross into `harness`
+#     at all. That is the load-bearing fact.
+#   - **It is NOT true that nothing in that file can be inlined across the boundary.**
+#     `core_native.rs` carries 38 `#[inline]` functions, including
+#     `enc_list_results_response` itself, whose MIR IS exported. It was not inlined because
+#     it is 4,299 bytes and no cost model will take that into a 472-byte closure -- and
+#     because the benchmark never calls it directly: it calls the 20-byte entry thunk, which
+#     is the one that genuinely cannot cross.
+#
+#   So the premise this log refutes is refuted for a specific and checkable reason, and the
+#   reason has a failure mode: **if the generator ever put `#[inline]` on a per-message entry
+#   point, or made one generic, the objection could become true again with LTO still off.**
+#   `gen/inline_check.sh` would show it -- the closure would grow past the traversal -- which
+#   is why that check is a script and not a paragraph.
+#
 # THE TWO ARMS, AND WHY BOTH
 #   core-native            the existing no-boundary control.
 #   core-native-noinline   `#[inline(never)]` on the per-message entry point. A real call,

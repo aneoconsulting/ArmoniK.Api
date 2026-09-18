@@ -113,7 +113,14 @@ separate processes.
   pointer, no inlining, devirtualisation or constant propagation) — measure the same as
   `core-native` everywhere. On **P1.3 encode** the inlining term is −0.10 to +0.01 ns per
   element against 11.3–11.4 for the group; on **P1.3 decode** it is −1.03 to −0.82 against
-  27.6–28.4. At 9 crossings per 1000 elements the dynamic call is about 0.02 ns/element, so
+  27.6–28.4. **The mechanism, precisely** (narrower than "LTO is off"): the workspace
+  has no `[profile.release]`, so `lto = false`, and the two entry points the benchmark calls
+  are non-generic `pub fn` with no `#[inline]`, so their MIR does not cross into `harness`.
+  `core_native.rs` does carry 38 `#[inline]` functions whose MIR does cross, including the
+  4,299-byte traversal itself — it was not inlined on cost grounds, and the benchmark never
+  calls it directly anyway. **The failure mode**: if the generator ever put `#[inline]` on a
+  per-message entry point, or made one generic, the objection could become true again with
+  LTO still off. That is why `gen/inline_check.sh` is a script and not a paragraph. At 9 crossings per 1000 elements the dynamic call is about 0.02 ns/element, so
   that column is group materialisation with a rounding error attached.
 - **One correction the audit did find, and it is not the one predicted**: on **P1.1 and P1.2
   DECODE** `core-native` and `core-ffi-rust` are inside each other's spread and the sign of

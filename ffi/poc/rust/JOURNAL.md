@@ -1219,3 +1219,26 @@ must be PRESENCE and not value, because `Some(0)` and `Some("")` are at their de
 and must still be written. For an implicit-presence field it must be the value. Getting that
 backwards turns present-and-zero silently into absent, and byte identity on a payload without
 that case would not notice.
+
+
+### Postscript: the mechanism, and where the coordinator's version of it is too broad
+
+The aggregating session re-derived arm 1 from the binary independently (right call: the
+finding exonerates a claim that session had already published) and added the mechanism —
+no `[profile.release]`, LTO off, so a traversal in `facade` cannot be inlined into a closure
+in `harness`. **That last clause is too broad and I have put the narrower version in the
+log.** `core_native.rs` carries 38 `#[inline]` functions, including `enc_list_results_response`
+itself, and an `#[inline]` function's MIR IS exported cross-crate with LTO off. What actually
+holds is:
+
+- the two entry points the benchmark calls — `encode_into_list_results_response` and
+  `decode_list_results_response` — are non-generic `pub fn` with **no** `#[inline]`, so their
+  bodies cannot cross the crate boundary at all. That is the load-bearing fact;
+- the inner traversal is `#[inline]` and its MIR does cross, but it is 4,299 bytes against a
+  472-byte closure, and the benchmark calls the 20-byte entry thunk rather than it.
+
+The difference matters because it names a failure mode: **if the generator ever put
+`#[inline]` on a per-message entry point, or made one generic, the objection could become
+true again with LTO still off**, and the published ratios would quietly start including an
+inlining advantage. `gen/inline_check.sh` would catch it — the closure would grow past the
+traversal — which is the reason that check is a script rather than a paragraph in a log.
