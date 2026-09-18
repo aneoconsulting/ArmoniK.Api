@@ -46,3 +46,7 @@ done
 echo
 echo "===== 6. timings, guard OFF (a second process; prost is the control column) ====="
 cargo run --release -q -p harness --no-default-features --bin bench 2>/dev/null
+
+echo
+echo "===== 7. content sets on the string path (ABI v1 open decision 3) ====="
+cargo run --release -q -p harness --bin content 2>/dev/null

@@ -6,7 +6,7 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | stages 1 and 2 done. **Stage 3 part 1 done**: M2 over P2.1 to P2.5, four arms, byte-identical and timed, and ABI v1 open decision 5 answered. Stage 3 parts 2 to 5 (M3 to M7) and stage 4 not started |
+| **Status** | stages 1 and 2 done. **Stage 3 parts 1 and 2 done**: M2 over P2.1 to P2.5 with ABI v1 open decision 5 answered, and the `latin1`/`wide` content-set pass with decision 3 reframed. M3 to M7 and stage 4 not started |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88 declared. **Not verified: no 1.88 toolchain exists in this container, only 1.94.1** |
 | **Target** (where the clock runs) | the same, one configuration (README section 5) |
@@ -85,8 +85,13 @@ separate processes.
   551 KB, so decode is allocation-bound and the codec stops mattering.
 - **The accessor guard is not measurable** on Rust, on M1 or on M2, and M2 makes 7 to 10
   reverse calls per element.
-- **UTF-8 validation costs more on M2 than on M1**: 1.19 to 1.37 against 0.88 to 1.08 of
-  prost (ABI v1 open decision 3, and it moves the wrong way for validation).
+- **UTF-8 validation on non-ASCII content is the largest single effect in the slice.** The
+  scalar validator costs 2.2 to 3.0 times its own ASCII cost and turns a 0.72 to 0.81 win
+  against prost into a 2.0 to 2.6 loss. A SIMD validator with the **same contract** removes
+  half to two thirds of that (1.27 to 1.50 of prost). ABI v1 open decision 3 is therefore
+  less about validate-against-trust than about which validator.
+- **The content set changes no decode verdict.** Every arm validates on decode, so all three
+  sets scale all arms together and the ratios move by less than the run-to-run spread.
 - **ABI v1 open decision 5 is answered.** Zero warm misses on every uniform payload; on P2.4,
   one miss per element moving 980,938 of 981,222 bytes. Isolated with two added arms whose
   mean is P2.4 exactly, and with prost carried as the floor: the mechanism costs about
@@ -109,9 +114,7 @@ right place, so the generator says what it refuses:
 
 Then **stage 4**: the RPC arm over P2.2 against tonic, 1/8/16 in flight, crossings per RPC.
 
-Also worth doing, and cheap now that the harness is in place: the `latin1` and `wide` content
-sets on the encode path with both transcoders, which is where ABI v1 open decision 3 lives
-and where validation cost is likely to move.
+Done as part 2 and no longer pending: the `latin1` and `wide` content sets.
 
 ## Correctness
 
@@ -137,6 +140,7 @@ and where validation cost is likely to move.
 | D6 | `gen/rust_abi.py` | a zero-length span went through the lossy-UTF-8 path in the generated accessor | **fixed**: empty fast path in `s_of` and `b_of` |
 | D7 | `crates/ak-core/src/lib.rs` | `ak_fail` casts its context to `EncCtxImpl` unconditionally; a decode-side failure would corrupt a `DecCtxImpl` | **open**, agreed with the aggregating session to fix with the decode error channel rather than bolt on a tag. Not reachable today: nothing on the decode path calls it, and the decode guard swallows a panic instead |
 | D8 | `gen/rust_abi.py` | the emitted arm for a singular message child read its length prefix from the root reader instead of the reader at its own depth | **fixed**. Only reachable at depth two or more, so M1 could not see it |
+| D10 | `crates/stage1-validate/src/build.rs` | the hand-written prost builder did not know M6's new packed enum field | **fixed**, and P6.1 re-validated against prost at 123,354 bytes. It was the one payload nothing had checked after `945d3cd1` |
 | D9 | `gen/rust_abi.py` | an element run did not restore the codec's open-field state, so the second and later chunks read whatever the last element left behind. It cost 448 length-prefix misses in 500 elements, and it reads `open_tag` too, so a host that chunks would write later chunks under the inner field's tag | **fixed**: every element and run entry point saves and restores the open state, and `gen/stage3.sh` step 3 carries a regression for it. **The payload set could not have caught it**: byte identity passed only because `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1 |
 
 ## What is not measured
@@ -153,9 +157,11 @@ and where validation cost is likely to move.
   family and the run form are built.
 - **Unknown fields on the wire.** The corpus (W8) does not exist, so the skip path is written
   (`Dec::skip`) and never executed by anything measured.
-- **Content sets**: ASCII only. `latin1` and `wide` are where a narrowing transcoder has work
-  to do, and they are untouched. Every string figure here is half a number in SHAPES.md's
-  sense.
+- **Content sets**: `latin1` and `wide` are measured on P1.2 and P2.2 only, encode and
+  decode. Not on the other payloads, and there is no manifest oracle for them (byte identity
+  against the prost arm instead). The unpaired-surrogate case of README section 10 item 4 is
+  **unreachable from this slice at all**: a Rust `String` cannot hold one, so the transcode
+  pair's disagreement cannot be produced here.
 - **The direct-argument path for bulk bytes** (ABI v1 section 8). Needs M5.
 - **The RPC half entirely**: tonic, concurrency, streaming, TLS, the server seam.
 - **Concurrency of the codec**: one thread throughout. The learned-width table is per context
@@ -187,5 +193,6 @@ and where validation cost is likely to move.
 | `ffi/logs/rust/stage1-isolate-zero-leaf.log` | as above | one change accounts for all eight |
 | `ffi/logs/rust/stage1-second-encoder.log` | as above, plus prost-reflect 0.16.5 | the rule is protobuf's, not prost's; the corrected sizes and hashes |
 | `ffi/logs/rust/stage1-manifest-vs-prost-after-fix.log` | as above, schema at `07d3e05` | 16 of 16. The manifest is this slice's oracle |
+| `ffi/logs/rust/stage3-content-sets.log` | as stage3-M2, plus simdutf8 0.1 as one arm; encode and decode over P1.2 and P2.2, all three content sets in ONE process | ABI v1 open decision 3: the scalar validator costs 2.2 to 3.0 times its ASCII self on non-ASCII content and loses 2.0 to 2.6 to prost; a SIMD validator with the same contract recovers half to two thirds of it; decode is unaffected in ordering |
 | `ffi/logs/rust/stage3-M2.log` | rustc 1.94.1 release, prost 0.14.4, cdylib boundary, guard on (section 6 off), ASCII, 4 shared vCPUs | M2 over P2.1 to P2.5: byte identity across four arms plus value identity across the three facade decoders; 7.004 crossings per task on decode and 10.02 on encode; ABI v1 open decision 5 answered and isolated; the two shape-coverage findings; the guard priced on a shape that makes 7 to 10 reverse calls per element |
 | `ffi/logs/rust/stage2-four-arms-M1.log` | rustc 1.94.1 release, prost 0.14.4, cdylib boundary, guard on (section 6 off), ASCII, 4 shared vCPUs | byte identity across four arms; crossing counts; the boundary is a real dynamic import; the crossing costs 1.8 ns; the ratio table above; the guard is free; UTF-8 validation costs 25-30 percent of an encode |

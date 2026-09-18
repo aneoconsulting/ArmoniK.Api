@@ -236,9 +236,50 @@ unsafe extern "C" fn tc_utf8_trusted(
     len as i32
 }
 
+/// The same contract as `tc_utf8` -- validate, and refuse malformed input -- with a SIMD
+/// validator instead of the standard library's scalar one.
+///
+/// This exists to separate two questions the content-set pass showed were being asked as
+/// one. `core::str::from_utf8` has an ASCII fast path that consumes a `usize` at a time and
+/// a byte-at-a-time DFA for everything else, so its cost is not proportional to bytes: it
+/// is proportional to NON-ASCII bytes with a much worse constant. Measured, that is the
+/// difference between validation costing 25 to 30 percent of an encode on ASCII and costing
+/// more than the whole encode on latin1 or above U+00FF. If a SIMD validator closes that,
+/// then ABI v1 open decision 3 is not "validate or trust the host" but "which validator",
+/// and the correctness contract does not have to be given up to get the speed.
+unsafe extern "C" fn tc_utf8_simd(
+    src: *const c_void,
+    len: usize,
+    mut dst: *mut u8,
+    mut cap: i32,
+    grow: ak_grow_fn,
+    sink: *mut c_void,
+) -> i32 {
+    let s = core::slice::from_raw_parts(src as *const u8, len);
+    if simdutf8::basic::from_utf8(s).is_err() {
+        return AK_ERR_TRANSCODE;
+    }
+    if (len as i64) > cap as i64 {
+        let rc = grow(sink, len as i32, &mut dst, &mut cap);
+        if rc < 0 {
+            return rc;
+        }
+        if (len as i64) > cap as i64 {
+            return AK_ERR_CAPACITY;
+        }
+    }
+    core::ptr::copy_nonoverlapping(s.as_ptr(), dst, len);
+    len as i32
+}
+
 #[no_mangle]
 pub extern "C" fn ak_tc_utf8() -> ak_transcode_fn {
     tc_utf8
+}
+
+#[no_mangle]
+pub extern "C" fn ak_tc_utf8_simd() -> ak_transcode_fn {
+    tc_utf8_simd
 }
 #[no_mangle]
 pub extern "C" fn ak_tc_utf8_trusted() -> ak_transcode_fn {

@@ -9,6 +9,57 @@
 //! No RNG: a value is a pure function of (field path, element index).
 
 use sha2::{Digest, Sha256};
+use std::cell::Cell;
+
+/// The content sets of `ffi/schema/shapes.json`. They apply only to the arms that touch the
+/// string path, and `design/SHAPES.md` says a slice reporting one string-path number without
+/// saying which set it came from has reported half a number.
+///
+/// **What they mean in Rust is not what they mean on a managed host, and the difference is
+/// the whole point of measuring them here.** On .NET or the JVM these sets make a NARROWING
+/// transcoder do real work or fail outright, because the host holds UTF-16. A Rust `String`
+/// is UTF-8 already, so there is no narrowing and no transcoding at all: what changes is the
+/// BYTE WIDTH of the same character count (1, 2 and 3 bytes respectively) and which path
+/// `str::from_utf8` takes. So these rows price validation and width in Rust; they do not
+/// price a transcoder, and a Rust figure must not be read across to a managed slice.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ContentSet {
+    /// Every id in the real schema is an ASCII GUID. The default.
+    Ascii,
+    /// U+00A0 to U+00FF: two bytes each in UTF-8.
+    Latin1,
+    /// Above U+00FF: three bytes each in UTF-8.
+    Wide,
+}
+
+thread_local! {
+    static CS: Cell<ContentSet> = const { Cell::new(ContentSet::Ascii) };
+}
+
+/// Set for the calling thread. Payload construction reads it; nothing in a timed region does.
+pub fn set_content_set(cs: ContentSet) {
+    CS.with(|c| c.set(cs));
+}
+
+pub fn content_set() -> ContentSet {
+    CS.with(|c| c.get())
+}
+
+/// Map an ASCII string into the active content set, preserving the character count so that
+/// only the byte width changes. Deterministic, like everything else here.
+fn recode(s: String) -> String {
+    match content_set() {
+        ContentSet::Ascii => s,
+        ContentSet::Latin1 => s
+            .chars()
+            .map(|c| char::from_u32(0xA0 + (c as u32).wrapping_sub(0x20) % 0x60).unwrap())
+            .collect(),
+        ContentSet::Wide => s
+            .chars()
+            .map(|c| char::from_u32(0x4E00 + (c as u32) * 37 % 0x1000).unwrap())
+            .collect(),
+    }
+}
 
 pub const VOCAB: [&str; 16] = [
     "alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet",
@@ -38,27 +89,29 @@ pub fn h64(path: &str, idx: i64) -> u64 {
 /// 36 ASCII characters, the shape of every id in the real schema.
 pub fn guid(path: &str, idx: i64) -> String {
     let d = hex(&digest(&format!("{path}#{idx}")));
-    format!(
+    recode(format!(
         "{}-{}-{}-{}-{}",
         &d[0..8],
         &d[8..12],
         &d[12..16],
         &d[16..20],
         &d[20..32]
-    )
+    ))
 }
 
 pub fn word(path: &str, idx: i64) -> String {
     let h = h64(path, idx);
-    format!("{}{}", VOCAB[(h % 16) as usize], h % 1000)
+    recode(format!("{}{}", VOCAB[(h % 16) as usize], h % 1000))
 }
 
 pub fn sentence(path: &str, idx: i64) -> String {
     let h = h64(path, idx);
-    (0..5)
-        .map(|i| VOCAB[((h >> (4 * i)) % 16) as usize])
-        .collect::<Vec<_>>()
-        .join(" ")
+    recode(
+        (0..5)
+            .map(|i| VOCAB[((h >> (4 * i)) % 16) as usize])
+            .collect::<Vec<_>>()
+            .join(" "),
+    )
 }
 
 /// 16 bytes by default: sha256("path#idx#i") concatenated, truncated.

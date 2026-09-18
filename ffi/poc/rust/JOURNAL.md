@@ -475,3 +475,103 @@ first and one construction — is a design question and it is not mine to answer
 
 **P2.1 is one element.** Its ratios are a call-rate figure with a huge spread (encode 0.70 to
 0.98 on the same arm) and should not be read as a throughput result.
+
+### 2026-09-18 — stage 3, part 2: the content sets, and ABI v1 open decision 3
+
+Done before M3 on the aggregating session's instruction, and it was the right order: the
+answer is much larger than the ASCII figures suggested and it changes what decision 3 is
+about.
+
+**First, the schema change of `945d3cd1` re-validated.** Only P6.1 moved, as stated. The
+hand-written prost builder in `crates/stage1-validate` gained the packed enum, and
+`gen/stage1.sh` is back to **16 of 16**, P6.1 included at 123,354 bytes. That was the one
+payload no protobuf implementation had seen; prost has now seen it.
+
+**What the content sets are in Rust, which is not what they are anywhere else.** On .NET and
+the JVM `latin1` and `wide` make a narrowing transcoder do real work or fail outright,
+because the host holds UTF-16. A Rust `String` is UTF-8 already: there is no narrowing and
+no transcoding. What changes is the byte width of the same character count -- 1, 2 and 3
+bytes -- and which path the UTF-8 validator takes. So these rows price **validation and
+width**, and a managed slice must not read them across. The recode lives in
+`crates/shapes-values` and holds the character count so only the width moves; there is no
+manifest for these sets, so correctness is byte identity of all four arms against the prost
+arm, which the manifest validated on ASCII.
+
+Wire sizes come out at 1.70 to 1.75 times ASCII for latin1 and 2.39 to 2.50 for wide, which
+is the expected mix of widened strings and unwidened scalars.
+
+#### The result: validation is not the question, the validator is
+
+Encode, ratio to prost, and each arm against **itself on ASCII**
+(`ffi/logs/rust/stage3-content-sets.log`):
+
+| arm | P1.2 ascii | latin1 | wide | P2.2 ascii | latin1 | wide |
+|---|---|---|---|---|---|---|
+| `core-ffi-rust`, trusted (memcpy) | 0.719 | 0.754 | 0.753 | 0.805 | 0.852 | 0.784 |
+| `core-ffi`, **validate, scalar** | 0.919 | **1.977** | **2.630** | 1.118 | **2.010** | **2.546** |
+| `core-ffi`, **validate, SIMD** | 0.934 | 1.289 | 1.266 | 1.153 | 1.503 | 1.462 |
+
+against its own ASCII:
+
+| arm | P1.2 latin1 | P1.2 wide | P2.2 latin1 | P2.2 wide |
+|---|---|---|---|---|
+| trusted | 1.059 | 1.077 | 1.079 | 1.025 |
+| validate, scalar | **2.153** | **2.964** | **1.831** | **2.411** |
+| validate, SIMD | 1.380 | 1.403 | 1.328 | 1.343 |
+
+**The scalar validator costs 2.2 to 3.0 times its own ASCII cost on non-ASCII content, and
+turns a 0.72 to 0.81 win against prost into a 2.0 to 2.6 loss.** That is far larger than the
+25 to 30 percent the ASCII pass measured, and it is the largest single effect anywhere in
+this slice.
+
+The reason is mechanical rather than about protobuf: `core::str::from_utf8` has an ASCII fast
+path that consumes a `usize` at a time and a byte-at-a-time DFA for everything else, so its
+cost is not proportional to bytes but to **non-ASCII** bytes with a much worse constant.
+Arithmetic: `core-ffi` wide against trusted wide on P1.2 is about 290 µs for roughly 500 KB
+of strings, about 1.6 cycles per byte at 2.8 GHz, which is the scalar DFA rate.
+
+**So I added one arm rather than an argument.** `ak_tc_utf8_simd` has exactly the same
+contract as `ak_tc_utf8` -- validate, and refuse malformed input -- with `simdutf8::basic`
+instead of the standard library's scalar validator. It removes **half to two thirds** of the
+penalty: 1.33 to 1.40 times its own ASCII instead of 1.83 to 2.96, and 1.27 to 1.50 of prost
+instead of 1.98 to 2.63. It is not faster on ASCII (0.93 against 0.92; inside the noise),
+because the scalar validator's ASCII path is already eight bytes an iteration.
+
+**What that does to ABI v1 open decision 3.** The decision was framed as validate-and-fail
+against validate-and-substitute against trust-the-host's-type, and the aggregating session
+refused the third on the grounds that a trusted transcoder is a correctness contract a host
+can be wrong about. That argument is untouched by this. What the measurement adds is that
+**most of what the third option was buying is available without giving up the contract at
+all**, by changing the validator rather than removing it. The remaining gap between SIMD
+validation and trusting is 1.27 to 1.50 against 0.72 to 0.85, so trusting is still worth
+something; it is no longer worth 2.6.
+
+Caveats that belong with it: one x86-64 machine with AVX2, `simdutf8::basic` dispatches on
+runtime CPU features and falls back where they are absent, and it is a dependency inside the
+core rather than in a binding. None of that is settled here.
+
+#### Decode: the content set scales everything and changes no verdict
+
+Every arm validates on decode -- prost with `str::from_utf8`, the core arms with
+`from_utf8_lossy` -- so all three sets cost all arms more, and the ratios barely move:
+
+| payload | arm | ascii | latin1 | wide |
+|---|---|---|---|---|
+| P1.2 | `core-native` | 0.895 | 0.815 | 0.888 |
+| P1.2 | `core-ffi-rust` | 0.863 | 0.802 | 0.866 |
+| P2.2 | `core-native` | 0.963 | 0.875 | 0.927 |
+| P2.2 | `core-ffi-rust` | 1.021 | 0.937 | 0.995 |
+
+Decode costs every arm 1.2 to 1.7 times its ASCII self and the ordering is unchanged, which
+also holds up the M2 finding from part 1: decode is allocation-bound and the codec is not
+where the money is. **Decision 3 does not bite on decode**, which is worth stating because
+the specification's asymmetry (the core transcodes on encode, the host on decode) is exactly
+why.
+
+#### What is still not measured on the string path
+
+The `latin1` and `wide` sets were run on P1.2 and P2.2 only, encode and decode, one thread,
+one machine. Not covered: the other payloads, the unpaired-surrogate case (which a Rust
+`String` cannot hold, so this slice cannot produce the transcode-pair disagreement README
+section 10 item 4 is about), and any content set on the bulk `bytes` path, where there is
+nothing to validate.

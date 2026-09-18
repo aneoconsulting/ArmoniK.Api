@@ -15,5 +15,8 @@ prost = "0.14"
 prost-build = "0.14"
 protox = "0.9"
 sha2 = "0.10"
+# A SIMD UTF-8 validator, used by ONE transcoder arm to separate "validation costs this"
+# from "Rust's scalar validator costs this". See ffi/logs/rust/stage3-content-sets.log.
+simdutf8 = "0.1"
 serde_json = "1"
 bytes = "1"

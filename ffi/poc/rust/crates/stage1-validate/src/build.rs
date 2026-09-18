@@ -201,6 +201,13 @@ pub fn metrics_batch(idx: i64) -> p::MetricsBatch {
         flags: (0..n)
             .map(|j| v::scalar_bool("MetricsBatch.flags", idx * 97 + j))
             .collect(),
+        // The one packed shape the real schema has. Cycled by the same rule the singular
+        // enums use, so a run reaches the large value too, and a packed field is written
+        // even when every member is the proto zero: the omit-when-zero rule is about a
+        // leaf, not about a run.
+        statuses: (0..n)
+            .map(|j| v::enum_value(&v::TASK_STATUS, idx * 97 + j))
+            .collect(),
     }
 }
 
