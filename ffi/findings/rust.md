@@ -19,6 +19,54 @@ arm did not, because its objects come from a separately hand-written builder. Tw
 construction routes were kept apart for exactly that reason and this is the first
 time the separation fired.
 
+## SUSPENDED: the ratio tables below do not reproduce, and the re-run is pending
+
+**Read this before quoting any number in this document.** The unknown-field arm's
+first timing run looked like a large regression; it was not. Rebuilding **the same
+commit** in a fresh worktree on the same machine, the same session and the same
+day reproduces neither the published ratios nor their spread:
+
+| P1.2 encode, / prost | published | HEAD `4afffd9b` | `7fb30be5` |
+|---|---|---|---|
+| `armonik` | 0.967 – 1.032 | 1.150 | 1.146 |
+| `core-native` | 0.425 – 0.438 | 0.564 | 0.544 |
+| `core-ffi-rust` | 0.706 – 0.716 | 1.011 | 0.992 |
+| P1.3 decode `core-ffi-rust` | 1.313 – 1.393 | 1.725 | — |
+
+**Every arm moved the same way, `armonik` included** — and `armonik` is prost's
+own codec over the facade types, which nothing in this slice has touched since.
+The drift is present at a commit predating both the zeroed-group work and the
+unknown-field arm, so neither caused it. The container is shared, unpinned and
+was measured on a different day; that is the likeliest cause and it is **not
+established**.
+
+**What this suspends, and it is not small.** `core-ffi-rust` on P1.2 encode is the
+difference between 0.71 (a 30 percent win over prost) and 1.01 (parity). The
+headline that the core is *faster* than prost through the C ABI on encode rests on
+the published column, and the published column does not currently reproduce. Until
+a controlled re-run says which column is right:
+
+- **Treat every absolute ratio in this document as provisional**, including the
+  encode win, the decode parity and the P1.3 inversion's magnitude.
+- **What survives is what was measured as a delta inside one process**, between
+  arms in the same interleaved rounds with prost as the control in that same
+  process: the inlining audit's three-term split, the zeroed-group deltas, the
+  unknown-bag deltas, the crossing counts (which are counts, not times), and the
+  byte-identity results. Those are differences taken in one build and do not depend
+  on the absolutes.
+- **The large-effect qualitative findings are likely but not confirmed**: the P1.3
+  inversion's *sign*, UTF-8 validation at 2.0–2.6, decode converging to parity as
+  containers grow. Each needs re-confirming rather than assuming.
+
+**What R4 actually says, and what this sharpens it to.** R4 already held that
+absolutes do not travel between runs on shared hardware and that ratios within one
+process do. This says the second half is too generous: a ratio formed in one
+process is reproducible *within that build*, and **not necessarily across builds
+of the same source** on this container. Every comparison must therefore be taken
+in one build and one session, and a table assembled from two is not a table.
+
+A re-run of the M1 and M2 tables under those conditions is the outstanding item.
+
 ## Configuration, once, for everything below
 
 4 vCPU Intel Xeon at 2.80 GHz, 15 GB, Ubuntu 24.04.4, Linux 6.18.44 x86_64, in a

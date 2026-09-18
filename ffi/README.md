@@ -71,6 +71,11 @@ Written down so that the report cannot quietly inherit an assumption.
 - **Python has no POC at all.** It is also the language whose incumbent is
   already native (protobuf-python on upb, grpcio on the gRPC C core), so it is
   the one where the crossing argument could land differently from every other.
+- **The Rust slice's quantitative results are suspended pending a controlled
+  re-run**, and the encode win is the claim most at risk: see the head of
+  [`findings/rust.md`](findings/rust.md). What is unaffected is anything measured
+  as a delta inside one build, plus the crossing counts and the byte-identity
+  results.
 - **The Rust slice's codec half is done and its behavioural half is untouched.**
   Every shape and payload is measured (section 4.1, [`findings/rust.md`](findings/rust.md)):
   a crossing costs 1.8 ns; encode is 0.41 to 0.57 of prost natively and 0.79 to
@@ -396,8 +401,16 @@ control**: the same generated codec emitted into the host language, over the sam
 facade objects. The control is not optional: on Java it is the arm that changed
 the recommendation.
 
-**R4. Every ratio is formed inside one process on one runtime.** Absolutes do not
-travel between runs on shared hardware; ratios within one process do. Any
+**R4. Every ratio is formed inside one process, on one runtime, in one build.**
+Absolutes do not travel between runs on shared hardware, and **ratios do not
+travel between builds of the same source either** — which is stronger than this
+rule used to claim and was learned by rebuilding an unchanged commit. The Rust
+slice's `core-ffi-rust` on P1.2 encode reads 0.71 in the published table and 1.01
+from a fresh worktree at the same commit, with every other arm moving the same way
+including one whose code had not changed. So a table assembled from two builds is
+not a table; what survives a rebuild is a **delta taken between arms in the same
+interleaved rounds**, and that is the form a figure should take wherever the
+question allows it. Any
 comparison that cannot share a process (two incumbent versions, two runtimes)
 says so and carries an in-process control column.
 
