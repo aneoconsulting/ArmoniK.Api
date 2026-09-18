@@ -388,6 +388,91 @@ pub(crate) unsafe fn enc_blob(cx: *mut EncCtxImpl, tag: u32, site: u32, s: &ak_s
     true
 }
 
+/// ABI v1 open decision 11 candidate: the decode side's capture buffer.
+///
+/// Unknown runs are collected as spans into the buffer the host handed in -- the core
+/// copies nothing and allocates nothing, which is the property the whole decode design
+/// rests on -- and delivered in batches, the way an element run is, so the cost is
+/// crossings per chunk and not per field. The host materialises them if it intends to
+/// re-encode, because that buffer may be recycled.
+///
+/// `cb == None` is today's behaviour and the case that has to stay free: an unknown tag is
+/// skipped and dropped, and the only thing the capture costs is one null test on a branch
+/// the existing payload set never takes.
+pub(crate) struct UnkBuf {
+    pub cb: Option<ak_unk_f>,
+    pub ctx: *mut ak_dec_ctx,
+    pub obj: *mut c_void,
+    /// Which element of the enclosing run the spans being collected belong to.
+    pub token: i64,
+    pub spans: [ak_uspan; UNK_CHUNK],
+    pub n: usize,
+}
+
+pub(crate) const UNK_CHUNK: usize = 32;
+
+impl UnkBuf {
+    #[inline]
+    pub fn new(cb: Option<ak_unk_f>, ctx: *mut ak_dec_ctx, obj: *mut c_void) -> Self {
+        UnkBuf {
+            cb,
+            ctx,
+            obj,
+            token: AK_TOKEN_ROOT,
+            spans: [ak_uspan { token: 0, off: 0, len: 0 }; UNK_CHUNK],
+            n: 0,
+        }
+    }
+
+    #[inline(always)]
+    pub unsafe fn push(&mut self, off: usize, len: usize) {
+        if self.cb.is_none() {
+            return;
+        }
+        self.spans[self.n] = ak_uspan { token: self.token, off: off as u32, len: len as u32 };
+        self.n += 1;
+        if self.n == UNK_CHUNK {
+            self.flush();
+        }
+    }
+
+    #[inline]
+    pub unsafe fn flush(&mut self) {
+        if self.n == 0 {
+            return;
+        }
+        if let Some(cb) = self.cb {
+            ak_rt::bump!((*(self.ctx as *mut DecCtxImpl)).c, reverse);
+            cb(self.ctx, self.obj, self.spans.as_ptr(), self.n as i32);
+        }
+        self.n = 0;
+    }
+}
+
+/// ABI v1 open decision 11 candidate: the unknown-field bag, appended verbatim.
+///
+/// The bytes ALREADY carry their own tags and lengths -- they are the raw runs a decoder
+/// captured and could not name -- so this is `enc_blob` with the key and the length prefix
+/// removed, and nothing else. Empty is `tc == NULL`, the existing absent convention, so a
+/// message with no unknown fields pays one null test and writes nothing.
+///
+/// It does NOT go through a transcoder, and the slot is two words rather than three.
+/// Every other blob slot carries a transcoder because the host's representation may differ
+/// from the wire's; the bag's cannot, because it IS wire bytes the decoder captured. With
+/// decision 3 settled, `ak_tc_bytes` and `ak_tc_utf8_trusted` are already the same memcpy,
+/// so a transcoder here would be a pointer whose only legal value is the identity -- dead
+/// weight on every group of every message, and an invitation to set it wrong.
+#[inline]
+pub(crate) unsafe fn enc_raw(cx: *mut EncCtxImpl, s: &ak_blob) -> bool {
+    if s.len == 0 {
+        return true;
+    }
+    let e = &mut (*cx).e;
+    e.buf
+        .extend_from_slice(core::slice::from_raw_parts(s.data as *const u8, s.len));
+    true
+}
+
 /// A crossing and nothing else, so the harness can price the boundary itself in the same
 /// process and the same build as the arms. If this measures zero, the `core-ffi-rust` arm
 /// is not crossing anything and every figure taken from it is a figure about the

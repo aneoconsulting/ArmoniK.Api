@@ -39,6 +39,8 @@ gen/inlining.sh             arm 1: the inlining term, separated from the interfa
 gen/inline_check.sh         R5's control half: is core-native fused into the loop?
                             Answered from the built artifact. Runs from stage2.sh and stage3.sh
 gen/zeroed.sh               arm 2: the zeroed-group element fill, decision 9 candidate
+gen/unknown.sh              the unknown-field bag, decision 11
+gen/unknown_predicate.py    does the bag break the batching predicate? Run this FIRST
 
 crates/shapes-prost         protox 0.9 -> prost-build 0.14 over the generated .proto
 crates/shapes-values        the value rules of emit/values.py, hand-re-derived
@@ -51,7 +53,7 @@ crates/harness              the binding, the arms table, conformance, counts, be
 ```
 
 Binaries: `conformance` (byte identity), `counts` (`--features count`), `bench`,
-`shapes`, `content`, `rpcbench`, `decpolicy`, `inlining`, `zeroed`.
+`shapes`, `content`, `rpcbench`, `decpolicy`, `inlining`, `zeroed`, `unknown`.
 Features: `guard` (on by default, ABI v1 section 5), `count`, and the decode UTF-8 policy
 `dec-reject` / `dec-reject-simd` (default: lossy).
 
@@ -148,6 +150,33 @@ separate processes.
   changes is only the host's fill — an unconditional store per field becomes a bulk memset
   plus a conditional store. The 5.4/24.4 figure is the right threshold to judge the cost
   against, and is not the cost being paid back.
+- **THE PUBLISHED M1/M2 RATIOS NO LONGER REPRODUCE ON THIS CONTAINER**, measured today in
+  two fresh worktrees at `4afffd9b` (HEAD) and `7fb30be5`. P1.2 encode: `armonik` 1.150 /
+  1.146 against a published 0.967–1.032; `core-native` 0.564 / 0.544 against 0.425–0.438;
+  `core-ffi-rust` 1.011 / 0.992 against 0.706–0.716. P1.3 decode `core-ffi-rust` 1.725
+  against 1.313–1.393. **Every arm moved together, including `armonik`, which is prost's own
+  codec over the facade types and touches nothing this slice has changed.** The bisect shows
+  the drift predates the zeroed-group work, so it is not a regression from it. The most
+  likely cause is the container. **Consequence: absolutes and cross-log ratios from this
+  slice should be treated as reproducible only within their own run**, and every new figure
+  is a delta formed inside one process.
+- **The unknown-field bag answers decision 11 for Rust** (`stage3-unknown-fields.log`).
+  **Structure first**: as one opaque `bytes` blob the bag changes the leafness of no message;
+  as a repeated field it takes the schema from 9 leaf messages to **0** and every batched run
+  fails. Run `gen/unknown_predicate.py`. **The empty bag — the case production is always in —
+  is free on decode** (capture on / off 0.978–1.002, per-element deltas straddling zero) and
+  **costs 1 to 12 percent of an encode**: P1.2 +2.7–4.7% total fill / +2.5–3.4% zeroed;
+  P1.3 +7.8–12.2% / **+0.3–0.7%**; P2.2 +0.7–1.7% / +3.9–9.4%; P2.5 +4.2–4.6% / +2.0–8.4%.
+  **The decision-9 interaction goes both ways**: on P1.3 the memset absorbs the extra slot
+  and the unconditional stores do not; on P2.2 the reverse. A slice pricing the bag under one
+  fill alone would have got the sign wrong on half the payloads.
+- **Round-trip: the bag's BYTES are preserved exactly; the message's LAYOUT is not** when an
+  unknown tag sits numerically between two known ones, because the bag is appended rather
+  than merged (by instruction). That case is validated semantically — decode, re-encode,
+  decode, compare values including the retained blob. **Migration note, not a defect**: a
+  message round-tripped through the core is no longer byte-comparable with one round-tripped
+  through protobuf-java, whose `UnknownFieldSet` writes in field-number order. Fresh encodes
+  from a value are unaffected, so the manifest is untouched.
 - **The oneof and explicit presence cost no crossings at all**: 3 for 200 elements in both
   directions. Both ride in the group.
 - **A 4 MB bulk decode costs exactly one copy in the core and twelve in prost.** P5.4 decode
@@ -341,6 +370,13 @@ Four, all reported to the aggregating session and none fixed here:
   of a thousand results, and that is a behavioural cost this slice cannot put a number on.
 - **The opt-in diagnostic encode mode** (decision 3's surviving encode-side value) is not
   built, by instruction.
+- **The unknown-field bag**: the NON-empty bag's throughput (the vectors are tens of bytes,
+  so "what retention costs when it is actually retaining" is unpriced); the host data-model
+  cost of 24 bytes per message instance, which every arm in that build carries so it cancels
+  in the deltas; a oneof's message member, which gets no bag and is handed a null capture
+  buffer rather than the wrong one; the inner slots of a non-leaf element; decode-side
+  crossings for unknown runs, which the counting build was not extended to count because the
+  payload set has none; and merge-by-tag, not built and not priced by instruction.
 - **The zeroed-group variant**: encode only, top-level element group only, M1/M2/M3 only.
   The nested groups inside an element keep the total fill and are not priced separately, and
   what the variant costs a host that is not Rust is a property of that host's branches, not
@@ -387,6 +423,7 @@ Four, all reported to the aggregating session and none fixed here:
 | `ffi/logs/rust/stage3-M2-M4-revalidated.log` | as stage3-M2 | M2 and M4 re-measured after `0c2d4d7f`. Crossings and decision 5 unchanged to the digit; ratios tighter and two moved toward parity. **Supersedes the M2 rows of `stage3-M2.log` and the M4 rows of `stage3-M4-M7.log`** |
 | `ffi/logs/rust/stage3-M4-M7.log` | as stage3-M2, ASCII, guard on | M4 to M7: byte identity on P4.1, P5.1 to P5.4, P6.1 and P7.1, with the class labelled per row; ABI v1 section 8's generator-time refusal exercised; the adapter's two wire forms checked by state; M7 by decode and permutation |
 | `ffi/logs/rust/stage3-M3.log` | as stage3-M2, ASCII, guard on | M3: byte identity on P3.1; explicit presence as three cases x three fields x four arms, all agreeing; the oneof by member including the payload-free one; seven unknown-field vectors, hand-built; 3 crossings per 200 elements in both directions; one timing row set |
+| `ffi/logs/rust/stage3-unknown-fields.log` | rustc 1.94.1 release, prost 0.14.4, cdylib boundary, guard on, ASCII; three runs, plus the predicate check and a positive control | **ABI v1 open decision 11, as an arm.** The bag as ONE bytes blob leaves the batching predicate untouched; as a repeated field it destroys it (9 leaf messages to 0). The empty bag is free on decode and costs 1–12% of an encode, with the decision-9 interaction going both ways. The bag's bytes round-trip exactly; the layout does not when an unknown tag is interleaved. **Also records that the published M1/M2 ratios no longer reproduce on this container** |
 | `ffi/logs/rust/stage3-zeroed-group.log` | rustc 1.94.1 release, prost 0.14.4, cdylib boundary, guard on, ASCII; six runs, plus three deliberate-break positive controls | **ABI v1 open decision 9 candidate, as an arm.** The zeroed-group element fill: 0.719–0.766 of the total fill on M1's absent path (the encode inversion goes 1.11–1.19 → 0.82–0.86 of prost), 0.986–1.014 on M1's full path, 0.970–0.985 on P2.2, 0.983–1.007 on P2.5. Carries the three controls that prove the zeroed path is the one running and that present-and-zero is load-bearing |
 | `ffi/logs/rust/stage3-inlining-term.log` | rustc 1.94.1 release (lto OFF, PIE), prost 0.14.4, cdylib boundary, guard on, ASCII; five arms in one process, three runs, plus an artifact check | **The audit of the per-element interface cost.** `core-native` is NOT inlined into the benchmark loop in the binaries the published figures came from (largest closure 472 B against a 4,299/11,311 B traversal), so there was no inlining advantage to subtract. Two added no-boundary arms confirm it: the inlining term is −0.10 to +0.01 ns/element on P1.3 encode against 11.3–11.4 for the group. Also finds that P1.1/P1.2 decode should carry no per-element figure at all |
 | `ffi/logs/rust/stage3-decode-utf8-policy.log` | rustc 1.94.1 release, prost 0.14.4, cdylib boundary, guard on; three POLICY BUILDS run round robin with a rotating order, plus one in-process table; simdutf8 0.1, AVX2 present | **ABI v1 open decision 3, third framing.** Validate-and-reject on decode costs 0.54 to 1.10 of today's lossy string path depending on content set, and 0.36 to 0.71 with `simdutf8::basic`, because `from_utf8_lossy` already validates. It moves the decode ratio against prost in this slice's favour and makes the comparison like-for-like, since prost rejects too. Carries the malformed-input case, the sticky-slot regression (D17) and the ordering hazard (D18) |

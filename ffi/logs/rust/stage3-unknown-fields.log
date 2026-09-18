@@ -1,0 +1,646 @@
+# ffi/logs/rust/stage3-unknown-fields.log
+# W3: the unknown-field bag, built as an ARM and priced. ABI v1 open decision 11.
+# 2026-09-18
+#
+# CONFIGURATION (R7)
+#   machine        4 vCPU Intel Xeon @ 2.80GHz, 15 GB, Ubuntu 24.04.4, Linux 6.18.44 x86_64,
+#                  container, NOT an isolated host. No CPU pinning, no governor control.
+#   rust           rustc/cargo 1.94.1, profile release (opt-level 3, lto off, PIE)
+#   MSRV declared  1.88. NOT VERIFIED: no 1.88 toolchain exists in this container.
+#   incumbent      prost 0.14.4, carried as the in-process control on every timed row
+#   LINKAGE        cdylib (libak_core.so), dynamic linker. Not a static link.
+#   guard          on
+#   content        ASCII.
+#   class          M1 (P1.1-P1.3), M2 (P2.1-P2.5) and M3 (P3.1) are all REAL messages.
+#
+# ============================================================================
+# READ THIS FIRST: THE PUBLISHED M1/M2 RATIOS DO NOT REPRODUCE TODAY, AND IT IS
+# NOT THIS ARM'S DOING
+# ============================================================================
+#   Before trusting anything below against the published table, note that the published
+#   table no longer reproduces on this container AT THE COMMIT IT WAS TAKEN FROM. Measured
+#   in two fresh worktrees today, same machine, same session:
+#
+#     P1.2 encode, / prost        published        HEAD (4afffd9b)   7fb30be5
+#       armonik                   0.967 - 1.032    1.150             1.146
+#       core-native               0.425 - 0.438    0.564             0.544
+#       core-ffi-rust             0.706 - 0.716    1.011             0.992
+#     P1.3 decode, core-ffi-rust  1.313 - 1.393    1.725             -
+#
+#   Every arm moved the same way, including `armonik`, which is prost's own codec over the
+#   facade types and touches nothing this slice has changed since. A bisect to `7fb30be5`
+#   -- before the zeroed-group work, before this one -- shows the same drift, so it is not
+#   a regression introduced by either. The most likely cause is the container: it is shared,
+#   unpinned, and the ratios were taken on a different day.
+#
+#   **What follows from it for this log**: every number below is a delta formed INSIDE ONE
+#   PROCESS between two arms that ran in the same interleaved rounds, with prost as the
+#   control in that same process. Those deltas are what this log reports. The absolute
+#   ratios to prost are printed for reproducibility and must NOT be read against the
+#   published M1/M2 table.
+#
+# ============================================================================
+# THE GATING QUESTION, ANSWERED FROM THE GENERATOR'S OWN PREDICATE
+# ============================================================================
+#   ABI v1 7.2: a repeated field may be handed over as a run if and only if its element type
+#   contains no repeated and no map field, transitively. If the bag were modelled as a
+#   REPEATED thing, every element type in the schema would acquire a repeated field.
+#
+#   `gen/unknown_predicate.py` puts a bag into an in-memory copy of the schema under each
+#   modelling and runs `emit/shapes.py:is_leaf` -- the predicate the generator itself uses,
+#   imported and not re-derived (R1) -- over the result. Section 1 below is its output:
+#
+#     leaf messages today                 9 of 19
+#     leaf messages, a REPEATED bag       0 of 19     <- every element type stops batching
+#     leaf messages, ONE bytes blob       9 of 19     <- no message changes
+#
+#   A repeated bag is refused on structure alone, before any measurement: it would cost
+#   `ResultRaw`'s batched run, which is what turns 1000 rows into 9 crossings. Everything
+#   below is built on the one-blob model and on nothing else.
+#
+# ============================================================================
+# WHAT IS BUILT
+# ============================================================================
+#   encode   one slot per group (`ak_ufix_*`), appended verbatim by the codec after the
+#            known fields. A nested message gets its OWN bag, so a child slot is the child's
+#            `u` group. Four entry points exist per root -- total fill and zeroed, each with
+#            and without the bag -- because decision 9 interacts: the bag adds a slot to
+#            every group, so the total fill and the per-chunk memset both grow.
+#
+#   THE SLOT IS TWO WORDS, NOT THREE, and this is a deliberate choice worth stating because
+#   a reader will otherwise wonder whether the bag was left on a transcoding path. Every
+#   other blob slot carries a transcoder pointer because the host's representation may
+#   differ from the wire's. The bag's cannot: it IS wire bytes a decoder captured. With
+#   decision 3 settled, `ak_tc_bytes` and `ak_tc_utf8_trusted` are already the same memcpy,
+#   so a transcoder here would be a pointer whose only legal value is the identity -- dead
+#   weight on every group of every message and an invitation to set it wrong. Emptiness is
+#   `len == 0`, which is the test ABI v1 section 8's direct-argument path already uses, so
+#   this is not a new convention. The saving is 8 bytes per group per message, which is
+#   directly the quantity decisions 9 and 11 interact through.
+#
+#   decode   unknown runs captured as spans into the buffer the host handed in and delivered
+#            as a SIDE RUN keyed by token -- `ak_uspan { token, off, len }` -- not as a slot
+#            in the element group. So the core copies nothing, allocates nothing, and the
+#            element group is not touched at all, which is why the predicate never even sees
+#            the decode half. The host materialises the bytes if it intends to re-encode,
+#            because that buffer may be recycled.
+#
+#   host     `unknown_fields: Vec<u8>` on every facade type. NOT a schema field: nothing
+#            tags it, `prost_impl.rs` does not write it and `core_native.rs` does not read
+#            it, so every existing arm is unaffected and byte identity on the payload set is
+#            unchanged (section 2).
+#
+# ============================================================================
+# THE CORRECTNESS PROPERTY, STATED PRECISELY, BECAUSE IT IS DELIBERATELY RELAXED
+# ============================================================================
+#   The bag is APPENDED AT THE END. No merge by tag, by instruction. That splits the
+#   round-trip property in two and this log checks both separately:
+#
+#   1. THE BAG'S BYTES ARE PRESERVED EXACTLY. Still a byte property, still checkable: the
+#      retained blob against the unknown runs of the input. Column `bag == input`.
+#   2. THE MESSAGE'S BYTE LAYOUT IS NOT, when an unknown tag sits numerically between two
+#      known ones. Canonical form ascends by tag and the bag goes last, so decode-then-
+#      re-encode is NOT byte-identical to the input for that case. Column `layout ident`,
+#      with `expected` saying which vectors that applies to. The gate is agreement with the
+#      expectation, not identity: a vector that became identical when it should not have
+#      would mean the bag had silently been merged.
+#   3. SO THAT CASE IS VALIDATED SEMANTICALLY: decode, re-encode, decode again, compare
+#      values -- which includes the retained blob, since it is a field of the value.
+#      Column `semantic RT`.
+#
+#   A PROPERTY THE MIGRATION NOTE NEEDS, not a defect: a message round-tripped through the
+#   core is no longer byte-comparable with the same message round-tripped through
+#   protobuf-java, whose `UnknownFieldSet` writes in field-number order. FRESH ENCODES FROM
+#   A VALUE ARE UNAFFECTED, so `ffi/schema/generated/manifest.json` and everything resting
+#   on it are untouched -- section 2 is the evidence.
+#
+# ============================================================================
+# MEASUREMENT HAZARDS (R9)
+# ============================================================================
+#   1. The drift above. Read deltas, not absolutes.
+#   2. Container, shared vCPUs, no pinning; spread is printed per row and exceeds 50 percent
+#      on some rows. Three runs are printed.
+#   3. The empty-bag decode cost is one `let s0 = d.pos;` per field in every decode loop and
+#      one null test on a branch the existing payload set never takes. It is a difference of
+#      two large numbers and lands inside the spread on most rows; treat a sub-nanosecond
+#      per-element figure as "not measurable here", not as a value.
+#   4. The bag's cost to the HOST's data model -- 24 bytes per message instance for a
+#      `Vec<u8>` -- is carried by every arm in this build, including the ones that ignore
+#      the bag. It is therefore NOT in the bag-versus-no-bag deltas below, which compare two
+#      arms over the same objects. It is real and it is unmeasured here; separating it would
+#      need two facade type sets in one process, which this slice does not have.
+#
+# ============================================================================
+# WHAT THIS LOG SAYS, BEFORE THE NUMBERS
+# ============================================================================
+#   1. THE BAG DOES NOT COST THE BATCHING. As one opaque `bytes` blob it changes the
+#      leafness of no message; as a repeated field it would take the schema from 9 leaf
+#      messages to 0. Structure, from the generator's own predicate, before any timing.
+#   2. THE EMPTY BAG IS FREE ON DECODE and NOT free on encode. Decode, capture on against
+#      capture off: 0.978 to 1.002, per-element deltas straddling zero on every payload --
+#      not measurable here. Encode, bag against no bag, same fill, same process:
+#        P1.2  total fill +2.7..+4.7%   zeroed +2.5..+3.4%
+#        P1.3  total fill +7.8..+12.2%  zeroed +0.3..+0.7%
+#        P2.2  total fill +0.7..+1.7%   zeroed +3.9..+9.4%
+#        P2.5  total fill +4.2..+4.6%   zeroed +2.0..+8.4%
+#      In production the bag is ALWAYS empty -- ArmoniK ships both sides from one release --
+#      so this is the number decision 11 is actually deciding on, and it is one to five
+#      percent of an encode on the shapes that move, with an outlier at twelve.
+#   3. AND THE DECISION-9 INTERACTION IS REAL AND GOES BOTH WAYS. On P1.3, where the fill IS
+#      the cost, the bag costs 8 to 12 percent under the total fill and is FREE under the
+#      zeroed variant -- the memset absorbs the extra slot, the unconditional stores do not.
+#      On P2.2 it is the other way round: 0.7 to 1.7 percent under the total fill and 3.9 to
+#      9.4 under the zeroed one. Neither fill dominates, and a slice that priced the bag
+#      under one fill alone would have got the sign of the interaction wrong on half the
+#      payloads.
+#   4. THE BAG'S BYTES ROUND-TRIP EXACTLY; THE MESSAGE'S LAYOUT DOES NOT when an unknown tag
+#      sits between two known ones. Both are checked separately and the second is validated
+#      semantically, per the instruction to append rather than merge.
+#   5. WHAT IS STILL NOT PRICED: the 24 bytes a `Vec<u8>` adds to every message instance in
+#      the host's own data model. Every arm in this build carries it, so it cancels in the
+#      deltas above. It is real, it lands on hosts that never use the bag, and separating it
+#      would need two facade type sets in one process.
+#
+===== 0. generator is current (R1) =====
+ok    crates/facade/src/generated/types.rs
+ok    crates/facade/src/generated/prost_impl.rs
+ok    crates/facade/src/generated/build.rs
+ok    crates/facade/src/generated/core_native.rs
+ok    crates/ak-abi/src/generated/abi.rs
+ok    crates/ak-core/src/generated/codec.rs
+ok    crates/harness/src/generated/binding.rs
+
+===== 1. THE GATING QUESTION: does the bag break the batching predicate? =====
+# ABI v1 7.2's batching predicate, under two models of the unknown-field bag
+#   predicate: emit/shapes.py:is_leaf, imported and not re-derived (R1)
+#   a message is a leaf if it has no repeated and no map field, TRANSITIVELY
+
+message                      today    A: repeated bag    B: one bytes blob
+DualResponse                 False    False              False
+Duration                     True     False              True
+Empty                        True     False              True
+ListMetricsResponse          False    False              False
+ListProbeResponse            False    False              False
+ListResultsResponse          False    False              False
+ListTaskSummaryResponse      False    False              False
+ListTasksDetailedResponse    False    False              False
+MetricsBatch                 False    False              False
+Pair                         True     False              True
+Probe                        True     False              True
+ResultRaw                    True     False              True
+TaskDetailed                 False    False              False
+TaskOptions                  False    False              False
+TaskOutput                   True     False              True
+TaskSummary                  False    False              False
+Timestamp                    True     False              True
+UploadResultData             True     False              True
+UploadResultDataMessage      True     False              True
+
+leaf messages today                : 9 of 19
+leaf messages, A (repeated bag)    : 0 of 19
+leaf messages, B (one bytes blob)  : 9 of 19
+
+VERDICT
+  A: the bag as a repeated field takes the schema to 0 leaf messages. Every
+     element type in the payload set stops batching, including ResultRaw, which is
+     what turns 1000 rows into 9 crossings. This model is refused on structure
+     alone, before any measurement.
+  B: the bag as ONE opaque bytes blob changes the leafness of 0 messages.
+     The predicate is untouched, so the batched run survives and the bag costs
+     what a singular `bytes` field costs and nothing structural.
+
+0 message(s) would lose batching under model B
+
+===== 2. the default path is untouched: conformance, every arm, every payload =====
+
+VERDICT: every arm is byte-identical to the validated manifest on every payload it covers.
+
+===== 3. the boundary is real, and the no-boundary control is one (R5) =====
+===== target/release/bench =====
+
+-- the traversal, as emitted (size in bytes, decimal) --
+  4315       facade::generated::core_native::enc_list_results_response
+  11642      facade::generated::core_native::decode_list_results_response
+  20         facade::generated::core_native::encode_into_list_results_response
+
+-- the benchmark closures, largest first (size in bytes, decimal) --
+  472        bench::main::{{closure}}
+  374        bench::main::{{closure}}
+  374        bench::main::{{closure}}
+  310        bench::main::{{closure}}
+  294        bench::main::{{closure}}
+
+
+===== 4. boundary-call counts, DEFAULT path, unchanged by the added arm =====
+payload class    direction  elements  forward  reverse  crossings  transc           prefix  grows
+P1.1    real     enc cold          4        0        0          0       0                0      0
+P1.1    real     enc warm          4        0        0          0       0                0      0
+                   per elem                                  0.000                                
+P1.1    real     decode            4        0        0          0       0                0      0
+                   per elem                                  0.000                                
+P1.2    real     enc cold       1000        0        0          0       0                0      0
+P1.2    real     enc warm       1000        0        0          0       0                0      0
+                   per elem                                  0.000                                
+P1.2    real     decode         1000        0        0          0       0                0      0
+                   per elem                                  0.000                                
+P1.3    real     enc cold        300        0        0          0       0                0      0
+P1.3    real     enc warm        300        0        0          0       0                0      0
+                   per elem                                  0.000                                
+P1.3    real     decode          300        0        0          0       0                0      0
+                   per elem                                  0.000                                
+
+==============================================================================
+===== 5. run 1 =====
+==============================================================================
+# the unknown-field bag (ABI v1 open decision 11), as an ARM
+#   guard: on
+#   counting build: no
+#   rounds: 15, interleaved, one process (R4)
+
+## 1. byte identity against the validated manifest, EMPTY bag
+#   in production the bag is always empty: ArmoniK ships both sides from one
+#   release, so retention is pure overhead until a version skews.
+payload arm                           want B     got B bytes    sha256  
+P1.1    core-ffi-rust                    858       858 ok       ok      
+P1.1    core-ffi-unk                     858       858 ok       ok      
+P1.1    core-ffi-unk+zeroed              858       858 ok       ok      
+P1.2    core-ffi-rust                 218121    218121 ok       ok      
+P1.2    core-ffi-unk                  218121    218121 ok       ok      
+P1.2    core-ffi-unk+zeroed           218121    218121 ok       ok      
+P1.3    core-ffi-rust                    605       605 ok       ok      
+P1.3    core-ffi-unk                     605       605 ok       ok      
+P1.3    core-ffi-unk+zeroed              605       605 ok       ok      
+P3.1    core-ffi-rust                  12097     12097 ok       ok      
+P3.1    core-ffi-unk                   12097     12097 ok       ok      
+P2.1    core-ffi-rust                   1037      1037 ok       ok      
+P2.1    core-ffi-unk                    1037      1037 ok       ok      
+P2.1    core-ffi-unk+zeroed             1037      1037 ok       ok      
+P2.2    core-ffi-rust                 540422    540422 ok       ok      
+P2.2    core-ffi-unk                  540422    540422 ok       ok      
+P2.2    core-ffi-unk+zeroed           540422    540422 ok       ok      
+P2.3    core-ffi-rust                 647024    647024 ok       ok      
+P2.3    core-ffi-unk                  647024    647024 ok       ok      
+P2.3    core-ffi-unk+zeroed           647024    647024 ok       ok      
+P2.4    core-ffi-rust                 979465    979465 ok       ok      
+P2.4    core-ffi-unk                  979465    979465 ok       ok      
+P2.4    core-ffi-unk+zeroed           979465    979465 ok       ok      
+P2.5    core-ffi-rust                  19632     19632 ok       ok      
+P2.5    core-ffi-unk                   19632     19632 ok       ok      
+P2.5    core-ffi-unk+zeroed            19632     19632 ok       ok      
+
+## 2. ROUND-TRIP BYTE IDENTITY on messages carrying unknown fields
+#   decode with the capture on, re-encode with the bag, compare with the input.
+#   None of the existing vectors test this: today the unknowns are dropped and
+#   the re-encode is legitimately shorter.
+
+#   THE ORDERING QUESTION, answered rather than chosen silently: the bag is
+#   APPENDED AT THE END of the message. Canonical form ascends by tag, so an
+#   unknown tag that sits numerically between two known tags re-encodes in a
+#   different ORDER -- same fields, same bytes, different position. The
+#   `expected` column says which vectors that applies to, and the gate is
+#   agreement with the expectation, not identity.
+
+vector                                           in B  out B bag == input layout ident expected  semantic RT
+all four wire types, AFTER every known field       62     62 yes          yes          yes       yes
+one unknown BEFORE every known field               10     10 yes          no           no        yes
+an unknown tag BETWEEN two known tags (the ordering case)     10     10 yes          no           no        yes
+two elements, each with its own unknown field      16     16 yes          yes          yes       yes
+
+## 3. positive control: the DEFAULT decode must NOT retain
+  vector                 all four wire types, AFTER every known field
+  default decode kept    0 bytes  (must be 0)
+  default re-encode      6 B against 62 B in  (must be SHORTER)
+  -> ok: the capture is doing the work, not the default path
+
+## 4. the EMPTY-bag cost, one process, interleaved
+
+payload dir     arm                   median ns       min ns   / prost  spread %
+P1.2    encode  prost                  157421.1     155954.7     1.000       7.7
+P1.2    encode  total fill             154032.7     152320.7     0.978      14.1
+P1.2    encode  total fill + bag       161326.9     159386.2     1.025       3.2
+P1.2    encode  zeroed                 157169.8     155025.4     0.998       9.9
+P1.2    encode  zeroed + bag           161384.1     159739.5     1.025       2.4
+
+P1.2    decode  prost                  643893.3     633163.2     1.000      11.5
+P1.2    decode  no capture             521130.0     514864.9     0.809      13.2
+P1.2    decode  capture on             522339.6     514193.8     0.811      63.9
+
+P1.3    encode  prost                    5443.7       5396.0     1.000       7.7
+P1.3    encode  total fill               7145.9       6994.2     1.313       3.2
+P1.3    encode  total fill + bag         8015.2       7956.6     1.472       5.3
+P1.3    encode  zeroed                   5034.3       4970.0     0.925      59.6
+P1.3    encode  zeroed + bag             5047.3       4958.7     0.927       5.1
+
+P1.3    decode  prost                   10586.7      10271.9     1.000      19.0
+P1.3    decode  no capture              17504.7      17357.4     1.653      18.5
+P1.3    decode  capture on              17522.0      17365.1     1.655      11.5
+
+P2.2    encode  prost                  552921.1     545352.1     1.000       7.2
+P2.2    encode  total fill             578181.9     567496.2     1.046       4.9
+P2.2    encode  total fill + bag       586238.4     577926.8     1.060       8.5
+P2.2    encode  zeroed                 542842.5     537597.9     0.982       3.4
+P2.2    encode  zeroed + bag           594006.4     584204.7     1.074      20.7
+
+P2.2    decode  prost                 2093809.7    2065320.8     1.000      40.4
+P2.2    decode  no capture            2009772.4    1971110.0     0.960      21.7
+P2.2    decode  capture on            1993962.3    1979274.3     0.952      33.7
+
+P2.5    encode  prost                   14922.6      14739.2     1.000       4.7
+P2.5    encode  total fill              17435.2      17276.5     1.168       4.0
+P2.5    encode  total fill + bag        18231.2      17918.4     1.222       6.2
+P2.5    encode  zeroed                  17026.9      16823.3     1.141       2.3
+P2.5    encode  zeroed + bag            18456.8      18311.8     1.237       6.7
+
+P2.5    decode  prost                   74449.6      72894.1     1.000       3.1
+P2.5    decode  no capture              70780.6      68848.7     0.951      10.5
+P2.5    decode  capture on              70258.6      68904.0     0.944      12.4
+
+## 5. what the empty bag costs, per element
+payload  elems     bag/total fill         bag/zeroed capture/no capture
+P1.2      1000      1.047 +7.29ns      1.027 +4.21ns      1.002 +1.21ns
+P1.3       300      1.122 +2.90ns      1.003 +0.04ns      1.001 +0.06ns
+P2.2       500      1.014 +16.11ns      1.094 +102.33ns      0.992 -31.62ns
+P2.5       500      1.046 +1.59ns      1.084 +2.86ns      0.993 -1.04ns
+
+==============================================================================
+===== 5. run 2 =====
+==============================================================================
+# the unknown-field bag (ABI v1 open decision 11), as an ARM
+#   guard: on
+#   counting build: no
+#   rounds: 15, interleaved, one process (R4)
+
+## 1. byte identity against the validated manifest, EMPTY bag
+#   in production the bag is always empty: ArmoniK ships both sides from one
+#   release, so retention is pure overhead until a version skews.
+payload arm                           want B     got B bytes    sha256  
+P1.1    core-ffi-rust                    858       858 ok       ok      
+P1.1    core-ffi-unk                     858       858 ok       ok      
+P1.1    core-ffi-unk+zeroed              858       858 ok       ok      
+P1.2    core-ffi-rust                 218121    218121 ok       ok      
+P1.2    core-ffi-unk                  218121    218121 ok       ok      
+P1.2    core-ffi-unk+zeroed           218121    218121 ok       ok      
+P1.3    core-ffi-rust                    605       605 ok       ok      
+P1.3    core-ffi-unk                     605       605 ok       ok      
+P1.3    core-ffi-unk+zeroed              605       605 ok       ok      
+P3.1    core-ffi-rust                  12097     12097 ok       ok      
+P3.1    core-ffi-unk                   12097     12097 ok       ok      
+P2.1    core-ffi-rust                   1037      1037 ok       ok      
+P2.1    core-ffi-unk                    1037      1037 ok       ok      
+P2.1    core-ffi-unk+zeroed             1037      1037 ok       ok      
+P2.2    core-ffi-rust                 540422    540422 ok       ok      
+P2.2    core-ffi-unk                  540422    540422 ok       ok      
+P2.2    core-ffi-unk+zeroed           540422    540422 ok       ok      
+P2.3    core-ffi-rust                 647024    647024 ok       ok      
+P2.3    core-ffi-unk                  647024    647024 ok       ok      
+P2.3    core-ffi-unk+zeroed           647024    647024 ok       ok      
+P2.4    core-ffi-rust                 979465    979465 ok       ok      
+P2.4    core-ffi-unk                  979465    979465 ok       ok      
+P2.4    core-ffi-unk+zeroed           979465    979465 ok       ok      
+P2.5    core-ffi-rust                  19632     19632 ok       ok      
+P2.5    core-ffi-unk                   19632     19632 ok       ok      
+P2.5    core-ffi-unk+zeroed            19632     19632 ok       ok      
+
+## 2. ROUND-TRIP BYTE IDENTITY on messages carrying unknown fields
+#   decode with the capture on, re-encode with the bag, compare with the input.
+#   None of the existing vectors test this: today the unknowns are dropped and
+#   the re-encode is legitimately shorter.
+
+#   THE ORDERING QUESTION, answered rather than chosen silently: the bag is
+#   APPENDED AT THE END of the message. Canonical form ascends by tag, so an
+#   unknown tag that sits numerically between two known tags re-encodes in a
+#   different ORDER -- same fields, same bytes, different position. The
+#   `expected` column says which vectors that applies to, and the gate is
+#   agreement with the expectation, not identity.
+
+vector                                           in B  out B bag == input layout ident expected  semantic RT
+all four wire types, AFTER every known field       62     62 yes          yes          yes       yes
+one unknown BEFORE every known field               10     10 yes          no           no        yes
+an unknown tag BETWEEN two known tags (the ordering case)     10     10 yes          no           no        yes
+two elements, each with its own unknown field      16     16 yes          yes          yes       yes
+
+## 3. positive control: the DEFAULT decode must NOT retain
+  vector                 all four wire types, AFTER every known field
+  default decode kept    0 bytes  (must be 0)
+  default re-encode      6 B against 62 B in  (must be SHORTER)
+  -> ok: the capture is doing the work, not the default path
+
+## 4. the EMPTY-bag cost, one process, interleaved
+
+payload dir     arm                   median ns       min ns   / prost  spread %
+P1.2    encode  prost                  157745.0     155890.6     1.000       2.2
+P1.2    encode  total fill             156405.2     153895.6     0.992      11.0
+P1.2    encode  total fill + bag       160695.0     159439.4     1.019       2.6
+P1.2    encode  zeroed                 157729.3     155608.3     1.000       5.6
+P1.2    encode  zeroed + bag           161630.0     160653.6     1.025       5.4
+
+P1.2    decode  prost                  648069.6     637391.3     1.000      15.1
+P1.2    decode  no capture             521446.4     514104.1     0.805       5.6
+P1.2    decode  capture on             521379.3     513084.7     0.805       7.1
+
+P1.3    encode  prost                    5420.6       5385.3     1.000       3.9
+P1.3    encode  total fill               7429.3       7121.2     1.371      11.2
+P1.3    encode  total fill + bag         8012.1       7959.9     1.478       7.2
+P1.3    encode  zeroed                   5041.5       4995.4     0.930      24.0
+P1.3    encode  zeroed + bag             5078.3       4987.0     0.937      32.5
+
+P1.3    decode  prost                   12858.0      12565.0     1.000       4.3
+P1.3    decode  no capture              18128.3      18037.0     1.410      11.5
+P1.3    decode  capture on              18088.5      17916.1     1.407      10.2
+
+P2.2    encode  prost                  555743.4     541920.6     1.000       9.4
+P2.2    encode  total fill             565538.6     558780.1     1.018       7.3
+P2.2    encode  total fill + bag       574940.9     566785.5     1.035      17.8
+P2.2    encode  zeroed                 549699.3     534714.2     0.989      17.0
+P2.2    encode  zeroed + bag           581038.2     573832.7     1.046      10.0
+
+P2.2    decode  prost                 2098070.6    2075102.6     1.000       8.2
+P2.2    decode  no capture            1984581.1    1968455.8     0.946       5.4
+P2.2    decode  capture on            1984462.7    1951256.5     0.946       5.0
+
+P2.5    encode  prost                   15392.8      15247.9     1.000       3.5
+P2.5    encode  total fill              16745.5      16617.8     1.088       3.6
+P2.5    encode  total fill + bag        17466.2      17368.6     1.135       2.5
+P2.5    encode  zeroed                  16864.3      16734.4     1.096       4.7
+P2.5    encode  zeroed + bag            18083.0      17906.1     1.175       2.6
+
+P2.5    decode  prost                   74234.3      73072.7     1.000       7.0
+P2.5    decode  no capture              71055.9      70096.4     0.957       4.5
+P2.5    decode  capture on              71004.4      69977.8     0.956       3.5
+
+## 5. what the empty bag costs, per element
+payload  elems     bag/total fill         bag/zeroed capture/no capture
+P1.2      1000      1.027 +4.29ns      1.025 +3.90ns      1.000 -0.07ns
+P1.3       300      1.078 +1.94ns      1.007 +0.12ns      0.998 -0.13ns
+P2.2       500      1.017 +18.80ns      1.057 +62.68ns      1.000 -0.24ns
+P2.5       500      1.043 +1.44ns      1.072 +2.44ns      0.999 -0.10ns
+
+==============================================================================
+===== 5. run 3 =====
+==============================================================================
+# the unknown-field bag (ABI v1 open decision 11), as an ARM
+#   guard: on
+#   counting build: no
+#   rounds: 15, interleaved, one process (R4)
+
+## 1. byte identity against the validated manifest, EMPTY bag
+#   in production the bag is always empty: ArmoniK ships both sides from one
+#   release, so retention is pure overhead until a version skews.
+payload arm                           want B     got B bytes    sha256  
+P1.1    core-ffi-rust                    858       858 ok       ok      
+P1.1    core-ffi-unk                     858       858 ok       ok      
+P1.1    core-ffi-unk+zeroed              858       858 ok       ok      
+P1.2    core-ffi-rust                 218121    218121 ok       ok      
+P1.2    core-ffi-unk                  218121    218121 ok       ok      
+P1.2    core-ffi-unk+zeroed           218121    218121 ok       ok      
+P1.3    core-ffi-rust                    605       605 ok       ok      
+P1.3    core-ffi-unk                     605       605 ok       ok      
+P1.3    core-ffi-unk+zeroed              605       605 ok       ok      
+P3.1    core-ffi-rust                  12097     12097 ok       ok      
+P3.1    core-ffi-unk                   12097     12097 ok       ok      
+P2.1    core-ffi-rust                   1037      1037 ok       ok      
+P2.1    core-ffi-unk                    1037      1037 ok       ok      
+P2.1    core-ffi-unk+zeroed             1037      1037 ok       ok      
+P2.2    core-ffi-rust                 540422    540422 ok       ok      
+P2.2    core-ffi-unk                  540422    540422 ok       ok      
+P2.2    core-ffi-unk+zeroed           540422    540422 ok       ok      
+P2.3    core-ffi-rust                 647024    647024 ok       ok      
+P2.3    core-ffi-unk                  647024    647024 ok       ok      
+P2.3    core-ffi-unk+zeroed           647024    647024 ok       ok      
+P2.4    core-ffi-rust                 979465    979465 ok       ok      
+P2.4    core-ffi-unk                  979465    979465 ok       ok      
+P2.4    core-ffi-unk+zeroed           979465    979465 ok       ok      
+P2.5    core-ffi-rust                  19632     19632 ok       ok      
+P2.5    core-ffi-unk                   19632     19632 ok       ok      
+P2.5    core-ffi-unk+zeroed            19632     19632 ok       ok      
+
+## 2. ROUND-TRIP BYTE IDENTITY on messages carrying unknown fields
+#   decode with the capture on, re-encode with the bag, compare with the input.
+#   None of the existing vectors test this: today the unknowns are dropped and
+#   the re-encode is legitimately shorter.
+
+#   THE ORDERING QUESTION, answered rather than chosen silently: the bag is
+#   APPENDED AT THE END of the message. Canonical form ascends by tag, so an
+#   unknown tag that sits numerically between two known tags re-encodes in a
+#   different ORDER -- same fields, same bytes, different position. The
+#   `expected` column says which vectors that applies to, and the gate is
+#   agreement with the expectation, not identity.
+
+vector                                           in B  out B bag == input layout ident expected  semantic RT
+all four wire types, AFTER every known field       62     62 yes          yes          yes       yes
+one unknown BEFORE every known field               10     10 yes          no           no        yes
+an unknown tag BETWEEN two known tags (the ordering case)     10     10 yes          no           no        yes
+two elements, each with its own unknown field      16     16 yes          yes          yes       yes
+
+## 3. positive control: the DEFAULT decode must NOT retain
+  vector                 all four wire types, AFTER every known field
+  default decode kept    0 bytes  (must be 0)
+  default re-encode      6 B against 62 B in  (must be SHORTER)
+  -> ok: the capture is doing the work, not the default path
+
+## 4. the EMPTY-bag cost, one process, interleaved
+
+payload dir     arm                   median ns       min ns   / prost  spread %
+P1.2    encode  prost                  156549.6     155745.0     1.000      15.8
+P1.2    encode  total fill             154217.4     152859.2     0.985       3.6
+P1.2    encode  total fill + bag       159186.3     158607.8     1.017       2.9
+P1.2    encode  zeroed                 155648.6     154144.1     0.994       2.8
+P1.2    encode  zeroed + bag           160927.4     160065.4     1.028       5.8
+
+P1.2    decode  prost                  641123.2     634877.0     1.000       2.0
+P1.2    decode  no capture             518083.7     514245.1     0.808       4.2
+P1.2    decode  capture on             519153.1     512998.5     0.810       4.6
+
+P1.3    encode  prost                    5406.5       5389.2     1.000       2.1
+P1.3    encode  total fill               7359.3       7331.9     1.361       3.2
+P1.3    encode  total fill + bag         7973.1       7947.7     1.475       3.6
+P1.3    encode  zeroed                   4991.7       4965.5     0.923       2.9
+P1.3    encode  zeroed + bag             5008.9       4988.5     0.926       3.6
+
+P1.3    decode  prost                   10588.5      10460.3     1.000       4.6
+P1.3    decode  no capture              17841.7      17776.4     1.685       2.7
+P1.3    decode  capture on              17455.9      17396.1     1.649       8.6
+
+P2.2    encode  prost                  549779.5     544775.7     1.000       4.5
+P2.2    encode  total fill             568291.7     559276.9     1.034      13.1
+P2.2    encode  total fill + bag       572130.8     565754.3     1.041      11.6
+P2.2    encode  zeroed                 542087.5     537444.5     0.986       3.0
+P2.2    encode  zeroed + bag           563496.8     556383.0     1.025       2.7
+
+P2.2    decode  prost                 2093334.9    2074548.9     1.000       2.0
+P2.2    decode  no capture            1988573.2    1965666.6     0.950       4.6
+P2.2    decode  capture on            1984551.6    1961604.5     0.948       3.5
+
+P2.5    encode  prost                   15469.1      15412.3     1.000       7.0
+P2.5    encode  total fill              16623.5      16538.9     1.075       0.8
+P2.5    encode  total fill + bag        17324.9      17264.3     1.120       4.8
+P2.5    encode  zeroed                  16880.7      16834.7     1.091       5.0
+P2.5    encode  zeroed + bag            17210.7      17113.6     1.113       1.3
+
+P2.5    decode  prost                   73653.5      72899.1     1.000       2.8
+P2.5    decode  no capture              70612.6      69607.2     0.959       2.0
+P2.5    decode  capture on              70285.7      69107.9     0.954       3.9
+
+## 5. what the empty bag costs, per element
+payload  elems     bag/total fill         bag/zeroed capture/no capture
+P1.2      1000      1.032 +4.97ns      1.034 +5.28ns      1.002 +1.07ns
+P1.3       300      1.083 +2.05ns      1.003 +0.06ns      0.978 -1.29ns
+P2.2       500      1.007 +7.68ns      1.039 +42.82ns      0.998 -8.04ns
+P2.5       500      1.042 +1.40ns      1.020 +0.66ns      0.995 -0.65ns
+
+# =============================================================================
+# SUMMARY, DERIVED FROM THE THREE RUNS ABOVE AND FROM NOTHING ELSE
+# =============================================================================
+#
+# THE EMPTY-BAG COST. Every figure is a delta between two arms that ran in the same
+# interleaved rounds of the same process, with prost as the control in that process.
+# min .. max over the three runs. Positive = the bag costs.
+#
+# payload  bag / total fill         bag / zeroed             capture / no capture
+# P1.2     1.027-1.047  +4.3..+7.3  1.025-1.034  +3.9..+5.3  1.000-1.002  -0.1..+1.2
+# P1.3     1.078-1.122  +1.9..+2.9  1.003-1.007  +0.0..+0.1  0.978-1.001  -1.3..+0.1
+# P2.2     1.007-1.017  +7.7..+18.8 1.039-1.094 +42.8..+102  0.992-1.000 -31.6..-0.2
+# P2.5     1.042-1.046  +1.4..+1.6  1.020-1.084  +0.7..+2.9  0.993-0.999  -1.0..-0.1
+#
+#   ns figures are per element. P2.2's are large in absolute terms because a `TaskDetailed`
+#   is a 27-field group that costs ten crossings; as a FRACTION it is the cheapest row for
+#   the total fill and the dearest for the zeroed one.
+#
+#   The decode column is a null result and should be read as one: the per-element deltas
+#   straddle zero on three of four payloads and the ratios sit inside the run-to-run spread.
+#   That is what the design predicts -- the capture adds one `let s0 = d.pos;` per field and
+#   a null test on the default arm, which the existing payload set never takes -- but the
+#   measurement does not distinguish it from zero, and saying so is not the same as saying
+#   it is zero.
+#
+# THE CORRECTNESS TABLE, identical in all three runs:
+#
+#   vector                                       bag==input  layout ident  expected  semantic RT
+#   all four wire types, AFTER every known field  yes         yes           yes       yes
+#   one unknown BEFORE every known field          yes         no            no        yes
+#   an unknown tag BETWEEN two known tags         yes         no            no        yes
+#   two elements, each with its own unknown field yes         yes           yes       yes
+#
+#   So: nothing is ever lost, and the layout is reproduced exactly when the unknown fields
+#   were already last -- which is the common forward-compatibility case, a newer sender
+#   appending fields. It is not reproduced when an unknown tag is interleaved, by design.
+#
+# THE POSITIVE CONTROL, in every run: the DEFAULT decode retains 0 bytes and its re-encode
+# is 6 B against 62 B in. An arm that silently dropped the bag would pass every byte-identity
+# check in section 2 and measure identically, which is exactly the failure mode the
+# zeroed-group controls were built for; this is the same check for this arm.
+#
+# WHAT IS NOT MEASURED
+#   - The non-empty bag's THROUGHPUT. The vectors prove the property on messages of tens of
+#     bytes; nothing here encodes a large payload whose elements all carry unknown fields,
+#     so "what retention costs when it is actually retaining" is unpriced.
+#   - The host data-model cost (24 bytes per message instance). See hazard 4.
+#   - A oneof's message member gets no bag: `dec_*_fix` is handed a null capture buffer
+#     there, because attributing those runs would need a bag on the member rather than on
+#     the enclosing message. Refused rather than emitted wrong.
+#   - The inner slots of a NON-leaf element (M2's repeated fields inside `TaskDetailed`)
+#     have no unknown callback: the vtable carries `unk_<slot>` for top-level slots only.
+#   - Decode-side crossings: the capture delivers spans as a run, so a message with unknown
+#     fields costs extra reverse crossings per chunk. The counting build was not extended to
+#     count them, because the payload set has no unknown fields to count.
+#   - Merge-by-tag. Not built and not priced, by instruction.

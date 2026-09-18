@@ -5,7 +5,7 @@
 //! a facade object directly.
 #![allow(non_snake_case, non_camel_case_types, unused_unsafe, unused_variables,
     unused_assignments, unused_mut, unused_macros, clippy::all)]
-use crate::{enc_blob, DecCtxImpl, EncCtxImpl};
+use crate::{enc_blob, enc_raw, DecCtxImpl, EncCtxImpl, UnkBuf};
 use ak_abi::*;
 use ak_rt::dec::Dec;
 use core::ffi::c_void;
@@ -25,9 +25,29 @@ unsafe fn enc_task_options_options_entry_group(g: &ak_efix_TaskOptionsOptionsEnt
 }
 
 #[inline]
+unsafe fn enc_task_options_options_entry_ugroup(g: &ak_ufix_TaskOptionsOptionsEntry, cx: *mut EncCtxImpl) -> bool {
+    if g.key.tc.is_some() && g.key.len != 0 {
+        if !enc_blob(cx, 1, 0, &g.key) { return false; }
+    }
+    if g.value.tc.is_some() && g.value.len != 0 {
+        if !enc_blob(cx, 2, 1, &g.value) { return false; }
+    }
+    if !enc_raw(cx, &g.unknown) { return false; }
+    true
+}
+
+#[inline]
 unsafe fn enc_timestamp_group(g: &ak_efix_Timestamp, cx: *mut EncCtxImpl) -> bool {
     if g.seconds != 0 { (*cx).e.varint_field(1, g.seconds as u64); }
     if g.nanos != 0 { (*cx).e.varint_field(2, g.nanos as i64 as u64); }
+    true
+}
+
+#[inline]
+unsafe fn enc_timestamp_ugroup(g: &ak_ufix_Timestamp, cx: *mut EncCtxImpl) -> bool {
+    if g.seconds != 0 { (*cx).e.varint_field(1, g.seconds as u64); }
+    if g.nanos != 0 { (*cx).e.varint_field(2, g.nanos as i64 as u64); }
+    if !enc_raw(cx, &g.unknown) { return false; }
     true
 }
 
@@ -66,6 +86,47 @@ unsafe fn enc_result_raw_group(g: &ak_efix_ResultRaw, cx: *mut EncCtxImpl) -> bo
         if !enc_blob(cx, 11, 9, &g.opaque_id) { return false; }
     }
     if g.manual_deletion != 0 { (*cx).e.varint_field(12, 1); }
+    true
+}
+
+#[inline]
+unsafe fn enc_result_raw_ugroup(g: &ak_ufix_ResultRaw, cx: *mut EncCtxImpl) -> bool {
+    if g.session_id.tc.is_some() && g.session_id.len != 0 {
+        if !enc_blob(cx, 1, 2, &g.session_id) { return false; }
+    }
+    if g.name.tc.is_some() && g.name.len != 0 {
+        if !enc_blob(cx, 2, 3, &g.name) { return false; }
+    }
+    if g.owner_task_id.tc.is_some() && g.owner_task_id.len != 0 {
+        if !enc_blob(cx, 3, 4, &g.owner_task_id) { return false; }
+    }
+    if g.status != 0 { (*cx).e.varint_field(4, g.status as i64 as u64); }
+    if g.presence & AK_UFIX_RESULTRAW_PRESENT_CREATED_AT != 0 {
+        let mk = (*cx).e.begin(5, 5);
+        if g.created_at.seconds != 0 { (*cx).e.varint_field(1, g.created_at.seconds as u64); }
+        if g.created_at.nanos != 0 { (*cx).e.varint_field(2, g.created_at.nanos as i64 as u64); }
+        if !enc_raw(cx, &g.created_at.unknown) { return false; }
+        (*cx).e.end(mk);
+    }
+    if g.presence & AK_UFIX_RESULTRAW_PRESENT_COMPLETED_AT != 0 {
+        let mk = (*cx).e.begin(6, 6);
+        if g.completed_at.seconds != 0 { (*cx).e.varint_field(1, g.completed_at.seconds as u64); }
+        if g.completed_at.nanos != 0 { (*cx).e.varint_field(2, g.completed_at.nanos as i64 as u64); }
+        if !enc_raw(cx, &g.completed_at.unknown) { return false; }
+        (*cx).e.end(mk);
+    }
+    if g.result_id.tc.is_some() && g.result_id.len != 0 {
+        if !enc_blob(cx, 8, 7, &g.result_id) { return false; }
+    }
+    if g.size != 0 { (*cx).e.varint_field(9, g.size as u64); }
+    if g.created_by.tc.is_some() && g.created_by.len != 0 {
+        if !enc_blob(cx, 10, 8, &g.created_by) { return false; }
+    }
+    if g.opaque_id.tc.is_some() && g.opaque_id.len != 0 {
+        if !enc_blob(cx, 11, 9, &g.opaque_id) { return false; }
+    }
+    if g.manual_deletion != 0 { (*cx).e.varint_field(12, 1); }
+    if !enc_raw(cx, &g.unknown) { return false; }
     true
 }
 
@@ -261,6 +322,213 @@ unsafe fn enc_task_detailed_group(
 }
 
 #[inline]
+unsafe fn enc_task_detailed_ugroup(
+    g: &ak_ufix_TaskDetailed,
+    cx: *mut EncCtxImpl,
+    vt: *const ak_evt_TaskDetailed,
+    obj: *const c_void,
+    token: i64,
+) -> bool {
+    if g.id.tc.is_some() && g.id.len != 0 {
+        if !enc_blob(cx, 1, 10, &g.id) { return false; }
+    }
+    if g.session_id.tc.is_some() && g.session_id.len != 0 {
+        if !enc_blob(cx, 2, 11, &g.session_id) { return false; }
+    }
+    if g.owner_pod_id.tc.is_some() && g.owner_pod_id.len != 0 {
+        if !enc_blob(cx, 3, 12, &g.owner_pod_id) { return false; }
+    }
+    if let Some(lp) = (*vt).loop_parent_task_ids {
+        (*cx).open_tag = 4;
+        (*cx).open_site = 13;
+        (*cx).open_kind = 0;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return false; }
+        if (*cx).e.err != 0 { return false; }
+    }
+    if let Some(lp) = (*vt).loop_data_dependencies {
+        (*cx).open_tag = 5;
+        (*cx).open_site = 14;
+        (*cx).open_kind = 0;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return false; }
+        if (*cx).e.err != 0 { return false; }
+    }
+    if let Some(lp) = (*vt).loop_expected_output_ids {
+        (*cx).open_tag = 6;
+        (*cx).open_site = 15;
+        (*cx).open_kind = 0;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return false; }
+        if (*cx).e.err != 0 { return false; }
+    }
+    if let Some(lp) = (*vt).loop_retry_of_ids {
+        (*cx).open_tag = 7;
+        (*cx).open_site = 16;
+        (*cx).open_kind = 0;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return false; }
+        if (*cx).e.err != 0 { return false; }
+    }
+    if g.status != 0 { (*cx).e.varint_field(8, g.status as i64 as u64); }
+    if g.status_message.tc.is_some() && g.status_message.len != 0 {
+        if !enc_blob(cx, 9, 17, &g.status_message) { return false; }
+    }
+    if g.presence & AK_UFIX_TASKDETAILED_PRESENT_OPTIONS != 0 {
+        let mk = (*cx).e.begin(10, 18);
+        if let Some(lp) = (*vt).loop_options_options {
+            (*cx).open_tag = 1;
+            (*cx).open_site = 19;
+            (*cx).open_kind = 0;
+            ak_rt::bump!((*cx).e.c, reverse);
+            let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+            if rc < 0 { (*cx).e.fail(rc); return false; }
+            if (*cx).e.err != 0 { return false; }
+        }
+        if g.options.presence & AK_UFIX_TASKOPTIONS_PRESENT_MAX_DURATION != 0 {
+            let mk = (*cx).e.begin(2, 20);
+            if g.options.max_duration.seconds != 0 { (*cx).e.varint_field(1, g.options.max_duration.seconds as u64); }
+            if g.options.max_duration.nanos != 0 { (*cx).e.varint_field(2, g.options.max_duration.nanos as i64 as u64); }
+            if !enc_raw(cx, &g.options.max_duration.unknown) { return false; }
+            (*cx).e.end(mk);
+        }
+        if g.options.max_retries != 0 { (*cx).e.varint_field(3, g.options.max_retries as i64 as u64); }
+        if g.options.priority != 0 { (*cx).e.varint_field(4, g.options.priority as i64 as u64); }
+        if g.options.partition_id.tc.is_some() && g.options.partition_id.len != 0 {
+            if !enc_blob(cx, 5, 21, &g.options.partition_id) { return false; }
+        }
+        if g.options.application_name.tc.is_some() && g.options.application_name.len != 0 {
+            if !enc_blob(cx, 6, 22, &g.options.application_name) { return false; }
+        }
+        if g.options.application_version.tc.is_some() && g.options.application_version.len != 0 {
+            if !enc_blob(cx, 7, 23, &g.options.application_version) { return false; }
+        }
+        if g.options.application_namespace.tc.is_some() && g.options.application_namespace.len != 0 {
+            if !enc_blob(cx, 8, 24, &g.options.application_namespace) { return false; }
+        }
+        if g.options.application_service.tc.is_some() && g.options.application_service.len != 0 {
+            if !enc_blob(cx, 9, 25, &g.options.application_service) { return false; }
+        }
+        if g.options.engine_type.tc.is_some() && g.options.engine_type.len != 0 {
+            if !enc_blob(cx, 10, 26, &g.options.engine_type) { return false; }
+        }
+        if !enc_raw(cx, &g.options.unknown) { return false; }
+        (*cx).e.end(mk);
+    }
+    if g.presence & AK_UFIX_TASKDETAILED_PRESENT_CREATED_AT != 0 {
+        let mk = (*cx).e.begin(11, 27);
+        if g.created_at.seconds != 0 { (*cx).e.varint_field(1, g.created_at.seconds as u64); }
+        if g.created_at.nanos != 0 { (*cx).e.varint_field(2, g.created_at.nanos as i64 as u64); }
+        if !enc_raw(cx, &g.created_at.unknown) { return false; }
+        (*cx).e.end(mk);
+    }
+    if g.presence & AK_UFIX_TASKDETAILED_PRESENT_SUBMITTED_AT != 0 {
+        let mk = (*cx).e.begin(12, 28);
+        if g.submitted_at.seconds != 0 { (*cx).e.varint_field(1, g.submitted_at.seconds as u64); }
+        if g.submitted_at.nanos != 0 { (*cx).e.varint_field(2, g.submitted_at.nanos as i64 as u64); }
+        if !enc_raw(cx, &g.submitted_at.unknown) { return false; }
+        (*cx).e.end(mk);
+    }
+    if g.presence & AK_UFIX_TASKDETAILED_PRESENT_STARTED_AT != 0 {
+        let mk = (*cx).e.begin(13, 29);
+        if g.started_at.seconds != 0 { (*cx).e.varint_field(1, g.started_at.seconds as u64); }
+        if g.started_at.nanos != 0 { (*cx).e.varint_field(2, g.started_at.nanos as i64 as u64); }
+        if !enc_raw(cx, &g.started_at.unknown) { return false; }
+        (*cx).e.end(mk);
+    }
+    if g.presence & AK_UFIX_TASKDETAILED_PRESENT_ENDED_AT != 0 {
+        let mk = (*cx).e.begin(14, 30);
+        if g.ended_at.seconds != 0 { (*cx).e.varint_field(1, g.ended_at.seconds as u64); }
+        if g.ended_at.nanos != 0 { (*cx).e.varint_field(2, g.ended_at.nanos as i64 as u64); }
+        if !enc_raw(cx, &g.ended_at.unknown) { return false; }
+        (*cx).e.end(mk);
+    }
+    if g.presence & AK_UFIX_TASKDETAILED_PRESENT_POD_TTL != 0 {
+        let mk = (*cx).e.begin(15, 31);
+        if g.pod_ttl.seconds != 0 { (*cx).e.varint_field(1, g.pod_ttl.seconds as u64); }
+        if g.pod_ttl.nanos != 0 { (*cx).e.varint_field(2, g.pod_ttl.nanos as i64 as u64); }
+        if !enc_raw(cx, &g.pod_ttl.unknown) { return false; }
+        (*cx).e.end(mk);
+    }
+    if g.presence & AK_UFIX_TASKDETAILED_PRESENT_OUTPUT != 0 {
+        let mk = (*cx).e.begin(16, 32);
+        if g.output.success != 0 { (*cx).e.varint_field(1, 1); }
+        if g.output.error.tc.is_some() && g.output.error.len != 0 {
+            if !enc_blob(cx, 2, 33, &g.output.error) { return false; }
+        }
+        if !enc_raw(cx, &g.output.unknown) { return false; }
+        (*cx).e.end(mk);
+    }
+    if g.pod_hostname.tc.is_some() && g.pod_hostname.len != 0 {
+        if !enc_blob(cx, 17, 34, &g.pod_hostname) { return false; }
+    }
+    if g.presence & AK_UFIX_TASKDETAILED_PRESENT_RECEIVED_AT != 0 {
+        let mk = (*cx).e.begin(18, 35);
+        if g.received_at.seconds != 0 { (*cx).e.varint_field(1, g.received_at.seconds as u64); }
+        if g.received_at.nanos != 0 { (*cx).e.varint_field(2, g.received_at.nanos as i64 as u64); }
+        if !enc_raw(cx, &g.received_at.unknown) { return false; }
+        (*cx).e.end(mk);
+    }
+    if g.presence & AK_UFIX_TASKDETAILED_PRESENT_ACQUIRED_AT != 0 {
+        let mk = (*cx).e.begin(19, 36);
+        if g.acquired_at.seconds != 0 { (*cx).e.varint_field(1, g.acquired_at.seconds as u64); }
+        if g.acquired_at.nanos != 0 { (*cx).e.varint_field(2, g.acquired_at.nanos as i64 as u64); }
+        if !enc_raw(cx, &g.acquired_at.unknown) { return false; }
+        (*cx).e.end(mk);
+    }
+    if g.presence & AK_UFIX_TASKDETAILED_PRESENT_CREATION_TO_END_DURATION != 0 {
+        let mk = (*cx).e.begin(20, 37);
+        if g.creation_to_end_duration.seconds != 0 { (*cx).e.varint_field(1, g.creation_to_end_duration.seconds as u64); }
+        if g.creation_to_end_duration.nanos != 0 { (*cx).e.varint_field(2, g.creation_to_end_duration.nanos as i64 as u64); }
+        if !enc_raw(cx, &g.creation_to_end_duration.unknown) { return false; }
+        (*cx).e.end(mk);
+    }
+    if g.presence & AK_UFIX_TASKDETAILED_PRESENT_PROCESSING_TO_END_DURATION != 0 {
+        let mk = (*cx).e.begin(21, 38);
+        if g.processing_to_end_duration.seconds != 0 { (*cx).e.varint_field(1, g.processing_to_end_duration.seconds as u64); }
+        if g.processing_to_end_duration.nanos != 0 { (*cx).e.varint_field(2, g.processing_to_end_duration.nanos as i64 as u64); }
+        if !enc_raw(cx, &g.processing_to_end_duration.unknown) { return false; }
+        (*cx).e.end(mk);
+    }
+    if g.initial_task_id.tc.is_some() && g.initial_task_id.len != 0 {
+        if !enc_blob(cx, 22, 39, &g.initial_task_id) { return false; }
+    }
+    if g.presence & AK_UFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION != 0 {
+        let mk = (*cx).e.begin(23, 40);
+        if g.received_to_end_duration.seconds != 0 { (*cx).e.varint_field(1, g.received_to_end_duration.seconds as u64); }
+        if g.received_to_end_duration.nanos != 0 { (*cx).e.varint_field(2, g.received_to_end_duration.nanos as i64 as u64); }
+        if !enc_raw(cx, &g.received_to_end_duration.unknown) { return false; }
+        (*cx).e.end(mk);
+    }
+    if g.presence & AK_UFIX_TASKDETAILED_PRESENT_PROCESSED_AT != 0 {
+        let mk = (*cx).e.begin(24, 41);
+        if g.processed_at.seconds != 0 { (*cx).e.varint_field(1, g.processed_at.seconds as u64); }
+        if g.processed_at.nanos != 0 { (*cx).e.varint_field(2, g.processed_at.nanos as i64 as u64); }
+        if !enc_raw(cx, &g.processed_at.unknown) { return false; }
+        (*cx).e.end(mk);
+    }
+    if g.presence & AK_UFIX_TASKDETAILED_PRESENT_FETCHED_AT != 0 {
+        let mk = (*cx).e.begin(25, 42);
+        if g.fetched_at.seconds != 0 { (*cx).e.varint_field(1, g.fetched_at.seconds as u64); }
+        if g.fetched_at.nanos != 0 { (*cx).e.varint_field(2, g.fetched_at.nanos as i64 as u64); }
+        if !enc_raw(cx, &g.fetched_at.unknown) { return false; }
+        (*cx).e.end(mk);
+    }
+    if g.payload_id.tc.is_some() && g.payload_id.len != 0 {
+        if !enc_blob(cx, 26, 43, &g.payload_id) { return false; }
+    }
+    if g.created_by.tc.is_some() && g.created_by.len != 0 {
+        if !enc_blob(cx, 27, 44, &g.created_by) { return false; }
+    }
+    if !enc_raw(cx, &g.unknown) { return false; }
+    true
+}
+
+#[inline]
 unsafe fn enc_task_summary_group(
     g: &ak_efix_TaskSummary,
     cx: *mut EncCtxImpl,
@@ -331,6 +599,80 @@ unsafe fn enc_task_summary_group(
 }
 
 #[inline]
+unsafe fn enc_task_summary_ugroup(
+    g: &ak_ufix_TaskSummary,
+    cx: *mut EncCtxImpl,
+    vt: *const ak_evt_TaskSummary,
+    obj: *const c_void,
+    token: i64,
+) -> bool {
+    if g.id.tc.is_some() && g.id.len != 0 {
+        if !enc_blob(cx, 1, 45, &g.id) { return false; }
+    }
+    if g.session_id.tc.is_some() && g.session_id.len != 0 {
+        if !enc_blob(cx, 2, 46, &g.session_id) { return false; }
+    }
+    if g.presence & AK_UFIX_TASKSUMMARY_PRESENT_OPTIONS != 0 {
+        let mk = (*cx).e.begin(3, 47);
+        if let Some(lp) = (*vt).loop_options_options {
+            (*cx).open_tag = 1;
+            (*cx).open_site = 48;
+            (*cx).open_kind = 0;
+            ak_rt::bump!((*cx).e.c, reverse);
+            let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+            if rc < 0 { (*cx).e.fail(rc); return false; }
+            if (*cx).e.err != 0 { return false; }
+        }
+        if g.options.presence & AK_UFIX_TASKOPTIONS_PRESENT_MAX_DURATION != 0 {
+            let mk = (*cx).e.begin(2, 49);
+            if g.options.max_duration.seconds != 0 { (*cx).e.varint_field(1, g.options.max_duration.seconds as u64); }
+            if g.options.max_duration.nanos != 0 { (*cx).e.varint_field(2, g.options.max_duration.nanos as i64 as u64); }
+            if !enc_raw(cx, &g.options.max_duration.unknown) { return false; }
+            (*cx).e.end(mk);
+        }
+        if g.options.max_retries != 0 { (*cx).e.varint_field(3, g.options.max_retries as i64 as u64); }
+        if g.options.priority != 0 { (*cx).e.varint_field(4, g.options.priority as i64 as u64); }
+        if g.options.partition_id.tc.is_some() && g.options.partition_id.len != 0 {
+            if !enc_blob(cx, 5, 50, &g.options.partition_id) { return false; }
+        }
+        if g.options.application_name.tc.is_some() && g.options.application_name.len != 0 {
+            if !enc_blob(cx, 6, 51, &g.options.application_name) { return false; }
+        }
+        if g.options.application_version.tc.is_some() && g.options.application_version.len != 0 {
+            if !enc_blob(cx, 7, 52, &g.options.application_version) { return false; }
+        }
+        if g.options.application_namespace.tc.is_some() && g.options.application_namespace.len != 0 {
+            if !enc_blob(cx, 8, 53, &g.options.application_namespace) { return false; }
+        }
+        if g.options.application_service.tc.is_some() && g.options.application_service.len != 0 {
+            if !enc_blob(cx, 9, 54, &g.options.application_service) { return false; }
+        }
+        if g.options.engine_type.tc.is_some() && g.options.engine_type.len != 0 {
+            if !enc_blob(cx, 10, 55, &g.options.engine_type) { return false; }
+        }
+        if !enc_raw(cx, &g.options.unknown) { return false; }
+        (*cx).e.end(mk);
+    }
+    if g.status != 0 { (*cx).e.varint_field(4, g.status as i64 as u64); }
+    if g.presence & AK_UFIX_TASKSUMMARY_PRESENT_CREATED_AT != 0 {
+        let mk = (*cx).e.begin(5, 56);
+        if g.created_at.seconds != 0 { (*cx).e.varint_field(1, g.created_at.seconds as u64); }
+        if g.created_at.nanos != 0 { (*cx).e.varint_field(2, g.created_at.nanos as i64 as u64); }
+        if !enc_raw(cx, &g.created_at.unknown) { return false; }
+        (*cx).e.end(mk);
+    }
+    if g.error.tc.is_some() && g.error.len != 0 {
+        if !enc_blob(cx, 8, 57, &g.error) { return false; }
+    }
+    if g.status_message.tc.is_some() && g.status_message.len != 0 {
+        if !enc_blob(cx, 9, 58, &g.status_message) { return false; }
+    }
+    if g.count_data_dependencies != 0 { (*cx).e.varint_field(11, g.count_data_dependencies as u64); }
+    if !enc_raw(cx, &g.unknown) { return false; }
+    true
+}
+
+#[inline]
 unsafe fn enc_probe_group(g: &ak_efix_Probe, cx: *mut EncCtxImpl) -> bool {
     if g.id.tc.is_some() && g.id.len != 0 {
         if !enc_blob(cx, 1, 59, &g.id) { return false; }
@@ -370,7 +712,53 @@ unsafe fn enc_probe_group(g: &ak_efix_Probe, cx: *mut EncCtxImpl) -> bool {
 }
 
 #[inline]
+unsafe fn enc_probe_ugroup(g: &ak_ufix_Probe, cx: *mut EncCtxImpl) -> bool {
+    if g.id.tc.is_some() && g.id.len != 0 {
+        if !enc_blob(cx, 1, 59, &g.id) { return false; }
+    }
+    if g.presence & AK_UFIX_PROBE_PRESENT_OPT_COUNT != 0 { (*cx).e.varint_field(2, g.opt_count as i64 as u64); }
+    if g.presence & AK_UFIX_PROBE_PRESENT_OPT_LABEL != 0 {
+        if !enc_blob(cx, 3, 60, &g.opt_label) { return false; }
+    }
+    if g.presence & AK_UFIX_PROBE_PRESENT_OPT_FLAG != 0 { (*cx).e.varint_field(4, g.opt_flag as u64); }
+    match g.body_case {
+        0 => {}
+        10 => {
+            (*cx).e.varint_field(10, g.body_as_int as u64);
+        }
+        11 => {
+            if !enc_blob(cx, 11, 62, &g.body_as_text) { return false; }
+        }
+        12 => {
+            if !enc_blob(cx, 12, 63, &g.body_as_blob) { return false; }
+        }
+        13 => {
+            let mk = (*cx).e.begin(13, 61);
+            if !enc_timestamp_ugroup(&g.body_as_stamp, cx) { return false; }
+            (*cx).e.end(mk);
+        }
+        14 => {
+            let mk = (*cx).e.begin(14, 61);
+            if !enc_empty_ugroup(&g.body_as_nothing, cx) { return false; }
+            (*cx).e.end(mk);
+        }
+        // A case this build does not know: a host generated against a
+        // newer descriptor. Refused loudly rather than encoded as
+        // nothing, because silence here is a message that lost a field.
+        _ => { (*cx).e.fail(AK_ERR_ABI); return false; }
+    }
+    if !enc_raw(cx, &g.unknown) { return false; }
+    true
+}
+
+#[inline]
 unsafe fn enc_empty_group(g: &ak_efix_Empty, cx: *mut EncCtxImpl) -> bool {
+    true
+}
+
+#[inline]
+unsafe fn enc_empty_ugroup(g: &ak_ufix_Empty, cx: *mut EncCtxImpl) -> bool {
+    if !enc_raw(cx, &g.unknown) { return false; }
     true
 }
 
@@ -434,11 +822,81 @@ unsafe fn enc_metrics_batch_group(
 }
 
 #[inline]
+unsafe fn enc_metrics_batch_ugroup(
+    g: &ak_ufix_MetricsBatch,
+    cx: *mut EncCtxImpl,
+    vt: *const ak_evt_MetricsBatch,
+    obj: *const c_void,
+    token: i64,
+) -> bool {
+    if g.id.tc.is_some() && g.id.len != 0 {
+        if !enc_blob(cx, 1, 64, &g.id) { return false; }
+    }
+    if let Some(lp) = (*vt).loop_ticks {
+        (*cx).open_tag = 2;
+        (*cx).open_site = 65;
+        (*cx).open_kind = 2;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return false; }
+        if (*cx).e.err != 0 { return false; }
+    }
+    if let Some(lp) = (*vt).loop_values {
+        (*cx).open_tag = 3;
+        (*cx).open_site = 66;
+        (*cx).open_kind = 4;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return false; }
+        if (*cx).e.err != 0 { return false; }
+    }
+    if let Some(lp) = (*vt).loop_codes {
+        (*cx).open_tag = 4;
+        (*cx).open_site = 67;
+        (*cx).open_kind = 1;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return false; }
+        if (*cx).e.err != 0 { return false; }
+    }
+    if let Some(lp) = (*vt).loop_flags {
+        (*cx).open_tag = 5;
+        (*cx).open_site = 68;
+        (*cx).open_kind = 3;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return false; }
+        if (*cx).e.err != 0 { return false; }
+    }
+    if let Some(lp) = (*vt).loop_statuses {
+        (*cx).open_tag = 6;
+        (*cx).open_site = 69;
+        (*cx).open_kind = 5;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return false; }
+        if (*cx).e.err != 0 { return false; }
+    }
+    if !enc_raw(cx, &g.unknown) { return false; }
+    true
+}
+
+#[inline]
 unsafe fn enc_pair_group(g: &ak_efix_Pair, cx: *mut EncCtxImpl) -> bool {
     if g.key.tc.is_some() && g.key.len != 0 {
         if !enc_blob(cx, 1, 70, &g.key) { return false; }
     }
     if g.value != 0 { (*cx).e.varint_field(2, g.value as i64 as u64); }
+    true
+}
+
+#[inline]
+unsafe fn enc_pair_ugroup(g: &ak_ufix_Pair, cx: *mut EncCtxImpl) -> bool {
+    if g.key.tc.is_some() && g.key.len != 0 {
+        if !enc_blob(cx, 1, 70, &g.key) { return false; }
+    }
+    if g.value != 0 { (*cx).e.varint_field(2, g.value as i64 as u64); }
+    if !enc_raw(cx, &g.unknown) { return false; }
     true
 }
 
@@ -461,6 +919,29 @@ unsafe fn enc_list_results_response_group(
     }
     if g.page != 0 { (*cx).e.varint_field(2, g.page as i64 as u64); }
     if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
+    true
+}
+
+#[inline]
+unsafe fn enc_list_results_response_ugroup(
+    g: &ak_ufix_ListResultsResponse,
+    cx: *mut EncCtxImpl,
+    vt: *const ak_evt_ListResultsResponse,
+    obj: *const c_void,
+    token: i64,
+) -> bool {
+    if let Some(lp) = (*vt).loop_results {
+        (*cx).open_tag = 1;
+        (*cx).open_site = 71;
+        (*cx).open_kind = 0;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return false; }
+        if (*cx).e.err != 0 { return false; }
+    }
+    if g.page != 0 { (*cx).e.varint_field(2, g.page as i64 as u64); }
+    if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
+    if !enc_raw(cx, &g.unknown) { return false; }
     true
 }
 
@@ -488,6 +969,30 @@ unsafe fn enc_list_tasks_detailed_response_group(
 }
 
 #[inline]
+unsafe fn enc_list_tasks_detailed_response_ugroup(
+    g: &ak_ufix_ListTasksDetailedResponse,
+    cx: *mut EncCtxImpl,
+    vt: *const ak_evt_ListTasksDetailedResponse,
+    obj: *const c_void,
+    token: i64,
+) -> bool {
+    if let Some(lp) = (*vt).loop_tasks {
+        (*cx).open_tag = 1;
+        (*cx).open_site = 72;
+        (*cx).open_kind = 0;
+        (*cx).open_vt = (*vt).elem_tasks as *const c_void;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return false; }
+        if (*cx).e.err != 0 { return false; }
+    }
+    if g.page != 0 { (*cx).e.varint_field(2, g.page as i64 as u64); }
+    if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
+    if !enc_raw(cx, &g.unknown) { return false; }
+    true
+}
+
+#[inline]
 unsafe fn enc_list_task_summary_response_group(
     g: &ak_efix_ListTaskSummaryResponse,
     cx: *mut EncCtxImpl,
@@ -509,6 +1014,28 @@ unsafe fn enc_list_task_summary_response_group(
 }
 
 #[inline]
+unsafe fn enc_list_task_summary_response_ugroup(
+    g: &ak_ufix_ListTaskSummaryResponse,
+    cx: *mut EncCtxImpl,
+    vt: *const ak_evt_ListTaskSummaryResponse,
+    obj: *const c_void,
+    token: i64,
+) -> bool {
+    if let Some(lp) = (*vt).loop_tasks {
+        (*cx).open_tag = 1;
+        (*cx).open_site = 73;
+        (*cx).open_kind = 0;
+        (*cx).open_vt = (*vt).elem_tasks as *const c_void;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return false; }
+        if (*cx).e.err != 0 { return false; }
+    }
+    if !enc_raw(cx, &g.unknown) { return false; }
+    true
+}
+
+#[inline]
 unsafe fn enc_list_probe_response_group(
     g: &ak_efix_ListProbeResponse,
     cx: *mut EncCtxImpl,
@@ -525,6 +1052,27 @@ unsafe fn enc_list_probe_response_group(
         if rc < 0 { (*cx).e.fail(rc); return false; }
         if (*cx).e.err != 0 { return false; }
     }
+    true
+}
+
+#[inline]
+unsafe fn enc_list_probe_response_ugroup(
+    g: &ak_ufix_ListProbeResponse,
+    cx: *mut EncCtxImpl,
+    vt: *const ak_evt_ListProbeResponse,
+    obj: *const c_void,
+    token: i64,
+) -> bool {
+    if let Some(lp) = (*vt).loop_probes {
+        (*cx).open_tag = 1;
+        (*cx).open_site = 74;
+        (*cx).open_kind = 0;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return false; }
+        if (*cx).e.err != 0 { return false; }
+    }
+    if !enc_raw(cx, &g.unknown) { return false; }
     true
 }
 
@@ -550,6 +1098,28 @@ unsafe fn enc_list_metrics_response_group(
 }
 
 #[inline]
+unsafe fn enc_list_metrics_response_ugroup(
+    g: &ak_ufix_ListMetricsResponse,
+    cx: *mut EncCtxImpl,
+    vt: *const ak_evt_ListMetricsResponse,
+    obj: *const c_void,
+    token: i64,
+) -> bool {
+    if let Some(lp) = (*vt).loop_batches {
+        (*cx).open_tag = 1;
+        (*cx).open_site = 75;
+        (*cx).open_kind = 0;
+        (*cx).open_vt = (*vt).elem_batches as *const c_void;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return false; }
+        if (*cx).e.err != 0 { return false; }
+    }
+    if !enc_raw(cx, &g.unknown) { return false; }
+    true
+}
+
+#[inline]
 unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
     if g.presence & AK_EFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD != 0 {
         let mk = (*cx).e.begin(1, 76);
@@ -564,6 +1134,26 @@ unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessa
         }
         (*cx).e.end(mk);
     }
+    true
+}
+
+#[inline]
+unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+    if g.presence & AK_UFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD != 0 {
+        let mk = (*cx).e.begin(1, 76);
+        if g.upload.session_id.tc.is_some() && g.upload.session_id.len != 0 {
+            if !enc_blob(cx, 1, 77, &g.upload.session_id) { return false; }
+        }
+        if g.upload.result_id.tc.is_some() && g.upload.result_id.len != 0 {
+            if !enc_blob(cx, 2, 78, &g.upload.result_id) { return false; }
+        }
+        if g.upload.data_chunk.len != 0 {
+            if !enc_blob(cx, 3, 79, &g.upload.data_chunk) { return false; }
+        }
+        if !enc_raw(cx, &g.upload.unknown) { return false; }
+        (*cx).e.end(mk);
+    }
+    if !enc_raw(cx, &g.unknown) { return false; }
     true
 }
 
@@ -596,6 +1186,36 @@ unsafe fn enc_dual_response_group(
     true
 }
 
+#[inline]
+unsafe fn enc_dual_response_ugroup(
+    g: &ak_ufix_DualResponse,
+    cx: *mut EncCtxImpl,
+    vt: *const ak_evt_DualResponse,
+    obj: *const c_void,
+    token: i64,
+) -> bool {
+    if let Some(lp) = (*vt).loop_left {
+        (*cx).open_tag = 1;
+        (*cx).open_site = 80;
+        (*cx).open_kind = 0;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return false; }
+        if (*cx).e.err != 0 { return false; }
+    }
+    if let Some(lp) = (*vt).loop_right {
+        (*cx).open_tag = 2;
+        (*cx).open_site = 81;
+        (*cx).open_kind = 0;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return false; }
+        if (*cx).e.err != 0 { return false; }
+    }
+    if !enc_raw(cx, &g.unknown) { return false; }
+    true
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn ak_elemu_MetricsBatch(
     ctx: *mut ak_enc_ctx,
@@ -622,6 +1242,43 @@ pub unsafe extern "C" fn ak_elemu_MetricsBatch(
     for i in 0..n as usize {
         let mk = (*cx).e.begin(tag, site);
         if !enc_metrics_batch_group(&*elems.add(i), cx, vt, obj, tok0 + i as i64) {
+            return (*cx).e.err;
+        }
+        (*cx).e.end(mk);
+    }
+    (*cx).open_tag = saved.0;
+    (*cx).open_site = saved.1;
+    (*cx).open_kind = saved.2;
+    (*cx).open_vt = saved.3;
+    (*cx).open_obj = saved.4;
+    AK_OK
+}
+
+/// The same unbatched run over the group that carries the bag.
+#[no_mangle]
+pub unsafe extern "C" fn ak_uelemu_MetricsBatch(
+    ctx: *mut ak_enc_ctx,
+    elems: *const ak_ufix_MetricsBatch,
+    n: i32,
+    tok0: i64,
+) -> i32 {
+    let cx = ctx as *mut EncCtxImpl;
+    ak_rt::bump!((*cx).e.c, forward);
+    // ABI v1: an element entry point must leave the codec's open-field state as it found
+    // it. The host drives iteration over its own container and calls this once per chunk;
+    // encoding an element sets the open state for the element's OWN repeated fields, so
+    // without this the second chunk reads whatever the first element left behind. It was
+    // found as a length-prefix site that would not converge, but the failure is worse than
+    // that: `open_tag` is read here too, so a host that chunks would write the later chunks
+    // under the inner field's tag. It did not corrupt this payload set only because
+    // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
+    let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    let (tag, site) = ((*cx).open_tag, (*cx).open_site);
+    let vt = (*cx).open_vt as *const ak_evt_MetricsBatch;
+    let obj = (*cx).open_obj;
+    for i in 0..n as usize {
+        let mk = (*cx).e.begin(tag, site);
+        if !enc_metrics_batch_ugroup(&*elems.add(i), cx, vt, obj, tok0 + i as i64) {
             return (*cx).e.err;
         }
         (*cx).e.end(mk);
@@ -665,6 +1322,38 @@ pub unsafe extern "C" fn ak_elem_Pair(
     AK_OK
 }
 
+/// The same run over the group that carries the unknown-field bag.
+#[no_mangle]
+pub unsafe extern "C" fn ak_uelem_Pair(
+    ctx: *mut ak_enc_ctx,
+    elems: *const ak_ufix_Pair,
+    n: i32,
+) -> i32 {
+    let cx = ctx as *mut EncCtxImpl;
+    ak_rt::bump!((*cx).e.c, forward);
+    // ABI v1: an element entry point must leave the codec's open-field state as it found
+    // it. The host drives iteration over its own container and calls this once per chunk;
+    // encoding an element sets the open state for the element's OWN repeated fields, so
+    // without this the second chunk reads whatever the first element left behind. It was
+    // found as a length-prefix site that would not converge, but the failure is worse than
+    // that: `open_tag` is read here too, so a host that chunks would write the later chunks
+    // under the inner field's tag. It did not corrupt this payload set only because
+    // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
+    let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    let (tag, site) = ((*cx).open_tag, (*cx).open_site);
+    for i in 0..n as usize {
+        let mk = (*cx).e.begin(tag, site);
+        if !enc_pair_ugroup(&*elems.add(i), cx) { return (*cx).e.err; }
+        (*cx).e.end(mk);
+    }
+    (*cx).open_tag = saved.0;
+    (*cx).open_site = saved.1;
+    (*cx).open_kind = saved.2;
+    (*cx).open_vt = saved.3;
+    (*cx).open_obj = saved.4;
+    AK_OK
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn ak_elem_Probe(
     ctx: *mut ak_enc_ctx,
@@ -696,6 +1385,38 @@ pub unsafe extern "C" fn ak_elem_Probe(
     AK_OK
 }
 
+/// The same run over the group that carries the unknown-field bag.
+#[no_mangle]
+pub unsafe extern "C" fn ak_uelem_Probe(
+    ctx: *mut ak_enc_ctx,
+    elems: *const ak_ufix_Probe,
+    n: i32,
+) -> i32 {
+    let cx = ctx as *mut EncCtxImpl;
+    ak_rt::bump!((*cx).e.c, forward);
+    // ABI v1: an element entry point must leave the codec's open-field state as it found
+    // it. The host drives iteration over its own container and calls this once per chunk;
+    // encoding an element sets the open state for the element's OWN repeated fields, so
+    // without this the second chunk reads whatever the first element left behind. It was
+    // found as a length-prefix site that would not converge, but the failure is worse than
+    // that: `open_tag` is read here too, so a host that chunks would write the later chunks
+    // under the inner field's tag. It did not corrupt this payload set only because
+    // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
+    let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    let (tag, site) = ((*cx).open_tag, (*cx).open_site);
+    for i in 0..n as usize {
+        let mk = (*cx).e.begin(tag, site);
+        if !enc_probe_ugroup(&*elems.add(i), cx) { return (*cx).e.err; }
+        (*cx).e.end(mk);
+    }
+    (*cx).open_tag = saved.0;
+    (*cx).open_site = saved.1;
+    (*cx).open_kind = saved.2;
+    (*cx).open_vt = saved.3;
+    (*cx).open_obj = saved.4;
+    AK_OK
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn ak_elem_ResultRaw(
     ctx: *mut ak_enc_ctx,
@@ -717,6 +1438,38 @@ pub unsafe extern "C" fn ak_elem_ResultRaw(
     for i in 0..n as usize {
         let mk = (*cx).e.begin(tag, site);
         if !enc_result_raw_group(&*elems.add(i), cx) { return (*cx).e.err; }
+        (*cx).e.end(mk);
+    }
+    (*cx).open_tag = saved.0;
+    (*cx).open_site = saved.1;
+    (*cx).open_kind = saved.2;
+    (*cx).open_vt = saved.3;
+    (*cx).open_obj = saved.4;
+    AK_OK
+}
+
+/// The same run over the group that carries the unknown-field bag.
+#[no_mangle]
+pub unsafe extern "C" fn ak_uelem_ResultRaw(
+    ctx: *mut ak_enc_ctx,
+    elems: *const ak_ufix_ResultRaw,
+    n: i32,
+) -> i32 {
+    let cx = ctx as *mut EncCtxImpl;
+    ak_rt::bump!((*cx).e.c, forward);
+    // ABI v1: an element entry point must leave the codec's open-field state as it found
+    // it. The host drives iteration over its own container and calls this once per chunk;
+    // encoding an element sets the open state for the element's OWN repeated fields, so
+    // without this the second chunk reads whatever the first element left behind. It was
+    // found as a length-prefix site that would not converge, but the failure is worse than
+    // that: `open_tag` is read here too, so a host that chunks would write the later chunks
+    // under the inner field's tag. It did not corrupt this payload set only because
+    // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
+    let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    let (tag, site) = ((*cx).open_tag, (*cx).open_site);
+    for i in 0..n as usize {
+        let mk = (*cx).e.begin(tag, site);
+        if !enc_result_raw_ugroup(&*elems.add(i), cx) { return (*cx).e.err; }
         (*cx).e.end(mk);
     }
     (*cx).open_tag = saved.0;
@@ -765,6 +1518,43 @@ pub unsafe extern "C" fn ak_elemu_TaskDetailed(
     AK_OK
 }
 
+/// The same unbatched run over the group that carries the bag.
+#[no_mangle]
+pub unsafe extern "C" fn ak_uelemu_TaskDetailed(
+    ctx: *mut ak_enc_ctx,
+    elems: *const ak_ufix_TaskDetailed,
+    n: i32,
+    tok0: i64,
+) -> i32 {
+    let cx = ctx as *mut EncCtxImpl;
+    ak_rt::bump!((*cx).e.c, forward);
+    // ABI v1: an element entry point must leave the codec's open-field state as it found
+    // it. The host drives iteration over its own container and calls this once per chunk;
+    // encoding an element sets the open state for the element's OWN repeated fields, so
+    // without this the second chunk reads whatever the first element left behind. It was
+    // found as a length-prefix site that would not converge, but the failure is worse than
+    // that: `open_tag` is read here too, so a host that chunks would write the later chunks
+    // under the inner field's tag. It did not corrupt this payload set only because
+    // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
+    let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    let (tag, site) = ((*cx).open_tag, (*cx).open_site);
+    let vt = (*cx).open_vt as *const ak_evt_TaskDetailed;
+    let obj = (*cx).open_obj;
+    for i in 0..n as usize {
+        let mk = (*cx).e.begin(tag, site);
+        if !enc_task_detailed_ugroup(&*elems.add(i), cx, vt, obj, tok0 + i as i64) {
+            return (*cx).e.err;
+        }
+        (*cx).e.end(mk);
+    }
+    (*cx).open_tag = saved.0;
+    (*cx).open_site = saved.1;
+    (*cx).open_kind = saved.2;
+    (*cx).open_vt = saved.3;
+    (*cx).open_obj = saved.4;
+    AK_OK
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn ak_elem_TaskOptionsOptionsEntry(
     ctx: *mut ak_enc_ctx,
@@ -786,6 +1576,38 @@ pub unsafe extern "C" fn ak_elem_TaskOptionsOptionsEntry(
     for i in 0..n as usize {
         let mk = (*cx).e.begin(tag, site);
         if !enc_task_options_options_entry_group(&*elems.add(i), cx) { return (*cx).e.err; }
+        (*cx).e.end(mk);
+    }
+    (*cx).open_tag = saved.0;
+    (*cx).open_site = saved.1;
+    (*cx).open_kind = saved.2;
+    (*cx).open_vt = saved.3;
+    (*cx).open_obj = saved.4;
+    AK_OK
+}
+
+/// The same run over the group that carries the unknown-field bag.
+#[no_mangle]
+pub unsafe extern "C" fn ak_uelem_TaskOptionsOptionsEntry(
+    ctx: *mut ak_enc_ctx,
+    elems: *const ak_ufix_TaskOptionsOptionsEntry,
+    n: i32,
+) -> i32 {
+    let cx = ctx as *mut EncCtxImpl;
+    ak_rt::bump!((*cx).e.c, forward);
+    // ABI v1: an element entry point must leave the codec's open-field state as it found
+    // it. The host drives iteration over its own container and calls this once per chunk;
+    // encoding an element sets the open state for the element's OWN repeated fields, so
+    // without this the second chunk reads whatever the first element left behind. It was
+    // found as a length-prefix site that would not converge, but the failure is worse than
+    // that: `open_tag` is read here too, so a host that chunks would write the later chunks
+    // under the inner field's tag. It did not corrupt this payload set only because
+    // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
+    let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    let (tag, site) = ((*cx).open_tag, (*cx).open_site);
+    for i in 0..n as usize {
+        let mk = (*cx).e.begin(tag, site);
+        if !enc_task_options_options_entry_ugroup(&*elems.add(i), cx) { return (*cx).e.err; }
         (*cx).e.end(mk);
     }
     (*cx).open_tag = saved.0;
@@ -834,6 +1656,43 @@ pub unsafe extern "C" fn ak_elemu_TaskSummary(
     AK_OK
 }
 
+/// The same unbatched run over the group that carries the bag.
+#[no_mangle]
+pub unsafe extern "C" fn ak_uelemu_TaskSummary(
+    ctx: *mut ak_enc_ctx,
+    elems: *const ak_ufix_TaskSummary,
+    n: i32,
+    tok0: i64,
+) -> i32 {
+    let cx = ctx as *mut EncCtxImpl;
+    ak_rt::bump!((*cx).e.c, forward);
+    // ABI v1: an element entry point must leave the codec's open-field state as it found
+    // it. The host drives iteration over its own container and calls this once per chunk;
+    // encoding an element sets the open state for the element's OWN repeated fields, so
+    // without this the second chunk reads whatever the first element left behind. It was
+    // found as a length-prefix site that would not converge, but the failure is worse than
+    // that: `open_tag` is read here too, so a host that chunks would write the later chunks
+    // under the inner field's tag. It did not corrupt this payload set only because
+    // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
+    let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    let (tag, site) = ((*cx).open_tag, (*cx).open_site);
+    let vt = (*cx).open_vt as *const ak_evt_TaskSummary;
+    let obj = (*cx).open_obj;
+    for i in 0..n as usize {
+        let mk = (*cx).e.begin(tag, site);
+        if !enc_task_summary_ugroup(&*elems.add(i), cx, vt, obj, tok0 + i as i64) {
+            return (*cx).e.err;
+        }
+        (*cx).e.end(mk);
+    }
+    (*cx).open_tag = saved.0;
+    (*cx).open_site = saved.1;
+    (*cx).open_kind = saved.2;
+    (*cx).open_vt = saved.3;
+    (*cx).open_obj = saved.4;
+    AK_OK
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn ak_encode_ListResultsResponse(
     obj: *const c_void,
@@ -858,6 +1717,35 @@ pub unsafe extern "C" fn ak_encode_ListResultsResponse(
     }
     if g.page != 0 { (*cx).e.varint_field(2, g.page as i64 as u64); }
     if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
+    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    (*cx).e.buf.len() as isize
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ak_uencode_ListResultsResponse(
+    obj: *const c_void,
+    ctx: *mut ak_enc_ctx,
+    vt: *const ak_evt_ListResultsResponse,
+    fix: *const ak_ufix_ListResultsResponse,
+) -> isize {
+    let cx = ctx as *mut EncCtxImpl;
+    ak_rt::bump!((*cx).e.c, forward);
+    (*cx).open_obj = obj;
+    let g = &*fix;
+    let token = AK_TOKEN_ROOT;
+    let _ = token;
+    if let Some(lp) = (*vt).loop_results {
+        (*cx).open_tag = 1;
+        (*cx).open_site = 71;
+        (*cx).open_kind = 0;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
+        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    }
+    if g.page != 0 { (*cx).e.varint_field(2, g.page as i64 as u64); }
+    if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
+    if !enc_raw(cx, &g.unknown) { return (*cx).e.err as isize; }
     if (*cx).e.err != 0 { return (*cx).e.err as isize; }
     (*cx).e.buf.len() as isize
 }
@@ -892,6 +1780,36 @@ pub unsafe extern "C" fn ak_encode_ListTasksDetailedResponse(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn ak_uencode_ListTasksDetailedResponse(
+    obj: *const c_void,
+    ctx: *mut ak_enc_ctx,
+    vt: *const ak_evt_ListTasksDetailedResponse,
+    fix: *const ak_ufix_ListTasksDetailedResponse,
+) -> isize {
+    let cx = ctx as *mut EncCtxImpl;
+    ak_rt::bump!((*cx).e.c, forward);
+    (*cx).open_obj = obj;
+    let g = &*fix;
+    let token = AK_TOKEN_ROOT;
+    let _ = token;
+    if let Some(lp) = (*vt).loop_tasks {
+        (*cx).open_tag = 1;
+        (*cx).open_site = 72;
+        (*cx).open_kind = 0;
+        (*cx).open_vt = (*vt).elem_tasks as *const c_void;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
+        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    }
+    if g.page != 0 { (*cx).e.varint_field(2, g.page as i64 as u64); }
+    if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
+    if !enc_raw(cx, &g.unknown) { return (*cx).e.err as isize; }
+    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    (*cx).e.buf.len() as isize
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn ak_encode_ListProbeResponse(
     obj: *const c_void,
     ctx: *mut ak_enc_ctx,
@@ -913,6 +1831,33 @@ pub unsafe extern "C" fn ak_encode_ListProbeResponse(
         if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
         if (*cx).e.err != 0 { return (*cx).e.err as isize; }
     }
+    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    (*cx).e.buf.len() as isize
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ak_uencode_ListProbeResponse(
+    obj: *const c_void,
+    ctx: *mut ak_enc_ctx,
+    vt: *const ak_evt_ListProbeResponse,
+    fix: *const ak_ufix_ListProbeResponse,
+) -> isize {
+    let cx = ctx as *mut EncCtxImpl;
+    ak_rt::bump!((*cx).e.c, forward);
+    (*cx).open_obj = obj;
+    let g = &*fix;
+    let token = AK_TOKEN_ROOT;
+    let _ = token;
+    if let Some(lp) = (*vt).loop_probes {
+        (*cx).open_tag = 1;
+        (*cx).open_site = 74;
+        (*cx).open_kind = 0;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
+        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    }
+    if !enc_raw(cx, &g.unknown) { return (*cx).e.err as isize; }
     if (*cx).e.err != 0 { return (*cx).e.err as isize; }
     (*cx).e.buf.len() as isize
 }
@@ -940,6 +1885,34 @@ pub unsafe extern "C" fn ak_encode_ListTaskSummaryResponse(
         if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
         if (*cx).e.err != 0 { return (*cx).e.err as isize; }
     }
+    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    (*cx).e.buf.len() as isize
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ak_uencode_ListTaskSummaryResponse(
+    obj: *const c_void,
+    ctx: *mut ak_enc_ctx,
+    vt: *const ak_evt_ListTaskSummaryResponse,
+    fix: *const ak_ufix_ListTaskSummaryResponse,
+) -> isize {
+    let cx = ctx as *mut EncCtxImpl;
+    ak_rt::bump!((*cx).e.c, forward);
+    (*cx).open_obj = obj;
+    let g = &*fix;
+    let token = AK_TOKEN_ROOT;
+    let _ = token;
+    if let Some(lp) = (*vt).loop_tasks {
+        (*cx).open_tag = 1;
+        (*cx).open_site = 73;
+        (*cx).open_kind = 0;
+        (*cx).open_vt = (*vt).elem_tasks as *const c_void;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
+        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    }
+    if !enc_raw(cx, &g.unknown) { return (*cx).e.err as isize; }
     if (*cx).e.err != 0 { return (*cx).e.err as isize; }
     (*cx).e.buf.len() as isize
 }
@@ -979,6 +1952,42 @@ pub unsafe extern "C" fn ak_encode_UploadResultDataMessage(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn ak_uencode_UploadResultDataMessage(
+    obj: *const c_void,
+    ctx: *mut ak_enc_ctx,
+    vt: *const ak_evt_UploadResultDataMessage,
+    fix: *const ak_ufix_UploadResultDataMessage,
+    direct: *const u8,
+    direct_len: usize,
+) -> isize {
+    let cx = ctx as *mut EncCtxImpl;
+    ak_rt::bump!((*cx).e.c, forward);
+    (*cx).open_obj = obj;
+    (*cx).direct = direct;
+    (*cx).direct_len = direct_len;
+    let g = &*fix;
+    let token = AK_TOKEN_ROOT;
+    let _ = token;
+    if g.presence & AK_UFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD != 0 {
+        let mk = (*cx).e.begin(1, 76);
+        if g.upload.session_id.tc.is_some() && g.upload.session_id.len != 0 {
+            if !enc_blob(cx, 1, 77, &g.upload.session_id) { return (*cx).e.err as isize; }
+        }
+        if g.upload.result_id.tc.is_some() && g.upload.result_id.len != 0 {
+            if !enc_blob(cx, 2, 78, &g.upload.result_id) { return (*cx).e.err as isize; }
+        }
+        if g.upload.data_chunk.len != 0 {
+            if !enc_blob(cx, 3, 79, &g.upload.data_chunk) { return (*cx).e.err as isize; }
+        }
+        if !enc_raw(cx, &g.upload.unknown) { return (*cx).e.err as isize; }
+        (*cx).e.end(mk);
+    }
+    if !enc_raw(cx, &g.unknown) { return (*cx).e.err as isize; }
+    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    (*cx).e.buf.len() as isize
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn ak_encode_ListMetricsResponse(
     obj: *const c_void,
     ctx: *mut ak_enc_ctx,
@@ -1001,6 +2010,34 @@ pub unsafe extern "C" fn ak_encode_ListMetricsResponse(
         if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
         if (*cx).e.err != 0 { return (*cx).e.err as isize; }
     }
+    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    (*cx).e.buf.len() as isize
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ak_uencode_ListMetricsResponse(
+    obj: *const c_void,
+    ctx: *mut ak_enc_ctx,
+    vt: *const ak_evt_ListMetricsResponse,
+    fix: *const ak_ufix_ListMetricsResponse,
+) -> isize {
+    let cx = ctx as *mut EncCtxImpl;
+    ak_rt::bump!((*cx).e.c, forward);
+    (*cx).open_obj = obj;
+    let g = &*fix;
+    let token = AK_TOKEN_ROOT;
+    let _ = token;
+    if let Some(lp) = (*vt).loop_batches {
+        (*cx).open_tag = 1;
+        (*cx).open_site = 75;
+        (*cx).open_kind = 0;
+        (*cx).open_vt = (*vt).elem_batches as *const c_void;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
+        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    }
+    if !enc_raw(cx, &g.unknown) { return (*cx).e.err as isize; }
     if (*cx).e.err != 0 { return (*cx).e.err as isize; }
     (*cx).e.buf.len() as isize
 }
@@ -1036,6 +2073,42 @@ pub unsafe extern "C" fn ak_encode_DualResponse(
         if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
         if (*cx).e.err != 0 { return (*cx).e.err as isize; }
     }
+    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    (*cx).e.buf.len() as isize
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ak_uencode_DualResponse(
+    obj: *const c_void,
+    ctx: *mut ak_enc_ctx,
+    vt: *const ak_evt_DualResponse,
+    fix: *const ak_ufix_DualResponse,
+) -> isize {
+    let cx = ctx as *mut EncCtxImpl;
+    ak_rt::bump!((*cx).e.c, forward);
+    (*cx).open_obj = obj;
+    let g = &*fix;
+    let token = AK_TOKEN_ROOT;
+    let _ = token;
+    if let Some(lp) = (*vt).loop_left {
+        (*cx).open_tag = 1;
+        (*cx).open_site = 80;
+        (*cx).open_kind = 0;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
+        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    }
+    if let Some(lp) = (*vt).loop_right {
+        (*cx).open_tag = 2;
+        (*cx).open_site = 81;
+        (*cx).open_kind = 0;
+        ak_rt::bump!((*cx).e.c, reverse);
+        let rc = lp(cx as *mut ak_enc_ctx, obj, token);
+        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
+        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    }
+    if !enc_raw(cx, &g.unknown) { return (*cx).e.err as isize; }
     if (*cx).e.err != 0 { return (*cx).e.err as isize; }
     (*cx).e.buf.len() as isize
 }
@@ -1124,7 +2197,7 @@ pub unsafe extern "C" fn ak_run_u8(ctx: *mut ak_enc_ctx, p: *const u8, n: usize)
 }
 
 #[inline]
-unsafe fn dec_empty_fix(d: &mut Dec, base: usize) -> ak_dfix_Empty {
+unsafe fn dec_empty_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Empty {
     let mut out = ak_dfix_Empty::ZERO;
     #[allow(unused_variables)]
     let buf0 = d.buf;
@@ -1132,18 +2205,21 @@ unsafe fn dec_empty_fix(d: &mut Dec, base: usize) -> ak_dfix_Empty {
     let mut cur = 0u32;
     macro_rules! flush { () => { }; }
     while !d.at_end() {
+        // Decision 11 candidate: where this field's tag-and-value run starts,
+        // so an unknown one can be handed over as a span rather than dropped.
+        let s0 = d.pos;
         let k = d.varint();
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
         if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
-            _ => d.skip(wire),
+            _ => { d.skip(wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
         }
     }
     out
 }
 
 #[inline]
-unsafe fn dec_pair_fix(d: &mut Dec, base: usize) -> ak_dfix_Pair {
+unsafe fn dec_pair_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Pair {
     let mut out = ak_dfix_Pair::ZERO;
     #[allow(unused_variables)]
     let buf0 = d.buf;
@@ -1151,6 +2227,9 @@ unsafe fn dec_pair_fix(d: &mut Dec, base: usize) -> ak_dfix_Pair {
     let mut cur = 0u32;
     macro_rules! flush { () => { }; }
     while !d.at_end() {
+        // Decision 11 candidate: where this field's tag-and-value run starts,
+        // so an unknown one can be handed over as a span rather than dropped.
+        let s0 = d.pos;
         let k = d.varint();
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
         if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
@@ -1164,14 +2243,14 @@ unsafe fn dec_pair_fix(d: &mut Dec, base: usize) -> ak_dfix_Pair {
                 if cur != 0 { flush!(); cur = 0; }
                 out.value = d.varint() as i32;
             }
-            _ => d.skip(wire),
+            _ => { d.skip(wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
         }
     }
     out
 }
 
 #[inline]
-unsafe fn dec_probe_fix(d: &mut Dec, base: usize) -> ak_dfix_Probe {
+unsafe fn dec_probe_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Probe {
     let mut out = ak_dfix_Probe::ZERO;
     #[allow(unused_variables)]
     let buf0 = d.buf;
@@ -1179,6 +2258,9 @@ unsafe fn dec_probe_fix(d: &mut Dec, base: usize) -> ak_dfix_Probe {
     let mut cur = 0u32;
     macro_rules! flush { () => { }; }
     while !d.at_end() {
+        // Decision 11 candidate: where this field's tag-and-value run starts,
+        // so an unknown one can be handed over as a span rather than dropped.
+        let s0 = d.pos;
         let k = d.varint();
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
         if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
@@ -1228,7 +2310,7 @@ unsafe fn dec_probe_fix(d: &mut Dec, base: usize) -> ak_dfix_Probe {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut os = Dec::new(&buf0[off..off + n]);
-                out.body_as_stamp = dec_timestamp_fix(&mut os, base0 + off);
+                out.body_as_stamp = dec_timestamp_fix(&mut os, base0 + off, ::core::ptr::null_mut());
                 if os.err != 0 { d.err = os.err; }
                 // Last one wins: a later member replaces the case.
                 out.body_case = 13;
@@ -1237,19 +2319,19 @@ unsafe fn dec_probe_fix(d: &mut Dec, base: usize) -> ak_dfix_Probe {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut os = Dec::new(&buf0[off..off + n]);
-                out.body_as_nothing = dec_empty_fix(&mut os, base0 + off);
+                out.body_as_nothing = dec_empty_fix(&mut os, base0 + off, ::core::ptr::null_mut());
                 if os.err != 0 { d.err = os.err; }
                 // Last one wins: a later member replaces the case.
                 out.body_case = 14;
             }
-            _ => d.skip(wire),
+            _ => { d.skip(wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
         }
     }
     out
 }
 
 #[inline]
-unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize) -> ak_dfix_ResultRaw {
+unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_ResultRaw {
     let mut out = ak_dfix_ResultRaw::ZERO;
     #[allow(unused_variables)]
     let buf0 = d.buf;
@@ -1257,6 +2339,9 @@ unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize) -> ak_dfix_ResultRaw {
     let mut cur = 0u32;
     macro_rules! flush { () => { }; }
     while !d.at_end() {
+        // Decision 11 candidate: where this field's tag-and-value run starts,
+        // so an unknown one can be handed over as a span rather than dropped.
+        let s0 = d.pos;
         let k = d.varint();
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
         if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
@@ -1353,14 +2438,14 @@ unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize) -> ak_dfix_ResultRaw {
                 if cur != 0 { flush!(); cur = 0; }
                 out.manual_deletion = (d.varint() != 0) as u8;
             }
-            _ => d.skip(wire),
+            _ => { d.skip(wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
         }
     }
     out
 }
 
 #[inline]
-unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize) -> ak_dfix_TaskOptionsOptionsEntry {
+unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_TaskOptionsOptionsEntry {
     let mut out = ak_dfix_TaskOptionsOptionsEntry::ZERO;
     #[allow(unused_variables)]
     let buf0 = d.buf;
@@ -1368,6 +2453,9 @@ unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize) -> ak_dfi
     let mut cur = 0u32;
     macro_rules! flush { () => { }; }
     while !d.at_end() {
+        // Decision 11 candidate: where this field's tag-and-value run starts,
+        // so an unknown one can be handed over as a span rather than dropped.
+        let s0 = d.pos;
         let k = d.varint();
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
         if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
@@ -1382,14 +2470,14 @@ unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize) -> ak_dfi
                 let (off, n) = d.len_body();
                 out.value = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
-            _ => d.skip(wire),
+            _ => { d.skip(wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
         }
     }
     out
 }
 
 #[inline]
-unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize) -> ak_dfix_Timestamp {
+unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Timestamp {
     let mut out = ak_dfix_Timestamp::ZERO;
     #[allow(unused_variables)]
     let buf0 = d.buf;
@@ -1397,6 +2485,9 @@ unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize) -> ak_dfix_Timestamp {
     let mut cur = 0u32;
     macro_rules! flush { () => { }; }
     while !d.at_end() {
+        // Decision 11 candidate: where this field's tag-and-value run starts,
+        // so an unknown one can be handed over as a span rather than dropped.
+        let s0 = d.pos;
         let k = d.varint();
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
         if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
@@ -1409,7 +2500,7 @@ unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize) -> ak_dfix_Timestamp {
                 if cur != 0 { flush!(); cur = 0; }
                 out.nanos = d.varint() as i32;
             }
-            _ => d.skip(wire),
+            _ => { d.skip(wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
         }
     }
     out
@@ -1447,30 +2538,55 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
     let mut a_parent_task_ids: [::core::mem::MaybeUninit<ak_span>; N_PARENT_TASK_IDS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_PARENT_TASK_IDS];
     let mut n_parent_task_ids: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_parent_task_ids: usize = 0;
+    let _ = done_parent_task_ids;
+    let uk_parent_task_ids: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_DATA_DEPENDENCIES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     let mut a_data_dependencies: [::core::mem::MaybeUninit<ak_span>; N_DATA_DEPENDENCIES] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_DATA_DEPENDENCIES];
     let mut n_data_dependencies: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_data_dependencies: usize = 0;
+    let _ = done_data_dependencies;
+    let uk_data_dependencies: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_EXPECTED_OUTPUT_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     let mut a_expected_output_ids: [::core::mem::MaybeUninit<ak_span>; N_EXPECTED_OUTPUT_IDS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_EXPECTED_OUTPUT_IDS];
     let mut n_expected_output_ids: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_expected_output_ids: usize = 0;
+    let _ = done_expected_output_ids;
+    let uk_expected_output_ids: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_RETRY_OF_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     let mut a_retry_of_ids: [::core::mem::MaybeUninit<ak_span>; N_RETRY_OF_IDS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_RETRY_OF_IDS];
     let mut n_retry_of_ids: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_retry_of_ids: usize = 0;
+    let _ = done_retry_of_ids;
+    let uk_retry_of_ids: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
     let mut a_options_options: [::core::mem::MaybeUninit<ak_dfix_TaskOptionsOptionsEntry>; N_OPTIONS_OPTIONS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_OPTIONS_OPTIONS];
     let mut n_options_options: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_options_options: usize = 0;
+    let _ = done_options_options;
+    let uk_options_options: *mut UnkBuf = ::core::ptr::null_mut();
     macro_rules! flush_parent_task_ids {
         () => {
             if n_parent_task_ids > 0 {
@@ -1478,7 +2594,9 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     ak_rt::bump!((*dcx).c, reverse);
                     add(ctx, obj, tok, a_parent_task_ids.as_ptr() as *const ak_span, n_parent_task_ids as i32);
                 }
+                done_parent_task_ids += n_parent_task_ids;
                 n_parent_task_ids = 0;
+                if !uk_parent_task_ids.is_null() { (*uk_parent_task_ids).flush(); }
             }
         };
     }
@@ -1489,7 +2607,9 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     ak_rt::bump!((*dcx).c, reverse);
                     add(ctx, obj, tok, a_data_dependencies.as_ptr() as *const ak_span, n_data_dependencies as i32);
                 }
+                done_data_dependencies += n_data_dependencies;
                 n_data_dependencies = 0;
+                if !uk_data_dependencies.is_null() { (*uk_data_dependencies).flush(); }
             }
         };
     }
@@ -1500,7 +2620,9 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     ak_rt::bump!((*dcx).c, reverse);
                     add(ctx, obj, tok, a_expected_output_ids.as_ptr() as *const ak_span, n_expected_output_ids as i32);
                 }
+                done_expected_output_ids += n_expected_output_ids;
                 n_expected_output_ids = 0;
+                if !uk_expected_output_ids.is_null() { (*uk_expected_output_ids).flush(); }
             }
         };
     }
@@ -1511,7 +2633,9 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     ak_rt::bump!((*dcx).c, reverse);
                     add(ctx, obj, tok, a_retry_of_ids.as_ptr() as *const ak_span, n_retry_of_ids as i32);
                 }
+                done_retry_of_ids += n_retry_of_ids;
                 n_retry_of_ids = 0;
+                if !uk_retry_of_ids.is_null() { (*uk_retry_of_ids).flush(); }
             }
         };
     }
@@ -1522,7 +2646,9 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     ak_rt::bump!((*dcx).c, reverse);
                     add(ctx, obj, tok, a_options_options.as_ptr() as *const ak_dfix_TaskOptionsOptionsEntry, n_options_options as i32);
                 }
+                done_options_options += n_options_options;
                 n_options_options = 0;
+                if !uk_options_options.is_null() { (*uk_options_options).flush(); }
             }
         };
     }
@@ -1610,7 +2736,8 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                             if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                             let (off, n) = cd.len_body();
                             let mut es = Dec::new(&buf1[off..off + n]);
-                            a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off));
+                            if !uk_options_options.is_null() { (*uk_options_options).token = (done_options_options + n_options_options) as i64; }
+                            a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, uk_options_options));
                             if es.err != 0 { cd.err = es.err; }
                             n_options_options += 1;
                         }
@@ -2070,6 +3197,11 @@ unsafe fn dec_list_task_summary_response_tasks_element(
     let mut a_options_options: [::core::mem::MaybeUninit<ak_dfix_TaskOptionsOptionsEntry>; N_OPTIONS_OPTIONS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_OPTIONS_OPTIONS];
     let mut n_options_options: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_options_options: usize = 0;
+    let _ = done_options_options;
+    let uk_options_options: *mut UnkBuf = ::core::ptr::null_mut();
     macro_rules! flush_options_options {
         () => {
             if n_options_options > 0 {
@@ -2077,7 +3209,9 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                     ak_rt::bump!((*dcx).c, reverse);
                     add(ctx, obj, tok, a_options_options.as_ptr() as *const ak_dfix_TaskOptionsOptionsEntry, n_options_options as i32);
                 }
+                done_options_options += n_options_options;
                 n_options_options = 0;
+                if !uk_options_options.is_null() { (*uk_options_options).flush(); }
             }
         };
     }
@@ -2119,7 +3253,8 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                             if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                             let (off, n) = cd.len_body();
                             let mut es = Dec::new(&buf1[off..off + n]);
-                            a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off));
+                            if !uk_options_options.is_null() { (*uk_options_options).token = (done_options_options + n_options_options) as i64; }
+                            a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, uk_options_options));
                             if es.err != 0 { cd.err = es.err; }
                             n_options_options += 1;
                         }
@@ -2276,30 +3411,55 @@ unsafe fn dec_list_metrics_response_batches_element(
     let mut a_ticks: [::core::mem::MaybeUninit<i64>; N_TICKS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_TICKS];
     let mut n_ticks: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_ticks: usize = 0;
+    let _ = done_ticks;
+    let uk_ticks: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_VALUES: usize = ak_rt::arena_n(::core::mem::size_of::<f64>());
     let mut a_values: [::core::mem::MaybeUninit<f64>; N_VALUES] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_VALUES];
     let mut n_values: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_values: usize = 0;
+    let _ = done_values;
+    let uk_values: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_CODES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
     let mut a_codes: [::core::mem::MaybeUninit<i32>; N_CODES] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_CODES];
     let mut n_codes: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_codes: usize = 0;
+    let _ = done_codes;
+    let uk_codes: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_FLAGS: usize = ak_rt::arena_n(::core::mem::size_of::<u8>());
     let mut a_flags: [::core::mem::MaybeUninit<u8>; N_FLAGS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_FLAGS];
     let mut n_flags: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_flags: usize = 0;
+    let _ = done_flags;
+    let uk_flags: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_STATUSES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
     let mut a_statuses: [::core::mem::MaybeUninit<i32>; N_STATUSES] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_STATUSES];
     let mut n_statuses: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_statuses: usize = 0;
+    let _ = done_statuses;
+    let uk_statuses: *mut UnkBuf = ::core::ptr::null_mut();
     macro_rules! flush_ticks {
         () => {
             if n_ticks > 0 {
@@ -2307,7 +3467,9 @@ unsafe fn dec_list_metrics_response_batches_element(
                     ak_rt::bump!((*dcx).c, reverse);
                     add(ctx, obj, tok, a_ticks.as_ptr() as *const i64, n_ticks as i32);
                 }
+                done_ticks += n_ticks;
                 n_ticks = 0;
+                if !uk_ticks.is_null() { (*uk_ticks).flush(); }
             }
         };
     }
@@ -2318,7 +3480,9 @@ unsafe fn dec_list_metrics_response_batches_element(
                     ak_rt::bump!((*dcx).c, reverse);
                     add(ctx, obj, tok, a_values.as_ptr() as *const f64, n_values as i32);
                 }
+                done_values += n_values;
                 n_values = 0;
+                if !uk_values.is_null() { (*uk_values).flush(); }
             }
         };
     }
@@ -2329,7 +3493,9 @@ unsafe fn dec_list_metrics_response_batches_element(
                     ak_rt::bump!((*dcx).c, reverse);
                     add(ctx, obj, tok, a_codes.as_ptr() as *const i32, n_codes as i32);
                 }
+                done_codes += n_codes;
                 n_codes = 0;
+                if !uk_codes.is_null() { (*uk_codes).flush(); }
             }
         };
     }
@@ -2340,7 +3506,9 @@ unsafe fn dec_list_metrics_response_batches_element(
                     ak_rt::bump!((*dcx).c, reverse);
                     add(ctx, obj, tok, a_flags.as_ptr() as *const u8, n_flags as i32);
                 }
+                done_flags += n_flags;
                 n_flags = 0;
+                if !uk_flags.is_null() { (*uk_flags).flush(); }
             }
         };
     }
@@ -2351,7 +3519,9 @@ unsafe fn dec_list_metrics_response_batches_element(
                     ak_rt::bump!((*dcx).c, reverse);
                     add(ctx, obj, tok, a_statuses.as_ptr() as *const i32, n_statuses as i32);
                 }
+                done_statuses += n_statuses;
                 n_statuses = 0;
+                if !uk_statuses.is_null() { (*uk_statuses).flush(); }
             }
         };
     }
@@ -2496,6 +3666,12 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
     let mut a_results: [::core::mem::MaybeUninit<ak_dfix_ResultRaw>; N_RESULTS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_RESULTS];
     let mut n_results: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_results: usize = 0;
+    let _ = done_results;
+    let mut ub_results = UnkBuf::new((*vt).unk_results, ctx, obj);
+    let uk_results: *mut UnkBuf = if ub_results.cb.is_some() { &mut ub_results } else { ::core::ptr::null_mut() };
     macro_rules! flush_results {
         () => {
             if n_results > 0 {
@@ -2503,7 +3679,9 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
                     ak_rt::bump!((*dcx).c, reverse);
                     add(ctx, obj, AK_TOKEN_ROOT, a_results.as_ptr() as *const ak_dfix_ResultRaw, n_results as i32);
                 }
+                done_results += n_results;
                 n_results = 0;
+                if !uk_results.is_null() { (*uk_results).flush(); }
             }
         };
     }
@@ -2512,8 +3690,12 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
             flush_results!();
         };
     }
+    // Decision 11 candidate: the ROOT message's own unknown fields.
+    let mut ub_root = UnkBuf::new((*vt).unknown, ctx, obj);
+    let uk_root: *mut UnkBuf = if ub_root.cb.is_some() { &mut ub_root } else { ::core::ptr::null_mut() };
     let mut cur = 0u32;
     while !d.at_end() {
+        let s0 = d.pos;
         let k = d.varint();
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
         if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
@@ -2523,7 +3705,8 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
                 if n_results == N_RESULTS { flush_results!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_results[n_results].write(dec_result_raw_fix(&mut es, base0 + off));
+                if !uk_results.is_null() { (*uk_results).token = (done_results + n_results) as i64; }
+                a_results[n_results].write(dec_result_raw_fix(&mut es, base0 + off, uk_results));
                 if es.err != 0 { d.err = es.err; }
                 n_results += 1;
             }
@@ -2535,10 +3718,11 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 out.total = d.varint() as i32;
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
     flush!();
+    if !uk_root.is_null() { (*uk_root).flush(); }
     if let Some(apply) = (*vt).apply {
         ak_rt::bump!((*dcx).c, reverse);
         apply(ctx, obj, &out);
@@ -2572,8 +3756,12 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
         () => {
         };
     }
+    // Decision 11 candidate: the ROOT message's own unknown fields.
+    let mut ub_root = UnkBuf::new((*vt).unknown, ctx, obj);
+    let uk_root: *mut UnkBuf = if ub_root.cb.is_some() { &mut ub_root } else { ::core::ptr::null_mut() };
     let mut cur = 0u32;
     while !d.at_end() {
+        let s0 = d.pos;
         let k = d.varint();
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
         if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
@@ -2593,10 +3781,11 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 out.total = d.varint() as i32;
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
     flush!();
+    if !uk_root.is_null() { (*uk_root).flush(); }
     if let Some(apply) = (*vt).apply {
         ak_rt::bump!((*dcx).c, reverse);
         apply(ctx, obj, &out);
@@ -2632,6 +3821,12 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
     let mut a_probes: [::core::mem::MaybeUninit<ak_dfix_Probe>; N_PROBES] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_PROBES];
     let mut n_probes: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_probes: usize = 0;
+    let _ = done_probes;
+    let mut ub_probes = UnkBuf::new((*vt).unk_probes, ctx, obj);
+    let uk_probes: *mut UnkBuf = if ub_probes.cb.is_some() { &mut ub_probes } else { ::core::ptr::null_mut() };
     macro_rules! flush_probes {
         () => {
             if n_probes > 0 {
@@ -2639,7 +3834,9 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
                     ak_rt::bump!((*dcx).c, reverse);
                     add(ctx, obj, AK_TOKEN_ROOT, a_probes.as_ptr() as *const ak_dfix_Probe, n_probes as i32);
                 }
+                done_probes += n_probes;
                 n_probes = 0;
+                if !uk_probes.is_null() { (*uk_probes).flush(); }
             }
         };
     }
@@ -2648,8 +3845,12 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
             flush_probes!();
         };
     }
+    // Decision 11 candidate: the ROOT message's own unknown fields.
+    let mut ub_root = UnkBuf::new((*vt).unknown, ctx, obj);
+    let uk_root: *mut UnkBuf = if ub_root.cb.is_some() { &mut ub_root } else { ::core::ptr::null_mut() };
     let mut cur = 0u32;
     while !d.at_end() {
+        let s0 = d.pos;
         let k = d.varint();
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
         if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
@@ -2659,14 +3860,16 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
                 if n_probes == N_PROBES { flush_probes!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_probes[n_probes].write(dec_probe_fix(&mut es, base0 + off));
+                if !uk_probes.is_null() { (*uk_probes).token = (done_probes + n_probes) as i64; }
+                a_probes[n_probes].write(dec_probe_fix(&mut es, base0 + off, uk_probes));
                 if es.err != 0 { d.err = es.err; }
                 n_probes += 1;
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
     flush!();
+    if !uk_root.is_null() { (*uk_root).flush(); }
     if let Some(apply) = (*vt).apply {
         ak_rt::bump!((*dcx).c, reverse);
         apply(ctx, obj, &out);
@@ -2700,8 +3903,12 @@ pub unsafe extern "C" fn ak_decode_ListTaskSummaryResponse(
         () => {
         };
     }
+    // Decision 11 candidate: the ROOT message's own unknown fields.
+    let mut ub_root = UnkBuf::new((*vt).unknown, ctx, obj);
+    let uk_root: *mut UnkBuf = if ub_root.cb.is_some() { &mut ub_root } else { ::core::ptr::null_mut() };
     let mut cur = 0u32;
     while !d.at_end() {
+        let s0 = d.pos;
         let k = d.varint();
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
         if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
@@ -2713,10 +3920,11 @@ pub unsafe extern "C" fn ak_decode_ListTaskSummaryResponse(
                 dec_list_task_summary_response_tasks_element(ctx, dcx, obj, vt, &mut sub, base0 + off);
                 if sub.err != 0 { d.err = sub.err; }
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
     flush!();
+    if !uk_root.is_null() { (*uk_root).flush(); }
     if let Some(apply) = (*vt).apply {
         ak_rt::bump!((*dcx).c, reverse);
         apply(ctx, obj, &out);
@@ -2750,8 +3958,12 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
         () => {
         };
     }
+    // Decision 11 candidate: the ROOT message's own unknown fields.
+    let mut ub_root = UnkBuf::new((*vt).unknown, ctx, obj);
+    let uk_root: *mut UnkBuf = if ub_root.cb.is_some() { &mut ub_root } else { ::core::ptr::null_mut() };
     let mut cur = 0u32;
     while !d.at_end() {
+        let s0 = d.pos;
         let k = d.varint();
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
         if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
@@ -2788,10 +4000,11 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
                 }
                 if cd.err != 0 { d.err = cd.err; }
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
     flush!();
+    if !uk_root.is_null() { (*uk_root).flush(); }
     if let Some(apply) = (*vt).apply {
         ak_rt::bump!((*dcx).c, reverse);
         apply(ctx, obj, &out);
@@ -2825,8 +4038,12 @@ pub unsafe extern "C" fn ak_decode_ListMetricsResponse(
         () => {
         };
     }
+    // Decision 11 candidate: the ROOT message's own unknown fields.
+    let mut ub_root = UnkBuf::new((*vt).unknown, ctx, obj);
+    let uk_root: *mut UnkBuf = if ub_root.cb.is_some() { &mut ub_root } else { ::core::ptr::null_mut() };
     let mut cur = 0u32;
     while !d.at_end() {
+        let s0 = d.pos;
         let k = d.varint();
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
         if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
@@ -2838,10 +4055,11 @@ pub unsafe extern "C" fn ak_decode_ListMetricsResponse(
                 dec_list_metrics_response_batches_element(ctx, dcx, obj, vt, &mut sub, base0 + off);
                 if sub.err != 0 { d.err = sub.err; }
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
     flush!();
+    if !uk_root.is_null() { (*uk_root).flush(); }
     if let Some(apply) = (*vt).apply {
         ak_rt::bump!((*dcx).c, reverse);
         apply(ctx, obj, &out);
@@ -2877,12 +4095,24 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
     let mut a_left: [::core::mem::MaybeUninit<ak_dfix_Pair>; N_LEFT] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_LEFT];
     let mut n_left: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_left: usize = 0;
+    let _ = done_left;
+    let mut ub_left = UnkBuf::new((*vt).unk_left, ctx, obj);
+    let uk_left: *mut UnkBuf = if ub_left.cb.is_some() { &mut ub_left } else { ::core::ptr::null_mut() };
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_RIGHT: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_Pair>());
     let mut a_right: [::core::mem::MaybeUninit<ak_dfix_Pair>; N_RIGHT] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_RIGHT];
     let mut n_right: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_right: usize = 0;
+    let _ = done_right;
+    let mut ub_right = UnkBuf::new((*vt).unk_right, ctx, obj);
+    let uk_right: *mut UnkBuf = if ub_right.cb.is_some() { &mut ub_right } else { ::core::ptr::null_mut() };
     macro_rules! flush_left {
         () => {
             if n_left > 0 {
@@ -2890,7 +4120,9 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
                     ak_rt::bump!((*dcx).c, reverse);
                     add(ctx, obj, AK_TOKEN_ROOT, a_left.as_ptr() as *const ak_dfix_Pair, n_left as i32);
                 }
+                done_left += n_left;
                 n_left = 0;
+                if !uk_left.is_null() { (*uk_left).flush(); }
             }
         };
     }
@@ -2901,7 +4133,9 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
                     ak_rt::bump!((*dcx).c, reverse);
                     add(ctx, obj, AK_TOKEN_ROOT, a_right.as_ptr() as *const ak_dfix_Pair, n_right as i32);
                 }
+                done_right += n_right;
                 n_right = 0;
+                if !uk_right.is_null() { (*uk_right).flush(); }
             }
         };
     }
@@ -2911,8 +4145,12 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
             flush_right!();
         };
     }
+    // Decision 11 candidate: the ROOT message's own unknown fields.
+    let mut ub_root = UnkBuf::new((*vt).unknown, ctx, obj);
+    let uk_root: *mut UnkBuf = if ub_root.cb.is_some() { &mut ub_root } else { ::core::ptr::null_mut() };
     let mut cur = 0u32;
     while !d.at_end() {
+        let s0 = d.pos;
         let k = d.varint();
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
         if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
@@ -2922,7 +4160,8 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
                 if n_left == N_LEFT { flush_left!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_left[n_left].write(dec_pair_fix(&mut es, base0 + off));
+                if !uk_left.is_null() { (*uk_left).token = (done_left + n_left) as i64; }
+                a_left[n_left].write(dec_pair_fix(&mut es, base0 + off, uk_left));
                 if es.err != 0 { d.err = es.err; }
                 n_left += 1;
             }
@@ -2931,14 +4170,16 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
                 if n_right == N_RIGHT { flush_right!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_right[n_right].write(dec_pair_fix(&mut es, base0 + off));
+                if !uk_right.is_null() { (*uk_right).token = (done_right + n_right) as i64; }
+                a_right[n_right].write(dec_pair_fix(&mut es, base0 + off, uk_right));
                 if es.err != 0 { d.err = es.err; }
                 n_right += 1;
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
     flush!();
+    if !uk_root.is_null() { (*uk_root).flush(); }
     if let Some(apply) = (*vt).apply {
         ak_rt::bump!((*dcx).c, reverse);
         apply(ctx, obj, &out);

@@ -17,6 +17,47 @@ pub type ak_loop_f = unsafe extern "C" fn(
     token: i64,
 ) -> i32;
 
+/// ABI v1 open decision 11 candidate: unknown fields, delivered as a RUN.
+///
+/// Each span covers one whole tag-and-value run in the buffer the host handed in,
+/// so the core copies nothing and stays allocation-free; the host materialises them
+/// if it intends to re-encode, because that buffer may be recycled. Batched like any
+/// other run, so the cost is crossings per chunk and not per field.
+///
+/// It is a SIDE run keyed by token, not a slot in the element group, which is why
+/// the group stays a fixed-size POD and ABI v1 7.2's batching predicate does not
+/// even see it (`gen/unknown_predicate.py`).
+/// The unknown-field bag's slot: TWO words, not three.
+///
+/// Every other blob slot carries a transcoder pointer because the host's
+/// representation may not be the wire's. The bag's is, by construction: it is the
+/// raw tag-and-value runs a decoder captured, so there is nothing to convert and
+/// the third word would be dead weight on every group of every message. Emptiness
+/// is `len == 0`, which is the same test ABI v1 section 8's direct-argument path
+/// already uses, so this is not a new convention.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_blob {
+    pub data: *const c_void,
+    pub len: usize,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_uspan {
+    /// Which element of the enclosing run this run belongs to, or AK_TOKEN_ROOT.
+    pub token: i64,
+    pub off: u32,
+    pub len: u32,
+}
+
+pub type ak_unk_f = unsafe extern "C" fn(
+    ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    spans: *const ak_uspan,
+    n: i32,
+);
+
 pub const AK_TOKEN_ROOT: i64 = -1;
 
 /// Encode group for `TaskOptionsOptionsEntry`.
@@ -47,6 +88,24 @@ impl ak_dfix_TaskOptionsOptionsEntry {
     pub const ZERO: Self = ak_dfix_TaskOptionsOptionsEntry {
         key: ak_span { off: 0, len: 0, coder: 0 },
         value: ak_span { off: 0, len: 0, coder: 0 },
+        presence: 0,
+    };
+}
+
+/// Encode group for `TaskOptionsOptionsEntry`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_TaskOptionsOptionsEntry {
+    pub key: ak_str,
+    pub value: ak_str,
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_TaskOptionsOptionsEntry {
+    pub const ZERO: Self = ak_ufix_TaskOptionsOptionsEntry {
+        key: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        value: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
         presence: 0,
     };
 }
@@ -83,6 +142,24 @@ impl ak_dfix_Timestamp {
     };
 }
 
+/// Encode group for `Timestamp`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_Timestamp {
+    pub seconds: i64,
+    pub nanos: i32,
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_Timestamp {
+    pub const ZERO: Self = ak_ufix_Timestamp {
+        seconds: 0,
+        nanos: 0,
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
+        presence: 0,
+    };
+}
+
 /// Encode group for `Duration`.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -111,6 +188,24 @@ impl ak_dfix_Duration {
     pub const ZERO: Self = ak_dfix_Duration {
         seconds: 0,
         nanos: 0,
+        presence: 0,
+    };
+}
+
+/// Encode group for `Duration`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_Duration {
+    pub seconds: i64,
+    pub nanos: i32,
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_Duration {
+    pub const ZERO: Self = ak_ufix_Duration {
+        seconds: 0,
+        nanos: 0,
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
         presence: 0,
     };
 }
@@ -187,6 +282,44 @@ impl ak_dfix_ResultRaw {
 pub const AK_DFIX_RESULTRAW_PRESENT_CREATED_AT: u32 = 1 << 0;
 pub const AK_DFIX_RESULTRAW_PRESENT_COMPLETED_AT: u32 = 1 << 1;
 
+/// Encode group for `ResultRaw`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_ResultRaw {
+    pub session_id: ak_str,
+    pub name: ak_str,
+    pub owner_task_id: ak_str,
+    pub status: i32,
+    pub created_at: ak_ufix_Timestamp,
+    pub completed_at: ak_ufix_Timestamp,
+    pub result_id: ak_str,
+    pub size: i64,
+    pub created_by: ak_str,
+    pub opaque_id: ak_str,
+    pub manual_deletion: u8,
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_ResultRaw {
+    pub const ZERO: Self = ak_ufix_ResultRaw {
+        session_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        name: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        owner_task_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        status: 0,
+        created_at: ak_ufix_Timestamp::ZERO,
+        completed_at: ak_ufix_Timestamp::ZERO,
+        result_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        size: 0,
+        created_by: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        opaque_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        manual_deletion: 0,
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
+        presence: 0,
+    };
+}
+pub const AK_UFIX_RESULTRAW_PRESENT_CREATED_AT: u32 = 1 << 0;
+pub const AK_UFIX_RESULTRAW_PRESENT_COMPLETED_AT: u32 = 1 << 1;
+
 /// Encode group for `TaskOptions`.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -249,6 +382,39 @@ impl ak_dfix_TaskOptions {
 }
 pub const AK_DFIX_TASKOPTIONS_PRESENT_MAX_DURATION: u32 = 1 << 0;
 
+/// Encode group for `TaskOptions`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_TaskOptions {
+    pub max_duration: ak_ufix_Duration,
+    pub max_retries: i32,
+    pub priority: i32,
+    pub partition_id: ak_str,
+    pub application_name: ak_str,
+    pub application_version: ak_str,
+    pub application_namespace: ak_str,
+    pub application_service: ak_str,
+    pub engine_type: ak_str,
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_TaskOptions {
+    pub const ZERO: Self = ak_ufix_TaskOptions {
+        max_duration: ak_ufix_Duration::ZERO,
+        max_retries: 0,
+        priority: 0,
+        partition_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        application_name: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        application_version: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        application_namespace: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        application_service: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        engine_type: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
+        presence: 0,
+    };
+}
+pub const AK_UFIX_TASKOPTIONS_PRESENT_MAX_DURATION: u32 = 1 << 0;
+
 /// Encode group for `TaskOutput`.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -277,6 +443,24 @@ impl ak_dfix_TaskOutput {
     pub const ZERO: Self = ak_dfix_TaskOutput {
         success: 0,
         error: ak_span { off: 0, len: 0, coder: 0 },
+        presence: 0,
+    };
+}
+
+/// Encode group for `TaskOutput`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_TaskOutput {
+    pub success: u8,
+    pub error: ak_str,
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_TaskOutput {
+    pub const ZERO: Self = ak_ufix_TaskOutput {
+        success: 0,
+        error: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
         presence: 0,
     };
 }
@@ -425,6 +609,80 @@ pub const AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION: u32 = 1 << 11;
 pub const AK_DFIX_TASKDETAILED_PRESENT_PROCESSED_AT: u32 = 1 << 12;
 pub const AK_DFIX_TASKDETAILED_PRESENT_FETCHED_AT: u32 = 1 << 13;
 
+/// Encode group for `TaskDetailed`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_TaskDetailed {
+    pub id: ak_str,
+    pub session_id: ak_str,
+    pub owner_pod_id: ak_str,
+    pub status: i32,
+    pub status_message: ak_str,
+    pub options: ak_ufix_TaskOptions,
+    pub created_at: ak_ufix_Timestamp,
+    pub submitted_at: ak_ufix_Timestamp,
+    pub started_at: ak_ufix_Timestamp,
+    pub ended_at: ak_ufix_Timestamp,
+    pub pod_ttl: ak_ufix_Timestamp,
+    pub output: ak_ufix_TaskOutput,
+    pub pod_hostname: ak_str,
+    pub received_at: ak_ufix_Timestamp,
+    pub acquired_at: ak_ufix_Timestamp,
+    pub creation_to_end_duration: ak_ufix_Duration,
+    pub processing_to_end_duration: ak_ufix_Duration,
+    pub initial_task_id: ak_str,
+    pub received_to_end_duration: ak_ufix_Duration,
+    pub processed_at: ak_ufix_Timestamp,
+    pub fetched_at: ak_ufix_Timestamp,
+    pub payload_id: ak_str,
+    pub created_by: ak_str,
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_TaskDetailed {
+    pub const ZERO: Self = ak_ufix_TaskDetailed {
+        id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        session_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        owner_pod_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        status: 0,
+        status_message: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        options: ak_ufix_TaskOptions::ZERO,
+        created_at: ak_ufix_Timestamp::ZERO,
+        submitted_at: ak_ufix_Timestamp::ZERO,
+        started_at: ak_ufix_Timestamp::ZERO,
+        ended_at: ak_ufix_Timestamp::ZERO,
+        pod_ttl: ak_ufix_Timestamp::ZERO,
+        output: ak_ufix_TaskOutput::ZERO,
+        pod_hostname: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        received_at: ak_ufix_Timestamp::ZERO,
+        acquired_at: ak_ufix_Timestamp::ZERO,
+        creation_to_end_duration: ak_ufix_Duration::ZERO,
+        processing_to_end_duration: ak_ufix_Duration::ZERO,
+        initial_task_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        received_to_end_duration: ak_ufix_Duration::ZERO,
+        processed_at: ak_ufix_Timestamp::ZERO,
+        fetched_at: ak_ufix_Timestamp::ZERO,
+        payload_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        created_by: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
+        presence: 0,
+    };
+}
+pub const AK_UFIX_TASKDETAILED_PRESENT_OPTIONS: u32 = 1 << 0;
+pub const AK_UFIX_TASKDETAILED_PRESENT_CREATED_AT: u32 = 1 << 1;
+pub const AK_UFIX_TASKDETAILED_PRESENT_SUBMITTED_AT: u32 = 1 << 2;
+pub const AK_UFIX_TASKDETAILED_PRESENT_STARTED_AT: u32 = 1 << 3;
+pub const AK_UFIX_TASKDETAILED_PRESENT_ENDED_AT: u32 = 1 << 4;
+pub const AK_UFIX_TASKDETAILED_PRESENT_POD_TTL: u32 = 1 << 5;
+pub const AK_UFIX_TASKDETAILED_PRESENT_OUTPUT: u32 = 1 << 6;
+pub const AK_UFIX_TASKDETAILED_PRESENT_RECEIVED_AT: u32 = 1 << 7;
+pub const AK_UFIX_TASKDETAILED_PRESENT_ACQUIRED_AT: u32 = 1 << 8;
+pub const AK_UFIX_TASKDETAILED_PRESENT_CREATION_TO_END_DURATION: u32 = 1 << 9;
+pub const AK_UFIX_TASKDETAILED_PRESENT_PROCESSING_TO_END_DURATION: u32 = 1 << 10;
+pub const AK_UFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION: u32 = 1 << 11;
+pub const AK_UFIX_TASKDETAILED_PRESENT_PROCESSED_AT: u32 = 1 << 12;
+pub const AK_UFIX_TASKDETAILED_PRESENT_FETCHED_AT: u32 = 1 << 13;
+
 /// Encode group for `TaskSummary`.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -484,6 +742,38 @@ impl ak_dfix_TaskSummary {
 }
 pub const AK_DFIX_TASKSUMMARY_PRESENT_OPTIONS: u32 = 1 << 0;
 pub const AK_DFIX_TASKSUMMARY_PRESENT_CREATED_AT: u32 = 1 << 1;
+
+/// Encode group for `TaskSummary`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_TaskSummary {
+    pub id: ak_str,
+    pub session_id: ak_str,
+    pub options: ak_ufix_TaskOptions,
+    pub status: i32,
+    pub created_at: ak_ufix_Timestamp,
+    pub error: ak_str,
+    pub status_message: ak_str,
+    pub count_data_dependencies: i64,
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_TaskSummary {
+    pub const ZERO: Self = ak_ufix_TaskSummary {
+        id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        session_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        options: ak_ufix_TaskOptions::ZERO,
+        status: 0,
+        created_at: ak_ufix_Timestamp::ZERO,
+        error: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        status_message: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        count_data_dependencies: 0,
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
+        presence: 0,
+    };
+}
+pub const AK_UFIX_TASKSUMMARY_PRESENT_OPTIONS: u32 = 1 << 0;
+pub const AK_UFIX_TASKSUMMARY_PRESENT_CREATED_AT: u32 = 1 << 1;
 
 /// Encode group for `Probe`.
 #[repr(C)]
@@ -555,6 +845,43 @@ pub const AK_DFIX_PROBE_PRESENT_OPT_COUNT: u32 = 1 << 0;
 pub const AK_DFIX_PROBE_PRESENT_OPT_LABEL: u32 = 1 << 1;
 pub const AK_DFIX_PROBE_PRESENT_OPT_FLAG: u32 = 1 << 2;
 
+/// Encode group for `Probe`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_Probe {
+    pub id: ak_str,
+    pub opt_count: i32,
+    pub opt_label: ak_str,
+    pub opt_flag: u8,
+    pub body_case: u32,
+    pub body_as_int: i64,
+    pub body_as_text: ak_str,
+    pub body_as_blob: ak_str,
+    pub body_as_stamp: ak_ufix_Timestamp,
+    pub body_as_nothing: ak_ufix_Empty,
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_Probe {
+    pub const ZERO: Self = ak_ufix_Probe {
+        id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        opt_count: 0,
+        opt_label: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        opt_flag: 0,
+        body_case: 0,
+        body_as_int: 0,
+        body_as_text: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        body_as_blob: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        body_as_stamp: ak_ufix_Timestamp::ZERO,
+        body_as_nothing: ak_ufix_Empty::ZERO,
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
+        presence: 0,
+    };
+}
+pub const AK_UFIX_PROBE_PRESENT_OPT_COUNT: u32 = 1 << 0;
+pub const AK_UFIX_PROBE_PRESENT_OPT_LABEL: u32 = 1 << 1;
+pub const AK_UFIX_PROBE_PRESENT_OPT_FLAG: u32 = 1 << 2;
+
 /// Encode group for `Empty`.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -575,6 +902,20 @@ pub struct ak_dfix_Empty {
 }
 impl ak_dfix_Empty {
     pub const ZERO: Self = ak_dfix_Empty {
+        presence: 0,
+    };
+}
+
+/// Encode group for `Empty`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_Empty {
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_Empty {
+    pub const ZERO: Self = ak_ufix_Empty {
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
         presence: 0,
     };
 }
@@ -615,6 +956,26 @@ impl ak_dfix_UploadResultData {
     };
 }
 
+/// Encode group for `UploadResultData`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_UploadResultData {
+    pub session_id: ak_str,
+    pub result_id: ak_str,
+    pub data_chunk: ak_str,
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_UploadResultData {
+    pub const ZERO: Self = ak_ufix_UploadResultData {
+        session_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        result_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        data_chunk: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
+        presence: 0,
+    };
+}
+
 /// Encode group for `MetricsBatch`.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -639,6 +1000,22 @@ pub struct ak_dfix_MetricsBatch {
 impl ak_dfix_MetricsBatch {
     pub const ZERO: Self = ak_dfix_MetricsBatch {
         id: ak_span { off: 0, len: 0, coder: 0 },
+        presence: 0,
+    };
+}
+
+/// Encode group for `MetricsBatch`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_MetricsBatch {
+    pub id: ak_str,
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_MetricsBatch {
+    pub const ZERO: Self = ak_ufix_MetricsBatch {
+        id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
         presence: 0,
     };
 }
@@ -675,6 +1052,24 @@ impl ak_dfix_Pair {
     };
 }
 
+/// Encode group for `Pair`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_Pair {
+    pub key: ak_str,
+    pub value: i32,
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_Pair {
+    pub const ZERO: Self = ak_ufix_Pair {
+        key: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        value: 0,
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
+        presence: 0,
+    };
+}
+
 /// Encode group for `ListResultsResponse`.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -703,6 +1098,24 @@ impl ak_dfix_ListResultsResponse {
     pub const ZERO: Self = ak_dfix_ListResultsResponse {
         page: 0,
         total: 0,
+        presence: 0,
+    };
+}
+
+/// Encode group for `ListResultsResponse`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_ListResultsResponse {
+    pub page: i32,
+    pub total: i32,
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_ListResultsResponse {
+    pub const ZERO: Self = ak_ufix_ListResultsResponse {
+        page: 0,
+        total: 0,
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
         presence: 0,
     };
 }
@@ -739,6 +1152,24 @@ impl ak_dfix_ListTasksDetailedResponse {
     };
 }
 
+/// Encode group for `ListTasksDetailedResponse`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_ListTasksDetailedResponse {
+    pub page: i32,
+    pub total: i32,
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_ListTasksDetailedResponse {
+    pub const ZERO: Self = ak_ufix_ListTasksDetailedResponse {
+        page: 0,
+        total: 0,
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
+        presence: 0,
+    };
+}
+
 /// Encode group for `ListTaskSummaryResponse`.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -759,6 +1190,20 @@ pub struct ak_dfix_ListTaskSummaryResponse {
 }
 impl ak_dfix_ListTaskSummaryResponse {
     pub const ZERO: Self = ak_dfix_ListTaskSummaryResponse {
+        presence: 0,
+    };
+}
+
+/// Encode group for `ListTaskSummaryResponse`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_ListTaskSummaryResponse {
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_ListTaskSummaryResponse {
+    pub const ZERO: Self = ak_ufix_ListTaskSummaryResponse {
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
         presence: 0,
     };
 }
@@ -787,6 +1232,20 @@ impl ak_dfix_ListProbeResponse {
     };
 }
 
+/// Encode group for `ListProbeResponse`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_ListProbeResponse {
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_ListProbeResponse {
+    pub const ZERO: Self = ak_ufix_ListProbeResponse {
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
+        presence: 0,
+    };
+}
+
 /// Encode group for `ListMetricsResponse`.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -807,6 +1266,20 @@ pub struct ak_dfix_ListMetricsResponse {
 }
 impl ak_dfix_ListMetricsResponse {
     pub const ZERO: Self = ak_dfix_ListMetricsResponse {
+        presence: 0,
+    };
+}
+
+/// Encode group for `ListMetricsResponse`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_ListMetricsResponse {
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_ListMetricsResponse {
+    pub const ZERO: Self = ak_ufix_ListMetricsResponse {
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
         presence: 0,
     };
 }
@@ -841,6 +1314,23 @@ impl ak_dfix_UploadResultDataMessage {
 }
 pub const AK_DFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD: u32 = 1 << 0;
 
+/// Encode group for `UploadResultDataMessage`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_UploadResultDataMessage {
+    pub upload: ak_ufix_UploadResultData,
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_UploadResultDataMessage {
+    pub const ZERO: Self = ak_ufix_UploadResultDataMessage {
+        upload: ak_ufix_UploadResultData::ZERO,
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
+        presence: 0,
+    };
+}
+pub const AK_UFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD: u32 = 1 << 0;
+
 /// Encode group for `DualResponse`.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -865,6 +1355,20 @@ impl ak_dfix_DualResponse {
     };
 }
 
+/// Encode group for `DualResponse`.  With the unknown-field bag (decision 11 candidate).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_ufix_DualResponse {
+    pub unknown: ak_blob,
+    pub presence: u32,
+}
+impl ak_ufix_DualResponse {
+    pub const ZERO: Self = ak_ufix_DualResponse {
+        unknown: ak_blob { data: ::core::ptr::null(), len: 0 },
+        presence: 0,
+    };
+}
+
 /// Encode vtable for `ListResultsResponse`. One slot per field that could not ride in the group.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -879,6 +1383,12 @@ pub struct ak_dvt_ListResultsResponse {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListResultsResponse),
     >,
+    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
+    /// skipped and dropped. Set, and they are delivered as spans.
+    pub unknown: Option<ak_unk_f>,
+    /// Decision 11 candidate: the unknown fields of THIS slot's elements,
+    /// delivered after the run that carries them, so the host can index.
+    pub unk_results: Option<ak_unk_f>,
     /// Batchable: the element type is a leaf, so a run crosses once
     /// per chunk. Append; never size to the count you were handed.
     pub add_results: Option<
@@ -903,6 +1413,12 @@ pub struct ak_dvt_ListTasksDetailedResponse {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListTasksDetailedResponse),
     >,
+    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
+    /// skipped and dropped. Set, and they are delivered as spans.
+    pub unknown: Option<ak_unk_f>,
+    /// Decision 11 candidate: the unknown fields of THIS slot's elements,
+    /// delivered after the run that carries them, so the host can index.
+    pub unk_tasks: Option<ak_unk_f>,
     /// NOT batchable: `TaskDetailed` carries repeated or map fields of its own,
     /// so there would be nothing to attach the inner elements to
     /// (ABI v1 section 7.2). Two calls per element, `new` then
@@ -944,6 +1460,12 @@ pub struct ak_dvt_ListProbeResponse {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListProbeResponse),
     >,
+    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
+    /// skipped and dropped. Set, and they are delivered as spans.
+    pub unknown: Option<ak_unk_f>,
+    /// Decision 11 candidate: the unknown fields of THIS slot's elements,
+    /// delivered after the run that carries them, so the host can index.
+    pub unk_probes: Option<ak_unk_f>,
     /// Batchable: the element type is a leaf, so a run crosses once
     /// per chunk. Append; never size to the count you were handed.
     pub add_probes: Option<
@@ -968,6 +1490,12 @@ pub struct ak_dvt_ListTaskSummaryResponse {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListTaskSummaryResponse),
     >,
+    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
+    /// skipped and dropped. Set, and they are delivered as spans.
+    pub unknown: Option<ak_unk_f>,
+    /// Decision 11 candidate: the unknown fields of THIS slot's elements,
+    /// delivered after the run that carries them, so the host can index.
+    pub unk_tasks: Option<ak_unk_f>,
     /// NOT batchable: `TaskSummary` carries repeated or map fields of its own,
     /// so there would be nothing to attach the inner elements to
     /// (ABI v1 section 7.2). Two calls per element, `new` then
@@ -999,6 +1527,9 @@ pub struct ak_dvt_UploadResultDataMessage {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_UploadResultDataMessage),
     >,
+    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
+    /// skipped and dropped. Set, and they are delivered as spans.
+    pub unknown: Option<ak_unk_f>,
 }
 
 /// Encode vtable for `ListMetricsResponse`. One slot per field that could not ride in the group.
@@ -1018,6 +1549,12 @@ pub struct ak_dvt_ListMetricsResponse {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListMetricsResponse),
     >,
+    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
+    /// skipped and dropped. Set, and they are delivered as spans.
+    pub unknown: Option<ak_unk_f>,
+    /// Decision 11 candidate: the unknown fields of THIS slot's elements,
+    /// delivered after the run that carries them, so the host can index.
+    pub unk_batches: Option<ak_unk_f>,
     /// NOT batchable: `MetricsBatch` carries repeated or map fields of its own,
     /// so there would be nothing to attach the inner elements to
     /// (ABI v1 section 7.2). Two calls per element, `new` then
@@ -1060,11 +1597,20 @@ pub struct ak_dvt_DualResponse {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_DualResponse),
     >,
+    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
+    /// skipped and dropped. Set, and they are delivered as spans.
+    pub unknown: Option<ak_unk_f>,
+    /// Decision 11 candidate: the unknown fields of THIS slot's elements,
+    /// delivered after the run that carries them, so the host can index.
+    pub unk_left: Option<ak_unk_f>,
     /// Batchable: the element type is a leaf, so a run crosses once
     /// per chunk. Append; never size to the count you were handed.
     pub add_left: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_Pair, i32),
     >,
+    /// Decision 11 candidate: the unknown fields of THIS slot's elements,
+    /// delivered after the run that carries them, so the host can index.
+    pub unk_right: Option<ak_unk_f>,
     /// Batchable: the element type is a leaf, so a run crosses once
     /// per chunk. Append; never size to the count you were handed.
     pub add_right: Option<
@@ -1088,6 +1634,9 @@ pub struct ak_dvt_TaskOptionsOptionsEntry {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_TaskOptionsOptionsEntry),
     >,
+    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
+    /// skipped and dropped. Set, and they are delivered as spans.
+    pub unknown: Option<ak_unk_f>,
 }
 
 /// Encode vtable for `ResultRaw`. Empty: nothing in this message needs a call.
@@ -1106,6 +1655,9 @@ pub struct ak_dvt_ResultRaw {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ResultRaw),
     >,
+    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
+    /// skipped and dropped. Set, and they are delivered as spans.
+    pub unknown: Option<ak_unk_f>,
 }
 
 /// Encode vtable for `TaskDetailed`. One slot per field that could not ride in the group.
@@ -1126,6 +1678,9 @@ pub struct ak_dvt_TaskDetailed {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_TaskDetailed),
     >,
+    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
+    /// skipped and dropped. Set, and they are delivered as spans.
+    pub unknown: Option<ak_unk_f>,
     /// Batchable: the element type is a leaf, so a run crosses once
     /// per chunk. Append; never size to the count you were handed.
     pub add_parent_task_ids: Option<
@@ -1146,6 +1701,9 @@ pub struct ak_dvt_TaskDetailed {
     pub add_retry_of_ids: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_span, i32),
     >,
+    /// Decision 11 candidate: the unknown fields of THIS slot's elements,
+    /// delivered after the run that carries them, so the host can index.
+    pub unk_options_options: Option<ak_unk_f>,
     /// Batchable: the element type is a leaf, so a run crosses once
     /// per chunk. Append; never size to the count you were handed.
     pub add_options_options: Option<
@@ -1167,6 +1725,12 @@ pub struct ak_dvt_TaskSummary {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_TaskSummary),
     >,
+    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
+    /// skipped and dropped. Set, and they are delivered as spans.
+    pub unknown: Option<ak_unk_f>,
+    /// Decision 11 candidate: the unknown fields of THIS slot's elements,
+    /// delivered after the run that carries them, so the host can index.
+    pub unk_options_options: Option<ak_unk_f>,
     /// Batchable: the element type is a leaf, so a run crosses once
     /// per chunk. Append; never size to the count you were handed.
     pub add_options_options: Option<
@@ -1190,6 +1754,9 @@ pub struct ak_dvt_Probe {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_Probe),
     >,
+    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
+    /// skipped and dropped. Set, and they are delivered as spans.
+    pub unknown: Option<ak_unk_f>,
 }
 
 /// Encode vtable for `MetricsBatch`. One slot per field that could not ride in the group.
@@ -1210,6 +1777,9 @@ pub struct ak_dvt_MetricsBatch {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_MetricsBatch),
     >,
+    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
+    /// skipped and dropped. Set, and they are delivered as spans.
+    pub unknown: Option<ak_unk_f>,
     /// Batchable: the element type is a leaf, so a run crosses once
     /// per chunk. Append; never size to the count you were handed.
     pub add_ticks: Option<
@@ -1253,6 +1823,9 @@ pub struct ak_dvt_Pair {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_Pair),
     >,
+    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
+    /// skipped and dropped. Set, and they are delivered as spans.
+    pub unknown: Option<ak_unk_f>,
 }
 
 // ABI v1 section 6: what a host calls in the codec are PLAIN EXPORTS, not a
@@ -1263,6 +1836,14 @@ unsafe extern "C" {
         ctx: *mut ak_enc_ctx,
         vt: *const ak_evt_ListResultsResponse,
         fix: *const ak_efix_ListResultsResponse,
+    ) -> isize;
+    /// ABI v1 open decision 11 candidate: the same entry over the group that
+    /// carries the unknown-field bag.
+    pub fn ak_uencode_ListResultsResponse(
+        obj: *const c_void,
+        ctx: *mut ak_enc_ctx,
+        vt: *const ak_evt_ListResultsResponse,
+        fix: *const ak_ufix_ListResultsResponse,
     ) -> isize;
     pub fn ak_decode_ListResultsResponse(
         ctx: *mut ak_dec_ctx,
@@ -1277,6 +1858,14 @@ unsafe extern "C" {
         vt: *const ak_evt_ListTasksDetailedResponse,
         fix: *const ak_efix_ListTasksDetailedResponse,
     ) -> isize;
+    /// ABI v1 open decision 11 candidate: the same entry over the group that
+    /// carries the unknown-field bag.
+    pub fn ak_uencode_ListTasksDetailedResponse(
+        obj: *const c_void,
+        ctx: *mut ak_enc_ctx,
+        vt: *const ak_evt_ListTasksDetailedResponse,
+        fix: *const ak_ufix_ListTasksDetailedResponse,
+    ) -> isize;
     pub fn ak_decode_ListTasksDetailedResponse(
         ctx: *mut ak_dec_ctx,
         obj: *mut c_void,
@@ -1290,6 +1879,14 @@ unsafe extern "C" {
         vt: *const ak_evt_ListProbeResponse,
         fix: *const ak_efix_ListProbeResponse,
     ) -> isize;
+    /// ABI v1 open decision 11 candidate: the same entry over the group that
+    /// carries the unknown-field bag.
+    pub fn ak_uencode_ListProbeResponse(
+        obj: *const c_void,
+        ctx: *mut ak_enc_ctx,
+        vt: *const ak_evt_ListProbeResponse,
+        fix: *const ak_ufix_ListProbeResponse,
+    ) -> isize;
     pub fn ak_decode_ListProbeResponse(
         ctx: *mut ak_dec_ctx,
         obj: *mut c_void,
@@ -1302,6 +1899,14 @@ unsafe extern "C" {
         ctx: *mut ak_enc_ctx,
         vt: *const ak_evt_ListTaskSummaryResponse,
         fix: *const ak_efix_ListTaskSummaryResponse,
+    ) -> isize;
+    /// ABI v1 open decision 11 candidate: the same entry over the group that
+    /// carries the unknown-field bag.
+    pub fn ak_uencode_ListTaskSummaryResponse(
+        obj: *const c_void,
+        ctx: *mut ak_enc_ctx,
+        vt: *const ak_evt_ListTaskSummaryResponse,
+        fix: *const ak_ufix_ListTaskSummaryResponse,
     ) -> isize;
     pub fn ak_decode_ListTaskSummaryResponse(
         ctx: *mut ak_dec_ctx,
@@ -1319,6 +1924,16 @@ unsafe extern "C" {
         direct: *const u8,
         direct_len: usize,
     ) -> isize;
+    /// ABI v1 open decision 11 candidate: the same entry over the group that
+    /// carries the unknown-field bag.
+    pub fn ak_uencode_UploadResultDataMessage(
+        obj: *const c_void,
+        ctx: *mut ak_enc_ctx,
+        vt: *const ak_evt_UploadResultDataMessage,
+        fix: *const ak_ufix_UploadResultDataMessage,
+        direct: *const u8,
+        direct_len: usize,
+    ) -> isize;
     pub fn ak_decode_UploadResultDataMessage(
         ctx: *mut ak_dec_ctx,
         obj: *mut c_void,
@@ -1332,6 +1947,14 @@ unsafe extern "C" {
         vt: *const ak_evt_ListMetricsResponse,
         fix: *const ak_efix_ListMetricsResponse,
     ) -> isize;
+    /// ABI v1 open decision 11 candidate: the same entry over the group that
+    /// carries the unknown-field bag.
+    pub fn ak_uencode_ListMetricsResponse(
+        obj: *const c_void,
+        ctx: *mut ak_enc_ctx,
+        vt: *const ak_evt_ListMetricsResponse,
+        fix: *const ak_ufix_ListMetricsResponse,
+    ) -> isize;
     pub fn ak_decode_ListMetricsResponse(
         ctx: *mut ak_dec_ctx,
         obj: *mut c_void,
@@ -1344,6 +1967,14 @@ unsafe extern "C" {
         ctx: *mut ak_enc_ctx,
         vt: *const ak_evt_DualResponse,
         fix: *const ak_efix_DualResponse,
+    ) -> isize;
+    /// ABI v1 open decision 11 candidate: the same entry over the group that
+    /// carries the unknown-field bag.
+    pub fn ak_uencode_DualResponse(
+        obj: *const c_void,
+        ctx: *mut ak_enc_ctx,
+        vt: *const ak_evt_DualResponse,
+        fix: *const ak_ufix_DualResponse,
     ) -> isize;
     pub fn ak_decode_DualResponse(
         ctx: *mut ak_dec_ctx,
@@ -1361,15 +1992,24 @@ unsafe extern "C" {
         n: i32,
         tok0: i64,
     ) -> i32;
+    pub fn ak_uelemu_MetricsBatch(
+        ctx: *mut ak_enc_ctx,
+        elems: *const ak_ufix_MetricsBatch,
+        n: i32,
+        tok0: i64,
+    ) -> i32;
     /// Leaf form: `Pair` is transitively free of repeated and map fields,
     /// so the codec makes no reverse call during a run.
     pub fn ak_elem_Pair(ctx: *mut ak_enc_ctx, elems: *const ak_efix_Pair, n: i32) -> i32;
+    pub fn ak_uelem_Pair(ctx: *mut ak_enc_ctx, elems: *const ak_ufix_Pair, n: i32) -> i32;
     /// Leaf form: `Probe` is transitively free of repeated and map fields,
     /// so the codec makes no reverse call during a run.
     pub fn ak_elem_Probe(ctx: *mut ak_enc_ctx, elems: *const ak_efix_Probe, n: i32) -> i32;
+    pub fn ak_uelem_Probe(ctx: *mut ak_enc_ctx, elems: *const ak_ufix_Probe, n: i32) -> i32;
     /// Leaf form: `ResultRaw` is transitively free of repeated and map fields,
     /// so the codec makes no reverse call during a run.
     pub fn ak_elem_ResultRaw(ctx: *mut ak_enc_ctx, elems: *const ak_efix_ResultRaw, n: i32) -> i32;
+    pub fn ak_uelem_ResultRaw(ctx: *mut ak_enc_ctx, elems: *const ak_ufix_ResultRaw, n: i32) -> i32;
     /// Unrestricted form: names element i as `tok0 + i` from a contiguous
     /// token range the host allocated, because the codec has to call back
     /// into the host mid-run for `TaskDetailed`'s own repeated fields.
@@ -1379,15 +2019,28 @@ unsafe extern "C" {
         n: i32,
         tok0: i64,
     ) -> i32;
+    pub fn ak_uelemu_TaskDetailed(
+        ctx: *mut ak_enc_ctx,
+        elems: *const ak_ufix_TaskDetailed,
+        n: i32,
+        tok0: i64,
+    ) -> i32;
     /// Leaf form: `TaskOptionsOptionsEntry` is transitively free of repeated and map fields,
     /// so the codec makes no reverse call during a run.
     pub fn ak_elem_TaskOptionsOptionsEntry(ctx: *mut ak_enc_ctx, elems: *const ak_efix_TaskOptionsOptionsEntry, n: i32) -> i32;
+    pub fn ak_uelem_TaskOptionsOptionsEntry(ctx: *mut ak_enc_ctx, elems: *const ak_ufix_TaskOptionsOptionsEntry, n: i32) -> i32;
     /// Unrestricted form: names element i as `tok0 + i` from a contiguous
     /// token range the host allocated, because the codec has to call back
     /// into the host mid-run for `TaskSummary`'s own repeated fields.
     pub fn ak_elemu_TaskSummary(
         ctx: *mut ak_enc_ctx,
         elems: *const ak_efix_TaskSummary,
+        n: i32,
+        tok0: i64,
+    ) -> i32;
+    pub fn ak_uelemu_TaskSummary(
+        ctx: *mut ak_enc_ctx,
+        elems: *const ak_ufix_TaskSummary,
         n: i32,
         tok0: i64,
     ) -> i32;
