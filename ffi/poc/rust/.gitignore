@@ -1,7 +1,4 @@
-# Build output.
+# Cargo build output, and the generator's bytecode cache. `ffi/.gitignore` re-includes
+# `logs/**` and `poc/*/gen/**`, so this file has nothing else to say.
 target/
-
-# The repository-wide .gitignore excludes any directory named `gen` (line 397), which would
-# commit this slice's generator as nothing at all -- the exact trap ffi/schema/README.md
-# records for itself. Undo it here, for this slice only.
-!gen/
+__pycache__/

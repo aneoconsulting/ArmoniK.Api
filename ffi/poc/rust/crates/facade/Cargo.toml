@@ -1,0 +1,12 @@
+[package]
+name = "facade"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+prost.workspace = true
+bytes.workspace = true
+shapes-values = { path = "../shapes-values" }
+ak-rt = { path = "../ak-rt" }

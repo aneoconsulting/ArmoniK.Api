@@ -12,6 +12,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ak-abi"
+version = "0.0.0"
+
+[[package]]
+name = "ak-core"
+version = "0.0.0"
+dependencies = [
+ "ak-abi",
+ "ak-rt",
+]
+
+[[package]]
+name = "ak-rt"
+version = "0.0.0"
+
+[[package]]
 name = "anyhow"
 version = "1.0.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -102,6 +118,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "facade"
+version = "0.0.0"
+dependencies = [
+ "ak-rt",
+ "bytes",
+ "prost",
+ "shapes-values",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -133,6 +159,22 @@ checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
 dependencies = [
  "typenum",
  "version_check",
+]
+
+[[package]]
+name = "harness"
+version = "0.0.0"
+dependencies = [
+ "ak-abi",
+ "ak-core",
+ "ak-rt",
+ "bytes",
+ "facade",
+ "prost",
+ "serde_json",
+ "sha2",
+ "shapes-prost",
+ "shapes-values",
 ]
 
 [[package]]

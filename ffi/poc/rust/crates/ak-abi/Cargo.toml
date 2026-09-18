@@ -1,0 +1,8 @@
+[package]
+name = "ak-abi"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
