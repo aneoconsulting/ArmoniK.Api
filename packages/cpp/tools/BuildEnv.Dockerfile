@@ -1,4 +1,4 @@
-FROM ubuntu:23.04
+FROM ubuntu:lunar-20231128
 
 RUN apt-get update && DEBIAN_FRONTEND="noninteractive" TZ="Europe/London" apt-get install -y \
     ssh \
