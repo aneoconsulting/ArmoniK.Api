@@ -272,3 +272,32 @@ pub mod core_native_opaque {
         (dec_fn())(b).expect("core-native-opaque decode")
     }
 }
+
+/// ABI v1 open decision 9 candidate: the ZEROED-GROUP variant, built as an arm.
+///
+/// The element-group array is zeroed once per chunk with a memset and the host then
+/// assigns only the fields that are not at their default, instead of the total fill
+/// section 6 requires. **This reverses a trade the ABI already made and priced**: the total
+/// fill was bought so the codec never resets the group between elements, worth 5.4 ns per
+/// `ResultRaw` and 24.4 per `TaskDetailed`. So it pays that back on every element of every
+/// payload to save the scattered stores on the empty ones, and the question is where the
+/// cross-over sits relative to real traffic.
+///
+/// The generator emits it ALONGSIDE the default and nothing the default path uses changed.
+/// Only the TOP-LEVEL element group is built this way; a nested loop inside an element
+/// keeps the total fill.
+pub mod core_ffi_zeroed {
+    use super::core_ffi_arm::Ctx;
+    use crate::generated::binding;
+    use facade::ListResultsResponse;
+
+    pub fn encode_into<'a>(c: &'a Ctx, v: &ListResultsResponse) -> &'a [u8] {
+        binding::encode_into_list_results_response_zeroed(c.enc, v, &c.tcs)
+            .expect("core-ffi-zeroed encode");
+        unsafe { binding::encoded(c.enc) }
+    }
+
+    pub fn encode(c: &Ctx, v: &ListResultsResponse) -> Vec<u8> {
+        encode_into(c, v).to_vec()
+    }
+}

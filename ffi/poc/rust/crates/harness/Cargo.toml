@@ -76,3 +76,7 @@ path = "src/bin/decpolicy.rs"
 [[bin]]
 name = "inlining"
 path = "src/bin/inlining.rs"
+
+[[bin]]
+name = "zeroed"
+path = "src/bin/zeroed.rs"

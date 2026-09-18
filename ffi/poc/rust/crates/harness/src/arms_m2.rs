@@ -154,3 +154,21 @@ pub mod added {
         }
     }
 }
+
+/// ABI v1 open decision 9 candidate on the shape the control plane actually moves.
+/// See `arms::core_ffi_zeroed` for what it is and what trade it reverses.
+pub mod core_ffi_zeroed {
+    use super::*;
+    use crate::arms::core_ffi_arm::Ctx;
+    use crate::generated::binding;
+
+    pub fn encode_into<'a>(c: &'a Ctx, v: &Facade) -> &'a [u8] {
+        binding::encode_into_list_tasks_detailed_response_zeroed(c.enc, v, &c.tcs)
+            .expect("core-ffi-zeroed encode");
+        unsafe { binding::encoded(c.enc) }
+    }
+
+    pub fn encode(c: &Ctx, v: &Facade) -> Vec<u8> {
+        encode_into(c, v).to_vec()
+    }
+}

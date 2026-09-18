@@ -1013,7 +1013,7 @@ use facade::*;
 /// handed. On by default; the `no-guard` build exists only to price it, because every
 /// published managed figure was taken without it.
 #[inline]
-fn guard<F: FnOnce() -> i32>(ctx: *mut ak_enc_ctx, f: F) -> i32 {
+pub(crate) fn guard<F: FnOnce() -> i32>(ctx: *mut ak_enc_ctx, f: F) -> i32 {
     #[cfg(feature = "guard")]
     {
         match ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(f)) {
@@ -1112,7 +1112,7 @@ unsafe fn b_of(base: *const u8, s: ak_span) -> ::bytes::Bytes {
 }
 
 #[inline(always)]
-fn str_arg(s: &str, tc: ak_transcode_fn) -> ak_str {
+pub(crate) fn str_arg(s: &str, tc: ak_transcode_fn) -> ak_str {
     ak_str { data: s.as_ptr() as *const c_void, len: s.len(), tc: Some(tc) }
 }
 
@@ -1140,12 +1140,12 @@ impl Tcs {
 thread_local! {
     // Only the transcoder choice, which a loop callback cannot be handed: the callback's
     // arguments are the ABI's, not ours. Nothing else in this binding is a thread-local.
-    static TCS: ::std::cell::Cell<(Option<ak_transcode_fn>, Option<ak_transcode_fn>)> =
+    pub(crate) static TCS: ::std::cell::Cell<(Option<ak_transcode_fn>, Option<ak_transcode_fn>)> =
         const { ::std::cell::Cell::new((None, None)) };
 }
 
 #[inline(always)]
-fn tcs() -> (ak_transcode_fn, ak_transcode_fn) {
+pub(crate) fn tcs() -> (ak_transcode_fn, ak_transcode_fn) {
     let (a, b) = TCS.with(|c| c.get());
     (a.unwrap(), b.unwrap())
 }
@@ -1178,7 +1178,7 @@ def emit_binding(ir):
             continue
         o.append("/// Total fill: every group field assigned, presence assigned and not OR-ed.")
         o.append("#[inline(always)]")
-        o.append("fn make_%s(o: &%s, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_%s {"
+        o.append("pub(crate) fn make_%s(o: &%s, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_%s {"
                  % (snake(name), name, name))
         o.append("    ak_efix_%s {" % name)
         pres = []
@@ -1263,12 +1263,101 @@ def emit_binding(ir):
         o.append("}")
         o.append("")
 
+    # ---- ABI v1 open decision 9 candidate, built as an ARM and not as the default.
+    #
+    # The proposal: zero the element-group array once per chunk with a memset and assign
+    # only the fields that are not at their default, instead of the total fill section 6
+    # requires. It REVERSES a trade the ABI already made and priced -- the total fill was
+    # bought so the codec never resets the group between elements, worth 5.4 ns per
+    # ResultRaw and 24.4 per TaskDetailed -- so it pays that back on every element of every
+    # payload to save the scattered stores on the empty ones.
+    #
+    # Everything below is emitted ALONGSIDE the default path and reached only through
+    # `encode_into_*_zeroed`. Nothing the default path uses changes.
+    for name in ir.abi_order:
+        m = ir.msg(name)
+        if m.synthetic:
+            continue
+        bits = presence_bits(m)
+        o.append("/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is")
+        o.append("/// written. The cost traded is a compare and a branch per field against an")
+        o.append("/// unconditional store per field, plus one memset per chunk.")
+        o.append("#[inline(always)]")
+        o.append("pub(crate) fn fill_%s_sparse(d: &mut ak_efix_%s, o: &%s, tc: (ak_transcode_fn, ak_transcode_fn)) {"
+                 % (snake(name), name, name))
+        o.append("    let _ = (&mut *d, o, tc);")
+        for f in m.plain:
+            if f.card != "singular":
+                continue
+            if f.explicit:
+                # Present-and-empty and present-and-zero must still be written, so the test
+                # is presence and NOT the value. This is the case a value test would break.
+                if f.kind == "string":
+                    o.append("    if let Some(v) = &o.%s { d.%s = str_arg(v, tc.0); d.presence |= 1 << %d; }"
+                             % (f.name, f.name, bits[f.name]))
+                elif f.kind == "bytes":
+                    o.append("    if let Some(v) = &o.%s { d.%s = ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) }; d.presence |= 1 << %d; }"
+                             % (f.name, f.name, bits[f.name]))
+                elif f.kind == "bool":
+                    o.append("    if let Some(v) = o.%s { d.%s = v as u8; d.presence |= 1 << %d; }"
+                             % (f.name, f.name, bits[f.name]))
+                elif f.kind == "enum":
+                    o.append("    if let Some(v) = o.%s { d.%s = v.to_i32(); d.presence |= 1 << %d; }"
+                             % (f.name, f.name, bits[f.name]))
+                else:
+                    o.append("    if let Some(v) = o.%s { d.%s = v; d.presence |= 1 << %d; }"
+                             % (f.name, f.name, bits[f.name]))
+                continue
+            if f.direct:
+                o.append("    if !o.%s.is_empty() { d.%s = ak_str { data: AK_STR_DIRECT, len: o.%s.len(), tc: None }; }"
+                         % (f.name, f.name, f.name))
+            elif f.kind == "string":
+                o.append("    if !o.%s.is_empty() { d.%s = str_arg(&o.%s, tc.0); }" % (f.name, f.name, f.name))
+            elif f.kind == "bytes":
+                o.append("    if !o.%s.is_empty() { d.%s = ak_str { data: o.%s.as_ptr() as *const c_void, len: o.%s.len(), tc: Some(tc.1) }; }"
+                         % (f.name, f.name, f.name, f.name))
+            elif f.kind == "message":
+                o.append("    if let Some(c) = &o.%s { fill_%s_sparse(&mut d.%s, c, tc); d.presence |= 1 << %d; }"
+                         % (f.name, snake(f.of), f.name, bits[f.name]))
+            elif f.kind == "enum":
+                o.append("    { let v = o.%s.to_i32(); if v != 0 { d.%s = v; } }" % (f.name, f.name))
+            elif f.kind == "bool":
+                o.append("    if o.%s { d.%s = 1; }" % (f.name, f.name))
+            elif f.kind == "double":
+                o.append("    if o.%s != 0.0 { d.%s = o.%s; }" % (f.name, f.name, f.name))
+            else:
+                o.append("    if o.%s != 0 { d.%s = o.%s; }" % (f.name, f.name, f.name))
+        for oname, members in m.oneofs.items():
+            ty = "%s%s" % (name, "".join(p.capitalize() for p in oname.split("_")))
+            o.append("    match &o.%s {" % oname)
+            o.append("        None => {}")
+            for g in members:
+                if g.kind == "string":
+                    val = "d.%s_%s = str_arg(v, tc.0);" % (oname, g.name)
+                elif g.kind == "bytes":
+                    val = "d.%s_%s = ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) };" % (oname, g.name)
+                elif g.kind == "message":
+                    val = "fill_%s_sparse(&mut d.%s_%s, v, tc);" % (snake(g.of), oname, g.name)
+                elif g.kind == "bool":
+                    val = "d.%s_%s = *v as u8;" % (oname, g.name)
+                elif g.kind == "enum":
+                    val = "d.%s_%s = v.to_i32();" % (oname, g.name)
+                else:
+                    val = "d.%s_%s = *v;" % (oname, g.name)
+                o.append("        Some(%s::%s(v)) => { d.%s_case = %d; %s }"
+                         % (ty, _camel(g.name), oname, g.tag, val))
+            o.append("    }")
+        o.append("}")
+        o.append("")
+
     # ---- loop callbacks, per root and per slot
     for root in ir.roots:
         rs = snake(root)
         for path, f in loop_slots(ir, root):
             sn = slot_name(path)
             _emit_loop(ir, o, root, path, f, sn, top=True)
+            if f.kind == "message" and f.card != "map":
+                _emit_loop_zeroed(ir, o, root, path, f, sn)
             et = elem_type(f)
             if et and has_slots(ir, et):
                 for ipath, iff in loop_slots(ir, et):
@@ -1283,6 +1372,13 @@ def emit_binding(ir):
                 o.append("};")
                 o.append("")
 
+        ds = direct_fields(ir, root)
+        expr = None
+        if ds:
+            expr = "o"
+            for pth in ds[0][0][:-1]:
+                expr = "%s.%s.as_ref().map(|x| x).unwrap()" % (expr, pth)
+            expr = "%s.%s" % (expr, ds[0][0][-1])
         o.append("pub fn encode_into_%s(ctx: *mut ak_enc_ctx, o: &%s, t: &Tcs) -> Result<usize, i32> {"
                  % (rs, root))
         o.append("    unsafe {")
@@ -1299,12 +1395,35 @@ def emit_binding(ir):
                 o.append("            elem_%s: &ELEM_VT_%s_%s," % (sn, root, sn))
         o.append("        };")
         o.append("        let fix = make_%s(o, (t.utf8, t.bytes));" % rs)
-        ds = direct_fields(ir, root)
         if ds:
-            expr = "o"
-            for pth in ds[0][0][:-1]:
-                expr = "%s.%s.as_ref().map(|x| x).unwrap()" % (expr, pth)
-            expr = "%s.%s" % (expr, ds[0][0][-1])
+            o.append("        let d = &%s;" % expr)
+            o.append("        let rc = ak_encode_%s(o as *const _ as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());" % root)
+        else:
+            o.append("        let rc = ak_encode_%s(o as *const _ as *const c_void, ctx, &vt, &fix);" % root)
+        o.append("        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }")
+        o.append("    }")
+        o.append("}")
+        o.append("")
+        # The same entry point with the ZEROED-GROUP loop callbacks installed where one
+        # exists. ABI v1 open decision 9 candidate; the default above is untouched.
+        o.append("pub fn encode_into_%s_zeroed(ctx: *mut ak_enc_ctx, o: &%s, t: &Tcs) -> Result<usize, i32> {"
+                 % (rs, root))
+        o.append("    unsafe {")
+        o.append("        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));")
+        o.append("        ak_enc_reset(ctx);")
+        o.append("        let vt = ak_evt_%s {" % root)
+        if not loop_slots(ir, root):
+            o.append("            _reserved: ::core::ptr::null(),")
+        for path, f in loop_slots(ir, root):
+            sn = slot_name(path)
+            z = "_zeroed" if (f.kind == "message" and f.card != "map") else ""
+            o.append("            loop_%s: Some(loop_%s_%s%s)," % (sn, rs, sn, z))
+            et = elem_type(f)
+            if et and has_slots(ir, et):
+                o.append("            elem_%s: &ELEM_VT_%s_%s," % (sn, root, sn))
+        o.append("        };")
+        o.append("        let fix = make_%s(o, (t.utf8, t.bytes));" % rs)
+        if ds:
             o.append("        let d = &%s;" % expr)
             o.append("        let rc = ak_encode_%s(o as *const _ as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());" % root)
         else:
@@ -1592,6 +1711,53 @@ def _emit_add(ir, o, root, et, sn, path, f):
         o.append("        for i in 0..n as usize { dst.push(from_%s(&*elems.add(i), base, ctx)); }" % snake(f.of))
     else:
         raise NotImplementedError("add for %s %s" % (f.card, f.kind))
+    o.append("    })")
+    o.append("}")
+    o.append("")
+
+
+def _emit_loop_zeroed(ir, o, root, path, f, sn):
+    """The same top-level loop callback with the ZEROED-GROUP fill: one memset per chunk,
+    then only the fields that differ from the default. ABI v1 open decision 9 candidate.
+
+    Only the top-level element group is built this way. A nested loop inside an element
+    keeps the total fill, so this arm prices the OUTER group and nothing else, and the log
+    says so."""
+    rs = snake(root)
+    et = f.of
+    o.append("unsafe extern \"C\" fn loop_%s_%s_zeroed(" % (rs, sn))
+    o.append("    ctx: *mut ak_enc_ctx,")
+    o.append("    obj: *const c_void,")
+    o.append("    token: i64,")
+    o.append(") -> i32 {")
+    o.append("    guard(ctx, || {")
+    o.append("        let o = &*(obj as *const %s);" % root)
+    o.append("        let tc = tcs();")
+    o.append("        let src = &o.%s;" % sn)
+    o.append("        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_%s>());" % et)
+    o.append("        const SZ: usize = ::core::mem::size_of::<ak_efix_%s>();" % et)
+    o.append("        let mut chunk: [::core::mem::MaybeUninit<ak_efix_%s>; CHUNK] =" % et)
+    o.append("            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];")
+    o.append("        // All-zero is a valid group: `ak_efix_%s::ZERO` is exactly this bit pattern." % et)
+    o.append("        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);")
+    o.append("        let mut i = 0usize;")
+    o.append("        let mut done = 0usize;")
+    o.append("        for v in src.iter() {")
+    o.append("            fill_%s_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);" % snake(et))
+    o.append("            i += 1;")
+    o.append("            if i == CHUNK {")
+    o.extend("                " + ln for ln in _run_call(ir, f, et, "i", "done"))
+    o.append("                done += i;")
+    o.append("                // Only what was dirtied is put back, which is the same volume")
+    o.append("                // per element as the total fill and is where this trade is paid.")
+    o.append("                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);")
+    o.append("                i = 0;")
+    o.append("            }")
+    o.append("        }")
+    o.append("        if i > 0 {")
+    o.extend("            " + ln for ln in _run_call(ir, f, et, "i", "done"))
+    o.append("        }")
+    o.append("        AK_OK")
     o.append("    })")
     o.append("}")
     o.append("")

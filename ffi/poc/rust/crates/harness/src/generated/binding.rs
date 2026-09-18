@@ -29,7 +29,7 @@ use facade::*;
 /// handed. On by default; the `no-guard` build exists only to price it, because every
 /// published managed figure was taken without it.
 #[inline]
-fn guard<F: FnOnce() -> i32>(ctx: *mut ak_enc_ctx, f: F) -> i32 {
+pub(crate) fn guard<F: FnOnce() -> i32>(ctx: *mut ak_enc_ctx, f: F) -> i32 {
     #[cfg(feature = "guard")]
     {
         match ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(f)) {
@@ -128,7 +128,7 @@ unsafe fn b_of(base: *const u8, s: ak_span) -> ::bytes::Bytes {
 }
 
 #[inline(always)]
-fn str_arg(s: &str, tc: ak_transcode_fn) -> ak_str {
+pub(crate) fn str_arg(s: &str, tc: ak_transcode_fn) -> ak_str {
     ak_str { data: s.as_ptr() as *const c_void, len: s.len(), tc: Some(tc) }
 }
 
@@ -156,12 +156,12 @@ impl Tcs {
 thread_local! {
     // Only the transcoder choice, which a loop callback cannot be handed: the callback's
     // arguments are the ABI's, not ours. Nothing else in this binding is a thread-local.
-    static TCS: ::std::cell::Cell<(Option<ak_transcode_fn>, Option<ak_transcode_fn>)> =
+    pub(crate) static TCS: ::std::cell::Cell<(Option<ak_transcode_fn>, Option<ak_transcode_fn>)> =
         const { ::std::cell::Cell::new((None, None)) };
 }
 
 #[inline(always)]
-fn tcs() -> (ak_transcode_fn, ak_transcode_fn) {
+pub(crate) fn tcs() -> (ak_transcode_fn, ak_transcode_fn) {
     let (a, b) = TCS.with(|c| c.get());
     (a.unwrap(), b.unwrap())
 }
@@ -169,7 +169,7 @@ fn tcs() -> (ak_transcode_fn, ak_transcode_fn) {
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
-fn make_timestamp(o: &Timestamp, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Timestamp {
+pub(crate) fn make_timestamp(o: &Timestamp, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Timestamp {
     ak_efix_Timestamp {
         seconds: o.seconds,
         nanos: o.nanos,
@@ -179,7 +179,7 @@ fn make_timestamp(o: &Timestamp, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_e
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
-fn make_duration(o: &Duration, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Duration {
+pub(crate) fn make_duration(o: &Duration, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Duration {
     ak_efix_Duration {
         seconds: o.seconds,
         nanos: o.nanos,
@@ -189,7 +189,7 @@ fn make_duration(o: &Duration, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efi
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
-fn make_result_raw(o: &ResultRaw, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_ResultRaw {
+pub(crate) fn make_result_raw(o: &ResultRaw, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_ResultRaw {
     ak_efix_ResultRaw {
         session_id: str_arg(&o.session_id, tc.0),
         name: str_arg(&o.name, tc.0),
@@ -214,7 +214,7 @@ fn make_result_raw(o: &ResultRaw, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
-fn make_task_options(o: &TaskOptions, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_TaskOptions {
+pub(crate) fn make_task_options(o: &TaskOptions, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_TaskOptions {
     ak_efix_TaskOptions {
         max_duration: match &o.max_duration {
             Some(c) => make_duration(c, tc),
@@ -234,7 +234,7 @@ fn make_task_options(o: &TaskOptions, tc: (ak_transcode_fn, ak_transcode_fn)) ->
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
-fn make_task_output(o: &TaskOutput, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_TaskOutput {
+pub(crate) fn make_task_output(o: &TaskOutput, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_TaskOutput {
     ak_efix_TaskOutput {
         success: o.success as u8,
         error: str_arg(&o.error, tc.0),
@@ -244,7 +244,7 @@ fn make_task_output(o: &TaskOutput, tc: (ak_transcode_fn, ak_transcode_fn)) -> a
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
-fn make_task_detailed(o: &TaskDetailed, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_TaskDetailed {
+pub(crate) fn make_task_detailed(o: &TaskDetailed, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_TaskDetailed {
     ak_efix_TaskDetailed {
         id: str_arg(&o.id, tc.0),
         session_id: str_arg(&o.session_id, tc.0),
@@ -317,7 +317,7 @@ fn make_task_detailed(o: &TaskDetailed, tc: (ak_transcode_fn, ak_transcode_fn)) 
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
-fn make_task_summary(o: &TaskSummary, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_TaskSummary {
+pub(crate) fn make_task_summary(o: &TaskSummary, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_TaskSummary {
     ak_efix_TaskSummary {
         id: str_arg(&o.id, tc.0),
         session_id: str_arg(&o.session_id, tc.0),
@@ -339,7 +339,7 @@ fn make_task_summary(o: &TaskSummary, tc: (ak_transcode_fn, ak_transcode_fn)) ->
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
-fn make_probe(o: &Probe, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Probe {
+pub(crate) fn make_probe(o: &Probe, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Probe {
     ak_efix_Probe {
         id: str_arg(&o.id, tc.0),
         opt_count: o.opt_count.unwrap_or(0),
@@ -382,7 +382,7 @@ fn make_probe(o: &Probe, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Prob
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
-fn make_empty(o: &Empty, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Empty {
+pub(crate) fn make_empty(o: &Empty, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Empty {
     ak_efix_Empty {
         presence: 0,
     }
@@ -390,7 +390,7 @@ fn make_empty(o: &Empty, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Empt
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
-fn make_upload_result_data(o: &UploadResultData, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_UploadResultData {
+pub(crate) fn make_upload_result_data(o: &UploadResultData, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_UploadResultData {
     ak_efix_UploadResultData {
         session_id: str_arg(&o.session_id, tc.0),
         result_id: str_arg(&o.result_id, tc.0),
@@ -403,7 +403,7 @@ fn make_upload_result_data(o: &UploadResultData, tc: (ak_transcode_fn, ak_transc
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
-fn make_metrics_batch(o: &MetricsBatch, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_MetricsBatch {
+pub(crate) fn make_metrics_batch(o: &MetricsBatch, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_MetricsBatch {
     ak_efix_MetricsBatch {
         id: str_arg(&o.id, tc.0),
         presence: 0,
@@ -412,7 +412,7 @@ fn make_metrics_batch(o: &MetricsBatch, tc: (ak_transcode_fn, ak_transcode_fn)) 
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
-fn make_pair(o: &Pair, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Pair {
+pub(crate) fn make_pair(o: &Pair, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Pair {
     ak_efix_Pair {
         key: str_arg(&o.key, tc.0),
         value: o.value,
@@ -422,7 +422,7 @@ fn make_pair(o: &Pair, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Pair {
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
-fn make_list_results_response(o: &ListResultsResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_ListResultsResponse {
+pub(crate) fn make_list_results_response(o: &ListResultsResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_ListResultsResponse {
     ak_efix_ListResultsResponse {
         page: o.page,
         total: o.total,
@@ -432,7 +432,7 @@ fn make_list_results_response(o: &ListResultsResponse, tc: (ak_transcode_fn, ak_
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
-fn make_list_tasks_detailed_response(o: &ListTasksDetailedResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_ListTasksDetailedResponse {
+pub(crate) fn make_list_tasks_detailed_response(o: &ListTasksDetailedResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_ListTasksDetailedResponse {
     ak_efix_ListTasksDetailedResponse {
         page: o.page,
         total: o.total,
@@ -442,7 +442,7 @@ fn make_list_tasks_detailed_response(o: &ListTasksDetailedResponse, tc: (ak_tran
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
-fn make_list_task_summary_response(o: &ListTaskSummaryResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_ListTaskSummaryResponse {
+pub(crate) fn make_list_task_summary_response(o: &ListTaskSummaryResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_ListTaskSummaryResponse {
     ak_efix_ListTaskSummaryResponse {
         presence: 0,
     }
@@ -450,7 +450,7 @@ fn make_list_task_summary_response(o: &ListTaskSummaryResponse, tc: (ak_transcod
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
-fn make_list_probe_response(o: &ListProbeResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_ListProbeResponse {
+pub(crate) fn make_list_probe_response(o: &ListProbeResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_ListProbeResponse {
     ak_efix_ListProbeResponse {
         presence: 0,
     }
@@ -458,7 +458,7 @@ fn make_list_probe_response(o: &ListProbeResponse, tc: (ak_transcode_fn, ak_tran
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
-fn make_list_metrics_response(o: &ListMetricsResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_ListMetricsResponse {
+pub(crate) fn make_list_metrics_response(o: &ListMetricsResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_ListMetricsResponse {
     ak_efix_ListMetricsResponse {
         presence: 0,
     }
@@ -466,7 +466,7 @@ fn make_list_metrics_response(o: &ListMetricsResponse, tc: (ak_transcode_fn, ak_
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
-fn make_upload_result_data_message(o: &UploadResultDataMessage, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_UploadResultDataMessage {
+pub(crate) fn make_upload_result_data_message(o: &UploadResultDataMessage, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_UploadResultDataMessage {
     ak_efix_UploadResultDataMessage {
         upload: match &o.upload {
             Some(c) => make_upload_result_data(c, tc),
@@ -478,10 +478,242 @@ fn make_upload_result_data_message(o: &UploadResultDataMessage, tc: (ak_transcod
 
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
-fn make_dual_response(o: &DualResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_DualResponse {
+pub(crate) fn make_dual_response(o: &DualResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_DualResponse {
     ak_efix_DualResponse {
         presence: 0,
     }
+}
+
+/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_timestamp_sparse(d: &mut ak_efix_Timestamp, o: &Timestamp, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if o.seconds != 0 { d.seconds = o.seconds; }
+    if o.nanos != 0 { d.nanos = o.nanos; }
+}
+
+/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_duration_sparse(d: &mut ak_efix_Duration, o: &Duration, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if o.seconds != 0 { d.seconds = o.seconds; }
+    if o.nanos != 0 { d.nanos = o.nanos; }
+}
+
+/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_result_raw_sparse(d: &mut ak_efix_ResultRaw, o: &ResultRaw, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if !o.session_id.is_empty() { d.session_id = str_arg(&o.session_id, tc.0); }
+    if !o.name.is_empty() { d.name = str_arg(&o.name, tc.0); }
+    if !o.owner_task_id.is_empty() { d.owner_task_id = str_arg(&o.owner_task_id, tc.0); }
+    { let v = o.status.to_i32(); if v != 0 { d.status = v; } }
+    if let Some(c) = &o.created_at { fill_timestamp_sparse(&mut d.created_at, c, tc); d.presence |= 1 << 0; }
+    if let Some(c) = &o.completed_at { fill_timestamp_sparse(&mut d.completed_at, c, tc); d.presence |= 1 << 1; }
+    if !o.result_id.is_empty() { d.result_id = str_arg(&o.result_id, tc.0); }
+    if o.size != 0 { d.size = o.size; }
+    if !o.created_by.is_empty() { d.created_by = str_arg(&o.created_by, tc.0); }
+    if !o.opaque_id.is_empty() { d.opaque_id = ak_str { data: o.opaque_id.as_ptr() as *const c_void, len: o.opaque_id.len(), tc: Some(tc.1) }; }
+    if o.manual_deletion { d.manual_deletion = 1; }
+}
+
+/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_task_options_sparse(d: &mut ak_efix_TaskOptions, o: &TaskOptions, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if let Some(c) = &o.max_duration { fill_duration_sparse(&mut d.max_duration, c, tc); d.presence |= 1 << 0; }
+    if o.max_retries != 0 { d.max_retries = o.max_retries; }
+    if o.priority != 0 { d.priority = o.priority; }
+    if !o.partition_id.is_empty() { d.partition_id = str_arg(&o.partition_id, tc.0); }
+    if !o.application_name.is_empty() { d.application_name = str_arg(&o.application_name, tc.0); }
+    if !o.application_version.is_empty() { d.application_version = str_arg(&o.application_version, tc.0); }
+    if !o.application_namespace.is_empty() { d.application_namespace = str_arg(&o.application_namespace, tc.0); }
+    if !o.application_service.is_empty() { d.application_service = str_arg(&o.application_service, tc.0); }
+    if !o.engine_type.is_empty() { d.engine_type = str_arg(&o.engine_type, tc.0); }
+}
+
+/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_task_output_sparse(d: &mut ak_efix_TaskOutput, o: &TaskOutput, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if o.success { d.success = 1; }
+    if !o.error.is_empty() { d.error = str_arg(&o.error, tc.0); }
+}
+
+/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_task_detailed_sparse(d: &mut ak_efix_TaskDetailed, o: &TaskDetailed, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if !o.id.is_empty() { d.id = str_arg(&o.id, tc.0); }
+    if !o.session_id.is_empty() { d.session_id = str_arg(&o.session_id, tc.0); }
+    if !o.owner_pod_id.is_empty() { d.owner_pod_id = str_arg(&o.owner_pod_id, tc.0); }
+    { let v = o.status.to_i32(); if v != 0 { d.status = v; } }
+    if !o.status_message.is_empty() { d.status_message = str_arg(&o.status_message, tc.0); }
+    if let Some(c) = &o.options { fill_task_options_sparse(&mut d.options, c, tc); d.presence |= 1 << 0; }
+    if let Some(c) = &o.created_at { fill_timestamp_sparse(&mut d.created_at, c, tc); d.presence |= 1 << 1; }
+    if let Some(c) = &o.submitted_at { fill_timestamp_sparse(&mut d.submitted_at, c, tc); d.presence |= 1 << 2; }
+    if let Some(c) = &o.started_at { fill_timestamp_sparse(&mut d.started_at, c, tc); d.presence |= 1 << 3; }
+    if let Some(c) = &o.ended_at { fill_timestamp_sparse(&mut d.ended_at, c, tc); d.presence |= 1 << 4; }
+    if let Some(c) = &o.pod_ttl { fill_timestamp_sparse(&mut d.pod_ttl, c, tc); d.presence |= 1 << 5; }
+    if let Some(c) = &o.output { fill_task_output_sparse(&mut d.output, c, tc); d.presence |= 1 << 6; }
+    if !o.pod_hostname.is_empty() { d.pod_hostname = str_arg(&o.pod_hostname, tc.0); }
+    if let Some(c) = &o.received_at { fill_timestamp_sparse(&mut d.received_at, c, tc); d.presence |= 1 << 7; }
+    if let Some(c) = &o.acquired_at { fill_timestamp_sparse(&mut d.acquired_at, c, tc); d.presence |= 1 << 8; }
+    if let Some(c) = &o.creation_to_end_duration { fill_duration_sparse(&mut d.creation_to_end_duration, c, tc); d.presence |= 1 << 9; }
+    if let Some(c) = &o.processing_to_end_duration { fill_duration_sparse(&mut d.processing_to_end_duration, c, tc); d.presence |= 1 << 10; }
+    if !o.initial_task_id.is_empty() { d.initial_task_id = str_arg(&o.initial_task_id, tc.0); }
+    if let Some(c) = &o.received_to_end_duration { fill_duration_sparse(&mut d.received_to_end_duration, c, tc); d.presence |= 1 << 11; }
+    if let Some(c) = &o.processed_at { fill_timestamp_sparse(&mut d.processed_at, c, tc); d.presence |= 1 << 12; }
+    if let Some(c) = &o.fetched_at { fill_timestamp_sparse(&mut d.fetched_at, c, tc); d.presence |= 1 << 13; }
+    if !o.payload_id.is_empty() { d.payload_id = str_arg(&o.payload_id, tc.0); }
+    if !o.created_by.is_empty() { d.created_by = str_arg(&o.created_by, tc.0); }
+}
+
+/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_task_summary_sparse(d: &mut ak_efix_TaskSummary, o: &TaskSummary, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if !o.id.is_empty() { d.id = str_arg(&o.id, tc.0); }
+    if !o.session_id.is_empty() { d.session_id = str_arg(&o.session_id, tc.0); }
+    if let Some(c) = &o.options { fill_task_options_sparse(&mut d.options, c, tc); d.presence |= 1 << 0; }
+    { let v = o.status.to_i32(); if v != 0 { d.status = v; } }
+    if let Some(c) = &o.created_at { fill_timestamp_sparse(&mut d.created_at, c, tc); d.presence |= 1 << 1; }
+    if !o.error.is_empty() { d.error = str_arg(&o.error, tc.0); }
+    if !o.status_message.is_empty() { d.status_message = str_arg(&o.status_message, tc.0); }
+    if o.count_data_dependencies != 0 { d.count_data_dependencies = o.count_data_dependencies; }
+}
+
+/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_probe_sparse(d: &mut ak_efix_Probe, o: &Probe, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if !o.id.is_empty() { d.id = str_arg(&o.id, tc.0); }
+    if let Some(v) = o.opt_count { d.opt_count = v; d.presence |= 1 << 0; }
+    if let Some(v) = &o.opt_label { d.opt_label = str_arg(v, tc.0); d.presence |= 1 << 1; }
+    if let Some(v) = o.opt_flag { d.opt_flag = v as u8; d.presence |= 1 << 2; }
+    match &o.body {
+        None => {}
+        Some(ProbeBody::AsInt(v)) => { d.body_case = 10; d.body_as_int = *v; }
+        Some(ProbeBody::AsText(v)) => { d.body_case = 11; d.body_as_text = str_arg(v, tc.0); }
+        Some(ProbeBody::AsBlob(v)) => { d.body_case = 12; d.body_as_blob = ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) }; }
+        Some(ProbeBody::AsStamp(v)) => { d.body_case = 13; fill_timestamp_sparse(&mut d.body_as_stamp, v, tc); }
+        Some(ProbeBody::AsNothing(v)) => { d.body_case = 14; fill_empty_sparse(&mut d.body_as_nothing, v, tc); }
+    }
+}
+
+/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_empty_sparse(d: &mut ak_efix_Empty, o: &Empty, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+}
+
+/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_upload_result_data_sparse(d: &mut ak_efix_UploadResultData, o: &UploadResultData, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if !o.session_id.is_empty() { d.session_id = str_arg(&o.session_id, tc.0); }
+    if !o.result_id.is_empty() { d.result_id = str_arg(&o.result_id, tc.0); }
+    if !o.data_chunk.is_empty() { d.data_chunk = ak_str { data: AK_STR_DIRECT, len: o.data_chunk.len(), tc: None }; }
+}
+
+/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_metrics_batch_sparse(d: &mut ak_efix_MetricsBatch, o: &MetricsBatch, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if !o.id.is_empty() { d.id = str_arg(&o.id, tc.0); }
+}
+
+/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_pair_sparse(d: &mut ak_efix_Pair, o: &Pair, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if !o.key.is_empty() { d.key = str_arg(&o.key, tc.0); }
+    if o.value != 0 { d.value = o.value; }
+}
+
+/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_list_results_response_sparse(d: &mut ak_efix_ListResultsResponse, o: &ListResultsResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if o.page != 0 { d.page = o.page; }
+    if o.total != 0 { d.total = o.total; }
+}
+
+/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_list_tasks_detailed_response_sparse(d: &mut ak_efix_ListTasksDetailedResponse, o: &ListTasksDetailedResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if o.page != 0 { d.page = o.page; }
+    if o.total != 0 { d.total = o.total; }
+}
+
+/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_list_task_summary_response_sparse(d: &mut ak_efix_ListTaskSummaryResponse, o: &ListTaskSummaryResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+}
+
+/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_list_probe_response_sparse(d: &mut ak_efix_ListProbeResponse, o: &ListProbeResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+}
+
+/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_list_metrics_response_sparse(d: &mut ak_efix_ListMetricsResponse, o: &ListMetricsResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+}
+
+/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_upload_result_data_message_sparse(d: &mut ak_efix_UploadResultDataMessage, o: &UploadResultDataMessage, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if let Some(c) = &o.upload { fill_upload_result_data_sparse(&mut d.upload, c, tc); d.presence |= 1 << 0; }
+}
+
+/// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_dual_response_sparse(d: &mut ak_efix_DualResponse, o: &DualResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
 }
 
 unsafe extern "C" fn loop_list_results_response_results(
@@ -516,12 +748,63 @@ unsafe extern "C" fn loop_list_results_response_results(
     })
 }
 
+unsafe extern "C" fn loop_list_results_response_results_zeroed(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListResultsResponse);
+        let tc = tcs();
+        let src = &o.results;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_ResultRaw>());
+        const SZ: usize = ::core::mem::size_of::<ak_efix_ResultRaw>();
+        let mut chunk: [::core::mem::MaybeUninit<ak_efix_ResultRaw>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        // All-zero is a valid group: `ak_efix_ResultRaw::ZERO` is exactly this bit pattern.
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            fill_result_raw_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_elem_ResultRaw(ctx, chunk.as_ptr() as *const ak_efix_ResultRaw, i as i32);
+                if rc < 0 { return rc; }
+                done += i;
+                // Only what was dirtied is put back, which is the same volume
+                // per element as the total fill and is where this trade is paid.
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_elem_ResultRaw(ctx, chunk.as_ptr() as *const ak_efix_ResultRaw, i as i32);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
 pub fn encode_into_list_results_response(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
         ak_enc_reset(ctx);
         let vt = ak_evt_ListResultsResponse {
             loop_results: Some(loop_list_results_response_results),
+        };
+        let fix = make_list_results_response(o, (t.utf8, t.bytes));
+        let rc = ak_encode_ListResultsResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
+pub fn encode_into_list_results_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_ListResultsResponse {
+            loop_results: Some(loop_list_results_response_results_zeroed),
         };
         let fix = make_list_results_response(o, (t.utf8, t.bytes));
         let rc = ak_encode_ListResultsResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
@@ -550,6 +833,44 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks(
                 let rc = ak_elemu_TaskDetailed(ctx, chunk.as_ptr() as *const ak_efix_TaskDetailed, i as i32, done as i64);
                 if rc < 0 { return rc; }
                 done += i;
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_elemu_TaskDetailed(ctx, chunk.as_ptr() as *const ak_efix_TaskDetailed, i as i32, done as i64);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_zeroed(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListTasksDetailedResponse);
+        let tc = tcs();
+        let src = &o.tasks;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_TaskDetailed>());
+        const SZ: usize = ::core::mem::size_of::<ak_efix_TaskDetailed>();
+        let mut chunk: [::core::mem::MaybeUninit<ak_efix_TaskDetailed>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        // All-zero is a valid group: `ak_efix_TaskDetailed::ZERO` is exactly this bit pattern.
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            fill_task_detailed_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_elemu_TaskDetailed(ctx, chunk.as_ptr() as *const ak_efix_TaskDetailed, i as i32, done as i64);
+                if rc < 0 { return rc; }
+                done += i;
+                // Only what was dirtied is put back, which is the same volume
+                // per element as the total fill and is where this trade is paid.
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
                 i = 0;
             }
         }
@@ -753,6 +1074,20 @@ pub fn encode_into_list_tasks_detailed_response(ctx: *mut ak_enc_ctx, o: &ListTa
     }
 }
 
+pub fn encode_into_list_tasks_detailed_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListTasksDetailedResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_ListTasksDetailedResponse {
+            loop_tasks: Some(loop_list_tasks_detailed_response_tasks_zeroed),
+            elem_tasks: &ELEM_VT_ListTasksDetailedResponse_tasks,
+        };
+        let fix = make_list_tasks_detailed_response(o, (t.utf8, t.bytes));
+        let rc = ak_encode_ListTasksDetailedResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
 unsafe extern "C" fn loop_list_probe_response_probes(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -785,12 +1120,63 @@ unsafe extern "C" fn loop_list_probe_response_probes(
     })
 }
 
+unsafe extern "C" fn loop_list_probe_response_probes_zeroed(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListProbeResponse);
+        let tc = tcs();
+        let src = &o.probes;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_Probe>());
+        const SZ: usize = ::core::mem::size_of::<ak_efix_Probe>();
+        let mut chunk: [::core::mem::MaybeUninit<ak_efix_Probe>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        // All-zero is a valid group: `ak_efix_Probe::ZERO` is exactly this bit pattern.
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            fill_probe_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_elem_Probe(ctx, chunk.as_ptr() as *const ak_efix_Probe, i as i32);
+                if rc < 0 { return rc; }
+                done += i;
+                // Only what was dirtied is put back, which is the same volume
+                // per element as the total fill and is where this trade is paid.
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_elem_Probe(ctx, chunk.as_ptr() as *const ak_efix_Probe, i as i32);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
 pub fn encode_into_list_probe_response(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
         ak_enc_reset(ctx);
         let vt = ak_evt_ListProbeResponse {
             loop_probes: Some(loop_list_probe_response_probes),
+        };
+        let fix = make_list_probe_response(o, (t.utf8, t.bytes));
+        let rc = ak_encode_ListProbeResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
+pub fn encode_into_list_probe_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_ListProbeResponse {
+            loop_probes: Some(loop_list_probe_response_probes_zeroed),
         };
         let fix = make_list_probe_response(o, (t.utf8, t.bytes));
         let rc = ak_encode_ListProbeResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
@@ -819,6 +1205,44 @@ unsafe extern "C" fn loop_list_task_summary_response_tasks(
                 let rc = ak_elemu_TaskSummary(ctx, chunk.as_ptr() as *const ak_efix_TaskSummary, i as i32, done as i64);
                 if rc < 0 { return rc; }
                 done += i;
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_elemu_TaskSummary(ctx, chunk.as_ptr() as *const ak_efix_TaskSummary, i as i32, done as i64);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_list_task_summary_response_tasks_zeroed(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListTaskSummaryResponse);
+        let tc = tcs();
+        let src = &o.tasks;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_TaskSummary>());
+        const SZ: usize = ::core::mem::size_of::<ak_efix_TaskSummary>();
+        let mut chunk: [::core::mem::MaybeUninit<ak_efix_TaskSummary>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        // All-zero is a valid group: `ak_efix_TaskSummary::ZERO` is exactly this bit pattern.
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            fill_task_summary_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_elemu_TaskSummary(ctx, chunk.as_ptr() as *const ak_efix_TaskSummary, i as i32, done as i64);
+                if rc < 0 { return rc; }
+                done += i;
+                // Only what was dirtied is put back, which is the same volume
+                // per element as the total fill and is where this trade is paid.
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
                 i = 0;
             }
         }
@@ -886,7 +1310,35 @@ pub fn encode_into_list_task_summary_response(ctx: *mut ak_enc_ctx, o: &ListTask
     }
 }
 
+pub fn encode_into_list_task_summary_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListTaskSummaryResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_ListTaskSummaryResponse {
+            loop_tasks: Some(loop_list_task_summary_response_tasks_zeroed),
+            elem_tasks: &ELEM_VT_ListTaskSummaryResponse_tasks,
+        };
+        let fix = make_list_task_summary_response(o, (t.utf8, t.bytes));
+        let rc = ak_encode_ListTaskSummaryResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
 pub fn encode_into_upload_result_data_message(ctx: *mut ak_enc_ctx, o: &UploadResultDataMessage, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_UploadResultDataMessage {
+            _reserved: ::core::ptr::null(),
+        };
+        let fix = make_upload_result_data_message(o, (t.utf8, t.bytes));
+        let d = &o.upload.as_ref().map(|x| x).unwrap().data_chunk;
+        let rc = ak_encode_UploadResultDataMessage(o as *const _ as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
+pub fn encode_into_upload_result_data_message_zeroed(ctx: *mut ak_enc_ctx, o: &UploadResultDataMessage, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
         ak_enc_reset(ctx);
@@ -921,6 +1373,44 @@ unsafe extern "C" fn loop_list_metrics_response_batches(
                 let rc = ak_elemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_efix_MetricsBatch, i as i32, done as i64);
                 if rc < 0 { return rc; }
                 done += i;
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_elemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_efix_MetricsBatch, i as i32, done as i64);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_list_metrics_response_batches_zeroed(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListMetricsResponse);
+        let tc = tcs();
+        let src = &o.batches;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_MetricsBatch>());
+        const SZ: usize = ::core::mem::size_of::<ak_efix_MetricsBatch>();
+        let mut chunk: [::core::mem::MaybeUninit<ak_efix_MetricsBatch>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        // All-zero is a valid group: `ak_efix_MetricsBatch::ZERO` is exactly this bit pattern.
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            fill_metrics_batch_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_elemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_efix_MetricsBatch, i as i32, done as i64);
+                if rc < 0 { return rc; }
+                done += i;
+                // Only what was dirtied is put back, which is the same volume
+                // per element as the total fill and is where this trade is paid.
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
                 i = 0;
             }
         }
@@ -1042,6 +1532,20 @@ pub fn encode_into_list_metrics_response(ctx: *mut ak_enc_ctx, o: &ListMetricsRe
     }
 }
 
+pub fn encode_into_list_metrics_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListMetricsResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_ListMetricsResponse {
+            loop_batches: Some(loop_list_metrics_response_batches_zeroed),
+            elem_batches: &ELEM_VT_ListMetricsResponse_batches,
+        };
+        let fix = make_list_metrics_response(o, (t.utf8, t.bytes));
+        let rc = ak_encode_ListMetricsResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
 unsafe extern "C" fn loop_dual_response_left(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -1063,6 +1567,44 @@ unsafe extern "C" fn loop_dual_response_left(
                 let rc = ak_elem_Pair(ctx, chunk.as_ptr() as *const ak_efix_Pair, i as i32);
                 if rc < 0 { return rc; }
                 done += i;
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_elem_Pair(ctx, chunk.as_ptr() as *const ak_efix_Pair, i as i32);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_dual_response_left_zeroed(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const DualResponse);
+        let tc = tcs();
+        let src = &o.left;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_Pair>());
+        const SZ: usize = ::core::mem::size_of::<ak_efix_Pair>();
+        let mut chunk: [::core::mem::MaybeUninit<ak_efix_Pair>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        // All-zero is a valid group: `ak_efix_Pair::ZERO` is exactly this bit pattern.
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            fill_pair_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_elem_Pair(ctx, chunk.as_ptr() as *const ak_efix_Pair, i as i32);
+                if rc < 0 { return rc; }
+                done += i;
+                // Only what was dirtied is put back, which is the same volume
+                // per element as the total fill and is where this trade is paid.
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
                 i = 0;
             }
         }
@@ -1106,6 +1648,44 @@ unsafe extern "C" fn loop_dual_response_right(
     })
 }
 
+unsafe extern "C" fn loop_dual_response_right_zeroed(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const DualResponse);
+        let tc = tcs();
+        let src = &o.right;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_Pair>());
+        const SZ: usize = ::core::mem::size_of::<ak_efix_Pair>();
+        let mut chunk: [::core::mem::MaybeUninit<ak_efix_Pair>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        // All-zero is a valid group: `ak_efix_Pair::ZERO` is exactly this bit pattern.
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            fill_pair_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_elem_Pair(ctx, chunk.as_ptr() as *const ak_efix_Pair, i as i32);
+                if rc < 0 { return rc; }
+                done += i;
+                // Only what was dirtied is put back, which is the same volume
+                // per element as the total fill and is where this trade is paid.
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_elem_Pair(ctx, chunk.as_ptr() as *const ak_efix_Pair, i as i32);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
 pub fn encode_into_dual_response(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
@@ -1113,6 +1693,20 @@ pub fn encode_into_dual_response(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs
         let vt = ak_evt_DualResponse {
             loop_left: Some(loop_dual_response_left),
             loop_right: Some(loop_dual_response_right),
+        };
+        let fix = make_dual_response(o, (t.utf8, t.bytes));
+        let rc = ak_encode_DualResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
+pub fn encode_into_dual_response_zeroed(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_DualResponse {
+            loop_left: Some(loop_dual_response_left_zeroed),
+            loop_right: Some(loop_dual_response_right_zeroed),
         };
         let fix = make_dual_response(o, (t.utf8, t.bytes));
         let rc = ak_encode_DualResponse(o as *const _ as *const c_void, ctx, &vt, &fix);

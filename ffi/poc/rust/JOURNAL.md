@@ -1147,3 +1147,75 @@ If I had built the two arms and measured "no difference", the honest first hypot
 branch's own rule — *a combination of A and B that measures equal to B alone means A is not
 in the build* — and I would have spent a session hunting a defect in the arms. The artifact
 check says why there is no difference, so the null result is a result rather than a suspect.
+
+
+## Arm 2: the zeroed-group element fill, as an arm (ABI v1 open decision 9 candidate)
+
+**Log**: `ffi/logs/rust/stage3-zeroed-group.log`. **Driver**: `gen/zeroed.sh`.
+**Bin**: `crates/harness/src/bin/zeroed.rs`.
+
+The host memsets the element-group chunk once and assigns only the fields that differ from
+the default, instead of ABI v1 section 6's total fill.
+
+### What I built, and where
+
+In the **generator**, not at a call site: `fill_<msg>_sparse` for every group type,
+`loop_<root>_<slot>_zeroed` for every top-level repeated-message slot, and
+`encode_into_<root>_zeroed` per root — all emitted **alongside** the default path, which is
+untouched. The only other generator change was visibility: five helpers in the binding went
+from private to `pub(crate)` so the arm could reach them. Conformance and the boundary-call
+counts are identical to the digit afterwards, which is what says the default path did not
+move.
+
+### What it measured, six runs
+
+| payload | what it is | ns/element | zeroed/total |
+|---|---|---|---|
+| P1.2 | M1, every field present | −1.66 .. +1.70 | 0.986 .. 1.014 |
+| P1.3 | M1, the absent path | −4.98 .. −4.06 | 0.719 .. 0.766 |
+| P2.2 | M2, the deciding shape | −26.18 .. −13.02 | 0.970 .. 0.985 |
+| P2.5 | M2, the absent path | −0.42 .. +0.17 | 0.983 .. 1.007 |
+
+P1.3 encode goes from **1.108–1.188 of prost to 0.815–0.857**: the M1 absent-path inversion
+is gone. The condition set for decision 9 — wins on the absent path, costs less than 5.4 ns
+per element elsewhere — is met on every payload measured, worst case +1.70 ns.
+
+### The two things that surprised me
+
+- **P2.2 does not lose.** It was the row expected to decide against the variant and it shows
+  a consistent small saving instead. `TaskDetailed` has 27 fields and many sit at their
+  default even on a populated payload, and M2's per-element cost is dominated by ten
+  crossings and the inner runs rather than the outer group fill.
+- **P2.5 gains nothing.** Positive control 2 explained it: breaking `owner_pod_id` changed
+  P2.5's bytes, so P2.5 is not fully absent and there is little for a sparse fill to skip.
+
+### A correction to the framing, which I would have missed by not implementing it
+
+Section 6 prices the total fill as buying "the codec does not reset the element group between
+elements, worth 5.4 ns per `ResultRaw` and 24.4 per `TaskDetailed`", and the request framed
+this variant as paying that back on every element. **It does not.** The array is the host's
+chunk buffer, so under this variant the codec still never resets anything; what changes is
+only the host's fill — an unconditional store per field becomes a bulk memset plus a
+conditional store. The reset moved from a per-field reset the codec would have done to a bulk
+memset the host does, and a bulk memset is cheaper per byte than scattered stores. That is
+why it can win at all, and it is why 5.4/24.4 is the right threshold to judge the cost
+against but is not the cost being paid back.
+
+### Three positive controls, because a silent fallback would have passed everything
+
+A zeroed arm that quietly fell back to the total fill would pass byte identity AND measure
+the same — the exact situation the branch's rule about A-plus-B-equals-B is for. So each
+path was broken on purpose, one line at a time, and the tree regenerated afterwards:
+
+1. drop `ResultRaw.name` from the sparse fill → P1.1 and P1.2 zeroed DIFFER, total fill
+   unchanged, P1.3 unchanged (its names are all empty). The M1 path runs.
+2. drop `TaskDetailed.owner_pod_id` → all five M2 payloads' zeroed rows DIFFER. The M2 path
+   runs, and P2.5 is not fully absent.
+3. turn the presence test into a value test on `Probe.opt_count` → P3.1 zeroed DIFFERS.
+   **Present-and-zero is load-bearing**, and M3 is in the conformance list for exactly this.
+
+That third one is the defect this variant invites: for an explicit-presence field the test
+must be PRESENCE and not value, because `Some(0)` and `Some("")` are at their default value
+and must still be written. For an implicit-presence field it must be the value. Getting that
+backwards turns present-and-zero silently into absent, and byte identity on a payload without
+that case would not notice.
