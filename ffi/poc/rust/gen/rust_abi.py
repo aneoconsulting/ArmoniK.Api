@@ -939,6 +939,12 @@ def _emit_decode(ir, sites):
         out.append(") -> i32 {")
         out.append("    let dcx = ctx as *mut DecCtxImpl;")
         out.append("    ak_rt::bump!((*dcx).c, forward);")
+        out.append("    // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule")
+        out.append("    // about ONE operation. A new decode starts here, so nothing can be lost by")
+        out.append("    // clearing it and a context that carried a failure would otherwise poison every")
+        out.append("    // later decode. Doing it here rather than in the host costs no extra crossing")
+        out.append("    // and takes the obligation off the binding author.")
+        out.append("    (*dcx).hdr.err = AK_OK;")
         out.append("    let buf0 = ::core::slice::from_raw_parts(buf, len);")
         out.append("    let base0 = 0usize;")
         out.append("    let mut d = Dec::new(buf0);")
@@ -1074,12 +1080,25 @@ fn dguard_i64<F: FnOnce() -> i64>(ctx: *mut ak_dec_ctx, f: F) -> i64 {
 /// copy of the buffer instead measures 14 percent worse on .NET and it is the obvious thing
 /// to write, so the generator writes the other one.
 #[inline(always)]
-unsafe fn s_of(base: *const u8, s: ak_span) -> String {
+unsafe fn s_of(base: *const u8, s: ak_span, ctx: *mut ak_dec_ctx) -> String {
+    // A zero-length span is the common case on the absent path (P1.3, P2.5) and must not go
+    // through the validator at all.
     if s.len == 0 {
         return String::new();
     }
     let b = ::core::slice::from_raw_parts(base.add(s.off as usize), s.len as usize);
-    String::from_utf8_lossy(b).into_owned()
+    // ABI v1 open decision 3: with the encode-side check gone the decoder carries the whole
+    // UTF-8 guarantee, so this takes the context in order to be able to say so. A malformed
+    // span goes through `ak_fail` on the decode context -- the error channel section 5
+    // specifies, and which nothing but a panic guard reached before this.
+    match ak_rt::strings::decode_str(b) {
+        Ok(v) => v,
+        Err(e) => {
+            let m = b"malformed UTF-8 in a decoded string";
+            ak_fail(ctx as *mut c_void, e, m.as_ptr(), m.len() as u32);
+            String::new()
+        }
+    }
 }
 
 #[inline(always)]
@@ -1313,7 +1332,7 @@ def emit_binding(ir):
             o.append("/// In place, never constructed: `%s` carries a repeated or map field," % name)
             o.append("/// and `apply` arrives AFTER the runs that populated it.")
             o.append("#[inline(always)]")
-            o.append("unsafe fn fill_%s(dst: &mut %s, f: &ak_dfix_%s, base: *const u8) {"
+            o.append("unsafe fn fill_%s(dst: &mut %s, f: &ak_dfix_%s, base: *const u8, ctx: *mut ak_dec_ctx) {"
                      % (snake(name), name, name))
             for fl in m.plain:
                 if fl.card != "singular":
@@ -1327,7 +1346,7 @@ def emit_binding(ir):
             o.append("}")
         else:
             o.append("#[inline(always)]")
-            o.append("unsafe fn from_%s(f: &ak_dfix_%s, base: *const u8) -> %s {"
+            o.append("unsafe fn from_%s(f: &ak_dfix_%s, base: *const u8, ctx: *mut ak_dec_ctx) -> %s {"
                      % (snake(name), name, name))
             o.append("    %s {" % name)
             for fl in m.plain:
@@ -1354,11 +1373,11 @@ def emit_binding(ir):
         o.append("}")
         o.append("")
         o.append("unsafe extern \"C\" fn apply_%s(" % rs)
-        o.append("    _ctx: *mut ak_dec_ctx,")
+        o.append("    ctx: *mut ak_dec_ctx,")
         o.append("    obj: *mut c_void,")
         o.append("    fx: *const ak_dfix_%s," % root)
         o.append(") {")
-        o.append("    dguard(_ctx, || {")
+        o.append("    dguard(ctx, || {")
         o.append("        let s = &mut *(obj as *mut Sink%s);" % root)
         o.append("        let f = &*fx;")
         for fl in ir.msg(root).plain:
@@ -1379,9 +1398,9 @@ def emit_binding(ir):
             et = elem_type(f)
             dty, _ = slot_elem_rust(f)
             if et and not ir.msg(et).leaf:
-                o.append("unsafe extern \"C\" fn new_%s_%s(_ctx: *mut ak_dec_ctx, obj: *mut c_void) -> i64 {"
+                o.append("unsafe extern \"C\" fn new_%s_%s(ctx: *mut ak_dec_ctx, obj: *mut c_void) -> i64 {"
                          % (rs, sn))
-                o.append("    dguard_i64(_ctx, || {")
+                o.append("    dguard_i64(ctx, || {")
                 o.append("        let s = &mut *(obj as *mut Sink%s);" % root)
                 o.append("        s.out.%s.push(Default::default());" % sn)
                 o.append("        (s.out.%s.len() - 1) as i64" % sn)
@@ -1389,15 +1408,15 @@ def emit_binding(ir):
                 o.append("}")
                 o.append("")
                 o.append("unsafe extern \"C\" fn apply_%s_%s(" % (rs, sn))
-                o.append("    _ctx: *mut ak_dec_ctx,")
+                o.append("    ctx: *mut ak_dec_ctx,")
                 o.append("    obj: *mut c_void,")
                 o.append("    tok: i64,")
                 o.append("    fx: *const ak_dfix_%s," % et)
                 o.append(") {")
-                o.append("    dguard(_ctx, || {")
+                o.append("    dguard(ctx, || {")
                 o.append("        let s = &mut *(obj as *mut Sink%s);" % root)
                 o.append("        let base = s.base;")
-                o.append("        fill_%s(&mut s.out.%s[tok as usize], &*fx, base);" % (snake(et), sn))
+                o.append("        fill_%s(&mut s.out.%s[tok as usize], &*fx, base, ctx);" % (snake(et), sn))
                 o.append("    })")
                 o.append("}")
                 o.append("")
@@ -1438,7 +1457,7 @@ def _assign(ir, owner, f, dst, fx, base):
     if f.explicit:
         # The presence WORD decides, not the value: present-and-zero and present-and-empty
         # are both `Some`, and only the bit tells them from absent.
-        inner = {"string": "s_of(%s, %s.%s)" % (base, fx, f.name),
+        inner = {"string": "s_of(%s, %s.%s, ctx)" % (base, fx, f.name),
                  "bytes": "b_of(%s, %s.%s)" % (base, fx, f.name),
                  "bool": "%s.%s != 0" % (fx, f.name),
                  "enum": "%s::from_i32(%s.%s)" % (f.of, fx, f.name)}.get(
@@ -1446,7 +1465,7 @@ def _assign(ir, owner, f, dst, fx, base):
         return ["%s.%s = if %s.presence & %s != 0 { Some(%s) } else { None };"
                 % (dst, f.name, fx, bit, inner)]
     if f.kind == "string":
-        return ["%s.%s = s_of(%s, %s.%s);" % (dst, f.name, base, fx, f.name)]
+        return ["%s.%s = s_of(%s, %s.%s, ctx);" % (dst, f.name, base, fx, f.name)]
     if f.kind == "bytes":
         return ["%s.%s = b_of(%s, %s.%s);" % (dst, f.name, base, fx, f.name)]
     if f.kind == "enum":
@@ -1458,14 +1477,14 @@ def _assign(ir, owner, f, dst, fx, base):
             return [
                 "if %s.presence & %s != 0 {" % (fx, bit),
                 "    let d2 = %s.%s.get_or_insert_with(Default::default);" % (dst, f.name),
-                "    fill_%s(d2, &%s.%s, %s);" % (snake(f.of), fx, f.name, base),
+                "    fill_%s(d2, &%s.%s, %s, ctx);" % (snake(f.of), fx, f.name, base),
                 "} else {",
                 "    %s.%s = None;" % (dst, f.name),
                 "}",
             ]
         return [
             "%s.%s = if %s.presence & %s != 0 {" % (dst, f.name, fx, bit),
-            "    Some(from_%s(&%s.%s, %s))" % (snake(f.of), fx, f.name, base),
+            "    Some(from_%s(&%s.%s, %s, ctx))" % (snake(f.of), fx, f.name, base),
             "} else {",
             "    None",
             "};",
@@ -1476,14 +1495,14 @@ def _assign(ir, owner, f, dst, fx, base):
 def _ctor_expr(ir, owner, f, fx, base):
     bit = "AK_DFIX_%s_PRESENT_%s" % (owner.upper(), f.name.upper())
     if f.explicit:
-        inner = {"string": "s_of(%s, %s.%s)" % (base, fx, f.name),
+        inner = {"string": "s_of(%s, %s.%s, ctx)" % (base, fx, f.name),
                  "bytes": "b_of(%s, %s.%s)" % (base, fx, f.name),
                  "bool": "%s.%s != 0" % (fx, f.name),
                  "enum": "%s::from_i32(%s.%s)" % (f.of, fx, f.name)}.get(
                      f.kind, "%s.%s" % (fx, f.name))
         return "if %s.presence & %s != 0 { Some(%s) } else { None }" % (fx, bit, inner)
     if f.kind == "string":
-        return "s_of(%s, %s.%s)" % (base, fx, f.name)
+        return "s_of(%s, %s.%s, ctx)" % (base, fx, f.name)
     if f.kind == "bytes":
         return "b_of(%s, %s.%s)" % (base, fx, f.name)
     if f.kind == "enum":
@@ -1491,7 +1510,7 @@ def _ctor_expr(ir, owner, f, fx, base):
     if f.kind == "bool":
         return "%s.%s != 0" % (fx, f.name)
     if f.kind == "message":
-        return ("if %s.presence & %s != 0 { Some(from_%s(&%s.%s, %s)) } else { None }"
+        return ("if %s.presence & %s != 0 { Some(from_%s(&%s.%s, %s, ctx)) } else { None }"
                 % (fx, bit, snake(f.of), fx, f.name, base))
     return "%s.%s" % (fx, f.name)
 
@@ -1509,11 +1528,11 @@ def _oneof_back(ir, name, oname, members, fx, base):
     out = ["match %s.%s_case {" % (fx, oname)]
     for g in members:
         if g.kind == "string":
-            v = "s_of(%s, %s.%s_%s)" % (base, fx, oname, g.name)
+            v = "s_of(%s, %s.%s_%s, ctx)" % (base, fx, oname, g.name)
         elif g.kind == "bytes":
             v = "b_of(%s, %s.%s_%s)" % (base, fx, oname, g.name)
         elif g.kind == "message":
-            v = "from_%s(&%s.%s_%s, %s)" % (snake(g.of), fx, oname, g.name, base)
+            v = "from_%s(&%s.%s_%s, %s, ctx)" % (snake(g.of), fx, oname, g.name, base)
         elif g.kind == "bool":
             v = "%s.%s_%s != 0" % (fx, oname, g.name)
         elif g.kind == "enum":
@@ -1533,13 +1552,13 @@ def _emit_add(ir, o, root, et, sn, path, f):
     if et:
         name = "add_%s_%s_%s" % (rs, sn, slot_name(path))
     o.append("unsafe extern \"C\" fn %s(" % name)
-    o.append("    _ctx: *mut ak_dec_ctx,")
+    o.append("    ctx: *mut ak_dec_ctx,")
     o.append("    obj: *mut c_void,")
     o.append("    tok: i64,")
     o.append("    elems: *const %s," % dty)
     o.append("    n: i32,")
     o.append(") {")
-    o.append("    dguard(_ctx, || {")
+    o.append("    dguard(ctx, || {")
     o.append("        let s = &mut *(obj as *mut Sink%s);" % root)
     o.append("        let base = s.base;")
     if et:
@@ -1554,11 +1573,11 @@ def _emit_add(ir, o, root, et, sn, path, f):
     if f.card == "map":
         o.append("        for i in 0..n as usize {")
         o.append("            let e = &*elems.add(i);")
-        o.append("            dst.insert(s_of(base, e.key), s_of(base, e.value));")
+        o.append("            dst.insert(s_of(base, e.key, ctx), s_of(base, e.value, ctx));")
         o.append("        }")
     elif f.kind == "string":
         o.append("        dst.reserve(n as usize);")
-        o.append("        for i in 0..n as usize { dst.push(s_of(base, *elems.add(i))); }")
+        o.append("        for i in 0..n as usize { dst.push(s_of(base, *elems.add(i), ctx)); }")
     elif f.kind == "bytes":
         o.append("        dst.reserve(n as usize);")
         o.append("        for i in 0..n as usize { dst.push(b_of(base, *elems.add(i))); }")
@@ -1570,7 +1589,7 @@ def _emit_add(ir, o, root, et, sn, path, f):
         o.append("        for i in 0..n as usize { dst.push(%s); }" % conv)
     elif f.kind == "message":
         o.append("        dst.reserve(n as usize);")
-        o.append("        for i in 0..n as usize { dst.push(from_%s(&*elems.add(i), base)); }" % snake(f.of))
+        o.append("        for i in 0..n as usize { dst.push(from_%s(&*elems.add(i), base, ctx)); }" % snake(f.of))
     else:
         raise NotImplementedError("add for %s %s" % (f.card, f.kind))
     o.append("    })")

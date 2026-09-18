@@ -8,5 +8,10 @@ publish.workspace = true
 [features]
 # README R5: a counting build, so a crossing count is counted and not inferred.
 count = []
+# ABI v1 open decision 3: the decode side's UTF-8 policy. Default is lossy, which is what a
+# facade written the obvious way does and what proto3 says a parser must not do.
+dec-reject = []
+dec-reject-simd = ["dep:simdutf8"]
 
 [dependencies]
+simdutf8 = { workspace = true, optional = true }

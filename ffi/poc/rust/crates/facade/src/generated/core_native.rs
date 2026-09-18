@@ -373,18 +373,36 @@ fn dec_result_raw(d: &mut Dec, out: &mut ResultRaw) {
         match tag {
             1 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.session_id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.session_id = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             2 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.name = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.name = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             3 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.owner_task_id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.owner_task_id = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             4 if wire == 0 => out.status = ResultStatus::from_i32(d.varint() as i32),
             5 if wire == 2 => {
@@ -405,14 +423,26 @@ fn dec_result_raw(d: &mut Dec, out: &mut ResultRaw) {
             }
             8 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.result_id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.result_id = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             9 if wire == 0 => out.size = d.varint() as i64,
             10 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.created_by = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.created_by = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             11 if wire == 2 => {
                 let (off, n) = d.len_body();
@@ -443,9 +473,11 @@ fn dec_task_options(d: &mut Dec, out: &mut TaskOptions) {
                     let (et, ew) = ((kk >> 3) as u32, (kk & 7) as u32);
                     match et {
                         1 if ew == 2 => { let (a, b) = sub.len_body();
-                            k = String::from_utf8_lossy(&eb[a..a + b]).into_owned(); }
+                            match ak_rt::strings::decode_str(&eb[a..a + b]) {
+                                Ok(s) => k = s, Err(e) => { d.err = e; return; } } }
                         2 if ew == 2 => { let (a, b) = sub.len_body();
-                            val = String::from_utf8_lossy(&eb[a..a + b]).into_owned(); }
+                            match ak_rt::strings::decode_str(&eb[a..a + b]) {
+                                Ok(s) => val = s, Err(e) => { d.err = e; return; } } }
                         _ => sub.skip(ew),
                     }
                 }
@@ -464,33 +496,69 @@ fn dec_task_options(d: &mut Dec, out: &mut TaskOptions) {
             4 if wire == 0 => out.priority = d.varint() as i32,
             5 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.partition_id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.partition_id = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             6 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.application_name = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.application_name = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             7 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.application_version = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.application_version = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             8 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.application_namespace = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.application_namespace = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             9 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.application_service = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.application_service = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             10 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.engine_type = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.engine_type = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             _ => d.skip(wire),
         }
@@ -509,8 +577,14 @@ fn dec_task_output(d: &mut Dec, out: &mut TaskOutput) {
             1 if wire == 0 => out.success = d.varint() != 0,
             2 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.error = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.error = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             _ => d.skip(wire),
         }
@@ -528,40 +602,76 @@ fn dec_task_detailed(d: &mut Dec, out: &mut TaskDetailed) {
         match tag {
             1 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.id = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             2 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.session_id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.session_id = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             3 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.owner_pod_id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.owner_pod_id = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             4 if wire == 2 => {
                 let (off, n) = d.len_body();
-                out.parent_task_ids.push(String::from_utf8_lossy(&buf[off..off + n]).into_owned());
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.parent_task_ids.push(s),
+                    Err(e) => { d.err = e; return; }
+                }
             }
             5 if wire == 2 => {
                 let (off, n) = d.len_body();
-                out.data_dependencies.push(String::from_utf8_lossy(&buf[off..off + n]).into_owned());
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.data_dependencies.push(s),
+                    Err(e) => { d.err = e; return; }
+                }
             }
             6 if wire == 2 => {
                 let (off, n) = d.len_body();
-                out.expected_output_ids.push(String::from_utf8_lossy(&buf[off..off + n]).into_owned());
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.expected_output_ids.push(s),
+                    Err(e) => { d.err = e; return; }
+                }
             }
             7 if wire == 2 => {
                 let (off, n) = d.len_body();
-                out.retry_of_ids.push(String::from_utf8_lossy(&buf[off..off + n]).into_owned());
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.retry_of_ids.push(s),
+                    Err(e) => { d.err = e; return; }
+                }
             }
             8 if wire == 0 => out.status = TaskStatus::from_i32(d.varint() as i32),
             9 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.status_message = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.status_message = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             10 if wire == 2 => {
                 let (off, n) = d.len_body();
@@ -621,8 +731,14 @@ fn dec_task_detailed(d: &mut Dec, out: &mut TaskDetailed) {
             }
             17 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.pod_hostname = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.pod_hostname = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             18 if wire == 2 => {
                 let (off, n) = d.len_body();
@@ -658,8 +774,14 @@ fn dec_task_detailed(d: &mut Dec, out: &mut TaskDetailed) {
             }
             22 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.initial_task_id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.initial_task_id = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             23 if wire == 2 => {
                 let (off, n) = d.len_body();
@@ -687,13 +809,25 @@ fn dec_task_detailed(d: &mut Dec, out: &mut TaskDetailed) {
             }
             26 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.payload_id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.payload_id = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             27 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.created_by = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.created_by = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             _ => d.skip(wire),
         }
@@ -711,13 +845,25 @@ fn dec_task_summary(d: &mut Dec, out: &mut TaskSummary) {
         match tag {
             1 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.id = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             2 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.session_id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.session_id = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             3 if wire == 2 => {
                 let (off, n) = d.len_body();
@@ -738,13 +884,25 @@ fn dec_task_summary(d: &mut Dec, out: &mut TaskSummary) {
             }
             8 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.error = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.error = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             9 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.status_message = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.status_message = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             11 if wire == 0 => out.count_data_dependencies = d.varint() as i64,
             _ => d.skip(wire),
@@ -763,19 +921,31 @@ fn dec_probe(d: &mut Dec, out: &mut Probe) {
         match tag {
             1 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.id = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             2 if wire == 0 => out.opt_count = Some(d.varint() as i32),
             3 if wire == 2 => {
                 let (off, n) = d.len_body();
-                out.opt_label = Some(String::from_utf8_lossy(&buf[off..off + n]).into_owned());
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.opt_label = Some(s),
+                    Err(e) => { d.err = e; return; }
+                }
             }
             4 if wire == 0 => out.opt_flag = Some(d.varint() != 0),
             10 if wire == 0 => out.body = Some(ProbeBody::AsInt(d.varint() as i64)),
             11 if wire == 2 => {
                 let (off, n) = d.len_body();
-                out.body = Some(ProbeBody::AsText(String::from_utf8_lossy(&buf[off..off + n]).into_owned()));
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.body = Some(ProbeBody::AsText(s)),
+                    Err(e) => { d.err = e; return; }
+                }
             }
             12 if wire == 2 => {
                 let (off, n) = d.len_body();
@@ -827,13 +997,25 @@ fn dec_upload_result_data(d: &mut Dec, out: &mut UploadResultData) {
         match tag {
             1 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.session_id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.session_id = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             2 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.result_id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.result_id = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             3 if wire == 2 => {
                 let (off, n) = d.len_body();
@@ -855,8 +1037,14 @@ fn dec_metrics_batch(d: &mut Dec, out: &mut MetricsBatch) {
         match tag {
             1 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.id = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             2 if wire == 2 => {
                 let (off, n) = d.len_body();
@@ -909,8 +1097,14 @@ fn dec_pair(d: &mut Dec, out: &mut Pair) {
         match tag {
             1 if wire == 2 => {
                 let (off, n) = d.len_body();
-                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
-                out.key = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+                // ABI v1 open decision 3: the decoder carries the UTF-8
+                // guarantee, because the encoder's check bought nothing and
+                // the parser cannot trust the wire. The policy is one
+                // build-time choice in ak_rt::strings, not a per-site one.
+                match ak_rt::strings::decode_str(&buf[off..off + n]) {
+                    Ok(s) => out.key = s,
+                    Err(e) => { d.err = e; return; }
+                }
             }
             2 if wire == 0 => out.value = d.varint() as i32,
             _ => d.skip(wire),

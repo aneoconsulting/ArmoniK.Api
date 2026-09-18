@@ -6,7 +6,7 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | **stages 1 to 4 complete.** Every message and payload of `design/SHAPES.md` has all four arms byte-identical to the validated manifest, and the RPC arm is measured. Ready for the aggregating session to assemble |
+| **Status** | **stages 1 to 4 complete**, plus the decode-side UTF-8 policy of decision 3's third framing. Every message and payload of `design/SHAPES.md` has all four arms byte-identical to the validated manifest, and the RPC arm is measured. Ready for the aggregating session to assemble |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88 declared. **Not verified: no 1.88 toolchain exists in this container, only 1.94.1** |
 | **Target** (where the clock runs) | the same, one configuration (README section 5) |
@@ -34,6 +34,7 @@ gen/stage1.sh               stage 1 end to end
 gen/stage1_isolate.py       the stage 1 candidate fix, on a scratch copy
 gen/stage2.sh               stage 2 end to end: check, conformance, counts, boundary, timings
 gen/dump_payloads.py        all 16 payloads to a scratch dir
+gen/decpolicy.sh            the decode UTF-8 policy: three builds, round robin, rotating order
 
 crates/shapes-prost         protox 0.9 -> prost-build 0.14 over the generated .proto
 crates/shapes-values        the value rules of emit/values.py, hand-re-derived
@@ -45,8 +46,10 @@ crates/ak-core              the core. **cdylib, not rlib**, see "Open defects" D
 crates/harness              the binding, the arms table, conformance, counts, bench
 ```
 
-Binaries: `conformance` (byte identity), `counts` (`--features count`), `bench`.
-Features: `guard` (on by default, ABI v1 section 5), `count`.
+Binaries: `conformance` (byte identity), `counts` (`--features count`), `bench`,
+`shapes`, `content`, `rpcbench`, `decpolicy`.
+Features: `guard` (on by default, ABI v1 section 5), `count`, and the decode UTF-8 policy
+`dec-reject` / `dec-reject-simd` (default: lossy).
 
 ## What is measured
 
@@ -108,11 +111,24 @@ separate processes.
   to 0.82 through the ABI, decode 0.56 to 0.92.
 - **The accessor guard is not measurable** on Rust, on M1 or on M2, and M2 makes 7 to 10
   reverse calls per element.
-- **UTF-8 validation on non-ASCII content is the largest single effect in the slice.** The
-  scalar validator costs 2.2 to 3.0 times its own ASCII cost and turns a 0.72 to 0.81 win
-  against prost into a 2.0 to 2.6 loss. A SIMD validator with the **same contract** removes
-  half to two thirds of that (1.27 to 1.50 of prost). ABI v1 open decision 3 is therefore
-  less about validate-against-trust than about which validator.
+- **UTF-8 validation ON ENCODE was the largest single effect in the slice, and decision 3's
+  third framing removes it.** The scalar validator cost 2.2 to 3.0 times its own ASCII cost
+  and turned a 0.72 to 0.81 win against prost into a 2.0 to 2.6 loss; a SIMD validator with
+  the same contract removed half to two thirds of that. **Those rows are now the retired
+  measurement of a retired framing.** Every encode figure in this slice already quotes the
+  passthrough (`Ctx::new()` builds `Tcs::trusted()`), and `ak_tc_bytes()` and
+  `ak_tc_utf8_trusted()` return the same function pointer in this tree.
+- **On DECODE, where validation is mandatory, validate-and-reject is free to cheaper**
+  (`stage3-decode-utf8-policy.log`). On the string path alone, in one process, the scalar
+  rejecting policy is 0.54 to 0.75 of today's lossy path on ascii, 0.83 to 0.97 on latin1
+  and 0.94 to 1.10 on wide; with `simdutf8::basic` it is 0.36 to 0.71 of lossy on every set.
+  `from_utf8_lossy` already validates — it substitutes instead of failing, and its recovery
+  path is slower than `from_utf8`. On a whole decode the ratio to prost moves from 0.87-0.91
+  to 0.73-0.79 (P1.2 ascii) and from 0.78-0.80 to 0.49-0.51 (P1.2 wide, SIMD). **prost
+  rejects too, so this makes the comparison like-for-like and moves it in this slice's
+  favour**: the old decode column was pessimistic, not flattering. The decode tables above
+  were taken under the lossy policy and are not rewritten; adopting a rejecting decode
+  improves the ASCII decode column by roughly 0.08-0.12 on M1 and 0.03-0.08 on M2.
 - **The content set changes no decode verdict.** Every arm validates on decode, so all three
   sets scale all arms together and the ratios move by less than the run-to-run spread.
 - **ABI v1 open decision 5 is answered.** Zero warm misses on every uniform payload; on P2.4,
@@ -123,8 +139,9 @@ separate processes.
 
 ## Next step
 
-Nothing is outstanding. The slice has done what W3 asked: four arms, every shape, and the
-interface-cost decomposition available to every other slice.
+Nothing is outstanding. The slice has done what W3 asked: four arms, every shape, the
+interface-cost decomposition available to every other slice, and decision 3 answered on both
+sides of the wire.
 
 If more is wanted, in the order I would do it:
 
@@ -171,6 +188,9 @@ If more is wanted, in the order I would do it:
 | D13 | `gen/ir.py` | the first `direct_fields` walked singular message children only, so ABI v1 section 8's refusal found nothing and refused nothing | **fixed**, and `gen/check_direct.py` exercises both refusal cases on every run. Same class as D12, caught the same way: by running it against a case that must fail |
 | D12 | `gen/rust_core.py`, `gen/rust_abi.py` | every backend iterated `Message.plain`, which excludes oneof members, so adding `ListProbeResponse` produced a complete-looking codec that ignored `Probe.body` and said nothing | **fixed**: both walkers call `b.oneof(...)` explicitly, so a backend that cannot do the shape raises rather than skipping it |
 | D11 | this slice's reporting | P6.1's re-validation was reported with no log behind it, against a stale log that still showed the old size | **fixed**. Every schema change now re-runs `gen/stage1.sh` into a dated log before the result is quoted |
+| D19 | the repository's root `.gitignore` | line 30's `[Bb]in/` (meant for .NET build output) silently excluded **every measurement binary in this slice** — `conformance`, `counts`, `bench`, `content`, `shapes`, `rpcbench` — from stage 2 onward. The logs were committed and the code that produced them was not. Same class as D11 with the sides swapped, and found the same way: by reading what `git status` did NOT list | **fixed** in `poc/rust/.gitignore`, which re-includes `crates/*/src/bin/**`. All seven bins are now tracked. **Other slices are likely to have the same hole** and it is worth one `git ls-files` each |
+| D17 | `gen/rust_abi.py` | the decode entry point returned the sticky error slot and nothing ever cleared it, so the first rejected decode poisoned every later decode on that context. Invisible while nothing on the decode path could fail | **fixed**: `ak_decode_X` clears the slot at entry, which costs no crossing (counts re-run unchanged: M1 9/6, M2 10.024/7.004). A host-side `ak_dec_err_reset` was written first and reverted — one extra forward crossing per decode for nothing. The regression is in `decpolicy`: a good decode after a rejected one must succeed |
+| D18 | `gen/decpolicy.sh` (first version) | it built and ran each policy in turn, so the lossy build was always the first process. The same source measured `core-native` P1.2 ascii at 0.778 of prost in one invocation and 0.88 in the next, with the prost control unmoved | **fixed**: the three binaries are built first and run round robin with a rotating order, and section 4 prices the policies against each other in ONE process. The control still drifts up to 7 percent on the two `wide` rows and the log says so |
 | D9 | `gen/rust_abi.py` | an element run did not restore the codec's open-field state, so the second and later chunks read whatever the last element left behind. It cost 448 length-prefix misses in 500 elements, and it reads `open_tag` too, so a host that chunks would write later chunks under the inner field's tag | **fixed**: every element and run entry point saves and restores the open state, and `gen/stage3.sh` step 3 carries a regression for it. **The payload set could not have caught it**: byte identity passed only because `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1 |
 
 ## What is not measured
@@ -239,18 +259,30 @@ Four, all reported to the aggregating session and none fixed here:
 
 ### Error paths
 
-- `ak_fail` is reachable in this slice **only through a panic in the generated guard**. No
-  test makes a host fail mid-run deliberately, so the codec's rollback of a half-written field
-  (section 6, "the widest hole in the drafted interface") is written and unexercised.
+- `ak_fail` is now reached on the **decode** side by a real failure: a malformed UTF-8 span
+  under either rejecting build reports `AK_ERR_TRANSCODE` through it, and `decpolicy`'s
+  section 2 exercises it every run. On the **encode** side it is still reachable only through
+  a panic in the generated guard: no test makes a host fail mid-run deliberately, so the
+  codec's rollback of a half-written field (section 6, "the widest hole in the drafted
+  interface") is written and unexercised.
 - An unrecognised oneof `body_case` is refused with `AK_ERR_ABI`; nothing in this build can
   produce one, so the path is built and not exercised.
 - Malformed wire: `AK_ERR_MALFORMED` and `AK_ERR_TRUNCATED` are produced by the reader and no
-  vector exercises them.
+  vector exercises them. Malformed **UTF-8** is exercised, by one vector with one byte
+  overwritten, and returns `AK_ERR_TRANSCODE`. Whether that is the right code is raised and
+  not taken: `AK_ERR_MALFORMED` ("invalid wire") is the other defensible reading, since
+  proto3 makes invalid UTF-8 a parse error and the rejecting path has no transcoder on it.
 
 ### Measurement coverage
 
 - **Content sets**: `latin1` and `wide` on P1.2 and P2.2 only, encode and decode. Not on the
   other payloads, and with no manifest oracle (byte identity against the prost arm instead).
+- **The decode UTF-8 policy**: priced on P1.2 and P2.2 only. Every other payload's decode
+  figure in every other log is a **lossy-policy** figure. Nothing prices what a reject does
+  to a CALLER: a conformant parser rejects the whole message, so one bad string loses a batch
+  of a thousand results, and that is a behavioural cost this slice cannot put a number on.
+- **The opt-in diagnostic encode mode** (decision 3's surviving encode-side value) is not
+  built, by instruction.
 - **Concurrency**: one thread everywhere. The learned-width table is per context and never
   exercised by two threads, which is the case ABI v1 section 6 says a global table fails at,
   and obligation 12.5's concurrency suite does not exist.
@@ -293,6 +325,7 @@ Four, all reported to the aggregating session and none fixed here:
 | `ffi/logs/rust/stage3-M2-M4-revalidated.log` | as stage3-M2 | M2 and M4 re-measured after `0c2d4d7f`. Crossings and decision 5 unchanged to the digit; ratios tighter and two moved toward parity. **Supersedes the M2 rows of `stage3-M2.log` and the M4 rows of `stage3-M4-M7.log`** |
 | `ffi/logs/rust/stage3-M4-M7.log` | as stage3-M2, ASCII, guard on | M4 to M7: byte identity on P4.1, P5.1 to P5.4, P6.1 and P7.1, with the class labelled per row; ABI v1 section 8's generator-time refusal exercised; the adapter's two wire forms checked by state; M7 by decode and permutation |
 | `ffi/logs/rust/stage3-M3.log` | as stage3-M2, ASCII, guard on | M3: byte identity on P3.1; explicit presence as three cases x three fields x four arms, all agreeing; the oneof by member including the payload-free one; seven unknown-field vectors, hand-built; 3 crossings per 200 elements in both directions; one timing row set |
+| `ffi/logs/rust/stage3-decode-utf8-policy.log` | rustc 1.94.1 release, prost 0.14.4, cdylib boundary, guard on; three POLICY BUILDS run round robin with a rotating order, plus one in-process table; simdutf8 0.1, AVX2 present | **ABI v1 open decision 3, third framing.** Validate-and-reject on decode costs 0.54 to 1.10 of today's lossy string path depending on content set, and 0.36 to 0.71 with `simdutf8::basic`, because `from_utf8_lossy` already validates. It moves the decode ratio against prost in this slice's favour and makes the comparison like-for-like, since prost rejects too. Carries the malformed-input case, the sticky-slot regression (D17) and the ordering hazard (D18) |
 | `ffi/logs/rust/stage3-content-sets.log` | as stage3-M2, plus simdutf8 0.1 as one arm; encode and decode over P1.2 and P2.2, all three content sets in ONE process | ABI v1 open decision 3: the scalar validator costs 2.2 to 3.0 times its ASCII self on non-ASCII content and loses 2.0 to 2.6 to prost; a SIMD validator with the same contract recovers half to two thirds of it; decode is unaffected in ordering |
 | `ffi/logs/rust/stage3-M2.log` | rustc 1.94.1 release, prost 0.14.4, cdylib boundary, guard on (section 6 off), ASCII, 4 shared vCPUs | M2 over P2.1 to P2.5: byte identity across four arms plus value identity across the three facade decoders; 7.004 crossings per task on decode and 10.02 on encode; ABI v1 open decision 5 answered and isolated; the two shape-coverage findings; the guard priced on a shape that makes 7 to 10 reverse calls per element |
 | `ffi/logs/rust/stage2-four-arms-M1.log` | rustc 1.94.1 release, prost 0.14.4, cdylib boundary, guard on (section 6 off), ASCII, 4 shared vCPUs | byte identity across four arms; crossing counts; the boundary is a real dynamic import; the crossing costs 1.8 ns; the ratio table above; the guard is free; UTF-8 validation costs 25-30 percent of an encode |

@@ -96,12 +96,25 @@ fn dguard_i64<F: FnOnce() -> i64>(ctx: *mut ak_dec_ctx, f: F) -> i64 {
 /// copy of the buffer instead measures 14 percent worse on .NET and it is the obvious thing
 /// to write, so the generator writes the other one.
 #[inline(always)]
-unsafe fn s_of(base: *const u8, s: ak_span) -> String {
+unsafe fn s_of(base: *const u8, s: ak_span, ctx: *mut ak_dec_ctx) -> String {
+    // A zero-length span is the common case on the absent path (P1.3, P2.5) and must not go
+    // through the validator at all.
     if s.len == 0 {
         return String::new();
     }
     let b = ::core::slice::from_raw_parts(base.add(s.off as usize), s.len as usize);
-    String::from_utf8_lossy(b).into_owned()
+    // ABI v1 open decision 3: with the encode-side check gone the decoder carries the whole
+    // UTF-8 guarantee, so this takes the context in order to be able to say so. A malformed
+    // span goes through `ak_fail` on the decode context -- the error channel section 5
+    // specifies, and which nothing but a panic guard reached before this.
+    match ak_rt::strings::decode_str(b) {
+        Ok(v) => v,
+        Err(e) => {
+            let m = b"malformed UTF-8 in a decoded string";
+            ak_fail(ctx as *mut c_void, e, m.as_ptr(), m.len() as u32);
+            String::new()
+        }
+    }
 }
 
 #[inline(always)]
@@ -1115,7 +1128,7 @@ pub unsafe fn encoded<'a>(ctx: *mut ak_enc_ctx) -> &'a [u8] {
 }
 
 #[inline(always)]
-unsafe fn from_timestamp(f: &ak_dfix_Timestamp, base: *const u8) -> Timestamp {
+unsafe fn from_timestamp(f: &ak_dfix_Timestamp, base: *const u8, ctx: *mut ak_dec_ctx) -> Timestamp {
     Timestamp {
         seconds: f.seconds,
         nanos: f.nanos,
@@ -1123,7 +1136,7 @@ unsafe fn from_timestamp(f: &ak_dfix_Timestamp, base: *const u8) -> Timestamp {
 }
 
 #[inline(always)]
-unsafe fn from_duration(f: &ak_dfix_Duration, base: *const u8) -> Duration {
+unsafe fn from_duration(f: &ak_dfix_Duration, base: *const u8, ctx: *mut ak_dec_ctx) -> Duration {
     Duration {
         seconds: f.seconds,
         nanos: f.nanos,
@@ -1131,17 +1144,17 @@ unsafe fn from_duration(f: &ak_dfix_Duration, base: *const u8) -> Duration {
 }
 
 #[inline(always)]
-unsafe fn from_result_raw(f: &ak_dfix_ResultRaw, base: *const u8) -> ResultRaw {
+unsafe fn from_result_raw(f: &ak_dfix_ResultRaw, base: *const u8, ctx: *mut ak_dec_ctx) -> ResultRaw {
     ResultRaw {
-        session_id: s_of(base, f.session_id),
-        name: s_of(base, f.name),
-        owner_task_id: s_of(base, f.owner_task_id),
+        session_id: s_of(base, f.session_id, ctx),
+        name: s_of(base, f.name, ctx),
+        owner_task_id: s_of(base, f.owner_task_id, ctx),
         status: ResultStatus::from_i32(f.status),
-        created_at: if f.presence & AK_DFIX_RESULTRAW_PRESENT_CREATED_AT != 0 { Some(from_timestamp(&f.created_at, base)) } else { None },
-        completed_at: if f.presence & AK_DFIX_RESULTRAW_PRESENT_COMPLETED_AT != 0 { Some(from_timestamp(&f.completed_at, base)) } else { None },
-        result_id: s_of(base, f.result_id),
+        created_at: if f.presence & AK_DFIX_RESULTRAW_PRESENT_CREATED_AT != 0 { Some(from_timestamp(&f.created_at, base, ctx)) } else { None },
+        completed_at: if f.presence & AK_DFIX_RESULTRAW_PRESENT_COMPLETED_AT != 0 { Some(from_timestamp(&f.completed_at, base, ctx)) } else { None },
+        result_id: s_of(base, f.result_id, ctx),
         size: f.size,
-        created_by: s_of(base, f.created_by),
+        created_by: s_of(base, f.created_by, ctx),
         opaque_id: b_of(base, f.opaque_id),
         manual_deletion: f.manual_deletion != 0,
     }
@@ -1150,168 +1163,168 @@ unsafe fn from_result_raw(f: &ak_dfix_ResultRaw, base: *const u8) -> ResultRaw {
 /// In place, never constructed: `TaskOptions` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
-unsafe fn fill_task_options(dst: &mut TaskOptions, f: &ak_dfix_TaskOptions, base: *const u8) {
+unsafe fn fill_task_options(dst: &mut TaskOptions, f: &ak_dfix_TaskOptions, base: *const u8, ctx: *mut ak_dec_ctx) {
     dst.max_duration = if f.presence & AK_DFIX_TASKOPTIONS_PRESENT_MAX_DURATION != 0 {
-        Some(from_duration(&f.max_duration, base))
+        Some(from_duration(&f.max_duration, base, ctx))
     } else {
         None
     };
     dst.max_retries = f.max_retries;
     dst.priority = f.priority;
-    dst.partition_id = s_of(base, f.partition_id);
-    dst.application_name = s_of(base, f.application_name);
-    dst.application_version = s_of(base, f.application_version);
-    dst.application_namespace = s_of(base, f.application_namespace);
-    dst.application_service = s_of(base, f.application_service);
-    dst.engine_type = s_of(base, f.engine_type);
+    dst.partition_id = s_of(base, f.partition_id, ctx);
+    dst.application_name = s_of(base, f.application_name, ctx);
+    dst.application_version = s_of(base, f.application_version, ctx);
+    dst.application_namespace = s_of(base, f.application_namespace, ctx);
+    dst.application_service = s_of(base, f.application_service, ctx);
+    dst.engine_type = s_of(base, f.engine_type, ctx);
 }
 
 #[inline(always)]
-unsafe fn from_task_output(f: &ak_dfix_TaskOutput, base: *const u8) -> TaskOutput {
+unsafe fn from_task_output(f: &ak_dfix_TaskOutput, base: *const u8, ctx: *mut ak_dec_ctx) -> TaskOutput {
     TaskOutput {
         success: f.success != 0,
-        error: s_of(base, f.error),
+        error: s_of(base, f.error, ctx),
     }
 }
 
 /// In place, never constructed: `TaskDetailed` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
-unsafe fn fill_task_detailed(dst: &mut TaskDetailed, f: &ak_dfix_TaskDetailed, base: *const u8) {
-    dst.id = s_of(base, f.id);
-    dst.session_id = s_of(base, f.session_id);
-    dst.owner_pod_id = s_of(base, f.owner_pod_id);
+unsafe fn fill_task_detailed(dst: &mut TaskDetailed, f: &ak_dfix_TaskDetailed, base: *const u8, ctx: *mut ak_dec_ctx) {
+    dst.id = s_of(base, f.id, ctx);
+    dst.session_id = s_of(base, f.session_id, ctx);
+    dst.owner_pod_id = s_of(base, f.owner_pod_id, ctx);
     dst.status = TaskStatus::from_i32(f.status);
-    dst.status_message = s_of(base, f.status_message);
+    dst.status_message = s_of(base, f.status_message, ctx);
     if f.presence & AK_DFIX_TASKDETAILED_PRESENT_OPTIONS != 0 {
         let d2 = dst.options.get_or_insert_with(Default::default);
-        fill_task_options(d2, &f.options, base);
+        fill_task_options(d2, &f.options, base, ctx);
     } else {
         dst.options = None;
     }
     dst.created_at = if f.presence & AK_DFIX_TASKDETAILED_PRESENT_CREATED_AT != 0 {
-        Some(from_timestamp(&f.created_at, base))
+        Some(from_timestamp(&f.created_at, base, ctx))
     } else {
         None
     };
     dst.submitted_at = if f.presence & AK_DFIX_TASKDETAILED_PRESENT_SUBMITTED_AT != 0 {
-        Some(from_timestamp(&f.submitted_at, base))
+        Some(from_timestamp(&f.submitted_at, base, ctx))
     } else {
         None
     };
     dst.started_at = if f.presence & AK_DFIX_TASKDETAILED_PRESENT_STARTED_AT != 0 {
-        Some(from_timestamp(&f.started_at, base))
+        Some(from_timestamp(&f.started_at, base, ctx))
     } else {
         None
     };
     dst.ended_at = if f.presence & AK_DFIX_TASKDETAILED_PRESENT_ENDED_AT != 0 {
-        Some(from_timestamp(&f.ended_at, base))
+        Some(from_timestamp(&f.ended_at, base, ctx))
     } else {
         None
     };
     dst.pod_ttl = if f.presence & AK_DFIX_TASKDETAILED_PRESENT_POD_TTL != 0 {
-        Some(from_timestamp(&f.pod_ttl, base))
+        Some(from_timestamp(&f.pod_ttl, base, ctx))
     } else {
         None
     };
     dst.output = if f.presence & AK_DFIX_TASKDETAILED_PRESENT_OUTPUT != 0 {
-        Some(from_task_output(&f.output, base))
+        Some(from_task_output(&f.output, base, ctx))
     } else {
         None
     };
-    dst.pod_hostname = s_of(base, f.pod_hostname);
+    dst.pod_hostname = s_of(base, f.pod_hostname, ctx);
     dst.received_at = if f.presence & AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_AT != 0 {
-        Some(from_timestamp(&f.received_at, base))
+        Some(from_timestamp(&f.received_at, base, ctx))
     } else {
         None
     };
     dst.acquired_at = if f.presence & AK_DFIX_TASKDETAILED_PRESENT_ACQUIRED_AT != 0 {
-        Some(from_timestamp(&f.acquired_at, base))
+        Some(from_timestamp(&f.acquired_at, base, ctx))
     } else {
         None
     };
     dst.creation_to_end_duration = if f.presence & AK_DFIX_TASKDETAILED_PRESENT_CREATION_TO_END_DURATION != 0 {
-        Some(from_duration(&f.creation_to_end_duration, base))
+        Some(from_duration(&f.creation_to_end_duration, base, ctx))
     } else {
         None
     };
     dst.processing_to_end_duration = if f.presence & AK_DFIX_TASKDETAILED_PRESENT_PROCESSING_TO_END_DURATION != 0 {
-        Some(from_duration(&f.processing_to_end_duration, base))
+        Some(from_duration(&f.processing_to_end_duration, base, ctx))
     } else {
         None
     };
-    dst.initial_task_id = s_of(base, f.initial_task_id);
+    dst.initial_task_id = s_of(base, f.initial_task_id, ctx);
     dst.received_to_end_duration = if f.presence & AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION != 0 {
-        Some(from_duration(&f.received_to_end_duration, base))
+        Some(from_duration(&f.received_to_end_duration, base, ctx))
     } else {
         None
     };
     dst.processed_at = if f.presence & AK_DFIX_TASKDETAILED_PRESENT_PROCESSED_AT != 0 {
-        Some(from_timestamp(&f.processed_at, base))
+        Some(from_timestamp(&f.processed_at, base, ctx))
     } else {
         None
     };
     dst.fetched_at = if f.presence & AK_DFIX_TASKDETAILED_PRESENT_FETCHED_AT != 0 {
-        Some(from_timestamp(&f.fetched_at, base))
+        Some(from_timestamp(&f.fetched_at, base, ctx))
     } else {
         None
     };
-    dst.payload_id = s_of(base, f.payload_id);
-    dst.created_by = s_of(base, f.created_by);
+    dst.payload_id = s_of(base, f.payload_id, ctx);
+    dst.created_by = s_of(base, f.created_by, ctx);
 }
 
 /// In place, never constructed: `TaskSummary` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
-unsafe fn fill_task_summary(dst: &mut TaskSummary, f: &ak_dfix_TaskSummary, base: *const u8) {
-    dst.id = s_of(base, f.id);
-    dst.session_id = s_of(base, f.session_id);
+unsafe fn fill_task_summary(dst: &mut TaskSummary, f: &ak_dfix_TaskSummary, base: *const u8, ctx: *mut ak_dec_ctx) {
+    dst.id = s_of(base, f.id, ctx);
+    dst.session_id = s_of(base, f.session_id, ctx);
     if f.presence & AK_DFIX_TASKSUMMARY_PRESENT_OPTIONS != 0 {
         let d2 = dst.options.get_or_insert_with(Default::default);
-        fill_task_options(d2, &f.options, base);
+        fill_task_options(d2, &f.options, base, ctx);
     } else {
         dst.options = None;
     }
     dst.status = TaskStatus::from_i32(f.status);
     dst.created_at = if f.presence & AK_DFIX_TASKSUMMARY_PRESENT_CREATED_AT != 0 {
-        Some(from_timestamp(&f.created_at, base))
+        Some(from_timestamp(&f.created_at, base, ctx))
     } else {
         None
     };
-    dst.error = s_of(base, f.error);
-    dst.status_message = s_of(base, f.status_message);
+    dst.error = s_of(base, f.error, ctx);
+    dst.status_message = s_of(base, f.status_message, ctx);
     dst.count_data_dependencies = f.count_data_dependencies;
 }
 
 #[inline(always)]
-unsafe fn from_probe(f: &ak_dfix_Probe, base: *const u8) -> Probe {
+unsafe fn from_probe(f: &ak_dfix_Probe, base: *const u8, ctx: *mut ak_dec_ctx) -> Probe {
     Probe {
-        id: s_of(base, f.id),
+        id: s_of(base, f.id, ctx),
         opt_count: if f.presence & AK_DFIX_PROBE_PRESENT_OPT_COUNT != 0 { Some(f.opt_count) } else { None },
-        opt_label: if f.presence & AK_DFIX_PROBE_PRESENT_OPT_LABEL != 0 { Some(s_of(base, f.opt_label)) } else { None },
+        opt_label: if f.presence & AK_DFIX_PROBE_PRESENT_OPT_LABEL != 0 { Some(s_of(base, f.opt_label, ctx)) } else { None },
         opt_flag: if f.presence & AK_DFIX_PROBE_PRESENT_OPT_FLAG != 0 { Some(f.opt_flag != 0) } else { None },
         body: match f.body_case {
             10 => Some(ProbeBody::AsInt(f.body_as_int)),
-            11 => Some(ProbeBody::AsText(s_of(base, f.body_as_text))),
+            11 => Some(ProbeBody::AsText(s_of(base, f.body_as_text, ctx))),
             12 => Some(ProbeBody::AsBlob(b_of(base, f.body_as_blob))),
-            13 => Some(ProbeBody::AsStamp(from_timestamp(&f.body_as_stamp, base))),
-            14 => Some(ProbeBody::AsNothing(from_empty(&f.body_as_nothing, base))),
+            13 => Some(ProbeBody::AsStamp(from_timestamp(&f.body_as_stamp, base, ctx))),
+            14 => Some(ProbeBody::AsNothing(from_empty(&f.body_as_nothing, base, ctx))),
             _ => None,
         },
     }
 }
 
 #[inline(always)]
-unsafe fn from_empty(f: &ak_dfix_Empty, base: *const u8) -> Empty {
+unsafe fn from_empty(f: &ak_dfix_Empty, base: *const u8, ctx: *mut ak_dec_ctx) -> Empty {
     Empty {
     }
 }
 
 #[inline(always)]
-unsafe fn from_upload_result_data(f: &ak_dfix_UploadResultData, base: *const u8) -> UploadResultData {
+unsafe fn from_upload_result_data(f: &ak_dfix_UploadResultData, base: *const u8, ctx: *mut ak_dec_ctx) -> UploadResultData {
     UploadResultData {
-        session_id: s_of(base, f.session_id),
-        result_id: s_of(base, f.result_id),
+        session_id: s_of(base, f.session_id, ctx),
+        result_id: s_of(base, f.result_id, ctx),
         data_chunk: b_of(base, f.data_chunk),
     }
 }
@@ -1319,14 +1332,14 @@ unsafe fn from_upload_result_data(f: &ak_dfix_UploadResultData, base: *const u8)
 /// In place, never constructed: `MetricsBatch` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
-unsafe fn fill_metrics_batch(dst: &mut MetricsBatch, f: &ak_dfix_MetricsBatch, base: *const u8) {
-    dst.id = s_of(base, f.id);
+unsafe fn fill_metrics_batch(dst: &mut MetricsBatch, f: &ak_dfix_MetricsBatch, base: *const u8, ctx: *mut ak_dec_ctx) {
+    dst.id = s_of(base, f.id, ctx);
 }
 
 #[inline(always)]
-unsafe fn from_pair(f: &ak_dfix_Pair, base: *const u8) -> Pair {
+unsafe fn from_pair(f: &ak_dfix_Pair, base: *const u8, ctx: *mut ak_dec_ctx) -> Pair {
     Pair {
-        key: s_of(base, f.key),
+        key: s_of(base, f.key, ctx),
         value: f.value,
     }
 }
@@ -1334,7 +1347,7 @@ unsafe fn from_pair(f: &ak_dfix_Pair, base: *const u8) -> Pair {
 /// In place, never constructed: `ListResultsResponse` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
-unsafe fn fill_list_results_response(dst: &mut ListResultsResponse, f: &ak_dfix_ListResultsResponse, base: *const u8) {
+unsafe fn fill_list_results_response(dst: &mut ListResultsResponse, f: &ak_dfix_ListResultsResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
     dst.page = f.page;
     dst.total = f.total;
 }
@@ -1342,7 +1355,7 @@ unsafe fn fill_list_results_response(dst: &mut ListResultsResponse, f: &ak_dfix_
 /// In place, never constructed: `ListTasksDetailedResponse` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
-unsafe fn fill_list_tasks_detailed_response(dst: &mut ListTasksDetailedResponse, f: &ak_dfix_ListTasksDetailedResponse, base: *const u8) {
+unsafe fn fill_list_tasks_detailed_response(dst: &mut ListTasksDetailedResponse, f: &ak_dfix_ListTasksDetailedResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
     dst.page = f.page;
     dst.total = f.total;
 }
@@ -1350,32 +1363,32 @@ unsafe fn fill_list_tasks_detailed_response(dst: &mut ListTasksDetailedResponse,
 /// In place, never constructed: `ListTaskSummaryResponse` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
-unsafe fn fill_list_task_summary_response(dst: &mut ListTaskSummaryResponse, f: &ak_dfix_ListTaskSummaryResponse, base: *const u8) {
+unsafe fn fill_list_task_summary_response(dst: &mut ListTaskSummaryResponse, f: &ak_dfix_ListTaskSummaryResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
 }
 
 /// In place, never constructed: `ListProbeResponse` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
-unsafe fn fill_list_probe_response(dst: &mut ListProbeResponse, f: &ak_dfix_ListProbeResponse, base: *const u8) {
+unsafe fn fill_list_probe_response(dst: &mut ListProbeResponse, f: &ak_dfix_ListProbeResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
 }
 
 /// In place, never constructed: `ListMetricsResponse` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
-unsafe fn fill_list_metrics_response(dst: &mut ListMetricsResponse, f: &ak_dfix_ListMetricsResponse, base: *const u8) {
+unsafe fn fill_list_metrics_response(dst: &mut ListMetricsResponse, f: &ak_dfix_ListMetricsResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
 }
 
 #[inline(always)]
-unsafe fn from_upload_result_data_message(f: &ak_dfix_UploadResultDataMessage, base: *const u8) -> UploadResultDataMessage {
+unsafe fn from_upload_result_data_message(f: &ak_dfix_UploadResultDataMessage, base: *const u8, ctx: *mut ak_dec_ctx) -> UploadResultDataMessage {
     UploadResultDataMessage {
-        upload: if f.presence & AK_DFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD != 0 { Some(from_upload_result_data(&f.upload, base)) } else { None },
+        upload: if f.presence & AK_DFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD != 0 { Some(from_upload_result_data(&f.upload, base, ctx)) } else { None },
     }
 }
 
 /// In place, never constructed: `DualResponse` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
-unsafe fn fill_dual_response(dst: &mut DualResponse, f: &ak_dfix_DualResponse, base: *const u8) {
+unsafe fn fill_dual_response(dst: &mut DualResponse, f: &ak_dfix_DualResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
 }
 
 /// What the host hands the codec as `obj` on decode: the destination, plus
@@ -1386,11 +1399,11 @@ pub struct SinkListResultsResponse<'a> {
 }
 
 unsafe extern "C" fn apply_list_results_response(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     fx: *const ak_dfix_ListResultsResponse,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListResultsResponse);
         let f = &*fx;
         s.out.page = f.page;
@@ -1399,19 +1412,19 @@ unsafe extern "C" fn apply_list_results_response(
 }
 
 unsafe extern "C" fn add_list_results_response_results(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     tok: i64,
     elems: *const ak_dfix_ResultRaw,
     n: i32,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListResultsResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.results;
         dst.reserve(n as usize);
-        for i in 0..n as usize { dst.push(from_result_raw(&*elems.add(i), base)); }
+        for i in 0..n as usize { dst.push(from_result_raw(&*elems.add(i), base, ctx)); }
     })
 }
 
@@ -1436,11 +1449,11 @@ pub struct SinkListTasksDetailedResponse<'a> {
 }
 
 unsafe extern "C" fn apply_list_tasks_detailed_response(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     fx: *const ak_dfix_ListTasksDetailedResponse,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let f = &*fx;
         s.out.page = f.page;
@@ -1448,8 +1461,8 @@ unsafe extern "C" fn apply_list_tasks_detailed_response(
     })
 }
 
-unsafe extern "C" fn new_list_tasks_detailed_response_tasks(_ctx: *mut ak_dec_ctx, obj: *mut c_void) -> i64 {
-    dguard_i64(_ctx, || {
+unsafe extern "C" fn new_list_tasks_detailed_response_tasks(ctx: *mut ak_dec_ctx, obj: *mut c_void) -> i64 {
+    dguard_i64(ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         s.out.tasks.push(Default::default());
         (s.out.tasks.len() - 1) as i64
@@ -1457,101 +1470,101 @@ unsafe extern "C" fn new_list_tasks_detailed_response_tasks(_ctx: *mut ak_dec_ct
 }
 
 unsafe extern "C" fn apply_list_tasks_detailed_response_tasks(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     tok: i64,
     fx: *const ak_dfix_TaskDetailed,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let base = s.base;
-        fill_task_detailed(&mut s.out.tasks[tok as usize], &*fx, base);
+        fill_task_detailed(&mut s.out.tasks[tok as usize], &*fx, base, ctx);
     })
 }
 
 unsafe extern "C" fn add_list_tasks_detailed_response_tasks_parent_task_ids(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     tok: i64,
     elems: *const ak_span,
     n: i32,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.tasks[tok as usize].parent_task_ids;
         dst.reserve(n as usize);
-        for i in 0..n as usize { dst.push(s_of(base, *elems.add(i))); }
+        for i in 0..n as usize { dst.push(s_of(base, *elems.add(i), ctx)); }
     })
 }
 
 unsafe extern "C" fn add_list_tasks_detailed_response_tasks_data_dependencies(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     tok: i64,
     elems: *const ak_span,
     n: i32,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.tasks[tok as usize].data_dependencies;
         dst.reserve(n as usize);
-        for i in 0..n as usize { dst.push(s_of(base, *elems.add(i))); }
+        for i in 0..n as usize { dst.push(s_of(base, *elems.add(i), ctx)); }
     })
 }
 
 unsafe extern "C" fn add_list_tasks_detailed_response_tasks_expected_output_ids(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     tok: i64,
     elems: *const ak_span,
     n: i32,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.tasks[tok as usize].expected_output_ids;
         dst.reserve(n as usize);
-        for i in 0..n as usize { dst.push(s_of(base, *elems.add(i))); }
+        for i in 0..n as usize { dst.push(s_of(base, *elems.add(i), ctx)); }
     })
 }
 
 unsafe extern "C" fn add_list_tasks_detailed_response_tasks_retry_of_ids(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     tok: i64,
     elems: *const ak_span,
     n: i32,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.tasks[tok as usize].retry_of_ids;
         dst.reserve(n as usize);
-        for i in 0..n as usize { dst.push(s_of(base, *elems.add(i))); }
+        for i in 0..n as usize { dst.push(s_of(base, *elems.add(i), ctx)); }
     })
 }
 
 unsafe extern "C" fn add_list_tasks_detailed_response_tasks_options_options(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     tok: i64,
     elems: *const ak_dfix_TaskOptionsOptionsEntry,
     n: i32,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.tasks[tok as usize].options.get_or_insert_with(Default::default).options;
         for i in 0..n as usize {
             let e = &*elems.add(i);
-            dst.insert(s_of(base, e.key), s_of(base, e.value));
+            dst.insert(s_of(base, e.key, ctx), s_of(base, e.value, ctx));
         }
     })
 }
@@ -1583,30 +1596,30 @@ pub struct SinkListProbeResponse<'a> {
 }
 
 unsafe extern "C" fn apply_list_probe_response(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     fx: *const ak_dfix_ListProbeResponse,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListProbeResponse);
         let f = &*fx;
     })
 }
 
 unsafe extern "C" fn add_list_probe_response_probes(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     tok: i64,
     elems: *const ak_dfix_Probe,
     n: i32,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListProbeResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.probes;
         dst.reserve(n as usize);
-        for i in 0..n as usize { dst.push(from_probe(&*elems.add(i), base)); }
+        for i in 0..n as usize { dst.push(from_probe(&*elems.add(i), base, ctx)); }
     })
 }
 
@@ -1631,18 +1644,18 @@ pub struct SinkListTaskSummaryResponse<'a> {
 }
 
 unsafe extern "C" fn apply_list_task_summary_response(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     fx: *const ak_dfix_ListTaskSummaryResponse,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListTaskSummaryResponse);
         let f = &*fx;
     })
 }
 
-unsafe extern "C" fn new_list_task_summary_response_tasks(_ctx: *mut ak_dec_ctx, obj: *mut c_void) -> i64 {
-    dguard_i64(_ctx, || {
+unsafe extern "C" fn new_list_task_summary_response_tasks(ctx: *mut ak_dec_ctx, obj: *mut c_void) -> i64 {
+    dguard_i64(ctx, || {
         let s = &mut *(obj as *mut SinkListTaskSummaryResponse);
         s.out.tasks.push(Default::default());
         (s.out.tasks.len() - 1) as i64
@@ -1650,33 +1663,33 @@ unsafe extern "C" fn new_list_task_summary_response_tasks(_ctx: *mut ak_dec_ctx,
 }
 
 unsafe extern "C" fn apply_list_task_summary_response_tasks(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     tok: i64,
     fx: *const ak_dfix_TaskSummary,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListTaskSummaryResponse);
         let base = s.base;
-        fill_task_summary(&mut s.out.tasks[tok as usize], &*fx, base);
+        fill_task_summary(&mut s.out.tasks[tok as usize], &*fx, base, ctx);
     })
 }
 
 unsafe extern "C" fn add_list_task_summary_response_tasks_options_options(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     tok: i64,
     elems: *const ak_dfix_TaskOptionsOptionsEntry,
     n: i32,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListTaskSummaryResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.tasks[tok as usize].options.get_or_insert_with(Default::default).options;
         for i in 0..n as usize {
             let e = &*elems.add(i);
-            dst.insert(s_of(base, e.key), s_of(base, e.value));
+            dst.insert(s_of(base, e.key, ctx), s_of(base, e.value, ctx));
         }
     })
 }
@@ -1704,15 +1717,15 @@ pub struct SinkUploadResultDataMessage<'a> {
 }
 
 unsafe extern "C" fn apply_upload_result_data_message(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     fx: *const ak_dfix_UploadResultDataMessage,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkUploadResultDataMessage);
         let f = &*fx;
         s.out.upload = if f.presence & AK_DFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD != 0 {
-            Some(from_upload_result_data(&f.upload, s.base))
+            Some(from_upload_result_data(&f.upload, s.base, ctx))
         } else {
             None
         };
@@ -1739,18 +1752,18 @@ pub struct SinkListMetricsResponse<'a> {
 }
 
 unsafe extern "C" fn apply_list_metrics_response(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     fx: *const ak_dfix_ListMetricsResponse,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListMetricsResponse);
         let f = &*fx;
     })
 }
 
-unsafe extern "C" fn new_list_metrics_response_batches(_ctx: *mut ak_dec_ctx, obj: *mut c_void) -> i64 {
-    dguard_i64(_ctx, || {
+unsafe extern "C" fn new_list_metrics_response_batches(ctx: *mut ak_dec_ctx, obj: *mut c_void) -> i64 {
+    dguard_i64(ctx, || {
         let s = &mut *(obj as *mut SinkListMetricsResponse);
         s.out.batches.push(Default::default());
         (s.out.batches.len() - 1) as i64
@@ -1758,26 +1771,26 @@ unsafe extern "C" fn new_list_metrics_response_batches(_ctx: *mut ak_dec_ctx, ob
 }
 
 unsafe extern "C" fn apply_list_metrics_response_batches(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     tok: i64,
     fx: *const ak_dfix_MetricsBatch,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListMetricsResponse);
         let base = s.base;
-        fill_metrics_batch(&mut s.out.batches[tok as usize], &*fx, base);
+        fill_metrics_batch(&mut s.out.batches[tok as usize], &*fx, base, ctx);
     })
 }
 
 unsafe extern "C" fn add_list_metrics_response_batches_ticks(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     tok: i64,
     elems: *const i64,
     n: i32,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListMetricsResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
@@ -1788,13 +1801,13 @@ unsafe extern "C" fn add_list_metrics_response_batches_ticks(
 }
 
 unsafe extern "C" fn add_list_metrics_response_batches_values(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     tok: i64,
     elems: *const f64,
     n: i32,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListMetricsResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
@@ -1805,13 +1818,13 @@ unsafe extern "C" fn add_list_metrics_response_batches_values(
 }
 
 unsafe extern "C" fn add_list_metrics_response_batches_codes(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     tok: i64,
     elems: *const i32,
     n: i32,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListMetricsResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
@@ -1822,13 +1835,13 @@ unsafe extern "C" fn add_list_metrics_response_batches_codes(
 }
 
 unsafe extern "C" fn add_list_metrics_response_batches_flags(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     tok: i64,
     elems: *const u8,
     n: i32,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListMetricsResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
@@ -1839,13 +1852,13 @@ unsafe extern "C" fn add_list_metrics_response_batches_flags(
 }
 
 unsafe extern "C" fn add_list_metrics_response_batches_statuses(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     tok: i64,
     elems: *const i32,
     n: i32,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListMetricsResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
@@ -1882,47 +1895,47 @@ pub struct SinkDualResponse<'a> {
 }
 
 unsafe extern "C" fn apply_dual_response(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     fx: *const ak_dfix_DualResponse,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkDualResponse);
         let f = &*fx;
     })
 }
 
 unsafe extern "C" fn add_dual_response_left(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     tok: i64,
     elems: *const ak_dfix_Pair,
     n: i32,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkDualResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.left;
         dst.reserve(n as usize);
-        for i in 0..n as usize { dst.push(from_pair(&*elems.add(i), base)); }
+        for i in 0..n as usize { dst.push(from_pair(&*elems.add(i), base, ctx)); }
     })
 }
 
 unsafe extern "C" fn add_dual_response_right(
-    _ctx: *mut ak_dec_ctx,
+    ctx: *mut ak_dec_ctx,
     obj: *mut c_void,
     tok: i64,
     elems: *const ak_dfix_Pair,
     n: i32,
 ) {
-    dguard(_ctx, || {
+    dguard(ctx, || {
         let s = &mut *(obj as *mut SinkDualResponse);
         let base = s.base;
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.right;
         dst.reserve(n as usize);
-        for i in 0..n as usize { dst.push(from_pair(&*elems.add(i), base)); }
+        for i in 0..n as usize { dst.push(from_pair(&*elems.add(i), base, ctx)); }
     })
 }
 
