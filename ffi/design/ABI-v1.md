@@ -397,6 +397,12 @@ elements, worth 5.4 ns per `ResultRaw` and 24.4 per `TaskDetailed`. This is an
 invariant and it belongs in the header: a partial fill does not fail, it silently
 inherits the previous element's value.
 
+**What the total fill costs is the absent path**, measured for the first time by
+the Rust slice and carried as open decision 9: the fill is unconditional, so on a
+payload whose elements encode to nothing there is nothing for it to amortise
+against, and the group turns a win in both directions into a loss in both. Do not
+quote the group's worth from a full payload alone.
+
 ## 7. Decode
 
 **Decode needs less machinery than encode, not more**, because the codec already
@@ -653,11 +659,34 @@ Each blocks something. None is settled by a measurement that exists today.
 2. **Which decode family does each binding take** (7.1), and is the single
    parameterised emitter actually buildable? Settled by the first two slices that
    pick different families.
-3. **UTF-8 passthrough: validate-and-fail, or validate-and-substitute?** The
-   argument that used to decide this (a declared expansion bound of 1 against 3)
-   is gone with the bound, so what is left is semantics: fail reports bad input
-   to the host that supplied it, substitute makes a `bytes`-like field out of it
-   and cannot fail. The Java slice chose fail.
+3. **UTF-8 passthrough: validate-and-fail, validate-and-substitute, or trust the
+   host's type?** It was framed as pure semantics (fail reports bad input to the
+   host that supplied it; substitute makes a `bytes`-like field out of it and
+   cannot fail; the Java slice chose fail). **It is not pure semantics: the Rust
+   slice priced validation at 25 to 30 percent of an encode** (`ak_tc_utf8` at
+   0.79 to 0.90 of prost against `ak_tc_utf8_trusted` at 0.59 to 0.72, one
+   process, `ffi/logs/rust/stage2-four-arms-M1.log`). That makes it the largest
+   single knob on the encode path measured so far, and it falls unevenly: a Rust
+   `String` carries the invariant in its type and is paying to re-check something
+   already proved, while a host handing over `bytes` genuinely needs it.
+
+   **The proposal on the table** is that the transcoder set carries both and the
+   *generator* picks, from the host type rather than from this document.
+   `ak_tc_utf8` stays the default and the only one a host can ask for by hand;
+   `ak_tc_utf8_trusted` is emitted only against a type whose invariant the
+   language guarantees (`String` in Rust; nothing in C++ unless a host declares
+   it, which is the case to refuse).
+
+   **What has to be settled before that is accepted**, because it is a failure
+   mode v1 has already removed once: a trusted transcoder is *a correctness
+   contract a host can be wrong about*, which is exactly what `max_bytes_per_unit`
+   was, and being wrong about that one was measured as silent wire corruption. The
+   difference is that a generator reading a type is not a human making a promise,
+   so the question is narrow and answerable: **is there a host type in any of the
+   five languages where the generator would emit `trusted` and the invariant does
+   not actually hold?** C++ answers it for `std::string`, Python for `str`. Until
+   then this is a measured argument, not an amendment. **Blocks: nothing today;
+   the default is unchanged.**
 4. **Is `ak_span.coder` in the shared struct or out?** It is a JVM-specific hint
    in a struct every language reads.
 5. **What the grow path actually costs now that nothing is reserved from a
@@ -666,6 +695,15 @@ Each blocks something. None is settled by a measurement that exists today.
    or what a grow costs when the length prefix has to be resized after it. The
    first slice to build the encode path answers it, and P2.4 is the payload for
    it. **This is the one decision created by v1 rather than inherited.**
+
+   **Partially answered, on the easy case only.** The Rust slice measured a cold
+   encode context on P1.2 at **one** prefix move, in 218 KB of output across 1,000
+   elements and 6,000 strings, zero when warm, and **zero grow-callback
+   invocations at any point**, which is what handing the transcoder the whole
+   remaining buffer was meant to buy. Read no further than it goes: every string
+   in M1 is a fixed-length GUID or a short word, so a site's learned width never
+   changes once learned. P2.4 exists because a per-site learned width is wrong on
+   every element of it by construction, and that is where this is settled.
 6. **The worker path.** Either Rust hands the facade the raw `ProcessRequest`
    bytes and the facade decodes them itself, which is two decoders over one
    buffer that can silently disagree, or Rust decodes once and exposes typed
@@ -681,7 +719,27 @@ Each blocks something. None is settled by a measurement that exists today.
    migration day gives `RESOURCE_EXHAUSTED` to every customer whose payloads
    exceed 4 MiB, which for an HPC orchestrator is normal. `AK_ERR_LIMIT` exists
    for it; the default does not.
-9. **The diagnostic contract.** `ak_init` now owns the log and tracing bridges
+9. **Does the by-value group need an empty-element path?** New, and the first
+   measurement of a cost the amendment was known to have and had never been
+   charged for. The group carries the whole singular subtree unconditionally
+   (section 6), so the binding fills a ~200-byte element group and the core
+   materialises a ~128-byte one **whatever the wire holds**. On P1.3, where every
+   element encodes to nothing, that fixed cost has nothing to amortise against and
+   **the verdict inverts**: `core-ffi-rust` goes to 1.16 to 1.39 of prost in both
+   directions while the no-boundary control stays at 0.47 to 0.84
+   (`ffi/logs/rust/stage2-four-arms-M1.log`). Every other M1 payload has the core
+   ahead in both directions.
+
+   This is not exotic input. A page of results where most fields are unset is
+   ordinary control-plane traffic. The options are a presence-word fast path for
+   an entirely empty element, letting an element run hand over a count of empties,
+   or accepting the cost and saying so. **Nothing is decided on one slice and one
+   message**: M2 (P2.5) is the nested absent case, and the managed slices pay a
+   different price for the same fill because theirs crosses a runtime boundary. It
+   is written down now so that no slice quotes the group's worth from a full
+   payload alone. **Blocks: nothing; a candidate amendment, not a defect.**
+
+10. **The diagnostic contract.** `ak_init` now owns the log and tracing bridges
    (section 3), which settles *who*. What is still open is *what*: five distinct
    transport failures currently render as one string, so `ak_err` needs a
    machine-readable failure class and the flattened source chain, and a host
