@@ -27,6 +27,27 @@ fn dur(idx: i64) -> p::Duration {
     p::Duration { seconds, nanos }
 }
 
+/// Which of the `Output` facade's three states element `idx` carries.
+///
+/// The adapter maps one facade type onto two wire forms and the map is not injective, so
+/// the payload has to carry all three states for the shape to be reachable at all. Cycled
+/// Error, Ok, Invalid so element 0 is Error: `half_absent` removes the nested site, and
+/// P2.5 keeps a written one first.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Adapter {
+    Error,
+    Ok,
+    Invalid,
+}
+
+pub fn adapter_state(idx: i64) -> Adapter {
+    match idx % 3 {
+        0 => Adapter::Error,
+        1 => Adapter::Ok,
+        _ => Adapter::Invalid,
+    }
+}
+
 /// `absent()` for the `half_absent` mode: a Timestamp-typed message field with an even tag.
 fn half_ts(mode: Mode, tag: u32, idx: i64) -> Option<p::Timestamp> {
     if mode == Mode::HalfAbsent && tag % 2 == 0 {
@@ -110,10 +131,14 @@ pub fn task_detailed(idx: i64, mode: Mode, repeats: i64) -> p::TaskDetailed {
         output: if mode == Mode::HalfAbsent {
             None
         } else {
-            Some(p::TaskOutput {
-                success: v::scalar_bool("TaskDetailed.output.success", idx),
-                error: v::sentence("TaskDetailed.output.error", idx),
-            })
+            match adapter_state(idx) {
+                Adapter::Invalid => None,
+                Adapter::Ok => Some(p::TaskOutput { success: true, error: String::new() }),
+                Adapter::Error => Some(p::TaskOutput {
+                    success: false,
+                    error: v::sentence("TaskDetailed.output.error", idx),
+                }),
+            }
         },
         pod_hostname: v::word("TaskDetailed.pod_hostname", idx),
         received_at: half_ts(mode, 18, idx),
@@ -136,7 +161,13 @@ pub fn task_summary(idx: i64) -> p::TaskSummary {
         options: Some(task_options("TaskSummary.options", idx, Mode::Full)),
         status: v::enum_value(&v::TASK_STATUS, idx),
         created_at: Some(ts(idx)),
-        error: v::sentence("TaskSummary.error", idx),
+        // The plain wire form: Ok and Invalid BOTH flatten to the empty string here, which
+        // is the collision the adapter cannot resolve and the reason M4 exists.
+        error: if adapter_state(idx) == Adapter::Error {
+            v::sentence("TaskSummary.error", idx)
+        } else {
+            String::new()
+        },
         status_message: v::sentence("TaskSummary.status_message", idx),
         count_data_dependencies: v::scalar_i64("TaskSummary.count_data_dependencies", idx),
     }

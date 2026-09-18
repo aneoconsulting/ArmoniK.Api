@@ -32,6 +32,30 @@ pub enum Mode {
 fn explicit_present(tag: i64, idx: i64) -> bool {
     idx % (tag + 1) != 0
 }
+
+/// `adapter_state()`: which of the Output facade's three states element `idx` carries.
+///
+/// The adapter maps ONE facade type onto two wire forms and the map is not injective, so
+/// reaching the shape at all requires the payload to carry all three states. Cycled Error,
+/// Ok, Invalid so that element 0 is Error, because `half_absent` removes the nested site
+/// and P2.5 keeps a written one first.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[allow(dead_code)]
+pub enum AdapterState {
+    Error,
+    Ok,
+    Invalid,
+}
+
+#[inline]
+#[allow(dead_code)]
+pub fn adapter_state(idx: i64) -> AdapterState {
+    match idx % 3 {
+        0 => AdapterState::Error,
+        1 => AdapterState::Ok,
+        _ => AdapterState::Invalid,
+    }
+}
 '''
 
 VALUE_FN = {"guid": "v::guid", "word": "v::word", "sentence": "v::sentence"}
@@ -145,6 +169,32 @@ def _value(ir, m, f):
 
 
 def _field(ir, m, f, o):
+    if f.adapter_site == "nested":
+        # One facade type, two wire forms. Invalid is no child at all; Ok is success with
+        # no error; Error is an error with success left at its zero.
+        o.append("        %s: if %s {" % (f.name, absent_expr(f)))
+        o.append("            None")
+        o.append("        } else {")
+        o.append("            match adapter_state(idx) {")
+        o.append("                AdapterState::Invalid => None,")
+        o.append("                AdapterState::Ok => Some(%s { success: true, error: String::new() }),"
+                 % f.of)
+        o.append("                AdapterState::Error => Some(%s {" % f.of)
+        o.append("                    success: false,")
+        o.append("                    error: v::sentence(&format!(\"{path}.%s.error\"), idx)," % f.name)
+        o.append("                }),")
+        o.append("            }")
+        o.append("        },")
+        return
+    if f.adapter_site == "plain":
+        # The other wire form: a plain string, where Ok and Invalid BOTH flatten to empty.
+        o.append("        %s: if %s || adapter_state(idx) != AdapterState::Error {"
+                 % (f.name, absent_expr(f)))
+        o.append("            String::new()")
+        o.append("        } else {")
+        o.append("            %s" % _string_expr(f, 'format!("{path}.%s")' % f.name))
+        o.append("        },")
+        return
     o.append("        %s: if %s { %s } else { %s }," %
              (f.name, absent_expr(f), zero_expr(f), _value(ir, m, f)))
 

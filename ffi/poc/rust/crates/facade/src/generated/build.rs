@@ -22,6 +22,30 @@ fn explicit_present(tag: i64, idx: i64) -> bool {
     idx % (tag + 1) != 0
 }
 
+/// `adapter_state()`: which of the Output facade's three states element `idx` carries.
+///
+/// The adapter maps ONE facade type onto two wire forms and the map is not injective, so
+/// reaching the shape at all requires the payload to carry all three states. Cycled Error,
+/// Ok, Invalid so that element 0 is Error, because `half_absent` removes the nested site
+/// and P2.5 keeps a written one first.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[allow(dead_code)]
+pub enum AdapterState {
+    Error,
+    Ok,
+    Invalid,
+}
+
+#[inline]
+#[allow(dead_code)]
+pub fn adapter_state(idx: i64) -> AdapterState {
+    match idx % 3 {
+        0 => AdapterState::Error,
+        1 => AdapterState::Ok,
+        _ => AdapterState::Invalid,
+    }
+}
+
 pub fn build_timestamp(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> Timestamp {
     Timestamp {
         seconds: if mode == Mode::AllAbsent { 0 } else { v::scalar_i64(&format!("{path}.seconds"), idx) },
@@ -105,7 +129,18 @@ pub fn build_task_detailed(path: &str, idx: i64, mode: Mode, repeats: i64, bulk:
         started_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n } }) },
         ended_at: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n } }) },
         pod_ttl: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n } }) },
-        output: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent { None } else { Some(build_task_output(&format!("{path}.output"), idx, mode, repeats, bulk)) },
+        output: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent {
+            None
+        } else {
+            match adapter_state(idx) {
+                AdapterState::Invalid => None,
+                AdapterState::Ok => Some(TaskOutput { success: true, error: String::new() }),
+                AdapterState::Error => Some(TaskOutput {
+                    success: false,
+                    error: v::sentence(&format!("{path}.output.error"), idx),
+                }),
+            }
+        },
         pod_hostname: if mode == Mode::AllAbsent { String::new() } else { v::word(&format!("{path}.pod_hostname"), idx) },
         received_at: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n } }) },
         acquired_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n } }) },
@@ -127,7 +162,11 @@ pub fn build_task_summary(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: 
         options: if mode == Mode::AllAbsent { None } else { Some(build_task_options(&format!("{path}.options"), idx, mode, repeats, bulk)) },
         status: if mode == Mode::AllAbsent { Default::default() } else { TaskStatus::from_i32(v::enum_value(&v::TASK_STATUS, idx)) },
         created_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n } }) },
-        error: if mode == Mode::AllAbsent { String::new() } else { v::sentence(&format!("{path}.error"), idx) },
+        error: if mode == Mode::AllAbsent || adapter_state(idx) != AdapterState::Error {
+            String::new()
+        } else {
+            v::sentence(&format!("{path}.error"), idx)
+        },
         status_message: if mode == Mode::AllAbsent { String::new() } else { v::sentence(&format!("{path}.status_message"), idx) },
         count_data_dependencies: if mode == Mode::AllAbsent { 0 } else { v::scalar_i64(&format!("{path}.count_data_dependencies"), idx) },
     }
