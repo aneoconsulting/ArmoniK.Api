@@ -71,13 +71,19 @@ Written down so that the report cannot quietly inherit an assumption.
 - **Python has no POC at all.** It is also the language whose incumbent is
   already native (protobuf-python on upb, grpcio on the gRPC C core), so it is
   the one where the crossing argument could land differently from every other.
-- **Rust's slice covers M1 only so far**, so the denominator exists for flat
-  string-and-scalar messages and for nothing else. See section 4.1 and
-  [`findings/rust.md`](findings/rust.md). What it already establishes: a crossing
-  costs 1.8 ns through a shared library, nine of them encode a thousand rows, and
-  the core beats prost in both directions on M1 **except on the absent path**,
-  where the by-value group inverts the verdict. Nesting, maps, oneofs, explicit
-  presence, the adapter site and bulk bytes are not yet measured anywhere in Rust.
+- **Rust's slice covers M1 and M2**, so the denominator exists for flat and for
+  nested string-heavy messages, and not yet for oneofs, explicit presence, the
+  adapter site, bulk bytes or packed fields. See section 4.1 and
+  [`findings/rust.md`](findings/rust.md). What it establishes: a crossing costs
+  1.8 ns through a shared library; encode is 0.46 to 0.57 of prost natively and
+  0.83 to 0.92 through the C ABI on every uniform payload; **decode is at parity
+  with prost on M2 and the reason is allocation, not crossings**; and the by-value
+  group inverts the verdict on the absent path.
+- **The decode half of the argument is bounded by allocation, and that is new.**
+  On the string-dense payload the control plane actually moves, the no-boundary
+  control is at parity with the incumbent too, so the codec is not what decode
+  costs. Every slice's decode figure now has to say how string-dense its payload
+  was, and the published managed decode wins deserve re-reading against P2.2.
 - **C++ has never been measured on the amended ABI.** The amendments were
   motivated by managed hosts; the claim that C++ pays nothing for them is
   currently an argument, not a measurement.
@@ -303,7 +309,7 @@ deliverable.
 |---|---|---|
 | W1 | **Specify ABI v1.** One specification, in this branch, merging the base design with the amendments from the C# and Java reports. Every amendment carries the figure that motivated it and the language it came from. | **Drafted.** `design/ABI-v1.md` carries 10 open decisions; agreed when decision 1 (is every amendment free at the C++11 floor) is settled and the rest are accepted or scheduled. The Rust slice has moved two: decision 5 (the grow path) is answered on the easy case and waits on P2.4, and decision 3 (UTF-8 passthrough) turns out to have a price, 25 to 30 percent of an encode, rather than being pure semantics. Decision 9, whether the by-value group needs an empty-element path, is new and comes from the same slice. |
 | W2 | **Freeze the shapes and the payload set.** | **Done.** `schema/shapes.json` is the description, `schema/generated/` carries the emitted `.proto` and a payload manifest with a hash per payload, and the Rust slice has confirmed every hash against prost 0.14.4 and a second, independent encoder. One defect was found and fixed in `emit/payloads.py`; 8 of 16 hashes moved. A slice that disagrees with a hash now has a defect in itself. |
-| W3 | **Rust slice.** Section 4.1. | The four arms exist and the interface-cost decomposition is available to every other slice. **Under way**: all four arms are byte-identical to the validated manifest and timed over M1 (P1.1 to P1.3), with counted crossings and the crossing price at 1.8 ns. M2 to M7 and the RPC arm remain. |
+| W3 | **Rust slice.** Section 4.1. | The four arms exist and the interface-cost decomposition is available to every other slice. **Under way**: all four arms are byte-identical to the validated manifest and timed over M1 and M2 (P1.1 to P1.3, P2.1 to P2.5), with counted crossings, the crossing price at 1.8 ns, and ABI v1 decision 5 answered. M3 to M7, the content sets and the RPC arm remain. |
 | W4 | **C++ slice on the amended ABI.** Rebuild against W1, re-measure against protobuf C++, and demonstrate the C++11 floor. | The amended ABI has a C++ column, and "the managed amendments are free in C++" is a measurement. |
 | W5 | **C# slice.** Import the existing slice, rebuild against W1, then close its two named gaps: a managed decode control, and oneofs plus explicit presence. | Both gaps have numbers, and the floor (netstandard2.0 or net48) compiles and passes correctness. |
 | W6 | **Java slice.** Import, rebuild against W1, re-measure encode, and keep the generated-Java-codec arm as a first-class candidate. | The encode verdict is stated against ABI v1, on JDK 17 with JNI, with the Java 8 floor demonstrated. |
@@ -487,6 +493,15 @@ between them establish exactly what it has to contain:
    the host, so the two have to agree on malformed input and on the
    unpaired-surrogate substitution across every facade. Java and .NET do not
    currently agree on it.
+5. **Distinct tags across a nesting level, and enough elements to force more
+   than one chunk.** The Rust slice found an element run that read the open
+   field's tag from the context at entry, so a host that chunked wrote its later
+   chunks under the *inner* field's tag: silent wire corruption on every chunk
+   after the first. **Byte identity passed anyway**, because the outer repeated
+   field and the inner map field are both tag 1, and nothing in
+   `design/SHAPES.md` has a root whose repeated field carries a tag different
+   from a repeated or map field inside its element. A corpus that cannot tell the
+   two tags apart cannot catch this class of defect in any slice.
 
 One consequence is a constraint on the ABI rather than on the corpus: an
 interface that lets the host choose emission order gives up byte identity by

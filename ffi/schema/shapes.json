@@ -549,7 +549,7 @@
     },
     "MetricsBatch": {
       "shape": "M6",
-      "source": "invented. CONTROL: the real schema has 3 packed repeated fields and all of them are enums",
+      "source": "invented. The four scalar packed fields are a CONTROL: the real schema has 3 packed repeated fields and all of them are enums. `statuses` is the real shape, relocated: every packed field in Protos/V1 sits on a filter or request message (submitter_common.proto `repeated task_status.TaskStatus statuses`, results_common.proto `repeated result_status.ResultStatus fetch_statuses`), and this payload set carries responses only. So M6's scalar rows are a control and its enum row is not.",
       "fields": [
         {
           "name": "id",
@@ -584,6 +584,15 @@
           "kind": "bool",
           "card": "packed",
           "count": 30
+        },
+        {
+          "name": "statuses",
+          "tag": 6,
+          "kind": "enum",
+          "of": "TaskStatus",
+          "card": "packed",
+          "count": 30,
+          "why": "the one packed shape the real schema actually has. Without it the payload set measures packed scalars, which the schema has none of, and not packed enums, which are all 3 of its packed fields."
         }
       ]
     },

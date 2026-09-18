@@ -384,6 +384,25 @@ should be made on those grounds. **The other direction cannot have that**, and
 the asymmetry is forced: a managed method has no symbol, and a function pointer
 is the only callable address .NET, the JVM and CPython can produce.
 
+**An element or run entry point must leave the codec's open-field state as it
+found it.** The host may call one more than once per field and the codec does not
+get control in between, so an entry point that reads the open tag and site from
+the context at entry, and lets the element body overwrite them, writes every
+chunk after the first **under the inner field's tag**. That is silent wire
+corruption, it was built and found in the Rust slice, and **byte identity did not
+catch it**: the outer repeated field and the inner map field were both tag 1, and
+no message in `SHAPES.md` distinguishes them. Save at entry, restore before
+return. The hazard is not Rust's; any implementation holding "which field is
+open" in the context has it, which rule 2 makes the natural design.
+
+**Encode does not get the batching predicate's saving, and the asymmetry is
+structural.** Decode costs **7.004 crossings per `TaskDetailed`**, measured, which
+is exactly what 7.2 predicts against the drafted ABI's 43. Encode on the same
+payload costs **10.02 per element**: five reverse calls, one per loop slot, and
+five forward calls, four blob runs and one pair run. On decode the codec owns the
+buffer and can defer; on encode the host drives every one of its own containers,
+so a loop slot is a crossing whatever the predicate says.
+
 **Every loop and every element call returns `int32_t`**, and a host that fails
 mid-iteration says so through `ak_fail` on the context it was handed (section 5).
 The codec rolls the field and the message back to positions it recorded. This was
@@ -408,6 +427,23 @@ quote the group's worth from a full payload alone.
 **Decode needs less machinery than encode, not more**, because the codec already
 owns the bytes: the span points into the buffer the host handed in, so there is
 nothing to reserve, size or transcode.
+
+**And on a string-dense message, decode is allocation-bound rather than
+codec-bound**, which bounds what any of this machinery can be worth. Measured in
+the Rust slice on P2.2, the shape the control plane actually moves: 17,500 strings
+and 2,000 map entries in 551 KB, where both core arms land at parity with prost
+(0.81 to 1.21) against 0.75 to 0.89 on the flat M1 payloads. The crossings are not
+the reason, and this is what makes the finding portable: 7 per element at 1.8 ns
+is 12.6 ns against ~2,200 ns per element, 0.6 percent, and the **no-boundary**
+control is at parity too. What dominates is `String` allocation and map insertion,
+which every arm does identically. The interface cost is still there and still
+small, about 6 percent of decode on M2 and 2 percent on M1.
+
+Two things follow for the slices. **A decode win measured on a payload less
+string-dense than P2.2 may not survive P2.2**, so every slice reports it, and a
+managed slice whose published decode figures came from thinner payloads should
+expect them to shrink. And **the remaining saving on decode is allocation, not
+crossings**, which is what decision 10 is about.
 
 **The core does not transcode on decode, and the asymmetry has a reason.** Each
 side transcodes into the memory it owns. On encode the destination is the codec's
@@ -696,14 +732,25 @@ Each blocks something. None is settled by a measurement that exists today.
    first slice to build the encode path answers it, and P2.4 is the payload for
    it. **This is the one decision created by v1 rather than inherited.**
 
-   **Partially answered, on the easy case only.** The Rust slice measured a cold
-   encode context on P1.2 at **one** prefix move, in 218 KB of output across 1,000
-   elements and 6,000 strings, zero when warm, and **zero grow-callback
-   invocations at any point**, which is what handing the transcoder the whole
-   remaining buffer was meant to buy. Read no further than it goes: every string
-   in M1 is a fixed-length GUID or a short word, so a site's learned width never
-   changes once learned. P2.4 exists because a per-site learned width is wrong on
-   every element of it by construction, and that is where this is settled.
+   **Answered. Keep the learned width.** The Rust slice measured it per site,
+   which an aggregate cannot do. On every uniform payload (P1.2, P2.2, P2.3,
+   P2.5) a warm context misses **zero** times and moves **zero** bytes. On P2.4,
+   built so that a per-site width is wrong on every element, it misses once per
+   element and memmoves 980,938 bytes of a 981,222-byte output: the whole payload,
+   once, every encode. Isolated against two size-matched uniform arms rather than
+   attributed, and against prost as a floor for the construction's own
+   non-linearity, **the mechanism costs 1 to 3 percentage points of an encode on
+   the payload built to defeat it**, and nothing at all elsewhere. Each move is a
+   sequential in-cache memmove of a ~12 KB element body. **Zero grow-callback
+   invocations on any payload**, which is what handing the transcoder the whole
+   remaining buffer was meant to buy.
+
+   **The worst case cannot be engineered away, and that is the closing argument
+   rather than a caveat.** Over-reserving needs a non-minimal varint, which
+   section 6 refuses outright; under-reserving needs the move. The alternatives
+   are a two-pass length computation (prost's) or writing each body to scratch
+   first, and both cost every payload to spare P2.4. So the learned width is the
+   right default at a bounded worst case, not a bet that the worst case is rare.
 6. **The worker path.** Either Rust hands the facade the raw `ProcessRequest`
    bytes and the facade decodes them itself, which is two decoders over one
    buffer that can silently disagree, or Rust decodes once and exposes typed
@@ -739,7 +786,20 @@ Each blocks something. None is settled by a measurement that exists today.
    is written down now so that no slice quotes the group's worth from a full
    payload alone. **Blocks: nothing; a candidate amendment, not a defect.**
 
-10. **The diagnostic contract.** `ak_init` now owns the log and tracing bridges
+10. **Can decode deliver the group before the runs?** The push family's two-call
+   protocol (`new`, then `apply`) makes a host materialise a default element and
+   then fill it, where the incumbent constructs it once. The order is forced as
+   specified: runs may arrive before the group fields, so a binding that
+   constructed from the group would discard them. The Rust slice observes that the
+   codec **already** buffers runs in bounded arenas (7.3), so it could defer the
+   flush to the end of an element body while the arena has room, allow `apply`
+   first and one construction, and fall back to the current order when an arena
+   fills. Nothing is built. It changes the decode contract, so it is written down
+   here rather than tried in a slice. It is also the shape of saving that section
+   7's measured note says is the one still available on decode: one construction
+   per element is allocation, and allocation is what decode turns out to be.
+
+11. **The diagnostic contract.** `ak_init` now owns the log and tracing bridges
    (section 3), which settles *who*. What is still open is *what*: five distinct
    transport failures currently render as one string, so `ak_err` needs a
    machine-readable failure class and the flattened source chain, and a host
