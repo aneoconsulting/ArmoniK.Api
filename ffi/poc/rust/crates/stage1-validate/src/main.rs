@@ -12,7 +12,7 @@
 //! seven byte-for-byte against the regenerated ones, so a stale `generated/` is caught here
 //! rather than in a later slice.
 
-mod build;
+use stage1_validate::build;
 mod rawdiff;
 
 use build::Mode;

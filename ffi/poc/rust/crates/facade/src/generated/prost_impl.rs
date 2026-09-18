@@ -34,6 +34,33 @@ impl ::prost::Message for Timestamp {
     fn clear(&mut self) { *self = Default::default(); }
 }
 
+impl ::prost::Message for Duration {
+    fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+        if self.seconds != 0 { ::prost::encoding::int64::encode(1, &self.seconds, buf); }
+        if self.nanos != 0 { ::prost::encoding::int32::encode(2, &self.nanos, buf); }
+    }
+    fn encoded_len(&self) -> usize {
+        let mut n = 0usize;
+        if self.seconds != 0 { n += ::prost::encoding::int64::encoded_len(1, &self.seconds); }
+        if self.nanos != 0 { n += ::prost::encoding::int32::encoded_len(2, &self.nanos); }
+        n
+    }
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: ::prost::encoding::WireType,
+        buf: &mut impl ::prost::bytes::Buf,
+        ctx: ::prost::encoding::DecodeContext,
+    ) -> Result<(), ::prost::DecodeError> {
+        match tag {
+            1 => ::prost::encoding::int64::merge(wire_type, &mut self.seconds, buf, ctx),
+            2 => ::prost::encoding::int32::merge(wire_type, &mut self.nanos, buf, ctx),
+            _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+    fn clear(&mut self) { *self = Default::default(); }
+}
+
 impl ::prost::Message for ResultRaw {
     fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
         if !self.session_id.is_empty() { ::prost::encoding::string::encode(1, &self.session_id, buf); }
@@ -88,6 +115,186 @@ impl ::prost::Message for ResultRaw {
     fn clear(&mut self) { *self = Default::default(); }
 }
 
+impl ::prost::Message for TaskOptions {
+    fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+        if !self.options.is_empty() { ::prost::encoding::btree_map::encode(::prost::encoding::string::encode, ::prost::encoding::string::encoded_len, ::prost::encoding::string::encode, ::prost::encoding::string::encoded_len, 1, &self.options, buf); }
+        if let Some(v) = &self.max_duration { ::prost::encoding::message::encode(2, v, buf); }
+        if self.max_retries != 0 { ::prost::encoding::int32::encode(3, &self.max_retries, buf); }
+        if self.priority != 0 { ::prost::encoding::int32::encode(4, &self.priority, buf); }
+        if !self.partition_id.is_empty() { ::prost::encoding::string::encode(5, &self.partition_id, buf); }
+        if !self.application_name.is_empty() { ::prost::encoding::string::encode(6, &self.application_name, buf); }
+        if !self.application_version.is_empty() { ::prost::encoding::string::encode(7, &self.application_version, buf); }
+        if !self.application_namespace.is_empty() { ::prost::encoding::string::encode(8, &self.application_namespace, buf); }
+        if !self.application_service.is_empty() { ::prost::encoding::string::encode(9, &self.application_service, buf); }
+        if !self.engine_type.is_empty() { ::prost::encoding::string::encode(10, &self.engine_type, buf); }
+    }
+    fn encoded_len(&self) -> usize {
+        let mut n = 0usize;
+        if !self.options.is_empty() { n += ::prost::encoding::btree_map::encoded_len(::prost::encoding::string::encoded_len, ::prost::encoding::string::encoded_len, 1, &self.options); }
+        if let Some(v) = &self.max_duration { n += ::prost::encoding::message::encoded_len(2, v); }
+        if self.max_retries != 0 { n += ::prost::encoding::int32::encoded_len(3, &self.max_retries); }
+        if self.priority != 0 { n += ::prost::encoding::int32::encoded_len(4, &self.priority); }
+        if !self.partition_id.is_empty() { n += ::prost::encoding::string::encoded_len(5, &self.partition_id); }
+        if !self.application_name.is_empty() { n += ::prost::encoding::string::encoded_len(6, &self.application_name); }
+        if !self.application_version.is_empty() { n += ::prost::encoding::string::encoded_len(7, &self.application_version); }
+        if !self.application_namespace.is_empty() { n += ::prost::encoding::string::encoded_len(8, &self.application_namespace); }
+        if !self.application_service.is_empty() { n += ::prost::encoding::string::encoded_len(9, &self.application_service); }
+        if !self.engine_type.is_empty() { n += ::prost::encoding::string::encoded_len(10, &self.engine_type); }
+        n
+    }
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: ::prost::encoding::WireType,
+        buf: &mut impl ::prost::bytes::Buf,
+        ctx: ::prost::encoding::DecodeContext,
+    ) -> Result<(), ::prost::DecodeError> {
+        match tag {
+            1 => ::prost::encoding::btree_map::merge(::prost::encoding::string::merge, ::prost::encoding::string::merge, &mut self.options, buf, ctx),
+            2 => ::prost::encoding::message::merge(wire_type, self.max_duration.get_or_insert_with(Default::default), buf, ctx),
+            3 => ::prost::encoding::int32::merge(wire_type, &mut self.max_retries, buf, ctx),
+            4 => ::prost::encoding::int32::merge(wire_type, &mut self.priority, buf, ctx),
+            5 => ::prost::encoding::string::merge(wire_type, &mut self.partition_id, buf, ctx),
+            6 => ::prost::encoding::string::merge(wire_type, &mut self.application_name, buf, ctx),
+            7 => ::prost::encoding::string::merge(wire_type, &mut self.application_version, buf, ctx),
+            8 => ::prost::encoding::string::merge(wire_type, &mut self.application_namespace, buf, ctx),
+            9 => ::prost::encoding::string::merge(wire_type, &mut self.application_service, buf, ctx),
+            10 => ::prost::encoding::string::merge(wire_type, &mut self.engine_type, buf, ctx),
+            _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+    fn clear(&mut self) { *self = Default::default(); }
+}
+
+impl ::prost::Message for TaskOutput {
+    fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+        if self.success { ::prost::encoding::bool::encode(1, &self.success, buf); }
+        if !self.error.is_empty() { ::prost::encoding::string::encode(2, &self.error, buf); }
+    }
+    fn encoded_len(&self) -> usize {
+        let mut n = 0usize;
+        if self.success { n += ::prost::encoding::bool::encoded_len(1, &self.success); }
+        if !self.error.is_empty() { n += ::prost::encoding::string::encoded_len(2, &self.error); }
+        n
+    }
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: ::prost::encoding::WireType,
+        buf: &mut impl ::prost::bytes::Buf,
+        ctx: ::prost::encoding::DecodeContext,
+    ) -> Result<(), ::prost::DecodeError> {
+        match tag {
+            1 => ::prost::encoding::bool::merge(wire_type, &mut self.success, buf, ctx),
+            2 => ::prost::encoding::string::merge(wire_type, &mut self.error, buf, ctx),
+            _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+    fn clear(&mut self) { *self = Default::default(); }
+}
+
+impl ::prost::Message for TaskDetailed {
+    fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+        if !self.id.is_empty() { ::prost::encoding::string::encode(1, &self.id, buf); }
+        if !self.session_id.is_empty() { ::prost::encoding::string::encode(2, &self.session_id, buf); }
+        if !self.owner_pod_id.is_empty() { ::prost::encoding::string::encode(3, &self.owner_pod_id, buf); }
+        if !self.parent_task_ids.is_empty() { ::prost::encoding::string::encode_repeated(4, &self.parent_task_ids, buf); }
+        if !self.data_dependencies.is_empty() { ::prost::encoding::string::encode_repeated(5, &self.data_dependencies, buf); }
+        if !self.expected_output_ids.is_empty() { ::prost::encoding::string::encode_repeated(6, &self.expected_output_ids, buf); }
+        if !self.retry_of_ids.is_empty() { ::prost::encoding::string::encode_repeated(7, &self.retry_of_ids, buf); }
+        { let v = self.status.to_i32(); if v != 0 { ::prost::encoding::int32::encode(8, &v, buf); } }
+        if !self.status_message.is_empty() { ::prost::encoding::string::encode(9, &self.status_message, buf); }
+        if let Some(v) = &self.options { ::prost::encoding::message::encode(10, v, buf); }
+        if let Some(v) = &self.created_at { ::prost::encoding::message::encode(11, v, buf); }
+        if let Some(v) = &self.submitted_at { ::prost::encoding::message::encode(12, v, buf); }
+        if let Some(v) = &self.started_at { ::prost::encoding::message::encode(13, v, buf); }
+        if let Some(v) = &self.ended_at { ::prost::encoding::message::encode(14, v, buf); }
+        if let Some(v) = &self.pod_ttl { ::prost::encoding::message::encode(15, v, buf); }
+        if let Some(v) = &self.output { ::prost::encoding::message::encode(16, v, buf); }
+        if !self.pod_hostname.is_empty() { ::prost::encoding::string::encode(17, &self.pod_hostname, buf); }
+        if let Some(v) = &self.received_at { ::prost::encoding::message::encode(18, v, buf); }
+        if let Some(v) = &self.acquired_at { ::prost::encoding::message::encode(19, v, buf); }
+        if let Some(v) = &self.creation_to_end_duration { ::prost::encoding::message::encode(20, v, buf); }
+        if let Some(v) = &self.processing_to_end_duration { ::prost::encoding::message::encode(21, v, buf); }
+        if !self.initial_task_id.is_empty() { ::prost::encoding::string::encode(22, &self.initial_task_id, buf); }
+        if let Some(v) = &self.received_to_end_duration { ::prost::encoding::message::encode(23, v, buf); }
+        if let Some(v) = &self.processed_at { ::prost::encoding::message::encode(24, v, buf); }
+        if let Some(v) = &self.fetched_at { ::prost::encoding::message::encode(25, v, buf); }
+        if !self.payload_id.is_empty() { ::prost::encoding::string::encode(26, &self.payload_id, buf); }
+        if !self.created_by.is_empty() { ::prost::encoding::string::encode(27, &self.created_by, buf); }
+    }
+    fn encoded_len(&self) -> usize {
+        let mut n = 0usize;
+        if !self.id.is_empty() { n += ::prost::encoding::string::encoded_len(1, &self.id); }
+        if !self.session_id.is_empty() { n += ::prost::encoding::string::encoded_len(2, &self.session_id); }
+        if !self.owner_pod_id.is_empty() { n += ::prost::encoding::string::encoded_len(3, &self.owner_pod_id); }
+        if !self.parent_task_ids.is_empty() { n += ::prost::encoding::string::encoded_len_repeated(4, &self.parent_task_ids); }
+        if !self.data_dependencies.is_empty() { n += ::prost::encoding::string::encoded_len_repeated(5, &self.data_dependencies); }
+        if !self.expected_output_ids.is_empty() { n += ::prost::encoding::string::encoded_len_repeated(6, &self.expected_output_ids); }
+        if !self.retry_of_ids.is_empty() { n += ::prost::encoding::string::encoded_len_repeated(7, &self.retry_of_ids); }
+        { let v = self.status.to_i32(); if v != 0 { n += ::prost::encoding::int32::encoded_len(8, &v); } }
+        if !self.status_message.is_empty() { n += ::prost::encoding::string::encoded_len(9, &self.status_message); }
+        if let Some(v) = &self.options { n += ::prost::encoding::message::encoded_len(10, v); }
+        if let Some(v) = &self.created_at { n += ::prost::encoding::message::encoded_len(11, v); }
+        if let Some(v) = &self.submitted_at { n += ::prost::encoding::message::encoded_len(12, v); }
+        if let Some(v) = &self.started_at { n += ::prost::encoding::message::encoded_len(13, v); }
+        if let Some(v) = &self.ended_at { n += ::prost::encoding::message::encoded_len(14, v); }
+        if let Some(v) = &self.pod_ttl { n += ::prost::encoding::message::encoded_len(15, v); }
+        if let Some(v) = &self.output { n += ::prost::encoding::message::encoded_len(16, v); }
+        if !self.pod_hostname.is_empty() { n += ::prost::encoding::string::encoded_len(17, &self.pod_hostname); }
+        if let Some(v) = &self.received_at { n += ::prost::encoding::message::encoded_len(18, v); }
+        if let Some(v) = &self.acquired_at { n += ::prost::encoding::message::encoded_len(19, v); }
+        if let Some(v) = &self.creation_to_end_duration { n += ::prost::encoding::message::encoded_len(20, v); }
+        if let Some(v) = &self.processing_to_end_duration { n += ::prost::encoding::message::encoded_len(21, v); }
+        if !self.initial_task_id.is_empty() { n += ::prost::encoding::string::encoded_len(22, &self.initial_task_id); }
+        if let Some(v) = &self.received_to_end_duration { n += ::prost::encoding::message::encoded_len(23, v); }
+        if let Some(v) = &self.processed_at { n += ::prost::encoding::message::encoded_len(24, v); }
+        if let Some(v) = &self.fetched_at { n += ::prost::encoding::message::encoded_len(25, v); }
+        if !self.payload_id.is_empty() { n += ::prost::encoding::string::encoded_len(26, &self.payload_id); }
+        if !self.created_by.is_empty() { n += ::prost::encoding::string::encoded_len(27, &self.created_by); }
+        n
+    }
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: ::prost::encoding::WireType,
+        buf: &mut impl ::prost::bytes::Buf,
+        ctx: ::prost::encoding::DecodeContext,
+    ) -> Result<(), ::prost::DecodeError> {
+        match tag {
+            1 => ::prost::encoding::string::merge(wire_type, &mut self.id, buf, ctx),
+            2 => ::prost::encoding::string::merge(wire_type, &mut self.session_id, buf, ctx),
+            3 => ::prost::encoding::string::merge(wire_type, &mut self.owner_pod_id, buf, ctx),
+            4 => ::prost::encoding::string::merge_repeated(wire_type, &mut self.parent_task_ids, buf, ctx),
+            5 => ::prost::encoding::string::merge_repeated(wire_type, &mut self.data_dependencies, buf, ctx),
+            6 => ::prost::encoding::string::merge_repeated(wire_type, &mut self.expected_output_ids, buf, ctx),
+            7 => ::prost::encoding::string::merge_repeated(wire_type, &mut self.retry_of_ids, buf, ctx),
+            8 => { let mut v = self.status.to_i32(); let r = ::prost::encoding::int32::merge(wire_type, &mut v, buf, ctx); self.status = TaskStatus::from_i32(v); r },
+            9 => ::prost::encoding::string::merge(wire_type, &mut self.status_message, buf, ctx),
+            10 => ::prost::encoding::message::merge(wire_type, self.options.get_or_insert_with(Default::default), buf, ctx),
+            11 => ::prost::encoding::message::merge(wire_type, self.created_at.get_or_insert_with(Default::default), buf, ctx),
+            12 => ::prost::encoding::message::merge(wire_type, self.submitted_at.get_or_insert_with(Default::default), buf, ctx),
+            13 => ::prost::encoding::message::merge(wire_type, self.started_at.get_or_insert_with(Default::default), buf, ctx),
+            14 => ::prost::encoding::message::merge(wire_type, self.ended_at.get_or_insert_with(Default::default), buf, ctx),
+            15 => ::prost::encoding::message::merge(wire_type, self.pod_ttl.get_or_insert_with(Default::default), buf, ctx),
+            16 => ::prost::encoding::message::merge(wire_type, self.output.get_or_insert_with(Default::default), buf, ctx),
+            17 => ::prost::encoding::string::merge(wire_type, &mut self.pod_hostname, buf, ctx),
+            18 => ::prost::encoding::message::merge(wire_type, self.received_at.get_or_insert_with(Default::default), buf, ctx),
+            19 => ::prost::encoding::message::merge(wire_type, self.acquired_at.get_or_insert_with(Default::default), buf, ctx),
+            20 => ::prost::encoding::message::merge(wire_type, self.creation_to_end_duration.get_or_insert_with(Default::default), buf, ctx),
+            21 => ::prost::encoding::message::merge(wire_type, self.processing_to_end_duration.get_or_insert_with(Default::default), buf, ctx),
+            22 => ::prost::encoding::string::merge(wire_type, &mut self.initial_task_id, buf, ctx),
+            23 => ::prost::encoding::message::merge(wire_type, self.received_to_end_duration.get_or_insert_with(Default::default), buf, ctx),
+            24 => ::prost::encoding::message::merge(wire_type, self.processed_at.get_or_insert_with(Default::default), buf, ctx),
+            25 => ::prost::encoding::message::merge(wire_type, self.fetched_at.get_or_insert_with(Default::default), buf, ctx),
+            26 => ::prost::encoding::string::merge(wire_type, &mut self.payload_id, buf, ctx),
+            27 => ::prost::encoding::string::merge(wire_type, &mut self.created_by, buf, ctx),
+            _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+    fn clear(&mut self) { *self = Default::default(); }
+}
+
 impl ::prost::Message for ListResultsResponse {
     fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
         if !self.results.is_empty() { ::prost::encoding::message::encode_repeated(1, &self.results, buf); }
@@ -110,6 +317,36 @@ impl ::prost::Message for ListResultsResponse {
     ) -> Result<(), ::prost::DecodeError> {
         match tag {
             1 => ::prost::encoding::message::merge_repeated(wire_type, &mut self.results, buf, ctx),
+            2 => ::prost::encoding::int32::merge(wire_type, &mut self.page, buf, ctx),
+            3 => ::prost::encoding::int32::merge(wire_type, &mut self.total, buf, ctx),
+            _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+    fn clear(&mut self) { *self = Default::default(); }
+}
+
+impl ::prost::Message for ListTasksDetailedResponse {
+    fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+        if !self.tasks.is_empty() { ::prost::encoding::message::encode_repeated(1, &self.tasks, buf); }
+        if self.page != 0 { ::prost::encoding::int32::encode(2, &self.page, buf); }
+        if self.total != 0 { ::prost::encoding::int32::encode(3, &self.total, buf); }
+    }
+    fn encoded_len(&self) -> usize {
+        let mut n = 0usize;
+        if !self.tasks.is_empty() { n += ::prost::encoding::message::encoded_len_repeated(1, &self.tasks); }
+        if self.page != 0 { n += ::prost::encoding::int32::encoded_len(2, &self.page); }
+        if self.total != 0 { n += ::prost::encoding::int32::encoded_len(3, &self.total); }
+        n
+    }
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: ::prost::encoding::WireType,
+        buf: &mut impl ::prost::bytes::Buf,
+        ctx: ::prost::encoding::DecodeContext,
+    ) -> Result<(), ::prost::DecodeError> {
+        match tag {
+            1 => ::prost::encoding::message::merge_repeated(wire_type, &mut self.tasks, buf, ctx),
             2 => ::prost::encoding::int32::merge(wire_type, &mut self.page, buf, ctx),
             3 => ::prost::encoding::int32::merge(wire_type, &mut self.total, buf, ctx),
             _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),

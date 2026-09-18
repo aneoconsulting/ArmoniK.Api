@@ -31,6 +31,11 @@ pub struct Enc {
     /// count larger than it, which is the one check ABI v1 section 4 says cannot be
     /// removed, and a grow may have changed it after the call started.
     pub last_cap: i32,
+    /// Counting build only: which SITE missed, so "the grow path costs X" can name the
+    /// field rather than the message. ABI v1 open decision 5 asks what the learned width
+    /// is worth, and an aggregate that does not say where it thrashes cannot answer it.
+    #[cfg(feature = "count")]
+    pub site_moves: Box<[u32]>,
 }
 
 impl Enc {
@@ -41,6 +46,8 @@ impl Enc {
             c: Counters::default(),
             err: 0,
             last_cap: 0,
+            #[cfg(feature = "count")]
+            site_moves: vec![0u32; sites].into_boxed_slice(),
         }
     }
 
@@ -128,6 +135,11 @@ impl Enc {
     #[cold]
     fn resize_prefix(&mut self, m: &Mark, body: usize, need: usize) {
         crate::bump!(self.c, prefix_moves);
+        crate::bump!(self.c, prefix_bytes, body);
+        #[cfg(feature = "count")]
+        {
+            self.site_moves[m.site as usize] += 1;
+        }
         self.widths[m.site as usize] = need as u8;
         let src = m.hdr + m.w;
         if need > m.w {

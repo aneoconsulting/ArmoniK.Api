@@ -6,19 +6,57 @@
 use super::super::{ak_dec_ctx, ak_enc_ctx, ak_span, ak_str};
 use core::ffi::c_void;
 
-/// A host-driven loop over one repeated field. The context is the first argument of
-/// every host-facing callback (ABI v1 section 5), so a failure always has somewhere
-/// to go.
-pub type ak_loop_f =
-    unsafe extern "C" fn(ctx: *mut ak_enc_ctx, obj: *const c_void) -> i32;
+/// A host-driven loop over one repeated, packed or map field. The context is the
+/// first argument of every host-facing callback (ABI v1 section 5), so a failure
+/// always has somewhere to go. `token` names which element of the enclosing run the
+/// field belongs to; `AK_TOKEN_ROOT` means the root object itself. A token is an
+/// INDEX, never an address, and the codec never dereferences one (section 10).
+pub type ak_loop_f = unsafe extern "C" fn(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32;
 
-/// Encode group for `Timestamp`: the whole singular subtree, inlined, with a presence word.
+pub const AK_TOKEN_ROOT: i64 = -1;
+
+/// Encode group for `TaskOptionsOptionsEntry`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_efix_TaskOptionsOptionsEntry {
+    pub key: ak_str,
+    pub value: ak_str,
+    pub presence: u32,
+}
+impl ak_efix_TaskOptionsOptionsEntry {
+    pub const ZERO: Self = ak_efix_TaskOptionsOptionsEntry {
+        key: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        value: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        presence: 0,
+    };
+}
+
+/// Decode group for `TaskOptionsOptionsEntry`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dfix_TaskOptionsOptionsEntry {
+    pub key: ak_span,
+    pub value: ak_span,
+    pub presence: u32,
+}
+impl ak_dfix_TaskOptionsOptionsEntry {
+    pub const ZERO: Self = ak_dfix_TaskOptionsOptionsEntry {
+        key: ak_span { off: 0, len: 0, coder: 0 },
+        value: ak_span { off: 0, len: 0, coder: 0 },
+        presence: 0,
+    };
+}
+
+/// Encode group for `Timestamp`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_efix_Timestamp {
     pub seconds: i64,
     pub nanos: i32,
-    /// Bit per field whose presence its value cannot carry.
     pub presence: u32,
 }
 impl ak_efix_Timestamp {
@@ -29,13 +67,12 @@ impl ak_efix_Timestamp {
     };
 }
 
-/// Decode group for `Timestamp`: spans are offsets into the buffer the host handed in.
+/// Decode group for `Timestamp`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dfix_Timestamp {
     pub seconds: i64,
     pub nanos: i32,
-    /// Bit per field whose presence its value cannot carry.
     pub presence: u32,
 }
 impl ak_dfix_Timestamp {
@@ -46,22 +83,39 @@ impl ak_dfix_Timestamp {
     };
 }
 
-/// Encode vtable for `Timestamp`. Empty: nothing in this message needs a call.
+/// Encode group for `Duration`.
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct ak_evt_Timestamp {
+pub struct ak_efix_Duration {
+    pub seconds: i64,
+    pub nanos: i32,
+    pub presence: u32,
+}
+impl ak_efix_Duration {
+    pub const ZERO: Self = ak_efix_Duration {
+        seconds: 0,
+        nanos: 0,
+        presence: 0,
+    };
 }
 
-/// Decode vtable for `Timestamp` (the push family, ABI v1 section 7.1).
+/// Decode group for `Duration`.
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct ak_dvt_Timestamp {
-    pub apply: Option<
-        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_Timestamp),
-    >,
+pub struct ak_dfix_Duration {
+    pub seconds: i64,
+    pub nanos: i32,
+    pub presence: u32,
+}
+impl ak_dfix_Duration {
+    pub const ZERO: Self = ak_dfix_Duration {
+        seconds: 0,
+        nanos: 0,
+        presence: 0,
+    };
 }
 
-/// Encode group for `ResultRaw`: the whole singular subtree, inlined, with a presence word.
+/// Encode group for `ResultRaw`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_efix_ResultRaw {
@@ -76,7 +130,6 @@ pub struct ak_efix_ResultRaw {
     pub created_by: ak_str,
     pub opaque_id: ak_str,
     pub manual_deletion: u8,
-    /// Bit per field whose presence its value cannot carry.
     pub presence: u32,
 }
 impl ak_efix_ResultRaw {
@@ -98,7 +151,7 @@ impl ak_efix_ResultRaw {
 pub const AK_EFIX_RESULTRAW_PRESENT_CREATED_AT: u32 = 1 << 0;
 pub const AK_EFIX_RESULTRAW_PRESENT_COMPLETED_AT: u32 = 1 << 1;
 
-/// Decode group for `ResultRaw`: spans are offsets into the buffer the host handed in.
+/// Decode group for `ResultRaw`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dfix_ResultRaw {
@@ -113,7 +166,6 @@ pub struct ak_dfix_ResultRaw {
     pub created_by: ak_span,
     pub opaque_id: ak_span,
     pub manual_deletion: u8,
-    /// Bit per field whose presence its value cannot carry.
     pub presence: u32,
 }
 impl ak_dfix_ResultRaw {
@@ -135,28 +187,250 @@ impl ak_dfix_ResultRaw {
 pub const AK_DFIX_RESULTRAW_PRESENT_CREATED_AT: u32 = 1 << 0;
 pub const AK_DFIX_RESULTRAW_PRESENT_COMPLETED_AT: u32 = 1 << 1;
 
-/// Encode vtable for `ResultRaw`. Empty: nothing in this message needs a call.
+/// Encode group for `TaskOptions`.
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct ak_evt_ResultRaw {
+pub struct ak_efix_TaskOptions {
+    pub max_duration: ak_efix_Duration,
+    pub max_retries: i32,
+    pub priority: i32,
+    pub partition_id: ak_str,
+    pub application_name: ak_str,
+    pub application_version: ak_str,
+    pub application_namespace: ak_str,
+    pub application_service: ak_str,
+    pub engine_type: ak_str,
+    pub presence: u32,
 }
+impl ak_efix_TaskOptions {
+    pub const ZERO: Self = ak_efix_TaskOptions {
+        max_duration: ak_efix_Duration::ZERO,
+        max_retries: 0,
+        priority: 0,
+        partition_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        application_name: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        application_version: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        application_namespace: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        application_service: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        engine_type: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        presence: 0,
+    };
+}
+pub const AK_EFIX_TASKOPTIONS_PRESENT_MAX_DURATION: u32 = 1 << 0;
 
-/// Decode vtable for `ResultRaw` (the push family, ABI v1 section 7.1).
+/// Decode group for `TaskOptions`.
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct ak_dvt_ResultRaw {
-    pub apply: Option<
-        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ResultRaw),
-    >,
+pub struct ak_dfix_TaskOptions {
+    pub max_duration: ak_dfix_Duration,
+    pub max_retries: i32,
+    pub priority: i32,
+    pub partition_id: ak_span,
+    pub application_name: ak_span,
+    pub application_version: ak_span,
+    pub application_namespace: ak_span,
+    pub application_service: ak_span,
+    pub engine_type: ak_span,
+    pub presence: u32,
+}
+impl ak_dfix_TaskOptions {
+    pub const ZERO: Self = ak_dfix_TaskOptions {
+        max_duration: ak_dfix_Duration::ZERO,
+        max_retries: 0,
+        priority: 0,
+        partition_id: ak_span { off: 0, len: 0, coder: 0 },
+        application_name: ak_span { off: 0, len: 0, coder: 0 },
+        application_version: ak_span { off: 0, len: 0, coder: 0 },
+        application_namespace: ak_span { off: 0, len: 0, coder: 0 },
+        application_service: ak_span { off: 0, len: 0, coder: 0 },
+        engine_type: ak_span { off: 0, len: 0, coder: 0 },
+        presence: 0,
+    };
+}
+pub const AK_DFIX_TASKOPTIONS_PRESENT_MAX_DURATION: u32 = 1 << 0;
+
+/// Encode group for `TaskOutput`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_efix_TaskOutput {
+    pub success: u8,
+    pub error: ak_str,
+    pub presence: u32,
+}
+impl ak_efix_TaskOutput {
+    pub const ZERO: Self = ak_efix_TaskOutput {
+        success: 0,
+        error: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        presence: 0,
+    };
 }
 
-/// Encode group for `ListResultsResponse`: the whole singular subtree, inlined, with a presence word.
+/// Decode group for `TaskOutput`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dfix_TaskOutput {
+    pub success: u8,
+    pub error: ak_span,
+    pub presence: u32,
+}
+impl ak_dfix_TaskOutput {
+    pub const ZERO: Self = ak_dfix_TaskOutput {
+        success: 0,
+        error: ak_span { off: 0, len: 0, coder: 0 },
+        presence: 0,
+    };
+}
+
+/// Encode group for `TaskDetailed`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_efix_TaskDetailed {
+    pub id: ak_str,
+    pub session_id: ak_str,
+    pub owner_pod_id: ak_str,
+    pub status: i32,
+    pub status_message: ak_str,
+    pub options: ak_efix_TaskOptions,
+    pub created_at: ak_efix_Timestamp,
+    pub submitted_at: ak_efix_Timestamp,
+    pub started_at: ak_efix_Timestamp,
+    pub ended_at: ak_efix_Timestamp,
+    pub pod_ttl: ak_efix_Timestamp,
+    pub output: ak_efix_TaskOutput,
+    pub pod_hostname: ak_str,
+    pub received_at: ak_efix_Timestamp,
+    pub acquired_at: ak_efix_Timestamp,
+    pub creation_to_end_duration: ak_efix_Duration,
+    pub processing_to_end_duration: ak_efix_Duration,
+    pub initial_task_id: ak_str,
+    pub received_to_end_duration: ak_efix_Duration,
+    pub processed_at: ak_efix_Timestamp,
+    pub fetched_at: ak_efix_Timestamp,
+    pub payload_id: ak_str,
+    pub created_by: ak_str,
+    pub presence: u32,
+}
+impl ak_efix_TaskDetailed {
+    pub const ZERO: Self = ak_efix_TaskDetailed {
+        id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        session_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        owner_pod_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        status: 0,
+        status_message: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        options: ak_efix_TaskOptions::ZERO,
+        created_at: ak_efix_Timestamp::ZERO,
+        submitted_at: ak_efix_Timestamp::ZERO,
+        started_at: ak_efix_Timestamp::ZERO,
+        ended_at: ak_efix_Timestamp::ZERO,
+        pod_ttl: ak_efix_Timestamp::ZERO,
+        output: ak_efix_TaskOutput::ZERO,
+        pod_hostname: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        received_at: ak_efix_Timestamp::ZERO,
+        acquired_at: ak_efix_Timestamp::ZERO,
+        creation_to_end_duration: ak_efix_Duration::ZERO,
+        processing_to_end_duration: ak_efix_Duration::ZERO,
+        initial_task_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        received_to_end_duration: ak_efix_Duration::ZERO,
+        processed_at: ak_efix_Timestamp::ZERO,
+        fetched_at: ak_efix_Timestamp::ZERO,
+        payload_id: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        created_by: ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        presence: 0,
+    };
+}
+pub const AK_EFIX_TASKDETAILED_PRESENT_OPTIONS: u32 = 1 << 0;
+pub const AK_EFIX_TASKDETAILED_PRESENT_CREATED_AT: u32 = 1 << 1;
+pub const AK_EFIX_TASKDETAILED_PRESENT_SUBMITTED_AT: u32 = 1 << 2;
+pub const AK_EFIX_TASKDETAILED_PRESENT_STARTED_AT: u32 = 1 << 3;
+pub const AK_EFIX_TASKDETAILED_PRESENT_ENDED_AT: u32 = 1 << 4;
+pub const AK_EFIX_TASKDETAILED_PRESENT_POD_TTL: u32 = 1 << 5;
+pub const AK_EFIX_TASKDETAILED_PRESENT_OUTPUT: u32 = 1 << 6;
+pub const AK_EFIX_TASKDETAILED_PRESENT_RECEIVED_AT: u32 = 1 << 7;
+pub const AK_EFIX_TASKDETAILED_PRESENT_ACQUIRED_AT: u32 = 1 << 8;
+pub const AK_EFIX_TASKDETAILED_PRESENT_CREATION_TO_END_DURATION: u32 = 1 << 9;
+pub const AK_EFIX_TASKDETAILED_PRESENT_PROCESSING_TO_END_DURATION: u32 = 1 << 10;
+pub const AK_EFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION: u32 = 1 << 11;
+pub const AK_EFIX_TASKDETAILED_PRESENT_PROCESSED_AT: u32 = 1 << 12;
+pub const AK_EFIX_TASKDETAILED_PRESENT_FETCHED_AT: u32 = 1 << 13;
+
+/// Decode group for `TaskDetailed`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dfix_TaskDetailed {
+    pub id: ak_span,
+    pub session_id: ak_span,
+    pub owner_pod_id: ak_span,
+    pub status: i32,
+    pub status_message: ak_span,
+    pub options: ak_dfix_TaskOptions,
+    pub created_at: ak_dfix_Timestamp,
+    pub submitted_at: ak_dfix_Timestamp,
+    pub started_at: ak_dfix_Timestamp,
+    pub ended_at: ak_dfix_Timestamp,
+    pub pod_ttl: ak_dfix_Timestamp,
+    pub output: ak_dfix_TaskOutput,
+    pub pod_hostname: ak_span,
+    pub received_at: ak_dfix_Timestamp,
+    pub acquired_at: ak_dfix_Timestamp,
+    pub creation_to_end_duration: ak_dfix_Duration,
+    pub processing_to_end_duration: ak_dfix_Duration,
+    pub initial_task_id: ak_span,
+    pub received_to_end_duration: ak_dfix_Duration,
+    pub processed_at: ak_dfix_Timestamp,
+    pub fetched_at: ak_dfix_Timestamp,
+    pub payload_id: ak_span,
+    pub created_by: ak_span,
+    pub presence: u32,
+}
+impl ak_dfix_TaskDetailed {
+    pub const ZERO: Self = ak_dfix_TaskDetailed {
+        id: ak_span { off: 0, len: 0, coder: 0 },
+        session_id: ak_span { off: 0, len: 0, coder: 0 },
+        owner_pod_id: ak_span { off: 0, len: 0, coder: 0 },
+        status: 0,
+        status_message: ak_span { off: 0, len: 0, coder: 0 },
+        options: ak_dfix_TaskOptions::ZERO,
+        created_at: ak_dfix_Timestamp::ZERO,
+        submitted_at: ak_dfix_Timestamp::ZERO,
+        started_at: ak_dfix_Timestamp::ZERO,
+        ended_at: ak_dfix_Timestamp::ZERO,
+        pod_ttl: ak_dfix_Timestamp::ZERO,
+        output: ak_dfix_TaskOutput::ZERO,
+        pod_hostname: ak_span { off: 0, len: 0, coder: 0 },
+        received_at: ak_dfix_Timestamp::ZERO,
+        acquired_at: ak_dfix_Timestamp::ZERO,
+        creation_to_end_duration: ak_dfix_Duration::ZERO,
+        processing_to_end_duration: ak_dfix_Duration::ZERO,
+        initial_task_id: ak_span { off: 0, len: 0, coder: 0 },
+        received_to_end_duration: ak_dfix_Duration::ZERO,
+        processed_at: ak_dfix_Timestamp::ZERO,
+        fetched_at: ak_dfix_Timestamp::ZERO,
+        payload_id: ak_span { off: 0, len: 0, coder: 0 },
+        created_by: ak_span { off: 0, len: 0, coder: 0 },
+        presence: 0,
+    };
+}
+pub const AK_DFIX_TASKDETAILED_PRESENT_OPTIONS: u32 = 1 << 0;
+pub const AK_DFIX_TASKDETAILED_PRESENT_CREATED_AT: u32 = 1 << 1;
+pub const AK_DFIX_TASKDETAILED_PRESENT_SUBMITTED_AT: u32 = 1 << 2;
+pub const AK_DFIX_TASKDETAILED_PRESENT_STARTED_AT: u32 = 1 << 3;
+pub const AK_DFIX_TASKDETAILED_PRESENT_ENDED_AT: u32 = 1 << 4;
+pub const AK_DFIX_TASKDETAILED_PRESENT_POD_TTL: u32 = 1 << 5;
+pub const AK_DFIX_TASKDETAILED_PRESENT_OUTPUT: u32 = 1 << 6;
+pub const AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_AT: u32 = 1 << 7;
+pub const AK_DFIX_TASKDETAILED_PRESENT_ACQUIRED_AT: u32 = 1 << 8;
+pub const AK_DFIX_TASKDETAILED_PRESENT_CREATION_TO_END_DURATION: u32 = 1 << 9;
+pub const AK_DFIX_TASKDETAILED_PRESENT_PROCESSING_TO_END_DURATION: u32 = 1 << 10;
+pub const AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION: u32 = 1 << 11;
+pub const AK_DFIX_TASKDETAILED_PRESENT_PROCESSED_AT: u32 = 1 << 12;
+pub const AK_DFIX_TASKDETAILED_PRESENT_FETCHED_AT: u32 = 1 << 13;
+
+/// Encode group for `ListResultsResponse`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_efix_ListResultsResponse {
     pub page: i32,
     pub total: i32,
-    /// Bit per field whose presence its value cannot carry.
     pub presence: u32,
 }
 impl ak_efix_ListResultsResponse {
@@ -167,17 +441,48 @@ impl ak_efix_ListResultsResponse {
     };
 }
 
-/// Decode group for `ListResultsResponse`: spans are offsets into the buffer the host handed in.
+/// Decode group for `ListResultsResponse`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dfix_ListResultsResponse {
     pub page: i32,
     pub total: i32,
-    /// Bit per field whose presence its value cannot carry.
     pub presence: u32,
 }
 impl ak_dfix_ListResultsResponse {
     pub const ZERO: Self = ak_dfix_ListResultsResponse {
+        page: 0,
+        total: 0,
+        presence: 0,
+    };
+}
+
+/// Encode group for `ListTasksDetailedResponse`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_efix_ListTasksDetailedResponse {
+    pub page: i32,
+    pub total: i32,
+    pub presence: u32,
+}
+impl ak_efix_ListTasksDetailedResponse {
+    pub const ZERO: Self = ak_efix_ListTasksDetailedResponse {
+        page: 0,
+        total: 0,
+        presence: 0,
+    };
+}
+
+/// Decode group for `ListTasksDetailedResponse`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dfix_ListTasksDetailedResponse {
+    pub page: i32,
+    pub total: i32,
+    pub presence: u32,
+}
+impl ak_dfix_ListTasksDetailedResponse {
+    pub const ZERO: Self = ak_dfix_ListTasksDetailedResponse {
         page: 0,
         total: 0,
         presence: 0,
@@ -198,24 +503,141 @@ pub struct ak_dvt_ListResultsResponse {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListResultsResponse),
     >,
-    /// A batched add may be called more than once per field: append,
-    /// never size to the count you were handed (ABI v1 section 7.4).
+    /// Batchable: the element type is a leaf, so a run crosses once
+    /// per chunk. Append; never size to the count you were handed.
     pub add_results: Option<
-        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ResultRaw, i32),
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_ResultRaw, i32),
     >,
 }
 
+/// Encode vtable for `ListTasksDetailedResponse`. One slot per field that could not ride in the group.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_evt_ListTasksDetailedResponse {
+    pub loop_tasks: Option<ak_loop_f>,
+    /// The element type has loop slots of its own, so the codec
+    /// needs its vtable to reach them (ABI v1 section 6).
+    pub elem_tasks: *const ak_evt_TaskDetailed,
+}
+
+/// Decode vtable for `ListTasksDetailedResponse` (the push family, ABI v1 section 7.1).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dvt_ListTasksDetailedResponse {
+    pub apply: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListTasksDetailedResponse),
+    >,
+    /// NOT batchable: `TaskDetailed` carries repeated or map fields of its own,
+    /// so there would be nothing to attach the inner elements to
+    /// (ABI v1 section 7.2). Two calls per element, `new` then
+    /// `apply`, plus one run per inner field that occurred.
+    pub new_tasks: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void) -> i64,
+    >,
+    pub apply_tasks: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_TaskDetailed),
+    >,
+    pub add_tasks_parent_task_ids: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_span, i32),
+    >,
+    pub add_tasks_data_dependencies: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_span, i32),
+    >,
+    pub add_tasks_expected_output_ids: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_span, i32),
+    >,
+    pub add_tasks_retry_of_ids: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_span, i32),
+    >,
+    pub add_tasks_options_options: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_TaskOptionsOptionsEntry, i32),
+    >,
+}
+
+/// Encode vtable for `TaskOptionsOptionsEntry`. Empty: nothing in this message needs a call.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_evt_TaskOptionsOptionsEntry {
+}
+
+/// Decode vtable for `TaskOptionsOptionsEntry` (the push family, ABI v1 section 7.1).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dvt_TaskOptionsOptionsEntry {
+    pub apply: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_TaskOptionsOptionsEntry),
+    >,
+}
+
+/// Encode vtable for `ResultRaw`. Empty: nothing in this message needs a call.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_evt_ResultRaw {
+}
+
+/// Decode vtable for `ResultRaw` (the push family, ABI v1 section 7.1).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dvt_ResultRaw {
+    pub apply: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ResultRaw),
+    >,
+}
+
+/// Encode vtable for `TaskDetailed`. One slot per field that could not ride in the group.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_evt_TaskDetailed {
+    pub loop_parent_task_ids: Option<ak_loop_f>,
+    pub loop_data_dependencies: Option<ak_loop_f>,
+    pub loop_expected_output_ids: Option<ak_loop_f>,
+    pub loop_retry_of_ids: Option<ak_loop_f>,
+    pub loop_options_options: Option<ak_loop_f>,
+}
+
+/// Decode vtable for `TaskDetailed` (the push family, ABI v1 section 7.1).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dvt_TaskDetailed {
+    pub apply: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_TaskDetailed),
+    >,
+    /// Batchable: the element type is a leaf, so a run crosses once
+    /// per chunk. Append; never size to the count you were handed.
+    pub add_parent_task_ids: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_span, i32),
+    >,
+    /// Batchable: the element type is a leaf, so a run crosses once
+    /// per chunk. Append; never size to the count you were handed.
+    pub add_data_dependencies: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_span, i32),
+    >,
+    /// Batchable: the element type is a leaf, so a run crosses once
+    /// per chunk. Append; never size to the count you were handed.
+    pub add_expected_output_ids: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_span, i32),
+    >,
+    /// Batchable: the element type is a leaf, so a run crosses once
+    /// per chunk. Append; never size to the count you were handed.
+    pub add_retry_of_ids: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_span, i32),
+    >,
+    /// Batchable: the element type is a leaf, so a run crosses once
+    /// per chunk. Append; never size to the count you were handed.
+    pub add_options_options: Option<
+        unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_TaskOptionsOptionsEntry, i32),
+    >,
+}
+
+// ABI v1 section 6: what a host calls in the codec are PLAIN EXPORTS, not a
+// table, so a missing symbol is a load failure, which is loud.
 unsafe extern "C" {
-    /// Encode. The host filled the root group before calling, so a failure
-    /// there needs no channel: the host simply does not call.
     pub fn ak_encode_ListResultsResponse(
         obj: *const c_void,
         ctx: *mut ak_enc_ctx,
         vt: *const ak_evt_ListResultsResponse,
         fix: *const ak_efix_ListResultsResponse,
     ) -> isize;
-    /// Decode, push family: the arena is a local of this function, so it is
-    /// per decode rather than per thread.
     pub fn ak_decode_ListResultsResponse(
         ctx: *mut ak_dec_ctx,
         obj: *mut c_void,
@@ -223,8 +645,95 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_ListResultsResponse,
     ) -> i32;
-    /// One element entry point taking a count, not two symbols: `n == 1`
-    /// is the unbatched call (ABI v1 section 6). The leaf form, because
-    /// `ResultRaw` is transitively free of repeated and map fields.
+    pub fn ak_encode_ListTasksDetailedResponse(
+        obj: *const c_void,
+        ctx: *mut ak_enc_ctx,
+        vt: *const ak_evt_ListTasksDetailedResponse,
+        fix: *const ak_efix_ListTasksDetailedResponse,
+    ) -> isize;
+    pub fn ak_decode_ListTasksDetailedResponse(
+        ctx: *mut ak_dec_ctx,
+        obj: *mut c_void,
+        buf: *const u8,
+        len: usize,
+        vt: *const ak_dvt_ListTasksDetailedResponse,
+    ) -> i32;
+    /// Leaf form: `ResultRaw` is transitively free of repeated and map fields,
+    /// so the codec makes no reverse call during a run.
     pub fn ak_elem_ResultRaw(ctx: *mut ak_enc_ctx, elems: *const ak_efix_ResultRaw, n: i32) -> i32;
+    /// Unrestricted form: names element i as `tok0 + i` from a contiguous
+    /// token range the host allocated, because the codec has to call back
+    /// into the host mid-run for `TaskDetailed`'s own repeated fields.
+    pub fn ak_elemu_TaskDetailed(
+        ctx: *mut ak_enc_ctx,
+        elems: *const ak_efix_TaskDetailed,
+        n: i32,
+        tok0: i64,
+    ) -> i32;
+    /// Leaf form: `TaskOptionsOptionsEntry` is transitively free of repeated and map fields,
+    /// so the codec makes no reverse call during a run.
+    pub fn ak_elem_TaskOptionsOptionsEntry(ctx: *mut ak_enc_ctx, elems: *const ak_efix_TaskOptionsOptionsEntry, n: i32) -> i32;
+    /// A run of strings or bytes under the repeated field the codec has open.
+    /// `n == 1` is the unbatched call, exactly as for elements.
+    pub fn ak_blob_run(ctx: *mut ak_enc_ctx, elems: *const ak_str, n: i32) -> i32;
+    /// A packed repeated scalar is the host's own array, handed over whole: one
+    /// symbol per host layout, and the wire encoding comes from the schema and
+    /// lives in the context, so bool and enum need no cases (ABI v1 section 6).
+    pub fn ak_run_i32(ctx: *mut ak_enc_ctx, p: *const i32, n: usize) -> i32;
+    pub fn ak_run_i64(ctx: *mut ak_enc_ctx, p: *const i64, n: usize) -> i32;
+    pub fn ak_run_f64(ctx: *mut ak_enc_ctx, p: *const f64, n: usize) -> i32;
+    pub fn ak_run_u8(ctx: *mut ak_enc_ctx, p: *const u8, n: usize) -> i32;
 }
+
+/// What each length-prefix site of the core is, in site order, so a miss count
+/// can name the field it came from (ABI v1 open decision 5). A descriptor fact,
+/// so it lives in the header both sides compile against.
+pub const SITE_NAMES: [&str; 47] = [
+    "blob/TaskOptionsOptionsEntry/key",
+    "blob/TaskOptionsOptionsEntry/value",
+    "blob/ResultRaw/session_id",
+    "blob/ResultRaw/name",
+    "blob/ResultRaw/owner_task_id",
+    "child/ResultRaw/created_at",
+    "child/ResultRaw/completed_at",
+    "blob/ResultRaw/result_id",
+    "blob/ResultRaw/created_by",
+    "blob/ResultRaw/opaque_id",
+    "blob/TaskDetailed/id",
+    "blob/TaskDetailed/session_id",
+    "blob/TaskDetailed/owner_pod_id",
+    "loop/TaskDetailed/parent_task_ids",
+    "loop/TaskDetailed/data_dependencies",
+    "loop/TaskDetailed/expected_output_ids",
+    "loop/TaskDetailed/retry_of_ids",
+    "blob/TaskDetailed/status_message",
+    "child/TaskDetailed/options",
+    "loop/TaskDetailed/options.options",
+    "child/TaskDetailed/options.max_duration",
+    "blob/TaskDetailed/options.partition_id",
+    "blob/TaskDetailed/options.application_name",
+    "blob/TaskDetailed/options.application_version",
+    "blob/TaskDetailed/options.application_namespace",
+    "blob/TaskDetailed/options.application_service",
+    "blob/TaskDetailed/options.engine_type",
+    "child/TaskDetailed/created_at",
+    "child/TaskDetailed/submitted_at",
+    "child/TaskDetailed/started_at",
+    "child/TaskDetailed/ended_at",
+    "child/TaskDetailed/pod_ttl",
+    "child/TaskDetailed/output",
+    "blob/TaskDetailed/output.error",
+    "blob/TaskDetailed/pod_hostname",
+    "child/TaskDetailed/received_at",
+    "child/TaskDetailed/acquired_at",
+    "child/TaskDetailed/creation_to_end_duration",
+    "child/TaskDetailed/processing_to_end_duration",
+    "blob/TaskDetailed/initial_task_id",
+    "child/TaskDetailed/received_to_end_duration",
+    "child/TaskDetailed/processed_at",
+    "child/TaskDetailed/fetched_at",
+    "blob/TaskDetailed/payload_id",
+    "blob/TaskDetailed/created_by",
+    "loop/ListResultsResponse/results",
+    "loop/ListTasksDetailedResponse/tasks",
+];

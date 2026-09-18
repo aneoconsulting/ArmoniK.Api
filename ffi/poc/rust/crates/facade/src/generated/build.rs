@@ -29,6 +29,13 @@ pub fn build_timestamp(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usi
     }
 }
 
+pub fn build_duration(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> Duration {
+    Duration {
+        seconds: if mode == Mode::AllAbsent { 0 } else { v::scalar_i64(&format!("{path}.seconds"), idx) },
+        nanos: if mode == Mode::AllAbsent { 0 } else { v::scalar_i32(&format!("{path}.nanos"), idx) },
+    }
+}
+
 pub fn build_result_raw(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> ResultRaw {
     ResultRaw {
         session_id: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.session_id"), idx) },
@@ -45,9 +52,85 @@ pub fn build_result_raw(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: us
     }
 }
 
+pub fn build_task_options(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> TaskOptions {
+    TaskOptions {
+        options: if mode == Mode::AllAbsent { ::std::collections::BTreeMap::new() } else { {
+            let kp = format!("{path}.options.key");
+            let vp = format!("{path}.options.value");
+            let mut m = ::std::collections::BTreeMap::new();
+            for k in 0..4i64 {
+                let key = format!("k{:02}-{}", k, v::word(&kp, idx * 31 + k));
+                let val = if mode == Mode::HalfAbsent && k % 2 == 0 {
+                    String::new()
+                } else {
+                    v::word(&vp, idx * 31 + k)
+                };
+                m.insert(key, val);
+            }
+            m
+        } },
+        max_duration: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::duration(idx); Duration { seconds: s, nanos: n } }) },
+        max_retries: if mode == Mode::AllAbsent { 0 } else { v::scalar_i32(&format!("{path}.max_retries"), idx) },
+        priority: if mode == Mode::AllAbsent { 0 } else { v::scalar_i32(&format!("{path}.priority"), idx) },
+        partition_id: if mode == Mode::AllAbsent { String::new() } else { v::word(&format!("{path}.partition_id"), idx) },
+        application_name: if mode == Mode::AllAbsent { String::new() } else { v::word(&format!("{path}.application_name"), idx) },
+        application_version: if mode == Mode::AllAbsent { String::new() } else { v::word(&format!("{path}.application_version"), idx) },
+        application_namespace: if mode == Mode::AllAbsent { String::new() } else { v::word(&format!("{path}.application_namespace"), idx) },
+        application_service: if mode == Mode::AllAbsent { String::new() } else { v::word(&format!("{path}.application_service"), idx) },
+        engine_type: if mode == Mode::AllAbsent { String::new() } else { v::word(&format!("{path}.engine_type"), idx) },
+    }
+}
+
+pub fn build_task_output(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> TaskOutput {
+    TaskOutput {
+        success: if mode == Mode::AllAbsent { false } else { v::scalar_bool(&format!("{path}.success"), idx) },
+        error: if mode == Mode::AllAbsent { String::new() } else { v::sentence(&format!("{path}.error"), idx) },
+    }
+}
+
+pub fn build_task_detailed(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> TaskDetailed {
+    TaskDetailed {
+        id: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.id"), idx) },
+        session_id: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.session_id"), idx) },
+        owner_pod_id: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.owner_pod_id"), idx) },
+        parent_task_ids: if mode == Mode::AllAbsent { Vec::new() } else { (0..repeats).map(|j| v::guid(&format!("{path}.parent_task_ids"), idx * 211 + j)).collect() },
+        data_dependencies: if mode == Mode::AllAbsent { Vec::new() } else { (0..repeats).map(|j| v::guid(&format!("{path}.data_dependencies"), idx * 211 + j)).collect() },
+        expected_output_ids: if mode == Mode::AllAbsent { Vec::new() } else { (0..repeats).map(|j| v::guid(&format!("{path}.expected_output_ids"), idx * 211 + j)).collect() },
+        retry_of_ids: if mode == Mode::AllAbsent { Vec::new() } else { (0..repeats).map(|j| v::guid(&format!("{path}.retry_of_ids"), idx * 211 + j)).collect() },
+        status: if mode == Mode::AllAbsent { Default::default() } else { TaskStatus::from_i32(v::enum_value(&v::TASK_STATUS, idx)) },
+        status_message: if mode == Mode::AllAbsent { String::new() } else { v::sentence(&format!("{path}.status_message"), idx) },
+        options: if mode == Mode::AllAbsent { None } else { Some(build_task_options(&format!("{path}.options"), idx, mode, repeats, bulk)) },
+        created_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n } }) },
+        submitted_at: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n } }) },
+        started_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n } }) },
+        ended_at: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n } }) },
+        pod_ttl: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n } }) },
+        output: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent { None } else { Some(build_task_output(&format!("{path}.output"), idx, mode, repeats, bulk)) },
+        pod_hostname: if mode == Mode::AllAbsent { String::new() } else { v::word(&format!("{path}.pod_hostname"), idx) },
+        received_at: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n } }) },
+        acquired_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n } }) },
+        creation_to_end_duration: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::duration(idx); Duration { seconds: s, nanos: n } }) },
+        processing_to_end_duration: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::duration(idx); Duration { seconds: s, nanos: n } }) },
+        initial_task_id: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.initial_task_id"), idx) },
+        received_to_end_duration: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::duration(idx); Duration { seconds: s, nanos: n } }) },
+        processed_at: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n } }) },
+        fetched_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n } }) },
+        payload_id: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.payload_id"), idx) },
+        created_by: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.created_by"), idx) },
+    }
+}
+
 pub fn build_list_results_response(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> ListResultsResponse {
     ListResultsResponse {
         results: if mode == Mode::AllAbsent { Vec::new() } else { (0..repeats).map(|j| build_result_raw(&format!("{path}.results"), j, mode, repeats, bulk)).collect() },
+        page: if mode == Mode::AllAbsent { 0 } else { v::scalar_i32(&format!("{path}.page"), idx) },
+        total: if mode == Mode::AllAbsent { 0 } else { v::scalar_i32(&format!("{path}.total"), idx) },
+    }
+}
+
+pub fn build_list_tasks_detailed_response(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -> ListTasksDetailedResponse {
+    ListTasksDetailedResponse {
+        tasks: if mode == Mode::AllAbsent { Vec::new() } else { (0..repeats).map(|j| build_task_detailed(&format!("{path}.tasks"), j, mode, repeats, bulk)).collect() },
         page: if mode == Mode::AllAbsent { 0 } else { v::scalar_i32(&format!("{path}.page"), idx) },
         total: if mode == Mode::AllAbsent { 0 } else { v::scalar_i32(&format!("{path}.total"), idx) },
     }
@@ -92,5 +175,65 @@ pub fn payload_p1_3() -> ListResultsResponse {
     }
 }
 
+/// P2.1: ListTasksDetailedResponse, full
+pub fn payload_p2_1() -> ListTasksDetailedResponse {
+    const REPEATS: [i64; 1] = [3];
+    ListTasksDetailedResponse {
+        tasks: (0..1i64)
+            .map(|j| build_task_detailed("TaskDetailed", j, Mode::Full, REPEATS[(j as usize) % REPEATS.len()], 0))
+            .collect(),
+        page: 1,
+        total: 1,
+    }
+}
+
+/// P2.2: ListTasksDetailedResponse, full
+pub fn payload_p2_2() -> ListTasksDetailedResponse {
+    const REPEATS: [i64; 1] = [3];
+    ListTasksDetailedResponse {
+        tasks: (0..500i64)
+            .map(|j| build_task_detailed("TaskDetailed", j, Mode::Full, REPEATS[(j as usize) % REPEATS.len()], 0))
+            .collect(),
+        page: 1,
+        total: 500,
+    }
+}
+
+/// P2.3: ListTasksDetailedResponse, full
+pub fn payload_p2_3() -> ListTasksDetailedResponse {
+    const REPEATS: [i64; 1] = [30];
+    ListTasksDetailedResponse {
+        tasks: (0..125i64)
+            .map(|j| build_task_detailed("TaskDetailed", j, Mode::Full, REPEATS[(j as usize) % REPEATS.len()], 0))
+            .collect(),
+        page: 1,
+        total: 125,
+    }
+}
+
+/// P2.4: ListTasksDetailedResponse, full
+pub fn payload_p2_4() -> ListTasksDetailedResponse {
+    const REPEATS: [i64; 2] = [3, 150];
+    ListTasksDetailedResponse {
+        tasks: (0..80i64)
+            .map(|j| build_task_detailed("TaskDetailed", j, Mode::Full, REPEATS[(j as usize) % REPEATS.len()], 0))
+            .collect(),
+        page: 1,
+        total: 80,
+    }
+}
+
+/// P2.5: ListTasksDetailedResponse, half_absent
+pub fn payload_p2_5() -> ListTasksDetailedResponse {
+    const REPEATS: [i64; 1] = [3];
+    ListTasksDetailedResponse {
+        tasks: (0..20i64)
+            .map(|j| build_task_detailed("TaskDetailed", j, Mode::HalfAbsent, REPEATS[(j as usize) % REPEATS.len()], 0))
+            .collect(),
+        page: 1,
+        total: 20,
+    }
+}
+
 /// Every payload this build covers, by the id design/SHAPES.md uses.
-pub const COVERED: [&str; 3] = ["P1.1", "P1.2", "P1.3"];
+pub const COVERED: [&str; 8] = ["P1.1", "P1.2", "P1.3", "P2.1", "P2.2", "P2.3", "P2.4", "P2.5"];

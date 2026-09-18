@@ -13,10 +13,16 @@ use ak_rt::dec::Dec;
 use ak_rt::Enc;
 
 /// One learned length-prefix slot per site in this file (ABI v1 section 6).
-pub const SITES: usize = 3;
+pub const SITES: usize = 20;
 
 #[inline]
 fn enc_timestamp(o: &Timestamp, e: &mut Enc) {
+    if o.seconds != 0 { e.varint_field(1, o.seconds as u64); }
+    if o.nanos != 0 { e.varint_field(2, o.nanos as i64 as u64); }
+}
+
+#[inline]
+fn enc_duration(o: &Duration, e: &mut Enc) {
     if o.seconds != 0 { e.varint_field(1, o.seconds as u64); }
     if o.nanos != 0 { e.varint_field(2, o.nanos as i64 as u64); }
 }
@@ -45,9 +51,125 @@ fn enc_result_raw(o: &ResultRaw, e: &mut Enc) {
 }
 
 #[inline]
+fn enc_task_options(o: &TaskOptions, e: &mut Enc) {
+    for (k, val) in &o.options {
+        let mk = e.begin(1, 2);
+        if !k.is_empty() { e.blob_field(1, k.as_bytes()); }
+        if !val.is_empty() { e.blob_field(2, val.as_bytes()); }
+        e.end(mk);
+    }
+    if let Some(c) = &o.max_duration {
+        let mk = e.begin(2, 3);
+        enc_duration(c, e);
+        e.end(mk);
+    }
+    if o.max_retries != 0 { e.varint_field(3, o.max_retries as i64 as u64); }
+    if o.priority != 0 { e.varint_field(4, o.priority as i64 as u64); }
+    if !o.partition_id.is_empty() { e.blob_field(5, o.partition_id.as_bytes()); }
+    if !o.application_name.is_empty() { e.blob_field(6, o.application_name.as_bytes()); }
+    if !o.application_version.is_empty() { e.blob_field(7, o.application_version.as_bytes()); }
+    if !o.application_namespace.is_empty() { e.blob_field(8, o.application_namespace.as_bytes()); }
+    if !o.application_service.is_empty() { e.blob_field(9, o.application_service.as_bytes()); }
+    if !o.engine_type.is_empty() { e.blob_field(10, o.engine_type.as_bytes()); }
+}
+
+#[inline]
+fn enc_task_output(o: &TaskOutput, e: &mut Enc) {
+    if o.success { e.varint_field(1, 1); }
+    if !o.error.is_empty() { e.blob_field(2, o.error.as_bytes()); }
+}
+
+#[inline]
+fn enc_task_detailed(o: &TaskDetailed, e: &mut Enc) {
+    if !o.id.is_empty() { e.blob_field(1, o.id.as_bytes()); }
+    if !o.session_id.is_empty() { e.blob_field(2, o.session_id.as_bytes()); }
+    if !o.owner_pod_id.is_empty() { e.blob_field(3, o.owner_pod_id.as_bytes()); }
+    for s in &o.parent_task_ids { e.blob_field(4, s.as_bytes()); }
+    for s in &o.data_dependencies { e.blob_field(5, s.as_bytes()); }
+    for s in &o.expected_output_ids { e.blob_field(6, s.as_bytes()); }
+    for s in &o.retry_of_ids { e.blob_field(7, s.as_bytes()); }
+    { let v = o.status.to_i32(); if v != 0 { e.varint_field(8, v as i64 as u64); } }
+    if !o.status_message.is_empty() { e.blob_field(9, o.status_message.as_bytes()); }
+    if let Some(c) = &o.options {
+        let mk = e.begin(10, 4);
+        enc_task_options(c, e);
+        e.end(mk);
+    }
+    if let Some(c) = &o.created_at {
+        let mk = e.begin(11, 5);
+        enc_timestamp(c, e);
+        e.end(mk);
+    }
+    if let Some(c) = &o.submitted_at {
+        let mk = e.begin(12, 6);
+        enc_timestamp(c, e);
+        e.end(mk);
+    }
+    if let Some(c) = &o.started_at {
+        let mk = e.begin(13, 7);
+        enc_timestamp(c, e);
+        e.end(mk);
+    }
+    if let Some(c) = &o.ended_at {
+        let mk = e.begin(14, 8);
+        enc_timestamp(c, e);
+        e.end(mk);
+    }
+    if let Some(c) = &o.pod_ttl {
+        let mk = e.begin(15, 9);
+        enc_timestamp(c, e);
+        e.end(mk);
+    }
+    if let Some(c) = &o.output {
+        let mk = e.begin(16, 10);
+        enc_task_output(c, e);
+        e.end(mk);
+    }
+    if !o.pod_hostname.is_empty() { e.blob_field(17, o.pod_hostname.as_bytes()); }
+    if let Some(c) = &o.received_at {
+        let mk = e.begin(18, 11);
+        enc_timestamp(c, e);
+        e.end(mk);
+    }
+    if let Some(c) = &o.acquired_at {
+        let mk = e.begin(19, 12);
+        enc_timestamp(c, e);
+        e.end(mk);
+    }
+    if let Some(c) = &o.creation_to_end_duration {
+        let mk = e.begin(20, 13);
+        enc_duration(c, e);
+        e.end(mk);
+    }
+    if let Some(c) = &o.processing_to_end_duration {
+        let mk = e.begin(21, 14);
+        enc_duration(c, e);
+        e.end(mk);
+    }
+    if !o.initial_task_id.is_empty() { e.blob_field(22, o.initial_task_id.as_bytes()); }
+    if let Some(c) = &o.received_to_end_duration {
+        let mk = e.begin(23, 15);
+        enc_duration(c, e);
+        e.end(mk);
+    }
+    if let Some(c) = &o.processed_at {
+        let mk = e.begin(24, 16);
+        enc_timestamp(c, e);
+        e.end(mk);
+    }
+    if let Some(c) = &o.fetched_at {
+        let mk = e.begin(25, 17);
+        enc_timestamp(c, e);
+        e.end(mk);
+    }
+    if !o.payload_id.is_empty() { e.blob_field(26, o.payload_id.as_bytes()); }
+    if !o.created_by.is_empty() { e.blob_field(27, o.created_by.as_bytes()); }
+}
+
+#[inline]
 fn enc_list_results_response(o: &ListResultsResponse, e: &mut Enc) {
     for c in &o.results {
-        let mk = e.begin(1, 2);
+        let mk = e.begin(1, 18);
         enc_result_raw(c, e);
         e.end(mk);
     }
@@ -56,7 +178,34 @@ fn enc_list_results_response(o: &ListResultsResponse, e: &mut Enc) {
 }
 
 #[inline]
+fn enc_list_tasks_detailed_response(o: &ListTasksDetailedResponse, e: &mut Enc) {
+    for c in &o.tasks {
+        let mk = e.begin(1, 19);
+        enc_task_detailed(c, e);
+        e.end(mk);
+    }
+    if o.page != 0 { e.varint_field(2, o.page as i64 as u64); }
+    if o.total != 0 { e.varint_field(3, o.total as i64 as u64); }
+}
+
+#[inline]
 fn dec_timestamp(d: &mut Dec, out: &mut Timestamp) {
+    #[allow(unused_variables)]
+    let buf = d.buf;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        match tag {
+            1 if wire == 0 => out.seconds = d.varint() as i64,
+            2 if wire == 0 => out.nanos = d.varint() as i32,
+            _ => d.skip(wire),
+        }
+    }
+}
+
+#[inline]
+fn dec_duration(d: &mut Dec, out: &mut Duration) {
     #[allow(unused_variables)]
     let buf = d.buf;
     while !d.at_end() {
@@ -134,6 +283,282 @@ fn dec_result_raw(d: &mut Dec, out: &mut ResultRaw) {
 }
 
 #[inline]
+fn dec_task_options(d: &mut Dec, out: &mut TaskOptions) {
+    #[allow(unused_variables)]
+    let buf = d.buf;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        match tag {
+            1 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                let (mut k, mut val) = (String::new(), String::new());
+                let eb = sub.buf;
+                while !sub.at_end() {
+                    let kk = sub.varint();
+                    let (et, ew) = ((kk >> 3) as u32, (kk & 7) as u32);
+                    match et {
+                        1 if ew == 2 => { let (a, b) = sub.len_body();
+                            k = String::from_utf8_lossy(&eb[a..a + b]).into_owned(); }
+                        2 if ew == 2 => { let (a, b) = sub.len_body();
+                            val = String::from_utf8_lossy(&eb[a..a + b]).into_owned(); }
+                        _ => sub.skip(ew),
+                    }
+                }
+                if sub.err != 0 { d.err = sub.err; }
+                out.options.insert(k, val);
+            }
+            2 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = Duration::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_duration(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.max_duration = Some(c);
+            }
+            3 if wire == 0 => out.max_retries = d.varint() as i32,
+            4 if wire == 0 => out.priority = d.varint() as i32,
+            5 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.partition_id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            6 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.application_name = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            7 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.application_version = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            8 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.application_namespace = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            9 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.application_service = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            10 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.engine_type = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            _ => d.skip(wire),
+        }
+    }
+}
+
+#[inline]
+fn dec_task_output(d: &mut Dec, out: &mut TaskOutput) {
+    #[allow(unused_variables)]
+    let buf = d.buf;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        match tag {
+            1 if wire == 0 => out.success = d.varint() != 0,
+            2 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.error = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            _ => d.skip(wire),
+        }
+    }
+}
+
+#[inline]
+fn dec_task_detailed(d: &mut Dec, out: &mut TaskDetailed) {
+    #[allow(unused_variables)]
+    let buf = d.buf;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        match tag {
+            1 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            2 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.session_id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            3 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.owner_pod_id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            4 if wire == 2 => {
+                let (off, n) = d.len_body();
+                out.parent_task_ids.push(String::from_utf8_lossy(&buf[off..off + n]).into_owned());
+            }
+            5 if wire == 2 => {
+                let (off, n) = d.len_body();
+                out.data_dependencies.push(String::from_utf8_lossy(&buf[off..off + n]).into_owned());
+            }
+            6 if wire == 2 => {
+                let (off, n) = d.len_body();
+                out.expected_output_ids.push(String::from_utf8_lossy(&buf[off..off + n]).into_owned());
+            }
+            7 if wire == 2 => {
+                let (off, n) = d.len_body();
+                out.retry_of_ids.push(String::from_utf8_lossy(&buf[off..off + n]).into_owned());
+            }
+            8 if wire == 0 => out.status = TaskStatus::from_i32(d.varint() as i32),
+            9 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.status_message = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            10 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = TaskOptions::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_task_options(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.options = Some(c);
+            }
+            11 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = Timestamp::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_timestamp(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.created_at = Some(c);
+            }
+            12 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = Timestamp::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_timestamp(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.submitted_at = Some(c);
+            }
+            13 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = Timestamp::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_timestamp(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.started_at = Some(c);
+            }
+            14 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = Timestamp::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_timestamp(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.ended_at = Some(c);
+            }
+            15 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = Timestamp::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_timestamp(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.pod_ttl = Some(c);
+            }
+            16 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = TaskOutput::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_task_output(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.output = Some(c);
+            }
+            17 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.pod_hostname = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            18 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = Timestamp::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_timestamp(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.received_at = Some(c);
+            }
+            19 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = Timestamp::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_timestamp(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.acquired_at = Some(c);
+            }
+            20 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = Duration::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_duration(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.creation_to_end_duration = Some(c);
+            }
+            21 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = Duration::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_duration(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.processing_to_end_duration = Some(c);
+            }
+            22 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.initial_task_id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            23 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = Duration::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_duration(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.received_to_end_duration = Some(c);
+            }
+            24 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = Timestamp::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_timestamp(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.processed_at = Some(c);
+            }
+            25 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = Timestamp::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_timestamp(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.fetched_at = Some(c);
+            }
+            26 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.payload_id = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            27 if wire == 2 => {
+                let (off, n) = d.len_body();
+                // ABI v1 section 7: malformed input becomes U+FFFD on both halves.
+                out.created_by = String::from_utf8_lossy(&buf[off..off + n]).into_owned();
+            }
+            _ => d.skip(wire),
+        }
+    }
+}
+
+#[inline]
 fn dec_list_results_response(d: &mut Dec, out: &mut ListResultsResponse) {
     #[allow(unused_variables)]
     let buf = d.buf;
@@ -157,7 +582,31 @@ fn dec_list_results_response(d: &mut Dec, out: &mut ListResultsResponse) {
     }
 }
 
-pub fn encode(o: &ListResultsResponse) -> Vec<u8> {
+#[inline]
+fn dec_list_tasks_detailed_response(d: &mut Dec, out: &mut ListTasksDetailedResponse) {
+    #[allow(unused_variables)]
+    let buf = d.buf;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        match tag {
+            1 if wire == 2 => {
+                let (off, n) = d.len_body();
+                let mut c = TaskDetailed::default();
+                let mut sub = Dec::new(&buf[off..off + n]);
+                dec_task_detailed(&mut sub, &mut c);
+                if sub.err != 0 { d.err = sub.err; }
+                out.tasks.push(c);
+            }
+            2 if wire == 0 => out.page = d.varint() as i32,
+            3 if wire == 0 => out.total = d.varint() as i32,
+            _ => d.skip(wire),
+        }
+    }
+}
+
+pub fn encode_list_results_response(o: &ListResultsResponse) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_list_results_response(o, &mut e);
     e.buf
@@ -165,14 +614,34 @@ pub fn encode(o: &ListResultsResponse) -> Vec<u8> {
 
 /// Encode into a context that is reused, so the learned widths survive and the
 /// allocation is not part of what is timed. This is the shape a real host uses.
-pub fn encode_into(o: &ListResultsResponse, e: &mut Enc) {
+pub fn encode_into_list_results_response(o: &ListResultsResponse, e: &mut Enc) {
     e.reset();
     enc_list_results_response(o, e);
 }
 
-pub fn decode(b: &[u8]) -> Result<ListResultsResponse, i32> {
+pub fn decode_list_results_response(b: &[u8]) -> Result<ListResultsResponse, i32> {
     let mut d = Dec::new(b);
     let mut out = ListResultsResponse::default();
     dec_list_results_response(&mut d, &mut out);
+    if d.err != 0 { Err(d.err) } else { Ok(out) }
+}
+
+pub fn encode_list_tasks_detailed_response(o: &ListTasksDetailedResponse) -> Vec<u8> {
+    let mut e = Enc::new(SITES);
+    enc_list_tasks_detailed_response(o, &mut e);
+    e.buf
+}
+
+/// Encode into a context that is reused, so the learned widths survive and the
+/// allocation is not part of what is timed. This is the shape a real host uses.
+pub fn encode_into_list_tasks_detailed_response(o: &ListTasksDetailedResponse, e: &mut Enc) {
+    e.reset();
+    enc_list_tasks_detailed_response(o, e);
+}
+
+pub fn decode_list_tasks_detailed_response(b: &[u8]) -> Result<ListTasksDetailedResponse, i32> {
+    let mut d = Dec::new(b);
+    let mut out = ListTasksDetailedResponse::default();
+    dec_list_tasks_detailed_response(&mut d, &mut out);
     if d.err != 0 { Err(d.err) } else { Ok(out) }
 }

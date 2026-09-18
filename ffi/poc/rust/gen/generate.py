@@ -34,17 +34,20 @@ ROOT = os.path.dirname(HERE)
 
 # Stage 2 covers M1 over P1.1 and P1.2. Stage 3 adds the rest of design/SHAPES.md by
 # adding roots here; nothing else in the generator is per-payload.
-ROOTS = ["ListResultsResponse"]
+ROOTS = ["ListResultsResponse", "ListTasksDetailedResponse"]
 
 
 def targets(ir):
+    # The codec is emitted FIRST because it allocates the length-prefix sites, and the
+    # header carries their names.
+    codec = rust_abi.emit_codec(ir)
     return {
         "crates/facade/src/generated/types.rs": rust_facade.emit_types(ir),
         "crates/facade/src/generated/prost_impl.rs": rust_facade.emit_prost_impl(ir),
         "crates/facade/src/generated/build.rs": rust_build.emit(ir),
         "crates/facade/src/generated/core_native.rs": rust_core.emit_core_native(ir),
         "crates/ak-abi/src/generated/abi.rs": rust_abi.emit_abi(ir),
-        "crates/ak-core/src/generated/codec.rs": rust_abi.emit_codec(ir),
+        "crates/ak-core/src/generated/codec.rs": codec,
         "crates/harness/src/generated/binding.rs": rust_abi.emit_binding(ir),
     }
 

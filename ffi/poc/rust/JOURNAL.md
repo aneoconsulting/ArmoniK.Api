@@ -277,3 +277,201 @@ Everything in STATE.md's list. Named here because they bear on how the table abo
 read: only M1, only ASCII, no oneof, no map, no packed, no repeated string, no adapter site,
 no unknown fields, no RPC, single-threaded, and the floor is unverified for want of a 1.88
 toolchain.
+
+### 2026-09-18 — stage 3, part 1: M2, the non-leaf element
+
+**Two shape-coverage findings before any code**, reported rather than acted on, because a
+slice does not change a shape:
+
+1. `design/SHAPES.md` line 69 says **`packed repeated enum | M2 | what the real schema
+   actually has`**. `shapes.json` has no packed enum field anywhere, and `TaskDetailed` has
+   no packed field at all: its cards are `singular` and `repeated` only. The only packed
+   fields in the description are on M6 (`MetricsBatch`) and they are `int64`, `double`,
+   `int32` and `bool`. M6 is the **stated control**. So the one packed shape the real schema
+   has — 3 fields, all enums — is not reachable by this payload set, and the row that claims
+   it is covered is wrong.
+2. `design/SHAPES.md` says M2 covers **`nested message, depth up to 6 | the schema's maximum
+   static depth`**. `emit/shapes.py`'s own `depth()` gives 3 for `ListTasksDetailedResponse`
+   and 3 as the maximum over every message in the description:
+   `ListTasksDetailedResponse -> tasks:TaskDetailed -> options:TaskOptions ->
+   max_duration:Duration`. Nothing reaches 6.
+
+**What M2 needed from the generator**, none of which M1 exercised: repeated string fields, a
+`map<string, string>`, a singular message child that itself carries a loop field, and an
+element type that fails ABI v1 7.2's batching predicate.
+
+The map became a synthetic pair message in the IR (`gen/ir.py`, `_synthesise_entry`), once,
+so no backend has a map case — ABI v1 section 11. `loop_slots()` is the other new piece: a
+repeated or map field inside an inlined child keeps its loop slot and is reached through the
+parent, so `TaskOptions` never appears in the ABI as a message with a vtable of its own and
+`ak_evt_TaskDetailed` carries `loop_options_options`.
+
+For a non-leaf element the encode side is `ak_elemu_TaskDetailed(ctx, elems, n, tok0)`,
+naming element *i* as `tok0 + i`, and the decode side gets the protocol ABI v1 7.2 describes
+as "two calls per element": `new_tasks` creates an empty element and returns its index,
+`add_tasks_<field>` appends to it, and `apply_tasks` sets the singular subtree at the end.
+**The order is what forces it**: `apply` has to come last, because the runs that populate
+the repeated fields can arrive before the group fields are parsed, so a binding that
+constructed the element from the group would discard them. That produced a codegen rule that
+was swept rather than special-cased: **a message whose type carries a repeated or map field
+is filled in place, never constructed; a leaf message gets a constructor.**
+
+#### Correctness: four arms, P2.1 to P2.5, byte-identical
+
+All four arms match the validated manifest on all five M2 payloads, P2.4 and P2.5 included,
+and the three facade decoders land on the same value from the same bytes — a check byte
+identity of the encoders does not give, added here because M2 is the first shape where two
+decoders could agree on bytes and disagree on a map.
+
+#### Defect 1: the nested child read from the wrong reader
+
+`range start index 783 out of range for slice of length 179`. The emitted arm for a singular
+message child took its length prefix from `d` (the root reader) instead of the reader at its
+own depth. It only shows on a child at depth two or more, which is why M1 never saw it:
+`ResultRaw.created_at` is depth one, `TaskDetailed.options.max_duration` is depth two. Fixed
+in the emitter, which is the only place it could be fixed.
+
+#### Defect 2: the codec's open-field state leaked across an element run, and the payload
+#### set could not have caught it
+
+Found by asking why a length-prefix site would not converge. `loop/TaskDetailed/options.options`
+missed **448 times in 500 elements** on P2.2, a payload whose elements are all the same
+shape, where the learned width should settle after one pass and never miss again. Probing the
+site showed widths of 1, 2 **and 3** — a map entry is about 30 bytes, so something much
+larger was using that slot.
+
+It was the element body. `ak_elemu_TaskDetailed` reads the open field's tag and site from the
+context at entry; the host drives iteration and calls it **once per chunk**; and encoding an
+element sets the open state for that element's own repeated fields. So from the second chunk
+onwards the element run read whatever the last element had left behind — the map's tag and
+site rather than `tasks`'s.
+
+**The length-prefix thrashing was the symptom, not the defect.** `open_tag` is read there
+too, so a host that chunks writes its later chunks under the inner field's tag. This payload
+set did not corrupt, and the reason is worth stating plainly: `ListTasksDetailedResponse.tasks`
+is tag 1 and `TaskOptions.options` is tag 1. **Byte identity passed on a tag collision.** A
+root whose repeated field had any other tag would have produced silently wrong wire on every
+chunk after the first, and nothing in `design/SHAPES.md` has one.
+
+Fixed by having every element and run entry point save the open state at entry and restore it
+before returning, so a run leaves the codec's open field as it found it. After the fix:
+P1.2, P2.2, P2.3 and P2.5 all converge to **zero** warm misses, and that is now a regression
+check in the counting build (`gen/stage3.sh` step 3) rather than something to rediscover.
+
+#### Crossings, counted (`--features count`)
+
+| payload | class | direction | elements | forward | reverse | crossings | per element |
+|---|---|---|---|---|---|---|---|
+| P1.2 | real | encode | 1,000 | 8 | 1 | 9 | 0.009 |
+| P1.2 | real | decode | 1,000 | 1 | 5 | 6 | 0.006 |
+| P2.2 | real | encode | 500 | 2,511 | 2,501 | 5,012 | 10.02 |
+| P2.2 | real | decode | 500 | 1 | 3,501 | 3,502 | **7.004** |
+
+**7.004 crossings per task on decode is exactly what ABI v1 7.2 predicts** — "keeps two calls
+per element, which is 7 crossings per task where the drafted ABI spent 43". Two calls per
+element (`new`, `apply`) plus one run for each of the four repeated string fields and one for
+the map. The specification's number was an argument; it is now a measurement.
+
+Encode costs 10.02 per element on the same payload, which is higher than decode and is the
+number nobody had: five reverse calls (one per loop slot) and five forward calls (four blob
+runs and one pair run) per element, plus the root loop and the chunked element runs. **The
+batching predicate saves the decode side and not the encode side**, because on encode the
+host drives every one of its own containers.
+
+#### ABI v1 open decision 5, answered
+
+Per-site miss counts on a warm context, which is what makes this an answer rather than an
+aggregate:
+
+| payload | shape | warm misses | bytes moved |
+|---|---|---|---|
+| P1.2 | uniform | 0 | 0 |
+| P2.2 | uniform, 500 elements | 0 | 0 |
+| P2.3 | uniform, 125 elements | 0 | 0 |
+| P2.5 | uniform, 20 elements | 0 | 0 |
+| **P2.4** | **alternating 3/150** | **80, one per element** | **980,938** |
+
+On P2.4 the encoder memmoves 980,938 bytes of a 981,222-byte output: essentially the whole
+payload, once, every encode. All of it at one site, `loop/ListTasksDetailedResponse/tasks`,
+and 1.00 misses per element, which is what "wrong on every element by construction" means.
+Zero transcoder grow-callback invocations at any point, on any payload.
+
+**What it costs**, isolated rather than attributed. P2.4 against P2.3 is not size-matched, so
+two arms were added (allowed; a shape was not changed): P2.4a is 80 elements at 3 repeats and
+P2.4b is 80 elements at 150, and 87,422 + 1,875,022 is exactly twice P2.4's 981,222, with the
+element, field and string counts matching too. So `t(P2.4) - (t(P2.4a) + t(P2.4b))/2` is the
+thrashing and nothing else. prost goes through the same arithmetic as a floor, because it
+computes lengths in a first pass and has no learned width at all:
+
+| arm | excess of P2.4 over the mean |
+|---|---|
+| prost (floor: the construction's own non-linearity) | 2.03 % |
+| core-native | 5.04 % |
+| core-ffi-rust | 2.91 % |
+
+So the mechanism costs roughly **1 to 3 percentage points of an encode on the payload built
+to defeat it**, and nothing at all on every uniform payload. That is much less than the
+980 KB moved suggests, because the move is a sequential in-cache memmove of a ~12 KB element
+body, about 70 ns each.
+
+**The limit of the mechanism, stated because it is structural.** A per-site learned width
+cannot avoid the move when a site's bodies straddle a varint boundary: over-reserving would
+need a non-minimal varint, which ABI v1 section 6 refuses outright, and under-reserving needs
+the move. The alternatives are a two-pass length computation (what prost does) or writing the
+body to scratch first. The measurement says the learned width is the right default; it does
+not say it can be made to converge on P2.4, because it cannot.
+
+#### What M2 measures (`ffi/logs/rust/stage3-M2.log`)
+
+See the log for the full table with spreads. The shape of it: on the uniform M2 payloads
+`core-ffi-rust` encode is 0.88 to 0.92 of prost and decode 0.84 to 0.90, `core-native` encode
+0.48 to 0.57, and `armonik` sits within a percent or two of prost in both directions. The
+validating UTF-8 transcoder costs more on M2 than on M1 — 1.20 to 1.40 against 0.88 to 1.08 —
+because M2 is a denser string payload, which is a second data point for ABI v1 open
+decision 3 and it moves the wrong way for validation.
+
+#### The M2 result that matters most, and it is not the one I expected
+
+Ratios to prost, range over three processes (`ffi/logs/rust/stage3-M2.log`, first appendix):
+
+| payload | direction | armonik | core-native | core-ffi-rust |
+|---|---|---|---|---|
+| P2.1 | encode | 0.697 - 0.970 | 0.342 - 0.484 | 0.704 - 0.981 |
+| P2.2 | encode | 0.991 - 1.001 | 0.493 - 0.517 | 0.833 - 0.856 |
+| P2.3 | encode | 0.953 - 1.000 | 0.476 - 0.508 | 0.876 - 0.924 |
+| P2.4 | encode | 0.992 - 1.000 | 0.565 - 0.570 | 1.026 - 1.035 |
+| P2.5 | encode | 0.978 - 1.014 | 0.463 - 0.476 | 0.893 - 0.901 |
+| P2.1 | decode | 0.961 - 0.980 | 0.878 - 1.028 | 1.081 - 1.209 |
+| P2.2 | decode | 0.970 - 0.974 | 0.894 - 0.961 | 0.950 - 1.015 |
+| P2.3 | decode | 1.017 - 1.017 | 0.932 - 1.068 | 0.819 - 0.953 |
+| P2.4 | decode | 0.967 - 0.970 | 0.897 - 1.067 | 0.809 - 0.981 |
+| P2.5 | decode | 0.995 - 1.010 | 0.919 - 0.992 | 0.944 - 1.033 |
+
+**Encode holds up: the core is 0.46 to 0.57 of prost natively and 0.83 to 0.92 through the C
+ABI on every uniform M2 payload.** The M1 result survives the harder shape.
+
+**Decode does not.** On M1 both core arms sat at 0.75 to 0.89. On M2 `core-native` is 0.88 to
+1.07 and `core-ffi-rust` is 0.81 to 1.21: parity, with a spread wide enough that the honest
+statement is "no measurable difference from prost".
+
+**The crossings are not the reason.** Seven per element at 1.8 ns is 12.6 ns, against about
+2,200 ns per element for P2.2 decode: 0.6 percent. And `core-native` makes none at all and is
+at parity too. What changed between M1 and M2 is the payload: P2.2 carries 17,500 strings and
+2,000 map entries in 551 KB, so decode is dominated by `String` allocation and `BTreeMap`
+insertion, which every arm does identically. **On the shape the control plane actually moves,
+decode is allocation-bound and the codec stops mattering.** That bounds the whole decode half
+of the argument, and it is a better reason to be cautious about decode figures than any
+ratio in this table.
+
+The interface cost is still visible underneath it, and it is small: `core-ffi-rust` against
+`core-native` is about 6 percent on M2 decode and about 2 percent on M1.
+
+**The other half of the two-calls-per-element protocol.** `new` then `apply` means the host
+materialises a default 27-field `TaskDetailed` and then fills it, where prost constructs it
+once. The order is forced: the runs can arrive before the group fields, so a binding that
+constructed from the group would discard them. Whether the ABI should let the codec defer a
+flush to the end of an element body when the arena has room — which would allow `apply`
+first and one construction — is a design question and it is not mine to answer.
+
+**P2.1 is one element.** Its ratios are a call-rate figure with a huge spread (encode 0.70 to
+0.98 on the same arm) and should not be read as a throughput result.

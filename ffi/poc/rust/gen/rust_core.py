@@ -67,6 +67,12 @@ def walk_encode(ir, m, b, o):
             b.scalar(m, f, o)
         elif f.card == "singular" and f.kind == "double":
             b.double(m, f, o)
+        elif f.card == "repeated" and f.kind in ("string", "bytes"):
+            b.repeated_blob(m, f, o)
+        elif f.card == "packed":
+            b.packed(m, f, o)
+        elif f.card == "map":
+            b.map(m, f, o)
         else:
             raise NotImplementedError("encode %s.%s (%s %s): stage 3"
                                       % (m.name, f.name, f.card, f.kind))
@@ -87,6 +93,12 @@ def walk_decode(ir, m, b, o):
             b.scalar(m, f, o)
         elif f.card == "singular" and f.kind == "double":
             b.double(m, f, o)
+        elif f.card == "repeated" and f.kind in ("string", "bytes"):
+            b.repeated_blob(m, f, o)
+        elif f.card == "packed":
+            b.packed(m, f, o)
+        elif f.card == "map":
+            b.map(m, f, o)
         else:
             raise NotImplementedError("decode %s.%s (%s %s): stage 3"
                                       % (m.name, f.name, f.card, f.kind))
@@ -133,6 +145,39 @@ class NativeEnc:
     def double(self, m, f, o):
         o.append("    if o.%s != 0.0 { e.f64_field(%d, o.%s); }" % (f.name, f.tag, f.name))
 
+    def repeated_blob(self, m, f, o):
+        acc = "s.as_bytes()" if f.kind == "string" else "&s[..]"
+        o.append("    for s in &o.%s { e.blob_field(%d, %s); }" % (f.name, f.tag, acc))
+
+    def packed(self, m, f, o):
+        # Repeated scalars are always packed in the canonical form, and an empty one is
+        # written as nothing rather than as a zero-length field.
+        o.append("    if !o.%s.is_empty() {" % f.name)
+        s_ = self.sites.id(("packed", m.name, f.name))
+        o.append("        let mk = e.begin(%d, %d);" % (f.tag, s_))
+        if f.kind == "double":
+            o.append("        for v in &o.%s { e.buf.extend_from_slice(&v.to_le_bytes()); }" % f.name)
+        elif f.kind == "bool":
+            o.append("        for v in &o.%s { e.varint(*v as u64); }" % f.name)
+        elif f.kind == "int32":
+            o.append("        for v in &o.%s { e.varint(*v as i64 as u64); }" % f.name)
+        else:
+            o.append("        for v in &o.%s { e.varint(*v as u64); }" % f.name)
+        o.append("        e.end(mk);")
+        o.append("    }")
+
+    def map(self, m, f, o):
+        # No map case: a pair message, written through the same length-prefixed path as any
+        # other repeated message (ABI v1 section 11). BTreeMap iterates in key order, which
+        # is the canonical form ffi/schema/README.md fixes.
+        s_ = self.sites.id(("map", m.name, f.name))
+        o.append("    for (k, val) in &o.%s {" % f.name)
+        o.append("        let mk = e.begin(%d, %d);" % (f.tag, s_))
+        o.append("        if !k.is_empty() { e.blob_field(1, k.as_bytes()); }")
+        o.append("        if !val.is_empty() { e.blob_field(2, val.as_bytes()); }")
+        o.append("        e.end(mk);")
+        o.append("    }")
+
 
 class NativeDec:
     def child(self, m, f, o):
@@ -176,12 +221,61 @@ class NativeDec:
     def double(self, m, f, o):
         o.append("            %d if wire == 1 => out.%s = d.f64()," % (f.tag, f.name))
 
+    def repeated_blob(self, m, f, o):
+        o.append("            %d if wire == 2 => {" % f.tag)
+        o.append("                let (off, n) = d.len_body();")
+        if f.kind == "string":
+            o.append("                out.%s.push(String::from_utf8_lossy(&buf[off..off + n]).into_owned());"
+                     % f.name)
+        else:
+            o.append("                out.%s.push(::bytes::Bytes::copy_from_slice(&buf[off..off + n]));"
+                     % f.name)
+        o.append("            }")
+
+    def packed(self, m, f, o):
+        # A decoder must accept both forms whatever the writer emits: proto3 makes packed
+        # the default, it does not make the unpacked form illegal.
+        rd = {"double": "sub.f64()", "bool": "sub.varint() != 0",
+              "int32": "sub.varint() as i32", "int64": "sub.varint() as i64"}[f.kind]
+        rd1 = {"double": "d.f64()", "bool": "d.varint() != 0",
+               "int32": "d.varint() as i32", "int64": "d.varint() as i64"}[f.kind]
+        o.append("            %d if wire == 2 => {" % f.tag)
+        o.append("                let (off, n) = d.len_body();")
+        o.append("                let mut sub = Dec::new(&buf[off..off + n]);")
+        o.append("                while !sub.at_end() { out.%s.push(%s); }" % (f.name, rd))
+        o.append("                if sub.err != 0 { d.err = sub.err; }")
+        o.append("            }")
+        o.append("            %d => out.%s.push(%s)," % (f.tag, f.name, rd1))
+
+    def map(self, m, f, o):
+        o.append("            %d if wire == 2 => {" % f.tag)
+        o.append("                let (off, n) = d.len_body();")
+        o.append("                let mut sub = Dec::new(&buf[off..off + n]);")
+        o.append("                let (mut k, mut val) = (String::new(), String::new());")
+        o.append("                let eb = sub.buf;")
+        o.append("                while !sub.at_end() {")
+        o.append("                    let kk = sub.varint();")
+        o.append("                    let (et, ew) = ((kk >> 3) as u32, (kk & 7) as u32);")
+        o.append("                    match et {")
+        o.append("                        1 if ew == 2 => { let (a, b) = sub.len_body();")
+        o.append("                            k = String::from_utf8_lossy(&eb[a..a + b]).into_owned(); }")
+        o.append("                        2 if ew == 2 => { let (a, b) = sub.len_body();")
+        o.append("                            val = String::from_utf8_lossy(&eb[a..a + b]).into_owned(); }")
+        o.append("                        _ => sub.skip(ew),")
+        o.append("                    }")
+        o.append("                }")
+        o.append("                if sub.err != 0 { d.err = sub.err; }")
+        o.append("                out.%s.insert(k, val);" % f.name)
+        o.append("            }")
+
 
 def emit_core_native(ir):
     sites = Sites()
     body = []
     for name in ir.order:
         m = ir.msg(name)
+        if m.synthetic:
+            continue
         body.append("#[inline]")
         body.append("fn enc_%s(o: &%s, e: &mut Enc) {" % (snake(name), name))
         walk_encode(ir, m, NativeEnc(sites), body)
@@ -189,6 +283,8 @@ def emit_core_native(ir):
         body.append("")
     for name in ir.order:
         m = ir.msg(name)
+        if m.synthetic:
+            continue
         body.append("#[inline]")
         body.append("fn dec_%s(d: &mut Dec, out: &mut %s) {" % (snake(name), name))
         body.append("    #[allow(unused_variables)]\n    let buf = d.buf;")
@@ -222,7 +318,7 @@ def emit_core_native(ir):
          ""]
     o += body
     for root in ir.roots:
-        o.append("pub fn encode(o: &%s) -> Vec<u8> {" % root)
+        o.append("pub fn encode_%s(o: &%s) -> Vec<u8> {" % (snake(root), root))
         o.append("    let mut e = Enc::new(SITES);")
         o.append("    enc_%s(o, &mut e);" % snake(root))
         o.append("    e.buf")
@@ -230,12 +326,12 @@ def emit_core_native(ir):
         o.append("")
         o.append("/// Encode into a context that is reused, so the learned widths survive and the")
         o.append("/// allocation is not part of what is timed. This is the shape a real host uses.")
-        o.append("pub fn encode_into(o: &%s, e: &mut Enc) {" % root)
+        o.append("pub fn encode_into_%s(o: &%s, e: &mut Enc) {" % (snake(root), root))
         o.append("    e.reset();")
         o.append("    enc_%s(o, e);" % snake(root))
         o.append("}")
         o.append("")
-        o.append("pub fn decode(b: &[u8]) -> Result<%s, i32> {" % root)
+        o.append("pub fn decode_%s(b: &[u8]) -> Result<%s, i32> {" % (snake(root), root))
         o.append("    let mut d = Dec::new(b);")
         o.append("    let mut out = %s::default();" % root)
         o.append("    dec_%s(&mut d, &mut out);" % snake(root))

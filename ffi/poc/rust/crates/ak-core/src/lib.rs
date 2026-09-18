@@ -26,9 +26,18 @@ pub fn link_anchor() -> u32 {
 pub struct EncCtxImpl {
     pub e: Enc,
     /// Which repeated field is open, so the element entry point does not have to be told
-    /// its own tag: the codec drives, and it knows the field (ABI v1 rule 2).
+    /// its own tag: the codec drives, and it knows the field (ABI v1 rule 2). Read into
+    /// locals at the top of a run, because encoding a non-leaf element makes reverse calls
+    /// that open fields of their own.
     pub open_tag: u32,
     pub open_site: u32,
+    /// The wire encoding of a packed field comes from the schema and lives here, so `bool`
+    /// and `enum` need no symbols of their own (ABI v1 section 6).
+    pub open_kind: u32,
+    /// The element vtable and the root object, for a non-leaf element run: the codec passes
+    /// the object pointer back to the host and never dereferences it.
+    pub open_vt: *const c_void,
+    pub open_obj: *const c_void,
 }
 
 pub struct DecCtxImpl {
@@ -47,6 +56,9 @@ pub extern "C" fn ak_enc_ctx_new() -> *mut ak_enc_ctx {
         e: Enc::new(generated::codec::SITES),
         open_tag: 0,
         open_site: 0,
+        open_kind: 0,
+        open_vt: core::ptr::null(),
+        open_obj: core::ptr::null(),
     });
     Box::into_raw(b) as *mut ak_enc_ctx
 }
@@ -113,6 +125,7 @@ pub unsafe extern "C" fn ak_enc_counters(ctx: *const ak_enc_ctx, out: *mut AkCou
         reverse: c.reverse,
         transcode: c.transcode,
         prefix_moves: c.prefix_moves,
+        prefix_bytes: c.prefix_bytes,
         grows: c.grows,
     };
 }
@@ -120,6 +133,25 @@ pub unsafe extern "C" fn ak_enc_counters(ctx: *const ak_enc_ctx, out: *mut AkCou
 #[no_mangle]
 pub unsafe extern "C" fn ak_enc_counters_reset(ctx: *mut ak_enc_ctx) {
     (*(ctx as *mut EncCtxImpl)).e.c = Default::default();
+}
+
+/// Counting build only: the per-site length-prefix miss counts, so decision 5's figure can
+/// name the field it comes from. Writes at most `cap` entries and returns how many sites
+/// exist.
+#[no_mangle]
+pub unsafe extern "C" fn ak_enc_site_moves(ctx: *const ak_enc_ctx, out: *mut u32, cap: usize) -> usize {
+    #[cfg(feature = "count")]
+    {
+        let m = &(*(ctx as *const EncCtxImpl)).e.site_moves;
+        let n = m.len().min(cap);
+        core::ptr::copy_nonoverlapping(m.as_ptr(), out, n);
+        return m.len();
+    }
+    #[allow(unreachable_code)]
+    {
+        let _ = (ctx, out, cap);
+        0
+    }
 }
 
 #[no_mangle]
@@ -130,6 +162,7 @@ pub unsafe extern "C" fn ak_dec_counters(ctx: *const ak_dec_ctx, out: *mut AkCou
         reverse: c.reverse,
         transcode: c.transcode,
         prefix_moves: c.prefix_moves,
+        prefix_bytes: c.prefix_bytes,
         grows: c.grows,
     };
 }

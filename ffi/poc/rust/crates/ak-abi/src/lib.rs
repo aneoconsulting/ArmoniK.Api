@@ -123,6 +123,7 @@ unsafe extern "C" {
     pub fn ak_enc_counters_reset(ctx: *mut ak_enc_ctx);
     pub fn ak_dec_counters(ctx: *const ak_dec_ctx, out: *mut AkCounters);
     pub fn ak_dec_counters_reset(ctx: *mut ak_dec_ctx);
+    pub fn ak_enc_site_moves(ctx: *const ak_enc_ctx, out: *mut u32, cap: usize) -> usize;
 
     /// The boundary, priced on its own, in the same process and the same build.
     pub fn ak_noop(x: u64) -> u64;
@@ -143,6 +144,8 @@ pub struct AkCounters {
     pub transcode: u64,
     /// Length-prefix resizes: a placeholder whose learned width missed (ABI v1 section 6).
     pub prefix_moves: u64,
+    /// Bytes memmoved by those resizes.
+    pub prefix_bytes: u64,
     /// Transcoder growth-callback invocations (ABI v1 open decision 5).
     pub grows: u64,
 }

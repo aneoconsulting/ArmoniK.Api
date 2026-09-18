@@ -86,11 +86,11 @@ pub mod core_native_arm {
     }
 
     pub fn encode(v: &ListResultsResponse) -> Vec<u8> {
-        core_native::encode(v)
+        core_native::encode_list_results_response(v)
     }
 
     pub fn decode(b: &[u8]) -> ListResultsResponse {
-        core_native::decode(b).expect("core-native decode")
+        core_native::decode_list_results_response(b).expect("core-native decode")
     }
 }
 
@@ -141,7 +141,7 @@ pub mod core_ffi_arm {
 
     /// Returns the bytes the context holds, which stay valid until the next encode.
     pub fn encode_into<'a>(c: &'a Ctx, v: &ListResultsResponse) -> &'a [u8] {
-        binding::encode_into(c.enc, v, &c.tcs).expect("core-ffi encode");
+        binding::encode_into_list_results_response(c.enc, v, &c.tcs).expect("core-ffi encode");
         unsafe { binding::encoded(c.enc) }
     }
 
@@ -150,7 +150,7 @@ pub mod core_ffi_arm {
     }
 
     pub fn decode(c: &Ctx, b: &[u8]) -> ListResultsResponse {
-        binding::decode_with(c.dec, b).expect("core-ffi decode")
+        binding::decode_with_list_results_response(c.dec, b).expect("core-ffi decode")
     }
 }
 
