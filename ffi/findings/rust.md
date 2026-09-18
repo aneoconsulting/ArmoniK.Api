@@ -19,55 +19,100 @@ arm did not, because its objects come from a separately hand-written builder. Tw
 construction routes were kept apart for exactly that reason and this is the first
 time the separation fired.
 
-## SUSPENDED: the ratio tables below do not reproduce, and the re-run is pending
+## RESOLVED: the published encode figures came from code that was never committed
 
-**Read this before quoting any number in this document.** The unknown-field arm's
-first timing run looked like a large regression; it was not. Rebuilding **the same
-commit** in a fresh worktree on the same machine, the same session and the same
-day reproduces neither the published ratios nor their spread:
+**Read this before quoting any number in this document**, and read it as a
+correction rather than a caveat: the encode headline this document carried is
+wrong and is replaced below.
 
-| P1.2 encode, / prost | published | HEAD `4afffd9b` | `7fb30be5` |
-|---|---|---|---|
-| `armonik` | 0.967 – 1.032 | 1.150 | 1.146 |
-| `core-native` | 0.425 – 0.438 | 0.564 | 0.544 |
-| `core-ffi-rust` | 0.706 – 0.716 | 1.011 | 0.992 |
-| P1.3 decode `core-ffi-rust` | 1.313 – 1.393 | 1.725 | — |
+The unknown-field arm could not reproduce the published M1/M2 ratios. Three
+hypotheses were on the table — the container drifted, the numbers are noisy, a
+rebuild changes layout — and the answer was a fourth nobody listed.
 
-**Every arm moved the same way, `armonik` included** — and `armonik` is prost's
-own codec over the facade types, which nothing in this slice has touched since.
-The drift is present at a commit predating both the zeroed-group work and the
-unknown-field arm, so neither caused it. The container is shared, unpinned and
-was measured on a different day; that is the likeliest cause and it is **not
-established**.
+**Ratios do reproduce here**, to ±0.02–0.05 on most rows, and the release binary
+is **bit-identical across rebuilds of unchanged source**, so a rebuild perturbs
+nothing. Tested properly with a semantically neutral layout perturbation (k
+exported no-ops that no arm calls, k ∈ {0, 3, 11}, binary hash changing every
+time): the across-build component is no larger than the same-binary component on
+nearly every row. The container is not unstable and layout is not the driver. Two
+rows are genuinely wide and are quoted as bands: P1.3 decode (0.12–0.24) and P2.1
+encode (0.16), both dominated by per-message cost.
 
-**What this suspends, and it is not small.** `core-ffi-rust` on P1.2 encode is the
-difference between 0.71 (a 30 percent win over prost) and 1.01 (parity). The
-headline that the core is *faster* than prost through the C ABI on encode rests on
-the published column, and the published column does not currently reproduce. Until
-a controlled re-run says which column is right:
+**The published figures are 0.10 to 0.27 away — five to ten times that band.**
 
-- **Treat every absolute ratio in this document as provisional**, including the
-  encode win, the decode parity and the P1.3 inversion's magnitude.
-- **What survives is what was measured as a delta inside one process**, between
-  arms in the same interleaved rounds with prost as the control in that same
-  process: the inlining audit's three-term split, the zeroed-group deltas, the
-  unknown-bag deltas, the crossing counts (which are counts, not times), and the
-  byte-identity results. Those are differences taken in one build and do not depend
-  on the absolutes.
-- **The large-effect qualitative findings are likely but not confirmed**: the P1.3
-  inversion's *sign*, UTF-8 validation at 2.0–2.6, decode converging to parity as
-  containers grow. Each needs re-confirming rather than assuming.
+**Then the decisive experiment refused to run.** Checking out `cc7f68c6`, the
+commit behind the published stage-2 table, and building the benchmark fails:
+the binary is not in that commit. Verified here independently with `git ls-tree`:
 
-**What R4 actually says, and what this sharpens it to.** R4 already held that
-absolutes do not travel between runs on shared hardware and that ratios within one
-process do. This says the second half is too generous: a ratio formed in one
-process is reproducible *within that build*, and **not necessarily across builds
-of the same source** on this container. Every comparison must therefore be taken
-in one build and one session, and a table assembled from two is not a table.
+| commit | benchmark binaries in the tree |
+|---|---|
+| `cc7f68c6` (stage 2, the published M1 table) | **0** |
+| `d03c5161` (stage 3 part 1) | **0** |
+| `7fb30be5` | 7 |
+| `160c37be` | 9 |
 
-A re-run of the M1 and M2 tables under those conditions is the outstanding item.
+**The harness was untracked until `7fb30be5`, swallowed by the root `.gitignore`'s
+`[Bb]in/`** — the trap filed as a hygiene defect, which turns out to be the whole
+answer. Dependency versions are identical at every one of those commits, so no
+version bump is in play. **The oldest rebuildable commit agrees with today
+(0.992) and not with the published table (0.706–0.716).**
 
-## Configuration, once, for everything below
+So the published column is not defensible, and not because the container moved:
+**the code that produced it does not exist in the repository.** The replacement
+table in `ffi/logs/rust/stage3-reproducibility.log` is the one that can be checked,
+and it is not written as bounds, because the new figures reproduce and it is the
+old ones that cannot be re-derived.
+
+### What it costs the headline
+
+**`core-ffi-rust` on P1.2 encode is 0.982, not 0.706–0.716.** Through the C ABI
+the core is **at parity with prost on encode** for the uniform payloads, not
+thirty percent faster. Every statement of the thirty-percent form, in this
+document and in anything quoting it, is withdrawn.
+
+**What survives is a sharper claim, and it is the one the decomposition was always
+about**: `core-native` is **0.42–0.54 of prost on every encode row** (published
+0.34–0.57, so it reproduces). The generated codec is about twice prost's speed,
+**and crossing the C ABI hands all of that back.** For a Rust host the interface
+costs roughly what the codec gains.
+
+That matters for the proposal rather than merely for the arithmetic, because
+`packages/rust` would carry the core **natively**, with no FFI: on that path the
+2x stands. It is the *bindings* that pay the interface, which is what the other
+four slices are measuring.
+
+The decode side largely reproduces — every `core-ffi-rust` decode row but P1.3 and
+P2.1 is within about 0.06 of its published band, three inside it. **Encode moved
+and decode did not**, and no single arm's code explains that pattern, so the cause
+is not established and the log names none.
+
+### The three qualitative findings all re-confirm
+
+1. **The P1.3 inversion keeps its sign and magnitude**: `core-ffi-rust`
+   1.190–1.210 on encode against `core-native` 0.416–0.424; decode 1.623–1.858
+   against 0.946–1.062.
+2. **UTF-8 validation on non-ASCII: confirmed and larger than published.** The
+   scalar validator is 2.783 and 3.743 of prost on P1.2 Latin-1 and wide, against
+   a published 2.0–2.6; SIMD recovers to 1.43–1.80.
+3. **Decode converging to parity with container density**: same ordering,
+   `core-ffi-rust` 0.861 on P1.2 and 0.978 on P2.2.
+
+### The methodological result, which is worth more than the correction
+
+The UTF-8 row demonstrates R4 rather than arguing it. **The same finding, in one
+session, expressed two ways**: as a cross-arm ratio to prost it drifted; as a
+**within-arm delta against its own ASCII cost** it reproduced almost exactly —
+2.545 and 3.365 on P1.2 against a published 2.2–3.0. A delta between two arms in
+the same rounds is robust where a ratio to a third arm is not, and that is now in
+R4 with this row as the evidence.
+
+The second lesson is cheaper and was paid for twice: **a figure whose harness is
+not committed cannot be defended.** README section 12 already required every
+figure to name its log; a log whose harness is absent from the tree is the same
+failure one level down, and `ffi/.gitignore` now re-includes `bin/` so the
+remaining four slices cannot repeat it.
+
+## Configuration, once, for everything below## Configuration, once, for everything below
 
 4 vCPU Intel Xeon at 2.80 GHz, 15 GB, Ubuntu 24.04.4, Linux 6.18.44 x86_64, in a
 container, no pinning and no governor control. rustc 1.94.1, release. prost
@@ -546,10 +591,13 @@ than an equivalent.
 
 ## Encode survives the harder shape
 
-0.46 to 0.57 of prost natively and 0.83 to 0.92 through the C ABI on every uniform
-M2 payload, against 0.99 to 1.00 for the `armonik` arm. The M1 encode result holds
-on nested, mapped, string-dense messages. P2.4 is the exception at 1.03 through
-the ABI, and that is decision 5's worst case rather than a shape effect.
+**Superseded by the re-run above**: the through-the-ABI figures in this section
+came from the unreproducible column. The reproducible statement is that
+`core-native` is 0.42–0.54 of prost on every encode row and `core-ffi-rust` is at
+parity, on M1 and M2 alike. What this section still establishes is the *shape*
+result it was written for: the encode ordering does not change when the message
+gains nesting, maps and string density. P2.4 remains the exception and remains
+decision 5's worst case rather than a shape effect.
 
 ## ABI v1 decision 5, answered
 
