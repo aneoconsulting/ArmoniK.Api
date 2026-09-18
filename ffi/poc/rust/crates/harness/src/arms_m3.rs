@@ -157,3 +157,22 @@ pub mod core_ffi_zeroed {
         encode_into(c, v).to_vec()
     }
 }
+
+/// The unknown-field bag on M3, which is where the seven unknown-field vectors live.
+/// See `arms::core_ffi_unk`.
+pub mod core_ffi_unk {
+    use super::*;
+    use crate::arms::core_ffi_arm::Ctx;
+    use crate::generated::binding;
+
+    pub fn encode_into<'a>(c: &'a Ctx, v: &Facade) -> &'a [u8] {
+        binding::encode_into_list_probe_response_unk(c.enc, v, &c.tcs).expect("unk encode M3");
+        unsafe { binding::encoded(c.enc) }
+    }
+    pub fn encode(c: &Ctx, v: &Facade) -> Vec<u8> {
+        encode_into(c, v).to_vec()
+    }
+    pub fn decode(c: &Ctx, b: &[u8]) -> Facade {
+        binding::decode_with_list_probe_response_unk(c.dec, b).expect("unk decode M3")
+    }
+}

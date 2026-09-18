@@ -1263,3 +1263,75 @@ incrementing because the counting code inlined too). This is the shape where an 
 **no** boundary and might not have that either. Both were invisible to R7's configuration
 discipline, because neither LTO nor `#[inline]` nor genericity appears in a configuration line,
 and both are only visible from the built artifact.
+
+
+## Decision 11: the unknown-field bag, priced — and a drift that matters more
+
+**Log**: `ffi/logs/rust/stage3-unknown-fields.log`. **Drivers**: `gen/unknown.sh`,
+`gen/unknown_predicate.py`. **Bin**: `crates/harness/src/bin/unknown.rs`.
+
+### The gating question, answered before building anything
+
+ABI v1 7.2 batches a repeated field only if its element type is transitively free of repeated
+and map fields. `gen/unknown_predicate.py` puts a bag into an in-memory copy of the schema
+under each modelling and runs `emit/shapes.py:is_leaf` — the generator's own predicate,
+imported, not re-derived:
+
+```
+leaf messages today                 9 of 19
+leaf messages, a REPEATED bag       0 of 19
+leaf messages, ONE bytes blob       9 of 19
+```
+
+A repeated bag is refused on structure alone: it costs `ResultRaw`'s batched run, which is
+what turns 1000 rows into 9 crossings. Everything else was built on the one-blob model.
+
+### What it measured
+
+The empty bag — the case production is always in, because ArmoniK ships both sides from one
+release — is **free on decode** (capture on/off 0.978–1.002, per-element deltas straddling
+zero) and **costs 1 to 12 percent of an encode**. And the decision-9 interaction **goes both
+ways**: on P1.3 the bag costs 8–12% under the total fill and 0.3–0.7% under the zeroed
+variant (the memset absorbs an extra slot; unconditional stores do not), and on P2.2 the
+reverse, 0.7–1.7% against 3.9–9.4%. Pricing it under one fill alone would have got the sign
+of the interaction wrong on half the payloads.
+
+### The two design calls, and the one that was mine
+
+Append rather than merge, by instruction — so the round-trip property splits in two and the
+log checks them separately: the **bag's bytes** are preserved exactly (checkable, and
+checked, against the unknown runs of the input), the **message's layout** is not when an
+unknown tag sits between two known ones, and that case is validated semantically.
+
+The slot's third word was my call. I dropped it: **two words, not three.** Every other blob
+slot carries a transcoder because the host's representation may differ from the wire's; the
+bag's cannot, because it IS wire bytes a decoder captured, and with decision 3 settled
+`ak_tc_bytes` and `ak_tc_utf8_trusted` are already the same memcpy. A transcoder there would
+be a pointer whose only legal value is the identity — dead weight on every group of every
+message and an invitation to set it wrong. Emptiness becomes `len == 0`, which is the test
+section 8's direct-argument path already uses, so it is not a new convention, and the saving
+is 8 bytes per group, which is directly the quantity decisions 9 and 11 interact through.
+
+### The thing I nearly mis-attributed, and the drift it uncovered
+
+My first timing run showed `core-ffi-rust` P1.2 encode at **1.07 of prost** against a
+published **0.706–0.716**, and `core-native` at 0.54 against 0.425. My first hypothesis was
+my own change: I had added `unknown_fields: Vec<u8>` to every facade struct, 24 bytes on
+every message instance, which every arm walks.
+
+It was not. Two fresh worktrees, same machine, same session: **at HEAD (`4afffd9b`) and at
+`7fb30be5` the published ratios do not reproduce either.** `armonik` — prost's own codec over
+the facade types, untouched by anything this slice has done since — reads 1.150 and 1.146
+against a published 0.967–1.032. Every arm moved together and the drift predates the
+zeroed-group work.
+
+So the published M1/M2 table is not reproducible on this container today, at the commit it
+came from. That is a bigger fact than anything in this arm, and it is why every figure in
+this log is a delta formed inside one process with prost as the control in that same process.
+
+The near-miss is worth recording as a habit, not a fact: **"my change made it slower" is a
+hypothesis, and the cheap way to test it is to build the unchanged commit and measure that.**
+A worktree with its own target directory takes five minutes and is the whole experiment; the
+first attempt, `git stash` plus a rebuild in place, segfaulted because the on-disk cdylib no
+longer matched the host that loaded it — which is its own small lesson about measuring an ABI
+by swapping half of it.

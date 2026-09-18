@@ -301,3 +301,43 @@ pub mod core_ffi_zeroed {
         encode_into(c, v).to_vec()
     }
 }
+
+/// ABI v1 open decision 11 candidate: the unknown-field bag, as an arm.
+///
+/// Decision 11 says the core retains nothing while `Google.Protobuf`, protobuf-java,
+/// protobuf C++ and upb all retain, so adopting the core removes a protobuf guarantee from
+/// four of the five languages. This prices the fix.
+///
+/// **The bag is ONE opaque `bytes` blob per message, not a list, and that is the whole
+/// design decision.** `gen/unknown_predicate.py` runs ABI v1 7.2's batching predicate --
+/// the one the generator uses, imported, not re-derived -- over the schema with a bag added
+/// under each modelling: a REPEATED bag takes the schema from 9 leaf messages to 0 and the
+/// batched run fails everywhere, including `ResultRaw`, which is what turns 1000 rows into
+/// 9 crossings. One blob changes nothing.
+///
+/// On encode the host hands the blob back as one `ak_str` in the group and the codec
+/// appends it verbatim; empty is `tc == NULL`, the existing absent convention. On decode the
+/// unknown runs are captured as spans into the buffer the host handed in and delivered as a
+/// side run keyed by token, so the core copies nothing, allocates nothing, and the element
+/// group is not touched at all.
+pub mod core_ffi_unk {
+    use super::core_ffi_arm::Ctx;
+    use crate::generated::binding;
+    use facade::ListResultsResponse;
+
+    pub fn encode_into<'a>(c: &'a Ctx, v: &ListResultsResponse) -> &'a [u8] {
+        binding::encode_into_list_results_response_unk(c.enc, v, &c.tcs).expect("unk encode");
+        unsafe { binding::encoded(c.enc) }
+    }
+    pub fn encode(c: &Ctx, v: &ListResultsResponse) -> Vec<u8> {
+        encode_into(c, v).to_vec()
+    }
+    /// Decisions 9 and 11 together: the zeroed fill over the group that carries the bag.
+    pub fn encode_into_zeroed<'a>(c: &'a Ctx, v: &ListResultsResponse) -> &'a [u8] {
+        binding::encode_into_list_results_response_unk_zeroed(c.enc, v, &c.tcs).expect("unk/zeroed encode");
+        unsafe { binding::encoded(c.enc) }
+    }
+    pub fn decode(c: &Ctx, b: &[u8]) -> ListResultsResponse {
+        binding::decode_with_list_results_response_unk(c.dec, b).expect("unk decode")
+    }
+}

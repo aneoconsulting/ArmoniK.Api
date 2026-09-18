@@ -100,6 +100,8 @@ def _zero_of(ty):
         return "ak_str { data: ::core::ptr::null(), len: 0, tc: None }"
     if ty == "ak_span":
         return "ak_span { off: 0, len: 0, coder: 0 }"
+    if ty == "ak_blob":
+        return "ak_blob { data: ::core::ptr::null(), len: 0 }"
     if ty in ZERO:
         return ZERO[ty]
     return "%s::ZERO" % ty
@@ -162,20 +164,74 @@ def emit_abi(ir):
          "    token: i64,",
          ") -> i32;",
          "",
+         "/// ABI v1 open decision 11 candidate: unknown fields, delivered as a RUN.",
+         "///",
+         "/// Each span covers one whole tag-and-value run in the buffer the host handed in,",
+         "/// so the core copies nothing and stays allocation-free; the host materialises them",
+         "/// if it intends to re-encode, because that buffer may be recycled. Batched like any",
+         "/// other run, so the cost is crossings per chunk and not per field.",
+         "///",
+         "/// It is a SIDE run keyed by token, not a slot in the element group, which is why",
+         "/// the group stays a fixed-size POD and ABI v1 7.2's batching predicate does not",
+         "/// even see it (`gen/unknown_predicate.py`).",
+         "/// The unknown-field bag's slot: TWO words, not three.",
+         "///",
+         "/// Every other blob slot carries a transcoder pointer because the host's",
+         "/// representation may not be the wire's. The bag's is, by construction: it is the",
+         "/// raw tag-and-value runs a decoder captured, so there is nothing to convert and",
+         "/// the third word would be dead weight on every group of every message. Emptiness",
+         "/// is `len == 0`, which is the same test ABI v1 section 8's direct-argument path",
+         "/// already uses, so this is not a new convention.",
+         "#[repr(C)]",
+         "#[derive(Clone, Copy)]",
+         "pub struct ak_blob {",
+         "    pub data: *const c_void,",
+         "    pub len: usize,",
+         "}",
+         "",
+         "#[repr(C)]",
+         "#[derive(Clone, Copy)]",
+         "pub struct ak_uspan {",
+         "    /// Which element of the enclosing run this run belongs to, or AK_TOKEN_ROOT.",
+         "    pub token: i64,",
+         "    pub off: u32,",
+         "    pub len: u32,",
+         "}",
+         "",
+         "pub type ak_unk_f = unsafe extern \"C\" fn(",
+         "    ctx: *mut ak_dec_ctx,",
+         "    obj: *mut c_void,",
+         "    spans: *const ak_uspan,",
+         "    n: i32,",
+         ");",
+         "",
          "pub const AK_TOKEN_ROOT: i64 = -1;",
          ""]
 
     for name in ir.abi_order:
         m = ir.msg(name)
         bits = presence_bits(m)
-        for enc in (True, False):
-            pre = "e" if enc else "d"
+        # "u" is the ABI v1 open decision 11 candidate: the same ENCODE group with one
+        # more slot, an opaque bag of unknown fields the host hands back verbatim. It is a
+        # single `ak_str`, NOT a repeated field, and that is load-bearing: run
+        # `gen/unknown_predicate.py` -- a repeated bag takes the schema from 9 leaf messages
+        # to 0 and the batched run of section 7.2 fails everywhere.
+        for pre in ("e", "d", "u"):
+            enc = pre != "d"
             sname = "ak_%sfix_%s" % (pre, name)
-            o.append("/// %s group for `%s`." % ("Encode" if enc else "Decode", name))
+            o.append("/// %s group for `%s`.%s" % (
+                "Encode" if enc else "Decode", name,
+                "  With the unknown-field bag (decision 11 candidate)." if pre == "u" else ""))
             o.append("#[repr(C)]")
             o.append("#[derive(Clone, Copy)]")
             o.append("pub struct %s {" % sname)
             fields = group_fields(m, enc)
+            if pre == "u":
+                # A nested message needs its OWN bag, so a child slot is the child's `u`
+                # group and not its `e` group (decision 11: an unknown field can appear
+                # inside a nested message, and dropping it there is the same regression).
+                fields = [(fn, ty.replace("ak_efix_", "ak_ufix_")) for fn, ty in fields]
+                fields = fields + [("unknown", "ak_blob")]
             for fname, ty in fields:
                 o.append("    pub %s: %s," % (fname, ty))
             o.append("    pub presence: u32,")
@@ -220,11 +276,18 @@ def emit_abi(ir):
         o.append("    pub apply: Option<")
         o.append("        unsafe extern \"C\" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_%s)," % name)
         o.append("    >,")
+        o.append("    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are")
+        o.append("    /// skipped and dropped. Set, and they are delivered as spans.")
+        o.append("    pub unknown: Option<ak_unk_f>,")
         for path, f in slots:
             sn = slot_name(path)
             dty, _ = slot_elem_rust(f)
             et = elem_type(f)
             batchable = not (et and not ir.msg(et).leaf)
+            if et:
+                o.append("    /// Decision 11 candidate: the unknown fields of THIS slot's elements,")
+                o.append("    /// delivered after the run that carries them, so the host can index.")
+                o.append("    pub unk_%s: Option<ak_unk_f>," % sn)
             if batchable:
                 o.append("    /// Batchable: the element type is a leaf, so a run crosses once")
                 o.append("    /// per chunk. Append; never size to the count you were handed.")
@@ -270,6 +333,17 @@ def emit_abi(ir):
             o.append("        direct: *const u8,")
             o.append("        direct_len: usize,")
         o.append("    ) -> isize;")
+        o.append("    /// ABI v1 open decision 11 candidate: the same entry over the group that")
+        o.append("    /// carries the unknown-field bag.")
+        o.append("    pub fn ak_uencode_%s(" % root)
+        o.append("        obj: *const c_void,")
+        o.append("        ctx: *mut ak_enc_ctx,")
+        o.append("        vt: *const ak_evt_%s," % root)
+        o.append("        fix: *const ak_ufix_%s," % root)
+        if direct_fields(ir, root):
+            o.append("        direct: *const u8,")
+            o.append("        direct_len: usize,")
+        o.append("    ) -> isize;")
         o.append("    pub fn ak_decode_%s(" % root)
         o.append("        ctx: *mut ak_dec_ctx,")
         o.append("        obj: *mut c_void,")
@@ -284,6 +358,8 @@ def emit_abi(ir):
             o.append("    /// so the codec makes no reverse call during a run.")
             o.append("    pub fn ak_elem_%s(ctx: *mut ak_enc_ctx, elems: *const ak_efix_%s, n: i32) -> i32;"
                      % (et, et))
+            o.append("    pub fn ak_uelem_%s(ctx: *mut ak_enc_ctx, elems: *const ak_ufix_%s, n: i32) -> i32;"
+                     % (et, et))
         else:
             o.append("    /// Unrestricted form: names element i as `tok0 + i` from a contiguous")
             o.append("    /// token range the host allocated, because the codec has to call back")
@@ -291,6 +367,12 @@ def emit_abi(ir):
             o.append("    pub fn ak_elemu_%s(" % et)
             o.append("        ctx: *mut ak_enc_ctx,")
             o.append("        elems: *const ak_efix_%s," % et)
+            o.append("        n: i32,")
+            o.append("        tok0: i64,")
+            o.append("    ) -> i32;")
+            o.append("    pub fn ak_uelemu_%s(" % et)
+            o.append("        ctx: *mut ak_enc_ctx,")
+            o.append("        elems: *const ak_ufix_%s," % et)
             o.append("        n: i32,")
             o.append("        tok0: i64,")
             o.append("    ) -> i32;")
@@ -376,21 +458,25 @@ def emit_codec(ir):
     # because "the group carries the whole singular subtree" and because a loop slot living
     # on an inlined child is reached through the parent's vtable: a standalone encoder for
     # the child would have no way to name it.
-    def enc_walk(owner, name, gexpr, prefix, o, fail="false"):
+    def enc_walk(owner, name, gexpr, prefix, o, fail="false", bag=False):
         m = ir.msg(name)
         vt_owner = has_slots(ir, owner)
+        # ABI v1 open decision 11 candidate. The SAME walk with one more slot: the
+        # presence constants belong to the `u` group and the bag is appended after the
+        # known fields. One traversal emitter, two instantiations (README R1).
+        pfx = "AK_UFIX_" if bag else "AK_EFIX_"
         for f in m.plain:
             if f.oneof:
                 raise NotImplementedError("oneof in %s: stage 3 item 2" % name)
             path = prefix + (f.name,)
             sn = slot_name(path)
             if f.card == "singular" and f.kind == "message":
-                bit = "AK_EFIX_%s_PRESENT_%s" % (name.upper(), f.name.upper())
+                bit = pfx + "%s_PRESENT_%s" % (name.upper(), f.name.upper())
                 s = _site(sites, ("child", owner, path))
                 o.append("    if %s.presence & %s != 0 {" % (gexpr, bit))
                 o.append("        let mk = (*cx).e.begin(%d, %d);" % (f.tag, s))
                 inner = []
-                enc_walk(owner, f.of, "%s.%s" % (gexpr, f.name), path, inner, fail)
+                enc_walk(owner, f.of, "%s.%s" % (gexpr, f.name), path, inner, fail, bag)
                 o.extend("    " + ln for ln in inner)
                 o.append("        (*cx).e.end(mk);")
                 o.append("    }")
@@ -405,8 +491,8 @@ def emit_codec(ir):
                     # a present-and-empty string has len 0 and must still be written, and
                     # that is the case a by-value group reports identically to absent unless
                     # it is designed not to (design/SHAPES.md, M3).
-                    cond = "%s.presence & AK_EFIX_%s_PRESENT_%s != 0" % (
-                        gexpr, name.upper(), f.name.upper())
+                    cond = "%s.presence & %s%s_PRESENT_%s != 0" % (
+                        gexpr, pfx, name.upper(), f.name.upper())
                 else:
                     cond = "%s.%s.tc.is_some() && %s.%s.len != 0" % (
                         gexpr, f.name, gexpr, f.name)
@@ -417,7 +503,7 @@ def emit_codec(ir):
             elif f.card == "singular" and f.kind in ("int32", "int64", "bool", "enum"):
                 n = "%s.%s" % (gexpr, f.name)
                 if f.explicit:
-                    bit = "AK_EFIX_%s_PRESENT_%s" % (name.upper(), f.name.upper())
+                    bit = pfx + "%s_PRESENT_%s" % (name.upper(), f.name.upper())
                     conv = "%s as u64" % n if f.kind == "bool" else (
                         "%s as i64 as u64" % n if f.kind in ("int32", "enum") else "%s as u64" % n)
                     o.append("    if %s.presence & %s != 0 { (*cx).e.varint_field(%d, %s); }"
@@ -462,8 +548,8 @@ def emit_codec(ir):
                                 n, fail))
                 elif g.kind == "message":
                     o.append("            let mk = (*cx).e.begin(%d, %d);" % (g.tag, s))
-                    o.append("            if !enc_%s_group(&%s, cx) { return %s; }"
-                             % (snake(g.of), n, fail))
+                    o.append("            if !enc_%s_%sgroup(&%s, cx) { return %s; }"
+                             % (snake(g.of), "u" if bag else "", n, fail))
                     o.append("            (*cx).e.end(mk);")
                 elif g.kind == "double":
                     o.append("            (*cx).e.f64_field(%d, %s);" % (g.tag, n))
@@ -479,6 +565,12 @@ def emit_codec(ir):
             o.append("        // nothing, because silence here is a message that lost a field.")
             o.append("        _ => { (*cx).e.fail(AK_ERR_ABI); return %s; }" % fail)
             o.append("    }")
+        if bag:
+            # ABI v1 open decision 11 candidate: the unknown-field bag, LAST, appended
+            # verbatim. See `enc_raw`. Where it goes is the canonical-order question the
+            # log answers; appended here is "at the end", which is what protobuf-java's
+            # UnknownFieldSet does NOT do.
+            o.append("    if !enc_raw(cx, &%s.unknown) { return %s; }" % (gexpr, fail))
 
     for name in ir.abi_order:
         m = ir.msg(name)
@@ -503,6 +595,24 @@ def emit_codec(ir):
         body.append("    true")
         body.append("}")
         body.append("")
+        # The same group, walked again with the bag slot. ABI v1 open decision 11
+        # candidate; the `e` family above is untouched.
+        body.append("#[inline]")
+        if slots:
+            body.append("unsafe fn enc_%s_ugroup(" % snake(name))
+            body.append("    g: &ak_ufix_%s," % name)
+            body.append("    cx: *mut EncCtxImpl,")
+            body.append("    vt: *const ak_evt_%s," % name)
+            body.append("    obj: *const c_void,")
+            body.append("    token: i64,")
+            body.append(") -> bool {")
+        else:
+            body.append("unsafe fn enc_%s_ugroup(g: &ak_ufix_%s, cx: *mut EncCtxImpl) -> bool {"
+                        % (snake(name), name))
+        enc_walk(name, name, "g", (), body, bag=True)
+        body.append("    true")
+        body.append("}")
+        body.append("")
 
     for et in sorted(element_types(ir)):
         m = ir.msg(et)
@@ -520,6 +630,26 @@ def emit_codec(ir):
             body.append("    for i in 0..n as usize {")
             body.append("        let mk = (*cx).e.begin(tag, site);")
             body.append("        if !enc_%s_group(&*elems.add(i), cx) { return (*cx).e.err; }" % snake(et))
+            body.append("        (*cx).e.end(mk);")
+            body.append("    }")
+            body.extend(RESTORE_LINES)
+            body.append("    AK_OK")
+            body.append("}")
+            body.append("")
+            body.append("/// The same run over the group that carries the unknown-field bag.")
+            body.append("#[no_mangle]")
+            body.append("pub unsafe extern \"C\" fn ak_uelem_%s(" % et)
+            body.append("    ctx: *mut ak_enc_ctx,")
+            body.append("    elems: *const ak_ufix_%s," % et)
+            body.append("    n: i32,")
+            body.append(") -> i32 {")
+            body.append("    let cx = ctx as *mut EncCtxImpl;")
+            body.append("    ak_rt::bump!((*cx).e.c, forward);")
+            body.extend(SAVE_LINES)
+            body.append("    let (tag, site) = ((*cx).open_tag, (*cx).open_site);")
+            body.append("    for i in 0..n as usize {")
+            body.append("        let mk = (*cx).e.begin(tag, site);")
+            body.append("        if !enc_%s_ugroup(&*elems.add(i), cx) { return (*cx).e.err; }" % snake(et))
             body.append("        (*cx).e.end(mk);")
             body.append("    }")
             body.extend(RESTORE_LINES)
@@ -552,6 +682,32 @@ def emit_codec(ir):
             body.extend(RESTORE_LINES)
             body.append("    AK_OK")
             body.append("}")
+            body.append("")
+            body.append("/// The same unbatched run over the group that carries the bag.")
+            body.append("#[no_mangle]")
+            body.append("pub unsafe extern \"C\" fn ak_uelemu_%s(" % et)
+            body.append("    ctx: *mut ak_enc_ctx,")
+            body.append("    elems: *const ak_ufix_%s," % et)
+            body.append("    n: i32,")
+            body.append("    tok0: i64,")
+            body.append(") -> i32 {")
+            body.append("    let cx = ctx as *mut EncCtxImpl;")
+            body.append("    ak_rt::bump!((*cx).e.c, forward);")
+            body.extend(SAVE_LINES)
+            body.append("    let (tag, site) = ((*cx).open_tag, (*cx).open_site);")
+            body.append("    let vt = (*cx).open_vt as *const ak_evt_%s;" % et)
+            body.append("    let obj = (*cx).open_obj;")
+            body.append("    for i in 0..n as usize {")
+            body.append("        let mk = (*cx).e.begin(tag, site);")
+            body.append("        if !enc_%s_ugroup(&*elems.add(i), cx, vt, obj, tok0 + i as i64) {"
+                        % snake(et))
+            body.append("            return (*cx).e.err;")
+            body.append("        }")
+            body.append("        (*cx).e.end(mk);")
+            body.append("    }")
+            body.extend(RESTORE_LINES)
+            body.append("    AK_OK")
+            body.append("}")
         body.append("")
 
     for root in ir.roots:
@@ -576,6 +732,33 @@ def emit_codec(ir):
         body.append("    let _ = token;")
         inner = []
         enc_walk(root, root, "g", (), inner, fail="(*cx).e.err as isize")
+        body.extend(inner)
+        body.append("    if (*cx).e.err != 0 { return (*cx).e.err as isize; }")
+        body.append("    (*cx).e.buf.len() as isize")
+        body.append("}")
+        body.append("")
+        # The same root entry with the bag. ABI v1 open decision 11 candidate.
+        body.append("#[no_mangle]")
+        body.append("pub unsafe extern \"C\" fn ak_uencode_%s(" % root)
+        body.append("    obj: *const c_void,")
+        body.append("    ctx: *mut ak_enc_ctx,")
+        body.append("    vt: *const ak_evt_%s," % root)
+        body.append("    fix: *const ak_ufix_%s," % root)
+        if direct_fields(ir, root):
+            body.append("    direct: *const u8,")
+            body.append("    direct_len: usize,")
+        body.append(") -> isize {")
+        body.append("    let cx = ctx as *mut EncCtxImpl;")
+        body.append("    ak_rt::bump!((*cx).e.c, forward);")
+        body.append("    (*cx).open_obj = obj;")
+        if direct_fields(ir, root):
+            body.append("    (*cx).direct = direct;")
+            body.append("    (*cx).direct_len = direct_len;")
+        body.append("    let g = &*fix;")
+        body.append("    let token = AK_TOKEN_ROOT;")
+        body.append("    let _ = token;")
+        inner = []
+        enc_walk(root, root, "g", (), inner, fail="(*cx).e.err as isize", bag=True)
         body.extend(inner)
         body.append("    if (*cx).e.err != 0 { return (*cx).e.err as isize; }")
         body.append("    (*cx).e.buf.len() as isize")
@@ -632,7 +815,7 @@ def emit_codec(ir):
          "//! a facade object directly.",
          "#![allow(non_snake_case, non_camel_case_types, unused_unsafe, unused_variables,",
          "    unused_assignments, unused_mut, unused_macros, clippy::all)]",
-         "use crate::{enc_blob, DecCtxImpl, EncCtxImpl};",
+         "use crate::{enc_blob, enc_raw, DecCtxImpl, EncCtxImpl, UnkBuf};",
          "use ak_abi::*;",
          "use ak_rt::dec::Dec;",
          "use core::ffi::c_void;",
@@ -772,8 +955,10 @@ def _emit_decode(ir, sites):
                                  % (sn, sn, basename))
                     else:
                         o.append("                let mut es = Dec::new(&%s[off..off + n]);" % bufname)
-                        o.append("                a_%s[n_%s].write(dec_%s_fix(&mut es, %s + off));"
-                                 % (sn, sn, snake(et), basename))
+                        o.append("                if !uk_%s.is_null() { (*uk_%s).token = (%s + n_%s) as i64; }"
+                                 % (sn, sn, "done_%s" % sn, sn))
+                        o.append("                a_%s[n_%s].write(dec_%s_fix(&mut es, %s + off, uk_%s));"
+                                 % (sn, sn, snake(et), basename, sn))
                         o.append("                if es.err != 0 { %s.err = es.err; }" % dd)
                     o.append("                n_%s += 1;" % sn)
                     o.append("            }")
@@ -794,7 +979,10 @@ def _emit_decode(ir, sites):
                     o.append("                if cur != 0 { flush!(); cur = 0; }")
                     o.append("                let (off, n) = %s.len_body();" % dd)
                     o.append("                let mut os = Dec::new(&%s[off..off + n]);" % bufname)
-                    o.append("                %s = dec_%s_fix(&mut os, %s + off);" % (n, snake(g.of), basename))
+                    # A oneof's message member: its own unknown fields would need their own
+                    # bag, and this arm does not build one. The log says so rather than
+                    # passing a buffer that would attribute them to the wrong message.
+                    o.append("                %s = dec_%s_fix(&mut os, %s + off, ::core::ptr::null_mut());" % (n, snake(g.of), basename))
                     o.append("                if os.err != 0 { %s.err = os.err; }" % dd)
                 else:
                     w = 1 if g.kind == "double" else 0
@@ -809,7 +997,7 @@ def _emit_decode(ir, sites):
                 o.append("                %s.%s_case = %d;" % (fxexpr, oname, g.tag))
                 o.append("            }")
 
-    def arena_decl(sn, dty, o, indent="    "):
+    def arena_decl(sn, dty, o, indent="    ", unkcb=None):
         o.append("%s// ABI v1 7.3: a byte budget divided by the group size, not an element" % indent)
         o.append("%s// count, so the scratch is the same 32 KB whatever the schema does." % indent)
         o.append("%sconst N_%s: usize = ak_rt::arena_n(::core::mem::size_of::<%s>());"
@@ -817,6 +1005,16 @@ def _emit_decode(ir, sites):
         o.append("%slet mut a_%s: [::core::mem::MaybeUninit<%s>; N_%s] =" % (indent, sn, dty, sn.upper()))
         o.append("%s    [const { ::core::mem::MaybeUninit::uninit() }; N_%s];" % (indent, sn.upper()))
         o.append("%slet mut n_%s: usize = 0;" % (indent, sn))
+        o.append("%s// How many elements of this slot have already been handed over, so an" % indent)
+        o.append("%s// unknown run can name its element as an INDEX (decision 11 candidate)." % indent)
+        o.append("%slet mut done_%s: usize = 0;" % (indent, sn))
+        o.append("%slet _ = done_%s;" % (indent, sn))
+        if unkcb:
+            o.append("%slet mut ub_%s = UnkBuf::new((*vt).%s, ctx, obj);" % (indent, sn, unkcb))
+            o.append("%slet uk_%s: *mut UnkBuf = if ub_%s.cb.is_some() { &mut ub_%s } else { ::core::ptr::null_mut() };"
+                     % (indent, sn, sn, sn))
+        else:
+            o.append("%slet uk_%s: *mut UnkBuf = ::core::ptr::null_mut();" % (indent, sn))
 
     def flush_macros(slots, tokarg, o, vtprefix=""):
         """One macro per slot, and one that flushes them all."""
@@ -829,7 +1027,9 @@ def _emit_decode(ir, sites):
             o.append("                    add(ctx, obj, %s, a_%s.as_ptr() as *const %s, n_%s as i32);"
                      % (tokarg, sn, dty, sn))
             o.append("                }")
+            o.append("                done_%s += n_%s;" % (sn, sn))
             o.append("                n_%s = 0;" % sn)
+            o.append("                if !uk_%s.is_null() { (*uk_%s).flush(); }" % (sn, sn))
             o.append("            }")
             o.append("        };")
             o.append("    }")
@@ -845,7 +1045,7 @@ def _emit_decode(ir, sites):
         if not ir.msg(name).leaf:
             continue
         out.append("#[inline]")
-        out.append("unsafe fn dec_%s_fix(d: &mut Dec, base: usize) -> ak_dfix_%s {" % (snake(name), name))
+        out.append("unsafe fn dec_%s_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_%s {" % (snake(name), name))
         out.append("    let mut out = ak_dfix_%s::ZERO;" % name)
         out.append("    #[allow(unused_variables)]")
         out.append("    let buf0 = d.buf;")
@@ -853,12 +1053,15 @@ def _emit_decode(ir, sites):
         out.append("    let mut cur = 0u32;")
         out.append("    macro_rules! flush { () => { }; }")
         out.append("    while !d.at_end() {")
+        out.append("        // Decision 11 candidate: where this field's tag-and-value run starts,")
+        out.append("        // so an unknown one can be handed over as a span rather than dropped.")
+        out.append("        let s0 = d.pos;")
         out.append("        let k = d.varint();")
         out.append("        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);")
         out.append("        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }")
         out.append("        match tag {")
         dec_walk(name, name, "out", (), "buf0", "base0", 0, {}, out)
-        out.append("            _ => d.skip(wire),")
+        out.append("            _ => { d.skip(wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }")
         out.append("        }")
         out.append("    }")
         out.append("    out")
@@ -956,20 +1159,25 @@ def _emit_decode(ir, sites):
                 continue
             sn = slot_name(path)
             dty, _ = slot_elem_rust(f)
-            arena_decl(sn, dty, out)
+            arena_decl(sn, dty, out, unkcb=("unk_%s" % sn) if elem_type(f) else None)
             slots.append((sn, dty, "add_%s" % sn))
         flush_macros(slots, "AK_TOKEN_ROOT", out)
+        out.append("    // Decision 11 candidate: the ROOT message's own unknown fields.")
+        out.append("    let mut ub_root = UnkBuf::new((*vt).unknown, ctx, obj);")
+        out.append("    let uk_root: *mut UnkBuf = if ub_root.cb.is_some() { &mut ub_root } else { ::core::ptr::null_mut() };")
         out.append("    let mut cur = 0u32;")
         out.append("    while !d.at_end() {")
+        out.append("        let s0 = d.pos;")
         out.append("        let k = d.varint();")
         out.append("        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);")
         out.append("        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }")
         out.append("        match tag {")
         dec_walk(root, root, "out", (), "buf0", "base0", 0, sid, out)
-        out.append("            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }")
+        out.append("            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }")
         out.append("        }")
         out.append("    }")
         out.append("    flush!();")
+        out.append("    if !uk_root.is_null() { (*uk_root).flush(); }")
         out.append("    if let Some(apply) = (*vt).apply {")
         out.append("        ak_rt::bump!((*dcx).c, reverse);")
         out.append("        apply(ctx, obj, &out);")
@@ -1263,6 +1471,102 @@ def emit_binding(ir):
         o.append("}")
         o.append("")
 
+    for name in ir.abi_order:
+        m = ir.msg(name)
+        bits = presence_bits(m)
+        src = "TaskOptionsOptionsEntryLike" if m.synthetic else name
+        if m.synthetic:
+            continue
+        o.append("/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more")
+        o.append("/// `ak_str` slot per group -- which is what makes this interact with decision 9:")
+        o.append("/// the total fill grows on every message, including the ones that encode to nothing.")
+        o.append("#[inline(always)]")
+        o.append("pub(crate) fn make_%s_unk(o: &%s, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_%s {"
+                 % (snake(name), name, name))
+        o.append("    ak_ufix_%s {" % name)
+        pres = []
+        for f in m.plain:
+            if f.card != "singular":
+                continue
+            if f.explicit:
+                # Total fill: an absent field still gets all three words of its ak_str and
+                # its scalar written, and the presence WORD is what says it is absent. A
+                # partial fill does not fail, it inherits the previous element's value.
+                if f.kind == "string":
+                    o.append("        %s: match &o.%s {" % (f.name, f.name))
+                    o.append("            Some(v) => str_arg(v, tc.0),")
+                    o.append("            None => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
+                    o.append("        },")
+                elif f.kind == "bytes":
+                    o.append("        %s: match &o.%s {" % (f.name, f.name))
+                    o.append("            Some(v) => ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) },")
+                    o.append("            None => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
+                    o.append("        },")
+                elif f.kind == "bool":
+                    o.append("        %s: o.%s.unwrap_or(false) as u8," % (f.name, f.name))
+                elif f.kind == "enum":
+                    o.append("        %s: o.%s.map(|v| v.to_i32()).unwrap_or(0)," % (f.name, f.name))
+                else:
+                    o.append("        %s: o.%s.unwrap_or(0)," % (f.name, f.name))
+                pres.append("((o.%s.is_some() as u32) << %d)" % (f.name, bits[f.name]))
+                continue
+            if f.direct:
+                o.append("        // ABI v1 section 8: the sentinel says the bytes are an")
+                o.append("        // argument of the call, not a pointer into staging.")
+                o.append("        %s: ak_str { data: AK_STR_DIRECT, len: o.%s.len(), tc: None },"
+                         % (f.name, f.name))
+            elif f.kind == "string":
+                o.append("        %s: str_arg(&o.%s, tc.0)," % (f.name, f.name))
+            elif f.kind == "bytes":
+                o.append("        %s: ak_str { data: o.%s.as_ptr() as *const c_void, len: o.%s.len(), tc: Some(tc.1) },"
+                         % (f.name, f.name, f.name))
+            elif f.kind == "message":
+                o.append("        %s: match &o.%s {" % (f.name, f.name))
+                o.append("            Some(c) => make_%s_unk(c, tc)," % snake(f.of))
+                o.append("            None => ak_ufix_%s::ZERO," % f.of)
+                o.append("        },")
+                pres.append("((o.%s.is_some() as u32) << %d)" % (f.name, bits[f.name]))
+            elif f.kind == "enum":
+                o.append("        %s: o.%s.to_i32()," % (f.name, f.name))
+            elif f.kind == "bool":
+                o.append("        %s: o.%s as u8," % (f.name, f.name))
+            else:
+                o.append("        %s: o.%s," % (f.name, f.name))
+        for oname, members in m.oneofs.items():
+            ty = "%s%s" % (name, "".join(p.capitalize() for p in oname.split("_")))
+            o.append("        %s_case: match &o.%s {" % (oname, oname))
+            o.append("            None => 0,")
+            for g in members:
+                o.append("            Some(%s::%s(_)) => %d," % (ty, _camel(g.name), g.tag))
+            o.append("        },")
+            for g in members:
+                o.append("        %s_%s: match &o.%s {" % (oname, g.name, oname))
+                if g.kind == "string":
+                    o.append("            Some(%s::%s(v)) => str_arg(v, tc.0)," % (ty, _camel(g.name)))
+                    o.append("            _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
+                elif g.kind == "bytes":
+                    o.append("            Some(%s::%s(v)) => ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) },"
+                             % (ty, _camel(g.name)))
+                    o.append("            _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
+                elif g.kind == "message":
+                    o.append("            Some(%s::%s(v)) => make_%s_unk(v, tc)," % (ty, _camel(g.name), snake(g.of)))
+                    o.append("            _ => ak_ufix_%s::ZERO," % g.of)
+                elif g.kind == "bool":
+                    o.append("            Some(%s::%s(v)) => *v as u8," % (ty, _camel(g.name)))
+                    o.append("            _ => 0,")
+                elif g.kind == "enum":
+                    o.append("            Some(%s::%s(v)) => v.to_i32()," % (ty, _camel(g.name)))
+                    o.append("            _ => 0,")
+                else:
+                    o.append("            Some(%s::%s(v)) => *v," % (ty, _camel(g.name)))
+                    o.append("            _ => %s," % ("0.0" if g.kind == "double" else "0"))
+                o.append("        },")
+        o.append("        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },")
+        o.append("        presence: %s," % (" | ".join(pres) if pres else "0"))
+        o.append("    }")
+        o.append("}")
+        o.append("")
+
     # ---- ABI v1 open decision 9 candidate, built as an ARM and not as the default.
     #
     # The proposal: zero the element-group array once per chunk with a memset and assign
@@ -1350,6 +1654,95 @@ def emit_binding(ir):
         o.append("}")
         o.append("")
 
+
+    # ---- ABI v1 open decision 9 candidate, built as an ARM and not as the default.
+    #
+    # The proposal: zero the element-group array once per chunk with a memset and assign
+    # only the fields that are not at their default, instead of the total fill section 6
+    # requires. It REVERSES a trade the ABI already made and priced -- the total fill was
+    # bought so the codec never resets the group between elements, worth 5.4 ns per
+    # ResultRaw and 24.4 per TaskDetailed -- so it pays that back on every element of every
+    # payload to save the scattered stores on the empty ones.
+    #
+    # Everything below is emitted ALONGSIDE the default path and reached only through
+    # `encode_into_*_zeroed`. Nothing the default path uses changes.
+    for name in ir.abi_order:
+        m = ir.msg(name)
+        if m.synthetic:
+            continue
+        bits = presence_bits(m)
+        o.append("/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is")
+        o.append("/// written. The cost traded is a compare and a branch per field against an")
+        o.append("/// unconditional store per field, plus one memset per chunk.")
+        o.append("#[inline(always)]")
+        o.append("pub(crate) fn fill_%s_unk_sparse(d: &mut ak_ufix_%s, o: &%s, tc: (ak_transcode_fn, ak_transcode_fn)) {"
+                 % (snake(name), name, name))
+        o.append("    let _ = (&mut *d, o, tc);")
+        for f in m.plain:
+            if f.card != "singular":
+                continue
+            if f.explicit:
+                # Present-and-empty and present-and-zero must still be written, so the test
+                # is presence and NOT the value. This is the case a value test would break.
+                if f.kind == "string":
+                    o.append("    if let Some(v) = &o.%s { d.%s = str_arg(v, tc.0); d.presence |= 1 << %d; }"
+                             % (f.name, f.name, bits[f.name]))
+                elif f.kind == "bytes":
+                    o.append("    if let Some(v) = &o.%s { d.%s = ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) }; d.presence |= 1 << %d; }"
+                             % (f.name, f.name, bits[f.name]))
+                elif f.kind == "bool":
+                    o.append("    if let Some(v) = o.%s { d.%s = v as u8; d.presence |= 1 << %d; }"
+                             % (f.name, f.name, bits[f.name]))
+                elif f.kind == "enum":
+                    o.append("    if let Some(v) = o.%s { d.%s = v.to_i32(); d.presence |= 1 << %d; }"
+                             % (f.name, f.name, bits[f.name]))
+                else:
+                    o.append("    if let Some(v) = o.%s { d.%s = v; d.presence |= 1 << %d; }"
+                             % (f.name, f.name, bits[f.name]))
+                continue
+            if f.direct:
+                o.append("    if !o.%s.is_empty() { d.%s = ak_str { data: AK_STR_DIRECT, len: o.%s.len(), tc: None }; }"
+                         % (f.name, f.name, f.name))
+            elif f.kind == "string":
+                o.append("    if !o.%s.is_empty() { d.%s = str_arg(&o.%s, tc.0); }" % (f.name, f.name, f.name))
+            elif f.kind == "bytes":
+                o.append("    if !o.%s.is_empty() { d.%s = ak_str { data: o.%s.as_ptr() as *const c_void, len: o.%s.len(), tc: Some(tc.1) }; }"
+                         % (f.name, f.name, f.name, f.name))
+            elif f.kind == "message":
+                o.append("    if let Some(c) = &o.%s { fill_%s_unk_sparse(&mut d.%s, c, tc); d.presence |= 1 << %d; }"
+                         % (f.name, snake(f.of), f.name, bits[f.name]))
+            elif f.kind == "enum":
+                o.append("    { let v = o.%s.to_i32(); if v != 0 { d.%s = v; } }" % (f.name, f.name))
+            elif f.kind == "bool":
+                o.append("    if o.%s { d.%s = 1; }" % (f.name, f.name))
+            elif f.kind == "double":
+                o.append("    if o.%s != 0.0 { d.%s = o.%s; }" % (f.name, f.name, f.name))
+            else:
+                o.append("    if o.%s != 0 { d.%s = o.%s; }" % (f.name, f.name, f.name))
+        for oname, members in m.oneofs.items():
+            ty = "%s%s" % (name, "".join(p.capitalize() for p in oname.split("_")))
+            o.append("    match &o.%s {" % oname)
+            o.append("        None => {}")
+            for g in members:
+                if g.kind == "string":
+                    val = "d.%s_%s = str_arg(v, tc.0);" % (oname, g.name)
+                elif g.kind == "bytes":
+                    val = "d.%s_%s = ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) };" % (oname, g.name)
+                elif g.kind == "message":
+                    val = "fill_%s_unk_sparse(&mut d.%s_%s, v, tc);" % (snake(g.of), oname, g.name)
+                elif g.kind == "bool":
+                    val = "d.%s_%s = *v as u8;" % (oname, g.name)
+                elif g.kind == "enum":
+                    val = "d.%s_%s = v.to_i32();" % (oname, g.name)
+                else:
+                    val = "d.%s_%s = *v;" % (oname, g.name)
+                o.append("        Some(%s::%s(v)) => { d.%s_case = %d; %s }"
+                         % (ty, _camel(g.name), oname, g.tag, val))
+            o.append("    }")
+        o.append("    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }")
+        o.append("}")
+        o.append("")
+
     # ---- loop callbacks, per root and per slot
     for root in ir.roots:
         rs = snake(root)
@@ -1358,6 +1751,8 @@ def emit_binding(ir):
             _emit_loop(ir, o, root, path, f, sn, top=True)
             if f.kind == "message" and f.card != "map":
                 _emit_loop_zeroed(ir, o, root, path, f, sn)
+                _emit_loop_unk(ir, o, root, path, f, sn)
+                _emit_loop_unk_zeroed(ir, o, root, path, f, sn)
             et = elem_type(f)
             if et and has_slots(ir, et):
                 for ipath, iff in loop_slots(ir, et):
@@ -1406,6 +1801,61 @@ def emit_binding(ir):
         o.append("")
         # The same entry point with the ZEROED-GROUP loop callbacks installed where one
         # exists. ABI v1 open decision 9 candidate; the default above is untouched.
+        # Decisions 9 and 11 together.
+        o.append("pub fn encode_into_%s_unk_zeroed(ctx: *mut ak_enc_ctx, o: &%s, t: &Tcs) -> Result<usize, i32> {"
+                 % (rs, root))
+        o.append("    unsafe {")
+        o.append("        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));")
+        o.append("        ak_enc_reset(ctx);")
+        o.append("        let vt = ak_evt_%s {" % root)
+        if not loop_slots(ir, root):
+            o.append("            _reserved: ::core::ptr::null(),")
+        for path, f in loop_slots(ir, root):
+            sn = slot_name(path)
+            z = "_unk_zeroed" if (f.kind == "message" and f.card != "map") else ""
+            o.append("            loop_%s: Some(loop_%s_%s%s)," % (sn, rs, sn, z))
+            et = elem_type(f)
+            if et and has_slots(ir, et):
+                o.append("            elem_%s: &ELEM_VT_%s_%s," % (sn, root, sn))
+        o.append("        };")
+        o.append("        let fix = make_%s_unk(o, (t.utf8, t.bytes));" % rs)
+        if ds:
+            o.append("        let d = &%s;" % expr)
+            o.append("        let rc = ak_uencode_%s(o as *const _ as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());" % root)
+        else:
+            o.append("        let rc = ak_uencode_%s(o as *const _ as *const c_void, ctx, &vt, &fix);" % root)
+        o.append("        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }")
+        o.append("    }")
+        o.append("}")
+        o.append("")
+        # ABI v1 open decision 11 candidate: the same entry over the group that carries the
+        # unknown-field bag. Default path untouched.
+        o.append("pub fn encode_into_%s_unk(ctx: *mut ak_enc_ctx, o: &%s, t: &Tcs) -> Result<usize, i32> {"
+                 % (rs, root))
+        o.append("    unsafe {")
+        o.append("        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));")
+        o.append("        ak_enc_reset(ctx);")
+        o.append("        let vt = ak_evt_%s {" % root)
+        if not loop_slots(ir, root):
+            o.append("            _reserved: ::core::ptr::null(),")
+        for path, f in loop_slots(ir, root):
+            sn = slot_name(path)
+            z = "_unk" if (f.kind == "message" and f.card != "map") else ""
+            o.append("            loop_%s: Some(loop_%s_%s%s)," % (sn, rs, sn, z))
+            et = elem_type(f)
+            if et and has_slots(ir, et):
+                o.append("            elem_%s: &ELEM_VT_%s_%s," % (sn, root, sn))
+        o.append("        };")
+        o.append("        let fix = make_%s_unk(o, (t.utf8, t.bytes));" % rs)
+        if ds:
+            o.append("        let d = &%s;" % expr)
+            o.append("        let rc = ak_uencode_%s(o as *const _ as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());" % root)
+        else:
+            o.append("        let rc = ak_uencode_%s(o as *const _ as *const c_void, ctx, &vt, &fix);" % root)
+        o.append("        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }")
+        o.append("    }")
+        o.append("}")
+        o.append("")
         o.append("pub fn encode_into_%s_zeroed(ctx: *mut ak_enc_ctx, o: &%s, t: &Tcs) -> Result<usize, i32> {"
                  % (rs, root))
         o.append("    unsafe {")
@@ -1478,6 +1928,9 @@ def emit_binding(ir):
                 o.append("        %s: %s" % (oname, lines[0]))
                 o.extend("        " + ln for ln in lines[1:-1])
                 o.append("        },")
+            o.append("        // Decision 11's bag. The default decode path captures nothing,")
+            o.append("        // so this arm leaves it empty; `decode_with_*_unk` fills it.")
+            o.append("        unknown_fields: Vec::new(),")
             o.append("    }")
             o.append("}")
         o.append("")
@@ -1489,6 +1942,12 @@ def emit_binding(ir):
         o.append("pub struct Sink%s<'a> {" % root)
         o.append("    pub out: &'a mut %s," % root)
         o.append("    pub base: *const u8,")
+        o.append("    /// Decision 11 candidate: unknown runs staged by (slot, element index)")
+        o.append("    /// and applied after the decode. Staged rather than written straight")
+        o.append("    /// through because a capture buffer may flush mid-chunk, before the run")
+        o.append("    /// that carries the element it belongs to. Empty and unallocated on the")
+        o.append("    /// default path.")
+        o.append("    pub pending: Vec<(u32, i64, Vec<u8>)>,")
         o.append("}")
         o.append("")
         o.append("unsafe extern \"C\" fn apply_%s(" % rs)
@@ -1544,12 +2003,53 @@ def emit_binding(ir):
             else:
                 _emit_add(ir, o, root, None, sn, path, f)
 
+        # ---- decision 11 candidate: the host side of the unknown-field capture.
+        o.append("unsafe extern \"C\" fn unknown_%s(" % rs)
+        o.append("    ctx: *mut ak_dec_ctx,")
+        o.append("    obj: *mut c_void,")
+        o.append("    spans: *const ak_uspan,")
+        o.append("    n: i32,")
+        o.append(") {")
+        o.append("    dguard(ctx, || {")
+        o.append("        let s = &mut *(obj as *mut Sink%s);" % root)
+        o.append("        for i in 0..n as usize {")
+        o.append("            let sp = &*spans.add(i);")
+        o.append("            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);")
+        o.append("            s.pending.push((0, sp.token, b.to_vec()));")
+        o.append("        }")
+        o.append("    })")
+        o.append("}")
+        o.append("")
+        for si, (path, f) in enumerate(loop_slots(ir, root)):
+            sn = slot_name(path)
+            if not elem_type(f):
+                continue
+            o.append("unsafe extern \"C\" fn unk_%s_%s(" % (rs, sn))
+            o.append("    ctx: *mut ak_dec_ctx,")
+            o.append("    obj: *mut c_void,")
+            o.append("    spans: *const ak_uspan,")
+            o.append("    n: i32,")
+            o.append(") {")
+            o.append("    dguard(ctx, || {")
+            o.append("        let s = &mut *(obj as *mut Sink%s);" % root)
+            o.append("        for i in 0..n as usize {")
+            o.append("            let sp = &*spans.add(i);")
+            o.append("            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);")
+            o.append("            s.pending.push((%d, sp.token, b.to_vec()));" % (si + 1))
+            o.append("        }")
+            o.append("    })")
+            o.append("}")
+            o.append("")
         o.append("pub fn decode_with_%s(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<%s, i32> {" % (rs, root))
         o.append("    let mut out = %s::default();" % root)
         o.append("    let rc = unsafe {")
-        o.append("        let mut sink = Sink%s { out: &mut out, base: b.as_ptr() };" % root)
+        o.append("        let mut sink = Sink%s { out: &mut out, base: b.as_ptr(), pending: Vec::new() };" % root)
         o.append("        let vt = ak_dvt_%s {" % root)
         o.append("            apply: Some(apply_%s)," % rs)
+        o.append("            unknown: None,")
+        for path, f in loop_slots(ir, root):
+            if elem_type(f):
+                o.append("            unk_%s: None," % slot_name(path))
         for path, f in loop_slots(ir, root):
             sn = slot_name(path)
             et = elem_type(f)
@@ -1565,6 +2065,52 @@ def emit_binding(ir):
         o.append("        ak_decode_%s(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)" % root)
         o.append("    };")
         o.append("    if rc < 0 { Err(rc) } else { Ok(out) }")
+        o.append("}")
+        o.append("")
+        # ---- decision 11 candidate: the same decode with the capture turned on.
+        o.append("pub fn decode_with_%s_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<%s, i32> {" % (rs, root))
+        o.append("    let mut out = %s::default();" % root)
+        o.append("    let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();")
+        o.append("    let rc = unsafe {")
+        o.append("        let mut sink = Sink%s { out: &mut out, base: b.as_ptr(), pending: Vec::new() };" % root)
+        o.append("        let vt = ak_dvt_%s {" % root)
+        o.append("            apply: Some(apply_%s)," % rs)
+        o.append("            unknown: Some(unknown_%s)," % rs)
+        for path, f in loop_slots(ir, root):
+            if elem_type(f):
+                sn = slot_name(path)
+                o.append("            unk_%s: Some(unk_%s_%s)," % (sn, rs, sn))
+        for path, f in loop_slots(ir, root):
+            sn = slot_name(path)
+            et = elem_type(f)
+            if et and not ir.msg(et).leaf:
+                o.append("            new_%s: Some(new_%s_%s)," % (sn, rs, sn))
+                o.append("            apply_%s: Some(apply_%s_%s)," % (sn, rs, sn))
+                for ipath, _ in loop_slots(ir, et):
+                    o.append("            add_%s_%s: Some(add_%s_%s_%s)," %
+                             (sn, slot_name(ipath), rs, sn, slot_name(ipath)))
+            else:
+                o.append("            add_%s: Some(add_%s_%s)," % (sn, rs, sn))
+        o.append("        };")
+        o.append("        let rc = ak_decode_%s(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt);" % root)
+        o.append("        pending = ::core::mem::take(&mut sink.pending);")
+        o.append("        rc")
+        o.append("    };")
+        o.append("    if rc < 0 { return Err(rc); }")
+        o.append("    // Applied after the decode, not during it: a capture buffer may flush")
+        o.append("    // mid-chunk, before the run that carries the element it belongs to.")
+        o.append("    for (slot, token, bytes) in pending {")
+        o.append("        match slot {")
+        o.append("            0 => out.unknown_fields.extend_from_slice(&bytes),")
+        for si, (path, f) in enumerate(loop_slots(ir, root)):
+            if elem_type(f):
+                sn = slot_name(path)
+                o.append("            %d => { if let Some(e) = out.%s.get_mut(token as usize) { e.unknown_fields.extend_from_slice(&bytes); } }"
+                         % (si + 1, sn))
+        o.append("            _ => {}")
+        o.append("        }")
+        o.append("    }")
+        o.append("    Ok(out)")
         o.append("}")
         o.append("")
     return "\n".join(o)
@@ -1716,6 +2262,88 @@ def _emit_add(ir, o, root, et, sn, path, f):
     o.append("")
 
 
+def _emit_loop_unk_zeroed(ir, o, root, path, f, sn):
+    """Decisions 9 and 11 together: the zeroed-group fill over the group that carries the
+    unknown-field bag. The bag adds one `ak_str` to every group, so the memset this variant
+    does per chunk grows with it -- which is the interaction worth measuring rather than
+    reasoning about."""
+    rs = snake(root)
+    et = f.of
+    o.append("unsafe extern \"C\" fn loop_%s_%s_unk_zeroed(" % (rs, sn))
+    o.append("    ctx: *mut ak_enc_ctx,")
+    o.append("    obj: *const c_void,")
+    o.append("    token: i64,")
+    o.append(") -> i32 {")
+    o.append("    guard(ctx, || {")
+    o.append("        let o = &*(obj as *const %s);" % root)
+    o.append("        let tc = tcs();")
+    o.append("        let src = &o.%s;" % sn)
+    o.append("        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_%s>());" % et)
+    o.append("        const SZ: usize = ::core::mem::size_of::<ak_ufix_%s>();" % et)
+    o.append("        let mut chunk: [::core::mem::MaybeUninit<ak_ufix_%s>; CHUNK] =" % et)
+    o.append("            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];")
+    o.append("        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);")
+    o.append("        let mut i = 0usize;")
+    o.append("        let mut done = 0usize;")
+    o.append("        for v in src.iter() {")
+    o.append("            fill_%s_unk_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);" % snake(et))
+    o.append("            i += 1;")
+    o.append("            if i == CHUNK {")
+    o.extend("                " + ln for ln in _run_call(ir, f, et, "i", "done", bag=True))
+    o.append("                done += i;")
+    o.append("                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);")
+    o.append("                i = 0;")
+    o.append("            }")
+    o.append("        }")
+    o.append("        if i > 0 {")
+    o.extend("            " + ln for ln in _run_call(ir, f, et, "i", "done", bag=True))
+    o.append("        }")
+    o.append("        AK_OK")
+    o.append("    })")
+    o.append("}")
+    o.append("")
+
+
+def _emit_loop_unk(ir, o, root, path, f, sn):
+    """The same top-level loop callback over the group that carries the unknown-field bag.
+    ABI v1 open decision 11 candidate. Only the element group changes; the loop, the chunk
+    size and the run call are the same shape, which is the point: the bag is ONE more
+    `ak_str` slot and not a repeated field, so ABI v1 7.2's batched run survives it
+    (`gen/unknown_predicate.py`)."""
+    rs = snake(root)
+    et = f.of
+    o.append("unsafe extern \"C\" fn loop_%s_%s_unk(" % (rs, sn))
+    o.append("    ctx: *mut ak_enc_ctx,")
+    o.append("    obj: *const c_void,")
+    o.append("    token: i64,")
+    o.append(") -> i32 {")
+    o.append("    guard(ctx, || {")
+    o.append("        let o = &*(obj as *const %s);" % root)
+    o.append("        let tc = tcs();")
+    o.append("        let src = &o.%s;" % sn)
+    o.append("        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_%s>());" % et)
+    o.append("        let mut chunk: [::core::mem::MaybeUninit<ak_ufix_%s>; CHUNK] =" % et)
+    o.append("            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];")
+    o.append("        let mut i = 0usize;")
+    o.append("        let mut done = 0usize;")
+    o.append("        for v in src.iter() {")
+    o.append("            chunk[i].write(make_%s_unk(v, tc));" % snake(et))
+    o.append("            i += 1;")
+    o.append("            if i == CHUNK {")
+    o.extend("                " + ln for ln in _run_call(ir, f, et, "i", "done", bag=True))
+    o.append("                done += i;")
+    o.append("                i = 0;")
+    o.append("            }")
+    o.append("        }")
+    o.append("        if i > 0 {")
+    o.extend("            " + ln for ln in _run_call(ir, f, et, "i", "done", bag=True))
+    o.append("        }")
+    o.append("        AK_OK")
+    o.append("    })")
+    o.append("}")
+    o.append("")
+
+
 def _emit_loop_zeroed(ir, o, root, path, f, sn):
     """The same top-level loop callback with the ZEROED-GROUP fill: one memset per chunk,
     then only the fields that differ from the default. ABI v1 open decision 9 candidate.
@@ -1858,16 +2486,18 @@ def _emit_loop(ir, o, root, path, f, sn, top, elem_path=None, inner_path=None, e
     o.append("")
 
 
-def _run_call(ir, f, et, n, done):
+def _run_call(ir, f, et, n, done, bag=False):
     """Hand the filled chunk over. One element entry point taking a count: `n == 1` is the
     unbatched call, and the host may decline to batch at all and lose only what its own
     crossing costs."""
-    ptr = "chunk.as_ptr() as *const %s" % (("ak_efix_%s" % et) if et else "ak_str")
+    g = "u" if bag else "e"
+    ptr = "chunk.as_ptr() as *const %s" % (("ak_%sfix_%s" % (g, et)) if et else "ak_str")
+    u = "u" if bag else ""
     if et and not ir.msg(et).leaf:
-        return ["let rc = ak_elemu_%s(ctx, %s, %s as i32, %s as i64);" % (et, ptr, n, done),
+        return ["let rc = ak_%selemu_%s(ctx, %s, %s as i32, %s as i64);" % (u, et, ptr, n, done),
                 "if rc < 0 { return rc; }"]
     if et:
-        return ["let rc = ak_elem_%s(ctx, %s, %s as i32);" % (et, ptr, n),
+        return ["let rc = ak_%selem_%s(ctx, %s, %s as i32);" % (u, et, ptr, n),
                 "if rc < 0 { return rc; }"]
     return ["let rc = ak_blob_run(ctx, %s, %s as i32);" % (ptr, n),
             "if rc < 0 { return rc; }"]

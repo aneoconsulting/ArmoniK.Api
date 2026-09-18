@@ -484,6 +484,380 @@ pub(crate) fn make_dual_response(o: &DualResponse, tc: (ak_transcode_fn, ak_tran
     }
 }
 
+/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more
+/// `ak_str` slot per group -- which is what makes this interact with decision 9:
+/// the total fill grows on every message, including the ones that encode to nothing.
+#[inline(always)]
+pub(crate) fn make_timestamp_unk(o: &Timestamp, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_Timestamp {
+    ak_ufix_Timestamp {
+        seconds: o.seconds,
+        nanos: o.nanos,
+        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
+        presence: 0,
+    }
+}
+
+/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more
+/// `ak_str` slot per group -- which is what makes this interact with decision 9:
+/// the total fill grows on every message, including the ones that encode to nothing.
+#[inline(always)]
+pub(crate) fn make_duration_unk(o: &Duration, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_Duration {
+    ak_ufix_Duration {
+        seconds: o.seconds,
+        nanos: o.nanos,
+        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
+        presence: 0,
+    }
+}
+
+/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more
+/// `ak_str` slot per group -- which is what makes this interact with decision 9:
+/// the total fill grows on every message, including the ones that encode to nothing.
+#[inline(always)]
+pub(crate) fn make_result_raw_unk(o: &ResultRaw, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_ResultRaw {
+    ak_ufix_ResultRaw {
+        session_id: str_arg(&o.session_id, tc.0),
+        name: str_arg(&o.name, tc.0),
+        owner_task_id: str_arg(&o.owner_task_id, tc.0),
+        status: o.status.to_i32(),
+        created_at: match &o.created_at {
+            Some(c) => make_timestamp_unk(c, tc),
+            None => ak_ufix_Timestamp::ZERO,
+        },
+        completed_at: match &o.completed_at {
+            Some(c) => make_timestamp_unk(c, tc),
+            None => ak_ufix_Timestamp::ZERO,
+        },
+        result_id: str_arg(&o.result_id, tc.0),
+        size: o.size,
+        created_by: str_arg(&o.created_by, tc.0),
+        opaque_id: ak_str { data: o.opaque_id.as_ptr() as *const c_void, len: o.opaque_id.len(), tc: Some(tc.1) },
+        manual_deletion: o.manual_deletion as u8,
+        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
+        presence: ((o.created_at.is_some() as u32) << 0) | ((o.completed_at.is_some() as u32) << 1),
+    }
+}
+
+/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more
+/// `ak_str` slot per group -- which is what makes this interact with decision 9:
+/// the total fill grows on every message, including the ones that encode to nothing.
+#[inline(always)]
+pub(crate) fn make_task_options_unk(o: &TaskOptions, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_TaskOptions {
+    ak_ufix_TaskOptions {
+        max_duration: match &o.max_duration {
+            Some(c) => make_duration_unk(c, tc),
+            None => ak_ufix_Duration::ZERO,
+        },
+        max_retries: o.max_retries,
+        priority: o.priority,
+        partition_id: str_arg(&o.partition_id, tc.0),
+        application_name: str_arg(&o.application_name, tc.0),
+        application_version: str_arg(&o.application_version, tc.0),
+        application_namespace: str_arg(&o.application_namespace, tc.0),
+        application_service: str_arg(&o.application_service, tc.0),
+        engine_type: str_arg(&o.engine_type, tc.0),
+        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
+        presence: ((o.max_duration.is_some() as u32) << 0),
+    }
+}
+
+/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more
+/// `ak_str` slot per group -- which is what makes this interact with decision 9:
+/// the total fill grows on every message, including the ones that encode to nothing.
+#[inline(always)]
+pub(crate) fn make_task_output_unk(o: &TaskOutput, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_TaskOutput {
+    ak_ufix_TaskOutput {
+        success: o.success as u8,
+        error: str_arg(&o.error, tc.0),
+        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
+        presence: 0,
+    }
+}
+
+/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more
+/// `ak_str` slot per group -- which is what makes this interact with decision 9:
+/// the total fill grows on every message, including the ones that encode to nothing.
+#[inline(always)]
+pub(crate) fn make_task_detailed_unk(o: &TaskDetailed, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_TaskDetailed {
+    ak_ufix_TaskDetailed {
+        id: str_arg(&o.id, tc.0),
+        session_id: str_arg(&o.session_id, tc.0),
+        owner_pod_id: str_arg(&o.owner_pod_id, tc.0),
+        status: o.status.to_i32(),
+        status_message: str_arg(&o.status_message, tc.0),
+        options: match &o.options {
+            Some(c) => make_task_options_unk(c, tc),
+            None => ak_ufix_TaskOptions::ZERO,
+        },
+        created_at: match &o.created_at {
+            Some(c) => make_timestamp_unk(c, tc),
+            None => ak_ufix_Timestamp::ZERO,
+        },
+        submitted_at: match &o.submitted_at {
+            Some(c) => make_timestamp_unk(c, tc),
+            None => ak_ufix_Timestamp::ZERO,
+        },
+        started_at: match &o.started_at {
+            Some(c) => make_timestamp_unk(c, tc),
+            None => ak_ufix_Timestamp::ZERO,
+        },
+        ended_at: match &o.ended_at {
+            Some(c) => make_timestamp_unk(c, tc),
+            None => ak_ufix_Timestamp::ZERO,
+        },
+        pod_ttl: match &o.pod_ttl {
+            Some(c) => make_timestamp_unk(c, tc),
+            None => ak_ufix_Timestamp::ZERO,
+        },
+        output: match &o.output {
+            Some(c) => make_task_output_unk(c, tc),
+            None => ak_ufix_TaskOutput::ZERO,
+        },
+        pod_hostname: str_arg(&o.pod_hostname, tc.0),
+        received_at: match &o.received_at {
+            Some(c) => make_timestamp_unk(c, tc),
+            None => ak_ufix_Timestamp::ZERO,
+        },
+        acquired_at: match &o.acquired_at {
+            Some(c) => make_timestamp_unk(c, tc),
+            None => ak_ufix_Timestamp::ZERO,
+        },
+        creation_to_end_duration: match &o.creation_to_end_duration {
+            Some(c) => make_duration_unk(c, tc),
+            None => ak_ufix_Duration::ZERO,
+        },
+        processing_to_end_duration: match &o.processing_to_end_duration {
+            Some(c) => make_duration_unk(c, tc),
+            None => ak_ufix_Duration::ZERO,
+        },
+        initial_task_id: str_arg(&o.initial_task_id, tc.0),
+        received_to_end_duration: match &o.received_to_end_duration {
+            Some(c) => make_duration_unk(c, tc),
+            None => ak_ufix_Duration::ZERO,
+        },
+        processed_at: match &o.processed_at {
+            Some(c) => make_timestamp_unk(c, tc),
+            None => ak_ufix_Timestamp::ZERO,
+        },
+        fetched_at: match &o.fetched_at {
+            Some(c) => make_timestamp_unk(c, tc),
+            None => ak_ufix_Timestamp::ZERO,
+        },
+        payload_id: str_arg(&o.payload_id, tc.0),
+        created_by: str_arg(&o.created_by, tc.0),
+        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
+        presence: ((o.options.is_some() as u32) << 0) | ((o.created_at.is_some() as u32) << 1) | ((o.submitted_at.is_some() as u32) << 2) | ((o.started_at.is_some() as u32) << 3) | ((o.ended_at.is_some() as u32) << 4) | ((o.pod_ttl.is_some() as u32) << 5) | ((o.output.is_some() as u32) << 6) | ((o.received_at.is_some() as u32) << 7) | ((o.acquired_at.is_some() as u32) << 8) | ((o.creation_to_end_duration.is_some() as u32) << 9) | ((o.processing_to_end_duration.is_some() as u32) << 10) | ((o.received_to_end_duration.is_some() as u32) << 11) | ((o.processed_at.is_some() as u32) << 12) | ((o.fetched_at.is_some() as u32) << 13),
+    }
+}
+
+/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more
+/// `ak_str` slot per group -- which is what makes this interact with decision 9:
+/// the total fill grows on every message, including the ones that encode to nothing.
+#[inline(always)]
+pub(crate) fn make_task_summary_unk(o: &TaskSummary, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_TaskSummary {
+    ak_ufix_TaskSummary {
+        id: str_arg(&o.id, tc.0),
+        session_id: str_arg(&o.session_id, tc.0),
+        options: match &o.options {
+            Some(c) => make_task_options_unk(c, tc),
+            None => ak_ufix_TaskOptions::ZERO,
+        },
+        status: o.status.to_i32(),
+        created_at: match &o.created_at {
+            Some(c) => make_timestamp_unk(c, tc),
+            None => ak_ufix_Timestamp::ZERO,
+        },
+        error: str_arg(&o.error, tc.0),
+        status_message: str_arg(&o.status_message, tc.0),
+        count_data_dependencies: o.count_data_dependencies,
+        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
+        presence: ((o.options.is_some() as u32) << 0) | ((o.created_at.is_some() as u32) << 1),
+    }
+}
+
+/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more
+/// `ak_str` slot per group -- which is what makes this interact with decision 9:
+/// the total fill grows on every message, including the ones that encode to nothing.
+#[inline(always)]
+pub(crate) fn make_probe_unk(o: &Probe, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_Probe {
+    ak_ufix_Probe {
+        id: str_arg(&o.id, tc.0),
+        opt_count: o.opt_count.unwrap_or(0),
+        opt_label: match &o.opt_label {
+            Some(v) => str_arg(v, tc.0),
+            None => ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        },
+        opt_flag: o.opt_flag.unwrap_or(false) as u8,
+        body_case: match &o.body {
+            None => 0,
+            Some(ProbeBody::AsInt(_)) => 10,
+            Some(ProbeBody::AsText(_)) => 11,
+            Some(ProbeBody::AsBlob(_)) => 12,
+            Some(ProbeBody::AsStamp(_)) => 13,
+            Some(ProbeBody::AsNothing(_)) => 14,
+        },
+        body_as_int: match &o.body {
+            Some(ProbeBody::AsInt(v)) => *v,
+            _ => 0,
+        },
+        body_as_text: match &o.body {
+            Some(ProbeBody::AsText(v)) => str_arg(v, tc.0),
+            _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        },
+        body_as_blob: match &o.body {
+            Some(ProbeBody::AsBlob(v)) => ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) },
+            _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },
+        },
+        body_as_stamp: match &o.body {
+            Some(ProbeBody::AsStamp(v)) => make_timestamp_unk(v, tc),
+            _ => ak_ufix_Timestamp::ZERO,
+        },
+        body_as_nothing: match &o.body {
+            Some(ProbeBody::AsNothing(v)) => make_empty_unk(v, tc),
+            _ => ak_ufix_Empty::ZERO,
+        },
+        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
+        presence: ((o.opt_count.is_some() as u32) << 0) | ((o.opt_label.is_some() as u32) << 1) | ((o.opt_flag.is_some() as u32) << 2),
+    }
+}
+
+/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more
+/// `ak_str` slot per group -- which is what makes this interact with decision 9:
+/// the total fill grows on every message, including the ones that encode to nothing.
+#[inline(always)]
+pub(crate) fn make_empty_unk(o: &Empty, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_Empty {
+    ak_ufix_Empty {
+        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
+        presence: 0,
+    }
+}
+
+/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more
+/// `ak_str` slot per group -- which is what makes this interact with decision 9:
+/// the total fill grows on every message, including the ones that encode to nothing.
+#[inline(always)]
+pub(crate) fn make_upload_result_data_unk(o: &UploadResultData, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_UploadResultData {
+    ak_ufix_UploadResultData {
+        session_id: str_arg(&o.session_id, tc.0),
+        result_id: str_arg(&o.result_id, tc.0),
+        // ABI v1 section 8: the sentinel says the bytes are an
+        // argument of the call, not a pointer into staging.
+        data_chunk: ak_str { data: AK_STR_DIRECT, len: o.data_chunk.len(), tc: None },
+        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
+        presence: 0,
+    }
+}
+
+/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more
+/// `ak_str` slot per group -- which is what makes this interact with decision 9:
+/// the total fill grows on every message, including the ones that encode to nothing.
+#[inline(always)]
+pub(crate) fn make_metrics_batch_unk(o: &MetricsBatch, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_MetricsBatch {
+    ak_ufix_MetricsBatch {
+        id: str_arg(&o.id, tc.0),
+        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
+        presence: 0,
+    }
+}
+
+/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more
+/// `ak_str` slot per group -- which is what makes this interact with decision 9:
+/// the total fill grows on every message, including the ones that encode to nothing.
+#[inline(always)]
+pub(crate) fn make_pair_unk(o: &Pair, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_Pair {
+    ak_ufix_Pair {
+        key: str_arg(&o.key, tc.0),
+        value: o.value,
+        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
+        presence: 0,
+    }
+}
+
+/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more
+/// `ak_str` slot per group -- which is what makes this interact with decision 9:
+/// the total fill grows on every message, including the ones that encode to nothing.
+#[inline(always)]
+pub(crate) fn make_list_results_response_unk(o: &ListResultsResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_ListResultsResponse {
+    ak_ufix_ListResultsResponse {
+        page: o.page,
+        total: o.total,
+        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
+        presence: 0,
+    }
+}
+
+/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more
+/// `ak_str` slot per group -- which is what makes this interact with decision 9:
+/// the total fill grows on every message, including the ones that encode to nothing.
+#[inline(always)]
+pub(crate) fn make_list_tasks_detailed_response_unk(o: &ListTasksDetailedResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_ListTasksDetailedResponse {
+    ak_ufix_ListTasksDetailedResponse {
+        page: o.page,
+        total: o.total,
+        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
+        presence: 0,
+    }
+}
+
+/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more
+/// `ak_str` slot per group -- which is what makes this interact with decision 9:
+/// the total fill grows on every message, including the ones that encode to nothing.
+#[inline(always)]
+pub(crate) fn make_list_task_summary_response_unk(o: &ListTaskSummaryResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_ListTaskSummaryResponse {
+    ak_ufix_ListTaskSummaryResponse {
+        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
+        presence: 0,
+    }
+}
+
+/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more
+/// `ak_str` slot per group -- which is what makes this interact with decision 9:
+/// the total fill grows on every message, including the ones that encode to nothing.
+#[inline(always)]
+pub(crate) fn make_list_probe_response_unk(o: &ListProbeResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_ListProbeResponse {
+    ak_ufix_ListProbeResponse {
+        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
+        presence: 0,
+    }
+}
+
+/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more
+/// `ak_str` slot per group -- which is what makes this interact with decision 9:
+/// the total fill grows on every message, including the ones that encode to nothing.
+#[inline(always)]
+pub(crate) fn make_list_metrics_response_unk(o: &ListMetricsResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_ListMetricsResponse {
+    ak_ufix_ListMetricsResponse {
+        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
+        presence: 0,
+    }
+}
+
+/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more
+/// `ak_str` slot per group -- which is what makes this interact with decision 9:
+/// the total fill grows on every message, including the ones that encode to nothing.
+#[inline(always)]
+pub(crate) fn make_upload_result_data_message_unk(o: &UploadResultDataMessage, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_UploadResultDataMessage {
+    ak_ufix_UploadResultDataMessage {
+        upload: match &o.upload {
+            Some(c) => make_upload_result_data_unk(c, tc),
+            None => ak_ufix_UploadResultData::ZERO,
+        },
+        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
+        presence: ((o.upload.is_some() as u32) << 0),
+    }
+}
+
+/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more
+/// `ak_str` slot per group -- which is what makes this interact with decision 9:
+/// the total fill grows on every message, including the ones that encode to nothing.
+#[inline(always)]
+pub(crate) fn make_dual_response_unk(o: &DualResponse, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_ufix_DualResponse {
+    ak_ufix_DualResponse {
+        unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
+        presence: 0,
+    }
+}
+
 /// Sparse fill: `d` is ALREADY ZERO, so only what differs from the default is
 /// written. The cost traded is a compare and a branch per field against an
 /// unconditional store per field, plus one memset per chunk.
@@ -716,6 +1090,257 @@ pub(crate) fn fill_dual_response_sparse(d: &mut ak_efix_DualResponse, o: &DualRe
     let _ = (&mut *d, o, tc);
 }
 
+/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_timestamp_unk_sparse(d: &mut ak_ufix_Timestamp, o: &Timestamp, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if o.seconds != 0 { d.seconds = o.seconds; }
+    if o.nanos != 0 { d.nanos = o.nanos; }
+    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
+}
+
+/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_duration_unk_sparse(d: &mut ak_ufix_Duration, o: &Duration, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if o.seconds != 0 { d.seconds = o.seconds; }
+    if o.nanos != 0 { d.nanos = o.nanos; }
+    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
+}
+
+/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_result_raw_unk_sparse(d: &mut ak_ufix_ResultRaw, o: &ResultRaw, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if !o.session_id.is_empty() { d.session_id = str_arg(&o.session_id, tc.0); }
+    if !o.name.is_empty() { d.name = str_arg(&o.name, tc.0); }
+    if !o.owner_task_id.is_empty() { d.owner_task_id = str_arg(&o.owner_task_id, tc.0); }
+    { let v = o.status.to_i32(); if v != 0 { d.status = v; } }
+    if let Some(c) = &o.created_at { fill_timestamp_unk_sparse(&mut d.created_at, c, tc); d.presence |= 1 << 0; }
+    if let Some(c) = &o.completed_at { fill_timestamp_unk_sparse(&mut d.completed_at, c, tc); d.presence |= 1 << 1; }
+    if !o.result_id.is_empty() { d.result_id = str_arg(&o.result_id, tc.0); }
+    if o.size != 0 { d.size = o.size; }
+    if !o.created_by.is_empty() { d.created_by = str_arg(&o.created_by, tc.0); }
+    if !o.opaque_id.is_empty() { d.opaque_id = ak_str { data: o.opaque_id.as_ptr() as *const c_void, len: o.opaque_id.len(), tc: Some(tc.1) }; }
+    if o.manual_deletion { d.manual_deletion = 1; }
+    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
+}
+
+/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_task_options_unk_sparse(d: &mut ak_ufix_TaskOptions, o: &TaskOptions, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if let Some(c) = &o.max_duration { fill_duration_unk_sparse(&mut d.max_duration, c, tc); d.presence |= 1 << 0; }
+    if o.max_retries != 0 { d.max_retries = o.max_retries; }
+    if o.priority != 0 { d.priority = o.priority; }
+    if !o.partition_id.is_empty() { d.partition_id = str_arg(&o.partition_id, tc.0); }
+    if !o.application_name.is_empty() { d.application_name = str_arg(&o.application_name, tc.0); }
+    if !o.application_version.is_empty() { d.application_version = str_arg(&o.application_version, tc.0); }
+    if !o.application_namespace.is_empty() { d.application_namespace = str_arg(&o.application_namespace, tc.0); }
+    if !o.application_service.is_empty() { d.application_service = str_arg(&o.application_service, tc.0); }
+    if !o.engine_type.is_empty() { d.engine_type = str_arg(&o.engine_type, tc.0); }
+    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
+}
+
+/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_task_output_unk_sparse(d: &mut ak_ufix_TaskOutput, o: &TaskOutput, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if o.success { d.success = 1; }
+    if !o.error.is_empty() { d.error = str_arg(&o.error, tc.0); }
+    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
+}
+
+/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_task_detailed_unk_sparse(d: &mut ak_ufix_TaskDetailed, o: &TaskDetailed, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if !o.id.is_empty() { d.id = str_arg(&o.id, tc.0); }
+    if !o.session_id.is_empty() { d.session_id = str_arg(&o.session_id, tc.0); }
+    if !o.owner_pod_id.is_empty() { d.owner_pod_id = str_arg(&o.owner_pod_id, tc.0); }
+    { let v = o.status.to_i32(); if v != 0 { d.status = v; } }
+    if !o.status_message.is_empty() { d.status_message = str_arg(&o.status_message, tc.0); }
+    if let Some(c) = &o.options { fill_task_options_unk_sparse(&mut d.options, c, tc); d.presence |= 1 << 0; }
+    if let Some(c) = &o.created_at { fill_timestamp_unk_sparse(&mut d.created_at, c, tc); d.presence |= 1 << 1; }
+    if let Some(c) = &o.submitted_at { fill_timestamp_unk_sparse(&mut d.submitted_at, c, tc); d.presence |= 1 << 2; }
+    if let Some(c) = &o.started_at { fill_timestamp_unk_sparse(&mut d.started_at, c, tc); d.presence |= 1 << 3; }
+    if let Some(c) = &o.ended_at { fill_timestamp_unk_sparse(&mut d.ended_at, c, tc); d.presence |= 1 << 4; }
+    if let Some(c) = &o.pod_ttl { fill_timestamp_unk_sparse(&mut d.pod_ttl, c, tc); d.presence |= 1 << 5; }
+    if let Some(c) = &o.output { fill_task_output_unk_sparse(&mut d.output, c, tc); d.presence |= 1 << 6; }
+    if !o.pod_hostname.is_empty() { d.pod_hostname = str_arg(&o.pod_hostname, tc.0); }
+    if let Some(c) = &o.received_at { fill_timestamp_unk_sparse(&mut d.received_at, c, tc); d.presence |= 1 << 7; }
+    if let Some(c) = &o.acquired_at { fill_timestamp_unk_sparse(&mut d.acquired_at, c, tc); d.presence |= 1 << 8; }
+    if let Some(c) = &o.creation_to_end_duration { fill_duration_unk_sparse(&mut d.creation_to_end_duration, c, tc); d.presence |= 1 << 9; }
+    if let Some(c) = &o.processing_to_end_duration { fill_duration_unk_sparse(&mut d.processing_to_end_duration, c, tc); d.presence |= 1 << 10; }
+    if !o.initial_task_id.is_empty() { d.initial_task_id = str_arg(&o.initial_task_id, tc.0); }
+    if let Some(c) = &o.received_to_end_duration { fill_duration_unk_sparse(&mut d.received_to_end_duration, c, tc); d.presence |= 1 << 11; }
+    if let Some(c) = &o.processed_at { fill_timestamp_unk_sparse(&mut d.processed_at, c, tc); d.presence |= 1 << 12; }
+    if let Some(c) = &o.fetched_at { fill_timestamp_unk_sparse(&mut d.fetched_at, c, tc); d.presence |= 1 << 13; }
+    if !o.payload_id.is_empty() { d.payload_id = str_arg(&o.payload_id, tc.0); }
+    if !o.created_by.is_empty() { d.created_by = str_arg(&o.created_by, tc.0); }
+    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
+}
+
+/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_task_summary_unk_sparse(d: &mut ak_ufix_TaskSummary, o: &TaskSummary, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if !o.id.is_empty() { d.id = str_arg(&o.id, tc.0); }
+    if !o.session_id.is_empty() { d.session_id = str_arg(&o.session_id, tc.0); }
+    if let Some(c) = &o.options { fill_task_options_unk_sparse(&mut d.options, c, tc); d.presence |= 1 << 0; }
+    { let v = o.status.to_i32(); if v != 0 { d.status = v; } }
+    if let Some(c) = &o.created_at { fill_timestamp_unk_sparse(&mut d.created_at, c, tc); d.presence |= 1 << 1; }
+    if !o.error.is_empty() { d.error = str_arg(&o.error, tc.0); }
+    if !o.status_message.is_empty() { d.status_message = str_arg(&o.status_message, tc.0); }
+    if o.count_data_dependencies != 0 { d.count_data_dependencies = o.count_data_dependencies; }
+    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
+}
+
+/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_probe_unk_sparse(d: &mut ak_ufix_Probe, o: &Probe, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if !o.id.is_empty() { d.id = str_arg(&o.id, tc.0); }
+    if let Some(v) = o.opt_count { d.opt_count = v; d.presence |= 1 << 0; }
+    if let Some(v) = &o.opt_label { d.opt_label = str_arg(v, tc.0); d.presence |= 1 << 1; }
+    if let Some(v) = o.opt_flag { d.opt_flag = v as u8; d.presence |= 1 << 2; }
+    match &o.body {
+        None => {}
+        Some(ProbeBody::AsInt(v)) => { d.body_case = 10; d.body_as_int = *v; }
+        Some(ProbeBody::AsText(v)) => { d.body_case = 11; d.body_as_text = str_arg(v, tc.0); }
+        Some(ProbeBody::AsBlob(v)) => { d.body_case = 12; d.body_as_blob = ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) }; }
+        Some(ProbeBody::AsStamp(v)) => { d.body_case = 13; fill_timestamp_unk_sparse(&mut d.body_as_stamp, v, tc); }
+        Some(ProbeBody::AsNothing(v)) => { d.body_case = 14; fill_empty_unk_sparse(&mut d.body_as_nothing, v, tc); }
+    }
+    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
+}
+
+/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_empty_unk_sparse(d: &mut ak_ufix_Empty, o: &Empty, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
+}
+
+/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_upload_result_data_unk_sparse(d: &mut ak_ufix_UploadResultData, o: &UploadResultData, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if !o.session_id.is_empty() { d.session_id = str_arg(&o.session_id, tc.0); }
+    if !o.result_id.is_empty() { d.result_id = str_arg(&o.result_id, tc.0); }
+    if !o.data_chunk.is_empty() { d.data_chunk = ak_str { data: AK_STR_DIRECT, len: o.data_chunk.len(), tc: None }; }
+    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
+}
+
+/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_metrics_batch_unk_sparse(d: &mut ak_ufix_MetricsBatch, o: &MetricsBatch, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if !o.id.is_empty() { d.id = str_arg(&o.id, tc.0); }
+    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
+}
+
+/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_pair_unk_sparse(d: &mut ak_ufix_Pair, o: &Pair, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if !o.key.is_empty() { d.key = str_arg(&o.key, tc.0); }
+    if o.value != 0 { d.value = o.value; }
+    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
+}
+
+/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_list_results_response_unk_sparse(d: &mut ak_ufix_ListResultsResponse, o: &ListResultsResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if o.page != 0 { d.page = o.page; }
+    if o.total != 0 { d.total = o.total; }
+    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
+}
+
+/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_list_tasks_detailed_response_unk_sparse(d: &mut ak_ufix_ListTasksDetailedResponse, o: &ListTasksDetailedResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if o.page != 0 { d.page = o.page; }
+    if o.total != 0 { d.total = o.total; }
+    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
+}
+
+/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_list_task_summary_response_unk_sparse(d: &mut ak_ufix_ListTaskSummaryResponse, o: &ListTaskSummaryResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
+}
+
+/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_list_probe_response_unk_sparse(d: &mut ak_ufix_ListProbeResponse, o: &ListProbeResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
+}
+
+/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_list_metrics_response_unk_sparse(d: &mut ak_ufix_ListMetricsResponse, o: &ListMetricsResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
+}
+
+/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_upload_result_data_message_unk_sparse(d: &mut ak_ufix_UploadResultDataMessage, o: &UploadResultDataMessage, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if let Some(c) = &o.upload { fill_upload_result_data_unk_sparse(&mut d.upload, c, tc); d.presence |= 1 << 0; }
+    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
+}
+
+/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is
+/// written. The cost traded is a compare and a branch per field against an
+/// unconditional store per field, plus one memset per chunk.
+#[inline(always)]
+pub(crate) fn fill_dual_response_unk_sparse(d: &mut ak_ufix_DualResponse, o: &DualResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    let _ = (&mut *d, o, tc);
+    if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
+}
+
 unsafe extern "C" fn loop_list_results_response_results(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -786,6 +1411,73 @@ unsafe extern "C" fn loop_list_results_response_results_zeroed(
     })
 }
 
+unsafe extern "C" fn loop_list_results_response_results_unk(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListResultsResponse);
+        let tc = tcs();
+        let src = &o.results;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_ResultRaw>());
+        let mut chunk: [::core::mem::MaybeUninit<ak_ufix_ResultRaw>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            chunk[i].write(make_result_raw_unk(v, tc));
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_uelem_ResultRaw(ctx, chunk.as_ptr() as *const ak_ufix_ResultRaw, i as i32);
+                if rc < 0 { return rc; }
+                done += i;
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_uelem_ResultRaw(ctx, chunk.as_ptr() as *const ak_ufix_ResultRaw, i as i32);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_list_results_response_results_unk_zeroed(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListResultsResponse);
+        let tc = tcs();
+        let src = &o.results;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_ResultRaw>());
+        const SZ: usize = ::core::mem::size_of::<ak_ufix_ResultRaw>();
+        let mut chunk: [::core::mem::MaybeUninit<ak_ufix_ResultRaw>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            fill_result_raw_unk_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_uelem_ResultRaw(ctx, chunk.as_ptr() as *const ak_ufix_ResultRaw, i as i32);
+                if rc < 0 { return rc; }
+                done += i;
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_uelem_ResultRaw(ctx, chunk.as_ptr() as *const ak_ufix_ResultRaw, i as i32);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
 pub fn encode_into_list_results_response(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
@@ -795,6 +1487,32 @@ pub fn encode_into_list_results_response(ctx: *mut ak_enc_ctx, o: &ListResultsRe
         };
         let fix = make_list_results_response(o, (t.utf8, t.bytes));
         let rc = ak_encode_ListResultsResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
+pub fn encode_into_list_results_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_ListResultsResponse {
+            loop_results: Some(loop_list_results_response_results_unk_zeroed),
+        };
+        let fix = make_list_results_response_unk(o, (t.utf8, t.bytes));
+        let rc = ak_uencode_ListResultsResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
+pub fn encode_into_list_results_response_unk(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_ListResultsResponse {
+            loop_results: Some(loop_list_results_response_results_unk),
+        };
+        let fix = make_list_results_response_unk(o, (t.utf8, t.bytes));
+        let rc = ak_uencode_ListResultsResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
         if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
     }
 }
@@ -876,6 +1594,73 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_zeroed(
         }
         if i > 0 {
             let rc = ak_elemu_TaskDetailed(ctx, chunk.as_ptr() as *const ak_efix_TaskDetailed, i as i32, done as i64);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_unk(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListTasksDetailedResponse);
+        let tc = tcs();
+        let src = &o.tasks;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_TaskDetailed>());
+        let mut chunk: [::core::mem::MaybeUninit<ak_ufix_TaskDetailed>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            chunk[i].write(make_task_detailed_unk(v, tc));
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_uelemu_TaskDetailed(ctx, chunk.as_ptr() as *const ak_ufix_TaskDetailed, i as i32, done as i64);
+                if rc < 0 { return rc; }
+                done += i;
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_uelemu_TaskDetailed(ctx, chunk.as_ptr() as *const ak_ufix_TaskDetailed, i as i32, done as i64);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_unk_zeroed(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListTasksDetailedResponse);
+        let tc = tcs();
+        let src = &o.tasks;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_TaskDetailed>());
+        const SZ: usize = ::core::mem::size_of::<ak_ufix_TaskDetailed>();
+        let mut chunk: [::core::mem::MaybeUninit<ak_ufix_TaskDetailed>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            fill_task_detailed_unk_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_uelemu_TaskDetailed(ctx, chunk.as_ptr() as *const ak_ufix_TaskDetailed, i as i32, done as i64);
+                if rc < 0 { return rc; }
+                done += i;
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_uelemu_TaskDetailed(ctx, chunk.as_ptr() as *const ak_ufix_TaskDetailed, i as i32, done as i64);
             if rc < 0 { return rc; }
         }
         AK_OK
@@ -1074,6 +1859,34 @@ pub fn encode_into_list_tasks_detailed_response(ctx: *mut ak_enc_ctx, o: &ListTa
     }
 }
 
+pub fn encode_into_list_tasks_detailed_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ListTasksDetailedResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_ListTasksDetailedResponse {
+            loop_tasks: Some(loop_list_tasks_detailed_response_tasks_unk_zeroed),
+            elem_tasks: &ELEM_VT_ListTasksDetailedResponse_tasks,
+        };
+        let fix = make_list_tasks_detailed_response_unk(o, (t.utf8, t.bytes));
+        let rc = ak_uencode_ListTasksDetailedResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
+pub fn encode_into_list_tasks_detailed_response_unk(ctx: *mut ak_enc_ctx, o: &ListTasksDetailedResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_ListTasksDetailedResponse {
+            loop_tasks: Some(loop_list_tasks_detailed_response_tasks_unk),
+            elem_tasks: &ELEM_VT_ListTasksDetailedResponse_tasks,
+        };
+        let fix = make_list_tasks_detailed_response_unk(o, (t.utf8, t.bytes));
+        let rc = ak_uencode_ListTasksDetailedResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
 pub fn encode_into_list_tasks_detailed_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListTasksDetailedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
@@ -1158,6 +1971,73 @@ unsafe extern "C" fn loop_list_probe_response_probes_zeroed(
     })
 }
 
+unsafe extern "C" fn loop_list_probe_response_probes_unk(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListProbeResponse);
+        let tc = tcs();
+        let src = &o.probes;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_Probe>());
+        let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Probe>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            chunk[i].write(make_probe_unk(v, tc));
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_uelem_Probe(ctx, chunk.as_ptr() as *const ak_ufix_Probe, i as i32);
+                if rc < 0 { return rc; }
+                done += i;
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_uelem_Probe(ctx, chunk.as_ptr() as *const ak_ufix_Probe, i as i32);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_list_probe_response_probes_unk_zeroed(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListProbeResponse);
+        let tc = tcs();
+        let src = &o.probes;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_Probe>());
+        const SZ: usize = ::core::mem::size_of::<ak_ufix_Probe>();
+        let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Probe>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            fill_probe_unk_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_uelem_Probe(ctx, chunk.as_ptr() as *const ak_ufix_Probe, i as i32);
+                if rc < 0 { return rc; }
+                done += i;
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_uelem_Probe(ctx, chunk.as_ptr() as *const ak_ufix_Probe, i as i32);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
 pub fn encode_into_list_probe_response(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
@@ -1167,6 +2047,32 @@ pub fn encode_into_list_probe_response(ctx: *mut ak_enc_ctx, o: &ListProbeRespon
         };
         let fix = make_list_probe_response(o, (t.utf8, t.bytes));
         let rc = ak_encode_ListProbeResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
+pub fn encode_into_list_probe_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_ListProbeResponse {
+            loop_probes: Some(loop_list_probe_response_probes_unk_zeroed),
+        };
+        let fix = make_list_probe_response_unk(o, (t.utf8, t.bytes));
+        let rc = ak_uencode_ListProbeResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
+pub fn encode_into_list_probe_response_unk(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_ListProbeResponse {
+            loop_probes: Some(loop_list_probe_response_probes_unk),
+        };
+        let fix = make_list_probe_response_unk(o, (t.utf8, t.bytes));
+        let rc = ak_uencode_ListProbeResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
         if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
     }
 }
@@ -1254,6 +2160,73 @@ unsafe extern "C" fn loop_list_task_summary_response_tasks_zeroed(
     })
 }
 
+unsafe extern "C" fn loop_list_task_summary_response_tasks_unk(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListTaskSummaryResponse);
+        let tc = tcs();
+        let src = &o.tasks;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_TaskSummary>());
+        let mut chunk: [::core::mem::MaybeUninit<ak_ufix_TaskSummary>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            chunk[i].write(make_task_summary_unk(v, tc));
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_uelemu_TaskSummary(ctx, chunk.as_ptr() as *const ak_ufix_TaskSummary, i as i32, done as i64);
+                if rc < 0 { return rc; }
+                done += i;
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_uelemu_TaskSummary(ctx, chunk.as_ptr() as *const ak_ufix_TaskSummary, i as i32, done as i64);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_list_task_summary_response_tasks_unk_zeroed(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListTaskSummaryResponse);
+        let tc = tcs();
+        let src = &o.tasks;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_TaskSummary>());
+        const SZ: usize = ::core::mem::size_of::<ak_ufix_TaskSummary>();
+        let mut chunk: [::core::mem::MaybeUninit<ak_ufix_TaskSummary>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            fill_task_summary_unk_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_uelemu_TaskSummary(ctx, chunk.as_ptr() as *const ak_ufix_TaskSummary, i as i32, done as i64);
+                if rc < 0 { return rc; }
+                done += i;
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_uelemu_TaskSummary(ctx, chunk.as_ptr() as *const ak_ufix_TaskSummary, i as i32, done as i64);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
 unsafe extern "C" fn loop_list_task_summary_response_tasks_options_options(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -1310,6 +2283,34 @@ pub fn encode_into_list_task_summary_response(ctx: *mut ak_enc_ctx, o: &ListTask
     }
 }
 
+pub fn encode_into_list_task_summary_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ListTaskSummaryResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_ListTaskSummaryResponse {
+            loop_tasks: Some(loop_list_task_summary_response_tasks_unk_zeroed),
+            elem_tasks: &ELEM_VT_ListTaskSummaryResponse_tasks,
+        };
+        let fix = make_list_task_summary_response_unk(o, (t.utf8, t.bytes));
+        let rc = ak_uencode_ListTaskSummaryResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
+pub fn encode_into_list_task_summary_response_unk(ctx: *mut ak_enc_ctx, o: &ListTaskSummaryResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_ListTaskSummaryResponse {
+            loop_tasks: Some(loop_list_task_summary_response_tasks_unk),
+            elem_tasks: &ELEM_VT_ListTaskSummaryResponse_tasks,
+        };
+        let fix = make_list_task_summary_response_unk(o, (t.utf8, t.bytes));
+        let rc = ak_uencode_ListTaskSummaryResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
 pub fn encode_into_list_task_summary_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListTaskSummaryResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
@@ -1334,6 +2335,34 @@ pub fn encode_into_upload_result_data_message(ctx: *mut ak_enc_ctx, o: &UploadRe
         let fix = make_upload_result_data_message(o, (t.utf8, t.bytes));
         let d = &o.upload.as_ref().map(|x| x).unwrap().data_chunk;
         let rc = ak_encode_UploadResultDataMessage(o as *const _ as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
+pub fn encode_into_upload_result_data_message_unk_zeroed(ctx: *mut ak_enc_ctx, o: &UploadResultDataMessage, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_UploadResultDataMessage {
+            _reserved: ::core::ptr::null(),
+        };
+        let fix = make_upload_result_data_message_unk(o, (t.utf8, t.bytes));
+        let d = &o.upload.as_ref().map(|x| x).unwrap().data_chunk;
+        let rc = ak_uencode_UploadResultDataMessage(o as *const _ as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
+pub fn encode_into_upload_result_data_message_unk(ctx: *mut ak_enc_ctx, o: &UploadResultDataMessage, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_UploadResultDataMessage {
+            _reserved: ::core::ptr::null(),
+        };
+        let fix = make_upload_result_data_message_unk(o, (t.utf8, t.bytes));
+        let d = &o.upload.as_ref().map(|x| x).unwrap().data_chunk;
+        let rc = ak_uencode_UploadResultDataMessage(o as *const _ as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());
         if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
     }
 }
@@ -1416,6 +2445,73 @@ unsafe extern "C" fn loop_list_metrics_response_batches_zeroed(
         }
         if i > 0 {
             let rc = ak_elemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_efix_MetricsBatch, i as i32, done as i64);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_list_metrics_response_batches_unk(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListMetricsResponse);
+        let tc = tcs();
+        let src = &o.batches;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_MetricsBatch>());
+        let mut chunk: [::core::mem::MaybeUninit<ak_ufix_MetricsBatch>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            chunk[i].write(make_metrics_batch_unk(v, tc));
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_uelemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_ufix_MetricsBatch, i as i32, done as i64);
+                if rc < 0 { return rc; }
+                done += i;
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_uelemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_ufix_MetricsBatch, i as i32, done as i64);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_list_metrics_response_batches_unk_zeroed(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const ListMetricsResponse);
+        let tc = tcs();
+        let src = &o.batches;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_MetricsBatch>());
+        const SZ: usize = ::core::mem::size_of::<ak_ufix_MetricsBatch>();
+        let mut chunk: [::core::mem::MaybeUninit<ak_ufix_MetricsBatch>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            fill_metrics_batch_unk_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_uelemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_ufix_MetricsBatch, i as i32, done as i64);
+                if rc < 0 { return rc; }
+                done += i;
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_uelemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_ufix_MetricsBatch, i as i32, done as i64);
             if rc < 0 { return rc; }
         }
         AK_OK
@@ -1532,6 +2628,34 @@ pub fn encode_into_list_metrics_response(ctx: *mut ak_enc_ctx, o: &ListMetricsRe
     }
 }
 
+pub fn encode_into_list_metrics_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ListMetricsResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_ListMetricsResponse {
+            loop_batches: Some(loop_list_metrics_response_batches_unk_zeroed),
+            elem_batches: &ELEM_VT_ListMetricsResponse_batches,
+        };
+        let fix = make_list_metrics_response_unk(o, (t.utf8, t.bytes));
+        let rc = ak_uencode_ListMetricsResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
+pub fn encode_into_list_metrics_response_unk(ctx: *mut ak_enc_ctx, o: &ListMetricsResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_ListMetricsResponse {
+            loop_batches: Some(loop_list_metrics_response_batches_unk),
+            elem_batches: &ELEM_VT_ListMetricsResponse_batches,
+        };
+        let fix = make_list_metrics_response_unk(o, (t.utf8, t.bytes));
+        let rc = ak_uencode_ListMetricsResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
 pub fn encode_into_list_metrics_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListMetricsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
@@ -1616,6 +2740,73 @@ unsafe extern "C" fn loop_dual_response_left_zeroed(
     })
 }
 
+unsafe extern "C" fn loop_dual_response_left_unk(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const DualResponse);
+        let tc = tcs();
+        let src = &o.left;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_Pair>());
+        let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Pair>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            chunk[i].write(make_pair_unk(v, tc));
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_uelem_Pair(ctx, chunk.as_ptr() as *const ak_ufix_Pair, i as i32);
+                if rc < 0 { return rc; }
+                done += i;
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_uelem_Pair(ctx, chunk.as_ptr() as *const ak_ufix_Pair, i as i32);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_dual_response_left_unk_zeroed(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const DualResponse);
+        let tc = tcs();
+        let src = &o.left;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_Pair>());
+        const SZ: usize = ::core::mem::size_of::<ak_ufix_Pair>();
+        let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Pair>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            fill_pair_unk_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_uelem_Pair(ctx, chunk.as_ptr() as *const ak_ufix_Pair, i as i32);
+                if rc < 0 { return rc; }
+                done += i;
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_uelem_Pair(ctx, chunk.as_ptr() as *const ak_ufix_Pair, i as i32);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
 unsafe extern "C" fn loop_dual_response_right(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -1686,6 +2877,73 @@ unsafe extern "C" fn loop_dual_response_right_zeroed(
     })
 }
 
+unsafe extern "C" fn loop_dual_response_right_unk(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const DualResponse);
+        let tc = tcs();
+        let src = &o.right;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_Pair>());
+        let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Pair>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            chunk[i].write(make_pair_unk(v, tc));
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_uelem_Pair(ctx, chunk.as_ptr() as *const ak_ufix_Pair, i as i32);
+                if rc < 0 { return rc; }
+                done += i;
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_uelem_Pair(ctx, chunk.as_ptr() as *const ak_ufix_Pair, i as i32);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
+unsafe extern "C" fn loop_dual_response_right_unk_zeroed(
+    ctx: *mut ak_enc_ctx,
+    obj: *const c_void,
+    token: i64,
+) -> i32 {
+    guard(ctx, || {
+        let o = &*(obj as *const DualResponse);
+        let tc = tcs();
+        let src = &o.right;
+        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_Pair>());
+        const SZ: usize = ::core::mem::size_of::<ak_ufix_Pair>();
+        let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Pair>; CHUNK] =
+            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        let mut i = 0usize;
+        let mut done = 0usize;
+        for v in src.iter() {
+            fill_pair_unk_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+            i += 1;
+            if i == CHUNK {
+                let rc = ak_uelem_Pair(ctx, chunk.as_ptr() as *const ak_ufix_Pair, i as i32);
+                if rc < 0 { return rc; }
+                done += i;
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                i = 0;
+            }
+        }
+        if i > 0 {
+            let rc = ak_uelem_Pair(ctx, chunk.as_ptr() as *const ak_ufix_Pair, i as i32);
+            if rc < 0 { return rc; }
+        }
+        AK_OK
+    })
+}
+
 pub fn encode_into_dual_response(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
@@ -1696,6 +2954,34 @@ pub fn encode_into_dual_response(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs
         };
         let fix = make_dual_response(o, (t.utf8, t.bytes));
         let rc = ak_encode_DualResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
+pub fn encode_into_dual_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_DualResponse {
+            loop_left: Some(loop_dual_response_left_unk_zeroed),
+            loop_right: Some(loop_dual_response_right_unk_zeroed),
+        };
+        let fix = make_dual_response_unk(o, (t.utf8, t.bytes));
+        let rc = ak_uencode_DualResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
+        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
+    }
+}
+
+pub fn encode_into_dual_response_unk(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
+    unsafe {
+        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
+        ak_enc_reset(ctx);
+        let vt = ak_evt_DualResponse {
+            loop_left: Some(loop_dual_response_left_unk),
+            loop_right: Some(loop_dual_response_right_unk),
+        };
+        let fix = make_dual_response_unk(o, (t.utf8, t.bytes));
+        let rc = ak_uencode_DualResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
         if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
     }
 }
@@ -1726,6 +3012,9 @@ unsafe fn from_timestamp(f: &ak_dfix_Timestamp, base: *const u8, ctx: *mut ak_de
     Timestamp {
         seconds: f.seconds,
         nanos: f.nanos,
+        // Decision 11's bag. The default decode path captures nothing,
+        // so this arm leaves it empty; `decode_with_*_unk` fills it.
+        unknown_fields: Vec::new(),
     }
 }
 
@@ -1734,6 +3023,9 @@ unsafe fn from_duration(f: &ak_dfix_Duration, base: *const u8, ctx: *mut ak_dec_
     Duration {
         seconds: f.seconds,
         nanos: f.nanos,
+        // Decision 11's bag. The default decode path captures nothing,
+        // so this arm leaves it empty; `decode_with_*_unk` fills it.
+        unknown_fields: Vec::new(),
     }
 }
 
@@ -1751,6 +3043,9 @@ unsafe fn from_result_raw(f: &ak_dfix_ResultRaw, base: *const u8, ctx: *mut ak_d
         created_by: s_of(base, f.created_by, ctx),
         opaque_id: b_of(base, f.opaque_id),
         manual_deletion: f.manual_deletion != 0,
+        // Decision 11's bag. The default decode path captures nothing,
+        // so this arm leaves it empty; `decode_with_*_unk` fills it.
+        unknown_fields: Vec::new(),
     }
 }
 
@@ -1778,6 +3073,9 @@ unsafe fn from_task_output(f: &ak_dfix_TaskOutput, base: *const u8, ctx: *mut ak
     TaskOutput {
         success: f.success != 0,
         error: s_of(base, f.error, ctx),
+        // Decision 11's bag. The default decode path captures nothing,
+        // so this arm leaves it empty; `decode_with_*_unk` fills it.
+        unknown_fields: Vec::new(),
     }
 }
 
@@ -1905,12 +3203,18 @@ unsafe fn from_probe(f: &ak_dfix_Probe, base: *const u8, ctx: *mut ak_dec_ctx) -
             14 => Some(ProbeBody::AsNothing(from_empty(&f.body_as_nothing, base, ctx))),
             _ => None,
         },
+        // Decision 11's bag. The default decode path captures nothing,
+        // so this arm leaves it empty; `decode_with_*_unk` fills it.
+        unknown_fields: Vec::new(),
     }
 }
 
 #[inline(always)]
 unsafe fn from_empty(f: &ak_dfix_Empty, base: *const u8, ctx: *mut ak_dec_ctx) -> Empty {
     Empty {
+        // Decision 11's bag. The default decode path captures nothing,
+        // so this arm leaves it empty; `decode_with_*_unk` fills it.
+        unknown_fields: Vec::new(),
     }
 }
 
@@ -1920,6 +3224,9 @@ unsafe fn from_upload_result_data(f: &ak_dfix_UploadResultData, base: *const u8,
         session_id: s_of(base, f.session_id, ctx),
         result_id: s_of(base, f.result_id, ctx),
         data_chunk: b_of(base, f.data_chunk),
+        // Decision 11's bag. The default decode path captures nothing,
+        // so this arm leaves it empty; `decode_with_*_unk` fills it.
+        unknown_fields: Vec::new(),
     }
 }
 
@@ -1935,6 +3242,9 @@ unsafe fn from_pair(f: &ak_dfix_Pair, base: *const u8, ctx: *mut ak_dec_ctx) -> 
     Pair {
         key: s_of(base, f.key, ctx),
         value: f.value,
+        // Decision 11's bag. The default decode path captures nothing,
+        // so this arm leaves it empty; `decode_with_*_unk` fills it.
+        unknown_fields: Vec::new(),
     }
 }
 
@@ -1976,6 +3286,9 @@ unsafe fn fill_list_metrics_response(dst: &mut ListMetricsResponse, f: &ak_dfix_
 unsafe fn from_upload_result_data_message(f: &ak_dfix_UploadResultDataMessage, base: *const u8, ctx: *mut ak_dec_ctx) -> UploadResultDataMessage {
     UploadResultDataMessage {
         upload: if f.presence & AK_DFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD != 0 { Some(from_upload_result_data(&f.upload, base, ctx)) } else { None },
+        // Decision 11's bag. The default decode path captures nothing,
+        // so this arm leaves it empty; `decode_with_*_unk` fills it.
+        unknown_fields: Vec::new(),
     }
 }
 
@@ -1990,6 +3303,12 @@ unsafe fn fill_dual_response(dst: &mut DualResponse, f: &ak_dfix_DualResponse, b
 pub struct SinkListResultsResponse<'a> {
     pub out: &'a mut ListResultsResponse,
     pub base: *const u8,
+    /// Decision 11 candidate: unknown runs staged by (slot, element index)
+    /// and applied after the decode. Staged rather than written straight
+    /// through because a capture buffer may flush mid-chunk, before the run
+    /// that carries the element it belongs to. Empty and unallocated on the
+    /// default path.
+    pub pending: Vec<(u32, i64, Vec<u8>)>,
 }
 
 unsafe extern "C" fn apply_list_results_response(
@@ -2022,12 +3341,46 @@ unsafe extern "C" fn add_list_results_response_results(
     })
 }
 
+unsafe extern "C" fn unknown_list_results_response(
+    ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    spans: *const ak_uspan,
+    n: i32,
+) {
+    dguard(ctx, || {
+        let s = &mut *(obj as *mut SinkListResultsResponse);
+        for i in 0..n as usize {
+            let sp = &*spans.add(i);
+            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
+            s.pending.push((0, sp.token, b.to_vec()));
+        }
+    })
+}
+
+unsafe extern "C" fn unk_list_results_response_results(
+    ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    spans: *const ak_uspan,
+    n: i32,
+) {
+    dguard(ctx, || {
+        let s = &mut *(obj as *mut SinkListResultsResponse);
+        for i in 0..n as usize {
+            let sp = &*spans.add(i);
+            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
+            s.pending.push((1, sp.token, b.to_vec()));
+        }
+    })
+}
+
 pub fn decode_with_list_results_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListResultsResponse, i32> {
     let mut out = ListResultsResponse::default();
     let rc = unsafe {
-        let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr() };
+        let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
         let vt = ak_dvt_ListResultsResponse {
             apply: Some(apply_list_results_response),
+            unknown: None,
+            unk_results: None,
             add_results: Some(add_list_results_response_results),
         };
         ak_decode_ListResultsResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
@@ -2035,11 +3388,45 @@ pub fn decode_with_list_results_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Resu
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
 
+pub fn decode_with_list_results_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListResultsResponse, i32> {
+    let mut out = ListResultsResponse::default();
+    let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+    let rc = unsafe {
+        let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+        let vt = ak_dvt_ListResultsResponse {
+            apply: Some(apply_list_results_response),
+            unknown: Some(unknown_list_results_response),
+            unk_results: Some(unk_list_results_response_results),
+            add_results: Some(add_list_results_response_results),
+        };
+        let rc = ak_decode_ListResultsResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt);
+        pending = ::core::mem::take(&mut sink.pending);
+        rc
+    };
+    if rc < 0 { return Err(rc); }
+    // Applied after the decode, not during it: a capture buffer may flush
+    // mid-chunk, before the run that carries the element it belongs to.
+    for (slot, token, bytes) in pending {
+        match slot {
+            0 => out.unknown_fields.extend_from_slice(&bytes),
+            1 => { if let Some(e) = out.results.get_mut(token as usize) { e.unknown_fields.extend_from_slice(&bytes); } }
+            _ => {}
+        }
+    }
+    Ok(out)
+}
+
 /// What the host hands the codec as `obj` on decode: the destination, plus
 /// the base pointer the spans are offsets into (ABI v1 section 7.4).
 pub struct SinkListTasksDetailedResponse<'a> {
     pub out: &'a mut ListTasksDetailedResponse,
     pub base: *const u8,
+    /// Decision 11 candidate: unknown runs staged by (slot, element index)
+    /// and applied after the decode. Staged rather than written straight
+    /// through because a capture buffer may flush mid-chunk, before the run
+    /// that carries the element it belongs to. Empty and unallocated on the
+    /// default path.
+    pub pending: Vec<(u32, i64, Vec<u8>)>,
 }
 
 unsafe extern "C" fn apply_list_tasks_detailed_response(
@@ -2163,12 +3550,46 @@ unsafe extern "C" fn add_list_tasks_detailed_response_tasks_options_options(
     })
 }
 
+unsafe extern "C" fn unknown_list_tasks_detailed_response(
+    ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    spans: *const ak_uspan,
+    n: i32,
+) {
+    dguard(ctx, || {
+        let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
+        for i in 0..n as usize {
+            let sp = &*spans.add(i);
+            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
+            s.pending.push((0, sp.token, b.to_vec()));
+        }
+    })
+}
+
+unsafe extern "C" fn unk_list_tasks_detailed_response_tasks(
+    ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    spans: *const ak_uspan,
+    n: i32,
+) {
+    dguard(ctx, || {
+        let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
+        for i in 0..n as usize {
+            let sp = &*spans.add(i);
+            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
+            s.pending.push((1, sp.token, b.to_vec()));
+        }
+    })
+}
+
 pub fn decode_with_list_tasks_detailed_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListTasksDetailedResponse, i32> {
     let mut out = ListTasksDetailedResponse::default();
     let rc = unsafe {
-        let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr() };
+        let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
         let vt = ak_dvt_ListTasksDetailedResponse {
             apply: Some(apply_list_tasks_detailed_response),
+            unknown: None,
+            unk_tasks: None,
             new_tasks: Some(new_list_tasks_detailed_response_tasks),
             apply_tasks: Some(apply_list_tasks_detailed_response_tasks),
             add_tasks_parent_task_ids: Some(add_list_tasks_detailed_response_tasks_parent_task_ids),
@@ -2182,11 +3603,51 @@ pub fn decode_with_list_tasks_detailed_response(ctx: *mut ak_dec_ctx, b: &[u8]) 
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
 
+pub fn decode_with_list_tasks_detailed_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListTasksDetailedResponse, i32> {
+    let mut out = ListTasksDetailedResponse::default();
+    let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+    let rc = unsafe {
+        let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+        let vt = ak_dvt_ListTasksDetailedResponse {
+            apply: Some(apply_list_tasks_detailed_response),
+            unknown: Some(unknown_list_tasks_detailed_response),
+            unk_tasks: Some(unk_list_tasks_detailed_response_tasks),
+            new_tasks: Some(new_list_tasks_detailed_response_tasks),
+            apply_tasks: Some(apply_list_tasks_detailed_response_tasks),
+            add_tasks_parent_task_ids: Some(add_list_tasks_detailed_response_tasks_parent_task_ids),
+            add_tasks_data_dependencies: Some(add_list_tasks_detailed_response_tasks_data_dependencies),
+            add_tasks_expected_output_ids: Some(add_list_tasks_detailed_response_tasks_expected_output_ids),
+            add_tasks_retry_of_ids: Some(add_list_tasks_detailed_response_tasks_retry_of_ids),
+            add_tasks_options_options: Some(add_list_tasks_detailed_response_tasks_options_options),
+        };
+        let rc = ak_decode_ListTasksDetailedResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt);
+        pending = ::core::mem::take(&mut sink.pending);
+        rc
+    };
+    if rc < 0 { return Err(rc); }
+    // Applied after the decode, not during it: a capture buffer may flush
+    // mid-chunk, before the run that carries the element it belongs to.
+    for (slot, token, bytes) in pending {
+        match slot {
+            0 => out.unknown_fields.extend_from_slice(&bytes),
+            1 => { if let Some(e) = out.tasks.get_mut(token as usize) { e.unknown_fields.extend_from_slice(&bytes); } }
+            _ => {}
+        }
+    }
+    Ok(out)
+}
+
 /// What the host hands the codec as `obj` on decode: the destination, plus
 /// the base pointer the spans are offsets into (ABI v1 section 7.4).
 pub struct SinkListProbeResponse<'a> {
     pub out: &'a mut ListProbeResponse,
     pub base: *const u8,
+    /// Decision 11 candidate: unknown runs staged by (slot, element index)
+    /// and applied after the decode. Staged rather than written straight
+    /// through because a capture buffer may flush mid-chunk, before the run
+    /// that carries the element it belongs to. Empty and unallocated on the
+    /// default path.
+    pub pending: Vec<(u32, i64, Vec<u8>)>,
 }
 
 unsafe extern "C" fn apply_list_probe_response(
@@ -2217,12 +3678,46 @@ unsafe extern "C" fn add_list_probe_response_probes(
     })
 }
 
+unsafe extern "C" fn unknown_list_probe_response(
+    ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    spans: *const ak_uspan,
+    n: i32,
+) {
+    dguard(ctx, || {
+        let s = &mut *(obj as *mut SinkListProbeResponse);
+        for i in 0..n as usize {
+            let sp = &*spans.add(i);
+            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
+            s.pending.push((0, sp.token, b.to_vec()));
+        }
+    })
+}
+
+unsafe extern "C" fn unk_list_probe_response_probes(
+    ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    spans: *const ak_uspan,
+    n: i32,
+) {
+    dguard(ctx, || {
+        let s = &mut *(obj as *mut SinkListProbeResponse);
+        for i in 0..n as usize {
+            let sp = &*spans.add(i);
+            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
+            s.pending.push((1, sp.token, b.to_vec()));
+        }
+    })
+}
+
 pub fn decode_with_list_probe_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListProbeResponse, i32> {
     let mut out = ListProbeResponse::default();
     let rc = unsafe {
-        let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr() };
+        let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
         let vt = ak_dvt_ListProbeResponse {
             apply: Some(apply_list_probe_response),
+            unknown: None,
+            unk_probes: None,
             add_probes: Some(add_list_probe_response_probes),
         };
         ak_decode_ListProbeResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
@@ -2230,11 +3725,45 @@ pub fn decode_with_list_probe_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
 
+pub fn decode_with_list_probe_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListProbeResponse, i32> {
+    let mut out = ListProbeResponse::default();
+    let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+    let rc = unsafe {
+        let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+        let vt = ak_dvt_ListProbeResponse {
+            apply: Some(apply_list_probe_response),
+            unknown: Some(unknown_list_probe_response),
+            unk_probes: Some(unk_list_probe_response_probes),
+            add_probes: Some(add_list_probe_response_probes),
+        };
+        let rc = ak_decode_ListProbeResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt);
+        pending = ::core::mem::take(&mut sink.pending);
+        rc
+    };
+    if rc < 0 { return Err(rc); }
+    // Applied after the decode, not during it: a capture buffer may flush
+    // mid-chunk, before the run that carries the element it belongs to.
+    for (slot, token, bytes) in pending {
+        match slot {
+            0 => out.unknown_fields.extend_from_slice(&bytes),
+            1 => { if let Some(e) = out.probes.get_mut(token as usize) { e.unknown_fields.extend_from_slice(&bytes); } }
+            _ => {}
+        }
+    }
+    Ok(out)
+}
+
 /// What the host hands the codec as `obj` on decode: the destination, plus
 /// the base pointer the spans are offsets into (ABI v1 section 7.4).
 pub struct SinkListTaskSummaryResponse<'a> {
     pub out: &'a mut ListTaskSummaryResponse,
     pub base: *const u8,
+    /// Decision 11 candidate: unknown runs staged by (slot, element index)
+    /// and applied after the decode. Staged rather than written straight
+    /// through because a capture buffer may flush mid-chunk, before the run
+    /// that carries the element it belongs to. Empty and unallocated on the
+    /// default path.
+    pub pending: Vec<(u32, i64, Vec<u8>)>,
 }
 
 unsafe extern "C" fn apply_list_task_summary_response(
@@ -2288,12 +3817,46 @@ unsafe extern "C" fn add_list_task_summary_response_tasks_options_options(
     })
 }
 
+unsafe extern "C" fn unknown_list_task_summary_response(
+    ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    spans: *const ak_uspan,
+    n: i32,
+) {
+    dguard(ctx, || {
+        let s = &mut *(obj as *mut SinkListTaskSummaryResponse);
+        for i in 0..n as usize {
+            let sp = &*spans.add(i);
+            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
+            s.pending.push((0, sp.token, b.to_vec()));
+        }
+    })
+}
+
+unsafe extern "C" fn unk_list_task_summary_response_tasks(
+    ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    spans: *const ak_uspan,
+    n: i32,
+) {
+    dguard(ctx, || {
+        let s = &mut *(obj as *mut SinkListTaskSummaryResponse);
+        for i in 0..n as usize {
+            let sp = &*spans.add(i);
+            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
+            s.pending.push((1, sp.token, b.to_vec()));
+        }
+    })
+}
+
 pub fn decode_with_list_task_summary_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListTaskSummaryResponse, i32> {
     let mut out = ListTaskSummaryResponse::default();
     let rc = unsafe {
-        let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr() };
+        let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
         let vt = ak_dvt_ListTaskSummaryResponse {
             apply: Some(apply_list_task_summary_response),
+            unknown: None,
+            unk_tasks: None,
             new_tasks: Some(new_list_task_summary_response_tasks),
             apply_tasks: Some(apply_list_task_summary_response_tasks),
             add_tasks_options_options: Some(add_list_task_summary_response_tasks_options_options),
@@ -2303,11 +3866,47 @@ pub fn decode_with_list_task_summary_response(ctx: *mut ak_dec_ctx, b: &[u8]) ->
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
 
+pub fn decode_with_list_task_summary_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListTaskSummaryResponse, i32> {
+    let mut out = ListTaskSummaryResponse::default();
+    let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+    let rc = unsafe {
+        let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+        let vt = ak_dvt_ListTaskSummaryResponse {
+            apply: Some(apply_list_task_summary_response),
+            unknown: Some(unknown_list_task_summary_response),
+            unk_tasks: Some(unk_list_task_summary_response_tasks),
+            new_tasks: Some(new_list_task_summary_response_tasks),
+            apply_tasks: Some(apply_list_task_summary_response_tasks),
+            add_tasks_options_options: Some(add_list_task_summary_response_tasks_options_options),
+        };
+        let rc = ak_decode_ListTaskSummaryResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt);
+        pending = ::core::mem::take(&mut sink.pending);
+        rc
+    };
+    if rc < 0 { return Err(rc); }
+    // Applied after the decode, not during it: a capture buffer may flush
+    // mid-chunk, before the run that carries the element it belongs to.
+    for (slot, token, bytes) in pending {
+        match slot {
+            0 => out.unknown_fields.extend_from_slice(&bytes),
+            1 => { if let Some(e) = out.tasks.get_mut(token as usize) { e.unknown_fields.extend_from_slice(&bytes); } }
+            _ => {}
+        }
+    }
+    Ok(out)
+}
+
 /// What the host hands the codec as `obj` on decode: the destination, plus
 /// the base pointer the spans are offsets into (ABI v1 section 7.4).
 pub struct SinkUploadResultDataMessage<'a> {
     pub out: &'a mut UploadResultDataMessage,
     pub base: *const u8,
+    /// Decision 11 candidate: unknown runs staged by (slot, element index)
+    /// and applied after the decode. Staged rather than written straight
+    /// through because a capture buffer may flush mid-chunk, before the run
+    /// that carries the element it belongs to. Empty and unallocated on the
+    /// default path.
+    pub pending: Vec<(u32, i64, Vec<u8>)>,
 }
 
 unsafe extern "C" fn apply_upload_result_data_message(
@@ -2326,16 +3925,58 @@ unsafe extern "C" fn apply_upload_result_data_message(
     })
 }
 
+unsafe extern "C" fn unknown_upload_result_data_message(
+    ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    spans: *const ak_uspan,
+    n: i32,
+) {
+    dguard(ctx, || {
+        let s = &mut *(obj as *mut SinkUploadResultDataMessage);
+        for i in 0..n as usize {
+            let sp = &*spans.add(i);
+            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
+            s.pending.push((0, sp.token, b.to_vec()));
+        }
+    })
+}
+
 pub fn decode_with_upload_result_data_message(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<UploadResultDataMessage, i32> {
     let mut out = UploadResultDataMessage::default();
     let rc = unsafe {
-        let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr() };
+        let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
         let vt = ak_dvt_UploadResultDataMessage {
             apply: Some(apply_upload_result_data_message),
+            unknown: None,
         };
         ak_decode_UploadResultDataMessage(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+pub fn decode_with_upload_result_data_message_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<UploadResultDataMessage, i32> {
+    let mut out = UploadResultDataMessage::default();
+    let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+    let rc = unsafe {
+        let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+        let vt = ak_dvt_UploadResultDataMessage {
+            apply: Some(apply_upload_result_data_message),
+            unknown: Some(unknown_upload_result_data_message),
+        };
+        let rc = ak_decode_UploadResultDataMessage(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt);
+        pending = ::core::mem::take(&mut sink.pending);
+        rc
+    };
+    if rc < 0 { return Err(rc); }
+    // Applied after the decode, not during it: a capture buffer may flush
+    // mid-chunk, before the run that carries the element it belongs to.
+    for (slot, token, bytes) in pending {
+        match slot {
+            0 => out.unknown_fields.extend_from_slice(&bytes),
+            _ => {}
+        }
+    }
+    Ok(out)
 }
 
 /// What the host hands the codec as `obj` on decode: the destination, plus
@@ -2343,6 +3984,12 @@ pub fn decode_with_upload_result_data_message(ctx: *mut ak_dec_ctx, b: &[u8]) ->
 pub struct SinkListMetricsResponse<'a> {
     pub out: &'a mut ListMetricsResponse,
     pub base: *const u8,
+    /// Decision 11 candidate: unknown runs staged by (slot, element index)
+    /// and applied after the decode. Staged rather than written straight
+    /// through because a capture buffer may flush mid-chunk, before the run
+    /// that carries the element it belongs to. Empty and unallocated on the
+    /// default path.
+    pub pending: Vec<(u32, i64, Vec<u8>)>,
 }
 
 unsafe extern "C" fn apply_list_metrics_response(
@@ -2462,12 +4109,46 @@ unsafe extern "C" fn add_list_metrics_response_batches_statuses(
     })
 }
 
+unsafe extern "C" fn unknown_list_metrics_response(
+    ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    spans: *const ak_uspan,
+    n: i32,
+) {
+    dguard(ctx, || {
+        let s = &mut *(obj as *mut SinkListMetricsResponse);
+        for i in 0..n as usize {
+            let sp = &*spans.add(i);
+            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
+            s.pending.push((0, sp.token, b.to_vec()));
+        }
+    })
+}
+
+unsafe extern "C" fn unk_list_metrics_response_batches(
+    ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    spans: *const ak_uspan,
+    n: i32,
+) {
+    dguard(ctx, || {
+        let s = &mut *(obj as *mut SinkListMetricsResponse);
+        for i in 0..n as usize {
+            let sp = &*spans.add(i);
+            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
+            s.pending.push((1, sp.token, b.to_vec()));
+        }
+    })
+}
+
 pub fn decode_with_list_metrics_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListMetricsResponse, i32> {
     let mut out = ListMetricsResponse::default();
     let rc = unsafe {
-        let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr() };
+        let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
         let vt = ak_dvt_ListMetricsResponse {
             apply: Some(apply_list_metrics_response),
+            unknown: None,
+            unk_batches: None,
             new_batches: Some(new_list_metrics_response_batches),
             apply_batches: Some(apply_list_metrics_response_batches),
             add_batches_ticks: Some(add_list_metrics_response_batches_ticks),
@@ -2481,11 +4162,51 @@ pub fn decode_with_list_metrics_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Resu
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
 
+pub fn decode_with_list_metrics_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListMetricsResponse, i32> {
+    let mut out = ListMetricsResponse::default();
+    let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+    let rc = unsafe {
+        let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+        let vt = ak_dvt_ListMetricsResponse {
+            apply: Some(apply_list_metrics_response),
+            unknown: Some(unknown_list_metrics_response),
+            unk_batches: Some(unk_list_metrics_response_batches),
+            new_batches: Some(new_list_metrics_response_batches),
+            apply_batches: Some(apply_list_metrics_response_batches),
+            add_batches_ticks: Some(add_list_metrics_response_batches_ticks),
+            add_batches_values: Some(add_list_metrics_response_batches_values),
+            add_batches_codes: Some(add_list_metrics_response_batches_codes),
+            add_batches_flags: Some(add_list_metrics_response_batches_flags),
+            add_batches_statuses: Some(add_list_metrics_response_batches_statuses),
+        };
+        let rc = ak_decode_ListMetricsResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt);
+        pending = ::core::mem::take(&mut sink.pending);
+        rc
+    };
+    if rc < 0 { return Err(rc); }
+    // Applied after the decode, not during it: a capture buffer may flush
+    // mid-chunk, before the run that carries the element it belongs to.
+    for (slot, token, bytes) in pending {
+        match slot {
+            0 => out.unknown_fields.extend_from_slice(&bytes),
+            1 => { if let Some(e) = out.batches.get_mut(token as usize) { e.unknown_fields.extend_from_slice(&bytes); } }
+            _ => {}
+        }
+    }
+    Ok(out)
+}
+
 /// What the host hands the codec as `obj` on decode: the destination, plus
 /// the base pointer the spans are offsets into (ABI v1 section 7.4).
 pub struct SinkDualResponse<'a> {
     pub out: &'a mut DualResponse,
     pub base: *const u8,
+    /// Decision 11 candidate: unknown runs staged by (slot, element index)
+    /// and applied after the decode. Staged rather than written straight
+    /// through because a capture buffer may flush mid-chunk, before the run
+    /// that carries the element it belongs to. Empty and unallocated on the
+    /// default path.
+    pub pending: Vec<(u32, i64, Vec<u8>)>,
 }
 
 unsafe extern "C" fn apply_dual_response(
@@ -2533,16 +4254,98 @@ unsafe extern "C" fn add_dual_response_right(
     })
 }
 
+unsafe extern "C" fn unknown_dual_response(
+    ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    spans: *const ak_uspan,
+    n: i32,
+) {
+    dguard(ctx, || {
+        let s = &mut *(obj as *mut SinkDualResponse);
+        for i in 0..n as usize {
+            let sp = &*spans.add(i);
+            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
+            s.pending.push((0, sp.token, b.to_vec()));
+        }
+    })
+}
+
+unsafe extern "C" fn unk_dual_response_left(
+    ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    spans: *const ak_uspan,
+    n: i32,
+) {
+    dguard(ctx, || {
+        let s = &mut *(obj as *mut SinkDualResponse);
+        for i in 0..n as usize {
+            let sp = &*spans.add(i);
+            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
+            s.pending.push((1, sp.token, b.to_vec()));
+        }
+    })
+}
+
+unsafe extern "C" fn unk_dual_response_right(
+    ctx: *mut ak_dec_ctx,
+    obj: *mut c_void,
+    spans: *const ak_uspan,
+    n: i32,
+) {
+    dguard(ctx, || {
+        let s = &mut *(obj as *mut SinkDualResponse);
+        for i in 0..n as usize {
+            let sp = &*spans.add(i);
+            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
+            s.pending.push((2, sp.token, b.to_vec()));
+        }
+    })
+}
+
 pub fn decode_with_dual_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<DualResponse, i32> {
     let mut out = DualResponse::default();
     let rc = unsafe {
-        let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr() };
+        let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
         let vt = ak_dvt_DualResponse {
             apply: Some(apply_dual_response),
+            unknown: None,
+            unk_left: None,
+            unk_right: None,
             add_left: Some(add_dual_response_left),
             add_right: Some(add_dual_response_right),
         };
         ak_decode_DualResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+pub fn decode_with_dual_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<DualResponse, i32> {
+    let mut out = DualResponse::default();
+    let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+    let rc = unsafe {
+        let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+        let vt = ak_dvt_DualResponse {
+            apply: Some(apply_dual_response),
+            unknown: Some(unknown_dual_response),
+            unk_left: Some(unk_dual_response_left),
+            unk_right: Some(unk_dual_response_right),
+            add_left: Some(add_dual_response_left),
+            add_right: Some(add_dual_response_right),
+        };
+        let rc = ak_decode_DualResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt);
+        pending = ::core::mem::take(&mut sink.pending);
+        rc
+    };
+    if rc < 0 { return Err(rc); }
+    // Applied after the decode, not during it: a capture buffer may flush
+    // mid-chunk, before the run that carries the element it belongs to.
+    for (slot, token, bytes) in pending {
+        match slot {
+            0 => out.unknown_fields.extend_from_slice(&bytes),
+            1 => { if let Some(e) = out.left.get_mut(token as usize) { e.unknown_fields.extend_from_slice(&bytes); } }
+            2 => { if let Some(e) = out.right.get_mut(token as usize) { e.unknown_fields.extend_from_slice(&bytes); } }
+            _ => {}
+        }
+    }
+    Ok(out)
 }

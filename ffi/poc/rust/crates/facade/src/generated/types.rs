@@ -116,6 +116,19 @@ impl TaskStatus {
 pub struct Timestamp {
     pub seconds: i64,
     pub nanos: i32,
+    /// ABI v1 open decision 11 candidate: the unknown-field bag.
+    ///
+    /// The raw tag-and-value runs a decoder captured and could not name, kept
+    /// verbatim so that decode-then-re-encode reproduces the input bytes. NOT a
+    /// schema field: nothing tags it, `prost_impl.rs` does not write it and
+    /// `core_native.rs` does not read it, so every existing arm is unaffected
+    /// and byte identity on the payload set is unchanged. Only the `_unk`
+    /// family in `binding.rs` hands it to the codec.
+    ///
+    /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
+    /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
+    /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    pub unknown_fields: Vec<u8>,
 }
 
 /// google.protobuf.Duration, copied rather than imported
@@ -123,6 +136,19 @@ pub struct Timestamp {
 pub struct Duration {
     pub seconds: i64,
     pub nanos: i32,
+    /// ABI v1 open decision 11 candidate: the unknown-field bag.
+    ///
+    /// The raw tag-and-value runs a decoder captured and could not name, kept
+    /// verbatim so that decode-then-re-encode reproduces the input bytes. NOT a
+    /// schema field: nothing tags it, `prost_impl.rs` does not write it and
+    /// `core_native.rs` does not read it, so every existing arm is unaffected
+    /// and byte identity on the payload set is unchanged. Only the `_unk`
+    /// family in `binding.rs` hands it to the codec.
+    ///
+    /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
+    /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
+    /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    pub unknown_fields: Vec<u8>,
 }
 
 /// Protos/V1/results_common.proto, tags preserved including the gap at 7
@@ -139,6 +165,19 @@ pub struct ResultRaw {
     pub created_by: String,
     pub opaque_id: ::bytes::Bytes,
     pub manual_deletion: bool,
+    /// ABI v1 open decision 11 candidate: the unknown-field bag.
+    ///
+    /// The raw tag-and-value runs a decoder captured and could not name, kept
+    /// verbatim so that decode-then-re-encode reproduces the input bytes. NOT a
+    /// schema field: nothing tags it, `prost_impl.rs` does not write it and
+    /// `core_native.rs` does not read it, so every existing arm is unaffected
+    /// and byte identity on the payload set is unchanged. Only the `_unk`
+    /// family in `binding.rs` hands it to the codec.
+    ///
+    /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
+    /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
+    /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    pub unknown_fields: Vec<u8>,
 }
 
 /// Protos/V1/objects.proto
@@ -154,6 +193,19 @@ pub struct TaskOptions {
     pub application_namespace: String,
     pub application_service: String,
     pub engine_type: String,
+    /// ABI v1 open decision 11 candidate: the unknown-field bag.
+    ///
+    /// The raw tag-and-value runs a decoder captured and could not name, kept
+    /// verbatim so that decode-then-re-encode reproduces the input bytes. NOT a
+    /// schema field: nothing tags it, `prost_impl.rs` does not write it and
+    /// `core_native.rs` does not read it, so every existing arm is unaffected
+    /// and byte identity on the payload set is unchanged. Only the `_unk`
+    /// family in `binding.rs` hands it to the codec.
+    ///
+    /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
+    /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
+    /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    pub unknown_fields: Vec<u8>,
 }
 
 /// Protos/V1/tasks_common.proto, TaskDetailed.Output, hoisted out of its parent
@@ -161,6 +213,19 @@ pub struct TaskOptions {
 pub struct TaskOutput {
     pub success: bool,
     pub error: String,
+    /// ABI v1 open decision 11 candidate: the unknown-field bag.
+    ///
+    /// The raw tag-and-value runs a decoder captured and could not name, kept
+    /// verbatim so that decode-then-re-encode reproduces the input bytes. NOT a
+    /// schema field: nothing tags it, `prost_impl.rs` does not write it and
+    /// `core_native.rs` does not read it, so every existing arm is unaffected
+    /// and byte identity on the payload set is unchanged. Only the `_unk`
+    /// family in `binding.rs` hands it to the codec.
+    ///
+    /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
+    /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
+    /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    pub unknown_fields: Vec<u8>,
 }
 
 /// Protos/V1/tasks_common.proto, tags preserved
@@ -193,6 +258,19 @@ pub struct TaskDetailed {
     pub fetched_at: Option<Timestamp>,
     pub payload_id: String,
     pub created_by: String,
+    /// ABI v1 open decision 11 candidate: the unknown-field bag.
+    ///
+    /// The raw tag-and-value runs a decoder captured and could not name, kept
+    /// verbatim so that decode-then-re-encode reproduces the input bytes. NOT a
+    /// schema field: nothing tags it, `prost_impl.rs` does not write it and
+    /// `core_native.rs` does not read it, so every existing arm is unaffected
+    /// and byte identity on the payload set is unchanged. Only the `_unk`
+    /// family in `binding.rs` hands it to the codec.
+    ///
+    /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
+    /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
+    /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    pub unknown_fields: Vec<u8>,
 }
 
 /// Protos/V1/tasks_common.proto, reduced to the fields the adapter site needs
@@ -206,6 +284,19 @@ pub struct TaskSummary {
     pub error: String,
     pub status_message: String,
     pub count_data_dependencies: i64,
+    /// ABI v1 open decision 11 candidate: the unknown-field bag.
+    ///
+    /// The raw tag-and-value runs a decoder captured and could not name, kept
+    /// verbatim so that decode-then-re-encode reproduces the input bytes. NOT a
+    /// schema field: nothing tags it, `prost_impl.rs` does not write it and
+    /// `core_native.rs` does not read it, so every existing arm is unaffected
+    /// and byte identity on the payload set is unchanged. Only the `_unk`
+    /// family in `binding.rs` hands it to the codec.
+    ///
+    /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
+    /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
+    /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    pub unknown_fields: Vec<u8>,
 }
 
 /// The `body` oneof of `Probe`. Exactly one member, and `None` for none:
@@ -228,11 +319,37 @@ pub struct Probe {
     pub opt_label: Option<String>,
     pub opt_flag: Option<bool>,
     pub body: Option<ProbeBody>,
+    /// ABI v1 open decision 11 candidate: the unknown-field bag.
+    ///
+    /// The raw tag-and-value runs a decoder captured and could not name, kept
+    /// verbatim so that decode-then-re-encode reproduces the input bytes. NOT a
+    /// schema field: nothing tags it, `prost_impl.rs` does not write it and
+    /// `core_native.rs` does not read it, so every existing arm is unaffected
+    /// and byte identity on the payload set is unchanged. Only the `_unk`
+    /// family in `binding.rs` hands it to the codec.
+    ///
+    /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
+    /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
+    /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    pub unknown_fields: Vec<u8>,
 }
 
 /// Protos/V1/objects.proto
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Empty {
+    /// ABI v1 open decision 11 candidate: the unknown-field bag.
+    ///
+    /// The raw tag-and-value runs a decoder captured and could not name, kept
+    /// verbatim so that decode-then-re-encode reproduces the input bytes. NOT a
+    /// schema field: nothing tags it, `prost_impl.rs` does not write it and
+    /// `core_native.rs` does not read it, so every existing arm is unaffected
+    /// and byte identity on the payload set is unchanged. Only the `_unk`
+    /// family in `binding.rs` hands it to the codec.
+    ///
+    /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
+    /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
+    /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    pub unknown_fields: Vec<u8>,
 }
 
 /// adapted from UploadResultDataRequest: flattened out of its oneof stream so that one message carries the bulk field
@@ -241,6 +358,19 @@ pub struct UploadResultData {
     pub session_id: String,
     pub result_id: String,
     pub data_chunk: ::bytes::Bytes,
+    /// ABI v1 open decision 11 candidate: the unknown-field bag.
+    ///
+    /// The raw tag-and-value runs a decoder captured and could not name, kept
+    /// verbatim so that decode-then-re-encode reproduces the input bytes. NOT a
+    /// schema field: nothing tags it, `prost_impl.rs` does not write it and
+    /// `core_native.rs` does not read it, so every existing arm is unaffected
+    /// and byte identity on the payload set is unchanged. Only the `_unk`
+    /// family in `binding.rs` hands it to the codec.
+    ///
+    /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
+    /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
+    /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    pub unknown_fields: Vec<u8>,
 }
 
 /// invented. The four scalar packed fields are a CONTROL: the real schema has 3 packed repeated fields and all of them are enums. `statuses` is the real shape, relocated: every packed field in Protos/V1 sits on a filter or request message (submitter_common.proto `repeated task_status.TaskStatus statuses`, results_common.proto `repeated result_status.ResultStatus fetch_statuses`), and this payload set carries responses only. So M6's scalar rows are a control and its enum row is not.
@@ -252,6 +382,19 @@ pub struct MetricsBatch {
     pub codes: Vec<i32>,
     pub flags: Vec<bool>,
     pub statuses: Vec<TaskStatus>,
+    /// ABI v1 open decision 11 candidate: the unknown-field bag.
+    ///
+    /// The raw tag-and-value runs a decoder captured and could not name, kept
+    /// verbatim so that decode-then-re-encode reproduces the input bytes. NOT a
+    /// schema field: nothing tags it, `prost_impl.rs` does not write it and
+    /// `core_native.rs` does not read it, so every existing arm is unaffected
+    /// and byte identity on the payload set is unchanged. Only the `_unk`
+    /// family in `binding.rs` hands it to the codec.
+    ///
+    /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
+    /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
+    /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    pub unknown_fields: Vec<u8>,
 }
 
 /// invented, the element of M7
@@ -259,6 +402,19 @@ pub struct MetricsBatch {
 pub struct Pair {
     pub key: String,
     pub value: i32,
+    /// ABI v1 open decision 11 candidate: the unknown-field bag.
+    ///
+    /// The raw tag-and-value runs a decoder captured and could not name, kept
+    /// verbatim so that decode-then-re-encode reproduces the input bytes. NOT a
+    /// schema field: nothing tags it, `prost_impl.rs` does not write it and
+    /// `core_native.rs` does not read it, so every existing arm is unaffected
+    /// and byte identity on the payload set is unchanged. Only the `_unk`
+    /// family in `binding.rs` hands it to the codec.
+    ///
+    /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
+    /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
+    /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    pub unknown_fields: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -266,6 +422,19 @@ pub struct ListResultsResponse {
     pub results: Vec<ResultRaw>,
     pub page: i32,
     pub total: i32,
+    /// ABI v1 open decision 11 candidate: the unknown-field bag.
+    ///
+    /// The raw tag-and-value runs a decoder captured and could not name, kept
+    /// verbatim so that decode-then-re-encode reproduces the input bytes. NOT a
+    /// schema field: nothing tags it, `prost_impl.rs` does not write it and
+    /// `core_native.rs` does not read it, so every existing arm is unaffected
+    /// and byte identity on the payload set is unchanged. Only the `_unk`
+    /// family in `binding.rs` hands it to the codec.
+    ///
+    /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
+    /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
+    /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    pub unknown_fields: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -273,26 +442,91 @@ pub struct ListTasksDetailedResponse {
     pub tasks: Vec<TaskDetailed>,
     pub page: i32,
     pub total: i32,
+    /// ABI v1 open decision 11 candidate: the unknown-field bag.
+    ///
+    /// The raw tag-and-value runs a decoder captured and could not name, kept
+    /// verbatim so that decode-then-re-encode reproduces the input bytes. NOT a
+    /// schema field: nothing tags it, `prost_impl.rs` does not write it and
+    /// `core_native.rs` does not read it, so every existing arm is unaffected
+    /// and byte identity on the payload set is unchanged. Only the `_unk`
+    /// family in `binding.rs` hands it to the codec.
+    ///
+    /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
+    /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
+    /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    pub unknown_fields: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ListTaskSummaryResponse {
     pub tasks: Vec<TaskSummary>,
+    /// ABI v1 open decision 11 candidate: the unknown-field bag.
+    ///
+    /// The raw tag-and-value runs a decoder captured and could not name, kept
+    /// verbatim so that decode-then-re-encode reproduces the input bytes. NOT a
+    /// schema field: nothing tags it, `prost_impl.rs` does not write it and
+    /// `core_native.rs` does not read it, so every existing arm is unaffected
+    /// and byte identity on the payload set is unchanged. Only the `_unk`
+    /// family in `binding.rs` hands it to the codec.
+    ///
+    /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
+    /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
+    /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    pub unknown_fields: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ListProbeResponse {
     pub probes: Vec<Probe>,
+    /// ABI v1 open decision 11 candidate: the unknown-field bag.
+    ///
+    /// The raw tag-and-value runs a decoder captured and could not name, kept
+    /// verbatim so that decode-then-re-encode reproduces the input bytes. NOT a
+    /// schema field: nothing tags it, `prost_impl.rs` does not write it and
+    /// `core_native.rs` does not read it, so every existing arm is unaffected
+    /// and byte identity on the payload set is unchanged. Only the `_unk`
+    /// family in `binding.rs` hands it to the codec.
+    ///
+    /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
+    /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
+    /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    pub unknown_fields: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ListMetricsResponse {
     pub batches: Vec<MetricsBatch>,
+    /// ABI v1 open decision 11 candidate: the unknown-field bag.
+    ///
+    /// The raw tag-and-value runs a decoder captured and could not name, kept
+    /// verbatim so that decode-then-re-encode reproduces the input bytes. NOT a
+    /// schema field: nothing tags it, `prost_impl.rs` does not write it and
+    /// `core_native.rs` does not read it, so every existing arm is unaffected
+    /// and byte identity on the payload set is unchanged. Only the `_unk`
+    /// family in `binding.rs` hands it to the codec.
+    ///
+    /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
+    /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
+    /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    pub unknown_fields: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct UploadResultDataMessage {
     pub upload: Option<UploadResultData>,
+    /// ABI v1 open decision 11 candidate: the unknown-field bag.
+    ///
+    /// The raw tag-and-value runs a decoder captured and could not name, kept
+    /// verbatim so that decode-then-re-encode reproduces the input bytes. NOT a
+    /// schema field: nothing tags it, `prost_impl.rs` does not write it and
+    /// `core_native.rs` does not read it, so every existing arm is unaffected
+    /// and byte identity on the payload set is unchanged. Only the `_unk`
+    /// family in `binding.rs` hands it to the codec.
+    ///
+    /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
+    /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
+    /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    pub unknown_fields: Vec<u8>,
 }
 
 /// invented. CONTROL: legal wire that no group buffer keyed by type can decode
@@ -300,4 +534,17 @@ pub struct UploadResultDataMessage {
 pub struct DualResponse {
     pub left: Vec<Pair>,
     pub right: Vec<Pair>,
+    /// ABI v1 open decision 11 candidate: the unknown-field bag.
+    ///
+    /// The raw tag-and-value runs a decoder captured and could not name, kept
+    /// verbatim so that decode-then-re-encode reproduces the input bytes. NOT a
+    /// schema field: nothing tags it, `prost_impl.rs` does not write it and
+    /// `core_native.rs` does not read it, so every existing arm is unaffected
+    /// and byte identity on the payload set is unchanged. Only the `_unk`
+    /// family in `binding.rs` hands it to the codec.
+    ///
+    /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
+    /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
+    /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    pub unknown_fields: Vec<u8>,
 }

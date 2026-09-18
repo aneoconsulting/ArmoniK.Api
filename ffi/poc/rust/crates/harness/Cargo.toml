@@ -80,3 +80,7 @@ path = "src/bin/inlining.rs"
 [[bin]]
 name = "zeroed"
 path = "src/bin/zeroed.rs"
+
+[[bin]]
+name = "unknown"
+path = "src/bin/unknown.rs"
