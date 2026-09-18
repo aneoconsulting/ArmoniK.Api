@@ -46,3 +46,10 @@ done
 echo
 echo "===== 6. timings, guard OFF (a second process; prost is the control column) ====="
 cargo run --release -q -p harness --no-default-features --bin bench 2>/dev/null
+
+echo
+echo "===== the NO-BOUNDARY CONTROL is a control (README R5) ====="
+echo "# Printed from the artifact, both directions: the entry point's size against the"
+echo "# calling closure's size. If a closure is larger than the traversal it calls, the"
+echo "# control has been fused into the benchmark loop and its subtraction is not valid."
+./gen/inline_check.sh

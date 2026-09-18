@@ -36,7 +36,8 @@ gen/stage2.sh               stage 2 end to end: check, conformance, counts, boun
 gen/dump_payloads.py        all 16 payloads to a scratch dir
 gen/decpolicy.sh            the decode UTF-8 policy: three builds, round robin, rotating order
 gen/inlining.sh             arm 1: the inlining term, separated from the interface term
-gen/inline_check.sh         is core-native inlined? Answered from the built artifact
+gen/inline_check.sh         R5's control half: is core-native fused into the loop?
+                            Answered from the built artifact. Runs from stage2.sh and stage3.sh
 gen/zeroed.sh               arm 2: the zeroed-group element fill, decision 9 candidate
 
 crates/shapes-prost         protox 0.9 -> prost-build 0.14 over the generated .proto
@@ -214,8 +215,17 @@ If more is wanted, in the order I would do it:
 - `prost` and `armonik` are two independent encoders over two independently built object
   graphs. `core-native` and `core-ffi-rust` **share the codec** and so validate only the
   binding, which the log states.
-- The boundary is checked structurally, not assumed: `gen/stage2.sh` step 4 shows the ABI
+- The boundary is checked structurally, not assumed: `gen/stage3.sh` step 4 shows the ABI
   entry points as undefined dynamic imports.
+- **And the no-boundary control is checked in the opposite direction** (R5's second half, as
+  amended after this slice's inlining audit): `gen/inline_check.sh` prints the entry point's
+  size and the calling closure's size from the artifact, both directions, and it now runs as
+  a step of `gen/stage2.sh` and `gen/stage3.sh` rather than only from `gen/inlining.sh`. If a
+  closure is ever larger than the traversal it calls, `core-native` has been fused into the
+  benchmark loop and every subtraction against it stops being valid — silently, because the
+  subtraction would go on producing a plausible number. Whether that happens depends on LTO,
+  on `#[inline]` on the entry point and on whether the entry point is generic, none of which
+  appear in a configuration line, which is why it is a build step and not a note.
 
 ## Open defects
 
