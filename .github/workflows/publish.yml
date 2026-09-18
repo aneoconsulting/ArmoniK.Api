@@ -218,7 +218,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
-          node-version: 24
+          node-version: 24.21.0
 
       # A tagged release publishes the version committed in the repository, so
       # the two must agree before anything reaches a registry. Only a push can
@@ -458,7 +458,7 @@ jobs:
       - name: Install .NET Core
         uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab # v4
         with:
-          dotnet-version: 6.x
+          dotnet-version: 6.0.428
 
       - name: Build the package
         run: dotnet build ${{ matrix.package }} -c Release
@@ -714,7 +714,7 @@ jobs:
 
       - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
-          node-version: 24
+          node-version: 24.21.0
           cache: pnpm
           registry-url: https://registry.npmjs.org/
 
@@ -761,7 +761,7 @@ jobs:
       - name: Set node
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
-          node-version: 24
+          node-version: 24.21.0
 
       - run: npx --ignore-scripts changelogithub@15.0.4
         env:
