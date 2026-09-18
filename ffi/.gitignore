@@ -1,0 +1,10 @@
+# The repository-wide .gitignore excludes `[Ll]ogs/` and any directory named
+# `gen`, both of which this exploration uses by name. Without these re-inclusions
+# a slice agent commits its generator and its raw logs as nothing at all, and
+# finds out a session later. `schema/` sidesteps it by avoiding the names; the
+# slices do not, because `poc/<lang>/gen/` and `logs/<lang>/` are what
+# README section 12 tells them to write.
+!logs/
+!logs/**
+!poc/*/gen/
+!poc/*/gen/**
