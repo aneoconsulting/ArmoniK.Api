@@ -313,6 +313,106 @@ It is now ABI v1 open decision 11. Two things about it worth keeping:
 This is the kind of finding the branch exists for: not a number, and not
 discoverable by a benchmark. A shape-coverage vector found it.
 
+## The audit: the inlining objection, and why the decomposition survived it
+
+The per-element interface costs quoted in this document were obtained by
+subtracting `core-native` from `core-ffi-rust`. The objection, raised against it
+rather than by it: `core-native` is compiled into the harness, so rustc could fuse
+the traversal into the benchmark loop while the FFI arm cannot be inlined at all,
+and the subtraction would then charge an inlining advantage to the interface.
+
+**The premise turned out to be false for these binaries, and the artifact says so.
+Verified here independently rather than taken from the slice**, because the
+finding conveniently exonerates a claim this document had already made:
+
+- `encode_into_list_results_response` is **20 bytes** (`0x14`) — two stores and a
+  tail `jmp`. The traversal it jumps to, `enc_list_results_response`, is **4,299
+  bytes** (`0x10cb`); the decode traversal is **11,311 bytes** (`0x2c2f`).
+- The largest `bench::main::{{closure}}` is **472 bytes** (`0x1d8`). A 472-byte
+  closure cannot contain an 11,311-byte traversal.
+- The call sites inside those closures are `call *0x…(%rip)` — **indirect calls
+  through the GOT**, the same shape as the call into the cdylib.
+
+The mechanism is mundane: the profile carries no `[profile.release]` section, so
+cargo's default applies and **LTO is off**. The traversal lives in the `facade`
+crate and the closure in `harness`, and without LTO or `#[inline]` rustc cannot
+inline across that boundary. So both arms were already paying an indirect call,
+and there was no inlining advantage to subtract.
+
+Two arms confirm it by measurement rather than by reading the disassembly:
+`core-native-noinline` (`#[inline(never)]`, a lower bound, since IPO survives it)
+and `core-native-opaque` (a `black_box`ed function pointer: no inlining, no
+devirtualisation, no constant propagation). The three-term split:
+
+| | inlining term, ns/element | group term, ns/element |
+|---|---|---|
+| P1.3 encode | −0.10 to +0.01 | 11.29 to 11.42 |
+| P1.3 decode | −1.03 to −0.82 | 27.63 to 28.36 |
+| P1.2 encode | +0.19 to +0.60 | 43.23 to 45.13 |
+
+At nine crossings per thousand elements the dynamic call itself is about 0.02
+ns/element, so the second column is group materialisation with a rounding error
+attached. **The absent-path inversion is not an inlining artifact.**
+
+**Two things not to carry away from that table.** P1.1 is deliberately absent from
+it: with four elements its per-element column is a per-*message* cost divided by
+four, so it is not comparable with P1.2's, and it moved from about 40 ns to about
+30 between the two binaries for that reason. And a per-element interface cost is
+worth quoting only where it exceeds the run-to-run spread, which on M1 and M2
+decode it does not.
+
+**The audit's own limit**, stated in its log: one toolchain, one link, no LTO.
+With `lto = "fat"`, or where a traversal is small enough to inline cross-crate,
+the premise this refutes could become true. What is established is that it is
+false for the binaries these figures came from.
+
+**But the audit creates a caveat of its own, and it cuts the other way.**
+`core-native` is therefore *not* the fully-inlined no-boundary control its name
+suggests — it is "no boundary, but still an indirect call through the GOT". That
+makes it a cleaner isolation of the group than intended, and it means **a genuinely
+inlined native Rust codec is unmeasured**: with LTO on, or the entry points marked
+`#[inline]`, the no-boundary arm could be faster than anything in this document,
+and every ratio quoted against `core-native` would widen. Nothing here bounds that.
+
+## The zeroed-group fill answers open decision 9
+
+The candidate: the host memsets the element-group chunk once and assigns only the
+fields that differ from the default, instead of section 6's total fill. Built as an
+arm beside the default path, with the generator emitting both and nothing the
+default path uses changed.
+
+| payload | what it is | ns/element | zeroed / total |
+|---|---|---|---|
+| P1.2 | M1, every field present | −1.66 to +1.70 | 0.986 to 1.014 |
+| P1.3 | M1, the absent path | −4.98 to −4.06 | **0.719 to 0.766** |
+| P2.2 | M2, the deciding shape | −26.18 to −13.02 | 0.970 to 0.985 |
+| P2.5 | M2, the absent path | −0.42 to +0.17 | 0.983 to 1.007 |
+
+**P1.3 encode goes from 1.108–1.188 of prost to 0.815–0.857: the M1 absent-path
+inversion disappears.** P2.2, the row set up to decide *against* the candidate,
+shows a small consistent saving instead. The condition — wins on the absent path,
+costs less than 5.4 ns per element elsewhere — is met on every payload measured.
+
+**A correction to this session's framing, which the slice was right to make.** I
+put this as "reversing a trade ABI v1 already made and priced at 5.4/24.4 ns". It
+is not: the array is the *host's* chunk buffer, and the codec still never resets
+anything, so section 6's no-reset property is untouched. What changes is only the
+host's fill — an unconditional store per field becomes a bulk memset plus a
+conditional store. 5.4/24.4 is the right threshold to judge the cost against, not
+a cost being paid back.
+
+**Three deliberate-break positive controls** guard the arm, because a silent
+fallback to the total fill would have passed byte identity *and* measured the
+same: dropping `ResultRaw.name` breaks M1's zeroed rows only; dropping
+`TaskDetailed.owner_pod_id` breaks all five M2 rows and incidentally shows P2.5 is
+not fully absent; and turning the presence test into a value test on
+`Probe.opt_count` breaks P3.1, which is why M3 is in the conformance list at all —
+present-and-zero is load-bearing.
+
+**What this does not settle**: whether the same trade holds in a managed host,
+where a bulk clear of a struct array and a conditional store cost something quite
+different. The C# and Java slices decide that, not this one.
+
 ## Decode is bounded by container construction, not by allocation in general
 
 Stage 3 part 1 read this as "decode is allocation-bound". M3 sharpens it, and the
@@ -338,8 +438,12 @@ than a Rust result: seven per element at 1.8 ns is 12.6 ns against about 2,200 n
 
 Three consequences, and the second is the one I would hold other slices to.
 
-- The interface cost is still real and still small underneath: about 6 percent of
-  decode on M2, about 2 percent on M1.
+- **Retracted.** This bullet previously read "the interface cost is still real and
+  still small underneath: about 6 percent of decode on M2, about 2 percent on M1".
+  The audit below found that on M1 and M2 *decode* the no-boundary and FFI arms sit
+  inside each other's run-to-run spread and the sign flips between builds, so **no
+  per-element interface cost should be quoted for those rows in either
+  direction**. The absent-path rows (P1.3) are outside the spread and stand.
 - **A decode win measured on a container-light message may not survive P2.2.** The
   published managed decode figures deserve re-reading on that basis before the
   report quotes them, because if they came from less string-dense payloads the

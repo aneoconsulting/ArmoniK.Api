@@ -454,11 +454,18 @@ elements, worth 5.4 ns per `ResultRaw` and 24.4 per `TaskDetailed`. This is an
 invariant and it belongs in the header: a partial fill does not fail, it silently
 inherits the previous element's value.
 
-**What the total fill costs is the absent path**, measured for the first time by
-the Rust slice and carried as open decision 9: the fill is unconditional, so on a
-payload whose elements encode to nothing there is nothing for it to amortise
-against, and the group turns a win in both directions into a loss in both. Do not
-quote the group's worth from a full payload alone.
+**What the total fill costs is the absent path**, measured first by the Rust slice
+and carried as open decision 9: the fill is unconditional, so on a payload whose
+elements encode to nothing there is nothing for it to amortise against, and the
+group turns a win in both directions into a loss in both. Do not quote the group's
+worth from a full payload alone.
+
+**A measured alternative exists and it does not weaken this invariant.** If the
+host bulk-clears its chunk buffer and then assigns only the fields that differ
+from the default, the absent-path inversion disappears and no measured payload
+pays for it (decision 9). The codec still resets nothing between elements, which
+is what this paragraph is actually buying; what changes is the host's side of the
+contract, and a partial fill is safe only because the clear precedes it.
 
 ## 7. Decode
 
@@ -876,25 +883,45 @@ Each blocks something. None is settled by a measurement that exists today.
    migration day gives `RESOURCE_EXHAUSTED` to every customer whose payloads
    exceed 4 MiB, which for an HPC orchestrator is normal. `AK_ERR_LIMIT` exists
    for it; the default does not.
-9. **Does the by-value group need an empty-element path?** New, and the first
-   measurement of a cost the amendment was known to have and had never been
-   charged for. The group carries the whole singular subtree unconditionally
-   (section 6), so the binding fills a ~200-byte element group and the core
-   materialises a ~128-byte one **whatever the wire holds**. On P1.3, where every
-   element encodes to nothing, that fixed cost has nothing to amortise against and
-   **the verdict inverts**: `core-ffi-rust` goes to 1.16 to 1.39 of prost in both
-   directions while the no-boundary control stays at 0.47 to 0.84
-   (`ffi/logs/rust/stage2-four-arms-M1.log`). Every other M1 payload has the core
-   ahead in both directions.
+9. **Does the by-value group need an empty-element path? ANSWERED in Rust: yes,
+   and it is a host-side fill change rather than an ABI change.** The group carries
+   the whole singular subtree unconditionally (section 6), so on P1.3, where every
+   element encodes to nothing, the fixed cost had nothing to amortise against and
+   the verdict inverted: `core-ffi-rust` at 1.16 to 1.39 of prost in both
+   directions against 0.47 to 0.84 for the no-boundary control.
 
-   This is not exotic input. A page of results where most fields are unset is
-   ordinary control-plane traffic. The options are a presence-word fast path for
-   an entirely empty element, letting an element run hand over a count of empties,
-   or accepting the cost and saying so. **Nothing is decided on one slice and one
-   message**: M2 (P2.5) is the nested absent case, and the managed slices pay a
-   different price for the same fill because theirs crosses a runtime boundary. It
-   is written down now so that no slice quotes the group's worth from a full
-   payload alone. **Blocks: nothing; a candidate amendment, not a defect.**
+   **The cost is the fill, not the boundary, and that is now audited rather than
+   inferred.** The per-element figure was obtained by subtracting the no-boundary
+   arm, which invited the objection that the subtraction charges an inlining
+   advantage to the interface. Measured with two further arms (`#[inline(never)]`,
+   and a `black_box`ed function pointer that also defeats devirtualisation and
+   constant propagation), the inlining term is **−0.10 to +0.01 ns per element on
+   P1.3 encode against a group term of 11.3 to 11.4**, and −1.03 to −0.82 against
+   27.6 to 28.4 on decode. With LTO off the traversal was never inlined into the
+   caller in the first place, so both arms already paid an indirect call.
+
+   **The candidate, measured: the host memsets the element-group chunk once and
+   assigns only the fields that differ from the default.** P1.3 encode goes from
+   1.108–1.188 of prost to **0.815–0.857**, so the inversion disappears; P2.2, the
+   shape the control plane actually moves and the row set up to decide against it,
+   shows a small consistent saving (0.970 to 0.985); P1.2 and P2.5 are neutral
+   within spread. It costs less than the 5.4 ns per `ResultRaw` threshold on every
+   payload measured.
+
+   **What it does and does not touch.** It does *not* reverse section 6's
+   no-reset-between-elements property: the array is the host's own chunk buffer and
+   the codec still resets nothing. Only the host's fill strategy changes, from an
+   unconditional store per field to a bulk clear plus a conditional store. So the
+   total-fill invariant as the *codec* relies on it is intact, and what would change
+   in this document is the sentence telling the host how to fill.
+
+   **Why it is not adopted here.** A bulk clear of a struct array and a conditional
+   store cost something quite different in a managed host, and this is exactly the
+   kind of mechanism whose value differs by runtime by construction — the batched
+   element run already differs 2 to 9 percent on JNI and nothing measurable on
+   .NET. **Blocks: nothing. Settled for C++ and Rust by this measurement; C# and
+   Java decide whether it generalises**, and until they do the total fill stays the
+   specified path with this recorded as a measured alternative.
 
 10. **Can decode deliver the group before the runs?** The push family's two-call
    protocol (`new`, then `apply`) makes a host materialise a default element and
