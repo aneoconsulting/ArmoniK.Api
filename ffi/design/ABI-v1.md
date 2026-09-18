@@ -695,34 +695,52 @@ Each blocks something. None is settled by a measurement that exists today.
 2. **Which decode family does each binding take** (7.1), and is the single
    parameterised emitter actually buildable? Settled by the first two slices that
    pick different families.
-3. **UTF-8 passthrough: validate-and-fail, validate-and-substitute, or trust the
-   host's type?** It was framed as pure semantics (fail reports bad input to the
-   host that supplied it; substitute makes a `bytes`-like field out of it and
-   cannot fail; the Java slice chose fail). **It is not pure semantics: the Rust
-   slice priced validation at 25 to 30 percent of an encode** (`ak_tc_utf8` at
-   0.79 to 0.90 of prost against `ak_tc_utf8_trusted` at 0.59 to 0.72, one
-   process, `ffi/logs/rust/stage2-four-arms-M1.log`). That makes it the largest
-   single knob on the encode path measured so far, and it falls unevenly: a Rust
-   `String` carries the invariant in its type and is paying to re-check something
-   already proved, while a host handing over `bytes` genuinely needs it.
+3. **Which UTF-8 validator?** It was framed as semantics (fail, or substitute;
+   the Java slice chose fail), then as a cost (the Rust slice priced validation at
+   25 to 30 percent of an encode on ASCII, and proposed trusting a host type that
+   carries the invariant). **The content-set pass reframed it again, and this
+   framing is the one to carry**: the choice that matters is not whether to
+   validate but *which validator*, because most of what trusting was buying is
+   available without giving up the contract.
 
-   **The proposal on the table** is that the transcoder set carries both and the
-   *generator* picks, from the host type rather than from this document.
-   `ak_tc_utf8` stays the default and the only one a host can ask for by hand;
-   `ak_tc_utf8_trusted` is emitted only against a type whose invariant the
-   language guarantees (`String` in Rust; nothing in C++ unless a host declares
-   it, which is the case to refuse).
+   **The ASCII figure was not the cost.** `core::str::from_utf8` consumes a
+   `usize` at a time on ASCII and one byte at a time otherwise, so its cost tracks
+   **non-ASCII bytes, not bytes**. On the Latin-1 and above-U+00FF content sets the
+   scalar validator costs 2.2 to 3.0 times its own ASCII cost and turns a 0.72 to
+   0.81 win against prost into a **2.0 to 2.6 loss**: the largest single effect
+   measured anywhere in this branch, and invisible to an ASCII-only pass.
 
-   **What has to be settled before that is accepted**, because it is a failure
-   mode v1 has already removed once: a trusted transcoder is *a correctness
-   contract a host can be wrong about*, which is exactly what `max_bytes_per_unit`
-   was, and being wrong about that one was measured as silent wire corruption. The
-   difference is that a generator reading a type is not a human making a promise,
-   so the question is narrow and answerable: **is there a host type in any of the
-   five languages where the generator would emit `trusted` and the invariant does
-   not actually hold?** C++ answers it for `std::string`, Python for `str`. Until
-   then this is a measured argument, not an amendment. **Blocks: nothing today;
-   the default is unchanged.**
+   **A SIMD validator with the identical contract recovers half to two thirds of
+   it**, to 1.27 to 1.50 of prost. Same refusal of malformed input, no trust
+   extended to anyone, `simdutf8::basic` in place of the scalar DFA. It is not
+   faster on ASCII, because the scalar ASCII path is already eight bytes an
+   iteration. **The accept and reject sets are identical**, which is the condition
+   that makes it safe here: a validator that differed on any input would make the
+   core's output depend on which one a build chose, and that is the one thing this
+   branch does not permit.
+
+   **What survives of the earlier framings.** Trusting the host is still refused,
+   and for the unchanged reason: it is a correctness contract a host can be wrong
+   about, which is exactly what dropping `max_bytes_per_unit` removed, and being
+   wrong about that one was measured as silent wire corruption. What changed is
+   the price of refusing it: the gap between validating with SIMD and trusting is
+   now 1.27 to 1.50 against 0.72 to 0.85, so trusting is still worth something and
+   is no longer worth 2.6.
+
+   **So the question put to the slices changes.** Not "does your host type carry
+   the invariant" but **"what does your platform's UTF-8 validator cost on
+   non-ASCII input, and is a faster one with the same contract available?"** For
+   C++ that is a real choice, and simdjson's validator is the same family. For
+   Python the incumbent is upb, which already validates in C, so the comparison
+   may be nearly free, which would itself be informative.
+
+   **Not settled, and none of it by this slice**: one x86-64 machine with AVX2;
+   `simdutf8::basic` dispatches on runtime CPU features and falls back where they
+   are absent, which makes it a **floor** question in C++ as much as in Rust; and
+   it is a dependency inside the core rather than in a binding, so it carries a
+   packaging cost nobody has priced. **Blocks: nothing; the default is unchanged
+   and `ak_tc_utf8` remains what the specification names.**
+
 4. **Is `ak_span.coder` in the shared struct or out?** It is a JVM-specific hint
    in a struct every language reads.
 5. **What the grow path actually costs now that nothing is reserved from a
