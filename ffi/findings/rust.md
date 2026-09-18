@@ -5,9 +5,16 @@ as the slice's own `STATE.md`. What is here is what the slice's results mean for
 the branch: what is now established, what the other four slices have to do
 differently because of it, and what is still an argument.
 
-**Covers stages 1 to 3 part 3**: the payload manifest validated against prost,
-four arms over M1, M2 and M3, the three content sets on P1.2 and P2.2, and the
-unknown-field vectors. M4 to M7 and the RPC arm are not built.
+**Covers stage 3, complete**: every message and every payload of `SHAPES.md`,
+four arms, all byte-identical to the validated manifest, plus the three content
+sets and the unknown-field vectors. The RPC arm (stage 4) is not built.
+
+**Note on the hashes.** After stage 3 finished, this session changed
+`emit/payloads.py` so the `Output` adapter's three states are reachable (below),
+which moved P2.1 to P2.4 and P4.1. The slice's M2 and M4 figures below were taken
+on the previous bytes; the change is a few bytes per element and does not move a
+ratio, but the numbers are re-run rather than assumed before the report quotes
+them.
 
 ## Configuration, once, for everything below
 
@@ -116,6 +123,68 @@ unpaired surrogate, so the transcode pair of README section 10 item 4 is
 *unreachable* here rather than unbuilt. The corpus has to carry those vectors as
 raw bytes produced by a non-Rust host, and C# and Java are the slices that have to
 run that pair. Correctly logged as unreachable rather than quietly omitted.
+
+## The adapter was unreachable from the payload set, at both sites
+
+M4 exists for one reason: one facade type, two wire forms, a map that is not
+injective, and a defect only a byte corpus catches. **The payload set could not
+reach that shape at either site**, and the slice found it by checking the adapter
+by state rather than by running the payload, which is what I had asked for and is
+the only way it surfaces.
+
+At the nested site, `emit/payloads.py` filled `success` and `error`
+independently. Over 200 elements the only combinations occurring were
+(true, non-empty) and (false, non-empty). **(true, non-empty) is a state
+`TaskDetailed.Output`'s own comment forbids** ("the error message, only set if
+task have failed") and that no adapter over {Ok, Error(details)} can represent;
+the success state (true, empty) never occurred at all.
+
+At the plain site the finding is sharper and is a property of the schema rather
+than of the generator: **Ok and Invalid both flatten to the empty string, so one
+of them must come back wrong whatever the adapter author chooses.** Return Invalid
+and lose Ok; return Ok and silently claim success for a task that reported no
+outcome. The nested form round-trips all three states. That is the concrete defect
+SHAPES.md is abstract about, and no payload reached either state.
+
+Fixed in the schema directory, which this session owns: the generator now cycles
+the three states per element. Verified independently off the wire bytes: 167 Ok,
+167 Error, 166 absent at P2.2's nested site, zero occurrences of the impossible
+state, and P4.1's plain site carrying the collision at 67 non-empty against 133
+empty-or-absent. It moved P2.1 to P2.4 and P4.1.
+
+**Worth noting about the real schema**, which the slice's work surfaced: both wire
+forms are real and both are called `Output`. `TaskDetailed.Output` is
+`{bool success, string error}`; `objects.proto`'s `Output` is a
+`oneof {Empty ok, Error error}`. The facade unifies two messages that a reader of
+either `.proto` alone would not connect.
+
+## A control turned a twelvefold win into a bounded claim
+
+P5.4 decode came out at 0.08 of prost. The slice did not report it; it added a raw
+4 MB copy as a floor arm, and found every core arm sitting on that floor
+(`core-native` 0.084, `core-ffi-rust` 0.080, raw `copy_from_slice` 0.082, raw
+`to_vec` 0.080).
+
+So the claim is **"a 4 MB bulk decode costs one copy in the core and twelve in
+prost"**, which bounds both sides, rather than "the core is twelve times faster
+than prost", which bounds neither. Why prost sits twelve times above the floor is
+recorded as a labelled suspicion and not chased, because it is a finding about
+prost rather than about the ABI.
+
+This is now rule R2's second half. It also cuts against the branch's own case in
+one place: ABI v1 section 8's direct-argument path is justified by a JVM figure of
+0.16 to 0.34, and since the Rust *no-boundary* control is already on the memcpy
+floor, the Rust slice can say nothing in support of it.
+
+**A second harness defect in the same pass would have been published as a
+finding.** `core-native` on P5.4 encode measured 1.412 of prost because the arm
+allocated a fresh `Vec` per call and grew it by doubling from 4 KB to 4 MB, while
+every other arm reused a warm buffer and prost's `encode_to_vec` sizes once. A
+growth-policy comparison wearing a codec's name; 1.412 became 1.018 when fixed.
+Caught only because a 4 MB payload made it large enough to disbelieve, and at M1
+sizes it would have looked like a plausible regression. That is the same lesson as
+the inlining defect from a different direction: the arm you are proud of and the
+arm you distrust both need a floor.
 
 ## Unknown fields: the branch's largest unpriced behaviour change
 
@@ -342,6 +411,22 @@ and the invariant does not hold? **C++ answers it for `std::string`, Python for
   corrupt the decode context. Unreachable today and scheduled with the decode
   error channel in stage 3. Worth watching, because it is the error channel ABI
   v1 section 5 calls the widest hole in the drafted interface.
+
+## The specified surface that is not built
+
+From the slice's completeness pass, and it belongs in the report rather than in a
+footnote, because a specification is not evidence:
+
+- **`ak_init` and the whole lifecycle of ABI v1 section 3 are not built at all**,
+  so "every entry point requires `ak_init`" is unexercised, as are the crypto
+  provider, the log and tracing bridges and the panic hook.
+- **The codec's rollback of a half-written field is written and never triggered.**
+  Section 6 calls that the widest hole in the drafted interface; nothing in this
+  slice makes a host fail mid-run deliberately, so the fix for it is untested.
+- **Group-layout assertions, the `coder` hint, size and recursion limits, the pull
+  decode family and the whole RPC half** are specified and unbuilt here.
+- **Malformed wire is unexercised**, and `ak_fail` is reachable only through a
+  panic.
 
 ## What the slice's own defect log says about method
 

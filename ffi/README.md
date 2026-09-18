@@ -359,10 +359,26 @@ with a shape silently missing from it**, which is a wrong number rather than a
 missing one. Every walker enumerates every shape, and a backend that has no case
 for one raises.
 
+**And a refusal is tested by a case that must fail.** The first build of ABI v1
+section 8's generator-time refusal walked singular message children only, so it
+found nothing, refused nothing, and read as working. That is the same defect as
+the walker above, caught the same way: by running it against input it was supposed
+to reject, not by reading it. A guard with no failing test is a guard nobody has
+seen work.
+
 **R2. Correctness before timing, and byte identity across every arm.** Every
 encoder in a slice produces bytes that prost, the incumbent and the control codec
 all agree on. A slice that cannot assert that is not measuring the same work in
 each arm.
+
+**A ratio far enough from 1 to be surprising gets a floor arm before it is
+reported.** The Rust slice measured a 4 MB bulk decode at 0.08 of prost, added a
+raw `memcpy` as a case, and found every core arm sitting *on* that floor. The
+reportable claim is therefore "a 4 MB bulk decode costs one copy in the core and
+twelve in prost", which bounds both sides, rather than "the core is twelve times
+faster", which bounds neither and would have been the published sentence. The same
+control turns a suspiciously large win into a statement about what the incumbent
+is doing, which is where such a win usually comes from.
 
 **R3. Three arms minimum, in one process.** The incumbent that language ships
 today (the baseline every ratio is against), the C ABI arm, and a **no-boundary

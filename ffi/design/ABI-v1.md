@@ -377,7 +377,13 @@ to batch at all** and loses only what its own crossing costs.
 
 **A packed repeated scalar is the host's own array, handed over whole.** One
 symbol per host layout; the wire encoding comes from the schema and lives in the
-context, so `bool` and `enum` need no cases. A host with no contiguous layout
+context, so `bool` and `enum` need no cases. **"Its own array" is doing work in
+that sentence**, and the Rust slice measured where: a `Vec<TaskStatus>` is not the
+wire representation, so the binding materialises a contiguous array first and part
+of the crossing saved is paid back as a copy. A host that already stores the wire
+form hands over a pointer and copies nothing; a host that stores an enum type does
+not. The cost is the host's to avoid by choosing its storage, and the
+specification implied it rather than stating it. A host with no contiguous layout
 emits runs of length one and loses nothing.
 
 **Length placeholders use a learned width, held in the encode context.** The
@@ -588,10 +594,22 @@ multi-megabyte result upload at 0.16 to 0.34 of protobuf-java, against roughly
 parity for a staged path. `critical(true)` on FFM, `GetPrimitiveArrayCritical` on
 JNI; C++ and C# never use it and pay nothing for it.
 
-It generalises untested: it is built for one field of one root message, nothing
-tests it on a nested message, and **a direct field declared on a message that
-does make a reverse call should be a generator-time refusal** and currently is
-not.
+It generalises untested: it is built for one field of one root message and
+nothing tests it on a nested message. **The generator-time refusal now exists**,
+built by the Rust slice and run as a build step: it rejects a direct field on a
+message tree that also needs a reverse call (a critical section and an upcall are
+mutually exclusive, so it is a contract no host can honour) and more than one
+direct field in one tree. Eleven lines, a predicate over the descriptor computed
+where every other predicate is, so the cost of the rule is not an argument against
+it.
+
+**Rust cannot confirm what this path buys, and the reason is worth stating.**
+There is no pinning to avoid and a copy is a copy either way, so the slice
+measures it byte-identical and says nothing about the 0.16-to-0.34 figure above,
+which is a JVM number. Worse for that figure: on a 4 MB decode the slice's
+*no-boundary* control sits on the raw `memcpy` floor, so what the bulk path beats
+there is the incumbent's copy strategy rather than a boundary cost. The
+direct-argument path's value remains a JVM claim resting on one slice.
 
 ## 9. The RPC half
 
