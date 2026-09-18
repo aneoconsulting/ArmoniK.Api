@@ -50,8 +50,9 @@ amended one makes 4. Every mechanism that gets there is a function of the messag
 descriptor, so it is not a per-language workaround.
 
 **A crossing is not one price, it is a price per runtime.** Same work, measured
-per reverse call: about 0.25 ns in C++, 7.5 to 12 ns on .NET 8, about 73 ns on
-Mono 6.8, 98.4 ns through JNI, 33.8 ns through FFM. The design rule that follows
+per reverse call: about 0.25 ns in C++ (statically linked), 1.8 ns in Rust
+through a shared library, 7.5 to 12 ns on .NET 8, about 73 ns on Mono 6.8, 98.4
+ns through JNI, 33.8 ns through FFM. The design rule that follows
 is the one to carry into every slice: **make the crossings fewer, not cheaper.**
 
 ### The base design is out of date, and that is work item W1
@@ -70,9 +71,13 @@ Written down so that the report cannot quietly inherit an assumption.
 - **Python has no POC at all.** It is also the language whose incumbent is
   already native (protobuf-python on upb, grpcio on the gRPC C core), so it is
   the one where the crossing argument could land differently from every other.
-- **Rust has no POC either**, which leaves every other slice's number without a
-  denominator. See section 4.1. The slice is under way: its first task, validating
-  the payload manifest against prost, is done and is what settled W2.
+- **Rust's slice covers M1 only so far**, so the denominator exists for flat
+  string-and-scalar messages and for nothing else. See section 4.1 and
+  [`findings/rust.md`](findings/rust.md). What it already establishes: a crossing
+  costs 1.8 ns through a shared library, nine of them encode a thousand rows, and
+  the core beats prost in both directions on M1 **except on the absent path**,
+  where the by-value group inverts the verdict. Nesting, maps, oneofs, explicit
+  presence, the adapter site and bulk bytes are not yet measured anywhere in Rust.
 - **C++ has never been measured on the amended ABI.** The amendments were
   motivated by managed hosts; the claim that C++ pays nothing for them is
   currently an argument, not a measurement.
@@ -296,9 +301,9 @@ deliverable.
 
 | # | Work item | Done when |
 |---|---|---|
-| W1 | **Specify ABI v1.** One specification, in this branch, merging the base design with the amendments from the C# and Java reports. Every amendment carries the figure that motivated it and the language it came from. | **Drafted.** `design/ABI-v1.md` exists with 10 open decisions; agreed when decision 1 (is every amendment free at the C++11 floor) is settled and the rest are accepted or scheduled. |
+| W1 | **Specify ABI v1.** One specification, in this branch, merging the base design with the amendments from the C# and Java reports. Every amendment carries the figure that motivated it and the language it came from. | **Drafted.** `design/ABI-v1.md` carries 10 open decisions; agreed when decision 1 (is every amendment free at the C++11 floor) is settled and the rest are accepted or scheduled. The Rust slice has moved two: decision 5 (the grow path) is answered on the easy case and waits on P2.4, and decision 3 (UTF-8 passthrough) turns out to have a price, 25 to 30 percent of an encode, rather than being pure semantics. Decision 9, whether the by-value group needs an empty-element path, is new and comes from the same slice. |
 | W2 | **Freeze the shapes and the payload set.** | **Done.** `schema/shapes.json` is the description, `schema/generated/` carries the emitted `.proto` and a payload manifest with a hash per payload, and the Rust slice has confirmed every hash against prost 0.14.4 and a second, independent encoder. One defect was found and fixed in `emit/payloads.py`; 8 of 16 hashes moved. A slice that disagrees with a hash now has a defect in itself. |
-| W3 | **Rust slice.** Section 4.1. | The four arms exist and the interface-cost decomposition is available to every other slice. |
+| W3 | **Rust slice.** Section 4.1. | The four arms exist and the interface-cost decomposition is available to every other slice. **Under way**: all four arms are byte-identical to the validated manifest and timed over M1 (P1.1 to P1.3), with counted crossings and the crossing price at 1.8 ns. M2 to M7 and the RPC arm remain. |
 | W4 | **C++ slice on the amended ABI.** Rebuild against W1, re-measure against protobuf C++, and demonstrate the C++11 floor. | The amended ABI has a C++ column, and "the managed amendments are free in C++" is a measurement. |
 | W5 | **C# slice.** Import the existing slice, rebuild against W1, then close its two named gaps: a managed decode control, and oneofs plus explicit presence. | Both gaps have numbers, and the floor (netstandard2.0 or net48) compiles and passes correctness. |
 | W6 | **Java slice.** Import, rebuild against W1, re-measure encode, and keep the generated-Java-codec arm as a first-class candidate. | The encode verdict is stated against ABI v1, on JDK 17 with JNI, with the Java 8 floor demonstrated. |
@@ -338,9 +343,23 @@ travel between runs on shared hardware; ratios within one process do. Any
 comparison that cannot share a process (two incumbent versions, two runtimes)
 says so and carries an in-process control column.
 
-**R5. Count the crossings, do not infer them.** Every slice reports boundary-call
-counts per payload per direction, from a counting build. The crossing count is
-what makes a result portable to a runtime nobody measured.
+**R5. Count the crossings, do not infer them, and prove the boundary exists.**
+Every slice reports boundary-call counts per payload per direction, from a
+counting build. The crossing count is what makes a result portable to a runtime
+nobody measured.
+
+**A counting build is not evidence that a call happened**, and the Rust slice
+established that the hard way: with the core in the crate graph as an rlib, rustc
+inlined every `extern "C"` entry point into the host, and the counters kept
+reporting 3, 9 and 6 crossings because the counting code was inlined with the
+function bodies. The FFI arm was the no-boundary control with extra struct
+copies, and every ratio from it would have been a figure about the optimiser. So
+the count is necessary and not sufficient: **a slice whose host and core can be
+compiled together shows, from the built artifact, that the entry points are
+unresolved imports** (`nm -D --undefined-only`, or the platform equivalent), as a
+step of its build rather than as a claim in its log. The exposure is Rust's and
+C++'s, and in C++ it is spelled `-flto` over a statically linked core. The
+managed hosts cannot inline across the boundary and are safe from this one.
 
 **R6. The payload set is shared**, and it includes the absent path. A payload
 generator that fills every field cannot reach any path conditioned on emptiness,
@@ -348,7 +367,10 @@ which is exactly where an offset defect hides: one such defect passed all seven
 standard payloads in the Java slice.
 
 **R7. Name the configuration.** Runtime version, incumbent library version,
-binding mechanism, machine. A ratio between an arm on one binding mechanism and
+binding mechanism, **linkage**, machine. Linkage is part of the mechanism and it
+is not small: a shared-library crossing measured 1.8 ns in the Rust slice, and a
+C++ host that statically links pays a direct call instead, so a C++ column and a
+Rust column are not measuring the same thing unless both say which they used. A ratio between an arm on one binding mechanism and
 an arm on another is a comparison of mechanisms, not of ABI shapes, and mistaking
 one for the other has already produced retracted figures.
 
