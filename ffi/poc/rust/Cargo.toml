@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = ["crates/shapes-prost", "crates/shapes-values", "crates/stage1-validate"]
+
+[workspace.package]
+edition = "2021"
+# README section 5: for Rust the floor IS the target. One configuration, pinned to the
+# workspace MSRV of packages/rust.
+rust-version = "1.88"
+version = "0.0.0"
+publish = false
+
+[workspace.dependencies]
+prost = "0.14"
+prost-build = "0.14"
+protox = "0.9"
+sha2 = "0.10"
+serde_json = "1"
+bytes = "1"

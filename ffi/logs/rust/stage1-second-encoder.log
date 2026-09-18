@@ -1,0 +1,43 @@
+# ffi/logs/rust/stage1-second-encoder.log
+# W3 stage 1: is the zero-leaf rule protobuf's, or prost's?
+# 2026-09-18
+#
+# prost-reflect 0.16.5 encodes a DynamicMessage built from the descriptor at runtime and
+# shares no encoding code with prost's #[derive(Message)] expansion. Both are run over the
+# same protox-compiled descriptor. Source: ffi/poc/rust/crates/shapes-prost/tests/zero_leaf.rs
+# Configuration as in stage1-manifest-vs-prost.log. Nothing timed.
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+     Running tests/zero_leaf.rs (target/debug/deps/zero_leaf-dc8e7bf443204e08)
+
+running 2 tests
+test a_duration_that_is_all_zero_encodes_to_an_empty_message ... ok
+test an_implicit_presence_zero_leaf_is_omitted_by_both_implementations ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+# The stated canonical form agrees with both, independently of any implementation:
+#   ffi/schema/README.md, 'Canonical form':
+#     'an implicit-presence leaf holding the proto zero is omitted'
+#   Timestamp.seconds, Timestamp.nanos, Duration.seconds and Duration.nanos are
+#   implicit-presence leaves. emit/payloads.py writes them unconditionally.
+
+# Payload-by-payload effect of the candidate change (bytes: manifest -> prost):
+#   payload   manifest      prost    delta  new sha256
+#   P1.1          862        858       -4  5df5eb5f3f51ae920f64ed07108d7158e0f559cda2be692f550767a9f39d3206
+#   P1.2       218125     218121       -4  eed4817ef84c1f7b8d66693a9249fdbb4f75fec436264a922523fafe21124588
+#   P1.3          605        605        0  7634c22567e88be4f9e188b98c35d846b4f89735b34c526be31dda65b7921381   (unchanged)
+#   P2.1         1073       1039      -34  2ca90e7c8d2ec199c388cd51fe32eb0543ff0bbc3c6c04ddc9f18728122b462c
+#   P2.2       551696     551662      -34  b6a567c4cb00892b48831d322f699a11eed931ea07acd4a0c9194cd861712a5a
+#   P2.3       649809     649775      -34  7a568a80081b7e8db04c0b30887e5f0d3a45c93348218979b7e297b6611780a6
+#   P2.4       981256     981222      -34  c3b97a1c4b16d177825521f4ca624792e8634e8323db579bfc7e3616402655c2
+#   P2.5        19658      19632      -26  45b808464f5de225cc020fdee91e655014f54812fdc0c38e56a91d80bb801094
+#   P3.1        12097      12097        0  40c414645f0570dc6325b2717327e19aac3bdac730b0e14a8af28fae4fb251a4   (unchanged)
+#   P4.1        69557      69551       -6  692fd8b91695546c67aeae57c077ebd6236b0752ed448b54341d330318244e58
+#   P5.1          116        116        0  80ff3288bbc8df482eb6a3e69e061a93e03e164bed3fa7e5a6e58400105acd40   (unchanged)
+#   P5.2        65620      65620        0  66e4ffb4730d0c777962b6565e0c51089d6e37d2814450ac3b44ae26f4229aea   (unchanged)
+#   P5.3      1048660    1048660        0  694243f8193e54f6e58ee602f2a27ae9f6407f29181ab16ce9ec493a515c3d2b   (unchanged)
+#   P5.4      4194390    4194390        0  349ae77b4d2f934a5bb7471333c65b39d9c957448a7bb5d9fe56f5742efde30d   (unchanged)
+#   P6.1       116954     116954        0  80d39ecb57ae48536e62ffeb5340e60daf1d01679585fe479cb60eb07989eb15   (unchanged)
+#   P7.1           98         98        0  1325822514f15d1f872c752fc989f540e93eadc529cf841d4db8e4f8145ea086   (unchanged)
