@@ -406,6 +406,16 @@ Every slice reports boundary-call counts per payload per direction, from a
 counting build. The crossing count is what makes a result portable to a runtime
 nobody measured.
 
+**The no-boundary control needs the same proof, in the opposite direction.** An
+arm named "no boundary" is only a control if it is *not* fused into the benchmark
+loop, and whether it is depends on things no one states in a configuration line:
+LTO, `#[inline]` on the entry point, whether the entry point is generic. The Rust
+slice's control turned out to be an indirect call through the GOT, which is what
+made its subtraction valid — but it was one `#[inline]` away from not being, with
+LTO off the whole time. So a slice prints the entry point's size and the calling
+closure's size from the artifact, both directions, as a build step. In C++ the
+same question is `-flto` over the control rather than over the core.
+
 **A counting build is not evidence that a call happened**, and the Rust slice
 established that the hard way: with the core in the crate graph as an rlib, rustc
 inlined every `extern "C"` entry point into the host, and the counters kept
