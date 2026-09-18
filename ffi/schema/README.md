@@ -90,7 +90,7 @@ payload is a defect rather than a difference:
   fixed here: without that there is no byte identity to check, and sorted is what
   a deterministic serializer already produces.
 
-## Three things the payload set does on purpose
+## Four things the payload set does on purpose
 
 **The absent path.** `P1.3` is 300 elements that each encode to *nothing*, and
 `P2.5` removes the adapter child and empties half the map values. A generator
@@ -104,6 +104,18 @@ or a `Duration` exercises an implicit-presence leaf that is present in the value
 and absent from the wire. That started as an accident of the value rules and is
 now deliberate: it is the case that caught the only defect this directory has
 had, and **a value rule may not be tuned so that no leaf lands on zero.**
+
+**All three states of the adapter, at both of its sites.** `Output` is one facade
+type over two wire forms and the map is not injective, which is the only reason M4
+exists. An earlier version of this file filled `success` and `error`
+independently, so every element carried (true, non-empty): a state
+`TaskDetailed.Output`'s own comment forbids, that no adapter over {Ok, Error} can
+represent, and which left the success state (true, empty) never generated at all.
+The shape a byte corpus exists to catch a defect in was unreachable from the
+payload set. `adapter_state()` now cycles Error, Ok, Invalid per element, so the
+nested site carries all three and **the plain site carries the collision**: Ok and
+Invalid both flatten to the empty string there, and one of them must come back
+wrong whatever an adapter author picks.
 
 **Explicit presence that is sometimes absent, and sometimes present and zero.**
 `Probe`'s three `optional` fields cycle their presence per element, and one

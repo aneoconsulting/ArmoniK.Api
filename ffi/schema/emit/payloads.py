@@ -68,6 +68,25 @@ def stamp_body(t):
     return (W.i(1, t["seconds"]) if t["seconds"] else b"") + (W.i(2, t["nanos"]) if t["nanos"] else b"")
 
 
+def adapter_state(idx):
+    """Which of the Output facade's three states element `idx` carries.
+
+    The adapter maps ONE facade type onto two wire forms, and the map is not
+    injective, which is the whole reason M4 exists. Reaching that requires the
+    payload to carry all three states, and an earlier version of this file did
+    not: it filled `success` and `error` independently, so every element was
+    (true, non-empty) -- a state `TaskDetailed.Output`'s own comment forbids
+    ("the error message, only set if task have failed") and no adapter over
+    {Ok, Error(details)} can represent -- and the success state (true, empty)
+    never occurred at all. The shape the corpus is supposed to catch a defect in
+    was unreachable from the payload set, at both of its sites.
+
+    Cycled 3, 1, 0 rather than 0, 1, 2 so that element 0 is Error: the nested
+    site is removed by `half_absent`, and P2.5 keeps a written one first.
+    """
+    return ("error", "ok", "invalid")[idx % 3]
+
+
 def enc_field(schema, f, path, idx, mode, repeats, bulk):
     kind, c = f["kind"], S.card(f)
     if absent(f, mode, idx):
@@ -122,6 +141,14 @@ def enc_field(schema, f, path, idx, mode, repeats, bulk):
     if kind == "string":
         if mode == "all_absent":
             return b""
+        if f.get("adapter_site") == "plain":
+            # Ok and Invalid BOTH flatten to the empty string here, so this site
+            # cannot round-trip all three states whatever an adapter author picks.
+            # The payload has to contain the collision for a corpus to catch it.
+            if adapter_state(idx) != "error":
+                return b""
+            stats["strings"] += 1
+            return W.s(f["tag"], V.sentence(path, idx))
         if f.get("presence") == "explicit":
             if not explicit_present(f, idx):
                 return b""
@@ -150,6 +177,15 @@ def enc_field(schema, f, path, idx, mode, repeats, bulk):
         v = V.scalar(kind, path, idx)
         return W.f64(f["tag"], v) if v else b""
     if kind == "message":
+        if f.get("adapter_site") == "nested":
+            st = adapter_state(idx)
+            if st == "invalid":
+                return b""                      # no child at all
+            if st == "ok":
+                return W.ld(f["tag"], W.i(1, 1))         # success = true, no error
+            stats["strings"] += 1
+            return W.ld(f["tag"],                        # success = false (omitted), error set
+                        W.s(2, V.sentence("%s.error" % path, idx)))
         if f["of"] == "Timestamp":
             return W.ld(f["tag"], stamp_body(V.timestamp(path, idx)))
         if f["of"] == "Duration":
