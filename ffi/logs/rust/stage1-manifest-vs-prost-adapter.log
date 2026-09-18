@@ -1,0 +1,77 @@
+# ffi/logs/rust/stage1-manifest-vs-prost-adapter.log
+# W3: stage 1 re-run against the schema at 0c2d4d7f, which made the Output adapter's
+# three states reachable (adapter_state cycles Error, Ok, Invalid at both sites).
+# 2026-09-18
+#
+# WHY THIS LOG EXISTS. D11: a schema change re-runs gen/stage1.sh into a dated log
+# before any number from it is quoted. 0c2d4d7f moves P2.1 to P2.4 and P4.1, so the
+# P2.x and P4.1 rows of the earlier stage 1 logs are superseded; every other row in
+# them still stands.
+#
+# The Rust side of these payloads is the HAND-WRITTEN builder in crates/stage1-validate,
+# re-derived from the rules rather than transliterated. It was stale for exactly one
+# commit and the conformance run said so: the three facade arms (driven by the generated
+# builder) matched the new hashes immediately and the prost arm did not, which is the
+# two independent construction routes doing what they are kept separate for.
+#
+# Configuration as in stage1-manifest-vs-prost.log. Nothing timed.
+
+P1.1         858 B  elements=4     strings=20
+P1.2      218121 B  elements=1000  strings=5000
+P1.3         605 B  elements=300   strings=0
+P2.1        1037 B  elements=1     strings=35
+P2.2      540422 B  elements=500   strings=17167
+P2.3      647024 B  elements=125   strings=17792
+P2.4      979465 B  elements=80    strings=26267
+P2.5       19632 B  elements=20    strings=680
+P3.1       12097 B  elements=200   strings=350
+P4.1       65321 B  elements=200   strings=3467
+P5.1         116 B  elements=1     strings=2
+P5.2       65620 B  elements=1     strings=2
+P5.3     1048660 B  elements=1     strings=2
+P5.4     4194390 B  elements=1     strings=2
+P6.1      123354 B  elements=200   strings=200
+P7.1          98 B  elements=6     strings=6
+
+# stage 1: ffi/schema/generated/manifest.json against prost
+#
+# configuration
+#   rustc          rustc 1.94.1 (e408947bf 2026-03-25)
+#   prost          0.14 (prost-build 0.14, protox 0.9; no protoc in this container)
+#   description    ffi/schema/shapes.json, ffi/schema/generated/shapes.proto
+#   manifest       generated_by = "emit/payloads.py from shapes.json"
+#   maps           prost-build btree_map("."): BTreeMap, so map entries sort by key
+#   host           vm
+
+payload manifest B    prost B  bytes    sha256   note
+P1.1          858        858  ok       ok       identical
+P1.2       218121     218121  ok       ok       identical
+P1.3          605        605  ok       ok       identical
+P2.1         1037       1037  ok       ok       identical
+P2.2       540422     540422  ok       ok       identical
+P2.3       647024     647024  ok       ok       identical
+P2.4       979465     979465  ok       ok       identical
+P2.5        19632      19632  ok       ok       identical
+P3.1        12097      12097  ok       ok       identical
+P4.1        65321      65321  ok       ok       identical
+P5.1          116        116  ok       ok       identical
+P5.2        65620      65620  ok       ok       identical
+P5.3      1048660    1048660  ok       ok       identical
+P5.4      4194390    4194390  ok       ok       identical
+P6.1       123354     123354  ok       ok       identical
+P7.1           98          -  n/a      n/a      decoded to the predicted value; contiguous re-encode is 98 B and a permutation of the 98 B interleaved form
+
+# prost encode/decode round trip
+#   P1.2   ok
+#   P1.3   ok
+#   P2.2   ok
+#   P2.5   ok
+#   P3.1   ok
+#   P4.1   ok
+#   P6.1   ok
+
+VERDICT: 16/16 payloads checked with prost, no disagreement.
+         The manifest's hashes are confirmed. emit/wire.py agrees with prost on
+         every payload, including the absent-path ones (P1.3, P2.5), explicit
+         presence and the payload-free oneof member (P3.1), the adapter site
+         (P4.1), packed scalars (P6.1) and the 4 MB bulk body (P5.4).

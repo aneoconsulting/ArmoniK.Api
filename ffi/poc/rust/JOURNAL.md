@@ -854,3 +854,53 @@ It also bears on ABI v1 section 8's claim, which is that the direct-argument pat
 *decode*-side here and it is stronger, but it is a statement about where the incumbent sits
 relative to a copy, not about what the ABI bought: `core-native` makes no crossings at all and
 is on the same floor.
+
+### 2026-09-18 — re-validation after the adapter fix (`0c2d4d7f`)
+
+D11's rule applied to a schema change that moved five payloads. `gen/stage1.sh` re-run into
+`ffi/logs/rust/stage1-manifest-vs-prost-adapter.log`: **16 of 16**, with P2.1 at 1,037 B,
+P2.2 at 540,422, P2.3 at 647,024, P2.4 at 979,465 and P4.1 at 65,321, matching the
+aggregating session's regenerated values. P2.5 unmoved.
+
+**The two construction routes earned their keep here.** The three facade arms, driven by the
+generated builder, matched the new hashes the moment the generator was re-run. The `prost`
+arm did not, because its objects come from the hand-written builder in `crates/stage1-validate`
+— and the conformance run said so, per payload, rather than everything passing or everything
+failing together. That is exactly why they are kept separate, and it is the first time the
+separation has caught anything.
+
+**The states are reachable now, checked off decoded values rather than from the builder**
+(`crates/harness/src/bin/shapes.rs`, and it is a standing check rather than a one-off):
+
+| site | state | count |
+|---|---|---|
+| nested, P2.2, 500 elements | `Ok` (success, no error) | 167 |
+| | `Error` (error, no success) | 167 |
+| | `Invalid` (no child) | 166 |
+| | **impossible** (success AND error) | **0** |
+| plain, P4.1, 200 elements | `Error` (non-empty) | 67 |
+| | **`Ok` or `Invalid`, indistinguishable** | **133** |
+
+The plain site's second row is the finding made reachable: 133 elements carry a state the
+wire form cannot tell apart, so an adapter must answer one of two ways for all of them and be
+wrong on the other. That row was 0 before.
+
+**M2 and M4 re-measured** (`ffi/logs/rust/stage3-M2-M4-revalidated.log`), because the
+aggregating session should not decide from a distance that ratios have not moved.
+
+- **The mechanisms are unchanged.** Crossings are identical to the digit: 10.024 per task on
+  encode, 7.004 on decode. ABI v1 decision 5 is unchanged too: P1.2 and P2.2 still converge
+  to zero warm misses, and P2.4 still misses exactly 1.00 per element at the element site.
+- **Most ratios did not move**, and the new runs are markedly **tighter** than the originals,
+  so they supersede them: `core-ffi-rust` on P2.4 decode was 0.809 to 0.981 across three runs
+  and is now 0.959 to 0.963.
+- **Two moved, both toward parity on the core arms**: P2.4 encode `core-ffi-rust` 1.03 to
+  1.11, and P2.2 decode 0.95-1.02 to 1.03. Consistent with the payload's composition rather
+  than with any mechanism: the adapter no longer writes a string on every element, so P2.2
+  carries 17,167 strings instead of 17,500 and the container work per element is a larger
+  share. That is the container-construction reading holding up under a payload change nobody
+  made to test it.
+
+**New**: M4 gains timing rows it did not have, now that the shape is real: encode 0.411 to
+0.415 (`core-native`) and 0.789 to 0.816 (`core-ffi-rust`); decode 0.861 to 0.864 and 0.916
+to 0.920.
