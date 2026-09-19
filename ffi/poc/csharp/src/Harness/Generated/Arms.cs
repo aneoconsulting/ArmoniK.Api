@@ -26,7 +26,7 @@ public abstract class Arms
 
     public abstract byte[] GpToByteArray();
     public abstract int GpWriteTo(byte[] dst);
-    public abstract int GpWriteToBufferWriter(ArrayBufferWriter<byte> w);
+    public abstract int GpWriteToBufferWriter(BufWriter w);
     public abstract void ManagedWrite(ref Enc e);
     public abstract void ManagedWriteSized(ref Enc e);
 
@@ -76,13 +76,12 @@ public sealed class Arms_P1_1 : Arms
     }
 
     /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
-    /// level. The caller RESETS the writer rather than clearing it --
-    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
-    /// the per-iteration buffer wipe that handicapped the C++ slice's
-    /// incumbent. ResetWrittenCount() does not.
-    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    /// level. BufWriter.Reset() moves the position and does NOT zero the
+    /// buffer, a per-iteration wipe being the exact shape of the handicap
+    /// an adversarial review found in the C++ slice's incumbent.
+    public override int GpWriteToBufferWriter(BufWriter w)
     {
-        w.ResetWrittenCount();
+        w.Reset();
         _gp.WriteTo(w);
         return w.WrittenCount;
     }
@@ -161,13 +160,12 @@ public sealed class Arms_P1_2 : Arms
     }
 
     /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
-    /// level. The caller RESETS the writer rather than clearing it --
-    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
-    /// the per-iteration buffer wipe that handicapped the C++ slice's
-    /// incumbent. ResetWrittenCount() does not.
-    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    /// level. BufWriter.Reset() moves the position and does NOT zero the
+    /// buffer, a per-iteration wipe being the exact shape of the handicap
+    /// an adversarial review found in the C++ slice's incumbent.
+    public override int GpWriteToBufferWriter(BufWriter w)
     {
-        w.ResetWrittenCount();
+        w.Reset();
         _gp.WriteTo(w);
         return w.WrittenCount;
     }
@@ -246,13 +244,12 @@ public sealed class Arms_P1_3 : Arms
     }
 
     /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
-    /// level. The caller RESETS the writer rather than clearing it --
-    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
-    /// the per-iteration buffer wipe that handicapped the C++ slice's
-    /// incumbent. ResetWrittenCount() does not.
-    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    /// level. BufWriter.Reset() moves the position and does NOT zero the
+    /// buffer, a per-iteration wipe being the exact shape of the handicap
+    /// an adversarial review found in the C++ slice's incumbent.
+    public override int GpWriteToBufferWriter(BufWriter w)
     {
-        w.ResetWrittenCount();
+        w.Reset();
         _gp.WriteTo(w);
         return w.WrittenCount;
     }
@@ -331,13 +328,12 @@ public sealed class Arms_P2_1 : Arms
     }
 
     /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
-    /// level. The caller RESETS the writer rather than clearing it --
-    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
-    /// the per-iteration buffer wipe that handicapped the C++ slice's
-    /// incumbent. ResetWrittenCount() does not.
-    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    /// level. BufWriter.Reset() moves the position and does NOT zero the
+    /// buffer, a per-iteration wipe being the exact shape of the handicap
+    /// an adversarial review found in the C++ slice's incumbent.
+    public override int GpWriteToBufferWriter(BufWriter w)
     {
-        w.ResetWrittenCount();
+        w.Reset();
         _gp.WriteTo(w);
         return w.WrittenCount;
     }
@@ -416,13 +412,12 @@ public sealed class Arms_P2_2 : Arms
     }
 
     /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
-    /// level. The caller RESETS the writer rather than clearing it --
-    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
-    /// the per-iteration buffer wipe that handicapped the C++ slice's
-    /// incumbent. ResetWrittenCount() does not.
-    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    /// level. BufWriter.Reset() moves the position and does NOT zero the
+    /// buffer, a per-iteration wipe being the exact shape of the handicap
+    /// an adversarial review found in the C++ slice's incumbent.
+    public override int GpWriteToBufferWriter(BufWriter w)
     {
-        w.ResetWrittenCount();
+        w.Reset();
         _gp.WriteTo(w);
         return w.WrittenCount;
     }
@@ -501,13 +496,12 @@ public sealed class Arms_P2_3 : Arms
     }
 
     /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
-    /// level. The caller RESETS the writer rather than clearing it --
-    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
-    /// the per-iteration buffer wipe that handicapped the C++ slice's
-    /// incumbent. ResetWrittenCount() does not.
-    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    /// level. BufWriter.Reset() moves the position and does NOT zero the
+    /// buffer, a per-iteration wipe being the exact shape of the handicap
+    /// an adversarial review found in the C++ slice's incumbent.
+    public override int GpWriteToBufferWriter(BufWriter w)
     {
-        w.ResetWrittenCount();
+        w.Reset();
         _gp.WriteTo(w);
         return w.WrittenCount;
     }
@@ -586,13 +580,12 @@ public sealed class Arms_P2_4 : Arms
     }
 
     /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
-    /// level. The caller RESETS the writer rather than clearing it --
-    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
-    /// the per-iteration buffer wipe that handicapped the C++ slice's
-    /// incumbent. ResetWrittenCount() does not.
-    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    /// level. BufWriter.Reset() moves the position and does NOT zero the
+    /// buffer, a per-iteration wipe being the exact shape of the handicap
+    /// an adversarial review found in the C++ slice's incumbent.
+    public override int GpWriteToBufferWriter(BufWriter w)
     {
-        w.ResetWrittenCount();
+        w.Reset();
         _gp.WriteTo(w);
         return w.WrittenCount;
     }
@@ -671,13 +664,12 @@ public sealed class Arms_P2_5 : Arms
     }
 
     /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
-    /// level. The caller RESETS the writer rather than clearing it --
-    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
-    /// the per-iteration buffer wipe that handicapped the C++ slice's
-    /// incumbent. ResetWrittenCount() does not.
-    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    /// level. BufWriter.Reset() moves the position and does NOT zero the
+    /// buffer, a per-iteration wipe being the exact shape of the handicap
+    /// an adversarial review found in the C++ slice's incumbent.
+    public override int GpWriteToBufferWriter(BufWriter w)
     {
-        w.ResetWrittenCount();
+        w.Reset();
         _gp.WriteTo(w);
         return w.WrittenCount;
     }
@@ -756,13 +748,12 @@ public sealed class Arms_P3_1 : Arms
     }
 
     /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
-    /// level. The caller RESETS the writer rather than clearing it --
-    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
-    /// the per-iteration buffer wipe that handicapped the C++ slice's
-    /// incumbent. ResetWrittenCount() does not.
-    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    /// level. BufWriter.Reset() moves the position and does NOT zero the
+    /// buffer, a per-iteration wipe being the exact shape of the handicap
+    /// an adversarial review found in the C++ slice's incumbent.
+    public override int GpWriteToBufferWriter(BufWriter w)
     {
-        w.ResetWrittenCount();
+        w.Reset();
         _gp.WriteTo(w);
         return w.WrittenCount;
     }
@@ -841,13 +832,12 @@ public sealed class Arms_P4_1 : Arms
     }
 
     /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
-    /// level. The caller RESETS the writer rather than clearing it --
-    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
-    /// the per-iteration buffer wipe that handicapped the C++ slice's
-    /// incumbent. ResetWrittenCount() does not.
-    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    /// level. BufWriter.Reset() moves the position and does NOT zero the
+    /// buffer, a per-iteration wipe being the exact shape of the handicap
+    /// an adversarial review found in the C++ slice's incumbent.
+    public override int GpWriteToBufferWriter(BufWriter w)
     {
-        w.ResetWrittenCount();
+        w.Reset();
         _gp.WriteTo(w);
         return w.WrittenCount;
     }
@@ -926,13 +916,12 @@ public sealed class Arms_P5_1 : Arms
     }
 
     /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
-    /// level. The caller RESETS the writer rather than clearing it --
-    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
-    /// the per-iteration buffer wipe that handicapped the C++ slice's
-    /// incumbent. ResetWrittenCount() does not.
-    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    /// level. BufWriter.Reset() moves the position and does NOT zero the
+    /// buffer, a per-iteration wipe being the exact shape of the handicap
+    /// an adversarial review found in the C++ slice's incumbent.
+    public override int GpWriteToBufferWriter(BufWriter w)
     {
-        w.ResetWrittenCount();
+        w.Reset();
         _gp.WriteTo(w);
         return w.WrittenCount;
     }
@@ -1011,13 +1000,12 @@ public sealed class Arms_P5_2 : Arms
     }
 
     /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
-    /// level. The caller RESETS the writer rather than clearing it --
-    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
-    /// the per-iteration buffer wipe that handicapped the C++ slice's
-    /// incumbent. ResetWrittenCount() does not.
-    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    /// level. BufWriter.Reset() moves the position and does NOT zero the
+    /// buffer, a per-iteration wipe being the exact shape of the handicap
+    /// an adversarial review found in the C++ slice's incumbent.
+    public override int GpWriteToBufferWriter(BufWriter w)
     {
-        w.ResetWrittenCount();
+        w.Reset();
         _gp.WriteTo(w);
         return w.WrittenCount;
     }
@@ -1096,13 +1084,12 @@ public sealed class Arms_P5_3 : Arms
     }
 
     /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
-    /// level. The caller RESETS the writer rather than clearing it --
-    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
-    /// the per-iteration buffer wipe that handicapped the C++ slice's
-    /// incumbent. ResetWrittenCount() does not.
-    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    /// level. BufWriter.Reset() moves the position and does NOT zero the
+    /// buffer, a per-iteration wipe being the exact shape of the handicap
+    /// an adversarial review found in the C++ slice's incumbent.
+    public override int GpWriteToBufferWriter(BufWriter w)
     {
-        w.ResetWrittenCount();
+        w.Reset();
         _gp.WriteTo(w);
         return w.WrittenCount;
     }
@@ -1181,13 +1168,12 @@ public sealed class Arms_P5_4 : Arms
     }
 
     /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
-    /// level. The caller RESETS the writer rather than clearing it --
-    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
-    /// the per-iteration buffer wipe that handicapped the C++ slice's
-    /// incumbent. ResetWrittenCount() does not.
-    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    /// level. BufWriter.Reset() moves the position and does NOT zero the
+    /// buffer, a per-iteration wipe being the exact shape of the handicap
+    /// an adversarial review found in the C++ slice's incumbent.
+    public override int GpWriteToBufferWriter(BufWriter w)
     {
-        w.ResetWrittenCount();
+        w.Reset();
         _gp.WriteTo(w);
         return w.WrittenCount;
     }
@@ -1266,13 +1252,12 @@ public sealed class Arms_P6_1 : Arms
     }
 
     /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
-    /// level. The caller RESETS the writer rather than clearing it --
-    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
-    /// the per-iteration buffer wipe that handicapped the C++ slice's
-    /// incumbent. ResetWrittenCount() does not.
-    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    /// level. BufWriter.Reset() moves the position and does NOT zero the
+    /// buffer, a per-iteration wipe being the exact shape of the handicap
+    /// an adversarial review found in the C++ slice's incumbent.
+    public override int GpWriteToBufferWriter(BufWriter w)
     {
-        w.ResetWrittenCount();
+        w.Reset();
         _gp.WriteTo(w);
         return w.WrittenCount;
     }
@@ -1351,13 +1336,12 @@ public sealed class Arms_P7_1 : Arms
     }
 
     /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
-    /// level. The caller RESETS the writer rather than clearing it --
-    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
-    /// the per-iteration buffer wipe that handicapped the C++ slice's
-    /// incumbent. ResetWrittenCount() does not.
-    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    /// level. BufWriter.Reset() moves the position and does NOT zero the
+    /// buffer, a per-iteration wipe being the exact shape of the handicap
+    /// an adversarial review found in the C++ slice's incumbent.
+    public override int GpWriteToBufferWriter(BufWriter w)
     {
-        w.ResetWrittenCount();
+        w.Reset();
         _gp.WriteTo(w);
         return w.WrittenCount;
     }

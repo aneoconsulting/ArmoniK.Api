@@ -59,7 +59,7 @@ public static class Conformance
             int n = a.GpWriteTo(dst);
             results.Add(Verdict(row, dst, n, canon, p71, ref checks, ref bad));
 
-            var bw = new ArrayBufferWriter<byte>(Math.Max(row.Bytes + 4096, 8192));
+            var bw = new BufWriter(Math.Max(row.Bytes + 4096, 8192));
             int bn = a.GpWriteToBufferWriter(bw);
             results.Add(Verdict(row, bw.WrittenSpan.ToArray(), bn, canon, p71, ref checks, ref bad));
 

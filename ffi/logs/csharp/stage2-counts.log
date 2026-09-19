@@ -1,16 +1,31 @@
 Stage 2: crossing counts, and ABI v1 open decision 5 on .NET.
 
-commit:  d281acf6ae3d78510d62c68f969ff16fe52e0768 (+ this slice)
-build:   dotnet build -c Release /p:AkCount=true  -- the COUNTING build. The
-         per-site store is behind AK_COUNT and is NOT in the build the timings
-         come from, which is the Rust slice's `count` feature spelled for C#.
+commit:   87a2e39b0c2cc28adbb05ab70b198f7b132828f3
+machine:  4 vCPU Intel(R) Xeon(R) Processor @ 2.80GHz, 15 GiB, 6.18.44-fc-v37
+sdk:      8.0.131;  mono: Mono JIT compiler version 6.8.0.105
+incumbent: Google.Protobuf 3.28.3, codegen Grpc.Tools 2.66.0
 
+RE-TAKEN after JOURNAL.md entry 14. Two handicaps were found in this slice's
+own incumbent arms and both are fixed here:
+  * the encode baseline gp-writeto paid a top-level CalculateSize to size its
+    span. gp-bufferwriter is the same official API family with no size pass at
+    all, over a reused BufWriter that RESETS rather than clearing;
+  * the decode baseline gp-parse ended with m.CalculateSize(), a full traversal
+    of the decoded tree, while managed-parse returned a free offset. BOTH arms
+    now park the graph in a static sink and return an O(1) value.
+Every timing figure this slice published before 87a2e39b0c2cc28adbb05ab70b198f7b132828f3 is superseded.
+
+build: /p:AkCount=true, the COUNTING build. The per-site store is behind
+AK_COUNT and is not in the build the timings come from.
+
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/Generated/BuildGp.cs(9,7): warning CS8981: The type name 'pb' only contains lower-cased ascii characters. Such names may become reserved for the language. [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/Harness.csproj]
 Build succeeded.
-    0 Warning(s)
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/Generated/BuildGp.cs(9,7): warning CS8981: The type name 'pb' only contains lower-cased ascii characters. Such names may become reserved for the language. [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/Harness.csproj]
+    1 Warning(s)
     0 Error(s)
-Time Elapsed 00:00:03.06
+Time Elapsed 00:00:07.35
 # harness: counts
-# utc:                 2026-09-19T07:18:57Z
+# utc:                 2026-09-19T11:42:12Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -23,6 +38,7 @@ Time Elapsed 00:00:03.06
 # R2R:                 on (default)
 # floor sources:       no
 # facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
 # length-prefix sites: 72
 #
 # R13 calibration on THIS machine: the Rust slice's crossing benchmark

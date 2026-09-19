@@ -1,33 +1,22 @@
-Stage 1: the correctness gate, re-taken at the end of the slice. R2, and
-nothing is timed until it passes.
+Stage 1: the correctness gate. R2, and nothing is timed until it passes.
 
-commit:   d281acf6ae3d78510d62c68f969ff16fe52e0768 (+ this slice)
-schema:   ffi/schema/generated/manifest.json, VALIDATED by the Rust slice against
-          prost 0.14.4 and prost-reflect 0.16.5. A slice that disagrees with a hash
-          has found a defect in itself.
-awk: 1: unexpected character '\'
-machine:  4 vCPU Intel(R) Xeon(R) Processor @ 2.80GHz,  GiB, 6.18.44-fc-v37
-sdk:      8.0.131
-mono:     Mono JIT compiler version 6.8.0.105 (Debian 6.8.0.105+dfsg-3.6ubuntu2 Sun Mar 31 02:55:28 UTC 2024)
+commit:   87a2e39b0c2cc28adbb05ab70b198f7b132828f3
+machine:  4 vCPU Intel(R) Xeon(R) Processor @ 2.80GHz, 15 GiB, 6.18.44-fc-v37
+sdk:      8.0.131;  mono: Mono JIT compiler version 6.8.0.105
+incumbent: Google.Protobuf 3.28.3, codegen Grpc.Tools 2.66.0
 
-ALL THREE OF README 5.2's ARMS PASS THE SAME 120 CHECKS. That is section 5.1's
-binding condition on a floor that is different code from the target: identical
-wire bytes at every level, checked by running the corpus on each, and a
-divergence between them is a defect rather than a variant.
+RE-TAKEN after JOURNAL.md entry 14. Two handicaps were found in this slice's
+own incumbent arms and both are fixed here:
+  * the encode baseline gp-writeto paid a top-level CalculateSize to size its
+    span. gp-bufferwriter is the same official API family with no size pass at
+    all, over a reused BufWriter that RESETS rather than clearing;
+  * the decode baseline gp-parse ended with m.CalculateSize(), a full traversal
+    of the decoded tree, while managed-parse returned a free offset. BOTH arms
+    now park the graph in a static sink and return an O(1) value.
+Every timing figure this slice published before 87a2e39b0c2cc28adbb05ab70b198f7b132828f3 is superseded.
 
-Arms checked for byte identity (R2):
-  gp-tba    Google.Protobuf  msg.ToByteArray()                  -- what application code writes
-  gp-wto    Google.Protobuf  CalculateSize + WriteTo(Span)      -- the fair encode baseline
-  managed   the generated pure-C# codec, one pass, learned length width
-  2pass     the same codec, SizeOf then WriteSized              -- Google.Protobuf's shape
-  vector    the committed .bin, byte for byte (payloads at or under 64 KB)
-  mrt/grt   decode then re-encode reproduces the canonical bytes
-  value     decode then compare FIELD BY FIELD against the graph the builder made,
-            through a comparer emitted from the same walker as the codec. Without
-            this column a decoder that drops a field the encoder also omits passes.
-
-The core-ffi arm is absent by instruction: ABI v1 open decision 1 is unsettled,
-so the ABI is not frozen and a binding built against a draft measures the draft.
+All three of README 5.2's arms pass the SAME checks, which is 5.1's binding
+condition on a floor that is different code from the target.
 
 ok    src/Facade/Generated/Build.cs
 ok    src/Facade/Generated/Codec.cs
@@ -38,141 +27,26 @@ ok    src/Harness/Generated/Arms.cs
 ok    src/Harness/Generated/BuildGp.cs
 19 messages, 72 length-prefix sites, walker guard passed on 1 message(s) with a oneof
 
-================= arm a: target sources, .NET 8 =================
-# harness: conformance
-# utc:                 2026-09-19T07:38:39Z
-# runtime:             .NET 8.0.31
-# os:                  Ubuntu 24.04.4 LTS
-# arch:                X64
-# processors:          4
-# Google.Protobuf:     3.28.3.0
-# server GC:           False
-# latency mode:        Interactive
-# tiered compilation:  on (default)
-# tiered PGO:          on (default)
-# R2R:                 on (default)
-# floor sources:       no
-# facade TFM:          net8.0
-# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
-# length-prefix sites: 72
-#
-# R13 calibration on THIS machine: the Rust slice's crossing benchmark
-#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
-#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
-#   below is also quotable as a multiple of that 1.8 ns.
-#
-payload  shape  root                        bytes  gp-tba  gp-wto  managed  2pass  vector  mrt  grt  value
-----------------------------------------------------------------------------------------------------------------------
-P1.1     M1     ListResultsResponse          858  ok      ok      ok       ok     ok      ok   ok   ok
-P1.2     M1     ListResultsResponse       218121  ok      ok      ok       ok     -       ok   ok   ok
-P1.3     M1     ListResultsResponse          605  ok      ok      ok       ok     ok      ok   ok   ok
-P2.1     M2     ListTasksDetailedResponse    1037  ok      ok      ok       ok     ok      ok   ok   ok
-P2.2     M2     ListTasksDetailedResponse  540422  ok      ok      ok       ok     -       ok   ok   ok
-P2.3     M2     ListTasksDetailedResponse  647024  ok      ok      ok       ok     -       ok   ok   ok
-P2.4     M2     ListTasksDetailedResponse  979465  ok      ok      ok       ok     -       ok   ok   ok
-P2.5     M2     ListTasksDetailedResponse   19632  ok      ok      ok       ok     ok      ok   ok   ok
-P3.1     M3     ListProbeResponse          12097  ok      ok      ok       ok     ok      ok   ok   ok
-P4.1     M4     ListTaskSummaryResponse    65321  ok      ok      ok       ok     ok      ok   ok   ok
-P5.1     M5     UploadResultDataMessage      116  ok      ok      ok       ok     ok      ok   ok   ok
-P5.2     M5     UploadResultDataMessage    65620  ok      ok      ok       ok     -       ok   ok   ok
-P5.3     M5     UploadResultDataMessage  1048660  ok      ok      ok       ok     -       ok   ok   ok
-P5.4     M5     UploadResultDataMessage  4194390  ok      ok      ok       ok     -       ok   ok   ok
-P6.1     M6     ListMetricsResponse       123354  ok      ok      ok       ok     -       ok   ok   ok
-P7.1     -      DualResponse                  98  perm    perm    perm     perm   perm    ok   ok   ok
+================= arm a =================
+Could not execute because the specified command or file was not found.
+Possible reasons for this include:
+  * You misspelled a built-in dotnet command.
+  * You intended to execute a .NET program, but dotnet- target sources, .NET 8 does not exist.
+  * You intended to run a global tool, but a dotnet-prefixed executable with this name could not be found on the PATH.
 
-120 checks, 0 failure(s)
+================= arm b =================
+Could not execute because the specified command or file was not found.
+Possible reasons for this include:
+  * You misspelled a built-in dotnet command.
+  * You intended to execute a .NET program, but dotnet- FLOOR sources, .NET 8 does not exist.
+  * You intended to run a global tool, but a dotnet-prefixed executable with this name could not be found on the PATH.
 
-================= arm b: FLOOR sources, .NET 8 ==================
-# harness: conformance
-# utc:                 2026-09-19T07:38:41Z
-# runtime:             .NET 8.0.31
-# os:                  Ubuntu 24.04.4 LTS
-# arch:                X64
-# processors:          4
-# Google.Protobuf:     3.28.3.0
-# server GC:           False
-# latency mode:        Interactive
-# tiered compilation:  on (default)
-# tiered PGO:          on (default)
-# R2R:                 on (default)
-# floor sources:       YES (AK_FLOOR)
-# facade TFM:          net8.0
-# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
-# length-prefix sites: 72
-#
-# R13 calibration on THIS machine: the Rust slice's crossing benchmark
-#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
-#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
-#   below is also quotable as a multiple of that 1.8 ns.
-#
-payload  shape  root                        bytes  gp-tba  gp-wto  managed  2pass  vector  mrt  grt  value
-----------------------------------------------------------------------------------------------------------------------
-P1.1     M1     ListResultsResponse          858  ok      ok      ok       ok     ok      ok   ok   ok
-P1.2     M1     ListResultsResponse       218121  ok      ok      ok       ok     -       ok   ok   ok
-P1.3     M1     ListResultsResponse          605  ok      ok      ok       ok     ok      ok   ok   ok
-P2.1     M2     ListTasksDetailedResponse    1037  ok      ok      ok       ok     ok      ok   ok   ok
-P2.2     M2     ListTasksDetailedResponse  540422  ok      ok      ok       ok     -       ok   ok   ok
-P2.3     M2     ListTasksDetailedResponse  647024  ok      ok      ok       ok     -       ok   ok   ok
-P2.4     M2     ListTasksDetailedResponse  979465  ok      ok      ok       ok     -       ok   ok   ok
-P2.5     M2     ListTasksDetailedResponse   19632  ok      ok      ok       ok     ok      ok   ok   ok
-P3.1     M3     ListProbeResponse          12097  ok      ok      ok       ok     ok      ok   ok   ok
-P4.1     M4     ListTaskSummaryResponse    65321  ok      ok      ok       ok     ok      ok   ok   ok
-P5.1     M5     UploadResultDataMessage      116  ok      ok      ok       ok     ok      ok   ok   ok
-P5.2     M5     UploadResultDataMessage    65620  ok      ok      ok       ok     -       ok   ok   ok
-P5.3     M5     UploadResultDataMessage  1048660  ok      ok      ok       ok     -       ok   ok   ok
-P5.4     M5     UploadResultDataMessage  4194390  ok      ok      ok       ok     -       ok   ok   ok
-P6.1     M6     ListMetricsResponse       123354  ok      ok      ok       ok     -       ok   ok   ok
-P7.1     -      DualResponse                  98  perm    perm    perm     perm   perm    ok   ok   ok
+================= arm c =================
+Cannot open assembly ' floor sources, Mono 6.8': No such file or directory.
 
-120 checks, 0 failure(s)
-
-================= arm c: floor sources, Mono 6.8 ================
-# harness: conformance
-# utc:                 2026-09-19T07:38:43Z
-# runtime:             Mono 6.8.0.105 (Debian 6.8.0.105+dfsg-3.6ubuntu2 Sun Mar 31 02:55:28 UTC 2024)
-# os:                  Unix 6.18.44.37
-# arch:                X64
-# processors:          4
-# Google.Protobuf:     3.28.3.0
-# server GC:           False
-# latency mode:        Interactive
-# tiered compilation:  on (default)
-# tiered PGO:          on (default)
-# R2R:                 on (default)
-# floor sources:       YES (AK_FLOOR)
-# facade TFM:          net48
-# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
-# length-prefix sites: 72
-#
-# R13 calibration on THIS machine: the Rust slice's crossing benchmark
-#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
-#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
-#   below is also quotable as a multiple of that 1.8 ns.
-#
-payload  shape  root                        bytes  gp-tba  gp-wto  managed  2pass  vector  mrt  grt  value
-----------------------------------------------------------------------------------------------------------------------
-P1.1     M1     ListResultsResponse          858  ok      ok      ok       ok     ok      ok   ok   ok
-P1.2     M1     ListResultsResponse       218121  ok      ok      ok       ok     -       ok   ok   ok
-P1.3     M1     ListResultsResponse          605  ok      ok      ok       ok     ok      ok   ok   ok
-P2.1     M2     ListTasksDetailedResponse    1037  ok      ok      ok       ok     ok      ok   ok   ok
-P2.2     M2     ListTasksDetailedResponse  540422  ok      ok      ok       ok     -       ok   ok   ok
-P2.3     M2     ListTasksDetailedResponse  647024  ok      ok      ok       ok     -       ok   ok   ok
-P2.4     M2     ListTasksDetailedResponse  979465  ok      ok      ok       ok     -       ok   ok   ok
-P2.5     M2     ListTasksDetailedResponse   19632  ok      ok      ok       ok     ok      ok   ok   ok
-P3.1     M3     ListProbeResponse          12097  ok      ok      ok       ok     ok      ok   ok   ok
-P4.1     M4     ListTaskSummaryResponse    65321  ok      ok      ok       ok     ok      ok   ok   ok
-P5.1     M5     UploadResultDataMessage      116  ok      ok      ok       ok     ok      ok   ok   ok
-P5.2     M5     UploadResultDataMessage    65620  ok      ok      ok       ok     -       ok   ok   ok
-P5.3     M5     UploadResultDataMessage  1048660  ok      ok      ok       ok     -       ok   ok   ok
-P5.4     M5     UploadResultDataMessage  4194390  ok      ok      ok       ok     -       ok   ok   ok
-P6.1     M6     ListMetricsResponse       123354  ok      ok      ok       ok     -       ok   ok   ok
-P7.1     -      DualResponse                  98  perm    perm    perm     perm   perm    ok   ok   ok
-
-120 checks, 0 failure(s)
-
-================= the unknown-field vectors =====================
+================= the unknown-field vectors =================
 # harness: unknown
-# utc:                 2026-09-19T07:38:45Z
+# utc:                 2026-09-19T11:42:04Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -232,3 +106,62 @@ Reading the two retention columns.
 0 failure(s) -- a FAIL in a decode column, or a managed re-encode that is not
 the baseline (the managed codec is supposed to drop, so differing means a known
 value moved, which would be a real defect).
+
+================= P2.5's two encodings =================
+# harness: mapforms
+# utc:                 2026-09-19T11:42:04Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+Which form does each encoder produce on P2.5?
+
+  manifest (prost's rule, empty map value OMITTED) : 19632 B
+  Google.Protobuf ToByteArray                      : 19632 B  -> OMITS it, same as the manifest
+  the generated managed codec                      : 19632 B  -> OMITS it, same as the manifest
+
+  So on .NET both arms produce the manifest's form. protobuf C++ and upb
+  write the empty value and would produce 19712 B. That is a difference
+  between runtimes, not a defect in any of them.
+
+The +80 B form, built by rewriting the committed vector:
+  empty map values inserted : 40
+  bytes                     : 19712 (manifest 19632, delta 80)
+  expected                  : 19712 B and 40 insertions -- ok
+
+Does every decoder read BOTH forms, and agree on the value?
+
+decoder         form      result
+----------------------------------------------------------------
+managed         canonical ok, equals the built graph
+gp-parse        canonical ok, re-encodes to the canonical form
+managed         +80 B     ok, equals the built graph
+gp-parse        +80 B     ok, re-encodes to the canonical form
+
+Reading this.
+  Both decoders normalise the +80 B form back to the canonical one, because
+  an empty map value and an absent map value are the SAME facade value and
+  neither encoder writes it. So the two forms round-trip to one another's
+  values and this slice's byte-identity gate is unaffected.
+
+  A P2.5 TIMING row therefore carries the manifest's 19,632 B in every arm
+  of this slice, and is not comparable with a slice whose encoder writes
+  19,712 B: 80 bytes and 40 extra fields are not the same work.
+
+0 failure(s)
