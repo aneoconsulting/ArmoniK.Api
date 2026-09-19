@@ -57,6 +57,13 @@ survives, so:
   nothing that changes the layout of an installed header type, because the
   consumer picks `-std` and we do not. The floor is measured as arms a, b and c
   of README section 5.2, and only arm a produces ratios.
+- **The baseline is what ArmoniK runs, not the library's best entry point** (R14).
+  Almost nothing in `packages/` serialises directly; gRPC's generated marshaller
+  does, so that is the path every ratio is against, and each slice names it in its
+  configuration line. A harness that makes the incumbent do extra work is a defect;
+  so is one that picks the incumbent's fastest path when production calls a slower
+  one. Where they differ, the headline is production's and the best path is a
+  labelled second row.
 - **Correctness before timing.** Byte identity across every arm, including the
   absent-field and unknown-field payloads, before any number is recorded.
 - **Count crossings, do not infer them.** Every measured payload has a
