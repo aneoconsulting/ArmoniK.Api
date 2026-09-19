@@ -120,6 +120,40 @@ value and every optional child an instance cannot reach any path conditioned on
 emptiness, and a defect that lived exactly there passed every other payload in
 the Java slice.
 
+**P2.5 has two valid encodings, and the manifest records only one of them.** An
+empty map *value* is an implicit-presence leaf holding the proto zero, so the
+canonical form omits it; protobuf C++ and upb both write a map entry's key and
+value unconditionally, at 2 B for the empty value. On P2.5 that is 40 emptied map
+values across 20 elements, so those runtimes emit **19,712 B where the manifest
+records 19,632**, and the hash does not match. Both forms are valid proto3, both
+parse to the same map, and neither encoder is wrong.
+
+Measured, not assumed: the C++ slice found it against protobuf C++ 3.21.12, and
+the aggregating session confirmed it independently against **upb** (protobuf
+7.36.2, upb backend) by round-tripping every committed payload — `+80` on P2.5
+and byte-identical on P1.1, P1.3, P2.1, P3.1, P4.1 and P5.1. Two independent
+Google runtimes, the same delta, so this is the family's behaviour rather than
+one implementation's quirk, and `Google.Protobuf` and protobuf-java are expected
+to follow it.
+
+**What that changes is the oracle, not the payload.** "A slice that disagrees
+with a hash has a defect in itself" is false here, and taken literally it would
+have raised a false defect in the C#, Java and Python slices, on the one payload
+whose purpose is the absent path. So on P2.5, and on any future payload with an
+empty map value:
+
+- a slice matches **either** the canonical hash or the both-fields-written form,
+  and says which, because which one it produces is a fact about its incumbent;
+- it must **parse** both, since a peer in another language will send the other;
+- a cross-arm comparison inside a slice still requires byte identity **between
+  that slice's own arms**, which is what R2 is actually protecting;
+- a timing row on P2.5 says which form its incumbent wrote, because 19,712 B and
+  19,632 B are not the same work.
+
+The canonical form stays as it is. It is prost's rule, it is one of the two valid
+answers, and changing it would break the arms that already agree with it to
+accommodate an incumbent that is not in every language.
+
 ### Reading a figure from an existing report
 
 The three published reports use a flat numbering that carried no message in it,
