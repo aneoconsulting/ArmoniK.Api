@@ -1,0 +1,40 @@
+{
+ "probes": [
+  {
+   "_unknown": [
+    {
+     "group": [
+      {
+       "hex": "696e2d612d67726f7570",
+       "tag": 1,
+       "wire_type": 2
+      },
+      {
+       "tag": 2,
+       "value": "7",
+       "wire_type": 0
+      },
+      {
+       "group": [
+        {
+         "hex": "6e65737465642d67726f7570",
+         "tag": 1,
+         "wire_type": 2
+        }
+       ],
+       "tag": 9,
+       "wire_type": 3
+      }
+     ],
+     "tag": 120,
+     "wire_type": 3
+    }
+   ],
+   "as_int": "447241932056",
+   "id": "cec65063-0c0e-86c8-5466-506944018e6c",
+   "opt_count": "6477",
+   "opt_flag": false,
+   "opt_label": "golf726"
+  }
+ ]
+}

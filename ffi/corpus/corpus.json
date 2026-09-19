@@ -1,0 +1,159 @@
+{
+  "corpus_version": 1,
+  "package": "armonik.ffi.corpus.v1",
+  "base": "../schema/shapes.json",
+  "note": "The corpus's delta over the schema description. shapes.json is the base and is never edited from here; this file adds the shapes the corpus needs and that SHAPES.md deliberately does not have, plus the fields a reader is NOT built against. See README.md in this directory.",
+
+  "why_a_superset": "README section 10 item 5 needs a root whose repeated field carries a tag DIFFERENT from a repeated or map field inside its element, and SHAPES.md has no such shape. Adding one there would oblige five slices to implement a new facade message. So the corpus carries its own, and every vector declares whether a slice must produce it, only consume it, or both.",
+
+  "messages": {
+    "ChunkLeaf": {
+      "source": "invented for the corpus",
+      "fields": [
+        { "name": "k", "tag": 1, "kind": "string", "value": "word" },
+        { "name": "v", "tag": 2, "kind": "int32" }
+      ]
+    },
+    "ChunkInner": {
+      "source": "invented for the corpus",
+      "why": "a second nesting level whose own repeated and packed tags are 1 and 2, so a run that reads the open tag from the context has something wrong to read.",
+      "fields": [
+        { "name": "marks", "tag": 1, "kind": "int64", "card": "packed", "count": 4 },
+        { "name": "leaves", "tag": 2, "kind": "message", "of": "ChunkLeaf", "card": "repeated" }
+      ]
+    },
+    "ChunkElement": {
+      "source": "invented for the corpus",
+      "why": "NON-LEAF: it carries a repeated field and a map, so a host batching it uses the unrestricted element-run entry point (ak_elemu_X) -- the one the Rust slice found reading the open field's tag from the context at entry. Its repeated tag is 1 and its map tag is 2; neither is the root's.",
+      "fields": [
+        { "name": "labels", "tag": 1, "kind": "string", "card": "repeated" },
+        { "name": "attrs", "tag": 2, "kind": "map", "key": "string", "value_kind": "string", "entries": 2 },
+        { "name": "id", "tag": 3, "kind": "string", "value": "guid" },
+        { "name": "inner", "tag": 4, "kind": "message", "of": "ChunkInner" }
+      ]
+    },
+    "ChunkedResponse": {
+      "shape": "C1",
+      "source": "invented for the corpus. THE SHAPE SHAPES.md DOES NOT HAVE",
+      "why": "items is tag 7. No repeated or map field anywhere inside a ChunkElement is tag 7, transitively, so a chunk written under the inner field's tag is a different byte sequence and byte identity catches it. In SHAPES.md the outer repeated field and the inner map field are both tag 1, and the wrong tag was the right tag.",
+      "fields": [
+        { "name": "items", "tag": 7, "kind": "message", "of": "ChunkElement", "card": "repeated" },
+        { "name": "page", "tag": 8, "kind": "int32" }
+      ]
+    },
+    "ChunkedResponseWide": {
+      "shape": "C2",
+      "source": "invented for the corpus",
+      "why": "the same shape with a 3-byte field key. A wrong tag that happens to have the same key WIDTH keeps every downstream length prefix correct, so only the key bytes differ; here the wrong tag also changes the length of every chunk after the first, which is a second, coarser way for the same defect to show.",
+      "fields": [
+        { "name": "items", "tag": 70000, "kind": "message", "of": "ChunkElement", "card": "repeated" }
+      ]
+    },
+    "LeafElement": {
+      "source": "invented for the corpus",
+      "why": "LEAF: transitively free of repeated and map fields, so a batching host uses ak_elem_X, the default form, which is a different entry point from ChunkElement's and has the same hazard.",
+      "fields": [
+        { "name": "id", "tag": 1, "kind": "string", "value": "guid" },
+        { "name": "n", "tag": 2, "kind": "int64" },
+        { "name": "stamp", "tag": 3, "kind": "message", "of": "Timestamp" }
+      ]
+    },
+    "LeafResponse": {
+      "shape": "C3",
+      "source": "invented for the corpus",
+      "fields": [
+        { "name": "items", "tag": 9, "kind": "message", "of": "LeafElement", "card": "repeated" }
+      ]
+    },
+    "Surrogate": {
+      "shape": "C4",
+      "source": "invented for the corpus",
+      "why": "the transcode pair's carrier. One string at the root, one inside a nested message, one inside a map value and one repeated, because a transcoder wired at only some of its call sites passes a root-only vector.",
+      "fields": [
+        { "name": "text", "tag": 1, "kind": "string", "value": "word" },
+        { "name": "nested", "tag": 2, "kind": "message", "of": "SurrogateInner" },
+        { "name": "attrs", "tag": 3, "kind": "map", "key": "string", "value_kind": "string", "entries": 1 },
+        { "name": "texts", "tag": 4, "kind": "string", "card": "repeated" },
+        { "name": "raw", "tag": 5, "kind": "bytes" }
+      ]
+    },
+    "SurrogateInner": {
+      "source": "invented for the corpus",
+      "fields": [
+        { "name": "text", "tag": 1, "kind": "string", "value": "word" }
+      ]
+    },
+    "Nest": {
+      "shape": "C6",
+      "source": "invented for the corpus",
+      "why": "self-recursive, so a vector can be nested to any depth. ABI v1 open decision 7 is the decode recursion limit, and README section 5 records that the payload set reaches depth 4 and the schema's real 6-level chains are all on filter and request messages this payload set does not carry. Nothing exercises it; X-depth-* does.",
+      "fields": [
+        { "name": "child", "tag": 1, "kind": "message", "of": "Nest" },
+        { "name": "leaf", "tag": 2, "kind": "string", "value": "word" }
+      ]
+    },
+    "WireZoo": {
+      "shape": "C5",
+      "source": "invented for the corpus",
+      "why": "one field of every wire type this corpus can express, so the mechanical shape sweep covers wire types 1 and 5, which shapes.json reaches only through `double` and not at all.",
+      "fields": [
+        { "name": "v_int32", "tag": 1, "kind": "int32" },
+        { "name": "v_int64", "tag": 2, "kind": "int64" },
+        { "name": "v_bool", "tag": 3, "kind": "bool" },
+        { "name": "v_double", "tag": 4, "kind": "double" },
+        { "name": "v_fixed32", "tag": 5, "kind": "fixed32" },
+        { "name": "v_string", "tag": 6, "kind": "string", "value": "word" },
+        { "name": "v_bytes", "tag": 7, "kind": "bytes" },
+        { "name": "v_enum", "tag": 8, "kind": "enum", "of": "ResultStatus" },
+        { "name": "v_msg", "tag": 9, "kind": "message", "of": "Timestamp" },
+        { "name": "v_big_tag", "tag": 536870911, "kind": "int32", "why": "the largest legal field number, a five-byte key" }
+      ]
+    }
+  },
+
+  "unknown_fields": {
+    "_why": "The fields a conformant reader is NOT built against. They exist in corpus_superset.proto and not in corpus.proto, so every vector carrying one exercises the unknown-field skip, which is the whole of protobuf's forward compatibility and which a corpus generated from the schema that reads it never executes. One of each wire type proto3 can express; the group (wire types 3 and 4) is built by hand because proto3 has no syntax for it.",
+    "_tags": "100 upward, so nothing collides with a known tag in any message of either description.",
+    "sites": {
+      "ListResultsResponse": "root",
+      "ResultRaw": "nested message, the element of a repeated field",
+      "TaskOptions": "three levels down, and it carries the map",
+      "Timestamp": "a two-field leaf",
+      "Probe": "a message that ACTUALLY HAS a oneof",
+      "TaskDetailed": "the element of the payload the control plane really moves",
+      "ChunkElement": "the corpus's own non-leaf element"
+    },
+    "fields": [
+      { "name": "u_varint", "tag": 100, "kind": "int64", "wire": 0 },
+      { "name": "u_fixed64", "tag": 101, "kind": "double", "wire": 1 },
+      { "name": "u_len", "tag": 102, "kind": "string", "wire": 2 },
+      { "name": "u_fixed32", "tag": 103, "kind": "fixed32", "wire": 5 },
+      { "name": "u_msg", "tag": 104, "kind": "message", "of": "Timestamp", "wire": 2, "why": "a length-delimited unknown whose body parses as a message, beside u_len whose body does not. A skipper must not care." },
+      { "name": "u_packed", "tag": 105, "kind": "int64", "card": "packed", "count": 4, "wire": 2 },
+      { "name": "u_repeated", "tag": 106, "kind": "string", "card": "repeated", "wire": 2, "why": "two occurrences of one unknown tag: an implementation that keeps unknown fields in a map keyed by tag loses one." }
+    ],
+    "oneof_member": {
+      "message": "Probe",
+      "oneof": "body",
+      "field": { "name": "u_as_extra", "tag": 15, "kind": "string", "wire": 2 },
+      "why": "A parser cannot tell an unrecognised oneof tag from any other unknown field: the grouping lives only in the descriptor. So the case stays at the last KNOWN member and the payload is dropped. Putting five unknown fields at the root of a message with no oneof and labelling one of them oneof-shaped tests none of this."
+    },
+    "map_entry": {
+      "message": "TaskOptions",
+      "field": "options",
+      "tag": 3,
+      "why": "a map entry is a message on the wire, so it has an unknown-field skip of its own, and a decoder that hand-rolls entries rather than generating them usually does not."
+    }
+  },
+
+  "unknown_enum_values": {
+    "_why": "The field is known and only the value is not, so the wire says exactly where to put it and it DOES round-trip losslessly -- which is a different case from an unknown field, and easy to read the one as covering the other.",
+    "values": [127, 999, 2147483647],
+    "note": "127 is declared in ResultStatus and is the two-byte varint boundary; 999 is undeclared in every enum here; 2147483647 is the int32 maximum an open enum must still carry."
+  },
+
+  "element_counts": {
+    "_why": "README section 10 item 5 wants enough elements to force more than one chunk. ABI v1 section 6 chunks element runs at 32 KB of host-side element GROUPS, not of wire bytes, so the chunk count is a function of the host's group size and cannot be computed here. Each chunking vector therefore declares its element count and the group size at which that count crosses one chunk, and the consumer contract requires a slice to report the count it actually saw.",
+    "chunk_bytes": 32768
+  }
+}

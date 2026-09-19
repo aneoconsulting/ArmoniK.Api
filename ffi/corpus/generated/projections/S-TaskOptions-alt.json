@@ -1,0 +1,20 @@
+{
+ "application_name": "hotel671",
+ "application_namespace": "oscar606",
+ "application_service": "alpha248",
+ "application_version": "mike108",
+ "engine_type": "foxtrot557",
+ "max_duration": {
+  "nanos": "523645",
+  "seconds": "5"
+ },
+ "max_retries": "73153",
+ "options": {
+  "k00": "alpha712",
+  "k01": "golf478",
+  "k02": "hotel607",
+  "k03": "charlie826"
+ },
+ "partition_id": "echo548",
+ "priority": "48053"
+}

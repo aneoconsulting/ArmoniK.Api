@@ -1,0 +1,32 @@
+{
+ "count_data_dependencies": "492666239861",
+ "created_at": {
+  "nanos": "39595",
+  "seconds": "1700000185"
+ },
+ "error": "bravo india delta oscar juliet",
+ "id": "a41c1195-37bc-e2b4-1d21-9a851b050a33",
+ "options": {
+  "application_name": "bravo713",
+  "application_namespace": "mike660",
+  "application_service": "foxtrot5",
+  "application_version": "foxtrot797",
+  "engine_type": "alpha752",
+  "max_duration": {
+   "nanos": "523645",
+   "seconds": "5"
+  },
+  "max_retries": "39033",
+  "options": {
+   "k00": "foxtrot485",
+   "k01": "charlie882",
+   "k02": "papa343",
+   "k03": "november45"
+  },
+  "partition_id": "november285",
+  "priority": "7071"
+ },
+ "session_id": "1dd4fdff-da32-3e6d-d21f-f317983e1ab9",
+ "status": "5",
+ "status_message": "oscar hotel delta hotel bravo"
+}
