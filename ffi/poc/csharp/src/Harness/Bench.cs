@@ -58,7 +58,7 @@ public sealed class Case
     }
 }
 
-public static class Bench
+public static unsafe class Bench
 {
     private const int Rounds = 7;
     private const double BudgetMs = 40.0;
@@ -103,6 +103,36 @@ public static class Bench
                 Payload = a.Id, Dir = "encode", Arm = "gp-marshaller",
                 Run = n => { for (int i = 0; i < n; i++) Consume(arms.GpMarshaller(mw)); },
             });
+
+            // The core-ffi arm, M1 only: ResultRaw is the only element type whose
+            // binding is built. Widening it is the next piece, not a measurement.
+            CoreFfiM1 core = null;
+            ListResultsResponse coreSrc = null;
+            if (a.Root == "ListResultsResponse")
+            {
+                coreSrc = a.Id switch
+                {
+                    "P1.1" => BuildFacade.P1_1(), "P1.2" => BuildFacade.P1_2(),
+                    "P1.3" => BuildFacade.P1_3(), _ => null,
+                };
+                if (coreSrc != null)
+                {
+                    core = new CoreFfiM1(coreSrc.Results.Count + 1, row.Bytes * 3 + 65536);
+                    var warm = core.EncodeToArray(coreSrc);   // learn the length widths
+                    var c2 = core; var cs2 = coreSrc;
+                    cases.Add(new Case
+                    {
+                        Payload = a.Id, Dir = "encode", Arm = "core-ffi",
+                        Run = n => { for (int i = 0; i < n; i++) { c2.Encode(cs2, out byte* p, out int l); Consume(l); } },
+                    });
+                    var wsrc = warm;
+                    cases.Add(new Case
+                    {
+                        Payload = a.Id, Dir = "decode", Arm = "core-ffi",
+                        Run = n => { for (int i = 0; i < n; i++) Consume(c2.Decode(wsrc, wsrc.Length).Results.Count); },
+                    });
+                }
+            }
 
             var e = Enc.New(Codec.Sites, cap);
             cases.Add(new Case

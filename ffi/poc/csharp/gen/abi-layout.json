@@ -5,6 +5,9 @@
     "ak_span": { "size": 12, "align": 4, "fields": { "off": 0, "len": 4, "coder": 8 } },
     "ak_efix_Timestamp": { "size": 16, "align": 8, "fields": { "seconds": 0, "nanos": 8, "presence": 12 } },
     "ak_efix_ResultRaw": { "size": 200, "align": 8, "fields": { "session_id": 0, "name": 24, "owner_task_id": 48, "status": 72, "created_at": 80, "completed_at": 96, "result_id": 112, "size": 136, "created_by": 144, "opaque_id": 168, "manual_deletion": 192, "presence": 196 } },
-    "ak_efix_ListResultsResponse": { "size": 12, "align": 4, "fields": { "page": 0, "total": 4, "presence": 8 } }
+    "ak_efix_ListResultsResponse": { "size": 12, "align": 4, "fields": { "page": 0, "total": 4, "presence": 8 } },
+    "ak_dfix_Timestamp": { "size": 16, "align": 8, "fields": { "seconds": 0, "nanos": 8, "presence": 12 } },
+    "ak_dfix_ResultRaw": { "size": 128, "align": 8, "fields": { "session_id": 0, "name": 12, "owner_task_id": 24, "status": 36, "created_at": 40, "completed_at": 56, "result_id": 72, "size": 88, "created_by": 96, "opaque_id": 108, "manual_deletion": 120, "presence": 124 } },
+    "ak_dfix_ListResultsResponse": { "size": 12, "align": 4, "fields": { "page": 0, "total": 4, "presence": 8 } }
   }
 }

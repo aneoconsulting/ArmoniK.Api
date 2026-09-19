@@ -60,6 +60,17 @@ fn main() {
     ]);
     lay!(out, ak_efix_ListResultsResponse, [page, total, presence]);
 
+    // The decode side. `ak_dfix_*` carries `ak_span`, an OFFSET into the buffer
+    // the host handed in, which is ABI v1 decision 13's borrowed view already
+    // present in the interface: eight bytes where a pointer pair was 24, and
+    // still meaningful after a host has released a pinned region.
+    lay!(out, ak_dfix_Timestamp, [seconds, nanos, presence]);
+    lay!(out, ak_dfix_ResultRaw, [
+        session_id, name, owner_task_id, status, created_at, completed_at,
+        result_id, size, created_by, opaque_id, manual_deletion, presence,
+    ]);
+    lay!(out, ak_dfix_ListResultsResponse, [page, total, presence]);
+
     println!("{{");
     println!("  \"pointer_width\": {},", size_of::<usize>() * 8);
     println!("  \"structs\": {{");

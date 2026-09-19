@@ -52,6 +52,15 @@ FIELDS = {
         ("manual_deletion", "byte"), ("presence", "uint"),
     ],
     "ak_efix_ListResultsResponse": [("page", "int"), ("total", "int"), ("presence", "uint")],
+    "ak_dfix_Timestamp": [("seconds", "long"), ("nanos", "int"), ("presence", "uint")],
+    "ak_dfix_ResultRaw": [
+        ("session_id", "ak_span"), ("name", "ak_span"), ("owner_task_id", "ak_span"),
+        ("status", "int"), ("created_at", "ak_dfix_Timestamp"),
+        ("completed_at", "ak_dfix_Timestamp"), ("result_id", "ak_span"),
+        ("size", "long"), ("created_by", "ak_span"), ("opaque_id", "ak_span"),
+        ("manual_deletion", "byte"), ("presence", "uint"),
+    ],
+    "ak_dfix_ListResultsResponse": [("page", "int"), ("total", "int"), ("presence", "uint")],
 }
 
 
@@ -108,6 +117,13 @@ def emit(ir):
         ("int", "ak_elem_ResultRaw", "IntPtr ctx, ak_efix_ResultRaw* elems, int n"),
         ("nint", "ak_encode_ListResultsResponse",
          "void* obj, IntPtr ctx, ak_evt_ListResultsResponse* vt, ak_efix_ListResultsResponse* fix"),
+        ("IntPtr", "ak_dec_ctx_new", ""),
+        ("void", "ak_dec_ctx_free", "IntPtr ctx"),
+        ("int", "ak_dec_err", "IntPtr ctx"),
+        ("void", "ak_dec_err_reset", "IntPtr ctx"),
+        ("void", "ak_fail", "IntPtr ctx, int code, byte* msg, uint msgLen"),
+        ("int", "ak_decode_ListResultsResponse",
+         "IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListResultsResponse* vt"),
     ]:
         ret, name, args = decl
         o += '    [LibraryImport(Lib)]'
@@ -126,6 +142,21 @@ def emit(ir):
     o += "public unsafe struct ak_evt_ListResultsResponse"
     o += "{"
     o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, int> loop_results;"
+    o += "}"
+    o += ""
+
+    o.doc("The DECODE vtable for `ListResultsResponse`. `add_results` is handed a whole "
+          "RUN of elements per call, so a thousand-element response costs one reverse "
+          "call and not a thousand -- the same batching property as the encode side, in "
+          "the other direction. Its elements arrive as `ak_dfix_ResultRaw`, whose strings "
+          "are `ak_span` OFFSETS into the buffer the host handed in.")
+    o += "[StructLayout(LayoutKind.Sequential)]"
+    o += "public unsafe struct ak_dvt_ListResultsResponse"
+    o += "{"
+    o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_ListResultsResponse*, void> apply;"
+    o += "    public IntPtr unknown;          // decision 11: null is today's behaviour"
+    o += "    public IntPtr unk_results;      // decision 11"
+    o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_dfix_ResultRaw*, int, void> add_results;"
     o += "}"
     o += ""
 

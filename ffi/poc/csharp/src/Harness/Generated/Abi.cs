@@ -69,6 +69,45 @@ public struct ak_efix_ListResultsResponse
     [FieldOffset(8)] public uint presence;
 }
 
+/// Rust `ak_dfix_Timestamp`: 16 bytes, align 8. Offsets are the Rust build's own, not
+/// C#'s packing.
+[StructLayout(LayoutKind.Explicit, Size = 16)]
+public struct ak_dfix_Timestamp
+{
+    [FieldOffset(0)] public long seconds;
+    [FieldOffset(8)] public int nanos;
+    [FieldOffset(12)] public uint presence;
+}
+
+/// Rust `ak_dfix_ResultRaw`: 128 bytes, align 8. Offsets are the Rust build's own, not
+/// C#'s packing.
+[StructLayout(LayoutKind.Explicit, Size = 128)]
+public struct ak_dfix_ResultRaw
+{
+    [FieldOffset(0)] public ak_span session_id;
+    [FieldOffset(12)] public ak_span name;
+    [FieldOffset(24)] public ak_span owner_task_id;
+    [FieldOffset(36)] public int status;
+    [FieldOffset(40)] public ak_dfix_Timestamp created_at;
+    [FieldOffset(56)] public ak_dfix_Timestamp completed_at;
+    [FieldOffset(72)] public ak_span result_id;
+    [FieldOffset(88)] public long size;
+    [FieldOffset(96)] public ak_span created_by;
+    [FieldOffset(108)] public ak_span opaque_id;
+    [FieldOffset(120)] public byte manual_deletion;
+    [FieldOffset(124)] public uint presence;
+}
+
+/// Rust `ak_dfix_ListResultsResponse`: 12 bytes, align 4. Offsets are the Rust build's
+/// own, not C#'s packing.
+[StructLayout(LayoutKind.Explicit, Size = 12)]
+public struct ak_dfix_ListResultsResponse
+{
+    [FieldOffset(0)] public int page;
+    [FieldOffset(4)] public int total;
+    [FieldOffset(8)] public uint presence;
+}
+
 /// ABI v1 section 6: what a host calls in the codec are PLAIN EXPORTS, not a table, so
 /// the host declares the symbols it uses and a missing one is a load failure rather
 /// than a null slot found at the wrong moment.
@@ -121,6 +160,30 @@ public static unsafe partial class Abi
     [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
     internal static partial nint ak_encode_ListResultsResponse(void* obj, IntPtr ctx, ak_evt_ListResultsResponse* vt, ak_efix_ListResultsResponse* fix);
 
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new();
+
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial void ak_dec_ctx_free(IntPtr ctx);
+
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial int ak_dec_err(IntPtr ctx);
+
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial void ak_dec_err_reset(IntPtr ctx);
+
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial void ak_fail(IntPtr ctx, int code, byte* msg, uint msgLen);
+
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial int ak_decode_ListResultsResponse(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListResultsResponse* vt);
+
 }
 
 /// The encode vtable for `ListResultsResponse`: one reverse call, the loop over
@@ -131,6 +194,20 @@ public static unsafe partial class Abi
 public unsafe struct ak_evt_ListResultsResponse
 {
     public delegate* unmanaged[Cdecl]<IntPtr, void*, long, int> loop_results;
+}
+
+/// The DECODE vtable for `ListResultsResponse`. `add_results` is handed a whole RUN of
+/// elements per call, so a thousand-element response costs one reverse call and not a
+/// thousand -- the same batching property as the encode side, in the other direction.
+/// Its elements arrive as `ak_dfix_ResultRaw`, whose strings are `ak_span` OFFSETS into
+/// the buffer the host handed in.
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ak_dvt_ListResultsResponse
+{
+    public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_ListResultsResponse*, void> apply;
+    public IntPtr unknown;          // decision 11: null is today's behaviour
+    public IntPtr unk_results;      // decision 11
+    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_dfix_ResultRaw*, int, void> add_results;
 }
 
 /// ABI v1 obligation 12.3, as far as it can be taken here.
@@ -144,6 +221,9 @@ public static class AbiLayout
         ("ak_efix_Timestamp", 16, new (string, int)[] { ("seconds", 0), ("nanos", 8), ("presence", 12) }),
         ("ak_efix_ResultRaw", 200, new (string, int)[] { ("session_id", 0), ("name", 24), ("owner_task_id", 48), ("status", 72), ("created_at", 80), ("completed_at", 96), ("result_id", 112), ("size", 136), ("created_by", 144), ("opaque_id", 168), ("manual_deletion", 192), ("presence", 196) }),
         ("ak_efix_ListResultsResponse", 12, new (string, int)[] { ("page", 0), ("total", 4), ("presence", 8) }),
+        ("ak_dfix_Timestamp", 16, new (string, int)[] { ("seconds", 0), ("nanos", 8), ("presence", 12) }),
+        ("ak_dfix_ResultRaw", 128, new (string, int)[] { ("session_id", 0), ("name", 12), ("owner_task_id", 24), ("status", 36), ("created_at", 40), ("completed_at", 56), ("result_id", 72), ("size", 88), ("created_by", 96), ("opaque_id", 108), ("manual_deletion", 120), ("presence", 124) }),
+        ("ak_dfix_ListResultsResponse", 12, new (string, int)[] { ("page", 0), ("total", 4), ("presence", 8) }),
     };
 
     /// Checks the MANAGED declaration against the Rust build, and the loaded
@@ -187,6 +267,27 @@ public static class AbiLayout
         if ((int)Marshal.OffsetOf<ak_efix_ListResultsResponse>("page") != 0) bad.Add($"ak_efix_ListResultsResponse.page offset {(int)Marshal.OffsetOf<ak_efix_ListResultsResponse>("page")} != 0");
         if ((int)Marshal.OffsetOf<ak_efix_ListResultsResponse>("total") != 4) bad.Add($"ak_efix_ListResultsResponse.total offset {(int)Marshal.OffsetOf<ak_efix_ListResultsResponse>("total")} != 4");
         if ((int)Marshal.OffsetOf<ak_efix_ListResultsResponse>("presence") != 8) bad.Add($"ak_efix_ListResultsResponse.presence offset {(int)Marshal.OffsetOf<ak_efix_ListResultsResponse>("presence")} != 8");
+        if (Unsafe.SizeOf<ak_dfix_Timestamp>() != 16) bad.Add($"ak_dfix_Timestamp size {Unsafe.SizeOf<ak_dfix_Timestamp>()} != 16");
+        if ((int)Marshal.OffsetOf<ak_dfix_Timestamp>("seconds") != 0) bad.Add($"ak_dfix_Timestamp.seconds offset {(int)Marshal.OffsetOf<ak_dfix_Timestamp>("seconds")} != 0");
+        if ((int)Marshal.OffsetOf<ak_dfix_Timestamp>("nanos") != 8) bad.Add($"ak_dfix_Timestamp.nanos offset {(int)Marshal.OffsetOf<ak_dfix_Timestamp>("nanos")} != 8");
+        if ((int)Marshal.OffsetOf<ak_dfix_Timestamp>("presence") != 12) bad.Add($"ak_dfix_Timestamp.presence offset {(int)Marshal.OffsetOf<ak_dfix_Timestamp>("presence")} != 12");
+        if (Unsafe.SizeOf<ak_dfix_ResultRaw>() != 128) bad.Add($"ak_dfix_ResultRaw size {Unsafe.SizeOf<ak_dfix_ResultRaw>()} != 128");
+        if ((int)Marshal.OffsetOf<ak_dfix_ResultRaw>("session_id") != 0) bad.Add($"ak_dfix_ResultRaw.session_id offset {(int)Marshal.OffsetOf<ak_dfix_ResultRaw>("session_id")} != 0");
+        if ((int)Marshal.OffsetOf<ak_dfix_ResultRaw>("name") != 12) bad.Add($"ak_dfix_ResultRaw.name offset {(int)Marshal.OffsetOf<ak_dfix_ResultRaw>("name")} != 12");
+        if ((int)Marshal.OffsetOf<ak_dfix_ResultRaw>("owner_task_id") != 24) bad.Add($"ak_dfix_ResultRaw.owner_task_id offset {(int)Marshal.OffsetOf<ak_dfix_ResultRaw>("owner_task_id")} != 24");
+        if ((int)Marshal.OffsetOf<ak_dfix_ResultRaw>("status") != 36) bad.Add($"ak_dfix_ResultRaw.status offset {(int)Marshal.OffsetOf<ak_dfix_ResultRaw>("status")} != 36");
+        if ((int)Marshal.OffsetOf<ak_dfix_ResultRaw>("created_at") != 40) bad.Add($"ak_dfix_ResultRaw.created_at offset {(int)Marshal.OffsetOf<ak_dfix_ResultRaw>("created_at")} != 40");
+        if ((int)Marshal.OffsetOf<ak_dfix_ResultRaw>("completed_at") != 56) bad.Add($"ak_dfix_ResultRaw.completed_at offset {(int)Marshal.OffsetOf<ak_dfix_ResultRaw>("completed_at")} != 56");
+        if ((int)Marshal.OffsetOf<ak_dfix_ResultRaw>("result_id") != 72) bad.Add($"ak_dfix_ResultRaw.result_id offset {(int)Marshal.OffsetOf<ak_dfix_ResultRaw>("result_id")} != 72");
+        if ((int)Marshal.OffsetOf<ak_dfix_ResultRaw>("size") != 88) bad.Add($"ak_dfix_ResultRaw.size offset {(int)Marshal.OffsetOf<ak_dfix_ResultRaw>("size")} != 88");
+        if ((int)Marshal.OffsetOf<ak_dfix_ResultRaw>("created_by") != 96) bad.Add($"ak_dfix_ResultRaw.created_by offset {(int)Marshal.OffsetOf<ak_dfix_ResultRaw>("created_by")} != 96");
+        if ((int)Marshal.OffsetOf<ak_dfix_ResultRaw>("opaque_id") != 108) bad.Add($"ak_dfix_ResultRaw.opaque_id offset {(int)Marshal.OffsetOf<ak_dfix_ResultRaw>("opaque_id")} != 108");
+        if ((int)Marshal.OffsetOf<ak_dfix_ResultRaw>("manual_deletion") != 120) bad.Add($"ak_dfix_ResultRaw.manual_deletion offset {(int)Marshal.OffsetOf<ak_dfix_ResultRaw>("manual_deletion")} != 120");
+        if ((int)Marshal.OffsetOf<ak_dfix_ResultRaw>("presence") != 124) bad.Add($"ak_dfix_ResultRaw.presence offset {(int)Marshal.OffsetOf<ak_dfix_ResultRaw>("presence")} != 124");
+        if (Unsafe.SizeOf<ak_dfix_ListResultsResponse>() != 12) bad.Add($"ak_dfix_ListResultsResponse size {Unsafe.SizeOf<ak_dfix_ListResultsResponse>()} != 12");
+        if ((int)Marshal.OffsetOf<ak_dfix_ListResultsResponse>("page") != 0) bad.Add($"ak_dfix_ListResultsResponse.page offset {(int)Marshal.OffsetOf<ak_dfix_ListResultsResponse>("page")} != 0");
+        if ((int)Marshal.OffsetOf<ak_dfix_ListResultsResponse>("total") != 4) bad.Add($"ak_dfix_ListResultsResponse.total offset {(int)Marshal.OffsetOf<ak_dfix_ListResultsResponse>("total")} != 4");
+        if ((int)Marshal.OffsetOf<ak_dfix_ListResultsResponse>("presence") != 8) bad.Add($"ak_dfix_ListResultsResponse.presence offset {(int)Marshal.OffsetOf<ak_dfix_ListResultsResponse>("presence")} != 8");
         uint v = Abi.ak_abi_version();
         return bad.Count == 0
             ? $"ok: {Expected.Length} structs match the Rust build; core ak_abi_version()={v}"

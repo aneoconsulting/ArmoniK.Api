@@ -404,3 +404,58 @@ rows and disagreeing about a verdict twice, is what makes either usable. It is
 also why both are kept: BenchmarkDotNet goes to the controlled rerun, and the
 interleaved loop stays for the noisy shared container, where per-benchmark
 isolation is the thing R4 exists to avoid.
+
+### 18. The core-ffi arm, M1, and the two things it says
+
+Built against the SAME `libak_core.so` the Rust slice builds. One native core
+with N bindings is the proposal, so a C# slice that grew its own core would
+not be testing it; `ak-core` already implements ABI v1 over these shapes and
+exports 68 symbols as a cdylib, so the work was a binding.
+
+Gated first: byte identity on P1.1, P1.2 and P1.3 against the manifest, plus
+decode re-encoded to the same bytes AND compared field by field against the
+graph the builder made. Layout agreement checked, 8 structs.
+
+**Crossings are constant in the element count, in both directions.** Encode is
+2 forward and 1 reverse; decode is 1 forward and 2 reverse; a thousand elements
+costs the same as four. `ResultRaw` is a leaf, so encode hands the whole run
+over in one `ak_elem_ResultRaw` and decode gets it back in one `add_results`.
+The batching predicate does on .NET what the C++ slice's crossover model says
+it should: .NET crosses at 7.5 to 12 ns, far above the 2 to 4 ns crossover, so
+batching is not close.
+
+**Against the no-boundary managed control** (`core-ffi` / `managed`, three
+processes):
+
+| payload | encode | decode |
+|---|---|---|
+| P1.1, 4 elements | 1.330 | 1.062 |
+| P1.2, 1000 elements | 1.148 | **0.899** |
+| P1.3, the absent path | **2.361** | **1.981** |
+
+**Two findings, and they point opposite ways.**
+
+**One: on P1.2 decode, crossing the C ABI is FASTER than the pure managed
+codec.** 0.899 of it, and 0.651 to 0.659 of `Google.Protobuf`. The Rust parser
+plus three crossings beats a C# parser doing the same work. That is the
+opposite of the Java slice's result, where a generated pure-Java codec beat the
+C ABI in both directions, and it is the case the whole proposal needs: the
+interface is not eating the core's advantage on a managed runtime at .NET's
+crossing price.
+
+**Two: the absent path collapses, and the cause is decision 9.** P1.3 is 300
+elements that each encode to nothing, and the arm is 2.36 times the managed
+control on encode and 1.98 on decode. The host fills 300 by-value groups of 200
+bytes each whatever is in them, which is 60 KB of stores to describe 605 bytes
+of output. The Rust slice measured the same effect from the other side: its
+zeroed-group variant is 0.719 to 0.766 of the total fill on exactly this
+payload. **Decision 9's sparse fill is not built here**, and this arm is what
+says how much it is worth on .NET: the gap between 2.361 and something near
+1.15 is the prize.
+
+The interface term also shrinks with payload density, 1.330 to 1.148 on encode
+from 4 elements to 1,000, which is the fixed three crossings amortising.
+
+**What this arm is not.** M1 only. `TaskDetailed` is not a leaf, so M2 is where
+the batching predicate starts refusing and where the interface cost stops being
+three crossings; that is a different measurement and it is not taken.
