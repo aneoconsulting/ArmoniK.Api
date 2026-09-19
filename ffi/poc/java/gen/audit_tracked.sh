@@ -13,7 +13,7 @@ echo "== R4: every source a figure depends on is in the tree =="
 # Everything that is not build output must be tracked.
 while IFS= read -r f; do
   case "$f" in
-    ./build/*|./core/target*|./deps/cp.txt|*/__pycache__/*|*.pyc) continue ;;
+    ./build/*|./core-build/*|./deps/cp.txt|*/__pycache__/*|*.pyc) continue ;;
   esac
   if ! git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
     echo "  UNTRACKED $f"

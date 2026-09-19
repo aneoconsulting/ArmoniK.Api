@@ -7,7 +7,7 @@ name = "ak-abi"
 version = "0.0.0"
 
 [[package]]
-name = "ak-core-cpp"
+name = "ak-core"
 version = "0.0.0"
 dependencies = [
  "ak-abi",

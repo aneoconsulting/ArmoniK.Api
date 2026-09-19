@@ -9,4 +9,4 @@ publish.workspace = true
 prost.workspace = true
 bytes.workspace = true
 shapes-values = { path = "../shapes-values" }
-ak-rt = { path = "../ak-rt" }
+ak-rt = { path = "../../../codec/crates/ak-rt" }

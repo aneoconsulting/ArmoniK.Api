@@ -20,12 +20,19 @@ say "generate"
 python3 gen/generate.py
 
 # ---- 2. the core, behind the C ABI. Two builds: timed, and counting (R5).
+# THE shared core (R0): ../codec/crates/ak-core, the same crate the rust, cpp and
+# csharp slices build, not a copy. This slice contributed `ak_tc_utf16` and
+# `ak_tc_latin1` to it -- the two converting transcoders ABI v1 section 4 specifies for
+# a host that holds UTF-16 -- and gets the cpp slice's `ak_enc_count_reverse` back.
+# CARGO_TARGET_DIR keeps this slice's two builds out of the shared workspace's target
+# directory, which every other slice is also building into.
+CORE=../codec/crates/ak-core/Cargo.toml
 say "core (timed)"
-CARGO_TARGET_DIR=$HERE/core/target cargo build --release --manifest-path core/Cargo.toml \
+CARGO_TARGET_DIR=$HERE/core-build/target cargo build --release --manifest-path $CORE \
   >/dev/null
 say "core (counting)"
-CARGO_TARGET_DIR=$HERE/core/target-count cargo build --release --features count \
-  --manifest-path core/Cargo.toml >/dev/null
+CARGO_TARGET_DIR=$HERE/core-build/target-count cargo build --release --features count \
+  --manifest-path $CORE >/dev/null
 
 # ---- 3. the JNI shim, one per core build, plus a no-guard and a tax build
 say "shim"
@@ -35,12 +42,12 @@ shim() {   # $1 = output dir, $2 = core target dir, $3... = extra cflags
   gcc -O2 -fPIC -shared -std=c11 -Wall -Wextra -Wno-unused-parameter \
       -I"$J17/include" -I"$J17/include/linux" -Inative/generated \
       "$@" -o "build/$out/libakjni.so" native/generated/shim.c native/tax.c \
-      -L"$core/release" -lak_core_java -Wl,-rpath,"$HERE/$core/release"
+      -L"$core/release" -lak_core -Wl,-rpath,"$HERE/$core/release"
 }
-shim jni     core/target
-shim jnicnt  core/target-count
-shim jnong   core/target       -DAK_NO_GUARD
-shim jnitax  core/target       -DAK_CROSSING_TAX
+shim jni     core-build/target
+shim jnicnt  core-build/target-count
+shim jnong   core-build/target       -DAK_NO_GUARD
+shim jnitax  core-build/target       -DAK_CROSSING_TAX
 
 # ---- 4. the incumbent's generated Java
 say "protoc"

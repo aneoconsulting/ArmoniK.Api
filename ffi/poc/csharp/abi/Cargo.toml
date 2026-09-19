@@ -26,6 +26,6 @@ name = "ak-layout-probe"
 path = "src/main.rs"
 
 [dependencies]
-ak-abi = { path = "../../rust/crates/ak-abi" }
+ak-abi = { path = "../../codec/crates/ak-abi" }
 
 [workspace]

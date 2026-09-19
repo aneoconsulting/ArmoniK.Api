@@ -2,10 +2,11 @@
 """The cpp slice's generator.
 
 R1: one description drives everything, and there is no hand-written codec anywhere in the
-comparison. This file imports the rust slice's generator READ-ONLY -- `ir.py` (which itself
-imports `ffi/schema/emit/shapes.py`), `rust_abi.py` and `rust_core.py` -- so the core this
-slice measures against is emitted by the SAME emitter the rust slice measures, and the two
-columns are two hosts over one core rather than two cores. Nothing under `ffi/poc/rust/` is
+comparison. This file imports the SHARED core's emitters from `poc/codec/gen/` -- `ir.py` (which
+itself imports `ffi/schema/emit/shapes.py`), `rust_abi.py`, `rust_core.py` and
+`cpp_layout.py` -- so the core this slice measures against is the one every slice measures
+(R0), and the columns are N hosts over one core rather than N cores. The three core files
+below are written into `poc/codec/` and nowhere else; nothing under another slice is
 written by this script.
 
 What is this slice's own, as new backends over the same IR:
@@ -22,8 +23,8 @@ What is this slice's own, as new backends over the same IR:
   src/generated/core_native.{h,cpp}  arm `core-native-cpp`, the no-boundary control (R3)
   src/generated/binding.{h,cpp}   arm `core-ffi`, the host binding
 
-  core/src/generated/codec.rs     the core behind the C ABI  (rust_abi.emit_codec)
-  core/src/generated/layout.rs    section 10's run-time layout export
+  ../codec/crates/ak-core/src/generated/codec.rs   the shared core behind the C ABI
+  ../codec/crates/ak-core/src/generated/layout.rs  section 10's run-time layout export
 
   gen/generate.py            write the generated files
   gen/generate.py --check    fail if what is committed is not what this would write
@@ -32,26 +33,26 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-RUSTGEN = os.path.abspath(os.path.join(HERE, "..", "..", "rust", "gen"))
-# THIS directory first and the rust generator second. Order matters and the comment that
-# used to be here had it backwards: both directories contain a `generate.py`, so with
-# RUSTGEN in front any module that does `import generate` -- `gen/refusal_test.py` does --
-# silently gets the RUST slice's generator and emits its seven files instead of this
-# slice's sixteen. Everything this file imports from the rust generator (`ir`, `rust_abi`,
-# `rust_core`) exists only there, so HERE-first resolves each import to the one place it
-# lives.
-sys.path.insert(0, RUSTGEN)
+CODECGEN = os.path.abspath(os.path.join(HERE, "..", "..", "codec", "gen"))
+# THIS directory first and the shared core's generator second. Order matters and the
+# comment that used to be here had it backwards: both directories contain a `generate.py`,
+# so with CODECGEN in front any module that does `import generate` -- `gen/refusal_test.py`
+# does -- silently gets the SHARED generator and emits its three files instead of this
+# slice's twenty-one. Everything this file imports from the shared generator (`ir`,
+# `rust_abi`, `rust_core`, `cpp_layout`) exists only there, so HERE-first resolves each
+# import to the one place it lives.
+sys.path.insert(0, CODECGEN)
 sys.path.insert(0, HERE)
 
-import ir as IR              # noqa: E402  (rust slice, read-only)
-import rust_abi              # noqa: E402  (rust slice, read-only)
+import ir as IR              # noqa: E402  (shared core)
+import rust_abi              # noqa: E402  (shared core)
 import cpp_header            # noqa: E402
 import cpp_facade            # noqa: E402
 import cpp_build             # noqa: E402
 import cpp_pbbuild           # noqa: E402
 import cpp_core              # noqa: E402
 import cpp_binding           # noqa: E402
-import cpp_layout            # noqa: E402
+import cpp_layout            # noqa: E402  (shared core)
 import cpp_cases             # noqa: E402
 import cppnames              # noqa: E402
 
@@ -99,8 +100,11 @@ def targets(ir):
         # `ak_span` is an offset into the buffer the host handed in.
         **_borrow(ir),
         "src/generated/cases.h": cpp_cases.emit(ir),
-        "core/src/generated/codec.rs": codec,
-        "core/src/generated/layout.rs": cpp_layout.emit(ir),
+        # The shared core (R0), written here as well as from `poc/codec/gen` and from
+        # the other slices' generators -- one emitter, one description, so this slice's
+        # `--check` gates the core it measures.
+        "../codec/crates/ak-core/src/generated/codec.rs": codec,
+        "../codec/crates/ak-core/src/generated/layout.rs": cpp_layout.emit(ir),
     }
 
 

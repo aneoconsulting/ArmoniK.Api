@@ -1,0 +1,42 @@
+[package]
+name = "ak-core"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[lib]
+name = "ak_core"
+# A cdylib and a staticlib, and NOT an rlib. With an rlib in the crate graph rustc inlines
+# the `extern "C"` entry points straight into a Rust host -- measured: zero call sites to
+# ak_encode_ListResultsResponse in the release binary, with the counters still incrementing
+# because the inlined body still contains them. A cdylib is resolved by the dynamic linker,
+# so the call cannot be inlined and it is what every managed host actually does: load a
+# shared library. The staticlib is the cpp slice's second, separately labelled arm, and it
+# is where R5's inlining hazard bites -- a C++ host that statically links and turns on
+# -flto can inline the entry point away, counters included. Emitting both from one build
+# is what makes "shared" and "static" two linkages of ONE core rather than two cores.
+crate-type = ["cdylib", "staticlib"]
+
+[features]
+default = []
+# README R5: the counting build. Propagated to ak-rt so the counters live in the contexts.
+count = ["ak-rt/count"]
+# ABI v1 open decision 3: the decode side's UTF-8 policy. Default is lossy, which is what a
+# facade written the obvious way does and what proto3 says a parser must not do.
+dec-reject = ["ak-rt/dec-reject"]
+dec-reject-simd = ["ak-rt/dec-reject-simd"]
+# ABI v1 section 9, behind a feature so a codec arm does not link tonic and tokio into the
+# shared object it is timing. The rust slice turns it on; the cpp slice turns it on for its
+# RPC arm only; the java and csharp slices do not have one.
+rpc = ["dep:rpc", "dep:tonic", "dep:tokio", "dep:bytes", "dep:http"]
+
+[dependencies]
+ak-abi = { path = "../ak-abi" }
+ak-rt = { path = "../ak-rt" }
+simdutf8.workspace = true
+rpc = { path = "../rpc", optional = true }
+tonic = { workspace = true, features = ["codegen", "transport"], optional = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "time"], optional = true }
+bytes = { workspace = true, optional = true }
+http = { workspace = true, optional = true }

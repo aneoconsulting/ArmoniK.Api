@@ -83,29 +83,9 @@ def facade_type(f):
     return base
 
 
-def abi_order_topo(ir):
-    """`ir.abi_order`, re-sorted so a group is declared after every group it inlines.
-
-    Rust does not care and C does: `struct ak_efix_Probe` inlines `ak_efix_Empty` by value,
-    and `Empty` is declared after `Probe` in shapes.json. A slice that emitted the
-    description's order would get an incomplete type, which is a compile error rather than
-    a silent defect -- but the same ordering is what `cpp_layout.py` must use for the
-    run-time layout table to line up with the host's, and there it WOULD be silent.
-    """
-    out = []
-    seen = set()
-
-    def visit(name):
-        if name in seen:
-            return
-        seen.add(name)
-        for f in ir.msg(name).fields:
-            if f.kind == "message":
-                visit(f.of)
-            elif f.kind == "map":
-                visit(f.entry)
-        out.append(name)
-
-    for name in ir.abi_order:
-        visit(name)
-    return out
+# `abi_order_topo` used to live here. It is an ABI-level ordering, not a C++ one -- the
+# run-time layout export in `poc/codec/gen/cpp_layout.py` needs the same order the C header
+# uses, and there a disagreement is silent rather than a compile error -- so R0 moved the
+# one definition into the shared `ir.py` and this line is the re-export every caller in
+# this directory already imports.
+from ir import abi_order_topo  # noqa: F401,E402

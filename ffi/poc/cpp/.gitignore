@@ -8,9 +8,10 @@
 # source directory somewhere else, and `gen/audit_tracked.sh` checks from git's own answer
 # rather than from reading this file.
 /build/
-/core/target/
-/core/target-count/
-/core/target-rpc/
+# The shared core's build output for this slice. Three CARGO_TARGET_DIRs (timed,
+# counting, rpc) under one directory, because R0 moved the crate itself to
+# `ffi/poc/codec/crates/ak-core` and only the OUTPUT is this slice's.
+/core-build/
 __pycache__/
 *.pyc
 /build-odrbreak/

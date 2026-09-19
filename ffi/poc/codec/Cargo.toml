@@ -1,0 +1,46 @@
+# The shared core. README R0: it lives once, here, and every slice path-depends on it.
+#
+# What is in this workspace is what is the SAME for every host: the ABI structs, the
+# Enc/Dec runtime, the emitted codec, the C entry points and the schema-free RPC half.
+# What is not in it is everything a host does with them -- facades, payload builders,
+# harnesses, bindings -- which stay in `poc/<lang>/` because they are the thing being
+# compared.
+#
+# Adding to the core is a slice's to do, additively, HERE. Changing what is already here
+# is not: it moves every slice's gate at once, so it goes to the aggregating session.
+# `gen/one_core.sh` is the mechanical half of that rule, and `gen/one_core.sh --selftest`
+# is the proof that it fails when the rule is broken.
+[workspace]
+resolver = "2"
+members = ["crates/ak-abi", "crates/ak-rt", "crates/ak-core", "crates/rpc"]
+
+[workspace.package]
+edition = "2021"
+# README section 5: for Rust the floor IS the target. Pinned to the workspace MSRV of
+# packages/rust, as the rust slice pinned it before the move.
+rust-version = "1.88"
+version = "0.0.0"
+publish = false
+
+[workspace.dependencies]
+# A SIMD UTF-8 validator, used by ONE transcoder arm to separate "validation costs this"
+# from "Rust's scalar validator costs this". See ffi/logs/rust/stage3-content-sets.log.
+simdutf8 = "0.1"
+bytes = "1"
+# The RPC half. Versions matched to packages/rust's workspace so the incumbent the slices
+# measure against is the one ArmoniK ships.
+tonic = { version = "0.14", default-features = false }
+tokio = { version = "1.52", default-features = false }
+http = "1"
+http-body = "1"
+http-body-util = "0.1"
+tower-service = "0.3"
+
+[profile.release]
+# Explicit rather than defaulted, because R5's hazard is exactly "what is the optimiser
+# allowed to do across the boundary". lto=false here means the core is not LTO'd into
+# itself across crates; what matters for the hazard is the HOST side's -flto over the
+# staticlib, which each host's build controls and its boundary check verifies. Stated
+# here because this manifest is now the workspace root for every slice that builds the
+# core by `--manifest-path`, and a profile in a non-root manifest is silently ignored.
+lto = false

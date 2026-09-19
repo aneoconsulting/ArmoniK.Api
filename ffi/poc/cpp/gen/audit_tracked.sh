@@ -16,7 +16,7 @@ while IFS= read -r f; do
   fi
 done < <(find ffi/poc/cpp \
            -path 'ffi/poc/cpp/build*' -prune -o \
-           -path 'ffi/poc/cpp/core/target*' -prune -o \
+           -path 'ffi/poc/cpp/core-build*' -prune -o \
            -name '__pycache__' -prune -o \
            -type f \( -name '*.py' -o -name '*.sh' -o -name '*.cpp' -o -name '*.cc' \
                       -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.rs' \
@@ -26,9 +26,15 @@ done < <(find ffi/poc/cpp \
 # And the UPSTREAM inputs this slice's output is a function of. They are not this slice's
 # to write, but a figure here cannot be re-derived without them, so a missing one is the
 # same failure one level further out.
-for f in ffi/poc/rust/gen/ir.py ffi/poc/rust/gen/rust_abi.py ffi/poc/rust/gen/rust_core.py \
-         ffi/poc/rust/gen/rustnames.py ffi/poc/rust/crates/ak-abi/src/lib.rs \
-         ffi/poc/rust/crates/ak-abi/src/generated/abi.rs ffi/poc/rust/crates/ak-rt/src/lib.rs \
+for f in ffi/poc/codec/gen/ir.py ffi/poc/codec/gen/rust_abi.py ffi/poc/codec/gen/rust_core.py \
+         ffi/poc/codec/gen/rustnames.py ffi/poc/codec/gen/cpp_layout.py \
+         ffi/poc/codec/gen/generate.py ffi/poc/codec/Cargo.toml \
+         ffi/poc/codec/crates/ak-abi/src/lib.rs \
+         ffi/poc/codec/crates/ak-abi/src/generated/abi.rs \
+         ffi/poc/codec/crates/ak-rt/src/lib.rs ffi/poc/codec/crates/ak-core/src/lib.rs \
+         ffi/poc/codec/crates/ak-core/Cargo.toml \
+         ffi/poc/codec/crates/ak-core/src/generated/codec.rs \
+         ffi/poc/codec/crates/ak-core/src/generated/layout.rs \
          ffi/schema/emit/shapes.py ffi/schema/shapes.json \
          ffi/schema/generated/manifest.json ffi/schema/generated/shapes.proto; do
   if ! git ls-files --error-unmatch "$f" >/dev/null 2>&1; then

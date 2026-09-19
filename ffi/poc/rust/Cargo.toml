@@ -1,6 +1,10 @@
 [workspace]
 resolver = "2"
-members = ["crates/shapes-prost", "crates/shapes-values", "crates/stage1-validate", "crates/facade", "crates/harness", "crates/ak-abi", "crates/ak-rt", "crates/ak-core", "crates/rpc"]
+# R0: ak-abi, ak-rt, ak-core and rpc were members here and are now the shared core at
+# `poc/codec/`. They are reached by path, like every other slice reaches them; what is
+# left in this workspace is what is this slice's own -- its facade, its harness, its
+# prost arms and its stage-1 validator.
+members = ["crates/shapes-prost", "crates/shapes-values", "crates/stage1-validate", "crates/facade", "crates/harness"]
 
 [workspace.package]
 edition = "2021"
