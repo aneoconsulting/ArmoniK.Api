@@ -153,3 +153,53 @@ quote the median anyway; it is a reason to ask the question with a different ins
 `ak.RunDelta` measures the same two arms with no incumbent, no pool churn and nothing
 allocating between rounds -- two configurations of one binding, differing by one boolean,
 reading the same objects in the same order. See STATE.md for what it found.
+
+### J10. The floor's cost is one line of code, and the table proves it from inside
+
+README 5.2 arm b is "what the floor's missing APIs cost, runtime held constant". Two source
+trees with the same class names cannot share a classpath, so the floor binding is emitted a
+third time into `ak.floor` over the same facade types: one process, one paired ratio, and
+the only thing that differs between the two arms is how a String reaches the core.
+
+It costs **1.42 to 1.77** on every payload with strings and **0.99 to 1.03** on the absent
+path, the bulk-bytes path and the packed control. The rows that do not move are the rows
+with no strings to stage, which makes the cause a control inside its own table rather than
+an attribution.
+
+Two negative controls come free: in the Java 8 build `ak.floor` and `ak.shapes` are the
+same emitted source, so the same measurement must read zero there. It does -- worst median
+4.06 % on the target runtime and 2.82 % on the floor runtime, and not one row of thirty with
+a clean sign -- which puts the instrument's noise floor at one to four percent against a
+forty-two to seventy-seven percent effect.
+
+### J11. R9's hazard is real, and almost nothing the rule says about it is
+
+The rule: "on JDK 21 and later a single `String.format` with a numeric conversion
+permanently deoptimises every char narrowing loop in the process, which is protobuf-java's
+own encoder." Testing it took four modes rather than two, because the first result was a
+factor of two in the wrong direction and that is not something to report as a mystery.
+
+Modes 2 and 3 read a three-character String's chars 20,000 times and do nothing else -- no
+Formatter, no numeric conversion, no narrowing loop -- and differ only in the probe
+string's coder. Mode 3 (Latin-1) reproduces mode 1 exactly and mode 2 (wide) does nothing.
+So the trigger is a Latin-1 char read and `String.format` is one instance of it.
+
+On JDK 17, above U+00FF, P1.2: protobuf-java goes from 1,297,600 ns to 601,283, arm R goes
+from 598,193 to 757,617, and the C ABI arm does not move. **Two arms, opposite directions,
+and the third immune** -- which is what named the mechanism. Both Java-side encoders are
+`charAt` loops over a `String` sharing one compact-string dispatch profile that can only be
+specialised one way; the C ABI arm has no such loop because the transcoder is in the core.
+
+It reproduces on JDK 17 and not on 21, and on no content set but the widest. An ASCII-only
+pass cannot see any of it, which is why three published reports have not.
+
+**The rule survives its own correction.** Keeping formatting out of the measured process is
+right whatever the sign, and every harness here already does it. What changes is that a
+managed slice's non-ASCII string-path number is not a stable quantity on JDK 17 unless the
+harness says what warmed the process, and none of the published ones does.
+
+### J12. Two `pgrep`/`pkill` self-matches cost about twenty minutes
+
+`pkill -f RunDelta` from a shell whose own command line contained "RunDelta" killed the
+shell, and `until ! pgrep -f "ak.RunDelta"` never exited for the same reason. Recorded
+because the second one is silent: it looks exactly like a benchmark that is still running.

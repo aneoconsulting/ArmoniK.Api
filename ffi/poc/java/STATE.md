@@ -232,9 +232,109 @@ finding that decode is bounded by host-side container construction, seen from a 
 **Three hosts, one mechanism, and the managed host gets less of it.** That is a fact the
 lifetime contract has to be drafted against, not a reason to drop it.
 
+### The content sets -- `logs/java/contentsets.log`
+
+design/SHAPES.md: "A slice that reports one string-path number without saying which content
+set it came from has reported half a number." All three sets are in the **correctness**
+gate on every payload (1,297 checks, 0 failures); P1.2 and P2.2 are also timed on all
+three. On the JVM these are not only a cost: ASCII and Latin-1 are both the compact LATIN1
+coder, so the target's fast path applies to both, and above U+00FF a `String` becomes UTF16
+and the binding stages twice the bytes through a different core transcoder.
+
+| | ASCII | Latin-1 | above U+00FF |
+|---|---|---|---|
+| **P1.2 encode**, `pbj` absolute | 478 us | 614 us | 1,333 us |
+| P1.2 encode, `ffi-take` | 0.763 | 0.734 | **0.551** |
+| P1.2 decode, `ffi` | 0.820 | 0.932 | **0.694** |
+| P1.2 decode, `ffi-borrow` | 0.664 | **0.483** | 0.524 |
+| **P2.2 encode**, `pbj` absolute | 2,185 us | 2,907 us | 5,004 us |
+| P2.2 encode, `ffi-take` | 0.800 | 0.751 | **0.609** |
+| P2.2 decode, `ffi` | 1.484 | 1.401 | **1.049** |
+
+**The C ABI gets relatively better as the content widens, in both directions**, because the
+incumbent's own cost rises faster than the core's: protobuf-java's P1.2 encode goes from
+478 to 1,333 microseconds across the three sets and the C ABI arm's from 365 to 735. The
+decode regression on P2.2 shrinks from 1.48 to 1.05 for the same reason.
+
+**Read the JDK 17 rows of `logs/java/deopt.log` before quoting any wide number**, though:
+on that runtime protobuf-java's wide encode is bistable by a factor of two depending on
+what the process read first, and the figures above are the slower state.
+
 ### README 5.2, the floor as three arms -- `logs/java/floor.log`
 
-FLOOR_TABLE_PLACEHOLDER
+**The floor costs 42 to 77 percent of an encode, and only where there are strings.** One
+cause: the target reads `String.coder` and `String.value` and hands the core the string's
+own compact storage; the floor has no compact form and stages through `getChars` as UTF-16,
+which is two copies where the target does one and 72 bytes where the target does 36.
+
+Arm b is measured **inside arm a's process**: the floor binding is emitted into `ak.floor`
+over the same facade types, so the floor-against-target ratio is paired inside one round
+rather than formed across two processes.
+
+| payload | a: target/target, ns | b/a, paired | sign | c: floor/floor, ns |
+|---|---|---|---|---|
+| P1.1 | 1,230 | 1.660 | + | 2,117 |
+| P1.2 | 343,594 | 1.607 | straddles | 1,142,314 |
+| **P1.3 (no strings)** | 20,491 | **1.009** | straddles | 12,054 |
+| P2.1 | 2,634 | 1.470 | + | 4,039 |
+| P2.2 | 2,795,843 | 1.422 | + | 4,500,371 |
+| P2.3 | 2,108,133 | 1.527 | straddles | 3,574,220 |
+| P2.4 | 2,523,131 | 1.580 | + | 4,101,797 |
+| P2.5 | 53,240 | 1.543 | + | 94,551 |
+| P3.1 | 19,237 | 1.774 | + | 34,979 |
+| P4.1 | 221,302 | 1.429 | + | 380,498 |
+| **P5.2 (bulk bytes)** | 3,715 | **1.020** | straddles | 4,506 |
+| **P5.4 (bulk bytes)** | 614,089 | **0.999** | straddles | 612,839 |
+| **P6.1 (packed control)** | 271,223 | **1.030** | straddles | 281,031 |
+
+**The rows that do not move are the ones with no strings to stage**: the absent path, the
+bulk-bytes path (which goes through ABI v1 section 8's direct argument and never stages at
+all) and the packed control. That is the positive control for the cause, inside the same
+table.
+
+**Arm c stands alone**, as README 5.2 requires: it is what a pinned consumer gets, and it
+is not a ratio against arm a. Its correctness is what matters and it passes all 437 checks.
+
+**And two negative controls.** In the arm-b and arm-c runs the classpath is the Java 8
+tree, where `ak.floor` and `ak.shapes` are the *same emitted source*, so their arm-b blocks
+must read zero. They do: worst median **4.06 %** on the target runtime and **2.82 %** on the
+floor runtime, median across payloads 0.62 % and 0.99 %, and **not one row of thirty has a
+clean sign**. The instrument's noise floor is one to four percent and the floor's effect is
+forty-two to seventy-seven.
+
+### README R9's measurement hazard, and the one result that argues for the design -- `logs/java/deopt.log`
+
+R9 says a single `String.format` with a numeric conversion permanently deoptimises every
+char narrowing loop on JDK 21 and later, protobuf-java's encoder among them. This slice
+tested it. **The hazard is real and bigger than stated, and four of the five things the
+rule says about it do not hold here.**
+
+On JDK 17, above U+00FF, P1.2, reading a **Latin-1** String's characters before the first
+measurement (which one `String.format` does internally) changes the absolutes like this:
+
+| arm | before | after | |
+|---|---|---|---|
+| `pbj` and every other protobuf-java arm | 1,297,600 ns | 601,283 ns | **2.16x FASTER** |
+| **`R`**, the generated Java codec | 598,193 ns | 757,617 ns | **1.27x slower** |
+| **`ffi`**, the C ABI | 674,752 ns | 642,772 ns | **unmoved** |
+
+Stable over four repetitions each. What the rule gets wrong: it reproduces on **JDK 17 and
+not on 21**; the trigger is **any read of a Latin-1 String's chars**, not a numeric
+conversion, and reading a *wide* String's chars does nothing; **no narrowing loop is
+involved**, since modes 2 and 3 differ only in the probe string's coder; the incumbent gets
+**faster, not slower**; and **nothing happens on ASCII at all**, on either JDK, which is why
+every published managed figure has been blind to it.
+
+The mechanism the arms point at: protobuf-java's `Utf8.encode` and this slice's
+`ak.Utf8.encode` are both `charAt` loops over a `String` and share one compact-string
+dispatch profile, which can only be specialised one way -- so they move in opposite
+directions. Inferred from which triggers fire and which arms move, not from a compilation
+log; settling it is the first item in "next step".
+
+**And the immunity is a result.** The C ABI arm has no such loop, because ABI v1 section 4
+put the transcoder in the core so that "every managed host stops maintaining a UTF-8
+encoder". That makes it the only arm here insensitive to the host JIT's profile history --
+an argument for the design that no benchmark was looking for.
 
 ### The incumbent was flattered twice, and a third hypothesis was refuted
 
@@ -286,20 +386,24 @@ nothing can settle that because its sources do not survive.
   1.5 ms of CPU is 0.013 percent). What is missing here is Java-specific and behavioural:
   the callback and completion-queue delivery modes, and the virtual-thread pinning
   question, which is the one thing on that list only a JVM slice can answer.
-- **FFM is not built as a binding.** It is a JDK 22 API; this container has JDK 8, 17 and
-  21, and the proxy does not reach a JDK distributor. `probe/FfmProbe.java` measures the
-  **downcall price only**, on JDK 21 with `--enable-preview`, so the cross-language table
-  has a Java FFM row taken here rather than inherited. Per R7 that number may be compared
-  with this slice's JNI crossing as a **comparison of binding mechanisms and never of ABI
-  shapes**.
+- **FFM is not built as a binding**, and the downcall price is measured
+  (`logs/java/ffm.log`). It is a JDK 22 API; this container has JDK 8, 17 and 21 and the
+  proxy does not reach a JDK distributor, so it is measured on **JDK 21 with
+  `--enable-preview`**. On the same JDK: a plain FFM downcall is **12.5 to 14.7 ns** (median
+  12.7) and a JNI forward call has a **median of 11.4**, ranging 10.9 to 17.5. **FFM is not
+  cheaper than JNI in the forward direction here**, where README section 2's published pair
+  (33.8 against 98.4) is three times apart. `Linker.Option.isTrivial()` halves it to 6.2 to
+  8.1 ns, and a codec entry point that makes reverse calls may not declare itself trivial --
+  so the cheap number is available to ABI v1 section 8's bulk-bytes path and to nothing else
+  in the codec. Per R7 this is **a comparison of binding mechanisms and never of ABI
+  shapes**, and an FFM *upcall* -- which is what the encode path would actually pay -- is not
+  measured at all.
 - **The pull decode family** (ABI v1 7.1) is not implemented in the core, so the arm that
   would most change the decode verdict does not exist. This slice's decode figures are all
   push-family figures and the deficit they show is the argument for building it.
-- **The content sets.** Everything here is the ASCII set. `ak.Values.recode` and the
-  builders carry the Latin-1 and above-U+00FF sets and no arm has been run on them, so
-  **every string-path number in this document is half a number** by design/SHAPES.md's own
-  rule. On the JVM this is not a small gap: the target's fast path is the LATIN1 coder, and
-  a non-ASCII payload takes it to UTF-16, which is the floor's path.
+- **The content sets are measured on P1.2 and P2.2 only** (`logs/java/contentsets.log`),
+  not on the rest of the payload set. All three sets are in the **correctness** gate on
+  every payload (1,297 checks, 0 failures), so nothing is timed that has not been checked.
 - **The transcode pair** (README 10.4). Java is one of the two slices that has to run it,
   because a Rust `String` cannot hold an unpaired surrogate. `ak.Utf8.encode` writes U+FFFD
   where protobuf-java writes `?`, which is the disagreement, and it is **written down and
@@ -356,11 +460,9 @@ carrying one bytecode level does not work, and the reason is not FFM:
   JDK 8 compiler. A CI that used `--release` would not be building the floor a Java 8
   consumer gets.
 
-**The measurement hazard of README R9, tested rather than inherited.** Every harness here
-accumulates into arrays and formats after the last measurement, and `-Dak.deopt=1` triggers
-a `String.format` with a numeric conversion on purpose so the hazard can be measured on
-this JDK instead of assumed from a report. **It has not been run yet** -- it is the cheapest
-outstanding experiment in the slice and it is the first thing in "next step".
+**The measurement hazard of README R9 is real, and four of the five things the rule says
+about it are wrong here.** See `logs/java/deopt.log`; it is the largest methodological
+finding in the slice and it is summarised above.
 
 **Re-entrancy.** Every buffer is instance state. The shim's reverse-call frame is a
 thread-local stack of depth 8, never a static, so two encoding threads share nothing. This
@@ -370,11 +472,12 @@ is argued, not tested: see "what is not measured".
 
 In the order a fresh session should take them:
 
-1. **Run the R9 control** (`-Dak.deopt=1` against a clean run). One command, and it either
-   confirms a hazard the whole branch has been designing around or retires it.
-2. **The content sets.** Latin-1 and above U+00FF on P1.2 and P2.2, for `ffi`, `R` and the
-   incumbent. Every string-path number here is half a number until this runs, and on the
-   JVM it is also the test of whether the target's LATIN1 fast path survives real data.
+1. **Settle R9's mechanism with the JIT's own output.** `-XX:+PrintCompilation` and
+   `-XX:+TraceDeoptimization` across `-Dak.deopt=0` and `-Dak.deopt=3` on JDK 17, above
+   U+00FF. The effect is measured and stable; the mechanism is inferred from which triggers
+   fire and which arms move, and one log would replace the inference.
+2. **The content sets on the rest of the payload set**, which is a rerun rather than new
+   code: `-Dak.cs=` is plumbed and all three sets are already in the correctness gate.
 3. **The C-shim binding arm** (README 9.1's shape, applied to Java): let the generated C
    read facade fields through the JNI API instead of upcalling into Java. Decode costs
    7.004 upcalls per element at about 80 ns; this is the arm that would remove them without
@@ -433,4 +536,7 @@ In the order a fresh session should take them:
 | `decode.log` | JDK 17, 40 rounds, 4 arms | the decode verdict, and decision 13 |
 | `delta.log` | JDK 17, 40 rounds, no incumbent | the batching predicate and decision 9, paired |
 | `drift.log` | three neutrally perturbed builds | the drift bar: **0.078**, and which conclusions clear it |
-| `floor.log` | JDK 17 and JDK 8 | README 5.2's three arms, correctness on all three and arm b paired in one process |
+| `floor.log` | JDK 17 and JDK 8 | README 5.2's three arms, correctness on all three, arm b paired in one process, and two negative controls |
+| `contentsets.log` | JDK 17, P1.2 and P2.2 | all three content sets, encode and decode |
+| `deopt.log` | JDK 17 and JDK 21 | README R9's hazard: real, 2.16x, opposite sign, and the C ABI arm immune |
+| `ffm.log` | JDK 21, preview | the FFM downcall price beside JNI's on the same JDK |

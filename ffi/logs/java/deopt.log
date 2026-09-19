@@ -1,0 +1,113 @@
+== README R9's measurement hazard, tested rather than inherited ==
+
+R9 states: "on JDK 21 and later a single `String.format` with a numeric conversion
+permanently deoptimises every char narrowing loop in the process, which is protobuf-java's
+own encoder."
+
+Every harness in this slice formats after its last measurement because of that sentence.
+This is the check that the sentence describes something real here. It does -- **it is
+larger than stated, it is on the JDK the rule exempts and not the one it names, its sign
+depends on the arm, and one arm is immune** -- and none of those four is what the rule says.
+
+`-Dak.deopt=` selects what the process does BEFORE its first measurement:
+
+  0  nothing
+  1  one `String.format("%d%n", 1)`, which is what R9 names
+  2  20,000 `String.charAt` calls on a three-character WIDE String (above U+00FF)
+  3  20,000 `String.charAt` calls on a three-character LATIN1 String
+
+Modes 2 and 3 carry no Formatter, no numeric conversion and no narrowing loop. They exist
+because mode 1 moved protobuf-java by a factor of two and a mystery that large has to be
+narrowed to a mechanism before it is reported.
+
+## 1. protobuf-java's own encode, P1.2, `base ns/op`
+
+| jdk | content set | deopt=0 | deopt=1 | deopt=2 | deopt=3 |
+|---|---|---|---|---|---|
+| 17 | ASCII | 510,636 | 490,332 | 577,450 | 488,212 |
+| **17** | **above U+00FF** | **1,314,490** | **600,612** | 1,244,272 | **604,567** |
+| 21 | ASCII | 487,096 | 477,732 | 490,706 | 490,403 |
+| 21 | above U+00FF | 1,266,444 | 1,301,174 | 1,239,299 | 1,302,017 |
+
+Repeated four times on the row that moves, JDK 17 above U+00FF, in microseconds:
+
+    deopt=0   1297 1338 1302 1328
+    deopt=1    586  587  606  602
+    deopt=2   1248 1265 1251 1260
+    deopt=3    604  600  604  633
+
+**Stable, and the trigger is not what R9 names.** Reading a LATIN1 String's characters
+does it; reading a WIDE String's characters does not; and `String.format` does it because
+it reads Latin-1 strings internally, not because it formats a number. There is no
+narrowing loop in modes 2 or 3 at all.
+
+*Recorded because it was seen*: one earlier single run of mode 2 read 610 us where these
+four read 1248 to 1265. One reading against four, and it is written down rather than
+dropped.
+
+## 2. It is not one arm moving. It is two arms moving OPPOSITE WAYS, and a third immune.
+
+Absolutes on JDK 17, above U+00FF, P1.2, ns/op:
+
+| arm | deopt=0 | deopt=3 | change |
+|---|---|---|---|
+| `pbj` (toByteArray, fresh message) | 1,297,600 | 601,283 | **2.16x faster** |
+| `pbj-reused-out` | 738,334 | 359,567 | 2.05x faster |
+| `pbj-loop` | 794,131 | 402,860 | 1.97x faster |
+| `pbj-reuse` | 700,704 | 310,863 | 2.25x faster |
+| `pbj-det` | 696,811 | 318,680 | 2.19x faster |
+| `pbj-parsed` | 1,348,206 | 606,093 | 2.22x faster |
+| **`R`** (the generated Java codec) | **598,193** | **757,617** | **1.27x SLOWER** |
+| `R-take` | 631,931 | 787,080 | 1.25x slower |
+| **`ffi`** (the C ABI) | **674,752** | **642,772** | **1.05x faster, i.e. unmoved** |
+| `ffi-nobatch` | 617,657 | 642,772 | unmoved |
+| `ffi-zeroed` | 664,371 | 658,405 | unmoved |
+| `ffi-take` | 718,870 | 728,154 | unmoved |
+
+**Every arm that transcodes UTF-16 in Java moves, and the two that do move go opposite
+ways. The arm that transcodes in the core does not move at all.**
+
+That is what makes the mechanism legible. protobuf-java's `Utf8.encode` and this slice's
+`ak.Utf8.encode` are both `charAt` loops over a `String`, so both are compiled against the
+same compact-string dispatch profile, and that profile can only be specialised one way. Pre-
+reading a Latin-1 string changes which way. The C ABI arm has no such loop -- ABI v1
+section 4's whole argument is that "the core implements all of them once for every
+language, and every managed host stops maintaining a UTF-8 encoder" -- so there is nothing
+in it for the profile to specialise.
+
+## 3. What this says about R9, and what the slice did about it
+
+The rule's operational advice is right and this slice follows it: no harness here formats
+anything until after its last measurement. What the rule gets wrong is everything else.
+
+* **The JDK.** R9 says "JDK 21 and later". It reproduces on **17** and not on 21; on 21 all
+  four modes agree within 5 percent.
+* **The trigger.** R9 says `String.format` with a numeric conversion. It is any read of a
+  Latin-1 String's characters, and `String.format` is one instance of that.
+* **The mechanism.** R9 says a char NARROWING loop is deoptimised. Modes 2 and 3 contain no
+  narrowing loop and differ only in the probe string's coder, and only one of them fires.
+* **The sign.** R9 says the incumbent gets slower. Here the incumbent gets 2.2 times
+  FASTER and the generated Java codec gets 1.27 times slower.
+* **The content set.** Nothing happens on ASCII, on either JDK. R9 does not say so, and
+  every published managed figure taken on ASCII alone is therefore not exposed to this --
+  which is also why the effect has stayed invisible.
+
+**The consequence for the branch is larger than the correction.** A managed slice's
+string-path number depends on what its process read before it, by a factor of two, in a
+direction that differs between two arms of the same slice. A ratio between a Java-side
+encoder and protobuf-java on non-ASCII content is not a stable quantity on JDK 17 unless
+the harness says what warmed the process -- and no published report says.
+
+**And the C ABI's immunity is a result, not a footnote.** Moving the transcoder into the
+core is what makes the arm insensitive to the host JIT's profile history. That is an
+argument for ABI v1 section 4 that no benchmark was looking for.
+
+## 4. What this does not establish
+
+* One machine, one protobuf-java (3.25.5), one payload (P1.2), one JDK 17 build.
+* The JIT mechanism is inferred from which triggers fire and which arms move, not from a
+  compilation log. `-XX:+PrintCompilation` and `-XX:+TraceDeoptimization` would settle it
+  and were not run.
+* Nothing here tests the hazard as R9 describes it on the JDK it describes it for, with the
+  protobuf-java version it was seen on. A failure to reproduce is not a refutation, and the
+  rule is kept.

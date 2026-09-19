@@ -47,12 +47,30 @@ public final class RunConformance {
                .newInstance());
     }
 
-    Conformance.Result r = Conformance.run(arms, log, verbose);
-    log.append("checked=").append(r.checked).append("  failed=").append(r.failed)
+    int checked = 0, failed = 0;
+    // design/SHAPES.md: "A slice that reports one string-path number without saying which
+    // content set it came from has reported half a number." The gate runs all three, so a
+    // string-path measurement on any of them has a correctness run behind it. Only ASCII
+    // has a manifest; the other two are checked by cross-arm agreement and a round trip.
+    int[] sets = "1".equals(System.getProperty("ak.allsets", "1"))
+        ? new int[] {Values.ASCII, Values.LATIN1, Values.WIDE}
+        : new int[] {Values.ASCII};
+    String[] names = {"ASCII", "LATIN1 (not ASCII)", "above U+00FF"};
+    for (int cs : sets) {
+      log.append("\n-- content set: ").append(names[cs]).append(cs == Values.ASCII
+          ? "  (the manifest's set)" : "  (no manifest; arms checked against each other)")
+         .append('\n');
+      Conformance.Result r = Conformance.run(arms, log, verbose, cs);
+      log.append("   checked=").append(r.checked).append("  failed=").append(r.failed)
+         .append('\n');
+      for (String n : r.notes) log.append("   ! ").append(n).append('\n');
+      checked += r.checked;
+      failed += r.failed;
+    }
+    log.append("\nTOTAL checked=").append(checked).append("  failed=").append(failed)
        .append('\n');
-    for (String n : r.notes) log.append("  ! ").append(n).append('\n');
     System.out.print(log);
-    if (r.failed != 0) System.exit(1);
+    if (failed != 0) System.exit(1);
   }
 
   /** Arm R: the generated pure-Java codec. */

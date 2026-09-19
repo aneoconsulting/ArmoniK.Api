@@ -47,9 +47,13 @@ echo "# a package of its own (ak.floor) over the same facade types, so the floor
 echo "# target ratio is paired inside one round (R4) rather than formed across two"
 echo "# processes. Arm c is a separate process by construction and stands alone."
 echo "#"
-echo "# In arm c ak.floor and ak.shapes are the SAME emitted source, so its ARM B rows are"
-echo "# a positive control: they must read zero, and what they read instead is this"
-echo "# harness's noise floor on that runtime."
+echo "# Read the ARM B block of the arm-a run for the floor-against-target ratio: there"
+echo "# ak.floor is the Java 8 binding and ak.shapes is the JDK 17 one, in one process."
+echo "#"
+echo "# In the arm-b and arm-c runs the classpath is build/cls8, where ak.floor and"
+echo "# ak.shapes are the SAME emitted source, so their ARM B blocks are POSITIVE"
+echo "# CONTROLS: they must read zero, and what they read instead is this harness's own"
+echo "# noise floor -- once on the target runtime and once on the floor runtime."
 for arm in "a $J17 build/cls17" "b $J17 build/cls8" "c $J8 build/cls8"; do
   set -- $arm
   echo

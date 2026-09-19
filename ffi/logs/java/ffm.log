@@ -1,0 +1,53 @@
+WARNING: A restricted method in java.lang.foreign.SymbolLookup has been called
+WARNING: java.lang.foreign.SymbolLookup::libraryLookup has been called by the unnamed module
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for this module
+
+== FFM downcall price, SECONDARY arm, preview API on JDK 21 ==
+java.version=21.0.10
+core=/home/user/ArmoniK.Api/ffi/poc/java/core/target/release/libak_core_java.so  sink=147999962000000
+
+A JDK 22 API measured on JDK 21 as a preview, because this container has no
+JDK 22 and the proxy does not reach a JDK distributor. README 5: FFM is a
+secondary arm and never a target, and R7: a ratio between two BINDING
+MECHANISMS is not a ratio between ABI shapes.
+
+  downcall               min 12.504  med 12.723  max 14.691 ns
+  downcall isTrivial()   min  6.167  med  6.237  max  8.146 ns
+
+`isTrivial()` tells the linker the call will not block, upcall or trap, so
+it may skip the thread-state transition. A codec entry point that makes
+reverse calls is NOT trivial and may not use it, which is why both are here:
+the cheap number is the one a bulk-bytes path could have and the dear one is
+what the element entry points would pay.
+
+== the same machine's JNI prices on the SAME JDK (21), for the comparison R7 allows ==
+# R7: "A ratio between an arm on one binding mechanism and an arm on another is a
+# comparison of mechanisms, not of ABI shapes." This is that comparison and nothing
+# more. Both rows are JDK 21, so the runtime is held constant.
+
+java.version=21.0.10  vm=21.0.10+7-Ubuntu-124.04
+rounds=9  sink=199855323137408
+path              iters   min_ns   med_ns   max_ns
+fwd             4128768   10.856   11.423   17.540
+fwd+buf         4587520   11.630   11.773   12.705
+rev              131072  362.443  373.933  399.024
+rev-cached       409600   68.124   70.220   81.869
+rev-obj          753664   73.382   74.565   91.994
+
+What it says, against README section 2's published row (FFM 33.8 ns, JNI 98.4 ns):
+
+* a plain FFM **downcall** costs 12.5 to 14.7 ns here and a JNI **forward call** 11.4 to
+  13.0 on the same JDK, so **FFM is not cheaper than JNI in the forward direction on this
+  machine**. The published pair is three times apart and these two are not apart at all.
+* `isTrivial()` halves it, to 6.2 to 8.1 ns. A codec entry point that makes reverse calls
+  may not declare itself trivial -- that is exactly what the option promises it will not
+  do -- so the cheap number is available to the bulk-bytes path of ABI v1 section 8 and to
+  nothing else in the codec.
+* the published 98.4 ns is an **upcall** figure and the published 11.2 ns a **forward**
+  one. This machine's cached JNI upcall is 76 to 91 ns, which is the size class of the
+  first; its forward call is 11 to 13, which is the size class of the second. The table
+  lists one number per runtime and they are seven times apart.
+
+**What this does NOT say.** It is a preview API on the JDK before the one that finalised
+it, measured on a no-op with one long argument. An FFM BINDING is not built here and its
+upcall price, which is what the encode path would actually pay, is not measured at all.
