@@ -640,7 +640,28 @@ independent encoder).
 import os
 import sys
 
-_FFI = %(ffi)r
+
+def _find_ffi_root():
+    """Walk up until `schema/shapes.json` is found.
+
+    NOT an absolute path baked in at generate time, which is what the first
+    version did: a clone of this branch at any other path then regenerated a
+    different file and `generate.py --check` refused the tree as stale, so the
+    committed sources could not rebuild themselves. Defect D4, and it was found
+    by cloning the pushed branch and building it, not by reading the code.
+    """
+    d = os.path.dirname(os.path.abspath(__file__))
+    for _ in range(12):
+        if os.path.exists(os.path.join(d, "schema", "shapes.json")):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    raise RuntimeError("cannot find the ffi/ root above %%s" %% __file__)
+
+
+_FFI = _find_ffi_root()
 sys.path.insert(0, os.path.join(_FFI, "schema", "emit"))
 
 import shapes as S      # noqa: E402
@@ -703,7 +724,7 @@ def emit_values(schema):
     field = spec["field"]
     elem = next(f for f in S.fields(schema["messages"][ROOT])
                 if f["name"] == field)["of"]
-    return VALUES_TMPL % {"ffi": FFI, "root": ROOT, "elem": elem, "field": field}
+    return VALUES_TMPL % {"root": ROOT, "elem": elem, "field": field}
 
 
 # --------------------------------------------------------------------------

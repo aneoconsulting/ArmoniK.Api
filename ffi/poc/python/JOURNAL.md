@@ -255,6 +255,30 @@ doing the work looks like. `memoryview.tobytes()` copies: the 218 KB floor is
 5.69 - 5.86 us, 1.8 percent of upb's own time on that payload. Both arms sit far
 above it, so the sub-1.0 ratios survive the check R2 asks for.
 
+### J11b. A third and a fourth defect, both in how the work is kept rather than in what it measures
+
+**D3.** The repository-wide `.gitignore` excludes any directory named `gen`.
+`ffi/.gitignore` re-includes `poc/*/gen/**` for exactly that reason, and this
+slice's generator sits one level deeper, at `poc/python/mech/gen/`, where the
+re-inclusion does not reach. `git add -A` listed 24 files and not one of them was
+the generator. Found by reading what `git status` did **not** list, which is the
+same way the Rust slice found it for `bin/`. This is the fourth word that file
+has eaten in this branch (`logs`, `gen`, `bin`, and now `gen` again one level
+down). Fixed by a re-inclusion in this slice's own `.gitignore`, checked with
+`git check-ignore` rather than assumed.
+
+**D4.** `gen/out/payload_values.py` carried the `ffi/` root as an absolute path
+baked in at generate time. A clone of the pushed branch at any other path
+therefore regenerated a different file, `generate.py --check` refused the tree as
+stale, and `build.sh` -- which runs that check as a build step -- refused to
+build the codec module at all. **The committed sources could not rebuild
+themselves.** Found by cloning the pushed branch into a temporary directory and
+building it, which is now the last step of a work unit rather than an idea.
+Fixed: the generated module walks up until it finds `schema/shapes.json`.
+
+No measurement is affected. `_akcodec_gen.c` is byte-identical across the fix and
+the only file that changed computes paths, so the logs stand as taken.
+
 ### J12. What was NOT tried, and why none of it is a refutation
 
 - **Decode.** Nothing in work unit 1 decodes. The storage verdict may well differ
