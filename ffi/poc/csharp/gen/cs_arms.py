@@ -8,7 +8,14 @@ The arms, and exactly what each one calls:
 
   gp-tobytearray   `msg.ToByteArray()`   -- what application code writes
   gp-writeto       `msg.CalculateSize()` then `msg.WriteTo(Span<byte>)` into a
-                   reused buffer -- the fair encode baseline, no allocation
+                   reused buffer. No allocation, but it pays an explicit
+                   top-level size pass to size the span
+  gp-bufferwriter  `msg.WriteTo(IBufferWriter<byte>)` over a reused
+                   `ArrayBufferWriter` -- the SAME official API family with NO
+                   top-level size pass at all, which is the fairest encode
+                   baseline `Google.Protobuf` offers. Added after the C++ slice
+                   found its own incumbent handicapped three ways and moved its
+                   headline by eight points
   managed          `Codec.Write` -- one pass, learned length width
   managed-2pass    `Codec.SizeOf` then `Codec.WriteSized` -- the two-pass shape
                    Google.Protobuf uses, so the difference between it and
@@ -18,6 +25,14 @@ The arms, and exactly what each one calls:
 
   gp-parse         `Parser.ParseFrom(ReadOnlySpan<byte>)`
   managed-parse    `Codec.Read` into a fresh facade graph
+
+**Both decode arms end by parking the decoded graph in a static sink and
+returning an O(1) value.** The first version of this backend ended `GpParse`
+with `m.CalculateSize()`, meaning to keep the result from being optimised
+away, and that is a FULL TRAVERSAL of the decoded tree: the incumbent was
+paying a size pass the managed arm was not, on the one number this slice
+exists to produce. Whatever keeps a result alive has to cost the same in
+every arm, and the cheapest thing that cannot be elided is a store.
   memcpy-parse     the same floor for decode
 """
 import csnames as N
@@ -29,6 +44,7 @@ GP = "Armonik.Ffi.Shapes.V1"
 def emit(ir):
     o = Head("The per-payload arm table: one dispatch per payload, emitted.")
     o += "using System;"
+    o += "using System.Buffers;"
     o += "using System.Collections.Generic;"
     o += "using Google.Protobuf;"
     o += "using Armonik.Ffi.Facade;"
@@ -49,8 +65,13 @@ def emit(ir):
     o += ""
     o += "    public abstract byte[] GpToByteArray();"
     o += "    public abstract int GpWriteTo(byte[] dst);"
+    o += "    public abstract int GpWriteToBufferWriter(ArrayBufferWriter<byte> w);"
     o += "    public abstract void ManagedWrite(ref Enc e);"
     o += "    public abstract void ManagedWriteSized(ref Enc e);"
+    o += ""
+    o += "    /// Where a decoded graph is parked so the JIT cannot elide the"
+    o += "    /// decode. A store, and identical in both arms: see the header."
+    o += "    public static object Sink;"
     o += ""
     o += "    public abstract int GpParse(byte[] src, int len);"
     o += "    public abstract int ManagedParse(byte[] src, int len);"
@@ -101,6 +122,18 @@ def emit(ir):
         o += "        return n;"
         o += "    }"
         o += ""
+        o += "    /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top"
+        o += "    /// level. The caller RESETS the writer rather than clearing it --"
+        o += "    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly"
+        o += "    /// the per-iteration buffer wipe that handicapped the C++ slice's"
+        o += "    /// incumbent. ResetWrittenCount() does not."
+        o += "    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)"
+        o += "    {"
+        o += "        w.ResetWrittenCount();"
+        o += "        _gp.WriteTo(w);"
+        o += "        return w.WrittenCount;"
+        o += "    }"
+        o += ""
         o += "    public override void ManagedWrite(ref Enc e) => Codec.Write%s(ref e, _fac);" % root.cs
         o += ""
         o += "    public override void ManagedWriteSized(ref Enc e) => Codec.WriteSized%s(ref e, _fac);" % root.cs
@@ -108,7 +141,8 @@ def emit(ir):
         o += "    public override int GpParse(byte[] src, int len)"
         o += "    {"
         o += "        var m = %s.%s.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));" % (GP, root.cs)
-        o += "        return m.CalculateSize();"
+        o += "        Sink = m;"
+        o += "        return len;"
         o += "    }"
         o += ""
         o += "    public override int ManagedParse(byte[] src, int len)"
@@ -117,6 +151,7 @@ def emit(ir):
         o += "        var m = new %s();" % root.cs
         o += "        Codec.Read%s(ref d, m, len);" % root.cs
         o += "        if (d.Err != 0) throw new InvalidOperationException(Id + \": managed decode failed, err \" + d.Err);"
+        o += "        Sink = m;"
         o += "        return d.Pos;"
         o += "    }"
         o += ""

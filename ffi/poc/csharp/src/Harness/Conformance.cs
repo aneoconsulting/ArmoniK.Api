@@ -18,6 +18,7 @@
 // omits. Check 4 is what catches that, and it is why the comparer is generated.
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using Armonik.Ffi.Facade;
@@ -32,8 +33,8 @@ public static class Conformance
         var arms = ArmTable.All();
         int bad = 0, checks = 0;
 
-        Console.WriteLine("payload  shape  root                        bytes  gp-tba  gp-wto  managed  2pass  vector  mrt  grt  value");
-        Console.WriteLine(new string('-', 118));
+        Console.WriteLine("payload  shape  root                        bytes  gp-tba  gp-wto  gp-bw   managed  2pass  vector  mrt  grt  value");
+        Console.WriteLine(new string('-', 126));
 
         foreach (var a in arms)
         {
@@ -57,6 +58,10 @@ public static class Conformance
             var dst = new byte[Math.Max(row.Bytes + 4096, 8192)];
             int n = a.GpWriteTo(dst);
             results.Add(Verdict(row, dst, n, canon, p71, ref checks, ref bad));
+
+            var bw = new ArrayBufferWriter<byte>(Math.Max(row.Bytes + 4096, 8192));
+            int bn = a.GpWriteToBufferWriter(bw);
+            results.Add(Verdict(row, bw.WrittenSpan.ToArray(), bn, canon, p71, ref checks, ref bad));
 
             var e = Enc.New(Codec.Sites, Math.Max(row.Bytes + 4096, 8192));
             a.ManagedWrite(ref e);
@@ -123,10 +128,10 @@ public static class Conformance
             }
             if (!vok) bad++;
 
-            Console.WriteLine("{0,-8} {1,-6} {2,-24} {3,7}  {4,-6}  {5,-6}  {6,-7}  {7,-5}  {8,-6}  {9,-3}  {10,-3}  {11}",
+            Console.WriteLine("{0,-8} {1,-6} {2,-24} {3,7}  {4,-6}  {5,-6}  {6,-6}  {7,-7}  {8,-5}  {9,-6}  {10,-3}  {11,-3}  {12}",
                 a.Id, a.Shape, a.Root, row.Bytes,
                 results[0], results[1], results[2], results[3], results[4],
-                results[5], results[6], results[7]);
+                results[5], results[6], results[7], results[8]);
         }
 
         Console.WriteLine();

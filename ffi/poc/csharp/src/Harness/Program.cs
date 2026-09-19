@@ -20,6 +20,8 @@ public static class Program
                 return UnknownFields.Run();
             case "content":
                 return ContentSets.Run(argv.Skip(1).ToArray());
+            case "mapforms":
+                return MapForms.Run(argv.Skip(1).ToArray());
             case "counts":
                 return Counts.Run();
             case "bench":

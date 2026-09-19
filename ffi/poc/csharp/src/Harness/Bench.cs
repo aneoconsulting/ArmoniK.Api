@@ -25,6 +25,7 @@
 // and the report says so per row rather than in general.
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -88,6 +89,13 @@ public static class Bench
             {
                 Payload = a.Id, Dir = "encode", Arm = "gp-writeto",
                 Run = n => { for (int i = 0; i < n; i++) Consume(arms.GpWriteTo(dst)); },
+            });
+
+            var bw = new ArrayBufferWriter<byte>(cap);
+            cases.Add(new Case
+            {
+                Payload = a.Id, Dir = "encode", Arm = "gp-bufferwriter",
+                Run = n => { for (int i = 0; i < n; i++) Consume(arms.GpWriteToBufferWriter(bw)); },
             });
 
             var e = Enc.New(Codec.Sites, cap);
@@ -266,8 +274,12 @@ public static class Bench
         }
 
         Console.WriteLine("Reading this table.");
-        Console.WriteLine("  /gp-writeto is the fair baseline on encode: CalculateSize + WriteTo(Span) into a");
-        Console.WriteLine("    reused buffer, no allocation. On decode the baseline column is gp-parse for both.");
+        Console.WriteLine("  /gp-writeto is the BASELINE column: CalculateSize + WriteTo(Span) into a reused");
+        Console.WriteLine("    buffer, no allocation. On decode the baseline is gp-parse for both.");
+        Console.WriteLine("  gp-bufferwriter is the same official API family with NO top-level size pass:");
+        Console.WriteLine("    WriteTo(IBufferWriter) over a reused ArrayBufferWriter, reset rather than");
+        Console.WriteLine("    cleared. If it beats gp-writeto, the baseline column was handicapped by one");
+        Console.WriteLine("    size traversal and every managed ratio against it was flattered by that much.");
         Console.WriteLine("  /gp-tba is Google.Protobuf's ToByteArray, which is the call application code");
         Console.WriteLine("    actually writes. The two differ by one allocation of the output, and the gap");
         Console.WriteLine("    between the two columns is that allocation with nothing else in it.");
