@@ -1,0 +1,251 @@
+# W10: the core consolidated to ffi/poc/codec (README R0) -- the re-gate, not a re-take
+#   date            2026-09-19T20:15:19Z
+#   machine         Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
+#   compiler        g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, -O2 -g -DNDEBUG
+#   rustc           rustc 1.94.1 (e408947bf 2026-03-25)
+#   incumbent       protobuf C++ 3.21.12 (libprotobuf-dev, apt), SerializeToString / ParseFromString
+#   core            THE shared ak-core at ffi/poc/codec, cdylib + staticlib, no rpc feature
+#   linkage         shared (the primary arm)
+#   pre-move ref    fa5f831e, built in a git worktree at /tmp and run in THESE conditions
+#   commit          fa5f831e + the working tree this log was taken from
+
+This log exists to answer one question: did folding three copies of the core into one
+move a number? A consolidation that moves a number means the copies were not equivalent,
+which would be a much more interesting result than the tidy-up. The committed logs were
+taken on a different day with a loaded container, so they are NOT the control: the
+control is the pre-move commit built and run here, minutes apart, on the same machine.
+
+===== spot check 1: cpp, P2.2, one encode row and one decode row =====
+Ratios are in-process against protobuf in the SAME binary (R4). The 'min' column is
+the best of 9 rounds; absolutes do not travel between runs and are shown only to make
+the point that today's machine is faster than the committed log's was.
+
+arm                  pre ns      post ns      pre     post    delta
+enc-pb             556496.7     548728.4    1.000    1.000   +0.000
+enc-pb-arena       503516.8     490496.4    0.875    0.858   -0.017
+enc-native         225135.8     223851.3    0.392    0.379   -0.013
+enc-ffi            374274.5     358680.1    0.634    0.621   -0.013
+dec-pb            2070501.0    2019855.7    1.000    1.000   +0.000
+dec-pb-arena      1307999.8    1262014.8    0.623    0.607   -0.016
+dec-native        1499832.6    1442011.6    0.708    0.691   -0.017
+dec-ffi           1448159.8    1403184.0    0.677    0.676   -0.001
+dec-ffi-borrow     891734.6     861015.2    0.417    0.411   -0.006
+
+Largest ratio move: see the delta column. R4's across-build control in drift.log puts
+the worst RATIO drift between two builds of the SAME source at 0.240, and the worst
+absolute drift at 49.01%. Every row above is an order of magnitude inside that, and the
+arms the core cannot touch (pb-arena) move by the same amount as the ones it can, which
+is what says this is run-to-run and not the move.
+
+For contrast, the same rows against the COMMITTED log (bench_a17_shared.log, taken on a
+loaded container on a different day): enc ffi 0.724 there against 0.634 pre-move here.
+That 0.090 is the day, not the move -- which is exactly why the worktree control exists
+and why the committed log is not the comparison.
+
+===== spot check 2: rust, P2.2, same pair of rows =====
+Same method: the pre-move commit built in the worktree and run minutes apart. The rust
+slice's core gained the most from the fold -- java's two transcoders, this slice's
+ak_enc_count_reverse and the layout export are all new code in ITS libak_core.so -- so
+it is the arm where a code-layout effect would show if there were one.
+
+arm                    pre ns      post ns      pre     post    delta
+encode-prost         582680.9     586810.5    1.000    1.000   +0.000
+encode-core-native     268872.8     269583.9    0.461    0.459   -0.002
+encode-core-ffi-rust     424960.2     426078.2    0.729    0.726   -0.003
+decode-prost        1482022.1    1470456.8    1.000    1.000   +0.000
+decode-core-native    1452079.9    1453067.8    0.980    0.988   +0.008
+decode-core-ffi-rust    1583220.3    1604970.0    1.068    1.091   +0.023
+
+Worst move 0.023, on decode core-ffi-rust, whose own round spread in the same run is
+wider than that. Nothing here is outside the drift bar and nothing is outside the run's
+own noise.
+
+VERDICT on the spot check: the fold moved no number. The three copies were equivalent,
+which is what the byte-identical codec.rs and the additive-only diffs already said and
+what this measures rather than assumes.
+
+===== the correctness gates, every slice that builds in this container =====
+
+--- rust: conformance, over the shared core ---
+
+VERDICT: every arm is byte-identical to the validated manifest on every payload it covers.
+
+--- cpp: conformance, arm a, C++17, shared linkage ---
+443 checks, 0 failures, 1 payloads with two valid encodings
+
+--- cpp: the floor, C++11, which is the correctness gate R2 puts the floor there for ---
+443 checks, 0 failures, 1 payloads with two valid encodings
+
+--- cpp: C++14, README open question 3 ---
+443 checks, 0 failures, 1 payloads with two valid encodings
+
+--- cpp: static linkage, the second separately-labelled arm ---
+443 checks, 0 failures, 1 payloads with two valid encodings
+
+--- python: the mech arms (no core arm yet, which is why R0 lands before there is one) ---
+  python slice has no core arm to re-gate; nothing in it resolves ak-core.
+  Doing the move now means its core arm is built against the shared crate from the
+  first line, instead of becoming a fourth copy.
+
+--- java: as far as this container's JDK allows ---
+  JDKs installed: java-1.21.0-openjdk-amd64 java-21-openjdk-amd64 openjdk-21 
+  build.sh needs JDK 17 and JDK 8 (arm a, and arms b/c at the floor). Neither is here,
+  so the Java-level conformance gate is NOT run and is left to the java slice's session.
+  What IS verified here is the part R0 touches -- that its build resolves the shared
+  core and links against it:
+    generate.py --check: 112 ok, 0 stale
+    core (timed):    618264 B, 66 exported ak_* entry points
+    core (counting): 622640 B
+    JNI shim links:  libak_core.so => /home/user/ArmoniK.Api/ffi/poc/java/core-build/target/release/libak_core.so (0x00007fcbb0eb2000)
+    the shim's undefined ABI imports, all resolved by the shared core: 47
+    including the two transcoders this slice contributed, now reached from the shared core:
+                      U ak_tc_latin1
+                      U ak_tc_utf16
+
+--- csharp: dotnet is not installed in this container ---
+  dotnet: not installed
+  Its only change is a path: it already loaded the rust slice's libak_core.so rather
+  than carrying a copy, so R0 costs it one line in Harness.csproj and one in
+  abi/Cargo.toml. The re-gate is left to its own session. One thing for that session:
+  the shared crate builds WITHOUT the rpc feature by default, where the rust slice's
+  build had ABI v1 section 9 compiled in unconditionally -- same codec entry points,
+  smaller shared object, no tonic.
+
+===== the generator gates, all four generators over one emitter =====
+
+  codec    --check:   3 ok, 0 STALE, exit 0
+  rust     --check:   7 ok, 0 STALE, exit 0
+  cpp      --check:  21 ok, 0 STALE, exit 0
+  java     --check: 112 ok, 0 STALE, exit 0
+  csharp   --check:   9 ok, 0 STALE, exit 0
+
+  The rust, cpp and java generators each write the shared core's files into
+  ffi/poc/codec and nowhere else, from the one emitter, so each slice's --check now
+  gates the core it measures as well as its own output. That is R0's 'every addition
+  re-runs every slice's gate' with no new mechanism.
+
+===== this slice's own gates, unchanged by the move except where noted =====
+
+--- refusal_test.py: every backend guard against input it must REJECT ---
+refusal_test: 16 passed, 0 failed
+
+--- boundary.sh: R5, from the built artifacts ---
+
+boundary: 13 checks passed, 0 failed
+WARNING: the -flto positive control did NOT fire, so the check above has not been
+seen failing on this build. Treat the pass as unproven.
+
+  NOTE, and it is a change: the -flto positive control in half two no longer fires.
+  It fires when a control function is SMALLER than the largest timing closure in the
+  image, and the largest closure moved from 1433 B to 911 B in this build, so the
+  1155 B control now sits above the line instead of below it. That is a property of
+  the C++ binary's inlining, not of the core: half one's checks -- the ones that say
+  the entry points are CALLED and not inlined away, including under -flto -- all pass.
+  The script says so itself rather than reporting an unproven pass as a pass. Treat
+  half two's result on this build as unproven until the control is made to fire again.
+
+--- odr_check.sh: the ODR hard stop across -std levels ---
+odr_check: ok
+
+--- audit_tracked.sh: R4's closing rule, asked of git ---
+audit: 0 untracked, ignored or missing files that a figure could depend on
+
+===== one_core.sh: R0 checked mechanically, and the proof that it can fail =====
+
+== R0: one core, at poc/codec, reached by path ==
+
+# the ABI's entry points are defined once
+  [ok]   ak_enc_ctx_new: one definition, in codec/crates/ak-core/src/lib.rs
+  [ok]   ak_dec_ctx_new: one definition, in codec/crates/ak-core/src/lib.rs
+  [ok]   ak_tc_utf8: one definition, in codec/crates/ak-core/src/lib.rs
+  [ok]   ak_tc_utf16: one definition, in codec/crates/ak-core/src/lib.rs
+
+# the emitted core exists once
+  [ok]   codec.rs: one copy, at codec/crates/ak-core/src/generated/codec.rs
+  [ok]   layout.rs: one copy, at codec/crates/ak-core/src/generated/layout.rs
+  [ok]   abi.rs: one copy, at codec/crates/ak-abi/src/generated/abi.rs
+
+# one Cargo package per core crate
+  [ok]   ak-abi: one package, at codec/crates/ak-abi
+  [ok]   ak-rt: one package, at codec/crates/ak-rt
+  [ok]   ak-core: one package, at codec/crates/ak-core
+  [ok]   rpc: one package, at codec/crates/rpc
+
+# every path dependency on a core crate resolves to codec/crates/
+  [ok]   codec/crates/ak-core/Cargo.toml: ak-abi -> codec/crates/ak-abi
+  [ok]   codec/crates/ak-core/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   codec/crates/ak-core/Cargo.toml: rpc -> codec/crates/rpc
+  [ok]   csharp/abi/Cargo.toml: ak-abi -> codec/crates/ak-abi
+  [ok]   rust/crates/facade/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   rust/crates/harness/Cargo.toml: ak-core -> codec/crates/ak-core
+  [ok]   rust/crates/harness/Cargo.toml: ak-abi -> codec/crates/ak-abi
+  [ok]   rust/crates/harness/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   rust/crates/harness/Cargo.toml: rpc -> codec/crates/rpc
+
+# the emitters are shared too, which was the other half of the same defect
+  [ok]   ir.py: one shared copy; csharp/gen/ir.py is a separate C# IR, not a copy
+  [ok]   rust_abi.py: one copy, at codec/gen/rust_abi.py
+  [ok]   rust_core.py: one copy, at codec/gen/rust_core.py
+  [ok]   rustnames.py: one copy, at codec/gen/rustnames.py
+  [ok]   cpp_layout.py: one copy, at codec/gen/cpp_layout.py
+
+# no build links a per-slice core library
+  [ok]   every build links libak_core, the shared one
+
+# and what is committed is what the shared emitter writes (R1)
+  [ok]   codec/gen/generate.py --check: 3 files ok
+
+one_core: 0 failure(s)
+
+== positive control: each violation planted in a scratch copy, each must FAIL ==
+  [ok]   the scratch copy passes before anything is planted
+  [ok]   planted 'a second copy of the core crate' -> the check fails, as R0 says it must
+  [ok]   planted 'a slice pointing its core dependency somewhere else' -> the check fails, as R0 says it must
+  [ok]   planted 'a second copy of a shared emitter' -> the check fails, as R0 says it must
+  [ok]   planted 'a build linking a per-slice core library' -> the check fails, as R0 says it must
+  [ok]   planted 'a stale shared core (the emitter and the committed file disagree)' -> the check fails, as R0 says it must
+
+one_core --selftest: 0 control(s) did not fire
+
+===== a clean clone at a different path rebuilds the tree (the python slice's D4) =====
+
+A large move is exactly the thing that leaves a build depending on a file that is on
+disk and not in the commit. Checked the way D4 says to check it: clone the branch to a
+different path and build there, not read the ignore file.
+
+  git clone --single-branch <repo> /tmp/claude-0/cleanclone   at 9c124ca4
+
+  one_core.sh                     0 failure(s)
+  codec  generate.py --check        3 ok, 0 STALE
+  rust   generate.py --check        7 ok, 0 STALE
+  cpp    generate.py --check       21 ok, 0 STALE
+  java   generate.py --check      112 ok, 0 STALE
+  csharp generate.py --check        9 ok, 0 STALE
+  rust   cargo build -p harness   rc=0
+  rust   conformance              every arm byte-identical to the validated manifest
+  cpp    cmake + build            rc=0, core-build/target/release/libak_core.so present
+  cpp    conformance a17 shared   443 checks, 0 failures, 1 payload with two valid encodings
+  cpp    conformance c11 shared   443 checks, 0 failures, 1 payload with two valid encodings
+  java   core + JNI shim          rc=0; shim resolves libak_core.so from the clone's own path
+  csharp ak-layout-probe          rc=0 (it path-depends on the shared ak-abi)
+
+===== what this work unit did NOT measure =====
+
+  * The java slice's Java-level gates. JDK 21 is the only JDK in this container and
+    build.sh needs JDK 17 and JDK 8, so arms a, b and c were not compiled and the
+    Java conformance run did not happen. What was verified is that its generator is
+    clean, its core builds from the shared crate, and its JNI shim links and resolves
+    against it -- which is the whole of what R0 touched. The rest is its own session's.
+  * The csharp slice, at all: dotnet is not installed. Its two lines changed and its
+    layout probe builds; nothing was run.
+  * A re-take of anything. This was a re-gate. The only numbers here are the two
+    spot-check tables, and they exist to show that the fold moved nothing.
+  * The RPC arm on either side, and the upb ceiling arm. Neither is touched by the
+    move beyond the core's path; neither was rebuilt.
+  * Whether three generators writing the same three files ever disagree in practice.
+    They cannot disagree by construction (one emitter, one description) and each
+    slice's --check would catch it if they did, but they are not safe to run
+    CONCURRENTLY and no runner does.
+  * The -flto positive control in boundary.sh half two, which did not fire on this
+    build. See the note above: half two's pass is unproven on this binary.
+

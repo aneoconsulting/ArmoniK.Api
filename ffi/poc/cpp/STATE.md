@@ -6,7 +6,8 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | **complete, and re-measured after an adversarial review of 28 findings.** Full codec plus the RPC arm plus a upb ceiling arm. Every message and payload of `design/SHAPES.md`, five encoders byte-identical, at C++11, C++14 and C++17, floor and target implementations, shared and static linkage |
+| **Status** | **complete, re-measured after an adversarial review of 28 findings, and re-gated after W10 moved the core.** Full codec plus the RPC arm plus a upb ceiling arm. Every message and payload of `design/SHAPES.md`, five encoders byte-identical, at C++11, C++14 and C++17, floor and target implementations, shared and static linkage |
+| **Core** | **the shared one at `ffi/poc/codec/crates/ak-core` (README R0), not a copy.** This slice no longer has a `core/` directory; `core-build/` is only its three `CARGO_TARGET_DIR`s. See `logs/cpp/w10-one-core.log` |
 | **Blocked on** | nothing |
 | **Floor** | **C++11, demonstrated not declared.** C++14 also builds and passes (README open question 3) |
 | **Target** | C++17 |
@@ -414,7 +415,8 @@ like-for-like row after all.
 
 ## Next step
 
-Nothing is outstanding. In the order I would do it:
+Nothing is outstanding. W10 moved the core to `ffi/poc/codec` and re-gated; nothing was
+re-taken, because nothing moved (`logs/cpp/w10-one-core.log`). In the order I would do it:
 
 1. **Borrowed spans as a real facade option**, now that the arm says what they are worth
    (−24 to −50 % of a protobuf decode, and the core level with upb). The lifetime contract
@@ -422,8 +424,10 @@ Nothing is outstanding. In the order I would do it:
 2. **A table-driven or SIMD UTF-8 validator** on the decode path. The 4.5x to 20x above is
    a validator figure and it is the largest single effect this slice measures; `utf8_range`
    is already in the tree from the upb arm.
-3. **A core fast path for `tc == ak_tc_bytes`**, worth +4.49 ns per string. The core
-   emitter is shared, so this is the aggregating session's to take.
+3. **A core fast path for `tc == ak_tc_bytes`**, worth +4.49 ns per string. This is now
+   a *change to existing behaviour* in the shared core, which R0 says is the
+   aggregating session's to make rather than a slice's -- it moves every slice's gate
+   at once. A slice may still ADD to `poc/codec`; this is not an addition.
 4. **The content sets on whole payloads**, now that `recode` is reachable.
 5. **A concurrency suite** (ABI v1 obligation 12.5).
 6. **Explain the P1.2 decode outlier round**, which appears in every log.
@@ -450,9 +454,16 @@ Nothing is outstanding. In the order I would do it:
 | C14 | `gen/cpp_binding.py`, `cpp_core.py` | the map path hardcoded `t.utf8` and the validating reader for both halves, so `map<string, bytes>` would have had UTF-8 validation applied to its value | **fixed**: derived from the pair message's declared kinds, and swept |
 | C15 | `src/bench.cpp` | `groupfill` exceeds the (`ffi` − `native`) delta it is a component of on P1.3 (22.6 against about 18.3 ns/element) | **open.** The suspected cause is refuted: a direct-call variant measures the same as the indirect one to 0.3 percent. `groupfill` is reported as an UPPER BOUND on the group's cost, not as a component |
 | C16 | this slice | a systematic outlier round on P1.2 decode, about 34 percent high, in every log | **open**, printed per round rather than hidden in a range |
+| C17 | `../rust/crates/harness/build.rs` | the rust harness searched `<profile>` before `<profile>/deps` for `libak_core.so`. Cargo only uplifts a workspace MEMBER's cdylib, so after R0 moved `ak-core` out of that workspace the harness would have linked the STALE pre-move copy still sitting in `<profile>` -- a change measuring the same because it is not in the build | **fixed** in W10: order flipped, stale copy deleted, and `ldd` shows the arm loading `deps/libak_core.so` |
+| C18 | `gen/boundary.sh` | half two's `-flto` positive control stopped firing after the move. It fires when a control function is smaller than the largest timing closure in the image; that closure went from 1433 B to 911 B, so the 1155 B control now sits above the line. Half ONE -- the checks that say the entry points are called and not inlined away -- still passes, including under `-flto` | **open.** The script reports the pass as UNPROVEN rather than as a pass, which is the behaviour wanted; making the control fire again needs a smaller control or a larger closure, not a change to what is checked |
+| C19 | `../csharp/gen/cs_abi.py` | its docstring still says "`ffi/poc/rust/crates/ak-core` is a cdylib exporting 68 `ak_` functions". The path no longer exists and the count is now 66 without `rpc` | **open, and deliberately not fixed here**: it is another slice's source, not a build file. For the csharp session |
 
 ## What is not measured
 
+- **The java and csharp slices' own gates after W10.** Only JDK 21 is installed here and
+  java's build needs JDK 17 and JDK 8; dotnet is not installed at all. What was verified
+  is that both builds RESOLVE the shared core -- java's core and JNI shim link against it,
+  csharp's layout probe builds -- and nothing beyond that. `logs/cpp/w10-one-core.log`.
 - **upb encode is not a ceiling** (see above), and no upb arm exists for the core's own
   shapes beyond encode/decode of the whole message.
 - **What a `protoc-gen-upb` minitable would add** on top of upb's generic decoder. The
@@ -497,6 +508,7 @@ Nothing is outstanding. In the order I would do it:
 | `drift.log` | the same source, a neutral layout perturbation | **R4's across-build control: worst ratio drift 0.240.** Any cross-binary claim carries this bar |
 | `tax.log` | the crossing priced up | **the batching crossover: 2 to 4 ns**, with the 8 ns outlier re-run |
 | `opt.log` | `-O2 -DNDEBUG` against `-O3 -DNDEBUG` | the control's decode gap is not a function of the optimisation level |
+| `w10-one-core.log` | the pre-move commit built in a worktree and run minutes apart, same machine | **W10 / R0: folding three copies of the core into one moved no number.** Worst ratio move 0.023 against a 0.240 drift bar, and the arms the core cannot touch move by the same amount. Every gate green; the `-flto` positive control no longer fires and is recorded as unproven |
 | `rpc.log` | grpc++ 1.51.1, tonic 0.14, loopback, in-process server, P2.2, 9 rounds | client CPU 0.856 to 0.870 of grpc++, the codec half separated in-process, R9's hazard visible |
 | `upb.log` | upb v25.3 from source, reflection minitables, **`UPB_FASTTABLE=0`, gcc** | **the ceiling: upb decode is 0.22 to 0.58 of protobuf C++.** The encode column is not a ceiling and says so |
 | `upb-fasttable.log` | three builds of identical upb sources: gcc/FT=0, clang/FT=0, clang/FT=1 | **the fast decoder is unreachable from a reflection minitable** (`table_mask = −1`, proved at run time and from the archive), so none of upb's advantage is `UPB_MUSTTAIL`. clang is worth 6-23 %; `FT=1` is 3-19 % slower |
