@@ -370,3 +370,37 @@ optimised away has to cost the same in every arm.** The C++ slice met the same
 class of problem from the other side, with a control that was not doing the
 work its arm did. A guard is code, and an asymmetric guard is an asymmetric
 benchmark.
+
+### 17. The two harnesses agree, and BenchmarkDotNet is the conservative one
+
+144 BenchmarkDotNet benchmarks against the hand-rolled harness's three
+interleaved processes, 64 comparable rows. Median deviation **+0.019**, mean
+**+0.021**, 53 of 64 within +/-0.05, **2 verdict flips**.
+
+The sign is the interesting part: **47 of 64 deviations are positive**, so BDN
+reports this slice's own managed arms slightly worse than the interleaved loop
+does. The hand-rolled harness was mildly optimistic in its own favour, by about
+0.02, and it is better to have found that than to have found the reverse.
+
+**The mechanism is not established and is not chased.** Overhead subtraction
+would push the other way: the hand-rolled loop counts its `Consume()` guard in
+every arm, and adding a constant to both sides of a sub-1.0 ratio raises it.
+The plausible remaining candidate is that one interleaved process gives every
+arm a shared GC heap and shared warm state, while BDN isolates each benchmark
+in its own; that would systematically compress differences between arms. It is
+a hypothesis and it is labelled as one. Absolutes are deferred, so a session
+spent resolving it would buy something the controlled rerun measures anyway.
+
+Both flips sit within 0.09 of parity. P2.4 decode goes 0.928 to 1.020, which
+**strengthens** the convergence finding rather than denting it: under the more
+rigorous harness both P2.4 and P6.1 are losses, and "the managed win erodes as
+container construction dominates" is the claim either way. P5.4 encode
+managed-2pass goes 1.015 to 0.990 on a bulk row already marked AMBIGUOUS and
+sitting on the memcpy floor.
+
+**What this is worth.** Neither harness validates itself. Two harnesses that
+share the arm table and nothing else, agreeing to a median of 0.019 across 64
+rows and disagreeing about a verdict twice, is what makes either usable. It is
+also why both are kept: BenchmarkDotNet goes to the controlled rerun, and the
+interleaved loop stays for the noisy shared container, where per-benchmark
+isolation is the thing R4 exists to avoid.
