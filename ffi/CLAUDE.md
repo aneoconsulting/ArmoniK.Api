@@ -2,7 +2,7 @@
 
 This directory is an exploration branch that is never merged. The deliverable is
 `REPORT.md`. Read [`README.md`](README.md) for the question, the rules a slice is
-run under (R1 to R12) and the work items. This file is the operating contract:
+run under (R1 to R13) and the work items. This file is the operating contract:
 who owns what, and how work survives the end of a session.
 
 ## Roles
@@ -61,5 +61,13 @@ survives, so:
   absent-field and unknown-field payloads, before any number is recorded.
 - **Count crossings, do not infer them.** Every measured payload has a
   boundary-call count from a counting build.
+- **Absolutes do not travel between machines, so every slice calibrates its
+  own** (R13). Slices run in separate sessions on separate containers, and the
+  cross-language crossing table of README section 2 is a table of absolutes. Each
+  slice builds and runs the Rust slice's crossing benchmark on its own machine, as
+  a build step, and quotes its own absolutes against that number as well as in
+  nanoseconds. A slice on its own branch off the exploration branch pushes that
+  branch itself; the aggregating session merges. Two agents still never race one
+  branch.
 - **Keep the slices small.** Cover the shapes and nothing else. What is not
   covered goes in "what is not measured", which every slice ends with.
