@@ -1,0 +1,27 @@
+[package]
+name = "akmech_pyo3"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "_akmech_pyo3"
+crate-type = ["cdylib"]
+
+[dependencies]
+# README 9.1 names PyO3 as a candidate because it is "the same C-API calls with
+# a Rust spelling". This arm is here to find out whether that is true in
+# nanoseconds as well as in principle.
+pyo3 = { version = "0.29", features = ["extension-module"] }
+
+[features]
+# One artifact across 3.x, at the cost of the fast paths (README 9.2).
+abi3 = ["pyo3/abi3-py310"]
+
+[profile.release]
+opt-level = 3
+# LTO is left OFF on purpose. The Rust slice's R5 note is that a control fused
+# into its caller stops being a control; here the thing that must stay a real
+# call is the crossing into libakmech_cabi.so, and that is a dynamic-linker call
+# that LTO cannot reach anyway. Left off so this arm is built like the C arms.
+lto = false

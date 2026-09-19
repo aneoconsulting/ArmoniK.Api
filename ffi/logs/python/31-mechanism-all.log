@@ -1,0 +1,667 @@
+# python slice, work unit 1: the same mechanisms across every interpreter here
+#
+# date:      2026-09-19T07:24:40Z
+# machine:   4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
+# commit:    d7c5a04
+# R13:       this machine's Rust crossing is 2.1 ns (fwd+reverse) to 2.8 ns
+#            (forward), against 1.8 ns on the Rust slice's container.
+#            See 00-r13-rust-crossing.log. Quote every absolute below
+#            against it as well as in nanoseconds.
+
+# Absolutes across these blocks are NOT comparable to each other in the way
+# a within-process ratio is: they are four processes. What they establish is
+# whether the SHAPE of the answer (which mechanism wins, by how much) holds
+# across 3.10 to 3.13, which is what README open question 4 needs.
+
+########## 3.11.15 ##########
+# python slice, work unit 1: binding mechanism and facade storage
+#
+# interpreter:   3.11.15 (main, Mar  3 2026, 09:26:23) [GCC 13.3.0]
+# executable:    /tmp/claude-0/-home-user-ArmoniK-Api/cc43f096-44dc-5ade-b8de-85af95ca717c/scratchpad/venv3.11/bin/python
+# build dir:     /home/user/ArmoniK.Api/ffi/poc/python/mech/build/py3.11
+# rounds:        11, interleaved; per-case target 20 ms
+# gc:            disabled for the measured rounds
+# full-API ops:  23
+# abi3 ops:      22, Py_LIMITED_API=0x030a0000
+# absent under abi3: PyList_SET_ITEM
+
+## correctness gate: every forward arm, same callee, same answer
+   ok     -- a pure-Python function call
+   ok     C extension, METH_O
+   ok     C extension, METH_FASTCALL
+   ok     C extension, abi3, METH_O
+   ok     C extension, abi3 built on 3.10
+   ok     PyO3
+   ok     PyO3, abi3 built on 3.10
+   ok     ctypes, argtypes declared
+   WRONG  ctypes, no argtypes                        2147483648 -> 18446744071562067970, want 2147483650; 4611686018427400249 -> 12347, want 4611686018427400251
+   ok     cffi ABI mode (dlopen)
+   ok     cffi API mode (compiled)
+
+#  NOTE: the arms above marked WRONG are still timed, and their
+#  rows carry this line.  A mechanism that does not do the work is
+#  not a faster mechanism (README R2).
+
+## 1. forward: one crossing, Python host -> native
+arm                                                      reps    median ns        min        max / -- a pure-Python function call
+-- empty Python for-loop                              2174690        10.39      10.34      12.21                  0.255
+                                                   EVERY row in this group carries this; subtract it once
+-- a pure-Python function call                         524288        40.80      39.80      45.58                  1.000
+                                                   not a crossing. The floor a Python host cannot go below
+-- a pure-Python method call                           524288        42.40      41.81      43.62                  1.039
+C extension, METH_O                                   1672880        22.23      22.04      25.20                  0.545
+C extension, METH_O, no crossing                       946538        21.00      20.82      22.82                  0.515
+                                                   the same entry point with the call into the C library removed
+C extension, METH_FASTCALL                             871971        22.64      22.41      24.48                  0.555
+                                                   what a generated binding emits; ctypes and cffi cannot produce it
+C extension, abi3, METH_O                             1491696        22.53      22.10      25.28                  0.552
+C extension, abi3 built on 3.10                        883315        22.42      21.99      24.35                  0.550
+                                                   the SAME .so file on every interpreter: README 9.2's claim, run
+PyO3                                                   524288        52.00      51.46      61.01                  1.274
+PyO3, no crossing                                      461558        51.11      50.47      56.40                  1.253
+PyO3, no arguments at all                              524288        48.79      46.37      51.63                  1.196
+                                                   isolates PyO3's per-call prologue from its argument extraction
+PyO3, one i64 argument                                 524288        49.03      48.48      51.71                  1.202
+PyO3, one untyped argument                             524288        46.75      46.10      50.82                  1.146
+PyO3, abi3 built on 3.10                               524288        53.38      52.86      58.07                  1.308
+ctypes, argtypes declared                               83685       238.04     233.84     245.96                  5.834
+ctypes, no argtypes                                    128168       141.84     139.52     155.12                  3.476
+                                                   a conversion search per argument, which is the usual spelling
+cffi ABI mode (dlopen)                                 123370       196.59     193.12     218.85                  4.818
+cffi API mode (compiled)                               243973        76.22      75.43      80.38                  1.868
+
+## 2. reverse: native -> host, per reverse call
+arm                                                      reps    median ns        min        max / -- C -> C through a function pointer
+-- loop in C, no call at all                        109322323         0.18       0.18       0.19                  0.126
+                                                   the floor: what the loop costs with the crossing removed
+-- C -> C through a function pointer                 26746794         1.41       1.41       1.47                  1.000
+                                                   a real indirect call, no interpreter. The second floor
+C extension: PyObject_CallFunctionObjArgs              524288        42.48      41.99      44.38                 30.031
+                                                   into the interpreter: a frame, an argument tuple, bytecode dispatch
+C extension abi3: PyObject_CallFunctionObjArgs         524288        42.71      42.15      45.11                 30.193
+PyO3: call1 on a Py<PyAny>                             524288        50.58      49.84      51.73                 35.756
+ctypes: a CFUNCTYPE callback                           263730       118.67     115.29     119.89                 83.894
+                                                   what README 9.1 says the design avoids
+cffi ABI mode: ffi.callback                             84617       239.20     237.13     263.31                169.108
+cffi API mode: extern "Python"                          85015       234.53     231.05     244.75                165.801
+                                                   compiled, but the callback still re-enters the interpreter
+
+## 3. reverse as a C-API call on a primitive (the design's default)
+arm                                                      reps    median ns        min        max
+floor                                                56535998         0.36       0.35       0.37
+PyLong_FromLongLong                                   4981968         8.09       7.95       9.04
+PyLong_AsLongLong                                     1508317        13.20      13.10      13.32
+PyUnicode_FromStringAndSize(36)                       1309398        15.10      14.97      15.98
+PyUnicode_DecodeUTF8(36)                              1458770        14.47      13.97      15.50
+PyUnicode_AsUTF8AndSize                              13596874         2.87       2.81       3.12
+PyUnicode_AsUTF8String                                1610053        13.86      12.53      14.53
+PyBytes_FromStringAndSize(16)                         1541279        13.70      11.77      15.18
+PyBytes_AsStringAndSize                               9382818         4.20       4.14       4.54
+PyBool_FromLong                                      13662584         2.86       2.83       2.94
+PyList_New(4)                                         2032456        19.76      19.58      21.77
+PyList_SetItem                                        5534918         3.71       3.55       4.32
+PyList_SET_ITEM                                      10312631         1.92       1.81       4.22
+PyList_Append                                         3182390         5.71       5.45       8.04
+Py_BEGIN/END_ALLOW_THREADS                            1098736        34.28      34.00      43.71
+PyObject_CallNoArgs(type)                              524288        40.81      40.47      56.32
+
+## 3c. the string path across the three content sets (design/SHAPES.md)
+arm                                                      reps    median ns        min        max
+ASCII         cached read                            14048764         2.85       2.81       3.88
+                                                   36 wire bytes
+ASCII         build + read                            1170008        16.99      16.68      20.78
+ASCII         build only                              2322168        14.59      14.20      18.54
+Latin-1       cached read                            11088402         3.49       3.45       5.43
+                                                   53 wire bytes
+Latin-1       build + read                             256900       149.56     148.12     175.27
+Latin-1       build only                               461514        86.13      84.71      90.99
+above U+00FF  cached read                             5848967         3.49       3.48       3.72
+                                                   70 wire bytes
+above U+00FF  build + read                             225600       172.01     169.14     187.34
+above U+00FF  build only                               363368       105.67     104.06     120.38
+
+## 3b. the same primitives, abi3 build (README 9.2)
+arm                                                      reps    median ns        min        max
+full API: PyLong_FromLongLong                         2517652         8.02       7.91       9.29
+abi3:     PyLong_FromLongLong                         4814078         8.20       8.04       9.51
+full API: PyUnicode_FromStringAndSize(36)             1328132        15.45      14.96      37.86
+abi3:     PyUnicode_FromStringAndSize(36)             2619472        15.03      14.88      15.87
+full API: PyUnicode_AsUTF8AndSize                     7144766         2.85       2.82       2.97
+abi3:     PyUnicode_AsUTF8AndSize                    13342206         2.92       2.85       3.18
+full API: PyBytes_FromStringAndSize(16)               3289944        13.78      11.80      14.12
+abi3:     PyBytes_FromStringAndSize(16)               3122188        14.13      12.27      14.63
+full API: PyList_SetItem                             10716672         3.74       3.59       4.19
+abi3:     PyList_SetItem                              9538882         3.96       3.89       4.05
+full API: PyList_Append                               3141659         5.69       5.41       6.35
+abi3:     PyList_Append                               4098209         5.86       5.75       6.96
+full API: PyObject_CallNoArgs(type)                    524288        41.13      40.39      50.77
+abi3:     PyObject_CallNoArgs(type)                    524288        41.94      41.50      44.19
+
+## 3d. the same primitives, PyO3 spelling against the C-API spelling
+arm                                                      reps    median ns        min        max
+C-API: PyLong_FromLongLong                            2561214         8.07       7.93       9.33
+PyO3:  PyLong_FromLongLong                            4481180         8.79       8.60      10.47
+C-API: PyLong_AsLongLong                              2955166        13.25      13.10      15.43
+PyO3:  PyLong_AsLongLong                              2362690         8.81       8.55      10.84
+C-API: PyUnicode_FromStringAndSize(36)                2644466        15.24      15.04      15.58
+PyO3:  PyUnicode_FromStringAndSize(36)                 943989        21.26      20.54      23.08
+C-API: PyUnicode_AsUTF8AndSize                       13692216         2.89       2.82       3.57
+PyO3:  PyUnicode_AsUTF8AndSize                        5194235         3.97       3.88       4.80
+C-API: PyBytes_FromStringAndSize(16)                  3285192        13.74      11.93      14.06
+PyO3:  PyBytes_FromStringAndSize(16)                  3154948        14.50      12.60      15.36
+C-API: PyList_New(4)                                  1948758        19.74      19.46      21.53
+PyO3:  PyList_New(4)                                  1716166        23.47      23.09      26.00
+C-API: PyList_Append                                  7020638        10.41      10.13      10.89
+PyO3:  PyList_Append                                  4159690         8.33       8.21       8.72
+C-API: PyObject_CallNoArgs(type)                       524288        41.04      40.33      42.02
+PyO3:  PyObject_CallNoArgs(type)                       524288        40.33      39.66      41.08
+
+## 4. a facade field read, as the shim sees it (README 9.1)
+arm                                                      reps    median ns        min        max / C extension type, struct member read
+-- loop floor (no read)                              56155564         0.36       0.36       0.40                  0.795
+plain class, PyObject_GetAttr                         2077485         9.80       9.69      10.12                 21.620
+                                                   a dict lookup
+__slots__ class, PyObject_GetAttr                     1800964        11.20      11.09      11.51                 24.720
+                                                   a descriptor with an offset
+C extension type, PyObject_GetAttr                    1844052        11.18      11.06      13.16                 24.683
+                                                   a member descriptor: still a crossing
+C extension type, struct member read                 82209308         0.45       0.40       0.50                  1.000
+                                                   not a crossing at all: the shim casts and loads
+C extension type, struct member read (int64)         52530355         0.38       0.38       0.39                  0.846
+                                                   an unboxed scalar: no PyLong on either side
+plain class, PyObject_GetAttrString                    524288        49.58      49.10      51.52                109.425
+                                                   the spelling that rebuilds the name string on every call
+PyO3 .getattr(), plain class                          3617174        10.71      10.58      10.91                 23.646
+PyO3 .getattr(), __slots__ class                      1692271        11.90      11.81      12.13                 26.255
+-- pure Python: o.session_id (plain)                  2964358        13.58      13.33      14.98                 29.966
+                                                   bytecode, no crossing. The control for this group
+-- pure Python: o.session_id (__slots__)              1502343        13.28      13.19      14.85                 29.321
+-- pure Python: 4x o.session_id (plain)                777446        25.21      24.94      26.53                 55.652
+                                                   marginal read = (this - the 1x row) / 3, loop cancelled
+
+########## 3.10.20 ##########
+# python slice, work unit 1: binding mechanism and facade storage
+#
+# interpreter:   3.10.20 (main, Mar  3 2026, 09:24:47) [GCC 13.3.0]
+# executable:    /tmp/claude-0/-home-user-ArmoniK-Api/cc43f096-44dc-5ade-b8de-85af95ca717c/scratchpad/venv3.10/bin/python
+# build dir:     /home/user/ArmoniK.Api/ffi/poc/python/mech/build/py3.10
+# rounds:        11, interleaved; per-case target 20 ms
+# gc:            disabled for the measured rounds
+# full-API ops:  23
+# abi3 ops:      22, Py_LIMITED_API=0x030a0000
+# absent under abi3: PyList_SET_ITEM
+
+## correctness gate: every forward arm, same callee, same answer
+   ok     -- a pure-Python function call
+   ok     C extension, METH_O
+   ok     C extension, METH_FASTCALL
+   ok     C extension, abi3, METH_O
+   ok     C extension, abi3 built on 3.10
+   ok     PyO3
+   ok     PyO3, abi3 built on 3.10
+   ok     ctypes, argtypes declared
+   WRONG  ctypes, no argtypes                        2147483648 -> 18446744071562067970, want 2147483650; 4611686018427400249 -> 12347, want 4611686018427400251
+   ok     cffi ABI mode (dlopen)
+   ok     cffi API mode (compiled)
+
+#  NOTE: the arms above marked WRONG are still timed, and their
+#  rows carry this line.  A mechanism that does not do the work is
+#  not a faster mechanism (README R2).
+
+## 1. forward: one crossing, Python host -> native
+arm                                                      reps    median ns        min        max / -- a pure-Python function call
+-- empty Python for-loop                              3388484        12.13      11.83      13.04                  0.193
+                                                   EVERY row in this group carries this; subtract it once
+-- a pure-Python function call                         524288        62.86      60.51      69.86                  1.000
+                                                   not a crossing. The floor a Python host cannot go below
+-- a pure-Python method call                           524288        65.49      63.05     102.84                  1.042
+C extension, METH_O                                    778652        26.40      25.70      31.60                  0.420
+C extension, METH_O, no crossing                       810079        25.54      24.80      35.29                  0.406
+                                                   the same entry point with the call into the C library removed
+C extension, METH_FASTCALL                             781983        26.17      25.68      29.20                  0.416
+                                                   what a generated binding emits; ctypes and cffi cannot produce it
+C extension, abi3, METH_O                             1516190        26.42      25.82      27.52                  0.420
+C extension, abi3 built on 3.10                        760436        26.40      25.71      28.65                  0.420
+                                                   the SAME .so file on every interpreter: README 9.2's claim, run
+PyO3                                                   524288        46.90      45.92      51.33                  0.746
+PyO3, no crossing                                      524288        44.98      44.75      46.67                  0.716
+PyO3, abi3 built on 3.10                               524288        51.46      49.84      70.21                  0.819
+ctypes, argtypes declared                               78879       266.09     255.58     301.17                  4.233
+ctypes, no argtypes                                    260148       143.15     139.25     154.77                  2.277
+                                                   a conversion search per argument, which is the usual spelling
+cffi ABI mode (dlopen)                                 197544       182.58     181.38     191.32                  2.905
+cffi API mode (compiled)                               251843        82.59      82.03      87.95                  1.314
+
+## 2. reverse: native -> host, per reverse call
+arm                                                      reps    median ns        min        max / -- C -> C through a function pointer
+-- loop in C, no call at all                        204787500         0.18       0.18       0.19                  0.126
+                                                   the floor: what the loop costs with the crossing removed
+-- C -> C through a function pointer                 14004466         1.42       1.41       1.46                  1.000
+                                                   a real indirect call, no interpreter. The second floor
+C extension: PyObject_CallFunctionObjArgs              524288        56.11      54.89      60.46                 39.500
+                                                   into the interpreter: a frame, an argument tuple, bytecode dispatch
+C extension abi3: PyObject_CallFunctionObjArgs         524288        55.56      54.80      59.76                 39.112
+PyO3: call1 on a Py<PyAny>                             524288        59.77      58.95      64.03                 42.077
+ctypes: a CFUNCTYPE callback                           118537       172.93     171.67     184.69                121.741
+                                                   what README 9.1 says the design avoids
+cffi ABI mode: ffi.callback                             84072       239.30     235.71     263.23                168.459
+cffi API mode: extern "Python"                         170170       228.69     226.51     264.66                160.994
+                                                   compiled, but the callback still re-enters the interpreter
+
+## 3. reverse as a C-API call on a primitive (the design's default)
+arm                                                      reps    median ns        min        max
+floor                                               108630542         0.36       0.35       0.38
+PyLong_FromLongLong                                   1981746        10.21       9.94      12.00
+PyLong_AsLongLong                                     1531610        13.21      13.07      13.41
+PyUnicode_FromStringAndSize(36)                       2897916        13.80      13.66      14.25
+PyUnicode_DecodeUTF8(36)                              3052664        13.14      12.98      14.05
+PyUnicode_AsUTF8AndSize                              13654684         2.85       2.82       2.91
+PyUnicode_AsUTF8String                                1676368        11.94      11.73      12.51
+PyBytes_FromStringAndSize(16)                         1648333        13.97      12.13      14.14
+PyBytes_AsStringAndSize                               4727578         4.23       4.17       4.55
+PyBool_FromLong                                      13927290         2.83       2.82       2.96
+PyList_New(4)                                         2075326        19.51      18.81      20.68
+PyList_SetItem                                        5320560         3.72       3.66       3.89
+PyList_SET_ITEM                                      11263480         1.92       1.81       2.08
+PyList_Append                                         2006274         6.68       6.57       7.89
+Py_BEGIN/END_ALLOW_THREADS                             565902        35.52      35.07      35.73
+PyObject_CallNoArgs(type)                              524288        46.16      44.63      48.48
+
+## 3c. the string path across the three content sets (design/SHAPES.md)
+arm                                                      reps    median ns        min        max
+ASCII         cached read                            13756362         2.84       2.82       3.07
+                                                   36 wire bytes
+ASCII         build + read                            1206401        16.74      16.52      18.23
+ASCII         build only                              1441647        13.98      13.78      15.78
+Latin-1       cached read                             8018216         4.61       4.40       4.76
+                                                   53 wire bytes
+Latin-1       build + read                             144720       146.28     144.37     154.31
+Latin-1       build only                               419982        90.02      88.42      92.38
+above U+00FF  cached read                             4749170         4.54       4.34       4.77
+                                                   70 wire bytes
+above U+00FF  build + read                             230162       173.68     171.11     181.67
+above U+00FF  build only                               200813       101.85     101.04     110.29
+
+## 3b. the same primitives, abi3 build (README 9.2)
+arm                                                      reps    median ns        min        max
+full API: PyLong_FromLongLong                         1949613        10.36      10.01      11.94
+abi3:     PyLong_FromLongLong                         1894865        10.67      10.43      12.26
+full API: PyUnicode_FromStringAndSize(36)             2889302        13.87      13.64      14.53
+abi3:     PyUnicode_FromStringAndSize(36)             1468961        13.84      13.70      14.14
+full API: PyUnicode_AsUTF8AndSize                     7166800         2.84       2.83       2.93
+abi3:     PyUnicode_AsUTF8AndSize                    13396600         2.87       2.83       3.01
+full API: PyBytes_FromStringAndSize(16)               1649822        14.05      12.05      14.41
+abi3:     PyBytes_FromStringAndSize(16)               1573789        14.45      12.46      15.72
+full API: PyList_SetItem                              5438469         3.77       3.66       3.95
+abi3:     PyList_SetItem                             10370984         3.84       3.74       4.25
+full API: PyList_Append                               3222956         6.57       6.49       6.93
+abi3:     PyList_Append                               3384306         6.53       6.45       7.23
+full API: PyObject_CallNoArgs(type)                    524288        45.81      44.37      48.55
+abi3:     PyObject_CallNoArgs(type)                    524288        45.44      44.86      50.04
+
+## 3d. the same primitives, PyO3 spelling against the C-API spelling
+arm                                                      reps    median ns        min        max
+C-API: PyLong_FromLongLong                            3889524        10.26       9.99      11.77
+PyO3:  PyLong_FromLongLong                            2361940         8.44       8.34      11.25
+C-API: PyLong_AsLongLong                              1522329        13.21      13.10      13.58
+PyO3:  PyLong_AsLongLong                              4208256         9.09       8.59       9.57
+C-API: PyUnicode_FromStringAndSize(36)                2813196        13.84      13.69      14.42
+PyO3:  PyUnicode_FromStringAndSize(36)                1703368        24.22      23.53      25.93
+C-API: PyUnicode_AsUTF8AndSize                        7098748         2.84       2.82       2.99
+PyO3:  PyUnicode_AsUTF8AndSize                        5160502         3.92       3.88       4.04
+C-API: PyBytes_FromStringAndSize(16)                  1658484        13.99      12.04      14.81
+PyO3:  PyBytes_FromStringAndSize(16)                  3155052        14.38      12.52      14.74
+C-API: PyList_New(4)                                  1051896        19.32      19.20      29.91
+PyO3:  PyList_New(4)                                   871625        23.41      23.05      26.38
+C-API: PyList_Append                                  3245274         6.57       6.48       6.98
+PyO3:  PyList_Append                                  2485902         8.89       8.51       9.40
+C-API: PyObject_CallNoArgs(type)                       524288        45.64      45.07      47.04
+PyO3:  PyObject_CallNoArgs(type)                       524288        43.74      43.34      47.53
+
+## 4. a facade field read, as the shim sees it (README 9.1)
+arm                                                      reps    median ns        min        max / C extension type, struct member read
+-- loop floor (no read)                              56537227         0.36       0.35       0.37                  0.725
+plain class, PyObject_GetAttr                         3306536        11.17      11.02      11.31                 22.624
+                                                   a dict lookup
+__slots__ class, PyObject_GetAttr                     3343128        11.86      11.78      12.56                 24.020
+                                                   a descriptor with an offset
+C extension type, PyObject_GetAttr                    3384568        12.07      11.86      12.64                 24.452
+                                                   a member descriptor: still a crossing
+C extension type, struct member read                 88799124         0.49       0.45       0.73                  1.000
+                                                   not a crossing at all: the shim casts and loads
+C extension type, struct member read (int64)         96516492         0.39       0.38       0.44                  0.789
+                                                   an unboxed scalar: no PyLong on either side
+plain class, PyObject_GetAttrString                    524288        56.32      55.20      64.11                114.098
+                                                   the spelling that rebuilds the name string on every call
+PyO3 .getattr(), plain class                          1786139        11.24      11.03      11.66                 22.765
+PyO3 .getattr(), __slots__ class                      1713569        11.77      11.61      12.36                 23.853
+-- pure Python: o.session_id (plain)                   810005        25.70      24.78      26.14                 52.069
+                                                   bytecode, no crossing. The control for this group
+-- pure Python: o.session_id (__slots__)              1552122        26.62      25.36      37.10                 53.922
+-- pure Python: 4x o.session_id (plain)                524288        71.71      67.79      86.95                145.262
+                                                   marginal read = (this - the 1x row) / 3, loop cancelled
+
+########## 3.12.3 ##########
+# python slice, work unit 1: binding mechanism and facade storage
+#
+# interpreter:   3.12.3 (main, Mar  3 2026, 12:15:18) [GCC 13.3.0]
+# executable:    /tmp/claude-0/-home-user-ArmoniK-Api/cc43f096-44dc-5ade-b8de-85af95ca717c/scratchpad/venv3.12/bin/python
+# build dir:     /home/user/ArmoniK.Api/ffi/poc/python/mech/build/py3.12
+# rounds:        11, interleaved; per-case target 20 ms
+# gc:            disabled for the measured rounds
+# full-API ops:  23
+# abi3 ops:      22, Py_LIMITED_API=0x030a0000
+# absent under abi3: PyList_SET_ITEM
+
+## correctness gate: every forward arm, same callee, same answer
+   ok     -- a pure-Python function call
+   ok     C extension, METH_O
+   ok     C extension, METH_FASTCALL
+   ok     C extension, abi3, METH_O
+   ok     C extension, abi3 built on 3.10
+   ok     PyO3
+   ok     PyO3, abi3 built on 3.10
+   ok     ctypes, argtypes declared
+   WRONG  ctypes, no argtypes                        2147483648 -> 18446744071562067970, want 2147483650; 4611686018427400249 -> 12347, want 4611686018427400251
+   ok     cffi ABI mode (dlopen)
+   ok     cffi API mode (compiled)
+
+#  NOTE: the arms above marked WRONG are still timed, and their
+#  rows carry this line.  A mechanism that does not do the work is
+#  not a faster mechanism (README R2).
+
+## 1. forward: one crossing, Python host -> native
+arm                                                      reps    median ns        min        max / -- a pure-Python function call
+-- empty Python for-loop                              3066650        13.02      12.86      13.74                  0.339
+                                                   EVERY row in this group carries this; subtract it once
+-- a pure-Python function call                         529489        38.40      37.93      40.17                  1.000
+                                                   not a crossing. The floor a Python host cannot go below
+-- a pure-Python method call                           524288        41.33      40.91      44.75                  1.076
+C extension, METH_O                                   1242104        28.17      27.46      32.37                  0.733
+C extension, METH_O, no crossing                       766267        26.68      26.02      28.54                  0.695
+                                                   the same entry point with the call into the C library removed
+C extension, METH_FASTCALL                            1417040        28.15      27.75      30.19                  0.733
+                                                   what a generated binding emits; ctypes and cffi cannot produce it
+C extension, abi3, METH_O                             1388244        28.21      27.58      30.29                  0.735
+C extension, abi3 built on 3.10                        701935        28.46      27.77      31.42                  0.741
+                                                   the SAME .so file on every interpreter: README 9.2's claim, run
+PyO3                                                   524288        53.57      53.14      70.38                  1.395
+PyO3, no crossing                                      524288        53.24      51.84      55.72                  1.386
+PyO3, abi3 built on 3.10                               524288        55.70      55.43      63.18                  1.450
+ctypes, argtypes declared                              132598       304.91     300.78     325.49                  7.940
+ctypes, no argtypes                                    112382       176.24     174.89     189.48                  4.589
+                                                   a conversion search per argument, which is the usual spelling
+cffi ABI mode (dlopen)                                 100719       215.80     210.45     240.72                  5.619
+cffi API mode (compiled)                               400128        92.50      90.96     106.32                  2.409
+
+## 2. reverse: native -> host, per reverse call
+arm                                                      reps    median ns        min        max / -- C -> C through a function pointer
+-- loop in C, no call at all                        112420589         0.18       0.18       0.21                  0.127
+                                                   the floor: what the loop costs with the crossing removed
+-- C -> C through a function pointer                 14276906         1.42       1.41       1.47                  1.000
+                                                   a real indirect call, no interpreter. The second floor
+C extension: PyObject_CallFunctionObjArgs              524288        45.10      44.54      47.75                 31.841
+                                                   into the interpreter: a frame, an argument tuple, bytecode dispatch
+C extension abi3: PyObject_CallFunctionObjArgs         524288        44.99      44.64      46.64                 31.763
+PyO3: call1 on a Py<PyAny>                             524288        53.85      53.41      67.35                 38.020
+ctypes: a CFUNCTYPE callback                           152996       135.17     133.07     146.74                 95.438
+                                                   what README 9.1 says the design avoids
+cffi ABI mode: ffi.callback                            162070       245.32     239.35     283.19                173.207
+cffi API mode: extern "Python"                          87799       240.64     234.45     362.34                169.903
+                                                   compiled, but the callback still re-enters the interpreter
+
+## 3. reverse as a C-API call on a primitive (the design's default)
+arm                                                      reps    median ns        min        max
+floor                                                56162726         0.36       0.35       1.79
+PyLong_FromLongLong                                   3342158        11.91      11.84      13.85
+PyLong_AsLongLong                                     3200172        12.54      12.39      13.53
+PyUnicode_FromStringAndSize(36)                       1183681        16.91      16.54      17.66
+PyUnicode_DecodeUTF8(36)                              1242709        16.15      15.21      16.38
+PyUnicode_AsUTF8AndSize                              13518012         2.87       2.84       2.99
+PyUnicode_AsUTF8String                                2629082        15.08      14.87      15.73
+PyBytes_FromStringAndSize(16)                         1312237        15.17      13.58      15.96
+PyBytes_AsStringAndSize                               5190327         3.88       3.83       3.89
+PyBool_FromLong                                       7105896         2.83       2.82       2.98
+PyList_New(4)                                         1604902        24.50      23.93      27.40
+PyList_SetItem                                       11195162         3.53       3.53       3.97
+PyList_SET_ITEM                                      25554020         1.42       1.34       1.51
+PyList_Append                                         4251598         5.65       5.45       5.80
+Py_BEGIN/END_ALLOW_THREADS                             524288        43.38      42.77      44.01
+PyObject_CallNoArgs(type)                              524288        44.22      43.30      48.66
+
+## 3c. the string path across the three content sets (design/SHAPES.md)
+arm                                                      reps    median ns        min        max
+ASCII         cached read                            13768464         2.87       2.84       2.95
+                                                   36 wire bytes
+ASCII         build + read                            2128818        18.58      18.26      19.13
+ASCII         build only                              1206935        16.60      16.25      17.00
+Latin-1       cached read                             5186220         3.87       3.76       4.04
+                                                   53 wire bytes
+Latin-1       build + read                             151747       131.34     126.86     142.34
+Latin-1       build only                               243359        82.80      80.81      84.43
+above U+00FF  cached read                             5170748         3.89       3.79       3.90
+                                                   70 wire bytes
+above U+00FF  build + read                             135176       150.61     148.26     156.51
+above U+00FF  build only                               224126        90.32      89.26      93.77
+
+## 3b. the same primitives, abi3 build (README 9.2)
+arm                                                      reps    median ns        min        max
+full API: PyLong_FromLongLong                         1673464        11.93      11.78      13.65
+abi3:     PyLong_FromLongLong                         3372638        11.72      11.49      13.40
+full API: PyUnicode_FromStringAndSize(36)             1206436        16.94      16.66      19.28
+abi3:     PyUnicode_FromStringAndSize(36)             1209089        16.80      16.42      17.42
+full API: PyUnicode_AsUTF8AndSize                     7023912         2.87       2.83       2.99
+abi3:     PyUnicode_AsUTF8AndSize                     6324594         3.20       3.17       3.29
+full API: PyBytes_FromStringAndSize(16)               2533258        15.17      13.73      15.87
+abi3:     PyBytes_FromStringAndSize(16)               1307237        15.25      13.84      16.09
+full API: PyList_SetItem                              9700924         3.55       3.52       3.60
+abi3:     PyList_SetItem                             11660678         3.37       3.17       3.47
+full API: PyList_Append                               2574355         5.54       5.37       5.77
+abi3:     PyList_Append                               4067549         5.43       5.29       5.88
+full API: PyObject_CallNoArgs(type)                    524288        44.71      43.76      46.89
+abi3:     PyObject_CallNoArgs(type)                    524288        44.04      43.35      46.76
+
+## 3d. the same primitives, PyO3 spelling against the C-API spelling
+arm                                                      reps    median ns        min        max
+C-API: PyLong_FromLongLong                            1705144        11.97      11.87      13.71
+PyO3:  PyLong_FromLongLong                            1577748        12.85      12.71      14.63
+C-API: PyLong_AsLongLong                              1614386        12.49      12.36      12.86
+PyO3:  PyLong_AsLongLong                              7708404         4.82       4.77       6.64
+C-API: PyUnicode_FromStringAndSize(36)                1245177        16.98      16.60      20.04
+PyO3:  PyUnicode_FromStringAndSize(36)                 795691        25.54      25.08      26.53
+C-API: PyUnicode_AsUTF8AndSize                        7087491         2.88       2.84       2.98
+PyO3:  PyUnicode_AsUTF8AndSize                        9316394         4.25       4.23       4.30
+C-API: PyBytes_FromStringAndSize(16)                  1275868        15.25      13.68      15.89
+PyO3:  PyBytes_FromStringAndSize(16)                  2583678        15.32      13.75      15.63
+C-API: PyList_New(4)                                   796115        24.75      23.91      26.54
+PyO3:  PyList_New(4)                                  1570932        25.43      25.05      25.94
+C-API: PyList_Append                                  4249400         5.57       5.46       5.78
+PyO3:  PyList_Append                                  2757097         8.12       7.85       8.70
+C-API: PyObject_CallNoArgs(type)                       524288        44.37      43.81      45.56
+PyO3:  PyObject_CallNoArgs(type)                       524288        43.92      43.57      46.45
+
+## 4. a facade field read, as the shim sees it (README 9.1)
+arm                                                      reps    median ns        min        max / C extension type, struct member read
+-- loop floor (no read)                             106216658         0.36       0.35       0.39                  0.953
+plain class, PyObject_GetAttr                         1640814        11.63      11.49      11.85                 30.625
+                                                   a dict lookup
+__slots__ class, PyObject_GetAttr                     1909850        11.99      11.83      12.32                 31.570
+                                                   a descriptor with an offset
+C extension type, PyObject_GetAttr                    3188902        12.00      11.89      12.88                 31.590
+                                                   a member descriptor: still a crossing
+C extension type, struct member read                 67108864         0.38       0.38       0.45                  1.000
+                                                   not a crossing at all: the shim casts and loads
+C extension type, struct member read (int64)         53245367         0.38       0.38       0.45                  1.006
+                                                   an unboxed scalar: no PyLong on either side
+plain class, PyObject_GetAttrString                    524288        61.25      59.52      69.09                161.285
+                                                   the spelling that rebuilds the name string on every call
+PyO3 .getattr(), plain class                          3117516        12.78      12.66      13.12                 33.641
+PyO3 .getattr(), __slots__ class                      2986694        12.77      12.58      13.76                 33.624
+-- pure Python: o.session_id (plain)                  1201464        16.71      16.47      17.09                 44.003
+                                                   bytecode, no crossing. The control for this group
+-- pure Python: o.session_id (__slots__)              1216638        16.53      16.31      16.66                 43.532
+-- pure Python: 4x o.session_id (plain)                524288        39.02      38.68      40.77                102.753
+                                                   marginal read = (this - the 1x row) / 3, loop cancelled
+
+########## 3.13.12 ##########
+# python slice, work unit 1: binding mechanism and facade storage
+#
+# interpreter:   3.13.12 (main, Feb  4 2026, 09:25:39) [GCC 13.3.0]
+# executable:    /tmp/claude-0/-home-user-ArmoniK-Api/cc43f096-44dc-5ade-b8de-85af95ca717c/scratchpad/venv3.13/bin/python
+# build dir:     /home/user/ArmoniK.Api/ffi/poc/python/mech/build/py3.13
+# rounds:        11, interleaved; per-case target 20 ms
+# gc:            disabled for the measured rounds
+# full-API ops:  23
+# abi3 ops:      22, Py_LIMITED_API=0x030a0000
+# absent under abi3: PyList_SET_ITEM
+
+## correctness gate: every forward arm, same callee, same answer
+   ok     -- a pure-Python function call
+   ok     C extension, METH_O
+   ok     C extension, METH_FASTCALL
+   ok     C extension, abi3, METH_O
+   ok     C extension, abi3 built on 3.10
+   ok     PyO3
+   ok     PyO3, abi3 built on 3.10
+   ok     ctypes, argtypes declared
+   WRONG  ctypes, no argtypes                        2147483648 -> 18446744071562067970, want 2147483650; 4611686018427400249 -> 12347, want 4611686018427400251
+   ok     cffi ABI mode (dlopen)
+   ok     cffi API mode (compiled)
+
+#  NOTE: the arms above marked WRONG are still timed, and their
+#  rows carry this line.  A mechanism that does not do the work is
+#  not a faster mechanism (README R2).
+
+## 1. forward: one crossing, Python host -> native
+arm                                                      reps    median ns        min        max / -- a pure-Python function call
+-- empty Python for-loop                              1655295        12.06      11.80      16.65                  0.305
+                                                   EVERY row in this group carries this; subtract it once
+-- a pure-Python function call                         524288        39.59      39.05      44.84                  1.000
+                                                   not a crossing. The floor a Python host cannot go below
+-- a pure-Python method call                           524288        42.21      41.82      44.69                  1.066
+C extension, METH_O                                   1184228        24.51      24.34      26.20                  0.619
+C extension, METH_O, no crossing                      1644394        24.08      23.70      26.26                  0.608
+                                                   the same entry point with the call into the C library removed
+C extension, METH_FASTCALL                             808432        24.45      24.24      26.12                  0.618
+                                                   what a generated binding emits; ctypes and cffi cannot produce it
+C extension, abi3, METH_O                             1597546        24.68      24.39      26.06                  0.623
+C extension, abi3 built on 3.10                        811169        24.81      24.46      25.89                  0.627
+                                                   the SAME .so file on every interpreter: README 9.2's claim, run
+PyO3                                                   524288        50.76      50.07      54.12                  1.282
+PyO3, no crossing                                      524288        49.12      48.70      50.43                  1.241
+PyO3, abi3 built on 3.10                               524288        52.22      51.78      53.57                  1.319
+ctypes, argtypes declared                               63630       316.79     316.02     333.04                  8.001
+ctypes, no argtypes                                     97856       210.26     208.32     225.98                  5.311
+                                                   a conversion search per argument, which is the usual spelling
+cffi ABI mode (dlopen)                                 199526       192.52     190.65     212.71                  4.863
+cffi API mode (compiled)                               429152        89.15      88.61      91.43                  2.252
+
+## 2. reverse: native -> host, per reverse call
+arm                                                      reps    median ns        min        max / -- C -> C through a function pointer
+-- loop in C, no call at all                        217285282         0.18       0.18       0.18                  0.127
+                                                   the floor: what the loop costs with the crossing removed
+-- C -> C through a function pointer                 27983966         1.42       1.41       1.43                  1.000
+                                                   a real indirect call, no interpreter. The second floor
+C extension: PyObject_CallFunctionObjArgs              524288        43.63      43.23      45.00                 30.817
+                                                   into the interpreter: a frame, an argument tuple, bytecode dispatch
+C extension abi3: PyObject_CallFunctionObjArgs         524288        43.51      42.97      44.57                 30.736
+PyO3: call1 on a Py<PyAny>                             524288        51.93      51.27      53.17                 36.684
+ctypes: a CFUNCTYPE callback                           280436       140.47     138.39     147.75                 99.219
+                                                   what README 9.1 says the design avoids
+cffi ABI mode: ffi.callback                             85659       236.20     233.17     268.01                166.842
+cffi API mode: extern "Python"                          87599       230.77     226.97     241.97                163.009
+                                                   compiled, but the callback still re-enters the interpreter
+
+## 3. reverse as a C-API call on a primitive (the design's default)
+arm                                                      reps    median ns        min        max
+floor                                               109443576         0.36       0.35       0.41
+PyLong_FromLongLong                                   2184223         8.70       8.40      11.25
+PyLong_AsLongLong                                     2793876        14.57      13.95      14.92
+PyUnicode_FromStringAndSize(36)                       1103390        13.43      13.26      13.57
+PyUnicode_DecodeUTF8(36)                              1485677        13.37      13.27      13.64
+PyUnicode_AsUTF8AndSize                              10753544         2.89       2.87       3.04
+PyUnicode_AsUTF8String                                1545305        12.35      12.01      12.97
+PyBytes_FromStringAndSize(16)                         1401520        12.79      12.44      14.05
+PyBytes_AsStringAndSize                              11243926         2.90       2.85       2.98
+PyBool_FromLong                                       6466272         2.84       2.81       2.93
+PyList_New(4)                                          967872        18.19      17.68      20.18
+PyList_SetItem                                        7698750         4.59       4.56       4.72
+PyList_SET_ITEM                                      12548509         1.74       1.62       1.96
+PyList_Append                                         3181888         5.71       5.42       5.91
+Py_BEGIN/END_ALLOW_THREADS                             524288        39.50      39.15      41.33
+PyObject_CallNoArgs(type)                              524288        44.70      42.47      62.26
+
+## 3c. the string path across the three content sets (design/SHAPES.md)
+arm                                                      reps    median ns        min        max
+ASCII         cached read                            11617874         2.91       2.89       3.09
+                                                   36 wire bytes
+ASCII         build + read                            1663096        16.44      16.03      17.45
+ASCII         build only                              2751644        13.55      13.44      13.71
+Latin-1       cached read                            10656216         3.56       3.53       3.64
+                                                   53 wire bytes
+Latin-1       build + read                             249546       155.59     154.72     170.75
+Latin-1       build only                               448900        88.09      86.16      89.23
+above U+00FF  cached read                            10751294         3.59       3.52       3.75
+                                                   70 wire bytes
+above U+00FF  build + read                             109981       182.60     181.03     194.61
+above U+00FF  build only                               192870       107.11     105.55     110.31
+
+## 3b. the same primitives, abi3 build (README 9.2)
+arm                                                      reps    median ns        min        max
+full API: PyLong_FromLongLong                         4313020         8.79       8.54      11.32
+abi3:     PyLong_FromLongLong                         4449910         8.63       8.40      11.19
+full API: PyUnicode_FromStringAndSize(36)             1499870        13.56      13.27      13.94
+abi3:     PyUnicode_FromStringAndSize(36)             1503270        13.49      13.23      14.72
+full API: PyUnicode_AsUTF8AndSize                    12678952         2.95       2.86       3.09
+abi3:     PyUnicode_AsUTF8AndSize                     6291503         3.20       3.17       3.67
+full API: PyBytes_FromStringAndSize(16)               3003840        12.81      12.62      15.04
+abi3:     PyBytes_FromStringAndSize(16)               1549527        12.66      12.47      13.99
+full API: PyList_SetItem                              8560586         4.58       4.54       4.63
+abi3:     PyList_SetItem                              4435840         4.55       4.44       4.69
+full API: PyList_Append                               4114276        10.41      10.08      10.63
+abi3:     PyList_Append                               4188082        10.19       9.56      10.56
+full API: PyObject_CallNoArgs(type)                    524288        44.69      42.55      46.06
+abi3:     PyObject_CallNoArgs(type)                    524288        44.73      42.65      46.75
+
+## 3d. the same primitives, PyO3 spelling against the C-API spelling
+arm                                                      reps    median ns        min        max
+C-API: PyLong_FromLongLong                            4626638         8.69       8.61      11.13
+PyO3:  PyLong_FromLongLong                            4411164         9.36       9.07      11.66
+C-API: PyLong_AsLongLong                              1422613        14.21      13.56      14.94
+PyO3:  PyLong_AsLongLong                              2612316         7.82       7.56       8.08
+C-API: PyUnicode_FromStringAndSize(36)                1515827        13.41      13.33      14.25
+PyO3:  PyUnicode_FromStringAndSize(36)                 966417        20.81      20.53      22.20
+C-API: PyUnicode_AsUTF8AndSize                       13421704         2.93       2.88       3.24
+PyO3:  PyUnicode_AsUTF8AndSize                        4764998         4.25       4.23       4.39
+C-API: PyBytes_FromStringAndSize(16)                  1534680        13.00      12.59      13.83
+PyO3:  PyBytes_FromStringAndSize(16)                  1428473        13.36      13.04      14.94
+C-API: PyList_New(4)                                  1094190        18.23      17.83      20.56
+PyO3:  PyList_New(4)                                  1942996        20.36      20.11      31.13
+C-API: PyList_Append                                  4228971        10.37      10.01      10.98
+PyO3:  PyList_Append                                  2806784         7.85       7.53       8.63
+C-API: PyObject_CallNoArgs(type)                       524288        44.19      42.92      48.18
+PyO3:  PyObject_CallNoArgs(type)                       524288        43.90      42.58      46.01
+
+## 4. a facade field read, as the shim sees it (README 9.1)
+arm                                                      reps    median ns        min        max / C extension type, struct member read
+-- loop floor (no read)                              56715058         0.36       0.35       0.37                  0.945
+plain class, PyObject_GetAttr                         1929341        10.38      10.25      10.82                 27.132
+                                                   a dict lookup
+__slots__ class, PyObject_GetAttr                     3373474        11.83      11.70      12.03                 30.921
+                                                   a descriptor with an offset
+C extension type, PyObject_GetAttr                    1697525        11.82      11.64      12.29                 30.891
+                                                   a member descriptor: still a crossing
+C extension type, struct member read                 53396809         0.38       0.38       0.39                  1.000
+                                                   not a crossing at all: the shim casts and loads
+C extension type, struct member read (int64)         53294147         0.38       0.38       0.42                  0.995
+                                                   an unboxed scalar: no PyLong on either side
+plain class, PyObject_GetAttrString                    524288        57.25      56.54      59.62                149.672
+                                                   the spelling that rebuilds the name string on every call
+PyO3 .getattr(), plain class                          1790388        11.19      10.99      11.26                 29.256
+PyO3 .getattr(), __slots__ class                      1612787        12.47      12.36      13.68                 32.616
+-- pure Python: o.session_id (plain)                  2122212        17.52      17.24      18.38                 45.811
+                                                   bytecode, no crossing. The control for this group
+-- pure Python: o.session_id (__slots__)              1105516        17.34      17.00      19.51                 45.344
+-- pure Python: 4x o.session_id (plain)                524288        38.74      38.35      40.73                101.275
+                                                   marginal read = (this - the 1x row) / 3, loop cancelled
+

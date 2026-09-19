@@ -1,0 +1,214 @@
+# python slice, work unit 1: conformance and crossing counts
+#
+# date:      2026-09-19T07:23:02Z
+# machine:   4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
+# commit:    d7c5a04
+# R13:       this machine's Rust crossing is 2.1 ns (fwd+reverse) to 2.8 ns
+#            (forward), against 1.8 ns on the Rust slice's container.
+#            See 00-r13-rust-crossing.log. Quote every absolute below
+#            against it as well as in nanoseconds.
+
+########## 3.11.15 ##########
+# python slice, work unit 1: conformance (README R2)
+# interpreter: 3.11.15
+# manifest:    VALIDATED against prost 0
+
+## the generated tree is current with shapes.json (R1)
+   generated tree is current with shapes.json
+
+## byte identity, every arm, against the validated manifest
+   P1.1       858 bytes  sha 5df5eb5f3f51ae92  (4 elements)
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    cshim getattr / plain
+        ok    cshim getattr / __slots__
+        ok    cshim member / C ext type
+        ok    cshim pyacc (python fn) / plain
+        ok    cshim pyacc (C attrgetter) / plain
+   P1.2    218121 bytes  sha eed4817ef84c1f7b  (1000 elements)
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    cshim getattr / plain
+        ok    cshim getattr / __slots__
+        ok    cshim member / C ext type
+        ok    cshim pyacc (python fn) / plain
+        ok    cshim pyacc (C attrgetter) / plain
+   P1.3       605 bytes  sha 7634c22567e88be4  (300 elements, all_absent)
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    cshim getattr / plain
+        ok    cshim getattr / __slots__
+        ok    cshim member / C ext type
+        ok    cshim pyacc (python fn) / plain
+        ok    cshim pyacc (C attrgetter) / plain
+
+## crossing counts, from the counting build (README R5)
+   payload backend                        crossings into CPython
+   P1.1   getattr / plain                    121 total,  30.25 per element  C-API value read=54, PyList_GetItem=4, PyObject_GetAttr=63
+   P1.1   member / C ext type                 28 total,   7.00 per element  C-API value read=24, PyList_GetItem=4
+   P1.1   pyacc / plain                      121 total,  30.25 per element  C-API value read=54, PyList_GetItem=4, call into Python=63
+   P1.2   getattr / plain                  29005 total,  29.00 per element  C-API value read=13002, PyList_GetItem=1000, PyObject_GetAttr=15003
+   P1.2   member / C ext type               7000 total,   7.00 per element  C-API value read=6000, PyList_GetItem=1000
+   P1.2   pyacc / plain                    29005 total,  29.00 per element  C-API value read=13002, PyList_GetItem=1000, call into Python=15003
+   P1.3   getattr / plain                   6305 total,  21.02 per element  C-API value read=2702, PyList_GetItem=300, PyObject_GetAttr=3303
+   P1.3   member / C ext type               2100 total,   7.00 per element  C-API value read=1800, PyList_GetItem=300
+   P1.3   pyacc / plain                     6305 total,  21.02 per element  C-API value read=2702, PyList_GetItem=300, call into Python=3303
+
+ALL CHECKS PASS
+
+########## 3.10.20 ##########
+# python slice, work unit 1: conformance (README R2)
+# interpreter: 3.10.20
+# manifest:    VALIDATED against prost 0
+
+## the generated tree is current with shapes.json (R1)
+   generated tree is current with shapes.json
+
+## byte identity, every arm, against the validated manifest
+   P1.1       858 bytes  sha 5df5eb5f3f51ae92  (4 elements)
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    cshim getattr / plain
+        ok    cshim getattr / __slots__
+        ok    cshim member / C ext type
+        ok    cshim pyacc (python fn) / plain
+        ok    cshim pyacc (C attrgetter) / plain
+   P1.2    218121 bytes  sha eed4817ef84c1f7b  (1000 elements)
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    cshim getattr / plain
+        ok    cshim getattr / __slots__
+        ok    cshim member / C ext type
+        ok    cshim pyacc (python fn) / plain
+        ok    cshim pyacc (C attrgetter) / plain
+   P1.3       605 bytes  sha 7634c22567e88be4  (300 elements, all_absent)
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    cshim getattr / plain
+        ok    cshim getattr / __slots__
+        ok    cshim member / C ext type
+        ok    cshim pyacc (python fn) / plain
+        ok    cshim pyacc (C attrgetter) / plain
+
+## crossing counts, from the counting build (README R5)
+   payload backend                        crossings into CPython
+   P1.1   getattr / plain                    121 total,  30.25 per element  C-API value read=54, PyList_GetItem=4, PyObject_GetAttr=63
+   P1.1   member / C ext type                 28 total,   7.00 per element  C-API value read=24, PyList_GetItem=4
+   P1.1   pyacc / plain                      121 total,  30.25 per element  C-API value read=54, PyList_GetItem=4, call into Python=63
+   P1.2   getattr / plain                  29005 total,  29.00 per element  C-API value read=13002, PyList_GetItem=1000, PyObject_GetAttr=15003
+   P1.2   member / C ext type               7000 total,   7.00 per element  C-API value read=6000, PyList_GetItem=1000
+   P1.2   pyacc / plain                    29005 total,  29.00 per element  C-API value read=13002, PyList_GetItem=1000, call into Python=15003
+   P1.3   getattr / plain                   6305 total,  21.02 per element  C-API value read=2702, PyList_GetItem=300, PyObject_GetAttr=3303
+   P1.3   member / C ext type               2100 total,   7.00 per element  C-API value read=1800, PyList_GetItem=300
+   P1.3   pyacc / plain                     6305 total,  21.02 per element  C-API value read=2702, PyList_GetItem=300, call into Python=3303
+
+ALL CHECKS PASS
+
+########## 3.12.3 ##########
+# python slice, work unit 1: conformance (README R2)
+# interpreter: 3.12.3
+# manifest:    VALIDATED against prost 0
+
+## the generated tree is current with shapes.json (R1)
+   generated tree is current with shapes.json
+
+## byte identity, every arm, against the validated manifest
+   P1.1       858 bytes  sha 5df5eb5f3f51ae92  (4 elements)
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    cshim getattr / plain
+        ok    cshim getattr / __slots__
+        ok    cshim member / C ext type
+        ok    cshim pyacc (python fn) / plain
+        ok    cshim pyacc (C attrgetter) / plain
+   P1.2    218121 bytes  sha eed4817ef84c1f7b  (1000 elements)
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    cshim getattr / plain
+        ok    cshim getattr / __slots__
+        ok    cshim member / C ext type
+        ok    cshim pyacc (python fn) / plain
+        ok    cshim pyacc (C attrgetter) / plain
+   P1.3       605 bytes  sha 7634c22567e88be4  (300 elements, all_absent)
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    cshim getattr / plain
+        ok    cshim getattr / __slots__
+        ok    cshim member / C ext type
+        ok    cshim pyacc (python fn) / plain
+        ok    cshim pyacc (C attrgetter) / plain
+
+## crossing counts, from the counting build (README R5)
+   payload backend                        crossings into CPython
+   P1.1   getattr / plain                    121 total,  30.25 per element  C-API value read=54, PyList_GetItem=4, PyObject_GetAttr=63
+   P1.1   member / C ext type                 28 total,   7.00 per element  C-API value read=24, PyList_GetItem=4
+   P1.1   pyacc / plain                      121 total,  30.25 per element  C-API value read=54, PyList_GetItem=4, call into Python=63
+   P1.2   getattr / plain                  29005 total,  29.00 per element  C-API value read=13002, PyList_GetItem=1000, PyObject_GetAttr=15003
+   P1.2   member / C ext type               7000 total,   7.00 per element  C-API value read=6000, PyList_GetItem=1000
+   P1.2   pyacc / plain                    29005 total,  29.00 per element  C-API value read=13002, PyList_GetItem=1000, call into Python=15003
+   P1.3   getattr / plain                   6305 total,  21.02 per element  C-API value read=2702, PyList_GetItem=300, PyObject_GetAttr=3303
+   P1.3   member / C ext type               2100 total,   7.00 per element  C-API value read=1800, PyList_GetItem=300
+   P1.3   pyacc / plain                     6305 total,  21.02 per element  C-API value read=2702, PyList_GetItem=300, call into Python=3303
+
+ALL CHECKS PASS
+
+########## 3.13.12 ##########
+# python slice, work unit 1: conformance (README R2)
+# interpreter: 3.13.12
+# manifest:    VALIDATED against prost 0
+
+## the generated tree is current with shapes.json (R1)
+   generated tree is current with shapes.json
+
+## byte identity, every arm, against the validated manifest
+   P1.1       858 bytes  sha 5df5eb5f3f51ae92  (4 elements)
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    cshim getattr / plain
+        ok    cshim getattr / __slots__
+        ok    cshim member / C ext type
+        ok    cshim pyacc (python fn) / plain
+        ok    cshim pyacc (C attrgetter) / plain
+   P1.2    218121 bytes  sha eed4817ef84c1f7b  (1000 elements)
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    cshim getattr / plain
+        ok    cshim getattr / __slots__
+        ok    cshim member / C ext type
+        ok    cshim pyacc (python fn) / plain
+        ok    cshim pyacc (C attrgetter) / plain
+   P1.3       605 bytes  sha 7634c22567e88be4  (300 elements, all_absent)
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    cshim getattr / plain
+        ok    cshim getattr / __slots__
+        ok    cshim member / C ext type
+        ok    cshim pyacc (python fn) / plain
+        ok    cshim pyacc (C attrgetter) / plain
+
+## crossing counts, from the counting build (README R5)
+   payload backend                        crossings into CPython
+   P1.1   getattr / plain                    121 total,  30.25 per element  C-API value read=54, PyList_GetItem=4, PyObject_GetAttr=63
+   P1.1   member / C ext type                 28 total,   7.00 per element  C-API value read=24, PyList_GetItem=4
+   P1.1   pyacc / plain                      121 total,  30.25 per element  C-API value read=54, PyList_GetItem=4, call into Python=63
+   P1.2   getattr / plain                  29005 total,  29.00 per element  C-API value read=13002, PyList_GetItem=1000, PyObject_GetAttr=15003
+   P1.2   member / C ext type               7000 total,   7.00 per element  C-API value read=6000, PyList_GetItem=1000
+   P1.2   pyacc / plain                    29005 total,  29.00 per element  C-API value read=13002, PyList_GetItem=1000, call into Python=15003
+   P1.3   getattr / plain                   6305 total,  21.02 per element  C-API value read=2702, PyList_GetItem=300, PyObject_GetAttr=3303
+   P1.3   member / C ext type               2100 total,   7.00 per element  C-API value read=1800, PyList_GetItem=300
+   P1.3   pyacc / plain                     6305 total,  21.02 per element  C-API value read=2702, PyList_GetItem=300, call into Python=3303
+
+ALL CHECKS PASS
+

@@ -1,0 +1,18 @@
+# The repository-wide .gitignore excludes any directory named `gen` (line 397),
+# which is why `ffi/.gitignore` re-includes `poc/*/gen/**`. This slice's
+# generator sits one level deeper (`poc/python/mech/gen/`), where that
+# re-inclusion does not reach, so it is re-included here instead. Checked with
+# `git check-ignore`, which is the rule `ffi/.gitignore` states after the same
+# word cost three sessions.
+#
+# It matters more than it looks: README R4's last paragraph is that a figure
+# whose harness is not in the tree cannot be defended at all, and the Rust
+# slice's withdrawn encode column is what that cost. `gen/out/**` is emitted
+# source and every measured artifact is compiled from it, so it is committed.
+!mech/gen/
+!mech/gen/**
+
+# Build output, and only build output.
+mech/build/
+mech/pyo3/target/
+__pycache__/

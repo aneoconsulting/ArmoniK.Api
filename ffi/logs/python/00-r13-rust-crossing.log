@@ -1,0 +1,161 @@
+# R13 calibration: the Rust slice's crossing benchmark, run on the PYTHON slice's machine
+#
+# Why this log exists: README R13. Absolutes do not travel between containers. The
+# 1.8 ns crossing figure in README section 2 is a fact about the container the Rust
+# slice ran in. This log is the same benchmark, same sources, on THIS machine, so that
+# every absolute the python slice reports can also be quoted as a multiple of it.
+#
+# date:        2026-09-19T06:56:21Z
+# machine:     4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz, 15 GiB
+# kernel:      6.18.44-fc-v37
+# toolchain:   rustc 1.94.1 (e408947bf 2026-03-25)
+# sources:     ffi/poc/rust @ d7c5a04, unmodified
+# build:       cargo build --release -p harness --bin bench   (default features: guard ON)
+# linkage:     libak_core.so, a cdylib, reached through the dynamic linker
+# filter:      AK_BENCH_ONLY=P1.1 -- the crossing rows are retained unconditionally by
+#              bench.rs, and P1.1 is kept as the cheapest in-process company for them.
+#              A filtered run is as valid as a full one for the rows it keeps.
+
+===== the boundary is real (README R5): entry points are unresolved imports =====
+                 U ak_abi_version
+                 U ak_blob_run
+                 U ak_dec_ctx_free
+                 U ak_dec_ctx_new
+                 U ak_decode_ListMetricsResponse
+                 U ak_decode_ListProbeResponse
+                 U ak_decode_ListResultsResponse
+                 U ak_decode_ListTaskSummaryResponse
+                 U ak_decode_ListTasksDetailedResponse
+                 U ak_decode_UploadResultDataMessage
+                 U ak_elem_Probe
+                 U ak_elem_ResultRaw
+                 U ak_elem_TaskOptionsOptionsEntry
+                 U ak_elemu_MetricsBatch
+                 U ak_elemu_TaskDetailed
+                 U ak_elemu_TaskSummary
+                 U ak_enc_ctx_free
+                 U ak_enc_ctx_new
+                 U ak_enc_reset
+                 U ak_enc_take
+                 U ak_encode_ListMetricsResponse
+                 U ak_encode_ListProbeResponse
+                 U ak_encode_ListResultsResponse
+                 U ak_encode_ListTaskSummaryResponse
+                 U ak_encode_ListTasksDetailedResponse
+                 U ak_encode_UploadResultDataMessage
+                 U ak_fail
+                 U ak_noop
+                 U ak_noop_reverse
+                 U ak_run_f64
+                 U ak_run_i32
+                 U ak_run_i64
+                 U ak_run_u8
+                 U ak_tc_bytes
+                 U ak_tc_utf8
+                 U ak_tc_utf8_trusted
+
+ 0x0000000000000001 (NEEDED)             Shared library: [libak_core.so]
+
+===== three separate processes =====
+--- run 1 ---
+# stage 2 timings
+#   arms:   prost | armonik | core-native | core-ffi-rust, one process
+#   guard:  ON (ABI v1 section 5)
+#   counting build: no
+#   rounds: 15, interleaved; per-round target 25 ms
+#   shapes: M1 (P1.x) and M2 (P2.x), both REAL messages. No control rows here:
+#           M6 and M7 are the controls in design/SHAPES.md and are not built yet.
+
+#   filtered: AK_BENCH_ONLY=P1.1 (11 cases)
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+
+P1.1    encode    prost                     34818        778.2        731.8        801.2      1.000
+P1.1    encode    armonik                   34818        806.2        770.1        847.1      1.036
+P1.1    encode    core-native               99206        254.6        246.4        260.5      0.327
+P1.1    encode    core-ffi-rust             63938        396.7        392.4        403.8      0.510
+P1.1    encode    core-ffi (valid utf8)     48732        517.1        510.2        524.4      0.665
+
+P1.1    decode    prost                     15664       1593.0       1577.5       1646.2      1.000
+P1.1    decode    armonik                   14220       1774.7       1754.3       1872.2      1.114
+P1.1    decode    core-native               15903       1627.6       1607.2       1711.7      1.022
+P1.1    decode    core-ffi-rust             14688       1695.7       1668.0       2082.1      1.064
+
+-       crossing  forward (no-op)        12500000          2.8          2.8          3.0          -
+-       crossing  fwd+reverse (no-op)    12500000          2.1          2.1          2.2          -
+
+# ABI v1 open decision 5: what the grow path costs, isolated
+
+arm                         P2.4 ns     P2.4a ns     P2.4b ns  mean(a,b)    excess
+
+# prost's excess is the floor: it has no learned width, so its number is what
+# this construction costs on its own. The mechanism's cost is the difference
+# between a core arm's excess and prost's.
+
+--- run 2 ---
+# stage 2 timings
+#   arms:   prost | armonik | core-native | core-ffi-rust, one process
+#   guard:  ON (ABI v1 section 5)
+#   counting build: no
+#   rounds: 15, interleaved; per-round target 25 ms
+#   shapes: M1 (P1.x) and M2 (P2.x), both REAL messages. No control rows here:
+#           M6 and M7 are the controls in design/SHAPES.md and are not built yet.
+
+#   filtered: AK_BENCH_ONLY=P1.1 (11 cases)
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+
+P1.1    encode    prost                     30902        749.9        701.8        803.3      1.000
+P1.1    encode    armonik                   31847        789.2        744.2        838.6      1.052
+P1.1    encode    core-native               98814        255.0        250.5        263.5      0.340
+P1.1    encode    core-ffi-rust             62189        394.5        390.2        399.9      0.526
+P1.1    encode    core-ffi (valid utf8)     47801        516.1        511.1        526.7      0.688
+
+P1.1    decode    prost                     15299       1614.4       1599.0       1667.7      1.000
+P1.1    decode    armonik                   13751       1792.6       1773.1       2233.2      1.110
+P1.1    decode    core-native               15703       1626.1       1600.8       1850.5      1.007
+P1.1    decode    core-ffi-rust             14697       1720.9       1693.0       1901.2      1.066
+
+-       crossing  forward (no-op)        12500000          2.8          2.8          2.9          -
+-       crossing  fwd+reverse (no-op)    12500000          2.1          2.1          2.2          -
+
+# ABI v1 open decision 5: what the grow path costs, isolated
+
+arm                         P2.4 ns     P2.4a ns     P2.4b ns  mean(a,b)    excess
+
+# prost's excess is the floor: it has no learned width, so its number is what
+# this construction costs on its own. The mechanism's cost is the difference
+# between a core arm's excess and prost's.
+
+--- run 3 ---
+# stage 2 timings
+#   arms:   prost | armonik | core-native | core-ffi-rust, one process
+#   guard:  ON (ABI v1 section 5)
+#   counting build: no
+#   rounds: 15, interleaved; per-round target 25 ms
+#   shapes: M1 (P1.x) and M2 (P2.x), both REAL messages. No control rows here:
+#           M6 and M7 are the controls in design/SHAPES.md and are not built yet.
+
+#   filtered: AK_BENCH_ONLY=P1.1 (11 cases)
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+
+P1.1    encode    prost                     30750        769.7        734.8        896.2      1.000
+P1.1    encode    armonik                   32425        833.1        798.4        891.6      1.082
+P1.1    encode    core-native               98425        255.6        252.3        262.0      0.332
+P1.1    encode    core-ffi-rust             64102        395.4        391.0        408.7      0.514
+P1.1    encode    core-ffi (valid utf8)     48076        513.8        508.5        529.5      0.668
+
+P1.1    decode    prost                     15527       1604.2       1586.6       1715.7      1.000
+P1.1    decode    armonik                   13896       1798.3       1776.3       1903.2      1.121
+P1.1    decode    core-native               15883       1632.2       1610.2       1695.0      1.017
+P1.1    decode    core-ffi-rust             14827       1688.4       1662.8       1788.1      1.053
+
+-       crossing  forward (no-op)        12500000          2.8          2.8          2.9          -
+-       crossing  fwd+reverse (no-op)    12500000          2.1          2.1          2.2          -
+
+# ABI v1 open decision 5: what the grow path costs, isolated
+
+arm                         P2.4 ns     P2.4a ns     P2.4b ns  mean(a,b)    excess
+
+# prost's excess is the floor: it has no learned width, so its number is what
+# this construction costs on its own. The mechanism's cost is the difference
+# between a core arm's excess and prost's.
+
