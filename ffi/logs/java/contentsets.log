@@ -1,0 +1,55 @@
+== the three content sets, on P1.2 and P2.2 ==
+# ASCII is the manifest's set. LATIN1 is one code point per character in U+00A0 to
+# U+00FF, which a JVM String still stores compactly. Above U+00FF is U+4E00 and up,
+# inside the BMP so still one char per code point, and it is where a JVM String
+# becomes UTF16 -- so the binding stages twice the bytes and the core runs a
+# different transcoder.
+
+### content set 0, P1.2
+content set: ASCII (design/SHAPES.md's default; every id in the real schema is an ASCII GUID)
+id     bytes    base ns/op  pbj-reused-out        pbj-parsed            pbj-loop              pbj-reuse             pbj-det               R                     ffi                   ffi-nobatch           ffi-zeroed            R-take                ffi-take              
+P1.2   218121   478314.1    0.426 0.547 1.615     0.802 1.021 1.669     0.457 0.567 0.941     0.383 0.501 0.830     0.407 0.498 0.829     0.764 0.819 1.705     0.614 0.709 1.668     0.498 0.637 1.231     0.523 0.647 1.091     0.645 0.866 1.403     0.527 0.763 4.447     
+
+id     bytes    base ns/op  R                     ffi                   ffi-borrow            
+P1.2   218121   249668.2    0.771 0.966 1.309     0.666 0.820 1.035     0.570 0.664 0.887     
+
+### content set 0, P2.2
+content set: ASCII (design/SHAPES.md's default; every id in the real schema is an ASCII GUID)
+id     bytes    base ns/op  pbj-reused-out        pbj-parsed            pbj-loop              pbj-reuse             pbj-det               R                     ffi                   ffi-nobatch           ffi-zeroed            R-take                ffi-take              
+P2.2   540422   2185136.0   0.421 0.648 1.950     0.730 1.032 1.783     0.321 0.534 0.865     0.360 0.469 0.790     0.286 0.486 0.792     0.567 1.001 1.736     0.474 0.812 1.418     0.554 0.891 1.551     0.489 0.775 1.301     0.433 0.844 1.436     0.514 0.800 1.423     
+
+id     bytes    base ns/op  R                     ffi                   ffi-borrow            
+P2.2   540422   1002537.1   0.733 0.879 0.955     1.232 1.484 1.699     1.087 1.377 1.695     
+
+### content set 1, P1.2
+content set: LATIN1 but not ASCII -- one code point per input character, U+00A0 to U+00FF. On the JVM this is still the compact coder, so the target's fast path applies and the CORE's transcoder changes from latin1 to latin1 with two-byte output
+id     bytes    base ns/op  pbj-reused-out        pbj-parsed            pbj-loop              pbj-reuse             pbj-det               R                     ffi                   ffi-nobatch           ffi-zeroed            R-take                ffi-take              
+P1.2   218121   613714.7    0.566 0.602 1.663     0.934 1.008 1.522     0.587 0.649 0.947     0.525 0.555 0.845     0.511 0.549 0.958     0.810 0.926 1.853     0.617 0.664 1.282     0.531 0.582 0.946     0.546 0.614 1.087     0.932 0.985 1.481     0.621 0.734 1.054     
+
+id     bytes    base ns/op  R                     ffi                   ffi-borrow            
+P1.2   218121   470196.6    0.919 0.996 1.133     0.814 0.932 1.140     0.456 0.483 0.540     
+
+### content set 1, P2.2
+content set: LATIN1 but not ASCII -- one code point per input character, U+00A0 to U+00FF. On the JVM this is still the compact coder, so the target's fast path applies and the CORE's transcoder changes from latin1 to latin1 with two-byte output
+id     bytes    base ns/op  pbj-reused-out        pbj-parsed            pbj-loop              pbj-reuse             pbj-det               R                     ffi                   ffi-nobatch           ffi-zeroed            R-take                ffi-take              
+P2.2   540422   2906706.8   0.432 0.582 1.834     0.760 1.023 1.915     0.427 0.587 1.128     0.355 0.484 0.808     0.385 0.493 0.836     0.658 0.845 1.475     0.516 0.684 1.341     0.574 0.696 1.398     0.500 0.676 1.208     0.666 0.856 1.558     0.641 0.751 1.488     
+
+id     bytes    base ns/op  R                     ffi                   ffi-borrow            
+P2.2   540422   1666800.6   0.683 1.008 1.201     0.918 1.401 1.655     0.628 0.937 1.501     
+
+### content set 2, P1.2
+content set: above U+00FF -- U+4E00 and up, inside the BMP so one char per code point. This is where a JVM String stops being LATIN1, so the binding's staging doubles and the core transcodes UTF-16
+id     bytes    base ns/op  pbj-reused-out        pbj-parsed            pbj-loop              pbj-reuse             pbj-det               R                     ffi                   ffi-nobatch           ffi-zeroed            R-take                ffi-take              
+P1.2   218121   1332572.3   0.346 0.557 1.718     0.628 1.033 1.639     0.369 0.606 0.977     0.325 0.541 1.135     0.370 0.545 0.994     0.274 0.469 0.846     0.299 0.512 0.968     0.274 0.465 0.804     0.282 0.470 0.887     0.301 0.481 0.827     0.368 0.551 0.905     
+
+id     bytes    base ns/op  R                     ffi                   ffi-borrow            
+P1.2   218121   860444.7    0.609 0.722 1.877     0.592 0.694 0.796     0.462 0.524 0.586     
+
+### content set 2, P2.2
+content set: above U+00FF -- U+4E00 and up, inside the BMP so one char per code point. This is where a JVM String stops being LATIN1, so the binding's staging doubles and the core transcodes UTF-16
+id     bytes    base ns/op  pbj-reused-out        pbj-parsed            pbj-loop              pbj-reuse             pbj-det               R                     ffi                   ffi-nobatch           ffi-zeroed            R-take                ffi-take              
+P2.2   540422   5003982.8   0.341 0.526 1.762     0.739 1.028 1.929     0.346 0.554 0.918     0.344 0.529 1.220     0.364 0.531 0.952     0.310 0.509 0.963     0.357 0.534 1.086     0.430 0.562 1.488     0.332 0.549 0.896     0.280 0.443 0.946     0.378 0.609 1.027     
+
+id     bytes    base ns/op  R                     ffi                   ffi-borrow            
+P2.2   540422   2507696.3   0.594 0.786 0.902     0.819 1.049 1.260     0.650 0.865 1.122     
+
