@@ -1,0 +1,165 @@
+R13 calibration: the Rust slice's crossing benchmark, run on the C# slice's container.
+
+date:        2026-09-19T06:55:39Z
+machine:     4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
+memory:      15 GiB
+kernel:      6.18.44-fc-v37
+rustc:       rustc 1.94.1 (e408947bf 2026-03-25)
+build:       cargo build --release -p harness; workspace has no [profile.release], so lto=false; cdylib boundary
+commit:      d7c5a04717c12acf66ed3e978f4a6f629090795f
+filter:      AK_BENCH_ONLY=__none__  (keeps only dir=="crossing": no payload cases)
+
+The two crossing cases are ak_noop (forward) and ak_noop_reverse (forward plus one
+reverse call), both through the real libak_core.so dynamic boundary. This is the
+number every absolute in the C# slice is quoted as a multiple of.
+
+===== the boundary is a real dynamic import =====
+                 U ak_abi_version
+                 U ak_blob_run
+                 U ak_dec_ctx_free
+                 U ak_dec_ctx_new
+                 U ak_decode_ListMetricsResponse
+                 U ak_decode_ListProbeResponse
+                 U ak_decode_ListResultsResponse
+                 U ak_decode_ListTaskSummaryResponse
+                 U ak_decode_ListTasksDetailedResponse
+                 U ak_decode_UploadResultDataMessage
+                 U ak_elem_Probe
+                 U ak_elem_ResultRaw
+                 U ak_elem_TaskOptionsOptionsEntry
+                 U ak_elemu_MetricsBatch
+                 U ak_elemu_TaskDetailed
+                 U ak_elemu_TaskSummary
+                 U ak_enc_ctx_free
+                 U ak_enc_ctx_new
+                 U ak_enc_reset
+                 U ak_enc_take
+                 U ak_encode_ListMetricsResponse
+                 U ak_encode_ListProbeResponse
+                 U ak_encode_ListResultsResponse
+                 U ak_encode_ListTaskSummaryResponse
+                 U ak_encode_ListTasksDetailedResponse
+                 U ak_encode_UploadResultDataMessage
+                 U ak_fail
+                 U ak_noop
+                 U ak_noop_reverse
+                 U ak_run_f64
+                 U ak_run_i32
+                 U ak_run_i64
+                 U ak_run_u8
+                 U ak_tc_bytes
+                 U ak_tc_utf8
+                 U ak_tc_utf8_trusted
+
+ 0x0000000000000001 (NEEDED)             Shared library: [libak_core.so]
+
+--- run 1 ---
+# stage 2 timings
+#   arms:   prost | armonik | core-native | core-ffi-rust, one process
+#   guard:  ON (ABI v1 section 5)
+#   counting build: no
+#   rounds: 15, interleaved; per-round target 25 ms
+#   shapes: M1 (P1.x) and M2 (P2.x), both REAL messages. No control rows here:
+#           M6 and M7 are the controls in design/SHAPES.md and are not built yet.
+
+#   filtered: AK_BENCH_ONLY=__none__ (2 cases)
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+
+-       crossing  forward (no-op)        20000000          1.8          1.8          1.8          -
+-       crossing  fwd+reverse (no-op)    12500000          2.1          2.1          2.1          -
+
+# ABI v1 open decision 5: what the grow path costs, isolated
+
+arm                         P2.4 ns     P2.4a ns     P2.4b ns  mean(a,b)    excess
+
+# prost's excess is the floor: it has no learned width, so its number is what
+# this construction costs on its own. The mechanism's cost is the difference
+# between a core arm's excess and prost's.
+--- run 2 ---
+# stage 2 timings
+#   arms:   prost | armonik | core-native | core-ffi-rust, one process
+#   guard:  ON (ABI v1 section 5)
+#   counting build: no
+#   rounds: 15, interleaved; per-round target 25 ms
+#   shapes: M1 (P1.x) and M2 (P2.x), both REAL messages. No control rows here:
+#           M6 and M7 are the controls in design/SHAPES.md and are not built yet.
+
+#   filtered: AK_BENCH_ONLY=__none__ (2 cases)
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+
+-       crossing  forward (no-op)        20000000          1.8          1.8          3.5          -
+-       crossing  fwd+reverse (no-op)    12500000          2.1          2.1          3.2          -
+
+# ABI v1 open decision 5: what the grow path costs, isolated
+
+arm                         P2.4 ns     P2.4a ns     P2.4b ns  mean(a,b)    excess
+
+# prost's excess is the floor: it has no learned width, so its number is what
+# this construction costs on its own. The mechanism's cost is the difference
+# between a core arm's excess and prost's.
+--- run 3 ---
+# stage 2 timings
+#   arms:   prost | armonik | core-native | core-ffi-rust, one process
+#   guard:  ON (ABI v1 section 5)
+#   counting build: no
+#   rounds: 15, interleaved; per-round target 25 ms
+#   shapes: M1 (P1.x) and M2 (P2.x), both REAL messages. No control rows here:
+#           M6 and M7 are the controls in design/SHAPES.md and are not built yet.
+
+#   filtered: AK_BENCH_ONLY=__none__ (2 cases)
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+
+-       crossing  forward (no-op)        20000000          1.8          1.8          1.9          -
+-       crossing  fwd+reverse (no-op)    12500000          2.1          2.1          2.2          -
+
+# ABI v1 open decision 5: what the grow path costs, isolated
+
+arm                         P2.4 ns     P2.4a ns     P2.4b ns  mean(a,b)    excess
+
+# prost's excess is the floor: it has no learned width, so its number is what
+# this construction costs on its own. The mechanism's cost is the difference
+# between a core arm's excess and prost's.
+--- run 4 ---
+# stage 2 timings
+#   arms:   prost | armonik | core-native | core-ffi-rust, one process
+#   guard:  ON (ABI v1 section 5)
+#   counting build: no
+#   rounds: 15, interleaved; per-round target 25 ms
+#   shapes: M1 (P1.x) and M2 (P2.x), both REAL messages. No control rows here:
+#           M6 and M7 are the controls in design/SHAPES.md and are not built yet.
+
+#   filtered: AK_BENCH_ONLY=__none__ (2 cases)
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+
+-       crossing  forward (no-op)        20000000          1.8          1.8          1.8          -
+-       crossing  fwd+reverse (no-op)    12500000          2.1          2.1          2.2          -
+
+# ABI v1 open decision 5: what the grow path costs, isolated
+
+arm                         P2.4 ns     P2.4a ns     P2.4b ns  mean(a,b)    excess
+
+# prost's excess is the floor: it has no learned width, so its number is what
+# this construction costs on its own. The mechanism's cost is the difference
+# between a core arm's excess and prost's.
+--- run 5 ---
+# stage 2 timings
+#   arms:   prost | armonik | core-native | core-ffi-rust, one process
+#   guard:  ON (ABI v1 section 5)
+#   counting build: no
+#   rounds: 15, interleaved; per-round target 25 ms
+#   shapes: M1 (P1.x) and M2 (P2.x), both REAL messages. No control rows here:
+#           M6 and M7 are the controls in design/SHAPES.md and are not built yet.
+
+#   filtered: AK_BENCH_ONLY=__none__ (2 cases)
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+
+-       crossing  forward (no-op)        20000000          1.8          1.8          2.0          -
+-       crossing  fwd+reverse (no-op)    12500000          2.1          2.1          2.1          -
+
+# ABI v1 open decision 5: what the grow path costs, isolated
+
+arm                         P2.4 ns     P2.4a ns     P2.4b ns  mean(a,b)    excess
+
+# prost's excess is the floor: it has no learned width, so its number is what
+# this construction costs on its own. The mechanism's cost is the difference
+# between a core arm's excess and prost's.

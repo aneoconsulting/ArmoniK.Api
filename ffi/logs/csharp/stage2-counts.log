@@ -1,0 +1,97 @@
+Stage 2: crossing counts, and ABI v1 open decision 5 on .NET.
+
+commit:   87a2e39b0c2cc28adbb05ab70b198f7b132828f3
+machine:  4 vCPU Intel(R) Xeon(R) Processor @ 2.80GHz, 15 GiB, 6.18.44-fc-v37
+sdk:      8.0.131;  mono: Mono JIT compiler version 6.8.0.105
+incumbent: Google.Protobuf 3.28.3, codegen Grpc.Tools 2.66.0
+
+RE-TAKEN after JOURNAL.md entry 14. Two handicaps were found in this slice's
+own incumbent arms and both are fixed here:
+  * the encode baseline gp-writeto paid a top-level CalculateSize to size its
+    span. gp-bufferwriter is the same official API family with no size pass at
+    all, over a reused BufWriter that RESETS rather than clearing;
+  * the decode baseline gp-parse ended with m.CalculateSize(), a full traversal
+    of the decoded tree, while managed-parse returned a free offset. BOTH arms
+    now park the graph in a static sink and return an O(1) value.
+Every timing figure this slice published before 87a2e39b0c2cc28adbb05ab70b198f7b132828f3 is superseded.
+
+build: /p:AkCount=true, the COUNTING build. The per-site store is behind
+AK_COUNT and is not in the build the timings come from.
+
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/Generated/BuildGp.cs(9,7): warning CS8981: The type name 'pb' only contains lower-cased ascii characters. Such names may become reserved for the language. [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/Harness.csproj]
+Build succeeded.
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/Generated/BuildGp.cs(9,7): warning CS8981: The type name 'pb' only contains lower-cased ascii characters. Such names may become reserved for the language. [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/Harness.csproj]
+    1 Warning(s)
+    0 Error(s)
+Time Elapsed 00:00:07.35
+# harness: counts
+# utc:                 2026-09-19T11:42:12Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+Boundary crossings per payload per direction, every arm in this slice:
+
+    gp-tobytearray   0     managed         0
+    gp-writeto       0     managed-2pass   0
+    gp-parse         0     managed-parse   0
+
+  Not an estimate and not an omission: there is no boundary in any of them.
+  The core-ffi arm, which is the one R5's counts are about, is not built.
+
+ABI v1 open decision 5: the learned length-placeholder width, and its misses.
+
+payload  elements     bytes   cold misses   warm misses   warm bytes moved   grows
+--------------------------------------------------------------------------------------------------
+P1.1            4       858             1             0                  0       0
+P1.2         1000    218121             1             0                  0       0
+P1.3          300       605             0             0                  0       0
+P2.1            1      1037             2             0                  0       0
+P2.2          500    540422             2             0                  0       0
+P2.3          125    647024             2             0                  0       0
+P2.4           80    979465            81            80             979181       0
+P2.5           20     19632             2             0                  0       0
+P3.1          200     12097             0             0                  0       0
+P4.1          200     65321             2             0                  0       0
+P5.1            1       116             0             0                  0       0
+P5.2            1     65620             1             0                  0       0
+P5.3            1   1048660             1             0                  0       0
+P5.4            1   4194390             1             0                  0       0
+P6.1          200    123354             3             0                  0       0
+P7.1            6        98             0             0                  0       0
+
+  cold misses:  the first encode on a fresh context, every width still 1.
+  warm misses:  the second encode, widths carrying what the first learned. A
+                server is in this state; the cold column is a startup cost paid
+                once per context.
+  grows:        buffer reallocations. The harness gives the context a buffer big
+                enough for the payload, so a nonzero grow here is a defect in the
+                sizing and not a property of the codec.
+
+  Payloads that miss warm: P2.4 (80)
+
+Per-site warm misses on P2.4, the payload built to defeat a learned width.
+
+  80 warm misses in total, tallied per site by the counting build:
+    site  65  ListTasksDetailedResponse.tasks (repeated message)  80 miss(es), width now 3
+
+Per-site warm misses on P2.2, the shape the control plane actually moves.
+
+  0 warm misses in total, tallied per site by the counting build:
+    none

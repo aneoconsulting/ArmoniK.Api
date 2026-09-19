@@ -1,0 +1,167 @@
+Stage 1: the correctness gate. R2, and nothing is timed until it passes.
+
+commit:   87a2e39b0c2cc28adbb05ab70b198f7b132828f3
+machine:  4 vCPU Intel(R) Xeon(R) Processor @ 2.80GHz, 15 GiB, 6.18.44-fc-v37
+sdk:      8.0.131;  mono: Mono JIT compiler version 6.8.0.105
+incumbent: Google.Protobuf 3.28.3, codegen Grpc.Tools 2.66.0
+
+RE-TAKEN after JOURNAL.md entry 14. Two handicaps were found in this slice's
+own incumbent arms and both are fixed here:
+  * the encode baseline gp-writeto paid a top-level CalculateSize to size its
+    span. gp-bufferwriter is the same official API family with no size pass at
+    all, over a reused BufWriter that RESETS rather than clearing;
+  * the decode baseline gp-parse ended with m.CalculateSize(), a full traversal
+    of the decoded tree, while managed-parse returned a free offset. BOTH arms
+    now park the graph in a static sink and return an O(1) value.
+Every timing figure this slice published before 87a2e39b0c2cc28adbb05ab70b198f7b132828f3 is superseded.
+
+All three of README 5.2's arms pass the SAME checks, which is 5.1's binding
+condition on a floor that is different code from the target.
+
+ok    src/Facade/Generated/Build.cs
+ok    src/Facade/Generated/Codec.cs
+ok    src/Facade/Generated/Eq.cs
+ok    src/Facade/Generated/Types.cs
+ok    src/Facade/Generated/Values.cs
+ok    src/Harness/Generated/Arms.cs
+ok    src/Harness/Generated/BuildGp.cs
+19 messages, 72 length-prefix sites, walker guard passed on 1 message(s) with a oneof
+
+================= arm a =================
+Could not execute because the specified command or file was not found.
+Possible reasons for this include:
+  * You misspelled a built-in dotnet command.
+  * You intended to execute a .NET program, but dotnet- target sources, .NET 8 does not exist.
+  * You intended to run a global tool, but a dotnet-prefixed executable with this name could not be found on the PATH.
+
+================= arm b =================
+Could not execute because the specified command or file was not found.
+Possible reasons for this include:
+  * You misspelled a built-in dotnet command.
+  * You intended to execute a .NET program, but dotnet- FLOOR sources, .NET 8 does not exist.
+  * You intended to run a global tool, but a dotnet-prefixed executable with this name could not be found on the PATH.
+
+================= arm c =================
+Cannot open assembly ' floor sources, Mono 6.8': No such file or directory.
+
+================= the unknown-field vectors =================
+# harness: unknown
+# utc:                 2026-09-19T11:42:04Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+vector                     bytes  gp-dec  man-dec  known-values-agree  gp-retains  man-retains
+------------------------------------------------------------------------------------------------------------
+root-varint-between          861  ok      ok       ok                  YES         no
+root-len                     865  ok      ok       ok                  YES         no
+elem-varint-interleaved      860  ok      ok       ok                  YES         no
+elem-i64                     868  ok      ok       ok                  YES         no
+elem-i32                     864  ok      ok       ok                  YES         no
+elem-len-nested              867  ok      ok       ok                  YES         no
+oneof-unrecognised-member  12099  ok      ok       ok                  YES         no
+
+  root-varint-between       unknown varint at the ROOT, tag 4, above every known root tag (1..3)
+  root-len                  unknown length-delimited field at the root
+  elem-varint-interleaved   unknown varint INSIDE element 0, at tag 7 -- the gap ResultRaw leaves between `completed_at` (6) and `result_id` (8), so it sits numerically BETWEEN two known tags
+  elem-i64                  unknown fixed64 inside element 0
+  elem-i32                  unknown fixed32 inside element 0
+  elem-len-nested           unknown length-delimited field inside element 0 whose body is itself a message -- a decoder that recursed into it rather than skipping it would report the inner tags as unknown fields of the OUTER message
+  oneof-unrecognised-member an unrecognised ONEOF member: tag 15 sits one past `as_nothing` (14) in Probe.body. design/SHAPES.md's row says this CANNOT round trip in any arm, because the grouping lives only in the descriptor and a parser cannot tell it from any other unknown field
+
+Reading the two retention columns.
+  `YES` means the arm's re-encode differs from the payload with the unknown
+  field removed, which for these vectors means it wrote the unknown field back.
+
+  Google.Protobuf keeps an UnknownFieldSet per message and writes it back, so a
+  message round-tripped through .NET today preserves a field this build has never
+  heard of. The managed codec as generated has no bag and drops it. Both accept
+  the input and neither loses a KNOWN value, so this is not a correctness gate;
+  it is ABI v1 open decision 11 with a cost attached, and on .NET the cost is a
+  guarantee that exists today and would be removed. prost drops unknown fields
+  too, which is why the Rust slice could not price this.
+
+  The oneof vector is the one design/SHAPES.md says cannot round trip in ANY arm.
+  Google.Protobuf retains the BYTES of tag 15 but the case stays at whatever
+  member the element already carried; the grouping is descriptor-only, so no
+  parser can recover the intent. Retention makes the bytes survive and does not
+  make the VALUE survive, and those are different claims.
+
+0 failure(s) -- a FAIL in a decode column, or a managed re-encode that is not
+the baseline (the managed codec is supposed to drop, so differing means a known
+value moved, which would be a real defect).
+
+================= P2.5's two encodings =================
+# harness: mapforms
+# utc:                 2026-09-19T11:42:04Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+Which form does each encoder produce on P2.5?
+
+  manifest (prost's rule, empty map value OMITTED) : 19632 B
+  Google.Protobuf ToByteArray                      : 19632 B  -> OMITS it, same as the manifest
+  the generated managed codec                      : 19632 B  -> OMITS it, same as the manifest
+
+  So on .NET both arms produce the manifest's form. protobuf C++ and upb
+  write the empty value and would produce 19712 B. That is a difference
+  between runtimes, not a defect in any of them.
+
+The +80 B form, built by rewriting the committed vector:
+  empty map values inserted : 40
+  bytes                     : 19712 (manifest 19632, delta 80)
+  expected                  : 19712 B and 40 insertions -- ok
+
+Does every decoder read BOTH forms, and agree on the value?
+
+decoder         form      result
+----------------------------------------------------------------
+managed         canonical ok, equals the built graph
+gp-parse        canonical ok, re-encodes to the canonical form
+managed         +80 B     ok, equals the built graph
+gp-parse        +80 B     ok, re-encodes to the canonical form
+
+Reading this.
+  Both decoders normalise the +80 B form back to the canonical one, because
+  an empty map value and an absent map value are the SAME facade value and
+  neither encoder writes it. So the two forms round-trip to one another's
+  values and this slice's byte-identity gate is unaffected.
+
+  A P2.5 TIMING row therefore carries the manifest's 19,632 B in every arm
+  of this slice, and is not comparable with a slice whose encoder writes
+  19,712 B: 80 bytes and 40 extra fields are not the same work.
+
+0 failure(s)
