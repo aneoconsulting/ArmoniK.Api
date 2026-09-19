@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The benchmark harness the CONTROLLED RERUN should use.
+       BenchmarkDotNet rather than the hand-rolled loop in ../Harness/Bench.cs,
+       for the four things that loop does not do: it subtracts its own overhead,
+       it iterates warmup to a convergence criterion instead of a fixed budget,
+       it reports a confidence interval and removes outliers, and it isolates
+       each benchmark in its own process.
+
+       That last one is exactly what the hand-rolled harness deliberately does
+       NOT do. On a shared cloud container, isolating each arm in its own
+       process means arm A can land in a quiet minute and arm B in a busy one,
+       so that harness interleaves every arm round robin instead (README R4).
+       On a controlled physical machine with pinning and isolation the noise
+       that workaround exists for is gone, and BenchmarkDotNet's isolation
+       becomes the better choice. Both harnesses are kept, and the log that
+       compares them is the reason to trust either. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <!-- No AssemblyName override: BenchmarkDotNet locates the host executable
+         by the csproj's own name when it builds its generated boilerplate, and
+         an assembly called something else makes it fail with "Unable to find
+         <name> in ... and its subfolders", having executed zero benchmarks. -->
+    <RootNamespace>Armonik.Ffi.Bdn</RootNamespace>
+    <Optimize>true</Optimize>
+    <!-- BenchmarkDotNet refuses to run a non-optimized assembly, and warns on a
+         debugger. Both are what we want; neither is set here. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The arm table, the payload builders and the manifest reader live in the
+         harness project and are EMITTED from ffi/schema (R1). Referencing them
+         rather than re-emitting them is what keeps the two harnesses measuring
+         the same arms; if they were emitted twice they could drift. -->
+    <ProjectReference Include="../Harness/Harness.csproj" />
+  </ItemGroup>
+
+</Project>
