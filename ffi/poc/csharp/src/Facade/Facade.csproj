@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The floor and the target, from ONE source tree (README 5.1).
+       `AK_FLOOR` selects the floor implementation. It is set by the
+       netstandard2.0 build, and it can be set on a net8.0 build too: that is
+       README 5.2's arm b, floor sources on the target runtime, which is the
+       only fair floor-against-target ratio there is. -->
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Optimize>true</Optimize>
+    <SignAssembly>false</SignAssembly>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573;CS1587;CS1570</NoWarn>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <DefineConstants>$(DefineConstants);AK_FLOOR</DefineConstants>
+  </PropertyGroup>
+
+
+  <!-- README 5.2 arm b: the FLOOR sources on the TARGET runtime, which is the
+       only fair floor-against-target ratio there is. One define flipped, one
+       generator, the same sources. Output paths are redirected in
+       Directory.Build.props so the two builds exist side by side and can be run
+       round robin rather than one after a rebuild. -->
+  <PropertyGroup Condition="'$(AkFloor)' == 'true'">
+    <DefineConstants>$(DefineConstants);AK_FLOOR</DefineConstants>
+  </PropertyGroup>
+
+  <!-- The counting build (R5). Kept behind a define so the measured build's hot
+       path does not carry the per-site store: `dotnet build /p:AkCount=true`. -->
+  <PropertyGroup Condition="'$(AkCount)' == 'true'">
+    <DefineConstants>$(DefineConstants);AK_COUNT</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <PackageReference Include="System.Memory" Version="4.5.5" />
+  </ItemGroup>
+
+</Project>
