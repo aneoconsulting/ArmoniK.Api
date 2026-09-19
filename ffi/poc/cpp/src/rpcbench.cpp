@@ -67,18 +67,39 @@ static double wall_ns() {
   return (double)ts.tv_sec * 1e9 + (double)ts.tv_nsec;
 }
 
-struct Result { double cpu_per, wall_per; };
+static double thread_cpu_ns() {
+  struct timespec ts;
+  clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts);
+  return (double)ts.tv_sec * 1e9 + (double)ts.tv_nsec;
+}
 
+struct Result { double client_cpu_per, proc_cpu_per, wall_per; };
+
+// Two CPU columns, and the first is the one to read.
+//
+// `client_cpu_per` sums CLOCK_THREAD_CPUTIME_ID over the CLIENT threads only, so the
+// in-process server -- which deep-copies and re-serialises a 540 KB message on every call
+// and costs far more than either client -- is excluded. `proc_cpu_per` is the whole
+// process and is dominated by that server; it is printed so the dilution is visible rather
+// than hidden, because a ratio taken on it is mostly a ratio of the server to itself.
 template <class Fn>
 static Result drive(int threads, int calls_per_thread, Fn body) {
   double c0 = cpu_ns(), w0 = wall_ns();
+  std::vector<double> tcpu((size_t)threads, 0.0);
   std::vector<std::thread> ts;
   for (int t = 0; t < threads; ++t)
-    ts.push_back(std::thread([&, t]() { for (int i = 0; i < calls_per_thread; ++i) body(t); }));
+    ts.push_back(std::thread([&, t]() {
+      double a = thread_cpu_ns();
+      for (int i = 0; i < calls_per_thread; ++i) body(t);
+      tcpu[(size_t)t] = thread_cpu_ns() - a;
+    }));
   for (size_t i = 0; i < ts.size(); ++i) ts[i].join();
   Result r;
   double n = (double)threads * calls_per_thread;
-  r.cpu_per = (cpu_ns() - c0) / n;
+  double sum = 0;
+  for (size_t i = 0; i < tcpu.size(); ++i) sum += tcpu[i];
+  r.client_cpu_per = sum / n;
+  r.proc_cpu_per = (cpu_ns() - c0) / n;
   r.wall_per = (wall_ns() - w0) / n;
   return r;
 }
@@ -140,8 +161,12 @@ int main(int argc, char **argv) {
   // warm both paths (connection setup, the first allocation, the learned widths)
   for (int i = 0; i < 5; ++i) { grpcpp_call(0); core_call(0); }
 
-  std::printf("\n%-10s %-8s %14s %14s %10s\n", "arm", "inflight", "CPU ns/RPC",
-              "wall ns/RPC", "cpu/pb");
+  std::printf("\nCrossings per RPC: TWO, and it is a property of the code rather than a\n"
+              "measurement -- `ak_call_unary` in, `ak_bytes_free` out. The core's RPC module\n"
+              "names no message type anywhere, so there is no place a per-field cost could\n"
+              "enter; `gen/rpc.sh` greps for that rather than trusting this sentence.\n");
+  std::printf("\n%-10s %-8s %16s %16s %14s %10s\n", "arm", "inflight",
+              "client CPU ns", "process CPU ns", "wall ns/RPC", "client/pb");
   const int kInflight[] = {1, 8, 16};
   for (int k = 0; k < 3; ++k) {
     int n = kInflight[k];
@@ -149,11 +174,48 @@ int main(int argc, char **argv) {
     if (per < 5) per = 5;
     Result a = drive(n, per, grpcpp_call);
     Result c = drive(n, per, core_call);
-    std::printf("%-10s %-8d %14.0f %14.0f %10s\n", "grpc++", n, a.cpu_per, a.wall_per, "1.000");
-    std::printf("%-10s %-8d %14.0f %14.0f %10.3f\n", "core-ffi", n, c.cpu_per, c.wall_per,
-                c.cpu_per / a.cpu_per);
+    std::printf("%-10s %-8d %16.0f %16.0f %14.0f %10s\n", "grpc++", n,
+                a.client_cpu_per, a.proc_cpu_per, a.wall_per, "1.000");
+    std::printf("%-10s %-8d %16.0f %16.0f %14.0f %10.3f\n", "core-ffi", n,
+                c.client_cpu_per, c.proc_cpu_per, c.wall_per,
+                c.client_cpu_per / a.client_cpu_per);
   }
+  // The same decode, standalone, in THIS process, so the transport half can be separated
+  // from the codec half by subtraction rather than across processes (R4).
+  {
+    ns::ListTasksDetailedResponse full;
+    pbbuild::payload_p2_2(&full);
+    std::string wire;
+    full.SerializeToString(&wire);
+    const int kN = 30;
+    double a0 = thread_cpu_ns();
+    for (int i = 0; i < kN; ++i) {
+      ns::ListTasksDetailedResponse m;
+      m.ParseFromString(wire);
+    }
+    double pbdec = (thread_cpu_ns() - a0) / kN;
+    double b0 = thread_cpu_ns();
+    for (int i = 0; i < kN; ++i) {
+      shapes::ListTasksDetailedResponse f;
+      ak_dec_ctx *d = ak_dec_ctx_new();
+      shapes::ffi::decode_with_list_tasks_detailed_response(
+          d, (const uint8_t *)wire.data(), wire.size(), &f);
+      ak_dec_ctx_free(d);
+    }
+    double codec = (thread_cpu_ns() - b0) / kN;
+    std::printf("\n-- the same response decoded standalone, in this process, ns of thread CPU --\n");
+    std::printf("  protobuf C++ %.0f    the core through the C ABI %.0f    ratio %.3f\n",
+                pbdec, codec, codec / pbdec);
+    std::printf("  So the client CPU above is mostly the CODEC; what is left after subtracting\n"
+                "  it is the transport half, where ABI v1 section 9 spends TWO crossings and\n"
+                "  zero per field.\n");
+  }
+
   std::printf("\nsink %ld\n", (long)bytes_in.load());
+  std::printf("\nThe idiomatic C++ wait is a blocking call on a thread the host owns, and\n"
+              "both arms use it. C++ has no carrier-thread notion to pin, so SHAPES.md's\n"
+              "third RPC question is answered trivially here and is a real question only on\n"
+              "a runtime with virtual threads.\n");
   std::printf("\nThe wall-clock column is beside the CPU column and is NOT a throughput\n"
               "figure: 540 KB per response against a 64 KB default stream window means a\n"
               "single call in flight spends most of its wall clock waiting for WINDOW_UPDATE.\n"

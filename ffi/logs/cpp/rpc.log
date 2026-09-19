@@ -1,0 +1,48 @@
+# RPC arm (ABI v1 section 9, design/SHAPES.md's RPC arm)
+#   date       2026-09-19T07:20:30Z
+#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel Xeon @ 2.80GHz
+#   incumbent  grpc++ 1.51.1 + protobuf C++ 3.21.12 (apt). packages/cpp pins neither
+#   core       tonic 0.14 over hyper, through the C ABI, shared library
+#   transport  loopback TCP, no TLS, server IN-PROCESS on its own threads
+#   payload    P2.2, 540,422 B response, small request
+#   commit     a3a509e
+
+== ABI v1 section 9: the RPC half does not know the schema ==
+   'It moves opaque bytes and dispatches on a path string, so there is no place a
+    per-field cost could enter.' Checked rather than trusted:
+   core/src/rpc.rs: 0 mentions of any message type in this schema
+   ../rust/crates/rpc/src/lib.rs: 2 mentions of any message type in this schema
+
+== the arm ==
+grpc++ 1.51.1 server on 127.0.0.1:50077, in-process
+
+Crossings per RPC: TWO, and it is a property of the code rather than a
+measurement -- `ak_call_unary` in, `ak_bytes_free` out. The core's RPC module
+names no message type anywhere, so there is no place a per-field cost could
+enter; `gen/rpc.sh` greps for that rather than trusting this sentence.
+
+arm        inflight    client CPU ns   process CPU ns    wall ns/RPC  client/pb
+grpc++     1                 4755130         10431950        8890915      1.000
+core-ffi   1                 2654750          7833175        7534253      0.558
+grpc++     8                 4947733         11566825        3781668      1.000
+core-ffi   8                 3226265          9245375        2752650      0.652
+grpc++     16                5330137         11312088        3343616      1.000
+core-ffi   16                3317146          9039250        2442212      0.622
+
+-- the same response decoded standalone, in this process, ns of thread CPU --
+  protobuf C++ 3585721    the core through the C ABI 2340922    ratio 0.653
+  So the client CPU above is mostly the CODEC; what is left after subtracting
+  it is the transport half, where ABI v1 section 9 spends TWO crossings and
+  zero per field.
+
+sink 165000
+
+The idiomatic C++ wait is a blocking call on a thread the host owns, and
+both arms use it. C++ has no carrier-thread notion to pin, so SHAPES.md's
+third RPC question is answered trivially here and is a real question only on
+a runtime with virtual threads.
+
+The wall-clock column is beside the CPU column and is NOT a throughput
+figure: 540 KB per response against a 64 KB default stream window means a
+single call in flight spends most of its wall clock waiting for WINDOW_UPDATE.
+Both arms' CPU includes the in-process server, which cancels in the ratio.

@@ -157,3 +157,50 @@ transcoder the rest of the buffer and resolves the prefix afterwards. A host tha
 holds the bytes knows the length and writes key, length and body in one pass. Measured on
 P1.2's 6,000 strings, in one process: **5.0 ns against 8.7 ns per string, +3.7 ns**. That is
 where most of the C ABI's encode advantage over the control goes.
+
+### 8. The RPC arm, and the two CPU columns R9 forces
+
+One unary call carrying P2.2 against grpc++ 1.51.1 over loopback, with the server
+in-process. The first version measured whole-process CPU and reported **9.0 ms per RPC for
+grpc++ and 8.1 for the core, a ratio of 0.90**. That number is nearly all server: the
+generated sync service deep-copies and re-serialises a 540 KB message on every call, and
+that cost is inside both arms.
+
+Measuring `CLOCK_THREAD_CPUTIME_ID` over the CLIENT threads only gives **4.76 ms against
+2.65 ms, a ratio of 0.558 at 1 in flight, 0.652 at 8 and 0.622 at 16** — and the whole-process
+column is printed beside it rather than dropped, because the dilution is the thing to see.
+Decoding the same response standalone in the same binary costs 3.59 ms with protobuf C++ and
+2.34 ms through the C ABI, so **most of that ratio is the codec** and about 1.17 ms against
+0.31 ms is the transport.
+
+R9's other half is visible in the wall-clock column: at 1 in flight it is 8.89 ms against a
+client CPU of 4.76, and it more than halves at 8. A wall-clock throughput figure here would
+be a figure about the 64 KB stream window.
+
+### 9. Two results that differ from Rust, and the reason in each case
+
+**The decode UTF-8 policy is not free in C++.** The rust slice measured validate-and-reject
+as free to cheaper, because `String::from_utf8_lossy` already validates and its recovery
+path is slower than failing. A C++ `std::string` holds arbitrary bytes, so a "lossy" arm in
+C++ does not validate at all — and against that, **validating costs 22 to 28 percent of a
+decode** (P2.2 `ffi` 0.663-0.674 of protobuf validating, 0.515-0.540 not). The headline
+column keeps the rejecting policy because protobuf C++ rejects too and that is the
+like-for-like comparison, but the number prices **this slice's scalar validator**, not the
+policy. A SIMD validator is the obvious next step and was not tried.
+
+**The no-boundary control is not a lower bound on decode.** On encode `core-native-cpp` is
+0.25 to 0.45 of protobuf and the C ABI hands most of that back, which is the rust shape. On
+decode the control is **slower than the same codec through the ABI** on most payloads (P2.2
+0.729-0.738 against 0.663-0.674, P6.1 1.241-1.273 against 0.632-0.641). The two are not the
+same implementation: one traversal emitter, two languages, two compilers. So in C++ the
+control prices **"generate the codec into C++"** — README section 13's option 2 — rather than
+the interface cost, and only the encode side has the two close enough for a subtraction to
+mean what the rust slice's did. Said plainly rather than left for a reader to infer.
+
+### 10. What the C++ column says in one line
+
+Encode through the C ABI is **0.52 to 0.91 of protobuf C++ on every uniform payload** and
+**1.64 on the absent path** until decision 9's fill is used, after which the inversion is
+gone. Decode is **0.59 to 0.95**. The no-boundary control is **0.25 to 0.45 on encode**, so
+the codec is two to four times protobuf's speed and the boundary hands most of it back —
+which is the same sentence the rust slice ends on, with a different constant.
