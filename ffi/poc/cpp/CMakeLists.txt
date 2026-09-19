@@ -68,7 +68,9 @@ function(ak_arm name src std impl guard linkage policy coredir)
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/build.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/pb_build.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/core_native.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/binding.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/binding.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/types_borrow.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/binding_borrow.cpp)
   add_dependencies(${name} core core_count)
   target_include_directories(${name} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -205,6 +207,10 @@ if(AK_UPB)
   set(UPB_SRC "${CMAKE_CURRENT_SOURCE_DIR}/build/upb-src")
   set(UPB_BUILD "${CMAKE_CURRENT_SOURCE_DIR}/build/upb-build")
   set(UPB_LIBS "${UPB_BUILD}/libupb.a")
+  if(AK_UPB_VARIANT)
+    set(UPB_BUILD "${CMAKE_CURRENT_SOURCE_DIR}/build/upb-build-${AK_UPB_VARIANT}")
+    set(UPB_LIBS "${UPB_BUILD}/libupb.a")
+  endif()
   if(NOT AK_UPB_TAG)
     set(AK_UPB_TAG "v25.3")
   endif()
@@ -232,8 +238,15 @@ if(AK_UPB)
   target_link_libraries(upbbench PRIVATE shapes_pb Threads::Threads
     ${CORE_OUT}/libak_core_cpp.so ${UPB_LIBS})
   set_property(TARGET upbbench PROPERTY CXX_STANDARD 17)
+  if(NOT AK_UPB_CC)
+    set(AK_UPB_CC "cc (gcc 13.3.0)")
+  endif()
+  if(NOT AK_UPB_FT)
+    set(AK_UPB_FT 0)
+  endif()
   target_compile_definitions(upbbench PRIVATE AK_LINKAGE="shared"
-    AK_UPB_VERSION="${AK_UPB_TAG}")
+    AK_UPB_VERSION="${AK_UPB_TAG}" AK_UPB_CC="${AK_UPB_CC}"
+    AK_UPB_FASTTABLE_BUILD=${AK_UPB_FT})
   set_property(TARGET upbbench APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-rpath,${CORE_OUT}")
 endif()
 

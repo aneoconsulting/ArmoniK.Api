@@ -90,8 +90,8 @@ bool TaskSummary::operator==(const TaskSummary &o) const {
 void ProbeBody::clear() {
   switch (case_) {
     case kAsInt: break;
-    case kAsText: u_.as_text.~basic_string(); break;
-    case kAsBlob: u_.as_blob.~basic_string(); break;
+    case kAsText: u_.as_text.~AkStrT(); break;
+    case kAsBlob: u_.as_blob.~AkStrT(); break;
     case kAsStamp: u_.as_stamp.~Timestamp(); break;
     case kAsNothing: u_.as_nothing.~Empty(); break;
     default: break;

@@ -4,6 +4,7 @@
 #define AK_BINDING_H
 #include "ak_abi.h"
 #include "ak/rt.h"
+#include "ak/vocab.h"
 #include "generated/types.h"
 #include <map>
 #include <string>

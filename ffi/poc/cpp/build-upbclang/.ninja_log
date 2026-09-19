@@ -1,0 +1,22 @@
+# ninja log v5
+5	16	1789817348259578850	gen/shapes.desc	5810922f01d42bfa
+5	16	1789817348259578850	/home/user/ArmoniK.Api/ffi/poc/cpp/build-upbclang/gen/shapes.desc	5810922f01d42bfa
+4	46	1789817348291578848	gen/shapes.pb.cc	a9caf2fb13a7dcf1
+4	46	1789817348291578848	gen/shapes.pb.h	a9caf2fb13a7dcf1
+4	46	1789817348291578848	/home/user/ArmoniK.Api/ffi/poc/cpp/build-upbclang/gen/shapes.pb.cc	a9caf2fb13a7dcf1
+4	46	1789817348291578848	/home/user/ArmoniK.Api/ffi/poc/cpp/build-upbclang/gen/shapes.pb.h	a9caf2fb13a7dcf1
+5	71	0	CMakeFiles/core	51fd046a21b871b3
+5	71	0	/home/user/ArmoniK.Api/ffi/poc/cpp/core/target/release/libak_core_cpp.so	51fd046a21b871b3
+5	71	0	/home/user/ArmoniK.Api/ffi/poc/cpp/core/target/release/libak_core_cpp.a	51fd046a21b871b3
+5	71	0	/home/user/ArmoniK.Api/ffi/poc/cpp/build-upbclang/CMakeFiles/core	51fd046a21b871b3
+72	593	1789817348839621661	CMakeFiles/upbbench.dir/src/rt.cpp.o	b74a8bf7dc4fa60b
+72	1410	1789817349651578788	CMakeFiles/upbbench.dir/src/values.cpp.o	964087e58e25a43e
+74	1609	1789817349851578779	CMakeFiles/upbbench.dir/src/generated/types.cpp.o	2c30d63ad0114786
+71	4416	1789817352659578655	CMakeFiles/upbbench.dir/src/upbbench.cpp.o	3d104522480051b3
+594	6040	1789817354279578583	CMakeFiles/upbbench.dir/src/generated/pb_build.cpp.o	43c3ded6d048e7cf
+76	7235	1789817355471578530	CMakeFiles/upbbench.dir/src/generated/build.cpp.o	1f997872378313e6
+1410	7413	1789817355651578522	CMakeFiles/upbbench.dir/src/generated/core_native.cpp.o	223325f5c1eb7977
+1609	8037	1789817356271578495	CMakeFiles/upbbench.dir/src/generated/binding.cpp.o	b6f2203ddffe29ef
+46	9252	1789817357487578441	CMakeFiles/shapes_pb.dir/gen/shapes.pb.cc.o	abbfc21fff67e044
+9252	9363	1789817357603578435	libshapes_pb.a	24f5c35380281e50
+9363	9580	1789817357823578426	upbbench	62741b6a6f5c47d1

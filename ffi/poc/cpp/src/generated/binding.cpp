@@ -73,6 +73,16 @@ static inline struct ak_str ak_str_of(const std::string &v, ak_transcode_fn tc) 
   return s;
 }
 
+// The borrowed-facade overloads. They exist so the GENERATED CALL TEXT is identical for
+// both facades and the only difference between the two bindings is the type spellings.
+static inline struct ak_str ak_str_of(const ak::StringView &v, ak_transcode_fn tc) {
+  struct ak_str s;
+  s.data = v.data();
+  s.len = v.size();
+  s.tc = tc;
+  return s;
+}
+
 // ABI v1 7.4: resolve a span against the base pointer you already hold. One add, then the
 // same copy. A zero-length span is the common case on the absent path (P1.3, P2.5) and
 // must not reach the validator at all.
@@ -89,6 +99,25 @@ static inline void s_of(const uint8_t *base, const struct ak_span &s, ak_dec_ctx
 
 static inline void b_of(const uint8_t *base, const struct ak_span &s, std::string *out) {
   out->assign((const char *)(base + s.off), s.len);
+}
+
+// BORROWED: the span is an offset into the buffer the host handed in (ABI v1 section 4),
+// so a view over it needs no copy and no ABI change. The UTF-8 policy is UNCHANGED -- the
+// bytes are still validated -- so this arm isolates the COPY and nothing else.
+static inline void s_of(const uint8_t *base, const struct ak_span &s, ak_dec_ctx *ctx,
+                        ak::StringView *out) {
+  if (s.len == 0) { *out = ak::StringView((const char *)(base + s.off), 0); return; }
+  if (!ak::utf8_valid(base + s.off, s.len)) {
+    static const char kMsg[] = "malformed UTF-8 in a decoded string";
+    ak_fail(ctx, ak::ERR_TRANSCODE, (const uint8_t *)kMsg, (uint32_t)(sizeof(kMsg) - 1));
+    out->clear();
+    return;
+  }
+  *out = ak::StringView((const char *)(base + s.off), s.len);
+}
+
+static inline void b_of(const uint8_t *base, const struct ak_span &s, ak::StringView *out) {
+  *out = ak::StringView((const char *)(base + s.off), s.len);
 }
 
 // The host's own memcpy transcoder: the same bytes, written from the HOST side, so every

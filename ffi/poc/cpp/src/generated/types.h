@@ -18,6 +18,10 @@
 
 namespace shapes {
 
+// The facade's string type, named once so a generated destructor call has a class-name to
+// use whichever facade this is: `std::string` here, `ak::StringView` in the borrowed one.
+typedef std::string AkStrT;
+
 // Open enum: the VALUE may be one the reader was not built against, and it
 // round-trips losslessly because the wire says exactly where to put it.
 struct ResultStatus {

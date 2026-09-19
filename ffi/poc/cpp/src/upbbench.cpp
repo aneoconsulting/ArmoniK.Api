@@ -79,6 +79,7 @@ static int calibrate(Fn f) {
 
 static int g_rounds = 9;
 static int g_fail = 0;
+static bool g_first = true;
 
 static std::string read_file(const std::string &p) {
   std::ifstream f(p.c_str(), std::ios::binary);
@@ -143,6 +144,22 @@ static void run_case(Upb &u, const char *id, const char *msg_name, void (*pbmk)(
     return;
   }
   const upb_MiniTable *mt = upb_MessageDef_MiniTable(md);
+  // THE FAST DECODER IS UNREACHABLE FROM A REFLECTION-BUILT MINITABLE, and this is the
+  // proof rather than the claim. `_upb_Decoder_TryFastDispatch` (upb/wire/decode.c:766)
+  // fires only when `layout->table_mask != (unsigned char)-1`, and
+  // `upb/mini_descriptor/decode.c:698,712` sets `table_mask = -1` on every minitable it
+  // builds: the fasttable entries are emitted by `protoc-gen-upb` through
+  // `UPB_FASTTABLE_INIT(...)` and nothing else fills them. So this column measures upb's
+  // GENERIC table-driven decoder whether or not UPB_FASTTABLE is compiled in -- which is
+  // why the A/B below is expected to be a null result, and why a null result is the
+  // finding rather than a disappointment.
+  if (g_first) {
+    std::printf("  minitable table_mask for %s = %d  (%d means the fast dispatch is\n"
+                "  skipped; a protoc-gen-upb minitable would carry a real mask)\n",
+                msg_name, (int)(signed char)mt->table_mask,
+                -1);
+    g_first = false;
+  }
 
   P pb;
   pbmk(&pb);
@@ -272,9 +289,21 @@ int main(int argc, char **argv) {
   std::string desc = argc > 1 ? argv[1] : "shapes.desc";
   if (argc > 2) g_rounds = atoi(argv[2]);
   std::printf("upb arm: a CEILING, not a candidate. protobuf C++ remains the incumbent.\n");
-  std::printf("upb %s, built from the protobuf repository with its own CMake; minitables\n"
+  std::printf("upb %s, built from the protobuf repository by gen/fetch_upb.sh; minitables\n"
               "from upb reflection (no Bazel, no protoc-gen-upb, no hand-written codec).\n",
               AK_UPB_VERSION);
+  // R7: name the configuration. The first version of this arm did not, and
+  // `UPB_FASTTABLE` is the one that matters most for a upb decode figure.
+  std::printf("compiler %s;  UPB_FASTTABLE = %d  (upb/port/def.inc defaults it to 0; it is 1\n"
+              "  only under -DUPB_ENABLE_FASTTABLE, or -DUPB_TRY_ENABLE_FASTTABLE on a\n"
+              "  platform where UPB_MUSTTAIL exists)\n",
+              AK_UPB_CC,
+#ifdef AK_UPB_FASTTABLE_BUILD
+              AK_UPB_FASTTABLE_BUILD
+#else
+              0
+#endif
+              );
   Upb u = load_defs(desc);
   if (!u.ok) return 2;
 
