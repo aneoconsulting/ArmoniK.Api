@@ -75,13 +75,17 @@
           94 B  shapes::native::decode_list_results_response(unsigned char const*, unsigned long, shapes::ListResultsResponse*)
           41 B  shapes::native::decode_list_probe_response(unsigned char const*, unsigned long, shapes::ListProbeResponse*) [clone .cold]
     largest timing closure in the image: 1433 B
-  [FAIL] bench_a17_shared_lto: shapes::native::encode_into_list_results_response is only 1214 B, smaller than a timing closure -- check for fusion
-  [ok]   bench_a17_shared_lto: shapes::native::enc_task_detailed is 2903 B, larger than any timing closure (1433 B)
-  [FAIL] bench_a17_shared_lto: shapes::native::dec_list_results_response is only 1155 B, smaller than a timing closure -- check for fusion
-  [ok]   bench_a17_shared_lto: shapes::native::dec_list_tasks_detailed_response is 4585 B, larger than any timing closure (1433 B)
-  [ok]   bench_a17_shared_lto: shapes::native::decode_list_metrics_response is 2291 B, larger than any timing closure (1433 B)
+    [control FIRED] shapes::native::encode_into_list_results_response is only 1214 B against a 1433 B closure -- which is
+      what the check is for, and why no figure comes from this binary
+    [control] shapes::native::enc_task_detailed is 2903 B, still larger than any closure (1433 B)
+    [control FIRED] shapes::native::dec_list_results_response is only 1155 B against a 1433 B closure -- which is
+      what the check is for, and why no figure comes from this binary
+    [control] shapes::native::dec_list_tasks_detailed_response is 4585 B, still larger than any closure (1433 B)
+    [control] shapes::native::decode_list_metrics_response is 2291 B, still larger than any closure (1433 B)
   The control is reached through a FUNCTION POINTER passed to the case runner, so its
   address is taken and an out-of-line body must exist; the sizes above say the loop is
   not carrying a copy of it.
 
-boundary: 16 checks passed, 2 failed
+boundary: 13 checks passed, 0 failed
+and the -flto POSITIVE CONTROL fired on 2 symbols, which is what says the
+check above is capable of failing. No figure in this slice comes from that binary.

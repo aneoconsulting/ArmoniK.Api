@@ -15,7 +15,7 @@ while IFS= read -r f; do
     bad=$((bad + 1))
   fi
 done < <(find ffi/poc/cpp \
-           -path ffi/poc/cpp/build -prune -o \
+           -path 'ffi/poc/cpp/build*' -prune -o \
            -path 'ffi/poc/cpp/core/target*' -prune -o \
            -name '__pycache__' -prune -o \
            -type f \( -name '*.py' -o -name '*.sh' -o -name '*.cpp' -o -name '*.cc' \
