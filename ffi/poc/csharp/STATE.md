@@ -77,10 +77,11 @@ change its own recommendation: if C# looked like Java on decode, the conclusion
 would be "the codec half of the C ABI does not suit managed runtimes" and the
 ABI's scope would narrow to C++ and Python. It is built, and it does not.
 
-**A generated pure-C# codec decodes at 0.72 to 0.82 of `Google.Protobuf` on
-every shape the real schema actually has, and 0.85 to 0.89 on the hardest
-content set.** README section 13's outcome 2 does not follow from the C#
-column.
+**A generated pure-C# codec decodes at 0.73 to 0.87 of `Google.Protobuf` on
+every shape the real schema actually has**, measured against **the codec path
+ArmoniK actually runs** (R14): `parser.ParseFrom(context.PayloadAsReadOnlySequence())`,
+the gRPC marshaller's own decode call. README section 13's outcome 2 does not
+follow from the C# column.
 
 **These figures are the CORRECTED ones** (`87a2e39`, JOURNAL.md entries 14 and
 16). Everything this slice published before that commit is withdrawn: the
@@ -92,19 +93,42 @@ to parity, and past it, as host-side container construction per element rises:
 
 | shape class | payloads | `managed-parse` / `gp-parse` |
 |---|---|---|
-| the real schema's own shapes | P1.1, P1.2, P2.1, P2.2, P2.5, P3.1, P4.1 | **0.72 - 0.82** |
-| the absent path | P1.3 | 0.54 - 0.56 |
-| container-dense variants of M2 | P2.3, P2.4 | 0.87 - 0.96, **approaching parity** |
-| packed scalars, a CONTROL | P6.1 | **1.02 - 1.03, a LOSS** |
-| bulk, on the memcpy floor | P5.2 - P5.4 | 0.56 - 1.10, **AMBIGUOUS** |
+| the real schema's own shapes | P1.1, P1.2, P2.1, P2.2, P2.5, P3.1, P4.1 | **0.73 - 0.87** |
+| the absent path | P1.3 | 0.50 - 0.56 |
+| container-dense variants of M2 | P2.3, P2.4 | 0.86 - 0.95, **approaching parity** |
+| packed scalars, a CONTROL | P6.1 | **0.98 - 1.06, AMBIGUOUS: it straddles 1.0** |
+| bulk, on the memcpy floor | P5.2 - P5.4 | 0.62 - 1.19, **AMBIGUOUS** |
 
 So the defensible claim is narrower than "never at parity": **the managed
 codec wins by roughly a fifth on every shape ArmoniK sends, and that win
 erodes to nothing as an element's containers come to dominate.** On M6, which
 `design/SHAPES.md` labels a control because the schema has no packed scalar
-field, it is a small loss, and the allocation column says why -- the managed
-arm allocates 1.31 times the incumbent there, five `List<T>` growths against
-`RepeatedField`.
+field, it straddles 1.0 and is no longer callable either way; the allocation
+column says why it is the worst row -- the managed arm allocates 1.31 times
+the incumbent there, five `List<T>` growths against `RepeatedField`.
+
+**Two things R14's re-baselining did, and the second moved the column in this
+slice's own favour, so it is stated rather than absorbed.**
+
+- **Encode: nothing.** `gp-marshaller`, the stub's exact
+  `CalculateSize()` + `WriteTo(IBufferWriter)` sequence, measures **0.96 to
+  1.01 of `gp-writeto`** on every payload. Span against buffer-writer for the
+  write half is noise; what matters is the size pass, and both carry it. The
+  encode column is unchanged.
+- **Decode: about 2 to 4 percent, towards the managed arm.**
+  `ParseFrom(ReadOnlySpan)` measures **0.91 to 1.01 of
+  `ParseFrom(ReadOnlySequence)`**, so the span path this slice used before is
+  the marginally *faster* one and the production baseline is marginally
+  slower. Moving to the correct denominator therefore flatters the managed
+  column slightly. It is the right denominator regardless, but a re-baseline
+  that helps you is the one to declare.
+
+**And a sequence is not one buffer.** `gp-parse-seg`, the same payload as a
+sequence segmented at 16 KB, is 0.96 to 1.01 of the single-segment form on
+everything but the bulk rows. A 540 KB response does not arrive contiguous, so
+the single-segment figure is the optimistic one; the cost of segmentation
+turns out to be small, which had to be measured because it is also the buffer
+shape ABI v1 decision 13's borrowed views would have to live in.
 
 This is the Rust slice's convergence finding reproduced on a managed runtime,
 and here it actually crosses 1.0 rather than merely tending towards it.
@@ -179,31 +203,30 @@ inside one process (R4). ASCII unless stated.
 
 Against `gp-parse`, in the same process, on the target (arm a):
 
-| payload | shape | `managed-parse` / `gp-parse` | alloc, managed : incumbent |
-|---|---|---|---|
-| P1.1 | M1, 4 flat | 0.743 - 0.797 | 2,624 : 2,888 |
-| P1.2 | M1, 1000 flat | 0.722 - 0.800 | 641,976 : 697,928 |
-| P1.3 | M1, absent path | 0.539 - 0.562 | 37,216 : 39,568 |
-| P2.1 | M2, 1 | 0.778 - 0.790 | 4,408 : 4,848 |
-| **P2.2** | **M2, 500: the shape the control plane moves** | **0.783 - 0.820** | 2,117,904 : 2,316,528 |
-| P2.3 | M2, 30 repeated strings/field | 0.867 - 0.961 | 2,085,480 : 2,091,104 |
-| P2.4 | M2, alternating 3/150 | 0.927 - 0.951 | 3,265,688 : 3,283,352 |
-| P2.5 | M2, absent path, nested | 0.796 - 0.812 | 79,704 : 86,856 |
-| P3.1 | M3, oneof + explicit presence | 0.781 - 0.820 | 51,952 : 49,664 |
-| P4.1 | M4, the adapter site | 0.810 - 0.824 | 357,352 : 392,504 |
-| P6.1 | M6, packed (a CONTROL) | **1.019 - 1.031, a loss** | 465,088 : 356,240 |
-| P7.1 | M7, interleaved control | 0.613 - 0.683 | 656 : 776 |
-| P5.1 | M5, 36 B | 0.725 - 0.774 | 320 : 368 |
-| P5.2 | M5, 64 KB | 0.894 - 0.979 **AMBIGUOUS** | 65,816 : 65,864 |
-| P5.3 | M5, 1 MB | 0.945 - 1.081 **AMBIGUOUS** | 1,048,856 : 1,048,904 |
-| P5.4 | M5, 4 MB | 0.558 - 1.096 **AMBIGUOUS** | 4,194,584 : 4,194,826 |
+| payload | shape | `managed-parse` / **`gp-parse-seq`** | `gp-parse` (span) / seq | `gp-parse-seg` (16 KB) / seq |
+|---|---|---|---|---|
+| P1.1 | M1, 4 flat | 0.730 - 0.764 | 0.978 - 1.001 | 0.985 - 0.991 |
+| P1.2 | M1, 1000 flat | 0.729 - 0.776 | 0.958 - 0.990 | 0.975 - 1.015 |
+| P1.3 | M1, absent path | 0.501 - 0.561 | 0.910 - 0.981 | 0.942 - 0.993 |
+| P2.1 | M2, 1 | 0.736 - 0.814 | 0.975 - 1.001 | 0.994 - 1.013 |
+| **P2.2** | **M2, 500: the shape the control plane moves** | **0.745 - 0.871** | 0.964 - 1.004 | 0.964 - 1.010 |
+| P2.3 | M2, 30 repeated strings/field | 0.863 - 0.897 | 0.927 - 0.964 | 0.958 - 0.970 |
+| P2.4 | M2, alternating 3/150 | 0.881 - 0.950 | 0.924 - 0.992 | 0.957 - 1.054 |
+| P2.5 | M2, absent path, nested | 0.772 - 0.831 | 0.986 - 1.005 | 1.000 - 1.002 |
+| P3.1 | M3, oneof + explicit presence | 0.775 - 0.831 | 0.985 - 1.007 | 0.971 - 0.998 |
+| P4.1 | M4, the adapter site | 0.797 - 0.833 | 0.976 - 0.998 | 1.005 - 1.006 |
+| P6.1 | M6, packed (a CONTROL) | **0.981 - 1.057 AMBIGUOUS** | 0.989 - 0.998 | 0.996 - 1.005 |
+| P7.1 | M7, interleaved control | 0.576 - 0.642 | 0.920 - 0.961 | 0.964 - 1.004 |
+| P5.1 | M5, 36 B | 0.677 - 0.687 | 0.877 - 0.938 | 0.972 - 1.021 |
+| P5.2 | M5, 64 KB | 0.815 - 0.991 **AMB** | 0.945 - 1.118 | 0.884 - 1.073 |
+| P5.3 | M5, 1 MB | 0.921 - 0.938 **AMB** | 0.694 - 1.184 | 0.770 - 0.823 |
+| P5.4 | M5, 4 MB | 0.616 - 1.185 **AMB** | 0.875 - 1.476 | 0.641 - 0.993 |
 
-**The allocation column is what bounds the win.** On every row but P6.1 the
-managed arm allocates 0.91 to 1.00 of what the incumbent allocates, so the two
-are building object graphs of the same size and the win is not "it built
-less". **P6.1 is the exception and it is also the only loss**: 1.31 times the
-allocation, five `List<T>` growths per element against `RepeatedField`, and
-the arm is slower. The two facts belong together.
+**Allocation, unchanged by the re-baseline**: the managed arm allocates 0.91 to
+1.00 of the incumbent on every row but P6.1, so the two build object graphs of
+the same size and the win is not "it built less". **P6.1 is 1.31 times, five
+`List<T>` growths per element against `RepeatedField`, and it is also the only
+row that reaches parity.** The two facts belong together.
 
 **The M5 rows are a ratio between two copies and are marked AMBIGUOUS.** A bulk
 decode is a copy, the memcpy floor sits far below on those rows, and the two
@@ -227,26 +250,34 @@ that share runs out before the containers do.
 Against `gp-writeto` (the fair baseline) and `gp-tobytearray` (what application
 code writes):
 
-| payload | `managed` / wto | `managed` / tba | `gp-bufferwriter` / wto | `managed-2pass` / wto | memcpy / wto |
-|---|---|---|---|---|---|
-| P1.1 | 0.419 - 0.440 | 0.349 - 0.366 | 0.760 - 0.794 | 0.809 - 0.858 | 0.014 - 0.015 |
-| P1.2 | 0.417 - 0.435 | 0.343 - 0.366 | 0.787 - 0.791 | 0.889 - 0.966 | 0.018 - 0.019 |
-| P1.3 | 0.209 - 0.314 | 0.206 - 0.300 | 0.681 - 0.726 | 0.332 - 0.428 | 0.002 |
-| P2.1 | 0.268 - 0.278 | 0.246 - 0.249 | 0.777 - 0.790 | 0.613 - 0.644 | 0.008 |
-| **P2.2** | **0.282 - 0.284** | **0.263 - 0.268** | **0.786 - 0.789** | **0.721 - 0.723** | 0.010 |
-| P2.3 | 0.345 - 0.362 | 0.279 - 0.315 | 0.733 - 0.741 | 0.786 - 0.803 | 0.021 - 0.023 |
-| P2.4 | 0.374 - 0.413 | 0.289 - 0.332 | 0.727 - 0.738 | 0.775 - 0.826 | 0.030 - 0.033 |
-| P2.5 | 0.267 - 0.274 | 0.229 - 0.238 | 0.780 - 0.792 | 0.648 - 0.659 | 0.010 - 0.011 |
-| P3.1 | 0.327 - 0.337 | 0.279 - 0.282 | 0.689 - 0.707 | 0.613 - 0.668 | 0.003 |
-| P4.1 | 0.219 - 0.223 | 0.211 - 0.214 | 0.790 - 0.800 | 0.593 - 0.606 | 0.005 |
-| P6.1 | 0.306 - 0.318 | 0.273 - 0.282 | 0.809 - 0.813 | 0.614 - 0.640 | 0.009 - 0.010 |
-| P7.1 | 0.322 - 0.356 | 0.271 - 0.302 | 0.715 - 0.779 | 0.523 - 0.598 | 0.026 - 0.029 |
-| P5.1 | 0.436 - 0.462 | 0.272 - 0.279 | 0.775 - 0.800 | 0.683 - 0.783 | 0.088 - 0.097 |
-| P5.2 | 0.918 - 1.011 **AMB** | 0.211 - 0.259 | 0.937 - 1.004 | 0.894 - 1.045 **AMB** | **0.908 - 0.971** |
-| P5.3 | 0.964 - 1.017 **AMB** | 0.111 - 0.219 | 0.974 - 0.998 | 0.963 - 1.031 **AMB** | **0.954 - 1.053** |
-| P5.4 | 1.023 - 1.042 **AMB** | 0.154 - 0.273 | 0.986 - 0.995 | 1.007 - 1.036 **AMB** | **0.982 - 1.016** |
+Baseline is **`gp-marshaller`**, the stub's own
+`CalculateSize()` + `WriteTo(IBufferWriter)` (R14).
 
-**`gp-bufferwriter` is the size pass, priced.** It is 0.68 to 0.81 of the
+| payload | `managed` | `managed-2pass` | `gp-writeto` (span) | `gp-bufferwriter` (no size pass) |
+|---|---|---|---|---|
+| P1.1 | 0.408 - 0.443 | 0.832 - 0.858 | 0.999 - 1.012 | 0.765 - 0.792 |
+| P1.2 | 0.422 - 0.437 | 0.885 - 0.934 | 0.997 - 1.002 | 0.790 - 0.806 |
+| P1.3 | 0.242 - 0.350 | 0.315 - 0.434 | 0.998 - 0.999 | 0.707 - 0.715 |
+| P2.1 | 0.271 - 0.292 | 0.627 - 0.651 | 0.994 - 1.004 | 0.795 - 0.818 |
+| **P2.2** | **0.284 - 0.296** | **0.722 - 0.737** | 0.995 - 1.007 | 0.787 - 0.811 |
+| P2.3 | 0.354 - 0.367 | 0.782 - 0.822 | 1.002 - 1.006 | 0.744 - 0.827 |
+| P2.4 | 0.393 - 0.406 | 0.777 - 0.838 | 0.996 - 1.008 | 0.733 - 0.849 |
+| P2.5 | 0.273 - 0.280 | 0.652 - 0.660 | 0.992 - 1.000 | 0.791 - 0.811 |
+| P3.1 | 0.335 - 0.365 | 0.639 - 0.647 | 0.998 - 1.014 | 0.685 - 0.720 |
+| P4.1 | 0.228 - 0.239 | 0.608 - 0.612 | 0.997 - 1.004 | 0.792 - 0.803 |
+| P6.1 | 0.309 - 0.332 | 0.610 - 0.623 | 1.001 - 1.004 | 0.808 - 0.814 |
+| P7.1 | 0.351 - 0.377 | 0.570 - 0.595 | 0.962 - 0.993 | 0.747 - 0.756 |
+| P5.1 | 0.455 - 0.511 | 0.664 - 0.757 | 0.969 - 0.995 | 0.790 - 0.807 |
+| P5.2 | 0.923 - 1.048 **AMB** | 0.978 - 1.051 **AMB** | 1.017 - 1.060 | 0.963 - 1.024 |
+| P5.3 | 0.964 - 1.031 **AMB** | 0.969 - 1.039 **AMB** | 0.991 - 1.014 | 0.997 - 1.015 |
+| P5.4 | 1.007 - 1.032 **AMB** | 1.005 - 1.012 **AMB** | 0.985 - 1.000 | 0.992 - 0.997 |
+
+**`gp-writeto` is `gp-marshaller` to within 1 percent on every row**, which is
+what says the re-baseline did not move the encode column: the write half, span
+against buffer-writer, is noise, and the size pass that both carry is the
+whole of it.
+
+**`gp-bufferwriter` is the size pass, priced.** It is 0.69 to 0.85 of the
 baseline on every non-bulk row, and that gap IS `CalculateSize()`. It is not a
 fairer baseline: `Grpc.Tools`' marshaller requires the length before the frame
 header, so an ArmoniK client pays it. What the arm establishes is that **a
