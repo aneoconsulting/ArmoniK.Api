@@ -187,6 +187,13 @@ mech/
 It builds, gates on conformance, and writes every log. The R13 calibration is
 separate and is `AK_BENCH_ONLY=P1.1 ffi/poc/rust/target/release/bench`.
 
+**Verified from a clean clone of the pushed branch, at a different path**, which
+is how D4 was found: `git clone --branch claude/ffi-slice-python . /tmp/v && cd
+/tmp/v/ffi/poc/python/mech && ./build.sh <python> && <python> conformance.py`
+builds every arm and passes every check. Do this at the end of a work unit. It is
+README R4's last paragraph as a command: a figure whose harness is not in the
+tree, or is in the tree and does not build, cannot be defended.
+
 ## Correctness
 
 **Established, for what is built.** Every codec arm is byte-identical to
@@ -209,8 +216,11 @@ have been compiled from a generated tree that no longer matches `shapes.json`.
 | D1 | `native/_akmech.c` | the forward arm used `PyLong_AsLongLong` and raised above 2^63 while the PyO3 and cffi arms answered, so the arms were not doing the same work. **Fixed** (`PyLong_AsUnsignedLongLong`). Found by the correctness gate, not by reading the code |
 | D2 | `bench_codec.py` | the floor arm was `bytes(ref)` on a `bytes`, which returns the same object and copies nothing: 58 ns at 858 B and at 218 KB alike. **Fixed** (`memoryview.tobytes()`). A floor that is not doing the work is worse than no floor |
 | D3 | `ffi/poc/python/.gitignore` | the repository-wide `.gitignore` excludes any directory named `gen`, and `ffi/.gitignore` re-includes `poc/*/gen/**`, which does not reach `poc/python/mech/gen/`. **Fixed** by a re-inclusion in this slice's own `.gitignore`, checked with `git check-ignore`. This is the fourth time that file has eaten a source directory in this branch |
+| D4 | `gen/generate.py` | `payload_values.py` carried the ffi root as an **absolute path baked in at generate time**, so a clone of this branch at any other path regenerated a different file and `generate.py --check` refused the whole tree as stale: the committed sources could not rebuild themselves. **Fixed**: the generated module walks up to `schema/shapes.json` instead. Found by cloning the pushed branch and building it, not by reading the code, and it is the reason that clone-and-build is now the last step of a work unit. No measurement is affected: `_akcodec_gen.c` is byte-identical across the fix, and the only file that changed computes paths |
 
-None open.
+None open. Every one of the four was found by something running, not by review:
+D1 by the correctness gate, D2 by a ratio that did not move with payload size,
+D3 by reading what `git status` did NOT list, D4 by building a clean clone.
 
 ## What is not measured
 
