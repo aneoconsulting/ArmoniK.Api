@@ -213,11 +213,6 @@ one log, which is the spread saying the row does not support a ratio at all.
 This is R2's lesson in the shape the Rust slice met it in, one direction over:
 there a 0.08 needed a floor arm before it could be reported, here a 1.1 does.
 
-**The allocation column is what bounds this.** The managed arm allocates 0.91
-to 1.00 of what the incumbent allocates on every non-packed row, so the two
-arms are building object graphs of the same size and the win is not "it built
-less". On P6.1 the managed arm allocates MORE (1.31) and is still faster.
-
 **The Rust slice's convergence finding reproduces, and here it CROSSES 1.0.**
 Decode approaches parity in proportion to host-side CONTAINER construction per
 element, not to bytes or strings: the flat shapes sit at 0.72 to 0.82, the
