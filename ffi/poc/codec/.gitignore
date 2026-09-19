@@ -1,0 +1,10 @@
+# Build output only. Everything a figure depends on stays in the tree.
+#
+# Anchored and specific, never a bare directory name: the rust slice's published encode
+# column had to be WITHDRAWN because a `[Bb]in/` rule meant for .NET output swallowed its
+# measurement binaries (its D19), and `ffi/.gitignore` re-includes `logs/**` and
+# `poc/**/gen/` for the same reason. `gen/audit_tracked.sh` in the cpp slice checks this
+# from git's own answer rather than by reading this file.
+/target/
+gen/__pycache__/
+*.pyc

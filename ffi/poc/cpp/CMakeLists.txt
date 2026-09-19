@@ -40,22 +40,34 @@ set_property(TARGET shapes_pb PROPERTY CXX_STANDARD 11)
 set_property(TARGET shapes_pb PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # ---- the core -----------------------------------------------------------------------
-# Built by cargo, from the codec emitted by the RUST slice's own emitter (R1). Two builds:
-# the timed one and the counting one (README R5), which never share a binary.
-set(CORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/core")
-set(CORE_OUT "${CORE_DIR}/target/release")
-set(CORE_COUNT_OUT "${CORE_DIR}/target-count/release")
+# THE shared core (README R0): `ffi/poc/codec/crates/ak-core`, the same crate the rust,
+# java and csharp slices build, not a copy of it. This slice contributed
+# `ak_enc_count_reverse` to it and gets java's two converting transcoders back.
+#
+# CARGO_TARGET_DIR is set on EVERY invocation, including the default one. Before R0 the
+# default build inherited `cpp/core` as its workspace root and landed there by itself;
+# now the workspace root is the shared one, so an unset target dir would put this
+# slice's three builds in `poc/codec/target` -- shared with every other slice, and with
+# each other, which is three feature sets fighting over one output path.
+#
+# Three builds, which never share a binary: the timed one, the counting one (README R5)
+# and, under -DAK_RPC=ON, the one with ABI v1 section 9 linked in.
+set(CORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../codec/crates/ak-core")
+set(CORE_TGT "${CMAKE_CURRENT_SOURCE_DIR}/core-build")
+set(CORE_OUT "${CORE_TGT}/target/release")
+set(CORE_COUNT_OUT "${CORE_TGT}/target-count/release")
 
 add_custom_target(core ALL
-  COMMAND cargo build --release --manifest-path ${CORE_DIR}/Cargo.toml
-  BYPRODUCTS ${CORE_OUT}/libak_core_cpp.so ${CORE_OUT}/libak_core_cpp.a
-  COMMENT "cargo build ak-core-cpp (cdylib + staticlib)")
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target
+          cargo build --release --manifest-path ${CORE_DIR}/Cargo.toml
+  BYPRODUCTS ${CORE_OUT}/libak_core.so ${CORE_OUT}/libak_core.a
+  COMMENT "cargo build the shared ak-core (cdylib + staticlib)")
 
 add_custom_target(core_count ALL
-  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_DIR}/target-count
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-count
           cargo build --release --features count --manifest-path ${CORE_DIR}/Cargo.toml
-  BYPRODUCTS ${CORE_COUNT_OUT}/libak_core_cpp.so
-  COMMENT "cargo build ak-core-cpp --features count")
+  BYPRODUCTS ${CORE_COUNT_OUT}/libak_core.so
+  COMMENT "cargo build the shared ak-core --features count")
 
 # ---- one arm ------------------------------------------------------------------------
 # ak_arm(<name> <exe-source> <std> <impl> <guard> <linkage> <policy> <core-dir>)
@@ -90,9 +102,9 @@ function(ak_arm name src std impl guard linkage policy coredir)
     target_compile_definitions(${name} PRIVATE AK_DEC_LOSSY=1)
   endif()
   if(linkage STREQUAL "static")
-    target_link_libraries(${name} PRIVATE ${coredir}/libak_core_cpp.a ${CMAKE_DL_LIBS} m)
+    target_link_libraries(${name} PRIVATE ${coredir}/libak_core.a ${CMAKE_DL_LIBS} m)
   else()
-    target_link_libraries(${name} PRIVATE ${coredir}/libak_core_cpp.so)
+    target_link_libraries(${name} PRIVATE ${coredir}/libak_core.so)
     set_property(TARGET ${name} APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-rpath,${coredir}")
   endif()
   if(linkage STREQUAL "static-lto")
@@ -160,12 +172,12 @@ if(AK_RPC)
   find_package(PkgConfig REQUIRED)
   pkg_check_modules(GRPCPP REQUIRED grpc++)
   find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin REQUIRED)
-  set(CORE_RPC_OUT "${CORE_DIR}/target-rpc/release")
+  set(CORE_RPC_OUT "${CORE_TGT}/target-rpc/release")
   add_custom_target(core_rpc ALL
-    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_DIR}/target-rpc
+    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-rpc
             cargo build --release --features rpc --manifest-path ${CORE_DIR}/Cargo.toml
-    BYPRODUCTS ${CORE_RPC_OUT}/libak_core_cpp.so
-    COMMENT "cargo build ak-core-cpp --features rpc")
+    BYPRODUCTS ${CORE_RPC_OUT}/libak_core.so
+    COMMENT "cargo build the shared ak-core --features rpc")
   add_custom_command(
     OUTPUT ${GEN}/shapes_svc.pb.cc ${GEN}/shapes_svc.pb.h
            ${GEN}/shapes_svc.grpc.pb.cc ${GEN}/shapes_svc.grpc.pb.h
@@ -192,7 +204,7 @@ if(AK_RPC)
     ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src ${GEN}
     ${GRPCPP_INCLUDE_DIRS})
   target_link_libraries(rpcbench PRIVATE shapes_pb Threads::Threads
-    ${GRPCPP_LIBRARIES} ${CORE_RPC_OUT}/libak_core_cpp.so)
+    ${GRPCPP_LIBRARIES} ${CORE_RPC_OUT}/libak_core.so)
   target_link_directories(rpcbench PRIVATE ${GRPCPP_LIBRARY_DIRS})
   set_property(TARGET rpcbench PROPERTY CXX_STANDARD 17)
   target_compile_definitions(rpcbench PRIVATE AK_LINKAGE="shared")
@@ -236,7 +248,7 @@ if(AK_UPB)
     ${UPB_SRC}/upb/reflection/stage0 ${UPB_SRC}
     ${CMAKE_CURRENT_SOURCE_DIR}/build/upbinc)
   target_link_libraries(upbbench PRIVATE shapes_pb Threads::Threads
-    ${CORE_OUT}/libak_core_cpp.so ${UPB_LIBS})
+    ${CORE_OUT}/libak_core.so ${UPB_LIBS})
   set_property(TARGET upbbench PROPERTY CXX_STANDARD 17)
   if(NOT AK_UPB_CC)
     set(AK_UPB_CC "cc (gcc 13.3.0)")

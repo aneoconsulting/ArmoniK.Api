@@ -22,6 +22,12 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# R0: `ir.py`, `rust_abi.py`, `rust_core.py` and `rustnames.py` are the shared core's
+# emitters and live at `poc/codec/gen/`. THIS directory stays first: both directories
+# contain a `generate.py`, and with the other one in front any `import generate`
+# silently resolves to it.
+CODECGEN = os.path.abspath(os.path.join(HERE, "..", "..", "codec", "gen"))
+sys.path.insert(0, CODECGEN)
 sys.path.insert(0, HERE)
 
 import ir as IR              # noqa: E402
@@ -58,8 +64,11 @@ def targets(ir):
         "crates/facade/src/generated/prost_impl.rs": rust_facade.emit_prost_impl(ir),
         "crates/facade/src/generated/build.rs": rust_build.emit(ir),
         "crates/facade/src/generated/core_native.rs": rust_core.emit_core_native(ir),
-        "crates/ak-abi/src/generated/abi.rs": rust_abi.emit_abi(ir),
-        "crates/ak-core/src/generated/codec.rs": codec,
+        # The shared core (R0). Written from here as well as from `poc/codec/gen` and from
+        # the other slices' generators, all from one emitter and one description, so
+        # this slice's `--check` gates the core it measures.
+        "../codec/crates/ak-abi/src/generated/abi.rs": rust_abi.emit_abi(ir),
+        "../codec/crates/ak-core/src/generated/codec.rs": codec,
         "crates/harness/src/generated/binding.rs": rust_abi.emit_binding(ir),
     }
 

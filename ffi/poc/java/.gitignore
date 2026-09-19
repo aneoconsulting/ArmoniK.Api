@@ -6,8 +6,9 @@
 # rule is that a figure whose harness is not in the tree cannot be defended. So the
 # patterns here are anchored and specific, never a bare directory name.
 /build/
-/core/target/
-/core/target-count/
+# R0 moved the core crate itself to `ffi/poc/codec/crates/ak-core`; only its build
+# output for this slice lives here, in two CARGO_TARGET_DIRs (timed and counting).
+/core-build/
 /deps/cp.txt
 __pycache__/
 *.pyc

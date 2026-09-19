@@ -1,31 +1,49 @@
-//! The core, behind the C ABI. **java slice copy.**
+//! The core, behind the C ABI. **One copy, shared by every slice (README R0).**
 //!
-//! The rust slice's `crates/ak-core/src/lib.rs` (by way of the cpp slice's copy of it),
-//! with the `rpc` module dropped and **two transcoders added**. It is hand-written runtime
-//! support, not a codec, so R1 is satisfied by `generated/codec.rs` being emitted by the
-//! SAME emitter the rust and cpp slices use (`ffi/poc/rust/gen/rust_abi.py`, imported
-//! read-only by `gen/generate.py`). Three hosts, one core.
+//! This file was three files. `crates/ak-core/src/lib.rs` in the rust slice, `core/src/
+//! lib.rs` in the cpp slice and `core/src/lib.rs` in the java slice were the same
+//! hand-written runtime with three different sets of additions, and the emitted
+//! `generated/codec.rs` beside them was byte-identical in all three -- so the *generator*
+//! was genuinely shared (R1) and the *runtime* had forked three ways. Neither addition was
+//! wrong and neither broke a measurement. The mechanism is the finding: **each fork
+//! happened because a slice needed to add something and the shared core had nowhere to
+//! accept a contribution**, which is the five-implementations problem this branch exists to
+//! argue about, reproduced inside the branch. W10 folded them back; R0 is the rule that
+//! keeps them folded, and `gen/one_core.sh` is the test that the rule fails when broken.
 //!
-//! **What this slice had to add, and why no slice needed it before.** ABI v1 section 4
-//! specifies five transcoders and the core implemented two of them: `ak_tc_utf8` and
-//! `ak_tc_bytes`, which are the same memcpy once decision 3 settled. Both are enough for a
-//! host whose string representation is already UTF-8, which C++ (`std::string`) and Rust
-//! (`String`) both are. **A JVM host holds UTF-16**, so `ak_tc_utf16` and `ak_tc_latin1`
-//! are the entries the specification wrote for it and the first slice to reach them is
-//! this one. They are the whole of "every managed host stops maintaining a UTF-8 encoder"
-//! (section 4's provenance row), so a Java slice that skipped them would be measuring a
-//! host transcoder and calling it the ABI.
+//! What each slice contributed, all of it additive and all of it kept exactly as its
+//! author wrote it:
+//!
+//!   * the cpp slice -- `ak_enc_count_reverse`, so a reverse crossing the core cannot see
+//!     is counted rather than inferred (R5);
+//!   * the java slice -- `ak_tc_utf16` and `ak_tc_latin1`, the two converting transcoders
+//!     ABI v1 section 4 specifies for a host that does not already hold UTF-8;
+//!   * the cpp and java slices together -- `generated::layout`, section 10's run-time
+//!     layout export, which the rust slice could not exercise because both of its sides
+//!     compile against one generated header.
+//!
+//! Two things are behind features rather than unconditional, and for measurement reasons
+//! rather than taste. `rpc` (ABI v1 section 9) pulls tonic and tokio into the shared
+//! object, so a codec arm must not link it; the rust slice turns it on because its stage-4
+//! arm is the RPC one. `count` (R5) puts the counters in the contexts, and a counting build
+//! is never a timed build.
 //!
 //! A separate crate on purpose. Every entry point here is a `#[no_mangle] extern "C"`
-//! function that is neither generic nor `#[inline]`. The managed hosts cannot be inlined
-//! into across the boundary at all (findings/rust.md), which makes the JVM the one host
-//! R5's first hazard cannot reach; the harness still measures a no-op crossing in the same
-//! build, because "an arm is not what its name says until the artifact agrees".
+//! function that is neither generic nor `#[inline]`, so with cross-crate LTO off rustc has
+//! no MIR to inline and the host's call is a real call through the symbol -- which is what
+//! makes a `core-ffi` arm a measurement of the boundary rather than of the optimiser. Each
+//! host's harness measures a no-op crossing in the same build to show the boundary is
+//! there. The one host this cannot reach is a managed one: a JVM or a CLR cannot be inlined
+//! into across the boundary at all (findings/rust.md).
 #![allow(non_camel_case_types, non_upper_case_globals)]
 
 use ak_abi::*;
 use ak_rt::Enc;
 use core::ffi::c_void;
+
+/// ABI v1 section 9, behind a feature so the codec arms do not link tonic.
+#[cfg(feature = "rpc")]
+pub mod rpc;
 
 pub mod generated {
     pub mod codec;

@@ -227,3 +227,31 @@ def check_direct(ir, root):
             "REFUSED: %s declares %d direct-argument fields (%s). ABI v1 section 8 builds the "
             "path for ONE field of one root message and nothing tests it otherwise."
             % (root, len(ds), ", ".join(slot_name(p) for p, _ in ds)))
+
+
+def abi_order_topo(ir):
+    """`ir.abi_order`, re-sorted so a group is declared after every group it inlines.
+
+    Rust does not care and C does: `struct ak_efix_Probe` inlines `ak_efix_Empty` by value,
+    and `Empty` is declared after `Probe` in shapes.json. A slice that emitted the
+    description's order would get an incomplete type, which is a compile error rather than
+    a silent defect -- but the same ordering is what `cpp_layout.py` must use for the
+    run-time layout table to line up with the host's, and there it WOULD be silent.
+    """
+    out = []
+    seen = set()
+
+    def visit(name):
+        if name in seen:
+            return
+        seen.add(name)
+        for f in ir.msg(name).fields:
+            if f.kind == "message":
+                visit(f.of)
+            elif f.kind == "map":
+                visit(f.entry)
+        out.append(name)
+
+    for name in ir.abi_order:
+        visit(name)
+    return out

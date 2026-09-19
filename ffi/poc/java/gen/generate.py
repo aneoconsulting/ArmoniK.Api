@@ -4,15 +4,16 @@
 R1: one description drives everything, and there is no hand-written codec anywhere in the
 comparison. This file imports, READ-ONLY:
 
-  * the rust slice's `ir.py` (which itself imports `ffi/schema/emit/shapes.py`) and
-    `rust_abi.py`, so the core this slice measures against is emitted by the SAME emitter
-    the rust and cpp slices measure -- three hosts over one core rather than three cores;
-  * the cpp slice's `cpp_header.py` and `cpp_layout.py`, so the C header the JNI shim
-    compiles against and the core's run-time layout export are the ones the cpp slice
-    already validated, and a group cannot be laid out one way for C++ and another for the
-    shim.
+  * the shared core's `ir.py` (which itself imports `ffi/schema/emit/shapes.py`),
+    `rust_abi.py` and `cpp_layout.py` from `poc/codec/gen/`, so the core this slice
+    measures against is the one every slice measures (R0) -- N hosts over one core rather
+    than N cores;
+  * the cpp slice's `cpp_header.py`, so the C header the JNI shim compiles against is the
+    one the cpp slice already validated, and a group cannot be laid out one way for C++ and
+    another for the shim.
 
-Nothing under `ffi/poc/rust/` or `ffi/poc/cpp/` is written by this script.
+The two core files below are written into `poc/codec/` and nowhere else; nothing under
+`ffi/poc/rust/` or `ffi/poc/cpp/` is written by this script.
 
 What is this slice's own, as new backends over the same IR:
 
@@ -20,8 +21,8 @@ What is this slice's own, as new backends over the same IR:
                                         the binding, the group offsets
   src/generated/java8/...               the SAME description emitted at the Java 8 level
   native/generated/*.c                  the JNI shim: entry points and loop trampolines
-  core/src/generated/codec.rs           the core behind the C ABI  (rust_abi.emit_codec)
-  core/src/generated/layout.rs          section 10's run-time layout export
+  ../codec/crates/ak-core/src/generated/codec.rs   the shared core       (R0)
+  ../codec/crates/ak-core/src/generated/layout.rs  section 10's run-time layout export
   native/generated/ak_abi.h             the C ABI header             (cpp_header.emit)
 
   gen/generate.py            write the generated files
@@ -31,19 +32,19 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-RUSTGEN = os.path.abspath(os.path.join(HERE, "..", "..", "rust", "gen"))
+CODECGEN = os.path.abspath(os.path.join(HERE, "..", "..", "codec", "gen"))
 CPPGEN = os.path.abspath(os.path.join(HERE, "..", "..", "cpp", "gen"))
 # THIS directory first. Both of the other two contain a `generate.py`, and the cpp slice
 # records what happens when the order is wrong: an `import generate` anywhere resolves to
 # somebody else's generator and emits their files instead of ours.
 sys.path.insert(0, CPPGEN)
-sys.path.insert(0, RUSTGEN)
+sys.path.insert(0, CODECGEN)
 sys.path.insert(0, HERE)
 
-import ir as IR              # noqa: E402  (rust slice, read-only)
-import rust_abi              # noqa: E402  (rust slice, read-only)
+import ir as IR              # noqa: E402  (shared core, read-only)
+import rust_abi              # noqa: E402  (shared core, read-only)
 import cpp_header            # noqa: E402  (cpp slice, read-only)
-import cpp_layout            # noqa: E402  (cpp slice, read-only)
+import cpp_layout            # noqa: E402  (shared core, read-only)
 import javanames as N        # noqa: E402
 import java_facade           # noqa: E402
 import java_build            # noqa: E402
@@ -90,8 +91,8 @@ def targets(ir):
     out = {
         "native/generated/ak_abi.h": header,
         "native/generated/ak_layout.h": layout_h,
-        "core/src/generated/codec.rs": codec,
-        "core/src/generated/layout.rs": cpp_layout.emit(ir),
+        "../codec/crates/ak-core/src/generated/codec.rs": codec,
+        "../codec/crates/ak-core/src/generated/layout.rs": cpp_layout.emit(ir),
         "native/generated/shim.c": java_jni.emit(ir),
         "src/generated/shared/ak/NativeEntry.java": java_jni.emit_java(ir),
     }

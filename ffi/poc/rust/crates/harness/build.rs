@@ -20,10 +20,14 @@ fn main() {
         .nth(3)
         .expect("unexpected OUT_DIR shape")
         .to_path_buf();
-    // A dependency's cdylib is left in <profile>/deps; only a workspace member's is
-    // uplifted to <profile>. Search both so this works either way.
+    // A dependency's cdylib is left in <profile>/deps; only a workspace MEMBER's is
+    // uplifted to <profile>. Search both so this works either way -- but **deps first**,
+    // because R0 moved `ak-core` out of this workspace and it is therefore no longer
+    // uplifted. Whatever `<profile>/libak_core.so` still holds is a build from before the
+    // move, and with the old order the harness would have linked and loaded THAT: the
+    // exact shape of "a change that measures the same because it is not in the build".
     let deps = profile_dir.join("deps");
-    for d in [&profile_dir, &deps] {
+    for d in [&deps, &profile_dir] {
         println!("cargo:rustc-link-search=native={}", d.display());
         println!("cargo:rustc-link-arg=-Wl,-rpath,{}", d.display());
     }

@@ -24,9 +24,9 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-RUSTGEN = os.path.abspath(os.path.join(HERE, "..", "..", "rust", "gen"))
+CODECGEN = os.path.abspath(os.path.join(HERE, "..", "..", "codec", "gen"))
 # HERE first: both directories contain a `generate.py`. See the note in generate.py.
-sys.path.insert(0, RUSTGEN)
+sys.path.insert(0, CODECGEN)
 sys.path.insert(0, HERE)
 
 import ir as IR                 # noqa: E402

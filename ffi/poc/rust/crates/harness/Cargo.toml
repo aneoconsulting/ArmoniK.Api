@@ -20,18 +20,22 @@ dec-reject-simd = ["ak-rt/dec-reject-simd"]
 [dependencies]
 # Build-ordering and feature plumbing only. `ak-core` is a cdylib: it is linked by
 # build.rs through the dynamic linker, never `use`d, so nothing here can inline it.
-ak-core = { path = "../ak-core" }
+# R0: the shared core. `features = ["rpc"]` because ABI v1 section 9 is behind a
+# feature now that three slices build this crate and only this one links tonic into
+# it; before the move the module was unconditional, so this keeps the artifact the
+# same as the one every figure in ffi/logs/rust was taken against.
+ak-core = { path = "../../../codec/crates/ak-core", features = ["rpc"] }
 facade = { path = "../facade" }
 shapes-prost = { path = "../shapes-prost" }
 shapes-values = { path = "../shapes-values" }
 stage1-validate = { path = "../stage1-validate" }
-ak-abi = { path = "../ak-abi" }
-ak-rt = { path = "../ak-rt" }
+ak-abi = { path = "../../../codec/crates/ak-abi" }
+ak-rt = { path = "../../../codec/crates/ak-rt" }
 prost.workspace = true
 bytes.workspace = true
 sha2.workspace = true
 serde_json.workspace = true
-rpc = { path = "../rpc" }
+rpc = { path = "../../../codec/crates/rpc" }
 tonic = { workspace = true, features = ["codegen", "transport"] }
 tonic-prost.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "net", "macros", "time"] }

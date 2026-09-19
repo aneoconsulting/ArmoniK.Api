@@ -19,7 +19,8 @@ hdr() {
   echo "#   compiler        $(g++ --version | head -1)"
   echo "#   incumbent       protobuf C++ $(protoc --version | awk '{print $2}') (libprotobuf-dev, apt)"
   echo "#                   packages/cpp pins no protobuf version and sets CXX_STANDARD 14"
-  echo "#   core            ak-core-cpp, codec emitted by ffi/poc/rust/gen/rust_abi.py (R1)"
+  echo "#   core            THE shared ak-core at ffi/poc/codec (R0), cdylib + staticlib;"
+  echo "#                   codec emitted by ffi/poc/codec/gen/rust_abi.py (R1)"
   echo "#   rustc           $(rustc --version)"
   echo "#   commit          $(git -C ../../.. rev-parse --short HEAD)"
   echo
@@ -42,6 +43,13 @@ hdr() {
   echo "===== audit_tracked.sh: R4's closing rule, asked of git ====="
   ./gen/audit_tracked.sh
   echo "audit_tracked.sh exit $?"
+  echo
+  echo "===== one_core.sh: R0, and the proof that R0 can fail ====="
+  # The shared core's gate, not this slice's, but it runs here because this is where the
+  # gates run and a rule checked by nobody is a rule that gets broken again. --selftest
+  # plants five violations in a scratch copy of what git tracks and requires each to fail.
+  bash ../codec/gen/one_core.sh --selftest
+  echo "one_core.sh --selftest exit $?"
 } > "$L/generator.log" 2>&1
 
 {
