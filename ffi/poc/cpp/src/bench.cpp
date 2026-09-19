@@ -75,6 +75,8 @@ extern "C" void ak_crossing_tax() {
 }
 #endif
 
+static bool wanted(const char *id);
+
 static double now_ns() {
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -181,6 +183,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
                      int32_t (*ffi_dec)(ak_dec_ctx *, const uint8_t *, size_t, F *),
                      void (*nat_enc)(const F &, ak::Enc *),
                      int32_t (*nat_dec)(const uint8_t *, size_t, F *)) {
+  if (!wanted(id)) return;
   F facade = mk();
   P pb;
   pbmk(&pb);
@@ -373,8 +376,28 @@ static void report() {
   }
 }
 
+// AK_BENCH_ONLY=P2.2,P1.2 restricts the run. The interleaving and the ratio are still
+// formed inside one process over exactly the cases that remain, so a filtered run is as
+// valid as a full one for the payloads it keeps. The rust harness has the same switch.
+static std::vector<std::string> g_only;
+
+static bool wanted(const char *id) {
+  if (g_only.empty()) return true;
+  for (size_t i = 0; i < g_only.size(); ++i)
+    if (g_only[i] == id) return true;
+  return false;
+}
+
 int main(int argc, char **argv) {
   if (argc > 1) g_rounds = atoi(argv[1]);
+  if (const char *o = getenv("AK_BENCH_ONLY")) {
+    std::string t(o), cur;
+    for (size_t i = 0; i <= t.size(); ++i) {
+      if (i == t.size() || t[i] == ',') { if (!cur.empty()) g_only.push_back(cur); cur.clear(); }
+      else if (t[i] != ' ') cur += t[i];
+    }
+    std::printf("# filtered: AK_BENCH_ONLY=%s\n", o);
+  }
   std::printf("-std=%ld  impl=%s  guard=%s  decode-policy=%s  linkage=%s  rounds=%d\n",
               (long)__cplusplus,
 #ifdef AK_FLOOR_IMPL
@@ -439,8 +462,10 @@ int main(int argc, char **argv) {
 #undef X
 
   // The group fill alone, interleaved in its own rounds beside a `pb` row taken in the
-  // same rounds. The first version ran it after every payload had finished and then paired
-  // its round k with `pb`'s round k, which paired measurements taken minutes apart.
+  // same rounds.
+  // The first version ran it after every payload had finished and then paired its round k
+  // with `pb`'s round k, which paired measurements taken minutes apart.
+  if (g_only.empty())
   {
     shapes::ListResultsResponse p12 = shapes::build::payload_p1_2();
     shapes::ListResultsResponse p13 = shapes::build::payload_p1_3();
@@ -486,8 +511,10 @@ int main(int argc, char **argv) {
   }
 
   // The incumbent's deterministic-serialisation cost, on the only payload family with a
-  // map. Both measurements are hoisted into locals: the first version called timed() four
-  // times and printed a ratio of two FRESH measurements beside two others.
+  // map.
+  // Both measurements are hoisted into locals: the first version called timed() four times
+  // and printed a ratio of two FRESH measurements beside two others.
+  if (g_only.empty())
   {
     ns::ListTasksDetailedResponse pb;
     pbbuild::payload_p2_2(&pb);
@@ -505,6 +532,7 @@ int main(int argc, char **argv) {
 
   // Where the C ABI's encode advantage goes: the two-pass blob write that ABI v1 section
   // 4's removal of the declared expansion bound forces.
+  if (g_only.empty())
   {
     shapes::ListResultsResponse m = shapes::build::payload_p1_2();
     std::vector<const std::string *> ss;
@@ -547,6 +575,7 @@ int main(int argc, char **argv) {
   // sets. The first version compared two whole-payload arms in two different binaries,
   // which is a difference of two ratios across the across-build drift, ASCII only, and it
   // did not reconcile with the logs it was derived from.
+  if (g_only.empty())
   {
     shapes::ListResultsResponse m = shapes::build::payload_p1_2();
     const char *setname[3] = {"ascii", "latin1", "wide"};
@@ -599,6 +628,81 @@ int main(int argc, char **argv) {
                   brw, bcr, bcr - brw, blo, bhi);
     }
   }
+
+  // README 5.2's arms b and c, measured INSIDE one process.
+  //
+  // Two reasons the a/b/c table of three separate binaries cannot answer this. First, the
+  // across-build ratio drift measured by `gen/drift.sh` is larger than the effect. Second,
+  // `AK_CXX17` reaches exactly 11 sites in the whole emitted tree, all on the decode side,
+  // so every encode row and most decode rows of arm b compile IDENTICAL SOURCE -- two of
+  // the three cells were the same code measured twice. The two constructs the switch
+  // actually selects are benchmarked here directly, as two arms in the same rounds, over
+  // the real data.
+  // Guarded on the LANGUAGE level rather than on AK_CXX17: the point is to run both
+  // constructs side by side, which needs a compiler that has both, so this section exists
+  // only in the C++17 binaries. The c++11 and c++14 binaries cannot compile the target
+  // construct at all, which is the constraint being priced.
+#if __cplusplus >= 201703L
+  if (g_only.empty())
+  {
+    shapes::ListTasksDetailedResponse p22 = shapes::build::payload_p2_2();
+    std::vector<std::pair<std::string, std::string> > entries;
+    for (size_t i = 0; i < p22.tasks.size(); ++i)
+      if (p22.tasks[i].options.has_value())
+        for (std::map<std::string, std::string>::const_iterator it =
+                 p22.tasks[i].options->options.begin();
+             it != p22.tasks[i].options->options.end(); ++it)
+          entries.push_back(*it);
+    std::map<std::string, std::string> mm;
+    auto floor_map = [&]() {
+      mm.clear();
+      for (size_t i = 0; i < entries.size(); ++i) mm[entries[i].first] = entries[i].second;
+      AK_SINK_MEM(mm);
+    };
+    auto target_map = [&]() {
+      mm.clear();
+      for (size_t i = 0; i < entries.size(); ++i) {
+        std::string k = entries[i].first, v = entries[i].second;
+        mm.insert_or_assign(std::move(k), std::move(v));
+      }
+      AK_SINK_MEM(mm);
+    };
+    shapes::ListTasksDetailedResponse p23 = shapes::build::payload_p2_3();
+    std::vector<const std::string *> strs;
+    for (size_t i = 0; i < p23.tasks.size(); ++i)
+      for (size_t j = 0; j < p23.tasks[i].parent_task_ids.size(); ++j)
+        strs.push_back(&p23.tasks[i].parent_task_ids[j]);
+    std::vector<std::string> vv;
+    auto floor_app = [&]() {
+      vv.clear();
+      for (size_t i = 0; i < strs.size(); ++i) {
+        vv.push_back(std::string());
+        vv.back().assign(strs[i]->data(), strs[i]->size());
+      }
+      AK_SINK_MEM(vv);
+    };
+    auto target_app = [&]() {
+      vv.clear();
+      for (size_t i = 0; i < strs.size(); ++i)
+        vv.emplace_back().assign(strs[i]->data(), strs[i]->size());
+      AK_SINK_MEM(vv);
+    };
+    int n1 = calibrate(floor_map), n2 = calibrate(floor_app);
+    std::printf("\n-- README 5.2 arm b, INSIDE one process: what the C++11 floor's missing\n"
+                "   APIs cost. These two constructs are the WHOLE of the AK_CXX17\n"
+                "   divergence (11 sites, all on the decode side). --\n");
+    std::printf("%-26s %10s %12s %12s %10s\n", "construct", "items", "floor ns",
+                "target ns", "t/f");
+    for (int r = 0; r < g_rounds; ++r) {
+      double a = timed(floor_map, n1), b = timed(target_map, n1);
+      double c = timed(floor_app, n2), d = timed(target_app, n2);
+      std::printf("%-26s %10zu %12.0f %12.0f %10.4f\n",
+                  "map[k]=v vs insert_or_assign", entries.size(), a, b, b / a);
+      std::printf("%-26s %10zu %12.0f %12.0f %10.4f\n",
+                  "push_back+back vs emplace_back", strs.size(), c, d, d / c);
+    }
+  }
+#endif
 
   deltas("the STRING-AS-DATA form (decision 1)", "ffi-hosttc", "ffi");
   deltas("the BATCHING predicate (decision 1)", "ffi-nobat", "ffi");

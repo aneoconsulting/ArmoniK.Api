@@ -23,7 +23,7 @@
                     U ak_encode_UploadResultDataMessage
   [ok]   shared arm: the boundary is a real dynamic import
 
-  static: 63 ak_* symbols are DEFINED in the image (that is what static linkage is)
+  static: 64 ak_* symbols are DEFINED in the image (that is what static linkage is)
     ak_encode_ListResultsResponse             482 B entry point, 3 call sites
   [ok]   static arm: ak_encode_ListResultsResponse is CALLED, not inlined away
     ak_decode_ListResultsResponse           14524 B entry point, 1 call sites
@@ -47,19 +47,41 @@
 
 == half two: is the no-boundary control fused into the benchmark loop? ==
   bench_a17_shared:
-        3243 B  shapes::native::encode_into_list_results_response(shapes::ListResultsResponse const&, ak::Enc*)
+        3976 B  shapes::native::decode_list_metrics_response(unsigned char const*, unsigned long, shapes::ListMetricsResponse*)
+        3162 B  shapes::native::encode_into_list_metrics_response(shapes::ListMetricsResponse const&, ak::Enc*)
+        3043 B  shapes::native::encode_into_list_results_response(shapes::ListResultsResponse const&, ak::Enc*)
+        2903 B  shapes::native::enc_task_detailed(shapes::TaskDetailed const&, ak::Enc*)
+        2147 B  shapes::native::decode_list_probe_response(unsigned char const*, unsigned long, shapes::ListProbeResponse*)
+        1647 B  shapes::native::encode_into_list_probe_response(shapes::ListProbeResponse const&, ak::Enc*)
          972 B  shapes::native::encode_into_list_tasks_detailed_response(shapes::ListTasksDetailedResponse const&, ak::Enc*)
-        3053 B  shapes::native::enc_task_detailed(shapes::TaskDetailed const&, ak::Enc*)
-    largest timing closure in the image: 869 B; control traversal: 3243 B
-  [ok]   bench_a17_shared: the traversal is out of line and larger than any closure, so no closure contains it
+         107 B  shapes::native::decode_list_probe_response(unsigned char const*, unsigned long, shapes::ListProbeResponse*) [clone .cold]
+          94 B  shapes::native::decode_list_tasks_detailed_response(unsigned char const*, unsigned long, shapes::ListTasksDetailedResponse*)
+          94 B  shapes::native::decode_list_results_response(unsigned char const*, unsigned long, shapes::ListResultsResponse*)
+    largest timing closure in the image: 1433 B
+  [ok]   bench_a17_shared: shapes::native::encode_into_list_results_response is 3043 B, larger than any timing closure (1433 B)
+  [ok]   bench_a17_shared: shapes::native::enc_task_detailed is 2903 B, larger than any timing closure (1433 B)
+  [ok]   bench_a17_shared: shapes::native::dec_list_results_response is 1699 B, larger than any timing closure (1433 B)
+  [ok]   bench_a17_shared: shapes::native::dec_list_tasks_detailed_response is 3501 B, larger than any timing closure (1433 B)
+  [ok]   bench_a17_shared: shapes::native::decode_list_metrics_response is 3976 B, larger than any timing closure (1433 B)
   bench_a17_shared_lto:
+        2903 B  shapes::native::enc_task_detailed(shapes::TaskDetailed const&, ak::Enc*)
+        2315 B  shapes::native::encode_into_list_metrics_response(shapes::ListMetricsResponse const&, ak::Enc*)
+        2291 B  shapes::native::decode_list_metrics_response(unsigned char const*, unsigned long, shapes::ListMetricsResponse*)
+        2125 B  shapes::native::decode_list_probe_response(unsigned char const*, unsigned long, shapes::ListProbeResponse*)
         1214 B  shapes::native::encode_into_list_results_response(shapes::ListResultsResponse const&, ak::Enc*)
+         944 B  shapes::native::encode_into_list_probe_response(shapes::ListProbeResponse const&, ak::Enc*)
          707 B  shapes::native::encode_into_list_tasks_detailed_response(shapes::ListTasksDetailedResponse const&, ak::Enc*)
-        2143 B  shapes::native::enc_task_detailed(shapes::TaskDetailed const&, ak::Enc*)
-    largest timing closure in the image: 777 B; control traversal: 1214 B
-  [ok]   bench_a17_shared_lto: the traversal is out of line and larger than any closure, so no closure contains it
+          94 B  shapes::native::decode_list_tasks_detailed_response(unsigned char const*, unsigned long, shapes::ListTasksDetailedResponse*)
+          94 B  shapes::native::decode_list_results_response(unsigned char const*, unsigned long, shapes::ListResultsResponse*)
+          41 B  shapes::native::decode_list_probe_response(unsigned char const*, unsigned long, shapes::ListProbeResponse*) [clone .cold]
+    largest timing closure in the image: 1433 B
+  [FAIL] bench_a17_shared_lto: shapes::native::encode_into_list_results_response is only 1214 B, smaller than a timing closure -- check for fusion
+  [ok]   bench_a17_shared_lto: shapes::native::enc_task_detailed is 2903 B, larger than any timing closure (1433 B)
+  [FAIL] bench_a17_shared_lto: shapes::native::dec_list_results_response is only 1155 B, smaller than a timing closure -- check for fusion
+  [ok]   bench_a17_shared_lto: shapes::native::dec_list_tasks_detailed_response is 4585 B, larger than any timing closure (1433 B)
+  [ok]   bench_a17_shared_lto: shapes::native::decode_list_metrics_response is 2291 B, larger than any timing closure (1433 B)
   The control is reached through a FUNCTION POINTER passed to the case runner, so its
   address is taken and an out-of-line body must exist; the sizes above say the loop is
   not carrying a copy of it.
 
-boundary: 10 checks passed, 0 failed
+boundary: 16 checks passed, 2 failed

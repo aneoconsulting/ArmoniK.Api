@@ -1,26 +1,30 @@
 # timings: bench_b17_shared
-#   date            2026-09-19T07:09:13Z
+#   date            2026-09-19T09:41:01Z
 #   machine         Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
 #   compiler        g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
 #   incumbent       protobuf C++ 3.21.12 (libprotobuf-dev, apt)
 #                   packages/cpp pins no protobuf version and sets CXX_STANDARD 14
 #   core            ak-core-cpp, codec emitted by ffi/poc/rust/gen/rust_abi.py (R1)
 #   rustc           rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit          a5335de
+#   commit          23d510bc
 
 -std=201703  impl=floor  guard=on  decode-policy=reject  linkage=shared  rounds=9
-protobuf 3021012, deterministic serialisation ON (R2 needs it)
+protobuf 3021012.  pb = SerializeToString (what a C++ consumer writes).
+protobuf validates UTF-8 on SERIALIZE; the spec says the core does not, so
+`ffi-valtc` is the like-for-like row and `ffi` is the specified behaviour.
+NDEBUG is defined: protobuf's GOOGLE_DCHECKs are compiled out.
 
 -- the crossing itself, same process and build, linkage=shared --
-  forward 1.827 ns   forward+reverse 2.433 ns   reverse alone 0.606 ns
-  forward 1.829 ns   forward+reverse 2.441 ns   reverse alone 0.613 ns
-  forward 1.830 ns   forward+reverse 2.462 ns   reverse alone 0.632 ns
-  forward 1.834 ns   forward+reverse 2.441 ns   reverse alone 0.607 ns
-  forward 1.841 ns   forward+reverse 2.430 ns   reverse alone 0.589 ns
-  forward 1.825 ns   forward+reverse 2.436 ns   reverse alone 0.611 ns
-  forward 1.827 ns   forward+reverse 2.464 ns   reverse alone 0.637 ns
-  forward 1.824 ns   forward+reverse 2.429 ns   reverse alone 0.606 ns
-  forward 1.834 ns   forward+reverse 2.430 ns   reverse alone 0.596 ns
+   register-only barrier, to match the rust harness R13 compares against
+  forward 1.821 ns   forward+reverse 2.740 ns   reverse alone 0.919 ns
+  forward 1.822 ns   forward+reverse 2.732 ns   reverse alone 0.910 ns
+  forward 1.824 ns   forward+reverse 2.735 ns   reverse alone 0.911 ns
+  forward 1.823 ns   forward+reverse 2.741 ns   reverse alone 0.918 ns
+  forward 1.822 ns   forward+reverse 2.739 ns   reverse alone 0.917 ns
+  forward 1.823 ns   forward+reverse 2.738 ns   reverse alone 0.915 ns
+  forward 1.823 ns   forward+reverse 2.731 ns   reverse alone 0.908 ns
+  forward 1.823 ns   forward+reverse 2.733 ns   reverse alone 0.910 ns
+  forward 1.823 ns   forward+reverse 2.732 ns   reverse alone 0.909 ns
 
 -- arms --
   P1.1       858 B  done
@@ -40,281 +44,393 @@ protobuf 3021012, deterministic serialisation ON (R2 needs it)
   P6.1    123354 B  done
 
 -- protobuf C++ deterministic serialisation, P2.2 (2,000 map entries) --
-  deterministic 784971 ns   non-deterministic 731749 ns   ratio 1.078
-  deterministic 784266 ns   non-deterministic 733959 ns   ratio 1.059
-  deterministic 786300 ns   non-deterministic 733170 ns   ratio 1.070
-  deterministic 782138 ns   non-deterministic 728808 ns   ratio 1.077
-  deterministic 778029 ns   non-deterministic 727031 ns   ratio 1.076
-  deterministic 779910 ns   non-deterministic 729327 ns   ratio 1.078
-  deterministic 780360 ns   non-deterministic 735726 ns   ratio 1.075
-  deterministic 778778 ns   non-deterministic 730374 ns   ratio 1.069
-  deterministic 786725 ns   non-deterministic 729416 ns   ratio 1.070
-
--- the STRING-AS-DATA form (decision 1): (ffi-hosttc) - (ffi), within-round, ns per element --
-payload dir            lo       median           hi    % of pb
-P1.1   enc          6.66         7.29         9.05       4.30
-P1.2   enc          4.97         5.75         6.32       3.13
-P1.3   enc         -0.14        -0.01         0.29      -0.04
-P2.1   enc         16.21        24.00        30.01       2.00
-P2.2   enc         23.48        26.77        31.24       1.70
-P2.3   enc        112.69       126.85       141.79       2.68
-P2.4   enc        102.40       237.82       302.36       2.38
-P2.5   enc         17.66        26.92        34.05       2.36
-P3.1   enc          2.62         2.77         3.14       4.13
-P4.1   enc         11.75        12.76        16.03       1.65
-P5.1   enc          0.19         0.76         1.64       0.90
-P5.2   enc       -565.87      -467.13       148.42      -9.45
-P5.3   enc       -890.59      -105.43       171.37      -0.11
-P5.4   enc      -6307.33      -352.71      5665.00      -0.07
-P6.1   enc        -11.23        -5.92         3.28      -1.12
-
--- the BATCHING predicate (decision 1): (ffi-nobat) - (ffi), within-round, ns per element --
-payload dir            lo       median           hi    % of pb
-P1.1   enc         -4.18        -3.48        -2.54      -2.05
-P1.2   enc         -2.37        -1.21        -1.01      -0.66
-P1.3   enc         -1.09        -0.87        -0.84      -4.96
-P2.1   enc        -32.82       -17.85        -6.27      -1.48
-P2.2   enc        -34.06       -26.83       -16.94      -1.70
-P2.3   enc        226.54       243.25       261.16       5.19
-P2.4   enc        389.82       534.86       565.31       5.36
-P2.5   enc        -20.84       -12.79        -6.58      -1.12
-P3.1   enc         -0.08         0.38         0.58       0.57
-P4.1   enc        -10.84        -8.38        -6.88      -1.09
-P5.1   enc         -1.37        -0.36         0.75      -0.42
-P5.2   enc       -486.82      -300.00      -138.22      -6.80
-P5.3   enc      -1047.90       -43.59       199.21      -0.04
-P5.4   enc      -4904.39       -32.79       891.10      -0.01
-P6.1   enc          4.71         9.36        10.77       1.78
-
--- decision 9's zeroed element fill: (ffi-zeroed) - (ffi), within-round, ns per element --
-payload dir            lo       median           hi    % of pb
-P1.1   enc         -4.07        -2.61        -1.77      -1.54
-P1.2   enc         -3.29        -1.86        -1.42      -1.01
-P1.3   enc        -13.38       -13.19       -13.13     -75.08
-P2.1   enc        -14.53        -6.92         0.80      -0.58
-P2.2   enc        -11.71        -8.54        -7.49      -0.54
-P2.3   enc        -23.84        -6.31        18.53      -0.13
-P2.4   enc       -114.98        -3.88        41.36      -0.04
-P2.5   enc        -46.60       -34.58       -31.24      -3.03
-P3.1   enc         -6.03        -5.77        -5.42      -8.59
-P4.1   enc        -15.09       -12.34       -10.36      -1.60
-P5.1   enc          7.00         7.89         8.56       9.37
-P5.2   enc       -428.59      -193.99      -149.92      -4.36
-P5.3   enc       -398.27      -216.78       251.32      -0.22
-P5.4   enc      -4800.99       100.92      1261.95       0.02
-P6.1   enc         -5.62        -3.07        -1.44      -0.58
-
--- the boundary: ffi against the no-boundary control: (ffi) - (native), within-round, ns per element --
-payload dir            lo       median           hi    % of pb
-P1.1   enc         85.88        86.73        87.33      51.24
-P1.1   dec        -27.62       -11.31        -6.15      -1.41
-P1.2   enc         80.87        81.27        81.51      44.20
-P1.2   dec        -77.41       -69.84       132.88      -6.75
-P1.3   enc         18.80        18.86        19.11     107.38
-P1.3   dec         15.96        17.18        22.47      19.49
-P2.1   enc        481.36       488.46       498.11      40.80
-P2.1   dec       -443.71      -400.49      -364.04      -8.88
-P2.2   enc        511.71       517.18       521.64      32.96
-P2.2   dec       -526.96      -490.87      -437.15      -8.02
-P2.3   enc       1518.17      1535.69      1542.69      32.55
-P2.3   dec      -2515.29     -2411.68     -2303.43     -15.26
-P2.4   enc       3328.48      3401.87      3572.47      34.52
-P2.4   dec      -6014.90     -5824.63     -5401.55     -13.11
-P2.5   enc        461.96       464.27       473.63      40.69
-P2.5   dec       -537.98      -472.12      -440.74     -11.25
-P3.1   enc         37.27        37.69        38.05      56.11
-P3.1   dec        -82.89       -80.91       -78.70     -22.25
-P4.1   enc        220.90       222.63       224.65      28.75
-P4.1   dec        -93.96       -76.89       -71.84      -3.47
-P5.1   enc         24.66        25.93        26.56      30.87
-P5.1   dec          7.34         9.50        10.88       3.03
-P5.2   enc       -467.99      -221.78       -18.90      -4.57
-P5.2   dec       -190.19       -78.72        -6.14      -2.54
-P5.3   enc      -4894.65       304.03      1021.93       0.31
-P5.3   dec      -1759.87       155.59       236.20       0.27
-P5.4   enc     -11319.88       403.65      2688.33       0.08
-P5.4   dec      -1138.88      1048.35      3014.90       0.30
-P6.1   enc        206.93       210.29       218.27      39.92
-P6.1   dec      -1024.77     -1011.62      -993.78     -54.05
+  deterministic 735499 ns   default 711482 ns   ratio 1.0338
+  deterministic 747340 ns   default 716041 ns   ratio 1.0437
+  deterministic 742091 ns   default 703775 ns   ratio 1.0544
+  deterministic 741796 ns   default 708503 ns   ratio 1.0470
+  deterministic 738107 ns   default 699835 ns   ratio 1.0547
+  deterministic 729409 ns   default 704715 ns   ratio 1.0350
+  deterministic 733997 ns   default 700533 ns   ratio 1.0478
+  deterministic 748609 ns   default 722540 ns   ratio 1.0361
+  deterministic 738364 ns   default 701628 ns   ratio 1.0524
 
 -- the two-pass blob write, 6000 strings of P1.2, ns per string --
-  one pass (length known) 5.214   open-prefix-then-resolve 9.007   delta +3.793
-  one pass (length known) 5.219   open-prefix-then-resolve 8.980   delta +3.761
-  one pass (length known) 5.172   open-prefix-then-resolve 8.991   delta +3.819
-  one pass (length known) 5.200   open-prefix-then-resolve 8.983   delta +3.782
-  one pass (length known) 5.214   open-prefix-then-resolve 9.017   delta +3.803
-  one pass (length known) 5.221   open-prefix-then-resolve 8.987   delta +3.766
-  one pass (length known) 5.203   open-prefix-then-resolve 8.962   delta +3.759
-  one pass (length known) 5.171   open-prefix-then-resolve 9.011   delta +3.840
-  one pass (length known) 5.195   open-prefix-then-resolve 8.996   delta +3.801
+  one pass (length known) 4.910   open-prefix-then-resolve 9.616   delta +4.706
+  one pass (length known) 5.106   open-prefix-then-resolve 9.746   delta +4.640
+  one pass (length known) 5.014   open-prefix-then-resolve 9.686   delta +4.671
+  one pass (length known) 4.933   open-prefix-then-resolve 9.644   delta +4.711
+  one pass (length known) 4.943   open-prefix-then-resolve 9.749   delta +4.806
+  one pass (length known) 4.972   open-prefix-then-resolve 9.674   delta +4.702
+  one pass (length known) 4.959   open-prefix-then-resolve 9.637   delta +4.678
+  one pass (length known) 4.939   open-prefix-then-resolve 9.669   delta +4.730
+  one pass (length known) 4.922   open-prefix-then-resolve 9.661   delta +4.740
 
-payload dir  arm          ns/op med  ns/op min  r/pb lo  r/pb hi
-P1.1   enc  pb               677.2      673.3    1.000    1.000
-P1.1   enc  pb-arena         679.7      677.4    0.999    1.009
-P1.1   enc  native           277.6      276.4    0.408    0.413
-P1.1   enc  ffi              625.0      621.3    0.917    0.927
-P1.1   enc  ffi-zeroed       614.0      610.6    0.897    0.912
-P1.1   enc  ffi-nobat        610.9      608.3    0.897    0.906
-P1.1   enc  ffi-hosttc       654.1      652.5    0.961    0.977
-P1.1   dec  pb              3216.1     3210.1    1.000    1.000
-P1.1   dec  pb-arena        2978.9     2952.5    0.920    0.937
-P1.1   dec  native          2487.6     2475.3    0.768    0.788
-P1.1   dec  ffi             2438.1     2395.5    0.746    0.764
-P1.2   enc  pb            184047.0   183464.9    1.000    1.000
-P1.2   enc  pb-arena      177649.2   177396.8    0.963    0.968
-P1.2   enc  native         83904.6    83681.0    0.455    0.458
-P1.2   enc  ffi           165138.9   164777.8    0.896    0.900
-P1.2   enc  ffi-zeroed    163191.0   161949.9    0.881    0.893
-P1.2   enc  ffi-nobat     163913.6   162867.9    0.886    0.894
-P1.2   enc  ffi-hosttc    170858.2   170104.7    0.926    0.931
-P1.2   dec  pb           1022297.6  1019436.1    1.000    1.000
-P1.2   dec  pb-arena      686590.2   682045.9    0.667    0.681
-P1.2   dec  native        666850.2   662963.8    0.641    0.660
-P1.2   dec  ffi           596399.8   589233.7    0.573    0.790
-P1.3   enc  pb              5280.1     5262.5    1.000    1.000
-P1.3   enc  pb-arena        5357.6     5272.6    0.999    1.023
-P1.3   enc  native          3191.0     3182.2    0.603    0.607
-P1.3   enc  ffi             8850.2     8825.6    1.672    1.689
-P1.3   enc  ffi-zeroed      4893.1     4876.2    0.924    0.931
-P1.3   enc  ffi-nobat       8575.0     8560.2    1.622    1.632
-P1.3   enc  ffi-hosttc      8848.9     8827.4    1.669    1.690
-P1.3   dec  pb             26517.7    26364.9    1.000    1.000
-P1.3   dec  pb-arena       11169.0    11125.8    0.411    0.424
-P1.3   dec  native         25252.9    25175.5    0.933    0.957
-P1.3   dec  ffi            30500.3    30088.2    1.131    1.213
-P2.1   enc  pb              1199.3     1194.6    1.000    1.000
-P2.1   enc  pb-arena        1205.4     1202.8    1.003    1.008
-P2.1   enc  native           444.5      441.5    0.369    0.374
-P2.1   enc  ffi              933.6      928.0    0.774    0.786
-P2.1   enc  ffi-zeroed       927.6      923.1    0.769    0.782
-P2.1   enc  ffi-nobat        916.7      906.8    0.758    0.769
-P2.1   enc  ffi-hosttc       958.0      956.7    0.795    0.803
-P2.1   dec  pb              4447.3     4419.1    1.000    1.000
-P2.1   dec  pb-arena        3515.3     3490.1    0.785    0.795
-P2.1   dec  native          3376.6     3344.5    0.750    0.764
-P2.1   dec  ffi             2978.7     2937.1    0.659    0.677
-P2.2   enc  pb            785777.6   782131.0    1.000    1.000
-P2.2   enc  pb-arena      756513.5   753381.9    0.954    0.971
-P2.2   enc  native        287657.1   286769.9    0.364    0.368
-P2.2   enc  ffi           546838.5   545403.4    0.690    0.700
-P2.2   enc  ffi-zeroed    542009.1   541367.5    0.686    0.693
-P2.2   enc  ffi-nobat     533750.7   530561.5    0.673    0.683
-P2.2   enc  ffi-hosttc    560225.5   557693.2    0.708    0.720
-P2.2   dec  pb           3085290.0  3031809.5    1.000    1.000
-P2.2   dec  pb-arena     2002492.5  1994549.2    0.643    0.659
-P2.2   dec  native       2261200.3  2241136.0    0.727    0.750
-P2.2   dec  ffi          2018590.5  2004880.8    0.646    0.666
-P2.3   enc  pb            589567.6   583587.4    1.000    1.000
-P2.3   enc  pb-arena      551824.9   549095.3    0.931    0.960
-P2.3   enc  native        157330.5   154097.5    0.263    0.269
-P2.3   enc  ffi           348684.2   346350.7    0.590    0.594
-P2.3   enc  ffi-zeroed    347680.2   345776.7    0.587    0.597
-P2.3   enc  ffi-nobat     378693.2   377040.9    0.638    0.649
-P2.3   enc  ffi-hosttc    364321.9   362882.0    0.615    0.623
-P2.3   dec  pb           1995530.2  1973371.2    1.000    1.000
-P2.3   dec  pb-arena     1796640.0  1784851.0    0.896    0.908
-P2.3   dec  native       2067752.7  2044432.7    1.033    1.042
-P2.3   dec  ffi          1761848.0  1754196.5    0.880    0.889
-P2.4   enc  pb            797002.7   782076.2    1.000    1.000
-P2.4   enc  pb-arena      751946.7   748282.4    0.937    0.967
-P2.4   enc  native        203839.4   199460.2    0.254    0.262
-P2.4   enc  ffi           476595.5   471880.7    0.595    0.619
-P2.4   enc  ffi-zeroed    476059.7   472642.6    0.594    0.607
-P2.4   enc  ffi-nobat     518642.9   516443.2    0.647    0.663
-P2.4   enc  ffi-hosttc    494791.8   491403.1    0.615    0.630
-P2.4   dec  pb           3544441.0  3482228.5    1.000    1.000
-P2.4   dec  pb-arena     2508129.0  2467308.0    0.691    0.723
-P2.4   dec  native       2944448.0  2924550.0    0.820    0.847
-P2.4   dec  ffi          2475685.7  2463256.0    0.686    0.721
-P2.5   enc  pb             22762.5    22665.5    1.000    1.000
-P2.5   enc  pb-arena       22737.9    22680.6    0.961    1.009
-P2.5   enc  native          8525.1     8515.8    0.361    0.376
-P2.5   enc  ffi            17818.2    17758.6    0.755    0.794
-P2.5   enc  ffi-zeroed     17108.9    17065.9    0.726    0.755
-P2.5   enc  ffi-nobat      17581.0    17496.8    0.744    0.778
-P2.5   enc  ffi-hosttc     18351.1    18263.4    0.779    0.812
-P2.5   dec  pb             84217.4    83961.4    1.000    1.000
-P2.5   dec  pb-arena       73682.6    72765.5    0.864    0.884
-P2.5   dec  native         85976.4    85214.6    1.011    1.060
-P2.5   dec  ffi            76157.9    75772.2    0.898    0.955
-P3.1   enc  pb             13410.1    13375.7    1.000    1.000
-P3.1   enc  pb-arena       13153.9    13124.3    0.978    0.984
-P3.1   enc  native          6121.6     6050.5    0.450    0.459
-P3.1   enc  ffi            13645.1    13613.5    1.014    1.026
-P3.1   enc  ffi-zeroed     12506.2    12459.3    0.929    0.936
-P3.1   enc  ffi-nobat      13721.5    13685.0    1.018    1.025
-P3.1   enc  ffi-hosttc     14209.5    14157.9    1.054    1.068
-P3.1   dec  pb             73066.5    72310.6    1.000    1.000
-P3.1   dec  pb-arena       47528.6    47243.9    0.646    0.656
-P3.1   dec  native         59902.2    59443.8    0.815    0.825
-P3.1   dec  ffi            43719.9    43412.5    0.595    0.604
-P4.1   enc  pb            154576.2   154295.2    1.000    1.000
-P4.1   enc  pb-arena      153016.9   152683.9    0.984    0.992
-P4.1   enc  native         45827.9    45702.6    0.296    0.297
-P4.1   enc  ffi            90344.0    89901.1    0.581    0.588
-P4.1   enc  ffi-zeroed     87833.8    87577.8    0.566    0.573
-P4.1   enc  ffi-nobat      88602.9    88441.4    0.571    0.578
-P4.1   enc  ffi-hosttc     93116.5    92895.5    0.600    0.604
-P4.1   dec  pb            442734.5   441925.7    1.000    1.000
-P4.1   dec  pb-arena      315366.6   314068.3    0.710    0.721
-P4.1   dec  native        322386.7   319813.9    0.720    0.738
-P4.1   dec  ffi           306946.3   304562.4    0.685    0.697
-P5.1   enc  pb                84.2       84.0    1.000    1.000
-P5.1   enc  pb-arena          82.8       82.6    0.979    0.989
-P5.1   enc  native            22.0       21.3    0.253    0.266
-P5.1   enc  ffi               47.8       47.0    0.558    0.579
-P5.1   enc  ffi-zeroed        55.8       54.9    0.652    0.670
-P5.1   enc  ffi-nobat         47.7       47.3    0.562    0.570
-P5.1   enc  ffi-hosttc        48.7       48.0    0.572    0.582
-P5.1   dec  pb               313.2      312.4    1.000    1.000
-P5.1   dec  pb-arena         364.7      363.4    1.159    1.167
-P5.1   dec  native           181.6      181.1    0.577    0.584
-P5.1   dec  ffi              191.2      190.4    0.607    0.613
-P5.2   enc  pb              4325.8     3833.6    1.000    1.000
-P5.2   enc  pb-arena        3706.3     3392.2    0.831    0.923
-P5.2   enc  native          2547.1     2379.2    0.539    0.662
-P5.2   enc  ffi             2362.9     2079.1    0.486    0.641
-P5.2   enc  ffi-zeroed      2093.6     1909.7    0.444    0.569
-P5.2   enc  ffi-nobat       2005.3     1829.2    0.423    0.523
-P5.2   enc  ffi-hosttc      1906.4     1770.6    0.392    0.563
-P5.2   dec  pb              2836.2     2560.3    1.000    1.000
-P5.2   dec  pb-arena        2706.1     2338.7    0.881    0.988
-P5.2   dec  native          2274.6     2058.9    0.780    0.867
-P5.2   dec  ffi             2222.0     2042.7    0.748    0.815
-P5.3   enc  pb             99278.1    98774.8    1.000    1.000
-P5.3   enc  pb-arena      100951.0    95605.9    0.963    1.028
-P5.3   enc  native         59294.3    54319.5    0.550    0.604
-P5.3   enc  ffi            59598.4    53853.9    0.545    0.610
-P5.3   enc  ffi-zeroed     59643.5    53637.1    0.543    0.606
-P5.3   enc  ffi-nobat      59665.7    52806.0    0.534    0.607
-P5.3   enc  ffi-hosttc     59678.7    52963.3    0.536    0.604
-P5.3   dec  pb             58622.9    58379.7    1.000    1.000
-P5.3   dec  pb-arena       58755.6    58607.4    1.000    1.008
-P5.3   dec  native         58185.5    57607.4    0.983    0.998
-P5.3   dec  ffi            58340.7    55847.5    0.953    1.001
-P5.4   enc  pb            516360.3   514282.6    1.000    1.000
-P5.4   enc  pb-arena      514070.2   512977.9    0.990    1.006
-P5.4   enc  native        354164.5   353160.4    0.682    0.696
-P5.4   enc  ffi           354941.2   343355.6    0.662    0.701
-P5.4   enc  ffi-zeroed    354842.7   342815.7    0.661    0.703
-P5.4   enc  ffi-nobat     354372.3   342565.0    0.661    0.702
-P5.4   enc  ffi-hosttc    354124.2   342456.8    0.661    0.701
-P5.4   dec  pb            346103.0   341683.3    1.000    1.000
-P5.4   dec  pb-arena      345697.7   342663.0    0.995    1.004
-P5.4   dec  native        343382.0   326905.7    0.924    1.005
-P5.4   dec  ffi           344395.9   325766.8    0.921    1.014
-P6.1   enc  pb            105258.9   104861.4    1.000    1.000
-P6.1   enc  pb-arena      105131.2   105027.0    0.996    1.003
-P6.1   enc  native         96144.5    95809.6    0.907    0.923
-P6.1   enc  ffi           138158.3   137809.6    1.308    1.325
-P6.1   enc  ffi-zeroed    137524.5   137183.3    1.301    1.319
-P6.1   enc  ffi-nobat     139943.3   139522.2    1.324    1.336
-P6.1   enc  ffi-hosttc    136868.7   136667.3    1.294    1.320
-P6.1   dec  pb            373052.8   371583.4    1.000    1.000
-P6.1   dec  pb-arena      281329.1   280321.1    0.748    0.756
-P6.1   dec  native        441774.7   439416.9    1.178    1.189
-P6.1   dec  ffi           240443.4   236235.2    0.634    0.648
-P1.2   enc  groupfill      22132.0    22100.2    0.120    0.121
-P1.3   enc  groupfill       6685.3     6676.8    1.264    1.271
-P2.2   enc  groupfill      37808.1    37380.3    0.047    0.050
-P2.5   enc  groupfill       1316.8     1293.3    0.056    0.060
+-- ABI v1 decision 3, decode side: the string path ALONE, one process --
+   6000 strings of P1.2 per set. `check` validates UTF-8 and rejects;
+   `raw` copies the bytes and does not look at them -- which is what a
+   C++ non-validating arm IS. A C++ std::string holds arbitrary bytes, so
+   there is no lossy-substituting path to compare against, unlike Rust's
+   from_utf8_lossy, which already validates.
+set           bytes   raw ns/str check ns/str        delta  check/raw
+ascii        167989        8.453       37.770       29.317 4.451-4.588
+latin1       335978        9.508      150.552      141.044 15.822-15.905
+wide         503967        9.258      182.180      172.922 19.678-19.927
+
+-- README 5.2 arm b, INSIDE one process: what the C++11 floor's missing
+   APIs cost. These two constructs are the WHOLE of the AK_CXX17
+   divergence (11 sites, all on the decode side). --
+construct                       items     floor ns    target ns        t/f
+map[k]=v vs insert_or_assign       2000       424393       458997     1.0815
+push_back+back vs emplace_back       3750       157602       161691     1.0259
+map[k]=v vs insert_or_assign       2000       423848       458534     1.0818
+push_back+back vs emplace_back       3750       157940       155778     0.9863
+map[k]=v vs insert_or_assign       2000       423766       458827     1.0827
+push_back+back vs emplace_back       3750       158857       155761     0.9805
+map[k]=v vs insert_or_assign       2000       427532       458914     1.0734
+push_back+back vs emplace_back       3750       158684       156521     0.9864
+map[k]=v vs insert_or_assign       2000       424440       458649     1.0806
+push_back+back vs emplace_back       3750       160190       155942     0.9735
+map[k]=v vs insert_or_assign       2000       426094       458710     1.0765
+push_back+back vs emplace_back       3750       159287       157616     0.9895
+map[k]=v vs insert_or_assign       2000       424529       459714     1.0829
+push_back+back vs emplace_back       3750       159303       153003     0.9605
+map[k]=v vs insert_or_assign       2000       425457       459877     1.0809
+push_back+back vs emplace_back       3750       158648       155567     0.9806
+map[k]=v vs insert_or_assign       2000       435040       460710     1.0590
+push_back+back vs emplace_back       3750       161416       156585     0.9701
+
+-- the STRING-AS-DATA form (decision 1): (ffi-hosttc) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.1   enc   ns/el         3.03         4.28         5.61       2.88 +
+P1.2   enc   ns/el         2.23         4.67         5.67       2.72 +
+P1.3   enc   ns/el        -0.08        -0.01         0.08      -0.04 STRADDLES ZERO
+P2.1   enc   ns/el         4.57         8.32        10.16       0.79 +
+P2.2   enc   ns/el        16.87        22.28        24.70       1.58 +
+P2.3   enc   ns/el        -1.60        78.70        96.62       1.76 STRADDLES ZERO
+P2.4   enc   ns/el        74.34       169.18       220.41       1.74 +
+P2.5   enc   ns/el        13.24        19.00        22.00       1.89 +
+P3.1   enc   ns/el         0.07         1.91         2.36       3.07 +
+P4.1   enc   ns/el        -4.69        11.16        14.67       1.79 STRADDLES ZERO
+P5.1   enc  ns/msg         0.74         1.45         1.83       2.05 +
+P5.2   enc  ns/msg      -639.53      -143.97       143.24      -3.71 STRADDLES ZERO
+P5.3   enc  ns/msg     -2381.92       -91.11       392.25      -0.09 STRADDLES ZERO
+P5.4   enc  ns/msg    -26521.88     -2150.75     10162.62      -0.40 STRADDLES ZERO
+P6.1   enc   ns/el        -6.67        -3.10         0.13      -0.56 STRADDLES ZERO
+
+-- the BATCHING predicate (decision 1): (ffi-nobat) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.1   enc   ns/el        -5.78        -4.58        -3.32      -3.08 -
+P1.2   enc   ns/el        -0.95         0.12         2.37       0.07 STRADDLES ZERO
+P1.3   enc   ns/el        -0.35        -0.10        -0.02      -0.57 -
+P2.1   enc   ns/el       -53.02       -50.08       -45.11      -4.73 -
+P2.2   enc   ns/el       -18.92       -12.77        -6.21      -0.91 -
+P2.3   enc   ns/el       198.57       278.85       308.84       6.18 +
+P2.4   enc   ns/el       599.31       648.50       701.51       6.66 +
+P2.5   enc   ns/el       -34.58       -28.03       -24.84      -2.80 -
+P3.1   enc   ns/el         0.50         2.96         3.66       4.75 +
+P4.1   enc   ns/el       -20.72        -3.98        -1.53      -0.64 -
+P5.1   enc  ns/msg         0.43         0.86         1.38       1.22 +
+P5.2   enc  ns/msg      -629.51      -175.04       415.51      -4.72 STRADDLES ZERO
+P5.3   enc  ns/msg     -3665.39      -171.64      2567.53      -0.17 STRADDLES ZERO
+P5.4   enc  ns/msg    -27979.31      -155.98      2530.51      -0.03 STRADDLES ZERO
+P6.1   enc   ns/el        13.93        19.60        21.57       3.52 +
+
+-- decision 9's zeroed element fill: (ffi-zeroed) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.1   enc   ns/el        -8.99        -7.14        -5.99      -4.80 -
+P1.2   enc   ns/el        -3.56        -2.35         1.00      -1.38 STRADDLES ZERO
+P1.3   enc   ns/el       -10.99       -10.91       -10.65     -60.33 -
+P2.1   enc   ns/el       -45.58       -43.71       -32.60      -4.12 -
+P2.2   enc   ns/el         2.92        10.42        15.59       0.73 +
+P2.3   enc   ns/el       -84.18        -5.70        41.19      -0.13 STRADDLES ZERO
+P2.4   enc   ns/el       -27.49        13.81        41.56       0.14 STRADDLES ZERO
+P2.5   enc   ns/el       -20.22       -15.75       -13.23      -1.57 -
+P3.1   enc   ns/el        -7.99        -5.65        -4.68      -9.06 -
+P4.1   enc   ns/el       -31.57       -13.87       -11.88      -2.24 -
+P5.1   enc  ns/msg         8.55         8.94         9.37      12.61 +
+P5.2   enc  ns/msg      -484.98      -205.57       166.90      -4.87 STRADDLES ZERO
+P5.3   enc  ns/msg     -5211.35      -254.06      2912.06      -0.25 STRADDLES ZERO
+P5.4   enc  ns/msg    -26140.92     -1332.82      2907.03      -0.25 STRADDLES ZERO
+P6.1   enc   ns/el        14.81        21.56        24.82       3.88 +
+
+-- encode-side UTF-8 validation, which protobuf does and the spec does not: (ffi-valtc) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.1   enc   ns/el        43.88        45.67        46.49      30.62 +
+P1.2   enc   ns/el        44.55        45.83        46.85      26.84 +
+P1.3   enc   ns/el        -0.13        -0.01         0.29      -0.05 STRADDLES ZERO
+P2.1   enc   ns/el       280.42       281.94       285.75      26.60 +
+P2.2   enc   ns/el       383.59       393.44       446.62      27.95 +
+P2.3   enc   ns/el      1148.42      1179.69      1232.03      26.13 +
+P2.4   enc   ns/el      2460.66      2496.96      2596.56      25.54 +
+P2.5   enc   ns/el       287.39       297.66       299.99      29.68 +
+P3.1   enc   ns/el        19.24        21.51        22.63      34.52 +
+P4.1   enc   ns/el       246.58       263.76       272.44      42.42 +
+P5.1   enc  ns/msg        15.94        16.17        16.55      22.89 +
+P5.2   enc  ns/msg      -411.51       -93.80       319.24      -2.50 STRADDLES ZERO
+P5.3   enc  ns/msg      -367.81      -140.38       787.19      -0.14 STRADDLES ZERO
+P5.4   enc  ns/msg    -26392.40       -13.44      2968.68      -0.00 STRADDLES ZERO
+P6.1   enc   ns/el         8.27        11.70        22.45       2.10 +
+
+-- the boundary: ffi against the no-boundary control: (ffi) - (native), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.1   enc   ns/el        79.90        80.65        81.60      54.32 +
+P1.1   dec   ns/el       -65.71       -54.56       -45.29      -7.12 -
+P1.2   enc   ns/el        74.74        75.66        76.96      43.99 +
+P1.2   dec   ns/el      -108.29      -104.20        96.20     -10.36 STRADDLES ZERO
+P1.3   enc   ns/el        18.00        18.10        18.27     100.99 +
+P1.3   dec   ns/el        -0.12         0.17         0.62       0.20 STRADDLES ZERO
+P2.1   enc   ns/el       464.88       486.03       487.71      45.87 +
+P2.1   dec   ns/el      -452.52      -425.06      -408.93     -10.35 -
+P2.2   enc   ns/el       485.86       491.01       495.04      34.87 +
+P2.2   dec   ns/el      -698.45      -599.20      -330.94      -9.89 -
+P2.3   enc   ns/el      1443.32      1488.43      1546.08      33.04 +
+P2.3   dec   ns/el     -3126.88     -2753.82     -2470.04     -17.34 -
+P2.4   enc   ns/el      3224.20      3266.87      3338.40      33.64 +
+P2.4   dec   ns/el     -6872.45     -6708.38     -6315.17     -15.65 -
+P2.5   enc   ns/el       441.55       446.92       451.86      44.70 +
+P2.5   dec   ns/el      -544.04      -513.48      -473.43     -12.68 -
+P3.1   enc   ns/el        35.82        36.39        38.53      58.05 +
+P3.1   dec   ns/el       -12.65       -10.91        -7.39      -3.08 -
+P4.1   enc   ns/el       209.22       211.32       228.51      34.00 +
+P4.1   dec   ns/el      -132.90      -124.30      -108.69      -5.80 -
+P5.1   enc  ns/msg        20.34        20.67        21.04      29.27 +
+P5.1   dec  ns/msg         8.30         9.33        11.46       3.17 +
+P5.2   enc  ns/msg      -627.26      -391.49       533.72     -10.56 STRADDLES ZERO
+P5.2   dec  ns/msg      -305.74       -52.05       341.49      -2.37 STRADDLES ZERO
+P5.3   enc  ns/msg     -1744.46       289.06       462.50       0.30 STRADDLES ZERO
+P5.3   dec  ns/msg      -364.49       -31.59       731.63      -0.05 STRADDLES ZERO
+P5.4   enc  ns/msg     -2110.72      1315.80      8606.88       0.25 STRADDLES ZERO
+P5.4   dec  ns/msg      -781.04       128.26      1991.91       0.04 STRADDLES ZERO
+P6.1   enc   ns/el       191.00       195.82       200.08      35.05 +
+P6.1   dec   ns/el      -479.42      -473.71      -457.62     -25.33 -
+
+-- the group fill: direct call against a call through a pointer: (groupfill-ind) - (groupfill), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.2   gfill  ns/el        -0.03         0.07         0.16       0.04 STRADDLES ZERO
+P1.3   gfill  ns/el        -0.17         0.14         0.28       0.78 STRADDLES ZERO
+P2.2   gfill  ns/el        -2.13        -1.28         2.17      -0.09 STRADDLES ZERO
+P2.5   gfill  ns/el        -1.52         1.49         6.67       0.15 STRADDLES ZERO
+
+payload dir  arm           ns/op med  ns/op min  r/pb lo  r/pb hi   spr% per-round r/pb
+P1.1   enc  pb                596.9      593.1    1.000    1.000    1.2 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P1.1   enc  pb-det            615.0      611.2    1.024    1.040    1.2 1.029,1.040,1.024,1.029,1.036,1.036,1.024,1.032,1.032
+P1.1   enc  pb-arena          595.2      590.8    0.984    1.003    1.2 0.986,0.984,0.999,0.998,0.993,1.003,0.994,1.002,1.003
+P1.1   enc  memcpy             14.7       14.5    0.024    0.025    1.2 0.025,0.025,0.025,0.024,0.025,0.025,0.025,0.025,0.025
+P1.1   enc  native            324.2      323.5    0.541    0.546    1.2 0.541,0.542,0.544,0.543,0.544,0.546,0.544,0.544,0.542
+P1.1   enc  ffi               647.2      643.4    1.077    1.091    1.2 1.084,1.078,1.091,1.083,1.088,1.090,1.079,1.090,1.077
+P1.1   enc  ffi-valtc         828.7      822.8    1.381    1.400    1.2 1.381,1.387,1.387,1.389,1.383,1.400,1.391,1.393,1.385
+P1.1   enc  ffi-zeroed        618.7      614.6    1.024    1.048    1.2 1.032,1.024,1.031,1.035,1.040,1.048,1.039,1.038,1.032
+P1.1   enc  ffi-nobat         628.5      625.5    1.048    1.060    1.2 1.048,1.052,1.052,1.048,1.057,1.060,1.052,1.052,1.055
+P1.1   enc  ffi-hosttc        665.2      661.5    1.105    1.122    1.2 1.105,1.114,1.114,1.109,1.117,1.122,1.117,1.118,1.114
+P1.1   dec  pb               3060.7     3047.5    1.000    1.000    0.9 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P1.1   dec  pb-arena         2871.6     2837.6    0.923    0.953    0.9 0.953,0.951,0.948,0.944,0.923,0.931,0.934,0.940,0.937
+P1.1   dec  native           2683.8     2659.8    0.872    0.890    0.9 0.874,0.875,0.880,0.890,0.875,0.875,0.876,0.872,0.875
+P1.1   dec  ffi              2468.2     2439.7    0.793    0.816    0.9 0.812,0.810,0.807,0.804,0.793,0.802,0.805,0.810,0.816
+P1.2   enc  pb             171467.7   170053.0    1.000    1.000    2.5 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P1.2   enc  pb-det         166709.6   165994.7    0.970    0.979    2.5 0.979,0.971,0.976,0.972,0.971,0.978,0.972,0.970,0.971
+P1.2   enc  pb-arena       165029.3   163439.9    0.950    0.970    2.5 0.960,0.964,0.969,0.957,0.970,0.961,0.961,0.957,0.950
+P1.2   enc  memcpy           8129.7     6712.8    0.038    0.048    2.5 0.047,0.048,0.047,0.047,0.048,0.048,0.047,0.044,0.038
+P1.2   enc  native          91056.8    90490.7    0.530    0.533    2.5 0.532,0.533,0.533,0.530,0.530,0.532,0.533,0.530,0.531
+P1.2   enc  ffi            166698.9   166065.4    0.967    0.980    2.5 0.967,0.972,0.973,0.971,0.979,0.980,0.973,0.969,0.968
+P1.2   enc  ffi-valtc      212461.5   212025.8    1.224    1.249    2.5 1.234,1.237,1.247,1.243,1.240,1.249,1.242,1.239,1.224
+P1.2   enc  ffi-zeroed     164254.1   163841.2    0.952    0.975    2.5 0.957,0.957,0.962,0.960,0.958,0.964,0.960,0.975,0.952
+P1.2   enc  ffi-nobat      166913.8   165742.7    0.964    0.983    2.5 0.968,0.973,0.978,0.972,0.974,0.975,0.971,0.983,0.964
+P1.2   enc  ffi-hosttc     171172.1   169997.6    0.981    1.006    2.5 0.995,1.000,1.004,1.004,1.006,1.000,0.999,0.995,0.981
+P1.2   dec  pb            1005372.0   998497.1    1.000    1.000    1.4 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P1.2   dec  pb-arena       677085.8   673672.2    0.669    0.682    1.4 0.669,0.669,0.678,0.681,0.669,0.671,0.680,0.682,0.677
+P1.2   dec  native         715939.2   710805.5    0.705    0.761    1.4 0.717,0.761,0.715,0.721,0.705,0.709,0.710,0.714,0.712
+P1.2   dec  ffi            611736.6   604376.3    0.600    0.815    1.4 0.813,0.815,0.609,0.613,0.600,0.604,0.608,0.612,0.608
+P1.3   enc  pb               5379.7     5366.9    1.000    1.000    2.5 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P1.3   enc  pb-det           5241.0     5227.1    0.960    0.988    2.5 0.969,0.988,0.972,0.972,0.980,0.987,0.960,0.971,0.972
+P1.3   enc  pb-arena         5350.4     5312.6    0.977    0.998    2.5 0.983,0.997,0.990,0.998,0.998,0.994,0.977,0.993,0.994
+P1.3   enc  memcpy             11.7       11.5    0.002    0.002    2.5 0.002,0.002,0.002,0.002,0.002,0.002,0.002,0.002,0.002
+P1.3   enc  native           3220.7     3209.9    0.588    0.602    2.5 0.596,0.600,0.602,0.599,0.600,0.597,0.588,0.596,0.598
+P1.3   enc  ffi              8657.6     8638.5    1.574    1.617    2.5 1.599,1.614,1.606,1.609,1.613,1.617,1.574,1.606,1.605
+P1.3   enc  ffi-valtc        8653.7     8626.5    1.571    1.629    2.5 1.598,1.607,1.612,1.610,1.629,1.625,1.571,1.604,1.605
+P1.3   enc  ffi-zeroed       5389.1     5354.9    0.977    1.023    2.5 0.990,1.000,1.006,1.006,1.001,1.023,0.977,0.999,1.002
+P1.3   enc  ffi-nobat        8621.6     8559.5    1.567    1.616    2.5 1.592,1.595,1.601,1.608,1.607,1.616,1.567,1.603,1.599
+P1.3   enc  ffi-hosttc       8654.5     8638.0    1.572    1.614    2.5 1.599,1.612,1.610,1.614,1.613,1.613,1.572,1.602,1.605
+P1.3   dec  pb              24980.4    24925.4    1.000    1.000    1.5 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P1.3   dec  pb-arena        10756.7    10722.4    0.425    0.433    1.5 0.433,0.433,0.428,0.431,0.426,0.431,0.430,0.430,0.425
+P1.3   dec  native          25058.5    24929.3    0.991    1.006    1.5 1.004,1.003,0.998,0.999,1.000,1.006,1.004,1.002,0.991
+P1.3   dec  ffi             25108.1    24969.4    0.993    1.012    1.5 1.012,1.005,0.996,1.003,1.001,1.006,1.003,1.006,0.993
+P2.1   enc  pb               1057.8     1052.8    1.000    1.000    2.0 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P2.1   enc  pb-det           1140.2     1136.6    1.060    1.087    2.0 1.078,1.060,1.081,1.078,1.087,1.072,1.080,1.080,1.079
+P2.1   enc  pb-arena         1060.4     1058.4    0.986    1.055    2.0 1.001,0.986,1.004,0.999,1.005,1.000,1.007,1.003,1.055
+P2.1   enc  memcpy             17.2       17.1    0.016    0.016    2.0 0.016,0.016,0.016,0.016,0.016,0.016,0.016,0.016,0.016
+P2.1   enc  native            456.4      454.0    0.424    0.448    2.0 0.430,0.424,0.430,0.436,0.434,0.431,0.433,0.428,0.448
+P2.1   enc  ffi               941.3      938.2    0.877    0.893    2.0 0.890,0.877,0.892,0.890,0.893,0.889,0.892,0.887,0.888
+P2.1   enc  ffi-valtc        1223.8     1221.9    1.140    1.164    2.0 1.156,1.140,1.157,1.155,1.164,1.155,1.163,1.153,1.158
+P2.1   enc  ffi-zeroed        898.0      894.5    0.836    0.856    2.0 0.849,0.836,0.850,0.847,0.853,0.848,0.852,0.856,0.847
+P2.1   enc  ffi-nobat         891.8      889.7    0.831    0.847    2.0 0.843,0.831,0.844,0.842,0.847,0.839,0.845,0.844,0.845
+P2.1   enc  ffi-hosttc        948.6      947.3    0.886    0.902    2.0 0.897,0.886,0.898,0.898,0.902,0.894,0.899,0.895,0.898
+P2.1   dec  pb               4097.0     4086.9    1.000    1.000    1.1 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P2.1   dec  pb-arena         3464.8     3450.0    0.839    0.848    1.1 0.846,0.845,0.846,0.841,0.839,0.847,0.846,0.845,0.848
+P2.1   dec  native           3571.9     3562.5    0.864    0.875    1.1 0.875,0.874,0.871,0.870,0.864,0.873,0.870,0.875,0.872
+P2.1   dec  ffi              3142.3     3120.7    0.755    0.774    1.1 0.772,0.774,0.768,0.762,0.755,0.767,0.766,0.767,0.771
+P2.2   enc  pb             703894.6   698465.2    1.000    1.000    1.6 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P2.2   enc  pb-det         735198.3   732232.8    1.039    1.060    1.6 1.055,1.040,1.060,1.049,1.044,1.044,1.039,1.045,1.043
+P2.2   enc  pb-arena       673244.1   669821.2    0.950    0.965    1.6 0.955,0.951,0.965,0.962,0.956,0.956,0.951,0.950,0.955
+P2.2   enc  memcpy          21801.4    21070.0    0.030    0.032    1.6 0.031,0.030,0.032,0.030,0.030,0.031,0.030,0.031,0.031
+P2.2   enc  native         294494.3   292607.6    0.415    0.421    1.6 0.420,0.415,0.421,0.421,0.418,0.419,0.415,0.416,0.418
+P2.2   enc  ffi            540128.9   538020.6    0.761    0.775    1.6 0.765,0.767,0.775,0.771,0.767,0.765,0.761,0.765,0.766
+P2.2   enc  ffi-valtc      735676.1   732796.5    1.040    1.076    1.6 1.045,1.040,1.050,1.052,1.046,1.045,1.076,1.044,1.046
+P2.2   enc  ffi-zeroed     544710.6   543009.6    0.767    0.778    1.6 0.774,0.778,0.777,0.778,0.777,0.771,0.768,0.767,0.774
+P2.2   enc  ffi-nobat      533658.1   531687.0    0.750    0.762    1.6 0.761,0.762,0.762,0.762,0.760,0.756,0.750,0.752,0.757
+P2.2   enc  ffi-hosttc     550372.7   548684.3    0.775    0.788    1.6 0.783,0.779,0.787,0.788,0.784,0.781,0.775,0.778,0.783
+P2.2   dec  pb            2967813.5  2878985.5    1.000    1.000   10.2 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P2.2   dec  pb-arena      1955407.5  1947626.8    0.635    0.680   10.2 0.656,0.675,0.675,0.680,0.656,0.641,0.677,0.635,0.652
+P2.2   dec  native        2397601.3  2369773.7    0.768    0.834   10.2 0.785,0.829,0.827,0.834,0.810,0.789,0.826,0.768,0.797
+P2.2   dec  ffi           2089040.7  2071312.3    0.673    0.737   10.2 0.686,0.737,0.721,0.714,0.701,0.734,0.729,0.673,0.697
+P2.3   enc  pb             565735.4   558756.9    1.000    1.000    3.8 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P2.3   enc  pb-det         553748.4   547543.9    0.966    0.997    3.8 0.970,0.990,0.992,0.975,0.997,0.966,0.979,0.978,0.983
+P2.3   enc  pb-arena       532485.6   524927.1    0.926    0.957    3.8 0.936,0.950,0.954,0.939,0.957,0.926,0.953,0.929,0.927
+P2.3   enc  memcpy          29760.3    29118.7    0.051    0.054    3.8 0.052,0.054,0.052,0.052,0.052,0.052,0.053,0.053,0.051
+P2.3   enc  native         156520.3   155414.2    0.275    0.284    3.8 0.275,0.279,0.279,0.276,0.278,0.278,0.284,0.276,0.276
+P2.3   enc  ffi            342003.5   340878.5    0.593    0.619    3.8 0.603,0.610,0.612,0.606,0.609,0.619,0.603,0.602,0.593
+P2.3   enc  ffi-valtc      488875.2   487758.6    0.841    0.875    3.8 0.867,0.873,0.873,0.868,0.874,0.874,0.875,0.861,0.841
+P2.3   enc  ffi-zeroed     341384.5   339216.0    0.592    0.612    3.8 0.602,0.609,0.609,0.606,0.606,0.600,0.612,0.604,0.592
+P2.3   enc  ffi-nobat      377120.0   375301.5    0.657    0.679    3.8 0.665,0.679,0.673,0.667,0.671,0.663,0.667,0.670,0.657
+P2.3   enc  ffi-hosttc     352075.4   348952.7    0.612    0.631    3.8 0.619,0.627,0.631,0.620,0.623,0.619,0.623,0.623,0.612
+P2.3   dec  pb            1980586.2  1950460.5    1.000    1.000    4.6 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P2.3   dec  pb-arena      1791152.2  1770228.8    0.890    1.021    4.6 0.905,0.912,0.912,0.897,0.905,0.890,0.910,1.021,0.903
+P2.3   dec  native        2267861.0  2222144.3    1.122    1.169    4.6 1.135,1.139,1.169,1.145,1.153,1.139,1.149,1.136,1.122
+P2.3   dec  ffi           1918667.8  1908933.5    0.944    0.989    4.6 0.969,0.981,0.989,0.969,0.976,0.977,0.976,0.944,0.959
+P2.4   enc  pb             778425.8   768641.5    1.000    1.000    3.0 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P2.4   enc  pb-det         747616.9   744104.8    0.949    0.972    3.0 0.965,0.960,0.965,0.963,0.961,0.972,0.950,0.964,0.949
+P2.4   enc  pb-arena       739665.3   734080.8    0.942    0.955    3.0 0.942,0.949,0.955,0.953,0.950,0.955,0.952,0.952,0.944
+P2.4   enc  memcpy          51610.6    51548.6    0.066    0.067    3.0 0.066,0.066,0.067,0.067,0.066,0.067,0.066,0.067,0.067
+P2.4   enc  native         206072.0   205050.6    0.261    0.268    3.0 0.264,0.263,0.266,0.268,0.265,0.268,0.262,0.266,0.261
+P2.4   enc  ffi            467741.1   466400.1    0.590    0.615    3.0 0.590,0.599,0.604,0.606,0.598,0.615,0.596,0.602,0.598
+P2.4   enc  ffi-valtc      667498.0   665171.4    0.842    0.871    3.0 0.842,0.861,0.860,0.864,0.853,0.871,0.849,0.870,0.852
+P2.4   enc  ffi-zeroed     469947.6   466511.9    0.591    0.613    3.0 0.591,0.599,0.607,0.608,0.599,0.613,0.600,0.606,0.595
+P2.4   enc  ffi-nobat      520547.9   517270.4    0.653    0.678    3.0 0.653,0.669,0.671,0.671,0.668,0.678,0.663,0.674,0.660
+P2.4   enc  ffi-hosttc     480697.4   476977.9    0.602    0.623    3.0 0.602,0.617,0.623,0.619,0.617,0.623,0.613,0.620,0.620
+P2.4   dec  pb            3398855.5  3368792.0    1.000    1.000    2.8 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P2.4   dec  pb-arena      2532312.7  2508156.3    0.726    0.754    2.8 0.726,0.748,0.737,0.747,0.733,0.754,0.747,0.751,0.727
+P2.4   dec  native        3259432.0  3224899.0    0.935    0.965    2.8 0.935,0.950,0.959,0.962,0.943,0.965,0.963,0.959,0.941
+P2.4   dec  ffi           2725768.0  2707157.0    0.785    0.806    2.8 0.789,0.801,0.798,0.806,0.789,0.806,0.804,0.799,0.785
+P2.5   enc  pb              20018.4    19920.0    1.000    1.000    0.9 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P2.5   enc  pb-det          21641.8    21515.7    1.076    1.088    0.9 1.077,1.088,1.079,1.079,1.076,1.083,1.081,1.079,1.078
+P2.5   enc  pb-arena        19830.5    19717.8    0.983    0.995    0.9 0.992,0.995,0.986,0.983,0.989,0.994,0.993,0.992,0.989
+P2.5   enc  memcpy            622.2      516.5    0.026    0.033    0.9 0.032,0.032,0.030,0.031,0.033,0.031,0.031,0.032,0.026
+P2.5   enc  native           8653.2     8621.6    0.430    0.434    0.9 0.432,0.434,0.432,0.431,0.433,0.433,0.432,0.434,0.430
+P2.5   enc  ffi             17576.9    17516.3    0.871    0.884    0.9 0.879,0.882,0.871,0.881,0.884,0.875,0.880,0.878,0.874
+P2.5   enc  ffi-valtc       23493.4    23438.2    1.168    1.181    0.9 1.174,1.181,1.168,1.168,1.172,1.174,1.174,1.178,1.171
+P2.5   enc  ffi-zeroed      17265.5    17192.8    0.856    0.869    0.9 0.865,0.867,0.856,0.860,0.869,0.858,0.862,0.864,0.858
+P2.5   enc  ffi-nobat       17007.6    16977.6    0.846    0.857    0.9 0.850,0.857,0.847,0.846,0.853,0.848,0.852,0.850,0.847
+P2.5   enc  ffi-hosttc      17967.0    17896.4    0.890    0.906    0.9 0.899,0.903,0.890,0.894,0.906,0.894,0.899,0.897,0.896
+P2.5   dec  pb              81470.1    80904.8    1.000    1.000    1.9 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P2.5   dec  pb-arena        71789.9    71359.7    0.876    0.890    1.9 0.887,0.881,0.888,0.890,0.881,0.876,0.883,0.879,0.883
+P2.5   dec  native          93502.0    90306.9    1.111    1.153    1.9 1.143,1.148,1.137,1.153,1.148,1.153,1.111,1.139,1.141
+P2.5   dec  ffi             82996.6    79823.1    0.982    1.029    1.9 1.026,1.021,1.009,1.019,1.026,1.029,0.982,1.010,1.024
+P3.1   enc  pb              12471.5    12413.2    1.000    1.000    1.1 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P3.1   enc  pb-det          12307.8    12251.3    0.982    0.992    1.1 0.988,0.985,0.983,0.982,0.989,0.992,0.987,0.991,0.989
+P3.1   enc  pb-arena        12199.2    12164.2    0.973    0.982    1.1 0.982,0.979,0.980,0.981,0.973,0.978,0.981,0.977,0.978
+P3.1   enc  memcpy             98.6       98.3    0.008    0.008    1.1 0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008
+P3.1   enc  native           6264.6     6242.9    0.498    0.505    1.1 0.503,0.503,0.500,0.505,0.498,0.502,0.503,0.503,0.503
+P3.1   enc  ffi             13524.8    13411.0    1.078    1.123    1.1 1.093,1.090,1.086,1.123,1.078,1.078,1.078,1.083,1.081
+P3.1   enc  ffi-valtc       17858.6    17791.8    1.426    1.442    1.1 1.433,1.429,1.430,1.431,1.426,1.442,1.432,1.428,1.429
+P3.1   enc  ffi-zeroed      12402.0    12304.9    0.990    1.003    1.1 0.991,0.993,0.994,0.995,0.990,1.003,0.994,0.995,0.990
+P3.1   enc  ffi-nobat       14095.4    14047.3    1.128    1.145    1.1 1.136,1.128,1.145,1.131,1.129,1.133,1.130,1.130,1.129
+P3.1   enc  ffi-hosttc      13893.6    13874.2    1.110    1.124    1.1 1.119,1.114,1.111,1.124,1.110,1.116,1.115,1.114,1.116
+P3.1   dec  pb              70806.7    70097.6    1.000    1.000    2.1 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P3.1   dec  pb-arena        47166.7    46702.6    0.659    0.674    2.1 0.667,0.659,0.672,0.660,0.667,0.666,0.666,0.674,0.663
+P3.1   dec  native          47072.3    46749.9    0.657    0.670    2.1 0.667,0.659,0.667,0.664,0.668,0.670,0.670,0.666,0.657
+P3.1   dec  ffi             44924.3    44629.9    0.630    0.641    2.1 0.637,0.630,0.636,0.632,0.636,0.641,0.634,0.635,0.637
+P4.1   enc  pb             124235.5   123899.9    1.000    1.000    0.7 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P4.1   enc  pb-det         142775.4   142041.4    1.144    1.155    0.7 1.145,1.151,1.144,1.146,1.150,1.154,1.146,1.153,1.155
+P4.1   enc  pb-arena       124128.4   123728.8    0.994    1.011    0.7 0.994,1.011,0.996,1.003,0.999,1.000,0.997,0.996,1.000
+P4.1   enc  memcpy           2594.6     2395.6    0.019    0.022    0.7 0.020,0.022,0.022,0.021,0.019,0.021,0.020,0.021,0.021
+P4.1   enc  native          47087.2    46986.0    0.378    0.384    0.7 0.378,0.379,0.379,0.380,0.384,0.379,0.379,0.378,0.380
+P4.1   enc  ffi             89351.3    88936.0    0.715    0.748    0.7 0.716,0.748,0.715,0.721,0.724,0.727,0.716,0.720,0.719
+P4.1   enc  ffi-valtc      142004.0   141339.6    1.135    1.166    0.7 1.135,1.146,1.140,1.148,1.151,1.166,1.140,1.139,1.139
+P4.1   enc  ffi-zeroed      86560.7    86373.6    0.694    0.699    0.7 0.696,0.697,0.696,0.699,0.699,0.697,0.694,0.697,0.696
+P4.1   enc  ffi-nobat       88554.5    88355.5    0.710    0.717    0.7 0.710,0.715,0.713,0.717,0.712,0.714,0.713,0.711,0.716
+P4.1   enc  ffi-hosttc      91750.6    91491.9    0.734    0.744    0.7 0.736,0.740,0.738,0.744,0.740,0.740,0.734,0.737,0.739
+P4.1   dec  pb             424562.0   420723.6    1.000    1.000    2.2 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P4.1   dec  pb-arena       300120.4   299314.4    0.698    0.717    2.2 0.711,0.698,0.698,0.707,0.717,0.713,0.708,0.714,0.706
+P4.1   dec  native         332989.3   332188.1    0.774    0.793    2.2 0.791,0.774,0.774,0.788,0.777,0.786,0.793,0.787,0.785
+P4.1   dec  ffi            309910.7   307058.4    0.716    0.735    2.2 0.732,0.716,0.721,0.735,0.726,0.723,0.734,0.734,0.724
+P5.1   enc  pb                 70.7       70.2    1.000    1.000    1.0 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P5.1   enc  pb-det             74.1       73.9    1.044    1.057    1.0 1.049,1.057,1.047,1.045,1.047,1.048,1.044,1.045,1.053
+P5.1   enc  pb-arena           70.5       70.2    0.993    1.010    1.0 1.002,0.996,0.993,0.996,0.995,0.996,0.993,0.994,1.010
+P5.1   enc  memcpy              6.3        6.3    0.089    0.092    1.0 0.089,0.092,0.089,0.090,0.090,0.092,0.089,0.089,0.089
+P5.1   enc  native             25.1       25.1    0.354    0.357    1.0 0.356,0.357,0.355,0.356,0.356,0.354,0.355,0.354,0.357
+P5.1   enc  ffi                45.8       45.6    0.643    0.651    1.0 0.649,0.650,0.647,0.643,0.649,0.651,0.648,0.644,0.649
+P5.1   enc  ffi-valtc          62.0       61.7    0.870    0.885    1.0 0.878,0.879,0.878,0.870,0.877,0.876,0.876,0.875,0.885
+P5.1   enc  ffi-zeroed         54.8       54.4    0.769    0.783    1.0 0.781,0.771,0.777,0.769,0.773,0.773,0.775,0.772,0.783
+P5.1   enc  ffi-nobat          46.7       46.4    0.654    0.668    1.0 0.660,0.662,0.662,0.660,0.662,0.658,0.668,0.654,0.661
+P5.1   enc  ffi-hosttc         47.3       46.7    0.662    0.670    1.0 0.663,0.670,0.663,0.667,0.670,0.662,0.670,0.670,0.665
+P5.1   dec  pb                294.5      293.4    1.000    1.000    1.0 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P5.1   dec  pb-arena          343.0      341.7    1.153    1.174    1.0 1.163,1.171,1.161,1.166,1.161,1.153,1.174,1.162,1.161
+P5.1   dec  native            206.4      205.3    0.697    0.706    1.0 0.702,0.703,0.699,0.700,0.697,0.698,0.698,0.701,0.706
+P5.1   dec  ffi               216.1      215.4    0.729    0.737    1.0 0.733,0.734,0.732,0.733,0.734,0.729,0.737,0.733,0.734
+P5.2   enc  pb               3837.4     3550.8    1.000    1.000   29.7 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P5.2   enc  pb-det           2612.0     2506.0    0.567    0.767   29.7 0.720,0.735,0.671,0.767,0.604,0.700,0.683,0.593,0.567
+P5.2   enc  pb-arena         4454.2     3524.1    0.765    1.371   29.7 1.224,0.990,1.174,1.371,0.968,1.201,1.248,0.909,0.765
+P5.2   enc  memcpy           2361.9     1997.1    0.491    0.743   29.7 0.612,0.638,0.520,0.743,0.569,0.678,0.666,0.491,0.552
+P5.2   enc  native           2421.5     1712.3    0.413    0.719   29.7 0.563,0.719,0.604,0.656,0.413,0.653,0.661,0.626,0.575
+P5.2   enc  ffi              2107.6     1900.1    0.458    0.712   29.7 0.565,0.671,0.495,0.712,0.541,0.547,0.536,0.478,0.458
+P5.2   enc  ffi-valtc        2023.9     1876.0    0.440    0.619   29.7 0.540,0.619,0.489,0.596,0.485,0.516,0.618,0.461,0.440
+P5.2   enc  ffi-zeroed       1950.1     1849.5    0.412    0.583   29.7 0.510,0.583,0.484,0.575,0.470,0.499,0.525,0.517,0.412
+P5.2   enc  ffi-nobat        1908.6     1847.1    0.460    0.571   29.7 0.496,0.571,0.481,0.534,0.460,0.500,0.501,0.480,0.548
+P5.2   enc  ffi-hosttc       1934.7     1819.5    0.466    0.556   29.7 0.489,0.556,0.484,0.532,0.553,0.491,0.499,0.466,0.489
+P5.2   dec  pb               2294.0     2109.3    1.000    1.000   30.6 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P5.2   dec  pb-arena         2480.9     2162.3    0.906    1.317   30.6 0.929,1.305,0.974,0.972,0.906,1.317,0.984,0.994,0.912
+P5.2   dec  native           2207.2     2040.0    0.812    1.109   30.6 0.812,1.002,0.965,0.889,0.824,1.109,0.992,0.878,0.813
+P5.2   dec  ffi              2128.0     2040.1    0.766    1.014   30.6 0.778,1.001,0.947,0.997,0.766,0.964,0.968,1.014,0.787
+P5.3   enc  pb             100663.1    97097.7    1.000    1.000    5.8 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P5.3   enc  pb-det          59378.7    58691.7    0.583    0.615    5.8 0.586,0.615,0.584,0.590,0.588,0.591,0.587,0.583,0.587
+P5.3   enc  pb-arena       101201.6   100725.0    0.998    1.053    5.8 1.000,1.053,1.000,1.001,1.003,1.007,0.998,1.025,1.023
+P5.3   enc  memcpy          60711.7    60292.2    0.596    0.634    5.8 0.596,0.627,0.601,0.599,0.600,0.600,0.597,0.626,0.634
+P5.3   enc  native          58539.8    55468.1    0.540    0.606    5.8 0.579,0.606,0.582,0.582,0.583,0.581,0.578,0.540,0.580
+P5.3   enc  ffi             58737.8    55930.6    0.544    0.609    5.8 0.578,0.609,0.565,0.584,0.583,0.585,0.581,0.544,0.584
+P5.3   enc  ffi-valtc       58645.1    55562.8    0.541    0.617    5.8 0.576,0.617,0.565,0.583,0.587,0.584,0.583,0.541,0.582
+P5.3   enc  ffi-zeroed      58517.1    53918.8    0.555    0.583    5.8 0.576,0.555,0.562,0.581,0.583,0.583,0.580,0.573,0.580
+P5.3   enc  ffi-nobat       58468.5    55464.7    0.563    0.583    5.8 0.580,0.571,0.563,0.581,0.583,0.583,0.578,0.569,0.582
+P5.3   enc  ffi-hosttc      58552.7    53548.7    0.521    0.588    5.8 0.577,0.587,0.565,0.582,0.582,0.588,0.580,0.521,0.588
+P5.3   dec  pb              61800.9    61087.1    1.000    1.000    2.4 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P5.3   dec  pb-arena        61923.6    55135.5    0.903    1.017    2.4 0.997,1.017,0.996,1.001,1.006,1.000,1.007,1.011,0.903
+P5.3   dec  native          61203.1    55033.0    0.901    1.004    2.4 1.001,0.995,0.989,0.993,0.994,0.986,1.004,1.002,0.901
+P5.3   dec  ffi             61435.7    54722.1    0.896    1.004    2.4 0.995,1.000,0.992,0.989,0.993,0.998,1.004,1.000,0.896
+P5.4   enc  pb             525785.2   522521.1    1.000    1.000    5.4 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P5.4   enc  pb-det         356601.9   354843.2    0.648    0.688    5.4 0.678,0.648,0.678,0.678,0.675,0.679,0.682,0.688,0.680
+P5.4   enc  pb-arena       518177.3   516274.1    0.946    0.992    5.4 0.988,0.946,0.986,0.985,0.973,0.992,0.990,0.983,0.986
+P5.4   enc  memcpy         347365.6   346295.3    0.632    0.667    5.4 0.663,0.632,0.664,0.660,0.653,0.667,0.654,0.643,0.661
+P5.4   enc  native         353025.3   351720.7    0.641    0.680    5.4 0.674,0.641,0.671,0.669,0.666,0.680,0.664,0.655,0.679
+P5.4   enc  ffi            354260.5   351086.3    0.642    0.696    5.4 0.678,0.642,0.674,0.671,0.662,0.676,0.672,0.662,0.696
+P5.4   enc  ffi-valtc      353757.2   338896.9    0.631    0.677    5.4 0.675,0.643,0.675,0.671,0.667,0.677,0.667,0.631,0.646
+P5.4   enc  ffi-zeroed     353673.6   328003.8    0.624    0.677    5.4 0.672,0.644,0.673,0.624,0.667,0.677,0.670,0.658,0.646
+P5.4   enc  ffi-nobat      354104.5   324775.8    0.618    0.679    5.4 0.674,0.643,0.674,0.618,0.667,0.679,0.675,0.656,0.674
+P5.4   enc  ffi-hosttc     353996.3   326233.3    0.620    0.675    5.4 0.673,0.660,0.673,0.620,0.670,0.675,0.667,0.658,0.673
+P5.4   dec  pb             353449.3   349199.3    1.000    1.000    2.6 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P5.4   dec  pb-arena       353609.8   349539.1    0.996    1.013    2.6 0.996,1.002,0.997,1.002,1.001,1.013,0.999,1.000,1.001
+P5.4   dec  native         351818.5   347581.2    0.988    1.003    2.6 0.997,0.995,0.991,0.999,0.999,1.003,0.988,0.994,0.995
+P5.4   dec  ffi            351693.1   347287.3    0.988    1.005    2.6 0.994,0.994,0.997,1.000,1.002,1.005,0.988,0.993,0.994
+P6.1   enc  pb             111434.4   110917.3    1.000    1.000    0.9 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P6.1   enc  pb-det         109796.1   109375.3    0.978    0.995    0.9 0.991,0.995,0.983,0.987,0.985,0.978,0.984,0.990,0.984
+P6.1   enc  pb-arena       111660.6   111258.3    0.997    1.023    0.9 1.002,1.004,1.009,0.997,1.003,0.997,1.001,1.023,1.002
+P6.1   enc  memcpy           5255.4     4971.9    0.045    0.048    0.9 0.046,0.045,0.047,0.048,0.048,0.047,0.047,0.047,0.045
+P6.1   enc  native         100430.7   100005.1    0.895    0.908    0.9 0.902,0.905,0.907,0.895,0.900,0.898,0.897,0.908,0.906
+P6.1   enc  ffi            139449.0   139011.0    1.246    1.261    0.9 1.257,1.253,1.250,1.246,1.251,1.248,1.255,1.261,1.251
+P6.1   enc  ffi-valtc      141760.8   141666.3    1.268    1.290    0.9 1.276,1.278,1.290,1.277,1.272,1.268,1.270,1.284,1.272
+P6.1   enc  ffi-zeroed     143573.8   143191.7    1.281    1.298    0.9 1.296,1.298,1.287,1.285,1.291,1.281,1.286,1.287,1.290
+P6.1   enc  ffi-nobat      143279.5   142954.4    1.281    1.292    0.9 1.291,1.292,1.286,1.282,1.286,1.285,1.281,1.286,1.284
+P6.1   enc  ffi-hosttc     138986.7   138287.1    1.239    1.254    0.9 1.245,1.254,1.250,1.241,1.247,1.239,1.248,1.250,1.245
+P6.1   dec  pb             374683.0   372623.4    1.000    1.000    1.1 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P6.1   dec  pb-arena       282951.5   280974.4    0.754    0.759    1.1 0.759,0.758,0.754,0.754,0.759,0.759,0.754,0.755,0.755
+P6.1   dec  native         331041.5   328415.9    0.879    0.889    1.1 0.885,0.886,0.887,0.886,0.882,0.883,0.889,0.879,0.881
+P6.1   dec  ffi            236254.2   235526.7    0.630    0.636    1.1 0.632,0.630,0.633,0.632,0.631,0.630,0.635,0.636,0.632
+P1.2   gfill groupfill       22568.2    22485.7    0.126    0.132    4.6 0.131,0.132,0.132,0.131,0.131,0.132,0.126,0.131,0.131
+P1.2   gfill groupfill-ind    22622.7    22540.6    0.127    0.132    4.6 0.132,0.132,0.132,0.131,0.131,0.132,0.127,0.132,0.130
+P1.2   gfill pb             172108.8   170982.2    1.000    1.000    4.6 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P1.3   gfill groupfill        6834.1     6823.1    1.257    1.309    3.5 1.271,1.259,1.293,1.284,1.268,1.269,1.309,1.269,1.257
+P1.3   gfill groupfill-ind     6886.5     6846.1    1.264    1.325    3.5 1.279,1.268,1.301,1.274,1.283,1.276,1.325,1.273,1.264
+P1.3   gfill pb               5383.0     5247.1    1.000    1.000    3.5 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P2.2   gfill groupfill       37960.3    36356.7    0.047    0.055   13.9 0.052,0.053,0.047,0.054,0.055,0.055,0.055,0.054,0.055
+P2.2   gfill groupfill-ind    37539.0    36366.5    0.047    0.056   13.9 0.052,0.054,0.047,0.053,0.054,0.054,0.053,0.056,0.054
+P2.2   gfill pb             699191.0   694081.2    1.000    1.000   13.9 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000
+P2.5   gfill groupfill        1336.3     1292.4    0.064    0.069    1.6 0.069,0.065,0.068,0.069,0.065,0.064,0.066,0.067,0.067
+P2.5   gfill groupfill-ind     1364.1     1331.3    0.066    0.074    1.6 0.068,0.068,0.069,0.068,0.070,0.066,0.067,0.074,0.068
+P2.5   gfill pb              19975.3    19888.0    1.000    1.000    1.6 1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000

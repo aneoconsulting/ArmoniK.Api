@@ -197,6 +197,46 @@ if(AK_RPC)
   set_property(TARGET rpcbench APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-rpath,${CORE_RPC_OUT}")
 endif()
 
+# ---- the upb arm: a CEILING, not a candidate ----------------------------------------
+# -DAK_UPB=ON after running gen/fetch_upb.sh. protobuf C++ stays the incumbent every ratio
+# in this slice is against; upb bounds how fast a C protobuf can be, which bounds the
+# core's wins from the direction R2's memcpy floor does not reach.
+if(AK_UPB)
+  set(UPB_SRC "${CMAKE_CURRENT_SOURCE_DIR}/build/upb-src")
+  set(UPB_BUILD "${CMAKE_CURRENT_SOURCE_DIR}/build/upb-build")
+  set(UPB_LIBS "${UPB_BUILD}/libupb.a")
+  if(NOT AK_UPB_TAG)
+    set(AK_UPB_TAG "v25.3")
+  endif()
+  add_custom_command(
+    OUTPUT ${GEN}/shapes.desc
+    COMMAND ${Protobuf_PROTOC_EXECUTABLE} --descriptor_set_out=${GEN}/shapes.desc
+            -I${SCHEMA} ${SCHEMA}/shapes.proto
+    DEPENDS ${SCHEMA}/shapes.proto
+    COMMENT "protoc --descriptor_set_out shapes.desc (upb reflection input)")
+  add_custom_target(shapes_desc DEPENDS ${GEN}/shapes.desc)
+  add_executable(upbbench
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/upbbench.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rt.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/values.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/types.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/build.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/pb_build.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/core_native.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/binding.cpp)
+  add_dependencies(upbbench core shapes_desc)
+  target_include_directories(upbbench PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src ${GEN}
+    ${UPB_SRC}/upb/reflection/stage0 ${UPB_SRC}
+    ${CMAKE_CURRENT_SOURCE_DIR}/build/upbinc)
+  target_link_libraries(upbbench PRIVATE shapes_pb Threads::Threads
+    ${CORE_OUT}/libak_core_cpp.so ${UPB_LIBS})
+  set_property(TARGET upbbench PROPERTY CXX_STANDARD 17)
+  target_compile_definitions(upbbench PRIVATE AK_LINKAGE="shared"
+    AK_UPB_VERSION="${AK_UPB_TAG}")
+  set_property(TARGET upbbench APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-rpath,${CORE_OUT}")
+endif()
+
 # README 5.1's hard stop, checked mechanically: two TUs at two standard levels, linked.
 add_executable(odrcheck
   ${CMAKE_CURRENT_SOURCE_DIR}/src/odr_main.cpp

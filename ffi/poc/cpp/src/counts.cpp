@@ -83,6 +83,23 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   (void)nat_dec;
 }
 
+// ABI v1 open decision 1, the batching predicate: the DECOMPOSITION finding 4 asks for.
+//
+// "Batching wins where the crossing count per element explodes" does not survive its own
+// table: batching wins on P3.1 (+4.2%) and loses on P1.2 (straddling zero) at an identical
+// +1.00 forward crossings per element when unbatched. The crossing count is therefore not
+// the variable. What differs is how much of the 32 KB chunk buffer is written before the
+// codec reads it: the batched arm makes two passes over it, and the unbatched arm keeps one
+// group in L1. This prints the group size, the chunk's element capacity, and how many
+// elements of it a payload actually fills, which is the number the sign tracks.
+template <class G>
+static void chunk_row(const char *id, const char *elem, size_t elems) {
+  size_t cap = ak::arena_n(sizeof(G));
+  size_t used = elems < cap ? elems : cap;
+  std::printf("  %-6s %-16s %8zu %10zu %10zu %12zu %10s\n", id, elem, sizeof(G), cap, used,
+              used * sizeof(G), used * sizeof(G) <= 32768 / 2 ? "fits L1?" : "");
+}
+
 int main() {
   std::printf("counting build, linkage=%s, -std=%ld\n", AK_LINKAGE, (long)__cplusplus);
   std::printf("Per-element columns are forward / reverse.\n\n");
@@ -110,5 +127,24 @@ int main() {
 #define AK_ELEMS_p6_1 200
   AK_CASES(X)
 #undef X
+
+  std::printf("\n-- the batching predicate's decomposition (ABI v1 decision 1) --\n");
+  std::printf("  %-6s %-16s %8s %10s %10s %12s\n", "payload", "element group",
+              "sizeof", "chunk cap", "used", "chunk bytes");
+  chunk_row<struct ak_efix_ResultRaw>("P1.1", "ResultRaw", 4);
+  chunk_row<struct ak_efix_ResultRaw>("P1.2", "ResultRaw", 1000);
+  chunk_row<struct ak_efix_ResultRaw>("P1.3", "ResultRaw", 300);
+  chunk_row<struct ak_efix_TaskDetailed>("P2.1", "TaskDetailed", 1);
+  chunk_row<struct ak_efix_TaskDetailed>("P2.2", "TaskDetailed", 500);
+  chunk_row<struct ak_efix_TaskDetailed>("P2.3", "TaskDetailed", 125);
+  chunk_row<struct ak_efix_TaskDetailed>("P2.4", "TaskDetailed", 80);
+  chunk_row<struct ak_efix_TaskDetailed>("P2.5", "TaskDetailed", 20);
+  chunk_row<struct ak_efix_Probe>("P3.1", "Probe", 200);
+  chunk_row<struct ak_efix_TaskSummary>("P4.1", "TaskSummary", 200);
+  chunk_row<struct ak_efix_MetricsBatch>("P6.1", "MetricsBatch", 200);
+  std::printf("  P2.3 and P2.4 are the two payloads where UNBATCHING adds 125 and 311\n"
+              "  forward crossings per element rather than 1, and they are the two where\n"
+              "  batching wins decisively. Everywhere else the delta tracks the chunk\n"
+              "  bytes touched, not the crossing count.\n");
   return 0;
 }
