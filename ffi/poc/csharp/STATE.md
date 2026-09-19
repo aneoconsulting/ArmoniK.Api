@@ -304,6 +304,44 @@ nearly not.** A slice quoting only the ASCII encode number overstates the win
 by about a third on the hardest content; decode moves by 0.07 to 0.08 and
 stays a win throughout.
 
+### The two harnesses agree (`stage7-benchmarkdotnet.log`)
+
+144 BenchmarkDotNet benchmarks against the hand-rolled harness's three
+interleaved processes, same arms, same build, same machine. 64 comparable
+rows.
+
+| | |
+|---|---|
+| median deviation, BDN minus hand-rolled | **+0.019** |
+| mean deviation | **+0.021** |
+| within +/-0.05 | 53 of 64 |
+| largest deviation | 0.111 (P5.1 encode `gp-bufferwriter`, a 116-byte payload) |
+| **verdict flips (which side of 1.0)** | **2 of 64** |
+
+**So the hand-rolled numbers stand, and BenchmarkDotNet is the conservative
+one.** 47 of the 64 deviations are positive, meaning BDN reports the managed
+arms slightly WORSE. That direction matters: the interleaved harness is mildly
+optimistic for this slice's own arms, not flattering by accident in its
+favour. The bias is about +0.02 and its mechanism is **not established** --
+overhead subtraction would push the other way, so the plausible candidate is
+the shared GC heap and warm state that one interleaved process gives every arm
+and BDN's per-benchmark isolation does not. Not chased, because absolutes are
+deferred.
+
+The two flips are both within 0.09 of parity and neither changes a
+conclusion:
+
+- **P2.4 decode, 0.928 hand-rolled against 1.020 under BDN.** Under the more
+  rigorous harness the container-dense row crosses into a loss, which
+  **strengthens** the convergence finding rather than contradicting it: under
+  BDN both P2.4 and P6.1 are losses.
+- **P5.4 encode `managed-2pass`, 1.015 against 0.990.** A bulk row, already
+  marked AMBIGUOUS, sitting on the memcpy floor where the ratio is between two
+  copies.
+
+Every other row keeps its side of 1.0 in both harnesses, including the whole
+real-schema decode column.
+
 ### README 5.2's three arms
 
 All three build from ONE source tree with one define flipped, and **all three
