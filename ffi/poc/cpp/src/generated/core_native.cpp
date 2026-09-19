@@ -283,8 +283,7 @@ static void enc_metrics_batch(const MetricsBatch &o, ak::Enc *e) {
   if (!o.values.empty()) {
     ak::Mark mk = e->begin(3, 23);
     for (size_t i = 0; i < o.values.size(); ++i)
-      { double dv = o.values[i]; uint64_t bits; std::memcpy(&bits, &dv, 8);
-        for (int b = 0; b < 8; ++b) e->buf.push_back((uint8_t)(bits >> (8*b))); }
+      { double dv = o.values[i]; e->raw((const uint8_t *)&dv, 8); }
     e->end(mk);
   }
   if (!o.codes.empty()) {

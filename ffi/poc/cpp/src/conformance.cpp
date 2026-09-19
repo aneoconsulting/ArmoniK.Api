@@ -59,7 +59,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
 
   ak::Enc e(shapes::native::kSites);
   nat_enc(facade, &e);
-  std::string nat_bytes((const char *)(e.buf.empty() ? NULL : &e.buf[0]), e.buf.size());
+  std::string nat_bytes((const char *)e.data(), e.size());
 
   ak_enc_ctx *ctx = ak_enc_ctx_new();
   shapes::ffi::Tcs tc = shapes::ffi::tcs_core();
@@ -138,7 +138,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
     P fromCanon;
     ak::Enc ec(shapes::native::kSites);
     nat_enc(facade, &ec);
-    std::string canon((const char *)(ec.buf.empty() ? NULL : &ec.buf[0]), ec.buf.size());
+    std::string canon((const char *)ec.data(), ec.size());
     check(fromCanon.ParseFromString(canon), std::string(id) + " pb reads canonical bytes");
     std::string re2;
     pb_serialize(fromCanon, &re2, true);
@@ -159,7 +159,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   // Re-encode what was decoded: the round trip has to reproduce the manifest.
   ak::Enc e2(shapes::native::kSites);
   nat_enc(fnat, &e2);
-  check(sha_of(e2.buf) == want, std::string(id) + " native round trip");
+  check(sha_of(e2) == want, std::string(id) + " native round trip");
 
   std::printf("  %-5s %8zu B  ok\n", id, pb_bytes.size());
 }
@@ -185,7 +185,7 @@ static void run_p71(const std::string &dir) {
   // Re-encode contiguously: a permutation of the same (tag, wire, body) triples.
   ak::Enc e(shapes::native::kSites);
   shapes::native::encode_into_dual_response(f, &e);
-  std::string re((const char *)&e.buf[0], e.buf.size());
+  std::string re((const char *)e.data(), e.size());
   check(re.size() == v.size(), "P7.1 re-encode same length");
   check(re != v, "P7.1 re-encode is NOT the interleaved form (the whole point)");
 
@@ -233,7 +233,7 @@ static void run_absent_and_unknown() {
   shapes::ListResultsResponse base = shapes::build::payload_p1_1();
   ak::Enc e(shapes::native::kSites);
   shapes::native::encode_into_list_results_response(base, &e);
-  std::string clean((const char *)&e.buf[0], e.buf.size());
+  std::string clean((const char *)e.data(), e.size());
 
   struct V { const char *name; uint32_t tag; uint32_t wire; std::string body; };
   std::vector<V> vs;
@@ -248,7 +248,7 @@ static void run_absent_and_unknown() {
     std::string s = clean;
     ak::Enc k(1);
     k.varint(((uint64_t)vs[i].tag << 3) | vs[i].wire);
-    s.append((const char *)&k.buf[0], k.buf.size());
+    s.append((const char *)k.data(), k.size());
     s += vs[i].body;
 
     shapes::ListResultsResponse fn, ff;
@@ -268,7 +268,7 @@ static void run_absent_and_unknown() {
     // drops it. protobuf C++ DOES retain it, which is the behaviour change.
     ak::Enc e2(shapes::native::kSites);
     shapes::native::encode_into_list_results_response(fn, &e2);
-    check(sha_of(e2.buf) == sha_of(clean),
+    check(sha_of(e2) == sha_of(clean),
           std::string("core drops the unknown field on re-encode: ") + vs[i].name);
     std::string pbre;
     pb_serialize(pbm, &pbre, true);
@@ -282,7 +282,7 @@ static void run_absent_and_unknown() {
     one.results[0].status = shapes::ResultStatus(999);
     ak::Enc e3(shapes::native::kSites);
     shapes::native::encode_into_list_results_response(one, &e3);
-    std::string s((const char *)&e3.buf[0], e3.buf.size());
+    std::string s((const char *)e3.data(), e3.size());
     shapes::ListResultsResponse fn;
     check(shapes::native::decode_list_results_response(
               (const uint8_t *)s.data(), s.size(), &fn) == 0, "enum 999 decode");
@@ -299,7 +299,7 @@ static void run_absent_and_unknown() {
     one.results[0].name = std::string("ab\xC3\x28" "cd", 6);
     ak::Enc e4(shapes::native::kSites);
     shapes::native::encode_into_list_results_response(one, &e4);
-    std::string s((const char *)&e4.buf[0], e4.buf.size());
+    std::string s((const char *)e4.data(), e4.size());
     shapes::ListResultsResponse fn;
     int32_t rc = shapes::native::decode_list_results_response(
         (const uint8_t *)s.data(), s.size(), &fn);
@@ -320,7 +320,7 @@ static void run_absent_and_unknown() {
     {
       ak::Enc e5(shapes::native::kSites);
       shapes::native::encode_into_list_results_response(shapes::build::payload_p1_1(), &e5);
-      good.assign((const char *)&e5.buf[0], e5.buf.size());
+      good.assign((const char *)e5.data(), e5.size());
     }
     int32_t rc2 = shapes::ffi::decode_with_list_results_response(
         dctx, (const uint8_t *)good.data(), good.size(), &g2);

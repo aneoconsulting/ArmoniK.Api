@@ -34,7 +34,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   F facade = mk();
   ak::Enc e(shapes::native::kSites);
   nat_enc(facade, &e);
-  std::string wire((const char *)(e.buf.empty() ? NULL : &e.buf[0]), e.buf.size());
+  std::string wire((const char *)e.data(), e.size());
 
   ak_enc_ctx *ctx = ak_enc_ctx_new();
   AkCounters c;

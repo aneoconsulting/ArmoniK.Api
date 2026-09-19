@@ -130,6 +130,52 @@ ak_arm(bench_a17_shared_lto ${BENCH} 17 target on shared reject ${CORE_OUT})
 target_compile_options(bench_a17_shared_lto PRIVATE -flto)
 set_property(TARGET bench_a17_shared_lto APPEND_STRING PROPERTY LINK_FLAGS " -flto")
 
+# ---- the RPC arm (ABI v1 section 9, design/SHAPES.md's RPC arm) ---------------------
+# Optional: it needs libgrpc++-dev and a core built with the `rpc` feature, and neither is
+# wanted by the codec arms. -DAK_RPC=ON turns it on.
+if(AK_RPC)
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(GRPCPP REQUIRED grpc++)
+  find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin REQUIRED)
+  set(CORE_RPC_OUT "${CORE_DIR}/target-rpc/release")
+  add_custom_target(core_rpc ALL
+    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_DIR}/target-rpc
+            cargo build --release --features rpc --manifest-path ${CORE_DIR}/Cargo.toml
+    BYPRODUCTS ${CORE_RPC_OUT}/libak_core_cpp.so
+    COMMENT "cargo build ak-core-cpp --features rpc")
+  add_custom_command(
+    OUTPUT ${GEN}/shapes_svc.pb.cc ${GEN}/shapes_svc.pb.h
+           ${GEN}/shapes_svc.grpc.pb.cc ${GEN}/shapes_svc.grpc.pb.h
+    COMMAND ${Protobuf_PROTOC_EXECUTABLE} --cpp_out=${GEN}
+            -I${SCHEMA} -I${CMAKE_CURRENT_SOURCE_DIR}/proto
+            ${CMAKE_CURRENT_SOURCE_DIR}/proto/shapes_svc.proto
+    COMMAND ${Protobuf_PROTOC_EXECUTABLE} --grpc_out=${GEN}
+            --plugin=protoc-gen-grpc=${GRPC_CPP_PLUGIN}
+            -I${SCHEMA} -I${CMAKE_CURRENT_SOURCE_DIR}/proto
+            ${CMAKE_CURRENT_SOURCE_DIR}/proto/shapes_svc.proto
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/proto/shapes_svc.proto ${SCHEMA}/shapes.proto
+    COMMENT "protoc + grpc_cpp_plugin shapes_svc.proto")
+  add_executable(rpcbench
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rpcbench.cpp
+    ${GEN}/shapes_svc.pb.cc ${GEN}/shapes_svc.grpc.pb.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rt.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/values.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/types.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/build.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/pb_build.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/binding.cpp)
+  add_dependencies(rpcbench core_rpc)
+  target_include_directories(rpcbench PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src ${GEN}
+    ${GRPCPP_INCLUDE_DIRS})
+  target_link_libraries(rpcbench PRIVATE shapes_pb Threads::Threads
+    ${GRPCPP_LIBRARIES} ${CORE_RPC_OUT}/libak_core_cpp.so)
+  target_link_directories(rpcbench PRIVATE ${GRPCPP_LIBRARY_DIRS})
+  set_property(TARGET rpcbench PROPERTY CXX_STANDARD 17)
+  target_compile_definitions(rpcbench PRIVATE AK_LINKAGE="shared")
+  set_property(TARGET rpcbench APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-rpath,${CORE_RPC_OUT}")
+endif()
+
 # README 5.1's hard stop, checked mechanically: two TUs at two standard levels, linked.
 add_executable(odrcheck
   ${CMAKE_CURRENT_SOURCE_DIR}/src/odr_main.cpp

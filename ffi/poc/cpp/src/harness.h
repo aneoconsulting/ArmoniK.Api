@@ -31,9 +31,8 @@
 namespace ns = armonik::ffi::shapes::v1;
 
 inline std::string sha_of(const std::string &s) { return ak::values::sha256_hex(s); }
-inline std::string sha_of(const std::vector<uint8_t> &v) {
-  return ak::values::sha256_hex(std::string((const char *)(v.empty() ? NULL : &v[0]),
-                                            v.size()));
+inline std::string sha_of(const ak::Enc &e) {
+  return ak::values::sha256_hex(std::string((const char *)e.data(), e.size()));
 }
 
 // protobuf C++ serialises map entries in an unspecified order unless deterministic

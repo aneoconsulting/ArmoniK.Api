@@ -78,9 +78,7 @@ class CppEnc:
         o.append("    ak::Mark mk = e->begin(%d, %d);" % (f.tag, s))
         o.append("    for (size_t i = 0; i < o.%s.size(); ++i)" % f.name)
         if f.kind == "double":
-            o.append("      { double dv = o.%s[i]; uint64_t bits; std::memcpy(&bits, &dv, 8);"
-                     % f.name)
-            o.append("        for (int b = 0; b < 8; ++b) e->buf.push_back((uint8_t)(bits >> (8*b))); }")
+            o.append("      { double dv = o.%s[i]; e->raw((const uint8_t *)&dv, 8); }" % f.name)
         elif f.kind == "bool":
             o.append("      e->varint(o.%s[i] ? 1 : 0);" % f.name)
         elif f.kind == "enum":
