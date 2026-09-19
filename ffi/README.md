@@ -341,10 +341,10 @@ deliverable.
 | W1 | **Specify ABI v1.** One specification, in this branch, merging the base design with the amendments from the C# and Java reports. Every amendment carries the figure that motivated it and the language it came from. | **Drafted.** `design/ABI-v1.md` carries 12 decisions, of which **2 are now settled**: 5 (the grow path, keep the learned width) and 3 (the string path: no check on encode, reject on decode, free in both directions). The Rust slice produced all of the movement, and also created three: **9** (does the group need an empty-element path), **10** (can decode deliver the group before the runs) and **11** (does the core retain unknown fields). **11 is the one to read first**: it is a behaviour change for four of the five languages. Decision 1 (is every amendment free at the C++11 floor) still gates agreement, and the C++ slice settles it. |
 | W2 | **Freeze the shapes and the payload set.** | **Done.** `schema/shapes.json` is the description, `schema/generated/` carries the emitted `.proto` and a payload manifest with a hash per payload, and the Rust slice has confirmed every hash against prost 0.14.4 and a second, independent encoder. One defect was found and fixed in `emit/payloads.py`; 8 of 16 hashes moved. A slice that disagrees with a hash now has a defect in itself. |
 | W3 | **Rust slice.** Section 4.1. | **Done.** Four arms over every message and payload of `design/SHAPES.md`, all byte-identical to the validated manifest, plus the three content sets, the unknown-field vectors and the RPC arm. The decomposition every other slice subtracts is available: **a crossing costs 1.8 ns through a shared library**, and the RPC half costs **two crossings per call, zero per field**. See [`findings/rust.md`](findings/rust.md) for what it does not establish, which is longer than what it does. |
-| W4 | **C++ slice on the amended ABI.** Rebuild against W1, re-measure against protobuf C++, and demonstrate the C++11 floor. | The amended ABI has a C++ column, and "the managed amendments are free in C++" is a measurement. |
-| W5 | **C# slice.** Import the existing slice, rebuild against W1, then close its two named gaps: a managed decode control, and oneofs plus explicit presence. | Both gaps have numbers, and the floor (netstandard2.0 or net48) compiles and passes correctness. |
-| W6 | **Java slice.** Import, rebuild against W1, re-measure encode, and keep the generated-Java-codec arm as a first-class candidate. | The encode verdict is stated against ABI v1, on JDK 17 with JNI, with the Java 8 floor demonstrated. |
-| W7 | **Python slice.** Section 9. | Python has a verdict of the same shape as the others, or a stated reason why the question is different there. |
+| W4 | **C++ slice on the amended ABI.** Rebuild against W1, re-measure against protobuf C++, and demonstrate the C++11 floor. **In flight.** Full codec plus the RPC arm; shared library primary, static as a separately labelled second arm. It carries decision 1, which blocks freezing W1. | The amended ABI has a C++ column, and "the managed amendments are free in C++" is a measurement. |
+| W5 | **C# slice.** ~~Import the existing slice~~, rebuild against W1, then close its two named gaps: a managed decode control, and oneofs plus explicit presence. **There is nothing to import**: no branch carries the prior slice's sources and only the published report survives, so this is a rebuild and open question 1 is moot. **In flight, scoped to its ABI-independent half** (incumbent, facade, correctness, the managed decode control); the `core-ffi` arm waits on decision 1. | Both gaps have numbers, and the floor (netstandard2.0 or net48) compiles and passes correctness. |
+| W6 | **Java slice.** ~~Import~~, rebuild against W1, re-measure encode, and keep the generated-Java-codec arm as a first-class candidate. Nothing to import here either. **Held until decision 1 settles**, because its question is precisely whether the encode regression survives ABI v1. | The encode verdict is stated against ABI v1, on JDK 17 with JNI, with the Java 8 floor demonstrated. |
+| W7 | **Python slice.** Section 9. **In flight**, and exposed to no open decision: its first work unit is the binding-mechanism and facade-storage microbenchmarks, which price this runtime rather than the ABI's shape. | Python has a verdict of the same shape as the others, or a stated reason why the question is different there. |
 | W8 | **Conformance corpus.** Section 10. | Every slice produces and consumes the same bytes, and the corpus is generated rather than curated. |
 | W9 | **The report.** | `REPORT.md` states a recommendation, the evidence for it, and what it does not establish. |
 
@@ -494,6 +494,24 @@ from the verdicts.
 
 **R12. A slice agent never writes a report.** Section 11.
 
+**R13. Slices run on separate machines, so every slice calibrates its own.** A
+ratio formed inside one process survives the move to another VM; an absolute does
+not, because it was a fact about one machine. The per-runtime crossing table of
+section 2 (0.25 ns in C++, 1.8 ns in Rust, 7.5 to 12 ns on .NET 8, 98.4 ns
+through JNI) is a table of absolutes across languages, and assembled from five
+containers it becomes a table about five containers. So **every slice builds and
+runs the Rust slice's crossing benchmark on its own machine, as a step of its own
+build**, and reports that machine's Rust crossing cost beside its own absolutes.
+Every absolute a slice quotes is then also quotable as a multiple of its
+machine's Rust crossing, which is what keeps the cross-language table
+reconstructible.
+
+This binds the slice that shares a machine with nothing as tightly as the ones
+that do: the 1.8 ns figure is a fact about the container the Rust slice ran in,
+and no later slice inherits it by running the same code somewhere else. A slice
+that cannot run the calibration says so, and every absolute it reports carries
+that gap.
+
 ## 9. The Python slice
 
 Stated in more detail because it is the one with no prior art, and because its
@@ -637,6 +655,13 @@ spawning a new one, so its context survives. Across sessions, context does not
 survive, so `STATE.md` is the resume mechanism: a fresh agent reads it first, and
 it is a defect for it to be stale. That is why it is rewritten at the end of
 every work unit and not at the end of the slice.
+
+**A slice may run in its own session on its own machine**, and past two slices it
+should, because the last step of a slice is always a benchmark and two benchmarks
+on one box corrupt each other silently: the numbers still come out. The cost is
+R13's, and R13 is what pays it. Each such slice works on its own branch off this
+one, which is free because the directories are disjoint (`poc/<lang>/` and
+`logs/<lang>/`), and it keeps the rule that two agents never race a push.
 
 ### Review agents, adversarial, read-only
 
