@@ -505,3 +505,99 @@ branch already had, and this narrows rather than replaces it.
 
 **It is a measurement arm and not a proposal.** The views are valid only while the input
 buffer lives; the shipping facade is untouched and its emitted text is unchanged.
+
+---
+
+## W10 — the core was forked, and the fork was not in the codec
+
+The user's finding, not mine, and the mechanism is the whole of it. The emitted
+`codec.rs` was byte-identical in the rust, cpp and java slices — same md5, 4,190 lines —
+so R1 was holding and the *generator* was genuinely shared. What had forked was the
+**hand-written runtime beside it**: my `core/src/lib.rs` (527 lines, `ak_enc_count_reverse`
+added for review finding 19), java's (702 lines, `ak_tc_latin1` and `ak_tc_utf16`), and the
+rust slice's original (492). Neither addition was wrong and neither broke a measurement,
+which is why it survived three slices. **Each fork happened because a slice needed to ADD
+something and there was nowhere to contribute it.** That is the five-implementations
+problem this branch exists to argue about, reproduced inside the branch.
+
+R0 is now the rule. This work unit moved the core to `ffi/poc/codec`, folded the three
+copies into one, and re-pointed every slice.
+
+### What I checked before moving anything
+
+`diff` on the three `lib.rs`. rust→cpp is four things: a doc note, the `rpc` module behind
+a feature, the `generated::layout` module, and `ak_enc_count_reverse`. rust→java is the
+same minus `rpc` plus `tc_utf16`/`tc_latin1` and their two `#[no_mangle]` accessors.
+**Every difference is additive**, which is what made the fold a splice rather than a merge.
+`cpp/core/src/rpc.rs` and `rust/crates/ak-core/src/rpc.rs` are byte-identical (`diff` rc=0),
+and so are the two `generated/layout.rs` — java's generator and mine emit the same 398
+lines because the layout is a function of the schema, not of the host.
+
+The coordinator asked me to check that java's two transcoders are the ones java actually
+calls. They are: `java/native/generated/shim.c:15,16` declares them and `:501,504` returns
+their addresses to the JVM, and after the move `nm -D --undefined-only` on the rebuilt
+`libakjni.so` shows `U ak_tc_latin1` and `U ak_tc_utf16` resolved by the shared core.
+
+### Two things I moved that the work item did not name
+
+**`crates/rpc`.** `ak-core`'s `rpc` module is ABI v1 section 9 and does not compile without
+it; two slices already path-depended on it. Leaving it in the rust slice would have made
+the shared core depend on one slice's tree, which is the coupling R0 exists to remove.
+
+**`cpp_layout.py`**, which was mine. It emits Rust for the core crate — nothing C++ — and
+java already imported it across slice boundaries, which was the same defect one level down.
+It keeps its misleading name on purpose: renaming it would be an edit to another slice's
+imports rather than a path change. Moving it exposed one genuine coupling: it took
+`abi_order_topo` from `cpp/gen/cppnames.py`, so that function moved into the shared `ir.py`
+and `cppnames` re-exports it. That ordering is ABI-level, not C++-level — Rust does not care
+about declaration order and C does — and in the *layout table* a wrong order is silent
+rather than a compile error, which is why it must have one definition.
+
+### The hazard the move created, and how it showed
+
+`rust/crates/harness/build.rs` searched `<profile>` before `<profile>/deps`. Cargo uplifts
+only a workspace **member's** cdylib to `<profile>`, and after the move `ak-core` is not a
+member, so the fresh build lands in `deps` — while the stale pre-move `libak_core.so` was
+still sitting in `<profile>`, first on the search path. The rust arm would have linked and
+loaded a core from before the move and measured it unchanged, which is the exact shape of
+"the first hypothesis is that it is not running". Order flipped, stale copy deleted,
+`ldd` now shows `deps/libak_core.so`. Logged as C17.
+
+### What it measured: nothing, which is the result
+
+Not against the committed logs — those were taken on a loaded container on another day, and
+comparing across them would have answered the wrong question. The control is the pre-move
+commit (`fa5f831e`) built in a git worktree and run **minutes apart on this machine**.
+
+| | cpp enc `ffi` | cpp dec `ffi` | rust enc `core-ffi` | rust dec `core-ffi` |
+|---|---|---|---|---|
+| pre-move, today | 0.634 | 0.677 | 0.729 | 1.068 |
+| post-move, today | 0.621 | 0.676 | 0.726 | 1.091 |
+| the committed log | 0.724 | — | 0.836 | 1.010 |
+
+Worst move across all fifteen rows: **0.023**, against R4's across-build drift bar of
+**0.240**. The arms the core cannot touch (`pb-arena`) move by the same amount as the ones
+it can, which is what says this is run-to-run. And the gap to the committed figures (0.090
+on cpp enc `ffi`) is present in the **pre-move** control too — so it is the day, not the
+move. That contrast is the reason the worktree control was worth building.
+
+### The rule now has a failing test
+
+`codec/gen/one_core.sh` checks seven things: one definition of the C entry points (four
+sentinels, all hand-written in `lib.rs`, because a partial fork is the likely shape), one
+copy of each generated core file, one package per core crate, every `path =` dependency
+resolving into `codec/crates/`, the emitters shared, no build naming a per-slice core
+library, and the shared core not stale. `--selftest` copies **what git tracks** to a
+scratch dir, plants five of those violations in turn, and requires each to fail. All five
+fire. It runs from `gen/run_all.sh`.
+
+Writing it found three defects in itself in the first run — two sentinels that name symbols
+which do not exist, and one that matched the script's own text — which is the argument for
+the positive control in miniature: a check that has only ever passed has not been seen
+working.
+
+### What refused to be verified here
+
+Java's Java-level gates: only JDK 21 is installed and its build needs JDK 17 and JDK 8.
+C#: dotnet is not installed. Both builds were shown to *resolve* the shared core — java's
+core and JNI shim link against it, csharp's layout probe compiles — and no further.
