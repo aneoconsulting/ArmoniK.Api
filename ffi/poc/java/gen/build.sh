@@ -51,15 +51,26 @@ shim jnitax  core-build/target       -DAK_CROSSING_TAX
 
 # ---- 4. the incumbent's generated Java
 say "protoc"
+# Fetched if absent, so a clean tree builds. `build/` is gitignored and deleting it is the
+# right way to be sure a stale artifact is not being linked -- which is exactly what R5's
+# hazard is about -- so the build has to be able to put it back.
+PROTOC=build/tools/protoc-3.19.0
+if [ ! -x "$PROTOC" ]; then
+  mkdir -p build/tools
+  curl -sSf --max-time 180 -o "$PROTOC" \
+    "https://repo1.maven.org/maven2/com/google/protobuf/protoc/3.19.0/protoc-3.19.0-linux-x86_64.exe"
+  chmod +x "$PROTOC"
+fi
 mkdir -p build/pbjava
-./build/tools/protoc-3.19.0 --java_out=build/pbjava -I proto proto/shapes.proto
+"$PROTOC" --java_out=build/pbjava -I proto proto/shapes.proto
 
 # ---- 5. arm a: the JDK 17 implementation on the JDK 17 runtime (README 5.2)
 say "classes: arm a (java17 on JDK 17)"
 mkdir -p build/cls17
 "$J17/bin/javac" -nowarn -encoding UTF-8 -d build/cls17 -cp "$CP" \
   -sourcepath "src/java:src/generated/java17:src/generated/shared:build/pbjava" \
-  $(find src/java src/generated/java17 src/generated/shared -name '*.java') \
+  $(find src/java src/generated/java17 src/generated/shared -name '*.java' \
+       ! -name 'Pin.java') \
   $(find build/pbjava -name '*.java')
 
 # ---- 6. arm b and c: the Java 8 implementation. Same sources, compiled at release 8.
@@ -73,7 +84,22 @@ mkdir -p build/cls8
 "$J8/bin/javac" -nowarn -encoding UTF-8 -source 8 -target 8 -d build/cls8 -cp "$CP" \
   -sourcepath "src/java:src/generated/java8:src/generated/shared:build/pbjava" \
   $(find src/java src/generated/java8 src/generated/shared -name '*.java' \
-       ! -name 'Ffm*.java') \
+       ! -name 'Ffm*.java' ! -name 'Pin.java' ! -name 'RunR14.java') \
   $(find build/pbjava -name '*.java')
+
+# ---- 7. the two secondary probes, both newer than the target and built separately
+# `ak.Pin` uses virtual threads (JDK 21) and `FfmProbe` uses java.lang.foreign (JDK 22,
+# preview on 21), so neither belongs in a JDK 17 or a Java 8 compilation. Both are
+# secondary arms and README section 5 says so.
+say "secondary probes (JDK 21)"
+J21=${J21:-/usr/lib/jvm/java-21-openjdk-amd64}
+mkdir -p build/ffm build/pin build/probe
+gcc -O2 -fPIC -shared -I"$J21/include" -I"$J21/include/linux" \
+  -o build/pin/libakpin.so native/pin.c -lpthread
+gcc -O2 -fPIC -shared -I"$J17/include" -I"$J17/include/linux" \
+  -o build/probe/libprobe.so probe/probe.c
+"$J21/bin/javac" --release 21 --enable-preview -nowarn -d build/ffm probe/FfmProbe.java
+"$J21/bin/javac" -nowarn -d build/pin src/java/ak/Pin.java
+"$J17/bin/javac" -nowarn -d build/probe probe/Probe.java
 
 say "done"
