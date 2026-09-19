@@ -12,7 +12,6 @@ struct AkOdrFact { const char *what; uint32_t value; };
 
 // The host's view of every installed type's layout, as data. One row per fact.
 #define AK_ODR_FACTS(F) \
-
   F("sizeof shapes::ResultStatus", (uint32_t)sizeof(shapes::ResultStatus)) \
   F("alignof shapes::ResultStatus", (uint32_t)alignof(shapes::ResultStatus)) \
   F("shapes::ResultStatus.v", (uint32_t)offsetof(shapes::ResultStatus, v)) \
