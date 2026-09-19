@@ -1,0 +1,13 @@
+# Build output only. Everything a figure depends on stays in the tree.
+#
+# The rule this file is written against: the rust slice's published encode column had to
+# be WITHDRAWN because a `.gitignore` rule (`[Bb]in/`, meant for .NET output) swallowed its
+# measurement binaries, so the commit behind its log could not be rebuilt. R4's closing
+# rule is that a figure whose harness is not in the tree cannot be defended. So the
+# patterns here are anchored and specific, never a bare directory name.
+/build/
+/core/target/
+/core/target-count/
+/deps/cp.txt
+__pycache__/
+*.pyc
