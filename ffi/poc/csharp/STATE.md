@@ -16,7 +16,48 @@ merges it. Everything the report needs from this slice is here.
 | **Target** | .NET 8.0.31, SDK 8.0.131 |
 | **Incumbent** | `Google.Protobuf` 3.28.3, codegen by `Grpc.Tools` 2.66.0 |
 | **Machine** | 4 vCPU Intel Xeon @ 2.80GHz, 15 GiB, Linux 6.18.44, x86-64 |
-| **R13 calibration** | **the Rust slice's crossing benchmark measures 1.8 ns forward and 2.1 ns fwd+reverse ON THIS CONTAINER**, five runs, medians identical. Reproduces the Rust slice's container to the digit |
+| **R13 calibration** | **the Rust slice's crossing benchmark measures 1.8 ns forward and 2.1 ns fwd+reverse ON THIS CONTAINER**, five runs, medians identical |
+
+**The calibration is load bearing and it disagrees across containers.** This
+container reproduces the Rust slice's own 1.8 ns to the digit. The C++ slice's
+container measures the same benchmark at **1.5 ns**, and cannot reproduce the
+published 0.25 ns C++ row at all (1.24 ns statically). So: **a C# absolute from
+this slice is comparable with a Rust absolute and is NOT comparable with a C++
+one.** That is a measured statement rather than a caveat, and it is the whole
+reason R13 survives the scope change.
+
+## Read the tables as instrumentation, not as the deliverable
+
+`CLAUDE.md`'s invariant and README 5.2's closing paragraph, merged into this
+branch at 4aec4e8: **nobody tries hard at cross-language performance yet.** The
+comparison is re-taken on a controlled physical machine once the slices exist
+and the ABI is validated. So nothing below was tuned for precision, and the
+effort went where a rerun cannot reach.
+
+**Final, and a rerun cannot produce it later:**
+
+| | |
+|---|---|
+| correctness and byte identity, on three runtimes, including the absent path and the unknown-field vectors | the gate, not a timing question |
+| the managed decode control EXISTS, encode and decode | the single most valuable thing in this slice's brief |
+| oneof and explicit presence, in the facade and the managed codec | previously unmeasured on .NET |
+| crossing counts | zero in every arm here, and that is a property of the interface |
+| feasibility: the floor compiles and passes on netstandard2.0 and on Mono | and what could not be run at all |
+| the within-process deltas that bear on an ABI decision | decisions 5 and 11; the single-pass term |
+
+**Instrumentation, and re-taken later:** every absolute nanosecond, and the
+third decimal of every ratio. What the ratios are asked to carry here is which
+SIDE of 1.0 an arm lands on and roughly how far, and where they cannot carry
+even that they are marked **AMBIGUOUS** and left for the controlled run.
+
+**The verdicts are robust to the JIT configuration**, which was checked rather
+than assumed because R9 names it as something that moves a verdict and not a
+decimal (`stage6-tiering-sensitivity.log`). Turning tiering or PGO off slows
+the INCUMBENT by 5 to 20 percent, exactly the handicap R9 warns of, and no arm
+crosses 1.0 under any of the three configurations. The default used everywhere
+else in this slice -- tiering and PGO ON, what a deployed service runs -- is
+therefore the configuration least favourable to the managed arms, and the
+numbers here are the conservative ones.
 
 ## The question this slice answers
 
@@ -106,9 +147,9 @@ Against `gp-parse`, in the same process, on the target (arm a):
 | P6.1 | M6, packed | 0.777 - 0.826 | 2,173 | 465,088 : 356,240 |
 | P7.1 | M7, interleaved control | 0.556 - 0.597 | 92.1 | 656 : 776 |
 | P5.1 | M5, 36 B (degenerate) | 0.631 - 0.643 | 202 | 320 : 368 |
-| P5.2 | M5, 64 KB | 0.827 - 0.875 | 10,064 | 65,816 : 65,864 |
-| P5.3 | M5, 1 MB | **1.158 - 1.286** | 510,098 | 1,048,856 : 1,048,904 |
-| P5.4 | M5, 4 MB | 0.825 - 0.963 | 1,619,672 | 4,194,719 : 4,194,632 |
+| P5.2 | M5, 64 KB | 0.827 - 0.875 **AMBIGUOUS** | 10,064 | 65,816 : 65,864 |
+| P5.3 | M5, 1 MB | **1.158 - 1.286 AMBIGUOUS** | 510,098 | 1,048,856 : 1,048,904 |
+| P5.4 | M5, 4 MB | 0.825 - 0.963 **AMBIGUOUS** | 1,619,672 | 4,194,719 : 4,194,632 |
 
 **The M5 rows are a ratio between two copies and are labelled as such.** A bulk
 decode is a copy, the memcpy floor sits at 0.12 to 0.27 of `gp-parse` on those
@@ -151,9 +192,9 @@ code writes):
 | P6.1 | 0.308 - 0.315 | 0.278 - 0.283 | 0.581 - 0.598 | 0.010 - 0.011 |
 | P7.1 | 0.338 - 0.351 | 0.295 - 0.300 | 0.511 - 0.600 | 0.026 - 0.029 |
 | P5.1 | 0.461 - 0.500 | 0.283 - 0.314 | 0.796 - 0.800 | 0.100 - 0.101 |
-| P5.2 | 0.952 - 0.960 | 0.237 - 0.270 | 0.977 - 1.043 | **0.942 - 0.964** |
-| P5.3 | 0.983 - 0.987 | 0.132 - 0.138 | 0.996 - 1.000 | **0.968 - 0.971** |
-| P5.4 | 1.049 - 1.107 | 0.187 - 0.210 | 1.047 - 1.072 | **0.999 - 1.056** |
+| P5.2 | 0.952 - 0.960 **AMB** | 0.237 - 0.270 | 0.977 - 1.043 **AMB** | **0.942 - 0.964** |
+| P5.3 | 0.983 - 0.987 **AMB** | 0.132 - 0.138 | 0.996 - 1.000 **AMB** | **0.968 - 0.971** |
+| P5.4 | 1.049 - 1.107 **AMB** | 0.187 - 0.210 | 1.047 - 1.072 **AMB** | **0.999 - 1.056** |
 
 **`managed` / tba reproduces the published 0.22 to 0.43** on the non-bulk
 payloads: measured 0.22 to 0.36, with only P1.3's 0.216 to 0.322 straddling the
@@ -169,8 +210,10 @@ pass costs 0.39 to 0.41 of two),
 and the generated traversal against `Google.Protobuf`'s is worth the rest.
 Neither half was separable before.
 
-**The bulk rows are ON the memcpy floor** and the claim there is bounded rather
-than ratioed: a 64 KB to 4 MB encode costs one copy in every arm, and the copy
+**The M5 rows are marked AMBIGUOUS and left for the controlled run.** They sit
+on the memcpy floor, they straddle 1.0, and no amount of rounds here will move
+them off it, because what separates the arms there is a copy and an allocator
+rather than a codec. The claim is bounded rather than ratioed: a 64 KB to 4 MB encode costs one copy in every arm, and the copy
 control is at 0.94 to 1.06 of the incumbent on exactly those rows. `ToByteArray`
 is 3.7 to 7.6 times `gp-writeto` there, and that entire column is the
 allocation of a multi-megabyte array.
@@ -210,7 +253,9 @@ condition on a floor that is different code from the target.
 | c | floor | **Mono 6.8.0.105, net48** | stands alone, never a ratio against a |
 
 Arm b is the only fair floor-against-target ratio and it says **the floor's
-missing APIs cost nothing**. The two builds differ only in which
+missing APIs cost nothing detectable here** -- b/a straddles 1.0 in both
+directions on every row, which is the shape of "no difference" rather than of a
+small one, and this slice does not try to resolve it further. The two builds differ only in which
 `Encoding.UTF8.GetBytes` overload the transcoder calls (the netstandard2.0
 unsafe pointer overload against net8's span overload), so the ASCII table is
 nearly a measurement of nothing; the latin1 and wide tables are the sharp
@@ -386,11 +431,15 @@ built. What remains is what `SHAPES.md` itself says is unreachable:
 - **The `ToByteArray` column's allocation is measured and its GC consequence is
   not.** On P5.4 that is a 4 MB LOH allocation per call, and the difference
   between it and `gp-writeto` is reported as time, not as collector pressure.
-- **Startup, tiering and R2R are not measured.** Every figure is a warmed,
-  tier-1 figure by construction: each case is run for a budget, the process
-  sleeps so the call-counting thread can promote, and the budget is run again.
-  What a cold process costs is not here, and it is the number a short-lived
-  worker would care about.
+- **Startup and R2R are not measured**, and a cold-start column is deliberately
+  deferred rather than missing. Every figure here is a warmed, tier-1 figure by
+  construction: each case runs for a budget, the process sleeps so the
+  call-counting thread can promote, and the budget runs again. What a cold
+  process costs is the number a short-lived worker would care about, and it is
+  an absolute, so it belongs to the controlled run.
+  **Tiering and PGO themselves ARE measured** -- `stage6-tiering-sensitivity.log`
+  -- because R9 names them as moving a verdict rather than a decimal, and the
+  answer is that they move neither here.
 - **`gp-writeto` allocates 56 bytes per message carrying a `map<string,string>`**
   in a path that otherwise allocates nothing (0 on M1, M5, M6; exactly 56 times
   the element count on every M2 and M4 payload). Measured; the cause is not
@@ -447,17 +496,34 @@ built. What remains is what `SHAPES.md` itself says is unreachable:
 
 ## Next step
 
-Nothing is outstanding within the instructed scope. In the order I would do it:
+Nothing is outstanding within the instructed scope, and under the scope change
+the list is shorter than it was: chasing absolutes is explicitly not on it.
 
-1. **The `core-ffi` arm, the moment ABI v1 open decision 1 lands.** Everything
-   else in this slice exists to be subtracted against it, and hazards 3(a) and
-   3(b) above are what it will hit first.
-2. **The RPC arm**, which is the largest hole and is purely scope.
-3. **The content sets on the remaining payloads**, and a rejecting decode
-   policy as a second managed arm, which is the one ABI v1 decision this slice
-   could answer for .NET without the ABI being frozen.
-4. **A cold-start column.** Every figure here is warmed by construction and a
-   short-lived worker never gets there.
+1. **The `core-ffi` arm, when the ABI is frozen.** Everything else in this slice
+   exists to be subtracted against it. Note that the merged C++ slice's commit
+   message says it **answered** ABI v1 open decision 1, but `design/ABI-v1.md`
+   is unchanged on this branch and the instruction relayed to this slice still
+   holds the arm. **The arm stays held until the design document says
+   otherwise**, which is the aggregating session's call and not a slice's.
+   Hazards 3(a) and 3(b) above are what it will hit first.
+2. **The RPC arm**, the largest hole, and purely scope rather than difficulty.
+   Worth noting under the new rule that its valuable half is behavioural and
+   survives a controlled rerun: the crossing count per RPC (which should be two
+   and not a function of field count) and whether a `Task` can be awaited
+   without pinning a thread. Its CPU-per-RPC column is exactly the kind of
+   absolute the rerun will take properly.
+3. **A rejecting decode policy as a second managed arm.** This is the one ABI v1
+   decision this slice could settle for .NET without the ABI being frozen, and
+   it is a within-process delta, which is the category the new rule says to
+   spend effort on. The Rust slice found validate-and-reject free to cheaper on
+   decode; both arms here run the LOSSY policy today.
+4. **Content sets on the remaining fourteen payloads**, if and only if the
+   report needs them. The two that are measured already establish the shape.
+
+Deliberately NOT on the list any more: more rounds to tighten a spread, a
+cold-start column, and any attempt to make this container's absolutes
+comparable with another container's. R13's one calibration run stands and is
+not to be tuned.
 
 ## Log index
 
@@ -471,3 +537,4 @@ Nothing is outstanding within the instructed scope. In the order I would do it:
 | `ffi/logs/csharp/stage4-floor-arm-c.log` | **Mono 6.8.0.105**, net48, floor sources linked from the same tree, six payloads, two runs | **README 5.2 arm c, standalone.** Passes the same 120 checks on the floor runtime; the design's advantage survives it and is larger on decode. Mono absolutes, quoted as absolutes and never as a ratio against arm a |
 | `ffi/logs/csharp/stage5-content-sets.log` | arm a, .NET 8.0.31, all three content sets in ONE process, P1.2 and P2.2 | **The string path, which is 174 of 413 fields.** Wire widths matching the Rust slice (1.70/1.75 and 2.39/2.50), and the encode advantage narrowing from 0.31-0.43 to 0.45-0.61 while decode barely moves. Carries the set-definition defect and its correction |
 | `ffi/logs/csharp/stage5-content-sets-floor.log` | arm b, otherwise as above | The sharp version of arm b: b/a is 0.947 to 1.062 where the transcoder actually has work |
+| `ffi/logs/csharp/stage6-tiering-sensitivity.log` | arm a, three processes differing ONLY in `DOTNET_TieredPGO` and `DOTNET_TieredCompilation`, P1.2 / P2.2 / P3.1 | **R9's JIT hazard, measured rather than argued.** Tiering off or PGO off slows the INCUMBENT by 5 to 20 percent, in the direction R9 names. **No arm crosses 1.0 under any configuration**, so no verdict in this slice is JIT-configuration dependent, and the default used everywhere else is the one least favourable to the managed arms |

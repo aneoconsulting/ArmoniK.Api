@@ -186,3 +186,44 @@ between two encodes instead, and reported `none`, because the site oscillates
 worse than no number, so the counting build is now `/p:AkCount=true` and the
 store is out of the measured build, which is the Rust slice's `count` feature
 spelled for C#.
+
+### 13. Scope change: absolutes deferred, and what that made worth measuring
+
+The exploration branch's 4aec4e8 (`docs(ffi)`: today's absolutes are
+instrumentation, not the deliverable) was merged into this branch, and with it
+the C++ slice. Nobody tries hard at cross-language performance until the
+controlled physical-machine rerun.
+
+Almost nothing in this slice was affected, because almost nothing in it was
+precision work: the correctness gate, the managed decode control existing at
+all, the oneof and explicit-presence coverage, and the floor's feasibility are
+exactly the list the new rule says a rerun cannot produce later. What it
+changed is how the tables are LABELLED, not what is in them.
+
+One thing it made newly worth measuring, and one thing it made worth stating.
+
+**Worth measuring: the JIT configuration, because R9 says it moves a verdict
+and not a decimal.** Three processes differing only in environment variables.
+Result:
+
+- **Tiering off or PGO off slows the INCUMBENT by 5 to 20 percent**
+  (`gp-writeto` 1.10 to 1.20 times its default, `gp-parse` 1.05 to 1.11). R9's
+  hazard is confirmed on this workload and in the direction it names.
+- **No arm crosses 1.0 under any of the three configurations.** managed encode
+  stays at 0.27 to 0.43, managed-2pass at 0.62 to 0.90, managed decode at 0.64
+  to 0.72.
+- So the default -- tiering and PGO ON, which is what a deployed service runs
+  and what every other log here used -- is the configuration LEAST favourable
+  to the managed arms. The numbers this slice reports are the conservative
+  ones, which is the right way round and had to be checked rather than assumed.
+
+**Worth stating: this container's calibration disagrees with the C++ slice's.**
+The merged README now records that the C++ slice measures the Rust crossing at
+**1.5 ns** on its container and cannot reproduce the 0.25 ns C++ row at all
+(1.24 ns statically). This container measures **1.8 ns**, which is the Rust
+slice's own figure to the digit.
+
+So the three containers are not interchangeable and R13 is what says so. It
+also means something concrete for the report: **a C# absolute here is
+comparable with a Rust absolute and is NOT comparable with a C++ absolute**,
+and that is a measured statement rather than a caveat.
