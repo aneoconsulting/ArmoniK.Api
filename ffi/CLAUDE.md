@@ -44,6 +44,14 @@ survives, so:
 
 ## Invariants
 
+- **One core, not one emitter** (R0). The core lives once at `poc/codec/` and
+  every slice depends on it by a path dependency. A slice may ADD to it (a
+  transcoder, a counting entry point) and the addition lands there so every slice
+  gets it; a change to existing behaviour goes through the aggregating session,
+  because it invalidates the other slices' gates. **A second copy of the core
+  inside a slice is a defect.** Three slices forked the runtime before this rule
+  existed, every time because they needed to add something and there was nowhere
+  to add it.
 - **Nothing under `packages/` changes.** The Rust slice reads and measures
   `packages/rust`; it does not edit it.
 - **The shapes are fixed by `design/SHAPES.md`.** A slice may add an arm. It may

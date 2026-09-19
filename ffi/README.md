@@ -371,6 +371,7 @@ deliverable.
 | W6 | **Java slice.** ~~Import~~, rebuild against W1, re-measure encode, and keep the generated-Java-codec arm as a first-class candidate. Nothing to import here either. **Done**; see [`findings/java.md`](findings/java.md). **The encode regression does not survive and the decode half of the verdict does**: the C ABI is 0.58-0.96 on encode and 1.22-1.62 on every M2 decode, where the generated Java codec beats it. The published regression is reconstructible from an incumbent that memoizes its size pass. The batching prediction was confirmed quantitatively, decisions 9 and 13 are answered for a managed host, and section 9's virtual-thread amendment is measured. No grpc-java comparison exists. | The encode verdict is stated against ABI v1, on JDK 17 with JNI, with the Java 8 floor demonstrated. |
 | W7 | **Python slice.** Section 9. **Work unit 1 done**, slice proper not started; see [`findings/python.md`](findings/python.md). The mechanism is settled (C extension; `ctypes` and `cffi` refused for the codec, their callback being 165-170x a C-to-C call), the storage is settled for encode, and 9.1's premise holds. **It also removed outcome 2 from the table for Python**: the generated pure-Python codec is 19.4 to 20.3 times upb. | Python has a verdict of the same shape as the others, or a stated reason why the question is different there. |
 | W8 | **Conformance corpus.** Section 10. | Every slice produces and consumes the same bytes, and the corpus is generated rather than curated. |
+| W10 | **Consolidate the core into `poc/codec/`.** Move the emitters out of `poc/rust/gen/` and the crates out of `poc/rust/crates/`, fold in the C++ slice's counting entry point and the Java slice's two transcoders, and re-point every slice at one path dependency. | No slice contains a copy of the core, every slice's correctness gate passes against the shared one, and `codec.rs` exists once. **Low measurement risk**: the emitted codec is already byte-identical in three slices and both deltas are additive, so this re-gates rather than re-measures. |
 | W9 | **The report.** | `REPORT.md` states a recommendation, the evidence for it, and what it does not establish. |
 
 **Keep the slices small.** No slice covers every message or every RPC. It covers
@@ -382,6 +383,32 @@ covered, it goes in the "not measured" list rather than into a larger slice.
 These rules are what make five separate slices comparable, and most were learned
 the hard way in the three that already exist. A slice that breaks one produces a
 number that cannot be used.
+
+**R0. One core, not one emitter.** The core lives once, at
+[`poc/codec/`](poc/codec/), and every slice depends on it by path. No slice
+carries a copy.
+
+This is R1 one level up, and the branch learned it by breaking it: the emitted
+`codec.rs` was byte-identical in three slices, so the *generator* was genuinely
+shared, but the **hand-written runtime beside it had forked three ways** — the C++
+slice added a counting entry point, the Java slice added `ak_tc_latin1` and
+`ak_tc_utf16`, and each did it in its own copy. Neither change was wrong and
+neither broke a measurement. The point is the mechanism: **each fork happened
+because a slice needed to add something and the shared core had no way to accept a
+contribution**, which is precisely the failure this whole branch exists to argue
+about, reproduced inside it.
+
+The rules that go with it:
+
+- **A slice may add to the core, additively** — a transcoder, a counting entry
+  point — and the addition lands in `poc/codec/` where every slice gets it.
+- **A change to existing behaviour is not a slice's to make.** It goes to the
+  aggregating session, because a change under one slice's feet invalidates the
+  others' gates.
+- **Every addition re-runs every slice's correctness gate**, not only the
+  contributor's. Byte identity is what makes that cheap and it is already there.
+- **No slice's build resolves the core by anything but a path dependency on
+  `poc/codec/`.** A second copy is a defect, checkable mechanically.
 
 **R1. One schema description drives everything, and a backend that cannot do a
 shape raises rather than skips.** One description emits the `.proto`, the facade,
