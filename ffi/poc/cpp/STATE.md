@@ -6,7 +6,7 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | **codec complete (the equivalent of the rust slice's stages 1 to 3), RPC arm pending.** Every message and payload of `design/SHAPES.md` has five arms byte-identical to the validated manifest, at C++11, C++14 and C++17, floor and target implementations, shared and static linkage. ABI v1 open decision 1 is answered with measurements |
+| **Status** | **complete: the full codec (the equivalent of the rust slice's stages 1 to 3) and the RPC arm.** Every message and payload of `design/SHAPES.md` has five arms byte-identical to the validated manifest, at C++11, C++14 and C++17, floor and target implementations, shared and static linkage. ABI v1 open decision 1 is answered with measurements |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | **C++11, and it is demonstrated, not declared.** C++14 also builds and passes (README open question 3) |
 | **Target** (where the clock runs) | C++17 |
@@ -229,12 +229,70 @@ beside it rather than folded in.
   exports 380 group-layout facts and the host compares them with its own compiler's.
   **0 disagreements**, and it caught 43 on its first run against a stale artifact.
 
+### The RPC arm (`logs/cpp/rpc.log`)
+
+One unary call carrying P2.2 (540,422 B response) against grpc++ 1.51.1 over loopback, no
+TLS, with the server in-process on its own threads. **R9 is why two CPU columns exist**: the
+in-process server deep-copies and re-serialises the response on every call and costs more
+than either client, so `client CPU` sums `CLOCK_THREAD_CPUTIME_ID` over the client threads
+only and `process CPU` is printed beside it to make the dilution visible.
+
+| in flight | grpc++ client CPU | core-ffi client CPU | ratio | grpc++ wall | core-ffi wall |
+|---|---|---|---|---|---|
+| 1 | 4.76 ms | 2.65 ms | **0.558** | 8.89 ms | 7.53 ms |
+| 8 | 4.95 ms | 3.23 ms | **0.652** | 3.78 ms | 2.75 ms |
+| 16 | 5.33 ms | 3.32 ms | **0.622** | 3.34 ms | 2.44 ms |
+
+**The wall-clock column is beside the CPU column and is not a throughput figure.** 540 KB
+against a 64 KB default stream window is exactly R9's hazard: at 1 in flight the wall clock
+is nearly twice the CPU, and it collapses by more than half at 8.
+
+**Most of that ratio is the CODEC, not the transport**, and the subtraction is in-process:
+the same response decoded standalone in the same binary costs protobuf C++ 3.59 ms and the
+core through the C ABI 2.34 ms (0.653), so what is left is about 1.17 ms of transport for
+grpc++ against about 0.31 ms for tonic. The transport half's own interface cost is **two
+crossings per RPC and zero per field** — 3.6 ns against ~10^6 ns, about three parts in a
+million, which is ABI v1 section 9's arithmetic reproduced on this machine. It is a property
+of the code rather than a measurement, and `gen/rpc.sh` greps the core's RPC module for any
+mention of a message type rather than trusting the sentence.
+
+**The carrier-thread row is answered trivially and says so.** The idiomatic C++ wait is a
+blocking call on a thread the host owns, and both arms use it; C++ has no carrier-thread
+notion to pin, so SHAPES.md's third RPC question is a real question only on a runtime with
+virtual threads.
+
+### The guard and the decode policy
+
+- **The accessor guard is not measurable** (`bench_a17_noguard.log` against
+  `bench_a17_shared.log`): P1.2 encode `ffi` 0.904-0.925 without it against 0.895-0.913
+  with it, P2.2 encode 0.679-0.693 against 0.691-0.699. In C++ the guard is a `try`/`catch`
+  with no throw on the path, which costs nothing at run time on the Itanium ABI. Same
+  verdict as Rust, different mechanism.
+- **The decode UTF-8 policy is NOT free in C++, and this differs from the Rust result**
+  (`bench_a17_lossy.log`). P2.2 decode `ffi` is 0.663-0.674 of protobuf validating and
+  0.515-0.540 not validating; P1.2 0.588-0.798 against 0.452-0.658. **Validate-and-reject
+  costs 22 to 28 percent of a decode here.** The reason the Rust slice found it free is that
+  `String::from_utf8_lossy` already validates, so its "lossy" arm was paying for a scan;
+  a C++ `std::string` holds arbitrary bytes, so **this slice's lossy arm does not check at
+  all** and the comparison is validation against nothing. The headline column uses the
+  rejecting policy, because protobuf C++ rejects too and that is the like-for-like
+  comparison. What the 22-28% prices is **this slice's scalar validator**, not the policy:
+  the rust slice measured a SIMD validator recovering half to two thirds, and nothing here
+  has tried one.
+
 ## Next step
 
-**The RPC arm** (`src/rpcbench.cpp` and `proto/shapes_svc.proto` are written,
-`-DAK_RPC=ON` wires them up; `libgrpc++-dev` 1.51.1 is now installed). CPU per RPC at 1, 8
-and 16 in flight over P2.2, with the wall-clock column beside it and never instead of it
-(R9), plus the crossing count per RPC.
+Nothing is outstanding for W4. If more is wanted, in the order I would do it:
+
+1. **A SIMD validator on the decode path**, since the 22-28% above is a validator figure and
+   not a policy one, and it is the largest single effect this slice measured.
+2. **A core fast path for `tc == ak_tc_bytes`**, which would remove the two-pass blob write
+   (+3.6 ns per string) for every host whose representation is already UTF-8. This slice can
+   measure the effect but cannot make the change: the core emitter is shared.
+3. **The content sets** on the payloads this slice covers, which price the validator's path
+   and the wire width rather than a transcoder.
+4. **A concurrency suite** (ABI v1 obligation 12.5). The RPC arm ran 8 and 16 in flight
+   through one client handle and found nothing, which is one shape, not a suite.
 
 ## Open defects
 
@@ -245,7 +303,8 @@ and 16 in flight over P2.2, with the wall-clock column beside it and never inste
 | C3 | `gen/cpp_binding.py` | the clear was O(arena) where the fill is O(elements): clearing the whole 32 KB chunk (**which is what the rust slice's emitter does**) cost +156 ns/element on P1.1 and +550 on P2.1, against protobuf encodes of 172 and 1,209 | **fixed here**: clear `min(n, chunk)` elements. **Reported to the aggregating session as a property of decision 9's candidate**, not only of this build |
 | C4 | `include/ak/vocab.h` | `ak::Optional<T>::set` took `const T&` only, so a decoded child was built by value and then copied; on M5's 4 MB `bytes` field that is a second copy of the whole payload (P5.4 decode 3.7 ms slower than the control) | **fixed**: an rvalue overload |
 | C5 | `gen/cpp_header.py`, `gen/cpp_layout.py` | the description's message order puts `Empty` after `Probe`, and C inlines a child group by value. A compile error in the header — but the SAME order drives the run-time layout table, where it would have been silent and would have made section 10's check pass vacuously | **fixed**: one `abi_order_topo()` used by both |
-| C6 | this container | `libgrpc++` is 1.51.1 (apt), which is not what `packages/cpp` builds against (it pins none and takes what `find_package` finds) | open, stated on the RPC log |
+| C6 | this container | `libgrpc++` is 1.51.1 (apt), which is not what `packages/cpp` builds against (it pins none and takes what `find_package` finds) | open, cannot be fixed here. Stated on the RPC log |
+| C7 | `src/rpcbench.cpp` | the in-process server deep-copies and re-serialises a 540 KB message per call and costs more than either client, so a whole-process CPU figure is mostly the server | **not a defect, a hazard**: `client CPU` measures the client threads only and `process CPU` is printed beside it so the dilution is visible |
 
 ## What is not measured
 
@@ -321,4 +380,5 @@ and 16 in flight over P2.2, with the wall-clock column beside it and never inste
 | `logs/cpp/bench_c11_shared.log` | **arm c**: floor implementation at `-std=c++11` | what a pinned consumer actually gets. Quoted as a standalone number |
 | `logs/cpp/bench_c14_shared.log` | floor implementation at `-std=c++14` | README open question 3: `packages/cpp`'s current level |
 | `logs/cpp/bench_a17_noguard.log` | arm a with ABI v1 section 5's guard OFF | what the guard costs |
-| `logs/cpp/bench_a17_lossy.log` | arm a with the lossy decode policy | ABI v1 decision 3's decode half, as whole-payload arms |
+| `logs/cpp/bench_a17_lossy.log` | arm a with the decode UTF-8 check OFF | ABI v1 decision 3's decode half. Validating costs 22-28% of a decode in C++, unlike Rust, because a C++ "lossy" arm does not validate at all |
+| `logs/cpp/rpc.log` | grpc++ 1.51.1, tonic 0.14, loopback, no TLS, in-process server, P2.2 | the RPC arm. Client CPU per RPC 0.558 to 0.652 of grpc++ at 1, 8 and 16 in flight, with the codec half separated in-process, and R9's wall-clock hazard visible rather than hidden |
