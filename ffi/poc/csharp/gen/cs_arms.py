@@ -6,6 +6,12 @@ for a payload is a generator error, not a row quietly missing from a table.
 
 The arms, and exactly what each one calls:
 
+  gp-marshaller    `SetPayloadLength(msg.CalculateSize())` then
+                   `msg.WriteTo(IBufferWriter<byte>)`. **THE HEADLINE ENCODE
+                   BASELINE (R14)**: the exact sequence `Grpc.Tools` emits into
+                   the stub, verified in grpc's `csharp_generator.cc`, and
+                   therefore the codec path ArmoniK actually runs. Application
+                   code in `packages/csharp` serialises almost nothing directly
   gp-tobytearray   `msg.ToByteArray()`   -- what application code writes
   gp-writeto       `msg.CalculateSize()` then `msg.WriteTo(Span<byte>)` into a
                    reused buffer. No allocation, but it pays an explicit
@@ -26,6 +32,15 @@ The arms, and exactly what each one calls:
   memcpy           `Buffer.BlockCopy` of the payload's own bytes -- R2's floor:
                    no encoder can go below one copy of its output
 
+  gp-parse-seq     `Parser.ParseFrom(ReadOnlySequence<byte>)`, single segment.
+                   **THE HEADLINE DECODE BASELINE (R14)**: the marshaller
+                   decodes with `parser.ParseFrom(context.PayloadAsReadOnlySequence())`,
+                   which is a different parse path from a span and is also the
+                   buffer shape ABI v1 decision 13's borrowed views would have
+                   to live in
+  gp-parse-seg     the same, over a sequence SEGMENTED at 16 KB. A 540 KB
+                   response does not arrive contiguous, and a single-segment
+                   sequence is the optimistic case
   gp-parse         `Parser.ParseFrom(ReadOnlySpan<byte>)`
   managed-parse    `Codec.Read` into a fresh facade graph
 
@@ -69,6 +84,9 @@ def emit(ir):
     o += "    public abstract byte[] GpToByteArray();"
     o += "    public abstract int GpWriteTo(byte[] dst);"
     o += "    public abstract int GpWriteToBufferWriter(BufWriter w);"
+    o += ""
+    o += "    /// R14's headline encode baseline: the marshaller's own sequence."
+    o += "    public abstract int GpMarshaller(BufWriter w);"
     o += "    public abstract void ManagedWrite(ref Enc e);"
     o += "    public abstract void ManagedWriteSized(ref Enc e);"
     o += ""
@@ -77,6 +95,10 @@ def emit(ir):
     o += "    public static object Sink;"
     o += ""
     o += "    public abstract int GpParse(byte[] src, int len);"
+    o += ""
+    o += "    /// R14's headline decode baseline: the marshaller hands the parser"
+    o += "    /// a ReadOnlySequence, not a byte[] and not a span."
+    o += "    public abstract int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq);"
     o += "    public abstract int ManagedParse(byte[] src, int len);"
     o += ""
     o += "    /// Decode `src`, re-encode what came back, and hand the bytes over."
@@ -136,9 +158,28 @@ def emit(ir):
         o += "        return w.WrittenCount;"
         o += "    }"
         o += ""
+        o += "    /// R14: exactly what the generated stub does. SetPayloadLength is"
+        o += "    /// modelled by taking the size and keeping it, because the length"
+        o += "    /// is what gRPC needs before the frame header -- the CALL is"
+        o += "    /// transport bookkeeping, the CalculateSize is the codec work."
+        o += "    public override int GpMarshaller(BufWriter w)"
+        o += "    {"
+        o += "        int n = _gp.CalculateSize();"
+        o += "        w.Reset();"
+        o += "        _gp.WriteTo(w);"
+        o += "        return n | w.WrittenCount;"
+        o += "    }"
+        o += ""
         o += "    public override void ManagedWrite(ref Enc e) => Codec.Write%s(ref e, _fac);" % root.cs
         o += ""
         o += "    public override void ManagedWriteSized(ref Enc e) => Codec.WriteSized%s(ref e, _fac);" % root.cs
+        o += ""
+        o += "    public override int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq)"
+        o += "    {"
+        o += "        var m = %s.%s.Parser.ParseFrom(seq);" % (GP, root.cs)
+        o += "        Sink = m;"
+        o += "        return (int)seq.Length;"
+        o += "    }"
         o += ""
         o += "    public override int GpParse(byte[] src, int len)"
         o += "    {"

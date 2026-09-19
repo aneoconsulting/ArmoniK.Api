@@ -33,8 +33,8 @@ public static class Conformance
         var arms = ArmTable.All();
         int bad = 0, checks = 0;
 
-        Console.WriteLine("payload  shape  root                        bytes  gp-tba  gp-wto  gp-bw   managed  2pass  vector  mrt  grt  value");
-        Console.WriteLine(new string('-', 126));
+        Console.WriteLine("payload  shape  root                        bytes  gp-tba  gp-wto  gp-bw   gp-mar  managed  2pass  vector  mrt  grt  value");
+        Console.WriteLine(new string('-', 134));
 
         foreach (var a in arms)
         {
@@ -62,6 +62,11 @@ public static class Conformance
             var bw = new BufWriter(Math.Max(row.Bytes + 4096, 8192));
             int bn = a.GpWriteToBufferWriter(bw);
             results.Add(Verdict(row, bw.WrittenSpan.ToArray(), bn, canon, p71, ref checks, ref bad));
+
+            // R14's headline encode baseline: the marshaller's own sequence.
+            var mw = new BufWriter(Math.Max(row.Bytes + 4096, 8192));
+            a.GpMarshaller(mw);
+            results.Add(Verdict(row, mw.WrittenSpan.ToArray(), mw.WrittenCount, canon, p71, ref checks, ref bad));
 
             var e = Enc.New(Codec.Sites, Math.Max(row.Bytes + 4096, 8192));
             a.ManagedWrite(ref e);
@@ -128,10 +133,10 @@ public static class Conformance
             }
             if (!vok) bad++;
 
-            Console.WriteLine("{0,-8} {1,-6} {2,-24} {3,7}  {4,-6}  {5,-6}  {6,-6}  {7,-7}  {8,-5}  {9,-6}  {10,-3}  {11,-3}  {12}",
+            Console.WriteLine("{0,-8} {1,-6} {2,-24} {3,7}  {4,-6}  {5,-6}  {6,-6}  {7,-6}  {8,-7}  {9,-5}  {10,-6}  {11,-3}  {12,-3}  {13}",
                 a.Id, a.Shape, a.Root, row.Bytes,
                 results[0], results[1], results[2], results[3], results[4],
-                results[5], results[6], results[7], results[8]);
+                results[5], results[6], results[7], results[8], results[9]);
         }
 
         Console.WriteLine();

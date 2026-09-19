@@ -27,6 +27,9 @@ public abstract class Arms
     public abstract byte[] GpToByteArray();
     public abstract int GpWriteTo(byte[] dst);
     public abstract int GpWriteToBufferWriter(BufWriter w);
+
+    /// R14's headline encode baseline: the marshaller's own sequence.
+    public abstract int GpMarshaller(BufWriter w);
     public abstract void ManagedWrite(ref Enc e);
     public abstract void ManagedWriteSized(ref Enc e);
 
@@ -35,6 +38,10 @@ public abstract class Arms
     public static object Sink;
 
     public abstract int GpParse(byte[] src, int len);
+
+    /// R14's headline decode baseline: the marshaller hands the parser
+    /// a ReadOnlySequence, not a byte[] and not a span.
+    public abstract int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq);
     public abstract int ManagedParse(byte[] src, int len);
 
     /// Decode `src`, re-encode what came back, and hand the bytes over.
@@ -86,9 +93,28 @@ public sealed class Arms_P1_1 : Arms
         return w.WrittenCount;
     }
 
+    /// R14: exactly what the generated stub does. SetPayloadLength is
+    /// modelled by taking the size and keeping it, because the length
+    /// is what gRPC needs before the frame header -- the CALL is
+    /// transport bookkeeping, the CalculateSize is the codec work.
+    public override int GpMarshaller(BufWriter w)
+    {
+        int n = _gp.CalculateSize();
+        w.Reset();
+        _gp.WriteTo(w);
+        return n | w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListResultsResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListResultsResponse(ref e, _fac);
+
+    public override int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq)
+    {
+        var m = Armonik.Ffi.Shapes.V1.ListResultsResponse.Parser.ParseFrom(seq);
+        Sink = m;
+        return (int)seq.Length;
+    }
 
     public override int GpParse(byte[] src, int len)
     {
@@ -170,9 +196,28 @@ public sealed class Arms_P1_2 : Arms
         return w.WrittenCount;
     }
 
+    /// R14: exactly what the generated stub does. SetPayloadLength is
+    /// modelled by taking the size and keeping it, because the length
+    /// is what gRPC needs before the frame header -- the CALL is
+    /// transport bookkeeping, the CalculateSize is the codec work.
+    public override int GpMarshaller(BufWriter w)
+    {
+        int n = _gp.CalculateSize();
+        w.Reset();
+        _gp.WriteTo(w);
+        return n | w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListResultsResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListResultsResponse(ref e, _fac);
+
+    public override int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq)
+    {
+        var m = Armonik.Ffi.Shapes.V1.ListResultsResponse.Parser.ParseFrom(seq);
+        Sink = m;
+        return (int)seq.Length;
+    }
 
     public override int GpParse(byte[] src, int len)
     {
@@ -254,9 +299,28 @@ public sealed class Arms_P1_3 : Arms
         return w.WrittenCount;
     }
 
+    /// R14: exactly what the generated stub does. SetPayloadLength is
+    /// modelled by taking the size and keeping it, because the length
+    /// is what gRPC needs before the frame header -- the CALL is
+    /// transport bookkeeping, the CalculateSize is the codec work.
+    public override int GpMarshaller(BufWriter w)
+    {
+        int n = _gp.CalculateSize();
+        w.Reset();
+        _gp.WriteTo(w);
+        return n | w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListResultsResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListResultsResponse(ref e, _fac);
+
+    public override int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq)
+    {
+        var m = Armonik.Ffi.Shapes.V1.ListResultsResponse.Parser.ParseFrom(seq);
+        Sink = m;
+        return (int)seq.Length;
+    }
 
     public override int GpParse(byte[] src, int len)
     {
@@ -338,9 +402,28 @@ public sealed class Arms_P2_1 : Arms
         return w.WrittenCount;
     }
 
+    /// R14: exactly what the generated stub does. SetPayloadLength is
+    /// modelled by taking the size and keeping it, because the length
+    /// is what gRPC needs before the frame header -- the CALL is
+    /// transport bookkeeping, the CalculateSize is the codec work.
+    public override int GpMarshaller(BufWriter w)
+    {
+        int n = _gp.CalculateSize();
+        w.Reset();
+        _gp.WriteTo(w);
+        return n | w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListTasksDetailedResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListTasksDetailedResponse(ref e, _fac);
+
+    public override int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq)
+    {
+        var m = Armonik.Ffi.Shapes.V1.ListTasksDetailedResponse.Parser.ParseFrom(seq);
+        Sink = m;
+        return (int)seq.Length;
+    }
 
     public override int GpParse(byte[] src, int len)
     {
@@ -422,9 +505,28 @@ public sealed class Arms_P2_2 : Arms
         return w.WrittenCount;
     }
 
+    /// R14: exactly what the generated stub does. SetPayloadLength is
+    /// modelled by taking the size and keeping it, because the length
+    /// is what gRPC needs before the frame header -- the CALL is
+    /// transport bookkeeping, the CalculateSize is the codec work.
+    public override int GpMarshaller(BufWriter w)
+    {
+        int n = _gp.CalculateSize();
+        w.Reset();
+        _gp.WriteTo(w);
+        return n | w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListTasksDetailedResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListTasksDetailedResponse(ref e, _fac);
+
+    public override int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq)
+    {
+        var m = Armonik.Ffi.Shapes.V1.ListTasksDetailedResponse.Parser.ParseFrom(seq);
+        Sink = m;
+        return (int)seq.Length;
+    }
 
     public override int GpParse(byte[] src, int len)
     {
@@ -506,9 +608,28 @@ public sealed class Arms_P2_3 : Arms
         return w.WrittenCount;
     }
 
+    /// R14: exactly what the generated stub does. SetPayloadLength is
+    /// modelled by taking the size and keeping it, because the length
+    /// is what gRPC needs before the frame header -- the CALL is
+    /// transport bookkeeping, the CalculateSize is the codec work.
+    public override int GpMarshaller(BufWriter w)
+    {
+        int n = _gp.CalculateSize();
+        w.Reset();
+        _gp.WriteTo(w);
+        return n | w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListTasksDetailedResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListTasksDetailedResponse(ref e, _fac);
+
+    public override int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq)
+    {
+        var m = Armonik.Ffi.Shapes.V1.ListTasksDetailedResponse.Parser.ParseFrom(seq);
+        Sink = m;
+        return (int)seq.Length;
+    }
 
     public override int GpParse(byte[] src, int len)
     {
@@ -590,9 +711,28 @@ public sealed class Arms_P2_4 : Arms
         return w.WrittenCount;
     }
 
+    /// R14: exactly what the generated stub does. SetPayloadLength is
+    /// modelled by taking the size and keeping it, because the length
+    /// is what gRPC needs before the frame header -- the CALL is
+    /// transport bookkeeping, the CalculateSize is the codec work.
+    public override int GpMarshaller(BufWriter w)
+    {
+        int n = _gp.CalculateSize();
+        w.Reset();
+        _gp.WriteTo(w);
+        return n | w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListTasksDetailedResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListTasksDetailedResponse(ref e, _fac);
+
+    public override int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq)
+    {
+        var m = Armonik.Ffi.Shapes.V1.ListTasksDetailedResponse.Parser.ParseFrom(seq);
+        Sink = m;
+        return (int)seq.Length;
+    }
 
     public override int GpParse(byte[] src, int len)
     {
@@ -674,9 +814,28 @@ public sealed class Arms_P2_5 : Arms
         return w.WrittenCount;
     }
 
+    /// R14: exactly what the generated stub does. SetPayloadLength is
+    /// modelled by taking the size and keeping it, because the length
+    /// is what gRPC needs before the frame header -- the CALL is
+    /// transport bookkeeping, the CalculateSize is the codec work.
+    public override int GpMarshaller(BufWriter w)
+    {
+        int n = _gp.CalculateSize();
+        w.Reset();
+        _gp.WriteTo(w);
+        return n | w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListTasksDetailedResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListTasksDetailedResponse(ref e, _fac);
+
+    public override int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq)
+    {
+        var m = Armonik.Ffi.Shapes.V1.ListTasksDetailedResponse.Parser.ParseFrom(seq);
+        Sink = m;
+        return (int)seq.Length;
+    }
 
     public override int GpParse(byte[] src, int len)
     {
@@ -758,9 +917,28 @@ public sealed class Arms_P3_1 : Arms
         return w.WrittenCount;
     }
 
+    /// R14: exactly what the generated stub does. SetPayloadLength is
+    /// modelled by taking the size and keeping it, because the length
+    /// is what gRPC needs before the frame header -- the CALL is
+    /// transport bookkeeping, the CalculateSize is the codec work.
+    public override int GpMarshaller(BufWriter w)
+    {
+        int n = _gp.CalculateSize();
+        w.Reset();
+        _gp.WriteTo(w);
+        return n | w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListProbeResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListProbeResponse(ref e, _fac);
+
+    public override int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq)
+    {
+        var m = Armonik.Ffi.Shapes.V1.ListProbeResponse.Parser.ParseFrom(seq);
+        Sink = m;
+        return (int)seq.Length;
+    }
 
     public override int GpParse(byte[] src, int len)
     {
@@ -842,9 +1020,28 @@ public sealed class Arms_P4_1 : Arms
         return w.WrittenCount;
     }
 
+    /// R14: exactly what the generated stub does. SetPayloadLength is
+    /// modelled by taking the size and keeping it, because the length
+    /// is what gRPC needs before the frame header -- the CALL is
+    /// transport bookkeeping, the CalculateSize is the codec work.
+    public override int GpMarshaller(BufWriter w)
+    {
+        int n = _gp.CalculateSize();
+        w.Reset();
+        _gp.WriteTo(w);
+        return n | w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListTaskSummaryResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListTaskSummaryResponse(ref e, _fac);
+
+    public override int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq)
+    {
+        var m = Armonik.Ffi.Shapes.V1.ListTaskSummaryResponse.Parser.ParseFrom(seq);
+        Sink = m;
+        return (int)seq.Length;
+    }
 
     public override int GpParse(byte[] src, int len)
     {
@@ -926,9 +1123,28 @@ public sealed class Arms_P5_1 : Arms
         return w.WrittenCount;
     }
 
+    /// R14: exactly what the generated stub does. SetPayloadLength is
+    /// modelled by taking the size and keeping it, because the length
+    /// is what gRPC needs before the frame header -- the CALL is
+    /// transport bookkeeping, the CalculateSize is the codec work.
+    public override int GpMarshaller(BufWriter w)
+    {
+        int n = _gp.CalculateSize();
+        w.Reset();
+        _gp.WriteTo(w);
+        return n | w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteUploadResultDataMessage(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedUploadResultDataMessage(ref e, _fac);
+
+    public override int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq)
+    {
+        var m = Armonik.Ffi.Shapes.V1.UploadResultDataMessage.Parser.ParseFrom(seq);
+        Sink = m;
+        return (int)seq.Length;
+    }
 
     public override int GpParse(byte[] src, int len)
     {
@@ -1010,9 +1226,28 @@ public sealed class Arms_P5_2 : Arms
         return w.WrittenCount;
     }
 
+    /// R14: exactly what the generated stub does. SetPayloadLength is
+    /// modelled by taking the size and keeping it, because the length
+    /// is what gRPC needs before the frame header -- the CALL is
+    /// transport bookkeeping, the CalculateSize is the codec work.
+    public override int GpMarshaller(BufWriter w)
+    {
+        int n = _gp.CalculateSize();
+        w.Reset();
+        _gp.WriteTo(w);
+        return n | w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteUploadResultDataMessage(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedUploadResultDataMessage(ref e, _fac);
+
+    public override int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq)
+    {
+        var m = Armonik.Ffi.Shapes.V1.UploadResultDataMessage.Parser.ParseFrom(seq);
+        Sink = m;
+        return (int)seq.Length;
+    }
 
     public override int GpParse(byte[] src, int len)
     {
@@ -1094,9 +1329,28 @@ public sealed class Arms_P5_3 : Arms
         return w.WrittenCount;
     }
 
+    /// R14: exactly what the generated stub does. SetPayloadLength is
+    /// modelled by taking the size and keeping it, because the length
+    /// is what gRPC needs before the frame header -- the CALL is
+    /// transport bookkeeping, the CalculateSize is the codec work.
+    public override int GpMarshaller(BufWriter w)
+    {
+        int n = _gp.CalculateSize();
+        w.Reset();
+        _gp.WriteTo(w);
+        return n | w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteUploadResultDataMessage(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedUploadResultDataMessage(ref e, _fac);
+
+    public override int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq)
+    {
+        var m = Armonik.Ffi.Shapes.V1.UploadResultDataMessage.Parser.ParseFrom(seq);
+        Sink = m;
+        return (int)seq.Length;
+    }
 
     public override int GpParse(byte[] src, int len)
     {
@@ -1178,9 +1432,28 @@ public sealed class Arms_P5_4 : Arms
         return w.WrittenCount;
     }
 
+    /// R14: exactly what the generated stub does. SetPayloadLength is
+    /// modelled by taking the size and keeping it, because the length
+    /// is what gRPC needs before the frame header -- the CALL is
+    /// transport bookkeeping, the CalculateSize is the codec work.
+    public override int GpMarshaller(BufWriter w)
+    {
+        int n = _gp.CalculateSize();
+        w.Reset();
+        _gp.WriteTo(w);
+        return n | w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteUploadResultDataMessage(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedUploadResultDataMessage(ref e, _fac);
+
+    public override int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq)
+    {
+        var m = Armonik.Ffi.Shapes.V1.UploadResultDataMessage.Parser.ParseFrom(seq);
+        Sink = m;
+        return (int)seq.Length;
+    }
 
     public override int GpParse(byte[] src, int len)
     {
@@ -1262,9 +1535,28 @@ public sealed class Arms_P6_1 : Arms
         return w.WrittenCount;
     }
 
+    /// R14: exactly what the generated stub does. SetPayloadLength is
+    /// modelled by taking the size and keeping it, because the length
+    /// is what gRPC needs before the frame header -- the CALL is
+    /// transport bookkeeping, the CalculateSize is the codec work.
+    public override int GpMarshaller(BufWriter w)
+    {
+        int n = _gp.CalculateSize();
+        w.Reset();
+        _gp.WriteTo(w);
+        return n | w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListMetricsResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListMetricsResponse(ref e, _fac);
+
+    public override int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq)
+    {
+        var m = Armonik.Ffi.Shapes.V1.ListMetricsResponse.Parser.ParseFrom(seq);
+        Sink = m;
+        return (int)seq.Length;
+    }
 
     public override int GpParse(byte[] src, int len)
     {
@@ -1346,9 +1638,28 @@ public sealed class Arms_P7_1 : Arms
         return w.WrittenCount;
     }
 
+    /// R14: exactly what the generated stub does. SetPayloadLength is
+    /// modelled by taking the size and keeping it, because the length
+    /// is what gRPC needs before the frame header -- the CALL is
+    /// transport bookkeeping, the CalculateSize is the codec work.
+    public override int GpMarshaller(BufWriter w)
+    {
+        int n = _gp.CalculateSize();
+        w.Reset();
+        _gp.WriteTo(w);
+        return n | w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteDualResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedDualResponse(ref e, _fac);
+
+    public override int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq)
+    {
+        var m = Armonik.Ffi.Shapes.V1.DualResponse.Parser.ParseFrom(seq);
+        Sink = m;
+        return (int)seq.Length;
+    }
 
     public override int GpParse(byte[] src, int len)
     {

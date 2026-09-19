@@ -97,6 +97,12 @@ public static class Bench
                 Payload = a.Id, Dir = "encode", Arm = "gp-bufferwriter",
                 Run = n => { for (int i = 0; i < n; i++) Consume(arms.GpWriteToBufferWriter(bw)); },
             });
+            var mw = new BufWriter(cap);
+            cases.Add(new Case
+            {
+                Payload = a.Id, Dir = "encode", Arm = "gp-marshaller",
+                Run = n => { for (int i = 0; i < n; i++) Consume(arms.GpMarshaller(mw)); },
+            });
 
             var e = Enc.New(Codec.Sites, cap);
             cases.Add(new Case
@@ -124,6 +130,18 @@ public static class Bench
             });
 
             // ---------- decode ----------
+            var seq1 = new System.Buffers.ReadOnlySequence<byte>(src, 0, slen);
+            var seqN = Segmented(src, slen, 16 * 1024);
+            cases.Add(new Case
+            {
+                Payload = a.Id, Dir = "decode", Arm = "gp-parse-seq",
+                Run = n => { for (int i = 0; i < n; i++) Consume(arms.GpParseSequence(seq1)); },
+            });
+            cases.Add(new Case
+            {
+                Payload = a.Id, Dir = "decode", Arm = "gp-parse-seg",
+                Run = n => { for (int i = 0; i < n; i++) Consume(arms.GpParseSequence(seqN)); },
+            });
             cases.Add(new Case
             {
                 Payload = a.Id, Dir = "decode", Arm = "gp-parse",
@@ -256,11 +274,12 @@ public static class Bench
             var list = g.ToList();
             var row = rows[list[0].Payload];
             int elems = Math.Max(1, ArmTable.All().First(a => a.Id == list[0].Payload).Elements);
-            var wto = list.FirstOrDefault(c => c.Arm == "gp-writeto");
+            // R14: the headline denominator is the path ArmoniK RUNS.
+            var mar = list.FirstOrDefault(c => c.Arm == "gp-marshaller");
             var tba = list.FirstOrDefault(c => c.Arm == "gp-tobytearray");
-            var parse = list.FirstOrDefault(c => c.Arm == "gp-parse");
-            var baseEnc = wto ?? parse;
-            var baseAlt = tba ?? parse;
+            var pseq = list.FirstOrDefault(c => c.Arm == "gp-parse-seq");
+            var baseEnc = mar ?? pseq;
+            var baseAlt = tba ?? pseq;
 
             foreach (var c in list)
             {
@@ -274,8 +293,11 @@ public static class Bench
         }
 
         Console.WriteLine("Reading this table.");
-        Console.WriteLine("  /gp-writeto is the BASELINE column: CalculateSize + WriteTo(Span) into a reused");
-        Console.WriteLine("    buffer, no allocation. On decode the baseline is gp-parse for both.");
+        Console.WriteLine("  THE BASELINE COLUMN IS THE PATH ARMONIK RUNS (R14). On encode that is");
+        Console.WriteLine("    gp-marshaller: CalculateSize then WriteTo(IBufferWriter), which is the exact");
+        Console.WriteLine("    sequence Grpc.Tools emits into the stub. On decode it is gp-parse-seq:");
+        Console.WriteLine("    ParseFrom(ReadOnlySequence), which is what the marshaller hands the parser.");
+        Console.WriteLine("    gp-writeto and gp-parse are the span forms, kept as second rows.");
         Console.WriteLine("  gp-bufferwriter is WriteTo(IBufferWriter) with NO top-level size pass, over a");
         Console.WriteLine("    reused BufWriter that resets rather than clearing. It is NOT a baseline an");
         Console.WriteLine("    ArmoniK client could use: Grpc.Tools' generated marshaller calls");
@@ -299,6 +321,28 @@ public static class Bench
     }
 
     private static string F(double d) => d.ToString("F3", CultureInfo.InvariantCulture);
+
+    /// A ReadOnlySequence in N-byte segments. A 540 KB response does not arrive
+    /// contiguous, and a single-segment sequence is the optimistic case.
+    private static System.Buffers.ReadOnlySequence<byte> Segmented(byte[] src, int len, int seg)
+    {
+        if (len <= seg) return new System.Buffers.ReadOnlySequence<byte>(src, 0, len);
+        Seg first = null, prev = null;
+        for (int off = 0; off < len; off += seg)
+        {
+            var mem = new ReadOnlyMemory<byte>(src, off, Math.Min(seg, len - off));
+            var node = new Seg(mem, off);
+            if (first == null) first = node; else prev.SetNext(node);
+            prev = node;
+        }
+        return new System.Buffers.ReadOnlySequence<byte>(first, 0, prev, prev.Memory.Length);
+    }
+
+    private sealed class Seg : System.Buffers.ReadOnlySequenceSegment<byte>
+    {
+        public Seg(ReadOnlyMemory<byte> m, long run) { Memory = m; RunningIndex = run; }
+        public void SetNext(Seg n) => Next = n;
+    }
 
     private static long _sink;
 
