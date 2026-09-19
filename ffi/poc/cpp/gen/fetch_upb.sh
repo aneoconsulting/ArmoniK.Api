@@ -21,7 +21,15 @@ set -eu
 cd "$(dirname "$0")/.." || exit 2
 TAG=${AK_UPB_TAG:-v25.3}
 SRC=build/upb-src
-OUT=build/upb-build
+# AK_UPB_VARIANT picks the build: "" (the default, UPB_FASTTABLE=0, gcc),
+# "clang" (UPB_FASTTABLE=0, clang), or "ft" (UPB_FASTTABLE=1, clang -- clang is required
+# because UPB_MUSTTAIL needs __attribute__((musttail)), which gcc 13 does not have).
+VARIANT=${AK_UPB_VARIANT:-}
+case "$VARIANT" in
+  ft)    OUT=build/upb-build-ft;    CC_=${AK_UPB_CC:-clang}; EXTRA="-DUPB_ENABLE_FASTTABLE" ;;
+  clang) OUT=build/upb-build-clang; CC_=${AK_UPB_CC:-clang}; EXTRA="" ;;
+  *)     OUT=build/upb-build;       CC_=${AK_UPB_CC:-cc};    EXTRA="" ;;
+esac
 if [ ! -d "$SRC/.git" ]; then
   rm -rf "$SRC"
   git clone --quiet --depth 1 --branch "$TAG" \
@@ -51,9 +59,14 @@ for f in $SRCS; do
   # stage0 FIRST on the include path: it is the BOOTSTRAP descriptor accessor set upb
   # uses to build reflection without protoc-gen-upb, and `upb/cmake` carries a second,
   # stale copy of the same header whose symbol spelling does not match its own .c.
-  cc -std=c99 -O2 -DNDEBUG -fPIC -msse4.1 -c "$SRC/$f" -o "$o" \
+  $CC_ -std=gnu99 -O2 -DNDEBUG -fPIC -msse4.1 $EXTRA -c "$SRC/$f" -o "$o" \
      -I"$SRC/upb/reflection/stage0" -I"$SRC" -I"$PWD/build/upbinc" \
      -I"$SRC/third_party/utf8_range" 2>&1 | head -4
 done
 ar rcs "$OUT/libupb.a" "$OUT"/*.o
-echo "built $OUT/libupb.a ($(stat -c%s "$OUT/libupb.a") bytes)"
+echo "built $OUT/libupb.a ($(stat -c%s "$OUT/libupb.a") bytes) with $CC_ ${EXTRA:-(no extra defines)}"
+# R5's discipline applied to a #if: prove from the ARTIFACT that the fast decoder was
+# compiled in, rather than trusting that the define reached it. The fast parser's
+# functions exist only under `#if UPB_FASTTABLE`.
+n=$(nm "$OUT/libupb.a" 2>/dev/null | grep -cE " [tT] upb_p[a-z]+_[0-9a-z]+bt")
+echo "  fast-parse functions in the archive: $n  (0 means UPB_FASTTABLE compiled to 0)"

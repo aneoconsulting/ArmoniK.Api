@@ -95,6 +95,7 @@ struct Row {
 };
 
 static std::vector<Row> g_rows;
+static int g_borrow_fail = 0;
 
 static double elems_of(const std::string &p) {
   if (p == "P1.1") return 4;
@@ -175,14 +176,17 @@ static void calibrate_all(std::vector<Arm> &arms) {
 
 // ---------------------------------------------------------------- one payload
 
-template <class F, class P>
+template <class F, class P, class B>
 static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
+                     int32_t (*bor_dec)(ak_dec_ctx *, const uint8_t *, size_t, B *),
+                     intptr_t (*bor_enc)(ak_enc_ctx *, const B &, const shapes_borrow::ffi::Tcs &),
                      intptr_t (*ffi_enc)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &),
                      intptr_t (*ffi_enc_z)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &),
                      intptr_t (*ffi_enc_nb)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &),
                      int32_t (*ffi_dec)(ak_dec_ctx *, const uint8_t *, size_t, F *),
                      void (*nat_enc)(const F &, ak::Enc *),
-                     int32_t (*nat_dec)(const uint8_t *, size_t, F *)) {
+                     int32_t (*nat_dec)(const uint8_t *, size_t, F *),
+                     const char *want_sha) {
   if (!wanted(id)) return;
   F facade = mk();
   P pb;
@@ -236,12 +240,43 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
     a.name = "ffi";
     a.fn = [&]() { F o; ffi_dec(dctx, (const uint8_t *)wire.data(), wire.size(), &o); AK_SINK_MEM(o); };
     dec.push_back(a);
+    // The BORROWED-facade arm. Same ABI, same entry point, same UTF-8 validation; the
+    // only difference is that every string field is an `ak::StringView` over the input
+    // buffer instead of an owned `std::string`. It isolates THE STRING COPY -- vectors,
+    // maps and message children are still constructed -- and it is a measurement arm, not
+    // a proposal: the views are valid only while the input buffer lives.
+    a.name = "ffi-borrow";
+    a.fn = [&]() { B o; bor_dec(dctx, (const uint8_t *)wire.data(), wire.size(), &o); AK_SINK_MEM(o); };
+    dec.push_back(a);
   }
   calibrate_all(enc);
   calibrate_all(dec);
   for (int r = 0; r < g_rounds; ++r) {
     run_round(id, "enc", enc, r);
     run_round(id, "dec", dec, r);
+  }
+  // BYTE IDENTITY GATES THE ARM (R2): decode into the borrowed facade and re-encode.
+  {
+    B o;
+    int32_t rc = bor_dec(dctx, (const uint8_t *)wire.data(), wire.size(), &o);
+    ak_enc_ctx *c2 = ak_enc_ctx_new();
+    shapes_borrow::ffi::Tcs bt = shapes_borrow::ffi::tcs_core();
+    intptr_t n = bor_enc(c2, o, bt);
+    const uint8_t *p = NULL;
+    size_t len = 0;
+    ak_enc_take(c2, &p, &len);
+    std::string back((const char *)p, len);
+    // Against the MANIFEST's canonical form, not against `wire`. The timed input is the
+    // incumbent's bytes, and on P2.5 those carry two explicit empty map values that the
+    // canonical form omits (design/SHAPES.md: two valid encodings). Re-encoding either
+    // facade from them produces the canonical form, which is the same thing the owned
+    // arm does and what `conformance` already checks.
+    if (rc != 0 || n < 0 || sha_of(back) != std::string(want_sha)) {
+      std::printf("  %-5s BORROWED FACADE BYTE IDENTITY FAILED (rc=%d n=%zd, %zu B)\n",
+                  id, rc, (ssize_t)n, back.size());
+      ++g_borrow_fail;
+    }
+    ak_enc_ctx_free(c2);
   }
   ak_enc_ctx_free(ctx);
   ak_dec_ctx_free(dctx);
@@ -453,11 +488,13 @@ int main(int argc, char **argv) {
 
   std::printf("\n-- arms --\n");
 #define X(id, Root, sroot, pfx, sha, nbytes)                                        \
-  run_case<shapes::Root, ns::Root>(                                                 \
+  run_case<shapes::Root, ns::Root, shapes_borrow::Root>(                            \
       id, &shapes::build::payload_##pfx, &pbbuild::payload_##pfx,                   \
+      &shapes_borrow::ffi::decode_with_##sroot,                                     \
+      &shapes_borrow::ffi::encode_into_##sroot,                                     \
       &shapes::ffi::encode_into_##sroot, &shapes::ffi::encode_into_##sroot##_zeroed,\
       &shapes::ffi::encode_into_##sroot##_nobatch, &shapes::ffi::decode_with_##sroot,\
-      &shapes::native::encode_into_##sroot, &shapes::native::decode_##sroot);
+      &shapes::native::encode_into_##sroot, &shapes::native::decode_##sroot, sha);
   AK_CASES(X)
 #undef X
 
@@ -704,6 +741,7 @@ int main(int argc, char **argv) {
   }
 #endif
 
+  deltas("the BORROWED-string facade: how much of decode is the COPY", "ffi-borrow", "ffi");
   deltas("the STRING-AS-DATA form (decision 1)", "ffi-hosttc", "ffi");
   deltas("the BATCHING predicate (decision 1)", "ffi-nobat", "ffi");
   deltas("decision 9's zeroed element fill", "ffi-zeroed", "ffi");
@@ -714,5 +752,11 @@ int main(int argc, char **argv) {
          "groupfill-ind", "groupfill");
 
   report();
+  if (g_borrow_fail) {
+    std::printf("\nBORROWED FACADE: %d payloads failed byte identity -- its rows are void\n",
+                g_borrow_fail);
+    return 1;
+  }
+  std::printf("\nborrowed facade: byte identity holds on every payload\n");
   return 0;
 }

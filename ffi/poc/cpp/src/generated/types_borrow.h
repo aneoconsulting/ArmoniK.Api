@@ -2,8 +2,8 @@
 
 // The facade every arm reads and writes. One data model, so no arm is handed a different
 // one: `std::string` for string AND bytes is what protobuf C++ itself holds.
-#ifndef AK_TYPES_H
-#define AK_TYPES_H
+#ifndef AK_TYPES_BORROW_H
+#define AK_TYPES_BORROW_H
 #include <cstdint>
 #include <map>
 #include <new>
@@ -16,11 +16,11 @@
 // declaration and the definition.
 #define AK_NOEXCEPT noexcept
 
-namespace shapes {
+namespace shapes_borrow {
 
 // The facade's string type, named once so a generated destructor call has a class-name to
 // use whichever facade this is: `std::string` here, `ak::StringView` in the borrowed one.
-typedef std::string AkStrT;
+typedef ak::StringView AkStrT;
 
 // Open enum: the VALUE may be one the reader was not built against, and it
 // round-trips losslessly because the wire says exactly where to put it.
@@ -117,53 +117,53 @@ struct Duration {
 };
 
 struct ResultRaw {
-  std::string session_id;
-  std::string name;
-  std::string owner_task_id;
+  ak::StringView session_id;
+  ak::StringView name;
+  ak::StringView owner_task_id;
   ResultStatus status;
   ak::Optional<Timestamp> created_at;
   ak::Optional<Timestamp> completed_at;
-  std::string result_id;
+  ak::StringView result_id;
   int64_t size = 0;
-  std::string created_by;
-  std::string opaque_id;
+  ak::StringView created_by;
+  ak::StringView opaque_id;
   bool manual_deletion = false;
   bool operator==(const ResultRaw &o) const;
   bool operator!=(const ResultRaw &o) const { return !(*this == o); }
 };
 
 struct TaskOptions {
-  std::map<std::string, std::string> options;
+  std::map<ak::StringView, ak::StringView> options;
   ak::Optional<Duration> max_duration;
   int32_t max_retries = 0;
   int32_t priority = 0;
-  std::string partition_id;
-  std::string application_name;
-  std::string application_version;
-  std::string application_namespace;
-  std::string application_service;
-  std::string engine_type;
+  ak::StringView partition_id;
+  ak::StringView application_name;
+  ak::StringView application_version;
+  ak::StringView application_namespace;
+  ak::StringView application_service;
+  ak::StringView engine_type;
   bool operator==(const TaskOptions &o) const;
   bool operator!=(const TaskOptions &o) const { return !(*this == o); }
 };
 
 struct TaskOutput {
   bool success = false;
-  std::string error;
+  ak::StringView error;
   bool operator==(const TaskOutput &o) const;
   bool operator!=(const TaskOutput &o) const { return !(*this == o); }
 };
 
 struct TaskDetailed {
-  std::string id;
-  std::string session_id;
-  std::string owner_pod_id;
-  std::vector<std::string> parent_task_ids;
-  std::vector<std::string> data_dependencies;
-  std::vector<std::string> expected_output_ids;
-  std::vector<std::string> retry_of_ids;
+  ak::StringView id;
+  ak::StringView session_id;
+  ak::StringView owner_pod_id;
+  std::vector<ak::StringView> parent_task_ids;
+  std::vector<ak::StringView> data_dependencies;
+  std::vector<ak::StringView> expected_output_ids;
+  std::vector<ak::StringView> retry_of_ids;
   TaskStatus status;
-  std::string status_message;
+  ak::StringView status_message;
   ak::Optional<TaskOptions> options;
   ak::Optional<Timestamp> created_at;
   ak::Optional<Timestamp> submitted_at;
@@ -171,29 +171,29 @@ struct TaskDetailed {
   ak::Optional<Timestamp> ended_at;
   ak::Optional<Timestamp> pod_ttl;
   ak::Optional<TaskOutput> output;
-  std::string pod_hostname;
+  ak::StringView pod_hostname;
   ak::Optional<Timestamp> received_at;
   ak::Optional<Timestamp> acquired_at;
   ak::Optional<Duration> creation_to_end_duration;
   ak::Optional<Duration> processing_to_end_duration;
-  std::string initial_task_id;
+  ak::StringView initial_task_id;
   ak::Optional<Duration> received_to_end_duration;
   ak::Optional<Timestamp> processed_at;
   ak::Optional<Timestamp> fetched_at;
-  std::string payload_id;
-  std::string created_by;
+  ak::StringView payload_id;
+  ak::StringView created_by;
   bool operator==(const TaskDetailed &o) const;
   bool operator!=(const TaskDetailed &o) const { return !(*this == o); }
 };
 
 struct TaskSummary {
-  std::string id;
-  std::string session_id;
+  ak::StringView id;
+  ak::StringView session_id;
   ak::Optional<TaskOptions> options;
   TaskStatus status;
   ak::Optional<Timestamp> created_at;
-  std::string error;
-  std::string status_message;
+  ak::StringView error;
+  ak::StringView status_message;
   int64_t count_data_dependencies = 0;
   bool operator==(const TaskSummary &o) const;
   bool operator!=(const TaskSummary &o) const { return !(*this == o); }
@@ -241,10 +241,10 @@ class ProbeBody {
   void clear();
   const int64_t &as_int() const { return u_.as_int; }
   int64_t &set_as_int();
-  const std::string &as_text() const { return u_.as_text; }
-  std::string &set_as_text();
-  const std::string &as_blob() const { return u_.as_blob; }
-  std::string &set_as_blob();
+  const ak::StringView &as_text() const { return u_.as_text; }
+  ak::StringView &set_as_text();
+  const ak::StringView &as_blob() const { return u_.as_blob; }
+  ak::StringView &set_as_blob();
   const Timestamp &as_stamp() const { return u_.as_stamp; }
   Timestamp &set_as_stamp();
   const Empty &as_nothing() const { return u_.as_nothing; }
@@ -257,8 +257,8 @@ class ProbeBody {
   Case case_;
   union U {
     int64_t as_int;
-    std::string as_text;
-    std::string as_blob;
+    ak::StringView as_text;
+    ak::StringView as_blob;
     Timestamp as_stamp;
     Empty as_nothing;
     U() {}
@@ -267,9 +267,9 @@ class ProbeBody {
 };
 
 struct Probe {
-  std::string id;
+  ak::StringView id;
   ak::Optional<int32_t> opt_count;
-  ak::Optional<std::string> opt_label;
+  ak::Optional<ak::StringView> opt_label;
   ak::Optional<bool> opt_flag;
   ProbeBody body;
   bool operator==(const Probe &o) const;
@@ -277,15 +277,15 @@ struct Probe {
 };
 
 struct UploadResultData {
-  std::string session_id;
-  std::string result_id;
-  std::string data_chunk;
+  ak::StringView session_id;
+  ak::StringView result_id;
+  ak::StringView data_chunk;
   bool operator==(const UploadResultData &o) const;
   bool operator!=(const UploadResultData &o) const { return !(*this == o); }
 };
 
 struct MetricsBatch {
-  std::string id;
+  ak::StringView id;
   std::vector<int64_t> ticks;
   std::vector<double> values;
   std::vector<int32_t> codes;
@@ -296,7 +296,7 @@ struct MetricsBatch {
 };
 
 struct Pair {
-  std::string key;
+  ak::StringView key;
   int32_t value = 0;
   bool operator==(const Pair &o) const;
   bool operator!=(const Pair &o) const { return !(*this == o); }
@@ -349,5 +349,5 @@ struct DualResponse {
   bool operator!=(const DualResponse &o) const { return !(*this == o); }
 };
 
-}  // namespace shapes
-#endif  // AK_TYPES_H
+}  // namespace shapes_borrow
+#endif  // AK_TYPES_BORROW_H

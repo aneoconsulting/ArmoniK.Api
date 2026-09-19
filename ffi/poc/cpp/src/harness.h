@@ -22,11 +22,13 @@
 #include "ak/values.h"
 #include "ak_abi.h"
 #include "generated/binding.h"
+#include "generated/binding_borrow.h"
 #include "generated/build.h"
 #include "generated/cases.h"
 #include "generated/core_native.h"
 #include "generated/pb_build.h"
 #include "generated/types.h"
+#include "generated/types_borrow.h"
 #include "shapes.pb.h"
 
 namespace ns = armonik::ffi::shapes::v1;

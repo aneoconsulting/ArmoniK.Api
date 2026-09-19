@@ -87,6 +87,16 @@ class StringView {
   bool operator==(const StringView &o) const {
     return size_ == o.size_ && (size_ == 0 || std::memcmp(data_, o.data_, size_) == 0);
   }
+  bool operator!=(const StringView &o) const { return !(*this == o); }
+  // Ordering, so a borrowed view can be a `std::map` key. The borrowed-facade arm of
+  // `bench` needs it and nothing else does; it is `std::string`'s ordering, byte-wise.
+  bool operator<(const StringView &o) const {
+    std::size_t n = size_ < o.size_ ? size_ : o.size_;
+    int c = n ? std::memcmp(data_, o.data_, n) : 0;
+    return c != 0 ? c < 0 : size_ < o.size_;
+  }
+  bool empty_or_null() const { return data_ == NULL || size_ == 0; }
+  void clear() { data_ = NULL; size_ = 0; }
 #ifdef AK_HAS_STD_STRING_VIEW
   // Guarded, exactly as the house pattern guards its own. The conversions are additive and
   // they do not change this class's layout, which is what keeps one ABI across levels.

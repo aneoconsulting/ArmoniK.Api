@@ -1,47 +1,54 @@
 # the upb arm: a CEILING, not a candidate
-#   date       2026-09-19T10:06:18Z
+#   date       2026-09-19T11:40:19Z
 #   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel Xeon @ 2.80GHz
 #   incumbent  protobuf C++ 3.21.12 (apt) -- unchanged, and every ratio is against it
 #   upb        protobuf v25.3 (4a2aef5), built from source by gen/fetch_upb.sh
+#   UPB_FASTTABLE = 0, cc = gcc 13.3.0.  See upb-fasttable.log: the fast dispatch is
+#   UNREACHABLE from a reflection-built minitable whatever that define is, and clang
+#   is worth 6 to 23 percent of this column on its own.
 #   codegen    NONE: minitables come from upb reflection over protoc's descriptor set
-#   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, -O2 -DNDEBUG
-#   commit     23d510bc
+#   commit     c968391e
 
 upb arm: a CEILING, not a candidate. protobuf C++ remains the incumbent.
-upb v25.3, built from the protobuf repository with its own CMake; minitables
+upb v25.3, built from the protobuf repository by gen/fetch_upb.sh; minitables
 from upb reflection (no Bazel, no protoc-gen-upb, no hand-written codec).
+compiler cc (gcc 13.3.0);  UPB_FASTTABLE = 0  (upb/port/def.inc defaults it to 0; it is 1
+  only under -DUPB_ENABLE_FASTTABLE, or -DUPB_TRY_ENABLE_FASTTABLE on a
+  platform where UPB_MUSTTAIL exists)
 
 payload dir         pb ns  pb-arena ns       upb ns   arena/pb     upb/pb
-P1.1   enc         611.7        612.9       1074.3      1.002      1.756
-P1.1   dec        3005.9       2843.5       1484.5      0.946      0.494
-P1.2   enc      176475.6     169301.5     270586.3      0.959      1.533
-P1.2   dec      992672.1     668156.0     333659.8      0.673      0.336
-P1.3   enc        5076.3       4926.1       9602.0      0.970      1.892
-P1.3   dec       25534.5      10719.5       7611.6      0.420      0.298
-P2.1   enc        1064.0       1057.5       1225.2      0.994      1.152
-P2.1   dec        4109.2       3408.9       1886.7      0.830      0.459
-P2.2   enc      702829.5     677359.2     823945.6      0.964      1.172
-P2.2   dec     2863954.0    1959534.5    1037233.9      0.684      0.362
-P2.3   enc      648338.1     544515.1     334367.4      0.840      0.516
-P2.3   dec     2000161.8    1836275.2     613323.5      0.918      0.307
-P2.4   enc      766823.8     731547.9     326500.0      0.954      0.426
-P2.4   dec     3401960.0    2489621.0     746484.8      0.732      0.219
+  minitable table_mask for armonik.ffi.shapes.v1.ListResultsResponse = -1  (-1 means the fast dispatch is
+  skipped; a protoc-gen-upb minitable would carry a real mask)
+P1.1   enc         602.8        608.8       1034.0      1.010      1.715
+P1.1   dec        3229.1       2818.2       1443.3      0.873      0.447
+P1.2   enc      173109.1     166928.8     260389.6      0.964      1.504
+P1.2   dec     1030906.0     666761.8     318219.2      0.647      0.309
+P1.3   enc        5019.6       4848.7       9512.4      0.966      1.895
+P1.3   dec       25223.6      10601.0       7426.0      0.420      0.294
+P2.1   enc        1056.7       1059.3       1184.9      1.002      1.121
+P2.1   dec        4190.6       3427.6       1827.4      0.818      0.436
+P2.2   enc      704722.7     676384.2     811358.0      0.960      1.151
+P2.2   dec     2913640.5    1938232.0    1004023.6      0.665      0.345
+P2.3   enc      649658.7     547407.2     332645.8      0.843      0.512
+P2.3   dec     1999992.2    1822516.8     603913.8      0.911      0.302
+P2.4   enc      768740.3     736642.4     329331.3      0.958      0.428
+P2.4   dec     3359805.5    2486830.0     730594.4      0.740      0.217
   P2.5  upb writes 19712 B; the manifest records a different form.
-P2.5   enc       20045.1      19878.7      23756.3      0.992      1.185
-P2.5   dec       82645.7      72460.6      34184.5      0.877      0.414
-P3.1   enc       12323.6      12052.1      19699.2      0.978      1.598
-P3.1   dec       69353.6      46721.1      25379.6      0.674      0.366
-P4.1   enc      125817.4     124658.1     114100.1      0.991      0.907
-P4.1   dec      423945.1     302279.8     189741.4      0.713      0.448
-P5.1   enc          68.3         68.1         87.4      0.997      1.280
-P5.1   dec         294.2        341.3        152.3      1.160      0.518
-P5.2   enc        2822.1       2842.6       3723.1      1.007      1.319
-P5.2   dec        2409.7       2502.4       2254.2      1.038      0.935
-P5.3   enc      100478.7      99949.7     142454.9      0.995      1.418
-P5.3   dec       55756.9      55400.6      54684.6      0.994      0.981
-P5.4   enc      513202.4     511598.7     716623.7      0.997      1.396
-P5.4   dec      345935.2     347398.6     344798.0      1.004      0.997
-P6.1   enc      106429.0     106062.2     177312.4      0.997      1.666
-P6.1   dec      371884.2     281559.8     216947.1      0.757      0.583
+P2.5   enc       20140.7      19920.0      23349.6      0.989      1.159
+P2.5   dec       83920.5      70251.6      33225.6      0.837      0.396
+P3.1   enc       12556.0      12244.8      18764.1      0.975      1.494
+P3.1   dec       72780.9      46860.0      24448.7      0.644      0.336
+P4.1   enc      125831.2     124937.6     111214.3      0.993      0.884
+P4.1   dec      428840.1     294795.1     184618.5      0.687      0.431
+P5.1   enc          70.9         71.6         83.2      1.011      1.174
+P5.1   dec         316.9        337.2        146.3      1.064      0.462
+P5.2   enc        2862.4       2883.0       4124.8      1.007      1.441
+P5.2   dec        2384.6       2443.7       2248.6      1.025      0.943
+P5.3   enc      102270.8     101793.7     142999.7      0.995      1.398
+P5.3   dec       56198.6      54838.5      58724.3      0.976      1.045
+P5.4   enc      519561.4     521255.4     748252.6      1.003      1.440
+P5.4   dec      350551.8     351650.6     350412.2      1.003      1.000
+P6.1   enc      107947.0     107870.0     175788.0      0.999      1.628
+P6.1   dec      368607.9     280201.9     203519.1      0.760      0.552
 
 0 failures

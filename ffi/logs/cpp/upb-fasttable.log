@@ -1,0 +1,75 @@
+# Experiment 1: the UPB_FASTTABLE A/B
+#   date       2026-09-19T11:38:19Z
+#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel Xeon @ 2.80GHz
+#   incumbent  protobuf C++ 3.21.12 (apt), in-process in every one of the three binaries
+#   upb        protobuf v25.3 (4a2aef5), identical sources, three builds
+#   commit     c968391e
+
+===== build =====
+compiler cc (gcc 13.3.0);  UPB_FASTTABLE = 0  (upb/port/def.inc defaults it to 0; it is 1
+payload dir         pb ns  pb-arena ns       upb ns   arena/pb     upb/pb
+  minitable table_mask for armonik.ffi.shapes.v1.ListResultsResponse = -1  (-1 means the fast dispatch is
+P1.1   dec        3040.9       2879.6       1435.1      0.947      0.472
+P1.2   dec     1000649.7     673014.1     317473.5      0.673      0.317
+P1.3   dec       25178.9      10500.6       7443.9      0.417      0.296
+P2.1   dec        4136.3       3353.1       1842.0      0.811      0.445
+P2.2   dec     2871087.5    1921706.8    1003393.3      0.669      0.349
+P2.3   dec     1975883.2    1807112.5     604406.4      0.915      0.306
+P2.4   dec     3348387.5    2484401.7     733331.0      0.742      0.219
+P2.5   dec       81596.9      70770.9      33213.3      0.867      0.407
+P3.1   dec       69221.4      46744.9      24446.1      0.675      0.353
+P4.1   dec      418607.3     294590.8     184762.5      0.704      0.441
+P5.1   dec         292.4        337.7        146.3      1.155      0.500
+P5.2   dec        2743.3       2755.0       2601.0      1.004      0.948
+P5.3   dec       53552.5      53413.6      57006.6      0.997      1.065
+P5.4   dec      348973.7     349428.1     347650.7      1.001      0.996
+P6.1   dec      367241.9     280522.0     202551.8      0.764      0.552
+
+===== build-upbclang =====
+compiler clang 18;  UPB_FASTTABLE = 0  (upb/port/def.inc defaults it to 0; it is 1
+payload dir         pb ns  pb-arena ns       upb ns   arena/pb     upb/pb
+  minitable table_mask for armonik.ffi.shapes.v1.ListResultsResponse = -1  (-1 means the fast dispatch is
+P1.1   dec        3166.8       2839.5       1168.5      0.897      0.369
+P1.2   dec     1037444.3     667372.1     254131.3      0.643      0.245
+P1.3   dec       24996.9      10471.8       7032.8      0.419      0.281
+P2.1   dec        4223.1       3417.4       1546.9      0.809      0.366
+P2.2   dec     2962045.0    1959637.0     837992.4      0.662      0.283
+P2.3   dec     1974989.0    1824630.0     483422.8      0.924      0.245
+P2.4   dec     3398574.0    2487870.0     607152.8      0.732      0.179
+P2.5   dec       83745.9      71201.1      26838.1      0.850      0.320
+P3.1   dec       72873.9      47833.1      20149.8      0.656      0.277
+P4.1   dec      433629.8     294461.1     157679.2      0.679      0.364
+P5.1   dec         315.6        335.2        111.4      1.062      0.353
+P5.2   dec        2334.4       2439.8       2297.9      1.045      0.984
+P5.3   dec       53944.5      53820.8      53098.7      0.998      0.984
+P5.4   dec      313241.0     323364.9     313951.4      1.032      1.002
+P6.1   dec      367728.2     280402.1     192047.8      0.763      0.522
+
+===== build-upbft =====
+compiler clang 18;  UPB_FASTTABLE = 1  (upb/port/def.inc defaults it to 0; it is 1
+payload dir         pb ns  pb-arena ns       upb ns   arena/pb     upb/pb
+  minitable table_mask for armonik.ffi.shapes.v1.ListResultsResponse = -1  (-1 means the fast dispatch is
+P1.1   dec        2995.3       2872.6       1349.5      0.959      0.451
+P1.2   dec      993093.1     674083.1     288846.4      0.679      0.291
+P1.3   dec       24947.5      10590.2       7894.6      0.424      0.316
+P2.1   dec        4107.6       3353.1       1668.8      0.816      0.406
+P2.2   dec     2852285.5    1930679.0     912183.6      0.677      0.320
+P2.3   dec     1979262.2    1797950.8     518741.4      0.908      0.262
+P2.4   dec     3376715.0    2492087.7     646768.7      0.738      0.192
+P2.5   dec       81843.3      71174.2      29043.0      0.870      0.355
+P3.1   dec       69316.5      46271.9      21409.9      0.668      0.309
+P4.1   dec      414155.6     293592.9     170677.0      0.709      0.412
+P5.1   dec         293.2        353.9        114.2      1.207      0.389
+P5.2   dec        2210.3       2332.7       2087.2      1.055      0.944
+P5.3   dec       57310.9      57356.8      56904.1      1.001      0.993
+P5.4   dec      346556.5     346874.0     344345.7      1.001      0.994
+P6.1   dec      365306.2     280601.9     196420.5      0.768      0.538
+
+The fast dispatch is UNREACHABLE from a reflection-built minitable, whatever
+UPB_FASTTABLE is: upb/wire/decode.c:766 fires only when table_mask != -1, and
+upb/mini_descriptor/decode.c:698,712 sets table_mask = -1 on every minitable it
+builds. The fasttable entries come from protoc-gen-upb's UPB_FASTTABLE_INIT and
+from nothing else. The runtime table_mask above is the proof, and the fast-parse
+function count printed by gen/fetch_upb.sh is the proof that the code IS compiled
+in when the define is set -- so the null result is a reachability fact, not a
+build that silently did nothing.

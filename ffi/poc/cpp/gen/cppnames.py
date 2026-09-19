@@ -45,6 +45,22 @@ def oneof_type(msg_name, oneof_name):
     return "%s%s" % (msg_name, camel(oneof_name))
 
 
+# The borrowed-facade arm (bench's `ffi-borrow`) re-emits the facade and the binding with
+# `ak::StringView` in place of `std::string`. ABI v1 already supports it: `ak_span` is an
+# OFFSET into the buffer the host handed in (section 4), section 7 says the span points
+# into that buffer, and 7.4 tells the host to resolve it against the base pointer it
+# already holds. So no ABI change, and it is exactly upb's aliasing contract.
+STRING_TYPE = ["std::string"]
+
+
+def set_string_type(t):
+    STRING_TYPE[0] = t
+
+
+def string_type():
+    return STRING_TYPE[0]
+
+
 def facade_type(f):
     """The idiomatic C++ type of one field.
 
@@ -54,8 +70,8 @@ def facade_type(f):
     here, because every type below exists at C++11 and means the same thing at every level.
     """
     if f.card == "map":
-        return "std::map<std::string, std::string>"
-    base = ("std::string" if f.kind in ("string", "bytes")
+        return "std::map<%s, %s>" % (STRING_TYPE[0], STRING_TYPE[0])
+    base = (STRING_TYPE[0] if f.kind in ("string", "bytes")
             else f.of if f.kind in ("enum", "message")
             else FSCALAR[f.kind])
     if f.card in ("repeated", "packed"):

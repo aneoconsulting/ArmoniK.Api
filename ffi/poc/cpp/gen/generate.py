@@ -53,6 +53,7 @@ import cpp_core              # noqa: E402
 import cpp_binding           # noqa: E402
 import cpp_layout            # noqa: E402
 import cpp_cases             # noqa: E402
+import cppnames              # noqa: E402
 
 ROOT = os.path.dirname(HERE)
 
@@ -91,10 +92,37 @@ def targets(ir):
         "src/generated/core_native.cpp": cpp_core.emit(ir),
         "src/generated/binding.h": cpp_binding.emit_header(ir),
         "src/generated/binding.cpp": cpp_binding.emit(ir),
+        # The BORROWED facade and its binding: the same emitters with `ak::StringView` in
+        # place of `std::string` and a namespace of their own. A measurement arm for
+        # `bench` (how much of decode is the string copy), never the shipping facade --
+        # the strings are valid only while the input buffer lives. ABI v1 needs no change:
+        # `ak_span` is an offset into the buffer the host handed in.
+        **_borrow(ir),
         "src/generated/cases.h": cpp_cases.emit(ir),
         "core/src/generated/codec.rs": codec,
         "core/src/generated/layout.rs": cpp_layout.emit(ir),
     }
+
+
+def _borrow(ir):
+    cppnames.set_string_type("ak::StringView")
+    try:
+        out = {
+            "src/generated/types_borrow.h":
+                cpp_facade.emit_types(ir, ns="shapes_borrow", guard="AK_TYPES_BORROW_H"),
+            "src/generated/types_borrow.cpp":
+                cpp_facade.emit_types_impl(ir, ns="shapes_borrow",
+                                           header="generated/types_borrow.h"),
+            "src/generated/binding_borrow.h":
+                cpp_binding.emit_header(ir, ns="shapes_borrow", guard="AK_BINDING_BORROW_H",
+                                        types_h="generated/types_borrow.h"),
+            "src/generated/binding_borrow.cpp":
+                cpp_binding.emit(ir, ns="shapes_borrow", hdr="generated/binding_borrow.h"),
+        }
+    finally:
+        cppnames.set_string_type("std::string")
+        cpp_binding.NS[0] = "shapes"
+    return out
 
 
 def main(argv):
