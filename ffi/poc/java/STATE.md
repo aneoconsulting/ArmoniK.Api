@@ -6,7 +6,7 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | **W6 built and measured.** Full codec, both Java levels, seven arms through the correctness gate, the encode verdict taken, the batching prediction tested, decisions 9 and 13 answered for a managed host. **The RPC arm is not built** (below). |
+| **Status** | **W6 built and measured.** Full codec, both Java levels, seven arms through the correctness gate on all three content sets (1,297 checks, 0 failures), the encode verdict taken, the batching prediction tested, decisions 9 and 13 answered for a managed host, README R9's hazard measured and section 9's virtual-thread amendment confirmed. **The RPC arm is built only as the pinning question**; there is no grpc-java comparison (below). |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | Java 8, `openjdk 1.8.0_502`. Builds, and passes all 437 correctness checks on the Java 8 runtime. |
 | **Target** (where the clock runs) | JDK 17 (`17.0.20`) with the JNI back end |
@@ -23,7 +23,7 @@ ahead?**
 | direction | the C ABI (`ffi`) | the generated Java codec (`R`) |
 |---|---|---|
 | **encode** | **0.58 to 0.96** of protobuf-java on every real element-bearing payload | 0.66 to 0.98 on the same set |
-| **decode** | **1.22 to 1.62 on every M2 payload**, 0.83 to 1.04 on the flat ones | **0.69 to 1.05**, and it beats the C ABI on every M2 payload with a clean sign |
+| **decode** | **1.22 to 1.62 on every M2 payload**, 0.83 to 1.04 on the flat ones | **0.39 to 1.05**, and it is faster than the C ABI on all five M2 payloads, with a clean sign on three of them |
 
 So the published sentence "a generated pure-Java codec beats the C ABI in both directions"
 is **half reproduced**: it does on decode, decisively and for a reason that is measured
@@ -169,8 +169,10 @@ inversion and decision 9 fixes it; P6.1 is the control twice over (see "storage"
 | P3.1 | 0.765 | 0.831 | 0.694 |
 | P4.1 | 0.690 | 1.341 | 1.308 |
 
-**`R` minus `ffi` on P2.2 is -1,163 ns per element with a clean sign over 40 rounds**, and
-7.004 upcalls at about 80 ns is 560 ns of it. That is a decomposition, not a ratio, and it
+**`R` minus `ffi` is negative on all five M2 payloads** -- -1,289 ns per element on P2.1,
+-1,163 on P2.2, -1,334 on P2.3, -1,806 on P2.4 and -1,200 on P2.5 -- **with a clean sign
+over 40 rounds on P2.1, P2.2 and P2.5**; P2.3 and P2.4 straddle zero. **7.004 upcalls at
+about 80 ns is 560 ns of it.** That is a decomposition, not a ratio, and it
 is the concrete argument for ABI v1 7.1's **pull family, which the core does not
 implement**.
 
@@ -542,9 +544,27 @@ In the order a fresh session should take them:
    work, for `String.coder` rather than for FFM; runtime capability dispatch is built and
    works; and `sun.misc.Unsafe` being on a removal path with FFM above the floor is the
    constraint that actually matters.
-8. **ABI v1 7.1's pull family is the decode verdict on this host.** Arm R beats the C ABI
-   on every M2 payload by 1,163 to 1,806 ns per element, and 560 ns of that is the 7.004
-   upcalls. The push family is what makes the C ABI lose on decode here.
+8. **ABI v1 7.1's pull family is the decode verdict on this host.** Arm R is faster than
+   the C ABI on every M2 payload by 1,163 to 1,806 ns per element (clean sign on three of
+   five), and 560 ns of that is the 7.004 upcalls at this machine's 80 ns. The push family
+   is what makes the C ABI lose on decode here, and the pull family that would fix it is
+   specified and unbuilt in the core.
+9. **README R9 needs rewriting, and the correction argues for the design.** The hazard is
+   real and larger than stated, but it fires on JDK **17** and not 21, its trigger is any
+   read of a Latin-1 String's characters rather than a numeric conversion, no narrowing
+   loop is involved, the incumbent gets **2.16 times faster** rather than slower, and
+   nothing happens on ASCII at all. The C ABI arm is the only arm immune, because the
+   transcoder is in the core -- which is section 4's own argument, arriving from a
+   direction nobody was looking in.
+10. **ABI v1 section 9's fourth amendment is confirmed** at three carrier counts, to within
+   one percent of its own prediction. The blocking entry point pins a virtual thread's
+   carrier and the callback mode does not, so the callback mode is load-bearing rather than
+   a convenience. The completion queue, which section 9 calls the fastest arm on virtual
+   threads, is still unmeasured.
+11. **A `.gitignore` and a tracked-harness audit.** `gen/audit_tracked.sh` asks git what is
+   tracked rather than reading `.gitignore`, which is R4's closing rule one level up from
+   the defect that cost the rust slice its encode column. Worth lifting into the other
+   slices; it is 25 lines.
 
 ## Log index
 
