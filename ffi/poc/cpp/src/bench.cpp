@@ -2,31 +2,77 @@
 // question that can be asked as a delta between two arms in the same interleaved rounds is
 // asked that way.
 //
-// Arms, all in this process:
-//   pb          protobuf C++, non-arena, deterministic serialisation (needed for R2)
-//   pb-arena    the same on a google::protobuf::Arena
-//   native      the generated codec emitted into C++: the no-boundary control (R3)
-//   ffi         the same codec through the C ABI
-//   ffi-zeroed  ABI v1 open decision 9's candidate element fill
-//   ffi-nobat   the host declines to batch: one element per call
-//   ffi-hosttc  the transcoder lives in the HOST, so every string costs a reverse crossing
-//   groupfill   the by-value group's host-side fill ALONE, no codec at all
+// Encode arms, all in this process:
+//   pb           protobuf C++ `SerializeToString` -- the incumbent, and what a C++
+//                consumer actually writes. Every ratio is against this.
+//   pb-det       the same forced to deterministic map ordering, which byte identity needs
+//                on any message with a map. Its own row; the sort is real work.
+//   pb-arena     `SerializeToString` on a google::protobuf::Arena
+//   memcpy       R2's floor: one copy of the finished payload into a reused buffer.
+//                Nothing can encode faster than copying the answer.
+//   native       the generated codec emitted into C++: the no-boundary control (R3)
+//   ffi          the same codec through the C ABI, spec transcoders (no UTF-8 check)
+//   ffi-valtc    the same with a VALIDATING transcoder, which is the check protobuf C++
+//                does on serialize. The like-for-like row against `pb`.
+//   ffi-zeroed   ABI v1 open decision 9's candidate element fill
+//   ffi-nobat    the host declines to batch: one element per call
+//   ffi-hosttc   the transcoder lives in the HOST: what a string-as-a-CALL form costs
+//   groupfill    the by-value group's host-side fill ALONE, no codec at all
 //
-// The last three and `groupfill` are ABI v1 open decision 1: the price of the group, of
-// the string-as-data form and of the batching predicate, in C++, measured rather than
-// argued.
+// Decode arms: pb, pb-arena, native, ffi.
+//
+// **The arm order rotates every round.** The rust slice's `findings/rust.md` records the
+// same source measuring 0.778 and 0.88 depending only on which build ran first, and fixed
+// it with a rotating order. The first version of this file ran a fixed order and its four
+// FFI variants came out monotone decreasing in execution order on P5.2 and P5.4.
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <string>
 #include <vector>
 
 #include "harness.h"
 
+// A REGISTER-ONLY barrier. The first version used a full "memory" clobber per iteration,
+// which forces a spill and reload and is the likely whole of the gap between this
+// harness's crossing figure (1.85 ns) and the rust harness's on the same machine and the
+// same .so (1.5 ns). R13 compares those two numbers, so they have to be measured the same
+// way. `AK_SINK` is used where only the value must survive; `AK_SINK_MEM` where a buffer
+// must not be dead-stored.
 #if defined(__GNUC__)
-#define AK_BARRIER(x) asm volatile("" : : "r,m"(x) : "memory")
+#define AK_SINK(x) asm volatile("" : : "r"(x))
+#define AK_SINK_MEM(x) asm volatile("" : : "r,m"(x) : "memory")
 #else
-#define AK_BARRIER(x) (void)(x)
+#define AK_SINK(x) (void)(x)
+#define AK_SINK_MEM(x) (void)(x)
+#endif
+
+#ifdef AK_PERTURB
+// A semantically neutral LAYOUT PERTURBATION. The rust slice's R4 technique: build twice,
+// shifting code and data addresses without changing what runs, and publish the
+// identical-source rows as an across-build control. This slice needs it because two of its
+// conclusions -- the floor costing nothing, and the guard not being measurable -- are
+// smaller than the drift that was observed between logs on code a build flag could not
+// reach (`native` moved 5 to 8 percent between bench_a17_shared and bench_a17_noguard,
+// and AK_NO_GUARD does not reach core_native.cpp at all).
+static volatile char ak_perturb_pad[7919] = {1};
+extern "C" int ak_perturb_fn_a(int x) { return x + (int)ak_perturb_pad[0]; }
+extern "C" int ak_perturb_fn_b(int x) { return ak_perturb_fn_a(x) * 3; }
+extern "C" int ak_perturb_fn_c(int x) { return ak_perturb_fn_b(x) - 1; }
+#endif
+
+// ---- finding 5: the crossing tax -------------------------------------------------
+// A calibrated delay in front of every forward entry-point call, so the batching verdict
+// can be reported as a CROSSOVER rather than as a fact about a 1.85 ns crossing.
+#ifdef AK_CROSSING_TAX
+static volatile uint64_t g_tax_sink = 0;
+static uint32_t g_tax_iters = 0;
+extern "C" void ak_crossing_tax() {
+  uint64_t x = g_tax_sink;
+  for (uint32_t i = 0; i < g_tax_iters; ++i) x = x * 6364136223846793005ULL + 1442695040888963407ULL;
+  g_tax_sink = x;
+}
 #endif
 
 static double now_ns() {
@@ -35,34 +81,53 @@ static double now_ns() {
   return (double)ts.tv_sec * 1e9 + (double)ts.tv_nsec;
 }
 
-static int g_rounds = 5;
+static int g_rounds = 9;
 
 struct Row {
   std::string payload;
   std::string dir;
   std::string arm;
-  std::vector<double> ns;   // one per round
+  double per_elem;          // elements this payload has, for the per-element columns
+  bool per_message;         // true when "per element" would be a lie (P5.x, one element)
+  std::vector<double> ns;
 };
 
 static std::vector<Row> g_rows;
 
-static Row *row(const char *p, const char *d, const char *a) {
+static double elems_of(const std::string &p) {
+  if (p == "P1.1") return 4;
+  if (p == "P1.2") return 1000;
+  if (p == "P1.3") return 300;
+  if (p == "P2.1") return 1;
+  if (p == "P2.2") return 500;
+  if (p == "P2.3") return 125;
+  if (p == "P2.4") return 80;
+  if (p == "P2.5") return 20;
+  if (p == "P3.1") return 200;
+  if (p == "P4.1") return 200;
+  if (p == "P6.1") return 200;
+  return 1;              // P5.x: ONE element. See `per_message`.
+}
+
+// P5.1 to P5.4 carry one element, so "ns per element" is "ns per message" there and the
+// report says so instead of printing a column that means two different things.
+static bool per_message_of(const std::string &p) { return p.compare(0, 3, "P5.") == 0; }
+
+static Row *row(const std::string &p, const std::string &d, const std::string &a) {
   for (size_t i = 0; i < g_rows.size(); ++i)
-    if (g_rows[i].payload == p && g_rows[i].dir == d && g_rows[i].arm == a)
-      return &g_rows[i];
+    if (g_rows[i].payload == p && g_rows[i].dir == d && g_rows[i].arm == a) return &g_rows[i];
   Row r;
   r.payload = p;
   r.dir = d;
   r.arm = a;
+  r.per_elem = elems_of(p);
+  r.per_message = per_message_of(p);
   g_rows.push_back(r);
   return &g_rows.back();
 }
 
-// One measurement = the MINIMUM of five sub-batches. The mean of a batch on a shared
-// 4-vCPU container carries whatever else the scheduler did during it; the minimum is the
-// uncontended cost, and it is what makes a within-round ratio reproduce. The first build
-// used the mean and the per-round ratio range was up to 0.19 wide on rows whose median
-// was stable to 0.01.
+// One measurement = the MINIMUM of five sub-batches, which is the uncontended cost on a
+// shared container.
 template <class Fn>
 static double timed(Fn f, int iters) {
   int per = iters / 5;
@@ -81,10 +146,29 @@ template <class Fn>
 static int calibrate(Fn f) {
   double one = timed(f, 1);
   if (one <= 0) one = 1;
-  int n = (int)(40e6 / one);          // ~40 ms per round, in five sub-batches
-  if (n < 3) n = 3;
+  int n = (int)(40e6 / one);
+  if (n < 5) n = 5;
   if (n > 2000000) n = 2000000;
   return n;
+}
+
+// An arm, as data, so the ORDER can be rotated per round rather than fixed in the source.
+struct Arm {
+  const char *name;
+  std::function<void()> fn;
+  int iters;
+};
+
+static void run_round(const char *id, const char *dir, std::vector<Arm> &arms, int round) {
+  size_t n = arms.size();
+  for (size_t k = 0; k < n; ++k) {
+    Arm &a = arms[(k + (size_t)round) % n];     // rotate the starting point every round
+    row(id, dir, a.name)->ns.push_back(timed(a.fn, a.iters));
+  }
+}
+
+static void calibrate_all(std::vector<Arm> &arms) {
+  for (size_t i = 0; i < arms.size(); ++i) arms[i].iters = calibrate(arms[i].fn);
 }
 
 // ---------------------------------------------------------------- one payload
@@ -105,68 +189,56 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   pbmk(pba);
 
   std::string wire;
-  pb_serialize(pb, &wire, true);
+  pb_serialize_det(pb, &wire);
 
   ak::Enc e(shapes::native::kSites);
   ak_enc_ctx *ctx = ak_enc_ctx_new();
   ak_dec_ctx *dctx = ak_dec_ctx_new();
   shapes::ffi::Tcs tc = shapes::ffi::tcs_core();
+  shapes::ffi::Tcs tv = shapes::ffi::tcs_core_validating();
   shapes::ffi::Tcs th = shapes::ffi::tcs_host();
-  std::string scratch;
+  std::string s1, s2, s3, s4;
 
-  // --- encode
-  struct { const char *name; int iters; } enc_arms[] = {
-      {"pb", 0}, {"pb-arena", 0}, {"native", 0}, {"ffi", 0},
-      {"ffi-zeroed", 0}, {"ffi-nobat", 0}, {"ffi-hosttc", 0}, {"groupfill", 0}};
-  (void)enc_arms;
-
-  auto f_pb = [&]() { pb_serialize(pb, &scratch, true); AK_BARRIER(scratch); };
-  auto f_pba = [&]() { pb_serialize(*pba, &scratch, true); AK_BARRIER(scratch); };
-  auto f_nat = [&]() { nat_enc(facade, &e); AK_BARRIER(e); };
-  auto f_ffi = [&]() { intptr_t r = ffi_enc(ctx, facade, tc); AK_BARRIER(r); };
-  auto f_ffiz = [&]() { intptr_t r = ffi_enc_z(ctx, facade, tc); AK_BARRIER(r); };
-  auto f_ffinb = [&]() { intptr_t r = ffi_enc_nb(ctx, facade, tc); AK_BARRIER(r); };
-  auto f_ffih = [&]() { intptr_t r = ffi_enc(ctx, facade, th); AK_BARRIER(r); };
-
-  int i_pb = calibrate(f_pb), i_pba = calibrate(f_pba), i_nat = calibrate(f_nat);
-  int i_ffi = calibrate(f_ffi), i_ffiz = calibrate(f_ffiz), i_ffinb = calibrate(f_ffinb);
-  int i_ffih = calibrate(f_ffih);
-
-  // --- decode
-  F dst;
-  auto f_pbd = [&]() { P m; m.ParseFromString(wire); AK_BARRIER(m); };
-  auto f_pbad = [&]() {
-    google::protobuf::Arena a;
-    P *m = google::protobuf::Arena::CreateMessage<P>(&a);
-    m->ParseFromString(wire);
-    AK_BARRIER(m);
-  };
-  auto f_natd = [&]() {
-    F o;
-    nat_dec((const uint8_t *)wire.data(), wire.size(), &o);
-    AK_BARRIER(o);
-  };
-  auto f_ffid = [&]() {
-    F o;
-    ffi_dec(dctx, (const uint8_t *)wire.data(), wire.size(), &o);
-    AK_BARRIER(o);
-  };
-  int i_pbd = calibrate(f_pbd), i_pbad = calibrate(f_pbad);
-  int i_natd = calibrate(f_natd), i_ffid = calibrate(f_ffid);
-
+  std::vector<Arm> enc;
+  {
+    Arm a;
+    a.name = "pb";        a.fn = [&]() { pb_serialize_default(pb, &s1); AK_SINK_MEM(s1); };  enc.push_back(a);
+    a.name = "pb-det";    a.fn = [&]() { pb_serialize_det(pb, &s2); AK_SINK_MEM(s2); };      enc.push_back(a);
+    a.name = "pb-arena";  a.fn = [&]() { pb_serialize_default(*pba, &s3); AK_SINK_MEM(s3); }; enc.push_back(a);
+    a.name = "memcpy";    a.fn = [&]() { memcpy_floor(wire, &s4); AK_SINK_MEM(s4); };        enc.push_back(a);
+    a.name = "native";    a.fn = [&]() { nat_enc(facade, &e); AK_SINK_MEM(e); };             enc.push_back(a);
+    a.name = "ffi";       a.fn = [&]() { intptr_t r = ffi_enc(ctx, facade, tc); AK_SINK(r); }; enc.push_back(a);
+    a.name = "ffi-valtc"; a.fn = [&]() { intptr_t r = ffi_enc(ctx, facade, tv); AK_SINK(r); }; enc.push_back(a);
+    a.name = "ffi-zeroed";a.fn = [&]() { intptr_t r = ffi_enc_z(ctx, facade, tc); AK_SINK(r); }; enc.push_back(a);
+    a.name = "ffi-nobat"; a.fn = [&]() { intptr_t r = ffi_enc_nb(ctx, facade, tc); AK_SINK(r); }; enc.push_back(a);
+    a.name = "ffi-hosttc";a.fn = [&]() { intptr_t r = ffi_enc(ctx, facade, th); AK_SINK(r); }; enc.push_back(a);
+  }
+  std::vector<Arm> dec;
+  {
+    Arm a;
+    a.name = "pb";
+    a.fn = [&]() { P m; m.ParseFromString(wire); AK_SINK_MEM(m); };
+    dec.push_back(a);
+    a.name = "pb-arena";
+    a.fn = [&]() {
+      google::protobuf::Arena ar;
+      P *m = google::protobuf::Arena::CreateMessage<P>(&ar);
+      m->ParseFromString(wire);
+      AK_SINK_MEM(m);
+    };
+    dec.push_back(a);
+    a.name = "native";
+    a.fn = [&]() { F o; nat_dec((const uint8_t *)wire.data(), wire.size(), &o); AK_SINK_MEM(o); };
+    dec.push_back(a);
+    a.name = "ffi";
+    a.fn = [&]() { F o; ffi_dec(dctx, (const uint8_t *)wire.data(), wire.size(), &o); AK_SINK_MEM(o); };
+    dec.push_back(a);
+  }
+  calibrate_all(enc);
+  calibrate_all(dec);
   for (int r = 0; r < g_rounds; ++r) {
-    row(id, "enc", "pb")->ns.push_back(timed(f_pb, i_pb));
-    row(id, "enc", "pb-arena")->ns.push_back(timed(f_pba, i_pba));
-    row(id, "enc", "native")->ns.push_back(timed(f_nat, i_nat));
-    row(id, "enc", "ffi")->ns.push_back(timed(f_ffi, i_ffi));
-    row(id, "enc", "ffi-zeroed")->ns.push_back(timed(f_ffiz, i_ffiz));
-    row(id, "enc", "ffi-nobat")->ns.push_back(timed(f_ffinb, i_ffinb));
-    row(id, "enc", "ffi-hosttc")->ns.push_back(timed(f_ffih, i_ffih));
-
-    row(id, "dec", "pb")->ns.push_back(timed(f_pbd, i_pbd));
-    row(id, "dec", "pb-arena")->ns.push_back(timed(f_pbad, i_pbad));
-    row(id, "dec", "native")->ns.push_back(timed(f_natd, i_natd));
-    row(id, "dec", "ffi")->ns.push_back(timed(f_ffid, i_ffid));
+    run_round(id, "enc", enc, r);
+    run_round(id, "dec", dec, r);
   }
   ak_enc_ctx_free(ctx);
   ak_dec_ctx_free(dctx);
@@ -175,26 +247,40 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
 
 // ---------------------------------------------------------------- group fill alone
 
-// ABI v1 open decision 1, the group half: what the by-value group costs the HOST, on its
-// own, in ns per element -- not as a subtraction between two whole encodes. The chunk
-// buffer is the one the loop callback would use and the result is barriered, so the fill
-// cannot be dead-coded away.
-template <class Elem, class Group>
-static void group_fill(const char *id, const std::vector<Elem> &src,
-                       Group (*make)(const Elem &, const shapes::ffi::Tcs &)) {
-  shapes::ffi::Tcs tc = shapes::ffi::tcs_core();
+// ABI v1 open decision 1, the group half. Two variants, because the first version measured
+// only the indirect one and came out LARGER than the total gap it is a component of:
+// calling `make` through a function-pointer parameter defeats inlining and returns the
+// group through `sret`, where the real loop calls `make_result_raw` directly in the same
+// translation unit. The direct variant is the one to read; the indirect one is kept so the
+// difference between them is visible rather than argued.
+template <class Elem, class Group, Group (*Make)(const Elem &, const shapes::ffi::Tcs &)>
+static void group_fill_arms(const char *id, const std::vector<Elem> &src,
+                            Group (*make_ptr)(const Elem &, const shapes::ffi::Tcs &),
+                            std::vector<Arm> *out, std::vector<Group> *chunk) {
+  static shapes::ffi::Tcs tc = shapes::ffi::tcs_core();
   const size_t kChunk = ak::arena_n(sizeof(Group));
-  std::vector<Group> chunk(kChunk);
-  auto f = [&]() {
+  chunk->resize(kChunk);
+  Arm a;
+  a.name = "groupfill";
+  a.fn = [&src, chunk, kChunk]() {
     size_t i = 0;
     for (size_t k = 0; k < src.size(); ++k) {
-      chunk[i] = make(src[k], tc);
+      (*chunk)[i] = Make(src[k], tc);            // direct call, same TU, inlinable
       if (++i == kChunk) i = 0;
     }
-    AK_BARRIER(chunk[0]);
+    AK_SINK_MEM((*chunk)[0]);
   };
-  int iters = calibrate(f);
-  for (int r = 0; r < g_rounds; ++r) row(id, "enc", "groupfill")->ns.push_back(timed(f, iters));
+  out->push_back(a);
+  a.name = "groupfill-ind";
+  a.fn = [&src, chunk, kChunk, make_ptr]() {
+    size_t i = 0;
+    for (size_t k = 0; k < src.size(); ++k) {
+      (*chunk)[i] = make_ptr(src[k], tc);        // through a pointer, as the first build did
+      if (++i == kChunk) i = 0;
+    }
+    AK_SINK_MEM((*chunk)[0]);
+  };
+  out->push_back(a);
 }
 
 // ---------------------------------------------------------------- the crossing itself
@@ -203,19 +289,23 @@ static uint64_t rev_cb(uint64_t x) { return x ^ 1; }
 
 static void price_the_boundary() {
   uint64_t x = 1;
-  auto f_fwd = [&]() { x = ak_noop(x); AK_BARRIER(x); };
-  auto f_rev = [&]() { x = ak_noop_reverse(rev_cb, x); AK_BARRIER(x); };
   const int kInner = 1000;
-  auto g_fwd = [&]() { for (int i = 0; i < kInner; ++i) f_fwd(); };
-  auto g_rev = [&]() { for (int i = 0; i < kInner; ++i) f_rev(); };
+  auto g_fwd = [&]() {
+    for (int i = 0; i < kInner; ++i) { x = ak_noop(x); AK_SINK(x); }
+  };
+  auto g_rev = [&]() {
+    for (int i = 0; i < kInner; ++i) { x = ak_noop_reverse(rev_cb, x); AK_SINK(x); }
+  };
   int n = calibrate(g_fwd);
   std::printf("\n-- the crossing itself, same process and build, linkage=%s --\n", AK_LINKAGE);
+  std::printf("   register-only barrier, to match the rust harness R13 compares against\n");
   for (int r = 0; r < g_rounds; ++r) {
     double a = timed(g_fwd, n) / kInner;
     double b = timed(g_rev, n) / kInner;
     std::printf("  forward %.3f ns   forward+reverse %.3f ns   reverse alone %.3f ns\n",
                 a, b, b - a);
   }
+  AK_SINK_MEM(x);
 }
 
 // ---------------------------------------------------------------- report
@@ -225,60 +315,61 @@ static double med(std::vector<double> v) {
   return v[v.size() / 2];
 }
 
-// R4, as sharpened: a question that can be asked as a DELTA between two arms in the same
-// interleaved rounds is asked that way, because a cross-arm ratio to a third arm drifts
-// where a within-arm delta reproduces.
-static void deltas(const char *title, const char *a, const char *b, double elems_of(const std::string &)) {
-  std::printf("\n-- %s: (%s) - (%s), within-round, ns per element --\n", title, a, b);
-  std::printf("%-6s %-4s %12s %12s %12s %10s\n", "payload", "dir", "lo", "median", "hi", "% of pb");
+// R4 as sharpened. Every row of the table is printed, with whether lo and hi SHARE A SIGN,
+// so a range cannot be quoted over the subset that has the wanted sign. The first version
+// of this slice quoted "1.1 to 3.9 points" over ten of fifteen rows and dropped a row whose
+// sign was the opposite.
+static void deltas(const char *title, const char *a, const char *b) {
+  std::printf("\n-- %s: (%s) - (%s), within-round --\n", title, a, b);
+  std::printf("%-6s %-4s %6s %12s %12s %12s %10s %s\n", "payload", "dir", "unit",
+              "lo", "median", "hi", "% of pb", "sign");
   for (size_t i = 0; i < g_rows.size(); ++i) {
     Row &r = g_rows[i];
     if (r.arm != a) continue;
-    Row *o = row(r.payload.c_str(), r.dir.c_str(), b);
-    Row *p = row(r.payload.c_str(), r.dir.c_str(), "pb");
+    Row *o = row(r.payload, r.dir, b);
+    Row *p = row(r.payload, r.dir, "pb");
     if (o->ns.empty()) continue;
-    double e = elems_of(r.payload);
     std::vector<double> d, pct;
     for (size_t k = 0; k < r.ns.size() && k < o->ns.size(); ++k) {
-      d.push_back((r.ns[k] - o->ns[k]) / e);
+      d.push_back((r.ns[k] - o->ns[k]) / r.per_elem);
       pct.push_back(100.0 * (r.ns[k] - o->ns[k]) / p->ns[k]);
     }
     std::sort(d.begin(), d.end());
-    std::printf("%-6s %-4s %12.2f %12.2f %12.2f %10.2f\n", r.payload.c_str(), r.dir.c_str(),
-                d.front(), d[d.size() / 2], d.back(), med(pct));
+    const char *sign = (d.front() > 0 && d.back() > 0) ? "+"
+                       : (d.front() < 0 && d.back() < 0) ? "-" : "STRADDLES ZERO";
+    std::printf("%-6s %-4s %6s %12.2f %12.2f %12.2f %10.2f %s\n", r.payload.c_str(),
+                r.dir.c_str(), r.per_message ? "ns/msg" : "ns/el",
+                d.front(), d[d.size() / 2], d.back(), med(pct), sign);
   }
 }
 
-static double elems_of(const std::string &p) {
-  if (p == "P1.1") return 4;
-  if (p == "P1.2") return 1000;
-  if (p == "P1.3") return 300;
-  if (p == "P2.1") return 1;
-  if (p == "P2.2") return 500;
-  if (p == "P2.3") return 125;
-  if (p == "P2.4") return 80;
-  if (p == "P2.5") return 20;
-  if (p == "P3.1") return 200;
-  if (p == "P4.1") return 200;
-  if (p == "P6.1") return 200;
-  return 1;
-}
-
 static void report() {
-  std::printf("\n%-6s %-4s %-11s %10s %10s %8s %8s\n", "payload", "dir", "arm",
-              "ns/op med", "ns/op min", "r/pb lo", "r/pb hi");
+  std::printf("\n%-6s %-4s %-12s %10s %10s %8s %8s %6s %s\n", "payload", "dir", "arm",
+              "ns/op med", "ns/op min", "r/pb lo", "r/pb hi", "spr%", "per-round r/pb");
   for (size_t i = 0; i < g_rows.size(); ++i) {
     Row &r = g_rows[i];
-    Row *base = row(r.payload.c_str(), r.dir.c_str(), "pb");
+    Row *base = row(r.payload, r.dir, "pb");
     double lo = 1e18, hi = -1e18;
+    std::vector<double> q;
     for (size_t k = 0; k < r.ns.size() && k < base->ns.size(); ++k) {
-      double q = r.ns[k] / base->ns[k];
-      if (q < lo) lo = q;
-      if (q > hi) hi = q;
+      double v = r.ns[k] / base->ns[k];
+      q.push_back(v);
+      if (v < lo) lo = v;
+      if (v > hi) hi = v;
     }
-    std::printf("%-6s %-4s %-11s %10.1f %10.1f %8.3f %8.3f\n", r.payload.c_str(),
+    // The DENOMINATOR's own spread, so a row whose incumbent moved 11 percent between
+    // rounds is not read beside one whose incumbent moved 0.5 percent.
+    double bl = *std::min_element(base->ns.begin(), base->ns.end());
+    double bh = *std::max_element(base->ns.begin(), base->ns.end());
+    std::printf("%-6s %-4s %-12s %10.1f %10.1f %8.3f %8.3f %6.1f ", r.payload.c_str(),
                 r.dir.c_str(), r.arm.c_str(), med(r.ns),
-                *std::min_element(r.ns.begin(), r.ns.end()), lo, hi);
+                *std::min_element(r.ns.begin(), r.ns.end()), lo, hi,
+                100.0 * (bh - bl) / bl);
+    // Every per-round ratio, so an outlier ROUND is visible as an outlier and not read as
+    // a legitimate bound. P1.2 decode has one round in nine about 34 percent high in every
+    // log this slice has produced.
+    for (size_t k = 0; k < q.size(); ++k) std::printf("%.3f%s", q[k], k + 1 < q.size() ? "," : "");
+    std::printf("\n");
   }
 }
 
@@ -297,13 +388,43 @@ int main(int argc, char **argv) {
               "on",
 #endif
 #ifdef AK_DEC_LOSSY
-              "lossy",
+              "no-utf8-check",
 #else
               "reject",
 #endif
               AK_LINKAGE, g_rounds);
-  std::printf("protobuf %d, deterministic serialisation ON (R2 needs it)\n",
+  std::printf("protobuf %d.  pb = SerializeToString (what a C++ consumer writes).\n",
               GOOGLE_PROTOBUF_VERSION);
+  std::printf("protobuf validates UTF-8 on SERIALIZE; the spec says the core does not, so\n"
+              "`ffi-valtc` is the like-for-like row and `ffi` is the specified behaviour.\n");
+#ifdef NDEBUG
+  std::printf("NDEBUG is defined: protobuf's GOOGLE_DCHECKs are compiled out.\n");
+#else
+  std::printf("WARNING: NDEBUG is NOT defined; the incumbent carries debug assertions.\n");
+#endif
+
+#ifdef AK_CROSSING_TAX
+  {
+    // Calibrate the tax against the clock, then report what one taxed crossing costs.
+    const char *e = getenv("AK_TAX_NS");
+    double want = e ? atof(e) : 0.0;
+    g_tax_iters = 0;
+    auto one = [&]() { for (int i = 0; i < 1000; ++i) ak_crossing_tax(); };
+    double base = timed(one, calibrate(one)) / 1000.0;
+    // one multiply-add chain step is ~1 cycle; step until the measured cost matches.
+    while (want > 0) {
+      g_tax_iters++;
+      double t = timed(one, 20000) / 1000.0;
+      if (t - base >= want || g_tax_iters > 4000) break;
+    }
+    double t = timed(one, 20000) / 1000.0;
+    std::printf("CROSSING TAX: %u iterations = %.2f ns per forward entry-point call"
+                " (asked for %.1f). Every forward call in the binding pays it, so the\n"
+                "crossing is priced up and the batching verdict can be read as a"
+                " crossover rather than as a fact about a 1.85 ns crossing.\n",
+                g_tax_iters, t - base, want);
+  }
+#endif
 
   price_the_boundary();
 
@@ -317,48 +438,73 @@ int main(int argc, char **argv) {
   AK_CASES(X)
 #undef X
 
-  // The group fill alone, on the two element shapes that matter.
+  // The group fill alone, interleaved in its own rounds beside a `pb` row taken in the
+  // same rounds. The first version ran it after every payload had finished and then paired
+  // its round k with `pb`'s round k, which paired measurements taken minutes apart.
   {
-    shapes::ListResultsResponse a = shapes::build::payload_p1_2();
-    group_fill("P1.2", a.results, &shapes::ffi::make_result_raw);
-    shapes::ListResultsResponse b = shapes::build::payload_p1_3();
-    group_fill("P1.3", b.results, &shapes::ffi::make_result_raw);
-    shapes::ListTasksDetailedResponse c = shapes::build::payload_p2_2();
-    group_fill("P2.2", c.tasks, &shapes::ffi::make_task_detailed);
-    shapes::ListTasksDetailedResponse d = shapes::build::payload_p2_5();
-    group_fill("P2.5", d.tasks, &shapes::ffi::make_task_detailed);
+    shapes::ListResultsResponse p12 = shapes::build::payload_p1_2();
+    shapes::ListResultsResponse p13 = shapes::build::payload_p1_3();
+    shapes::ListTasksDetailedResponse p22 = shapes::build::payload_p2_2();
+    shapes::ListTasksDetailedResponse p25 = shapes::build::payload_p2_5();
+    ns::ListResultsResponse q12, q13;
+    ns::ListTasksDetailedResponse q22, q25;
+    pbbuild::payload_p1_2(&q12);
+    pbbuild::payload_p1_3(&q13);
+    pbbuild::payload_p2_2(&q22);
+    pbbuild::payload_p2_5(&q25);
+    std::vector<struct ak_efix_ResultRaw> c12, c13;
+    std::vector<struct ak_efix_TaskDetailed> c22, c25;
+    std::string sink;
+
+    struct GF {
+      const char *id;
+      std::vector<Arm> arms;
+    } sets[4];
+    sets[0].id = "P1.2";
+    sets[1].id = "P1.3";
+    sets[2].id = "P2.2";
+    sets[3].id = "P2.5";
+    group_fill_arms<shapes::ResultRaw, struct ak_efix_ResultRaw, shapes::ffi::make_result_raw>(
+        "P1.2", p12.results, &shapes::ffi::make_result_raw, &sets[0].arms, &c12);
+    group_fill_arms<shapes::ResultRaw, struct ak_efix_ResultRaw, shapes::ffi::make_result_raw>(
+        "P1.3", p13.results, &shapes::ffi::make_result_raw, &sets[1].arms, &c13);
+    group_fill_arms<shapes::TaskDetailed, struct ak_efix_TaskDetailed, shapes::ffi::make_task_detailed>(
+        "P2.2", p22.tasks, &shapes::ffi::make_task_detailed, &sets[2].arms, &c22);
+    group_fill_arms<shapes::TaskDetailed, struct ak_efix_TaskDetailed, shapes::ffi::make_task_detailed>(
+        "P2.5", p25.tasks, &shapes::ffi::make_task_detailed, &sets[3].arms, &c25);
+    google::protobuf::MessageLite *qs[4] = {&q12, &q13, &q22, &q25};
+    for (int i = 0; i < 4; ++i) {
+      Arm a;
+      a.name = "pb";
+      google::protobuf::MessageLite *m = qs[i];
+      a.fn = [m, &sink]() { pb_serialize_default(*m, &sink); AK_SINK_MEM(sink); };
+      sets[i].arms.push_back(a);
+      calibrate_all(sets[i].arms);
+    }
+    for (int r = 0; r < g_rounds; ++r)
+      for (int i = 0; i < 4; ++i) run_round(sets[i].id, "gfill", sets[i].arms, r);
   }
 
   // The incumbent's deterministic-serialisation cost, on the only payload family with a
-  // map. Reported beside the headline rather than hidden inside it.
+  // map. Both measurements are hoisted into locals: the first version called timed() four
+  // times and printed a ratio of two FRESH measurements beside two others.
   {
-    shapes::ListTasksDetailedResponse f = shapes::build::payload_p2_2();
-    (void)f;
     ns::ListTasksDetailedResponse pb;
     pbbuild::payload_p2_2(&pb);
     std::string s;
-    auto det = [&]() { pb_serialize(pb, &s, true); AK_BARRIER(s); };
-    auto nod = [&]() { pb_serialize(pb, &s, false); AK_BARRIER(s); };
+    auto det = [&]() { pb_serialize_det(pb, &s); AK_SINK_MEM(s); };
+    auto nod = [&]() { pb_serialize_default(pb, &s); AK_SINK_MEM(s); };
     int n = calibrate(det);
     std::printf("\n-- protobuf C++ deterministic serialisation, P2.2 (2,000 map entries) --\n");
-    for (int r = 0; r < g_rounds; ++r)
-      std::printf("  deterministic %.0f ns   non-deterministic %.0f ns   ratio %.3f\n",
-                  timed(det, n), timed(nod, n), timed(det, n) / timed(nod, n));
+    for (int r = 0; r < g_rounds; ++r) {
+      double a = timed(det, n);
+      double b = timed(nod, n);
+      std::printf("  deterministic %.0f ns   default %.0f ns   ratio %.4f\n", a, b, a / b);
+    }
   }
 
-  // ABI v1 open decision 1, the three mechanisms, each as a within-round delta.
-  deltas("the STRING-AS-DATA form (decision 1)", "ffi-hosttc", "ffi", elems_of);
-  deltas("the BATCHING predicate (decision 1)", "ffi-nobat", "ffi", elems_of);
-  deltas("decision 9's zeroed element fill", "ffi-zeroed", "ffi", elems_of);
-  deltas("the boundary: ffi against the no-boundary control", "ffi", "native", elems_of);
-
-  // Where the C ABI's encode advantage goes, priced directly rather than by subtraction.
-  //
-  // The core cannot write a length-prefixed blob in one pass: ABI v1 section 4 removed the
-  // declared expansion bound, so it opens a prefix of a LEARNED width, hands the transcoder
-  // whatever the buffer has left, and resolves the prefix afterwards. A host that holds the
-  // bytes already knows the length and writes key, length and body in one pass. This prices
-  // the difference on the 6,000 strings of P1.2, in this process.
+  // Where the C ABI's encode advantage goes: the two-pass blob write that ABI v1 section
+  // 4's removal of the declared expansion bound forces.
   {
     shapes::ListResultsResponse m = shapes::build::payload_p1_2();
     std::vector<const std::string *> ss;
@@ -374,7 +520,7 @@ int main(int argc, char **argv) {
     auto one_pass = [&]() {
       e1.reset();
       for (size_t i = 0; i < ss.size(); ++i) e1.blob_field(1, *ss[i]);
-      AK_BARRIER(e1);
+      AK_SINK_MEM(e1);
     };
     auto two_pass = [&]() {
       e2.reset();
@@ -383,7 +529,7 @@ int main(int argc, char **argv) {
         e2.raw((const uint8_t *)ss[i]->data(), ss[i]->size());
         e2.end(mk);
       }
-      AK_BARRIER(e2);
+      AK_SINK_MEM(e2);
     };
     int n = calibrate(one_pass);
     std::printf("\n-- the two-pass blob write, %zu strings of P1.2, ns per string --\n",
@@ -395,6 +541,73 @@ int main(int argc, char **argv) {
                   "   delta %+.3f\n", a, b, b - a);
     }
   }
+
+  // ABI v1 decision 3's decode half, priced the way the rust slice priced it: on the
+  // string path ALONE, as two arms in ONE process and ONE binary, over all three content
+  // sets. The first version compared two whole-payload arms in two different binaries,
+  // which is a difference of two ratios across the across-build drift, ASCII only, and it
+  // did not reconcile with the logs it was derived from.
+  {
+    shapes::ListResultsResponse m = shapes::build::payload_p1_2();
+    const char *setname[3] = {"ascii", "latin1", "wide"};
+    ak::values::ContentSet sets[3] = {ak::values::kAscii, ak::values::kLatin1,
+                                      ak::values::kWide};
+    std::printf("\n-- ABI v1 decision 3, decode side: the string path ALONE, one process --\n");
+    std::printf("   %d strings of P1.2 per set. `check` validates UTF-8 and rejects;\n"
+                "   `raw` copies the bytes and does not look at them -- which is what a\n"
+                "   C++ non-validating arm IS. A C++ std::string holds arbitrary bytes, so\n"
+                "   there is no lossy-substituting path to compare against, unlike Rust's\n"
+                "   from_utf8_lossy, which already validates.\n", 6000);
+    std::printf("%-8s %10s %12s %12s %12s %10s\n", "set", "bytes", "raw ns/str",
+                "check ns/str", "delta", "check/raw");
+    for (int si = 0; si < 3; ++si) {
+      std::vector<std::string> ss;
+      for (size_t i = 0; i < m.results.size(); ++i) {
+        ss.push_back(ak::values::recode(m.results[i].session_id, sets[si]));
+        ss.push_back(ak::values::recode(m.results[i].name, sets[si]));
+        ss.push_back(ak::values::recode(m.results[i].owner_task_id, sets[si]));
+        ss.push_back(ak::values::recode(m.results[i].result_id, sets[si]));
+        ss.push_back(ak::values::recode(m.results[i].created_by, sets[si]));
+        ss.push_back(ak::values::recode(m.results[i].opaque_id, sets[si]));
+      }
+      size_t total = 0;
+      for (size_t i = 0; i < ss.size(); ++i) total += ss[i].size();
+      std::string out;
+      auto raw = [&]() {
+        for (size_t i = 0; i < ss.size(); ++i) {
+          out.assign(ss[i].data(), ss[i].size());
+          AK_SINK_MEM(out);
+        }
+      };
+      auto chk = [&]() {
+        for (size_t i = 0; i < ss.size(); ++i) {
+          int32_t rc = ak::decode_str_checked((const uint8_t *)ss[i].data(), ss[i].size(), &out);
+          AK_SINK(rc);
+          AK_SINK_MEM(out);
+        }
+      };
+      int n = calibrate(raw);
+      double blo = 1e300, bhi = -1e300, bcr = 0, brw = 0;
+      for (int r = 0; r < g_rounds; ++r) {
+        double a = timed(raw, n) / ss.size();
+        double b = timed(chk, n) / ss.size();
+        if (b / a < blo) { blo = b / a; }
+        if (b / a > bhi) { bhi = b / a; }
+        if (r == 0 || b < bcr) { bcr = b; brw = a; }
+      }
+      std::printf("%-8s %10zu %12.3f %12.3f %12.3f %5.3f-%.3f\n", setname[si], total,
+                  brw, bcr, bcr - brw, blo, bhi);
+    }
+  }
+
+  deltas("the STRING-AS-DATA form (decision 1)", "ffi-hosttc", "ffi");
+  deltas("the BATCHING predicate (decision 1)", "ffi-nobat", "ffi");
+  deltas("decision 9's zeroed element fill", "ffi-zeroed", "ffi");
+  deltas("encode-side UTF-8 validation, which protobuf does and the spec does not",
+         "ffi-valtc", "ffi");
+  deltas("the boundary: ffi against the no-boundary control", "ffi", "native");
+  deltas("the group fill: direct call against a call through a pointer",
+         "groupfill-ind", "groupfill");
 
   report();
   return 0;

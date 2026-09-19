@@ -117,6 +117,9 @@ class CppEnc:
         o.append("  }")
 
     def map(self, m, f, o):
+        # The key and the value are written through the same length-then-copy path
+        # whatever their kind, so there is nothing to derive here -- but the DECODE side
+        # has a materialiser per kind, so it derives (see CppDec.map).
         s = self.sites.id(("map", m.name, f.name))
         o.append("  for (std::map<std::string, std::string>::const_iterator it = o.%s.begin();"
                  % f.name)
@@ -128,8 +131,25 @@ class CppEnc:
         o.append("  }")
 
 
+def _map_kinds(ir, f):
+    e = ir.msg(f.entry)
+    k = next(x for x in e.plain if x.name == "key")
+    v = next(x for x in e.plain if x.name == "value")
+    return k.kind, v.kind
+
+
+def _map_read(kind, dst):
+    if kind == "string":
+        return ["            int32_t rc = ak::decode_str(sub.buf + a, b, &%s);" % dst,
+                "            if (rc != 0) { d->err = rc; return; }"]
+    if kind == "bytes":
+        return ["            %s.assign((const char *)(sub.buf + a), b);" % dst]
+    raise NotImplementedError("REFUSED: a map half of kind %r is not a blob" % kind)
+
+
 class CppDec:
-    def __init__(self, sites=None):
+    def __init__(self, ir, sites=None):
+        self.ir = ir
         self.sites = sites
 
     def _sub(self, o, fn, target):
@@ -209,6 +229,12 @@ class CppDec:
         o.append("        break; } else { d->skip(wire); break; }")
 
     def packed(self, m, f, o):
+        # RESERVE. The wire gives the packed run's byte length, which is the exact element
+        # count for a fixed-width kind and an upper bound for a varint one. Without this the
+        # control paid an allocation pair per growth -- about 5,000 of them on P6.1 -- while
+        # the C ABI binding reserves at every batched fill, and the measured gap between the
+        # two arms on P6.1 decode was almost exactly that. A control that is slower than the
+        # arm it controls for, for a reason that is not the boundary, is not a control.
         rd = {"double": "sub.f64()", "bool": "(sub.varint() != 0)",
               "int32": "(int32_t)sub.varint()", "int64": "(int64_t)sub.varint()",
               "enum": "%s((int32_t)sub.varint())" % f.of}[f.kind]
@@ -218,6 +244,11 @@ class CppDec:
         o.append("      case %d: if (wire == 2) {" % f.tag)
         o.append("        size_t off, n; d->len_body(&off, &n);")
         o.append("        ak::Dec sub(d->buf + off, n);")
+        if f.kind == "double":
+            o.append("        out->%s.reserve(out->%s.size() + n / 8);" % (f.name, f.name))
+        else:
+            o.append("        // n bytes of varints is at most n elements.")
+            o.append("        out->%s.reserve(out->%s.size() + n);" % (f.name, f.name))
         o.append("        while (!sub.at_end()) out->%s.push_back(%s);" % (f.name, rd))
         o.append("        if (sub.err != 0) { d->err = sub.err; return; }")
         o.append("        break;")
@@ -257,6 +288,9 @@ class CppDec:
                          % (g.tag, oname, g.name, cast))
 
     def map(self, m, f, o):
+        # Derived from the pair message's DECLARED kinds, never hardcoded: a
+        # `map<string, bytes>` must not have UTF-8 validation applied to its value.
+        kk_, vk_ = _map_kinds(self.ir, f)
         o.append("      case %d: if (wire == 2) {" % f.tag)
         o.append("        size_t off, n; d->len_body(&off, &n);")
         o.append("        ak::Dec sub(d->buf + off, n);")
@@ -266,12 +300,10 @@ class CppDec:
         o.append("          uint32_t et = (uint32_t)(kk >> 3), ew = (uint32_t)(kk & 7);")
         o.append("          if (et == 1 && ew == 2) {")
         o.append("            size_t a, b; sub.len_body(&a, &b);")
-        o.append("            int32_t rc = ak::decode_str(sub.buf + a, b, &k_);")
-        o.append("            if (rc != 0) { d->err = rc; return; }")
+        o.extend(_map_read(kk_, "k_"))
         o.append("          } else if (et == 2 && ew == 2) {")
         o.append("            size_t a, b; sub.len_body(&a, &b);")
-        o.append("            int32_t rc = ak::decode_str(sub.buf + a, b, &v_);")
-        o.append("            if (rc != 0) { d->err = rc; return; }")
+        o.extend(_map_read(vk_, "v_"))
         o.append("          } else {")
         o.append("            sub.skip(ew);")
         o.append("          }")
@@ -326,7 +358,7 @@ def emit(ir):
         body.append("    uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);")
         body.append("    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }")
         body.append("    switch (tag) {")
-        walk_decode(ir, m, CppDec(), body)
+        walk_decode(ir, m, CppDec(ir), body)
         body.append("      default: d->skip(wire); break;")
         body.append("    }")
         body.append("  }")

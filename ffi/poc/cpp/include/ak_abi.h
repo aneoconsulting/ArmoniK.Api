@@ -970,6 +970,9 @@ struct AkCounters {
   uint64_t forward, reverse, transcode, prefix_moves, prefix_bytes, grows;
 };
 void ak_enc_counters(const ak_enc_ctx *, struct AkCounters *out);
+/* Counting build only: the HOST reports a reverse crossing the core cannot see, because
+ * `ak_str.tc` may point into either image and the counter lives in the core. */
+void ak_enc_count_reverse(ak_enc_ctx *);
 void ak_enc_counters_reset(ak_enc_ctx *);
 void ak_dec_counters(const ak_dec_ctx *, struct AkCounters *out);
 void ak_dec_counters_reset(ak_dec_ctx *);

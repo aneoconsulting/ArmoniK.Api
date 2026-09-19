@@ -32,9 +32,16 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
                      int32_t (*nat_dec)(const uint8_t *, size_t, F *),
                      double elems) {
   F facade = mk();
+  // The SAME bytes `bench` decodes. Built with protobuf's deterministic serialiser rather
+  // than with the native encoder, because on P2.5 the two differ by 80 B (protobuf writes
+  // an empty map value, the canonical form omits it) and a crossing count taken over
+  // different bytes than the timing is a count of different work.
+  P pbm;
+  pbmk(&pbm);
+  std::string wire;
+  pb_serialize_det(pbm, &wire);
   ak::Enc e(shapes::native::kSites);
   nat_enc(facade, &e);
-  std::string wire((const char *)e.data(), e.size());
 
   ak_enc_ctx *ctx = ak_enc_ctx_new();
   AkCounters c;
@@ -73,7 +80,6 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   ak_dec_counters(dctx, &c);
   show(id, "decode", c, elems);
   ak_dec_ctx_free(dctx);
-  (void)pbmk;
   (void)nat_dec;
 }
 

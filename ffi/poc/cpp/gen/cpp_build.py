@@ -101,23 +101,23 @@ def _emit_field(ir, m, f, o):
         o.append("    %s.reserve((size_t)repeats);" % dst)
         o.append("    for (int64_t j = 0; j < repeats; ++j)")
         o.append("      %s.push_back(%s);" % (dst, _msg_call(ir, f, fp, "j")))
-    elif f.kind == "message":
+    elif f.card == "singular" and f.kind == "message":
         o.append("    %s.set(%s);" % (dst, _msg_call(ir, f, fp)))
-    elif f.kind == "string":
+    elif f.card == "singular" and f.kind == "string":
         if f.explicit:
             o.append("    if (explicit_present(%d, idx))" % f.tag)
             o.append("      %s.set(idx %% 7 == 0 ? std::string() : %s);" % (dst, _string_expr(f, fp)))
         else:
             o.append("    %s = %s;" % (dst, _string_expr(f, fp)))
-    elif f.kind == "bytes":
+    elif f.card == "singular" and f.kind == "bytes":
         if f.value_rule == "bulk":
             o.append("    %s = v::bulk(bulk);" % dst)
         else:
             o.append("    %s = v::blob(%s, (int)idx, 16);" % (dst, fp))
-    elif f.kind == "enum":
+    elif f.card == "singular" and f.kind == "enum":
         o.append("    %s = shapes::%s(v::enum_value(%s, (int)idx));"
                  % (dst, f.of, _enum_table(f.of)))
-    elif f.is_scalar_leaf:
+    elif f.card == "singular" and f.is_scalar_leaf:
         if f.explicit:
             zero = {"int32": "0", "int64": "0", "bool": "false", "double": "0.0"}[f.kind]
             o.append("    if (explicit_present(%d, idx))" % f.tag)
@@ -125,7 +125,13 @@ def _emit_field(ir, m, f, o):
         else:
             o.append("    %s = %s;" % (dst, _scalar_expr(f, fp)))
     else:
-        raise NotImplementedError("build %s.%s (%s %s)" % (m.name, f.name, f.card, f.kind))
+        # R1: a backend that has no case for a shape RAISES; it does not skip. Before this
+        # the branches below the repeated ones did not re-test cardinality, so a repeated
+        # `bytes` fell into the singular-`bytes` arm and an unpacked repeated enum into the
+        # singular-`enum` arm, each emitting a scalar store against a std::vector.
+        raise NotImplementedError(
+            "REFUSED: the facade payload builder has no case for %s.%s (card=%s kind=%s)"
+            % (m.name, f.name, f.card, f.kind))
     o.append("  }")
 
 

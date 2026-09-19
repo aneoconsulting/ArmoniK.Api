@@ -25,6 +25,25 @@ hdr() {
   echo
 }
 
+# R1 first, and it is a GATE rather than a claim: `--check` fails if what is committed is
+# not what the generator would write, which is the whole of "no hand-written codec anywhere
+# in the comparison". It was run by nothing before, and its output was in no log.
+{
+  hdr "cpp slice: R1 and the generator's guards"
+  echo "===== generate.py --check: is what is committed what the generator writes? ====="
+  python3 gen/generate.py --check
+  gen_rc=$?
+  echo "generate.py --check exit $gen_rc"
+  echo
+  echo "===== refusal_test.py: every guard run against input it must REJECT ====="
+  python3 gen/refusal_test.py
+  echo "refusal_test.py exit $?"
+  echo
+  echo "===== audit_tracked.sh: R4's closing rule, asked of git ====="
+  ./gen/audit_tracked.sh
+  echo "audit_tracked.sh exit $?"
+} > "$L/generator.log" 2>&1
+
 {
   hdr "cpp slice: correctness (R2), every level and both linkages"
   for b in conformance_a17_shared conformance_b17_shared conformance_c14_shared \

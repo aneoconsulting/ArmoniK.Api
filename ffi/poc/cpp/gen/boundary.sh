@@ -55,18 +55,35 @@ echo "== half two: is the no-boundary control fused into the benchmark loop? =="
 for bin in bench_a17_shared bench_a17_shared_lto; do
   echo "  $bin:"
   nm -t d -S -C --defined-only $B/$bin \
-    | grep -E 'shapes::native::encode_into_list_(results|tasks_detailed)_response|shapes::native::\(anonymous|enc_(result_raw|task_detailed)' \
-    | awk '{printf "    %8d B  %s\n", $2, substr($0, index($0,"shapes"))}' | head -6
-  big=$(nm -t d -S -C --defined-only $B/$bin \
-        | awk '/shapes::native::encode_into_list_results_response/ {print $2+0; exit}')
+    | grep -E 'shapes::native::(encode_into|decode)_list_(results|tasks_detailed|probe|metrics)_response|shapes::native::(enc|dec)_(result_raw|task_detailed|probe|metrics_batch)' \
+    | awk '{printf "    %8d B  %s\n", $2, substr($0, index($0,"shapes"))}' | sort -rn | head -10
   loop=$(nm -t d -S -C --defined-only $B/$bin \
         | awk '/double timed</ {if ($2+0 > m) m = $2+0} END {print m+0}')
-  echo "    largest timing closure in the image: $loop B; control traversal: ${big:-0} B"
-  if [ "${big:-0}" -gt "${loop:-0}" ]; then
-    chk ok "$bin: the traversal is out of line and larger than any closure, so no closure contains it"
-  else
-    chk bad "$bin: a timing closure is at least as large as the traversal -- check for fusion"
-  fi
+  echo "    largest timing closure in the image: $loop B"
+  # BOTH directions. README asks for both and the first version of this script printed
+  # encode symbols only -- while decode is the direction where this control misbehaves,
+  # so it is the direction where "is it fused?" most needed answering.
+  # The per-message traversals the entry points call. `decode_list_X` is a 94 B shim that
+  # calls an out-of-line `dec_list_X`, so the shim's size is not the question -- the
+  # traversal's is, and it is these.
+  for sym in 'shapes::native::encode_into_list_results_response' \
+             'shapes::native::enc_task_detailed' \
+             'shapes::native::dec_list_results_response' \
+             'shapes::native::dec_list_tasks_detailed_response' \
+             'shapes::native::decode_list_metrics_response'; do
+    sz=$(nm -t d -S -C --defined-only $B/$bin | awk -v s="$sym" 'index($0, s) {print $2+0; exit}')
+    if [ -z "$sz" ]; then
+      echo "    $sym: ABSENT (inlined into its caller within the control TU, which is fine:"
+      echo "      the question is whether the BENCHMARK LOOP contains it, and the loop is"
+      echo "      in another TU with no LTO in the default build)"
+      continue
+    fi
+    if [ "$sz" -gt "${loop:-0}" ]; then
+      chk ok "$bin: $sym is $sz B, larger than any timing closure ($loop B)"
+    else
+      chk bad "$bin: $sym is only $sz B, smaller than a timing closure -- check for fusion"
+    fi
+  done
 done
 echo "  The control is reached through a FUNCTION POINTER passed to the case runner, so its"
 echo "  address is taken and an out-of-line body must exist; the sizes above say the loop is"

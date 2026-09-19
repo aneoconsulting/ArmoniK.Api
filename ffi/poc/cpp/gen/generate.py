@@ -14,6 +14,7 @@ What is this slice's own, as new backends over the same IR:
                                   backend's own `group_fields`/`presence_bits`, so a group
                                   layout cannot be restated differently on the two sides
   include/generated/ak_layout.h   the host's compile-time view of those layouts
+  include/generated/ak_layout_names.h  one name per fact, so a disagreement is NAMED
   src/generated/types.{h,cpp}     the C++ facade
   src/generated/odr.h             the layout facts the C++11 and C++17 TUs compare
   src/generated/build.{h,cpp}     the payload builder over the facade
@@ -32,10 +33,15 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RUSTGEN = os.path.abspath(os.path.join(HERE, "..", "..", "rust", "gen"))
-# The rust generator first, so `import ir` and `import rust_abi` resolve there; this
-# directory second, for the cpp backends.
-sys.path.insert(0, HERE)
+# THIS directory first and the rust generator second. Order matters and the comment that
+# used to be here had it backwards: both directories contain a `generate.py`, so with
+# RUSTGEN in front any module that does `import generate` -- `gen/refusal_test.py` does --
+# silently gets the RUST slice's generator and emits its seven files instead of this
+# slice's sixteen. Everything this file imports from the rust generator (`ir`, `rust_abi`,
+# `rust_core`) exists only there, so HERE-first resolves each import to the one place it
+# lives.
 sys.path.insert(0, RUSTGEN)
+sys.path.insert(0, HERE)
 
 import ir as IR              # noqa: E402  (rust slice, read-only)
 import rust_abi              # noqa: E402  (rust slice, read-only)
@@ -69,10 +75,11 @@ def targets(ir):
 
     # The codec is emitted FIRST because it allocates the length-prefix sites.
     codec = rust_abi.emit_codec(ir)
-    header, layout_h = cpp_header.emit(ir)
+    header, layout_h, layout_names_h = cpp_header.emit(ir)
     return {
         "include/ak_abi.h": header,
         "include/generated/ak_layout.h": layout_h,
+        "include/generated/ak_layout_names.h": layout_names_h,
         "src/generated/types.h": cpp_facade.emit_types(ir),
         "src/generated/types.cpp": cpp_facade.emit_types_impl(ir),
         "src/generated/odr.h": cpp_facade.emit_odr_asserts(ir),

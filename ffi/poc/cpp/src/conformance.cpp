@@ -12,6 +12,7 @@
 #include <sstream>
 
 #include "generated/ak_layout.h"
+#include "generated/ak_layout_names.h"
 #include "harness.h"
 
 static int g_fail = 0;
@@ -49,7 +50,23 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   pbmk(&pb);
 
   std::string pb_bytes;
-  pb_serialize(pb, &pb_bytes, true);
+  pb_serialize_det(pb, &pb_bytes);
+  // The HEADLINE timing arm calls `SerializeToString`, not the deterministic path, so its
+  // output is checked too: identical for every message without a map, and a permutation of
+  // the map entries otherwise. A timed arm whose bytes nothing checks is not an arm.
+  std::string pb_default;
+  pb_serialize_default(pb, &pb_default);
+  check(pb_default.size() == pb_bytes.size(),
+        std::string(id) + " SerializeToString has the same length as the deterministic form");
+  {
+    P back;
+    check(back.ParseFromString(pb_default),
+          std::string(id) + " SerializeToString output parses");
+    std::string re;
+    pb_serialize_det(back, &re);
+    check(sha_of(re) == sha_of(pb_bytes),
+          std::string(id) + " SerializeToString output is a permutation of the same message");
+  }
 
   google::protobuf::Arena arena;
   P *pba = google::protobuf::Arena::CreateMessage<P>(&arena);
@@ -60,6 +77,10 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   ak::Enc e(shapes::native::kSites);
   nat_enc(facade, &e);
   std::string nat_bytes((const char *)e.data(), e.size());
+  std::string mem_bytes;
+  memcpy_floor(nat_bytes, &mem_bytes);
+  check(sha_of(mem_bytes) == sha_of(nat_bytes),
+        std::string(id) + " the memcpy floor arm copies the right bytes");
 
   ak_enc_ctx *ctx = ak_enc_ctx_new();
   shapes::ffi::Tcs tc = shapes::ffi::tcs_core();
@@ -109,8 +130,13 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   bool pb_canonical = (sha_of(pb_bytes) == want);
   if (!pb_canonical) {
     ++g_diverge;
-    std::printf("  DIVERGENCE %s: protobuf C++ writes %zu B, the canonical form is %zu B"
-                " (delta %+d)\n",
+    // design/SHAPES.md now records that P2.5 has two valid encodings and that a slice
+    // matches either and SAYS WHICH. 19,712 B and 19,632 B are not the same work, so the
+    // form the incumbent wrote is named here and the timing rows are taken over it.
+    std::printf("  TWO VALID FORMS %s: this incumbent writes %zu B, the manifest records"
+                " %zu B (delta %+d). protobuf C++ writes a map entry's value"
+                " unconditionally; the canonical form omits an implicit-presence leaf"
+                " holding the proto zero.\n",
                 id, pb_bytes.size(), want_bytes,
                 (int)pb_bytes.size() - (int)want_bytes);
     check(sha_of(pb_bytes) == sha_of(pba_bytes),
@@ -219,8 +245,15 @@ static void run_layout() {
   size_t n = ak_layout_facts(&core[0], core.size());
   check(n == (size_t)AK_LAYOUT_FACTS, "layout fact count agrees");
   int bad = 0;
-  for (size_t i = 0; i < core.size() && i < n; ++i)
-    if (core[i] != AK_LAYOUT_HOST[i]) ++bad;
+  for (size_t i = 0; i < core.size() && i < n; ++i) {
+    if (core[i] != AK_LAYOUT_HOST[i]) {
+      ++bad;
+      // NAMED, not merely counted: a count says the two sides disagree and a name says
+      // about what, which is the difference between a diagnosable bug and a mystery.
+      std::printf("  MISMATCH %-46s core=%u host=%u\n", AK_LAYOUT_NAMES[i], core[i],
+                  AK_LAYOUT_HOST[i]);
+    }
+  }
   check(bad == 0, "every group layout fact agrees between the core and this header");
   std::printf("  %d layout facts, %d disagreements\n", (int)n, bad);
 }
@@ -274,6 +307,133 @@ static void run_absent_and_unknown() {
     pb_serialize(pbm, &pbre, true);
     check(pbre.size() > clean.size(),
           std::string("protobuf C++ RETAINS it: ") + vs[i].name);
+  }
+
+  // ---- inside a NESTED message, which README section 10 item 1 names explicitly ----
+  //
+  // The five vectors above all land at the ROOT, and a decoder's root loop and its nested
+  // loop are different code. This splices an unknown field into the body of the FIRST
+  // repeated element and rewrites the element's length prefix.
+  {
+    struct V { const char *name; uint32_t tag; uint32_t wire; std::string body; };
+    V vs2[3];
+    vs2[0].name = "varint inside ResultRaw"; vs2[0].tag = 800; vs2[0].wire = 0;
+    vs2[0].body = std::string("\x2a", 1);
+    vs2[1].name = "len inside ResultRaw"; vs2[1].tag = 801; vs2[1].wire = 2;
+    vs2[1].body = std::string("\x03" "xyz", 4);
+    vs2[2].name = "i32 inside ResultRaw"; vs2[2].tag = 802; vs2[2].wire = 5;
+    vs2[2].body = std::string("\x01\x02\x03\x04", 4);
+
+    for (int i = 0; i < 3; ++i) {
+      // Rebuild: outer tag 1 (results), its body plus the unknown run, then the rest.
+      ak::Dec d((const uint8_t *)clean.data(), clean.size());
+      std::string out;
+      bool done = false;
+      while (!d.at_end()) {
+        size_t keypos = d.pos;
+        uint64_t k = d.varint();
+        uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
+        if (tag == 1 && wire == 2 && !done) {
+          size_t off, n;
+          d.len_body(&off, &n);
+          ak::Enc extra(1);
+          extra.varint(((uint64_t)vs2[i].tag << 3) | vs2[i].wire);
+          std::string body((const char *)d.buf + off, n);
+          body.append((const char *)extra.data(), extra.size());
+          body += vs2[i].body;
+          ak::Enc hdr(1);
+          hdr.varint(((uint64_t)1 << 3) | 2);
+          hdr.varint(body.size());
+          out.append((const char *)hdr.data(), hdr.size());
+          out += body;
+          done = true;
+        } else {
+          size_t before = d.pos;
+          d.skip(wire);
+          out.append(clean, keypos, d.pos - keypos);
+          (void)before;
+        }
+      }
+      check(done, std::string("nested vector spliced: ") + vs2[i].name);
+
+      shapes::ListResultsResponse fn, ff;
+      int32_t rc = shapes::native::decode_list_results_response(
+          (const uint8_t *)out.data(), out.size(), &fn);
+      check(rc == 0, std::string("unknown NESTED field skipped, native: ") + vs2[i].name);
+      ak_dec_ctx *dctx = ak_dec_ctx_new();
+      rc = shapes::ffi::decode_with_list_results_response(
+          dctx, (const uint8_t *)out.data(), out.size(), &ff);
+      check(rc == 0 && ak_dec_err(dctx) == 0,
+            std::string("unknown NESTED field skipped, ffi: ") + vs2[i].name);
+      ak_dec_ctx_free(dctx);
+      ns::ListResultsResponse pbm;
+      check(pbm.ParseFromString(out),
+            std::string("unknown NESTED field skipped, pb: ") + vs2[i].name);
+      check(fn == ff, std::string("unknown NESTED field: arms agree: ") + vs2[i].name);
+    }
+  }
+
+  // ---- an unrecognised tag on the message that HAS the oneof ----------------------
+  //
+  // "A parser cannot tell an unrecognised oneof tag from any other unknown field, since
+  // the grouping lives only in the descriptor: the case stays at the last known member and
+  // the payload is dropped." The five root vectors were all on `ListResultsResponse`,
+  // which has no oneof at all, so the shape was never reached.
+  {
+    shapes::ListProbeResponse p = shapes::build::payload_p3_1();
+    ak::Enc pe(shapes::native::kSites);
+    shapes::native::encode_into_list_probe_response(p, &pe);
+    std::string base((const char *)pe.data(), pe.size());
+
+    // tag 20 sits past `body`'s members (10..14) and is what a newer schema adding a
+    // sixth oneof member would put on the wire.
+    ak::Dec d((const uint8_t *)base.data(), base.size());
+    std::string out;
+    bool done = false;
+    while (!d.at_end()) {
+      size_t keypos = d.pos;
+      uint64_t k = d.varint();
+      uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
+      if (tag == 1 && wire == 2 && !done) {
+        size_t off, n;
+        d.len_body(&off, &n);
+        std::string body((const char *)d.buf + off, n);
+        ak::Enc extra(1);
+        extra.varint(((uint64_t)20 << 3) | 2);
+        extra.varint(3);
+        body.append((const char *)extra.data(), extra.size());
+        body += "new";
+        ak::Enc hdr(1);
+        hdr.varint(((uint64_t)1 << 3) | 2);
+        hdr.varint(body.size());
+        out.append((const char *)hdr.data(), hdr.size());
+        out += body;
+        done = true;
+      } else {
+        d.skip(wire);
+        out.append(base, keypos, d.pos - keypos);
+      }
+    }
+    check(done, "unknown oneof-member tag spliced into a Probe");
+
+    shapes::ListProbeResponse fn, ff;
+    check(shapes::native::decode_list_probe_response(
+              (const uint8_t *)out.data(), out.size(), &fn) == 0,
+          "unknown oneof-member tag skipped, native");
+    ak_dec_ctx *dctx = ak_dec_ctx_new();
+    check(shapes::ffi::decode_with_list_probe_response(
+              dctx, (const uint8_t *)out.data(), out.size(), &ff) == 0 &&
+              ak_dec_err(dctx) == 0,
+          "unknown oneof-member tag skipped, ffi");
+    ak_dec_ctx_free(dctx);
+    check(fn == ff, "unknown oneof-member tag: arms agree on the value");
+    check(fn.probes[0].body.which() == p.probes[0].body.which(),
+          "the case STAYS at the last known member and the payload is dropped");
+    ns::ListProbeResponse pbm;
+    check(pbm.ParseFromString(out), "unknown oneof-member tag skipped, pb");
+    std::string pbre;
+    pb_serialize_det(pbm, &pbre);
+    check(pbre.size() > base.size(), "protobuf C++ RETAINS the unknown oneof-member tag");
   }
 
   // An open enum with an unknown VALUE does round-trip, because the field is known.
@@ -375,7 +535,7 @@ int main(int argc, char **argv) {
   std::printf("\n-- absent, unknown and malformed vectors --\n");
   run_absent_and_unknown();
 
-  std::printf("\n%d checks, %d failures, %d reported wire divergences of the incumbent\n",
+  std::printf("\n%d checks, %d failures, %d payloads with two valid encodings\n",
               g_checks, g_fail, g_diverge);
   return g_fail ? 1 : 0;
 }

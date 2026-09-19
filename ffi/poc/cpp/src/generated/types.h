@@ -11,6 +11,11 @@
 #include <vector>
 #include "ak/vocab.h"
 
+// One spelling at every standard level. `noexcept` is C++11, so this is not a level
+// divergence; it is here so the attribute appears once and cannot drift between the
+// declaration and the definition.
+#define AK_NOEXCEPT noexcept
+
 namespace shapes {
 
 // Open enum: the VALUE may be one the reader was not built against, and it
@@ -211,6 +216,18 @@ class ProbeBody {
   };
   ProbeBody() : case_(kNotSet) {}
   ProbeBody(const ProbeBody &o) : case_(kNotSet) { copy_from(o); }
+  // A NOEXCEPT move, and it is not a nicety: a user-declared
+  // destructor suppresses the implicit move, so without this the
+  // enclosing message has no noexcept move either and every
+  // `std::vector` growth COPIES instead of moving -- which on P3.1
+  // is charged to the no-boundary control and to nothing else.
+  // `noexcept` is the load-bearing word: std::vector only MOVES on
+  // growth when the move is noexcept, and every member's move is.
+  ProbeBody(ProbeBody &&o) AK_NOEXCEPT : case_(kNotSet) { move_from(o); }
+  ProbeBody &operator=(ProbeBody &&o) AK_NOEXCEPT {
+    if (this != &o) { clear(); move_from(o); }
+    return *this;
+  }
   ProbeBody &operator=(const ProbeBody &o) {
     if (this != &o) { clear(); copy_from(o); }
     return *this;
@@ -232,6 +249,7 @@ class ProbeBody {
   bool operator!=(const ProbeBody &o) const { return !(*this == o); }
  private:
   void copy_from(const ProbeBody &o);
+  void move_from(ProbeBody &o) AK_NOEXCEPT;
   Case case_;
   union U {
     int64_t as_int;
