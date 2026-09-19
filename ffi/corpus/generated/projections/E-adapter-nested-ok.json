@@ -1,0 +1,10 @@
+{
+ "tasks": [
+  {
+   "id": "t",
+   "output": {
+    "success": true
+   }
+  }
+ ]
+}
