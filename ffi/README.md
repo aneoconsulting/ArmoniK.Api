@@ -537,6 +537,40 @@ from the verdicts.
 
 **R12. A slice agent never writes a report.** Section 11.
 
+**R14. The baseline is the codec path ArmoniK actually runs, which is the gRPC
+marshaller's, not the library's fastest entry point.** Section 13 sets the bar as
+"what a unified core costs each language against what ArmoniK ships today", and a
+ratio against an entry point no ArmoniK process calls does not answer that
+question however fair it looks.
+
+Application code barely serialises anything: a search of `packages/` finds almost
+no direct calls, because **gRPC's generated marshaller does it**. So that is the
+denominator. In C#, the stub `Grpc.Tools` emits calls
+`context.SetPayloadLength(message.CalculateSize())` and then
+`MessageExtensions.WriteTo(message, context.GetBufferWriter())`, and decodes with
+`parser.ParseFrom(context.PayloadAsReadOnlySequence())` — verified in grpc's own
+`src/compiler/csharp_generator.cc`, not inferred. **The size pass is production
+code**, so removing it does not fix a handicap, it replaces the incumbent with a
+faster thing nobody runs; and the payload arrives as a `ReadOnlySequence<byte>`
+rather than a `byte[]`, which is a different parse path and is also where decision
+13's borrowed spans would have to live. Each slice establishes the equivalent for
+its own language and names it in its configuration line.
+
+**This cuts both ways and the distinction is the whole rule.** A harness that
+makes the incumbent do work its own library would not do is a defect, and three
+slices have had one. A harness that picks the incumbent's *best* path when
+production calls a slower one is the same defect with the sign flipped, and it is
+harder to see because it looks like fairness. **Where the two differ, the headline
+ratio is against what production runs**, and the library's best path is reported
+beside it as a second row, labelled — because "the incumbent's fastest API is 20 to
+29 percent better than what gRPC drives" is a real finding about the incumbent,
+worth keeping and worth not confusing with the core's margin.
+
+A message is also serialised **once** in production, so a benchmark loop over one
+message instance is not the shape to measure: it amortises anything the library
+memoises per instance, which is exactly how protobuf-java's size-pass memo hid a
+published regression for a year.
+
 **R13. Slices run on separate machines, so every slice calibrates its own.** A
 ratio formed inside one process survives the move to another VM; an absolute does
 not, because it was a fact about one machine. The per-runtime crossing table of
