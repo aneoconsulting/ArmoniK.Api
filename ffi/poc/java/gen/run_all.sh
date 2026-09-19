@@ -13,6 +13,17 @@ run() { "$J17/bin/java" -cp "build/cls17:$CP" -Dak.lib="$LIB" "$@"; }
 
 ./gen/build.sh
 
+# ---- the two secondary probes, which the main build does not cover
+J21p=${J21:-/usr/lib/jvm/java-21-openjdk-amd64}
+mkdir -p build/ffm build/pin build/probe
+gcc -O2 -fPIC -shared -I"$J21p/include" -I"$J21p/include/linux" \
+  -o build/pin/libakpin.so native/pin.c -lpthread
+gcc -O2 -fPIC -shared -I"$J17/include" -I"$J17/include/linux" \
+  -o build/probe/libprobe.so probe/probe.c
+"$J21p/bin/javac" --release 21 --enable-preview -nowarn -d build/ffm probe/FfmProbe.java
+"$J21p/bin/javac" -nowarn -d build/pin src/java/ak/Pin.java
+"$J17/bin/javac" -nowarn -d build/probe probe/Probe.java
+
 # ---- correctness, and nothing is timed before it passes (R2)
 run ak.RunConformance -v            > "$L/conformance.log" 2>&1
 run ak.RunUnknown                   > "$L/unknown.log" 2>&1
@@ -38,4 +49,16 @@ run ak.RunUnknown                   > "$L/unknown.log" 2>&1
 ROUNDS=40 ./gen/floor.sh            > "$L/floor.log" 2>&1
 ROUNDS=24 ./gen/contentsets.sh      > "$L/contentsets.log" 2>&1
 ROUNDS=20 ./gen/deopt.sh            > "$L/deopt.log" 2>&1
+
+# ---- the two secondary arms, both on JDK 21 because both are about a newer API
+J21=${J21:-/usr/lib/jvm/java-21-openjdk-amd64}
+"$J21/bin/java" --enable-preview -cp build/ffm \
+  -Dak.core="$PWD/core/target/release/libak_core_java.so" FfmProbe > "$L/ffm.log" 2>&1
+{
+  for P in 2 1 4; do
+    "$J21/bin/java" -Djdk.virtualThreadScheduler.parallelism=$P \
+      -Djdk.virtualThreadScheduler.maxPoolSize=$P -cp build/pin \
+      -Dak.pinlib="$PWD/build/pin/libakpin.so" -Dak.carriers=$P ak.Pin
+  done
+} > "$L/pinning.log" 2>&1
 echo "all logs in $L"

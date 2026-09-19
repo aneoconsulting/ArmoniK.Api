@@ -336,6 +336,29 @@ put the transcoder in the core so that "every managed host stops maintaining a U
 encoder". That makes it the only arm here insensitive to the host JIT's profile history --
 an argument for the design that no benchmark was looking for.
 
+### ABI v1 section 9's virtual-thread amendment, confirmed -- `logs/java/pinning.log`
+
+Section 9's fourth amendment: "At least one mode in which the caller waits in the host
+language. Blocking in a native frame from a virtual thread pins its carrier; what fixes
+that is parking in Java on a future, which the callback mode already provides." No slice
+had measured it, and it is the one item on README's RPC list that **only a JVM slice can
+answer**. It needs no RPC stack: the question is where the waiting happens.
+
+Eight virtual threads each waiting 300 ms, on a scheduler with a known parallelism. If the
+carrier is pinned the run takes `ceil(N/P) * W`; if not, `W`.
+
+| carriers | predicted if pinned | **blocking in the native frame** | **parked on a future** |
+|---|---|---|---|
+| 1 | 2,400 ms | **2,420 ms** | **306 ms** |
+| 2 | 1,200 ms | **1,222 ms** | **304 ms** |
+| 4 | 600 ms | **622 ms** | **305 ms** |
+
+**The blocking mode scales exactly as the pinned prediction and the callback mode is flat.**
+So the amendment is right, and its consequence is the one the specification draws: the
+callback mode is not a convenience, it is what makes the ABI usable from the idiom Java is
+moving to. Virtual threads are a JDK 21 API, above this slice's JDK 17 target, which is the
+right place for the question -- it is about what the ABI must offer a host that has them.
+
 ### The incumbent was flattered twice, and a third hypothesis was refuted
 
 `logs/java/baseline.log`, and JOURNAL J7 and J8. This is the part of the slice most likely
@@ -377,15 +400,16 @@ nothing can settle that because its sources do not survive.
 
 ## What is not measured
 
-- **The RPC arm is not built.** README's RPC arm (one unary call on P2.2 against grpc-java,
-  CPU per RPC at 1, 8 and 16 in flight, the crossing count, and whether the idiomatic wait
-  pins a carrier thread) has no code in this slice. What the branch already knows about it
-  is stronger than what this slice would have added -- the rust slice established two
-  crossings per call and zero per field **by reading the code**, and ABI v1 section 9's
-  arithmetic makes the transferable claim host-independent (196 ns of JNI against about
-  1.5 ms of CPU is 0.013 percent). What is missing here is Java-specific and behavioural:
-  the callback and completion-queue delivery modes, and the virtual-thread pinning
-  question, which is the one thing on that list only a JVM slice can answer.
+- **The RPC arm is not built**, with one exception. There is no grpc-java comparison here:
+  no CPU per RPC, no allocation per RPC, nothing at 1, 8 and 16 in flight. What the branch
+  already knows is stronger than what this slice would have added -- the rust slice
+  established two crossings per call and zero per field **by reading the code**, and ABI v1
+  section 9's arithmetic makes the transferable claim host-independent (196 ns of JNI
+  against about 1.5 ms of CPU is 0.013 percent). **The exception is the virtual-thread
+  pinning question**, which is the one item on that list only a JVM slice can answer and
+  which is now measured (above). The **completion-queue delivery mode** is still unbuilt,
+  and section 9's claim that "a thread parked in a drain is in native state and costs a
+  collection nothing" is still unmeasured.
 - **FFM is not built as a binding**, and the downcall price is measured
   (`logs/java/ffm.log`). It is a JDK 22 API; this container has JDK 8, 17 and 21 and the
   proxy does not reach a JDK distributor, so it is measured on **JDK 21 with
@@ -482,8 +506,10 @@ In the order a fresh session should take them:
    read facade fields through the JNI API instead of upcalling into Java. Decode costs
    7.004 upcalls per element at about 80 ns; this is the arm that would remove them without
    the pull family, and it is the most promising thing unbuilt here.
-4. **The RPC arm**, for the two things only a JVM can answer: the completion-queue mode
-   against the callback mode, and whether the idiomatic wait pins a carrier thread.
+4. **The completion-queue delivery mode**, which is the half of ABI v1 section 9 the
+   pinning experiment did not reach: section 9 claims a thread parked in a drain is in
+   native state and costs a collection nothing, and says the queue is the fastest arm on
+   virtual threads. The pinning harness is 80 lines and already has the shape.
 5. **A concurrency suite** per obligation 12.5, which no slice has.
 
 ## Requests to the design documents
@@ -540,3 +566,4 @@ In the order a fresh session should take them:
 | `contentsets.log` | JDK 17, P1.2 and P2.2 | all three content sets, encode and decode |
 | `deopt.log` | JDK 17 and JDK 21 | README R9's hazard: real, 2.16x, opposite sign, and the C ABI arm immune |
 | `ffm.log` | JDK 21, preview | the FFM downcall price beside JNI's on the same JDK |
+| `pinning.log` | JDK 21, virtual threads | ABI v1 section 9's fourth amendment confirmed at three carrier counts |

@@ -1,0 +1,42 @@
+== ABI v1 section 9: does waiting in a native frame pin a carrier? ==
+java.version=21.0.10
+carriers=2  tasks=8  wait=300 ms
+
+If the carrier is pinned the run takes about ceil(N/P)*W = 1200 ms.
+If it is not, all 8 wait at once and it takes about 300 ms.
+
+  blocking in the native frame   (ak_call_unary)      1222 ms
+  parked on a future, completed  (ak_call_unary_cb)   306 ms
+
+  blocking mode: PINS the carrier
+  callback mode: does NOT pin
+
+ABI v1 section 9 predicts pin and no-pin, and that is what this reads.
+The consequence is the one the specification draws: a host on virtual
+threads cannot use the blocking entry point at scale, so the callback mode
+is not a convenience -- it is what makes the ABI usable from the idiom Java
+is moving to. The completion queue of section 9 is the same shape again: a
+thread parked in a drain is in native state and costs a collection nothing.
+
+Not measured here: any of it under load, with a real transport, or with
+more carriers than the two this pins against.
+
+## a second point, so the reading is a curve and not a coincidence
+### carriers=1
+If the carrier is pinned the run takes about ceil(N/P)*W = 2400 ms.
+If it is not, all 8 wait at once and it takes about 300 ms.
+
+  blocking in the native frame   (ak_call_unary)      2420 ms
+  parked on a future, completed  (ak_call_unary_cb)   306 ms
+
+  blocking mode: PINS the carrier
+  callback mode: does NOT pin
+### carriers=4
+If the carrier is pinned the run takes about ceil(N/P)*W = 600 ms.
+If it is not, all 8 wait at once and it takes about 300 ms.
+
+  blocking in the native frame   (ak_call_unary)      622 ms
+  parked on a future, completed  (ak_call_unary_cb)   305 ms
+
+  blocking mode: PINS the carrier
+  callback mode: does NOT pin
