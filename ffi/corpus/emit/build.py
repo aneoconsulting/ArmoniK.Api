@@ -385,24 +385,7 @@ def generate(outdir, quiet=False):
         row["accepted_encodings"] = sorted(accepted.values(), key=lambda r: r["sha256"])
         row["upb_agreement"] = agreement
 
-        blob = json.dumps(pj, indent=1, sort_keys=True) + "\n"
-        if len(blob) <= PROJECTION_LIMIT:
-            pjpath = os.path.join("projections", v.id + ".json")
-            with open(os.path.join(outdir, pjpath), "w") as fh:
-                fh.write(blob)
-            row["projection"] = pjpath
-        else:
-            # The only vectors this reaches are the deliberately large chunking
-            # runs, whose oracle is byte identity plus the element count. Each
-            # has a small twin of the same shape that carries the projection, so
-            # nothing is uncovered; a projection of a 2048-element run is a
-            # third of a megabyte that says the same thing 2048 times.
-            row["projection"] = None
-            row["projection_omitted"] = {
-                "json_bytes": len(blob),
-                "limit": PROJECTION_LIMIT,
-                "semantic_oracle_is": small_twin(v.id),
-            }
+        write_projection(outdir, row, v.id, pj)
 
         # The unknown-field claim, checked rather than asserted: the tags the
         # vector says are unknown must BE unknown under the reader, and known
@@ -431,11 +414,7 @@ def generate(outdir, quiet=False):
                     raise SystemExit("%s: tag(s) %s are still unknown under the SUPERSET view, so "
                                      "the vector is not testing what it claims"
                                      % (v.id, sorted(still)))
-                sp = os.path.join("projections", v.id + ".superset.json")
-                with open(os.path.join(outdir, sp), "w") as fh:
-                    json.dump(project(sup), fh, indent=1, sort_keys=True)
-                    fh.write("\n")
-                row["superset_projection"] = sp
+                write_projection(outdir, row, v.id, project(sup), "superset")
         rows[v.id] = row
 
     # Coverage. A shape in the description that no vector exercises fails here.
@@ -490,7 +469,7 @@ def generate(outdir, quiet=False):
         "counts": {},
         "vectors": rows,
     }
-    manifest["vectors"].update(baselines(pools))
+    manifest["vectors"].update(baselines(pools, outdir))
     by_class = {}
     for r in manifest["vectors"].values():
         by_class[r["class"]] = by_class.get(r["class"], 0) + 1
@@ -511,14 +490,38 @@ def generate(outdir, quiet=False):
     return manifest
 
 
+def write_projection(outdir, row, vid, pj, suffix=""):
+    """Commit what a reader must SEE, unless it is very large.
+
+    The only things the limit reaches are the deliberately large runs, whose
+    oracle is byte identity plus the element count, and each has a small twin of
+    the same shape that carries the projection. A projection of a 2048-element
+    run is a third of a megabyte saying the same thing 2048 times.
+    """
+    blob = json.dumps(pj, indent=1, sort_keys=True) + "\n"
+    key = "projection" + ("_" + suffix if suffix else "")
+    if len(blob) <= PROJECTION_LIMIT:
+        path = os.path.join("projections", vid + (("." + suffix) if suffix else "") + ".json")
+        with open(os.path.join(outdir, path), "w") as fh:
+            fh.write(blob)
+        row[key] = path
+    else:
+        row[key] = None
+        row[key + "_omitted"] = {"json_bytes": len(blob), "limit": PROJECTION_LIMIT,
+                                 "semantic_oracle_is": small_twin(vid)}
+
+
 def small_twin(vid):
     """The vector of the same shape whose projection IS committed."""
     return {"C-elemu-512": "C-elemu-4", "C-elemu-64": "C-elemu-4",
             "C-leaf-2048": "C-leaf-8", "C-wide-64": "C-wide-4",
-            "C-mixed-100": "C-elemu-4"}.get(vid, "none: this vector has no twin")
+            "C-mixed-100": "C-elemu-4",
+            "B-P2_5": "E-half-absent", "B-P4_1": "S-TaskSummary-full",
+            "B-P3_1": "S-Probe-full", "B-P2_1": "S-TaskDetailed-full",
+            "B-P1_3": "E-all-absent"}.get(vid, "none: this vector has no twin")
 
 
-def baselines(pools):
+def baselines(pools, outdir):
     """The schema's own payloads, by REFERENCE and re-validated here.
 
     The corpus is a superset of `ffi/schema/generated`, and R0's rule one level
@@ -544,7 +547,8 @@ def baselines(pools):
         m = msg_class(pools, "reader", roots[pid])()
         m.ParseFromString(data)
         re = m.SerializeToString(deterministic=True)
-        out["B-" + pid.replace(".", "_")] = {
+        vid = "B-" + pid.replace(".", "_")
+        row = {
             "class": "baseline",
             "tests": "SHAPES.md payload %s, by reference" % pid,
             "why": "the corpus is a superset of schema/generated and does not copy it. The row is "
@@ -566,6 +570,8 @@ def baselines(pools):
             "upb_reencoded_bytes": len(re),
             "meta": {"delta_bytes": len(re) - len(data)},
         }
+        write_projection(outdir, row, vid, project(m))
+        out[vid] = row
     return out
 
 

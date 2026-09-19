@@ -1,0 +1,77 @@
+{
+ "page": "1",
+ "results": [
+  {
+   "completed_at": {
+    "seconds": "1700000000"
+   },
+   "created_at": {
+    "seconds": "1700000000"
+   },
+   "created_by": "4bd3bb6d-6d84-9350-673c-8a5cfece04ec",
+   "manual_deletion": true,
+   "name": "foxtrot661",
+   "opaque_id": "b22a1b200e4a203e351bb79f2f13d47c",
+   "owner_task_id": "41aaec16-49ea-ed39-f99e-2e85d2d582c0",
+   "result_id": "a86469f6-7b75-408a-5425-fa04e68574fb",
+   "session_id": "01014f5e-30f9-0ce8-3afa-69af17b93213",
+   "size": "338284890548"
+  },
+  {
+   "completed_at": {
+    "nanos": "7919",
+    "seconds": "1700000037"
+   },
+   "created_at": {
+    "nanos": "7919",
+    "seconds": "1700000037"
+   },
+   "created_by": "93a9b106-3de8-37f4-aff4-81501b9ee8e8",
+   "name": "alpha88",
+   "opaque_id": "23c3e80d7d6bab5cf1a8b70e02be82f0",
+   "owner_task_id": "056cbe63-99e5-100c-f81e-22433874c0ca",
+   "result_id": "2d7450ed-6b2b-321a-b2f5-a8c69248e54b",
+   "session_id": "157689db-9128-f516-3f7d-5e5c2bcdb40a",
+   "size": "763582946184",
+   "status": "1"
+  },
+  {
+   "completed_at": {
+    "nanos": "15838",
+    "seconds": "1700000074"
+   },
+   "created_at": {
+    "nanos": "15838",
+    "seconds": "1700000074"
+   },
+   "created_by": "c9cd1423-1393-d61c-0400-309c9b7e9d6a",
+   "manual_deletion": true,
+   "name": "hotel959",
+   "opaque_id": "090e11c00d065f9d9cc67c4f44ad1727",
+   "owner_task_id": "9a350275-dcf4-71a1-5a80-e51366a6d2c0",
+   "result_id": "eb9097af-883e-e4db-388b-4cf66e0389d5",
+   "session_id": "98b1354b-93ec-c818-9c77-209775815e52",
+   "size": "860257623104",
+   "status": "2"
+  },
+  {
+   "completed_at": {
+    "nanos": "23757",
+    "seconds": "1700000111"
+   },
+   "created_at": {
+    "nanos": "23757",
+    "seconds": "1700000111"
+   },
+   "created_by": "f6c4eecb-21fa-1171-df02-00114e0ee150",
+   "name": "bravo73",
+   "opaque_id": "d968623c9da0ccb4f84f2f4671804982",
+   "owner_task_id": "011cf723-b0e7-a4da-cc20-f603fc6b690e",
+   "result_id": "4733cee4-ffc8-354e-bf5a-dfa611adf158",
+   "session_id": "48cde297-7e4b-5043-eb24-43dc9577bf73",
+   "size": "976734898735",
+   "status": "3"
+  }
+ ],
+ "total": "4"
+}
