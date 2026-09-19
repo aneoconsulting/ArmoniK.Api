@@ -1,0 +1,88 @@
+== the java slice's codec bench ==
+java.version=17.0.20  vm=17.0.20+8-1-24.04-Ubuntu
+protobuf-java=protobuf-java-3.25.5.jar
+lib=/home/user/ArmoniK.Api/ffi/poc/java/build/jni/libakjni.so
+compact strings in the binding: yes (JDK 9+ String.value/coder)
+rounds requested=40 (rounded up to a multiple of the arm count), per-round target 40 ms, arm order rotates every round
+content set: ASCII (design/SHAPES.md's default; every id in the real schema is an ASCII GUID)
+ak.deopt=0  (1 triggers README R9's char-narrowing deoptimisation on purpose)
+
+Every ratio is PAIRED: computed inside one round against that round's
+own baseline, then reported as min/median/max across rounds. A ratio of
+two medians from different rounds appears nowhere.
+
+
+=== DECODE ===
+  pbj         parseFrom
+  R           the generated pure-Java codec
+  ffi         the C ABI, push family, wire copied once into native scratch and spans resolved against the byte[] the host holds
+  ffi-borrow  ABI v1 open decision 13: the facade holds views over the host's own buffer rather than String
+
+Comparable pairs. `pbj`, `R-take` and `ffi-take` all hand back a
+fresh byte[] and all pay their own size pass, so those three are the
+apples-to-apples set. `pbj-reuse`, `pbj-det`, `R`, `ffi`, `ffi-nobatch`
+and `ffi-zeroed` all write into a buffer they already own -- but the
+protobuf ones memoize the size and the others do not, so read those
+against each other only through the deltas below.
+
+Baseline: pbj. ns/op is that arm's own median. Each cell is min / median / max of
+the PAIRED per-round ratio. Read the median; the min is the least
+contaminated estimate and the max is usually one collection.
+
+id     bytes    base ns/op  R                     ffi                   ffi-borrow            
+P1.1   858      1099.6      0.695 0.913 1.109     0.778 1.038 1.437     0.673 0.882 1.032     
+P1.2   218121   255731.4    0.740 0.939 1.034     0.711 0.830 1.159     0.567 0.669 0.905     
+P1.3   605      12446.6     0.287 0.394 0.478     0.634 0.904 1.041     0.664 0.947 1.208     
+P2.1   1037     1713.7      0.738 0.845 1.100     1.363 1.621 2.054     1.293 1.527 1.847     
+P2.2   540422   997405.5    0.575 0.838 0.938     1.046 1.441 1.727     1.049 1.382 1.696     
+P2.3   647024   665907.2    0.662 1.008 1.476     0.890 1.260 1.492     0.716 1.072 1.325     
+P2.4   979465   850305.4    0.727 1.051 1.300     0.810 1.225 1.464     0.677 1.004 1.183     
+P2.5   19632    31101.4     0.651 0.829 1.114     1.278 1.618 1.868     1.209 1.548 1.819     
+P3.1   12097    20369.9     0.541 0.765 2.127     0.569 0.831 1.024     0.512 0.694 0.864     
+P4.1   65321    157670.3    0.607 0.690 0.915     1.100 1.341 2.318     1.122 1.308 3.206     
+P5.1   116      129.5       0.500 0.609 0.762     1.374 1.684 2.044     1.257 1.535 1.709     
+P5.2   65620    10212.1     0.389 0.974 1.979     0.504 1.141 1.372     0.459 1.155 1.456     
+P5.3   1048660  197166.4    0.686 0.993 1.239     0.950 1.310 1.555     0.942 1.307 1.561     
+P5.4   4194390  670103.7    0.834 0.990 1.247     1.360 1.596 1.979     1.313 1.629 2.292     
+P6.1   123354   243230.6    0.452 1.111 1.261     0.513 1.238 1.473     0.504 1.226 1.487     
+P7.1   98       452.0       0.408 0.459 0.547     2.185 2.824 3.587     2.157 2.757 3.214     
+
+DECODE deltas, paired inside each round (R4's sharpened form)
+
+  R - ffi   the same question, both writing into a buffer they own
+  id     ns/op lo    ns/op hi    per element   sign
+  P1.1   -552.9      -164.4      93.5        -41.112         STRADDLES ZERO
+  P1.2   -64672.2    28507.8     67344.2     28.508          STRADDLES ZERO
+  P1.3   -7836.3     -6210.6     -5371.4     -20.702         -
+  P2.1   -1973.2     -1289.5     -1019.6     -1289.463       -
+  P2.2   -896937.5   -581370.8   -453430.0   -1162.742       -
+  P2.3   -270174.0   -166739.5   122248.1    -1333.916       STRADDLES ZERO
+  P2.4   -351107.8   -144440.2   69304.6     -1805.503       STRADDLES ZERO
+  P2.5   -33122.1    -24006.1    -14273.4    -1200.304       -
+  P3.1   -5283.2     -1453.5     21921.7     -7.267          STRADDLES ZERO
+  P4.1   -254145.4   -98810.1    -63694.4    -494.051        -
+  P5.1   -208.6      -140.8      -118.2      -140.799        -
+  P5.2   -4497.1     -1619.5     8962.1      -1619.521       STRADDLES ZERO
+  P5.3   -101581.0   -56927.1    -16252.7    -56927.138      -
+  P5.4   -609905.3   -407918.5   -222764.3   -407918.538     -
+  P6.1   -73217.5    -31107.2    15150.0     -155.536        STRADDLES ZERO
+  P7.1   -1383.8     -1048.5     -993.5      -174.748        -
+
+  ffi - ffi-borrow   open decision 13: positive means the borrowed facade is FASTER
+  id     ns/op lo    ns/op hi    per element   sign
+  P1.1   24.3        173.4       611.4       43.338          +
+  P1.2   7449.6      38729.2     114370.7    38.729          +
+  P1.3   -3657.0     -477.5      1603.9      -1.592          STRADDLES ZERO
+  P2.1   -42.8       186.3       838.0       186.291         STRADDLES ZERO
+  P2.2   -367016.4   54296.7     363299.4    108.593         STRADDLES ZERO
+  P2.3   -50219.4    125057.8    289783.0    1000.463        STRADDLES ZERO
+  P2.4   40701.0     188395.1    371944.2    2354.939        +
+  P2.5   -6034.4     2322.4      10634.5     116.118         STRADDLES ZERO
+  P3.1   -422.3      2825.1      6705.9      14.126          STRADDLES ZERO
+  P4.1   -250064.7   4062.1      164347.7    20.311          STRADDLES ZERO
+  P5.1   -6.7        19.7        99.5        19.707          STRADDLES ZERO
+  P5.2   -4768.3     5.4         2382.5      5.384           STRADDLES ZERO
+  P5.3   -60570.4    -5313.7     61477.4     -5313.654       STRADDLES ZERO
+  P5.4   -693968.2   24610.9     242645.0    24610.869       STRADDLES ZERO
+  P6.1   -72097.0    4242.8      54063.4     21.214          STRADDLES ZERO
+  P7.1   -98.3       28.8        339.4       4.804           STRADDLES ZERO

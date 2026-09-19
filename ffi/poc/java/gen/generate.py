@@ -116,16 +116,15 @@ def targets(ir):
     # change -- `ak_span` is already an offset into the buffer the host handed in.
     N.set_string_type("ak.Utf8View")
     try:
-        d = JDIR % "java17"
-        for fn, text in java_facade.emit_types(ir, ns="ak.borrow").items():
-            out["src/generated/java17/ak/borrow/%s" % fn] = text
-        out["src/generated/java17/ak/borrow/Codec.java"] = java_codec.emit(
-            ir, ns="ak.borrow")
-        out["src/generated/java17/ak/borrow/Binding.java"] = java_binding.emit(
-            ir, level=17, ns="ak.borrow")
-        out["src/generated/java17/ak/borrow/FfiArms.java"] = java_ffiarms.emit(
-            ir, ns="ak.borrow")
-        del d
+        # Emitted at BOTH levels. A borrowed view is Java 8 clean, so the floor can carry
+        # the arm too; what the floor is not asked for is a ratio from it (README 5.2).
+        for level_dir, level in LEVELS:
+            b = "src/generated/%s/ak/borrow" % level_dir
+            for fn, text in java_facade.emit_types(ir, ns="ak.borrow").items():
+                out["%s/%s" % (b, fn)] = text
+            out["%s/Codec.java" % b] = java_codec.emit(ir, ns="ak.borrow")
+            out["%s/Binding.java" % b] = java_binding.emit(ir, level=level, ns="ak.borrow")
+            out["%s/FfiArms.java" % b] = java_ffiarms.emit(ir, ns="ak.borrow")
     finally:
         N.set_string_type("String")
     return out

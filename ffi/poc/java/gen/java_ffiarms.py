@@ -19,11 +19,15 @@ def emit(ir, ns=N.PKG, binding="Binding", facade=None):
              if noenc else "    return true;")
     o.append("  }")
     o.append("")
-    o.append("  public static void encode(%s b, String id, Object o) {" % binding)
+    o.append("  /** Returns the entry point's own result: a bench that called")
+    o.append("   *  `encodedLength()` to have something the JIT cannot discard would")
+    o.append("   *  add one forward crossing per operation to the arm being measured,")
+    o.append("   *  which on P1.1 is about 1 percent of the whole encode. */")
+    o.append("  public static int encode(%s b, String id, Object o) {" % binding)
     o.append("    switch (id) {")
     for pid, spec in rows:
         root = spec["root"]
-        o.append('      case "%s": b.encode%s((%s) o); break;' % (pid, root, root))
+        o.append('      case "%s": return b.encode%s((%s) o);' % (pid, root, root))
     o.append('      default: throw new IllegalArgumentException(id);')
     o.append("    }")
     o.append("  }")

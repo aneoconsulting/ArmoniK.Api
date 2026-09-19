@@ -1,0 +1,37 @@
+== R13 calibration: the rust slice's crossing benchmark, on THIS machine ==
+Linux 6.18.44-fc-v37 x86_64
+model name	: Intel(R) Xeon(R) Processor @ 2.10GHz
+vCPU: 4
+rustc 1.94.1 (e408947bf 2026-03-25)
+
+# rust slice bench, AK_BENCH_ONLY=P1.1 (the crossing rows are always kept)
+# stage 2 timings
+#   arms:   prost | armonik | core-native | core-ffi-rust, one process
+#   guard:  ON (ABI v1 section 5)
+#   counting build: no
+#   rounds: 15, interleaved; per-round target 25 ms
+#   shapes: M1 (P1.x) and M2 (P2.x), both REAL messages. No control rows here:
+#           M6 and M7 are the controls in design/SHAPES.md and are not built yet.
+#   filtered: AK_BENCH_ONLY=P1.1 (11 cases)
+-       crossing  forward (no-op)        12500000          2.1          2.1          2.3          -
+-       crossing  fwd+reverse (no-op)     6250000          2.1          2.1          2.6          -
+# ABI v1 open decision 5: what the grow path costs, isolated
+# prost's excess is the floor: it has no learned width, so its number is what
+# this construction costs on its own. The mechanism's cost is the difference
+# between a core arm's excess and prost's.
+
+# and this slice's own, in the same shape: a JNI forward call and a JNI upcall,
+# measured in one process against a no-op on both sides of the boundary.
+== JNI crossing price, this machine, this process ==
+java.version=17.0.20  vm=17.0.20+8-1-24.04-Ubuntu
+rounds=9  sink=164296681162112
+path              iters   min_ns   med_ns   max_ns
+fwd             4325376   10.974   11.305   12.816
+fwd+buf         3538944   11.977   12.000   12.512
+rev              196608  295.880  298.068  309.357
+rev-cached       393216   75.775   77.634   90.982
+rev-obj          688128   80.887   82.051   93.479
+
+# and the core's own no-op entry point, reached the way every arm reaches it, so
+# the crossing price is measured through the SAME shim the arms use.
+  ak_noop through the slice's own shim: min 11.907 med 12.039 max 12.880 ns  (sink=289999963000000)
