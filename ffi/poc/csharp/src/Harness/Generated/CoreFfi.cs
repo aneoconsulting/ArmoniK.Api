@@ -151,11 +151,135 @@ public sealed unsafe class CoreFfiM1 : IDisposable
         return a;
     }
 
+    /// What the decode callbacks are handed as `obj`. It carries the host's own input
+    /// buffer, because `ak_span` is an OFFSET into it and resolving one needs the base
+    /// the codec never sees.
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DecRun
+    {
+        public IntPtr Target;   // GCHandle to the ListResultsResponse being filled
+        public byte* Buf;       // the base ak_span offsets are relative to
+    }
+
+    private IntPtr _dctx;
+    private DecRun* _drun;
+
+    /// The root's own scalars. One reverse call per message.
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListResultsResponse* fix)
+    {
+        try
+        {
+            var run = (DecRun*)obj;
+            var t = (ListResultsResponse)GCHandle.FromIntPtr(run->Target).Target;
+            t.Page = fix->page;
+            t.Total = fix->total;
+        }
+        catch
+        {
+            // A managed exception here aborts the process, so it is reported
+            // through ak_fail, which ABI v1 section 5 makes safe from inside a
+            // reverse-call frame: sticky, never allocates, never throws.
+            Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0);
+        }
+    }
+
+    /// A whole RUN of elements in one reverse call. Append, never size to the count
+    /// handed over: the codec may deliver the run in chunks and the vtable comment says
+    /// so.
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static void AddResults(IntPtr ctx, void* obj, long token, ak_dfix_ResultRaw* elems, int n)
+    {
+        try
+        {
+            var run = (DecRun*)obj;
+            var t = (ListResultsResponse)GCHandle.FromIntPtr(run->Target).Target;
+            byte* b = run->Buf;
+            for (int i = 0; i < n; i++)
+            {
+                ref var d = ref elems[i];
+                var r = new ResultRaw();
+                r.SessionId = Str(b, d.session_id);
+                r.Name = Str(b, d.name);
+                r.OwnerTaskId = Str(b, d.owner_task_id);
+                r.Status = (ResultStatus)d.status;
+                if ((d.presence & 1) != 0)
+                    r.CreatedAt = new Timestamp { Seconds = d.created_at.seconds, Nanos = d.created_at.nanos };
+                if ((d.presence & 2) != 0)
+                    r.CompletedAt = new Timestamp { Seconds = d.completed_at.seconds, Nanos = d.completed_at.nanos };
+                r.ResultId = Str(b, d.result_id);
+                r.Size = d.size;
+                r.CreatedBy = Str(b, d.created_by);
+                r.OpaqueId = Bytes(b, d.opaque_id);
+                r.ManualDeletion = d.manual_deletion != 0;
+                t.Results.Add(r);
+            }
+        }
+        catch
+        {
+            Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0);
+        }
+    }
+
+    /// Resolve an `ak_span` against the host's own buffer. `len == 0` is the empty
+    /// string rather than a null, which is what the facade's implicit-presence default
+    /// already is.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string Str(byte* b, ak_span s)
+        => s.len == 0 ? "" : Encoding.UTF8.GetString(b + s.off, (int)s.len);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static byte[] Bytes(byte* b, ak_span s)
+    {
+        if (s.len == 0) return Array.Empty<byte>();
+        var a = new byte[s.len];
+        new ReadOnlySpan<byte>(b + s.off, (int)s.len).CopyTo(a);
+        return a;
+    }
+
+    public ListResultsResponse Decode(byte[] src, int len)
+    {
+        if (_dctx == IntPtr.Zero)
+        {
+            _dctx = Abi.ak_dec_ctx_new();
+            _drun = (DecRun*)NativeMemory.Alloc((nuint)sizeof(DecRun));
+        }
+        Abi.ak_dec_err_reset(_dctx);
+        var target = new ListResultsResponse();
+        var h = GCHandle.Alloc(target);
+        try
+        {
+            fixed (byte* b = src)
+            {
+                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Buf = b;
+                var vt = new ak_dvt_ListResultsResponse
+                {
+                    apply = &ApplyRoot,
+                    unknown = IntPtr.Zero,
+                    unk_results = IntPtr.Zero,
+                    add_results = &AddResults,
+                };
+                ForwardCalls++;   // ak_decode_*
+                ReverseCalls++;   // apply
+                ReverseCalls++;   // add_results, once for the whole run
+                int rc = Abi.ak_decode_ListResultsResponse(_dctx, _drun, b, (nuint)len, &vt);
+                if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}");
+                int he = Abi.ak_dec_err(_dctx);
+                if (he != 0) throw new InvalidOperationException($"host reported {he} through ak_fail");
+            }
+        }
+        finally { h.Free(); }
+        return target;
+    }
+
     public void Dispose()
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_groups != null) { NativeMemory.AlignedFree(_groups); _groups = null; }
         if (_staging != null) { NativeMemory.Free(_staging); _staging = null; }
         if (_run != null) { NativeMemory.Free(_run); _run = null; }
+        if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
     }
 }
