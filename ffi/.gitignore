@@ -6,12 +6,28 @@
 # word, so the rule is: a new source directory here is checked with `git check-ignore`
 # before it is filled, not after.
 #
+# Four times now, not three: `poc/*/gen/` does not match a generator one level
+# deeper, and `poc/python/mech/gen/` was swallowed whole. The re-inclusions below
+# are therefore depth-independent. A pattern that covers the layout someone
+# already wrote is not the same as one that covers the layout the next slice will
+# write.
+#
 # `schema/` sidesteps the first two by avoiding the names. The slices cannot:
 # `poc/<lang>/gen/` and `logs/<lang>/` are what README section 12 tells them to
 # write, and `src/bin/` is where a Cargo harness keeps its binaries.
 !logs/
 !logs/**
-!poc/*/gen/
-!poc/*/gen/**
+!poc/**/gen/
+!poc/**/gen/**
+
+# ...but a `gen` inside a BUILD tree is output, not source, so re-exclude those.
+# Making the re-inclusion depth-independent immediately un-ignored two CMake
+# build directories' generated protobuf sources, which is the same defect in the
+# other direction: a pattern wide enough to catch every source directory is wide
+# enough to catch output too. Later rules win, so these come after.
+poc/**/build/
+poc/**/build-*/
+poc/**/target/
+poc/**/target-*/
 !**/bin/
 !**/bin/**
