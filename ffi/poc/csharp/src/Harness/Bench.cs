@@ -276,10 +276,12 @@ public static class Bench
         Console.WriteLine("Reading this table.");
         Console.WriteLine("  /gp-writeto is the BASELINE column: CalculateSize + WriteTo(Span) into a reused");
         Console.WriteLine("    buffer, no allocation. On decode the baseline is gp-parse for both.");
-        Console.WriteLine("  gp-bufferwriter is the same official API family with NO top-level size pass:");
-        Console.WriteLine("    WriteTo(IBufferWriter) over a reused ArrayBufferWriter, reset rather than");
-        Console.WriteLine("    cleared. If it beats gp-writeto, the baseline column was handicapped by one");
-        Console.WriteLine("    size traversal and every managed ratio against it was flattered by that much.");
+        Console.WriteLine("  gp-bufferwriter is WriteTo(IBufferWriter) with NO top-level size pass, over a");
+        Console.WriteLine("    reused BufWriter that resets rather than clearing. It is NOT a baseline an");
+        Console.WriteLine("    ArmoniK client could use: Grpc.Tools' generated marshaller calls");
+        Console.WriteLine("    SetPayloadLength(CalculateSize()) and THEN WriteTo(bufferWriter), because");
+        Console.WriteLine("    gRPC needs the payload length before the frame header. What this arm prices");
+        Console.WriteLine("    is therefore the SIZE PASS IN ISOLATION, not a faster incumbent.");
         Console.WriteLine("  /gp-tba is Google.Protobuf's ToByteArray, which is the call application code");
         Console.WriteLine("    actually writes. The two differ by one allocation of the output, and the gap");
         Console.WriteLine("    between the two columns is that allocation with nothing else in it.");
