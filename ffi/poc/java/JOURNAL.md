@@ -203,3 +203,29 @@ harness says what warmed the process, and none of the published ones does.
 `pkill -f RunDelta` from a shell whose own command line contained "RunDelta" killed the
 shell, and `until ! pgrep -f "ak.RunDelta"` never exited for the same reason. Recorded
 because the second one is silent: it looks exactly like a benchmark that is still running.
+
+### J13. ABI v1 section 9's virtual-thread amendment, confirmed without an RPC stack
+
+The amendment says blocking in a native frame from a virtual thread pins its carrier, and
+that parking in Java on a future -- which the callback mode provides -- does not. It reads
+as a claim about gRPC and it is not: it is a claim about where the waiting happens, and it
+needs no transport at all.
+
+Eight virtual threads waiting 300 ms each, on a scheduler with a known parallelism. Pinned,
+the run is `ceil(N/P)*W`; unpinned, `W`. Three carrier counts, so the reading is a curve:
+
+| carriers | predicted if pinned | blocking in the native frame | parked on a future |
+|---|---|---|---|
+| 1 | 2,400 ms | 2,420 | 306 |
+| 2 | 1,200 ms | 1,222 | 304 |
+| 4 | 600 ms | 622 | 305 |
+
+The blocking mode tracks the pinned prediction to within one percent at every point and the
+callback mode is flat. The amendment is right, and the consequence is the one it draws: the
+callback mode is not a convenience.
+
+This is the whole of the RPC arm this slice built, and it is deliberate. The rest of that
+arm -- CPU per RPC against grpc-java at 1, 8 and 16 in flight -- would have been a third
+measurement of a call path whose cost ABI v1 section 9 already shows to be four parts in a
+million, against a transport stack that is not the thing under test. The pinning question
+was the only item on the list that a JVM can answer and nothing else can.
