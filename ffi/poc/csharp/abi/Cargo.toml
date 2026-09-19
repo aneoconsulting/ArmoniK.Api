@@ -1,0 +1,31 @@
+# The layout probe, and why the C# slice needs one when no earlier slice did.
+#
+# ABI v1 obligation 12.3 asks for a group layout export and an assert at load.
+# The Rust slice records it as untested, and says why: "Both sides compile
+# against one generated header here, so there is nothing to disagree -- which
+# means the insurance that matters to a hand-layout host (FFM) is untested."
+#
+# C# IS that hand-layout host. A `[StructLayout(LayoutKind.Sequential)]` struct
+# on the managed side is a SECOND declaration of a type whose first declaration
+# is in Rust, and nothing but agreement of the two makes the by-value group
+# work. Byte identity would catch a disagreement, eventually, as a wrong
+# payload -- but it would report it as a codec defect rather than as a layout
+# defect, which is a day of looking in the wrong place.
+#
+# So this prints the size and every field offset of the structs the C# binding
+# declares, as JSON, and the generator emits asserts against it. It lives under
+# ffi/poc/csharp because that is what this slice owns; it changes nothing in
+# ffi/poc/rust and links ak-abi read-only.
+[package]
+name = "ak-layout-probe"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "ak-layout-probe"
+path = "src/main.rs"
+
+[dependencies]
+ak-abi = { path = "../../rust/crates/ak-abi" }
+
+[workspace]
