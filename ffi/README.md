@@ -367,8 +367,8 @@ deliverable.
 | W2 | **Freeze the shapes and the payload set.** | **Done.** `schema/shapes.json` is the description, `schema/generated/` carries the emitted `.proto` and a payload manifest with a hash per payload, and the Rust slice has confirmed every hash against prost 0.14.4 and a second, independent encoder. One defect was found and fixed in `emit/payloads.py`; 8 of 16 hashes moved. A slice that disagrees with a hash now has a defect in itself, **with one measured exception: P2.5 has two valid encodings** and the manifest records prost's. protobuf C++ and upb both write an empty map value, at +80 B, so four of the five languages will disagree with that hash and be right. See `design/SHAPES.md`; taken literally the old sentence would have raised a false defect in three unbuilt slices. |
 | W3 | **Rust slice.** Section 4.1. | **Done.** Four arms over every message and payload of `design/SHAPES.md`, all byte-identical to the validated manifest, plus the three content sets, the unknown-field vectors and the RPC arm. The decomposition every other slice subtracts is available: **a crossing costs 1.8 ns through a shared library**, and the RPC half costs **two crossings per call, zero per field**. See [`findings/rust.md`](findings/rust.md) for what it does not establish, which is longer than what it does. |
 | W4 | **C++ slice on the amended ABI.** Rebuild against W1, re-measure against protobuf C++, and demonstrate the C++11 floor. **In flight.** Full codec plus the RPC arm; shared library primary, static as a separately labelled second arm. It carries decision 1, which blocks freezing W1. **Done.** See [`findings/cpp.md`](findings/cpp.md). "The managed amendments are free in C++" is now a measurement and the answer is no, not uniformly. 28 adversarial review findings answered, moving the encode column about 8 points and the RPC verdict 0.3, plus two arms nobody asked for: upb as a ceiling, and a borrowed-string facade. |
-| W5 | **C# slice.** ~~Import the existing slice~~, rebuild against W1, then close its two named gaps: a managed decode control, and oneofs plus explicit presence. **There is nothing to import**: no branch carries the prior slice's sources and only the published report survives, so this is a rebuild and open question 1 is moot. **In flight, scoped to its ABI-independent half** (incumbent, facade, correctness, the managed decode control); the `core-ffi` arm waits on decision 1. | Both gaps have numbers, and the floor (netstandard2.0 or net48) compiles and passes correctness. |
-| W6 | **Java slice.** ~~Import~~, rebuild against W1, re-measure encode, and keep the generated-Java-codec arm as a first-class candidate. Nothing to import here either. **In flight, full scope**, now that decision 1 is answered. It carries a prediction to falsify: the batching crossover is 2 to 4 ns and JNI is 98.4, so batching should win decisively there. | The encode verdict is stated against ABI v1, on JDK 17 with JNI, with the Java 8 floor demonstrated. |
+| W5 | **C# slice.** ~~Import the existing slice~~, rebuild against W1, then close its two named gaps: a managed decode control, and oneofs plus explicit presence. **There is nothing to import**: no branch carries the prior slice's sources and only the published report survives, so this is a rebuild and open question 1 is moot. **Half done**; see [`findings/csharp.md`](findings/csharp.md). The named gap is closed: **C# does not look like Java on decode** (a generated pure-C# codec at 0.72-0.82 of `Google.Protobuf` on the real schema's shapes), oneof and explicit presence are covered in the facade and the managed codec, and the floor builds and passes on netstandard2.0 and on Mono. **The `core-ffi` arm is not built**, so half of W5 remains and the ABI half of the two field shapes with it. | Both gaps have numbers, and the floor (netstandard2.0 or net48) compiles and passes correctness. |
+| W6 | **Java slice.** ~~Import~~, rebuild against W1, re-measure encode, and keep the generated-Java-codec arm as a first-class candidate. Nothing to import here either. **Done**; see [`findings/java.md`](findings/java.md). **The encode regression does not survive and the decode half of the verdict does**: the C ABI is 0.58-0.96 on encode and 1.22-1.62 on every M2 decode, where the generated Java codec beats it. The published regression is reconstructible from an incumbent that memoizes its size pass. The batching prediction was confirmed quantitatively, decisions 9 and 13 are answered for a managed host, and section 9's virtual-thread amendment is measured. No grpc-java comparison exists. | The encode verdict is stated against ABI v1, on JDK 17 with JNI, with the Java 8 floor demonstrated. |
 | W7 | **Python slice.** Section 9. **Work unit 1 done**, slice proper not started; see [`findings/python.md`](findings/python.md). The mechanism is settled (C extension; `ctypes` and `cffi` refused for the codec, their callback being 165-170x a C-to-C call), the storage is settled for encode, and 9.1's premise holds. **It also removed outcome 2 from the table for Python**: the generated pure-Python codec is 19.4 to 20.3 times upb. | Python has a verdict of the same shape as the others, or a stated reason why the question is different there. |
 | W8 | **Conformance corpus.** Section 10. | Every slice produces and consumes the same bytes, and the corpus is generated rather than curated. |
 | W9 | **The report.** | `REPORT.md` states a recommendation, the evidence for it, and what it does not establish. |
@@ -501,11 +501,29 @@ the stalls overlap and wall-clock collapses by more than an order of magnitude. 
 Rust slice's first version would have reported 33 ms per call for a path that costs
 1.5 ms of CPU. SHAPES.md asks for CPU per RPC, and this is why; a wall-clock column
 is reported beside it or not at all. The rest:
-JIT tiering and PGO off handicaps a managed incumbent; on JDK 21 and later a
-single `String.format` with a numeric conversion permanently deoptimises every
-`char` narrowing loop in the process, which is protobuf-java's own encoder; two
-vCPUs is the smallest contention a shared cache line can have, so a concurrency
-figure from it is a lower bound and not a figure.
+JIT tiering and PGO off handicaps a managed incumbent, which the C# slice checked
+rather than assumed: no arm there crosses 1.0 under any of three configurations,
+and the default is the one *least* favourable to the managed arms. Two vCPUs is
+the smallest contention a shared cache line can have, so a concurrency figure
+from it is a lower bound and not a figure.
+
+**The JVM hazard this rule used to state is real, is larger than stated, and was
+wrong in four of five particulars.** The java slice measured it rather than
+avoiding it. Reading a **Latin-1** `String`'s characters before the first
+measurement — which one `String.format` does internally — makes every
+protobuf-java arm **2.16 times faster**, makes a generated Java codec 1.27 times
+slower, and leaves the C ABI arm **unmoved**. So: it reproduces on **JDK 17 and
+not on 21**; the trigger is any read of a Latin-1 `String`'s chars rather than a
+numeric conversion, and a wide string does nothing; no narrowing loop is
+involved; the incumbent gets *faster*, not slower; and **nothing happens on ASCII
+at all, on either JDK, which is why every published managed figure has been blind
+to it**. A slice measures this and says which content set each string-path figure
+came from.
+
+**The immunity is itself a result.** The C ABI arm does not move, because ABI v1
+section 4 put the transcoder in the core, so that arm has no `charAt` loop for the
+JIT to profile. It is the only arm insensitive to the host JIT's profile history,
+and it is an argument for the design that no benchmark was looking for.
 
 **R10. Keep a defect log.** Each slice records the defects found in it and what
 found them. Three of the most useful findings in the existing reports are defects

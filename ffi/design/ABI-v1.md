@@ -752,6 +752,23 @@ rather than changing shape:
   parking in Java on a future, which the callback mode already provides. The
   requirement on the ABI is this weak and this general.
 
+  **MEASURED, by the java slice, and it is the one item on this list only a JVM
+  slice could settle.** Eight virtual threads each waiting 300 ms on a scheduler
+  of known parallelism: if the carrier is pinned the run takes `ceil(N/P) × W`.
+
+  | carriers | predicted if pinned | blocking in the native frame | parked on a future |
+  |---|---|---|---|
+  | 1 | 2,400 ms | **2,420** | **306** |
+  | 2 | 1,200 ms | **1,222** | **304** |
+  | 4 | 600 ms | **622** | **305** |
+
+  The blocking mode scales exactly as the pinned prediction; the callback mode is
+  flat. So **the completion callback is not a convenience, it is what makes this
+  ABI usable from the idiom Java is moving to**, and a host that offers only the
+  blocking mode is not conformant in any useful sense on JDK 21 and later. It
+  needs no RPC stack to reproduce — the question is where the waiting happens —
+  which is why it was cheap and why nobody had done it. (`logs/java/pinning.log`.)
+
 **Not offered: the host executor slot.** Built and measured on two runtimes,
 earns its complexity on neither. Two structural findings from building it are
 kept: it needs a bootstrap drainer, because hyper spawns the connection task
@@ -1001,9 +1018,15 @@ Each blocks something. None is settled by a measurement that exists today.
    store cost something quite different in a managed host, and this is exactly the
    kind of mechanism whose value differs by runtime by construction — the batched
    element run already differs 2 to 9 percent on JNI and nothing measurable on
-   .NET. **Blocks: nothing. Settled for C++ and Rust by this measurement; C# and
-   Java decide whether it generalises**, and until they do the total fill stays the
-   specified path with this recorded as a measured alternative.
+   .NET. **Blocks: nothing. ANSWERED: three hosts agree and the condition is
+   met.** Rust and C++ settled it first; **the java slice generalises it to a
+   managed host**, which is exactly what this decision was waiting on — 46 ns per
+   element on the absent path, 0.32 of the total fill, clean sign over 40 rounds
+   and clear of the drift bar by an order of magnitude, with every other payload
+   inside the bar (medians between −0.04 and +0.02 of the fill). The absent-path
+   inversion goes from `ffi-take` 1.967 to 0.734 of protobuf-java. **The sparse
+   fill becomes the specified path**, with the wording corrected below; the total
+   fill stays legal for a host that prefers it.
 
    **The candidate's own wording is wrong, and the C++ slice found it by
    measuring.** "Clear the chunk" is what `rust_abi.py` emits, and it clears the
