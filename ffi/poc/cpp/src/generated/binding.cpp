@@ -889,9 +889,20 @@ static int32_t loop_list_results_response_results_zeroed(ak_enc_ctx *ctx, const 
     const std::vector<ResultRaw> &src = src_owner.results;
     constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_efix_ResultRaw));
     struct ak_efix_ResultRaw chunk[kChunk];
+    // Clear only what will be USED, never the whole 32 KB arena: the clear
+    // is otherwise O(arena) where the fill is O(elements), so on a 1- or
+    // 4-element payload the candidate inverts. Measured with the whole-chunk
+    // clear (which is what the rust slice built): P1.1 +156 ns/element and
+    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.
+    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;
     // All-zero is a valid group, and the bulk clear is what lets the
-    // fill below be sparse (ABI v1 open decision 9's candidate).
-    std::memset(chunk, 0, sizeof(chunk));
+    // fill below be sparse (ABI v1 open decision 9's candidate). Only an
+    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are
+    // assigned in full, so clearing their chunk would be pure waste -- and
+    // an inner loop runs once per element, so that waste would be paid 500
+    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this
+    // and 0.6x after, which is the whole arm rather than a detail.
+    if (kClear) std::memset(chunk, 0, kClear * sizeof(struct ak_efix_ResultRaw));
     size_t i = 0, done = 0;
     (void)done;
     for (size_t k = 0; k < src.size(); ++k) {
@@ -1170,9 +1181,20 @@ static int32_t loop_list_tasks_detailed_response_tasks_zeroed(ak_enc_ctx *ctx, c
     const std::vector<TaskDetailed> &src = src_owner.tasks;
     constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_efix_TaskDetailed));
     struct ak_efix_TaskDetailed chunk[kChunk];
+    // Clear only what will be USED, never the whole 32 KB arena: the clear
+    // is otherwise O(arena) where the fill is O(elements), so on a 1- or
+    // 4-element payload the candidate inverts. Measured with the whole-chunk
+    // clear (which is what the rust slice built): P1.1 +156 ns/element and
+    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.
+    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;
     // All-zero is a valid group, and the bulk clear is what lets the
-    // fill below be sparse (ABI v1 open decision 9's candidate).
-    std::memset(chunk, 0, sizeof(chunk));
+    // fill below be sparse (ABI v1 open decision 9's candidate). Only an
+    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are
+    // assigned in full, so clearing their chunk would be pure waste -- and
+    // an inner loop runs once per element, so that waste would be paid 500
+    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this
+    // and 0.6x after, which is the whole arm rather than a detail.
+    if (kClear) std::memset(chunk, 0, kClear * sizeof(struct ak_efix_TaskDetailed));
     size_t i = 0, done = 0;
     (void)done;
     for (size_t k = 0; k < src.size(); ++k) {
@@ -1204,9 +1226,6 @@ static int32_t loop_list_tasks_detailed_response_tasks_parent_task_ids_zeroed(ak
     const std::vector<std::string> &src = src_owner.parent_task_ids;
     constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_str));
     struct ak_str chunk[kChunk];
-    // All-zero is a valid group, and the bulk clear is what lets the
-    // fill below be sparse (ABI v1 open decision 9's candidate).
-    std::memset(chunk, 0, sizeof(chunk));
     size_t i = 0, done = 0;
     (void)done;
     for (size_t k = 0; k < src.size(); ++k) {
@@ -1236,9 +1255,6 @@ static int32_t loop_list_tasks_detailed_response_tasks_data_dependencies_zeroed(
     const std::vector<std::string> &src = src_owner.data_dependencies;
     constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_str));
     struct ak_str chunk[kChunk];
-    // All-zero is a valid group, and the bulk clear is what lets the
-    // fill below be sparse (ABI v1 open decision 9's candidate).
-    std::memset(chunk, 0, sizeof(chunk));
     size_t i = 0, done = 0;
     (void)done;
     for (size_t k = 0; k < src.size(); ++k) {
@@ -1268,9 +1284,6 @@ static int32_t loop_list_tasks_detailed_response_tasks_expected_output_ids_zeroe
     const std::vector<std::string> &src = src_owner.expected_output_ids;
     constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_str));
     struct ak_str chunk[kChunk];
-    // All-zero is a valid group, and the bulk clear is what lets the
-    // fill below be sparse (ABI v1 open decision 9's candidate).
-    std::memset(chunk, 0, sizeof(chunk));
     size_t i = 0, done = 0;
     (void)done;
     for (size_t k = 0; k < src.size(); ++k) {
@@ -1300,9 +1313,6 @@ static int32_t loop_list_tasks_detailed_response_tasks_retry_of_ids_zeroed(ak_en
     const std::vector<std::string> &src = src_owner.retry_of_ids;
     constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_str));
     struct ak_str chunk[kChunk];
-    // All-zero is a valid group, and the bulk clear is what lets the
-    // fill below be sparse (ABI v1 open decision 9's candidate).
-    std::memset(chunk, 0, sizeof(chunk));
     size_t i = 0, done = 0;
     (void)done;
     for (size_t k = 0; k < src.size(); ++k) {
@@ -1333,9 +1343,6 @@ static int32_t loop_list_tasks_detailed_response_tasks_options_options_zeroed(ak
     const std::map<std::string, std::string> &src = src_owner.options;
     constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_efix_TaskOptionsOptionsEntry));
     struct ak_efix_TaskOptionsOptionsEntry chunk[kChunk];
-    // All-zero is a valid group, and the bulk clear is what lets the
-    // fill below be sparse (ABI v1 open decision 9's candidate).
-    std::memset(chunk, 0, sizeof(chunk));
     size_t i = 0, done = 0;
     (void)done;
     for (std::map<std::string, std::string>::const_iterator it = src.begin(); it != src.end(); ++it) {
@@ -1623,9 +1630,20 @@ static int32_t loop_list_probe_response_probes_zeroed(ak_enc_ctx *ctx, const voi
     const std::vector<Probe> &src = src_owner.probes;
     constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_efix_Probe));
     struct ak_efix_Probe chunk[kChunk];
+    // Clear only what will be USED, never the whole 32 KB arena: the clear
+    // is otherwise O(arena) where the fill is O(elements), so on a 1- or
+    // 4-element payload the candidate inverts. Measured with the whole-chunk
+    // clear (which is what the rust slice built): P1.1 +156 ns/element and
+    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.
+    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;
     // All-zero is a valid group, and the bulk clear is what lets the
-    // fill below be sparse (ABI v1 open decision 9's candidate).
-    std::memset(chunk, 0, sizeof(chunk));
+    // fill below be sparse (ABI v1 open decision 9's candidate). Only an
+    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are
+    // assigned in full, so clearing their chunk would be pure waste -- and
+    // an inner loop runs once per element, so that waste would be paid 500
+    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this
+    // and 0.6x after, which is the whole arm rather than a detail.
+    if (kClear) std::memset(chunk, 0, kClear * sizeof(struct ak_efix_Probe));
     size_t i = 0, done = 0;
     (void)done;
     for (size_t k = 0; k < src.size(); ++k) {
@@ -1784,9 +1802,20 @@ static int32_t loop_list_task_summary_response_tasks_zeroed(ak_enc_ctx *ctx, con
     const std::vector<TaskSummary> &src = src_owner.tasks;
     constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_efix_TaskSummary));
     struct ak_efix_TaskSummary chunk[kChunk];
+    // Clear only what will be USED, never the whole 32 KB arena: the clear
+    // is otherwise O(arena) where the fill is O(elements), so on a 1- or
+    // 4-element payload the candidate inverts. Measured with the whole-chunk
+    // clear (which is what the rust slice built): P1.1 +156 ns/element and
+    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.
+    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;
     // All-zero is a valid group, and the bulk clear is what lets the
-    // fill below be sparse (ABI v1 open decision 9's candidate).
-    std::memset(chunk, 0, sizeof(chunk));
+    // fill below be sparse (ABI v1 open decision 9's candidate). Only an
+    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are
+    // assigned in full, so clearing their chunk would be pure waste -- and
+    // an inner loop runs once per element, so that waste would be paid 500
+    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this
+    // and 0.6x after, which is the whole arm rather than a detail.
+    if (kClear) std::memset(chunk, 0, kClear * sizeof(struct ak_efix_TaskSummary));
     size_t i = 0, done = 0;
     (void)done;
     for (size_t k = 0; k < src.size(); ++k) {
@@ -1819,9 +1848,6 @@ static int32_t loop_list_task_summary_response_tasks_options_options_zeroed(ak_e
     const std::map<std::string, std::string> &src = src_owner.options;
     constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_efix_TaskOptionsOptionsEntry));
     struct ak_efix_TaskOptionsOptionsEntry chunk[kChunk];
-    // All-zero is a valid group, and the bulk clear is what lets the
-    // fill below be sparse (ABI v1 open decision 9's candidate).
-    std::memset(chunk, 0, sizeof(chunk));
     size_t i = 0, done = 0;
     (void)done;
     for (std::map<std::string, std::string>::const_iterator it = src.begin(); it != src.end(); ++it) {
@@ -2098,9 +2124,20 @@ static int32_t loop_list_metrics_response_batches_zeroed(ak_enc_ctx *ctx, const 
     const std::vector<MetricsBatch> &src = src_owner.batches;
     constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_efix_MetricsBatch));
     struct ak_efix_MetricsBatch chunk[kChunk];
+    // Clear only what will be USED, never the whole 32 KB arena: the clear
+    // is otherwise O(arena) where the fill is O(elements), so on a 1- or
+    // 4-element payload the candidate inverts. Measured with the whole-chunk
+    // clear (which is what the rust slice built): P1.1 +156 ns/element and
+    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.
+    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;
     // All-zero is a valid group, and the bulk clear is what lets the
-    // fill below be sparse (ABI v1 open decision 9's candidate).
-    std::memset(chunk, 0, sizeof(chunk));
+    // fill below be sparse (ABI v1 open decision 9's candidate). Only an
+    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are
+    // assigned in full, so clearing their chunk would be pure waste -- and
+    // an inner loop runs once per element, so that waste would be paid 500
+    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this
+    // and 0.6x after, which is the whole arm rather than a detail.
+    if (kClear) std::memset(chunk, 0, kClear * sizeof(struct ak_efix_MetricsBatch));
     size_t i = 0, done = 0;
     (void)done;
     for (size_t k = 0; k < src.size(); ++k) {
@@ -2401,9 +2438,20 @@ static int32_t loop_dual_response_left_zeroed(ak_enc_ctx *ctx, const void *obj, 
     const std::vector<Pair> &src = src_owner.left;
     constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_efix_Pair));
     struct ak_efix_Pair chunk[kChunk];
+    // Clear only what will be USED, never the whole 32 KB arena: the clear
+    // is otherwise O(arena) where the fill is O(elements), so on a 1- or
+    // 4-element payload the candidate inverts. Measured with the whole-chunk
+    // clear (which is what the rust slice built): P1.1 +156 ns/element and
+    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.
+    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;
     // All-zero is a valid group, and the bulk clear is what lets the
-    // fill below be sparse (ABI v1 open decision 9's candidate).
-    std::memset(chunk, 0, sizeof(chunk));
+    // fill below be sparse (ABI v1 open decision 9's candidate). Only an
+    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are
+    // assigned in full, so clearing their chunk would be pure waste -- and
+    // an inner loop runs once per element, so that waste would be paid 500
+    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this
+    // and 0.6x after, which is the whole arm rather than a detail.
+    if (kClear) std::memset(chunk, 0, kClear * sizeof(struct ak_efix_Pair));
     size_t i = 0, done = 0;
     (void)done;
     for (size_t k = 0; k < src.size(); ++k) {
@@ -2434,9 +2482,20 @@ static int32_t loop_dual_response_right_zeroed(ak_enc_ctx *ctx, const void *obj,
     const std::vector<Pair> &src = src_owner.right;
     constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_efix_Pair));
     struct ak_efix_Pair chunk[kChunk];
+    // Clear only what will be USED, never the whole 32 KB arena: the clear
+    // is otherwise O(arena) where the fill is O(elements), so on a 1- or
+    // 4-element payload the candidate inverts. Measured with the whole-chunk
+    // clear (which is what the rust slice built): P1.1 +156 ns/element and
+    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.
+    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;
     // All-zero is a valid group, and the bulk clear is what lets the
-    // fill below be sparse (ABI v1 open decision 9's candidate).
-    std::memset(chunk, 0, sizeof(chunk));
+    // fill below be sparse (ABI v1 open decision 9's candidate). Only an
+    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are
+    // assigned in full, so clearing their chunk would be pure waste -- and
+    // an inner loop runs once per element, so that waste would be paid 500
+    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this
+    // and 0.6x after, which is the whole arm rather than a detail.
+    if (kClear) std::memset(chunk, 0, kClear * sizeof(struct ak_efix_Pair));
     size_t i = 0, done = 0;
     (void)done;
     for (size_t k = 0; k < src.size(); ++k) {

@@ -58,19 +58,30 @@ static Row *row(const char *p, const char *d, const char *a) {
   return &g_rows.back();
 }
 
-// Calibrate so every arm runs for roughly the same wall time per round.
+// One measurement = the MINIMUM of five sub-batches. The mean of a batch on a shared
+// 4-vCPU container carries whatever else the scheduler did during it; the minimum is the
+// uncontended cost, and it is what makes a within-round ratio reproduce. The first build
+// used the mean and the per-round ratio range was up to 0.19 wide on rows whose median
+// was stable to 0.01.
 template <class Fn>
 static double timed(Fn f, int iters) {
-  double t0 = now_ns();
-  for (int i = 0; i < iters; ++i) f();
-  return (now_ns() - t0) / iters;
+  int per = iters / 5;
+  if (per < 1) per = 1;
+  double best = 1e300;
+  for (int b = 0; b < 5; ++b) {
+    double t0 = now_ns();
+    for (int i = 0; i < per; ++i) f();
+    double d = (now_ns() - t0) / per;
+    if (d < best) best = d;
+  }
+  return best;
 }
 
 template <class Fn>
 static int calibrate(Fn f) {
   double one = timed(f, 1);
   if (one <= 0) one = 1;
-  int n = (int)(20e6 / one);          // ~20 ms
+  int n = (int)(40e6 / one);          // ~40 ms per round, in five sub-batches
   if (n < 3) n = 3;
   if (n > 2000000) n = 2000000;
   return n;
@@ -111,7 +122,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
 
   auto f_pb = [&]() { pb_serialize(pb, &scratch, true); AK_BARRIER(scratch); };
   auto f_pba = [&]() { pb_serialize(*pba, &scratch, true); AK_BARRIER(scratch); };
-  auto f_nat = [&]() { nat_enc(facade, &e); AK_BARRIER(e.buf); };
+  auto f_nat = [&]() { nat_enc(facade, &e); AK_BARRIER(e); };
   auto f_ffi = [&]() { intptr_t r = ffi_enc(ctx, facade, tc); AK_BARRIER(r); };
   auto f_ffiz = [&]() { intptr_t r = ffi_enc_z(ctx, facade, tc); AK_BARRIER(r); };
   auto f_ffinb = [&]() { intptr_t r = ffi_enc_nb(ctx, facade, tc); AK_BARRIER(r); };
@@ -214,6 +225,45 @@ static double med(std::vector<double> v) {
   return v[v.size() / 2];
 }
 
+// R4, as sharpened: a question that can be asked as a DELTA between two arms in the same
+// interleaved rounds is asked that way, because a cross-arm ratio to a third arm drifts
+// where a within-arm delta reproduces.
+static void deltas(const char *title, const char *a, const char *b, double elems_of(const std::string &)) {
+  std::printf("\n-- %s: (%s) - (%s), within-round, ns per element --\n", title, a, b);
+  std::printf("%-6s %-4s %12s %12s %12s %10s\n", "payload", "dir", "lo", "median", "hi", "% of pb");
+  for (size_t i = 0; i < g_rows.size(); ++i) {
+    Row &r = g_rows[i];
+    if (r.arm != a) continue;
+    Row *o = row(r.payload.c_str(), r.dir.c_str(), b);
+    Row *p = row(r.payload.c_str(), r.dir.c_str(), "pb");
+    if (o->ns.empty()) continue;
+    double e = elems_of(r.payload);
+    std::vector<double> d, pct;
+    for (size_t k = 0; k < r.ns.size() && k < o->ns.size(); ++k) {
+      d.push_back((r.ns[k] - o->ns[k]) / e);
+      pct.push_back(100.0 * (r.ns[k] - o->ns[k]) / p->ns[k]);
+    }
+    std::sort(d.begin(), d.end());
+    std::printf("%-6s %-4s %12.2f %12.2f %12.2f %10.2f\n", r.payload.c_str(), r.dir.c_str(),
+                d.front(), d[d.size() / 2], d.back(), med(pct));
+  }
+}
+
+static double elems_of(const std::string &p) {
+  if (p == "P1.1") return 4;
+  if (p == "P1.2") return 1000;
+  if (p == "P1.3") return 300;
+  if (p == "P2.1") return 1;
+  if (p == "P2.2") return 500;
+  if (p == "P2.3") return 125;
+  if (p == "P2.4") return 80;
+  if (p == "P2.5") return 20;
+  if (p == "P3.1") return 200;
+  if (p == "P4.1") return 200;
+  if (p == "P6.1") return 200;
+  return 1;
+}
+
 static void report() {
   std::printf("\n%-6s %-4s %-11s %10s %10s %8s %8s\n", "payload", "dir", "arm",
               "ns/op med", "ns/op min", "r/pb lo", "r/pb hi");
@@ -294,6 +344,56 @@ int main(int argc, char **argv) {
     for (int r = 0; r < g_rounds; ++r)
       std::printf("  deterministic %.0f ns   non-deterministic %.0f ns   ratio %.3f\n",
                   timed(det, n), timed(nod, n), timed(det, n) / timed(nod, n));
+  }
+
+  // ABI v1 open decision 1, the three mechanisms, each as a within-round delta.
+  deltas("the STRING-AS-DATA form (decision 1)", "ffi-hosttc", "ffi", elems_of);
+  deltas("the BATCHING predicate (decision 1)", "ffi-nobat", "ffi", elems_of);
+  deltas("decision 9's zeroed element fill", "ffi-zeroed", "ffi", elems_of);
+  deltas("the boundary: ffi against the no-boundary control", "ffi", "native", elems_of);
+
+  // Where the C ABI's encode advantage goes, priced directly rather than by subtraction.
+  //
+  // The core cannot write a length-prefixed blob in one pass: ABI v1 section 4 removed the
+  // declared expansion bound, so it opens a prefix of a LEARNED width, hands the transcoder
+  // whatever the buffer has left, and resolves the prefix afterwards. A host that holds the
+  // bytes already knows the length and writes key, length and body in one pass. This prices
+  // the difference on the 6,000 strings of P1.2, in this process.
+  {
+    shapes::ListResultsResponse m = shapes::build::payload_p1_2();
+    std::vector<const std::string *> ss;
+    for (size_t i = 0; i < m.results.size(); ++i) {
+      ss.push_back(&m.results[i].session_id);
+      ss.push_back(&m.results[i].name);
+      ss.push_back(&m.results[i].owner_task_id);
+      ss.push_back(&m.results[i].result_id);
+      ss.push_back(&m.results[i].created_by);
+      ss.push_back(&m.results[i].opaque_id);
+    }
+    ak::Enc e1(4), e2(4);
+    auto one_pass = [&]() {
+      e1.reset();
+      for (size_t i = 0; i < ss.size(); ++i) e1.blob_field(1, *ss[i]);
+      AK_BARRIER(e1);
+    };
+    auto two_pass = [&]() {
+      e2.reset();
+      for (size_t i = 0; i < ss.size(); ++i) {
+        ak::Mark mk = e2.begin(1, 0);
+        e2.raw((const uint8_t *)ss[i]->data(), ss[i]->size());
+        e2.end(mk);
+      }
+      AK_BARRIER(e2);
+    };
+    int n = calibrate(one_pass);
+    std::printf("\n-- the two-pass blob write, %zu strings of P1.2, ns per string --\n",
+                ss.size());
+    for (int r = 0; r < g_rounds; ++r) {
+      double a = timed(one_pass, n) / ss.size();
+      double b = timed(two_pass, n) / ss.size();
+      std::printf("  one pass (length known) %.3f   open-prefix-then-resolve %.3f"
+                  "   delta %+.3f\n", a, b, b - a);
+    }
   }
 
   report();

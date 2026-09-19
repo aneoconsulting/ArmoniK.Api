@@ -10,6 +10,7 @@
 /build/
 /core/target/
 /core/target-count/
+/core/target-rpc/
 __pycache__/
 *.pyc
 /build-odrbreak/

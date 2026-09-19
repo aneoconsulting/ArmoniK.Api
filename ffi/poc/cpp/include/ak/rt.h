@@ -59,39 +59,85 @@ struct Mark {
   std::size_t w;
 };
 
+// The encode buffer, as a RAW CURSOR over a reserved block rather than as a sequence of
+// `std::vector::push_back` calls.
+//
+// This is not a micro-optimisation, it is what makes the no-boundary control a CONTROL.
+// Through `std::vector` the compiler reloads the finish and end-of-storage pointers on
+// every byte, because a `std::vector<uint8_t>` reached through `Enc*` may alias anything;
+// Rust's `&mut Vec<u8>` carries noalias and does not. The first build of this file used
+// `push_back` and measured `core-native-cpp` at 1.245 of protobuf C++ on P1.2 encode while
+// the SAME codec through the C ABI measured 0.855 -- a control slower than the arm it is
+// controlling for, which would have made every subtraction against it meaningless. protobuf
+// C++'s own serialiser is a raw cursor for the same reason, so this is also the fair shape
+// to compare against. The difference is in this file, not in the generated traversal.
 class Enc {
  public:
-  explicit Enc(std::size_t sites) : err(0), widths_(sites, 1) { buf.reserve(4096); }
+  explicit Enc(std::size_t sites) : err(0), len_(0), widths_(sites, 1) {
+    storage_.resize(4096);
+  }
 
-  std::vector<uint8_t> buf;
   int32_t err;
 
+  inline std::size_t size() const { return len_; }
+  inline const uint8_t *data() const { return storage_.empty() ? NULL : &storage_[0]; }
+
   void reset() {
-    buf.clear();
+    len_ = 0;
     err = 0;
     // The learned widths deliberately SURVIVE a reset.
   }
   void fail(int32_t code) { if (err == 0) err = code; }
 
+  inline void ensure(std::size_t n) {
+    if (len_ + n > storage_.size()) grow(len_ + n);
+  }
+
   inline void varint(uint64_t v) {
-    while (v >= 0x80) { buf.push_back((uint8_t)(v) | 0x80); v >>= 7; }
-    buf.push_back((uint8_t)v);
+    ensure(10);
+    uint8_t *d = &storage_[0] + len_;
+    while (v >= 0x80) { *d++ = (uint8_t)(v) | 0x80; v >>= 7; }
+    *d++ = (uint8_t)v;
+    len_ = (std::size_t)(d - &storage_[0]);
   }
   inline void key(uint32_t tag, uint32_t wire) { varint(((uint64_t)tag << 3) | wire); }
-  inline void varint_field(uint32_t tag, uint64_t v) { key(tag, WIRE_VARINT); varint(v); }
+  inline void varint_field(uint32_t tag, uint64_t v) {
+    ensure(20);
+    uint8_t *d = &storage_[0] + len_;
+    uint64_t k = ((uint64_t)tag << 3) | WIRE_VARINT;
+    while (k >= 0x80) { *d++ = (uint8_t)(k) | 0x80; k >>= 7; }
+    *d++ = (uint8_t)k;
+    while (v >= 0x80) { *d++ = (uint8_t)(v) | 0x80; v >>= 7; }
+    *d++ = (uint8_t)v;
+    len_ = (std::size_t)(d - &storage_[0]);
+  }
   inline void f64_field(uint32_t tag, double v) {
     key(tag, WIRE_I64);
+    ensure(8);
     uint64_t bits;
     std::memcpy(&bits, &v, 8);
-    for (int i = 0; i < 8; ++i) buf.push_back((uint8_t)(bits >> (8 * i)));
+    std::memcpy(&storage_[0] + len_, &bits, 8);
+    len_ += 8;
   }
   inline void blob_field(uint32_t tag, const char *p, std::size_t n) {
-    key(tag, WIRE_LEN);
-    varint((uint64_t)n);
-    buf.insert(buf.end(), (const uint8_t *)p, (const uint8_t *)p + n);
+    ensure(20 + n);
+    uint8_t *d = &storage_[0] + len_;
+    uint64_t k = ((uint64_t)tag << 3) | WIRE_LEN;
+    while (k >= 0x80) { *d++ = (uint8_t)(k) | 0x80; k >>= 7; }
+    *d++ = (uint8_t)k;
+    uint64_t m = (uint64_t)n;
+    while (m >= 0x80) { *d++ = (uint8_t)(m) | 0x80; m >>= 7; }
+    *d++ = (uint8_t)m;
+    if (n) std::memcpy(d, p, n);
+    len_ = (std::size_t)(d - &storage_[0]) + n;
   }
   inline void blob_field(uint32_t tag, const std::string &s) {
     blob_field(tag, s.data(), s.size());
+  }
+  inline void raw(const uint8_t *p, std::size_t n) {
+    ensure(n);
+    std::memcpy(&storage_[0] + len_, p, n);
+    len_ += n;
   }
 
   inline Mark begin(uint32_t tag, uint32_t site) {
@@ -99,30 +145,37 @@ class Enc {
     Mark m;
     m.site = site;
     m.w = widths_[site];
-    m.hdr = buf.size();
-    buf.resize(m.hdr + m.w, 0);
+    m.hdr = len_;
+    ensure(m.w);
+    std::memset(&storage_[0] + len_, 0, m.w);
+    len_ += m.w;
     return m;
   }
 
   inline void end(const Mark &m) {
-    std::size_t body = buf.size() - m.hdr - m.w;
+    std::size_t body = len_ - m.hdr - m.w;
     std::size_t need = varint_len((uint64_t)body);
     if (need != m.w) resize_prefix(m, body, need);
     uint64_t v = (uint64_t)body;
-    std::size_t i = m.hdr;
-    while (v >= 0x80) { buf[i++] = (uint8_t)(v) | 0x80; v >>= 7; }
-    buf[i] = (uint8_t)v;
+    uint8_t *d = &storage_[0] + m.hdr;
+    while (v >= 0x80) { *d++ = (uint8_t)(v) | 0x80; v >>= 7; }
+    *d = (uint8_t)v;
   }
 
  private:
+  void grow(std::size_t want) {
+    std::size_t n = storage_.size() * 2;
+    if (n < want) n = want;
+    storage_.resize(n);
+  }
   void resize_prefix(const Mark &m, std::size_t body, std::size_t need) {
     widths_[m.site] = (uint8_t)need;
-    std::size_t src = m.hdr + m.w;
-    if (need > m.w) buf.resize(buf.size() + (need - m.w), 0);
-    std::size_t dst = m.hdr + need;
-    std::memmove(&buf[dst], &buf[src], body);
-    if (need < m.w) buf.resize(dst + body);
+    if (need > m.w) { ensure(need - m.w); len_ += need - m.w; }
+    std::memmove(&storage_[0] + m.hdr + need, &storage_[0] + m.hdr + m.w, body);
+    if (need < m.w) len_ -= (m.w - need);
   }
+  std::vector<uint8_t> storage_;
+  std::size_t len_;
   std::vector<uint8_t> widths_;
 };
 

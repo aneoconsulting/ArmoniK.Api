@@ -310,15 +310,27 @@ def _emit_loop(ir, o, root, path, f, fname, elem_of=None, batch=True, zeroed=Fal
         o.append("")
         return
 
+    sparse = zeroed and f.card == "repeated" and f.kind == "message"
     if batch:
         o.append("    constexpr size_t kChunk = ak::arena_n(sizeof(%s));" % cty)
     else:
         o.append("    constexpr size_t kChunk = 1;  // the host declines to batch")
     o.append("    %s chunk[kChunk];" % cty)
-    if zeroed:
+    if sparse:
+        o.append("    // Clear only what will be USED, never the whole 32 KB arena: the clear")
+        o.append("    // is otherwise O(arena) where the fill is O(elements), so on a 1- or")
+        o.append("    // 4-element payload the candidate inverts. Measured with the whole-chunk")
+        o.append("    // clear (which is what the rust slice built): P1.1 +156 ns/element and")
+        o.append("    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.")
+        o.append("    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;")
         o.append("    // All-zero is a valid group, and the bulk clear is what lets the")
-        o.append("    // fill below be sparse (ABI v1 open decision 9's candidate).")
-        o.append("    std::memset(chunk, 0, sizeof(chunk));")
+        o.append("    // fill below be sparse (ABI v1 open decision 9's candidate). Only an")
+        o.append("    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are")
+        o.append("    // assigned in full, so clearing their chunk would be pure waste -- and")
+        o.append("    // an inner loop runs once per element, so that waste would be paid 500")
+        o.append("    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this")
+        o.append("    // and 0.6x after, which is the whole arm rather than a detail.")
+        o.append("    if (kClear) std::memset(chunk, 0, kClear * sizeof(%s));" % cty)
     o.append("    size_t i = 0, done = 0;")
     o.append("    (void)done;")
     if f.card == "map":
@@ -332,7 +344,7 @@ def _emit_loop(ir, o, root, path, f, fname, elem_of=None, batch=True, zeroed=Fal
         if f.kind in ("string", "bytes"):
             tc = "t.bytes" if f.kind == "bytes" else "t.utf8"
             o.append("      chunk[i] = ak_str_of(src[k], %s);" % tc)
-        elif zeroed:
+        elif sparse:
             o.append("      fill_%s_sparse(&chunk[i], src[k], t);" % snake(et))
         else:
             o.append("      chunk[i] = make_%s(src[k], t);" % snake(et))
@@ -341,7 +353,7 @@ def _emit_loop(ir, o, root, path, f, fname, elem_of=None, batch=True, zeroed=Fal
     o.append("        int32_t rc = %s;" % _run_call(ir, f, et, "(int32_t)i"))
     o.append("        if (rc < 0) return rc;")
     o.append("        done += i;")
-    if zeroed and f.card != "map" and f.kind not in ("string", "bytes"):
+    if sparse:
         o.append("        // Only what was dirtied is put back.")
         o.append("        std::memset(chunk, 0, i * sizeof(%s));" % cty)
     o.append("        i = 0;")
