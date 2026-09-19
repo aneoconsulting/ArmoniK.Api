@@ -58,6 +58,15 @@ class Optional {
  private:
   bool has_;
   T v_;
+#ifdef AK_ODR_BREAK
+  // The POSITIVE CONTROL, and it is here rather than in a comment because a guard with no
+  // failing test is a guard nobody has seen work. Build `odrcheck` with -DAK_ODR_BREAK=ON
+  // and this member appears only at C++17, which is exactly the ODR violation README 5.1
+  // calls a hard stop. The check must report it.
+#if __cplusplus >= 201703L
+  std::size_t break_;
+#endif
+#endif
 };
 
 // `string_view` (C++17). Only the part this slice uses.

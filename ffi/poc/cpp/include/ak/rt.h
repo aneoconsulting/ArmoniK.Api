@@ -15,6 +15,17 @@
 #include <string>
 #include <vector>
 
+// README 5.1: the floor and the target may be DIFFERENT CODE, from one generator with a
+// target level, and the wire bytes must be identical across levels (which `conformance`
+// checks at every level this slice claims). `AK_FLOOR_IMPL` forces the floor path on at
+// the target level, which is README 5.2's arm b: what the floor's missing APIs cost with
+// the compiler and the optimiser held constant.
+#if !defined(AK_FLOOR_IMPL) && __cplusplus >= 201703L
+#define AK_CXX17 1
+#else
+#define AK_CXX17 0
+#endif
+
 namespace ak {
 
 const int32_t ERR_MALFORMED = -2;

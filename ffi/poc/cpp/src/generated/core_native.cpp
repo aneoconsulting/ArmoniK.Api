@@ -512,7 +512,12 @@ static void dec_task_options(ak::Dec *d, TaskOptions *out) {
           }
         }
         if (sub.err != 0) { d->err = sub.err; return; }
+#if AK_CXX17
+        // C++17: one insertion, no default-construct-then-assign.
+        out->options.insert_or_assign(std::move(k_), std::move(v_));
+#else
         out->options[k_] = v_;
+#endif
         break; } else { d->skip(wire); break; }
       case 2: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
@@ -606,26 +611,50 @@ static void dec_task_detailed(ak::Dec *d, TaskDetailed *out) {
         break; } else { d->skip(wire); break; }
       case 4: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
+#if AK_CXX17
+        // C++17: emplace_back returns the reference the writer needs.
+        std::string &b_ = out->parent_task_ids.emplace_back();
+#else
         out->parent_task_ids.push_back(std::string());
-        int32_t rc = ak::decode_str(d->buf + off, n, &out->parent_task_ids.back());
+        std::string &b_ = out->parent_task_ids.back();
+#endif
+        int32_t rc = ak::decode_str(d->buf + off, n, &b_);
         if (rc != 0) { d->err = rc; return; }
         break; } else { d->skip(wire); break; }
       case 5: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
+#if AK_CXX17
+        // C++17: emplace_back returns the reference the writer needs.
+        std::string &b_ = out->data_dependencies.emplace_back();
+#else
         out->data_dependencies.push_back(std::string());
-        int32_t rc = ak::decode_str(d->buf + off, n, &out->data_dependencies.back());
+        std::string &b_ = out->data_dependencies.back();
+#endif
+        int32_t rc = ak::decode_str(d->buf + off, n, &b_);
         if (rc != 0) { d->err = rc; return; }
         break; } else { d->skip(wire); break; }
       case 6: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
+#if AK_CXX17
+        // C++17: emplace_back returns the reference the writer needs.
+        std::string &b_ = out->expected_output_ids.emplace_back();
+#else
         out->expected_output_ids.push_back(std::string());
-        int32_t rc = ak::decode_str(d->buf + off, n, &out->expected_output_ids.back());
+        std::string &b_ = out->expected_output_ids.back();
+#endif
+        int32_t rc = ak::decode_str(d->buf + off, n, &b_);
         if (rc != 0) { d->err = rc; return; }
         break; } else { d->skip(wire); break; }
       case 7: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
+#if AK_CXX17
+        // C++17: emplace_back returns the reference the writer needs.
+        std::string &b_ = out->retry_of_ids.emplace_back();
+#else
         out->retry_of_ids.push_back(std::string());
-        int32_t rc = ak::decode_str(d->buf + off, n, &out->retry_of_ids.back());
+        std::string &b_ = out->retry_of_ids.back();
+#endif
+        int32_t rc = ak::decode_str(d->buf + off, n, &b_);
         if (rc != 0) { d->err = rc; return; }
         break; } else { d->skip(wire); break; }
       case 8: if (wire == 0) {
