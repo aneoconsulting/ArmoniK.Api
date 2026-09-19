@@ -1,26 +1,36 @@
-Stage 5: design/SHAPES.md's content sets, arm a. 174 of 413 fields are strings.
+Stage 5: the content sets on R14 baselines.
 
-commit:   87a2e39b0c2cc28adbb05ab70b198f7b132828f3
-machine:  4 vCPU Intel(R) Xeon(R) Processor @ 2.80GHz, 15 GiB, 6.18.44-fc-v37
-sdk:      8.0.131;  mono: Mono JIT compiler version 6.8.0.105
-incumbent: Google.Protobuf 3.28.3, codegen Grpc.Tools 2.66.0
+commit:    28941070945cc37c6d4784598502b11871944514
+machine:   4 vCPU Intel(R) Xeon(R) Processor @ 2.80GHz, 15 GiB, 6.18.44-fc-v37
+sdk:       8.0.131; Google.Protobuf 3.28.3, Grpc.Tools 2.66.0
 
-RE-TAKEN after JOURNAL.md entry 14. Two handicaps were found in this slice's
-own incumbent arms and both are fixed here:
-  * the encode baseline gp-writeto paid a top-level CalculateSize to size its
-    span. gp-bufferwriter is the same official API family with no size pass at
-    all, over a reused BufWriter that RESETS rather than clearing;
-  * the decode baseline gp-parse ended with m.CalculateSize(), a full traversal
-    of the decoded tree, while managed-parse returned a free offset. BOTH arms
-    now park the graph in a static sink and return an O(1) value.
-Every timing figure this slice published before 87a2e39b0c2cc28adbb05ab70b198f7b132828f3 is superseded.
+R7 CONFIGURATION, INCLUDING THE MARSHALLER PATH (R14).
 
-sets: ascii; latin1 U+00A0-U+00FF (2 UTF-8 bytes); wide U+4E00+ (3 bytes).
-The exact sets are NOT pinned by ffi/schema and this slice's first choice
-landed 25% from the Rust slice's wire width; see STATE.md request 1.
+The headline baseline is the codec path ArmoniK RUNS, not the library's
+fastest entry point. Grpc.Tools emits into the stub:
+    context.SetPayloadLength(message.CalculateSize());
+    MessageExtensions.WriteTo(message, context.GetBufferWriter());
+and decodes with parser.ParseFrom(context.PayloadAsReadOnlySequence()).
+packages/csharp calls no message serialisation directly; the two
+ToByteArray() hits there are ByteString, copying a data chunk.
+
+  encode baseline  gp-marshaller   CalculateSize + WriteTo(IBufferWriter)
+  decode baseline  gp-parse-seq    ParseFrom(ReadOnlySequence), 1 segment
+  second rows      gp-writeto / gp-parse   the SPAN forms
+                   gp-bufferwriter         no size pass: the library's best,
+                                           which no ArmoniK process runs
+                   gp-parse-seg            sequence segmented at 16 KB, which
+                                           is what a 540 KB response arrives as
+                   gp-tobytearray          what application code would write
+
+LOOP SHAPE (R14). A message is serialised once in production, so a loop over
+one instance is only valid if the library memoises nothing per instance.
+CHECKED, not assumed: Google.Protobuf's C# backend emits no _memoizedSize
+field and CalculateSize() recomputes from scratch on every call, unlike
+protobuf-java. So this loop amortises nothing.
 
 # harness: content
-# utc:                 2026-09-19T11:48:09Z
+# utc:                 2026-09-19T17:11:16Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -56,47 +66,47 @@ Timings. All three sets in ONE process, interleaved, 30 cases.
 
 payload        dir     arm              reps      med ns   /incumbent   x its own ascii
 ----------------------------------------------------------------------------------------------------
-P1.2 ascii     encode  gp-writeto         147    542414.3        1.000             1.000
-P1.2 ascii     encode  managed            343    226981.9        0.418             1.000
-P1.2 ascii     encode  managed-2pass      147    454382.3        0.838             1.000
+P1.2 ascii     encode  gp-writeto          73    550268.5        1.000             1.000
+P1.2 ascii     encode  managed            329    224099.4        0.407             1.000
+P1.2 ascii     encode  managed-2pass       95    489215.8        0.889             1.000
 
-P1.2 ascii     decode  gp-parse            81    720286.4        1.000             1.000
-P1.2 ascii     decode  managed-parse       73    575221.9        0.799             1.000
+P1.2 ascii     decode  gp-parse            61    708993.4        1.000             1.000
+P1.2 ascii     decode  managed-parse       73    541678.1        0.764             1.000
 
-P2.2 ascii     encode  gp-writeto          20   2118500.0        1.000             1.000
-P2.2 ascii     encode  managed             61    662336.1        0.313             1.000
-P2.2 ascii     encode  managed-2pass       51   1599574.5        0.755             1.000
+P2.2 ascii     encode  gp-writeto          19   2176363.2        1.000             1.000
+P2.2 ascii     encode  managed            119    665473.9        0.306             1.000
+P2.2 ascii     encode  managed-2pass       25   1659604.0        0.763             1.000
 
-P2.2 ascii     decode  gp-parse            19   2831194.7        1.000             1.000
-P2.2 ascii     decode  managed-parse       19   2312747.4        0.817             1.000
+P2.2 ascii     decode  gp-parse            19   2839573.7        1.000             1.000
+P2.2 ascii     decode  managed-parse       19   2393831.6        0.843             1.000
 
-P1.2 latin1    encode  gp-writeto          54    749222.2        1.000             1.381
-P1.2 latin1    encode  managed            147    401121.1        0.535             1.767
-P1.2 latin1    encode  managed-2pass       61    661390.2        0.883             1.456
+P1.2 latin1    encode  gp-writeto          55    734863.6        1.000             1.335
+P1.2 latin1    encode  managed            147    379810.9        0.517             1.695
+P1.2 latin1    encode  managed-2pass      121    663143.0        0.902             1.356
 
-P1.2 latin1    decode  gp-parse            75   1008781.3        1.000             1.401
-P1.2 latin1    decode  managed-parse       85    852997.6        0.846             1.483
+P1.2 latin1    decode  gp-parse            63    977731.7        1.000             1.379
+P1.2 latin1    decode  managed-parse       50    857054.0        0.877             1.582
 
-P2.2 latin1    encode  gp-writeto          19   2946747.4        1.000             1.391
-P2.2 latin1    encode  managed             35   1163808.6        0.395             1.757
-P2.2 latin1    encode  managed-2pass       19   2244857.9        0.762             1.403
+P2.2 latin1    encode  gp-writeto          19   2881173.7        1.000             1.324
+P2.2 latin1    encode  managed             75   1072678.7        0.372             1.612
+P2.2 latin1    encode  managed-2pass       19   2147589.5        0.745             1.294
 
-P2.2 latin1    decode  gp-parse            19   3510200.0        1.000             1.240
-P2.2 latin1    decode  managed-parse       19   3107278.9        0.885             1.344
+P2.2 latin1    decode  gp-parse            19   3631731.6        1.000             1.279
+P2.2 latin1    decode  managed-parse       19   3226142.1        0.888             1.348
 
-P1.2 wide      encode  gp-writeto          95    856311.6        1.000             1.579
-P1.2 wide      encode  managed            147    503431.3        0.588             2.218
-P1.2 wide      encode  managed-2pass       53    762960.4        0.891             1.679
+P1.2 wide      encode  gp-writeto          45    899793.3        1.000             1.635
+P1.2 wide      encode  managed             73    549074.0        0.610             2.450
+P1.2 wide      encode  managed-2pass       49    837032.7        0.930             1.711
 
-P1.2 wide      decode  gp-parse            31   1387512.9        1.000             1.926
-P1.2 wide      decode  managed-parse       63   1222479.4        0.881             2.125
+P1.2 wide      decode  gp-parse            57   1381747.4        1.000             1.949
+P1.2 wide      decode  managed-parse       35   1236120.0        0.895             2.282
 
-P2.2 wide      encode  gp-writeto          19   3156463.2        1.000             1.490
-P2.2 wide      encode  managed             29   1404969.0        0.445             2.121
-P2.2 wide      encode  managed-2pass       19   2494868.4        0.790             1.560
+P2.2 wide      encode  gp-writeto          19   3319084.2        1.000             1.525
+P2.2 wide      encode  managed             27   1511318.5        0.455             2.271
+P2.2 wide      encode  managed-2pass       19   2585636.8        0.779             1.558
 
-P2.2 wide      decode  gp-parse             9   4652277.8        1.000             1.643
-P2.2 wide      decode  managed-parse       19   4118189.5        0.885             1.781
+P2.2 wide      decode  gp-parse             9   4740644.4        1.000             1.669
+P2.2 wide      decode  managed-parse       19   4186673.7        0.883             1.749
 
 Reading this table.
   /incumbent is formed inside this process against the gp arm of the SAME set,

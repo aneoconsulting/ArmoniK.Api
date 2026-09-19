@@ -1,22 +1,29 @@
-Stage 1: the correctness gate. R2, and nothing is timed until it passes.
+Stage 1: the correctness gate on R14's arms. R2, and nothing is timed until it passes.
 
-commit:   87a2e39b0c2cc28adbb05ab70b198f7b132828f3
-machine:  4 vCPU Intel(R) Xeon(R) Processor @ 2.80GHz, 15 GiB, 6.18.44-fc-v37
-sdk:      8.0.131;  mono: Mono JIT compiler version 6.8.0.105
-incumbent: Google.Protobuf 3.28.3, codegen Grpc.Tools 2.66.0
+R7 CONFIGURATION, INCLUDING THE MARSHALLER PATH (R14).
 
-RE-TAKEN after JOURNAL.md entry 14. Two handicaps were found in this slice's
-own incumbent arms and both are fixed here:
-  * the encode baseline gp-writeto paid a top-level CalculateSize to size its
-    span. gp-bufferwriter is the same official API family with no size pass at
-    all, over a reused BufWriter that RESETS rather than clearing;
-  * the decode baseline gp-parse ended with m.CalculateSize(), a full traversal
-    of the decoded tree, while managed-parse returned a free offset. BOTH arms
-    now park the graph in a static sink and return an O(1) value.
-Every timing figure this slice published before 87a2e39b0c2cc28adbb05ab70b198f7b132828f3 is superseded.
+The headline baseline is the codec path ArmoniK RUNS, not the library's
+fastest entry point. Grpc.Tools emits into the stub:
+    context.SetPayloadLength(message.CalculateSize());
+    MessageExtensions.WriteTo(message, context.GetBufferWriter());
+and decodes with parser.ParseFrom(context.PayloadAsReadOnlySequence()).
+packages/csharp calls no message serialisation directly; the two
+ToByteArray() hits there are ByteString, copying a data chunk.
 
-All three of README 5.2's arms pass the SAME checks, which is 5.1's binding
-condition on a floor that is different code from the target.
+  encode baseline  gp-marshaller   CalculateSize + WriteTo(IBufferWriter)
+  decode baseline  gp-parse-seq    ParseFrom(ReadOnlySequence), 1 segment
+  second rows      gp-writeto / gp-parse   the SPAN forms
+                   gp-bufferwriter         no size pass: the library's best,
+                                           which no ArmoniK process runs
+                   gp-parse-seg            sequence segmented at 16 KB, which
+                                           is what a 540 KB response arrives as
+                   gp-tobytearray          what application code would write
+
+LOOP SHAPE (R14). A message is serialised once in production, so a loop over
+one instance is only valid if the library memoises nothing per instance.
+CHECKED, not assumed: Google.Protobuf's C# backend emits no _memoizedSize
+field and CalculateSize() recomputes from scratch on every call, unlike
+protobuf-java. So this loop amortises nothing.
 
 ok    src/Facade/Generated/Build.cs
 ok    src/Facade/Generated/Codec.cs
@@ -27,26 +34,141 @@ ok    src/Harness/Generated/Arms.cs
 ok    src/Harness/Generated/BuildGp.cs
 19 messages, 72 length-prefix sites, walker guard passed on 1 message(s) with a oneof
 
-================= arm a =================
-Could not execute because the specified command or file was not found.
-Possible reasons for this include:
-  * You misspelled a built-in dotnet command.
-  * You intended to execute a .NET program, but dotnet- target sources, .NET 8 does not exist.
-  * You intended to run a global tool, but a dotnet-prefixed executable with this name could not be found on the PATH.
+================= arm a target/.NET 8 =================
+# harness: conformance
+# utc:                 2026-09-19T17:13:01Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+payload  shape  root                        bytes  gp-tba  gp-wto  gp-bw   gp-mar  managed  2pass  vector  mrt  grt  value
+--------------------------------------------------------------------------------------------------------------------------------------
+P1.1     M1     ListResultsResponse          858  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P1.2     M1     ListResultsResponse       218121  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P1.3     M1     ListResultsResponse          605  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.1     M2     ListTasksDetailedResponse    1037  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.2     M2     ListTasksDetailedResponse  540422  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.3     M2     ListTasksDetailedResponse  647024  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.4     M2     ListTasksDetailedResponse  979465  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.5     M2     ListTasksDetailedResponse   19632  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P3.1     M3     ListProbeResponse          12097  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P4.1     M4     ListTaskSummaryResponse    65321  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.1     M5     UploadResultDataMessage      116  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.2     M5     UploadResultDataMessage    65620  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.3     M5     UploadResultDataMessage  1048660  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.4     M5     UploadResultDataMessage  4194390  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P6.1     M6     ListMetricsResponse       123354  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P7.1     -      DualResponse                  98  perm    perm    perm    perm    perm     perm   perm    ok   ok   ok
 
-================= arm b =================
-Could not execute because the specified command or file was not found.
-Possible reasons for this include:
-  * You misspelled a built-in dotnet command.
-  * You intended to execute a .NET program, but dotnet- FLOOR sources, .NET 8 does not exist.
-  * You intended to run a global tool, but a dotnet-prefixed executable with this name could not be found on the PATH.
+152 checks, 0 failure(s)
 
-================= arm c =================
-Cannot open assembly ' floor sources, Mono 6.8': No such file or directory.
+================= arm b FLOOR/.NET 8 =================
+# harness: conformance
+# utc:                 2026-09-19T17:13:03Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       YES (AK_FLOOR)
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+payload  shape  root                        bytes  gp-tba  gp-wto  gp-bw   gp-mar  managed  2pass  vector  mrt  grt  value
+--------------------------------------------------------------------------------------------------------------------------------------
+P1.1     M1     ListResultsResponse          858  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P1.2     M1     ListResultsResponse       218121  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P1.3     M1     ListResultsResponse          605  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.1     M2     ListTasksDetailedResponse    1037  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.2     M2     ListTasksDetailedResponse  540422  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.3     M2     ListTasksDetailedResponse  647024  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.4     M2     ListTasksDetailedResponse  979465  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.5     M2     ListTasksDetailedResponse   19632  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P3.1     M3     ListProbeResponse          12097  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P4.1     M4     ListTaskSummaryResponse    65321  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.1     M5     UploadResultDataMessage      116  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.2     M5     UploadResultDataMessage    65620  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.3     M5     UploadResultDataMessage  1048660  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.4     M5     UploadResultDataMessage  4194390  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P6.1     M6     ListMetricsResponse       123354  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P7.1     -      DualResponse                  98  perm    perm    perm    perm    perm     perm   perm    ok   ok   ok
 
-================= the unknown-field vectors =================
+152 checks, 0 failure(s)
+
+================= arm c floor/Mono 6.8 =================
+# harness: conformance
+# utc:                 2026-09-19T17:13:04Z
+# runtime:             Mono 6.8.0.105 (Debian 6.8.0.105+dfsg-3.6ubuntu2 Sun Mar 31 02:55:28 UTC 2024)
+# os:                  Unix 6.18.44.37
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       YES (AK_FLOOR)
+# facade TFM:          net48
+# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+payload  shape  root                        bytes  gp-tba  gp-wto  gp-bw   gp-mar  managed  2pass  vector  mrt  grt  value
+--------------------------------------------------------------------------------------------------------------------------------------
+P1.1     M1     ListResultsResponse          858  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P1.2     M1     ListResultsResponse       218121  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P1.3     M1     ListResultsResponse          605  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.1     M2     ListTasksDetailedResponse    1037  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.2     M2     ListTasksDetailedResponse  540422  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.3     M2     ListTasksDetailedResponse  647024  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.4     M2     ListTasksDetailedResponse  979465  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.5     M2     ListTasksDetailedResponse   19632  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P3.1     M3     ListProbeResponse          12097  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P4.1     M4     ListTaskSummaryResponse    65321  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.1     M5     UploadResultDataMessage      116  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.2     M5     UploadResultDataMessage    65620  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.3     M5     UploadResultDataMessage  1048660  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.4     M5     UploadResultDataMessage  4194390  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P6.1     M6     ListMetricsResponse       123354  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P7.1     -      DualResponse                  98  perm    perm    perm    perm    perm     perm   perm    ok   ok   ok
+
+152 checks, 0 failure(s)
+
+================= unknown-field vectors =================
 # harness: unknown
-# utc:                 2026-09-19T11:42:04Z
+# utc:                 2026-09-19T17:13:07Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -109,7 +231,7 @@ value moved, which would be a real defect).
 
 ================= P2.5's two encodings =================
 # harness: mapforms
-# utc:                 2026-09-19T11:42:04Z
+# utc:                 2026-09-19T17:13:07Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
