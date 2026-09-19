@@ -234,6 +234,34 @@ because it is not only simplification:
   reservation had to shift right into room a grow had not left. Prefix width is
   therefore always resolved after the transcode returns (section 6), and a
   payload built to cross a varint boundary (P2.4) is in the corpus for it.
+- **And it has a cost nobody listed, found by the C++ slice: the two-pass blob
+  write.** Because the codec no longer knows the length in advance, every blob is
+  written by opening a prefix of a learned width, handing the transcoder the rest
+  of the buffer, and resolving the prefix afterwards. A host that *already holds
+  the bytes* knows the length and could write key, length and body in one pass.
+  Measured on P1.2's 6,000 strings in one process: **5.04 ns against 9.53 ns per
+  string, +4.49 ns**, which is a substantial share of the C ABI's encode gap
+  against a no-boundary control on a string-dense message.
+
+  **The fix is a `tc == ak_tc_bytes` fast path in the core**: where the specified
+  passthrough transcoder is in use, the codec may take `ak_str.len` as the byte
+  length and write the prefix in one pass. It is free for every host whose
+  representation is already UTF-8 (C++, Rust, Go) and changes nothing for a
+  converting transcoder, which still cannot know its output length in advance. It
+  is a core-side optimisation with no ABI surface, so it needs no host change and
+  no version bump.
+
+  **Worth reading beside upb, which takes the opposite route**: upb encodes
+  *backwards* so that a length is always known by the time its prefix is written
+  (`upb/wire/encode.c:8`, "We encode backwards, to avoid pre-computing lengths").
+  That makes prefixes free and makes buffer growth expensive — `encode_growbuffer`
+  memmoves everything written so far to the end of the new block — and the C++
+  slice measured upb's encode at 1.18 to 1.97 of protobuf C++ on string-dense
+  payloads as a result. protobuf C++ takes the third route, a full `ByteSizeLong`
+  pre-pass and then an exact forward write. The learned width is a fourth point in
+  that trade and decision 5 measured its miss rate at zero on every uniform
+  payload, so the fast path above is a refinement of a design that is already the
+  right shape rather than a repair.
 
 ## 5. Errors
 
@@ -388,7 +416,21 @@ the default.
 Its value differs by runtime by construction, which is why both slices are right:
 it is worth 2 to 9 percent on JNI (a forward call is 11.2 ns), about half that on
 FFM (3.4 ns), and nothing measurable on .NET (about 1.5 ns). **A host may decline
-to batch at all** and loses only what its own crossing costs.
+to batch at all.**
+
+**What it then loses, or gains, is a function of its crossing price, and the C++
+slice measured the curve rather than the point.** With a calibrated delay in front
+of every forward entry-point call, the P2.2 delta between the unbatched and
+batched arms moves from −20.9 ns per element at no added tax to +25.4 at +4.4 ns,
+monotone through +147.1 at +24.6. **The crossover is at a forward crossing of
+roughly 2 to 4 ns.** Below it a host that declines to batch is *faster*, because
+the chunk's second pass over memory costs more than the crossings it saves; above
+it batching wins and keeps winning.
+
+So the honest statement is per host and not per specification: C++ at 1.82 ns
+sits below the crossover and gains by declining, while .NET 8, FFM and JNI all sit
+above it. A slice that reports only its own sign has not answered this; it reports
+its crossing price beside it. (`findings/cpp.md`, `logs/cpp/tax.log`.)
 
 **A packed repeated scalar is the host's own array, handed over whole.** One
 symbol per host layout; the wire encoding comes from the schema and lives in the
@@ -790,10 +832,43 @@ forbidden. Under callback delivery, "returned" means the completion has fired.
 
 Each blocks something. None is settled by a measurement that exists today.
 
-1. **Is every mechanism free under the C++11 floor?** They were motivated by
-   managed hosts. That C++ pays nothing for the group, the string-as-data form
-   and the batching predicate is currently an argument. Settled by the C++ slice,
-   or earlier if it is cheap to check. **Blocks: freezing this document.**
+1. **Is every mechanism free under the C++11 floor? ANSWERED by the C++ slice,
+   and the answer is three different answers.** Not all free, the signs differ,
+   and the most useful result is that one of them was never a question about C++.
+   `findings/cpp.md` section 2; logs `bench_a17_shared.log`, `tax.log`.
+
+   **The group costs, and it costs the HOST rather than the boundary.** Priced
+   alone, the fill is 22.5 ns per element on M1, 74.1 on M2, and 22.6 on M1's
+   absent path where a whole protobuf encode is 16.5 ns. That is the P1.3
+   inversion measured rather than inferred, and C++ reproduces it larger than
+   Rust did (`ffi` 1.77-1.81 of protobuf against a 0.67-0.68 control). **Decision
+   9's candidate fixes it** and is a win or neutral on 13 of 15 rows, so decision
+   9 is part of the proposal rather than an option beside it.
+
+   **String as data is a win**, +1.42 % to +3.89 % of an encode with a consistent
+   sign on 10 of 15 rows, about 0.3 to 1.2 ns per string, which is one reverse
+   crossing. The rows where it straddles zero are the ones with no strings or
+   almost none.
+
+   **The batching predicate loses in C++, and that is not the finding.** The
+   crossing was priced up with a calibrated delay in front of every forward
+   entry-point call: on P2.2 the delta moves from −20.9 ns per element at no tax
+   to +25.4 at +4.4 ns, monotone, with **the crossover at a forward crossing of
+   roughly 2 to 4 ns**. So batching loses at C++'s 1.82 ns and wins comfortably on
+   .NET 8 (7.5-12 ns), FFM (33.8) and JNI (98.4). **This document carries the
+   crossover, not the C++ verdict**: "batching is a small loss" would have been
+   true of one host and wrong for three, and a slice that reports only its own
+   sign has not answered the question. The slice's first mechanism story —
+   "batching wins where the crossing count per element explodes" — did not survive
+   its own table and was withdrawn rather than patched.
+
+   **A fourth mechanism nobody listed**: section 4's removal of the declared
+   expansion bound forces a two-pass blob write, 5.04 against 9.53 ns per string.
+   See the addition to section 4.
+
+   **Blocks: nothing. This document can be frozen on these four**, with the two
+   amendments below (section 4's fast path, section 6's batching sentence) and
+   decision 13 opened.
 2. **Which decode family does each binding take** (7.1), and is the single
    parameterised emitter actually buildable? Settled by the first two slices that
    pick different families.
@@ -923,6 +998,17 @@ Each blocks something. None is settled by a measurement that exists today.
    Java decide whether it generalises**, and until they do the total fill stays the
    specified path with this recorded as a measured alternative.
 
+   **The candidate's own wording is wrong, and the C++ slice found it by
+   measuring.** "Clear the chunk" is what `rust_abi.py` emits, and it clears the
+   whole 32 KB arena regardless of how many elements will be filled: O(arena)
+   where the fill is O(elements). Measured, that costs **+156 ns per element on
+   P1.1 (+94.6 % of a protobuf encode) and +550 on P2.1 (+45.6 %)** while still
+   winning 62 % on P1.3 — so the candidate looked refuted and was not. Clearing
+   only `min(n, chunk)` elements removes the inversion and keeps every win. **If
+   decision 9 is adopted, the sentence is "clear the elements you will fill".**
+   The rust slice could not see this: it measured P1.2, P1.3, P2.2 and P2.5, and
+   the effect needs a payload with few elements per chunk.
+
 10. **Can decode deliver the group before the runs?** The push family's two-call
    protocol (`new`, then `apply`) makes a host materialise a default element and
    then fill it, where the incumbent constructs it once. The order is forced as
@@ -982,6 +1068,38 @@ Each blocks something. None is settled by a measurement that exists today.
    against this specification, which asks for a code and a message and provides no
    channel for a source chain. An error channel that discards the error is not an
    error channel, and the fix belongs to this decision rather than to a slice.
+
+13. **Should the facade be able to BORROW a decoded string rather than own it?**
+   Opened by the C++ slice, and it is the largest decode effect the branch has
+   measured. Nothing in this document changes to allow it: `ak_span` is already an
+   offset into the buffer the host handed in (section 4), and section 7 already
+   tells the host to resolve spans against a base pointer it holds. What is open
+   is what the **facade** promises.
+
+   **What it is worth.** A borrowed-string facade arm in C++ — same codec, same
+   ABI, same generated call text, only the destination type changed — moves decode
+   from about twice upb to level with or below it: P1.2 from 0.562-0.790 to
+   **0.234-0.241** against a clang upb build's 0.245, P2.3 from 0.855-0.921 to
+   0.383-0.396, and −24 to −50 % of a protobuf decode across the element-bearing
+   payloads. P6.1, one string and five packed scalar arrays, barely moves at
+   −4.3 %, which is the control that says the arm measures the copy and not
+   something else.
+
+   **It is not a C++ result.** The provenance table below already records that
+   decode spans as offsets into the host's buffer took a 4 MB download from 4.2
+   times protobuf-java to 1.00. Three hosts, one mechanism, and the branch held
+   both halves without connecting them.
+
+   **What is actually open is the lifetime contract.** A borrowed view is valid
+   only while the input buffer lives, which this document has never written down;
+   in C# and Java it interacts with pinning, in C++ it means a facade type that is
+   not `std::string`, and a hybrid facade that borrows some fields and owns others
+   has a public surface nobody has drafted. **Settled by**: drafting that contract
+   and pricing what a host pays to honour it — not by another measurement of the
+   copy, which is now bounded from both ends. **Blocks: nothing today; it is an
+   additive option. But it is the difference between "the core's decode beats what
+   ArmoniK ships" and "the core's decode is level with the fastest C protobuf",
+   and the report has to say which claim it is making.**
 
 **Settled since the first draft**, kept here so a reader of an earlier version
 does not look for them: the accessor error channel is now section 5 rather than a
