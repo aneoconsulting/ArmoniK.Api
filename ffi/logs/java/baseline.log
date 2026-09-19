@@ -1,0 +1,35 @@
+== is the incumbent flattered? protobuf-java's memoized serialized size ==
+java.version=17.0.20  protobuf-java=protobuf-java-3.25.5.jar
+pool=24 freshly parsed messages per round, rounds=9  sink=6270184800
+
+`size cold` is getSerializedSize() on a message that has never been
+serialised; `size warm` is the same call once it is memoized; `write` is
+writeTo into a buffer the caller owns, which is what the bench's `pbj` arm
+measures on iteration 2 and after.
+
+A loop over ONE message therefore reports `write` where an application
+that serialises each message once pays `size cold` + `write`. The last
+column is the correction the bench's pbj column needs.
+
+id     size cold   size warm   write       cold+write  hidden
+P1.1   5316.8      89.4        13380.0     18696.7     1.4x
+P1.2   151592.8    241.1       206031.0    357623.7    1.7x
+P1.3   13243.7     80.3        14675.0     27918.7     1.9x
+P2.1   15423.7     118.8       18143.7     33567.4     1.9x
+P2.2   1764181.3   474.0       1306844.4   3071025.7   2.3x
+P2.3   602943.8    353.1       900920.3    1503864.2   1.7x
+P2.4   662929.6    379.8       940671.0    1603600.6   1.7x
+P2.5   18648.9     82.9        33414.2     52063.1     1.6x
+P3.1   18980.0     71.2        21903.9     40883.9     1.9x
+P4.1   183708.5    299.7       303074.0    486782.6    1.6x
+P5.1   519.5       82.6        537.1       1056.6      2.0x
+P5.2   187.3       58.3        3494.0      3681.2      1.1x
+P5.3   630.5       68.8        103667.5    104298.0    1.0x
+P5.4   930.6       71.2        441710.3    442641.0    1.0x
+P6.1   114064.1    246.1       211223.0    325287.0    1.5x
+P7.1   1229.3      98.7        2000.5      3229.7      1.6x
+
+Read the last column as: the bench's protobuf-java encode figure should
+be multiplied by this to describe an application, and every ratio against
+it divided by it. The bench reports the UNCORRECTED figure and says so,
+because which of the two a reader wants depends on the question.

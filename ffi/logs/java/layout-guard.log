@@ -1,0 +1,9 @@
+== ABI v1 section 10: the layout guard, seen failing ==
+# perturb ONE offset in the host's hand-computed table and rebuild that class only
+#   HOST[0] 56 -> 57
+# now load the binding: the comparison against the core's own export must fire
+Exception in thread "main" java.lang.ExceptionInInitializerError
+Caused by: java.lang.IllegalStateException: ABI v1 section 10: group layout disagreement
+  sizeof ak_efix_TaskOptionsOptionsEntry: core 56, host 57
+  (1 of 380 facts disagree)
+# exit status 1 (non-zero is the guard working)
