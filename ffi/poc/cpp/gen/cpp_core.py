@@ -78,9 +78,7 @@ class CppEnc:
         o.append("    ak::Mark mk = e->begin(%d, %d);" % (f.tag, s))
         o.append("    for (size_t i = 0; i < o.%s.size(); ++i)" % f.name)
         if f.kind == "double":
-            o.append("      { double dv = o.%s[i]; uint64_t bits; std::memcpy(&bits, &dv, 8);"
-                     % f.name)
-            o.append("        for (int b = 0; b < 8; ++b) e->buf.push_back((uint8_t)(bits >> (8*b))); }")
+            o.append("      { double dv = o.%s[i]; e->raw((const uint8_t *)&dv, 8); }" % f.name)
         elif f.kind == "bool":
             o.append("      e->varint(o.%s[i] ? 1 : 0);" % f.name)
         elif f.kind == "enum":
@@ -196,13 +194,18 @@ class CppDec:
     def repeated_blob(self, m, f, o):
         o.append("      case %d: if (wire == 2) {" % f.tag)
         o.append("        size_t off, n; d->len_body(&off, &n);")
+        o.append("#if AK_CXX17")
+        o.append("        // C++17: emplace_back returns the reference the writer needs.")
+        o.append("        std::string &b_ = out->%s.emplace_back();" % f.name)
+        o.append("#else")
         o.append("        out->%s.push_back(std::string());" % f.name)
+        o.append("        std::string &b_ = out->%s.back();" % f.name)
+        o.append("#endif")
         if f.kind == "string":
-            o.append("        int32_t rc = ak::decode_str(d->buf + off, n, &out->%s.back());"
-                     % f.name)
+            o.append("        int32_t rc = ak::decode_str(d->buf + off, n, &b_);")
             o.append("        if (rc != 0) { d->err = rc; return; }")
         else:
-            o.append("        out->%s.back().assign((const char *)(d->buf + off), n);" % f.name)
+            o.append("        b_.assign((const char *)(d->buf + off), n);")
         o.append("        break; } else { d->skip(wire); break; }")
 
     def packed(self, m, f, o):
@@ -274,7 +277,12 @@ class CppDec:
         o.append("          }")
         o.append("        }")
         o.append("        if (sub.err != 0) { d->err = sub.err; return; }")
+        o.append("#if AK_CXX17")
+        o.append("        // C++17: one insertion, no default-construct-then-assign.")
+        o.append("        out->%s.insert_or_assign(std::move(k_), std::move(v_));" % f.name)
+        o.append("#else")
         o.append("        out->%s[k_] = v_;" % f.name)
+        o.append("#endif")
         o.append("        break; } else { d->skip(wire); break; }")
 
 

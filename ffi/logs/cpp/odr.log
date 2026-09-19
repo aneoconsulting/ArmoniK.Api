@@ -1,0 +1,63 @@
+== pass 1: the facade as it is ==
+TU A: __cplusplus = 201103   TU B: __cplusplus = 201703
+144 layout facts compared across the two levels, 0 moved
+objects passed across the seam in both directions: ok
+  exit 0 (0 = no installed type's layout moved with -std)
+
+== pass 2: the POSITIVE CONTROL, one type made -std dependent on purpose ==
+TU A: __cplusplus = 201103   TU B: __cplusplus = 201703
+  MOVED  sizeof shapes::ResultRaw                         c++11=264  c++17=280
+  MOVED  shapes::ResultRaw.completed_at                   c++11=128  c++17=136
+  MOVED  shapes::ResultRaw.result_id                      c++11=152  c++17=168
+  MOVED  shapes::ResultRaw.size                           c++11=184  c++17=200
+  MOVED  shapes::ResultRaw.created_by                     c++11=192  c++17=208
+  MOVED  shapes::ResultRaw.opaque_id                      c++11=224  c++17=240
+  MOVED  shapes::ResultRaw.manual_deletion                c++11=256  c++17=272
+  MOVED  sizeof shapes::TaskOptions                       c++11=272  c++17=280
+  MOVED  shapes::TaskOptions.max_retries                  c++11=72  c++17=80
+  MOVED  shapes::TaskOptions.priority                     c++11=76  c++17=84
+  MOVED  shapes::TaskOptions.partition_id                 c++11=80  c++17=88
+  MOVED  shapes::TaskOptions.application_name             c++11=112  c++17=120
+  MOVED  shapes::TaskOptions.application_version          c++11=144  c++17=152
+  MOVED  shapes::TaskOptions.application_namespace        c++11=176  c++17=184
+  MOVED  shapes::TaskOptions.application_service          c++11=208  c++17=216
+  MOVED  shapes::TaskOptions.engine_type                  c++11=240  c++17=248
+  MOVED  sizeof shapes::TaskDetailed                      c++11=976  c++17=1096
+  MOVED  shapes::TaskDetailed.created_at                  c++11=512  c++17=528
+  MOVED  shapes::TaskDetailed.submitted_at                c++11=536  c++17=560
+  MOVED  shapes::TaskDetailed.started_at                  c++11=560  c++17=592
+  MOVED  shapes::TaskDetailed.ended_at                    c++11=584  c++17=624
+  MOVED  shapes::TaskDetailed.pod_ttl                     c++11=608  c++17=656
+  MOVED  shapes::TaskDetailed.output                      c++11=632  c++17=688
+  MOVED  shapes::TaskDetailed.pod_hostname                c++11=680  c++17=744
+  MOVED  shapes::TaskDetailed.received_at                 c++11=712  c++17=776
+  MOVED  shapes::TaskDetailed.acquired_at                 c++11=736  c++17=808
+  MOVED  shapes::TaskDetailed.creation_to_end_duration    c++11=760  c++17=840
+  MOVED  shapes::TaskDetailed.processing_to_end_duration  c++11=784  c++17=872
+  MOVED  shapes::TaskDetailed.initial_task_id             c++11=808  c++17=904
+  MOVED  shapes::TaskDetailed.received_to_end_duration    c++11=840  c++17=936
+  MOVED  shapes::TaskDetailed.processed_at                c++11=864  c++17=968
+  MOVED  shapes::TaskDetailed.fetched_at                  c++11=888  c++17=1000
+  MOVED  shapes::TaskDetailed.payload_id                  c++11=912  c++17=1032
+  MOVED  shapes::TaskDetailed.created_by                  c++11=944  c++17=1064
+  MOVED  sizeof shapes::TaskSummary                       c++11=448  c++17=472
+  MOVED  shapes::TaskSummary.status                       c++11=344  c++17=360
+  MOVED  shapes::TaskSummary.created_at                   c++11=352  c++17=368
+  MOVED  shapes::TaskSummary.error                        c++11=376  c++17=400
+  MOVED  shapes::TaskSummary.status_message               c++11=408  c++17=432
+  MOVED  shapes::TaskSummary.count_data_dependencies      c++11=440  c++17=464
+  MOVED  sizeof shapes::Probe                             c++11=128  c++17=152
+  MOVED  shapes::Probe.opt_label                          c++11=40  c++17=48
+  MOVED  shapes::Probe.opt_flag                           c++11=80  c++17=96
+  MOVED  shapes::Probe.body                               c++11=88  c++17=112
+  MOVED  sizeof shapes::UploadResultDataMessage           c++11=104  c++17=112
+  MOVED  sizeof ak::Optional<int32_t>                     c++11=8  c++17=16
+  MOVED  alignof ak::Optional<int32_t>                    c++11=4  c++17=8
+  MOVED  sizeof ak::Optional<int64_t>                     c++11=16  c++17=24
+  MOVED  sizeof ak::Optional<double>                      c++11=16  c++17=24
+144 layout facts compared across the two levels, 49 moved
+a moved layout is an ODR violation: the objects below would be misread,
+so the check stops here rather than demonstrating it by crashing.
+  exit 1 (nonzero = the check CAN fail, so pass 1 means something)
+
+odr_check: ok
