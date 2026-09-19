@@ -91,7 +91,7 @@ public static class Bench
                 Run = n => { for (int i = 0; i < n; i++) Consume(arms.GpWriteTo(dst)); },
             });
 
-            var bw = new ArrayBufferWriter<byte>(cap);
+            var bw = new BufWriter(cap);
             cases.Add(new Case
             {
                 Payload = a.Id, Dir = "encode", Arm = "gp-bufferwriter",

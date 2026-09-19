@@ -11,7 +11,7 @@ The arms, and exactly what each one calls:
                    reused buffer. No allocation, but it pays an explicit
                    top-level size pass to size the span
   gp-bufferwriter  `msg.WriteTo(IBufferWriter<byte>)` over a reused
-                   `ArrayBufferWriter` -- the SAME official API family with NO
+                   `BufWriter` -- the SAME official API family with NO
                    top-level size pass at all, which is the fairest encode
                    baseline `Google.Protobuf` offers. Added after the C++ slice
                    found its own incumbent handicapped three ways and moved its
@@ -65,7 +65,7 @@ def emit(ir):
     o += ""
     o += "    public abstract byte[] GpToByteArray();"
     o += "    public abstract int GpWriteTo(byte[] dst);"
-    o += "    public abstract int GpWriteToBufferWriter(ArrayBufferWriter<byte> w);"
+    o += "    public abstract int GpWriteToBufferWriter(BufWriter w);"
     o += "    public abstract void ManagedWrite(ref Enc e);"
     o += "    public abstract void ManagedWriteSized(ref Enc e);"
     o += ""
@@ -123,13 +123,12 @@ def emit(ir):
         o += "    }"
         o += ""
         o += "    /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top"
-        o += "    /// level. The caller RESETS the writer rather than clearing it --"
-        o += "    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly"
-        o += "    /// the per-iteration buffer wipe that handicapped the C++ slice's"
-        o += "    /// incumbent. ResetWrittenCount() does not."
-        o += "    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)"
+        o += "    /// level. BufWriter.Reset() moves the position and does NOT zero the"
+        o += "    /// buffer, a per-iteration wipe being the exact shape of the handicap"
+        o += "    /// an adversarial review found in the C++ slice's incumbent."
+        o += "    public override int GpWriteToBufferWriter(BufWriter w)"
         o += "    {"
-        o += "        w.ResetWrittenCount();"
+        o += "        w.Reset();"
         o += "        _gp.WriteTo(w);"
         o += "        return w.WrittenCount;"
         o += "    }"

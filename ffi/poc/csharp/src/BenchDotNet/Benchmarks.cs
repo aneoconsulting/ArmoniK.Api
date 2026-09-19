@@ -25,6 +25,7 @@
 // sink.
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using BenchmarkDotNet.Attributes;
@@ -64,6 +65,7 @@ public class Encode
 
     private Arms _arms;
     private byte[] _dst;
+    private BufWriter _bw;
     private byte[] _mcSrc;
     private byte[] _mcDst;
     private Enc _enc;
@@ -83,6 +85,7 @@ public class Encode
         int cap = n + 4096;
 
         _dst = new byte[cap];
+        _bw = new BufWriter(cap);
         _enc = Enc.New(Codec.Sites, cap);
         _enc2 = Enc.New(Codec.Sites, cap);
         _mcSrc = probe.ToArray();
@@ -98,6 +101,12 @@ public class Encode
 
     [Benchmark(Baseline = true, Description = "gp-writeto")]
     public int GpWriteTo() => _arms.GpWriteTo(_dst);
+
+    /// The same official API family with NO top-level size pass. Reset, not
+    /// Clear: ArrayBufferWriter.Clear() zeroes the written span, which is the
+    /// per-iteration buffer wipe that handicapped the C++ slice's incumbent.
+    [Benchmark(Description = "gp-bufferwriter")]
+    public int GpWriteToBufferWriter() => _arms.GpWriteToBufferWriter(_bw);
 
     [Benchmark(Description = "gp-tobytearray")]
     public byte[] GpToByteArray() => _arms.GpToByteArray();
