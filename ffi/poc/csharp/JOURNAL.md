@@ -227,3 +227,84 @@ So the three containers are not interchangeable and R13 is what says so. It
 also means something concrete for the report: **a C# absolute here is
 comparable with a Rust absolute and is NOT comparable with a C++ absolute**,
 and that is a measured statement rather than a caveat.
+
+### 14. Two handicapped incumbents, both mine, found by looking for them
+
+The aggregating session relayed that an adversarial review of the C++ slice
+found its incumbent handicapped three ways and moved its headline by about
+eight points, and said to look for the analogous thing here rather than wait
+for a review. There were two, and the second is worse than anything the C++
+review found.
+
+**One: the encode baseline paid a size pass the incumbent does not have to.**
+`gp-writeto` was `msg.CalculateSize()` then `msg.WriteTo(Span<byte>)`, where
+the `CalculateSize` exists only to size the span. `Google.Protobuf` offers
+`msg.WriteTo(IBufferWriter<byte>)` in the same official API family, which
+sizes nothing at the top level. Added as `gp-bufferwriter` over a reused
+`ArrayBufferWriter`, **reset rather than cleared**, because
+`ArrayBufferWriter.Clear()` zeroes the written span and that is precisely the
+per-iteration buffer wipe that handicapped the C++ slice's incumbent.
+
+It is **0.708 to 0.806 of `gp-writeto`** on every payload measured. So the
+incumbent's best encode path is 20 to 29 percent faster than the baseline
+this slice was quoting against, and every managed encode ratio in the
+published stage 3 was flattered by that much.
+
+**Two, and this one is on the single most valuable number in the slice: the
+DECODE baseline did a full extra traversal.** The generated `GpParse` ended
+
+    return m.CalculateSize();
+
+written to keep the decoded graph from being optimised away. `CalculateSize()`
+walks the entire decoded tree. `ManagedParse` returned `d.Pos`, which is free.
+**The incumbent was paying a size pass the managed arm was not, on the decode
+column this slice exists to produce.**
+
+Both arms now park the graph in a static `object` sink and return an O(1)
+value. A store cannot be elided and costs the same in both.
+
+What it was worth, hand-rolled harness, same machine, same build:
+
+| payload | published | corrected |
+|---|---|---|
+| P1.2 | 0.648 - 0.694 | **0.764** |
+| P1.3 | 0.451 - 0.490 | **0.593** |
+| P2.2 | 0.642 - 0.683 | **0.815** |
+| P3.1 | 0.660 - 0.664 | **0.817** |
+| P4.1 | 0.661 - 0.665 | **0.843** |
+
+**The verdict survives and the margin does not.** Managed decode is still
+below 1.0 everywhere, so C# still does not look like Java on decode and
+README section 13's outcome 2 still does not follow from this column. But the
+honest figure is 0.59 to 0.84, not 0.45 to 0.83, and the correction is larger
+than the eight points the C++ review moved.
+
+**The lesson, which is not "check your baseline".** It is that *whatever keeps
+a benchmark result alive has to cost the same in every arm*. The guard was
+added for a real reason, dead-code elimination, and it was the guard that was
+asymmetric, not the codec. A reviewer reading the arm table would have seen
+two methods that both "parse and return an int".
+
+### 15. P2.5's two encodings, and a correction to what was relayed
+
+`design/SHAPES.md` now records that an empty map value is an
+implicit-presence leaf: the manifest omits it, protobuf C++ and upb write it,
+at +80 B on P2.5. The expectation relayed to this slice was that
+`Google.Protobuf` writes it too.
+
+**It does not.** `harness mapforms` measures it: `ToByteArray` produces 19,632
+B, the manifest's form, and so does the generated codec. That is also why
+stage 1 passes byte identity on P2.5 with no special case, which was already
+evidence in hand. So the split is prost and Google.Protobuf omitting against
+protobuf C++ and upb writing, not managed against native.
+
+The other half had to be tested rather than reasoned about, and was: the +80 B
+form is built by rewriting the committed vector (40 insertions, 19,712 B, both
+checked), and **both decoders accept it and normalise it back to the canonical
+form**, because an empty and an absent map value are the same facade value.
+
+The rewriter needed to catch its own bug first: `p += (int)ReadVarint(b, ref p)`
+adds the body length to the PRE-varint offset, because C# loads the left
+operand of `+=` before evaluating the right and `ReadVarint` advances `p`
+itself. It surfaced as a phantom wire type 4 two fields later. The generated
+decoder is unaffected, spelling it `Pos = LenEnd()`.

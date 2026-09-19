@@ -5,6 +5,7 @@
 // The per-payload arm table: one dispatch per payload, emitted.
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using Google.Protobuf;
 using Armonik.Ffi.Facade;
@@ -25,8 +26,13 @@ public abstract class Arms
 
     public abstract byte[] GpToByteArray();
     public abstract int GpWriteTo(byte[] dst);
+    public abstract int GpWriteToBufferWriter(ArrayBufferWriter<byte> w);
     public abstract void ManagedWrite(ref Enc e);
     public abstract void ManagedWriteSized(ref Enc e);
+
+    /// Where a decoded graph is parked so the JIT cannot elide the
+    /// decode. A store, and identical in both arms: see the header.
+    public static object Sink;
 
     public abstract int GpParse(byte[] src, int len);
     public abstract int ManagedParse(byte[] src, int len);
@@ -69,6 +75,18 @@ public sealed class Arms_P1_1 : Arms
         return n;
     }
 
+    /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
+    /// level. The caller RESETS the writer rather than clearing it --
+    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
+    /// the per-iteration buffer wipe that handicapped the C++ slice's
+    /// incumbent. ResetWrittenCount() does not.
+    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    {
+        w.ResetWrittenCount();
+        _gp.WriteTo(w);
+        return w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListResultsResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListResultsResponse(ref e, _fac);
@@ -76,7 +94,8 @@ public sealed class Arms_P1_1 : Arms
     public override int GpParse(byte[] src, int len)
     {
         var m = Armonik.Ffi.Shapes.V1.ListResultsResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));
-        return m.CalculateSize();
+        Sink = m;
+        return len;
     }
 
     public override int ManagedParse(byte[] src, int len)
@@ -85,6 +104,7 @@ public sealed class Arms_P1_1 : Arms
         var m = new ListResultsResponse();
         Codec.ReadListResultsResponse(ref d, m, len);
         if (d.Err != 0) throw new InvalidOperationException(Id + ": managed decode failed, err " + d.Err);
+        Sink = m;
         return d.Pos;
     }
 
@@ -140,6 +160,18 @@ public sealed class Arms_P1_2 : Arms
         return n;
     }
 
+    /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
+    /// level. The caller RESETS the writer rather than clearing it --
+    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
+    /// the per-iteration buffer wipe that handicapped the C++ slice's
+    /// incumbent. ResetWrittenCount() does not.
+    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    {
+        w.ResetWrittenCount();
+        _gp.WriteTo(w);
+        return w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListResultsResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListResultsResponse(ref e, _fac);
@@ -147,7 +179,8 @@ public sealed class Arms_P1_2 : Arms
     public override int GpParse(byte[] src, int len)
     {
         var m = Armonik.Ffi.Shapes.V1.ListResultsResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));
-        return m.CalculateSize();
+        Sink = m;
+        return len;
     }
 
     public override int ManagedParse(byte[] src, int len)
@@ -156,6 +189,7 @@ public sealed class Arms_P1_2 : Arms
         var m = new ListResultsResponse();
         Codec.ReadListResultsResponse(ref d, m, len);
         if (d.Err != 0) throw new InvalidOperationException(Id + ": managed decode failed, err " + d.Err);
+        Sink = m;
         return d.Pos;
     }
 
@@ -211,6 +245,18 @@ public sealed class Arms_P1_3 : Arms
         return n;
     }
 
+    /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
+    /// level. The caller RESETS the writer rather than clearing it --
+    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
+    /// the per-iteration buffer wipe that handicapped the C++ slice's
+    /// incumbent. ResetWrittenCount() does not.
+    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    {
+        w.ResetWrittenCount();
+        _gp.WriteTo(w);
+        return w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListResultsResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListResultsResponse(ref e, _fac);
@@ -218,7 +264,8 @@ public sealed class Arms_P1_3 : Arms
     public override int GpParse(byte[] src, int len)
     {
         var m = Armonik.Ffi.Shapes.V1.ListResultsResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));
-        return m.CalculateSize();
+        Sink = m;
+        return len;
     }
 
     public override int ManagedParse(byte[] src, int len)
@@ -227,6 +274,7 @@ public sealed class Arms_P1_3 : Arms
         var m = new ListResultsResponse();
         Codec.ReadListResultsResponse(ref d, m, len);
         if (d.Err != 0) throw new InvalidOperationException(Id + ": managed decode failed, err " + d.Err);
+        Sink = m;
         return d.Pos;
     }
 
@@ -282,6 +330,18 @@ public sealed class Arms_P2_1 : Arms
         return n;
     }
 
+    /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
+    /// level. The caller RESETS the writer rather than clearing it --
+    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
+    /// the per-iteration buffer wipe that handicapped the C++ slice's
+    /// incumbent. ResetWrittenCount() does not.
+    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    {
+        w.ResetWrittenCount();
+        _gp.WriteTo(w);
+        return w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListTasksDetailedResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListTasksDetailedResponse(ref e, _fac);
@@ -289,7 +349,8 @@ public sealed class Arms_P2_1 : Arms
     public override int GpParse(byte[] src, int len)
     {
         var m = Armonik.Ffi.Shapes.V1.ListTasksDetailedResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));
-        return m.CalculateSize();
+        Sink = m;
+        return len;
     }
 
     public override int ManagedParse(byte[] src, int len)
@@ -298,6 +359,7 @@ public sealed class Arms_P2_1 : Arms
         var m = new ListTasksDetailedResponse();
         Codec.ReadListTasksDetailedResponse(ref d, m, len);
         if (d.Err != 0) throw new InvalidOperationException(Id + ": managed decode failed, err " + d.Err);
+        Sink = m;
         return d.Pos;
     }
 
@@ -353,6 +415,18 @@ public sealed class Arms_P2_2 : Arms
         return n;
     }
 
+    /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
+    /// level. The caller RESETS the writer rather than clearing it --
+    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
+    /// the per-iteration buffer wipe that handicapped the C++ slice's
+    /// incumbent. ResetWrittenCount() does not.
+    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    {
+        w.ResetWrittenCount();
+        _gp.WriteTo(w);
+        return w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListTasksDetailedResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListTasksDetailedResponse(ref e, _fac);
@@ -360,7 +434,8 @@ public sealed class Arms_P2_2 : Arms
     public override int GpParse(byte[] src, int len)
     {
         var m = Armonik.Ffi.Shapes.V1.ListTasksDetailedResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));
-        return m.CalculateSize();
+        Sink = m;
+        return len;
     }
 
     public override int ManagedParse(byte[] src, int len)
@@ -369,6 +444,7 @@ public sealed class Arms_P2_2 : Arms
         var m = new ListTasksDetailedResponse();
         Codec.ReadListTasksDetailedResponse(ref d, m, len);
         if (d.Err != 0) throw new InvalidOperationException(Id + ": managed decode failed, err " + d.Err);
+        Sink = m;
         return d.Pos;
     }
 
@@ -424,6 +500,18 @@ public sealed class Arms_P2_3 : Arms
         return n;
     }
 
+    /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
+    /// level. The caller RESETS the writer rather than clearing it --
+    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
+    /// the per-iteration buffer wipe that handicapped the C++ slice's
+    /// incumbent. ResetWrittenCount() does not.
+    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    {
+        w.ResetWrittenCount();
+        _gp.WriteTo(w);
+        return w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListTasksDetailedResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListTasksDetailedResponse(ref e, _fac);
@@ -431,7 +519,8 @@ public sealed class Arms_P2_3 : Arms
     public override int GpParse(byte[] src, int len)
     {
         var m = Armonik.Ffi.Shapes.V1.ListTasksDetailedResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));
-        return m.CalculateSize();
+        Sink = m;
+        return len;
     }
 
     public override int ManagedParse(byte[] src, int len)
@@ -440,6 +529,7 @@ public sealed class Arms_P2_3 : Arms
         var m = new ListTasksDetailedResponse();
         Codec.ReadListTasksDetailedResponse(ref d, m, len);
         if (d.Err != 0) throw new InvalidOperationException(Id + ": managed decode failed, err " + d.Err);
+        Sink = m;
         return d.Pos;
     }
 
@@ -495,6 +585,18 @@ public sealed class Arms_P2_4 : Arms
         return n;
     }
 
+    /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
+    /// level. The caller RESETS the writer rather than clearing it --
+    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
+    /// the per-iteration buffer wipe that handicapped the C++ slice's
+    /// incumbent. ResetWrittenCount() does not.
+    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    {
+        w.ResetWrittenCount();
+        _gp.WriteTo(w);
+        return w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListTasksDetailedResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListTasksDetailedResponse(ref e, _fac);
@@ -502,7 +604,8 @@ public sealed class Arms_P2_4 : Arms
     public override int GpParse(byte[] src, int len)
     {
         var m = Armonik.Ffi.Shapes.V1.ListTasksDetailedResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));
-        return m.CalculateSize();
+        Sink = m;
+        return len;
     }
 
     public override int ManagedParse(byte[] src, int len)
@@ -511,6 +614,7 @@ public sealed class Arms_P2_4 : Arms
         var m = new ListTasksDetailedResponse();
         Codec.ReadListTasksDetailedResponse(ref d, m, len);
         if (d.Err != 0) throw new InvalidOperationException(Id + ": managed decode failed, err " + d.Err);
+        Sink = m;
         return d.Pos;
     }
 
@@ -566,6 +670,18 @@ public sealed class Arms_P2_5 : Arms
         return n;
     }
 
+    /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
+    /// level. The caller RESETS the writer rather than clearing it --
+    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
+    /// the per-iteration buffer wipe that handicapped the C++ slice's
+    /// incumbent. ResetWrittenCount() does not.
+    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    {
+        w.ResetWrittenCount();
+        _gp.WriteTo(w);
+        return w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListTasksDetailedResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListTasksDetailedResponse(ref e, _fac);
@@ -573,7 +689,8 @@ public sealed class Arms_P2_5 : Arms
     public override int GpParse(byte[] src, int len)
     {
         var m = Armonik.Ffi.Shapes.V1.ListTasksDetailedResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));
-        return m.CalculateSize();
+        Sink = m;
+        return len;
     }
 
     public override int ManagedParse(byte[] src, int len)
@@ -582,6 +699,7 @@ public sealed class Arms_P2_5 : Arms
         var m = new ListTasksDetailedResponse();
         Codec.ReadListTasksDetailedResponse(ref d, m, len);
         if (d.Err != 0) throw new InvalidOperationException(Id + ": managed decode failed, err " + d.Err);
+        Sink = m;
         return d.Pos;
     }
 
@@ -637,6 +755,18 @@ public sealed class Arms_P3_1 : Arms
         return n;
     }
 
+    /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
+    /// level. The caller RESETS the writer rather than clearing it --
+    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
+    /// the per-iteration buffer wipe that handicapped the C++ slice's
+    /// incumbent. ResetWrittenCount() does not.
+    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    {
+        w.ResetWrittenCount();
+        _gp.WriteTo(w);
+        return w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListProbeResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListProbeResponse(ref e, _fac);
@@ -644,7 +774,8 @@ public sealed class Arms_P3_1 : Arms
     public override int GpParse(byte[] src, int len)
     {
         var m = Armonik.Ffi.Shapes.V1.ListProbeResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));
-        return m.CalculateSize();
+        Sink = m;
+        return len;
     }
 
     public override int ManagedParse(byte[] src, int len)
@@ -653,6 +784,7 @@ public sealed class Arms_P3_1 : Arms
         var m = new ListProbeResponse();
         Codec.ReadListProbeResponse(ref d, m, len);
         if (d.Err != 0) throw new InvalidOperationException(Id + ": managed decode failed, err " + d.Err);
+        Sink = m;
         return d.Pos;
     }
 
@@ -708,6 +840,18 @@ public sealed class Arms_P4_1 : Arms
         return n;
     }
 
+    /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
+    /// level. The caller RESETS the writer rather than clearing it --
+    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
+    /// the per-iteration buffer wipe that handicapped the C++ slice's
+    /// incumbent. ResetWrittenCount() does not.
+    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    {
+        w.ResetWrittenCount();
+        _gp.WriteTo(w);
+        return w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListTaskSummaryResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListTaskSummaryResponse(ref e, _fac);
@@ -715,7 +859,8 @@ public sealed class Arms_P4_1 : Arms
     public override int GpParse(byte[] src, int len)
     {
         var m = Armonik.Ffi.Shapes.V1.ListTaskSummaryResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));
-        return m.CalculateSize();
+        Sink = m;
+        return len;
     }
 
     public override int ManagedParse(byte[] src, int len)
@@ -724,6 +869,7 @@ public sealed class Arms_P4_1 : Arms
         var m = new ListTaskSummaryResponse();
         Codec.ReadListTaskSummaryResponse(ref d, m, len);
         if (d.Err != 0) throw new InvalidOperationException(Id + ": managed decode failed, err " + d.Err);
+        Sink = m;
         return d.Pos;
     }
 
@@ -779,6 +925,18 @@ public sealed class Arms_P5_1 : Arms
         return n;
     }
 
+    /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
+    /// level. The caller RESETS the writer rather than clearing it --
+    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
+    /// the per-iteration buffer wipe that handicapped the C++ slice's
+    /// incumbent. ResetWrittenCount() does not.
+    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    {
+        w.ResetWrittenCount();
+        _gp.WriteTo(w);
+        return w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteUploadResultDataMessage(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedUploadResultDataMessage(ref e, _fac);
@@ -786,7 +944,8 @@ public sealed class Arms_P5_1 : Arms
     public override int GpParse(byte[] src, int len)
     {
         var m = Armonik.Ffi.Shapes.V1.UploadResultDataMessage.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));
-        return m.CalculateSize();
+        Sink = m;
+        return len;
     }
 
     public override int ManagedParse(byte[] src, int len)
@@ -795,6 +954,7 @@ public sealed class Arms_P5_1 : Arms
         var m = new UploadResultDataMessage();
         Codec.ReadUploadResultDataMessage(ref d, m, len);
         if (d.Err != 0) throw new InvalidOperationException(Id + ": managed decode failed, err " + d.Err);
+        Sink = m;
         return d.Pos;
     }
 
@@ -850,6 +1010,18 @@ public sealed class Arms_P5_2 : Arms
         return n;
     }
 
+    /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
+    /// level. The caller RESETS the writer rather than clearing it --
+    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
+    /// the per-iteration buffer wipe that handicapped the C++ slice's
+    /// incumbent. ResetWrittenCount() does not.
+    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    {
+        w.ResetWrittenCount();
+        _gp.WriteTo(w);
+        return w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteUploadResultDataMessage(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedUploadResultDataMessage(ref e, _fac);
@@ -857,7 +1029,8 @@ public sealed class Arms_P5_2 : Arms
     public override int GpParse(byte[] src, int len)
     {
         var m = Armonik.Ffi.Shapes.V1.UploadResultDataMessage.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));
-        return m.CalculateSize();
+        Sink = m;
+        return len;
     }
 
     public override int ManagedParse(byte[] src, int len)
@@ -866,6 +1039,7 @@ public sealed class Arms_P5_2 : Arms
         var m = new UploadResultDataMessage();
         Codec.ReadUploadResultDataMessage(ref d, m, len);
         if (d.Err != 0) throw new InvalidOperationException(Id + ": managed decode failed, err " + d.Err);
+        Sink = m;
         return d.Pos;
     }
 
@@ -921,6 +1095,18 @@ public sealed class Arms_P5_3 : Arms
         return n;
     }
 
+    /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
+    /// level. The caller RESETS the writer rather than clearing it --
+    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
+    /// the per-iteration buffer wipe that handicapped the C++ slice's
+    /// incumbent. ResetWrittenCount() does not.
+    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    {
+        w.ResetWrittenCount();
+        _gp.WriteTo(w);
+        return w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteUploadResultDataMessage(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedUploadResultDataMessage(ref e, _fac);
@@ -928,7 +1114,8 @@ public sealed class Arms_P5_3 : Arms
     public override int GpParse(byte[] src, int len)
     {
         var m = Armonik.Ffi.Shapes.V1.UploadResultDataMessage.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));
-        return m.CalculateSize();
+        Sink = m;
+        return len;
     }
 
     public override int ManagedParse(byte[] src, int len)
@@ -937,6 +1124,7 @@ public sealed class Arms_P5_3 : Arms
         var m = new UploadResultDataMessage();
         Codec.ReadUploadResultDataMessage(ref d, m, len);
         if (d.Err != 0) throw new InvalidOperationException(Id + ": managed decode failed, err " + d.Err);
+        Sink = m;
         return d.Pos;
     }
 
@@ -992,6 +1180,18 @@ public sealed class Arms_P5_4 : Arms
         return n;
     }
 
+    /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
+    /// level. The caller RESETS the writer rather than clearing it --
+    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
+    /// the per-iteration buffer wipe that handicapped the C++ slice's
+    /// incumbent. ResetWrittenCount() does not.
+    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    {
+        w.ResetWrittenCount();
+        _gp.WriteTo(w);
+        return w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteUploadResultDataMessage(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedUploadResultDataMessage(ref e, _fac);
@@ -999,7 +1199,8 @@ public sealed class Arms_P5_4 : Arms
     public override int GpParse(byte[] src, int len)
     {
         var m = Armonik.Ffi.Shapes.V1.UploadResultDataMessage.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));
-        return m.CalculateSize();
+        Sink = m;
+        return len;
     }
 
     public override int ManagedParse(byte[] src, int len)
@@ -1008,6 +1209,7 @@ public sealed class Arms_P5_4 : Arms
         var m = new UploadResultDataMessage();
         Codec.ReadUploadResultDataMessage(ref d, m, len);
         if (d.Err != 0) throw new InvalidOperationException(Id + ": managed decode failed, err " + d.Err);
+        Sink = m;
         return d.Pos;
     }
 
@@ -1063,6 +1265,18 @@ public sealed class Arms_P6_1 : Arms
         return n;
     }
 
+    /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
+    /// level. The caller RESETS the writer rather than clearing it --
+    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
+    /// the per-iteration buffer wipe that handicapped the C++ slice's
+    /// incumbent. ResetWrittenCount() does not.
+    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    {
+        w.ResetWrittenCount();
+        _gp.WriteTo(w);
+        return w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteListMetricsResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedListMetricsResponse(ref e, _fac);
@@ -1070,7 +1284,8 @@ public sealed class Arms_P6_1 : Arms
     public override int GpParse(byte[] src, int len)
     {
         var m = Armonik.Ffi.Shapes.V1.ListMetricsResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));
-        return m.CalculateSize();
+        Sink = m;
+        return len;
     }
 
     public override int ManagedParse(byte[] src, int len)
@@ -1079,6 +1294,7 @@ public sealed class Arms_P6_1 : Arms
         var m = new ListMetricsResponse();
         Codec.ReadListMetricsResponse(ref d, m, len);
         if (d.Err != 0) throw new InvalidOperationException(Id + ": managed decode failed, err " + d.Err);
+        Sink = m;
         return d.Pos;
     }
 
@@ -1134,6 +1350,18 @@ public sealed class Arms_P7_1 : Arms
         return n;
     }
 
+    /// No CalculateSize: WriteTo(IBufferWriter) sizes nothing at the top
+    /// level. The caller RESETS the writer rather than clearing it --
+    /// ArrayBufferWriter.Clear() zeroes the written span, which is exactly
+    /// the per-iteration buffer wipe that handicapped the C++ slice's
+    /// incumbent. ResetWrittenCount() does not.
+    public override int GpWriteToBufferWriter(ArrayBufferWriter<byte> w)
+    {
+        w.ResetWrittenCount();
+        _gp.WriteTo(w);
+        return w.WrittenCount;
+    }
+
     public override void ManagedWrite(ref Enc e) => Codec.WriteDualResponse(ref e, _fac);
 
     public override void ManagedWriteSized(ref Enc e) => Codec.WriteSizedDualResponse(ref e, _fac);
@@ -1141,7 +1369,8 @@ public sealed class Arms_P7_1 : Arms
     public override int GpParse(byte[] src, int len)
     {
         var m = Armonik.Ffi.Shapes.V1.DualResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));
-        return m.CalculateSize();
+        Sink = m;
+        return len;
     }
 
     public override int ManagedParse(byte[] src, int len)
@@ -1150,6 +1379,7 @@ public sealed class Arms_P7_1 : Arms
         var m = new DualResponse();
         Codec.ReadDualResponse(ref d, m, len);
         if (d.Err != 0) throw new InvalidOperationException(Id + ": managed decode failed, err " + d.Err);
+        Sink = m;
         return d.Pos;
     }
 
