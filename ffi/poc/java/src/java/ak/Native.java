@@ -1,0 +1,83 @@
+package ak;
+
+/**
+ * The declared half of the JNI boundary. One native method per ABI entry point, matching
+ * one C function in {@code native/generated/shim.c}; never a dispatch table, because the
+ * thing this slice measures is a difference in forward crossing counts and a shared switch
+ * would inflate it.
+ *
+ * <p>Hand-written rather than generated, and it is the one place in the slice where that
+ * is a risk: a signature here and a C function there could drift. What catches it is the
+ * JVM itself -- an unbound native method throws {@code UnsatisfiedLinkError} on first call
+ * -- plus {@code ensureBound}, which resolves every one of them at load rather than at
+ * first use, so a drift is a startup failure and not a benchmark that silently skipped an
+ * arm.
+ */
+public final class Native {
+  private Native() {}
+
+  public static final int OK = 0;
+  public static final int ERR_HOST = -1;
+  public static final int ERR_TRANSCODE = -6;
+  public static final int ERR_CAPACITY = -7;
+  public static final int ERR_ABI = -11;
+  public static final byte[] NO_BYTES = new byte[0];
+
+  private static boolean loaded;
+
+  public static synchronized void load(String path) {
+    if (loaded) return;
+    System.load(path);
+    loaded = true;
+  }
+
+  public static synchronized void ensureBound() {
+    if (!loaded) {
+      String p = System.getProperty("ak.lib");
+      if (p == null) throw new IllegalStateException("-Dak.lib is not set");
+      load(p);
+    }
+    bind(ak.Callbacks.class);
+    if (abiVersion() != 1)
+      throw new IllegalStateException("ak_abi_version() is " + abiVersion() + ", not 1");
+    ak.shapes.Layout.assertAgreement();
+  }
+
+  /** Caches the reverse-call method ids from the INTERFACE, so one shim serves both the
+   *  owning facade's Binding and the borrowed facade's. */
+  static native void bind(Class<?> callbacks);
+
+  public static native int abiVersion();
+  public static native long encCtxNew();
+  public static native void encCtxFree(long ctx);
+  public static native void encReset(long ctx);
+  public static native int encErr(long ctx);
+  public static native int encTake(long ctx, byte[] dst);
+  public static native int encLen(long ctx);
+  public static native long decCtxNew();
+  public static native void decCtxFree(long ctx);
+  public static native int decErr(long ctx);
+  public static native void decErrReset(long ctx);
+  public static native void fail(long ctx, int code);
+
+  public static native long tcUtf16();
+  public static native long tcLatin1();
+  public static native long tcBytes();
+  public static native long tcUtf8();
+
+  public static native void encCounters(long ctx, long[] out);
+  public static native void encCountersReset(long ctx);
+  public static native void decCounters(long ctx, long[] out);
+  public static native void decCountersReset(long ctx);
+  public static native int layoutFacts(int[] out);
+  public static native long noop(long x);
+
+  // Forward entry points. Instance methods on Binding would be one field load cheaper to
+  // call from Java but would put `self` in the argument list of every forward crossing;
+  // the reverse calls need `self` and get it from the frame the entry pushed.
+  public static native int blobRun(long ctx, long p, int n);
+  public static native int runI32(long ctx, long p, long n);
+  public static native int runI64(long ctx, long p, long n);
+  public static native int runF64(long ctx, long p, long n);
+  public static native int runU8(long ctx, long p, long n);
+}

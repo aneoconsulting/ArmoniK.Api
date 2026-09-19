@@ -1,0 +1,31 @@
+[package]
+name = "ak-core-java"
+edition = "2021"
+rust-version = "1.88"
+version = "0.0.0"
+publish = false
+
+[lib]
+name = "ak_core_java"
+# A cdylib only. A JNI host loads a shared object; there is no static arm to compare
+# against, and R5's inlining hazard -- a host and a core compiled together -- cannot
+# reach a managed host at all, which is the one thing the JVM is safe from by
+# construction (findings/rust.md).
+crate-type = ["cdylib"]
+
+[features]
+default = []
+count = ["ak-rt/count"]
+
+[dependencies]
+# Read-only path dependencies on the rust slice's hand-written runtime. Not copied: one
+# definition of the ABI structs and one Enc/Dec runtime, so the three slices cannot drift.
+ak-abi = { path = "../../rust/crates/ak-abi" }
+ak-rt  = { path = "../../rust/crates/ak-rt" }
+simdutf8 = "0.1"
+
+[profile.release]
+# Explicit rather than defaulted, for the same reason the cpp slice states it: R5's
+# hazard is "what is the optimiser allowed to do across the boundary". A managed host
+# cannot be inlined into, so this is documentation rather than protection here.
+lto = false
