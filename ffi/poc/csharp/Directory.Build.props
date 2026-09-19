@@ -1,0 +1,28 @@
+<Project>
+
+  <!-- README 5.2 arm b needs the FLOOR sources and the TARGET sources to exist
+       side by side, so they can be run round robin rather than one after a
+       rebuild: a comparison that cannot share a process still has to be taken
+       in one sitting, with an in-process control column in each (R4).
+       The output paths have to be redirected BEFORE the SDK's props are
+       imported, which is why this is a Directory.Build.props and not a
+       PropertyGroup in the csproj. The first spelling put the redirect after
+       the default obj/ had already been globbed, and the build then compiled
+       two copies of every generated assembly attribute. -->
+  <PropertyGroup Condition="'$(AkFloor)' == 'true'">
+    <BaseOutputPath>$(MSBuildProjectDirectory)/bin-floor/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildProjectDirectory)/obj-floor/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+
+  <!-- The default **/*.cs glob excludes only $(BaseIntermediateOutputPath),
+       which is obj/. With the floor build writing to obj-floor/, the TARGET
+       build then globbed the floor build's generated assembly attributes and
+       failed with a duplicate of every one of them, and then the FLOOR build
+       globbed obj/ for the same reason, because the SDK only ever excludes the
+       intermediate directory of the build currently running. Both are excluded
+       in both directions, for every build. -->
+  <PropertyGroup>
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**;obj-floor/**;bin-floor/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+</Project>

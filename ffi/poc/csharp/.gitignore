@@ -9,3 +9,5 @@ obj/
 !src/**/*.cs
 !gen/**/*.py
 __pycache__/
+bin-floor/
+obj-floor/

@@ -16,6 +16,20 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
+  <!-- README 5.2 arm b: the FLOOR sources on the TARGET runtime, which is the
+       only fair floor-against-target ratio there is. One define flipped, one
+       generator, the same sources. Separate output paths so the two builds can
+       be run round robin against each other rather than one after a rebuild. -->
+  <PropertyGroup Condition="'$(AkFloor)' == 'true'">
+    <DefineConstants>$(DefineConstants);AK_FLOOR</DefineConstants>
+  </PropertyGroup>
+
+  <!-- The counting build (R5). Kept behind a define so the measured build's hot
+       path does not carry the per-site store: `dotnet build /p:AkCount=true`. -->
+  <PropertyGroup Condition="'$(AkCount)' == 'true'">
+    <DefineConstants>$(DefineConstants);AK_COUNT</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Google.Protobuf" Version="3.28.3" />
     <PackageReference Include="Grpc.Tools" Version="2.66.0" PrivateAssets="All" />

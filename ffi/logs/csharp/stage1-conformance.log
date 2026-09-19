@@ -1,11 +1,19 @@
-Stage 1: the correctness gate. R2, and nothing is timed until it passes.
+Stage 1: the correctness gate, re-taken at the end of the slice. R2, and
+nothing is timed until it passes.
 
-commit:   d7c5a04717c12acf66ed3e978f4a6f629090795f (+ this slice, uncommitted at run time)
+commit:   d281acf6ae3d78510d62c68f969ff16fe52e0768 (+ this slice)
 schema:   ffi/schema/generated/manifest.json, VALIDATED by the Rust slice against
           prost 0.14.4 and prost-reflect 0.16.5. A slice that disagrees with a hash
           has found a defect in itself.
-machine:  4 vCPU Intel(R) Xeon(R) Processor @ 2.80GHz, 15 GiB
+awk: 1: unexpected character '\'
+machine:  4 vCPU Intel(R) Xeon(R) Processor @ 2.80GHz,  GiB, 6.18.44-fc-v37
 sdk:      8.0.131
+mono:     Mono JIT compiler version 6.8.0.105 (Debian 6.8.0.105+dfsg-3.6ubuntu2 Sun Mar 31 02:55:28 UTC 2024)
+
+ALL THREE OF README 5.2's ARMS PASS THE SAME 120 CHECKS. That is section 5.1's
+binding condition on a floor that is different code from the target: identical
+wire bytes at every level, checked by running the corpus on each, and a
+divergence between them is a defect rather than a variant.
 
 Arms checked for byte identity (R2):
   gp-tba    Google.Protobuf  msg.ToByteArray()                  -- what application code writes
@@ -30,8 +38,9 @@ ok    src/Harness/Generated/Arms.cs
 ok    src/Harness/Generated/BuildGp.cs
 19 messages, 72 length-prefix sites, walker guard passed on 1 message(s) with a oneof
 
+================= arm a: target sources, .NET 8 =================
 # harness: conformance
-# utc:                 2026-09-19T07:12:43Z
+# utc:                 2026-09-19T07:38:39Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -44,6 +53,7 @@ ok    src/Harness/Generated/BuildGp.cs
 # R2R:                 on (default)
 # floor sources:       no
 # facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
 # length-prefix sites: 72
 #
 # R13 calibration on THIS machine: the Rust slice's crossing benchmark
@@ -71,3 +81,154 @@ P6.1     M6     ListMetricsResponse       123354  ok      ok      ok       ok   
 P7.1     -      DualResponse                  98  perm    perm    perm     perm   perm    ok   ok   ok
 
 120 checks, 0 failure(s)
+
+================= arm b: FLOOR sources, .NET 8 ==================
+# harness: conformance
+# utc:                 2026-09-19T07:38:41Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       YES (AK_FLOOR)
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+payload  shape  root                        bytes  gp-tba  gp-wto  managed  2pass  vector  mrt  grt  value
+----------------------------------------------------------------------------------------------------------------------
+P1.1     M1     ListResultsResponse          858  ok      ok      ok       ok     ok      ok   ok   ok
+P1.2     M1     ListResultsResponse       218121  ok      ok      ok       ok     -       ok   ok   ok
+P1.3     M1     ListResultsResponse          605  ok      ok      ok       ok     ok      ok   ok   ok
+P2.1     M2     ListTasksDetailedResponse    1037  ok      ok      ok       ok     ok      ok   ok   ok
+P2.2     M2     ListTasksDetailedResponse  540422  ok      ok      ok       ok     -       ok   ok   ok
+P2.3     M2     ListTasksDetailedResponse  647024  ok      ok      ok       ok     -       ok   ok   ok
+P2.4     M2     ListTasksDetailedResponse  979465  ok      ok      ok       ok     -       ok   ok   ok
+P2.5     M2     ListTasksDetailedResponse   19632  ok      ok      ok       ok     ok      ok   ok   ok
+P3.1     M3     ListProbeResponse          12097  ok      ok      ok       ok     ok      ok   ok   ok
+P4.1     M4     ListTaskSummaryResponse    65321  ok      ok      ok       ok     ok      ok   ok   ok
+P5.1     M5     UploadResultDataMessage      116  ok      ok      ok       ok     ok      ok   ok   ok
+P5.2     M5     UploadResultDataMessage    65620  ok      ok      ok       ok     -       ok   ok   ok
+P5.3     M5     UploadResultDataMessage  1048660  ok      ok      ok       ok     -       ok   ok   ok
+P5.4     M5     UploadResultDataMessage  4194390  ok      ok      ok       ok     -       ok   ok   ok
+P6.1     M6     ListMetricsResponse       123354  ok      ok      ok       ok     -       ok   ok   ok
+P7.1     -      DualResponse                  98  perm    perm    perm     perm   perm    ok   ok   ok
+
+120 checks, 0 failure(s)
+
+================= arm c: floor sources, Mono 6.8 ================
+# harness: conformance
+# utc:                 2026-09-19T07:38:43Z
+# runtime:             Mono 6.8.0.105 (Debian 6.8.0.105+dfsg-3.6ubuntu2 Sun Mar 31 02:55:28 UTC 2024)
+# os:                  Unix 6.18.44.37
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       YES (AK_FLOOR)
+# facade TFM:          net48
+# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+payload  shape  root                        bytes  gp-tba  gp-wto  managed  2pass  vector  mrt  grt  value
+----------------------------------------------------------------------------------------------------------------------
+P1.1     M1     ListResultsResponse          858  ok      ok      ok       ok     ok      ok   ok   ok
+P1.2     M1     ListResultsResponse       218121  ok      ok      ok       ok     -       ok   ok   ok
+P1.3     M1     ListResultsResponse          605  ok      ok      ok       ok     ok      ok   ok   ok
+P2.1     M2     ListTasksDetailedResponse    1037  ok      ok      ok       ok     ok      ok   ok   ok
+P2.2     M2     ListTasksDetailedResponse  540422  ok      ok      ok       ok     -       ok   ok   ok
+P2.3     M2     ListTasksDetailedResponse  647024  ok      ok      ok       ok     -       ok   ok   ok
+P2.4     M2     ListTasksDetailedResponse  979465  ok      ok      ok       ok     -       ok   ok   ok
+P2.5     M2     ListTasksDetailedResponse   19632  ok      ok      ok       ok     ok      ok   ok   ok
+P3.1     M3     ListProbeResponse          12097  ok      ok      ok       ok     ok      ok   ok   ok
+P4.1     M4     ListTaskSummaryResponse    65321  ok      ok      ok       ok     ok      ok   ok   ok
+P5.1     M5     UploadResultDataMessage      116  ok      ok      ok       ok     ok      ok   ok   ok
+P5.2     M5     UploadResultDataMessage    65620  ok      ok      ok       ok     -       ok   ok   ok
+P5.3     M5     UploadResultDataMessage  1048660  ok      ok      ok       ok     -       ok   ok   ok
+P5.4     M5     UploadResultDataMessage  4194390  ok      ok      ok       ok     -       ok   ok   ok
+P6.1     M6     ListMetricsResponse       123354  ok      ok      ok       ok     -       ok   ok   ok
+P7.1     -      DualResponse                  98  perm    perm    perm     perm   perm    ok   ok   ok
+
+120 checks, 0 failure(s)
+
+================= the unknown-field vectors =====================
+# harness: unknown
+# utc:                 2026-09-19T07:38:45Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+vector                     bytes  gp-dec  man-dec  known-values-agree  gp-retains  man-retains
+------------------------------------------------------------------------------------------------------------
+root-varint-between          861  ok      ok       ok                  YES         no
+root-len                     865  ok      ok       ok                  YES         no
+elem-varint-interleaved      860  ok      ok       ok                  YES         no
+elem-i64                     868  ok      ok       ok                  YES         no
+elem-i32                     864  ok      ok       ok                  YES         no
+elem-len-nested              867  ok      ok       ok                  YES         no
+oneof-unrecognised-member  12099  ok      ok       ok                  YES         no
+
+  root-varint-between       unknown varint at the ROOT, tag 4, above every known root tag (1..3)
+  root-len                  unknown length-delimited field at the root
+  elem-varint-interleaved   unknown varint INSIDE element 0, at tag 7 -- the gap ResultRaw leaves between `completed_at` (6) and `result_id` (8), so it sits numerically BETWEEN two known tags
+  elem-i64                  unknown fixed64 inside element 0
+  elem-i32                  unknown fixed32 inside element 0
+  elem-len-nested           unknown length-delimited field inside element 0 whose body is itself a message -- a decoder that recursed into it rather than skipping it would report the inner tags as unknown fields of the OUTER message
+  oneof-unrecognised-member an unrecognised ONEOF member: tag 15 sits one past `as_nothing` (14) in Probe.body. design/SHAPES.md's row says this CANNOT round trip in any arm, because the grouping lives only in the descriptor and a parser cannot tell it from any other unknown field
+
+Reading the two retention columns.
+  `YES` means the arm's re-encode differs from the payload with the unknown
+  field removed, which for these vectors means it wrote the unknown field back.
+
+  Google.Protobuf keeps an UnknownFieldSet per message and writes it back, so a
+  message round-tripped through .NET today preserves a field this build has never
+  heard of. The managed codec as generated has no bag and drops it. Both accept
+  the input and neither loses a KNOWN value, so this is not a correctness gate;
+  it is ABI v1 open decision 11 with a cost attached, and on .NET the cost is a
+  guarantee that exists today and would be removed. prost drops unknown fields
+  too, which is why the Rust slice could not price this.
+
+  The oneof vector is the one design/SHAPES.md says cannot round trip in ANY arm.
+  Google.Protobuf retains the BYTES of tag 15 but the case stays at whatever
+  member the element already carried; the grouping is descriptor-only, so no
+  parser can recover the intent. Retention makes the bytes survive and does not
+  make the VALUE survive, and those are different claims.
+
+0 failure(s) -- a FAIL in a decode column, or a managed re-encode that is not
+the baseline (the managed codec is supposed to drop, so differing means a known
+value moved, which would be a real defect).
