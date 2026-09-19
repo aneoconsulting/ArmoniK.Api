@@ -235,3 +235,36 @@ ENCODE deltas, paired inside each round (R4's sharpened form)
   P5.3   -1839.4     104856.5    225132.8    104856.520      STRADDLES ZERO
   P5.4   413638.5    460996.8    542198.4    460996.750      +
   P6.1   -107652.2   31642.8     177337.5    158.214         STRADDLES ZERO
+
+
+=== the published Java encode regression, reconstructed ===
+
+The prior Java slice published encode at 1.08 to 1.84 of protobuf-java, "a regression on
+every payload", and this slice's whole question was whether that survives ABI v1. Measured
+against a message serialised ONCE -- which is what an application does -- it does not:
+`ffi-take` is 0.58 to 0.96 on every real element-bearing payload.
+
+What follows is not a refutation of that report. It is one harness choice, undocumented in
+any of the three published reports, that reproduces its band from this slice's own numbers.
+protobuf-java memoizes `getSerializedSize()` on the message instance, so a loop over one
+message pays the size pass once; the `pbj-loop` column is exactly that arm.
+
+| payload | ffi-take vs a message serialised once | pbj-loop | ffi-take vs a LOOP |
+|---|---|---|---|
+| P1.1 | 0.802 | 0.517 | 1.551 |
+| P1.2 | 0.738 | 0.529 | 1.395 |
+| P2.1 | 0.957 | 0.516 | 1.855 |
+| P2.2 | 0.875 | 0.538 | 1.626 |
+| P2.3 | 0.643 | 0.484 | 1.329 |
+| P2.4 | 0.708 | 0.525 | 1.349 |
+| P2.5 | 0.930 | 0.514 | 1.809 |
+| P3.1 | 0.576 | 0.457 | 1.260 |
+| P4.1 | 0.760 | 0.433 | 1.755 |
+
+**1.26 to 1.85, against a published 1.08 to 1.84.**
+
+Read it as what it is: a mechanism that would produce the published shape, measured here,
+and not a claim about what the prior harness did. Its sources do not survive (README W6:
+"there is nothing to import"), so nothing can settle it. What it does settle is that this
+slice must say which baseline every figure is against, because the two differ by more than
+the effect either report is about.

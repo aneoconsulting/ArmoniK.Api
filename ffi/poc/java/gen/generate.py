@@ -111,6 +111,21 @@ def targets(ir):
         out["%s/PbArms.java" % d] = pbarms.emit(ir)
         out["%s/FfiArms.java" % d] = java_ffiarms.emit(ir)
 
+    # README 5.2 arm b: the FLOOR implementation, emitted into a package of its own so it
+    # can share a process -- and therefore a paired ratio -- with the target. Same facade
+    # types, same Layout, same shim; the only difference is `java_binding`'s string
+    # staging, which is the whole floor-to-target divergence in this slice.
+    # Emitted into BOTH trees. In the java17 tree `ak.floor` is the floor implementation
+    # beside the target's, which is arm b. In the java8 tree it is the same code as
+    # `ak.shapes`, which makes arm c's run a positive control: two packages that are the
+    # same source must measure the same, and a delta that is not zero there is the
+    # harness's own noise rather than the floor's cost.
+    for level_dir in ("java17", "java8"):
+        out["src/generated/%s/ak/floor/Binding.java" % level_dir] = java_binding.emit(
+            ir, level=8, ns="ak.floor", facade_ns=N.PKG)
+        out["src/generated/%s/ak/floor/FfiArms.java" % level_dir] = java_ffiarms.emit(
+            ir, ns="ak.floor", facade=N.PKG)
+
     # The BORROWED facade and its decode binding: the same emitters with a view type in
     # place of `String`. ABI v1 open decision 13's measurement arm, and it needs no ABI
     # change -- `ak_span` is already an offset into the buffer the host handed in.

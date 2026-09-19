@@ -40,11 +40,21 @@ for arm in "a $J17 build/cls17" "b $J17 build/cls8" "c $J8 build/cls8"; do
 done
 
 echo
-echo "## and only then a clock. Arms a and b are a ratio; arm c stands alone."
+echo "## and only then a clock."
+echo "#"
+echo "# Arm b is measured INSIDE arm a's process: the floor implementation is emitted into"
+echo "# a package of its own (ak.floor) over the same facade types, so the floor-against-"
+echo "# target ratio is paired inside one round (R4) rather than formed across two"
+echo "# processes. Arm c is a separate process by construction and stands alone."
+echo "#"
+echo "# In arm c ak.floor and ak.shapes are the SAME emitted source, so its ARM B rows are"
+echo "# a positive control: they must read zero, and what they read instead is this"
+echo "# harness's noise floor on that runtime."
 for arm in "a $J17 build/cls17" "b $J17 build/cls8" "c $J8 build/cls8"; do
   set -- $arm
   echo
   echo "### arm $1  ($2, $3)"
   "$2/bin/java" -Xms2g -Xmx2g -XX:+UseParallelGC -cp "$3:$CP" -Dak.lib="$LIB" \
-    -Dak.rounds=$R ak.RunDelta 2>&1 | sed -n '1,30p' | sed 's/^/  /'
+    -Dak.rounds=$R -Dak.roundns=60000000 -Dak.floor=1 ak.RunDelta 2>&1 \
+    | sed -n '/^id     iters/,/^$/p;/ARM B/,/^$/p' | sed 's/^/  /'
 done

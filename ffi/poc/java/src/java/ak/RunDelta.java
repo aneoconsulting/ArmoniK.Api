@@ -33,14 +33,26 @@ import java.util.List;
  */
 public final class RunDelta {
 
+  /** One configuration. `floor` selects the FLOOR binding (README 5.2 arm b): the Java 8
+   *  source tree, emitted into a package of its own so it shares this process and this
+   *  pool with the target and the ratio between them is paired (R4). */
   static final class Cfg {
     final String name;
     final Binding b;
-    Cfg(String name, boolean batch, boolean zeroed) {
+    final ak.floor.Binding f;
+    Cfg(String name, boolean batch, boolean zeroed, boolean floor) {
       this.name = name;
-      this.b = new Binding();
-      this.b.batch = batch;
-      this.b.zeroed = zeroed;
+      if (floor) {
+        this.b = null;
+        this.f = new ak.floor.Binding();
+        this.f.batch = batch;
+        this.f.zeroed = zeroed;
+      } else {
+        this.b = new Binding();
+        this.b.batch = batch;
+        this.b.zeroed = zeroed;
+        this.f = null;
+      }
     }
   }
 
@@ -53,10 +65,12 @@ public final class RunDelta {
     final String only = System.getProperty("ak.only");
 
     List<Cfg> cfgs = new ArrayList<Cfg>();
-    cfgs.add(new Cfg("batched", true, false));
-    cfgs.add(new Cfg("unbatched", false, false));
-    cfgs.add(new Cfg("batched+zeroed", true, true));
-    cfgs.add(new Cfg("unbatched+zeroed", false, true));
+    cfgs.add(new Cfg("batched", true, false, false));
+    cfgs.add(new Cfg("unbatched", false, false, false));
+    cfgs.add(new Cfg("batched+zeroed", true, true, false));
+    cfgs.add(new Cfg("unbatched+zeroed", false, true, false));
+    if ("1".equals(System.getProperty("ak.floor", "0")))
+      cfgs.add(new Cfg("floor-batched", true, false, true));
 
     int rounds = ((ROUNDS + cfgs.size() - 1) / cfgs.size()) * cfgs.size();
 
@@ -138,6 +152,12 @@ public final class RunDelta {
     delta(sb, ids, ps, cfgs, "unbatched", "unbatched+zeroed",
           "The same fill question with the host declining to batch, which is where the"
           + " group's fixed cost has the least to hide behind.");
+    if (idx(cfgs, "floor-batched") >= 0)
+      delta(sb, ids, ps, cfgs, "floor-batched", "batched",
+            "README 5.2 ARM B: the floor implementation on the TARGET runtime, paired"
+            + " inside one process. Positive means the floor is slower, and the whole"
+            + " difference is that the floor stages a String through getChars as UTF-16"
+            + " where the target hands the core the string's own compact storage.");
     System.out.print(sb);
   }
 
@@ -173,6 +193,10 @@ public final class RunDelta {
   static long enc(Cfg c, String id, Object[] pool, int n) {
     long s = 0;
     int m = pool.length;
+    if (c.f != null) {
+      for (int i = 0; i < n; i++) s += ak.floor.FfiArms.encode(c.f, id, pool[i % m]);
+      return s;
+    }
     for (int i = 0; i < n; i++) s += FfiArms.encode(c.b, id, pool[i % m]);
     return s;
   }
