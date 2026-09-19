@@ -45,14 +45,16 @@ public static class Values
     public static string Guid(string path, long idx)
     {
         var d = Hex(Digest(path + "#" + idx.ToString(CultureInfo.InvariantCulture)));
-        return d.Substring(0, 8) + "-" + d.Substring(8, 4) + "-" + d.Substring(12, 4)
-             + "-" + d.Substring(16, 4) + "-" + d.Substring(20, 12);
+        var g = d.Substring(0, 8) + "-" + d.Substring(8, 4) + "-" + d.Substring(12, 4)
+              + "-" + d.Substring(16, 4) + "-" + d.Substring(20, 12);
+        return Skew(g);
     }
 
     public static string Word(string path, long idx)
     {
         ulong h = H64(path, idx);
-        return Vocab[(int)(h % (ulong)Vocab.Length)] + (h % 1000).ToString(CultureInfo.InvariantCulture);
+        return Skew(Vocab[(int)(h % (ulong)Vocab.Length)]
+                  + (h % 1000).ToString(CultureInfo.InvariantCulture));
     }
 
     public static string Sentence(string path, long idx)
@@ -64,7 +66,7 @@ public static class Values
             if (i > 0) sb.Append(' ');
             sb.Append(Vocab[(int)((h >> (4 * i)) % (ulong)Vocab.Length)]);
         }
-        return sb.ToString();
+        return Skew(sb.ToString());
     }
 
     public static byte[] Blob(string path, long idx, int n = 16)
@@ -123,6 +125,65 @@ public static class Values
     /// error, ok, invalid so that element 0 is Error: `half_absent` removes the
     /// nested site and P2.5 keeps a written one first.
     public static int AdapterState(long idx) => (int)(idx % 3);   // 0 error, 1 ok, 2 invalid
+
+    // ---- content sets (design/SHAPES.md) ------------------------------
+    //
+    // ASCII is the default and the only one `ffi/schema` emits, because every
+    // id, session id, task id, result id and partition name in the real schema
+    // is an ASCII GUID. The other two exist because a UTF-16 host has a
+    // NARROWING TRANSCODER on its encode path, and on ASCII that transcoder
+    // never has to do anything: one char, one byte.
+    //
+    // The skew keeps the CHARACTER count of every string identical and changes
+    // only which characters they are, so the object graph has the same shape in
+    // all three sets and what moves is the byte width and the transcoder's
+    // path. There is NO manifest oracle for these -- `schema/` emits ASCII only
+    // -- so a set is checked by byte identity of every arm against the
+    // INCUMBENT arm, which the manifest validated on ASCII, plus a decode round
+    // trip per set.
+    //
+    // What this prices is NOT what the Rust slice's content-set rows price. A
+    // Rust `String` is already UTF-8, so there is no narrowing and what changes
+    // there is validation and width. Here it is a transcoder. The two columns
+    // are not each other's comparator.
+    public const int Ascii = 0, Latin1 = 1, Wide = 2;
+
+    public static int ContentSet = Ascii;
+
+    public static string[] SetNames = { "ascii", "latin1", "wide" };
+
+    /// Map one ASCII character into the active set, preserving the character
+    /// count. Latin-1: U+00A0 to U+00FF, two UTF-8 bytes. Wide: U+4E00 and up,
+    /// three UTF-8 bytes. A character above U+FFFF would be a surrogate PAIR
+    /// and would change the character count, so the sets stop at the BMP; the
+    /// unpaired-surrogate case is a correctness question, not a width one, and
+    /// is exercised separately.
+    ///
+    /// **The exact sets are NOT pinned by `ffi/schema`**, which emits ASCII
+    /// only and describes the other two as "U+00A0 to U+00FF" and "above
+    /// U+00FF". "Above U+00FF" admits both a two-byte and a three-byte
+    /// encoding, and the first version of this file picked mostly two-byte:
+    /// its `wide` measured 1.78 to 1.84 times the ASCII wire against the Rust
+    /// slice's published 2.39 to 2.50, which is not a disagreement between
+    /// runtimes but two slices choosing different characters. Under R1 that is
+    /// a defect rather than a difference, so this picks three bytes throughout
+    /// to land where the Rust slice landed -- and it is raised in STATE.md as a
+    /// request, because agreeing by hand is exactly what one description is for.
+    public static char Skew(char c, int i)
+    {
+        if (ContentSet == Ascii) return c;
+        int k = c & 0x3f;
+        if (ContentSet == Latin1) return (char)(0x00A0 + (k % 0x60));
+        return (char)(0x4E00 + k);
+    }
+
+    public static string Skew(string s)
+    {
+        if (ContentSet == Ascii || s.Length == 0) return s;
+        var a = s.ToCharArray();
+        for (int i = 0; i < a.Length; i++) a[i] = Skew(a[i], i);
+        return new string(a);
+    }
 
     private static readonly ResultStatus[] ResultStatusVals = { ResultStatus.Unspecified, ResultStatus.Created, ResultStatus.Completed, ResultStatus.Aborted, ResultStatus.Deleted, ResultStatus.Notfound };
 

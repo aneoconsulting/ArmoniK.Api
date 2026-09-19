@@ -1,0 +1,113 @@
+Stage 5: design/SHAPES.md's content sets. The string path is 174 of 413 fields,
+so every number in stage3-arms.log being an ASCII number is half a number.
+
+commit:   d281acf6ae3d78510d62c68f969ff16fe52e0768 (+ this slice)
+build:    arm a, target sources, .NET 8.0.31, Google.Protobuf 3.28.3
+sets:     ascii (the default and the only one ffi/schema emits);
+          latin1  U+00A0 to U+00FF, two UTF-8 bytes;
+          wide    U+4E00 and up, three UTF-8 bytes.
+
+THE SETS ARE NOT PINNED BY THE DESCRIPTION, and that had a visible cost here.
+ffi/schema emits ASCII only and names the others by character RANGE, and
+"above U+00FF" admits both a two-byte and a three-byte encoding. The first
+version of this file picked mostly two-byte and measured wide at 1.78 to 1.84
+times the ASCII wire, against the Rust slice's published 2.39 to 2.50. That is
+not two runtimes disagreeing, it is two slices choosing different characters,
+and under R1 it is a defect rather than a difference. This run picks three
+bytes throughout so the column lands where the Rust slice's did. Raised in
+STATE.md as a request: agreeing by hand is what one description exists to stop.
+
+What this prices is a NARROWING TRANSCODER. The host holds UTF-16 and on ASCII
+the transcode is one char to one byte, so the transcoder has nothing to do.
+The Rust slice's content-set rows price validation and width instead, because
+a Rust String is already UTF-8. The two columns are not each other's comparator.
+
+# harness: content
+# utc:                 2026-09-19T07:36:33Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+Correctness first: every arm byte-identical to the incumbent, per set.
+
+set     payload   wire bytes   x ascii   gp-wto  managed  2pass  man-roundtrip
+----------------------------------------------------------------------------------------
+ascii   P1.2          218121     1.000   ok      ok       ok     ok
+ascii   P2.2          540422     1.000   ok      ok       ok     ok
+latin1  P1.2          370110     1.697   ok      ok       ok     ok
+latin1  P2.2          944454     1.748   ok      ok       ok     ok
+wide    P1.2          522099     2.394   ok      ok       ok     ok
+wide    P2.2         1348486     2.495   ok      ok       ok     ok
+
+Timings. All three sets in ONE process, interleaved, 30 cases.
+
+payload        dir     arm              reps      med ns   /incumbent   x its own ascii
+----------------------------------------------------------------------------------------------------
+P1.2 ascii     encode  gp-writeto         147    550074.8        1.000             1.000
+P1.2 ascii     encode  managed            339    236338.6        0.430             1.000
+P1.2 ascii     encode  managed-2pass      147    488325.9        0.888             1.000
+
+P1.2 ascii     decode  gp-parse            99    810701.0        1.000             1.000
+P1.2 ascii     decode  managed-parse       73    527289.0        0.650             1.000
+
+P2.2 ascii     encode  gp-writeto          19   2197278.9        1.000             1.000
+P2.2 ascii     encode  managed             57    676575.4        0.308             1.000
+P2.2 ascii     encode  managed-2pass       25   1661076.0        0.756             1.000
+
+P2.2 ascii     decode  gp-parse            19   3108600.0        1.000             1.000
+P2.2 ascii     decode  managed-parse       21   2129514.3        0.685             1.000
+
+P1.2 latin1    encode  gp-writeto          54    720590.7        1.000             1.310
+P1.2 latin1    encode  managed            147    384712.9        0.534             1.628
+P1.2 latin1    encode  managed-2pass       62    654566.1        0.908             1.340
+
+P1.2 latin1    decode  gp-parse            67   1161819.4        1.000             1.433
+P1.2 latin1    decode  managed-parse       81    870851.9        0.750             1.652
+
+P2.2 latin1    encode  gp-writeto          19   2875842.1        1.000             1.309
+P2.2 latin1    encode  managed             38   1081665.8        0.376             1.599
+P2.2 latin1    encode  managed-2pass       19   2138394.7        0.744             1.287
+
+P2.2 latin1    decode  gp-parse            19   4096605.3        1.000             1.318
+P2.2 latin1    decode  managed-parse       19   2997636.8        0.732             1.408
+
+P1.2 wide      encode  gp-writeto          89    903698.9        1.000             1.643
+P1.2 wide      encode  managed             73    549153.4        0.608             2.324
+P1.2 wide      encode  managed-2pass       49    824271.4        0.912             1.688
+
+P1.2 wide      decode  gp-parse            53   1499034.0        1.000             1.849
+P1.2 wide      decode  managed-parse       35   1171054.3        0.781             2.221
+
+P2.2 wide      encode  gp-writeto          19   3363573.7        1.000             1.531
+P2.2 wide      encode  managed             53   1515964.2        0.451             2.241
+P2.2 wide      encode  managed-2pass       19   2571805.3        0.765             1.548
+
+P2.2 wide      decode  gp-parse             9   5216200.0        1.000             1.678
+P2.2 wide      decode  managed-parse       19   3889552.6        0.746             1.826
+
+Reading this table.
+  /incumbent is formed inside this process against the gp arm of the SAME set,
+    which is the only comparison that means anything across sets: the payloads
+    are different sizes, so an absolute moves for that reason alone.
+  `x its own ascii` is R4's within-arm form: each arm against ITSELF on ascii.
+    The Rust slice found that a content-set finding expressed this way
+    reproduces almost exactly where the ratio to a third arm drifts.
+  The wire grows with the set, so part of `x its own ascii` is simply more
+    bytes. The correctness table above gives the width factor per payload, and
+    an arm whose time grows FASTER than its bytes is paying for the transcode.

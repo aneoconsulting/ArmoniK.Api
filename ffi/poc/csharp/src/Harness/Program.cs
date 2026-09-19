@@ -18,12 +18,14 @@ public static class Program
                 return Conformance.Run();
             case "unknown":
                 return UnknownFields.Run();
+            case "content":
+                return ContentSets.Run(argv.Skip(1).ToArray());
             case "counts":
                 return Counts.Run();
             case "bench":
                 return Bench.Run(argv.Skip(1).ToArray());
             default:
-                Console.Error.WriteLine("usage: harness [conformance|unknown|counts|bench]");
+                Console.Error.WriteLine("usage: harness [conformance|unknown|counts|content|bench]");
                 return 2;
         }
     }
@@ -52,6 +54,7 @@ public static class Config
         Console.WriteLine("# R2R:                 {0}", Env("DOTNET_ReadyToRun", "on (default)"));
         Console.WriteLine("# floor sources:       {0}", Facade.BuildInfo.Floor ? "YES (AK_FLOOR)" : "no");
         Console.WriteLine("# facade TFM:          {0}", Facade.BuildInfo.Tfm);
+        Console.WriteLine("# transcoder:          {0}", Facade.BuildInfo.Transcoder);
         Console.WriteLine("# length-prefix sites: {0}", Armonik.Ffi.Facade.Codec.Sites);
         Console.WriteLine("#");
         Console.WriteLine("# R13 calibration on THIS machine: the Rust slice's crossing benchmark");

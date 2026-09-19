@@ -64,11 +64,23 @@ public struct Enc
     public long PrefixMoves;
     public long PrefixBytes;
     public long Grows;
+#if AK_COUNT
+    /// COUNTING BUILD ONLY: which SITE missed, so "the learned width costs X"
+    /// can name the field rather than the message. ABI v1 open decision 5 asks
+    /// what the mechanism is worth, and an aggregate that does not say where it
+    /// thrashes cannot answer it. Kept behind a define so the measured build's
+    /// hot path does not carry the store -- the Rust slice's `count` feature,
+    /// spelled for C#.
+    public int[] SiteMoves;
+#endif
 
     public static Enc New(int sites, int capacity = 4096)
     {
         var e = new Enc { Buf = new byte[capacity], Pos = 0, Widths = new byte[sites], Err = 0 };
         for (int i = 0; i < sites; i++) e.Widths[i] = 1;
+#if AK_COUNT
+        e.SiteMoves = new int[sites];
+#endif
         return e;
     }
 
@@ -82,6 +94,9 @@ public struct Enc
         PrefixMoves = 0;
         PrefixBytes = 0;
         Grows = 0;
+#if AK_COUNT
+        Array.Clear(SiteMoves, 0, SiteMoves.Length);
+#endif
     }
 
     public byte[] ToArray()
@@ -192,6 +207,9 @@ public struct Enc
     {
         PrefixMoves++;
         PrefixBytes += body;
+#if AK_COUNT
+        SiteMoves[m.Site]++;
+#endif
         Widths[m.Site] = (byte)need;
         int src = m.Hdr + m.W;
         if (need > m.W) { Need(need - m.W); Pos += need - m.W; }
@@ -221,6 +239,9 @@ public struct Enc
         {
             PrefixMoves++;
             PrefixBytes += n;
+#if AK_COUNT
+            SiteMoves[site]++;
+#endif
             Widths[site] = (byte)need;
             if (need > w) { Need(need - w); Pos += need - w; }
             Buffer.BlockCopy(Buf, hdr + w, Buf, hdr + need, n);

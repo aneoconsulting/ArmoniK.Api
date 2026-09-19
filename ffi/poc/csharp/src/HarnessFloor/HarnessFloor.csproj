@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- README 5.2 arm c: the floor implementation on the FLOOR RUNTIME.
+       On Linux, .NET Framework 4.8 means Mono, and this container has Mono
+       6.8.0.105, which is the runtime the published C# report's ~73 ns
+       crossing figure came from, so it is the right floor to price rather than
+       a convenient one.
+
+       Arm c mixes implementation and runtime by construction, which is why
+       README 5.2 says its number stands alone and is NEVER quoted as a ratio
+       against arm a. What it answers is "what does a pinned consumer actually
+       get", and the only fair floor-against-target ratio is arm b.
+
+       The sources are LINKED, not copied. A second source tree maintained by
+       hand is the thing this whole proposal exists to stop, and it does not
+       become acceptable because both trees are in one language (README 5.1). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>harness48</AssemblyName>
+    <RootNamespace>Armonik.Ffi.Harness</RootNamespace>
+    <Optimize>true</Optimize>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+    <NoWarn>$(NoWarn);CS1591;CS1587;CS1570;MSB3277</NoWarn>
+    <!-- This project IS the floor, so the flag is not optional here. -->
+    <DefineConstants>$(DefineConstants);AK_FLOOR</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
+    <PackageReference Include="Google.Protobuf" Version="3.28.3" />
+    <PackageReference Include="Grpc.Tools" Version="2.66.0" PrivateAssets="All" />
+    <PackageReference Include="System.Memory" Version="4.5.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="../../../../schema/generated/shapes.proto"
+              ProtoRoot="../../../../schema/generated"
+              GrpcServices="None" Access="Public" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../Facade/**/*.cs" LinkBase="Facade"
+             Exclude="../Facade/obj/**;../Facade/bin/**;../Facade/obj-floor/**;../Facade/bin-floor/**" />
+    <Compile Include="../Harness/**/*.cs" LinkBase="Harness"
+             Exclude="../Harness/obj/**;../Harness/bin/**;../Harness/obj-floor/**;../Harness/bin-floor/**" />
+  </ItemGroup>
+
+</Project>

@@ -22,10 +22,20 @@
     <DefineConstants>$(DefineConstants);AK_FLOOR</DefineConstants>
   </PropertyGroup>
 
-  <!-- Arm b: pass /p:AkFloor=true to build the FLOOR sources for net8.0. -->
+
+  <!-- README 5.2 arm b: the FLOOR sources on the TARGET runtime, which is the
+       only fair floor-against-target ratio there is. One define flipped, one
+       generator, the same sources. Output paths are redirected in
+       Directory.Build.props so the two builds exist side by side and can be run
+       round robin rather than one after a rebuild. -->
   <PropertyGroup Condition="'$(AkFloor)' == 'true'">
     <DefineConstants>$(DefineConstants);AK_FLOOR</DefineConstants>
-    <AssemblyName>Armonik.Ffi.Facade</AssemblyName>
+  </PropertyGroup>
+
+  <!-- The counting build (R5). Kept behind a define so the measured build's hot
+       path does not carry the per-site store: `dotnet build /p:AkCount=true`. -->
+  <PropertyGroup Condition="'$(AkCount)' == 'true'">
+    <DefineConstants>$(DefineConstants);AK_COUNT</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
