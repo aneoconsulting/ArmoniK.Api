@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The floor and the target, from ONE source tree (README 5.1).
+       `AK_FLOOR` selects the floor implementation. It is set by the
+       netstandard2.0 build, and it can be set on a net8.0 build too: that is
+       README 5.2's arm b, floor sources on the target runtime, which is the
+       only fair floor-against-target ratio there is. -->
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Optimize>true</Optimize>
+    <SignAssembly>false</SignAssembly>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573;CS1587;CS1570</NoWarn>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <DefineConstants>$(DefineConstants);AK_FLOOR</DefineConstants>
+  </PropertyGroup>
+
+  <!-- Arm b: pass /p:AkFloor=true to build the FLOOR sources for net8.0. -->
+  <PropertyGroup Condition="'$(AkFloor)' == 'true'">
+    <DefineConstants>$(DefineConstants);AK_FLOOR</DefineConstants>
+    <AssemblyName>Armonik.Ffi.Facade</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <PackageReference Include="System.Memory" Version="4.5.5" />
+  </ItemGroup>
+
+</Project>
