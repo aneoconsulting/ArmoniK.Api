@@ -1,0 +1,95 @@
+"""C and C++ spellings shared by every backend in this directory, so two backends cannot
+disagree on a name. The C names are fixed by ABI-v1.md; the C++ ones are this slice's."""
+
+# The C spelling of a schema scalar inside a group. Must match rust_abi.CSCALAR exactly:
+# i32/i64/u8/f64/i32 for int32/int64/bool/double/enum.
+CSCALAR = {"int32": "int32_t", "int64": "int64_t", "bool": "uint8_t",
+           "double": "double", "enum": "int32_t"}
+RUST_TO_C = {"i32": "int32_t", "i64": "int64_t", "u8": "uint8_t", "f64": "double",
+             "u32": "uint32_t", "usize": "size_t", "isize": "intptr_t"}
+
+# The idiomatic C++ type of a facade field.
+FSCALAR = {"int32": "int32_t", "int64": "int64_t", "bool": "bool", "double": "double"}
+
+
+def snake(camel):
+    out = []
+    for i, c in enumerate(camel):
+        if c.isupper() and i:
+            out.append("_")
+        out.append(c.lower())
+    return "".join(out)
+
+
+def camel(snake_name):
+    return "".join(p.capitalize() for p in snake_name.split("_"))
+
+
+def screaming(camel_name):
+    out = []
+    for i, c in enumerate(camel_name):
+        if c.isupper() and i:
+            out.append("_")
+        out.append(c.upper())
+    return "".join(out)
+
+
+def variant(enum_name, value_name):
+    """RESULT_STATUS_CREATED, in enum ResultStatus, is Created."""
+    prefix = screaming(enum_name) + "_"
+    tail = value_name[len(prefix):] if value_name.startswith(prefix) else value_name
+    return "".join(p.capitalize() for p in tail.split("_"))
+
+
+def oneof_type(msg_name, oneof_name):
+    return "%s%s" % (msg_name, camel(oneof_name))
+
+
+def facade_type(f):
+    """The idiomatic C++ type of one field.
+
+    `std::string` for both string and bytes, which is what protobuf C++ itself does, so the
+    incumbent and the facade hold the same representation and no arm is handed a different
+    data model. A post-C++11 vocabulary type would be OURS (README 5.1.1); none is needed
+    here, because every type below exists at C++11 and means the same thing at every level.
+    """
+    if f.card == "map":
+        return "std::map<std::string, std::string>"
+    base = ("std::string" if f.kind in ("string", "bytes")
+            else f.of if f.kind in ("enum", "message")
+            else FSCALAR[f.kind])
+    if f.card in ("repeated", "packed"):
+        return "std::vector<%s>" % base
+    if f.kind == "message":
+        return "ak::Optional<%s>" % base
+    if f.explicit:
+        return "ak::Optional<%s>" % base
+    return base
+
+
+def abi_order_topo(ir):
+    """`ir.abi_order`, re-sorted so a group is declared after every group it inlines.
+
+    Rust does not care and C does: `struct ak_efix_Probe` inlines `ak_efix_Empty` by value,
+    and `Empty` is declared after `Probe` in shapes.json. A slice that emitted the
+    description's order would get an incomplete type, which is a compile error rather than
+    a silent defect -- but the same ordering is what `cpp_layout.py` must use for the
+    run-time layout table to line up with the host's, and there it WOULD be silent.
+    """
+    out = []
+    seen = set()
+
+    def visit(name):
+        if name in seen:
+            return
+        seen.add(name)
+        for f in ir.msg(name).fields:
+            if f.kind == "message":
+                visit(f.of)
+            elif f.kind == "map":
+                visit(f.entry)
+        out.append(name)
+
+    for name in ir.abi_order:
+        visit(name)
+    return out
