@@ -7,11 +7,24 @@ session, which makes it the most expensive defect in this directory.
 | | |
 |---|---|
 | **Status** | **work unit 1 complete**: the binding mechanism and the facade storage are each chosen by microbenchmark, the premise of README 9.1 is settled for encode, and the whole thing is byte-identical to the validated manifest on P1.1, P1.2 and P1.3. The slice proper (the shapes of `design/SHAPES.md`, decode, the RPC arm, the Rust core) is **not started** |
-| **Blocked on** | nothing. ABI v1 decision 1 does not touch this work unit and does not touch the next one either; what is priced here is this runtime, not the ABI's shape |
+| **Blocked on** | nothing. ABI v1 decision 1 did not touch this work unit and is now answered by the C++ slice anyway, so the next work unit can build against ABI v1 rather than around it |
 | **Floor** (must build and pass correctness) | still open question 4. **Not demonstrated**: no python3.7 on this machine (apt lists 3.7.17-1+noble2). Facts for the decision are in `ffi/logs/python/01-environment.log` |
 | **Target** (where the clock runs) | 3.11, as proposed. Every arm also builds and passes on 3.10, 3.12 and 3.13, and the verdict's shape is the same on all four |
 | **Incumbent** (the baseline every ratio is against) | `protobuf` 7.36.2 on **upb**, confirmed at run time by `api_implementation.Type()`. `grpcio` 1.84.0 installed but unused: there is no RPC arm yet |
-| **This machine's Rust crossing (R13)** | **2.1 ns** forward-plus-reverse, **2.8 ns** forward, against **1.8 ns** on the Rust slice's container. Every absolute below is also a multiple of that |
+| **This machine's Rust crossing (R13)** | **2.1 ns** forward-plus-reverse, **2.8 ns** forward, against **1.8 ns** on the Rust slice's container and **2.1 to 2.2 / 1.5 ns** on the C++ slice's. Every absolute below is also a multiple of that |
+| **How to read every absolute here** | as **instrumentation, not a deliverable** (README section 8, after R13, and `CLAUDE.md`'s invariant). The cross-language comparison is re-taken on a controlled physical machine once every slice exists. What this work unit produces that a rerun cannot are the **crossing counts**, the **byte identity**, the **within-arm deltas** that settle README 9.1's premise, and the **feasibility** facts. The nanoseconds rank the candidates and nothing more |
+
+## Ambiguous rankings, left for the controlled run
+
+Three comparisons here are **too close to call on this machine**, and the
+instruction is to record that rather than grind at it. None of the three changes
+a decision, which is why they are cheap to leave open.
+
+| comparison | what was measured | why it is left |
+|---|---|---|
+| plain class against `__slots__`, both through `PyObject_GetAttr` | **the sign flips between payloads**: on P1.2 `__slots__` is marginally ahead (1.194 - 1.227 against 1.229 - 1.252 of upb), on P1.3 plain is (4.433 - 4.643 against 4.668 - 4.803), and at the primitive level plain is ahead (9.80 - 9.88 against 11.20 - 11.30 ns) | it does not matter: both lose to the C-extension type by a factor of two on P1.2 and by five on P1.3, and that gap is far outside any spread here. What is **not** ambiguous is the refutation of README 9.1's ordering, which only needs "`__slots__` is not clearly faster" |
+| `METH_O` against `METH_FASTCALL` | 22.2 - 23.1 against 22.8 - 23.6 ns: overlapping | the mechanism choice is C extension either way, and which calling convention a generated binding emits is not a question this slice has to answer |
+| abi3 against the full C-API, per primitive | 0.995 to 1.072 paired per process, and the forward call is the same row | the honest statement is **"no measurable difference on this workload"**, not a ratio. The one real difference is structural rather than timed: `PyList_SET_ITEM` does not exist in the limited API, so a shim uses `PyList_SetItem` at 1.97 to 2.01 times the cost of the macro. That one survives a controlled rerun because it is an API fact |
 
 ## The question this slice answers
 
@@ -314,13 +327,40 @@ In order, and the first one is the one that could still change the verdict.
    may not survive it.
 3. **Compose the two halves**: put the generated Rust core behind the generated C
    shim, so there is an arm that is the design rather than one of its edges.
-   Nothing in ABI v1 decision 1 blocks this, and the shim should be written so an
-   ABI change lands only in the binding backend.
+   **ABI v1 decision 1 is now answered by the C++ slice**, so this builds against
+   ABI v1 rather than around it; the shim should still be written so that an ABI
+   change lands only in the binding backend. What this arm owes is a **crossing
+   count** and **byte identity**, both of which survive the controlled rerun; its
+   nanoseconds do not need to be tight.
 4. **The RPC arm**, where `ctypes` and `cffi` are back in the running and the
    crossing count is two per call.
 5. **Concurrency**, which is where README section 9's actual question lives and
    where nothing has been measured. `Py_BEGIN_ALLOW_THREADS` at ~35 ns is the
    only input to it so far.
+
+## What the scope change means for this slice
+
+Relayed on 2026-09-19 and merged as `4aec4e8`: nobody tries hard at
+cross-language performance until the controlled physical run. Nothing in work
+unit 1 is withdrawn by it and nothing needs re-taking, because what this work
+unit was asked for is exactly what the note says survives: a mechanism choice
+(sign and rough magnitude), a storage choice (2x and 5x gaps, not percentages),
+the premise control (a 3.2x to 5.6x within-arm delta), counted crossings, and
+feasibility. The three comparisons that *were* close are recorded above as
+ambiguous rather than resolved.
+
+What it changes going forward: the next work units buy correctness, crossing
+counts and feasibility first, and no work unit is spent tightening a spread that
+already ranks its candidates.
+
+One cross-check the C++ slice's arrival makes possible. Its container measures
+the Rust crossing at **1.5 ns forward and 2.1 to 2.2 forward-plus-reverse**; this
+one measures **2.8 forward and 2.1 forward-plus-reverse**. The forward-plus-
+reverse row agrees between the two containers to 0.1 ns and the forward row
+differs by 1.9 times, which says the **forward loop** is the one that does not
+travel, not crossings in general. It is a third data point on the oddity recorded
+in `JOURNAL.md` J1 and a reason to prefer the forward-plus-reverse figure when
+one number is wanted.
 
 ## Log index
 
