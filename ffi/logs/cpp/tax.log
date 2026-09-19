@@ -1,0 +1,117 @@
+# ABI v1 decision 1: the batching predicate at a DEARER crossing
+#   date            2026-09-19T09:41:01Z
+#   machine         Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
+#   compiler        g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+#   incumbent       protobuf C++ 3.21.12 (libprotobuf-dev, apt)
+#                   packages/cpp pins no protobuf version and sets CXX_STANDARD 14
+#   core            ak-core-cpp, codec emitted by ffi/poc/rust/gen/rust_abi.py (R1)
+#   rustc           rustc 1.94.1 (e408947bf 2026-03-25)
+#   commit          23d510bc
+
+===== crossing tax 0 ns per forward entry-point call =====
+CROSSING TAX: 0 iterations = -0.01 ns per forward entry-point call (asked for 0.0). Every forward call in the binding pays it, so the
+crossing is priced up and the batching verdict can be read as a crossover rather than as a fact about a 1.85 ns crossing.
+
+-- the crossing itself, same process and build, linkage=shared --
+-- the BATCHING predicate (decision 1): (ffi-nobat) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.2   enc   ns/el        -0.31         0.64         1.53       0.36 STRADDLES ZERO
+P2.2   enc   ns/el       -26.55       -20.86       -12.04      -1.45 -
+P2.3   enc   ns/el       288.64       297.73       309.99       6.65 +
+P3.1   enc   ns/el         4.16         4.53         4.64       7.29 +
+
+
+===== crossing tax 2 ns per forward entry-point call =====
+CROSSING TAX: 2 iterations = 2.01 ns per forward entry-point call (asked for 2.0). Every forward call in the binding pays it, so the
+crossing is priced up and the batching verdict can be read as a crossover rather than as a fact about a 1.85 ns crossing.
+
+-- the crossing itself, same process and build, linkage=shared --
+-- the BATCHING predicate (decision 1): (ffi-nobat) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.2   enc   ns/el         1.12         1.40         2.09       0.80 +
+P2.2   enc   ns/el        -5.99         2.66        11.65       0.19 STRADDLES ZERO
+P2.3   enc   ns/el       358.19       429.90       441.03       9.41 +
+P3.1   enc   ns/el         5.05         5.47         5.64       8.48 +
+
+
+===== crossing tax 4 ns per forward entry-point call =====
+CROSSING TAX: 4 iterations = 4.39 ns per forward entry-point call (asked for 4.0). Every forward call in the binding pays it, so the
+crossing is priced up and the batching verdict can be read as a crossover rather than as a fact about a 1.85 ns crossing.
+
+-- the crossing itself, same process and build, linkage=shared --
+-- the BATCHING predicate (decision 1): (ffi-nobat) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.2   enc   ns/el         0.23         1.20         3.09       0.68 +
+P2.2   enc   ns/el        15.97        25.36        27.35       1.76 +
+P2.3   enc   ns/el       559.70       581.17       587.52      12.83 +
+P3.1   enc   ns/el         5.62         5.79         6.70       9.26 +
+
+
+===== crossing tax 8 ns per forward entry-point call =====
+CROSSING TAX: 7 iterations = 8.04 ns per forward entry-point call (asked for 8.0). Every forward call in the binding pays it, so the
+crossing is priced up and the batching verdict can be read as a crossover rather than as a fact about a 1.85 ns crossing.
+
+-- the crossing itself, same process and build, linkage=shared --
+-- the BATCHING predicate (decision 1): (ffi-nobat) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.2   enc   ns/el         0.75         1.03         1.73       0.59 +
+P2.2   enc   ns/el       -36.10       -31.30       -28.55      -2.22 -
+P2.3   enc   ns/el       694.92       705.77       721.05      15.72 +
+P3.1   enc   ns/el         6.68         6.87         7.09      11.10 +
+
+
+===== crossing tax 12 ns per forward entry-point call =====
+CROSSING TAX: 11 iterations = 12.87 ns per forward entry-point call (asked for 12.0). Every forward call in the binding pays it, so the
+crossing is priced up and the batching verdict can be read as a crossover rather than as a fact about a 1.85 ns crossing.
+
+-- the crossing itself, same process and build, linkage=shared --
+-- the BATCHING predicate (decision 1): (ffi-nobat) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.2   enc   ns/el         3.03         3.79         4.14       2.12 +
+P2.2   enc   ns/el        45.53        47.46        52.02       3.37 +
+P2.3   enc   ns/el       892.07       900.77       939.56      20.02 +
+P3.1   enc   ns/el        10.76        10.94        11.02      17.21 +
+
+
+===== crossing tax 24 ns per forward entry-point call =====
+CROSSING TAX: 21 iterations = 24.57 ns per forward entry-point call (asked for 24.0). Every forward call in the binding pays it, so the
+crossing is priced up and the batching verdict can be read as a crossover rather than as a fact about a 1.85 ns crossing.
+
+-- the crossing itself, same process and build, linkage=shared --
+-- the BATCHING predicate (decision 1): (ffi-nobat) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.2   enc   ns/el        14.22        15.05        15.59       8.58 +
+P2.2   enc   ns/el       145.31       147.10       152.05      10.56 +
+P2.3   enc   ns/el      1761.98      1791.52      1914.64      39.71 +
+P3.1   enc   ns/el        23.39        23.44        24.30      37.85 +
+
+
+===== crossing tax 98 ns per forward entry-point call =====
+CROSSING TAX: 81 iterations = 98.53 ns per forward entry-point call (asked for 98.0). Every forward call in the binding pays it, so the
+crossing is priced up and the batching verdict can be read as a crossover rather than as a fact about a 1.85 ns crossing.
+
+-- the crossing itself, same process and build, linkage=shared --
+-- the BATCHING predicate (decision 1): (ffi-nobat) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.2   enc   ns/el        84.79        85.29        87.29      48.67 +
+P2.2   enc   ns/el      1048.72      1056.50      1072.09      76.01 +
+P2.3   enc   ns/el     10183.52     10204.37     10362.30     228.47 +
+P3.1   enc   ns/el       102.92       103.21       103.45     165.87 +
+
+
+
+===== RE-RUN of the 6, 8 and 10 ns points, P2.2 only =====
+# tax.log's 8 ns row read -2.22%, out of line with its neighbours. Re-run: it does
+# not reproduce. The crossover is monotone and the outlier was one round set.
+-- asked for 6 ns --
+CROSSING TAX: 6 iterations = 6.88 ns per forward entry-point call (asked for 6.0). Every forward call in the binding pays it, so the
+P2.2   enc   ns/el        -9.65        24.74        31.96       1.76 STRADDLES ZERO
+P2.2   enc   ns/el        -0.35        26.48        35.44       1.88 STRADDLES ZERO
+-- asked for 8 ns --
+CROSSING TAX: 7 iterations = 8.00 ns per forward entry-point call (asked for 8.0). Every forward call in the binding pays it, so the
+P2.2   enc   ns/el         0.63        24.30        26.46       1.72 +
+P2.2   enc   ns/el         5.49        19.42        31.44       1.37 +
+-- asked for 10 ns --
+CROSSING TAX: 9 iterations = 10.43 ns per forward entry-point call (asked for 10.0). Every forward call in the binding pays it, so the
+P2.2   enc   ns/el         7.41        21.14        28.89       1.50 +
+P2.2   enc   ns/el        77.00        83.85        92.66       5.95 +

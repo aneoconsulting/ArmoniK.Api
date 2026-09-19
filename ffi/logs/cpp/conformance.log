@@ -1,12 +1,12 @@
 # cpp slice: correctness (R2), every level and both linkages
-#   date            2026-09-19T07:09:13Z
+#   date            2026-09-19T09:41:01Z
 #   machine         Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
 #   compiler        g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
 #   incumbent       protobuf C++ 3.21.12 (libprotobuf-dev, apt)
 #                   packages/cpp pins no protobuf version and sets CXX_STANDARD 14
 #   core            ak-core-cpp, codec emitted by ffi/poc/rust/gen/rust_abi.py (R1)
 #   rustc           rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit          a5335de
+#   commit          23d510bc
 
 ===== conformance_a17_shared =====
 ak_abi_version = 1, AK_ABI_VERSION = 1
@@ -23,7 +23,7 @@ ak_abi_version = 1, AK_ABI_VERSION = 1
   P2.2    540422 B  ok
   P2.3    647024 B  ok
   P2.4    979465 B  ok
-  DIVERGENCE P2.5: protobuf C++ writes 19712 B, the canonical form is 19632 B (delta +80)
+  TWO VALID FORMS P2.5: this incumbent writes 19712 B, the manifest records 19632 B (delta +80). protobuf C++ writes a map entry's value unconditionally; the canonical form omits an implicit-presence leaf holding the proto zero.
   P2.5     19712 B  ok
   P3.1     12097 B  ok
   P4.1     65321 B  ok
@@ -37,7 +37,7 @@ ak_abi_version = 1, AK_ABI_VERSION = 1
 -- absent, unknown and malformed vectors --
   protobuf C++ on malformed UTF-8: ParseFromString -> false (rejects)
 
-361 checks, 0 failures, 1 reported wire divergences of the incumbent
+443 checks, 0 failures, 1 payloads with two valid encodings
 
 ===== conformance_b17_shared =====
 ak_abi_version = 1, AK_ABI_VERSION = 1
@@ -54,7 +54,7 @@ ak_abi_version = 1, AK_ABI_VERSION = 1
   P2.2    540422 B  ok
   P2.3    647024 B  ok
   P2.4    979465 B  ok
-  DIVERGENCE P2.5: protobuf C++ writes 19712 B, the canonical form is 19632 B (delta +80)
+  TWO VALID FORMS P2.5: this incumbent writes 19712 B, the manifest records 19632 B (delta +80). protobuf C++ writes a map entry's value unconditionally; the canonical form omits an implicit-presence leaf holding the proto zero.
   P2.5     19712 B  ok
   P3.1     12097 B  ok
   P4.1     65321 B  ok
@@ -68,7 +68,7 @@ ak_abi_version = 1, AK_ABI_VERSION = 1
 -- absent, unknown and malformed vectors --
   protobuf C++ on malformed UTF-8: ParseFromString -> false (rejects)
 
-361 checks, 0 failures, 1 reported wire divergences of the incumbent
+443 checks, 0 failures, 1 payloads with two valid encodings
 
 ===== conformance_c14_shared =====
 ak_abi_version = 1, AK_ABI_VERSION = 1
@@ -85,7 +85,7 @@ ak_abi_version = 1, AK_ABI_VERSION = 1
   P2.2    540422 B  ok
   P2.3    647024 B  ok
   P2.4    979465 B  ok
-  DIVERGENCE P2.5: protobuf C++ writes 19712 B, the canonical form is 19632 B (delta +80)
+  TWO VALID FORMS P2.5: this incumbent writes 19712 B, the manifest records 19632 B (delta +80). protobuf C++ writes a map entry's value unconditionally; the canonical form omits an implicit-presence leaf holding the proto zero.
   P2.5     19712 B  ok
   P3.1     12097 B  ok
   P4.1     65321 B  ok
@@ -99,7 +99,7 @@ ak_abi_version = 1, AK_ABI_VERSION = 1
 -- absent, unknown and malformed vectors --
   protobuf C++ on malformed UTF-8: ParseFromString -> false (rejects)
 
-361 checks, 0 failures, 1 reported wire divergences of the incumbent
+443 checks, 0 failures, 1 payloads with two valid encodings
 
 ===== conformance_c11_shared =====
 ak_abi_version = 1, AK_ABI_VERSION = 1
@@ -116,7 +116,7 @@ ak_abi_version = 1, AK_ABI_VERSION = 1
   P2.2    540422 B  ok
   P2.3    647024 B  ok
   P2.4    979465 B  ok
-  DIVERGENCE P2.5: protobuf C++ writes 19712 B, the canonical form is 19632 B (delta +80)
+  TWO VALID FORMS P2.5: this incumbent writes 19712 B, the manifest records 19632 B (delta +80). protobuf C++ writes a map entry's value unconditionally; the canonical form omits an implicit-presence leaf holding the proto zero.
   P2.5     19712 B  ok
   P3.1     12097 B  ok
   P4.1     65321 B  ok
@@ -130,7 +130,7 @@ ak_abi_version = 1, AK_ABI_VERSION = 1
 -- absent, unknown and malformed vectors --
   protobuf C++ on malformed UTF-8: ParseFromString -> false (rejects)
 
-361 checks, 0 failures, 1 reported wire divergences of the incumbent
+443 checks, 0 failures, 1 payloads with two valid encodings
 
 ===== conformance_a17_static =====
 ak_abi_version = 1, AK_ABI_VERSION = 1
@@ -147,7 +147,7 @@ ak_abi_version = 1, AK_ABI_VERSION = 1
   P2.2    540422 B  ok
   P2.3    647024 B  ok
   P2.4    979465 B  ok
-  DIVERGENCE P2.5: protobuf C++ writes 19712 B, the canonical form is 19632 B (delta +80)
+  TWO VALID FORMS P2.5: this incumbent writes 19712 B, the manifest records 19632 B (delta +80). protobuf C++ writes a map entry's value unconditionally; the canonical form omits an implicit-presence leaf holding the proto zero.
   P2.5     19712 B  ok
   P3.1     12097 B  ok
   P4.1     65321 B  ok
@@ -161,7 +161,7 @@ ak_abi_version = 1, AK_ABI_VERSION = 1
 -- absent, unknown and malformed vectors --
   protobuf C++ on malformed UTF-8: ParseFromString -> false (rejects)
 
-361 checks, 0 failures, 1 reported wire divergences of the incumbent
+443 checks, 0 failures, 1 payloads with two valid encodings
 
 ===== conformance_a17_lossy =====
 ak_abi_version = 1, AK_ABI_VERSION = 1
@@ -178,7 +178,7 @@ ak_abi_version = 1, AK_ABI_VERSION = 1
   P2.2    540422 B  ok
   P2.3    647024 B  ok
   P2.4    979465 B  ok
-  DIVERGENCE P2.5: protobuf C++ writes 19712 B, the canonical form is 19632 B (delta +80)
+  TWO VALID FORMS P2.5: this incumbent writes 19712 B, the manifest records 19632 B (delta +80). protobuf C++ writes a map entry's value unconditionally; the canonical form omits an implicit-presence leaf holding the proto zero.
   P2.5     19712 B  ok
   P3.1     12097 B  ok
   P4.1     65321 B  ok
@@ -192,5 +192,5 @@ ak_abi_version = 1, AK_ABI_VERSION = 1
 -- absent, unknown and malformed vectors --
   protobuf C++ on malformed UTF-8: ParseFromString -> false (rejects)
 
-359 checks, 0 failures, 1 reported wire divergences of the incumbent
+441 checks, 0 failures, 1 payloads with two valid encodings
 

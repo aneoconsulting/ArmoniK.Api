@@ -1,0 +1,58 @@
+# cpp slice: R1 and the generator's guards
+#   date            2026-09-19T09:41:01Z
+#   machine         Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
+#   compiler        g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+#   incumbent       protobuf C++ 3.21.12 (libprotobuf-dev, apt)
+#                   packages/cpp pins no protobuf version and sets CXX_STANDARD 14
+#   core            ak-core-cpp, codec emitted by ffi/poc/rust/gen/rust_abi.py (R1)
+#   rustc           rustc 1.94.1 (e408947bf 2026-03-25)
+#   commit          23d510bc
+
+===== generate.py --check: is what is committed what the generator writes? =====
+ok    include/ak_abi.h
+ok    include/generated/ak_layout.h
+ok    include/generated/ak_layout_names.h
+ok    src/generated/types.h
+ok    src/generated/types.cpp
+ok    src/generated/odr.h
+ok    src/generated/build.h
+ok    src/generated/build.cpp
+ok    src/generated/pb_build.h
+ok    src/generated/pb_build.cpp
+ok    src/generated/core_native.h
+ok    src/generated/core_native.cpp
+ok    src/generated/binding.h
+ok    src/generated/binding.cpp
+ok    src/generated/cases.h
+ok    core/src/generated/codec.rs
+ok    core/src/generated/layout.rs
+generate.py --check exit 0
+
+===== refusal_test.py: every guard run against input it must REJECT =====
+== guards run against input that MUST be rejected ==
+  [ok]   positive control: the real schema emits              emitted
+  [ok]   A1 direct field on a tree that makes a reverse call  REFUSED: ListTasksDetailedResponse declares a direct-argument field (tasks_bulk_blob) and also needs a reverse call for tasks, parent_task_ids, data_d
+  [ok]   A2 two direct fields in one tree                     REFUSED: UploadResultDataMessage declares 2 direct-argument fields (upload_data_chunk, upload_second_chunk). ABI v1 section 8 builds the path for ONE 
+  [ok]   B1 repeated bytes                                    REFUSED: the facade payload builder has no case for ResultRaw.extra_blobs (card=repeated kind=bytes)
+  [ok]   B2 UNPACKED repeated enum                            slot repeated enum
+  [ok]   B3 repeated double                                   slot repeated double
+  [ok]   C1 map<string, int32>                                REFUSED: a map half of kind 'int32' is not a blob
+  [ok]   B1 repeated bytes, cpp_build alone (must raise)      REFUSED: the facade payload builder has no case for ResultRaw.extra_blobs (card=repeated kind=bytes)
+  [ok]   B1 repeated bytes, cpp_pbbuild alone (must raise)    REFUSED: the protobuf payload builder has no case for ResultRaw.extra_blobs (card=repeated kind=bytes)
+  [ok]   B1 repeated bytes, cpp_binding alone (must emit)     emitted
+  [ok]   B2 UNPACKED repeated enum, cpp_build alone (must raise) REFUSED: the facade payload builder has no case for ResultRaw.extra_statuses (card=repeated kind=enum)
+  [ok]   B2 UNPACKED repeated enum, cpp_pbbuild alone (must raise) REFUSED: the protobuf payload builder has no case for ResultRaw.extra_statuses (card=repeated kind=enum)
+  [ok]   B2 UNPACKED repeated enum, cpp_binding alone (must raise) REFUSED: the encode loop has no case for ListResultsResponse.extra_statuses (card=repeated kind=enum explicit=False oneof=None). A backend that cannot
+  [ok]   B3 repeated double, cpp_build alone (must raise)     REFUSED: the facade payload builder has no case for ResultRaw.extra_values (card=repeated kind=double)
+  [ok]   B3 repeated double, cpp_pbbuild alone (must raise)   REFUSED: the protobuf payload builder has no case for ResultRaw.extra_values (card=repeated kind=double)
+  [ok]   B3 repeated double, cpp_binding alone (must raise)   REFUSED: the encode loop has no case for ListResultsResponse.extra_values (card=repeated kind=double explicit=False oneof=None). A backend that cannot
+
+refusal_test: 16 passed, 0 failed
+refusal_test.py exit 0
+
+===== audit_tracked.sh: R4's closing rule, asked of git =====
+UNTRACKED ffi/poc/cpp/gen/opt.sh   (ignored by ffi/.gitignore:15:!poc/*/gen/**	ffi/poc/cpp/gen/opt.sh)
+UNTRACKED ffi/poc/cpp/gen/tax.sh   (ignored by ffi/.gitignore:15:!poc/*/gen/**	ffi/poc/cpp/gen/tax.sh)
+UNTRACKED ffi/poc/cpp/gen/drift.sh   (ignored by ffi/.gitignore:15:!poc/*/gen/**	ffi/poc/cpp/gen/drift.sh)
+audit: 3 untracked, ignored or missing files that a figure could depend on
+audit_tracked.sh exit 1

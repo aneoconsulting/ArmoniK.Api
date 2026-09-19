@@ -1,0 +1,47 @@
+# the upb arm: a CEILING, not a candidate
+#   date       2026-09-19T10:06:18Z
+#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel Xeon @ 2.80GHz
+#   incumbent  protobuf C++ 3.21.12 (apt) -- unchanged, and every ratio is against it
+#   upb        protobuf v25.3 (4a2aef5), built from source by gen/fetch_upb.sh
+#   codegen    NONE: minitables come from upb reflection over protoc's descriptor set
+#   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, -O2 -DNDEBUG
+#   commit     23d510bc
+
+upb arm: a CEILING, not a candidate. protobuf C++ remains the incumbent.
+upb v25.3, built from the protobuf repository with its own CMake; minitables
+from upb reflection (no Bazel, no protoc-gen-upb, no hand-written codec).
+
+payload dir         pb ns  pb-arena ns       upb ns   arena/pb     upb/pb
+P1.1   enc         611.7        612.9       1074.3      1.002      1.756
+P1.1   dec        3005.9       2843.5       1484.5      0.946      0.494
+P1.2   enc      176475.6     169301.5     270586.3      0.959      1.533
+P1.2   dec      992672.1     668156.0     333659.8      0.673      0.336
+P1.3   enc        5076.3       4926.1       9602.0      0.970      1.892
+P1.3   dec       25534.5      10719.5       7611.6      0.420      0.298
+P2.1   enc        1064.0       1057.5       1225.2      0.994      1.152
+P2.1   dec        4109.2       3408.9       1886.7      0.830      0.459
+P2.2   enc      702829.5     677359.2     823945.6      0.964      1.172
+P2.2   dec     2863954.0    1959534.5    1037233.9      0.684      0.362
+P2.3   enc      648338.1     544515.1     334367.4      0.840      0.516
+P2.3   dec     2000161.8    1836275.2     613323.5      0.918      0.307
+P2.4   enc      766823.8     731547.9     326500.0      0.954      0.426
+P2.4   dec     3401960.0    2489621.0     746484.8      0.732      0.219
+  P2.5  upb writes 19712 B; the manifest records a different form.
+P2.5   enc       20045.1      19878.7      23756.3      0.992      1.185
+P2.5   dec       82645.7      72460.6      34184.5      0.877      0.414
+P3.1   enc       12323.6      12052.1      19699.2      0.978      1.598
+P3.1   dec       69353.6      46721.1      25379.6      0.674      0.366
+P4.1   enc      125817.4     124658.1     114100.1      0.991      0.907
+P4.1   dec      423945.1     302279.8     189741.4      0.713      0.448
+P5.1   enc          68.3         68.1         87.4      0.997      1.280
+P5.1   dec         294.2        341.3        152.3      1.160      0.518
+P5.2   enc        2822.1       2842.6       3723.1      1.007      1.319
+P5.2   dec        2409.7       2502.4       2254.2      1.038      0.935
+P5.3   enc      100478.7      99949.7     142454.9      0.995      1.418
+P5.3   dec       55756.9      55400.6      54684.6      0.994      0.981
+P5.4   enc      513202.4     511598.7     716623.7      0.997      1.396
+P5.4   dec      345935.2     347398.6     344798.0      1.004      0.997
+P6.1   enc      106429.0     106062.2     177312.4      0.997      1.666
+P6.1   dec      371884.2     281559.8     216947.1      0.757      0.583
+
+0 failures

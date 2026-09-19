@@ -64,5 +64,27 @@ for b in bench_a17_shared bench_a17_static bench_b17_shared bench_c11_shared \
          bench_c14_shared bench_a17_noguard bench_a17_lossy; do
   { hdr "timings: $b"; ./build/$b "$ROUNDS"; } > "$L/$b.log" 2>&1
 done
+
+{ hdr "R4's across-build control: the same source, a neutral layout perturbation"
+  ./gen/drift.sh "$ROUNDS"; } > "$L/drift.log" 2>&1
+
+{ hdr "ABI v1 decision 1: the batching predicate at a DEARER crossing"
+  ./gen/tax.sh 5; } > "$L/tax.log" 2>&1
+
+{ hdr "is the control's decode gap a function of the optimisation level?"
+  ./gen/opt.sh 5; } > "$L/opt.log" 2>&1
+
+# Optional arms: they need libgrpc++-dev and a upb build, and neither is wanted by the
+# codec gates. Run only if their binaries exist.
+if [ -x build/rpcbench ]; then
+  { hdr "the RPC arm (ABI v1 section 9)"
+    echo "#   incumbent       grpc++ $(pkg-config --modversion grpc++ 2>/dev/null)"
+    ./gen/rpc.sh 40; } > "$L/rpc.log" 2>&1
+fi
+if [ -x build/upbbench ]; then
+  { hdr "the upb arm: a CEILING, not a candidate"
+    echo "#   upb             protobuf $(cat build/upb-src/.git/HEAD 2>/dev/null | head -c 8), built by gen/fetch_upb.sh"
+    ./build/upbbench build/gen/shapes.desc "$ROUNDS"; } > "$L/upb.log" 2>&1
+fi
 echo "logs in $L:"
 ls -la "$L"
