@@ -135,6 +135,13 @@ an rvalue overload was added, and is within 0.5% of it after.
 
 ### 7. What the numbers say about decision 1
 
+> **SUPERSEDED — read section 11 instead.** Every figure below came from a run that
+> `gen/run_all.sh` later overwrote, and from a harness with the three incumbent handicaps
+> and the two control defects that the review found (C7 to C11). It is kept because the
+> reasoning is still the reasoning and a reader tracing how the verdict moved should be
+> able to see where it started, but no number in this section matches a committed log.
+
+
 Priced as within-round deltas between two arms (R4), not as ratios to a third:
 
 - **The group** is the largest of the three, and it is a host-side cost: the fill alone is
@@ -204,3 +211,204 @@ Encode through the C ABI is **0.52 to 0.91 of protobuf C++ on every uniform payl
 gone. Decode is **0.59 to 0.95**. The no-boundary control is **0.25 to 0.45 on encode**, so
 the codec is two to four times protobuf's speed and the boundary hands most of it back —
 which is the same sentence the rust slice ends on, with a different constant.
+
+## W4, session 2 — 28 adversarial review findings
+
+Four reviews, 28 deduped findings, nine raised independently by two or more reviewers.
+Everything below quotes the committed logs, which is the rule this session was given
+after the first one did not.
+
+### 11. The seven findings that moved a number
+
+**The incumbent was handicapped three ways on encode and it was worth about 8 points.**
+`pb_serialize` did `out->clear()` then `out->resize(ByteSizeLong())`, and `clear()` sets
+the size to 0, so the resize **value-initialised the whole output on every call** — a full
+zero-fill of up to 4 MB that `SerializeToString` does not do. It also built an
+`ArrayOutputStream` and a `CodedOutputStream` per call, and it forced deterministic map
+ordering on every payload. `pb` is now `SerializeToString`. P1.2 encode `ffi` moves
+**0.895-0.913 → 0.944-0.988**; P2.2 **0.691-0.699 → 0.772-0.795**. Confirmed and fixed.
+
+**And there was no encode floor arm**, which R2 requires for a ratio far from 1 — `native`
+rows sat at 0.25. There is one now: `memcpy` is **0.024 to 0.097 of a protobuf encode** on
+the element-bearing payloads, so the incumbent and the core are both about twenty times
+the cost of copying the answer.
+
+**Protobuf validates UTF-8 on serialize and the spec says the core does not**, so the two
+were not doing the same work. `ffi-valtc` makes that visible: **+26.9 % to +30.2 % of an
+encode**. But the row prices *this slice's scalar validator*, which the string-path table
+below shows is an order of magnitude off a real one, so it is an upper bound and not the
+like-for-like row the review asked for. Confirmed, arm added, claim qualified.
+
+**The decode control never reserved, and that was most of the gap the report leaned on.**
+The binding reserves at every batched fill; the control did not. Adding `reserve` on
+packed runs — exact for fixed-width, an upper bound for varints — takes **P6.1 decode from
+1.241-1.273 to 0.861-0.873**. `-DNDEBUG` was also missing, so protobuf's `GOOGLE_DCHECK`s
+were compiled into the incumbent's hot path, and `gen/opt.sh` shows **`-O3` does not close
+what remains**. The generated oneof now has a `noexcept` move, without which the enclosing
+message had none and every vector growth copied.
+
+**So "two languages, two compilers" is withdrawn and replaced by a mechanism that is an
+ABI property**: the batched run tells the host how many elements are coming, so the
+binding can reserve; a streaming decoder cannot. That is the run form earning its keep,
+and it is a better sentence than the one it replaces.
+
+**Decision 1's ranges were quoted over a subset of their own tables.** The delta tables now
+print **every row** with whether lo and hi share a sign. One row does have the opposite
+sign and it is named: P5.2 at −3.70 % on the string-as-data delta, which is M5's 64 KB
+`bytes` field on the direct-argument path, two transcoder calls in total, with a 32 percent
+spread in its own denominator. Confirmed, and the omission is closed.
+
+**The batching verdict's stated mechanism was contradicted by its own table** — P3.1 wins
+and P1.2 straddles zero at an identical +1.00 forward crossings per element. Confirmed.
+The replacement is not another mechanism story but a number: `gen/tax.sh` prices the
+crossing up with a calibrated delay in front of every forward entry-point call, and on
+P2.2 the delta goes **−20.9 ns/element at +0 ns, +2.7 at +2, +25.4 at +4.4, +47.5 at
++12.9, +147.1 at +24.6**. **The crossover is at a forward crossing of roughly 2 to 4 ns.**
+Batching loses in C++ at 1.82 ns and wins on every managed runtime. That is the form the
+specification needed.
+
+**The RPC arm charged the two arms differently for transport.** Summing
+`CLOCK_THREAD_CPUTIME_ID` over the harness's threads counts the grpc++ stub's transport,
+which runs on the calling thread, and misses the core's, which runs on tokio workers. The
+column is now `getrusage(RUSAGE_SELF)` minus the server handler's own CPU, measured the
+same way for both, at 9 rounds with alternating order: **0.856 to 0.870**, against a
+published 0.558 to 0.652. Confirmed and fixed; the old figure was wrong by about 0.2.
+
+### 12. The finding that invalidated the way three conclusions were formed
+
+**There is a 5 to 8 percent across-build drift and the slice had no error bar.** Proven on
+code the build flag cannot reach: `AK_NO_GUARD` never reaches `core_native.cpp`, yet
+`native` moved between two logs. `gen/drift.sh` now builds the same source twice with a
+semantically neutral layout perturbation and publishes the identical-source rows:
+**worst across-build RATIO drift 0.240.**
+
+Three published conclusions were smaller than that — the floor costing nothing, the guard
+not being measurable, and the decode-policy comparison — and all three were formed by
+comparing two binaries. Two are now re-formed **inside one process**:
+
+- The floor: `AK_CXX17` reaches **11 sites** in the whole emitted tree, all on the decode
+  side, so two of the three cells of the a/b/c table were the same code measured twice.
+  The two constructs it actually selects are now benchmarked side by side over the real
+  data: **`insert_or_assign` is 1.074 of `m[k]=v`** and **`emplace_back()` is 0.967 of
+  `push_back` + `back()`**. The C++11 floor costs nothing and the C++17 map construct is a
+  7 percent regression — which is exactly why arm b measured *faster* than arm a on P2.2
+  decode, as the review observed.
+- The decode UTF-8 policy: priced on the string path alone, in one process, over all three
+  content sets (which also makes `ak::values::recode` reachable, so the content sets were
+  not deferred, they were unbuilt). Validating costs **+29.6 ns per string on ASCII, +140.6
+  on Latin-1, +172.1 above U+00FF**, a factor of **4.5, 15 and 20**. The published "22 to
+  28 percent of a decode" is **withdrawn**: it did not reconcile with its own logs, it was
+  a difference of two ratios across the drift bar, and it was ASCII only.
+- The guard: still a two-binary comparison, so the claim is now "nothing larger than 0.24
+  was found", not "not measurable".
+
+**And what the string-path table really says is that this slice's validator is bad** — 38
+ns for a 36-byte ASCII string is about 1 ns per byte — not that validation is expensive.
+`utf8_range` is now in the tree from the upb arm and unused.
+
+### 13. What the generator guards were not doing
+
+**Five of the nine backends dispatched on shape with a branch that emitted instead of
+raising**, and `cpp_build`/`cpp_pbbuild` stopped testing cardinality after the
+repeated-string arm, so a **repeated `bytes`** would have emitted a scalar store against a
+`std::vector`. No instance exists in `shapes.json`, which is precisely why it needed a
+test. `gen/refusal_test.py` now runs **16 must-fail cases** — ABI v1 section 8's
+direct-argument refusal over this slice's own invocation, a repeated `bytes`, an unpacked
+repeated enum, a repeated `double` and a `map<string, int32>`, each against every backend
+separately — and all 16 are refused. The emitted text is unchanged, which `--check` shows.
+
+Writing that test found a real defect of its own: **both gen directories contain a
+`generate.py`, and `sys.path` had the rust one first**, so `import generate` silently got
+the rust slice's generator and emitted its seven files instead of this slice's seventeen.
+The slice's own `generate.py` worked only because it runs as `__main__`.
+
+**A codegen rule applied in one path and not swept**: the map loop hardcoded `t.utf8` and
+the validating reader for both halves, so a `map<string, bytes>` would have had UTF-8
+validation applied to its value. Both are now derived from the pair message's declared
+kinds, in one helper, used by the binding and by the control.
+
+**`generate.py --check` was claimed green and run by nothing.** It, `refusal_test.py` and
+`audit_tracked.sh` are now the first thing `run_all.sh` does, into `generator.log`.
+`audit_tracked.sh` missed `*.proto` — the file the entire RPC arm is generated from — and
+every upstream input; it now covers those and the rust generator, the ABI crate and the
+schema.
+
+**One enumeration of the 380 layout facts** now feeds both the host header and the core's
+run-time export. Two separate enumerations could have agreed on the count and disagreed on
+the order, which is exactly what defect C5 was, and `AK_LAYOUT_NAMES` — emitted twice and
+included by nothing — is now its own generated target so a disagreement is NAMED.
+
+### 14. Two findings confirmed, and their suspected causes refuted
+
+**`groupfill` costs more than the total gap it is a component of** (22.6 ns/element on P1.3
+against an `ffi` − `native` delta of about 18.3). Confirmed. The suspected cause — the
+function-pointer parameter defeating inlining and forcing an `sret` return — is
+**refuted**: a direct-call variant runs in the same rounds and measures within 0.3 percent
+of the indirect one. `groupfill` is therefore reported as an **upper bound** on the
+group's host-side cost, not as a component of the subtraction, and the discrepancy is
+recorded as open defect C15. It was also being paired with a `pb` row taken minutes
+earlier; it now runs in the same rounds as its denominator.
+
+**R13's two crossing figures came from harnesses with different barriers.** Confirmed as a
+difference; **refuted as the explanation.** With a register-only barrier the C++ figure is
+1.822-1.824 ns, not 1.5. So **a C++ host pays about 1.82 ns where a Rust host pays 1.5 ns
+through the same `.so` on the same machine**, and that is a result rather than an artifact.
+The argument that quoted "at a crossing of 1.8 ns" — the *other* container's number — is
+gone; the tax sweep replaces it with a crossover that does not depend on either.
+
+**The static-against-shared causal claim is withdrawn.** P1.2 encode makes 9 forward
+crossings in TOTAL, so 0.6 ns of saving cannot explain an 11 µs move, and the `native`
+arm — which crosses nothing — moves between the two binaries too. The difference is the
+build, not the boundary.
+
+### 15. The counts, the corpus and the housekeeping
+
+**R5 said count, do not infer, and one count was inferred.** The core's counter cannot see
+whether `ak_str.tc` points into the host image or its own, so the host-transcoder arm's
+crossings were argued. The host now reports them through a counting-build-only entry
+point: P2.2 encode goes from 2,501 to **19,668** reverse crossings, **+34.3 per element**.
+
+**Unknown-field coverage was thinner than claimed**: all five vectors landed at the root of
+a message with no oneof. There are now three more spliced **inside a nested element**, and
+one on `Probe` itself, where the case stays at the last known member and the payload is
+dropped. Conformance goes from 361 to **443 checks**.
+
+**The counting build decoded different bytes than the timing build** (`nat_enc` against
+`pb_serialize`, which differ by 80 B on P2.5). Both now use the incumbent's bytes.
+
+Smaller: the determinism ratio is computed from hoisted locals rather than from two fresh
+measurements; "ns per element" says `ns/msg` on the five payloads that carry one element;
+the denominator's own spread is printed beside every ratio, which is how P5.2 to P5.4 are
+marked as noise-dominated; and **every per-round ratio is printed**, which is how the
+systematic P1.2 decode outlier — one round in nine, about 34 percent high, in every log —
+stopped being quoted as a legitimate bound of 0.790.
+
+### 16. The upb arm: a ceiling, and the shape it shows
+
+Not apt's `libupb-dev`, which is a July 2020 snapshot from before upb was merged into
+protobuf. Not Bazel either: `protoc-gen-upb` is Bazel-only and a hand-written minitable
+would be a hand-written codec. **upb v25.3 is built from the protobuf repository by
+`gen/fetch_upb.sh` and the minitables come from upb's own reflection over `protoc`'s
+descriptor set**, so the codec being timed is upb's and only the untimed setup differs
+from a generated build.
+
+Two dead ends worth recording so nobody repeats them: upb's `upb/cmake/CMakeLists.txt` at
+v25.3 is a **stub** — four INTERFACE libraries referring to targets it never defines, so
+`ninja` reports "no work to do" — and the checked-in bootstrap `descriptor.upb.c` under
+`upb/cmake` does not match its own header's symbol spelling. The stage0 bootstrap copy
+under `upb/reflection/stage0` does, and is what upb itself uses.
+
+**upb decode is 0.22 to 0.58 of protobuf C++ on every element-bearing payload**, where the
+core through the C ABI is 0.58 to 1.07. So the core's decode win is real and is roughly
+half of what a C protobuf can do. That is a more useful sentence than any ratio in the
+table it sits beside, and R2's floor rule is now satisfied from both ends: the memcpy floor
+below and upb above.
+
+**The upb encode column is not a ceiling and says so.** With a reused arena block it is
+still 1.18 to 1.97 of protobuf C++ on the string-dense payloads: protobuf sizes its output
+once and writes forward, upb grows a backward buffer geometrically.
+
+**P2.5: upb writes 19,712 B, the same form protobuf C++ writes.** Two independent Google
+runtimes, the same +80 B against the manifest, which `design/SHAPES.md` now records as one
+of two valid encodings. The original report of this as a divergence was right and it has
+cost three later slices nothing.

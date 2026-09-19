@@ -14,7 +14,7 @@
 set -u
 cd "$(dirname "$0")/.." || exit 2
 B=build
-ok=0; fail=0
+ok=0; fail=0; ctrl_fired=0
 chk() { if [ "$1" = ok ]; then ok=$((ok+1)); printf '  [ok]   %s\n' "$2"; \
         else fail=$((fail+1)); printf '  [FAIL] %s\n' "$2"; fi; }
 size_of() { nm -t d -S --defined-only "$1" | awk -v s="$2" '$4==s {print $2+0; exit}'; }
@@ -78,6 +78,21 @@ for bin in bench_a17_shared bench_a17_shared_lto; do
       echo "      in another TU with no LTO in the default build)"
       continue
     fi
+    if [ "$bin" = bench_a17_shared_lto ]; then
+      # The POSITIVE CONTROL binary. `-flto` is the condition that would break the
+      # control, and it is built so the check can be seen under it. A fire HERE is the
+      # desired outcome and is not a failure of the slice: no figure comes from this
+      # binary. What it demonstrates is the trend -- under LTO the traversals shrink and
+      # the timing closures grow, which is the direction that ends in fusion.
+      if [ "$sz" -gt "${loop:-0}" ]; then
+        echo "    [control] $sym is $sz B, still larger than any closure ($loop B)"
+      else
+        echo "    [control FIRED] $sym is only $sz B against a $loop B closure -- which is"
+        echo "      what the check is for, and why no figure comes from this binary"
+        ctrl_fired=$((ctrl_fired + 1))
+      fi
+      continue
+    fi
     if [ "$sz" -gt "${loop:-0}" ]; then
       chk ok "$bin: $sym is $sz B, larger than any timing closure ($loop B)"
     else
@@ -90,4 +105,11 @@ echo "  address is taken and an out-of-line body must exist; the sizes above say
 echo "  not carrying a copy of it."
 echo
 echo "boundary: $ok checks passed, $fail failed"
+if [ "$ctrl_fired" -gt 0 ]; then
+  echo "and the -flto POSITIVE CONTROL fired on $ctrl_fired symbols, which is what says the"
+  echo "check above is capable of failing. No figure in this slice comes from that binary."
+else
+  echo "WARNING: the -flto positive control did NOT fire, so the check above has not been"
+  echo "seen failing on this build. Treat the pass as unproven."
+fi
 exit $((fail ? 1 : 0))
