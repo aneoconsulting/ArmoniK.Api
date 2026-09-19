@@ -279,6 +279,47 @@ Fixed: the generated module walks up until it finds `schema/shapes.json`.
 No measurement is affected. `_akcodec_gen.c` is byte-identical across the fix and
 the only file that changed computes paths, so the logs stand as taken.
 
+### J11c. The C++ slice's calibration lands, and it isolates the odd row in J1
+
+The exploration branch merged the C++ slice at `4aec4e8`, and it ran the same
+R13 calibration on its own container: **1.5 ns forward, 2.1 to 2.2
+forward-plus-reverse**, against this machine's **2.8 forward, 2.1
+forward-plus-reverse** and the Rust slice's **1.8 for both**.
+
+Three containers, and the forward-plus-reverse row agrees between two of them to
+0.1 ns while the forward row spans 1.5 to 2.8 -- a factor of 1.9. So the thing
+that does not travel is **the forward loop**, not crossings. J1 recorded the
+asymmetry on this machine as a property of the two benchmark loops rather than a
+finding about crossings, and a second container disagreeing in the opposite
+direction (1.5 < 2.1 there, 2.8 > 2.1 here) is what that reading predicts.
+Practical consequence: where one calibration number is wanted, the
+forward-plus-reverse figure is the one to use.
+
+### J11d. Scope change: absolutes are instrumentation, and three rankings are recorded as ambiguous
+
+Relayed 2026-09-19, merged as `4aec4e8`. Nobody tries hard at cross-language
+performance until the comparison is re-taken on a controlled physical machine.
+
+Nothing here is withdrawn by it and nothing is re-taken, because what this work
+unit was asked to produce is what the note says a rerun cannot: counted
+crossings (29 against 7 per element), byte identity against the validated
+manifest, the within-arm delta that settles README 9.1's premise (3.2x to 5.6x),
+and feasibility. The rankings it produced are sign-and-magnitude ones -- 2x on
+storage, 5x on the absent path, 6x on the cffi callback -- not percentages.
+
+Three comparisons WERE close, and the instruction is to record rather than grind:
+
+- **plain against `__slots__` through `PyObject_GetAttr`.** The sign flips
+  between payloads and inverts again at the primitive level. Left ambiguous. The
+  refutation of 9.1's ordering does not depend on it: that only needs
+  "`__slots__` is not clearly faster", which three measurements agree on.
+- **`METH_O` against `METH_FASTCALL`.** 22.2 - 23.1 against 22.8 - 23.6,
+  overlapping. Left ambiguous; the mechanism is a C extension either way.
+- **abi3 against the full C-API per primitive.** 0.995 to 1.072 paired per
+  process is "no measurable difference on this workload", and quoting it as a
+  ratio would be quoting noise. The one difference that survives a controlled
+  rerun is not a timing at all: `PyList_SET_ITEM` is absent from the limited API.
+
 ### J12. What was NOT tried, and why none of it is a refutation
 
 - **Decode.** Nothing in work unit 1 decodes. The storage verdict may well differ
