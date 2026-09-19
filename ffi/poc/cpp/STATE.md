@@ -11,7 +11,7 @@ session, which makes it the most expensive defect in this directory.
 | **Floor** | **C++11, demonstrated not declared.** C++14 also builds and passes (README open question 3) |
 | **Target** | C++17 |
 | **Incumbent** | protobuf C++ 3.21.12 (`libprotobuf-dev`, apt), `SerializeToString` / `ParseFromString`, non-arena and arena. `packages/cpp` pins **no** protobuf and **no** grpc version (`Dependencies.cmake` pins only fmt, simdjson and gtest) and sets `CXX_STANDARD 14` |
-| **Ceiling** | upb from protobuf v25.3, built from source. A bound, never a candidate |
+| **Ceiling** | upb from protobuf v25.3, built from source, **`UPB_FASTTABLE=0`, gcc 13.3.0**. A bound, never a candidate |
 | **Machine** | 4 vCPU Intel Xeon @ 2.80 GHz, Linux 6.18.44, g++ 13.3.0 `-O2 -g -DNDEBUG`, rustc 1.94.1 |
 | **R13 calibration** | this machine's rust-slice crossing is **1.5 ns** forward (`calibration-r13.log`), against 1.8 ns in the rust slice's own container |
 
@@ -41,6 +41,7 @@ free under the C++11 floor?
 | `ffi-nobat` | the host declines to batch |
 | `ffi-hosttc` | the transcoder in the HOST: what a string-as-a-CALL form costs |
 | `groupfill` | the by-value group's host-side fill alone, no codec |
+| `ffi-borrow` | **decode only**: the same ABI and the same entry point over a facade whose string fields are `ak::StringView` over the input buffer. A measurement arm, never a proposal |
 
 Linkage: **shared library is the primary arm**, static is a second, separately labelled
 one. **Never a ratio across the two** (R7); they are separate processes and separate
@@ -53,6 +54,9 @@ mechanisms. The arm order **rotates every round**.
 Ratios to `pb`, formed inside one process, 9 rounds, each the minimum of five sub-batches.
 `spr%` is the **denominator's own** round-to-round spread; a row above about 5 percent is
 noise-dominated and is marked below.
+
+**The decode columns below are re-taken with the borrowed arm present; the encode columns
+are unchanged from the previous run and are reproduced from it.**
 
 | payload | enc `memcpy` | enc `native` | enc `ffi` | enc `ffi-valtc` | dec `pb-arena` | dec `native` | dec `ffi` |
 |---|---|---|---|---|---|---|---|
@@ -125,6 +129,92 @@ quote upb as an encode ceiling from this slice.**
 
 **P2.5: upb writes 19,712 B, the same form protobuf C++ writes**, which `design/SHAPES.md`
 now records as one of two valid encodings. Two independent Google runtimes, the same +80 B.
+
+### Experiment 1: `UPB_FASTTABLE` — `logs/cpp/upb-fasttable.log`
+
+**A correction to this slice's own log first.** `upb/port/def.inc:227-239` defaults
+`UPB_FASTTABLE` to **0**; it is 1 only under `-DUPB_ENABLE_FASTTABLE`, or under
+`-DUPB_TRY_ENABLE_FASTTABLE` where `UPB_MUSTTAIL` exists. `gen/fetch_upb.sh` defined
+neither, so **the published upb column was measured with the tail-call fast decoder
+compiled out and did not say so** — an R7 omission. `upb.log`'s configuration line now
+names it.
+
+**The A/B is a null result, and the reason is reachability rather than a build that did
+nothing.** `_upb_Decoder_TryFastDispatch` (`upb/wire/decode.c:766`) fires only when
+`layout->table_mask != (unsigned char)-1`, and `upb/mini_descriptor/decode.c:698,712`
+sets `table_mask = -1` on **every** minitable it builds. The fasttable entries come from
+`protoc-gen-upb`'s `UPB_FASTTABLE_INIT` and from nothing else, so a reflection-built
+minitable can never take the fast path. Both halves are proved from artifacts:
+`upbbench` prints the runtime `table_mask` (**−1**), and `gen/fetch_upb.sh` prints the
+fast-parse function count from the archive (**0** without the define, **42** with it).
+
+Three builds of identical sources, so the compiler and the define are separated:
+
+| build | P1.2 dec | P2.2 dec | P2.3 dec | P3.1 dec | P6.1 dec |
+|---|---|---|---|---|---|
+| gcc 13.3.0, `UPB_FASTTABLE=0` | 0.317 | 0.349 | 0.306 | 0.353 | 0.552 |
+| clang 18, `UPB_FASTTABLE=0` | **0.245** | **0.283** | **0.245** | **0.277** | **0.522** |
+| clang 18, `UPB_FASTTABLE=1` | 0.291 | 0.320 | 0.262 | 0.309 | 0.538 |
+
+**clang is worth 6 to 23 percent of upb's decode**, so the published column understated
+upb. **`UPB_FASTTABLE=1` is 3 to 19 percent SLOWER** on the same compiler, because the
+`#if UPB_FASTTABLE` branch at the top of the decode loop is pure added cost when the
+dispatch can never fire.
+
+**What it settles: none of upb's measured decode advantage is `UPB_MUSTTAIL` tail-call
+dispatch** — the mechanism a Rust core is structurally locked out of (`become` is
+unstable, so there is no guaranteed tail call). All of it is the generic decoder: the
+epsilon-copy input stream's one bounds check per field
+(`upb/wire/eps_copy_input_stream.h:20-25`), arena allocation, minitable dispatch, and not
+copying strings. Every one of those is a work item rather than headroom. **What is not
+measured is what a `protoc-gen-upb` minitable would add on top**, which needs Bazel.
+
+### Experiment 2: the borrowed-string facade — `logs/cpp/bench_a17_shared.log`
+
+The facade and the binding are re-emitted with **`ak::StringView` in place of
+`std::string`**, into `shapes_borrow`, by the same emitters parameterised on (namespace,
+string type); the decode and encode helpers are overloaded so the generated call text is
+identical and the shipping facade's emitted text is unchanged (`--check` green on all 21
+files). **No ABI change is needed**: `ak_span` is already an offset into the buffer the
+host handed in (ABI v1 section 4), section 7 says the span points into that buffer, and
+7.4 tells the host to resolve it against the base pointer it already holds. It is exactly
+upb's aliasing contract (`upb/wire/decode.h:29`). **UTF-8 is still validated**, so the arm
+isolates the copy and nothing else. Singular strings, repeated strings, bytes and map keys
+and values are all borrowed.
+
+**Byte identity gates it** (R2): decode into the borrowed facade, re-encode, compare with
+the manifest — every payload, including P2.5 from the incumbent's 19,712 B form.
+
+| payload | dec `ffi` | dec **`ffi-borrow`** | upb (gcc) | upb (clang) | delta, % of a protobuf decode |
+|---|---|---|---|---|---|
+| P1.1 | 0.765-0.791 | **0.303-0.310** | 0.44 | — | −47.7 |
+| P1.2 | 0.562-0.790 | **0.234-0.241** | 0.317 | 0.245 | −33.8 |
+| P1.3 | 1.014-1.027 | **0.582-0.591** | 0.29 | — | −43.3 |
+| P2.1 | 0.707-0.720 | **0.433-0.438** | 0.42 | — | −27.8 |
+| **P2.2** | 0.661-0.696 | **0.387-0.407** | 0.349 | 0.283 | **−28.4** |
+| P2.3 | 0.855-0.921 | **0.383-0.396** | 0.306 | 0.245 | −49.5 |
+| P2.4 | 0.680-0.724 | **0.286-0.305** | 0.22 | — | −41.2 |
+| P2.5 | 0.950-0.965 | **0.526-0.534** | 0.41 | — | −43.0 |
+| P3.1 | 0.601-0.615 | **0.326-0.330** | 0.353 | 0.277 | −27.9 |
+| P4.1 | 0.686-0.705 | **0.445-0.455** | 0.45 | — | −24.5 |
+| P5.2-P5.4 | 0.80-1.04 | **0.000-0.035** | 0.94-1.00 | — | −85.9 to −99.5 |
+| P6.1 | 0.639-0.654 | 0.599-0.646 | 0.553 | 0.522 | **−4.3** |
+
+**Borrowing takes the core from about twice upb to level with or below it.** On P1.2 the
+borrowed core (0.234-0.241) is below even the clang upb build (0.245). So **"the core's
+decode is half of what a C protobuf can do" is largely a statement about `std::string`,
+not about the codec.**
+
+**P6.1 is the internal control that says the arm measures what it claims**: `MetricsBatch`
+is one string and five packed scalar arrays, so there is almost no copy to remove, and it
+barely moves (−4.3 %).
+
+**What it does not isolate**, and the residual gap on P2.2 and P2.3 is exactly this:
+vectors, maps and message children are still constructed. This separates the string copy
+specifically, not host-side container construction in general.
+
+**It is a measurement arm, not a proposal.** The views are valid only while the input
+buffer lives, which is not what a facade ships by default; the main facade is untouched.
 
 ### Crossing counts, from the counting core — `logs/cpp/counts.log`
 
@@ -326,14 +416,19 @@ like-for-like row after all.
 
 Nothing is outstanding. In the order I would do it:
 
-1. **A table-driven or SIMD UTF-8 validator** on the decode path. The 4.5x to 20x above is
+1. **Borrowed spans as a real facade option**, now that the arm says what they are worth
+   (−24 to −50 % of a protobuf decode, and the core level with upb). The lifetime contract
+   is the hard part and it is a design question, not a measurement one.
+2. **A table-driven or SIMD UTF-8 validator** on the decode path. The 4.5x to 20x above is
    a validator figure and it is the largest single effect this slice measures; `utf8_range`
    is already in the tree from the upb arm.
-2. **A core fast path for `tc == ak_tc_bytes`**, worth +4.49 ns per string. The core
+3. **A core fast path for `tc == ak_tc_bytes`**, worth +4.49 ns per string. The core
    emitter is shared, so this is the aggregating session's to take.
-3. **The content sets on whole payloads**, now that `recode` is reachable.
-4. **A concurrency suite** (ABI v1 obligation 12.5).
-5. **Explain the P1.2 decode outlier round**, which appears in every log.
+4. **The content sets on whole payloads**, now that `recode` is reachable.
+5. **A concurrency suite** (ABI v1 obligation 12.5).
+6. **Explain the P1.2 decode outlier round**, which appears in every log.
+7. **A `protoc-gen-upb` build**, if the ceiling ever needs to include the fast decoder.
+   That needs Bazel and is the one thing this slice stopped short of.
 
 ## Open defects
 
@@ -360,6 +455,12 @@ Nothing is outstanding. In the order I would do it:
 
 - **upb encode is not a ceiling** (see above), and no upb arm exists for the core's own
   shapes beyond encode/decode of the whole message.
+- **What a `protoc-gen-upb` minitable would add** on top of upb's generic decoder. The
+  fast decoder is unreachable from reflection minitables and the generator is Bazel-only,
+  so the ceiling measured here is upb's generic decoder and nothing above it.
+- **The borrowed facade's lifetime contract.** The arm measures the copy; it does not
+  price what a host pays to keep the input buffer alive, nor a hybrid facade that borrows
+  some fields and owns others.
 - **Content sets** are measured on the string path only, not on whole payloads.
 - **`ak_init` and the lifecycle**, **the pull decode family**, **the unknown-field bag**,
   **`ak_span.coder`**, **message-size and recursion limits**: unbuilt or unexercised, as in
@@ -397,4 +498,5 @@ Nothing is outstanding. In the order I would do it:
 | `tax.log` | the crossing priced up | **the batching crossover: 2 to 4 ns**, with the 8 ns outlier re-run |
 | `opt.log` | `-O2 -DNDEBUG` against `-O3 -DNDEBUG` | the control's decode gap is not a function of the optimisation level |
 | `rpc.log` | grpc++ 1.51.1, tonic 0.14, loopback, in-process server, P2.2, 9 rounds | client CPU 0.856 to 0.870 of grpc++, the codec half separated in-process, R9's hazard visible |
-| `upb.log` | upb v25.3 from source, reflection minitables | **the ceiling: upb decode is 0.22 to 0.58 of protobuf C++.** The encode column is not a ceiling and says so |
+| `upb.log` | upb v25.3 from source, reflection minitables, **`UPB_FASTTABLE=0`, gcc** | **the ceiling: upb decode is 0.22 to 0.58 of protobuf C++.** The encode column is not a ceiling and says so |
+| `upb-fasttable.log` | three builds of identical upb sources: gcc/FT=0, clang/FT=0, clang/FT=1 | **the fast decoder is unreachable from a reflection minitable** (`table_mask = −1`, proved at run time and from the archive), so none of upb's advantage is `UPB_MUSTTAIL`. clang is worth 6-23 %; `FT=1` is 3-19 % slower |
