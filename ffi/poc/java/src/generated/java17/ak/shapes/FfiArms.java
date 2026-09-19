@@ -10,24 +10,28 @@ public final class FfiArms {
     return !(id.equals("P7.1"));
   }
 
-  public static void encode(Binding b, String id, Object o) {
+  /** Returns the entry point's own result: a bench that called
+   *  `encodedLength()` to have something the JIT cannot discard would
+   *  add one forward crossing per operation to the arm being measured,
+   *  which on P1.1 is about 1 percent of the whole encode. */
+  public static int encode(Binding b, String id, Object o) {
     switch (id) {
-      case "P1.1": b.encodeListResultsResponse((ListResultsResponse) o); break;
-      case "P1.2": b.encodeListResultsResponse((ListResultsResponse) o); break;
-      case "P1.3": b.encodeListResultsResponse((ListResultsResponse) o); break;
-      case "P2.1": b.encodeListTasksDetailedResponse((ListTasksDetailedResponse) o); break;
-      case "P2.2": b.encodeListTasksDetailedResponse((ListTasksDetailedResponse) o); break;
-      case "P2.3": b.encodeListTasksDetailedResponse((ListTasksDetailedResponse) o); break;
-      case "P2.4": b.encodeListTasksDetailedResponse((ListTasksDetailedResponse) o); break;
-      case "P2.5": b.encodeListTasksDetailedResponse((ListTasksDetailedResponse) o); break;
-      case "P3.1": b.encodeListProbeResponse((ListProbeResponse) o); break;
-      case "P4.1": b.encodeListTaskSummaryResponse((ListTaskSummaryResponse) o); break;
-      case "P5.1": b.encodeUploadResultDataMessage((UploadResultDataMessage) o); break;
-      case "P5.2": b.encodeUploadResultDataMessage((UploadResultDataMessage) o); break;
-      case "P5.3": b.encodeUploadResultDataMessage((UploadResultDataMessage) o); break;
-      case "P5.4": b.encodeUploadResultDataMessage((UploadResultDataMessage) o); break;
-      case "P6.1": b.encodeListMetricsResponse((ListMetricsResponse) o); break;
-      case "P7.1": b.encodeDualResponse((DualResponse) o); break;
+      case "P1.1": return b.encodeListResultsResponse((ListResultsResponse) o);
+      case "P1.2": return b.encodeListResultsResponse((ListResultsResponse) o);
+      case "P1.3": return b.encodeListResultsResponse((ListResultsResponse) o);
+      case "P2.1": return b.encodeListTasksDetailedResponse((ListTasksDetailedResponse) o);
+      case "P2.2": return b.encodeListTasksDetailedResponse((ListTasksDetailedResponse) o);
+      case "P2.3": return b.encodeListTasksDetailedResponse((ListTasksDetailedResponse) o);
+      case "P2.4": return b.encodeListTasksDetailedResponse((ListTasksDetailedResponse) o);
+      case "P2.5": return b.encodeListTasksDetailedResponse((ListTasksDetailedResponse) o);
+      case "P3.1": return b.encodeListProbeResponse((ListProbeResponse) o);
+      case "P4.1": return b.encodeListTaskSummaryResponse((ListTaskSummaryResponse) o);
+      case "P5.1": return b.encodeUploadResultDataMessage((UploadResultDataMessage) o);
+      case "P5.2": return b.encodeUploadResultDataMessage((UploadResultDataMessage) o);
+      case "P5.3": return b.encodeUploadResultDataMessage((UploadResultDataMessage) o);
+      case "P5.4": return b.encodeUploadResultDataMessage((UploadResultDataMessage) o);
+      case "P6.1": return b.encodeListMetricsResponse((ListMetricsResponse) o);
+      case "P7.1": return b.encodeDualResponse((DualResponse) o);
       default: throw new IllegalArgumentException(id);
     }
   }

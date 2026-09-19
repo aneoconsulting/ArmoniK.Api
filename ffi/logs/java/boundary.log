@@ -1,0 +1,62 @@
+== R5: the boundary, from the built artifacts ==
+
+# the shim's undefined imports: every ABI entry point it calls must be resolved by
+# the core at load, not inlined into it
+                   U ak_abi_version
+                   U ak_blob_run
+                   U ak_dec_counters
+                   U ak_dec_counters_reset
+                   U ak_dec_ctx_free
+                   U ak_dec_ctx_new
+                   U ak_dec_err
+                   U ak_dec_err_reset
+                   U ak_decode_DualResponse
+                   U ak_decode_ListMetricsResponse
+                   U ak_decode_ListProbeResponse
+                   U ak_decode_ListResultsResponse
+                   U ak_decode_ListTaskSummaryResponse
+                   U ak_decode_ListTasksDetailedResponse
+                   U ak_decode_UploadResultDataMessage
+                   U ak_elem_Pair
+                   U ak_elem_Probe
+                   U ak_elem_ResultRaw
+                   U ak_elem_TaskOptionsOptionsEntry
+                   U ak_elemu_MetricsBatch
+                   U ak_elemu_TaskDetailed
+                   U ak_elemu_TaskSummary
+                   U ak_enc_counters
+                   U ak_enc_counters_reset
+                   U ak_enc_ctx_free
+                   U ak_enc_ctx_new
+                   U ak_enc_err
+                   U ak_enc_reset
+                   U ak_enc_take
+                   U ak_encode_DualResponse
+                   U ak_encode_ListMetricsResponse
+                   U ak_encode_ListProbeResponse
+                   U ak_encode_ListResultsResponse
+                   U ak_encode_ListTaskSummaryResponse
+                   U ak_encode_ListTasksDetailedResponse
+                   U ak_encode_UploadResultDataMessage
+                   U ak_fail
+                   U ak_layout_facts
+                   U ak_noop
+                   U ak_run_f64
+                   U ak_run_i32
+                   U ak_run_i64
+                   U ak_run_u8
+                   U ak_tc_bytes
+                   U ak_tc_latin1
+                   U ak_tc_utf16
+                   U ak_tc_utf8
+
+# and the core defines them
+  exported ak_* symbols: 66
+
+# the shim carries no copy of the codec: no ak_encode_/ak_decode_ TEXT symbols
+  ok
+
+# the JNI natives the JVM will bind, which is the other direction of the same check:
+# a method the shim does not define is an UnsatisfiedLinkError at load, never a
+# silently skipped arm
+  JNI entry points: 52

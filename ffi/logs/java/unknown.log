@@ -1,0 +1,106 @@
+== unknown fields: forward compatibility, and ABI v1 open decision 11 ==
+java.version=17.0.20
+protobuf-java=protobuf-java-3.25.5.jar
+
+A corpus generated from the schema that reads it never executes the
+unknown-field skip (README 10.1), so these vectors are spliced here.
+
+P1.1  unknown fields after the known ones  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+50 B, known fields unchanged)
+P1.1  unknown fields before the known ones  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+50 B, known fields unchanged)
+P1.1  an unknown field inside the first element  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+50 B, known fields unchanged)
+P1.3  unknown fields after the known ones  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+50 B, known fields unchanged)
+P1.3  unknown fields before the known ones  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+50 B, known fields unchanged)
+P1.3  an unknown field inside the first element  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+50 B, known fields unchanged)
+P2.1  unknown fields after the known ones  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+50 B, known fields unchanged)
+P2.1  unknown fields before the known ones  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+50 B, known fields unchanged)
+P2.1  an unknown field inside the first element  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+50 B, known fields unchanged)
+P2.5  unknown fields after the known ones  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+130 B, known fields unchanged)
+P2.5  unknown fields before the known ones  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+130 B, known fields unchanged)
+P2.5  an unknown field inside the first element  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+130 B, known fields unchanged)
+P3.1  unknown fields after the known ones  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+50 B, known fields unchanged)
+P3.1  unknown fields before the known ones  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+50 B, known fields unchanged)
+P3.1  an unknown field inside the first element  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+50 B, known fields unchanged)
+P4.1  unknown fields after the known ones  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+50 B, known fields unchanged)
+P4.1  unknown fields before the known ones  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+50 B, known fields unchanged)
+P4.1  an unknown field inside the first element  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+50 B, known fields unchanged)
+P5.1  unknown fields after the known ones  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+50 B, known fields unchanged)
+P5.1  unknown fields before the known ones  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+50 B, known fields unchanged)
+P5.1  an unknown field inside the first element  (+50 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+51 B, known fields unchanged)
+P3.1  an unrecognised tag where a oneof member would be  (+3 B unknown)
+    R    drops the unknown run, known fields intact
+    ffi  drops the unknown run, known fields intact
+    pbj  RETAINS the unknown run and re-emits it (+3 B, known fields unchanged)
+
+checked=66  failed=0
+
+What this establishes, in one line: on every vector the core and the
+generated Java codec drop the unrecognised field and protobuf-java carries
+it through to the re-encode. Java's incumbent RETAINS, where the rust
+slice's (prost) does not, so this is the first direct measurement of the
+guarantee ABI v1 open decision 11 would remove rather than an argument
+about one. Who it bites is unchanged and specific: a client that decodes
+and never re-encodes loses nothing; a worker forwarding a ProcessRequest
+between two schema versions loses the field silently.

@@ -66,7 +66,7 @@ mkdir -p build/cls8
 "$J8/bin/javac" -nowarn -encoding UTF-8 -source 8 -target 8 -d build/cls8 -cp "$CP" \
   -sourcepath "src/java:src/generated/java8:src/generated/shared:build/pbjava" \
   $(find src/java src/generated/java8 src/generated/shared -name '*.java' \
-       ! -name 'Ffm*.java' ! -name 'BorrowArm.java') \
+       ! -name 'Ffm*.java') \
   $(find build/pbjava -name '*.java')
 
 say "done"

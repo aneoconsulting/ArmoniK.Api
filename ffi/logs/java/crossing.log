@@ -1,0 +1,9 @@
+== JNI crossing price, this machine, this process ==
+java.version=17.0.20  vm=17.0.20+8-1-24.04-Ubuntu
+rounds=9  sink=177044969424256
+path              iters   min_ns   med_ns   max_ns
+fwd             4227072   11.352   11.523   12.091
+fwd+buf         3932160   11.773   12.260   15.573
+rev              163840  301.023  307.968  448.400
+rev-cached       720896   77.361   78.494   90.698
+rev-obj          720896   80.213   85.293  113.066

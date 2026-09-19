@@ -1,0 +1,458 @@
+== conformance: byte identity across every arm ==
+java.version=17.0.20  schema=/home/user/ArmoniK.Api/ffi/schema/generated
+NOTE: compact strings (JDK 9+ String.value/coder) are IN USE in this build.
+  P1.1  R  encode ok (canonical, 858 B)
+  P1.1  ffi  encode ok (canonical, 858 B)
+  P1.1  ffi-nobatch  encode ok (canonical, 858 B)
+  P1.1  ffi-zeroed  encode ok (canonical, 858 B)
+  P1.1  ffi-nobatch-zeroed  encode ok (canonical, 858 B)
+  P1.1  ffi-borrow  encode: not applicable
+  P1.1  pbj  encode ok (canonical, 858 B)
+  P1.1  R == ffi
+  P1.1  R == ffi-nobatch
+  P1.1  R == ffi-zeroed
+  P1.1  R == ffi-nobatch-zeroed
+  P1.1  R == pbj
+  P1.1  ffi == ffi-nobatch
+  P1.1  ffi == ffi-zeroed
+  P1.1  ffi == ffi-nobatch-zeroed
+  P1.1  ffi == pbj
+  P1.1  ffi-nobatch == ffi-zeroed
+  P1.1  ffi-nobatch == ffi-nobatch-zeroed
+  P1.1  ffi-nobatch == pbj
+  P1.1  ffi-zeroed == pbj
+  P1.1  ffi-nobatch-zeroed == ffi-zeroed
+  P1.1  ffi-nobatch-zeroed == pbj
+  P1.1  R  round trip ok
+  P1.1  ffi  round trip ok
+  P1.1  ffi-nobatch  round trip ok
+  P1.1  ffi-zeroed  round trip ok
+  P1.1  ffi-nobatch-zeroed  round trip ok
+  P1.1  ffi-borrow  round trip ok
+  P1.1  pbj  round trip ok
+  P1.2  R  encode ok (canonical, 218121 B)
+  P1.2  ffi  encode ok (canonical, 218121 B)
+  P1.2  ffi-nobatch  encode ok (canonical, 218121 B)
+  P1.2  ffi-zeroed  encode ok (canonical, 218121 B)
+  P1.2  ffi-nobatch-zeroed  encode ok (canonical, 218121 B)
+  P1.2  ffi-borrow  encode: not applicable
+  P1.2  pbj  encode ok (canonical, 218121 B)
+  P1.2  R == ffi
+  P1.2  R == ffi-nobatch
+  P1.2  R == ffi-zeroed
+  P1.2  R == ffi-nobatch-zeroed
+  P1.2  R == pbj
+  P1.2  ffi == ffi-nobatch
+  P1.2  ffi == ffi-zeroed
+  P1.2  ffi == ffi-nobatch-zeroed
+  P1.2  ffi == pbj
+  P1.2  ffi-nobatch == ffi-zeroed
+  P1.2  ffi-nobatch == ffi-nobatch-zeroed
+  P1.2  ffi-nobatch == pbj
+  P1.2  ffi-zeroed == pbj
+  P1.2  ffi-nobatch-zeroed == ffi-zeroed
+  P1.2  ffi-nobatch-zeroed == pbj
+  P1.2  R  round trip ok
+  P1.2  ffi  round trip ok
+  P1.2  ffi-nobatch  round trip ok
+  P1.2  ffi-zeroed  round trip ok
+  P1.2  ffi-nobatch-zeroed  round trip ok
+  P1.2  ffi-borrow  round trip ok
+  P1.2  pbj  round trip ok
+  P1.3  R  encode ok (canonical, 605 B)
+  P1.3  ffi  encode ok (canonical, 605 B)
+  P1.3  ffi-nobatch  encode ok (canonical, 605 B)
+  P1.3  ffi-zeroed  encode ok (canonical, 605 B)
+  P1.3  ffi-nobatch-zeroed  encode ok (canonical, 605 B)
+  P1.3  ffi-borrow  encode: not applicable
+  P1.3  pbj  encode ok (canonical, 605 B)
+  P1.3  R == ffi
+  P1.3  R == ffi-nobatch
+  P1.3  R == ffi-zeroed
+  P1.3  R == ffi-nobatch-zeroed
+  P1.3  R == pbj
+  P1.3  ffi == ffi-nobatch
+  P1.3  ffi == ffi-zeroed
+  P1.3  ffi == ffi-nobatch-zeroed
+  P1.3  ffi == pbj
+  P1.3  ffi-nobatch == ffi-zeroed
+  P1.3  ffi-nobatch == ffi-nobatch-zeroed
+  P1.3  ffi-nobatch == pbj
+  P1.3  ffi-zeroed == pbj
+  P1.3  ffi-nobatch-zeroed == ffi-zeroed
+  P1.3  ffi-nobatch-zeroed == pbj
+  P1.3  R  round trip ok
+  P1.3  ffi  round trip ok
+  P1.3  ffi-nobatch  round trip ok
+  P1.3  ffi-zeroed  round trip ok
+  P1.3  ffi-nobatch-zeroed  round trip ok
+  P1.3  ffi-borrow  round trip ok
+  P1.3  pbj  round trip ok
+  P2.1  R  encode ok (canonical, 1037 B)
+  P2.1  ffi  encode ok (canonical, 1037 B)
+  P2.1  ffi-nobatch  encode ok (canonical, 1037 B)
+  P2.1  ffi-zeroed  encode ok (canonical, 1037 B)
+  P2.1  ffi-nobatch-zeroed  encode ok (canonical, 1037 B)
+  P2.1  ffi-borrow  encode: not applicable
+  P2.1  pbj  encode ok (canonical, 1037 B)
+  P2.1  R == ffi
+  P2.1  R == ffi-nobatch
+  P2.1  R == ffi-zeroed
+  P2.1  R == ffi-nobatch-zeroed
+  P2.1  R == pbj
+  P2.1  ffi == ffi-nobatch
+  P2.1  ffi == ffi-zeroed
+  P2.1  ffi == ffi-nobatch-zeroed
+  P2.1  ffi == pbj
+  P2.1  ffi-nobatch == ffi-zeroed
+  P2.1  ffi-nobatch == ffi-nobatch-zeroed
+  P2.1  ffi-nobatch == pbj
+  P2.1  ffi-zeroed == pbj
+  P2.1  ffi-nobatch-zeroed == ffi-zeroed
+  P2.1  ffi-nobatch-zeroed == pbj
+  P2.1  R  round trip ok
+  P2.1  ffi  round trip ok
+  P2.1  ffi-nobatch  round trip ok
+  P2.1  ffi-zeroed  round trip ok
+  P2.1  ffi-nobatch-zeroed  round trip ok
+  P2.1  ffi-borrow  round trip ok
+  P2.1  pbj  round trip ok
+  P2.2  R  encode ok (canonical, 540422 B)
+  P2.2  ffi  encode ok (canonical, 540422 B)
+  P2.2  ffi-nobatch  encode ok (canonical, 540422 B)
+  P2.2  ffi-zeroed  encode ok (canonical, 540422 B)
+  P2.2  ffi-nobatch-zeroed  encode ok (canonical, 540422 B)
+  P2.2  ffi-borrow  encode: not applicable
+  P2.2  pbj  encode ok (canonical, 540422 B)
+  P2.2  R == ffi
+  P2.2  R == ffi-nobatch
+  P2.2  R == ffi-zeroed
+  P2.2  R == ffi-nobatch-zeroed
+  P2.2  R == pbj
+  P2.2  ffi == ffi-nobatch
+  P2.2  ffi == ffi-zeroed
+  P2.2  ffi == ffi-nobatch-zeroed
+  P2.2  ffi == pbj
+  P2.2  ffi-nobatch == ffi-zeroed
+  P2.2  ffi-nobatch == ffi-nobatch-zeroed
+  P2.2  ffi-nobatch == pbj
+  P2.2  ffi-zeroed == pbj
+  P2.2  ffi-nobatch-zeroed == ffi-zeroed
+  P2.2  ffi-nobatch-zeroed == pbj
+  P2.2  R  round trip ok
+  P2.2  ffi  round trip ok
+  P2.2  ffi-nobatch  round trip ok
+  P2.2  ffi-zeroed  round trip ok
+  P2.2  ffi-nobatch-zeroed  round trip ok
+  P2.2  ffi-borrow  round trip ok
+  P2.2  pbj  round trip ok
+  P2.3  R  encode ok (canonical, 647024 B)
+  P2.3  ffi  encode ok (canonical, 647024 B)
+  P2.3  ffi-nobatch  encode ok (canonical, 647024 B)
+  P2.3  ffi-zeroed  encode ok (canonical, 647024 B)
+  P2.3  ffi-nobatch-zeroed  encode ok (canonical, 647024 B)
+  P2.3  ffi-borrow  encode: not applicable
+  P2.3  pbj  encode ok (canonical, 647024 B)
+  P2.3  R == ffi
+  P2.3  R == ffi-nobatch
+  P2.3  R == ffi-zeroed
+  P2.3  R == ffi-nobatch-zeroed
+  P2.3  R == pbj
+  P2.3  ffi == ffi-nobatch
+  P2.3  ffi == ffi-zeroed
+  P2.3  ffi == ffi-nobatch-zeroed
+  P2.3  ffi == pbj
+  P2.3  ffi-nobatch == ffi-zeroed
+  P2.3  ffi-nobatch == ffi-nobatch-zeroed
+  P2.3  ffi-nobatch == pbj
+  P2.3  ffi-zeroed == pbj
+  P2.3  ffi-nobatch-zeroed == ffi-zeroed
+  P2.3  ffi-nobatch-zeroed == pbj
+  P2.3  R  round trip ok
+  P2.3  ffi  round trip ok
+  P2.3  ffi-nobatch  round trip ok
+  P2.3  ffi-zeroed  round trip ok
+  P2.3  ffi-nobatch-zeroed  round trip ok
+  P2.3  ffi-borrow  round trip ok
+  P2.3  pbj  round trip ok
+  P2.4  R  encode ok (canonical, 979465 B)
+  P2.4  ffi  encode ok (canonical, 979465 B)
+  P2.4  ffi-nobatch  encode ok (canonical, 979465 B)
+  P2.4  ffi-zeroed  encode ok (canonical, 979465 B)
+  P2.4  ffi-nobatch-zeroed  encode ok (canonical, 979465 B)
+  P2.4  ffi-borrow  encode: not applicable
+  P2.4  pbj  encode ok (canonical, 979465 B)
+  P2.4  R == ffi
+  P2.4  R == ffi-nobatch
+  P2.4  R == ffi-zeroed
+  P2.4  R == ffi-nobatch-zeroed
+  P2.4  R == pbj
+  P2.4  ffi == ffi-nobatch
+  P2.4  ffi == ffi-zeroed
+  P2.4  ffi == ffi-nobatch-zeroed
+  P2.4  ffi == pbj
+  P2.4  ffi-nobatch == ffi-zeroed
+  P2.4  ffi-nobatch == ffi-nobatch-zeroed
+  P2.4  ffi-nobatch == pbj
+  P2.4  ffi-zeroed == pbj
+  P2.4  ffi-nobatch-zeroed == ffi-zeroed
+  P2.4  ffi-nobatch-zeroed == pbj
+  P2.4  R  round trip ok
+  P2.4  ffi  round trip ok
+  P2.4  ffi-nobatch  round trip ok
+  P2.4  ffi-zeroed  round trip ok
+  P2.4  ffi-nobatch-zeroed  round trip ok
+  P2.4  ffi-borrow  round trip ok
+  P2.4  pbj  round trip ok
+  P2.5  R  encode ok (canonical, 19632 B)
+  P2.5  ffi  encode ok (canonical, 19632 B)
+  P2.5  ffi-nobatch  encode ok (canonical, 19632 B)
+  P2.5  ffi-zeroed  encode ok (canonical, 19632 B)
+  P2.5  ffi-nobatch-zeroed  encode ok (canonical, 19632 B)
+  P2.5  ffi-borrow  encode: not applicable
+  P2.5  pbj  encode ok (both-fields-written, 19712 B)
+  P2.5  R == ffi
+  P2.5  R == ffi-nobatch
+  P2.5  R == ffi-zeroed
+  P2.5  R == ffi-nobatch-zeroed
+  P2.5  R  parses the other valid form and returns its own (19632 B)
+  P2.5  pbj  parses the other valid form and returns its own (19712 B)
+  P2.5  ffi == ffi-nobatch
+  P2.5  ffi == ffi-zeroed
+  P2.5  ffi == ffi-nobatch-zeroed
+  P2.5  ffi  parses the other valid form and returns its own (19632 B)
+  P2.5  pbj  parses the other valid form and returns its own (19712 B)
+  P2.5  ffi-nobatch == ffi-zeroed
+  P2.5  ffi-nobatch == ffi-nobatch-zeroed
+  P2.5  ffi-nobatch  parses the other valid form and returns its own (19632 B)
+  P2.5  pbj  parses the other valid form and returns its own (19712 B)
+  P2.5  ffi-zeroed  parses the other valid form and returns its own (19632 B)
+  P2.5  pbj  parses the other valid form and returns its own (19712 B)
+  P2.5  ffi-nobatch-zeroed == ffi-zeroed
+  P2.5  ffi-nobatch-zeroed  parses the other valid form and returns its own (19632 B)
+  P2.5  pbj  parses the other valid form and returns its own (19712 B)
+  P2.5  R  round trip ok
+  P2.5  ffi  round trip ok
+  P2.5  ffi-nobatch  round trip ok
+  P2.5  ffi-zeroed  round trip ok
+  P2.5  ffi-nobatch-zeroed  round trip ok
+  P2.5  ffi-borrow  round trip ok
+  P2.5  pbj  round trip ok
+  P3.1  R  encode ok (canonical, 12097 B)
+  P3.1  ffi  encode ok (canonical, 12097 B)
+  P3.1  ffi-nobatch  encode ok (canonical, 12097 B)
+  P3.1  ffi-zeroed  encode ok (canonical, 12097 B)
+  P3.1  ffi-nobatch-zeroed  encode ok (canonical, 12097 B)
+  P3.1  ffi-borrow  encode: not applicable
+  P3.1  pbj  encode ok (canonical, 12097 B)
+  P3.1  R == ffi
+  P3.1  R == ffi-nobatch
+  P3.1  R == ffi-zeroed
+  P3.1  R == ffi-nobatch-zeroed
+  P3.1  R == pbj
+  P3.1  ffi == ffi-nobatch
+  P3.1  ffi == ffi-zeroed
+  P3.1  ffi == ffi-nobatch-zeroed
+  P3.1  ffi == pbj
+  P3.1  ffi-nobatch == ffi-zeroed
+  P3.1  ffi-nobatch == ffi-nobatch-zeroed
+  P3.1  ffi-nobatch == pbj
+  P3.1  ffi-zeroed == pbj
+  P3.1  ffi-nobatch-zeroed == ffi-zeroed
+  P3.1  ffi-nobatch-zeroed == pbj
+  P3.1  R  round trip ok
+  P3.1  ffi  round trip ok
+  P3.1  ffi-nobatch  round trip ok
+  P3.1  ffi-zeroed  round trip ok
+  P3.1  ffi-nobatch-zeroed  round trip ok
+  P3.1  ffi-borrow  round trip ok
+  P3.1  pbj  round trip ok
+  P4.1  R  encode ok (canonical, 65321 B)
+  P4.1  ffi  encode ok (canonical, 65321 B)
+  P4.1  ffi-nobatch  encode ok (canonical, 65321 B)
+  P4.1  ffi-zeroed  encode ok (canonical, 65321 B)
+  P4.1  ffi-nobatch-zeroed  encode ok (canonical, 65321 B)
+  P4.1  ffi-borrow  encode: not applicable
+  P4.1  pbj  encode ok (canonical, 65321 B)
+  P4.1  R == ffi
+  P4.1  R == ffi-nobatch
+  P4.1  R == ffi-zeroed
+  P4.1  R == ffi-nobatch-zeroed
+  P4.1  R == pbj
+  P4.1  ffi == ffi-nobatch
+  P4.1  ffi == ffi-zeroed
+  P4.1  ffi == ffi-nobatch-zeroed
+  P4.1  ffi == pbj
+  P4.1  ffi-nobatch == ffi-zeroed
+  P4.1  ffi-nobatch == ffi-nobatch-zeroed
+  P4.1  ffi-nobatch == pbj
+  P4.1  ffi-zeroed == pbj
+  P4.1  ffi-nobatch-zeroed == ffi-zeroed
+  P4.1  ffi-nobatch-zeroed == pbj
+  P4.1  R  round trip ok
+  P4.1  ffi  round trip ok
+  P4.1  ffi-nobatch  round trip ok
+  P4.1  ffi-zeroed  round trip ok
+  P4.1  ffi-nobatch-zeroed  round trip ok
+  P4.1  ffi-borrow  round trip ok
+  P4.1  pbj  round trip ok
+  P5.1  R  encode ok (canonical, 116 B)
+  P5.1  ffi  encode ok (canonical, 116 B)
+  P5.1  ffi-nobatch  encode ok (canonical, 116 B)
+  P5.1  ffi-zeroed  encode ok (canonical, 116 B)
+  P5.1  ffi-nobatch-zeroed  encode ok (canonical, 116 B)
+  P5.1  ffi-borrow  encode: not applicable
+  P5.1  pbj  encode ok (canonical, 116 B)
+  P5.1  R == ffi
+  P5.1  R == ffi-nobatch
+  P5.1  R == ffi-zeroed
+  P5.1  R == ffi-nobatch-zeroed
+  P5.1  R == pbj
+  P5.1  ffi == ffi-nobatch
+  P5.1  ffi == ffi-zeroed
+  P5.1  ffi == ffi-nobatch-zeroed
+  P5.1  ffi == pbj
+  P5.1  ffi-nobatch == ffi-zeroed
+  P5.1  ffi-nobatch == ffi-nobatch-zeroed
+  P5.1  ffi-nobatch == pbj
+  P5.1  ffi-zeroed == pbj
+  P5.1  ffi-nobatch-zeroed == ffi-zeroed
+  P5.1  ffi-nobatch-zeroed == pbj
+  P5.1  R  round trip ok
+  P5.1  ffi  round trip ok
+  P5.1  ffi-nobatch  round trip ok
+  P5.1  ffi-zeroed  round trip ok
+  P5.1  ffi-nobatch-zeroed  round trip ok
+  P5.1  ffi-borrow  round trip ok
+  P5.1  pbj  round trip ok
+  P5.2  R  encode ok (canonical, 65620 B)
+  P5.2  ffi  encode ok (canonical, 65620 B)
+  P5.2  ffi-nobatch  encode ok (canonical, 65620 B)
+  P5.2  ffi-zeroed  encode ok (canonical, 65620 B)
+  P5.2  ffi-nobatch-zeroed  encode ok (canonical, 65620 B)
+  P5.2  ffi-borrow  encode: not applicable
+  P5.2  pbj  encode ok (canonical, 65620 B)
+  P5.2  R == ffi
+  P5.2  R == ffi-nobatch
+  P5.2  R == ffi-zeroed
+  P5.2  R == ffi-nobatch-zeroed
+  P5.2  R == pbj
+  P5.2  ffi == ffi-nobatch
+  P5.2  ffi == ffi-zeroed
+  P5.2  ffi == ffi-nobatch-zeroed
+  P5.2  ffi == pbj
+  P5.2  ffi-nobatch == ffi-zeroed
+  P5.2  ffi-nobatch == ffi-nobatch-zeroed
+  P5.2  ffi-nobatch == pbj
+  P5.2  ffi-zeroed == pbj
+  P5.2  ffi-nobatch-zeroed == ffi-zeroed
+  P5.2  ffi-nobatch-zeroed == pbj
+  P5.2  R  round trip ok
+  P5.2  ffi  round trip ok
+  P5.2  ffi-nobatch  round trip ok
+  P5.2  ffi-zeroed  round trip ok
+  P5.2  ffi-nobatch-zeroed  round trip ok
+  P5.2  ffi-borrow  round trip ok
+  P5.2  pbj  round trip ok
+  P5.3  R  encode ok (canonical, 1048660 B)
+  P5.3  ffi  encode ok (canonical, 1048660 B)
+  P5.3  ffi-nobatch  encode ok (canonical, 1048660 B)
+  P5.3  ffi-zeroed  encode ok (canonical, 1048660 B)
+  P5.3  ffi-nobatch-zeroed  encode ok (canonical, 1048660 B)
+  P5.3  ffi-borrow  encode: not applicable
+  P5.3  pbj  encode ok (canonical, 1048660 B)
+  P5.3  R == ffi
+  P5.3  R == ffi-nobatch
+  P5.3  R == ffi-zeroed
+  P5.3  R == ffi-nobatch-zeroed
+  P5.3  R == pbj
+  P5.3  ffi == ffi-nobatch
+  P5.3  ffi == ffi-zeroed
+  P5.3  ffi == ffi-nobatch-zeroed
+  P5.3  ffi == pbj
+  P5.3  ffi-nobatch == ffi-zeroed
+  P5.3  ffi-nobatch == ffi-nobatch-zeroed
+  P5.3  ffi-nobatch == pbj
+  P5.3  ffi-zeroed == pbj
+  P5.3  ffi-nobatch-zeroed == ffi-zeroed
+  P5.3  ffi-nobatch-zeroed == pbj
+  P5.3  R  round trip ok
+  P5.3  ffi  round trip ok
+  P5.3  ffi-nobatch  round trip ok
+  P5.3  ffi-zeroed  round trip ok
+  P5.3  ffi-nobatch-zeroed  round trip ok
+  P5.3  ffi-borrow  round trip ok
+  P5.3  pbj  round trip ok
+  P5.4  R  encode ok (canonical, 4194390 B)
+  P5.4  ffi  encode ok (canonical, 4194390 B)
+  P5.4  ffi-nobatch  encode ok (canonical, 4194390 B)
+  P5.4  ffi-zeroed  encode ok (canonical, 4194390 B)
+  P5.4  ffi-nobatch-zeroed  encode ok (canonical, 4194390 B)
+  P5.4  ffi-borrow  encode: not applicable
+  P5.4  pbj  encode ok (canonical, 4194390 B)
+  P5.4  R == ffi
+  P5.4  R == ffi-nobatch
+  P5.4  R == ffi-zeroed
+  P5.4  R == ffi-nobatch-zeroed
+  P5.4  R == pbj
+  P5.4  ffi == ffi-nobatch
+  P5.4  ffi == ffi-zeroed
+  P5.4  ffi == ffi-nobatch-zeroed
+  P5.4  ffi == pbj
+  P5.4  ffi-nobatch == ffi-zeroed
+  P5.4  ffi-nobatch == ffi-nobatch-zeroed
+  P5.4  ffi-nobatch == pbj
+  P5.4  ffi-zeroed == pbj
+  P5.4  ffi-nobatch-zeroed == ffi-zeroed
+  P5.4  ffi-nobatch-zeroed == pbj
+  P5.4  R  round trip ok
+  P5.4  ffi  round trip ok
+  P5.4  ffi-nobatch  round trip ok
+  P5.4  ffi-zeroed  round trip ok
+  P5.4  ffi-nobatch-zeroed  round trip ok
+  P5.4  ffi-borrow  round trip ok
+  P5.4  pbj  round trip ok
+  P6.1  R  encode ok (canonical, 123354 B)
+  P6.1  ffi  encode ok (canonical, 123354 B)
+  P6.1  ffi-nobatch  encode ok (canonical, 123354 B)
+  P6.1  ffi-zeroed  encode ok (canonical, 123354 B)
+  P6.1  ffi-nobatch-zeroed  encode ok (canonical, 123354 B)
+  P6.1  ffi-borrow  encode: not applicable
+  P6.1  pbj  encode ok (canonical, 123354 B)
+  P6.1  R == ffi
+  P6.1  R == ffi-nobatch
+  P6.1  R == ffi-zeroed
+  P6.1  R == ffi-nobatch-zeroed
+  P6.1  R == pbj
+  P6.1  ffi == ffi-nobatch
+  P6.1  ffi == ffi-zeroed
+  P6.1  ffi == ffi-nobatch-zeroed
+  P6.1  ffi == pbj
+  P6.1  ffi-nobatch == ffi-zeroed
+  P6.1  ffi-nobatch == ffi-nobatch-zeroed
+  P6.1  ffi-nobatch == pbj
+  P6.1  ffi-zeroed == pbj
+  P6.1  ffi-nobatch-zeroed == ffi-zeroed
+  P6.1  ffi-nobatch-zeroed == pbj
+  P6.1  R  round trip ok
+  P6.1  ffi  round trip ok
+  P6.1  ffi-nobatch  round trip ok
+  P6.1  ffi-zeroed  round trip ok
+  P6.1  ffi-nobatch-zeroed  round trip ok
+  P6.1  ffi-borrow  round trip ok
+  P6.1  pbj  round trip ok
+  P7.1  R  encode: not applicable
+  P7.1  ffi  encode: not applicable
+  P7.1  ffi-nobatch  encode: not applicable
+  P7.1  ffi-zeroed  encode: not applicable
+  P7.1  ffi-nobatch-zeroed  encode: not applicable
+  P7.1  ffi-borrow  encode: not applicable
+  P7.1  pbj  encode: not applicable
+  P7.1  R  round trip ok (permutation of the same triples)
+  P7.1  ffi  round trip ok (permutation of the same triples)
+  P7.1  ffi-nobatch  round trip ok (permutation of the same triples)
+  P7.1  ffi-zeroed  round trip ok (permutation of the same triples)
+  P7.1  ffi-nobatch-zeroed  round trip ok (permutation of the same triples)
+  P7.1  ffi-borrow  round trip ok (permutation of the same triples)
+  P7.1  pbj  round trip ok (permutation of the same triples)
+checked=437  failed=0
