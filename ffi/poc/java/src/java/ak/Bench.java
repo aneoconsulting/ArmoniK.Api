@@ -100,15 +100,36 @@ public final class Bench {
     final int ROUNDS = Integer.getInteger("ak.rounds", 11);
     final long TARGET_NS = Long.getLong("ak.roundns", 20_000_000L);
     final String only = System.getProperty("ak.only");
+    // design/SHAPES.md's three content sets. ASCII is what the manifest pins and what
+    // every correctness check runs on; the other two are where a narrowing transcoder has
+    // real work to do, and on the JVM they are also where the target's LATIN1 fast path
+    // stops applying. A string-path number without one of these named is half a number.
+    CS = Integer.getInteger("ak.cs", Values.ASCII);
     final boolean decode = !"0".equals(System.getProperty("ak.decode", "1"));
     final boolean encode = !"0".equals(System.getProperty("ak.encode", "1"));
 
-    if ("1".equals(System.getProperty("ak.deopt", "0"))) {
-      // README R9's hazard, triggered ON PURPOSE so it can be measured rather than
-      // assumed. Compare a run with this against a run without it: if protobuf-java's
-      // encode column moves, the hazard is real on this JDK and every managed figure
-      // taken in a formatting process is suspect.
+    // README R9's hazard, triggered ON PURPOSE so it can be measured rather than assumed.
+    // The modes exist because the first measurement of mode 1 moved protobuf-java's encode
+    // by a factor of two IN THE WRONG DIRECTION, and a mystery that large has to be
+    // narrowed to a mechanism before it can be reported.
+    //
+    //   0  nothing
+    //   1  one String.format with a numeric conversion, which is what R9 names
+    //   2  read a WIDE String through charAt, and nothing else
+    //   3  read a LATIN1 String through charAt, and nothing else
+    //
+    // Modes 2 and 3 carry no Formatter, no narrowing loop and no numeric conversion. If
+    // mode 2 reproduces mode 1 then the mechanism is the TYPE PROFILE of the compact-string
+    // branch, and the sign of the effect is a fact about what the process read first.
+    int deopt = Integer.getInteger("ak.deopt", 0);
+    if (deopt == 1) {
       System.err.print(String.format("%d%n", 1));
+    } else if (deopt == 2 || deopt == 3) {
+      String probe = deopt == 2 ? new String(new char[] {0x4E2D, 0x6587, 0x4E00})
+                                : new String(new char[] {0x00E9, 0x00FF, 0x0061});
+      long h = 0;
+      for (int i = 0; i < 20000; i++) h += probe.charAt(i % probe.length());
+      if (h == -1) System.err.println(h);
     }
 
     Binding bFfi = new Binding();
@@ -305,10 +326,21 @@ public final class Bench {
     sb.append("rounds requested=").append(rounds)
       .append(" (rounded up to a multiple of the arm count), per-round target ")
       .append(targetNs / 1_000_000).append(" ms, arm order rotates every round\n");
-    sb.append("content set: ASCII (design/SHAPES.md's default; every id in the real")
-      .append(" schema is an ASCII GUID)\n");
+    sb.append("content set: ")
+      .append(CS == Values.ASCII ? "ASCII (design/SHAPES.md's default; every id in the"
+              + " real schema is an ASCII GUID)"
+              : CS == Values.LATIN1 ? "LATIN1 but not ASCII -- one code point per input"
+              + " character, U+00A0 to U+00FF. On the JVM this is still the compact"
+              + " coder, so the target's fast path applies and the CORE's transcoder"
+              + " changes from latin1 to latin1 with two-byte output"
+              : "above U+00FF -- U+4E00 and up, inside the BMP so one char per code"
+              + " point. This is where a JVM String stops being LATIN1, so the binding's"
+              + " staging doubles and the core transcodes UTF-16")
+      .append("\n");
     sb.append("ak.deopt=").append(System.getProperty("ak.deopt", "0"))
-      .append("  (1 triggers README R9's char-narrowing deoptimisation on purpose)\n");
+      .append("  (0 nothing; 1 one String.format with a numeric conversion, which is what")
+      .append(" R9 names;\n           2 read a WIDE String through charAt; 3 read a")
+      .append(" LATIN1 String through charAt)\n");
     sb.append("\nEvery ratio is PAIRED: computed inside one round against that round's\n")
       .append("own baseline, then reported as min/median/max across rounds. A ratio of\n")
       .append("two medians from different rounds appears nowhere.\n");
@@ -435,9 +467,11 @@ public final class Bench {
     for (String id : ids) {
       // Build the objects once, outside every timed region.
       Payloads.Row row = Payloads.row(id);
-      facade = Arms.build(id, Values.ASCII);
-      pbmsg = PbArms.build(id, Values.ASCII);
-      wire = Payloads.vector(id);
+      facade = Arms.build(id, CS);
+      pbmsg = PbArms.build(id, CS);
+      // The committed vector is the ASCII set by construction, so any other content set
+      // has to be encoded here. Otherwise a "wide" decode row would be decoding ASCII.
+      wire = CS == Values.ASCII ? Payloads.vector(id) : null;
       if (wire == null) {
         if (pbmsg == null) { t.ids.add(id); t.ps.add(null); t.iters.add(null); continue; }
         wire = new PbArm().deterministic(pbmsg);
@@ -509,6 +543,8 @@ public final class Bench {
 
   static long SINK;
 
+  static int CS = Values.ASCII;   // -Dak.cs
+
   static int poolCap(String id) {
     int bytes = Math.max(Payloads.row(id).bytes, 64);
     return Math.max(8, (int) Math.min(8192, (128L << 20) / (bytes * 5L)));
@@ -526,7 +562,7 @@ public final class Bench {
   static void buildPools(String id, boolean isEncode, int n) {
     if (!isEncode) return;
     if (facadePool.length < n) facadePool = new Object[n];
-    for (int i = 0; i < n; i++) facadePool[i] = Arms.build(id, Values.ASCII);
+    for (int i = 0; i < n; i++) facadePool[i] = Arms.build(id, CS);
     refreshPbPool(id, n);
   }
 
@@ -545,7 +581,7 @@ public final class Bench {
    */
   static void refreshPbPool(String id, int n) {
     if (pbPool.length < n) pbPool = new Message[n];
-    for (int i = 0; i < n; i++) pbPool[i] = PbArms.build(id, Values.ASCII);
+    for (int i = 0; i < n; i++) pbPool[i] = PbArms.build(id, CS);
     if (parsedPool.length < n) parsedPool = new Message[n];
     try {
       for (int i = 0; i < n; i++) parsedPool[i] = PbArms.parse(id, wire, 0, wire.length);

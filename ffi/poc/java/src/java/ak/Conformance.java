@@ -58,7 +58,20 @@ public final class Conformance {
   }
 
   public static Result run(List<Arm> arms, Appendable log, boolean verbose) {
+    return run(arms, log, verbose, Values.ASCII);
+  }
+
+  /**
+   * With a content set other than ASCII there is no manifest to check against:
+   * `schema/` emits the ASCII set only. design/SHAPES.md says what replaces it -- "a slice
+   * checks a content set by byte identity of all its arms against the INCUMBENT arm, which
+   * the manifest validated on ASCII, plus a decode round trip per set" -- and that is what
+   * the cross-arm and round-trip halves below already do. Only the manifest comparison is
+   * skipped, and it is skipped loudly.
+   */
+  public static Result run(List<Arm> arms, Appendable log, boolean verbose, int cs) {
     Result res = new Result();
+    final boolean manifest = cs == Values.ASCII;
     for (Map.Entry<String, Payloads.Row> e : Payloads.all().entrySet()) {
       String id = e.getKey();
       Payloads.Row row = e.getValue();
@@ -66,13 +79,28 @@ public final class Conformance {
       Map<String, String> form = new LinkedHashMap<String, String>();
 
       for (Arm a : arms) {
-        byte[] got = a.encode(id, Values.ASCII);
+        byte[] got = a.encode(id, cs);
         if (got == null) {
           note(log, verbose, id + "  " + a.name() + "  encode: not applicable");
           continue;
         }
         res.checked++;
         String h = Payloads.hex(Values.sha256(got));
+        if (!manifest) {
+          // No oracle for this set. The arms still have to agree with each other, which is
+          // what the cross product below checks, and each still has to round-trip.
+          // With no manifest the two valid encodings of P2.5 still exist -- an empty map
+          // value is zero-length in every content set, so protobuf-java is still +2 B per
+          // emptied value -- and they cannot be told apart by comparing with an ASCII
+          // length. So the form is the length itself: arms that wrote the same number of
+          // bytes must be byte-identical, and arms that did not must each parse the
+          // other's bytes and return their own. That is the same check, keyed differently.
+          form.put(a.name(), "len:" + got.length);
+          wrote.put(a.name(), got);
+          note(log, verbose, id + "  " + a.name() + "  encode " + got.length
+              + " B (no manifest for this content set)");
+          continue;
+        }
         if (h.equals(row.sha256)) {
           form.put(a.name(), "canonical");
         } else if (altDelta(id) > 0 && got.length == row.bytes + altDelta(id)) {
@@ -120,10 +148,13 @@ public final class Conformance {
       }
 
       // ---- round trip, against the manifest's own bytes where they exist
-      byte[] wire = Payloads.vector(id);
+      byte[] wire = manifest ? Payloads.vector(id) : null;
       if (wire == null && !wrote.isEmpty()) {
         for (Map.Entry<String, byte[]> w : wrote.entrySet())
-          if ("canonical".equals(form.get(w.getKey()))) { wire = w.getValue(); break; }
+          if (!manifest || "canonical".equals(form.get(w.getKey()))) {
+            wire = w.getValue();
+            break;
+          }
       }
       if (wire == null) continue;
       for (Arm a : arms) {
