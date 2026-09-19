@@ -10,7 +10,7 @@ merges it. Everything the report needs from this slice is here.
 
 | | |
 |---|---|
-| **Status** | **the managed control is complete, encode and decode, on all 16 payloads and all 7 shapes.** Correctness gated on three runtimes. `core-ffi` NOT built, by instruction |
+| **Status** | **the managed control is complete** on all 16 payloads and all 7 shapes, gated on three runtimes. **`core-ffi` is built and gated for M1**, encode and decode; M2 to M7 are not |
 | **Blocked on** | nothing that is in scope. `core-ffi` waits on ABI v1 open decision 1 |
 | **Floor** | netstandard2.0 (builds, passes) and .NET Framework 4.8 on Mono 6.8.0.105 (builds, passes, and is timed as arm c) |
 | **Target** | .NET 8.0.31, SDK 8.0.131 |
@@ -155,7 +155,7 @@ approach.
 | `memcpy floor` | `Buffer.BlockCopy` of the payload's own bytes: R2's bound | yes |
 | `gp-parse` | `Parser.ParseFrom(ReadOnlySpan<byte>)` | yes |
 | `managed-parse` | `Codec.Read` into a fresh facade graph | yes |
-| `core-ffi` | the amended ABI | **NO.** It was held pending ABI v1 open decision 1; the C++ slice has since settled it and the arm is **no longer blocked, only unbuilt**. See "Next step" |
+| **`core-ffi`** | **the amended ABI, over the SAME `libak_core.so` the Rust slice builds** | **YES for M1, encode and decode.** Not a second core: one native core with N bindings is the proposal. M2 to M7 NOT built |
 
 ## What exists
 
@@ -330,6 +330,87 @@ nearly not.** A slice quoting only the ASCII encode number overstates the win
 by about a third on the hardest content; decode moves by 0.07 to 0.08 and
 stays a win throughout.
 
+### The `core-ffi` arm (`stage8-core-ffi.log`), M1 only
+
+The arm that was held. Built against `ffi/poc/rust/target/release/libak_core.so`,
+the same artifact the Rust slice loads, with a generated binding: P/Invoke via
+`LibraryImport`, reverse calls via `[UnmanagedCallersOnly]` with the abort
+guard, and the by-value group declared at the offsets the Rust build reports.
+
+**Gated first**: byte identity on P1.1, P1.2 and P1.3 including the absent
+path, decode re-encoded to the same bytes, and the decoded graph compared
+field by field against the one the builder made.
+
+**Crossings are constant in the element count, in both directions.**
+
+| direction | forward | reverse | why |
+|---|---|---|---|
+| encode | 2 (`ak_encode_*`, `ak_elem_*`) | 1 (`loop_results`) | the whole run goes over in one `ak_elem_*` |
+| decode | 1 (`ak_decode_*`) | 2 (`apply`, `add_results`) | the whole run comes back in one `add_results` |
+
+Four elements or a thousand, the count is the same. `ResultRaw` is a leaf, so
+ABI v1's batching predicate admits it. .NET crosses at 7.5 to 12 ns, far above
+the C++ slice's 2 to 4 ns crossover, so batching is not a close call here.
+
+**The interface cost**, `core-ffi` against the no-boundary managed control,
+three processes:
+
+| payload | encode | decode |
+|---|---|---|
+| P1.1, 4 elements | 1.330 | 1.062 |
+| P1.2, 1000 elements | 1.148 | **0.899** |
+| P1.3, the absent path | **2.361** | **1.981** |
+
+**Two findings, pointing opposite ways, and both matter more than the encode
+column.**
+
+**On P1.2 decode, crossing the C ABI is FASTER than the pure managed codec**:
+0.899 of it, and 0.651 to 0.659 of `Google.Protobuf`. The Rust parser plus
+three crossings beats a C# parser doing the same work. **That is the opposite
+of the Java slice**, where a generated pure-Java codec beat the C ABI in both
+directions and the case had to rest entirely on maintenance. At .NET's
+crossing price the interface does not eat the core's advantage.
+
+**The absent path collapses, and the cause is ABI v1 decision 9.** P1.3 is 300
+elements that each encode to nothing. The host fills 300 by-value groups of
+200 bytes each whatever is in them: 60 KB of stores to describe 605 bytes of
+output. **Decision 9's sparse fill is specified and is NOT built here**, and
+this arm is what prices it on .NET: the distance between 2.361 and something
+near 1.15 is what it is worth. The Rust slice measured the same effect from
+the other side, its zeroed-group variant at 0.719 to 0.766 of the total fill
+on exactly this payload.
+
+The interface term also shrinks with density, 1.330 to 1.148 on encode from 4
+elements to 1,000, which is the fixed three crossings amortising.
+
+**Strings are staged, and that is a .NET decision with arithmetic behind it.**
+`ak_str` offers two forms: point `data` at the host's own representation and
+supply a `tc` callback, or transcode up front and point at UTF-8 with
+`tc = ak_tc_bytes()`. The second is built, and crosses nothing, because
+`ak_tc_bytes` is a function pointer INTO the core. The first would be one
+reverse crossing per string: 5 per `ResultRaw`, 5,000 for P1.2, which at 7.5
+to 12 ns is 37 to 60 us against a whole managed encode of about 210 us. Not
+built, and named as an arm rather than argued away.
+
+**The abort guard costs one `try/catch` per message, not per field**, because
+the group is by-value and the element is a leaf. On a shape where the group
+does not reach every field that stops being true, which is another reason M2
+is the interesting one.
+
+### Layout agreement is tested, which no earlier slice could do
+
+`abi/` is a small Rust bin depending on `ak-abi` read-only that prints every
+group's size, alignment and field offsets as JSON; the generator emits C#
+structs at those explicit offsets and asserts against them. "ok: 8 structs
+match the Rust build; core ak_abi_version()=1".
+
+**Its limit is a gap in the ABI, not in this slice, and it is a request.** The
+core exports `ak_abi_version` and **no layout**. So this verifies the managed
+declaration against the Rust SOURCE at generator time plus the version at
+load; a core rebuilt with a changed group layout and an unchanged version
+number would pass and then fail as a wrong payload. ABI v1 obligation 12.3
+asks the CORE for a layout export and there is not one.
+
 ### The two harnesses agree (`stage7-benchmarkdotnet.log`)
 
 144 BenchmarkDotNet benchmarks against the hand-rolled harness's three
@@ -430,9 +511,20 @@ survive, because the grouping lives only in the descriptor.
 
 ### Boundary-call counts (R5)
 
-**Zero, in every arm, in both directions**, and that is a fact rather than an
-omission: every arm in this slice is in-process managed code and crosses
-nothing. The counts R5 exists for belong to `core-ffi`, which is not built.
+**Zero in every managed arm**, which is a fact rather than an omission: they
+are in-process managed code and cross nothing.
+
+**For `core-ffi`, M1: 2 forward + 1 reverse on encode, 1 forward + 2 reverse
+on decode, CONSTANT in the element count.** Counted by the host, which is the
+half R5 asks a host for.
+
+**One reconciliation is outstanding.** The Rust slice's counting build reports
+**9** forward for the same shape and direction where this host counts 2. The
+conventions differ -- this counts host-issued calls, the Rust counter counts
+something else, plausibly per-chunk or including internal transitions -- and
+**the two numbers must not be compared until that is settled**. It is a cheap
+check for whoever does it next: run `ffi/poc/rust` `counts` and this slice's
+`coreffi` on the same payload and diff the definitions, not the totals.
 
 ## Correctness
 
@@ -534,11 +626,29 @@ A pass for completeness, not for brevity (README R11).
 
 ### The arm that is not here
 
-- **`core-ffi`, entirely.** No C ABI, no binding, no `[UnmanagedCallersOnly]`,
-  no group, no batching predicate exercised on .NET, no accessor guard, no
-  delegate rooting on the floor. It was held pending ABI v1 open decision 1,
-  which the C++ slice has since settled, so **it is now unbuilt rather than
-  blocked**. **Every crossing-count column in this slice is therefore zero, and
+- **`core-ffi` beyond M1.** Built and gated: `ListResultsResponse` /
+  `ResultRaw`, encode and decode, P1.1 / P1.2 / P1.3. **Not built: M2 to M7.**
+  That is the larger half and it is where the interesting refusals are.
+  `TaskDetailed` is not a leaf, so the batching predicate stops admitting it
+  and the crossing count stops being constant; M2 also carries the map, the
+  four repeated string fields and the four-level nesting, each of which needs
+  a loop callback the M1 binding never needed. M3's oneof and explicit
+  presence are the two shapes `design/SHAPES.md` records as unmeasured on
+  .NET, and **the ABI half of both is still unmeasured here**: whether the
+  by-value group reaches a oneof at all is an M3 question and M3 is not built.
+- **Decision 9's sparse fill**, which the arm that exists says is the single
+  biggest thing missing: 2.361 against the managed control on the absent path
+  is what the total fill costs.
+- **The host-transcoder string form**, `ak_str` with a `tc` callback into the
+  host, against the staged form that is built.
+- **`core-ffi` on the floor.** Arms b and c do not carry it: the floor has no
+  `UnmanagedCallersOnly` and no `SuppressGCTransition`, so its vtable is
+  delegate pointers and the delegates must be rooted for the lifetime of the
+  vtable or the collector reclaims a thunk the codec still holds -- a crash,
+  not a slowdown. Written down, not built.
+- **The accessor guard priced.** It is present on every reverse callback, but
+  on M1 that is one `try/catch` per message, so there is nothing to see. The
+  shape that would show it is one where the group does not reach every field. **Every crossing-count column in this slice is therefore zero, and
   the interface-cost decomposition the Rust slice makes available to every
   other slice is not subtracted against anything here.** The generator is laid
   out so the backend drops in beside `cs_managed.py` without moving anything:
@@ -650,6 +760,38 @@ built. What remains is what `SHAPES.md` itself says is unreachable:
 
 ## Next step
 
+**The slice is at a natural stopping point, not a finished one.** What exists
+is complete and gated; what is missing is named below in the order I would do
+it, and the first item is much the largest.
+
+1. **`core-ffi` for M2 to M7.** M1 is built; this is the rest, and it is where
+   the questions are. `TaskDetailed` is not a leaf, so the batching predicate
+   stops admitting it and the crossing count stops being constant in the
+   element count -- which is the property everything above rests on. M3 is the
+   oneof and explicit presence, and the ABI half of both of this slice's two
+   named gaps lives there. M2 also needs loop callbacks for the map and the
+   four repeated string fields, none of which M1 exercised.
+2. **Decision 9's sparse fill.** The arm that exists already says what it is
+   worth: 2.361 against the managed control on the absent path, against 1.148
+   on the dense one. It is specified rather than candidate, and building it is
+   the single biggest improvement available to the C# column.
+3. **The host-transcoder string form**, to replace an arithmetic prediction
+   (5,000 reverse crossings for P1.2, 37 to 60 us at .NET's price) with a
+   measurement.
+4. **Reconcile the crossing-count convention with the Rust slice**, which
+   reports 9 where this reports 2. Cheap, and until it is done the two
+   columns of the cross-language table are not comparable.
+5. **The old list, unchanged**: ABI v1 decision 13's borrowed spans (the
+   decode side already hands the host `ak_span` offsets into its own buffer,
+   so the ABI is ready and the facade's `string` is what is not); the RPC arm;
+   a rejecting decode policy.
+
+Deliberately NOT on the list: more rounds to tighten a spread, a cold-start
+column, and any attempt to make this container's absolutes comparable with
+another container's.
+
+### The original next-step list, superseded above but kept for its reasoning
+
 1. **The `core-ffi` arm. It is no longer blocked.** The C++ slice settled ABI
    v1 open decision 1: the group costs the host, string-as-data is a win, and
    the batching predicate has a **crossover at a forward crossing of roughly 2
@@ -696,5 +838,6 @@ another container's. R13's one calibration run stands and is not to be tuned.
 | `ffi/logs/csharp/stage4-floor-arm-c.log` | **Mono 6.8.0.105**, net48, floor sources linked from the same tree, six payloads, two runs | **README 5.2 arm c, standalone.** Passes the same 136 checks on the floor runtime; the design's advantage survives it and is larger on decode. Mono absolutes, quoted as absolutes and never as a ratio against arm a |
 | `ffi/logs/csharp/stage5-content-sets.log` | arm a, .NET 8.0.31, all three content sets in ONE process, P1.2 and P2.2 | **The string path, which is 174 of 413 fields.** Wire widths matching the Rust slice (1.70/1.75 and 2.39/2.50), and the encode advantage narrowing from 0.31-0.43 to 0.45-0.61 while decode barely moves. Carries the set-definition defect and its correction |
 | `ffi/logs/csharp/stage5-content-sets-floor.log` | arm b, otherwise as above | The sharp version of arm b: b/a is 0.947 to 1.062 where the transcoder actually has work |
+| `ffi/logs/csharp/stage8-core-ffi.log` | the arm through `libak_core.so`, shared-library linkage, generated binding, staged strings; correctness plus three timing processes | **The `core-ffi` arm, M1.** Byte identity and value identity on P1.1/P1.2/P1.3; layout agreement on 8 structs; crossings constant in the element count in both directions; the interface cost against the no-boundary control, including the two findings that point opposite ways -- the C ABI beating the managed codec on P1.2 decode, and the absent path collapsing on the total group fill |
 | `ffi/logs/csharp/stage7-benchmarkdotnet.log` + `bdn-results/*.csv`, `*-github.md` | **BenchmarkDotNet 0.15.8**, defaults, each benchmark in its own process, 144 benchmarks (16 payloads x 6 encode arms + 16 x 3 decode) | **The harness the CONTROLLED RERUN should use, and the cross-check that makes the hand-rolled one trustworthy.** It subtracts its own overhead, iterates warmup to a convergence criterion, reports a 99.9% CI, removes outliers and adds Gen0/1/2 counts. What it does not do is interleave, which is the whole point of the hand-rolled harness on a noisy shared container; on a controlled machine that noise is gone and the isolation is the better choice |
 | `ffi/logs/csharp/stage6-tiering-sensitivity.log` | arm a, three processes differing ONLY in `DOTNET_TieredPGO` and `DOTNET_TieredCompilation`, P1.2 / P2.2 / P3.1 | **R9's JIT hazard, measured rather than argued.** Tiering off or PGO off slows the INCUMBENT by 5 to 20 percent, in the direction R9 names. **No arm crosses 1.0 under any configuration**, so no verdict in this slice is JIT-configuration dependent, and the default used everywhere else is the one least favourable to the managed arms |
