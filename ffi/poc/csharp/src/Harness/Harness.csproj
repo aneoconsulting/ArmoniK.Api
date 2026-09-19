@@ -14,6 +14,9 @@
     <ServerGarbageCollection>false</ServerGarbageCollection>
     <InvariantGlobalization>true</InvariantGlobalization>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- The core-ffi arm: pointers into the by-value group, and LibraryImport's
+         source generator, which needs a partial class. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <!-- README 5.2 arm b: the FLOOR sources on the TARGET runtime, which is the
@@ -45,6 +48,16 @@
 
   <ItemGroup>
     <ProjectReference Include="../Facade/Facade.csproj" />
+  </ItemGroup>
+
+  <!-- THE SAME libak_core.so the Rust slice built. Not a copy of its sources and
+       not a second core. One native core with N bindings is the proposal, so the
+       C# arm loads the artifact the Rust arm loads. Built by
+       cargo build (release) -p ak-core, in ffi/poc/rust. -->
+  <ItemGroup>
+    <None Include="../../../rust/target/release/libak_core.so"
+          Condition="Exists('../../../rust/target/release/libak_core.so')"
+          CopyToOutputDirectory="PreserveNewest" Link="libak_core.so" />
   </ItemGroup>
 
 </Project>

@@ -37,6 +37,8 @@ import cs_values           # noqa: E402
 import cs_build            # noqa: E402
 import cs_managed          # noqa: E402
 import cs_arms             # noqa: E402
+import cs_abi              # noqa: E402
+import cs_coreffi          # noqa: E402
 
 ROOT = os.path.dirname(HERE)
 
@@ -61,6 +63,8 @@ def targets(ir):
         "src/Facade/Generated/Codec.cs": codec,
         "src/Harness/Generated/BuildGp.cs": cs_build.emit(ir, cs_build.GpSink(), ROOTS),
         "src/Harness/Generated/Arms.cs": cs_arms.emit(ir),
+        "src/Harness/Generated/Abi.cs": cs_abi.emit(ir),
+        "src/Harness/Generated/CoreFfi.cs": cs_coreffi.emit(ir),
     }, sites
 
 
