@@ -1,0 +1,16 @@
+# Build output only. Everything a figure depends on stays in the tree.
+#
+# The rule this file is written against: the rust slice's published encode column had to
+# be WITHDRAWN because a `.gitignore` rule (`[Bb]in/`, meant for .NET output) swallowed its
+# measurement binaries, so the commit behind its log could not be rebuilt (its D19). R4's
+# closing rule is that a figure whose harness is not in the tree cannot be defended. So the
+# patterns here are anchored and specific, never a bare directory name that could match a
+# source directory somewhere else, and `gen/audit_tracked.sh` checks from git's own answer
+# rather than from reading this file.
+/build/
+/core/target/
+/core/target-count/
+/core/target-rpc/
+__pycache__/
+*.pyc
+/build-odrbreak/

@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package armonik.ffi.shapes.v1;
+
+// This slice's own file, in this slice's own directory: `ffi/schema/generated/shapes.proto`
+// is frozen by W2 and is imported rather than edited. The RPC arm of design/SHAPES.md needs
+// one unary method carrying a real payload (P2.2), and nothing else.
+import "shapes.proto";
+
+service Shapes {
+  // Small request, P2.2-sized response: 540 KB, which is what makes R9's hazard reachable
+  // (the default HTTP/2 stream window is 64 KB, so a wall-clock figure here is a figure
+  // about flow control unless CPU is what is measured).
+  rpc Fetch(Empty) returns (ListTasksDetailedResponse);
+}

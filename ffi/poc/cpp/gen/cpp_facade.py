@@ -261,7 +261,7 @@ struct AkOdrFact { const char *what; uint32_t value; };
 
 // The host's view of every installed type's layout, as data. One row per fact.
 #define AK_ODR_FACTS(F) \\
-""".lstrip("\n")]
+""".strip("\n")]
     rows = []
 
     def add(ty, expr, what):
