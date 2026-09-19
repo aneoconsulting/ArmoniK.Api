@@ -229,3 +229,46 @@ arm -- CPU per RPC against grpc-java at 1, 8 and 16 in flight -- would have been
 measurement of a call path whose cost ABI v1 section 9 already shows to be four parts in a
 million, against a transport stack that is not the thing under test. The pinning question
 was the only item on the list that a JVM can answer and nothing else can.
+
+### J14. W10: re-gated on the shared core, and the stale-artifact hazard closed by deletion
+
+R0 moved the core to `poc/codec` and folded this slice's `ak_tc_latin1` and `ak_tc_utf16`
+into it. The warning that came with it was that a build locating the core by a directory
+search could link the pre-move `.so` -- "a change that measures identical because it is not
+in the build". Closed two ways: `build/` and the old `core/` were deleted before the first
+rebuild, and the shared crate links as `-lak_core` where the old one was
+`libak_core_java.so`, so a stale copy could not have satisfied it anyway. Verified from
+`ldd` and `nm` on the loaded artifact rather than from the build log.
+
+**3,891 checks, 0 failures** across all three of README 5.2's arms and all three content
+sets. The content sets are what exercise the two transcoders, which is why this gate had to
+run on the machine with JDK 8, 17 and 21 rather than on the one that did the move.
+
+The delta instrument moved by at most **0.052** across 45 rows against a bar of 0.078, and
+the largest move is on P5.3, a payload with no repeated field where the two arms run the
+same code. Nothing re-taken.
+
+Deleting `build/` also deleted the fetched `protoc`, which the build script now re-fetches
+when it is missing. A tree that cannot be rebuilt after `rm -rf build/` is a tree where
+nobody can safely check for a stale artifact.
+
+### J15. R14 changed the baseline and not the verdict, and the interesting number is the incumbent's
+
+R14 arrived with W10: the baseline is the path gRPC's marshaller takes, not the library's
+best entry point. Every table in this slice was against `toByteArray`.
+
+The marshaller's path was read from its bytecode rather than remembered. Encode:
+`getSerializedSize()` then `writeTo(OutputStream)` through a 4 KB `CodedOutputStream`.
+Decode: read into a thread-local array, parse from the array -- **with a fast path that
+returns the very same object when handed back its own `ProtoInputStream`**, which is not a
+parse and would have measured nothing. The arm hands it a real `KnownLength` stream.
+
+Against the real marshaller the C ABI encodes at 0.60 to 0.88 on the element-bearing
+payloads, where against `toByteArray` it is 0.58 to 0.96; decode is unchanged in shape.
+**The verdict does not move.**
+
+What moves is the incumbent: `toByteArray` is **0.48 to 0.65 of the marshaller path**. The
+entry point every benchmark reaches for is about twice as fast as the one an application
+takes. Together with J7's memoization finding -- a loop over one message is another factor
+of two -- an encode ratio against protobuf-java can be moved by a factor of four by two
+harness choices that no published report in this branch states.
