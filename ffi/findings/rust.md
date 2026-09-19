@@ -112,7 +112,7 @@ figure to name its log; a log whose harness is absent from the tree is the same
 failure one level down, and `ffi/.gitignore` now re-includes `bin/` so the
 remaining four slices cannot repeat it.
 
-## Configuration, once, for everything below## Configuration, once, for everything below
+## Configuration, once, for everything below
 
 4 vCPU Intel Xeon at 2.80 GHz, 15 GB, Ubuntu 24.04.4, Linux 6.18.44 x86_64, in a
 container, no pinning and no governor control. rustc 1.94.1, release. prost
