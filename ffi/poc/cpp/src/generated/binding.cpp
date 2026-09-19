@@ -2622,8 +2622,12 @@ static void add_list_tasks_detailed_response_tasks_parent_task_ids(ak_dec_ctx *c
     std::vector<std::string> &dst = s->out->tasks[(size_t)tok].parent_task_ids;
     dst.reserve(dst.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
+#if AK_CXX17
+      s_of(s->base, elems[i], ctx, &dst.emplace_back());
+#else
       dst.push_back(std::string());
       s_of(s->base, elems[i], ctx, &dst.back());
+#endif
     }
   AK_DGUARD_END
 }
@@ -2634,8 +2638,12 @@ static void add_list_tasks_detailed_response_tasks_data_dependencies(ak_dec_ctx 
     std::vector<std::string> &dst = s->out->tasks[(size_t)tok].data_dependencies;
     dst.reserve(dst.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
+#if AK_CXX17
+      s_of(s->base, elems[i], ctx, &dst.emplace_back());
+#else
       dst.push_back(std::string());
       s_of(s->base, elems[i], ctx, &dst.back());
+#endif
     }
   AK_DGUARD_END
 }
@@ -2646,8 +2654,12 @@ static void add_list_tasks_detailed_response_tasks_expected_output_ids(ak_dec_ct
     std::vector<std::string> &dst = s->out->tasks[(size_t)tok].expected_output_ids;
     dst.reserve(dst.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
+#if AK_CXX17
+      s_of(s->base, elems[i], ctx, &dst.emplace_back());
+#else
       dst.push_back(std::string());
       s_of(s->base, elems[i], ctx, &dst.back());
+#endif
     }
   AK_DGUARD_END
 }
@@ -2658,8 +2670,12 @@ static void add_list_tasks_detailed_response_tasks_retry_of_ids(ak_dec_ctx *ctx,
     std::vector<std::string> &dst = s->out->tasks[(size_t)tok].retry_of_ids;
     dst.reserve(dst.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
+#if AK_CXX17
+      s_of(s->base, elems[i], ctx, &dst.emplace_back());
+#else
       dst.push_back(std::string());
       s_of(s->base, elems[i], ctx, &dst.back());
+#endif
     }
   AK_DGUARD_END
 }
@@ -2672,7 +2688,11 @@ static void add_list_tasks_detailed_response_tasks_options_options(ak_dec_ctx *c
     for (int32_t i = 0; i < n; ++i) {
       s_of(s->base, elems[i].key, ctx, &k_);
       s_of(s->base, elems[i].value, ctx, &v_);
+#if AK_CXX17
+      dst.insert_or_assign(std::move(k_), std::move(v_));
+#else
       dst[k_] = v_;
+#endif
     }
   AK_DGUARD_END
 }
@@ -2775,7 +2795,11 @@ static void add_list_task_summary_response_tasks_options_options(ak_dec_ctx *ctx
     for (int32_t i = 0; i < n; ++i) {
       s_of(s->base, elems[i].key, ctx, &k_);
       s_of(s->base, elems[i].value, ctx, &v_);
+#if AK_CXX17
+      dst.insert_or_assign(std::move(k_), std::move(v_));
+#else
       dst[k_] = v_;
+#endif
     }
   AK_DGUARD_END
 }
