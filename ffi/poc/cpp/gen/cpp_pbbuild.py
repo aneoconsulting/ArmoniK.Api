@@ -90,24 +90,24 @@ def _emit_field(ir, m, f, o):
         o.append("      %s::%s *c = r->add_%s();" % (NS, f.of, f.name))
         o.append("      %s" % _child(ir, f, fp, "j", "c"))
         o.append("    }")
-    elif f.kind == "message":
+    elif f.card == "singular" and f.kind == "message":
         o.append("    { %s::%s *c = r->mutable_%s();" % (NS, f.of, f.name))
         o.append("      %s }" % _child(ir, f, fp, "idx", "c"))
-    elif f.kind == "string":
+    elif f.card == "singular" and f.kind == "string":
         if f.explicit:
             o.append("    if (explicit_present(%d, idx))" % f.tag)
             o.append("      r->set_%s(idx %% 7 == 0 ? std::string() : %s);" % (f.name, _sv(f, fp)))
         else:
             o.append("    r->set_%s(%s);" % (f.name, _sv(f, fp)))
-    elif f.kind == "bytes":
+    elif f.card == "singular" and f.kind == "bytes":
         if f.value_rule == "bulk":
             o.append("    r->set_%s(v::bulk(bulk));" % f.name)
         else:
             o.append("    r->set_%s(v::blob(%s, (int)idx, 16));" % (f.name, fp))
-    elif f.kind == "enum":
+    elif f.card == "singular" and f.kind == "enum":
         o.append("    r->set_%s((%s::%s)v::enum_value(shapes::tbl_%s(), (int)idx));"
                  % (f.name, NS, f.of, f.of))
-    elif f.is_scalar_leaf:
+    elif f.card == "singular" and f.is_scalar_leaf:
         if f.explicit:
             zero = {"int32": "0", "int64": "0", "bool": "false", "double": "0.0"}[f.kind]
             o.append("    if (explicit_present(%d, idx))" % f.tag)
@@ -115,7 +115,9 @@ def _emit_field(ir, m, f, o):
         else:
             o.append("    r->set_%s(%s);" % (f.name, _scal(f, fp)))
     else:
-        raise NotImplementedError("pb build %s.%s (%s %s)" % (m.name, f.name, f.card, f.kind))
+        raise NotImplementedError(
+            "REFUSED: the protobuf payload builder has no case for %s.%s (card=%s kind=%s)"
+            % (m.name, f.name, f.card, f.kind))
     o.append("  }")
 
 

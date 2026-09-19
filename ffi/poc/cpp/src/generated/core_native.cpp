@@ -947,6 +947,8 @@ static void dec_metrics_batch(ak::Dec *d, MetricsBatch *out) {
       case 2: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
+        // n bytes of varints is at most n elements.
+        out->ticks.reserve(out->ticks.size() + n);
         while (!sub.at_end()) out->ticks.push_back((int64_t)sub.varint());
         if (sub.err != 0) { d->err = sub.err; return; }
         break;
@@ -958,6 +960,7 @@ static void dec_metrics_batch(ak::Dec *d, MetricsBatch *out) {
       case 3: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
+        out->values.reserve(out->values.size() + n / 8);
         while (!sub.at_end()) out->values.push_back(sub.f64());
         if (sub.err != 0) { d->err = sub.err; return; }
         break;
@@ -969,6 +972,8 @@ static void dec_metrics_batch(ak::Dec *d, MetricsBatch *out) {
       case 4: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
+        // n bytes of varints is at most n elements.
+        out->codes.reserve(out->codes.size() + n);
         while (!sub.at_end()) out->codes.push_back((int32_t)sub.varint());
         if (sub.err != 0) { d->err = sub.err; return; }
         break;
@@ -980,6 +985,8 @@ static void dec_metrics_batch(ak::Dec *d, MetricsBatch *out) {
       case 5: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
+        // n bytes of varints is at most n elements.
+        out->flags.reserve(out->flags.size() + n);
         while (!sub.at_end()) out->flags.push_back((sub.varint() != 0));
         if (sub.err != 0) { d->err = sub.err; return; }
         break;
@@ -991,6 +998,8 @@ static void dec_metrics_batch(ak::Dec *d, MetricsBatch *out) {
       case 6: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
+        // n bytes of varints is at most n elements.
+        out->statuses.reserve(out->statuses.size() + n);
         while (!sub.at_end()) out->statuses.push_back(TaskStatus((int32_t)sub.varint()));
         if (sub.err != 0) { d->err = sub.err; return; }
         break;

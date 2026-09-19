@@ -63,11 +63,63 @@ def _str_arg(expr, tc):
     return "ak_str_of(%s, %s)" % (expr, tc)
 
 
+SCALARS = ("int32", "int64", "double")
+
+
+def map_kinds(ir, f):
+    """The DECLARED key and value kinds of a map field's synthetic pair message.
+
+    Every other blob site in this file derives its transcoder and its decode materialiser
+    from the field's kind; the map path hardcoded `t.utf8` and the validating reader for
+    both halves. `map<string, bytes>` is legal protobuf and would silently have had UTF-8
+    validation applied to its value. A codegen rule discovered in one path is swept across
+    the generator (README R10), so it is derived here and nowhere restated.
+    """
+    e = ir.msg(f.entry)
+    k = next(x for x in e.plain if x.name == "key")
+    v = next(x for x in e.plain if x.name == "value")
+    return k.kind, v.kind
+
+
+def map_tc(kind):
+    if kind == "bytes":
+        return "t.bytes"
+    if kind == "string":
+        return "t.utf8"
+    raise NotImplementedError("REFUSED: a map half of kind %r is not a blob" % kind)
+
+
+def map_reader(kind, base, span, ctx, dst):
+    if kind == "string":
+        return "s_of(%s, %s, %s, &%s);" % (base, span, ctx, dst)
+    if kind == "bytes":
+        return "b_of(%s, %s, &%s);" % (base, span, dst)
+    raise NotImplementedError("REFUSED: a map half of kind %r is not a blob" % kind)
+
+
+def _refuse(where, m, f):
+    """R1's second half: a backend that has no case for a shape RAISES; it does not skip.
+
+    Every dispatch in this file used to end in an unconditional scalar assignment, so a
+    shape nobody thought of would have been EMITTED as a scalar store rather than refused.
+    That is the class of defect that cost the rust slice a silently-missing oneof, and the
+    only difference here is that no instance exists in `shapes.json` today. `gen/refusal_test.py`
+    adds one and asserts every backend raises.
+    """
+    raise NotImplementedError(
+        "REFUSED: %s has no case for %s.%s (card=%s kind=%s explicit=%s oneof=%s). "
+        "A backend that cannot do a shape raises rather than emitting something plausible "
+        "(README R1)." % (where, m.name if m is not None else "?", f.name, f.card, f.kind,
+                          f.explicit, f.oneof))
+
+
 # ---------------------------------------------------------------- encode groups
 
 def _make_field(ir, m, f, o):
     """One group member of the TOTAL fill. Assigned unconditionally, always."""
     n = f.name
+    if f.card != "singular":
+        _refuse("the encode group fill", m, f)
     if f.kind in ("string", "bytes"):
         tc = "t.bytes" if f.kind == "bytes" else "t.utf8"
         if f.direct:
@@ -90,11 +142,13 @@ def _make_field(ir, m, f, o):
             o.append("  g.%s = (uint8_t)(o.%s.has_value() && *o.%s);" % (n, n, n))
         else:
             o.append("  g.%s = (uint8_t)(o.%s ? 1 : 0);" % (n, n))
-    else:
+    elif f.kind in SCALARS:
         if f.explicit:
             o.append("  g.%s = o.%s.has_value() ? *o.%s : 0;" % (n, n, n))
         else:
             o.append("  g.%s = o.%s;" % (n, n))
+    else:
+        _refuse("the encode group fill", m, f)
 
 
 def _oneof_make(ir, m, oname, members, o):
@@ -112,8 +166,10 @@ def _oneof_make(ir, m, oname, members, o):
                      % (slot, cond, snake(gm.of), acc, gm.of))
         elif gm.kind == "bool":
             o.append("  g.%s = (uint8_t)(%s ? (%s ? 1 : 0) : 0);" % (slot, cond, acc))
-        else:
+        elif gm.kind in SCALARS or gm.kind == "enum":
             o.append("  g.%s = %s ? %s : 0;" % (slot, cond, acc))
+        else:
+            _refuse("the encode group's oneof fill", m, gm)
 
 
 def _sparse_field(ir, m, f, o, bits):
@@ -121,6 +177,8 @@ def _sparse_field(ir, m, f, o, bits):
     from the default. The codec still resets nothing between elements; only the host's fill
     changes."""
     n = f.name
+    if f.card != "singular":
+        _refuse("the sparse encode group fill", m, f)
     if f.kind in ("string", "bytes"):
         tc = "t.bytes" if f.kind == "bytes" else "t.utf8"
         if f.direct:
@@ -144,8 +202,10 @@ def _sparse_field(ir, m, f, o, bits):
                      " d->presence |= 1u << %d; }" % (n, n, n, bits[n]))
     elif f.kind == "bool":
         o.append("  if (o.%s) d->%s = 1;" % (n, n))
-    else:
+    elif f.kind in SCALARS:
         o.append("  if (o.%s != 0) d->%s = o.%s;" % (n, n, n))
+    else:
+        _refuse("the sparse encode group fill", m, f)
 
 
 def _oneof_sparse(ir, m, oname, members, o):
@@ -165,8 +225,10 @@ def _oneof_sparse(ir, m, oname, members, o):
                      % (snake(gm.of), slot, acc))
         elif gm.kind == "bool":
             o.append("        d->%s = (uint8_t)(%s ? 1 : 0); break;" % (slot, acc))
-        else:
+        elif gm.kind in SCALARS or gm.kind == "enum":
             o.append("        d->%s = %s; break;" % (slot, acc))
+        else:
+            _refuse("the sparse encode group's oneof fill", m, gm)
     o.append("      default: break;")
     o.append("    }")
     o.append("  }")
@@ -177,6 +239,8 @@ def _oneof_sparse(ir, m, oname, members, o):
 
 def _decode_field(ir, m, f, o, bits, dst):
     n = f.name
+    if f.card != "singular":
+        _refuse("the decode group read", m, f)
     if f.kind == "string":
         if f.explicit:
             o.append("  if (f.presence & (1u << %d)) s_of(base, f.%s, ctx, &%s.emplace());"
@@ -206,8 +270,10 @@ def _decode_field(ir, m, f, o, bits, dst):
         o.append("  else %s.reset();" % (dst + n))
     elif f.kind == "bool":
         o.append("  %s = (f.%s != 0);" % (dst + n, n))
-    else:
+    elif f.kind in SCALARS:
         o.append("  %s = f.%s;" % (dst + n, n))
+    else:
+        _refuse("the decode group read", m, f)
 
 
 def _decode_oneof(ir, m, oname, members, o, dst):
@@ -230,8 +296,10 @@ def _decode_oneof(ir, m, oname, members, o, dst):
                      % (dst + oname, gm.name, snake(gm.of), slot))
         elif gm.kind == "bool":
             o.append("      %s.set_%s() = (f.%s != 0); break; }" % (dst + oname, gm.name, slot))
-        else:
+        elif gm.kind in SCALARS or gm.kind == "enum":
             o.append("      %s.set_%s() = f.%s; break; }" % (dst + oname, gm.name, slot))
+        else:
+            _refuse("the decode group's oneof read", m, gm)
     o.append("    default: %s.clear(); break;" % (dst + oname))
     o.append("  }")
 
@@ -264,10 +332,14 @@ def _emit_loop(ir, o, root, path, f, fname, elem_of=None, batch=True, zeroed=Fal
                "bool": "ak_run_u8", "enum": "ak_run_i32"}[f.kind]
     elif f.card == "map":
         cty = "struct ak_efix_%s" % f.entry
-    elif f.kind in ("string", "bytes"):
+    elif f.card == "repeated" and f.kind in ("string", "bytes"):
         cty = "struct ak_str"
-    else:
+    elif f.card == "repeated" and f.kind == "message":
+        if et is None:
+            _refuse("the encode loop", ir.msg(root), f)
         cty = "struct ak_efix_%s" % et
+    else:
+        _refuse("the encode loop", ir.msg(root), f)
 
     o.append("static int32_t %s(ak_enc_ctx *ctx, const void *obj, int64_t token) {" % fname)
     o.append("  AK_GUARD_BEGIN")
@@ -296,14 +368,14 @@ def _emit_loop(ir, o, root, path, f, fname, elem_of=None, batch=True, zeroed=Fal
             o.append("    for (size_t i = 0; i < src.size(); ++i) flat.push_back(src[i] ? 1 : 0);")
         else:
             o.append("    for (size_t i = 0; i < src.size(); ++i) flat.push_back(src[i].v);")
-        o.append("    if (!flat.empty()) { int32_t rc = %s(ctx, &flat[0], flat.size());"
+        o.append("    if (!flat.empty()) { AK_TAX(); int32_t rc = %s(ctx, &flat[0], flat.size());"
                  " if (rc < 0) return rc; }" % run)
         o.append("  AK_GUARD_END")
         o.append("}")
         o.append("")
         return
     if f.card == "packed":
-        o.append("    if (!src.empty()) { int32_t rc = %s(ctx, &src[0], src.size());"
+        o.append("    if (!src.empty()) { AK_TAX(); int32_t rc = %s(ctx, &src[0], src.size());"
                  " if (rc < 0) return rc; }" % run)
         o.append("  AK_GUARD_END")
         o.append("}")
@@ -336,8 +408,9 @@ def _emit_loop(ir, o, root, path, f, fname, elem_of=None, batch=True, zeroed=Fal
     if f.card == "map":
         o.append("    for (std::map<std::string, std::string>::const_iterator it = src.begin();"
                  " it != src.end(); ++it) {")
-        o.append("      chunk[i].key = ak_str_of(it->first, t.utf8);")
-        o.append("      chunk[i].value = ak_str_of(it->second, t.utf8);")
+        kk, vk = map_kinds(ir, f)
+        o.append("      chunk[i].key = ak_str_of(it->first, %s);" % map_tc(kk))
+        o.append("      chunk[i].value = ak_str_of(it->second, %s);" % map_tc(vk))
         o.append("      chunk[i].presence = 0;")
     else:
         o.append("    for (size_t k = 0; k < src.size(); ++k) {")
@@ -350,6 +423,7 @@ def _emit_loop(ir, o, root, path, f, fname, elem_of=None, batch=True, zeroed=Fal
             o.append("      chunk[i] = make_%s(src[k], t);" % snake(et))
     o.append("      ++i;")
     o.append("      if (i == kChunk) {")
+    o.append("        AK_TAX();")
     o.append("        int32_t rc = %s;" % _run_call(ir, f, et, "(int32_t)i"))
     o.append("        if (rc < 0) return rc;")
     o.append("        done += i;")
@@ -360,6 +434,7 @@ def _emit_loop(ir, o, root, path, f, fname, elem_of=None, batch=True, zeroed=Fal
     o.append("      }")
     o.append("    }")
     o.append("    if (i > 0) {")
+    o.append("      AK_TAX();")
     o.append("      int32_t rc = %s;" % _run_call(ir, f, et, "(int32_t)i"))
     o.append("      if (rc < 0) return rc;")
     o.append("    }")
@@ -372,11 +447,11 @@ def _velem(ir, f):
     from cppnames import FSCALAR
     if f.kind in ("string", "bytes"):
         return "std::string"
-    if f.kind == "message":
+    if f.kind in ("message", "enum"):
         return f.of
-    if f.kind == "enum":
-        return f.of
-    return FSCALAR[f.kind]
+    if f.kind in FSCALAR:
+        return FSCALAR[f.kind]
+    raise NotImplementedError("REFUSED: no C++ element type for kind %r" % f.kind)
 
 
 def _run_call(ir, f, et, n):
@@ -384,6 +459,8 @@ def _run_call(ir, f, et, n):
         return "ak_elem_%s(ctx, chunk, %s)" % (f.entry, n)
     if f.kind in ("string", "bytes"):
         return "ak_blob_run(ctx, chunk, %s)" % n
+    if f.kind != "message" or et is None:
+        raise NotImplementedError("REFUSED: no run entry point for %s %s" % (f.card, f.kind))
     if ir.msg(et).leaf:
         return "ak_elem_%s(ctx, chunk, %s)" % (et, n)
     return "ak_elemu_%s(ctx, chunk, %s, (int64_t)done)" % (et, n)
@@ -430,6 +507,21 @@ static inline struct ak_str ak_str_absent() {
   s.tc = NULL;
   return s;
 }
+
+// ABI v1 open decision 1, the batching predicate, made TRANSFERABLE.
+//
+// The verdict "batching is a small loss in C++" is about a 1.85 ns crossing and is about
+// to enter a five-language specification where the same crossing costs 8 ns on FFM, 12 on
+// .NET 8 and 98 through JNI. This adds a calibrated delay immediately before every forward
+// entry-point call, so the crossing can be priced up and the crossover reported as a
+// number rather than as "it inverts somewhere". It is compiled in only by the
+// `bench_a17_tax` target and is a no-op everywhere else.
+#ifdef AK_CROSSING_TAX
+extern "C" void ak_crossing_tax();
+#define AK_TAX() ak_crossing_tax()
+#else
+#define AK_TAX() ((void)0)
+#endif
 
 static inline struct ak_str ak_str_direct(size_t n) {
   struct ak_str s;
@@ -523,6 +615,12 @@ def emit(ir):
 // priced without building a second core.
 static int32_t host_tc_copy(const void *src, size_t len, uint8_t *dst, int32_t cap,
                             ak_grow_fn grow, void *sink) {
+#ifdef AK_COUNTING
+  // R5: COUNT the crossing this arm is here to price. The core's counter cannot see that
+  // `tc` points into the host image, so the host says so. Only in the counting build --
+  // this call is itself a crossing, which is why the timed build must not carry it.
+  ak_enc_count_reverse((ak_enc_ctx *)sink);
+#endif
   if ((int64_t)len > (int64_t)cap) {
     int32_t rc = grow(sink, (int32_t)len, &dst, &cap);
     if (rc < 0) return rc;
@@ -715,6 +813,7 @@ Tcs tcs_host() {
             else:
                 o.append("  struct ak_efix_%s fix = %s;" % (root, mk))
             ds = DIRECT(ir, root)
+            o.append("  AK_TAX();")
             if ds:
                 o.append("  const std::string &dbuf = %s;" % ds)
                 o.append("  return ak_encode_%s(&h, ctx, &vt, &fix,"
@@ -806,10 +905,11 @@ Tcs tcs_host() {
                 o.append("  AK_DGUARD_BEGIN")
                 o.append("    Sink_%s *s = (Sink_%s *)obj; (void)tok;" % (root, root))
                 if f.card == "map":
+                    kk, vk = map_kinds(ir, f)
                     o.append("    std::string k_, v_;")
                     o.append("    for (int32_t i = 0; i < n; ++i) {")
-                    o.append("      s_of(s->base, elems[i].key, ctx, &k_);")
-                    o.append("      s_of(s->base, elems[i].value, ctx, &v_);")
+                    o.append("      " + map_reader(kk, "s->base", "elems[i].key", "ctx", "k_"))
+                    o.append("      " + map_reader(vk, "s->base", "elems[i].value", "ctx", "v_"))
                     o.append("#if AK_CXX17")
                     o.append("      %s.insert_or_assign(std::move(k_), std::move(v_));" % dst)
                     o.append("#else")
@@ -886,11 +986,12 @@ Tcs tcs_host() {
                                  % (snake(root), sn, isn, iff.entry))
                         o.append("  AK_DGUARD_BEGIN")
                         o.append("    Sink_%s *s = (Sink_%s *)obj;" % (root, root))
+                        kk, vk = map_kinds(ir, iff)
                         o.append("    std::map<std::string, std::string> &dst = %s;" % idst)
                         o.append("    std::string k_, v_;")
                         o.append("    for (int32_t i = 0; i < n; ++i) {")
-                        o.append("      s_of(s->base, elems[i].key, ctx, &k_);")
-                        o.append("      s_of(s->base, elems[i].value, ctx, &v_);")
+                        o.append("      " + map_reader(kk, "s->base", "elems[i].key", "ctx", "k_"))
+                        o.append("      " + map_reader(vk, "s->base", "elems[i].value", "ctx", "v_"))
                         o.append("#if AK_CXX17")
                         o.append("      dst.insert_or_assign(std::move(k_), std::move(v_));")
                         o.append("#else")

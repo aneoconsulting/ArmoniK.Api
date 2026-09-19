@@ -237,14 +237,26 @@ class Dec {
 // `string`). `AK_DEC_LOSSY` builds the other policy so the two can be priced.
 bool utf8_valid(const uint8_t *p, std::size_t n);
 
-inline int32_t decode_str(const uint8_t *p, std::size_t n, std::string *out) {
-#ifdef AK_DEC_LOSSY
-  out->assign((const char *)p, n);
-  return 0;
-#else
+// Both policies exist as named functions so a benchmark can carry BOTH IN ONE BINARY and
+// price them as two arms in the same interleaved rounds. `decode_str` is the one the
+// generated codec calls and is selected at build time, because a runtime branch per string
+// would be a cost of its own.
+inline int32_t decode_str_checked(const uint8_t *p, std::size_t n, std::string *out) {
   if (!utf8_valid(p, n)) return ERR_TRANSCODE;
   out->assign((const char *)p, n);
   return 0;
+}
+
+inline int32_t decode_str_raw(const uint8_t *p, std::size_t n, std::string *out) {
+  out->assign((const char *)p, n);
+  return 0;
+}
+
+inline int32_t decode_str(const uint8_t *p, std::size_t n, std::string *out) {
+#ifdef AK_DEC_LOSSY
+  return decode_str_raw(p, n, out);
+#else
+  return decode_str_checked(p, n, out);
 #endif
 }
 

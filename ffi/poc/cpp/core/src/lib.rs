@@ -201,6 +201,27 @@ pub unsafe extern "C" fn ak_enc_counters(ctx: *const ak_enc_ctx, out: *mut AkCou
     };
 }
 
+/// Counting build only: let the HOST report a reverse crossing the core cannot see.
+///
+/// `ak_str.tc` may point at a function in the host image or at one of the core's own, and
+/// the counter lives in the core, so the two are indistinguishable from inside. Without
+/// this the host-transcoder arm's 17,167 reverse crossings on a P2.2 encode were an
+/// argument, and README R5 says count, do not infer. The host calls this from inside its
+/// own transcoder, and only in the counting build: it is one more crossing, which is
+/// exactly why the timed build must not have it.
+#[no_mangle]
+pub unsafe extern "C" fn ak_enc_count_reverse(ctx: *mut ak_enc_ctx) {
+    #[cfg(feature = "count")]
+    {
+        let cx = &mut *(ctx as *mut EncCtxImpl);
+        cx.e.c.reverse += 1;
+    }
+    #[cfg(not(feature = "count"))]
+    {
+        let _ = ctx;
+    }
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn ak_enc_counters_reset(ctx: *mut ak_enc_ctx) {
     (*(ctx as *mut EncCtxImpl)).e.c = Default::default();

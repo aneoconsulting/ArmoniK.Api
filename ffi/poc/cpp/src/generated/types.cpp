@@ -99,6 +99,19 @@ void ProbeBody::clear() {
   case_ = kNotSet;
 }
 
+void ProbeBody::move_from(ProbeBody &o) AK_NOEXCEPT {
+  switch (o.case_) {
+    case kAsInt: new (&u_.as_int) int64_t(static_cast<int64_t &&>(o.u_.as_int)); break;
+    case kAsText: new (&u_.as_text) std::string(static_cast<std::string &&>(o.u_.as_text)); break;
+    case kAsBlob: new (&u_.as_blob) std::string(static_cast<std::string &&>(o.u_.as_blob)); break;
+    case kAsStamp: new (&u_.as_stamp) Timestamp(static_cast<Timestamp &&>(o.u_.as_stamp)); break;
+    case kAsNothing: new (&u_.as_nothing) Empty(static_cast<Empty &&>(o.u_.as_nothing)); break;
+    default: break;
+  }
+  case_ = o.case_;
+  o.clear();
+}
+
 void ProbeBody::copy_from(const ProbeBody &o) {
   switch (o.case_) {
     case kAsInt: new (&u_.as_int) int64_t(o.u_.as_int); break;

@@ -42,6 +42,21 @@ static inline struct ak_str ak_str_absent() {
   return s;
 }
 
+// ABI v1 open decision 1, the batching predicate, made TRANSFERABLE.
+//
+// The verdict "batching is a small loss in C++" is about a 1.85 ns crossing and is about
+// to enter a five-language specification where the same crossing costs 8 ns on FFM, 12 on
+// .NET 8 and 98 through JNI. This adds a calibrated delay immediately before every forward
+// entry-point call, so the crossing can be priced up and the crossover reported as a
+// number rather than as "it inverts somewhere". It is compiled in only by the
+// `bench_a17_tax` target and is a no-op everywhere else.
+#ifdef AK_CROSSING_TAX
+extern "C" void ak_crossing_tax();
+#define AK_TAX() ak_crossing_tax()
+#else
+#define AK_TAX() ((void)0)
+#endif
+
 static inline struct ak_str ak_str_direct(size_t n) {
   struct ak_str s;
   s.data = AK_STR_DIRECT;
@@ -81,6 +96,12 @@ static inline void b_of(const uint8_t *base, const struct ak_span &s, std::strin
 // priced without building a second core.
 static int32_t host_tc_copy(const void *src, size_t len, uint8_t *dst, int32_t cap,
                             ak_grow_fn grow, void *sink) {
+#ifdef AK_COUNTING
+  // R5: COUNT the crossing this arm is here to price. The core's counter cannot see that
+  // `tc` points into the host image, so the host says so. Only in the counting build --
+  // this call is itself a crossing, which is why the timed build must not carry it.
+  ak_enc_count_reverse((ak_enc_ctx *)sink);
+#endif
   if ((int64_t)len > (int64_t)cap) {
     int32_t rc = grow(sink, (int32_t)len, &dst, &cap);
     if (rc < 0) return rc;
@@ -856,6 +877,7 @@ static int32_t loop_list_results_response_results(ak_enc_ctx *ctx, const void *o
       chunk[i] = make_result_raw(src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elem_ResultRaw(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -863,6 +885,7 @@ static int32_t loop_list_results_response_results(ak_enc_ctx *ctx, const void *o
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elem_ResultRaw(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -877,6 +900,7 @@ intptr_t encode_into_list_results_response(ak_enc_ctx *ctx, const ListResultsRes
   struct ak_evt_ListResultsResponse vt;
   vt.loop_results = loop_list_results_response_results;
   struct ak_efix_ListResultsResponse fix = make_list_results_response(o, t);
+  AK_TAX();
   return ak_encode_ListResultsResponse(&h, ctx, &vt, &fix);
 }
 
@@ -909,6 +933,7 @@ static int32_t loop_list_results_response_results_zeroed(ak_enc_ctx *ctx, const 
       fill_result_raw_sparse(&chunk[i], src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elem_ResultRaw(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -918,6 +943,7 @@ static int32_t loop_list_results_response_results_zeroed(ak_enc_ctx *ctx, const 
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elem_ResultRaw(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -934,6 +960,7 @@ intptr_t encode_into_list_results_response_zeroed(ak_enc_ctx *ctx, const ListRes
   struct ak_efix_ListResultsResponse fix;
   std::memset(&fix, 0, sizeof(fix));
   fill_list_results_response_sparse(&fix, o, t);
+  AK_TAX();
   return ak_encode_ListResultsResponse(&h, ctx, &vt, &fix);
 }
 
@@ -952,6 +979,7 @@ static int32_t loop_list_results_response_results_nobatch(ak_enc_ctx *ctx, const
       chunk[i] = make_result_raw(src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elem_ResultRaw(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -959,6 +987,7 @@ static int32_t loop_list_results_response_results_nobatch(ak_enc_ctx *ctx, const
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elem_ResultRaw(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -973,6 +1002,7 @@ intptr_t encode_into_list_results_response_nobatch(ak_enc_ctx *ctx, const ListRe
   struct ak_evt_ListResultsResponse vt;
   vt.loop_results = loop_list_results_response_results_nobatch;
   struct ak_efix_ListResultsResponse fix = make_list_results_response(o, t);
+  AK_TAX();
   return ak_encode_ListResultsResponse(&h, ctx, &vt, &fix);
 }
 
@@ -991,6 +1021,7 @@ static int32_t loop_list_tasks_detailed_response_tasks(ak_enc_ctx *ctx, const vo
       chunk[i] = make_task_detailed(src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elemu_TaskDetailed(ctx, chunk, (int32_t)i, (int64_t)done);
         if (rc < 0) return rc;
         done += i;
@@ -998,6 +1029,7 @@ static int32_t loop_list_tasks_detailed_response_tasks(ak_enc_ctx *ctx, const vo
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elemu_TaskDetailed(ctx, chunk, (int32_t)i, (int64_t)done);
       if (rc < 0) return rc;
     }
@@ -1020,6 +1052,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_parent_task_ids(ak_enc_ct
       chunk[i] = ak_str_of(src[k], t.utf8);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1027,6 +1060,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_parent_task_ids(ak_enc_ct
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1049,6 +1083,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_data_dependencies(ak_enc_
       chunk[i] = ak_str_of(src[k], t.utf8);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1056,6 +1091,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_data_dependencies(ak_enc_
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1078,6 +1114,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_expected_output_ids(ak_en
       chunk[i] = ak_str_of(src[k], t.utf8);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1085,6 +1122,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_expected_output_ids(ak_en
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1107,6 +1145,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_retry_of_ids(ak_enc_ctx *
       chunk[i] = ak_str_of(src[k], t.utf8);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1114,6 +1153,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_retry_of_ids(ak_enc_ctx *
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1139,6 +1179,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_options_options(ak_enc_ct
       chunk[i].presence = 0;
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elem_TaskOptionsOptionsEntry(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1146,6 +1187,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_options_options(ak_enc_ct
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elem_TaskOptionsOptionsEntry(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1169,6 +1211,7 @@ intptr_t encode_into_list_tasks_detailed_response(ak_enc_ctx *ctx, const ListTas
   vt.loop_tasks = loop_list_tasks_detailed_response_tasks;
   vt.elem_tasks = &kElemVt_ListTasksDetailedResponse_tasks;
   struct ak_efix_ListTasksDetailedResponse fix = make_list_tasks_detailed_response(o, t);
+  AK_TAX();
   return ak_encode_ListTasksDetailedResponse(&h, ctx, &vt, &fix);
 }
 
@@ -1201,6 +1244,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_zeroed(ak_enc_ctx *ctx, c
       fill_task_detailed_sparse(&chunk[i], src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elemu_TaskDetailed(ctx, chunk, (int32_t)i, (int64_t)done);
         if (rc < 0) return rc;
         done += i;
@@ -1210,6 +1254,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_zeroed(ak_enc_ctx *ctx, c
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elemu_TaskDetailed(ctx, chunk, (int32_t)i, (int64_t)done);
       if (rc < 0) return rc;
     }
@@ -1232,6 +1277,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_parent_task_ids_zeroed(ak
       chunk[i] = ak_str_of(src[k], t.utf8);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1239,6 +1285,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_parent_task_ids_zeroed(ak
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1261,6 +1308,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_data_dependencies_zeroed(
       chunk[i] = ak_str_of(src[k], t.utf8);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1268,6 +1316,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_data_dependencies_zeroed(
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1290,6 +1339,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_expected_output_ids_zeroe
       chunk[i] = ak_str_of(src[k], t.utf8);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1297,6 +1347,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_expected_output_ids_zeroe
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1319,6 +1370,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_retry_of_ids_zeroed(ak_en
       chunk[i] = ak_str_of(src[k], t.utf8);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1326,6 +1378,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_retry_of_ids_zeroed(ak_en
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1351,6 +1404,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_options_options_zeroed(ak
       chunk[i].presence = 0;
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elem_TaskOptionsOptionsEntry(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1358,6 +1412,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_options_options_zeroed(ak
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elem_TaskOptionsOptionsEntry(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1383,6 +1438,7 @@ intptr_t encode_into_list_tasks_detailed_response_zeroed(ak_enc_ctx *ctx, const 
   struct ak_efix_ListTasksDetailedResponse fix;
   std::memset(&fix, 0, sizeof(fix));
   fill_list_tasks_detailed_response_sparse(&fix, o, t);
+  AK_TAX();
   return ak_encode_ListTasksDetailedResponse(&h, ctx, &vt, &fix);
 }
 
@@ -1401,6 +1457,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_nobatch(ak_enc_ctx *ctx, 
       chunk[i] = make_task_detailed(src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elemu_TaskDetailed(ctx, chunk, (int32_t)i, (int64_t)done);
         if (rc < 0) return rc;
         done += i;
@@ -1408,6 +1465,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_nobatch(ak_enc_ctx *ctx, 
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elemu_TaskDetailed(ctx, chunk, (int32_t)i, (int64_t)done);
       if (rc < 0) return rc;
     }
@@ -1430,6 +1488,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_parent_task_ids_nobatch(a
       chunk[i] = ak_str_of(src[k], t.utf8);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1437,6 +1496,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_parent_task_ids_nobatch(a
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1459,6 +1519,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_data_dependencies_nobatch
       chunk[i] = ak_str_of(src[k], t.utf8);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1466,6 +1527,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_data_dependencies_nobatch
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1488,6 +1550,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_expected_output_ids_nobat
       chunk[i] = ak_str_of(src[k], t.utf8);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1495,6 +1558,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_expected_output_ids_nobat
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1517,6 +1581,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_retry_of_ids_nobatch(ak_e
       chunk[i] = ak_str_of(src[k], t.utf8);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1524,6 +1589,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_retry_of_ids_nobatch(ak_e
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_blob_run(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1549,6 +1615,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_options_options_nobatch(a
       chunk[i].presence = 0;
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elem_TaskOptionsOptionsEntry(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1556,6 +1623,7 @@ static int32_t loop_list_tasks_detailed_response_tasks_options_options_nobatch(a
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elem_TaskOptionsOptionsEntry(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1579,6 +1647,7 @@ intptr_t encode_into_list_tasks_detailed_response_nobatch(ak_enc_ctx *ctx, const
   vt.loop_tasks = loop_list_tasks_detailed_response_tasks_nobatch;
   vt.elem_tasks = &kElemVt_ListTasksDetailedResponse_tasks_nobatch;
   struct ak_efix_ListTasksDetailedResponse fix = make_list_tasks_detailed_response(o, t);
+  AK_TAX();
   return ak_encode_ListTasksDetailedResponse(&h, ctx, &vt, &fix);
 }
 
@@ -1597,6 +1666,7 @@ static int32_t loop_list_probe_response_probes(ak_enc_ctx *ctx, const void *obj,
       chunk[i] = make_probe(src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elem_Probe(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1604,6 +1674,7 @@ static int32_t loop_list_probe_response_probes(ak_enc_ctx *ctx, const void *obj,
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elem_Probe(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1618,6 +1689,7 @@ intptr_t encode_into_list_probe_response(ak_enc_ctx *ctx, const ListProbeRespons
   struct ak_evt_ListProbeResponse vt;
   vt.loop_probes = loop_list_probe_response_probes;
   struct ak_efix_ListProbeResponse fix = make_list_probe_response(o, t);
+  AK_TAX();
   return ak_encode_ListProbeResponse(&h, ctx, &vt, &fix);
 }
 
@@ -1650,6 +1722,7 @@ static int32_t loop_list_probe_response_probes_zeroed(ak_enc_ctx *ctx, const voi
       fill_probe_sparse(&chunk[i], src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elem_Probe(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1659,6 +1732,7 @@ static int32_t loop_list_probe_response_probes_zeroed(ak_enc_ctx *ctx, const voi
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elem_Probe(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1675,6 +1749,7 @@ intptr_t encode_into_list_probe_response_zeroed(ak_enc_ctx *ctx, const ListProbe
   struct ak_efix_ListProbeResponse fix;
   std::memset(&fix, 0, sizeof(fix));
   fill_list_probe_response_sparse(&fix, o, t);
+  AK_TAX();
   return ak_encode_ListProbeResponse(&h, ctx, &vt, &fix);
 }
 
@@ -1693,6 +1768,7 @@ static int32_t loop_list_probe_response_probes_nobatch(ak_enc_ctx *ctx, const vo
       chunk[i] = make_probe(src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elem_Probe(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1700,6 +1776,7 @@ static int32_t loop_list_probe_response_probes_nobatch(ak_enc_ctx *ctx, const vo
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elem_Probe(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1714,6 +1791,7 @@ intptr_t encode_into_list_probe_response_nobatch(ak_enc_ctx *ctx, const ListProb
   struct ak_evt_ListProbeResponse vt;
   vt.loop_probes = loop_list_probe_response_probes_nobatch;
   struct ak_efix_ListProbeResponse fix = make_list_probe_response(o, t);
+  AK_TAX();
   return ak_encode_ListProbeResponse(&h, ctx, &vt, &fix);
 }
 
@@ -1732,6 +1810,7 @@ static int32_t loop_list_task_summary_response_tasks(ak_enc_ctx *ctx, const void
       chunk[i] = make_task_summary(src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elemu_TaskSummary(ctx, chunk, (int32_t)i, (int64_t)done);
         if (rc < 0) return rc;
         done += i;
@@ -1739,6 +1818,7 @@ static int32_t loop_list_task_summary_response_tasks(ak_enc_ctx *ctx, const void
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elemu_TaskSummary(ctx, chunk, (int32_t)i, (int64_t)done);
       if (rc < 0) return rc;
     }
@@ -1764,6 +1844,7 @@ static int32_t loop_list_task_summary_response_tasks_options_options(ak_enc_ctx 
       chunk[i].presence = 0;
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elem_TaskOptionsOptionsEntry(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1771,6 +1852,7 @@ static int32_t loop_list_task_summary_response_tasks_options_options(ak_enc_ctx 
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elem_TaskOptionsOptionsEntry(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1790,6 +1872,7 @@ intptr_t encode_into_list_task_summary_response(ak_enc_ctx *ctx, const ListTaskS
   vt.loop_tasks = loop_list_task_summary_response_tasks;
   vt.elem_tasks = &kElemVt_ListTaskSummaryResponse_tasks;
   struct ak_efix_ListTaskSummaryResponse fix = make_list_task_summary_response(o, t);
+  AK_TAX();
   return ak_encode_ListTaskSummaryResponse(&h, ctx, &vt, &fix);
 }
 
@@ -1822,6 +1905,7 @@ static int32_t loop_list_task_summary_response_tasks_zeroed(ak_enc_ctx *ctx, con
       fill_task_summary_sparse(&chunk[i], src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elemu_TaskSummary(ctx, chunk, (int32_t)i, (int64_t)done);
         if (rc < 0) return rc;
         done += i;
@@ -1831,6 +1915,7 @@ static int32_t loop_list_task_summary_response_tasks_zeroed(ak_enc_ctx *ctx, con
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elemu_TaskSummary(ctx, chunk, (int32_t)i, (int64_t)done);
       if (rc < 0) return rc;
     }
@@ -1856,6 +1941,7 @@ static int32_t loop_list_task_summary_response_tasks_options_options_zeroed(ak_e
       chunk[i].presence = 0;
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elem_TaskOptionsOptionsEntry(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1863,6 +1949,7 @@ static int32_t loop_list_task_summary_response_tasks_options_options_zeroed(ak_e
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elem_TaskOptionsOptionsEntry(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1884,6 +1971,7 @@ intptr_t encode_into_list_task_summary_response_zeroed(ak_enc_ctx *ctx, const Li
   struct ak_efix_ListTaskSummaryResponse fix;
   std::memset(&fix, 0, sizeof(fix));
   fill_list_task_summary_response_sparse(&fix, o, t);
+  AK_TAX();
   return ak_encode_ListTaskSummaryResponse(&h, ctx, &vt, &fix);
 }
 
@@ -1902,6 +1990,7 @@ static int32_t loop_list_task_summary_response_tasks_nobatch(ak_enc_ctx *ctx, co
       chunk[i] = make_task_summary(src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elemu_TaskSummary(ctx, chunk, (int32_t)i, (int64_t)done);
         if (rc < 0) return rc;
         done += i;
@@ -1909,6 +1998,7 @@ static int32_t loop_list_task_summary_response_tasks_nobatch(ak_enc_ctx *ctx, co
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elemu_TaskSummary(ctx, chunk, (int32_t)i, (int64_t)done);
       if (rc < 0) return rc;
     }
@@ -1934,6 +2024,7 @@ static int32_t loop_list_task_summary_response_tasks_options_options_nobatch(ak_
       chunk[i].presence = 0;
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elem_TaskOptionsOptionsEntry(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -1941,6 +2032,7 @@ static int32_t loop_list_task_summary_response_tasks_options_options_nobatch(ak_
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elem_TaskOptionsOptionsEntry(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -1960,6 +2052,7 @@ intptr_t encode_into_list_task_summary_response_nobatch(ak_enc_ctx *ctx, const L
   vt.loop_tasks = loop_list_task_summary_response_tasks_nobatch;
   vt.elem_tasks = &kElemVt_ListTaskSummaryResponse_tasks_nobatch;
   struct ak_efix_ListTaskSummaryResponse fix = make_list_task_summary_response(o, t);
+  AK_TAX();
   return ak_encode_ListTaskSummaryResponse(&h, ctx, &vt, &fix);
 }
 
@@ -1971,6 +2064,7 @@ intptr_t encode_into_upload_result_data_message(ak_enc_ctx *ctx, const UploadRes
   struct ak_evt_UploadResultDataMessage vt;
   vt._reserved = NULL;
   struct ak_efix_UploadResultDataMessage fix = make_upload_result_data_message(o, t);
+  AK_TAX();
   const std::string &dbuf = (*o.upload).data_chunk;
   return ak_encode_UploadResultDataMessage(&h, ctx, &vt, &fix, (const uint8_t *)dbuf.data(), dbuf.size());
 }
@@ -1985,6 +2079,7 @@ intptr_t encode_into_upload_result_data_message_zeroed(ak_enc_ctx *ctx, const Up
   struct ak_efix_UploadResultDataMessage fix;
   std::memset(&fix, 0, sizeof(fix));
   fill_upload_result_data_message_sparse(&fix, o, t);
+  AK_TAX();
   const std::string &dbuf = (*o.upload).data_chunk;
   return ak_encode_UploadResultDataMessage(&h, ctx, &vt, &fix, (const uint8_t *)dbuf.data(), dbuf.size());
 }
@@ -1997,6 +2092,7 @@ intptr_t encode_into_upload_result_data_message_nobatch(ak_enc_ctx *ctx, const U
   struct ak_evt_UploadResultDataMessage vt;
   vt._reserved = NULL;
   struct ak_efix_UploadResultDataMessage fix = make_upload_result_data_message(o, t);
+  AK_TAX();
   const std::string &dbuf = (*o.upload).data_chunk;
   return ak_encode_UploadResultDataMessage(&h, ctx, &vt, &fix, (const uint8_t *)dbuf.data(), dbuf.size());
 }
@@ -2016,6 +2112,7 @@ static int32_t loop_list_metrics_response_batches(ak_enc_ctx *ctx, const void *o
       chunk[i] = make_metrics_batch(src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elemu_MetricsBatch(ctx, chunk, (int32_t)i, (int64_t)done);
         if (rc < 0) return rc;
         done += i;
@@ -2023,6 +2120,7 @@ static int32_t loop_list_metrics_response_batches(ak_enc_ctx *ctx, const void *o
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elemu_MetricsBatch(ctx, chunk, (int32_t)i, (int64_t)done);
       if (rc < 0) return rc;
     }
@@ -2037,7 +2135,7 @@ static int32_t loop_list_metrics_response_batches_ticks(ak_enc_ctx *ctx, const v
     const MetricsBatch &el = (*h->o).batches[(size_t)token];
     const MetricsBatch &src_owner = el;
     const std::vector<int64_t> &src = src_owner.ticks;
-    if (!src.empty()) { int32_t rc = ak_run_i64(ctx, &src[0], src.size()); if (rc < 0) return rc; }
+    if (!src.empty()) { AK_TAX(); int32_t rc = ak_run_i64(ctx, &src[0], src.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2049,7 +2147,7 @@ static int32_t loop_list_metrics_response_batches_values(ak_enc_ctx *ctx, const 
     const MetricsBatch &el = (*h->o).batches[(size_t)token];
     const MetricsBatch &src_owner = el;
     const std::vector<double> &src = src_owner.values;
-    if (!src.empty()) { int32_t rc = ak_run_f64(ctx, &src[0], src.size()); if (rc < 0) return rc; }
+    if (!src.empty()) { AK_TAX(); int32_t rc = ak_run_f64(ctx, &src[0], src.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2061,7 +2159,7 @@ static int32_t loop_list_metrics_response_batches_codes(ak_enc_ctx *ctx, const v
     const MetricsBatch &el = (*h->o).batches[(size_t)token];
     const MetricsBatch &src_owner = el;
     const std::vector<int32_t> &src = src_owner.codes;
-    if (!src.empty()) { int32_t rc = ak_run_i32(ctx, &src[0], src.size()); if (rc < 0) return rc; }
+    if (!src.empty()) { AK_TAX(); int32_t rc = ak_run_i32(ctx, &src[0], src.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2076,7 +2174,7 @@ static int32_t loop_list_metrics_response_batches_flags(ak_enc_ctx *ctx, const v
     std::vector<uint8_t> flat;
     flat.reserve(src.size());
     for (size_t i = 0; i < src.size(); ++i) flat.push_back(src[i] ? 1 : 0);
-    if (!flat.empty()) { int32_t rc = ak_run_u8(ctx, &flat[0], flat.size()); if (rc < 0) return rc; }
+    if (!flat.empty()) { AK_TAX(); int32_t rc = ak_run_u8(ctx, &flat[0], flat.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2091,7 +2189,7 @@ static int32_t loop_list_metrics_response_batches_statuses(ak_enc_ctx *ctx, cons
     std::vector<int32_t> flat;
     flat.reserve(src.size());
     for (size_t i = 0; i < src.size(); ++i) flat.push_back(src[i].v);
-    if (!flat.empty()) { int32_t rc = ak_run_i32(ctx, &flat[0], flat.size()); if (rc < 0) return rc; }
+    if (!flat.empty()) { AK_TAX(); int32_t rc = ak_run_i32(ctx, &flat[0], flat.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2112,6 +2210,7 @@ intptr_t encode_into_list_metrics_response(ak_enc_ctx *ctx, const ListMetricsRes
   vt.loop_batches = loop_list_metrics_response_batches;
   vt.elem_batches = &kElemVt_ListMetricsResponse_batches;
   struct ak_efix_ListMetricsResponse fix = make_list_metrics_response(o, t);
+  AK_TAX();
   return ak_encode_ListMetricsResponse(&h, ctx, &vt, &fix);
 }
 
@@ -2144,6 +2243,7 @@ static int32_t loop_list_metrics_response_batches_zeroed(ak_enc_ctx *ctx, const 
       fill_metrics_batch_sparse(&chunk[i], src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elemu_MetricsBatch(ctx, chunk, (int32_t)i, (int64_t)done);
         if (rc < 0) return rc;
         done += i;
@@ -2153,6 +2253,7 @@ static int32_t loop_list_metrics_response_batches_zeroed(ak_enc_ctx *ctx, const 
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elemu_MetricsBatch(ctx, chunk, (int32_t)i, (int64_t)done);
       if (rc < 0) return rc;
     }
@@ -2167,7 +2268,7 @@ static int32_t loop_list_metrics_response_batches_ticks_zeroed(ak_enc_ctx *ctx, 
     const MetricsBatch &el = (*h->o).batches[(size_t)token];
     const MetricsBatch &src_owner = el;
     const std::vector<int64_t> &src = src_owner.ticks;
-    if (!src.empty()) { int32_t rc = ak_run_i64(ctx, &src[0], src.size()); if (rc < 0) return rc; }
+    if (!src.empty()) { AK_TAX(); int32_t rc = ak_run_i64(ctx, &src[0], src.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2179,7 +2280,7 @@ static int32_t loop_list_metrics_response_batches_values_zeroed(ak_enc_ctx *ctx,
     const MetricsBatch &el = (*h->o).batches[(size_t)token];
     const MetricsBatch &src_owner = el;
     const std::vector<double> &src = src_owner.values;
-    if (!src.empty()) { int32_t rc = ak_run_f64(ctx, &src[0], src.size()); if (rc < 0) return rc; }
+    if (!src.empty()) { AK_TAX(); int32_t rc = ak_run_f64(ctx, &src[0], src.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2191,7 +2292,7 @@ static int32_t loop_list_metrics_response_batches_codes_zeroed(ak_enc_ctx *ctx, 
     const MetricsBatch &el = (*h->o).batches[(size_t)token];
     const MetricsBatch &src_owner = el;
     const std::vector<int32_t> &src = src_owner.codes;
-    if (!src.empty()) { int32_t rc = ak_run_i32(ctx, &src[0], src.size()); if (rc < 0) return rc; }
+    if (!src.empty()) { AK_TAX(); int32_t rc = ak_run_i32(ctx, &src[0], src.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2206,7 +2307,7 @@ static int32_t loop_list_metrics_response_batches_flags_zeroed(ak_enc_ctx *ctx, 
     std::vector<uint8_t> flat;
     flat.reserve(src.size());
     for (size_t i = 0; i < src.size(); ++i) flat.push_back(src[i] ? 1 : 0);
-    if (!flat.empty()) { int32_t rc = ak_run_u8(ctx, &flat[0], flat.size()); if (rc < 0) return rc; }
+    if (!flat.empty()) { AK_TAX(); int32_t rc = ak_run_u8(ctx, &flat[0], flat.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2221,7 +2322,7 @@ static int32_t loop_list_metrics_response_batches_statuses_zeroed(ak_enc_ctx *ct
     std::vector<int32_t> flat;
     flat.reserve(src.size());
     for (size_t i = 0; i < src.size(); ++i) flat.push_back(src[i].v);
-    if (!flat.empty()) { int32_t rc = ak_run_i32(ctx, &flat[0], flat.size()); if (rc < 0) return rc; }
+    if (!flat.empty()) { AK_TAX(); int32_t rc = ak_run_i32(ctx, &flat[0], flat.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2244,6 +2345,7 @@ intptr_t encode_into_list_metrics_response_zeroed(ak_enc_ctx *ctx, const ListMet
   struct ak_efix_ListMetricsResponse fix;
   std::memset(&fix, 0, sizeof(fix));
   fill_list_metrics_response_sparse(&fix, o, t);
+  AK_TAX();
   return ak_encode_ListMetricsResponse(&h, ctx, &vt, &fix);
 }
 
@@ -2262,6 +2364,7 @@ static int32_t loop_list_metrics_response_batches_nobatch(ak_enc_ctx *ctx, const
       chunk[i] = make_metrics_batch(src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elemu_MetricsBatch(ctx, chunk, (int32_t)i, (int64_t)done);
         if (rc < 0) return rc;
         done += i;
@@ -2269,6 +2372,7 @@ static int32_t loop_list_metrics_response_batches_nobatch(ak_enc_ctx *ctx, const
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elemu_MetricsBatch(ctx, chunk, (int32_t)i, (int64_t)done);
       if (rc < 0) return rc;
     }
@@ -2283,7 +2387,7 @@ static int32_t loop_list_metrics_response_batches_ticks_nobatch(ak_enc_ctx *ctx,
     const MetricsBatch &el = (*h->o).batches[(size_t)token];
     const MetricsBatch &src_owner = el;
     const std::vector<int64_t> &src = src_owner.ticks;
-    if (!src.empty()) { int32_t rc = ak_run_i64(ctx, &src[0], src.size()); if (rc < 0) return rc; }
+    if (!src.empty()) { AK_TAX(); int32_t rc = ak_run_i64(ctx, &src[0], src.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2295,7 +2399,7 @@ static int32_t loop_list_metrics_response_batches_values_nobatch(ak_enc_ctx *ctx
     const MetricsBatch &el = (*h->o).batches[(size_t)token];
     const MetricsBatch &src_owner = el;
     const std::vector<double> &src = src_owner.values;
-    if (!src.empty()) { int32_t rc = ak_run_f64(ctx, &src[0], src.size()); if (rc < 0) return rc; }
+    if (!src.empty()) { AK_TAX(); int32_t rc = ak_run_f64(ctx, &src[0], src.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2307,7 +2411,7 @@ static int32_t loop_list_metrics_response_batches_codes_nobatch(ak_enc_ctx *ctx,
     const MetricsBatch &el = (*h->o).batches[(size_t)token];
     const MetricsBatch &src_owner = el;
     const std::vector<int32_t> &src = src_owner.codes;
-    if (!src.empty()) { int32_t rc = ak_run_i32(ctx, &src[0], src.size()); if (rc < 0) return rc; }
+    if (!src.empty()) { AK_TAX(); int32_t rc = ak_run_i32(ctx, &src[0], src.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2322,7 +2426,7 @@ static int32_t loop_list_metrics_response_batches_flags_nobatch(ak_enc_ctx *ctx,
     std::vector<uint8_t> flat;
     flat.reserve(src.size());
     for (size_t i = 0; i < src.size(); ++i) flat.push_back(src[i] ? 1 : 0);
-    if (!flat.empty()) { int32_t rc = ak_run_u8(ctx, &flat[0], flat.size()); if (rc < 0) return rc; }
+    if (!flat.empty()) { AK_TAX(); int32_t rc = ak_run_u8(ctx, &flat[0], flat.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2337,7 +2441,7 @@ static int32_t loop_list_metrics_response_batches_statuses_nobatch(ak_enc_ctx *c
     std::vector<int32_t> flat;
     flat.reserve(src.size());
     for (size_t i = 0; i < src.size(); ++i) flat.push_back(src[i].v);
-    if (!flat.empty()) { int32_t rc = ak_run_i32(ctx, &flat[0], flat.size()); if (rc < 0) return rc; }
+    if (!flat.empty()) { AK_TAX(); int32_t rc = ak_run_i32(ctx, &flat[0], flat.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2358,6 +2462,7 @@ intptr_t encode_into_list_metrics_response_nobatch(ak_enc_ctx *ctx, const ListMe
   vt.loop_batches = loop_list_metrics_response_batches_nobatch;
   vt.elem_batches = &kElemVt_ListMetricsResponse_batches_nobatch;
   struct ak_efix_ListMetricsResponse fix = make_list_metrics_response(o, t);
+  AK_TAX();
   return ak_encode_ListMetricsResponse(&h, ctx, &vt, &fix);
 }
 
@@ -2376,6 +2481,7 @@ static int32_t loop_dual_response_left(ak_enc_ctx *ctx, const void *obj, int64_t
       chunk[i] = make_pair(src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elem_Pair(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -2383,6 +2489,7 @@ static int32_t loop_dual_response_left(ak_enc_ctx *ctx, const void *obj, int64_t
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elem_Pair(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -2404,6 +2511,7 @@ static int32_t loop_dual_response_right(ak_enc_ctx *ctx, const void *obj, int64_
       chunk[i] = make_pair(src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elem_Pair(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -2411,6 +2519,7 @@ static int32_t loop_dual_response_right(ak_enc_ctx *ctx, const void *obj, int64_
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elem_Pair(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -2426,6 +2535,7 @@ intptr_t encode_into_dual_response(ak_enc_ctx *ctx, const DualResponse &o, const
   vt.loop_left = loop_dual_response_left;
   vt.loop_right = loop_dual_response_right;
   struct ak_efix_DualResponse fix = make_dual_response(o, t);
+  AK_TAX();
   return ak_encode_DualResponse(&h, ctx, &vt, &fix);
 }
 
@@ -2458,6 +2568,7 @@ static int32_t loop_dual_response_left_zeroed(ak_enc_ctx *ctx, const void *obj, 
       fill_pair_sparse(&chunk[i], src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elem_Pair(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -2467,6 +2578,7 @@ static int32_t loop_dual_response_left_zeroed(ak_enc_ctx *ctx, const void *obj, 
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elem_Pair(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -2502,6 +2614,7 @@ static int32_t loop_dual_response_right_zeroed(ak_enc_ctx *ctx, const void *obj,
       fill_pair_sparse(&chunk[i], src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elem_Pair(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -2511,6 +2624,7 @@ static int32_t loop_dual_response_right_zeroed(ak_enc_ctx *ctx, const void *obj,
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elem_Pair(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -2528,6 +2642,7 @@ intptr_t encode_into_dual_response_zeroed(ak_enc_ctx *ctx, const DualResponse &o
   struct ak_efix_DualResponse fix;
   std::memset(&fix, 0, sizeof(fix));
   fill_dual_response_sparse(&fix, o, t);
+  AK_TAX();
   return ak_encode_DualResponse(&h, ctx, &vt, &fix);
 }
 
@@ -2546,6 +2661,7 @@ static int32_t loop_dual_response_left_nobatch(ak_enc_ctx *ctx, const void *obj,
       chunk[i] = make_pair(src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elem_Pair(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -2553,6 +2669,7 @@ static int32_t loop_dual_response_left_nobatch(ak_enc_ctx *ctx, const void *obj,
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elem_Pair(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -2574,6 +2691,7 @@ static int32_t loop_dual_response_right_nobatch(ak_enc_ctx *ctx, const void *obj
       chunk[i] = make_pair(src[k], t);
       ++i;
       if (i == kChunk) {
+        AK_TAX();
         int32_t rc = ak_elem_Pair(ctx, chunk, (int32_t)i);
         if (rc < 0) return rc;
         done += i;
@@ -2581,6 +2699,7 @@ static int32_t loop_dual_response_right_nobatch(ak_enc_ctx *ctx, const void *obj
       }
     }
     if (i > 0) {
+      AK_TAX();
       int32_t rc = ak_elem_Pair(ctx, chunk, (int32_t)i);
       if (rc < 0) return rc;
     }
@@ -2596,6 +2715,7 @@ intptr_t encode_into_dual_response_nobatch(ak_enc_ctx *ctx, const DualResponse &
   vt.loop_left = loop_dual_response_left_nobatch;
   vt.loop_right = loop_dual_response_right_nobatch;
   struct ak_efix_DualResponse fix = make_dual_response(o, t);
+  AK_TAX();
   return ak_encode_DualResponse(&h, ctx, &vt, &fix);
 }
 

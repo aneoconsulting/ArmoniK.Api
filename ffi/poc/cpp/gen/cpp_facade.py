@@ -40,6 +40,11 @@ def emit_types(ir):
 #include <vector>
 #include "ak/vocab.h"
 
+// One spelling at every standard level. `noexcept` is C++11, so this is not a level
+// divergence; it is here so the attribute appears once and cannot drift between the
+// declaration and the definition.
+#define AK_NOEXCEPT noexcept
+
 namespace shapes {
 """.lstrip("\n")]
 
@@ -105,6 +110,18 @@ namespace shapes {
             o.append("  };")
             o.append("  %s() : case_(kNotSet) {}" % ty)
             o.append("  %s(const %s &o) : case_(kNotSet) { copy_from(o); }" % (ty, ty))
+            o.append("  // A NOEXCEPT move, and it is not a nicety: a user-declared")
+            o.append("  // destructor suppresses the implicit move, so without this the")
+            o.append("  // enclosing message has no noexcept move either and every")
+            o.append("  // `std::vector` growth COPIES instead of moving -- which on P3.1")
+            o.append("  // is charged to the no-boundary control and to nothing else.")
+            o.append("  // `noexcept` is the load-bearing word: std::vector only MOVES on")
+            o.append("  // growth when the move is noexcept, and every member's move is.")
+            o.append("  %s(%s &&o) AK_NOEXCEPT : case_(kNotSet) { move_from(o); }" % (ty, ty))
+            o.append("  %s &operator=(%s &&o) AK_NOEXCEPT {" % (ty, ty))
+            o.append("    if (this != &o) { clear(); move_from(o); }")
+            o.append("    return *this;")
+            o.append("  }")
             o.append("  %s &operator=(const %s &o) {" % (ty, ty))
             o.append("    if (this != &o) { clear(); copy_from(o); }")
             o.append("    return *this;")
@@ -120,6 +137,7 @@ namespace shapes {
             o.append("  bool operator!=(const %s &o) const { return !(*this == o); }" % ty)
             o.append(" private:")
             o.append("  void copy_from(const %s &o);" % ty)
+            o.append("  void move_from(%s &o) AK_NOEXCEPT;" % ty)
             o.append("  Case case_;")
             o.append("  union U {")
             for g in members:
@@ -184,6 +202,18 @@ def emit_types_impl(ir):
             o.append("    default: break;")
             o.append("  }")
             o.append("  case_ = kNotSet;")
+            o.append("}")
+            o.append("")
+            o.append("void %s::move_from(%s &o) AK_NOEXCEPT {" % (ty, ty))
+            o.append("  switch (o.case_) {")
+            for g in members:
+                mt = _oneof_member_type(g)
+                o.append("    case k%s: new (&u_.%s) %s(static_cast<%s &&>(o.u_.%s)); break;"
+                         % (camel(g.name), g.name, mt, mt, g.name))
+            o.append("    default: break;")
+            o.append("  }")
+            o.append("  case_ = o.case_;")
+            o.append("  o.clear();")
             o.append("}")
             o.append("")
             o.append("void %s::copy_from(const %s &o) {" % (ty, ty))

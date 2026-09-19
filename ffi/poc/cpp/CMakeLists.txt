@@ -10,7 +10,15 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
-set(CMAKE_CXX_FLAGS_RELEASE "-O2 -g")
+# -DNDEBUG matters and was missing. Without it protobuf's own GOOGLE_DCHECK family is
+# compiled into shapes.pb.cc, so the INCUMBENT carried debug assertions on its hot path
+# while the core was a cargo release build at opt-level 3. AK_OPT lets the whole C++ side
+# be rebuilt at -O3 so "the control is slower" can be tested against the optimisation
+# level rather than asserted about it.
+if(NOT AK_OPT)
+  set(AK_OPT "-O2")
+endif()
+set(CMAKE_CXX_FLAGS_RELEASE "${AK_OPT} -g -DNDEBUG")
 
 find_package(Protobuf REQUIRED)
 find_package(Threads REQUIRED)
@@ -114,10 +122,22 @@ ak_arm(bench_c11_shared   ${BENCH} 11 floor  on  shared reject ${CORE_OUT})
 ak_arm(bench_c14_shared   ${BENCH} 14 floor  on  shared reject ${CORE_OUT})
 ak_arm(bench_a17_noguard  ${BENCH} 17 target off shared reject ${CORE_OUT})
 ak_arm(bench_a17_lossy    ${BENCH} 17 target on  shared lossy  ${CORE_OUT})
+# R4's across-build control: the same source with a semantically neutral layout
+# perturbation, so a drift between two binaries can be measured instead of assumed absent.
+ak_arm(bench_a17_perturb  ${BENCH} 17 target on  shared reject ${CORE_OUT})
+target_compile_definitions(bench_a17_perturb PRIVATE AK_PERTURB=1)
+# ABI v1 open decision 1: the batching predicate priced at a DEARER crossing, so the
+# verdict transfers to .NET, FFM and JNI instead of being a fact about 1.85 ns.
+ak_arm(bench_a17_tax      ${BENCH} 17 target on  shared reject ${CORE_OUT})
+target_compile_definitions(bench_a17_tax PRIVATE AK_CROSSING_TAX=1)
 
 # R5: the crossing counts come from a counting CORE, never from the timed binary.
 ak_arm(counts_a17_shared ${COUNTS} 17 target on shared reject ${CORE_COUNT_OUT})
 ak_arm(counts_a17_static ${COUNTS} 17 target on static reject ${CORE_COUNT_OUT})
+# AK_COUNTING lets the HOST side report a crossing the core cannot see (the host
+# transcoder). It is defined only on the counting binaries, never on a timed one.
+target_compile_definitions(counts_a17_shared PRIVATE AK_COUNTING=1)
+target_compile_definitions(counts_a17_static PRIVATE AK_COUNTING=1)
 
 # R5's hazard, built on purpose so the check that catches it can be seen working.
 # Two halves, because in C++ they are different questions:
@@ -126,6 +146,7 @@ ak_arm(counts_a17_static ${COUNTS} 17 target on static reject ${CORE_COUNT_OUT})
 #  - over the NO-BOUNDARY CONTROL: can -flto fuse the traversal into the benchmark loop,
 #    which would make every subtraction against it invalid? (`bench_a17_shared_lto`)
 ak_arm(counts_a17_static_lto ${COUNTS} 17 target on static-lto reject ${CORE_COUNT_OUT})
+target_compile_definitions(counts_a17_static_lto PRIVATE AK_COUNTING=1)
 ak_arm(bench_a17_shared_lto ${BENCH} 17 target on shared reject ${CORE_OUT})
 target_compile_options(bench_a17_shared_lto PRIVATE -flto)
 set_property(TARGET bench_a17_shared_lto APPEND_STRING PROPERTY LINK_FLAGS " -flto")
