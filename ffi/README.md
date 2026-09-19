@@ -55,6 +55,16 @@ through a shared library, 7.5 to 12 ns on .NET 8, about 73 ns on Mono 6.8, 98.4
 ns through JNI, 33.8 ns through FFM. The design rule that follows
 is the one to carry into every slice: **make the crossings fewer, not cheaper.**
 
+**Every row of that table is provisional, and two of them are known not to
+reproduce.** The rows were taken on different machines in different containers,
+which makes it a table about machines as much as about runtimes. The C++ slice
+measured this directly: its container's Rust crossing is 1.5 ns rather than 1.8,
+and the 0.25 ns C++ row does not reproduce at all there, coming out at 1.24 ns
+statically. **The table is re-taken in one process on one controlled physical
+machine once the slices exist**, and until then the rule it produced survives
+while the numbers under it do not. The rule is what the design rests on, and
+nothing in it depends on which column is right.
+
 ### The base design is out of date, and that is work item W1
 
 The base design predates both managed-host reports. The ABI it draws in "What
@@ -511,6 +521,30 @@ that do: the 1.8 ns figure is a fact about the container the Rust slice ran in,
 and no later slice inherits it by running the same code somewhere else. A slice
 that cannot run the calibration says so, and every absolute it reports carries
 that gap.
+
+**And until the controlled run, no slice tries hard at cross-language
+performance.** The cross-language comparison is being re-taken on a physical
+machine, with real control over frequency scaling, pinning and isolation, once
+every slice exists and the ABI is validated. So today's absolutes are
+instrumentation, not the deliverable, and effort spent making them precise buys
+something that is about to be measured properly anyway.
+
+What a controlled rerun **cannot** produce later is where a slice's effort
+belongs now:
+
+- **correctness and byte identity**, which gate everything and are not a timing
+  question at all;
+- **crossing counts**, which are a property of the interface rather than of the
+  machine (the C++ slice reproduced the Rust slice's counts to the digit) and so
+  are already final;
+- **within-process deltas that settle an ABI decision**, because the decision is
+  about a mechanism's sign and rough magnitude, not about its nanoseconds;
+- **feasibility**: that the shapes can be expressed, that the floor compiles,
+  that the layouts agree, that a guard has been seen failing.
+
+R13 stays, because it is one benchmark run and it labels a number that would
+otherwise be read as a cross-language fact. It is not a licence to tune a
+harness.
 
 ## 9. The Python slice
 

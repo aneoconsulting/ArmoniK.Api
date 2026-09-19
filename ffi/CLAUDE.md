@@ -61,6 +61,12 @@ survives, so:
   absent-field and unknown-field payloads, before any number is recorded.
 - **Count crossings, do not infer them.** Every measured payload has a
   boundary-call count from a counting build.
+- **Nobody tries hard at cross-language performance yet.** The cross-language
+  comparison is re-taken on a controlled physical machine once the slices exist
+  and the ABI is validated. Today's absolutes are instrumentation. Spend the
+  effort on what a rerun cannot produce later: correctness and byte identity,
+  crossing counts (a property of the interface, not of the machine), the
+  within-process deltas that settle an ABI decision, and feasibility.
 - **Absolutes do not travel between machines, so every slice calibrates its
   own** (R13). Slices run in separate sessions on separate containers, and the
   cross-language crossing table of README section 2 is a table of absolutes. Each
