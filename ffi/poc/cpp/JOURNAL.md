@@ -412,3 +412,96 @@ once and writes forward, upb grows a backward buffer geometrically.
 runtimes, the same +80 B against the manifest, which `design/SHAPES.md` now records as one
 of two valid encodings. The original report of this as a divergence was right and it has
 cost three later slices nothing.
+
+## W4, session 3 — two experiments about where upb's decode advantage comes from
+
+### 17. `UPB_FASTTABLE`: an R7 omission, and a null result that is the finding
+
+The published upb column was built with **`UPB_FASTTABLE=0`** and did not say so.
+`upb/port/def.inc:227-239` defaults it to 0 and `gen/fetch_upb.sh` defined neither
+`UPB_ENABLE_FASTTABLE` nor `UPB_TRY_ENABLE_FASTTABLE`. Confirmed; `upb.log`'s
+configuration line now names it.
+
+Turning it on changes nothing it could change, and the reason is in the source rather than
+in the clock. `_upb_Decoder_TryFastDispatch` (`upb/wire/decode.c:766`) fires only when
+`layout->table_mask != (unsigned char)-1`, and `upb/mini_descriptor/decode.c:698,712` sets
+`table_mask = -1` on every minitable it builds. The fasttable entries are emitted by
+`protoc-gen-upb` through `UPB_FASTTABLE_INIT` and by nothing else. **A reflection-built
+minitable can never take the fast path.**
+
+Both halves are proved from artifacts rather than asserted, which is the R5 discipline
+applied to a `#if`: `upbbench` prints the runtime `table_mask` (−1) and `gen/fetch_upb.sh`
+counts the fast-parse functions in the archive (**0** without the define, **42** with it).
+So the code is genuinely compiled in and genuinely unreachable.
+
+Three builds of identical sources separate the compiler from the define, because the first
+attempt at this A/B confounded them (gcc has no `__attribute__((musttail))`, so the
+fasttable build needs clang):
+
+| build | P1.2 | P2.2 | P2.3 | P3.1 | P6.1 |
+|---|---|---|---|---|---|
+| gcc, FT=0 | 0.317 | 0.349 | 0.306 | 0.353 | 0.552 |
+| clang, FT=0 | 0.245 | 0.283 | 0.245 | 0.277 | 0.522 |
+| clang, FT=1 | 0.291 | 0.320 | 0.262 | 0.309 | 0.538 |
+
+**clang is worth 6 to 23 percent** of upb's decode — so the published column understated
+upb — and **`FT=1` is 3 to 19 percent slower** than `FT=0` on the same compiler, which is
+what an unreachable fast path costs: an extra branch at the top of the decode loop and a
+`_upb_Decoder_TryFastDispatch` that returns false every time.
+
+**So none of upb's measured decode advantage is `UPB_MUSTTAIL` tail-call dispatch.** That
+was the half the branch could not rule out, and it is the half a Rust core is structurally
+locked out of. What is left — the epsilon-copy input stream, arena allocation, minitable
+dispatch, and not copying strings — is all reachable from Rust. That turned Experiment 2
+from interesting into decisive.
+
+### 18. The borrowed-string facade: most of the distance to upb is `std::string`
+
+ABI v1 already supports it and that is the first thing to say: `ak_span` is an **offset**
+into the buffer the host handed in (section 4), section 7 says the span points into that
+buffer, and 7.4 tells the host to resolve it against the base pointer it already holds.
+So a facade whose string fields are `ak::StringView` over the input needs **no ABI
+change**, and it is exactly upb's aliasing contract (`upb/wire/decode.h:29`).
+
+Built by parameterising the two existing emitters on (namespace, string type) and
+emitting a second pair of files into `shapes_borrow`. The decode and encode helpers are
+**overloaded** on the destination type, so the generated call text is byte-for-byte the
+same for both facades and the only difference is the type spellings — which is why
+`--check` stays green on the shipping facade while a second one appears beside it. UTF-8 is
+still validated on the borrowed path, so the arm isolates **the copy** and nothing else.
+Singular strings, repeated strings, `bytes` and map keys and values are all borrowed,
+because a singular-only arm would understate a schema with 174 string fields in 413.
+
+Byte identity gates it: decode into the borrowed facade, re-encode, compare with the
+manifest, every payload. That check found its own bug first — it compared against the
+INPUT bytes rather than the manifest, and on P2.5 the input is the incumbent's 19,712 B
+form while any re-encode produces the canonical 19,632 B. The owned facade does exactly
+the same thing; the reference was wrong, not the arm.
+
+| payload | `ffi` | **`ffi-borrow`** | upb (gcc) | delta, % of a protobuf decode |
+|---|---|---|---|---|
+| P1.2 | 0.562-0.790 | **0.234-0.241** | 0.317 | −33.8 |
+| P2.2 | 0.661-0.696 | **0.387-0.407** | 0.349 | −28.4 |
+| P2.3 | 0.855-0.921 | **0.383-0.396** | 0.306 | −49.5 |
+| P3.1 | 0.601-0.615 | **0.326-0.330** | 0.353 | −27.9 |
+| P6.1 | 0.639-0.654 | 0.599-0.646 | 0.553 | −4.3 |
+
+**−24.5 to −49.5 percent of a protobuf decode on every element-bearing payload**, and
+−85.9 to −99.5 percent on M5's bulk `bytes`, where the whole message is one field and
+borrowing removes the entire copy.
+
+**Borrowing takes the core from about twice upb to level with or below it.** On P1.2 the
+borrowed core (0.234-0.241) is below even the clang upb build (0.245). So the sentence
+this slice published — "the core's decode is roughly half of what a C protobuf can do" —
+is **largely a statement about `std::string`, not about the codec**.
+
+**P6.1 is the control that says the arm measures what it claims.** `MetricsBatch` is one
+string and five packed scalar arrays: almost no copy to remove, and it barely moves.
+
+**What it does not isolate**, and the residual gap on P2.2 and P2.3 is exactly this:
+vectors, maps and message children are still constructed. This separates the string copy
+specifically, not host-side container construction in general — which is the finding the
+branch already had, and this narrows rather than replaces it.
+
+**It is a measurement arm and not a proposal.** The views are valid only while the input
+buffer lives; the shipping facade is untouched and its emitted text is unchanged.
