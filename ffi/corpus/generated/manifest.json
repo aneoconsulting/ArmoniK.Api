@@ -312,7 +312,7 @@
       "unknown_tags_seen_by_reader": [
         100
       ],
-      "superset_projection": "projections/U-root-u-varint.superset.json"
+      "projection_superset": "projections/U-root-u-varint.superset.json"
     },
     "U-root-u-fixed64": {
       "class": "unknown",
@@ -362,7 +362,7 @@
       "unknown_tags_seen_by_reader": [
         101
       ],
-      "superset_projection": "projections/U-root-u-fixed64.superset.json"
+      "projection_superset": "projections/U-root-u-fixed64.superset.json"
     },
     "U-root-u-len": {
       "class": "unknown",
@@ -412,7 +412,7 @@
       "unknown_tags_seen_by_reader": [
         102
       ],
-      "superset_projection": "projections/U-root-u-len.superset.json"
+      "projection_superset": "projections/U-root-u-len.superset.json"
     },
     "U-root-u-fixed32": {
       "class": "unknown",
@@ -462,7 +462,7 @@
       "unknown_tags_seen_by_reader": [
         103
       ],
-      "superset_projection": "projections/U-root-u-fixed32.superset.json"
+      "projection_superset": "projections/U-root-u-fixed32.superset.json"
     },
     "U-root-u-msg": {
       "class": "unknown",
@@ -513,7 +513,7 @@
       "unknown_tags_seen_by_reader": [
         104
       ],
-      "superset_projection": "projections/U-root-u-msg.superset.json"
+      "projection_superset": "projections/U-root-u-msg.superset.json"
     },
     "U-root-u-packed": {
       "class": "unknown",
@@ -563,7 +563,7 @@
       "unknown_tags_seen_by_reader": [
         105
       ],
-      "superset_projection": "projections/U-root-u-packed.superset.json"
+      "projection_superset": "projections/U-root-u-packed.superset.json"
     },
     "U-root-u-repeated": {
       "class": "unknown",
@@ -614,7 +614,7 @@
       "unknown_tags_seen_by_reader": [
         106
       ],
-      "superset_projection": "projections/U-root-u-repeated.superset.json"
+      "projection_superset": "projections/U-root-u-repeated.superset.json"
     },
     "U-root-all": {
       "class": "unknown",
@@ -677,7 +677,7 @@
         105,
         106
       ],
-      "superset_projection": "projections/U-root-all.superset.json"
+      "projection_superset": "projections/U-root-all.superset.json"
     },
     "U-nested-u-varint": {
       "class": "unknown",
@@ -727,7 +727,7 @@
       "unknown_tags_seen_by_reader": [
         100
       ],
-      "superset_projection": "projections/U-nested-u-varint.superset.json"
+      "projection_superset": "projections/U-nested-u-varint.superset.json"
     },
     "U-nested-u-fixed64": {
       "class": "unknown",
@@ -777,7 +777,7 @@
       "unknown_tags_seen_by_reader": [
         101
       ],
-      "superset_projection": "projections/U-nested-u-fixed64.superset.json"
+      "projection_superset": "projections/U-nested-u-fixed64.superset.json"
     },
     "U-nested-u-len": {
       "class": "unknown",
@@ -827,7 +827,7 @@
       "unknown_tags_seen_by_reader": [
         102
       ],
-      "superset_projection": "projections/U-nested-u-len.superset.json"
+      "projection_superset": "projections/U-nested-u-len.superset.json"
     },
     "U-nested-u-fixed32": {
       "class": "unknown",
@@ -877,7 +877,7 @@
       "unknown_tags_seen_by_reader": [
         103
       ],
-      "superset_projection": "projections/U-nested-u-fixed32.superset.json"
+      "projection_superset": "projections/U-nested-u-fixed32.superset.json"
     },
     "U-nested-u-msg": {
       "class": "unknown",
@@ -928,7 +928,7 @@
       "unknown_tags_seen_by_reader": [
         104
       ],
-      "superset_projection": "projections/U-nested-u-msg.superset.json"
+      "projection_superset": "projections/U-nested-u-msg.superset.json"
     },
     "U-nested-u-packed": {
       "class": "unknown",
@@ -978,7 +978,7 @@
       "unknown_tags_seen_by_reader": [
         105
       ],
-      "superset_projection": "projections/U-nested-u-packed.superset.json"
+      "projection_superset": "projections/U-nested-u-packed.superset.json"
     },
     "U-nested-u-repeated": {
       "class": "unknown",
@@ -1029,7 +1029,7 @@
       "unknown_tags_seen_by_reader": [
         106
       ],
-      "superset_projection": "projections/U-nested-u-repeated.superset.json"
+      "projection_superset": "projections/U-nested-u-repeated.superset.json"
     },
     "U-nested-all": {
       "class": "unknown",
@@ -1092,7 +1092,7 @@
         105,
         106
       ],
-      "superset_projection": "projections/U-nested-all.superset.json"
+      "projection_superset": "projections/U-nested-all.superset.json"
     },
     "U-deep-u-varint": {
       "class": "unknown",
@@ -1144,7 +1144,7 @@
       "unknown_tags_seen_by_reader": [
         100
       ],
-      "superset_projection": "projections/U-deep-u-varint.superset.json"
+      "projection_superset": "projections/U-deep-u-varint.superset.json"
     },
     "U-deep-u-fixed64": {
       "class": "unknown",
@@ -1196,7 +1196,7 @@
       "unknown_tags_seen_by_reader": [
         101
       ],
-      "superset_projection": "projections/U-deep-u-fixed64.superset.json"
+      "projection_superset": "projections/U-deep-u-fixed64.superset.json"
     },
     "U-deep-u-len": {
       "class": "unknown",
@@ -1248,7 +1248,7 @@
       "unknown_tags_seen_by_reader": [
         102
       ],
-      "superset_projection": "projections/U-deep-u-len.superset.json"
+      "projection_superset": "projections/U-deep-u-len.superset.json"
     },
     "U-deep-u-fixed32": {
       "class": "unknown",
@@ -1300,7 +1300,7 @@
       "unknown_tags_seen_by_reader": [
         103
       ],
-      "superset_projection": "projections/U-deep-u-fixed32.superset.json"
+      "projection_superset": "projections/U-deep-u-fixed32.superset.json"
     },
     "U-deep-u-msg": {
       "class": "unknown",
@@ -1353,7 +1353,7 @@
       "unknown_tags_seen_by_reader": [
         104
       ],
-      "superset_projection": "projections/U-deep-u-msg.superset.json"
+      "projection_superset": "projections/U-deep-u-msg.superset.json"
     },
     "U-deep-u-packed": {
       "class": "unknown",
@@ -1405,7 +1405,7 @@
       "unknown_tags_seen_by_reader": [
         105
       ],
-      "superset_projection": "projections/U-deep-u-packed.superset.json"
+      "projection_superset": "projections/U-deep-u-packed.superset.json"
     },
     "U-deep-u-repeated": {
       "class": "unknown",
@@ -1458,7 +1458,7 @@
       "unknown_tags_seen_by_reader": [
         106
       ],
-      "superset_projection": "projections/U-deep-u-repeated.superset.json"
+      "projection_superset": "projections/U-deep-u-repeated.superset.json"
     },
     "U-deep-all": {
       "class": "unknown",
@@ -1523,7 +1523,7 @@
         105,
         106
       ],
-      "superset_projection": "projections/U-deep-all.superset.json"
+      "projection_superset": "projections/U-deep-all.superset.json"
     },
     "U-leaf-u-varint": {
       "class": "unknown",
@@ -1573,7 +1573,7 @@
       "unknown_tags_seen_by_reader": [
         100
       ],
-      "superset_projection": "projections/U-leaf-u-varint.superset.json"
+      "projection_superset": "projections/U-leaf-u-varint.superset.json"
     },
     "U-leaf-u-fixed64": {
       "class": "unknown",
@@ -1623,7 +1623,7 @@
       "unknown_tags_seen_by_reader": [
         101
       ],
-      "superset_projection": "projections/U-leaf-u-fixed64.superset.json"
+      "projection_superset": "projections/U-leaf-u-fixed64.superset.json"
     },
     "U-leaf-u-len": {
       "class": "unknown",
@@ -1673,7 +1673,7 @@
       "unknown_tags_seen_by_reader": [
         102
       ],
-      "superset_projection": "projections/U-leaf-u-len.superset.json"
+      "projection_superset": "projections/U-leaf-u-len.superset.json"
     },
     "U-leaf-u-fixed32": {
       "class": "unknown",
@@ -1723,7 +1723,7 @@
       "unknown_tags_seen_by_reader": [
         103
       ],
-      "superset_projection": "projections/U-leaf-u-fixed32.superset.json"
+      "projection_superset": "projections/U-leaf-u-fixed32.superset.json"
     },
     "U-leaf-u-msg": {
       "class": "unknown",
@@ -1774,7 +1774,7 @@
       "unknown_tags_seen_by_reader": [
         104
       ],
-      "superset_projection": "projections/U-leaf-u-msg.superset.json"
+      "projection_superset": "projections/U-leaf-u-msg.superset.json"
     },
     "U-leaf-u-packed": {
       "class": "unknown",
@@ -1824,7 +1824,7 @@
       "unknown_tags_seen_by_reader": [
         105
       ],
-      "superset_projection": "projections/U-leaf-u-packed.superset.json"
+      "projection_superset": "projections/U-leaf-u-packed.superset.json"
     },
     "U-leaf-u-repeated": {
       "class": "unknown",
@@ -1875,7 +1875,7 @@
       "unknown_tags_seen_by_reader": [
         106
       ],
-      "superset_projection": "projections/U-leaf-u-repeated.superset.json"
+      "projection_superset": "projections/U-leaf-u-repeated.superset.json"
     },
     "U-leaf-all": {
       "class": "unknown",
@@ -1938,7 +1938,7 @@
         105,
         106
       ],
-      "superset_projection": "projections/U-leaf-all.superset.json"
+      "projection_superset": "projections/U-leaf-all.superset.json"
     },
     "U-oneof-u-varint": {
       "class": "unknown",
@@ -1988,7 +1988,7 @@
       "unknown_tags_seen_by_reader": [
         100
       ],
-      "superset_projection": "projections/U-oneof-u-varint.superset.json"
+      "projection_superset": "projections/U-oneof-u-varint.superset.json"
     },
     "U-oneof-u-fixed64": {
       "class": "unknown",
@@ -2038,7 +2038,7 @@
       "unknown_tags_seen_by_reader": [
         101
       ],
-      "superset_projection": "projections/U-oneof-u-fixed64.superset.json"
+      "projection_superset": "projections/U-oneof-u-fixed64.superset.json"
     },
     "U-oneof-u-len": {
       "class": "unknown",
@@ -2088,7 +2088,7 @@
       "unknown_tags_seen_by_reader": [
         102
       ],
-      "superset_projection": "projections/U-oneof-u-len.superset.json"
+      "projection_superset": "projections/U-oneof-u-len.superset.json"
     },
     "U-oneof-u-fixed32": {
       "class": "unknown",
@@ -2138,7 +2138,7 @@
       "unknown_tags_seen_by_reader": [
         103
       ],
-      "superset_projection": "projections/U-oneof-u-fixed32.superset.json"
+      "projection_superset": "projections/U-oneof-u-fixed32.superset.json"
     },
     "U-oneof-u-msg": {
       "class": "unknown",
@@ -2189,7 +2189,7 @@
       "unknown_tags_seen_by_reader": [
         104
       ],
-      "superset_projection": "projections/U-oneof-u-msg.superset.json"
+      "projection_superset": "projections/U-oneof-u-msg.superset.json"
     },
     "U-oneof-u-packed": {
       "class": "unknown",
@@ -2239,7 +2239,7 @@
       "unknown_tags_seen_by_reader": [
         105
       ],
-      "superset_projection": "projections/U-oneof-u-packed.superset.json"
+      "projection_superset": "projections/U-oneof-u-packed.superset.json"
     },
     "U-oneof-u-repeated": {
       "class": "unknown",
@@ -2290,7 +2290,7 @@
       "unknown_tags_seen_by_reader": [
         106
       ],
-      "superset_projection": "projections/U-oneof-u-repeated.superset.json"
+      "projection_superset": "projections/U-oneof-u-repeated.superset.json"
     },
     "U-oneof-all": {
       "class": "unknown",
@@ -2353,7 +2353,7 @@
         105,
         106
       ],
-      "superset_projection": "projections/U-oneof-all.superset.json"
+      "projection_superset": "projections/U-oneof-all.superset.json"
     },
     "U-element-u-varint": {
       "class": "unknown",
@@ -2405,7 +2405,7 @@
       "unknown_tags_seen_by_reader": [
         100
       ],
-      "superset_projection": "projections/U-element-u-varint.superset.json"
+      "projection_superset": "projections/U-element-u-varint.superset.json"
     },
     "U-element-u-fixed64": {
       "class": "unknown",
@@ -2457,7 +2457,7 @@
       "unknown_tags_seen_by_reader": [
         101
       ],
-      "superset_projection": "projections/U-element-u-fixed64.superset.json"
+      "projection_superset": "projections/U-element-u-fixed64.superset.json"
     },
     "U-element-u-len": {
       "class": "unknown",
@@ -2509,7 +2509,7 @@
       "unknown_tags_seen_by_reader": [
         102
       ],
-      "superset_projection": "projections/U-element-u-len.superset.json"
+      "projection_superset": "projections/U-element-u-len.superset.json"
     },
     "U-element-u-fixed32": {
       "class": "unknown",
@@ -2561,7 +2561,7 @@
       "unknown_tags_seen_by_reader": [
         103
       ],
-      "superset_projection": "projections/U-element-u-fixed32.superset.json"
+      "projection_superset": "projections/U-element-u-fixed32.superset.json"
     },
     "U-element-u-msg": {
       "class": "unknown",
@@ -2614,7 +2614,7 @@
       "unknown_tags_seen_by_reader": [
         104
       ],
-      "superset_projection": "projections/U-element-u-msg.superset.json"
+      "projection_superset": "projections/U-element-u-msg.superset.json"
     },
     "U-element-u-packed": {
       "class": "unknown",
@@ -2666,7 +2666,7 @@
       "unknown_tags_seen_by_reader": [
         105
       ],
-      "superset_projection": "projections/U-element-u-packed.superset.json"
+      "projection_superset": "projections/U-element-u-packed.superset.json"
     },
     "U-element-u-repeated": {
       "class": "unknown",
@@ -2719,7 +2719,7 @@
       "unknown_tags_seen_by_reader": [
         106
       ],
-      "superset_projection": "projections/U-element-u-repeated.superset.json"
+      "projection_superset": "projections/U-element-u-repeated.superset.json"
     },
     "U-element-all": {
       "class": "unknown",
@@ -2784,7 +2784,7 @@
         105,
         106
       ],
-      "superset_projection": "projections/U-element-all.superset.json"
+      "projection_superset": "projections/U-element-all.superset.json"
     },
     "U-chunkelem-u-varint": {
       "class": "unknown",
@@ -2836,7 +2836,7 @@
       "unknown_tags_seen_by_reader": [
         100
       ],
-      "superset_projection": "projections/U-chunkelem-u-varint.superset.json"
+      "projection_superset": "projections/U-chunkelem-u-varint.superset.json"
     },
     "U-chunkelem-u-fixed64": {
       "class": "unknown",
@@ -2888,7 +2888,7 @@
       "unknown_tags_seen_by_reader": [
         101
       ],
-      "superset_projection": "projections/U-chunkelem-u-fixed64.superset.json"
+      "projection_superset": "projections/U-chunkelem-u-fixed64.superset.json"
     },
     "U-chunkelem-u-len": {
       "class": "unknown",
@@ -2940,7 +2940,7 @@
       "unknown_tags_seen_by_reader": [
         102
       ],
-      "superset_projection": "projections/U-chunkelem-u-len.superset.json"
+      "projection_superset": "projections/U-chunkelem-u-len.superset.json"
     },
     "U-chunkelem-u-fixed32": {
       "class": "unknown",
@@ -2992,7 +2992,7 @@
       "unknown_tags_seen_by_reader": [
         103
       ],
-      "superset_projection": "projections/U-chunkelem-u-fixed32.superset.json"
+      "projection_superset": "projections/U-chunkelem-u-fixed32.superset.json"
     },
     "U-chunkelem-u-msg": {
       "class": "unknown",
@@ -3045,7 +3045,7 @@
       "unknown_tags_seen_by_reader": [
         104
       ],
-      "superset_projection": "projections/U-chunkelem-u-msg.superset.json"
+      "projection_superset": "projections/U-chunkelem-u-msg.superset.json"
     },
     "U-chunkelem-u-packed": {
       "class": "unknown",
@@ -3097,7 +3097,7 @@
       "unknown_tags_seen_by_reader": [
         105
       ],
-      "superset_projection": "projections/U-chunkelem-u-packed.superset.json"
+      "projection_superset": "projections/U-chunkelem-u-packed.superset.json"
     },
     "U-chunkelem-u-repeated": {
       "class": "unknown",
@@ -3150,7 +3150,7 @@
       "unknown_tags_seen_by_reader": [
         106
       ],
-      "superset_projection": "projections/U-chunkelem-u-repeated.superset.json"
+      "projection_superset": "projections/U-chunkelem-u-repeated.superset.json"
     },
     "U-chunkelem-all": {
       "class": "unknown",
@@ -3215,7 +3215,7 @@
         105,
         106
       ],
-      "superset_projection": "projections/U-chunkelem-all.superset.json"
+      "projection_superset": "projections/U-chunkelem-all.superset.json"
     },
     "U-root-before": {
       "class": "unknown",
@@ -3280,7 +3280,7 @@
         105,
         106
       ],
-      "superset_projection": "projections/U-root-before.superset.json"
+      "projection_superset": "projections/U-root-before.superset.json"
     },
     "U-root-interleaved": {
       "class": "unknown",
@@ -3345,7 +3345,7 @@
         105,
         106
       ],
-      "superset_projection": "projections/U-root-interleaved.superset.json"
+      "projection_superset": "projections/U-root-interleaved.superset.json"
     },
     "U-nested-before": {
       "class": "unknown",
@@ -3410,7 +3410,7 @@
         105,
         106
       ],
-      "superset_projection": "projections/U-nested-before.superset.json"
+      "projection_superset": "projections/U-nested-before.superset.json"
     },
     "U-nested-interleaved": {
       "class": "unknown",
@@ -3475,7 +3475,7 @@
         105,
         106
       ],
-      "superset_projection": "projections/U-nested-interleaved.superset.json"
+      "projection_superset": "projections/U-nested-interleaved.superset.json"
     },
     "U-oneof-before": {
       "class": "unknown",
@@ -3540,7 +3540,7 @@
         105,
         106
       ],
-      "superset_projection": "projections/U-oneof-before.superset.json"
+      "projection_superset": "projections/U-oneof-before.superset.json"
     },
     "U-oneof-interleaved": {
       "class": "unknown",
@@ -3605,7 +3605,7 @@
         105,
         106
       ],
-      "superset_projection": "projections/U-oneof-interleaved.superset.json"
+      "projection_superset": "projections/U-oneof-interleaved.superset.json"
     },
     "U-root-group": {
       "class": "unknown",
@@ -3927,7 +3927,7 @@
       "unknown_tags_seen_by_reader": [
         15
       ],
-      "superset_projection": "projections/U-oneof-member-alone.superset.json"
+      "projection_superset": "projections/U-oneof-member-alone.superset.json"
     },
     "U-oneof-member-after-known": {
       "class": "unknown",
@@ -3980,7 +3980,7 @@
       "unknown_tags_seen_by_reader": [
         15
       ],
-      "superset_projection": "projections/U-oneof-member-after-known.superset.json"
+      "projection_superset": "projections/U-oneof-member-after-known.superset.json"
     },
     "U-oneof-member-before-known": {
       "class": "unknown",
@@ -4042,7 +4042,7 @@
       "unknown_tags_seen_by_reader": [
         15
       ],
-      "superset_projection": "projections/U-oneof-member-before-known.superset.json"
+      "projection_superset": "projections/U-oneof-member-before-known.superset.json"
     },
     "U-enum-value-127": {
       "class": "unknown",
@@ -15195,7 +15195,8 @@
       "upb_reencoded_bytes": 858,
       "meta": {
         "delta_bytes": 0
-      }
+      },
+      "projection": "projections/B-P1_1.json"
     },
     "B-P1_3": {
       "class": "baseline",
@@ -15226,7 +15227,8 @@
       "upb_reencoded_bytes": 605,
       "meta": {
         "delta_bytes": 0
-      }
+      },
+      "projection": "projections/B-P1_3.json"
     },
     "B-P2_1": {
       "class": "baseline",
@@ -15257,7 +15259,8 @@
       "upb_reencoded_bytes": 1037,
       "meta": {
         "delta_bytes": 0
-      }
+      },
+      "projection": "projections/B-P2_1.json"
     },
     "B-P2_5": {
       "class": "baseline",
@@ -15288,6 +15291,12 @@
       "upb_reencoded_bytes": 19712,
       "meta": {
         "delta_bytes": 80
+      },
+      "projection": null,
+      "projection_omitted": {
+        "json_bytes": 44220,
+        "limit": 32768,
+        "semantic_oracle_is": "E-half-absent"
       }
     },
     "B-P3_1": {
@@ -15319,7 +15328,8 @@
       "upb_reencoded_bytes": 12097,
       "meta": {
         "delta_bytes": 0
-      }
+      },
+      "projection": "projections/B-P3_1.json"
     },
     "B-P4_1": {
       "class": "baseline",
@@ -15350,6 +15360,12 @@
       "upb_reencoded_bytes": 65321,
       "meta": {
         "delta_bytes": 0
+      },
+      "projection": null,
+      "projection_omitted": {
+        "json_bytes": 169238,
+        "limit": 32768,
+        "semantic_oracle_is": "S-TaskSummary-full"
       }
     },
     "B-P5_1": {
@@ -15381,7 +15397,8 @@
       "upb_reencoded_bytes": 116,
       "meta": {
         "delta_bytes": 0
-      }
+      },
+      "projection": "projections/B-P5_1.json"
     },
     "B-P7_1": {
       "class": "baseline",
@@ -15412,7 +15429,8 @@
       "upb_reencoded_bytes": 98,
       "meta": {
         "delta_bytes": 0
-      }
+      },
+      "projection": "projections/B-P7_1.json"
     }
   }
 }

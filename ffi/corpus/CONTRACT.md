@@ -1,0 +1,266 @@
+# What a slice has to do to claim it passes the corpus
+
+Five slices will implement this and they should not each invent it. This
+document is the whole obligation; everything else in this directory is how the
+vectors were built and why.
+
+The corpus is not a hash of itself. **Byte identity against a manifest generated
+from the same schema that reads it is a weaker oracle than it looks**, and this
+branch has the receipts: an element run read the open field's tag from the
+context at entry, so a chunking host wrote every chunk after the first under the
+*inner* field's tag, and byte identity passed throughout because the outer
+repeated field and the inner map field were both tag 1. So a slice does four
+things with each vector, not one: it parses, it *projects*, it re-encodes, and
+where the vector must fail it watches it fail.
+
+## 0. The one rule that makes the rest mean anything
+
+**Generate your codec from `generated/corpus.proto`, never from
+`generated/corpus_superset.proto`.**
+
+The superset is what the vectors were *written* against. The reader is what a
+conformant reader is *built* against. The difference between the two files is
+the corpus's entire unknown-field claim, and a slice that generates from the
+superset has a codec that knows every field, executes no unknown-field skip, and
+passes class `unknown` while testing nothing. That is the failure this corpus
+exists to prevent, one level up.
+
+`corpus_superset.proto` is in the tree for exactly one purpose: so that a slice
+can, if it wants, build a **second, separate** decoder from it and check that
+what the reader skipped is what the superset reads. `projection_superset` in the
+manifest is that expectation, already computed.
+
+## 1. Read the manifest
+
+`generated/manifest.json`. Every path in it -- `file`, `projection`,
+`projection_superset` -- is **relative to the manifest's own directory**. Rows
+whose `file` starts with `../../schema/` are the payloads of `ffi/schema`,
+referenced rather than copied: the corpus is a superset of that payload set and
+does not carry a second copy of it.
+
+Each row carries:
+
+| Field | What it obliges |
+|---|---|
+| `expect` | `accept` or `reject` |
+| `produce` | the slices that must EMIT these exact bytes |
+| `consume` | the slices that must PARSE them (all five, always) |
+| `accepted_encodings` | every encoding a conformant implementation may write |
+| `projection` | what a reader must SEE, or `null` with a named twin |
+| `meta` | per-class facts a slice needs: chunk arithmetic, the UTF-16 input, the bad UTF-8 bytes |
+| `notes` | per-language exceptions, keyed by slice name or `all` |
+
+## 2. The five obligations
+
+### C1 -- parse every accept vector
+
+For every row with `expect: "accept"`: decode `file` as `root`, with the codec
+you generated from `corpus.proto`. It must succeed. There are 287 of them and a
+slice that skips one records it by id.
+
+### C2 -- project it
+
+Where `projection` is not null, the decoded message must equal that JSON under
+the encoding in section 3. **This is the obligation that byte identity does not
+imply** and the reason the corpus carries projections at all: a codec can
+round-trip bytes it has misunderstood.
+
+Where `projection` is null the vector is one of the deliberately large runs;
+`projection_omitted.semantic_oracle_is` names the small vector of the same shape
+that carries the expectation, and byte identity plus `meta.elements` is the
+oracle for the large one.
+
+### C3 -- re-encode it, and say which form you wrote
+
+Re-encode what you parsed. The bytes must hash to one of
+`accepted_encodings[*].sha256`. **A vector may have more than one accepted form
+and that is not a weakness in the vector.** An empty map value is an
+implicit-presence leaf holding the proto zero: prost omits it, protobuf C++, upb
+and protobuf-java write it, both parse to the same map and neither encoder is
+wrong. 85 rows have more than one form. Your slice records which one it wrote,
+because which one it writes is a fact about its incumbent, not a verdict.
+
+`accepted_encodings[*].forms` labels each one and `produced_by` says who was
+seen writing it.
+
+### C4 -- refuse every reject vector, and prove you watched it refuse
+
+For every row with `expect: "reject"` (49 of them): your decoder must return an
+error. Not a crash, not a partial message, not a silently truncated one.
+
+**Record the error you actually got, per vector id.** A rejection test that
+nothing rejects is a test nobody has watched work, and that lesson cost this
+branch twice. `reject.seen_failing` names what was watched refusing each vector
+here (upb, and the exception it raised), so "my decoder accepts this" is a
+finding in the slice and not a doubt about the vector.
+
+Two of these are about a *limit* rather than about malformed bytes:
+`X-depth-101` and `X-depth-300`. A decoder that recurses without one does not
+fail them, it exhausts its stack, which on a native core is a crash inside the
+host's process. That is ABI v1 open decision 7 and no slice exercises it today.
+
+### C5 -- produce what you are asked to produce
+
+For every row where your language is in `produce`: build the message and encode
+it with your own facade. The bytes must equal one of `accepted_encodings`. Say
+which.
+
+**An empty `produce` is not a coverage gap by default.** A codec cannot emit a
+field it does not know, and a must-fail vector cannot be emitted at all. Where
+`produce` excludes a slice for a reason that is about that slice, `notes` says
+so by name.
+
+## 3. The projection encoding
+
+Not protobuf JSON. Proto3 JSON omits a default value, which erases the
+difference between absent and present-and-zero, and that difference is the whole
+of vector class `empty`. A projection is the message's **set fields**, in the
+sense of `ListFields` / `HasField` / a populated repeated field -- semantics
+every protobuf implementation shares:
+
+- an implicit-presence scalar equal to its default **does not appear**;
+- an explicit-presence field that is set **does appear**, zero or not;
+- a message field that is present appears, empty body or not;
+- a repeated or map field appears when it has at least one element.
+
+Values encode as:
+
+| Kind | As |
+|---|---|
+| `string` | a JSON string |
+| `bytes` | a lowercase hex string |
+| every integer, and every **enum** | a decimal string. An enum value the descriptor does not declare has no name to use, and `"999"` is the point of several vectors |
+| `bool` | JSON `true` / `false` |
+| `double` | a string, `%.17g` |
+| message | an object |
+| repeated | an array |
+| map | an object, keys stringified |
+
+Unknown fields, where an implementation retains them, appear under `_unknown` as
+a list of `{tag, wire_type}` plus `hex` (wire type 2), `value` (a decimal
+string), or `group` (a nested list). **Comparing `_unknown` is optional**:
+whether the core retains unknown fields is ABI v1 open decision 11 and a
+behaviour change for four of the five languages. Everything outside `_unknown` is
+not optional.
+
+## 4. What each class additionally demands
+
+### `unknown` (74 vectors)
+
+Whether you retain unknown fields or drop them, your re-encode must be one of
+`accepted_encodings`: both the retained and the dropped form are there, labelled.
+**Say which you did.** That is the answer to ABI v1 open decision 11 for your
+language, and nobody has written it down.
+
+Then check the skip actually happened rather than assuming it: the fields under
+`unknown_tags_seen_by_reader` are the ones your decoder must have walked past
+without a case for them.
+
+`U-oneof-member-*` are the three vectors the phrase "oneof-shaped unknown field"
+usually means and almost never tests. A parser cannot tell an unrecognised oneof
+tag from any other unknown field, because the grouping lives only in the
+descriptor: the case stays at the last *known* member and the payload is dropped.
+`U-oneof-member-before-known` is the one that looks like it works.
+
+### `empty` (30 vectors)
+
+Nothing extra, and that is the point: a generator that fills every field cannot
+reach any path conditioned on emptiness, and a defect that lived exactly there
+passed all seven standard payloads in the Java slice. If your harness
+short-circuits an empty buffer before it reaches the decoder, these vectors pass
+without executing anything.
+
+### `shape` (145 vectors)
+
+`manifest.shape_coverage` maps every field shape in the description to the fields
+that have it. The corpus's own build **fails** if a shape has no vector; your
+slice's obligation is the same claim one level down, and a shape your backend has
+no case for must **raise**, never skip. That rule is a rule because a field
+walker that silently excluded oneof members emitted a complete-looking codec for
+a message whose oneof it ignored entirely, and reported nothing wrong.
+
+### `transcode` (53 vectors)
+
+Two halves, and they are not run by the same set of slices.
+
+**The encode half** (`T-enc-*`, 7 vectors). `meta.input_utf16le_hex` and
+`meta.input_code_units` are the input a host holds; the vector bytes are what the
+core must put on the wire, substituting **U+FFFD per unpaired surrogate**. Four
+string sites at once, because a transcoder wired at only some of its call sites
+passes a root-only vector. `T-enc-valid-pair` is the control: a transcoder that
+substitutes per code unit fails that one and passes every other.
+
+`produce` is `csharp` and `java`. A Rust `String` cannot hold an unpaired
+surrogate, so the input does not exist in that host's type. `meta` also carries
+`observed_today_protobuf_java_hex`: design/ABI-v1.md section 6 records
+protobuf-java writing `?` where Google.Protobuf writes U+FFFD, so the Java
+slice's *incumbent* arm is expected to produce that instead, and the divergence
+is a migration note rather than a defect. **The corpus does not verify that
+claim.** The Java slice is the only thing that can.
+
+**The decode half** (`T-dec-*`, 31 vectors) is every slice's: the wire holds
+malformed UTF-8 in a string field and a conformant parser must reject it. Sites
+are the root, a nested message, a map key, a map value and the second element of
+a repeated field, because a validator wired at the root only passes `T-dec-root-*`
+and fails the rest.
+
+`T-bytes-*` (15 vectors) are the same bytes in a `bytes` field and must be
+**accepted**. They are the control that keeps the reject half from being vacuous.
+
+### `chunking` (8 vectors)
+
+These are the ones SHAPES.md cannot express. The root's repeated field tag is
+distinct from every repeated and map tag inside its element, transitively
+(`meta.root_field_tag` against `meta.inner_repeated_and_map_tags` and
+`meta.inner_tags_any_kind`), so a chunk written under the inner field's tag is a
+*different byte sequence*.
+
+**If your host batches element runs, you must run these with more than one
+chunk, and report the count you saw.** ABI v1 chunks at 32 KB of host-side
+element *groups*, not of wire bytes, so the corpus cannot compute the count for
+you: `meta.min_group_bytes_for_two_chunks` and `meta.chunks_if_group_is` give the
+arithmetic against your group size. A slice that runs `C-elemu-512` in one chunk
+has not exercised README section 10 item 5 and records that as a gap rather than
+as a pass. A host that declines to batch says so, and its gap is that it cannot
+reach this class at all.
+
+`C-mixed-100` has an element encoding to nothing every tenth position, so a run
+carrying state across elements has to survive an element that writes no bytes.
+
+### `malformed` (18) and `baseline` (8)
+
+Malformed is C4. Baseline rows are `ffi/schema/generated`'s payloads by
+reference; `upb_reencodes_identically` and `meta.delta_bytes` record upb's
+opinion of each beside prost's, and `B-P2_5` is the `+80` that made the accepted
+forms machinery necessary.
+
+## 5. What "it passes" means
+
+A slice claims the corpus when, for every row in the manifest:
+
+1. every `accept` vector parses, and projects equal where a projection exists;
+2. every `reject` vector is refused, **and the slice's log names the error it
+   got for each one**;
+3. every vector whose `produce` names the slice reproduces one of the accepted
+   encodings, and the log says which;
+4. every `chunking` vector was run at more than one chunk, or the slice says it
+   does not batch;
+5. byte identity still holds **between that slice's own arms** on every vector
+   (R2: that is what R2 is actually protecting);
+6. and every vector it could not run is listed **by id, with a reason**, in the
+   slice's `STATE.md`. R11: a slice that does not name its gaps is not finished.
+
+Anything less is a partial claim and is reported as one.
+
+## 6. What the corpus does not check
+
+Timing, crossing counts, allocation, the ABI's C symbols, the concurrency suite
+of ABI v1 obligation 12.5, and the worker path's build-time subset check of
+obligation 12.4. It is a correctness artifact and it says nothing about any
+number.
+
+It also does not check the **content sets**: `ffi/schema` emits ASCII only, and
+`S-string-latin1`, `S-string-wide` and `S-string-astral` are single vectors
+rather than a content-set sweep of the payload set. A slice checks a content set
+the way SHAPES.md says -- byte identity of all its arms against the incumbent
+arm, plus a decode round trip per set -- and the corpus does not replace that.
