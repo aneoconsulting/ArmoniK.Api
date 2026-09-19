@@ -308,3 +308,65 @@ adds the body length to the PRE-varint offset, because C# loads the left
 operand of `+=` before evaluating the right and `ReadVarint` advances `p`
 itself. It surfaced as a phantom wire type 4 two fields later. The generated
 decoder is unaffected, spelling it `Pos = LenEnd()`.
+
+### 16. CORRECTION to entry 14: `gp-writeto` was not handicapped after all
+
+Entry 14 claimed the encode baseline was handicapped by a top-level
+`CalculateSize()` that `WriteTo(IBufferWriter<byte>)` avoids, and that the
+incumbent's best path is therefore 20 to 29 percent faster than what this
+slice quoted against. **The measurement is right and the conclusion drawn
+from it is wrong**, and the aggregating session asking whether the finding is
+a fact about what ArmoniK ships is what exposed it.
+
+`packages/csharp` makes essentially no direct serialization calls: the only
+two hits are `ByteString.ToByteArray()`, which copies a blob and does not
+encode a message. Everything goes through gRPC's generated marshaller, and
+`Grpc.Tools` 2.66 emits this:
+
+    static void __Helper_SerializeMessage(IMessage message, SerializationContext context)
+    {
+      if (message is IBufferMessage)
+      {
+        context.SetPayloadLength(message.CalculateSize());
+        MessageExtensions.WriteTo(message, context.GetBufferWriter());
+        context.Complete();
+        return;
+      }
+      context.Complete(MessageExtensions.ToByteArray(message));
+    }
+
+It calls **both**. The size pass is not an avoidable inefficiency: gRPC needs
+the payload length before it writes the length-prefixed frame header, so a
+client cannot skip it by choosing a different overload.
+
+So:
+
+- **`gp-writeto` (CalculateSize + WriteTo(Span)) is structurally what ArmoniK
+  pays** and stays the baseline. It was never handicapped.
+- **`gp-bufferwriter` is faster than anything an ArmoniK gRPC client can
+  reach.** It is not "the incumbent's fastest official path"; it is the
+  incumbent *without the size pass*, which the marshaller does not permit. It
+  stays as an arm, relabelled, because what it now prices is exactly **the
+  size pass in isolation**: 20 to 29 percent of an encode.
+- The marshaller's own shape, CalculateSize + WriteTo(IBufferWriter), is
+  bracketed by the two arms and is within noise of `gp-writeto`, the two
+  differing only in span against buffer-writer for the write half.
+
+**What this does to the managed control's case, and it strengthens it.** The
+single-pass codec's advantage is not an artifact of a badly chosen baseline:
+a gRPC client genuinely pays a size pass it cannot avoid, and a codec that
+buffers its own output and reports the length afterwards genuinely does not.
+The `managed` against `managed-2pass` delta was already the within-arm form of
+that, and it now has a reason in the incumbent's own call path rather than
+only in a synthetic arm.
+
+**The decode half of entry 14 is untouched and stands.** `m.CalculateSize()`
+in `GpParse` was a real defect with no counterpart in the real call path, and
+the corrected decode column, 0.59 to 0.84, is the honest one.
+
+The generalisable rule from entry 14 also stands and is worth stating as a
+rule rather than as an anecdote: **whatever stops a benchmark result being
+optimised away has to cost the same in every arm.** The C++ slice met the same
+class of problem from the other side, with a control that was not doing the
+work its arm did. A guard is code, and an asymmetric guard is an asymmetric
+benchmark.

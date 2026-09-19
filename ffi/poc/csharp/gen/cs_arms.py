@@ -11,11 +11,14 @@ The arms, and exactly what each one calls:
                    reused buffer. No allocation, but it pays an explicit
                    top-level size pass to size the span
   gp-bufferwriter  `msg.WriteTo(IBufferWriter<byte>)` over a reused
-                   `BufWriter` -- the SAME official API family with NO
-                   top-level size pass at all, which is the fairest encode
-                   baseline `Google.Protobuf` offers. Added after the C++ slice
-                   found its own incumbent handicapped three ways and moved its
-                   headline by eight points
+                   `BufWriter`, with NO top-level size pass. **Not a baseline
+                   an ArmoniK client can reach**: `Grpc.Tools`' generated
+                   marshaller calls `SetPayloadLength(CalculateSize())` and
+                   THEN `WriteTo(bufferWriter)`, because gRPC needs the payload
+                   length before the length-prefixed frame header. So what this
+                   arm prices is the SIZE PASS IN ISOLATION -- 20 to 29 percent
+                   of an encode -- and not a faster incumbent. See JOURNAL.md
+                   entry 16, which corrects entry 14 on exactly this point
   managed          `Codec.Write` -- one pass, learned length width
   managed-2pass    `Codec.SizeOf` then `Codec.WriteSized` -- the two-pass shape
                    Google.Protobuf uses, so the difference between it and
