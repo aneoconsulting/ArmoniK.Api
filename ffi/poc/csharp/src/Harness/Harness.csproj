@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>harness</AssemblyName>
+    <RootNamespace>Armonik.Ffi.Harness</RootNamespace>
+    <Optimize>true</Optimize>
+    <!-- R9: JIT tiering and PGO OFF handicaps a managed incumbent, so they stay
+         ON, at their .NET 8 defaults, and the harness prints what they were. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.28.3" />
+    <PackageReference Include="Grpc.Tools" Version="2.66.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The incumbent's classes come from the SAME generated .proto the facade
+         comes from, so no arm is reading a different description (R1). -->
+    <Protobuf Include="../../../../schema/generated/shapes.proto"
+              ProtoRoot="../../../../schema/generated"
+              GrpcServices="None" Access="Public" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Facade/Facade.csproj" />
+  </ItemGroup>
+
+</Project>

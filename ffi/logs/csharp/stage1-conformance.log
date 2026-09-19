@@ -1,0 +1,73 @@
+Stage 1: the correctness gate. R2, and nothing is timed until it passes.
+
+commit:   d7c5a04717c12acf66ed3e978f4a6f629090795f (+ this slice, uncommitted at run time)
+schema:   ffi/schema/generated/manifest.json, VALIDATED by the Rust slice against
+          prost 0.14.4 and prost-reflect 0.16.5. A slice that disagrees with a hash
+          has found a defect in itself.
+machine:  4 vCPU Intel(R) Xeon(R) Processor @ 2.80GHz, 15 GiB
+sdk:      8.0.131
+
+Arms checked for byte identity (R2):
+  gp-tba    Google.Protobuf  msg.ToByteArray()                  -- what application code writes
+  gp-wto    Google.Protobuf  CalculateSize + WriteTo(Span)      -- the fair encode baseline
+  managed   the generated pure-C# codec, one pass, learned length width
+  2pass     the same codec, SizeOf then WriteSized              -- Google.Protobuf's shape
+  vector    the committed .bin, byte for byte (payloads at or under 64 KB)
+  mrt/grt   decode then re-encode reproduces the canonical bytes
+  value     decode then compare FIELD BY FIELD against the graph the builder made,
+            through a comparer emitted from the same walker as the codec. Without
+            this column a decoder that drops a field the encoder also omits passes.
+
+The core-ffi arm is absent by instruction: ABI v1 open decision 1 is unsettled,
+so the ABI is not frozen and a binding built against a draft measures the draft.
+
+ok    src/Facade/Generated/Build.cs
+ok    src/Facade/Generated/Codec.cs
+ok    src/Facade/Generated/Eq.cs
+ok    src/Facade/Generated/Types.cs
+ok    src/Facade/Generated/Values.cs
+ok    src/Harness/Generated/Arms.cs
+ok    src/Harness/Generated/BuildGp.cs
+19 messages, 72 length-prefix sites, walker guard passed on 1 message(s) with a oneof
+
+# harness: conformance
+# utc:                 2026-09-19T07:12:43Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# facade TFM:          net8.0
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+payload  shape  root                        bytes  gp-tba  gp-wto  managed  2pass  vector  mrt  grt  value
+----------------------------------------------------------------------------------------------------------------------
+P1.1     M1     ListResultsResponse          858  ok      ok      ok       ok     ok      ok   ok   ok
+P1.2     M1     ListResultsResponse       218121  ok      ok      ok       ok     -       ok   ok   ok
+P1.3     M1     ListResultsResponse          605  ok      ok      ok       ok     ok      ok   ok   ok
+P2.1     M2     ListTasksDetailedResponse    1037  ok      ok      ok       ok     ok      ok   ok   ok
+P2.2     M2     ListTasksDetailedResponse  540422  ok      ok      ok       ok     -       ok   ok   ok
+P2.3     M2     ListTasksDetailedResponse  647024  ok      ok      ok       ok     -       ok   ok   ok
+P2.4     M2     ListTasksDetailedResponse  979465  ok      ok      ok       ok     -       ok   ok   ok
+P2.5     M2     ListTasksDetailedResponse   19632  ok      ok      ok       ok     ok      ok   ok   ok
+P3.1     M3     ListProbeResponse          12097  ok      ok      ok       ok     ok      ok   ok   ok
+P4.1     M4     ListTaskSummaryResponse    65321  ok      ok      ok       ok     ok      ok   ok   ok
+P5.1     M5     UploadResultDataMessage      116  ok      ok      ok       ok     ok      ok   ok   ok
+P5.2     M5     UploadResultDataMessage    65620  ok      ok      ok       ok     -       ok   ok   ok
+P5.3     M5     UploadResultDataMessage  1048660  ok      ok      ok       ok     -       ok   ok   ok
+P5.4     M5     UploadResultDataMessage  4194390  ok      ok      ok       ok     -       ok   ok   ok
+P6.1     M6     ListMetricsResponse       123354  ok      ok      ok       ok     -       ok   ok   ok
+P7.1     -      DualResponse                  98  perm    perm    perm     perm   perm    ok   ok   ok
+
+120 checks, 0 failure(s)

@@ -1,0 +1,11 @@
+# D19 in the Rust slice: the repository root's `[Bb]in/` rule (meant for .NET
+# build output, which is exactly what this directory has) silently excluded
+# every measurement binary in that slice, so its logs were committed and the
+# code that produced them was not. A figure whose harness is not in the tree
+# cannot be defended (R4), so the rule is re-included here for SOURCES and left
+# in place for build output.
+bin/
+obj/
+!src/**/*.cs
+!gen/**/*.py
+__pycache__/
