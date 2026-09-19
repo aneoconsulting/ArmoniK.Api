@@ -1,0 +1,41 @@
+== shapes_pb2.py for the incumbent arm ==
+   wrote build/pb2/shapes_pb2.py from /home/user/ArmoniK.Api/ffi/schema/generated/shapes.proto
+== the plain C library (no Python in it) ==
+   0000000000001100 T ak_noop
+   0000000000001110 T ak_noop_buf
+   0000000000001120 T ak_reverse_n
+   0000000000001160 T ak_reverse_n_floor
+== python 3.11 (/tmp/claude-0/-home-user-ArmoniK-Api/cc43f096-44dc-5ade-b8de-85af95ca717c/scratchpad/venv3.11/bin/python) ==
+   include: /usr/include/python3.11
+   built build/py3.11/_akmech.cpython-311-x86_64-linux-gnu.so
+   built build/py3.11/_akmech3.abi3.so
+   built build/py3.11/_akcodec.cpython-311-x86_64-linux-gnu.so and the counting build beside it
+   _akmech.cpython-311-x86_64-linux-gnu.so: 3 undefined ak_* imports, NEEDED=1
+   _akmech3.abi3.so: 3 undefined ak_* imports, NEEDED=1
+== python 3.10 (/tmp/claude-0/-home-user-ArmoniK-Api/cc43f096-44dc-5ade-b8de-85af95ca717c/scratchpad/venv3.10/bin/python) ==
+   include: /usr/include/python3.10
+   built build/py3.10/_akmech.cpython-310-x86_64-linux-gnu.so
+   built build/py3.10/_akmech3.abi3.so
+   built build/py3.10/_akcodec.cpython-310-x86_64-linux-gnu.so and the counting build beside it
+   _akmech.cpython-310-x86_64-linux-gnu.so: 3 undefined ak_* imports, NEEDED=1
+   _akmech3.abi3.so: 3 undefined ak_* imports, NEEDED=1
+== python 3.12 (/tmp/claude-0/-home-user-ArmoniK-Api/cc43f096-44dc-5ade-b8de-85af95ca717c/scratchpad/venv3.12/bin/python) ==
+   include: /usr/include/python3.12
+   built build/py3.12/_akmech.cpython-312-x86_64-linux-gnu.so
+   built build/py3.12/_akmech3.abi3.so
+   built build/py3.12/_akcodec.cpython-312-x86_64-linux-gnu.so and the counting build beside it
+   _akmech.cpython-312-x86_64-linux-gnu.so: 3 undefined ak_* imports, NEEDED=1
+   _akmech3.abi3.so: 3 undefined ak_* imports, NEEDED=1
+== python 3.13 (/tmp/claude-0/-home-user-ArmoniK-Api/cc43f096-44dc-5ade-b8de-85af95ca717c/scratchpad/venv3.13/bin/python) ==
+   include: /usr/include/python3.13
+   built build/py3.13/_akmech.cpython-313-x86_64-linux-gnu.so
+   built build/py3.13/_akmech3.abi3.so
+   built build/py3.13/_akcodec.cpython-313-x86_64-linux-gnu.so and the counting build beside it
+   _akmech.cpython-313-x86_64-linux-gnu.so: 3 undefined ak_* imports, NEEDED=1
+   _akmech3.abi3.so: 3 undefined ak_* imports, NEEDED=1
+
+== the one abi3 artifact: built on python 3.10, in build/abi3 ==
+   loaded by python 3.11 -> fwd_noop(5) = 7
+   loaded by python 3.10 -> fwd_noop(5) = 7
+   loaded by python 3.12 -> fwd_noop(5) = 7
+   loaded by python 3.13 -> fwd_noop(5) = 7

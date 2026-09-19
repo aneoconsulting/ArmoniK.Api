@@ -1,0 +1,205 @@
+# python slice, work unit 1: facade storage and the premise control, over M1
+#
+# date:      2026-09-19T07:26:47Z
+# machine:   4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
+# commit:    d7c5a04
+# R13:       this machine's Rust crossing is 2.1 ns (fwd+reverse) to 2.8 ns
+#            (forward), against 1.8 ns on the Rust slice's container.
+#            See 00-r13-rust-crossing.log. Quote every absolute below
+#            against it as well as in nanoseconds.
+
+########## process 1 ##########
+# python slice, work unit 1: the codec arms over the M1 subtree
+#
+# interpreter:  3.11.15 (main, Mar  3 2026, 09:26:23) [GCC 13.3.0]
+# incumbent:    protobuf 7.36.2 on upb
+# rounds:       11, interleaved; per-case target 20 ms
+# payloads:     P1.1, P1.2, P1.3 (design/SHAPES.md; P1.3 is the absent path)
+# direction:    encode only. Decode is not built in work unit 1
+# NOT in any arm: the Rust core. This prices the shim-to-FACADE edge,
+#                 which is the one that is a crossing per field.
+
+## the correctness gate (README R2)
+   conformance.py exit 0: ALL CHECKS PASS
+
+## encode P1.1
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                      21778       906.46     900.69     932.31                  1.000
+pycodec / plain                                       1510     23628.93   23336.51   25160.26                 26.067
+pycodec / __slots__                                   1642     23400.46   23128.17   24155.77                 25.815
+cshim getattr / plain                                12087      1663.35    1654.87    2028.80                  1.835
+cshim getattr / __slots__                            24340      1602.94    1589.04    1643.72                  1.768
+cshim member / C ext type                            23759       833.83     828.96     862.03                  0.920
+cshim pyacc (python fn) / plain                       6198      5546.33    5479.90    5929.57                  6.119
+cshim pyacc (C attrgetter) / plain                    7762      5066.45    4991.64    5517.55                  5.589
+-- floor: one copy of the output (858 B)            524288        46.93      46.27      47.38                  0.052
+                                                no traversal. An encode cannot go below this
+
+## encode P1.2
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                         64    312313.22  308225.19  320203.95                  1.000
+pycodec / plain                                         64   6100169.95 6026197.20 6280386.39                 19.532
+pycodec / __slots__                                     64   6050082.69 5967928.42 6315201.67                 19.372
+cshim getattr / plain                                   64    383779.16  381097.62  395954.17                  1.229
+cshim getattr / __slots__                               64    379671.78  373820.45  389469.72                  1.216
+cshim member / C ext type                              128    191096.98  189376.18  194234.45                  0.612
+cshim pyacc (python fn) / plain                         64   1255255.22 1238010.03 1284505.91                  4.019
+cshim pyacc (C attrgetter) / plain                      64   1156348.98 1128753.41 1193307.81                  3.703
+-- floor: one copy of the output (218121 B)           6418      5689.48    5640.63    5802.77                  0.018
+                                                no traversal. An encode cannot go below this
+
+## encode P1.3
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                       4540      8846.21    8796.79    9012.47                  1.000
+pycodec / plain                                        328    121320.62  119683.33  128689.46                 13.714
+pycodec / __slots__                                    166    120724.57  119414.59  133088.89                 13.647
+cshim getattr / plain                                  970     40735.68   40061.11   41611.76                  4.605
+cshim getattr / __slots__                              486     42245.83   41617.13   43540.81                  4.776
+cshim member / C ext type                             2348      8427.91    8311.35    8847.41                  0.953
+cshim pyacc (python fn) / plain                        128    222921.56  221240.84  230858.73                 25.200
+cshim pyacc (C attrgetter) / plain                     128    194647.15  193871.29  213630.52                 22.003
+-- floor: one copy of the output (605 B)            524288        45.97      44.84      46.77                  0.005
+                                                no traversal. An encode cannot go below this
+
+## the two questions this table answers
+#
+# 1. STORAGE. Compare `cshim getattr / plain` with `cshim member /
+#    C ext type`: the same generated traversal, the same bytes, and
+#    29 crossings per element against 7 (conformance.py).
+# 2. THE PREMISE (README 9.1, last bullet). Compare `cshim getattr /
+#    plain` with `cshim pyacc (python fn) / plain`: the same C
+#    traversal, the same crossing COUNT, and the only difference is
+#    whether a field is reached by a C-API read or by a call into the
+#    interpreter. That is a within-arm delta, which README R4 says
+#    survives what a ratio to a third arm does not.
+
+########## process 2 ##########
+# python slice, work unit 1: the codec arms over the M1 subtree
+#
+# interpreter:  3.11.15 (main, Mar  3 2026, 09:26:23) [GCC 13.3.0]
+# incumbent:    protobuf 7.36.2 on upb
+# rounds:       11, interleaved; per-case target 20 ms
+# payloads:     P1.1, P1.2, P1.3 (design/SHAPES.md; P1.3 is the absent path)
+# direction:    encode only. Decode is not built in work unit 1
+# NOT in any arm: the Rust core. This prices the shim-to-FACADE edge,
+#                 which is the one that is a crossing per field.
+
+## the correctness gate (README R2)
+   conformance.py exit 0: ALL CHECKS PASS
+
+## encode P1.1
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                      21756       918.62     900.59    1078.57                  1.000
+pycodec / plain                                       1618     23674.75   23213.64   42411.58                 25.772
+pycodec / __slots__                                   1698     23983.93   23310.88   26531.07                 26.109
+cshim getattr / plain                                23920      1668.72    1647.02    1896.62                  1.817
+cshim getattr / __slots__                            12552      1609.60    1586.88    1867.32                  1.752
+cshim member / C ext type                            24047       868.42     832.66     912.34                  0.945
+cshim pyacc (python fn) / plain                       6934      5885.38    5477.53    6741.17                  6.407
+cshim pyacc (C attrgetter) / plain                    7540      5045.51    4906.13    5773.37                  5.492
+-- floor: one copy of the output (858 B)            524288        46.93      45.47      50.76                  0.051
+                                                no traversal. An encode cannot go below this
+
+## encode P1.2
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                         64    317044.12  313062.56  342605.70                  1.000
+pycodec / plain                                         64   6324139.86 6113196.39 6577406.66                 19.947
+pycodec / __slots__                                     64   6270827.80 6106260.33 6578291.12                 19.779
+cshim getattr / plain                                   64    390164.00  378663.88  438719.52                  1.231
+cshim getattr / __slots__                               64    378649.17  374291.44  416437.23                  1.194
+cshim member / C ext type                              128    191266.20  187828.95  198571.20                  0.603
+cshim pyacc (python fn) / plain                         64   1295080.59 1239837.55 1340794.55                  4.085
+cshim pyacc (C attrgetter) / plain                      64   1137685.42 1125872.77 1338692.47                  3.588
+-- floor: one copy of the output (218121 B)           6238      5855.09    5829.48    6220.19                  0.018
+                                                no traversal. An encode cannot go below this
+
+## encode P1.3
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                       4294      8977.51    8822.31    9768.51                  1.000
+pycodec / plain                                        160    123569.06  119745.56  144106.66                 13.764
+pycodec / __slots__                                    158    122056.43  119406.23  148570.13                 13.596
+cshim getattr / plain                                  508     39798.79   39324.63   47908.36                  4.433
+cshim getattr / __slots__                              866     41904.70   41681.51   56323.02                  4.668
+cshim member / C ext type                             4328      8383.74    8292.99    9862.09                  0.934
+cshim pyacc (python fn) / plain                        128    221432.76  218629.73  233669.41                 24.665
+cshim pyacc (C attrgetter) / plain                     128    193873.09  190985.09  237632.95                 21.595
+-- floor: one copy of the output (605 B)            524288        45.27      44.77      49.29                  0.005
+                                                no traversal. An encode cannot go below this
+
+## the two questions this table answers
+#
+# 1. STORAGE. Compare `cshim getattr / plain` with `cshim member /
+#    C ext type`: the same generated traversal, the same bytes, and
+#    29 crossings per element against 7 (conformance.py).
+# 2. THE PREMISE (README 9.1, last bullet). Compare `cshim getattr /
+#    plain` with `cshim pyacc (python fn) / plain`: the same C
+#    traversal, the same crossing COUNT, and the only difference is
+#    whether a field is reached by a C-API read or by a call into the
+#    interpreter. That is a within-arm delta, which README R4 says
+#    survives what a ratio to a third arm does not.
+
+########## process 3 ##########
+# python slice, work unit 1: the codec arms over the M1 subtree
+#
+# interpreter:  3.11.15 (main, Mar  3 2026, 09:26:23) [GCC 13.3.0]
+# incumbent:    protobuf 7.36.2 on upb
+# rounds:       11, interleaved; per-case target 20 ms
+# payloads:     P1.1, P1.2, P1.3 (design/SHAPES.md; P1.3 is the absent path)
+# direction:    encode only. Decode is not built in work unit 1
+# NOT in any arm: the Rust core. This prices the shim-to-FACADE edge,
+#                 which is the one that is a crossing per field.
+
+## the correctness gate (README R2)
+   conformance.py exit 0: ALL CHECKS PASS
+
+## encode P1.1
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                      21840       907.92     902.19     923.80                  1.000
+pycodec / plain                                       1218     24765.27   24416.90   25181.83                 27.277
+pycodec / __slots__                                   1516     24733.55   24431.68   25965.56                 27.242
+cshim getattr / plain                                 8192      1728.73    1720.56    1841.89                  1.904
+cshim getattr / __slots__                            16384      1701.35    1671.98    1796.27                  1.874
+cshim member / C ext type                            24511       835.24     818.56     874.12                  0.920
+cshim pyacc (python fn) / plain                       6546      5512.71    5401.19    5841.42                  6.072
+cshim pyacc (C attrgetter) / plain                    7790      4970.03    4911.79    5531.65                  5.474
+-- floor: one copy of the output (858 B)            524288        47.33      46.59      48.74                  0.052
+                                                no traversal. An encode cannot go below this
+
+## encode P1.2
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                         64    317612.88  309305.22  385297.77                  1.000
+pycodec / plain                                         64   6437900.70 6316567.41 6617211.94                 20.270
+pycodec / __slots__                                     64   6346984.23 6255940.72 8167941.55                 19.983
+cshim getattr / plain                                   64    397711.06  391351.81  457001.58                  1.252
+cshim getattr / __slots__                               64    389719.50  384380.17  434598.80                  1.227
+cshim member / C ext type                              128    190503.38  187614.02  228822.99                  0.600
+cshim pyacc (python fn) / plain                         64   1265340.64 1241395.39 1629912.89                  3.984
+cshim pyacc (C attrgetter) / plain                      64   1138416.53 1121328.58 1233245.08                  3.584
+-- floor: one copy of the output (218121 B)           6246      5833.00    5810.74    6155.74                  0.018
+                                                no traversal. An encode cannot go below this
+
+## encode P1.3
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                       4466      8900.34    8800.00    9632.09                  1.000
+pycodec / plain                                        280    124284.45  123588.44  135443.24                 13.964
+pycodec / __slots__                                    157    125325.38  123179.58  131621.18                 14.081
+cshim getattr / plain                                  890     41322.33   41005.23   43038.88                  4.643
+cshim getattr / __slots__                              466     42752.67   42183.68   48350.44                  4.803
+cshim member / C ext type                             4668      8396.27    8347.28    8765.45                  0.943
+cshim pyacc (python fn) / plain                        128    222460.93  221060.43  234147.08                 24.995
+cshim pyacc (C attrgetter) / plain                     128    198263.96  193378.49  208488.12                 22.276
+-- floor: one copy of the output (605 B)            524288        45.79      45.22      46.74                  0.005
+                                                no traversal. An encode cannot go below this
+
+## the two questions this table answers
+#
+# 1. STORAGE. Compare `cshim getattr / plain` with `cshim member /
+#    C ext type`: the same generated traversal, the same bytes, and
+#    29 crossings per element against 7 (conformance.py).
+# 2. THE PREMISE (README 9.1, last bullet). Compare `cshim getattr /
+#    plain` with `cshim pyacc (python fn) / plain`: the same C
+#    traversal, the same crossing COUNT, and the only difference is
+#    whether a field is reached by a C-API read or by a call into the
+#    interpreter. That is a within-arm delta, which README R4 says
+#    survives what a ratio to a third arm does not.
+
