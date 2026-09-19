@@ -9,12 +9,19 @@
 # The perturbation here is Java's version of the rust slice's k exported no-ops: k dead
 # static methods nothing calls, added to a class every arm loads. It changes the class
 # file, the constant pool and the method ordering, and changes no behaviour at all.
+#
+# It drifts the DELTA instrument rather than the main bench, on purpose. The main bench
+# rebuilds a pool of protobuf messages between rounds so its baseline is honest, and the
+# collector that follows is already larger than most of what is being looked for; drifting
+# it would measure that twice. The delta instrument has no incumbent and nothing allocating
+# between rounds, so what moves between two builds of it moved for a reason that is the
+# build.
 set -eu
 cd "$(dirname "$0")/.."
 J17=${J17:-/usr/lib/jvm/java-17-openjdk-amd64}
 unset JAVA_TOOL_OPTIONS || true
 CP=$(cat deps/cp.txt)
-ROUNDS=${ROUNDS:-24}
+ROUNDS=${ROUNDS:-20}
 ONLY=${ONLY:-}
 
 echo "== across-build drift: the same source, perturbed neutrally =="
@@ -48,9 +55,11 @@ PY
     $(find src/java src/generated/java17 src/generated/shared -name '*.java') \
     $(find build/pbjava -name '*.java') 2>/dev/null
   echo "# --- build k=$K ---"
-  CLS="build/drift$K" ./gen/bench.sh -Dak.rounds=$ROUNDS -Dak.roundns=25000000 \
-    -Dak.decode=0 ${ONLY:+-Dak.only=$ONLY} 2>/dev/null \
-    | sed -n '/^id     bytes/,/^$/p'
+  CP2=$(cat deps/cp.txt)
+  "$J17/bin/java" -Xms2g -Xmx2g -XX:+UseParallelGC -cp "build/drift$K:$CP2" \
+    -Dak.lib="$PWD/build/jni/libakjni.so" -Dak.rounds=$ROUNDS \
+    -Dak.roundns=40000000 ${ONLY:+-Dak.only=$ONLY} ak.RunDelta 2>/dev/null \
+    | sed -n '/^id     iters/,/^$/p'
 done
 rm -f src/java/ak/Pad.java
 rm -rf build/drift0 build/drift3 build/drift11

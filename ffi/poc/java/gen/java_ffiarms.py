@@ -9,8 +9,11 @@ def emit(ir, ns=N.PKG, binding="Binding", facade=None):
     facade = facade or ns
     rows = [(pid, spec) for pid, spec in ir.schema["payloads"].items()
             if spec["root"] in ir.messages]
-    o = [HEAD, "package %s;" % ns, "",
-         "/** Payload id -> the `core-ffi` arm's encode and decode. */",
+    o = [HEAD, "package %s;" % ns, ""]
+    if facade != ns:
+        o.append("import %s.*;" % facade)
+        o.append("")
+    o += ["/** Payload id -> the `core-ffi` arm's encode and decode. */",
          "public final class FfiArms {",
          "  private FfiArms() {}", "",
          "  public static boolean encodable(String id) {"]

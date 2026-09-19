@@ -540,7 +540,7 @@ def _child_type(ir, owner, step):
 
 # --------------------------------------------------------------------- the class
 
-def emit(ir, level=17, ns=N.PKG):
+def emit(ir, level=17, ns=N.PKG, facade_ns=None):
     enc = S.enc_slots(ir)
     dec = S.dec_slots(ir)
     enc_ix = {(msg, IR.slot_name(path)): i for i, (msg, path, _f) in enumerate(enc)}
@@ -548,7 +548,15 @@ def emit(ir, level=17, ns=N.PKG):
 
     o = [HEAD, "package %s;" % ns, "",
          "import ak.Arena;", "import ak.Mem;", "import ak.Native;", "import ak.Str17;",
-         "import ak.Utf8;", "", DOC % (level, "the target" if level >= 17 else "the floor"),
+         "import ak.Utf8;"]
+    if facade_ns and facade_ns != ns:
+        # README 5.2 arm b wants the FLOOR implementation on the TARGET runtime, and R4
+        # wants the ratio formed inside one process. Two source trees with the same class
+        # names cannot share a classpath, so the floor binding is emitted into a package of
+        # its own over the SAME facade types: one process, one paired ratio, and the only
+        # thing that differs between the two arms is how a String reaches the core.
+        o.append("import %s.*;" % facade_ns)
+    o += ["", DOC % (level, "the target" if level >= 17 else "the floor"),
          "public final class Binding implements AutoCloseable, ak.Callbacks {"]
     o.append(PRELUDE % (level, ARENA_BYTES))
 
