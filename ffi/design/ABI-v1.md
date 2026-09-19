@@ -905,7 +905,14 @@ Each blocks something. None is settled by a measurement that exists today.
    **What survives.** The malformed-input policy stays for the *converting*
    transcoders (`ak_tc_utf16`, `ak_tc_latin1`, `ak_tc_ucs4`): an unpaired surrogate
    is not representable in UTF-8, that is a conversion question rather than a
-   validation one, and section 12.2's transcode pair is still a pair. Encode
+   validation one, and section 12.2's transcode pair is still a pair. **On CPython
+   two of those three compete with the interpreter's own cache rather than with
+   nothing**: reading a `str`'s UTF-8 costs 2.19-2.27 ns for ASCII and 64.2-67.8 ns
+   for Latin-1 and above-U+00FF when the object has no cached UTF-8 yet, which is
+   exactly the state of a string that came off the wire, and CPython keeps the
+   result afterwards. So `ak_tc_latin1` and `ak_tc_ucs4` are worth what they save
+   against a *first* read, not against a steady-state one, and on ArmoniK's actual
+   content (ASCII GUIDs) the passthrough is the common path anyway. Encode
    validation survives only as an **opt-in diagnostic mode**, because it surfaces a
    bad string at the caller that produced it rather than at a receiver in another
    language where a conformant parser rejects the whole message; that is roughly

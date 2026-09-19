@@ -66,7 +66,18 @@ barrier in place of a memory clobber the C++ figure is 1.822-1.824. A C++ host
 paying more than a Rust host through the same `.so` is itself a result nobody
 predicted. **The table is re-taken in one process on one controlled physical
 machine once the slices exist**, and until then the rule it produced survives
-while the numbers under it do not. The rule is what the design rests on, and
+while the numbers under it do not. **A third container has now confirmed it**: the
+python slice measures the rust crossing at 2.1 ns forward-plus-reverse where the
+rust slice's own container gave 1.8 and the C++ slice's gave 2.1 to 2.2. Three
+slices, three machines, three numbers for one quantity.
+
+For the record, and in the form R13 asks for rather than as absolutes: a **Python**
+forward crossing through a C extension is 11.4 to 12.5 ns net of the loop that
+drives it, **4.1 to 4.5 times a Rust crossing on the same machine**. The row that
+belongs beside the managed ones is not Python's interpreter re-entry (39.9 to 40.5
+ns, which would sit between .NET 8 and JNI) but the **C-API call on a primitive at
+2.83 to 20.54 ns**, because the whole point of section 9.1 is that this design
+never makes the re-entry call. The rule is what the design rests on, and
 nothing in it depends on which column is right.
 
 ### The base design is out of date, and that is work item W1
@@ -357,8 +368,8 @@ deliverable.
 | W3 | **Rust slice.** Section 4.1. | **Done.** Four arms over every message and payload of `design/SHAPES.md`, all byte-identical to the validated manifest, plus the three content sets, the unknown-field vectors and the RPC arm. The decomposition every other slice subtracts is available: **a crossing costs 1.8 ns through a shared library**, and the RPC half costs **two crossings per call, zero per field**. See [`findings/rust.md`](findings/rust.md) for what it does not establish, which is longer than what it does. |
 | W4 | **C++ slice on the amended ABI.** Rebuild against W1, re-measure against protobuf C++, and demonstrate the C++11 floor. **In flight.** Full codec plus the RPC arm; shared library primary, static as a separately labelled second arm. It carries decision 1, which blocks freezing W1. **Done.** See [`findings/cpp.md`](findings/cpp.md). "The managed amendments are free in C++" is now a measurement and the answer is no, not uniformly. 28 adversarial review findings answered, moving the encode column about 8 points and the RPC verdict 0.3, plus two arms nobody asked for: upb as a ceiling, and a borrowed-string facade. |
 | W5 | **C# slice.** ~~Import the existing slice~~, rebuild against W1, then close its two named gaps: a managed decode control, and oneofs plus explicit presence. **There is nothing to import**: no branch carries the prior slice's sources and only the published report survives, so this is a rebuild and open question 1 is moot. **In flight, scoped to its ABI-independent half** (incumbent, facade, correctness, the managed decode control); the `core-ffi` arm waits on decision 1. | Both gaps have numbers, and the floor (netstandard2.0 or net48) compiles and passes correctness. |
-| W6 | **Java slice.** ~~Import~~, rebuild against W1, re-measure encode, and keep the generated-Java-codec arm as a first-class candidate. Nothing to import here either. **Held until decision 1 settles**, because its question is precisely whether the encode regression survives ABI v1. | The encode verdict is stated against ABI v1, on JDK 17 with JNI, with the Java 8 floor demonstrated. |
-| W7 | **Python slice.** Section 9. **In flight**, and exposed to no open decision: its first work unit is the binding-mechanism and facade-storage microbenchmarks, which price this runtime rather than the ABI's shape. | Python has a verdict of the same shape as the others, or a stated reason why the question is different there. |
+| W6 | **Java slice.** ~~Import~~, rebuild against W1, re-measure encode, and keep the generated-Java-codec arm as a first-class candidate. Nothing to import here either. **In flight, full scope**, now that decision 1 is answered. It carries a prediction to falsify: the batching crossover is 2 to 4 ns and JNI is 98.4, so batching should win decisively there. | The encode verdict is stated against ABI v1, on JDK 17 with JNI, with the Java 8 floor demonstrated. |
+| W7 | **Python slice.** Section 9. **Work unit 1 done**, slice proper not started; see [`findings/python.md`](findings/python.md). The mechanism is settled (C extension; `ctypes` and `cffi` refused for the codec, their callback being 165-170x a C-to-C call), the storage is settled for encode, and 9.1's premise holds. **It also removed outcome 2 from the table for Python**: the generated pure-Python codec is 19.4 to 20.3 times upb. | Python has a verdict of the same shape as the others, or a stated reason why the question is different there. |
 | W8 | **Conformance corpus.** Section 10. | Every slice produces and consumes the same bytes, and the corpus is generated rather than curated. |
 | W9 | **The report.** | `REPORT.md` states a recommendation, the evidence for it, and what it does not establish. |
 
@@ -581,11 +592,26 @@ What follows from it:
   spelling). They remain candidates for the RPC layer, where the crossing count
   is two per call.
 - **The facade's storage becomes a measured choice**, because it decides what a
-  field read costs the shim: a plain class (a dict lookup), a `__slots__` class
-  (a descriptor offset), or a C extension type (a struct member, so a field read
-  stops being a crossing at all). Each is more work than the last and each is
-  faster; the slice prices them rather than assuming, and it keeps the facade
-  idiomatic in all three.
+  field read costs the shim: a plain class, a `__slots__` class, or a C extension
+  type whose fields the shim reads as struct members. **Measured, and the
+  ordering this document used to give is wrong.** Through `PyObject_GetAttr`,
+  which is what a C shim actually calls, `__slots__` is *slower* than a plain
+  class (11.20-11.30 ns against 9.80-9.88) and so is a C extension type reached
+  through its member descriptor. The three do not differ in how fast a crossing
+  is. **They differ in whether the shim can stop making one**: only the struct
+  member read moves, from 29 crossings per element to 7, and only it beats upb
+  (0.600-0.612 against 1.19-1.25 for the getattr arms on P1.2). The absent path
+  separates them five-fold, because a getattr shim pays all 29 crossings on an
+  element that encodes to nothing. Keeping the facade idiomatic in all three is
+  still the requirement, and a C extension type is the least idiomatic of them,
+  which is a cost against the maintenance case that nobody has priced.
+- **Speaking the C API is not unconditionally cheaper than being in Python**, and
+  this is the argument the section was missing. A specialised bytecode
+  `LOAD_ATTR` costs 3.37-3.91 ns where `PyObject_GetAttr` from C with an interned
+  key costs 9.44-9.52: CPython's interpreter has an inline cache and the C API has
+  no equivalent entry point, so **a C shim reading a plain facade does the same
+  work about 2.5 times more slowly than the interpreter would.** The C API pays
+  when it removes a crossing, not when it replaces one.
 - **The GIL is still held for every C-API call**, so batching still matters:
   fewer, larger crossings mean fewer GIL-held stretches and a longer window in
   which the pure parse can run with the GIL released.
@@ -765,6 +791,14 @@ Three outcomes are possible and all three are acceptable results for this branch
    This is Java's own fallback recommendation and it keeps most of the
    maintenance argument: one generator, one schema description, one annotation
    set, one conformance corpus, one options schema.
+
+   **This outcome is not available in Python, and that is now measured rather
+   than suspected.** The generated pure-Python codec is **19.4 to 20.3 times upb**
+   on P1.2 — the same arm that on Java beats the C ABI in both directions. So
+   "generate the codec" is a recommendation for the managed runtimes and a
+   non-starter for the one language whose incumbent is already native. Stated
+   without that qualification it is wrong for a fifth of the estate, and with it
+   outcome 2 collapses into outcome 3.
 3. **Adopt per language.** C++ and Python on the full core, managed runtimes on
    the generated codec, one RPC layer everywhere.
 
