@@ -435,6 +435,53 @@ def _fc_child(opts):
         srv.stop(0).wait()
 
 
+def nagle_probe(out):
+    """Does grpcio show the delayed-ACK artifact the rust slice found in tonic's server?
+
+    The test identifies it rather than looking for a number: under Nagle plus delayed ACK a
+    SMALL response costs MORE than a large one, which is backwards for flow control and
+    right for Nagle. Measured rather than inherited, because this build has no
+    `grpc.tcp_nodelay` argument -- a caller cannot set it either way, so what the C core
+    does by default is the only answer there is.
+    """
+    print("\n## Nagle: is a small response dearer than a large one?", file=out)
+    print("   %-10s %10s %12s" % ("transport", "bytes", "ms/RPC"), file=out)
+    for kind in ("unix", "tcp"):
+        for size in (1024, len(arms.reference(PID))):
+            body = b"\x5a" * size
+            server = serve(body, DEFAULT_SERVER_ARGS)
+            if kind == "unix":
+                t = "unix:" + os.path.join(tempfile.mkdtemp(prefix="akng"), "s")
+                server.add_insecure_port(t)
+            else:
+                t = "127.0.0.1:%d" % server.add_insecure_port("127.0.0.1:0")
+            server.start()
+            try:
+                with grpc.insecure_channel(t, options=DEFAULT_SERVER_ARGS) as ch:
+                    call = ch.unary_unary(METHOD, request_serializer=lambda b: b,
+                                          response_deserializer=lambda b: b)
+                    call(b"")
+                    v = []
+                    for _ in range(30):
+                        t0 = time.perf_counter_ns()
+                        call(b"")
+                        v.append(time.perf_counter_ns() - t0)
+                    v.sort()
+                    print("   %-10s %10d %12.3f"
+                          % (kind, size, v[len(v) // 2] / 1e6), file=out)
+            finally:
+                server.stop(0).wait()
+    print("   Monotone in size on both transports, with nothing near 40 ms, means the C",
+          file=out)
+    print("   core sets TCP_NODELAY itself. The artifact was the tonic SERVER's under",
+          file=out)
+    print("   serve_with_incoming and it does not reach a Python caller -- and there is no",
+          file=out)
+    print("   grpc.tcp_nodelay in this build, so it is not a setting anyone could have got",
+          file=out)
+    print("   wrong from here.", file=out)
+
+
 def report_flow_control(out):
     """What THIS build of the C core does with a window and with BDP, established."""
     import json
