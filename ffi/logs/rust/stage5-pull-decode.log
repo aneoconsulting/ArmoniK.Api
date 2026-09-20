@@ -1096,6 +1096,14 @@ P5.4            18.4     306540.7      -1730.4         1250.4         2980.8    
      P4.1       601          3.005       5                   3
      P1.2         5          0.005       6                   3
 
+   **AND THE ANSWER THE SPECIFICATION NEEDS, PLAINLY: PULL REMOVES THE UPCALLS RATHER
+   THAN REDUCING THEM.**  `ak_parse_*` makes ZERO reverse calls -- measured on every one
+   of the thirteen counted payloads, not asserted, and structural rather than incidental
+   because the traversal has no vtable to call.  The java slice's 7.004 upcalls per
+   element go to 0; on P2.2 that is 3,501 to 0.  What replaces them is a per-MESSAGE
+   count of forward calls: 3 with one drain chunk, 16 at section 7.1's 32 KB chunks.
+   These are different answers for the specification and this one is the first.
+
    **Push's crossings are per ELEMENT; pull's are per MESSAGE.**  On P2.2 that is
    3,501 against 16, or against 3 if the host drains in one chunk.  Three is the
    floor for every payload in the set regardless of shape or size: parse,
