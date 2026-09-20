@@ -104,87 +104,43 @@ public static unsafe class Bench
                 Run = n => { for (int i = 0; i < n; i++) Consume(arms.GpMarshaller(mw)); },
             });
 
-            // The core-ffi arm, M1 only: ResultRaw is the only element type whose
-            // binding is built. Widening it is the next piece, not a measurement.
+            // The core-ffi arm, for every payload whose root has a binding --
+            // which since the emitter was generalised is every one of them. The
+            // arm is built from the same derivation as the ABI declaration, so
+            // a shape cannot be measured with a binding that does not match it.
+            //
+            // The shapes differ in the one way that matters: a LEAF element
+            // batches, so M1's whole run crosses once whatever its length, and a
+            // non-leaf cannot, so M2's crossings are linear in the element count.
+            // That difference is the measurement, not an inefficiency.
 #if NET8_0_OR_GREATER
-            CoreFfiM1 core = null;
-            ListResultsResponse coreSrc = null;
-            if (a.Root == "ListResultsResponse")
+            if (CoreArms.Ids.Contains(a.Id))
             {
-                coreSrc = a.Id switch
+                var core = CoreArms.New(a.Id);
+                // AK_CHUNK sets elements per element-entry call; 0 is the whole
+                // run. The rust slice's host chunks at 150, and matching it
+                // reproduces its crossing counts to the digit.
+                var ck = Environment.GetEnvironmentVariable("AK_CHUNK");
+                if (!string.IsNullOrEmpty(ck) && int.TryParse(ck, out int ckv)) core.Chunk = ckv;
+                var warm = core.EncodeToArray();     // learn the length widths
+                cases.Add(new Case
                 {
-                    "P1.1" => BuildFacade.P1_1(), "P1.2" => BuildFacade.P1_2(),
-                    "P1.3" => BuildFacade.P1_3(), _ => null,
-                };
-                if (coreSrc != null)
+                    Payload = a.Id, Dir = "encode", Arm = "core-ffi",
+                    Run = n => { for (int i = 0; i < n; i++) Consume(core.EncodeNoCopy()); },
+                });
+                // Everything the encode arm does EXCEPT calling the codec, so the
+                // difference between the two is the codec plus every crossing,
+                // measured rather than subtracted.
+                cases.Add(new Case
                 {
-                    core = new CoreFfiM1(coreSrc.Results.Count + 1, row.Bytes * 3 + 65536);
-                    // AK_CHUNK sets elements per ak_elem_* call. 0 is the whole run.
-                    // The Rust slice's host chunks at 150; matching it reproduces its
-                    // crossing counts to the digit, so this is also what prices the
-                    // difference on a runtime whose crossing is 4x Rust's.
-                    var ck = Environment.GetEnvironmentVariable("AK_CHUNK");
-                    if (!string.IsNullOrEmpty(ck) && int.TryParse(ck, out int ckv)) core.Chunk = ckv;
-                    var warm = core.EncodeToArray(coreSrc);   // learn the length widths
-                    var c2 = core; var cs2 = coreSrc;
-                    cases.Add(new Case
-                    {
-                        Payload = a.Id, Dir = "encode", Arm = "core-ffi",
-                        Run = n => { for (int i = 0; i < n; i++) { c2.Encode(cs2, out byte* p, out int l); Consume(l); } },
-                    });
-                    cases.Add(new Case
-                    {
-                        Payload = a.Id, Dir = "encode", Arm = "core-ffi fill",
-                        Run = n => { for (int i = 0; i < n; i++) Consume(c2.Fill(cs2)); },
-                    });
-                    var wsrc = warm;
-                    cases.Add(new Case
-                    {
-                        Payload = a.Id, Dir = "decode", Arm = "core-ffi",
-                        Run = n => { for (int i = 0; i < n; i++) Consume(c2.Decode(wsrc, wsrc.Length).Results.Count); },
-                    });
-                }
-            }
-
-            // The core-ffi arm for M2. TaskDetailed is NOT a leaf, so unlike the
-            // block above this one pays five reverse calls and about five forward
-            // calls PER ELEMENT on encode, and section 7.2's two-calls-per-element
-            // on decode. That difference is the measurement, not an inefficiency
-            // in the binding: it is what the batching predicate stops buying.
-            CoreFfiM2 core2 = null;
-            if (a.Root == "ListTasksDetailedResponse")
-            {
-                ListTasksDetailedResponse src2 = a.Id switch
+                    Payload = a.Id, Dir = "encode", Arm = "core-ffi fill",
+                    Run = n => { for (int i = 0; i < n; i++) Consume(core.Fill()); },
+                });
+                cases.Add(new Case
                 {
-                    "P2.1" => BuildFacade.P2_1(), "P2.2" => BuildFacade.P2_2(),
-                    "P2.3" => BuildFacade.P2_3(), "P2.4" => BuildFacade.P2_4(),
-                    "P2.5" => BuildFacade.P2_5(), _ => null,
-                };
-                if (src2 != null)
-                {
-                    var (nb2, ne2, by2) = CoreFfiGate2.Size(src2);
-                    core2 = new CoreFfiM2(src2.Tasks.Count + 1, nb2, ne2, by2);
-                    var ck2 = Environment.GetEnvironmentVariable("AK_CHUNK");
-                    if (!string.IsNullOrEmpty(ck2) && int.TryParse(ck2, out int ckv2)) core2.Chunk = ckv2;
-                    var warm2 = core2.EncodeToArray(src2);
-                    var c3 = core2; var cs3 = src2;
-                    cases.Add(new Case
-                    {
-                        Payload = a.Id, Dir = "encode", Arm = "core-ffi",
-                        Run = n => { for (int i = 0; i < n; i++) { c3.Encode(cs3, out byte* p, out int l); Consume(l); } },
-                    });
-                    cases.Add(new Case
-                    {
-                        Payload = a.Id, Dir = "encode", Arm = "core-ffi fill",
-                        Run = n => { for (int i = 0; i < n; i++) Consume(c3.Fill(cs3)); },
-                    });
-                    var w2 = warm2;
-                    cases.Add(new Case
-                    {
-                        Payload = a.Id, Dir = "decode", Arm = "core-ffi",
-                        Run = n => { for (int i = 0; i < n; i++) Consume(c3.Decode(w2, w2.Length).Tasks.Count); },
-                    });
-                }
+                    Payload = a.Id, Dir = "decode", Arm = "core-ffi",
+                    Run = n => { for (int i = 0; i < n; i++) Consume(core.Decode(warm, warm.Length)); },
+                });
             }
 #endif
 

@@ -28,6 +28,7 @@ The core-ffi backends were held while ABI v1 open decision 1 was unsettled, on
 the grounds that a binding built against a draft is a number about the draft.
 Decision 1 is settled and they are emitted.
 """
+import json
 import os
 import sys
 
@@ -44,6 +45,7 @@ import cs_abi              # noqa: E402
 import cs_coreffi          # noqa: E402
 import cs_coreffi2         # noqa: E402
 import cs_proj             # noqa: E402
+import cs_core             # noqa: E402
 import protoparse          # noqa: E402
 
 ROOT = os.path.dirname(HERE)
@@ -107,6 +109,15 @@ def check_front_ends_agree(corpus):
     return len(set(corpus["messages"]) & set(schema["messages"]))
 
 
+def payload_roots():
+    """[(payload id, root)] in manifest order, from ffi/schema's own manifest."""
+    import re
+    path = os.path.normpath(os.path.join(ROOT, "..", "..", "schema", "generated", "manifest.json"))
+    with open(path) as f:
+        man = json.load(f)
+    return [(pid, row["root"]) for pid, row in man["payloads"].items()]
+
+
 def targets(ir):
     codec, sites = cs_managed.emit(ir)
     cir = corpus_ir()
@@ -125,8 +136,8 @@ def targets(ir):
         "src/Harness/Generated/BuildGp.cs": cs_build.emit(ir, cs_build.GpSink(), ROOTS),
         "src/Harness/Generated/Arms.cs": cs_arms.emit(ir),
         "src/Harness/Generated/Abi.cs": cs_abi.emit(ir),
-        "src/Harness/Generated/CoreFfi.cs": cs_coreffi.emit(ir),
-        "src/Harness/Generated/CoreFfi2.cs": cs_coreffi2.emit(ir),
+        **{"src/Harness/Generated/Core_%s.cs" % r: cs_core.emit(ir, r) for r in ROOTS},
+        "src/Harness/Generated/CoreArms.cs": cs_core.emit_registry(ir, ROOTS, payload_roots()),
     }, sites
 
 
