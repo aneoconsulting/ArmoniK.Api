@@ -113,6 +113,40 @@ pub struct ak_client_opts {
     pub tcp_nagle: i32,
 }
 
+// ABI v1 section 10, applied to the CLIENT OPTIONS -- and this one is here because its
+// absence was a live defect, not because the pattern looked tidy.
+//
+// `ak_client_opts` is declared twice: the core defines `rpc::ak_client_opts` and every host
+// compiles against `ak_abi::ak_client_opts`. Two slices added this entry point on the same
+// day with different field sets; the reconciliation into the union updated the core's
+// definition and not the ABI's declaration, leaving the host at four fields and the core at
+// six. Nothing failed. What a host would have got instead:
+//
+//   - its `max_recv_message` lands on the core's `adaptive_window`, and 2 MiB is `>= 0` and
+//     `!= 0`, so ADAPTIVE SIZING TURNS ON -- which overrides the very windows this entry
+//     point exists to pin;
+//   - its `max_send_message` lands on `max_recv_message`;
+//   - `max_send_message` and `tcp_nagle` are read PAST THE END of the host's 16-byte
+//     object, so `tcp_nodelay` is set from whatever was on the stack. A `1` there re-enables
+//     Nagle on the client and resurrects the 40 ms artifact, non-deterministically.
+//
+// Silent, wrong, and in the one setting that had just been corrected. So the agreement is
+// asserted field by field, at compile time, where both declarations are visible.
+const _: () = {
+    use core::mem::{align_of, offset_of, size_of};
+    use ak_abi::ak_client_opts as abi;
+    assert!(size_of::<ak_client_opts>() == size_of::<abi>());
+    assert!(align_of::<ak_client_opts>() == align_of::<abi>());
+    // Size and alignment agreeing is NOT enough: two structs with the same six 4-byte fields
+    // in different orders agree on both and disagree on every value. Offsets are the check.
+    assert!(offset_of!(ak_client_opts, stream_window) == offset_of!(abi, stream_window));
+    assert!(offset_of!(ak_client_opts, connection_window) == offset_of!(abi, connection_window));
+    assert!(offset_of!(ak_client_opts, adaptive_window) == offset_of!(abi, adaptive_window));
+    assert!(offset_of!(ak_client_opts, max_recv_message) == offset_of!(abi, max_recv_message));
+    assert!(offset_of!(ak_client_opts, max_send_message) == offset_of!(abi, max_send_message));
+    assert!(offset_of!(ak_client_opts, tcp_nagle) == offset_of!(abi, tcp_nagle));
+};
+
 /// R5's counters for the RPC half. Process-global rather than per-context, because a call
 /// has no context to hang them on: `ak_queue_next` names a queue and `ak_bytes_free` names
 /// nothing at all.
