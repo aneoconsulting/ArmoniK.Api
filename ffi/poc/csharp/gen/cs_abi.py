@@ -64,6 +64,18 @@ FIELDS = {
         ("manual_deletion", "byte"), ("presence", "uint"),
     ],
     "ak_dfix_ListResultsResponse": [("page", "int"), ("total", "int"), ("presence", "uint")],
+    "ak_efix_Duration": [("seconds", "long"), ("nanos", "int"), ("presence", "uint")],
+    "ak_efix_TaskOptionsOptionsEntry": [("key", "ak_str"), ("value", "ak_str"), ("presence", "uint")],
+    "ak_efix_TaskOptions": [("max_duration", "ak_efix_Duration"), ("max_retries", "int"), ("priority", "int"), ("partition_id", "ak_str"), ("application_name", "ak_str"), ("application_version", "ak_str"), ("application_namespace", "ak_str"), ("application_service", "ak_str"), ("engine_type", "ak_str"), ("presence", "uint")],
+    "ak_efix_TaskOutput": [("success", "byte"), ("error", "ak_str"), ("presence", "uint")],
+    "ak_efix_TaskDetailed": [("id", "ak_str"), ("session_id", "ak_str"), ("owner_pod_id", "ak_str"), ("status", "int"), ("status_message", "ak_str"), ("options", "ak_efix_TaskOptions"), ("created_at", "ak_efix_Timestamp"), ("submitted_at", "ak_efix_Timestamp"), ("started_at", "ak_efix_Timestamp"), ("ended_at", "ak_efix_Timestamp"), ("pod_ttl", "ak_efix_Timestamp"), ("output", "ak_efix_TaskOutput"), ("pod_hostname", "ak_str"), ("received_at", "ak_efix_Timestamp"), ("acquired_at", "ak_efix_Timestamp"), ("creation_to_end_duration", "ak_efix_Duration"), ("processing_to_end_duration", "ak_efix_Duration"), ("initial_task_id", "ak_str"), ("received_to_end_duration", "ak_efix_Duration"), ("processed_at", "ak_efix_Timestamp"), ("fetched_at", "ak_efix_Timestamp"), ("payload_id", "ak_str"), ("created_by", "ak_str"), ("presence", "uint")],
+    "ak_efix_ListTasksDetailedResponse": [("page", "int"), ("total", "int"), ("presence", "uint")],
+    "ak_dfix_Duration": [("seconds", "long"), ("nanos", "int"), ("presence", "uint")],
+    "ak_dfix_TaskOptionsOptionsEntry": [("key", "ak_span"), ("value", "ak_span"), ("presence", "uint")],
+    "ak_dfix_TaskOptions": [("max_duration", "ak_dfix_Duration"), ("max_retries", "int"), ("priority", "int"), ("partition_id", "ak_span"), ("application_name", "ak_span"), ("application_version", "ak_span"), ("application_namespace", "ak_span"), ("application_service", "ak_span"), ("engine_type", "ak_span"), ("presence", "uint")],
+    "ak_dfix_TaskOutput": [("success", "byte"), ("error", "ak_span"), ("presence", "uint")],
+    "ak_dfix_TaskDetailed": [("id", "ak_span"), ("session_id", "ak_span"), ("owner_pod_id", "ak_span"), ("status", "int"), ("status_message", "ak_span"), ("options", "ak_dfix_TaskOptions"), ("created_at", "ak_dfix_Timestamp"), ("submitted_at", "ak_dfix_Timestamp"), ("started_at", "ak_dfix_Timestamp"), ("ended_at", "ak_dfix_Timestamp"), ("pod_ttl", "ak_dfix_Timestamp"), ("output", "ak_dfix_TaskOutput"), ("pod_hostname", "ak_span"), ("received_at", "ak_dfix_Timestamp"), ("acquired_at", "ak_dfix_Timestamp"), ("creation_to_end_duration", "ak_dfix_Duration"), ("processing_to_end_duration", "ak_dfix_Duration"), ("initial_task_id", "ak_span"), ("received_to_end_duration", "ak_dfix_Duration"), ("processed_at", "ak_dfix_Timestamp"), ("fetched_at", "ak_dfix_Timestamp"), ("payload_id", "ak_span"), ("created_by", "ak_span"), ("presence", "uint")],
+    "ak_dfix_ListTasksDetailedResponse": [("page", "int"), ("total", "int"), ("presence", "uint")],
 }
 
 
@@ -146,6 +158,18 @@ def emit(ir):
         ("void", "ak_fail", "IntPtr ctx, int code, byte* msg, uint msgLen"),
         ("int", "ak_decode_ListResultsResponse",
          "IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListResultsResponse* vt"),
+        # M2. TaskDetailed is NOT a leaf, so its element entry is `elemu` and the
+        # codec calls back per element; `ak_blob_run` carries a repeated string
+        # field's whole run, and the map entry type IS a leaf so it batches.
+        ("int", "ak_elemu_TaskDetailed",
+         "IntPtr ctx, ak_efix_TaskDetailed* elems, int n, long tok0"),
+        ("int", "ak_blob_run", "IntPtr ctx, ak_str* elems, int n"),
+        ("int", "ak_elem_TaskOptionsOptionsEntry",
+         "IntPtr ctx, ak_efix_TaskOptionsOptionsEntry* elems, int n"),
+        ("nint", "ak_encode_ListTasksDetailedResponse",
+         "void* obj, IntPtr ctx, ak_evt_ListTasksDetailedResponse* vt, ak_efix_ListTasksDetailedResponse* fix"),
+        ("int", "ak_decode_ListTasksDetailedResponse",
+         "IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListTasksDetailedResponse* vt"),
         # R5, in the CORE's own convention. Counting build only (--features count);
         # in a non-counting core these return zeroes, which is why the harness
         # reports the build it read them from.
@@ -171,6 +195,49 @@ def emit(ir):
     o += "public unsafe struct ak_evt_ListResultsResponse"
     o += "{"
     o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, int> loop_results;"
+    o += "}"
+    o += ""
+
+    o.doc("M2's encode vtables. `TaskDetailed` has FIVE loop slots -- the four "
+          "repeated string fields and the map -- so unlike `ResultRaw` the codec calls "
+          "back into the host once per slot PER ELEMENT, and the crossing count stops "
+          "being constant in the element count. The root carries a pointer to the "
+          "element's vtable because the codec has to reach those slots.")
+    o += "[StructLayout(LayoutKind.Sequential)]"
+    o += "public unsafe struct ak_evt_TaskDetailed"
+    o += "{"
+    for f in ("loop_parent_task_ids","loop_data_dependencies","loop_expected_output_ids",
+              "loop_retry_of_ids","loop_options_options"):
+        o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, int> %s;" % f
+    o += "}"
+    o += ""
+    o += "[StructLayout(LayoutKind.Sequential)]"
+    o += "public unsafe struct ak_evt_ListTasksDetailedResponse"
+    o += "{"
+    o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, int> loop_tasks;"
+    o += "    public ak_evt_TaskDetailed* elem_tasks;"
+    o += "}"
+    o += ""
+    o.doc("M2's decode vtable, and ABI v1 section 7.2's refusal in the interface. "
+          "`TaskDetailed` carries repeated and map fields of its own, so the root's "
+          "slot is **NOT batchable**: `new_tasks` then `apply_tasks` per element, plus "
+          "one run per inner field that occurred. Two reverse calls per element before "
+          "any content, against one for the whole run on a leaf.")
+    o += "[StructLayout(LayoutKind.Sequential)]"
+    o += "public unsafe struct ak_dvt_ListTasksDetailedResponse"
+    o += "{"
+    o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_ListTasksDetailedResponse*, void> apply;"
+    o += "    public IntPtr unknown;"
+    o += "    public IntPtr unk_tasks;"
+    o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long> new_tasks;"
+    o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_dfix_TaskDetailed*, void> apply_tasks;"
+    for f in ("parent_task_ids","data_dependencies","expected_output_ids","retry_of_ids"):
+        o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_span*, int, void> add_tasks_%s;" % f
+    o += "    // NOTE: there is NO unk_tasks_options_options here. The ELEMENT"
+    o += "    // vtable ak_dvt_TaskDetailed has an unk_options_options slot and the"
+    o += "    // root does not, and inferring one by analogy shifted every later"
+    o += "    // slot by a pointer. VtableSlots below asserts the count."
+    o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_dfix_TaskOptionsOptionsEntry*, int, void> add_tasks_options_options;"
     o += "}"
     o += ""
 
@@ -202,6 +269,20 @@ def emit(ir):
         o += '        ("%s", %d, new (string, int)[] { %s }),' % (name, info["size"], fs)
     o += "    };"
     o += ""
+    o.doc("Vtable SLOT COUNTS, from the Rust source. Every slot is pointer sized, so "
+          "a wrong count is a wrong size and nothing else is needed to catch it. This "
+          "exists because a slot WAS invented by analogy -- the element vtable has an "
+          "`unk_options_options` and the root does not -- which would have shifted every "
+          "later slot by eight bytes and called a garbage address.", "    ")
+    o += "    public static readonly (string Name, int Slots)[] Vtables ="
+    o += "    {"
+    o += '        ("ak_evt_ListResultsResponse", 1),'
+    o += '        ("ak_dvt_ListResultsResponse", 4),'
+    o += '        ("ak_evt_TaskDetailed", 5),'
+    o += '        ("ak_evt_ListTasksDetailedResponse", 2),'
+    o += '        ("ak_dvt_ListTasksDetailedResponse", 10),'
+    o += "    };"
+    o += ""
     o += "    /// Checks the MANAGED declaration against the Rust build, and the loaded"
     o += "    /// core's ABI version."
     o += "    ///"
@@ -222,9 +303,14 @@ def emit(ir):
         for f, _ in fields:
             o += "        if ((int)Marshal.OffsetOf<%s>(\"%s\") != %d) bad.Add($\"%s.%s offset {(int)Marshal.OffsetOf<%s>(\"%s\")} != %d\");" % (
                 name, f, info["fields"][f], name, f, name, f, info["fields"][f])
+    for nm, slots in (("ak_evt_ListResultsResponse",1),("ak_dvt_ListResultsResponse",4),
+                      ("ak_evt_TaskDetailed",5),("ak_evt_ListTasksDetailedResponse",2),
+                      ("ak_dvt_ListTasksDetailedResponse",10)):
+        o += "        if (Unsafe.SizeOf<%s>() != %d * IntPtr.Size) bad.Add($\"%s has {Unsafe.SizeOf<%s>() / IntPtr.Size} slots, expected %d\");" % (
+            nm, slots, nm, nm, slots)
     o += "        uint v = Abi.ak_abi_version();"
     o += "        return bad.Count == 0"
-    o += "            ? $\"ok: {Expected.Length} structs match the Rust build; core ak_abi_version()={v}\""
+    o += "            ? $\"ok: {Expected.Length} structs and {Vtables.Length} vtables match the Rust build; core ak_abi_version()={v}\""
     o += "            : string.Join(\"; \", bad);"
     o += "    }"
     o += "}"
