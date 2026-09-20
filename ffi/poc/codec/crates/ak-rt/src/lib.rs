@@ -10,6 +10,7 @@
 pub mod counters;
 pub mod enc;
 
+pub use bdr::Bdr;
 pub use counters::Counters;
 pub use enc::{Enc, Mark};
 
@@ -29,6 +30,7 @@ pub const WIRE_I64: u32 = 1;
 pub const WIRE_LEN: u32 = 2;
 pub const WIRE_I32: u32 = 5;
 
+pub mod bdr;
 pub mod dec;
 pub mod strings;
 

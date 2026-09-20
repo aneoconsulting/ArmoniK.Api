@@ -1223,6 +1223,11 @@ pub unsafe extern "C" fn ak_elemu_MetricsBatch(
     n: i32,
     tok0: i64,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1262,6 +1267,11 @@ pub unsafe extern "C" fn ak_uelemu_MetricsBatch(
     n: i32,
     tok0: i64,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1297,6 +1307,11 @@ pub unsafe extern "C" fn ak_elem_Pair(
     elems: *const ak_efix_Pair,
     n: i32,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1329,6 +1344,11 @@ pub unsafe extern "C" fn ak_uelem_Pair(
     elems: *const ak_ufix_Pair,
     n: i32,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1360,6 +1380,11 @@ pub unsafe extern "C" fn ak_elem_Probe(
     elems: *const ak_efix_Probe,
     n: i32,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1392,6 +1417,11 @@ pub unsafe extern "C" fn ak_uelem_Probe(
     elems: *const ak_ufix_Probe,
     n: i32,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1423,6 +1453,11 @@ pub unsafe extern "C" fn ak_elem_ResultRaw(
     elems: *const ak_efix_ResultRaw,
     n: i32,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1455,6 +1490,11 @@ pub unsafe extern "C" fn ak_uelem_ResultRaw(
     elems: *const ak_ufix_ResultRaw,
     n: i32,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1487,6 +1527,11 @@ pub unsafe extern "C" fn ak_elemu_TaskDetailed(
     n: i32,
     tok0: i64,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1526,6 +1571,11 @@ pub unsafe extern "C" fn ak_uelemu_TaskDetailed(
     n: i32,
     tok0: i64,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1561,6 +1611,11 @@ pub unsafe extern "C" fn ak_elem_TaskOptionsOptionsEntry(
     elems: *const ak_efix_TaskOptionsOptionsEntry,
     n: i32,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1593,6 +1648,11 @@ pub unsafe extern "C" fn ak_uelem_TaskOptionsOptionsEntry(
     elems: *const ak_ufix_TaskOptionsOptionsEntry,
     n: i32,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1625,6 +1685,11 @@ pub unsafe extern "C" fn ak_elemu_TaskSummary(
     n: i32,
     tok0: i64,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1664,6 +1729,11 @@ pub unsafe extern "C" fn ak_uelemu_TaskSummary(
     n: i32,
     tok0: i64,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1700,6 +1770,11 @@ pub unsafe extern "C" fn ak_encode_ListResultsResponse(
     vt: *const ak_evt_ListResultsResponse,
     fix: *const ak_efix_ListResultsResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1728,6 +1803,11 @@ pub unsafe extern "C" fn ak_uencode_ListResultsResponse(
     vt: *const ak_evt_ListResultsResponse,
     fix: *const ak_ufix_ListResultsResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1757,6 +1837,11 @@ pub unsafe extern "C" fn ak_encode_ListTasksDetailedResponse(
     vt: *const ak_evt_ListTasksDetailedResponse,
     fix: *const ak_efix_ListTasksDetailedResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1786,6 +1871,11 @@ pub unsafe extern "C" fn ak_uencode_ListTasksDetailedResponse(
     vt: *const ak_evt_ListTasksDetailedResponse,
     fix: *const ak_ufix_ListTasksDetailedResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1816,6 +1906,11 @@ pub unsafe extern "C" fn ak_encode_ListProbeResponse(
     vt: *const ak_evt_ListProbeResponse,
     fix: *const ak_efix_ListProbeResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1842,6 +1937,11 @@ pub unsafe extern "C" fn ak_uencode_ListProbeResponse(
     vt: *const ak_evt_ListProbeResponse,
     fix: *const ak_ufix_ListProbeResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1869,6 +1969,11 @@ pub unsafe extern "C" fn ak_encode_ListTaskSummaryResponse(
     vt: *const ak_evt_ListTaskSummaryResponse,
     fix: *const ak_efix_ListTaskSummaryResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1896,6 +2001,11 @@ pub unsafe extern "C" fn ak_uencode_ListTaskSummaryResponse(
     vt: *const ak_evt_ListTaskSummaryResponse,
     fix: *const ak_ufix_ListTaskSummaryResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1926,6 +2036,11 @@ pub unsafe extern "C" fn ak_encode_UploadResultDataMessage(
     direct: *const u8,
     direct_len: usize,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1960,6 +2075,11 @@ pub unsafe extern "C" fn ak_uencode_UploadResultDataMessage(
     direct: *const u8,
     direct_len: usize,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1994,6 +2114,11 @@ pub unsafe extern "C" fn ak_encode_ListMetricsResponse(
     vt: *const ak_evt_ListMetricsResponse,
     fix: *const ak_efix_ListMetricsResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -2021,6 +2146,11 @@ pub unsafe extern "C" fn ak_uencode_ListMetricsResponse(
     vt: *const ak_evt_ListMetricsResponse,
     fix: *const ak_ufix_ListMetricsResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -2049,6 +2179,11 @@ pub unsafe extern "C" fn ak_encode_DualResponse(
     vt: *const ak_evt_DualResponse,
     fix: *const ak_efix_DualResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -2084,6 +2219,11 @@ pub unsafe extern "C" fn ak_uencode_DualResponse(
     vt: *const ak_evt_DualResponse,
     fix: *const ak_ufix_DualResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -2119,6 +2259,11 @@ pub unsafe extern "C" fn ak_blob_run(
     elems: *const ak_str,
     n: i32,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
@@ -2130,6 +2275,11 @@ pub unsafe extern "C" fn ak_blob_run(
 
 #[no_mangle]
 pub unsafe extern "C" fn ak_run_i32(ctx: *mut ak_enc_ctx, p: *const i32, n: usize) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     if n == 0 { return AK_OK; }
@@ -2147,6 +2297,11 @@ pub unsafe extern "C" fn ak_run_i32(ctx: *mut ak_enc_ctx, p: *const i32, n: usiz
 
 #[no_mangle]
 pub unsafe extern "C" fn ak_run_i64(ctx: *mut ak_enc_ctx, p: *const i64, n: usize) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     if n == 0 { return AK_OK; }
@@ -2164,6 +2319,11 @@ pub unsafe extern "C" fn ak_run_i64(ctx: *mut ak_enc_ctx, p: *const i64, n: usiz
 
 #[no_mangle]
 pub unsafe extern "C" fn ak_run_f64(ctx: *mut ak_enc_ctx, p: *const f64, n: usize) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     if n == 0 { return AK_OK; }
@@ -2181,6 +2341,11 @@ pub unsafe extern "C" fn ak_run_f64(ctx: *mut ak_enc_ctx, p: *const f64, n: usiz
 
 #[no_mangle]
 pub unsafe extern "C" fn ak_run_u8(ctx: *mut ak_enc_ctx, p: *const u8, n: usize) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     if n == 0 { return AK_OK; }
@@ -3648,6 +3813,11 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
     len: usize,
     vt: *const ak_dvt_ListResultsResponse,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -3740,6 +3910,11 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
     len: usize,
     vt: *const ak_dvt_ListTasksDetailedResponse,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -3803,6 +3978,11 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
     len: usize,
     vt: *const ak_dvt_ListProbeResponse,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -3887,6 +4067,11 @@ pub unsafe extern "C" fn ak_decode_ListTaskSummaryResponse(
     len: usize,
     vt: *const ak_dvt_ListTaskSummaryResponse,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -3942,6 +4127,11 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
     len: usize,
     vt: *const ak_dvt_UploadResultDataMessage,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -4022,6 +4212,11 @@ pub unsafe extern "C" fn ak_decode_ListMetricsResponse(
     len: usize,
     vt: *const ak_dvt_ListMetricsResponse,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -4077,6 +4272,11 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
     len: usize,
     vt: *const ak_dvt_DualResponse,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -4186,5 +4386,1836 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
     }
     // The host may have failed the operation from inside a reverse call; the
     // sticky slot in the context is where it said so (ABI v1 section 5).
+    if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
+}
+
+// ====================================================================================
+// The PULL family (ABI v1 section 7.1). `ak_parse_*` makes NO reverse call:
+// it deposits into the host-owned context's record buffer, and the host reads
+// it afterwards with `ak_bdr_drain` or `ak_bdr_ptr`. On the JVM that is what
+// lets a parse run inside a critical section without first copying the wire
+// buffer into native scratch; on a host whose reverse call is cheap it is a
+// materialisation nobody needs, and the measurement says which is which.
+//
+// The traversal is `dec_walk`, shared verbatim with the push family above.
+// ====================================================================================
+
+/// Pull form of the non-leaf element run. `new` becomes a minted token and
+/// an OP_NEW record, `apply` becomes an OP_APPLY_ELEM record; the host's
+/// replay does what its `new_tasks`/`apply_tasks` would have done.
+unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
+    dcx: *mut DecCtxImpl,
+    d: &mut Dec,
+    base: usize,
+) {
+    // The codec MINTS the token because there is nobody to ask during a parse.
+    // A token is an index (ABI v1 section 10), and the host's replay pushes its
+    // elements in the order the records arrive, so index i names the same object
+    // on both sides without either holding an address.
+    let tok = (*dcx).bdr.mint();
+    (*dcx).bdr.push(ak_rt::bdr::OP_NEW, 65536, tok, 0, ::core::ptr::null(), 0);
+    let mut out = ak_dfix_TaskDetailed::ZERO;
+    #[allow(unused_variables)]
+    let buf0 = d.buf;
+    let base0 = base;
+    // ABI v1 7.3: a byte budget divided by the group size, not an element
+    // count, so the scratch is the same 32 KB whatever the schema does.
+    const N_PARENT_TASK_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
+    let mut a_parent_task_ids: [::core::mem::MaybeUninit<ak_span>; N_PARENT_TASK_IDS] =
+        [const { ::core::mem::MaybeUninit::uninit() }; N_PARENT_TASK_IDS];
+    let mut n_parent_task_ids: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_parent_task_ids: usize = 0;
+    let _ = done_parent_task_ids;
+    let uk_parent_task_ids: *mut UnkBuf = ::core::ptr::null_mut();
+    // ABI v1 7.3: a byte budget divided by the group size, not an element
+    // count, so the scratch is the same 32 KB whatever the schema does.
+    const N_DATA_DEPENDENCIES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
+    let mut a_data_dependencies: [::core::mem::MaybeUninit<ak_span>; N_DATA_DEPENDENCIES] =
+        [const { ::core::mem::MaybeUninit::uninit() }; N_DATA_DEPENDENCIES];
+    let mut n_data_dependencies: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_data_dependencies: usize = 0;
+    let _ = done_data_dependencies;
+    let uk_data_dependencies: *mut UnkBuf = ::core::ptr::null_mut();
+    // ABI v1 7.3: a byte budget divided by the group size, not an element
+    // count, so the scratch is the same 32 KB whatever the schema does.
+    const N_EXPECTED_OUTPUT_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
+    let mut a_expected_output_ids: [::core::mem::MaybeUninit<ak_span>; N_EXPECTED_OUTPUT_IDS] =
+        [const { ::core::mem::MaybeUninit::uninit() }; N_EXPECTED_OUTPUT_IDS];
+    let mut n_expected_output_ids: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_expected_output_ids: usize = 0;
+    let _ = done_expected_output_ids;
+    let uk_expected_output_ids: *mut UnkBuf = ::core::ptr::null_mut();
+    // ABI v1 7.3: a byte budget divided by the group size, not an element
+    // count, so the scratch is the same 32 KB whatever the schema does.
+    const N_RETRY_OF_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
+    let mut a_retry_of_ids: [::core::mem::MaybeUninit<ak_span>; N_RETRY_OF_IDS] =
+        [const { ::core::mem::MaybeUninit::uninit() }; N_RETRY_OF_IDS];
+    let mut n_retry_of_ids: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_retry_of_ids: usize = 0;
+    let _ = done_retry_of_ids;
+    let uk_retry_of_ids: *mut UnkBuf = ::core::ptr::null_mut();
+    // ABI v1 7.3: a byte budget divided by the group size, not an element
+    // count, so the scratch is the same 32 KB whatever the schema does.
+    const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
+    let mut a_options_options: [::core::mem::MaybeUninit<ak_dfix_TaskOptionsOptionsEntry>; N_OPTIONS_OPTIONS] =
+        [const { ::core::mem::MaybeUninit::uninit() }; N_OPTIONS_OPTIONS];
+    let mut n_options_options: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_options_options: usize = 0;
+    let _ = done_options_options;
+    let uk_options_options: *mut UnkBuf = ::core::ptr::null_mut();
+    macro_rules! flush_parent_task_ids {
+        () => {
+            if n_parent_task_ids > 0 {
+                // No call: the run is copied into the record buffer and the
+                // host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.push(
+                    ak_rt::bdr::OP_ADD,
+                    65537,
+                    tok,
+                    n_parent_task_ids as u32,
+                    a_parent_task_ids.as_ptr() as *const u8,
+                    n_parent_task_ids * ::core::mem::size_of::<ak_span>(),
+                );
+                done_parent_task_ids += n_parent_task_ids;
+                n_parent_task_ids = 0;
+                if !uk_parent_task_ids.is_null() { (*uk_parent_task_ids).flush(); }
+            }
+        };
+    }
+    macro_rules! flush_data_dependencies {
+        () => {
+            if n_data_dependencies > 0 {
+                // No call: the run is copied into the record buffer and the
+                // host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.push(
+                    ak_rt::bdr::OP_ADD,
+                    65538,
+                    tok,
+                    n_data_dependencies as u32,
+                    a_data_dependencies.as_ptr() as *const u8,
+                    n_data_dependencies * ::core::mem::size_of::<ak_span>(),
+                );
+                done_data_dependencies += n_data_dependencies;
+                n_data_dependencies = 0;
+                if !uk_data_dependencies.is_null() { (*uk_data_dependencies).flush(); }
+            }
+        };
+    }
+    macro_rules! flush_expected_output_ids {
+        () => {
+            if n_expected_output_ids > 0 {
+                // No call: the run is copied into the record buffer and the
+                // host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.push(
+                    ak_rt::bdr::OP_ADD,
+                    65539,
+                    tok,
+                    n_expected_output_ids as u32,
+                    a_expected_output_ids.as_ptr() as *const u8,
+                    n_expected_output_ids * ::core::mem::size_of::<ak_span>(),
+                );
+                done_expected_output_ids += n_expected_output_ids;
+                n_expected_output_ids = 0;
+                if !uk_expected_output_ids.is_null() { (*uk_expected_output_ids).flush(); }
+            }
+        };
+    }
+    macro_rules! flush_retry_of_ids {
+        () => {
+            if n_retry_of_ids > 0 {
+                // No call: the run is copied into the record buffer and the
+                // host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.push(
+                    ak_rt::bdr::OP_ADD,
+                    65540,
+                    tok,
+                    n_retry_of_ids as u32,
+                    a_retry_of_ids.as_ptr() as *const u8,
+                    n_retry_of_ids * ::core::mem::size_of::<ak_span>(),
+                );
+                done_retry_of_ids += n_retry_of_ids;
+                n_retry_of_ids = 0;
+                if !uk_retry_of_ids.is_null() { (*uk_retry_of_ids).flush(); }
+            }
+        };
+    }
+    macro_rules! flush_options_options {
+        () => {
+            if n_options_options > 0 {
+                // No call: the run is copied into the record buffer and the
+                // host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.push(
+                    ak_rt::bdr::OP_ADD,
+                    65541,
+                    tok,
+                    n_options_options as u32,
+                    a_options_options.as_ptr() as *const u8,
+                    n_options_options * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>(),
+                );
+                done_options_options += n_options_options;
+                n_options_options = 0;
+                if !uk_options_options.is_null() { (*uk_options_options).flush(); }
+            }
+        };
+    }
+    macro_rules! flush {
+        () => {
+            flush_parent_task_ids!();
+            flush_data_dependencies!();
+            flush_expected_output_ids!();
+            flush_retry_of_ids!();
+            flush_options_options!();
+        };
+    }
+    let mut cur = 0u32;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        match tag {
+            1 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
+            }
+            2 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                out.session_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
+            }
+            3 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                out.owner_pod_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
+            }
+            4 if wire == 2 => {
+                if cur != 1 { flush!(); cur = 1; }
+                if n_parent_task_ids == N_PARENT_TASK_IDS { flush_parent_task_ids!(); }
+                let (off, n) = d.len_body();
+                a_parent_task_ids[n_parent_task_ids].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                n_parent_task_ids += 1;
+            }
+            5 if wire == 2 => {
+                if cur != 2 { flush!(); cur = 2; }
+                if n_data_dependencies == N_DATA_DEPENDENCIES { flush_data_dependencies!(); }
+                let (off, n) = d.len_body();
+                a_data_dependencies[n_data_dependencies].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                n_data_dependencies += 1;
+            }
+            6 if wire == 2 => {
+                if cur != 3 { flush!(); cur = 3; }
+                if n_expected_output_ids == N_EXPECTED_OUTPUT_IDS { flush_expected_output_ids!(); }
+                let (off, n) = d.len_body();
+                a_expected_output_ids[n_expected_output_ids].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                n_expected_output_ids += 1;
+            }
+            7 if wire == 2 => {
+                if cur != 4 { flush!(); cur = 4; }
+                if n_retry_of_ids == N_RETRY_OF_IDS { flush_retry_of_ids!(); }
+                let (off, n) = d.len_body();
+                a_retry_of_ids[n_retry_of_ids].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                n_retry_of_ids += 1;
+            }
+            8 if wire == 0 => {
+                if cur != 0 { flush!(); cur = 0; }
+                out.status = d.varint() as i32;
+            }
+            9 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                out.status_message = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
+            }
+            10 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (coff, clen) = d.len_body();
+                let base1 = base0 + coff;
+                let buf1 = &buf0[coff..coff + clen];
+                let mut cd = Dec::new(buf1);
+                out.presence |= AK_DFIX_TASKDETAILED_PRESENT_OPTIONS;
+                while !cd.at_end() {
+                    let k = cd.varint();
+                    let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+                    if tag == 0 { cd.err = ak_rt::ERR_MALFORMED; break; }
+                    match tag {
+                        1 if wire == 2 => {
+                            if cur != 5 { flush!(); cur = 5; }
+                            if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
+                            let (off, n) = cd.len_body();
+                            let mut es = Dec::new(&buf1[off..off + n]);
+                            if !uk_options_options.is_null() { (*uk_options_options).token = (done_options_options + n_options_options) as i64; }
+                            a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, uk_options_options));
+                            if es.err != 0 { cd.err = es.err; }
+                            n_options_options += 1;
+                        }
+                        2 if wire == 2 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            let (coff, clen) = cd.len_body();
+                            let base2 = base1 + coff;
+                            let buf2 = &buf1[coff..coff + clen];
+                            let mut cd = Dec::new(buf2);
+                            out.options.presence |= AK_DFIX_TASKOPTIONS_PRESENT_MAX_DURATION;
+                            while !cd.at_end() {
+                                let k = cd.varint();
+                                let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+                                if tag == 0 { cd.err = ak_rt::ERR_MALFORMED; break; }
+                                match tag {
+                                    1 if wire == 0 => {
+                                        if cur != 0 { flush!(); cur = 0; }
+                                        out.options.max_duration.seconds = cd.varint() as i64;
+                                    }
+                                    2 if wire == 0 => {
+                                        if cur != 0 { flush!(); cur = 0; }
+                                        out.options.max_duration.nanos = cd.varint() as i32;
+                                    }
+                                    _ => cd.skip(wire),
+                                }
+                            }
+                            if cd.err != 0 { cd.err = cd.err; }
+                        }
+                        3 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.options.max_retries = cd.varint() as i32;
+                        }
+                        4 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.options.priority = cd.varint() as i32;
+                        }
+                        5 if wire == 2 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            let (off, n) = cd.len_body();
+                            out.options.partition_id = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
+                        }
+                        6 if wire == 2 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            let (off, n) = cd.len_body();
+                            out.options.application_name = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
+                        }
+                        7 if wire == 2 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            let (off, n) = cd.len_body();
+                            out.options.application_version = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
+                        }
+                        8 if wire == 2 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            let (off, n) = cd.len_body();
+                            out.options.application_namespace = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
+                        }
+                        9 if wire == 2 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            let (off, n) = cd.len_body();
+                            out.options.application_service = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
+                        }
+                        10 if wire == 2 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            let (off, n) = cd.len_body();
+                            out.options.engine_type = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
+                        }
+                        _ => cd.skip(wire),
+                    }
+                }
+                if cd.err != 0 { d.err = cd.err; }
+            }
+            11 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (coff, clen) = d.len_body();
+                let base1 = base0 + coff;
+                let buf1 = &buf0[coff..coff + clen];
+                let mut cd = Dec::new(buf1);
+                out.presence |= AK_DFIX_TASKDETAILED_PRESENT_CREATED_AT;
+                while !cd.at_end() {
+                    let k = cd.varint();
+                    let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+                    if tag == 0 { cd.err = ak_rt::ERR_MALFORMED; break; }
+                    match tag {
+                        1 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.created_at.seconds = cd.varint() as i64;
+                        }
+                        2 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.created_at.nanos = cd.varint() as i32;
+                        }
+                        _ => cd.skip(wire),
+                    }
+                }
+                if cd.err != 0 { d.err = cd.err; }
+            }
+            12 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (coff, clen) = d.len_body();
+                let base1 = base0 + coff;
+                let buf1 = &buf0[coff..coff + clen];
+                let mut cd = Dec::new(buf1);
+                out.presence |= AK_DFIX_TASKDETAILED_PRESENT_SUBMITTED_AT;
+                while !cd.at_end() {
+                    let k = cd.varint();
+                    let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+                    if tag == 0 { cd.err = ak_rt::ERR_MALFORMED; break; }
+                    match tag {
+                        1 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.submitted_at.seconds = cd.varint() as i64;
+                        }
+                        2 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.submitted_at.nanos = cd.varint() as i32;
+                        }
+                        _ => cd.skip(wire),
+                    }
+                }
+                if cd.err != 0 { d.err = cd.err; }
+            }
+            13 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (coff, clen) = d.len_body();
+                let base1 = base0 + coff;
+                let buf1 = &buf0[coff..coff + clen];
+                let mut cd = Dec::new(buf1);
+                out.presence |= AK_DFIX_TASKDETAILED_PRESENT_STARTED_AT;
+                while !cd.at_end() {
+                    let k = cd.varint();
+                    let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+                    if tag == 0 { cd.err = ak_rt::ERR_MALFORMED; break; }
+                    match tag {
+                        1 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.started_at.seconds = cd.varint() as i64;
+                        }
+                        2 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.started_at.nanos = cd.varint() as i32;
+                        }
+                        _ => cd.skip(wire),
+                    }
+                }
+                if cd.err != 0 { d.err = cd.err; }
+            }
+            14 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (coff, clen) = d.len_body();
+                let base1 = base0 + coff;
+                let buf1 = &buf0[coff..coff + clen];
+                let mut cd = Dec::new(buf1);
+                out.presence |= AK_DFIX_TASKDETAILED_PRESENT_ENDED_AT;
+                while !cd.at_end() {
+                    let k = cd.varint();
+                    let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+                    if tag == 0 { cd.err = ak_rt::ERR_MALFORMED; break; }
+                    match tag {
+                        1 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.ended_at.seconds = cd.varint() as i64;
+                        }
+                        2 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.ended_at.nanos = cd.varint() as i32;
+                        }
+                        _ => cd.skip(wire),
+                    }
+                }
+                if cd.err != 0 { d.err = cd.err; }
+            }
+            15 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (coff, clen) = d.len_body();
+                let base1 = base0 + coff;
+                let buf1 = &buf0[coff..coff + clen];
+                let mut cd = Dec::new(buf1);
+                out.presence |= AK_DFIX_TASKDETAILED_PRESENT_POD_TTL;
+                while !cd.at_end() {
+                    let k = cd.varint();
+                    let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+                    if tag == 0 { cd.err = ak_rt::ERR_MALFORMED; break; }
+                    match tag {
+                        1 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.pod_ttl.seconds = cd.varint() as i64;
+                        }
+                        2 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.pod_ttl.nanos = cd.varint() as i32;
+                        }
+                        _ => cd.skip(wire),
+                    }
+                }
+                if cd.err != 0 { d.err = cd.err; }
+            }
+            16 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (coff, clen) = d.len_body();
+                let base1 = base0 + coff;
+                let buf1 = &buf0[coff..coff + clen];
+                let mut cd = Dec::new(buf1);
+                out.presence |= AK_DFIX_TASKDETAILED_PRESENT_OUTPUT;
+                while !cd.at_end() {
+                    let k = cd.varint();
+                    let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+                    if tag == 0 { cd.err = ak_rt::ERR_MALFORMED; break; }
+                    match tag {
+                        1 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.output.success = (cd.varint() != 0) as u8;
+                        }
+                        2 if wire == 2 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            let (off, n) = cd.len_body();
+                            out.output.error = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
+                        }
+                        _ => cd.skip(wire),
+                    }
+                }
+                if cd.err != 0 { d.err = cd.err; }
+            }
+            17 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                out.pod_hostname = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
+            }
+            18 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (coff, clen) = d.len_body();
+                let base1 = base0 + coff;
+                let buf1 = &buf0[coff..coff + clen];
+                let mut cd = Dec::new(buf1);
+                out.presence |= AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_AT;
+                while !cd.at_end() {
+                    let k = cd.varint();
+                    let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+                    if tag == 0 { cd.err = ak_rt::ERR_MALFORMED; break; }
+                    match tag {
+                        1 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.received_at.seconds = cd.varint() as i64;
+                        }
+                        2 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.received_at.nanos = cd.varint() as i32;
+                        }
+                        _ => cd.skip(wire),
+                    }
+                }
+                if cd.err != 0 { d.err = cd.err; }
+            }
+            19 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (coff, clen) = d.len_body();
+                let base1 = base0 + coff;
+                let buf1 = &buf0[coff..coff + clen];
+                let mut cd = Dec::new(buf1);
+                out.presence |= AK_DFIX_TASKDETAILED_PRESENT_ACQUIRED_AT;
+                while !cd.at_end() {
+                    let k = cd.varint();
+                    let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+                    if tag == 0 { cd.err = ak_rt::ERR_MALFORMED; break; }
+                    match tag {
+                        1 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.acquired_at.seconds = cd.varint() as i64;
+                        }
+                        2 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.acquired_at.nanos = cd.varint() as i32;
+                        }
+                        _ => cd.skip(wire),
+                    }
+                }
+                if cd.err != 0 { d.err = cd.err; }
+            }
+            20 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (coff, clen) = d.len_body();
+                let base1 = base0 + coff;
+                let buf1 = &buf0[coff..coff + clen];
+                let mut cd = Dec::new(buf1);
+                out.presence |= AK_DFIX_TASKDETAILED_PRESENT_CREATION_TO_END_DURATION;
+                while !cd.at_end() {
+                    let k = cd.varint();
+                    let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+                    if tag == 0 { cd.err = ak_rt::ERR_MALFORMED; break; }
+                    match tag {
+                        1 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.creation_to_end_duration.seconds = cd.varint() as i64;
+                        }
+                        2 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.creation_to_end_duration.nanos = cd.varint() as i32;
+                        }
+                        _ => cd.skip(wire),
+                    }
+                }
+                if cd.err != 0 { d.err = cd.err; }
+            }
+            21 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (coff, clen) = d.len_body();
+                let base1 = base0 + coff;
+                let buf1 = &buf0[coff..coff + clen];
+                let mut cd = Dec::new(buf1);
+                out.presence |= AK_DFIX_TASKDETAILED_PRESENT_PROCESSING_TO_END_DURATION;
+                while !cd.at_end() {
+                    let k = cd.varint();
+                    let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+                    if tag == 0 { cd.err = ak_rt::ERR_MALFORMED; break; }
+                    match tag {
+                        1 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.processing_to_end_duration.seconds = cd.varint() as i64;
+                        }
+                        2 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.processing_to_end_duration.nanos = cd.varint() as i32;
+                        }
+                        _ => cd.skip(wire),
+                    }
+                }
+                if cd.err != 0 { d.err = cd.err; }
+            }
+            22 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                out.initial_task_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
+            }
+            23 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (coff, clen) = d.len_body();
+                let base1 = base0 + coff;
+                let buf1 = &buf0[coff..coff + clen];
+                let mut cd = Dec::new(buf1);
+                out.presence |= AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION;
+                while !cd.at_end() {
+                    let k = cd.varint();
+                    let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+                    if tag == 0 { cd.err = ak_rt::ERR_MALFORMED; break; }
+                    match tag {
+                        1 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.received_to_end_duration.seconds = cd.varint() as i64;
+                        }
+                        2 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.received_to_end_duration.nanos = cd.varint() as i32;
+                        }
+                        _ => cd.skip(wire),
+                    }
+                }
+                if cd.err != 0 { d.err = cd.err; }
+            }
+            24 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (coff, clen) = d.len_body();
+                let base1 = base0 + coff;
+                let buf1 = &buf0[coff..coff + clen];
+                let mut cd = Dec::new(buf1);
+                out.presence |= AK_DFIX_TASKDETAILED_PRESENT_PROCESSED_AT;
+                while !cd.at_end() {
+                    let k = cd.varint();
+                    let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+                    if tag == 0 { cd.err = ak_rt::ERR_MALFORMED; break; }
+                    match tag {
+                        1 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.processed_at.seconds = cd.varint() as i64;
+                        }
+                        2 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.processed_at.nanos = cd.varint() as i32;
+                        }
+                        _ => cd.skip(wire),
+                    }
+                }
+                if cd.err != 0 { d.err = cd.err; }
+            }
+            25 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (coff, clen) = d.len_body();
+                let base1 = base0 + coff;
+                let buf1 = &buf0[coff..coff + clen];
+                let mut cd = Dec::new(buf1);
+                out.presence |= AK_DFIX_TASKDETAILED_PRESENT_FETCHED_AT;
+                while !cd.at_end() {
+                    let k = cd.varint();
+                    let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+                    if tag == 0 { cd.err = ak_rt::ERR_MALFORMED; break; }
+                    match tag {
+                        1 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.fetched_at.seconds = cd.varint() as i64;
+                        }
+                        2 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.fetched_at.nanos = cd.varint() as i32;
+                        }
+                        _ => cd.skip(wire),
+                    }
+                }
+                if cd.err != 0 { d.err = cd.err; }
+            }
+            26 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                out.payload_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
+            }
+            27 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                out.created_by = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
+            }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+        }
+    }
+    flush!();
+    (*dcx).bdr.push(
+        ak_rt::bdr::OP_APPLY_ELEM,
+        65536,
+        tok,
+        1,
+        &out as *const _ as *const u8,
+        ::core::mem::size_of::<ak_dfix_TaskDetailed>(),
+    );
+}
+
+/// Pull form of the non-leaf element run. `new` becomes a minted token and
+/// an OP_NEW record, `apply` becomes an OP_APPLY_ELEM record; the host's
+/// replay does what its `new_tasks`/`apply_tasks` would have done.
+unsafe fn dec_list_task_summary_response_tasks_element_pull(
+    dcx: *mut DecCtxImpl,
+    d: &mut Dec,
+    base: usize,
+) {
+    // The codec MINTS the token because there is nobody to ask during a parse.
+    // A token is an index (ABI v1 section 10), and the host's replay pushes its
+    // elements in the order the records arrive, so index i names the same object
+    // on both sides without either holding an address.
+    let tok = (*dcx).bdr.mint();
+    (*dcx).bdr.push(ak_rt::bdr::OP_NEW, 65536, tok, 0, ::core::ptr::null(), 0);
+    let mut out = ak_dfix_TaskSummary::ZERO;
+    #[allow(unused_variables)]
+    let buf0 = d.buf;
+    let base0 = base;
+    // ABI v1 7.3: a byte budget divided by the group size, not an element
+    // count, so the scratch is the same 32 KB whatever the schema does.
+    const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
+    let mut a_options_options: [::core::mem::MaybeUninit<ak_dfix_TaskOptionsOptionsEntry>; N_OPTIONS_OPTIONS] =
+        [const { ::core::mem::MaybeUninit::uninit() }; N_OPTIONS_OPTIONS];
+    let mut n_options_options: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_options_options: usize = 0;
+    let _ = done_options_options;
+    let uk_options_options: *mut UnkBuf = ::core::ptr::null_mut();
+    macro_rules! flush_options_options {
+        () => {
+            if n_options_options > 0 {
+                // No call: the run is copied into the record buffer and the
+                // host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.push(
+                    ak_rt::bdr::OP_ADD,
+                    65537,
+                    tok,
+                    n_options_options as u32,
+                    a_options_options.as_ptr() as *const u8,
+                    n_options_options * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>(),
+                );
+                done_options_options += n_options_options;
+                n_options_options = 0;
+                if !uk_options_options.is_null() { (*uk_options_options).flush(); }
+            }
+        };
+    }
+    macro_rules! flush {
+        () => {
+            flush_options_options!();
+        };
+    }
+    let mut cur = 0u32;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        match tag {
+            1 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
+            }
+            2 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                out.session_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
+            }
+            3 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (coff, clen) = d.len_body();
+                let base1 = base0 + coff;
+                let buf1 = &buf0[coff..coff + clen];
+                let mut cd = Dec::new(buf1);
+                out.presence |= AK_DFIX_TASKSUMMARY_PRESENT_OPTIONS;
+                while !cd.at_end() {
+                    let k = cd.varint();
+                    let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+                    if tag == 0 { cd.err = ak_rt::ERR_MALFORMED; break; }
+                    match tag {
+                        1 if wire == 2 => {
+                            if cur != 1 { flush!(); cur = 1; }
+                            if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
+                            let (off, n) = cd.len_body();
+                            let mut es = Dec::new(&buf1[off..off + n]);
+                            if !uk_options_options.is_null() { (*uk_options_options).token = (done_options_options + n_options_options) as i64; }
+                            a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, uk_options_options));
+                            if es.err != 0 { cd.err = es.err; }
+                            n_options_options += 1;
+                        }
+                        2 if wire == 2 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            let (coff, clen) = cd.len_body();
+                            let base2 = base1 + coff;
+                            let buf2 = &buf1[coff..coff + clen];
+                            let mut cd = Dec::new(buf2);
+                            out.options.presence |= AK_DFIX_TASKOPTIONS_PRESENT_MAX_DURATION;
+                            while !cd.at_end() {
+                                let k = cd.varint();
+                                let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+                                if tag == 0 { cd.err = ak_rt::ERR_MALFORMED; break; }
+                                match tag {
+                                    1 if wire == 0 => {
+                                        if cur != 0 { flush!(); cur = 0; }
+                                        out.options.max_duration.seconds = cd.varint() as i64;
+                                    }
+                                    2 if wire == 0 => {
+                                        if cur != 0 { flush!(); cur = 0; }
+                                        out.options.max_duration.nanos = cd.varint() as i32;
+                                    }
+                                    _ => cd.skip(wire),
+                                }
+                            }
+                            if cd.err != 0 { cd.err = cd.err; }
+                        }
+                        3 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.options.max_retries = cd.varint() as i32;
+                        }
+                        4 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.options.priority = cd.varint() as i32;
+                        }
+                        5 if wire == 2 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            let (off, n) = cd.len_body();
+                            out.options.partition_id = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
+                        }
+                        6 if wire == 2 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            let (off, n) = cd.len_body();
+                            out.options.application_name = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
+                        }
+                        7 if wire == 2 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            let (off, n) = cd.len_body();
+                            out.options.application_version = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
+                        }
+                        8 if wire == 2 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            let (off, n) = cd.len_body();
+                            out.options.application_namespace = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
+                        }
+                        9 if wire == 2 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            let (off, n) = cd.len_body();
+                            out.options.application_service = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
+                        }
+                        10 if wire == 2 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            let (off, n) = cd.len_body();
+                            out.options.engine_type = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
+                        }
+                        _ => cd.skip(wire),
+                    }
+                }
+                if cd.err != 0 { d.err = cd.err; }
+            }
+            4 if wire == 0 => {
+                if cur != 0 { flush!(); cur = 0; }
+                out.status = d.varint() as i32;
+            }
+            5 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (coff, clen) = d.len_body();
+                let base1 = base0 + coff;
+                let buf1 = &buf0[coff..coff + clen];
+                let mut cd = Dec::new(buf1);
+                out.presence |= AK_DFIX_TASKSUMMARY_PRESENT_CREATED_AT;
+                while !cd.at_end() {
+                    let k = cd.varint();
+                    let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+                    if tag == 0 { cd.err = ak_rt::ERR_MALFORMED; break; }
+                    match tag {
+                        1 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.created_at.seconds = cd.varint() as i64;
+                        }
+                        2 if wire == 0 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            out.created_at.nanos = cd.varint() as i32;
+                        }
+                        _ => cd.skip(wire),
+                    }
+                }
+                if cd.err != 0 { d.err = cd.err; }
+            }
+            8 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                out.error = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
+            }
+            9 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                out.status_message = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
+            }
+            11 if wire == 0 => {
+                if cur != 0 { flush!(); cur = 0; }
+                out.count_data_dependencies = d.varint() as i64;
+            }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+        }
+    }
+    flush!();
+    (*dcx).bdr.push(
+        ak_rt::bdr::OP_APPLY_ELEM,
+        65536,
+        tok,
+        1,
+        &out as *const _ as *const u8,
+        ::core::mem::size_of::<ak_dfix_TaskSummary>(),
+    );
+}
+
+/// Pull form of the non-leaf element run. `new` becomes a minted token and
+/// an OP_NEW record, `apply` becomes an OP_APPLY_ELEM record; the host's
+/// replay does what its `new_batches`/`apply_batches` would have done.
+unsafe fn dec_list_metrics_response_batches_element_pull(
+    dcx: *mut DecCtxImpl,
+    d: &mut Dec,
+    base: usize,
+) {
+    // The codec MINTS the token because there is nobody to ask during a parse.
+    // A token is an index (ABI v1 section 10), and the host's replay pushes its
+    // elements in the order the records arrive, so index i names the same object
+    // on both sides without either holding an address.
+    let tok = (*dcx).bdr.mint();
+    (*dcx).bdr.push(ak_rt::bdr::OP_NEW, 65536, tok, 0, ::core::ptr::null(), 0);
+    let mut out = ak_dfix_MetricsBatch::ZERO;
+    #[allow(unused_variables)]
+    let buf0 = d.buf;
+    let base0 = base;
+    // ABI v1 7.3: a byte budget divided by the group size, not an element
+    // count, so the scratch is the same 32 KB whatever the schema does.
+    const N_TICKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
+    let mut a_ticks: [::core::mem::MaybeUninit<i64>; N_TICKS] =
+        [const { ::core::mem::MaybeUninit::uninit() }; N_TICKS];
+    let mut n_ticks: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_ticks: usize = 0;
+    let _ = done_ticks;
+    let uk_ticks: *mut UnkBuf = ::core::ptr::null_mut();
+    // ABI v1 7.3: a byte budget divided by the group size, not an element
+    // count, so the scratch is the same 32 KB whatever the schema does.
+    const N_VALUES: usize = ak_rt::arena_n(::core::mem::size_of::<f64>());
+    let mut a_values: [::core::mem::MaybeUninit<f64>; N_VALUES] =
+        [const { ::core::mem::MaybeUninit::uninit() }; N_VALUES];
+    let mut n_values: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_values: usize = 0;
+    let _ = done_values;
+    let uk_values: *mut UnkBuf = ::core::ptr::null_mut();
+    // ABI v1 7.3: a byte budget divided by the group size, not an element
+    // count, so the scratch is the same 32 KB whatever the schema does.
+    const N_CODES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
+    let mut a_codes: [::core::mem::MaybeUninit<i32>; N_CODES] =
+        [const { ::core::mem::MaybeUninit::uninit() }; N_CODES];
+    let mut n_codes: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_codes: usize = 0;
+    let _ = done_codes;
+    let uk_codes: *mut UnkBuf = ::core::ptr::null_mut();
+    // ABI v1 7.3: a byte budget divided by the group size, not an element
+    // count, so the scratch is the same 32 KB whatever the schema does.
+    const N_FLAGS: usize = ak_rt::arena_n(::core::mem::size_of::<u8>());
+    let mut a_flags: [::core::mem::MaybeUninit<u8>; N_FLAGS] =
+        [const { ::core::mem::MaybeUninit::uninit() }; N_FLAGS];
+    let mut n_flags: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_flags: usize = 0;
+    let _ = done_flags;
+    let uk_flags: *mut UnkBuf = ::core::ptr::null_mut();
+    // ABI v1 7.3: a byte budget divided by the group size, not an element
+    // count, so the scratch is the same 32 KB whatever the schema does.
+    const N_STATUSES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
+    let mut a_statuses: [::core::mem::MaybeUninit<i32>; N_STATUSES] =
+        [const { ::core::mem::MaybeUninit::uninit() }; N_STATUSES];
+    let mut n_statuses: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_statuses: usize = 0;
+    let _ = done_statuses;
+    let uk_statuses: *mut UnkBuf = ::core::ptr::null_mut();
+    macro_rules! flush_ticks {
+        () => {
+            if n_ticks > 0 {
+                // No call: the run is copied into the record buffer and the
+                // host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.push(
+                    ak_rt::bdr::OP_ADD,
+                    65537,
+                    tok,
+                    n_ticks as u32,
+                    a_ticks.as_ptr() as *const u8,
+                    n_ticks * ::core::mem::size_of::<i64>(),
+                );
+                done_ticks += n_ticks;
+                n_ticks = 0;
+                if !uk_ticks.is_null() { (*uk_ticks).flush(); }
+            }
+        };
+    }
+    macro_rules! flush_values {
+        () => {
+            if n_values > 0 {
+                // No call: the run is copied into the record buffer and the
+                // host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.push(
+                    ak_rt::bdr::OP_ADD,
+                    65538,
+                    tok,
+                    n_values as u32,
+                    a_values.as_ptr() as *const u8,
+                    n_values * ::core::mem::size_of::<f64>(),
+                );
+                done_values += n_values;
+                n_values = 0;
+                if !uk_values.is_null() { (*uk_values).flush(); }
+            }
+        };
+    }
+    macro_rules! flush_codes {
+        () => {
+            if n_codes > 0 {
+                // No call: the run is copied into the record buffer and the
+                // host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.push(
+                    ak_rt::bdr::OP_ADD,
+                    65539,
+                    tok,
+                    n_codes as u32,
+                    a_codes.as_ptr() as *const u8,
+                    n_codes * ::core::mem::size_of::<i32>(),
+                );
+                done_codes += n_codes;
+                n_codes = 0;
+                if !uk_codes.is_null() { (*uk_codes).flush(); }
+            }
+        };
+    }
+    macro_rules! flush_flags {
+        () => {
+            if n_flags > 0 {
+                // No call: the run is copied into the record buffer and the
+                // host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.push(
+                    ak_rt::bdr::OP_ADD,
+                    65540,
+                    tok,
+                    n_flags as u32,
+                    a_flags.as_ptr() as *const u8,
+                    n_flags * ::core::mem::size_of::<u8>(),
+                );
+                done_flags += n_flags;
+                n_flags = 0;
+                if !uk_flags.is_null() { (*uk_flags).flush(); }
+            }
+        };
+    }
+    macro_rules! flush_statuses {
+        () => {
+            if n_statuses > 0 {
+                // No call: the run is copied into the record buffer and the
+                // host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.push(
+                    ak_rt::bdr::OP_ADD,
+                    65541,
+                    tok,
+                    n_statuses as u32,
+                    a_statuses.as_ptr() as *const u8,
+                    n_statuses * ::core::mem::size_of::<i32>(),
+                );
+                done_statuses += n_statuses;
+                n_statuses = 0;
+                if !uk_statuses.is_null() { (*uk_statuses).flush(); }
+            }
+        };
+    }
+    macro_rules! flush {
+        () => {
+            flush_ticks!();
+            flush_values!();
+            flush_codes!();
+            flush_flags!();
+            flush_statuses!();
+        };
+    }
+    let mut cur = 0u32;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        match tag {
+            1 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
+            }
+            2 if wire == 2 => {
+                if cur != 1 { flush!(); cur = 1; }
+                let (off, n) = d.len_body();
+                let mut ps = Dec::new(&buf0[off..off + n]);
+                while !ps.at_end() {
+                    if n_ticks == N_TICKS { flush_ticks!(); }
+                    a_ticks[n_ticks].write(ps.varint() as i64);
+                    n_ticks += 1;
+                }
+                if ps.err != 0 { d.err = ps.err; }
+            }
+            2 if wire == 0 || wire == 1 => {
+                if cur != 1 { flush!(); cur = 1; }
+                if n_ticks == N_TICKS { flush_ticks!(); }
+                a_ticks[n_ticks].write(d.varint() as i64);
+                n_ticks += 1;
+            }
+            3 if wire == 2 => {
+                if cur != 2 { flush!(); cur = 2; }
+                let (off, n) = d.len_body();
+                let mut ps = Dec::new(&buf0[off..off + n]);
+                while !ps.at_end() {
+                    if n_values == N_VALUES { flush_values!(); }
+                    a_values[n_values].write(ps.f64());
+                    n_values += 1;
+                }
+                if ps.err != 0 { d.err = ps.err; }
+            }
+            3 if wire == 0 || wire == 1 => {
+                if cur != 2 { flush!(); cur = 2; }
+                if n_values == N_VALUES { flush_values!(); }
+                a_values[n_values].write(d.f64());
+                n_values += 1;
+            }
+            4 if wire == 2 => {
+                if cur != 3 { flush!(); cur = 3; }
+                let (off, n) = d.len_body();
+                let mut ps = Dec::new(&buf0[off..off + n]);
+                while !ps.at_end() {
+                    if n_codes == N_CODES { flush_codes!(); }
+                    a_codes[n_codes].write(ps.varint() as i32);
+                    n_codes += 1;
+                }
+                if ps.err != 0 { d.err = ps.err; }
+            }
+            4 if wire == 0 || wire == 1 => {
+                if cur != 3 { flush!(); cur = 3; }
+                if n_codes == N_CODES { flush_codes!(); }
+                a_codes[n_codes].write(d.varint() as i32);
+                n_codes += 1;
+            }
+            5 if wire == 2 => {
+                if cur != 4 { flush!(); cur = 4; }
+                let (off, n) = d.len_body();
+                let mut ps = Dec::new(&buf0[off..off + n]);
+                while !ps.at_end() {
+                    if n_flags == N_FLAGS { flush_flags!(); }
+                    a_flags[n_flags].write((ps.varint() != 0) as u8);
+                    n_flags += 1;
+                }
+                if ps.err != 0 { d.err = ps.err; }
+            }
+            5 if wire == 0 || wire == 1 => {
+                if cur != 4 { flush!(); cur = 4; }
+                if n_flags == N_FLAGS { flush_flags!(); }
+                a_flags[n_flags].write((d.varint() != 0) as u8);
+                n_flags += 1;
+            }
+            6 if wire == 2 => {
+                if cur != 5 { flush!(); cur = 5; }
+                let (off, n) = d.len_body();
+                let mut ps = Dec::new(&buf0[off..off + n]);
+                while !ps.at_end() {
+                    if n_statuses == N_STATUSES { flush_statuses!(); }
+                    a_statuses[n_statuses].write(ps.varint() as i32);
+                    n_statuses += 1;
+                }
+                if ps.err != 0 { d.err = ps.err; }
+            }
+            6 if wire == 0 || wire == 1 => {
+                if cur != 5 { flush!(); cur = 5; }
+                if n_statuses == N_STATUSES { flush_statuses!(); }
+                a_statuses[n_statuses].write(d.varint() as i32);
+                n_statuses += 1;
+            }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+        }
+    }
+    flush!();
+    (*dcx).bdr.push(
+        ak_rt::bdr::OP_APPLY_ELEM,
+        65536,
+        tok,
+        1,
+        &out as *const _ as *const u8,
+        ::core::mem::size_of::<ak_dfix_MetricsBatch>(),
+    );
+}
+
+/// Pull family (ABI v1 section 7.1): parse into the context, zero upcalls.
+///
+/// The host then calls `ak_bdr_footprint` and either `ak_bdr_drain` (copy the
+/// records into its own memory, which is what a managed host must do) or
+/// `ak_bdr_ptr` (walk them in place, which is what a native host does).
+#[no_mangle]
+pub unsafe extern "C" fn ak_parse_ListResultsResponse(
+    ctx: *mut ak_dec_ctx,
+    buf: *const u8,
+    len: usize,
+) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    let dcx = ctx as *mut DecCtxImpl;
+    ak_rt::bump!((*dcx).c, forward);
+    // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
+    // so a rejected parse cannot poison every later one on this context.
+    (*dcx).hdr.err = AK_OK;
+    (*dcx).bdr.reset();
+    let buf0 = ::core::slice::from_raw_parts(buf, len);
+    let base0 = 0usize;
+    let mut d = Dec::new(buf0);
+    let mut out = ak_dfix_ListResultsResponse::ZERO;
+    // ABI v1 7.3: a byte budget divided by the group size, not an element
+    // count, so the scratch is the same 32 KB whatever the schema does.
+    const N_RESULTS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ResultRaw>());
+    let mut a_results: [::core::mem::MaybeUninit<ak_dfix_ResultRaw>; N_RESULTS] =
+        [const { ::core::mem::MaybeUninit::uninit() }; N_RESULTS];
+    let mut n_results: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_results: usize = 0;
+    let _ = done_results;
+    let uk_results: *mut UnkBuf = ::core::ptr::null_mut();
+    macro_rules! flush_results {
+        () => {
+            if n_results > 0 {
+                // No call: the run is copied into the record buffer and the
+                // host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.push(
+                    ak_rt::bdr::OP_ADD,
+                    1,
+                    AK_TOKEN_ROOT,
+                    n_results as u32,
+                    a_results.as_ptr() as *const u8,
+                    n_results * ::core::mem::size_of::<ak_dfix_ResultRaw>(),
+                );
+                done_results += n_results;
+                n_results = 0;
+                if !uk_results.is_null() { (*uk_results).flush(); }
+            }
+        };
+    }
+    macro_rules! flush {
+        () => {
+            flush_results!();
+        };
+    }
+    let mut cur = 0u32;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        match tag {
+            1 if wire == 2 => {
+                if cur != 1 { flush!(); cur = 1; }
+                if n_results == N_RESULTS { flush_results!(); }
+                let (off, n) = d.len_body();
+                let mut es = Dec::new(&buf0[off..off + n]);
+                if !uk_results.is_null() { (*uk_results).token = (done_results + n_results) as i64; }
+                a_results[n_results].write(dec_result_raw_fix(&mut es, base0 + off, uk_results));
+                if es.err != 0 { d.err = es.err; }
+                n_results += 1;
+            }
+            2 if wire == 0 => {
+                if cur != 0 { flush!(); cur = 0; }
+                out.page = d.varint() as i32;
+            }
+            3 if wire == 0 => {
+                if cur != 0 { flush!(); cur = 0; }
+                out.total = d.varint() as i32;
+            }
+            // Decision 11's capture is NOT built for this family: the bag is a
+            // candidate and pull is a family, and pricing one through the other
+            // would make neither answerable. Unknown fields are skipped here,
+            // which is what the default push path does too.
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+        }
+    }
+    flush!();
+    // The root group LAST, exactly where the push family calls `apply`, so the
+    // record stream is the call sequence push would have made, in its order.
+    (*dcx).bdr.push(
+        ak_rt::bdr::OP_APPLY,
+        0,
+        AK_TOKEN_ROOT,
+        1,
+        &out as *const _ as *const u8,
+        ::core::mem::size_of::<ak_dfix_ListResultsResponse>(),
+    );
+    if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
+}
+
+/// Pull family (ABI v1 section 7.1): parse into the context, zero upcalls.
+///
+/// The host then calls `ak_bdr_footprint` and either `ak_bdr_drain` (copy the
+/// records into its own memory, which is what a managed host must do) or
+/// `ak_bdr_ptr` (walk them in place, which is what a native host does).
+#[no_mangle]
+pub unsafe extern "C" fn ak_parse_ListTasksDetailedResponse(
+    ctx: *mut ak_dec_ctx,
+    buf: *const u8,
+    len: usize,
+) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    let dcx = ctx as *mut DecCtxImpl;
+    ak_rt::bump!((*dcx).c, forward);
+    // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
+    // so a rejected parse cannot poison every later one on this context.
+    (*dcx).hdr.err = AK_OK;
+    (*dcx).bdr.reset();
+    let buf0 = ::core::slice::from_raw_parts(buf, len);
+    let base0 = 0usize;
+    let mut d = Dec::new(buf0);
+    let mut out = ak_dfix_ListTasksDetailedResponse::ZERO;
+    macro_rules! flush {
+        () => {
+        };
+    }
+    let mut cur = 0u32;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        match tag {
+            1 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                let mut sub = Dec::new(&buf0[off..off + n]);
+                dec_list_tasks_detailed_response_tasks_element_pull(dcx, &mut sub, base0 + off);
+                if sub.err != 0 { d.err = sub.err; }
+            }
+            2 if wire == 0 => {
+                if cur != 0 { flush!(); cur = 0; }
+                out.page = d.varint() as i32;
+            }
+            3 if wire == 0 => {
+                if cur != 0 { flush!(); cur = 0; }
+                out.total = d.varint() as i32;
+            }
+            // Decision 11's capture is NOT built for this family: the bag is a
+            // candidate and pull is a family, and pricing one through the other
+            // would make neither answerable. Unknown fields are skipped here,
+            // which is what the default push path does too.
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+        }
+    }
+    flush!();
+    // The root group LAST, exactly where the push family calls `apply`, so the
+    // record stream is the call sequence push would have made, in its order.
+    (*dcx).bdr.push(
+        ak_rt::bdr::OP_APPLY,
+        0,
+        AK_TOKEN_ROOT,
+        1,
+        &out as *const _ as *const u8,
+        ::core::mem::size_of::<ak_dfix_ListTasksDetailedResponse>(),
+    );
+    if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
+}
+
+/// Pull family (ABI v1 section 7.1): parse into the context, zero upcalls.
+///
+/// The host then calls `ak_bdr_footprint` and either `ak_bdr_drain` (copy the
+/// records into its own memory, which is what a managed host must do) or
+/// `ak_bdr_ptr` (walk them in place, which is what a native host does).
+#[no_mangle]
+pub unsafe extern "C" fn ak_parse_ListProbeResponse(
+    ctx: *mut ak_dec_ctx,
+    buf: *const u8,
+    len: usize,
+) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    let dcx = ctx as *mut DecCtxImpl;
+    ak_rt::bump!((*dcx).c, forward);
+    // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
+    // so a rejected parse cannot poison every later one on this context.
+    (*dcx).hdr.err = AK_OK;
+    (*dcx).bdr.reset();
+    let buf0 = ::core::slice::from_raw_parts(buf, len);
+    let base0 = 0usize;
+    let mut d = Dec::new(buf0);
+    let mut out = ak_dfix_ListProbeResponse::ZERO;
+    // ABI v1 7.3: a byte budget divided by the group size, not an element
+    // count, so the scratch is the same 32 KB whatever the schema does.
+    const N_PROBES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_Probe>());
+    let mut a_probes: [::core::mem::MaybeUninit<ak_dfix_Probe>; N_PROBES] =
+        [const { ::core::mem::MaybeUninit::uninit() }; N_PROBES];
+    let mut n_probes: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_probes: usize = 0;
+    let _ = done_probes;
+    let uk_probes: *mut UnkBuf = ::core::ptr::null_mut();
+    macro_rules! flush_probes {
+        () => {
+            if n_probes > 0 {
+                // No call: the run is copied into the record buffer and the
+                // host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.push(
+                    ak_rt::bdr::OP_ADD,
+                    1,
+                    AK_TOKEN_ROOT,
+                    n_probes as u32,
+                    a_probes.as_ptr() as *const u8,
+                    n_probes * ::core::mem::size_of::<ak_dfix_Probe>(),
+                );
+                done_probes += n_probes;
+                n_probes = 0;
+                if !uk_probes.is_null() { (*uk_probes).flush(); }
+            }
+        };
+    }
+    macro_rules! flush {
+        () => {
+            flush_probes!();
+        };
+    }
+    let mut cur = 0u32;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        match tag {
+            1 if wire == 2 => {
+                if cur != 1 { flush!(); cur = 1; }
+                if n_probes == N_PROBES { flush_probes!(); }
+                let (off, n) = d.len_body();
+                let mut es = Dec::new(&buf0[off..off + n]);
+                if !uk_probes.is_null() { (*uk_probes).token = (done_probes + n_probes) as i64; }
+                a_probes[n_probes].write(dec_probe_fix(&mut es, base0 + off, uk_probes));
+                if es.err != 0 { d.err = es.err; }
+                n_probes += 1;
+            }
+            // Decision 11's capture is NOT built for this family: the bag is a
+            // candidate and pull is a family, and pricing one through the other
+            // would make neither answerable. Unknown fields are skipped here,
+            // which is what the default push path does too.
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+        }
+    }
+    flush!();
+    // The root group LAST, exactly where the push family calls `apply`, so the
+    // record stream is the call sequence push would have made, in its order.
+    (*dcx).bdr.push(
+        ak_rt::bdr::OP_APPLY,
+        0,
+        AK_TOKEN_ROOT,
+        1,
+        &out as *const _ as *const u8,
+        ::core::mem::size_of::<ak_dfix_ListProbeResponse>(),
+    );
+    if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
+}
+
+/// Pull family (ABI v1 section 7.1): parse into the context, zero upcalls.
+///
+/// The host then calls `ak_bdr_footprint` and either `ak_bdr_drain` (copy the
+/// records into its own memory, which is what a managed host must do) or
+/// `ak_bdr_ptr` (walk them in place, which is what a native host does).
+#[no_mangle]
+pub unsafe extern "C" fn ak_parse_ListTaskSummaryResponse(
+    ctx: *mut ak_dec_ctx,
+    buf: *const u8,
+    len: usize,
+) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    let dcx = ctx as *mut DecCtxImpl;
+    ak_rt::bump!((*dcx).c, forward);
+    // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
+    // so a rejected parse cannot poison every later one on this context.
+    (*dcx).hdr.err = AK_OK;
+    (*dcx).bdr.reset();
+    let buf0 = ::core::slice::from_raw_parts(buf, len);
+    let base0 = 0usize;
+    let mut d = Dec::new(buf0);
+    let mut out = ak_dfix_ListTaskSummaryResponse::ZERO;
+    macro_rules! flush {
+        () => {
+        };
+    }
+    let mut cur = 0u32;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        match tag {
+            1 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                let mut sub = Dec::new(&buf0[off..off + n]);
+                dec_list_task_summary_response_tasks_element_pull(dcx, &mut sub, base0 + off);
+                if sub.err != 0 { d.err = sub.err; }
+            }
+            // Decision 11's capture is NOT built for this family: the bag is a
+            // candidate and pull is a family, and pricing one through the other
+            // would make neither answerable. Unknown fields are skipped here,
+            // which is what the default push path does too.
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+        }
+    }
+    flush!();
+    // The root group LAST, exactly where the push family calls `apply`, so the
+    // record stream is the call sequence push would have made, in its order.
+    (*dcx).bdr.push(
+        ak_rt::bdr::OP_APPLY,
+        0,
+        AK_TOKEN_ROOT,
+        1,
+        &out as *const _ as *const u8,
+        ::core::mem::size_of::<ak_dfix_ListTaskSummaryResponse>(),
+    );
+    if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
+}
+
+/// Pull family (ABI v1 section 7.1): parse into the context, zero upcalls.
+///
+/// The host then calls `ak_bdr_footprint` and either `ak_bdr_drain` (copy the
+/// records into its own memory, which is what a managed host must do) or
+/// `ak_bdr_ptr` (walk them in place, which is what a native host does).
+#[no_mangle]
+pub unsafe extern "C" fn ak_parse_UploadResultDataMessage(
+    ctx: *mut ak_dec_ctx,
+    buf: *const u8,
+    len: usize,
+) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    let dcx = ctx as *mut DecCtxImpl;
+    ak_rt::bump!((*dcx).c, forward);
+    // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
+    // so a rejected parse cannot poison every later one on this context.
+    (*dcx).hdr.err = AK_OK;
+    (*dcx).bdr.reset();
+    let buf0 = ::core::slice::from_raw_parts(buf, len);
+    let base0 = 0usize;
+    let mut d = Dec::new(buf0);
+    let mut out = ak_dfix_UploadResultDataMessage::ZERO;
+    macro_rules! flush {
+        () => {
+        };
+    }
+    let mut cur = 0u32;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        match tag {
+            1 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (coff, clen) = d.len_body();
+                let base1 = base0 + coff;
+                let buf1 = &buf0[coff..coff + clen];
+                let mut cd = Dec::new(buf1);
+                out.presence |= AK_DFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD;
+                while !cd.at_end() {
+                    let k = cd.varint();
+                    let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+                    if tag == 0 { cd.err = ak_rt::ERR_MALFORMED; break; }
+                    match tag {
+                        1 if wire == 2 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            let (off, n) = cd.len_body();
+                            out.upload.session_id = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
+                        }
+                        2 if wire == 2 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            let (off, n) = cd.len_body();
+                            out.upload.result_id = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
+                        }
+                        3 if wire == 2 => {
+                            if cur != 0 { flush!(); cur = 0; }
+                            let (off, n) = cd.len_body();
+                            out.upload.data_chunk = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
+                        }
+                        _ => cd.skip(wire),
+                    }
+                }
+                if cd.err != 0 { d.err = cd.err; }
+            }
+            // Decision 11's capture is NOT built for this family: the bag is a
+            // candidate and pull is a family, and pricing one through the other
+            // would make neither answerable. Unknown fields are skipped here,
+            // which is what the default push path does too.
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+        }
+    }
+    flush!();
+    // The root group LAST, exactly where the push family calls `apply`, so the
+    // record stream is the call sequence push would have made, in its order.
+    (*dcx).bdr.push(
+        ak_rt::bdr::OP_APPLY,
+        0,
+        AK_TOKEN_ROOT,
+        1,
+        &out as *const _ as *const u8,
+        ::core::mem::size_of::<ak_dfix_UploadResultDataMessage>(),
+    );
+    if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
+}
+
+/// Pull family (ABI v1 section 7.1): parse into the context, zero upcalls.
+///
+/// The host then calls `ak_bdr_footprint` and either `ak_bdr_drain` (copy the
+/// records into its own memory, which is what a managed host must do) or
+/// `ak_bdr_ptr` (walk them in place, which is what a native host does).
+#[no_mangle]
+pub unsafe extern "C" fn ak_parse_ListMetricsResponse(
+    ctx: *mut ak_dec_ctx,
+    buf: *const u8,
+    len: usize,
+) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    let dcx = ctx as *mut DecCtxImpl;
+    ak_rt::bump!((*dcx).c, forward);
+    // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
+    // so a rejected parse cannot poison every later one on this context.
+    (*dcx).hdr.err = AK_OK;
+    (*dcx).bdr.reset();
+    let buf0 = ::core::slice::from_raw_parts(buf, len);
+    let base0 = 0usize;
+    let mut d = Dec::new(buf0);
+    let mut out = ak_dfix_ListMetricsResponse::ZERO;
+    macro_rules! flush {
+        () => {
+        };
+    }
+    let mut cur = 0u32;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        match tag {
+            1 if wire == 2 => {
+                if cur != 0 { flush!(); cur = 0; }
+                let (off, n) = d.len_body();
+                let mut sub = Dec::new(&buf0[off..off + n]);
+                dec_list_metrics_response_batches_element_pull(dcx, &mut sub, base0 + off);
+                if sub.err != 0 { d.err = sub.err; }
+            }
+            // Decision 11's capture is NOT built for this family: the bag is a
+            // candidate and pull is a family, and pricing one through the other
+            // would make neither answerable. Unknown fields are skipped here,
+            // which is what the default push path does too.
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+        }
+    }
+    flush!();
+    // The root group LAST, exactly where the push family calls `apply`, so the
+    // record stream is the call sequence push would have made, in its order.
+    (*dcx).bdr.push(
+        ak_rt::bdr::OP_APPLY,
+        0,
+        AK_TOKEN_ROOT,
+        1,
+        &out as *const _ as *const u8,
+        ::core::mem::size_of::<ak_dfix_ListMetricsResponse>(),
+    );
+    if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
+}
+
+/// Pull family (ABI v1 section 7.1): parse into the context, zero upcalls.
+///
+/// The host then calls `ak_bdr_footprint` and either `ak_bdr_drain` (copy the
+/// records into its own memory, which is what a managed host must do) or
+/// `ak_bdr_ptr` (walk them in place, which is what a native host does).
+#[no_mangle]
+pub unsafe extern "C" fn ak_parse_DualResponse(
+    ctx: *mut ak_dec_ctx,
+    buf: *const u8,
+    len: usize,
+) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    let dcx = ctx as *mut DecCtxImpl;
+    ak_rt::bump!((*dcx).c, forward);
+    // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
+    // so a rejected parse cannot poison every later one on this context.
+    (*dcx).hdr.err = AK_OK;
+    (*dcx).bdr.reset();
+    let buf0 = ::core::slice::from_raw_parts(buf, len);
+    let base0 = 0usize;
+    let mut d = Dec::new(buf0);
+    let mut out = ak_dfix_DualResponse::ZERO;
+    // ABI v1 7.3: a byte budget divided by the group size, not an element
+    // count, so the scratch is the same 32 KB whatever the schema does.
+    const N_LEFT: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_Pair>());
+    let mut a_left: [::core::mem::MaybeUninit<ak_dfix_Pair>; N_LEFT] =
+        [const { ::core::mem::MaybeUninit::uninit() }; N_LEFT];
+    let mut n_left: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_left: usize = 0;
+    let _ = done_left;
+    let uk_left: *mut UnkBuf = ::core::ptr::null_mut();
+    // ABI v1 7.3: a byte budget divided by the group size, not an element
+    // count, so the scratch is the same 32 KB whatever the schema does.
+    const N_RIGHT: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_Pair>());
+    let mut a_right: [::core::mem::MaybeUninit<ak_dfix_Pair>; N_RIGHT] =
+        [const { ::core::mem::MaybeUninit::uninit() }; N_RIGHT];
+    let mut n_right: usize = 0;
+    // How many elements of this slot have already been handed over, so an
+    // unknown run can name its element as an INDEX (decision 11 candidate).
+    let mut done_right: usize = 0;
+    let _ = done_right;
+    let uk_right: *mut UnkBuf = ::core::ptr::null_mut();
+    macro_rules! flush_left {
+        () => {
+            if n_left > 0 {
+                // No call: the run is copied into the record buffer and the
+                // host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.push(
+                    ak_rt::bdr::OP_ADD,
+                    1,
+                    AK_TOKEN_ROOT,
+                    n_left as u32,
+                    a_left.as_ptr() as *const u8,
+                    n_left * ::core::mem::size_of::<ak_dfix_Pair>(),
+                );
+                done_left += n_left;
+                n_left = 0;
+                if !uk_left.is_null() { (*uk_left).flush(); }
+            }
+        };
+    }
+    macro_rules! flush_right {
+        () => {
+            if n_right > 0 {
+                // No call: the run is copied into the record buffer and the
+                // host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.push(
+                    ak_rt::bdr::OP_ADD,
+                    2,
+                    AK_TOKEN_ROOT,
+                    n_right as u32,
+                    a_right.as_ptr() as *const u8,
+                    n_right * ::core::mem::size_of::<ak_dfix_Pair>(),
+                );
+                done_right += n_right;
+                n_right = 0;
+                if !uk_right.is_null() { (*uk_right).flush(); }
+            }
+        };
+    }
+    macro_rules! flush {
+        () => {
+            flush_left!();
+            flush_right!();
+        };
+    }
+    let mut cur = 0u32;
+    while !d.at_end() {
+        let k = d.varint();
+        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        match tag {
+            1 if wire == 2 => {
+                if cur != 1 { flush!(); cur = 1; }
+                if n_left == N_LEFT { flush_left!(); }
+                let (off, n) = d.len_body();
+                let mut es = Dec::new(&buf0[off..off + n]);
+                if !uk_left.is_null() { (*uk_left).token = (done_left + n_left) as i64; }
+                a_left[n_left].write(dec_pair_fix(&mut es, base0 + off, uk_left));
+                if es.err != 0 { d.err = es.err; }
+                n_left += 1;
+            }
+            2 if wire == 2 => {
+                if cur != 2 { flush!(); cur = 2; }
+                if n_right == N_RIGHT { flush_right!(); }
+                let (off, n) = d.len_body();
+                let mut es = Dec::new(&buf0[off..off + n]);
+                if !uk_right.is_null() { (*uk_right).token = (done_right + n_right) as i64; }
+                a_right[n_right].write(dec_pair_fix(&mut es, base0 + off, uk_right));
+                if es.err != 0 { d.err = es.err; }
+                n_right += 1;
+            }
+            // Decision 11's capture is NOT built for this family: the bag is a
+            // candidate and pull is a family, and pricing one through the other
+            // would make neither answerable. Unknown fields are skipped here,
+            // which is what the default push path does too.
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+        }
+    }
+    flush!();
+    // The root group LAST, exactly where the push family calls `apply`, so the
+    // record stream is the call sequence push would have made, in its order.
+    (*dcx).bdr.push(
+        ak_rt::bdr::OP_APPLY,
+        0,
+        AK_TOKEN_ROOT,
+        1,
+        &out as *const _ as *const u8,
+        ::core::mem::size_of::<ak_dfix_DualResponse>(),
+    );
     if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
 }

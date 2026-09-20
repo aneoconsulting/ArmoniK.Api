@@ -19,10 +19,29 @@ pub struct Mark {
     w: usize,
 }
 
+/// ABI v1 section 6's refused arrangement, built so it can be measured (feature
+/// `global-widths`, off by default). One table for the whole process, shared by every
+/// context on every thread, sized at the largest site count any caller asks for.
+///
+/// **This is a TEST-ONLY construction of a configuration the specification refuses. It is
+/// not an option a host may pick**, and no shipped build enables it. It exists so
+/// obligation 12.5's suite can be seen failing, and so section 6's claim is measured on a
+/// second host rather than inherited.
+///
+/// Relaxed atomics, so this is a real program rather than a data race: what it exposes is
+/// the CONTENTION section 6's claim is about -- one cache line written by every encoding
+/// thread -- and not undefined behaviour. The bytes stay correct because `Mark` carries its
+/// own width by value, which is the invariant that makes a missed width a cost and not a
+/// defect.
+#[cfg(feature = "global-widths")]
+pub static GLOBAL_WIDTHS: [core::sync::atomic::AtomicU8; 4096] =
+    [const { core::sync::atomic::AtomicU8::new(1) }; 4096];
+
 pub struct Enc {
     pub buf: Vec<u8>,
     /// One learned width per length-prefix site in the generated code. Per context: a
     /// global table made two encoding threads slower than one (ABI v1 section 6).
+    #[cfg(not(feature = "global-widths"))]
     widths: Box<[u8]>,
     pub c: Counters,
     /// Sticky, first error wins (ABI v1 section 5).
@@ -42,6 +61,7 @@ impl Enc {
     pub fn new(sites: usize) -> Self {
         Enc {
             buf: Vec::with_capacity(4096),
+            #[cfg(not(feature = "global-widths"))]
             widths: vec![1u8; sites].into_boxed_slice(),
             c: Counters::default(),
             err: 0,
@@ -49,6 +69,32 @@ impl Enc {
             #[cfg(feature = "count")]
             site_moves: vec![0u32; sites].into_boxed_slice(),
         }
+    }
+
+    /// The learned width for one site. One indirection either way, so the default build's
+    /// code is what it was: a load from a `Box<[u8]>` this context owns.
+    #[cfg(not(feature = "global-widths"))]
+    #[inline(always)]
+    fn width(&self, site: u32) -> u8 {
+        self.widths[site as usize]
+    }
+
+    #[cfg(not(feature = "global-widths"))]
+    #[inline(always)]
+    fn set_width(&mut self, site: u32, w: u8) {
+        self.widths[site as usize] = w;
+    }
+
+    #[cfg(feature = "global-widths")]
+    #[inline(always)]
+    fn width(&self, site: u32) -> u8 {
+        GLOBAL_WIDTHS[site as usize].load(core::sync::atomic::Ordering::Relaxed)
+    }
+
+    #[cfg(feature = "global-widths")]
+    #[inline(always)]
+    fn set_width(&mut self, site: u32, w: u8) {
+        GLOBAL_WIDTHS[site as usize].store(w, core::sync::atomic::Ordering::Relaxed);
     }
 
     #[inline]
@@ -106,7 +152,7 @@ impl Enc {
     #[inline(always)]
     pub fn begin(&mut self, tag: u32, site: u32) -> Mark {
         self.key(tag, WIRE_LEN);
-        let w = self.widths[site as usize] as usize;
+        let w = self.width(site) as usize;
         let hdr = self.buf.len();
         self.buf.resize(hdr + w, 0);
         Mark { site, hdr, w }
@@ -119,6 +165,32 @@ impl Enc {
     pub fn end(&mut self, m: Mark) {
         let body = self.buf.len() - m.hdr - m.w;
         let need = varint_len(body as u64);
+
+        // ABI v1 section 6's SECOND refusal, built so it can be seen failing (feature
+        // `pad-widths`, off by default). Instead of moving the body when the guess was too
+        // wide, keep the reservation and write a NON-MINIMAL varint into it. That is legal
+        // wire -- every parser accepts a padded varint -- and it is exactly why it is
+        // refused: the encoder's output now depends on its own history, so two threads of
+        // one process emit two different legal encodings of one message, and a byte-vector
+        // corpus cannot express either.
+        //
+        // This is the refusal that corrupts BYTES. The process-global table (feature
+        // `global-widths`) is a data race and a throughput defect and not a byte defect,
+        // because this branch is what rewrites the prefix to the width the body actually
+        // needs whatever the guess was. The two are independent and only their combination
+        // is the worst case; the cpp slice separated them first
+        // (`ffi/logs/cpp/concurrency.log`) and section 6 was rewritten to say so.
+        #[cfg(feature = "pad-widths")]
+        if need < m.w {
+            let mut v = body as u64;
+            for i in 0..m.w {
+                let last = i + 1 == m.w;
+                self.buf[m.hdr + i] = ((v as u8) & 0x7f) | if last { 0 } else { 0x80 };
+                v >>= 7;
+            }
+            return;
+        }
+
         if need != m.w {
             self.resize_prefix(&m, body, need);
         }
@@ -140,7 +212,7 @@ impl Enc {
         {
             self.site_moves[m.site as usize] += 1;
         }
-        self.widths[m.site as usize] = need as u8;
+        self.set_width(m.site, need as u8);
         let src = m.hdr + m.w;
         if need > m.w {
             self.buf.resize(self.buf.len() + (need - m.w), 0);

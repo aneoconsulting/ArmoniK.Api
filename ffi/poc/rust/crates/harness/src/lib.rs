@@ -4,6 +4,8 @@ pub mod arms;
 pub mod arms_m2;
 pub mod arms_m3;
 pub mod arms_rest;
+/// ABI v1 section 7.1's PULL delivery family, as two arms.
+pub mod pull;
 pub mod generated {
     pub mod binding;
 }

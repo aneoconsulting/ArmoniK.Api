@@ -121,6 +121,29 @@ pub mod core_ffi_arm {
             // The host links the codec, so a missing symbol is a load failure rather than
             // a wrong value in a field (ABI v1 section 10).
             assert_eq!(crate::abi_version(), ak_abi::AK_ABI_VERSION);
+            // ABI v1 section 3: every entry point requires `ak_init`, the codec included.
+            // Called here rather than in each `main` because that is the shape a host
+            // LIBRARY has -- it initialises defensively on its own first use and must not
+            // fail because something else got there first, which is exactly what
+            // `AK_ALREADY_INITIALIZED` being a success is for. Idempotent under identical
+            // options, so every context after the first takes that path.
+            //
+            // With `init-guard` off this changes nothing the codec does; with it on it is
+            // what makes the codec usable at all, and the difference between the two
+            // builds is what section 3's rule costs.
+            unsafe {
+                let o = ak_abi::ak_init_opts {
+                    abi_version: ak_abi::AK_ABI_VERSION,
+                    // No rustls in a codec build, and the harness keeps its own panic hook
+                    // so a test failure still prints where the branch expects it.
+                    flags: ak_abi::AK_INIT_NO_CRYPTO | ak_abi::AK_INIT_NO_PANIC_HOOK,
+                    log: None,
+                    log_ctx: ::core::ptr::null_mut(),
+                };
+                let mut e = ak_abi::ak_err::default();
+                let rc = ak_abi::ak_init(&o, &mut e);
+                assert!(rc >= 0, "ak_init failed: rc {rc}, detail {}", e.detail);
+            }
             unsafe {
                 Ctx { enc: ak_enc_ctx_new(), dec: ak_dec_ctx_new(), tcs: binding::Tcs::trusted() }
             }
