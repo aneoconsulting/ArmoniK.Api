@@ -1565,7 +1565,38 @@ unsafe fn b_of(base: *const u8, s: ak_span) -> ::bytes::Bytes {
 
 #[inline(always)]
 pub(crate) fn str_arg(s: &str, tc: ak_transcode_fn) -> ak_str {
-    ak_str { data: s.as_ptr() as *const c_void, len: s.len(), tc: Some(tc) }
+    ak_str { data: data_of(s.as_bytes()), len: s.len(), tc: Some(tc) }
+}
+
+pub(crate) fn blob_arg(b: &[u8], tc: ak_transcode_fn) -> ak_str {
+    ak_str { data: data_of(b), len: b.len(), tc: Some(tc) }
+}
+
+/// **The data pointer of an EMPTY slice must not be handed to the core** (defect D20).
+///
+/// `<[u8]>::as_ptr()` on an empty slice returns the type's dangling-but-aligned pointer,
+/// which for `u8` is the address `1` -- and `1` is exactly `AK_STR_DIRECT`, ABI v1 section
+/// 8's sentinel for "these bytes are an argument of the call". So **every empty string and
+/// every empty bytes field was taking the direct-argument path**, and `enc_blob` was
+/// splicing in whatever `(*cx).direct` and `(*cx).direct_len` happened to hold.
+///
+/// It was invisible for as long as it was, and that is the part worth keeping: on a context
+/// that has never encoded a direct-argument message, `direct_len` is 0, so the direct path
+/// writes a zero-length field -- which is exactly what an empty field should be. **The wrong
+/// path produced the right bytes.** It only corrupts once the same context has encoded
+/// `UploadResultDataMessage`, after which every empty string in the next message of any
+/// other type emits the stale multi-megabyte blob.
+///
+/// The ABI already has a way to say "empty": `tc` set with `len == 0`. `tc == null` is what
+/// says "absent". `data` is not the discriminator for either, so a null pointer here is
+/// well-formed and the core never dereferences a zero-length span.
+#[inline(always)]
+pub(crate) fn data_of(b: &[u8]) -> *const c_void {
+    if b.is_empty() {
+        ::core::ptr::null()
+    } else {
+        b.as_ptr() as *const c_void
+    }
 }
 
 /// The transcoders, resolved once. `ak_tc_utf8_trusted` rather than `ak_tc_utf8` because a
@@ -1648,7 +1679,7 @@ def emit_binding(ir):
                     o.append("        },")
                 elif f.kind == "bytes":
                     o.append("        %s: match &o.%s {" % (f.name, f.name))
-                    o.append("            Some(v) => ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) },")
+                    o.append("            Some(v) => blob_arg(v, tc.1),")
                     o.append("            None => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
                     o.append("        },")
                 elif f.kind == "bool":
@@ -1667,8 +1698,7 @@ def emit_binding(ir):
             elif f.kind == "string":
                 o.append("        %s: str_arg(&o.%s, tc.0)," % (f.name, f.name))
             elif f.kind == "bytes":
-                o.append("        %s: ak_str { data: o.%s.as_ptr() as *const c_void, len: o.%s.len(), tc: Some(tc.1) },"
-                         % (f.name, f.name, f.name))
+                o.append("        %s: blob_arg(&o.%s, tc.1)," % (f.name, f.name))
             elif f.kind == "message":
                 o.append("        %s: match &o.%s {" % (f.name, f.name))
                 o.append("            Some(c) => make_%s(c, tc)," % snake(f.of))
@@ -1694,7 +1724,7 @@ def emit_binding(ir):
                     o.append("            Some(%s::%s(v)) => str_arg(v, tc.0)," % (ty, _camel(g.name)))
                     o.append("            _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
                 elif g.kind == "bytes":
-                    o.append("            Some(%s::%s(v)) => ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) },"
+                    o.append("            Some(%s::%s(v)) => blob_arg(v, tc.1),"
                              % (ty, _camel(g.name)))
                     o.append("            _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
                 elif g.kind == "message":
@@ -1743,7 +1773,7 @@ def emit_binding(ir):
                     o.append("        },")
                 elif f.kind == "bytes":
                     o.append("        %s: match &o.%s {" % (f.name, f.name))
-                    o.append("            Some(v) => ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) },")
+                    o.append("            Some(v) => blob_arg(v, tc.1),")
                     o.append("            None => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
                     o.append("        },")
                 elif f.kind == "bool":
@@ -1762,8 +1792,7 @@ def emit_binding(ir):
             elif f.kind == "string":
                 o.append("        %s: str_arg(&o.%s, tc.0)," % (f.name, f.name))
             elif f.kind == "bytes":
-                o.append("        %s: ak_str { data: o.%s.as_ptr() as *const c_void, len: o.%s.len(), tc: Some(tc.1) },"
-                         % (f.name, f.name, f.name))
+                o.append("        %s: blob_arg(&o.%s, tc.1)," % (f.name, f.name))
             elif f.kind == "message":
                 o.append("        %s: match &o.%s {" % (f.name, f.name))
                 o.append("            Some(c) => make_%s_unk(c, tc)," % snake(f.of))
@@ -1789,7 +1818,7 @@ def emit_binding(ir):
                     o.append("            Some(%s::%s(v)) => str_arg(v, tc.0)," % (ty, _camel(g.name)))
                     o.append("            _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
                 elif g.kind == "bytes":
-                    o.append("            Some(%s::%s(v)) => ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) },"
+                    o.append("            Some(%s::%s(v)) => blob_arg(v, tc.1),"
                              % (ty, _camel(g.name)))
                     o.append("            _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
                 elif g.kind == "message":
@@ -1844,7 +1873,7 @@ def emit_binding(ir):
                     o.append("    if let Some(v) = &o.%s { d.%s = str_arg(v, tc.0); d.presence |= 1 << %d; }"
                              % (f.name, f.name, bits[f.name]))
                 elif f.kind == "bytes":
-                    o.append("    if let Some(v) = &o.%s { d.%s = ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) }; d.presence |= 1 << %d; }"
+                    o.append("    if let Some(v) = &o.%s { d.%s = blob_arg(v, tc.1); d.presence |= 1 << %d; }"
                              % (f.name, f.name, bits[f.name]))
                 elif f.kind == "bool":
                     o.append("    if let Some(v) = o.%s { d.%s = v as u8; d.presence |= 1 << %d; }"
@@ -1862,8 +1891,8 @@ def emit_binding(ir):
             elif f.kind == "string":
                 o.append("    if !o.%s.is_empty() { d.%s = str_arg(&o.%s, tc.0); }" % (f.name, f.name, f.name))
             elif f.kind == "bytes":
-                o.append("    if !o.%s.is_empty() { d.%s = ak_str { data: o.%s.as_ptr() as *const c_void, len: o.%s.len(), tc: Some(tc.1) }; }"
-                         % (f.name, f.name, f.name, f.name))
+                o.append("    if !o.%s.is_empty() { d.%s = blob_arg(&o.%s, tc.1); }"
+                         % (f.name, f.name, f.name))
             elif f.kind == "message":
                 o.append("    if let Some(c) = &o.%s { fill_%s_sparse(&mut d.%s, c, tc); d.presence |= 1 << %d; }"
                          % (f.name, snake(f.of), f.name, bits[f.name]))
@@ -1883,7 +1912,7 @@ def emit_binding(ir):
                 if g.kind == "string":
                     val = "d.%s_%s = str_arg(v, tc.0);" % (oname, g.name)
                 elif g.kind == "bytes":
-                    val = "d.%s_%s = ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) };" % (oname, g.name)
+                    val = "d.%s_%s = blob_arg(v, tc.1);" % (oname, g.name)
                 elif g.kind == "message":
                     val = "fill_%s_sparse(&mut d.%s_%s, v, tc);" % (snake(g.of), oname, g.name)
                 elif g.kind == "bool":
@@ -1932,7 +1961,7 @@ def emit_binding(ir):
                     o.append("    if let Some(v) = &o.%s { d.%s = str_arg(v, tc.0); d.presence |= 1 << %d; }"
                              % (f.name, f.name, bits[f.name]))
                 elif f.kind == "bytes":
-                    o.append("    if let Some(v) = &o.%s { d.%s = ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) }; d.presence |= 1 << %d; }"
+                    o.append("    if let Some(v) = &o.%s { d.%s = blob_arg(v, tc.1); d.presence |= 1 << %d; }"
                              % (f.name, f.name, bits[f.name]))
                 elif f.kind == "bool":
                     o.append("    if let Some(v) = o.%s { d.%s = v as u8; d.presence |= 1 << %d; }"
@@ -1950,8 +1979,8 @@ def emit_binding(ir):
             elif f.kind == "string":
                 o.append("    if !o.%s.is_empty() { d.%s = str_arg(&o.%s, tc.0); }" % (f.name, f.name, f.name))
             elif f.kind == "bytes":
-                o.append("    if !o.%s.is_empty() { d.%s = ak_str { data: o.%s.as_ptr() as *const c_void, len: o.%s.len(), tc: Some(tc.1) }; }"
-                         % (f.name, f.name, f.name, f.name))
+                o.append("    if !o.%s.is_empty() { d.%s = blob_arg(&o.%s, tc.1); }"
+                         % (f.name, f.name, f.name))
             elif f.kind == "message":
                 o.append("    if let Some(c) = &o.%s { fill_%s_unk_sparse(&mut d.%s, c, tc); d.presence |= 1 << %d; }"
                          % (f.name, snake(f.of), f.name, bits[f.name]))
@@ -1971,7 +2000,7 @@ def emit_binding(ir):
                 if g.kind == "string":
                     val = "d.%s_%s = str_arg(v, tc.0);" % (oname, g.name)
                 elif g.kind == "bytes":
-                    val = "d.%s_%s = ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) };" % (oname, g.name)
+                    val = "d.%s_%s = blob_arg(v, tc.1);" % (oname, g.name)
                 elif g.kind == "message":
                     val = "fill_%s_unk_sparse(&mut d.%s_%s, v, tc);" % (snake(g.of), oname, g.name)
                 elif g.kind == "bool":
@@ -2916,7 +2945,7 @@ def _emit_loop(ir, o, root, path, f, sn, top, elem_path=None, inner_path=None, e
         o.append("            });")
     elif f.kind in ("string", "bytes"):
         acc = "str_arg(v, tc.0)" if f.kind == "string" else \
-              "ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) }"
+              "blob_arg(v, tc.1)"
         o.append("        for v in src.iter() {")
         o.append("            chunk[i].write(%s);" % acc)
     elif f.kind == "message":

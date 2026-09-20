@@ -1659,3 +1659,68 @@ keeps rediscovering in other guises: **if an arm and its control can be wrong in
 direction, the control is not one.** That is the same sentence as R5's "an arm named 'no
 boundary' is only a control if it is not fused into the loop", and as the twin that had to be
 added to measure the guard. Three faces of one rule.
+
+## Work unit: the content sets on every payload, and D20
+
+I put this last because it was the lowest-value item on the list. It found the worst defect
+of the session on its first run, and not the defect it was aimed at.
+
+### What it reported, and why the first reading was wrong
+
+P3.1 disagreed on latin1 and wide and agreed on ascii. That reads like a string-path defect,
+and I nearly wrote it up as one. It is not: **ASCII reproduces it**. What the extension
+actually changed was the ORDER in which payloads share one encode context — the old
+`content.rs` ran M1 and M2 only, and every other binary built its values so that the M5 cases
+came last.
+
+### The mechanism
+
+`String::new().as_ptr()` is `0x1`. `AK_STR_DIRECT` is `0x1`. `<[u8]>::as_ptr()` on an empty
+slice returns the type's dangling-but-aligned pointer, and for `u8` that is the address 1,
+which is the sentinel ABI v1 section 8 reserves for "these bytes are an argument of the call".
+So every empty string and every empty bytes field was taking the direct-argument path.
+
+**And it produced the right bytes.** On a context that has never encoded a direct-argument
+message, `direct_len` is 0, so the direct path writes a zero-length field, which is exactly
+what an empty field should be. Stage 1 through stage 5, every arm, every payload, every
+content set: green. The wrong path was indistinguishable from the right one until something
+put a non-zero `direct_len` in the context first.
+
+### The thing I want to remember
+
+R6 says a payload generator that fills every field cannot reach the absent path. True, and
+this slice has three defects that prove it. But **there are three cases, not two**: absent,
+present-and-empty, present-and-non-empty. The absent path has a rule and a payload (P1.3,
+P2.5). The present-and-empty path has neither — it exists in this schema only because M3's
+`opt_label` is an explicit-presence field that happens to be set to `""` in 21 of 200 probes,
+and that is an accident of the value generator rather than a designed vector. P1.3 does NOT
+catch D20, because its strings are absent and never reach `enc_blob` at all.
+
+The second half is a rule about state rather than about values: **a defect can live in
+per-context state that only ONE message type ever writes.** Every gate in this slice built
+its values fresh and its contexts fresh, or reused a context within one message type. Nothing
+crossed. The corpus (README section 10) asks for distinct tags and multiple chunks; it does
+not ask for a sequence across message types on one context, and after this it should.
+
+### Where the fix went, and what I did not fix
+
+The defect is the HOST's: the core behaves exactly as section 8 specifies, and it is the
+binding that must not hand it a data pointer of 1 for a non-direct field. `str_arg` and a new
+`blob_arg` route through `data_of`, which emits null for an empty slice — legal, because the
+ABI discriminates absent from empty by `tc` and not by `data`.
+
+What I did not fix is the hazard: **section 8 chose a sentinel from a range a legal empty
+buffer can occupy**, and nothing in the specification warns a binding author. That is an ABI
+decision and it belongs to the aggregating session. The other four slices' bindings have not
+been checked for the same collision and I cannot check them.
+
+### And the measurement the pass was actually for
+
+It came out clean and slightly more interesting than expected. "The content set changes no
+decode verdict" now holds on eleven payloads instead of two, with prost moving as much as the
+core arms or more everywhere. The magnitude is new: the ratio to prost moves by up to 0.28 on
+a decode row. And there is exactly one sign change in the whole table — P2.4 encode goes
+1.120 (a loss) on ascii to 0.766 (a win) on wide, on the payload built to defeat the learned
+width. The payload constructed to be hostile to the mechanism is also the one whose verdict
+is most content-dependent, which is tidy and which nobody could have seen while it was only
+ever run on ASCII.
