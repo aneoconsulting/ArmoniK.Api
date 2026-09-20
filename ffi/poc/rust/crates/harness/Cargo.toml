@@ -127,3 +127,7 @@ path = "src/bin/guardcost.rs"
 [[bin]]
 name = "contentall"
 path = "src/bin/contentall.rs"
+
+[[bin]]
+name = "rpcgrid"
+path = "src/bin/rpcgrid.rs"

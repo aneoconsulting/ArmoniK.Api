@@ -20,6 +20,14 @@ public static class BuildInfo
     public static readonly bool Floor = false;
 #endif
 
+    // ABI v1 open decision 3. Same rule and same reason: read it out of the
+    // facade, not out of whatever the harness was compiled with.
+#if AK_STRICT
+    public static readonly bool StrictUtf8 = true;
+#else
+    public static readonly bool StrictUtf8 = false;
+#endif
+
 #if NETSTANDARD2_0
     public static readonly string Tfm = "netstandard2.0";
 #elif NET48

@@ -541,12 +541,43 @@ bytes across levels, and in C++ no divergence that reaches the layout of an
 installed header type. Section 5.
 
 **R9. State the measurement hazards each table is exposed to.** The known ones:
-**an RPC arm on P2.2 measures its stack's HTTP/2 flow-control defaults unless it
-measures CPU.** A 540 KB response does not fit the 65,535-octet initial stream
-window, so a single call in flight spends most of its wall clock idle waiting for
-`WINDOW_UPDATE`, and at 8 in flight the stalls overlap and wall clock collapses by
-more than an order of magnitude. The Rust slice's first version would have reported
-33 ms per call for a path that costs 1.5 ms of CPU.
+**an RPC arm on P2.2 measures its own harness's socket options unless it measures
+CPU.** A single call in flight spent most of its wall clock idle and a slice would
+have reported 33 ms per call for a path costing 1.5 ms of CPU. **The conclusion
+stands and the mechanism this rule used to name was wrong** — twice over, since the
+correction below is itself the second reading.
+
+**It was Nagle, not HTTP/2 flow control, and three facts settle it.** The same 540 KB
+response costs 2 ms over a Unix socket and 30 ms over loopback TCP, and flow control
+is a property of the protocol that is identical on both — a transport-independent
+cause cannot produce a transport-dependent result. **A 1 KB response costs MORE than
+a 540 KB one over TCP** (44 ms against 30), so the cost is per call rather than per
+byte, and the direction is backwards for flow control (the large response is the one
+that needs `WINDOW_UPDATE` round trips) and exactly right for Nagle, where a large
+response has full segments to send and never waits while a small one is a lone short
+write. And the cause is in the harness: tonic documents that `tcp_nodelay` is
+**ignored** when a server is driven by `serve_with_incoming`
+(`transport/server/mod.rs:701`) and `TcpIncoming::from(listener)` leaves its own
+`nodelay` unset (`incoming.rs:120`), so the server kept Nagle on while tonic's client
+had it off. A gRPC response is HEADERS, then DATA, then TRAILERS; the second small
+write waits for the peer's ACK of the first, and Linux's delayed-ACK timer is 40 ms.
+
+**One socket option, nothing else changed: 32,416 µs of wall clock per call became
+2,145, and on a 1 KB response 44,041 became 149.** With it set, loopback TCP and a
+Unix socket agree on both payloads and both columns. **So the transport gap this
+branch has been reporting was a harness defect and not a transport**, every
+loopback-TCP wall figure taken before it is measuring Nagle, and any slice that
+reported UDS as faster than TCP reported this. The core's test server now sets the
+option by default; `rpc::serve_nagle` keeps the defective form so the artifact stays
+reproducible and nothing else should measure against it.
+
+**What this costs beyond the numbers**: three slices spent effort pinning HTTP/2
+windows to chase this gap, and raising the window bought a few percent where one
+socket option bought 14× to 300×. The per-stack window guidance in `design/SHAPES.md`
+is still correct and still worth having for a real deployment — it is simply not what
+the loopback numbers were measuring. **A rule that names a mechanism sends people to
+work on it, so naming the wrong one is not a harmless imprecision**, and this rule has
+now done it twice.
 
 **That is a default, not a property of HTTP/2, and stating it as the latter was
 wrong.** A full window throttles a sender; it never caps a message, which is why
@@ -571,8 +602,13 @@ messages under the same flow control. Neither fact changes a codec ratio; both
 change what an RPC arm is a measurement of.
 
 **So the RPC arms measure ArmoniK's transport configuration, not their stack's
-default**, which is R14 applied to the transport instead of to the codec. The
-configuration to carry, from the core's current settings:
+default**, which is R14 applied to the transport instead of to the codec.
+`packages/rust/armonik-transport` is the reference implementation and the only package
+that expresses these options: it disables Nagle by default
+(`tcp_nagle_algorithm: bool`, "defaults to false", applied as
+`http.set_nodelay(!config.tcp_nagle_algorithm)`) and **pins no HTTP/2 window at all**,
+so the window below is the configuration ArmoniK intends rather than the one it ships,
+and an arm that pins it labels it as such. The configuration to carry:
 
 - **chunking at 2 MiB** for upload and download, where `ArmoniK.Api.Mock` still
   shows the old 80 KB `DataChunkMaxSize`;

@@ -156,6 +156,25 @@ public static unsafe class Bench
                 // UTF-8 in the host and letting ak_tc_bytes copy. Both transcoders
                 // are pointers INTO the core, so neither costs a crossing; what
                 // differs is which side does the conversion.
+                // The CEILING for ABI v1 decision 13's borrowed span, not an
+                // implementation of it: the same decode with no string
+                // materialised at all. The gap between this and `core-ffi pull`
+                // is the MOST a borrowed view could ever save, and it is measured
+                // before the facade's public surface is redesigned around one.
+                var nostr = CoreArms.New(a.Id);
+                nostr.SkipStrings = true;
+                nostr.Decode(warm, warm.Length);
+                nostr.SkipStrings = false;
+                cases.Add(new Case
+                {
+                    Payload = a.Id, Dir = "decode", Arm = "core-ffi no-string",
+                    Run = n =>
+                    {
+                        nostr.SkipStrings = true;
+                        for (int i = 0; i < n; i++) Consume(nostr.Pull(warm, warm.Length));
+                        nostr.SkipStrings = false;
+                    },
+                });
                 var u16 = CoreArms.New(a.Id, utf16: true);
                 if (!string.IsNullOrEmpty(ck) && int.TryParse(ck, out int ckv2)) u16.Chunk = ckv2;
                 u16.EncodeToArray();

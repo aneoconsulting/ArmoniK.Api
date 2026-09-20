@@ -72,6 +72,9 @@ public static class Config
         Console.WriteLine("# tiered PGO:          {0}", Env("DOTNET_TieredPGO", "on (default)"));
         Console.WriteLine("# R2R:                 {0}", Env("DOTNET_ReadyToRun", "on (default)"));
         Console.WriteLine("# floor sources:       {0}", Facade.BuildInfo.Floor ? "YES (AK_FLOOR)" : "no");
+        Console.WriteLine("# decode UTF-8 policy: {0}", Facade.BuildInfo.StrictUtf8
+            ? "REJECTING (AK_STRICT) -- ABI v1 open decision 3"
+            : "lossy, U+FFFD substituted, which is what Google.Protobuf also does");
         Console.WriteLine("# facade TFM:          {0}", Facade.BuildInfo.Tfm);
         Console.WriteLine("# transcoder:          {0}", Facade.BuildInfo.Transcoder);
         Console.WriteLine("# length-prefix sites: {0}", Armonik.Ffi.Facade.Codec.Sites);

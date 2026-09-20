@@ -834,6 +834,46 @@ rather than changing shape:
   that makes the incumbent do extra work is a defect; so is one that makes the
   core's own arm take the delivery its host is worst at, and this was the second
   kind. The measurement stands as a blocking-mode measurement and is labelled one.
+
+  **MEASURED on the JVM, and the delivery was worth more than the gap it was being
+  blamed for.** CPU microseconds per RPC, P2.2, JDK 17, one process:
+
+  | in flight | grpc-java | core, blocking | core, queue |
+  |---|---|---|---|
+  | 1 | 3,867 | 3,884 | 4,978 |
+  | 8 | 2,781 | 3,509 | **3,025** |
+  | 16 | 2,754 | 3,435 | **2,979** |
+
+  Against grpc-java the core goes from **1.26 to 1.09** at 8 in flight and 1.25 to
+  1.08 at 16, purely by changing delivery. **At 1 in flight the queue LOSES** (submit
+  then wait serialises what a blocking call does in one step, and pays a third
+  crossing for it), which is the honest shape of the result: the queue is a
+  concurrency mechanism, not a faster call. On JDK 21 it is **0.70 of the blocking
+  mode** at 16, and **a virtual thread drains it at no cost** (2,708 against 2,869 on
+  a platform thread).
+
+  **What that does NOT establish, because the slice said so rather than letting it
+  pass**: it does not reproduce the carrier-pinning comparison. A queue has one
+  drainer by design and one drainer needs one carrier either way, so this shows the
+  queue is *usable* from a virtual thread, not that it *rescues* a host from the
+  pinning the blocking mode causes. And "a thread parked in a drain costs a
+  collection nothing" is still an assertion: no collection was instrumented.
+
+- **A host must not pin a managed array across an ABI call whose completion depends
+  on another thread of that host.** This is a new rule and it comes from a deadlock,
+  not from a slowdown. The java binding held `GetPrimitiveArrayCritical` across the
+  whole blocking call; a critical section blocks the collector, the peer was a
+  grpc-java server in the same process which must allocate to answer, so a collection
+  needed in that window waited on a critical section that waited on the server that
+  waited on the collection. **It survived the large payload by timing and hung on the
+  first small one.** Fixing it also moved the core's CPU by 5 to 7 percent at
+  concurrency, so the earlier figures were contaminated as well as unsafe.
+
+  The rule generalises past RPC and past Java: the pinned-buffer optimisation 7.1
+  makes possible on decode is safe precisely because `ak_parse_*` makes **no upcall**
+  and completes without any other host thread — which is what "the wire is handed
+  over under a critical section and never copied" depends on. A blocking RPC call is
+  the opposite case and must not be given the same treatment.
 - **At least one mode in which the caller waits in the host language.** Blocking
   in a native frame from a virtual thread pins its carrier; what fixes that is
   parking in Java on a future, which the callback mode already provides. The

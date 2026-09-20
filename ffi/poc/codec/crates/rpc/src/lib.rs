@@ -74,13 +74,51 @@ pub struct Server {
     _handle: tokio::task::JoinHandle<()>,
 }
 
+/// **TCP_NODELAY is set on the accepted socket, and the default was changed to set it.**
+///
+/// The rust slice found the defect and reported it rather than flipping the default, which
+/// was the right call under R0; the flip is the aggregating session's and it is taken.
+/// `Server::builder()` defaults `tcp_nodelay` to true, but tonic documents that
+/// `tcp_nodelay` and `tcp_keepalive` are **ignored when the server is driven by
+/// `serve_with_incoming`** (`transport/server/mod.rs:701`), and `TcpIncoming::from(listener)`
+/// leaves its own `nodelay` at `None` (`incoming.rs:120`), so `set_accepted_socket_options`
+/// never touched the socket. The server end kept Nagle ON while tonic's client had it off by
+/// default. A gRPC response is HEADERS, then DATA, then TRAILERS; with Nagle on the writer
+/// the second small write waits for the peer's ACK of the first, and Linux's delayed-ACK
+/// timer is 40 ms.
+///
+/// **What it was worth: 32,416 us of wall clock per call became 2,145, and on a 1 KB
+/// response 44,041 became 149.** With it set, loopback TCP and a Unix socket agree on both
+/// payloads and both columns, so **the transport gap this branch has been reporting was a
+/// harness defect and not a transport.**
+///
+/// The default is flipped rather than left, because a benchmark server with Nagle on is a
+/// defect every future arm would re-measure, and because every production gRPC stack
+/// disables Nagle. `serve_nagle` keeps the defective form so the artifact stays
+/// reproducible; nothing should measure against it except a run that is demonstrating it.
 pub async fn serve(response: Bytes) -> Server {
+    serve_opts(response, Some(true)).await
+}
+
+/// The defective form, kept only so the artifact above can be reproduced on demand.
+/// **Not a transport row.** A figure taken against this server is measuring Nagle.
+pub async fn serve_nagle(response: Bytes) -> Server {
+    serve_opts(response, None).await
+}
+
+/// Deprecated spelling of `serve`, kept so the rust slice's stage 6 harness still builds.
+pub async fn serve_nodelay(response: Bytes) -> Server {
+    serve(response).await
+}
+
+async fn serve_opts(response: Bytes, nodelay: Option<bool>) -> Server {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let response = Arc::new(response);
     let handle = tokio::spawn(async move {
         let svc = BenchService { response };
-        let incoming = tonic::transport::server::TcpIncoming::from(listener);
+        let incoming =
+            tonic::transport::server::TcpIncoming::from(listener).with_nodelay(nodelay);
         tonic::transport::Server::builder()
             .add_service(svc)
             .serve_with_incoming(incoming)

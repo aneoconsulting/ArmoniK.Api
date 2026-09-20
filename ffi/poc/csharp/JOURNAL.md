@@ -1024,3 +1024,190 @@ published claim of mine:
 touched moved up to nine percent between sittings on this container. A
 within-process ratio is sound; comparing one stage's with another's is not, past
 the first digit.
+
+### 37. Decision 3 is free, and the reason is better than the number
+
+The rejecting UTF-8 decode policy closes all 31 of the corpus's open `T-dec-*`
+vectors and costs nothing measurable: -4.2% to +3.6% across four string-heavy
+payloads, inside a control that itself moved 4.6% between the two builds.
+
+Built as a third build rather than a runtime flag, for the same reason the floor
+is one: a flag puts a branch on both arms' hot path and stops the JIT
+devirtualising `Encoding.UTF8`, which would charge the lossy arm for the strict
+one's existence. Each build carries the incumbent as its in-process control, so
+the two are compared through that control and not across sittings.
+
+**Why it is free is the part worth carrying.** `Encoding.UTF8` already
+validates -- it has to, in order to know where to put U+FFFD. The scanning is
+identical and only the `DecoderFallback` differs. So on .NET the argument
+against decision 3's rejecting policy cannot be performance; it is a behaviour
+change, and `Google.Protobuf` substituting is what every C# consumer sees today.
+That is a judgement this slice can price and cannot make.
+
+### 38. The biggest number in the slice is one I nearly did not measure
+
+ABI v1 decision 13 is a borrowed string view, and STATE has carried it as "a
+strong candidate, the largest lever on a codec that is 174/413 strings" since
+stage 1 without a number. Redesigning the facade's public surface around one is
+a large change with a lifetime rule attached, and I was going to leave it named.
+
+Bounding it first cost an afternoon. A decode arm that does everything and
+materialises no string at all is the ceiling -- R2's floor-arm logic applied to
+a design question rather than to a measurement.
+
+**42 to 62 percent of a decode is string materialisation.** P4.1 is 0.383,
+P1.2 0.438, P2.2 0.466, P3.1 0.582.
+
+For scale: every codec difference this slice has measured -- managed against
+incumbent, push against pull, core-ffi against managed, staged against UTF-16 --
+lives inside a band of about thirty percent. The strings are half the decode.
+It is a ceiling and not a forecast, and it still says decision 13 is a larger
+lever than decision 3, decision 2, the push/pull question and the codec choice
+combined.
+
+The lesson is the cheap one: a ceiling is not an implementation and costs a
+fraction of one, and I had been treating "this needs a facade redesign" as a
+reason not to know the size of the prize.
+
+### 39. Retiring an item by measuring it, which is the same win as building it
+
+Stage 15 named a `Dec` over `ReadOnlySequence` as a real improvement the RPC arm
+had identified: gRPC hands the deserializer a segmented body and the facade's
+reader is over `byte[]`, so every call flattens.
+
+Instrumented, the first half is worse than I thought and the second half makes
+it moot. gRPC delivered a segmented body on **every single call** -- 3,960 of
+3,960, the single-segment fast path never taken at this payload size. And the
+flatten is 540 KB, which this slice's own `memcpy floor` arm already measures at
+12.8 us, against about 4,500 us of CPU per call. **Under 0.3 percent.**
+
+A segmented reader means every read handling a boundary, which risks the
+single-segment path every in-process arm in this slice uses, to recover a third
+of a percent of an RPC. So the item is retired rather than built, and the thing
+that retired it was two counters and an arm that already existed.
+
+### 40. The list, and what is actually left
+
+Every item is now either done, bounded, retired with evidence, or named as not
+this slice's:
+
+  * **done**: core-ffi on every shape, both decode families, the corpus, the
+    RPC arm, the two string forms, the crossing reconciliation, decision 3;
+  * **bounded**: decision 13, at 42-62 percent of a decode, and decision 9, at
+    28-71 percent of an encode;
+  * **retired with evidence**: the `ReadOnlySequence` reader;
+  * **not this slice's**: decision 9's implementation is an ABI addition and
+    `ffi/CLAUDE.md` routes a change to existing behaviour through the
+    aggregating session;
+  * **left, and it is one thing**: streaming, which design/SHAPES.md says is
+    where the concurrency invariant actually bites and which no slice in the
+    branch has touched.
+
+I am not going to invent an eleventh item. An idle session is cheaper than a
+fabricated one, and the branch is close to the report.
+
+### 41. A defect in entry 40's own commit
+
+`baa114aa` staged eight files under `src/Facade/obj-strict/` and
+`src/Harness/obj-strict/`: NuGet restore intermediates for the third build.
+The ignore file lists `bin/`, `obj/`, `bin-floor/` and `obj-floor/`, and I
+added `bin-strict/`/`obj-strict/` as output paths in `Directory.Build.props`
+without adding the matching rules. Untracked and the two rules appended. The
+build output was never a measurement input, so nothing in stage 16 changes.
+
+### 42. Streaming, and the control that stopped me publishing a ranking
+
+Item 11 is built (`stage17-streaming.log`). Four things came out of it and only
+two were the ones I expected.
+
+**The floor is what the arm is for.** A fifth arm streams the same messages with
+no codec at all, through the same contextual passthrough the other arms use, so
+its ratio is the share of CPU no codec choice can reach. On P2.2 that puts the
+codec at **54 to 82 percent of a streamed download and 36 to 50 percent of an
+upload**, where stage 15's unary headline was 10 percent of a call. A stream
+pays for headers, trailers and a stream once; what is left per message is the
+bytes and the codec.
+
+**The first floor I built was not a floor.** It used `Bench.Raw`, the SIMPLE
+`Marshallers.Create` form, and gRPC then copies the returned array into its send
+buffer -- a whole payload copy the contextual arms do not pay. It came out ABOVE
+the incumbent, which is impossible for a floor, and that is how I found it.
+
+**The reversed-order run is the part I nearly skipped.** Arms run in a fixed
+order with the first as the ratio base. On P5.3 the floor moves from 0.690 to
+1.000 on download and from 1.171 to 0.831 on upload on nothing but its position
+in the order: a position effect of 17 to 31 percent, larger than every codec
+difference on that shape. Without it I would have written that `core-ffi pull`
+is 0.761 on ArmoniK's chunk download. It is not; nothing is. The honest
+statement is that on the chunk shape no arm differs from no codec at all, and
+`stage14`'s in-process column says the same thing from the other side: core-ffi
+is 2.02x the incumbent on P5.3 encode and the excess is exactly one memcpy
+floor -- the staging copy -- which is 67 us against a 5,000 us streamed message.
+
+**The prediction the arm was built on is refuted.** I expected streaming to
+raise the codec's SHARE relative to unary, by removing the per-call transport
+cost. Same sitting, same process: it does not move outside the spread. At
+540,422 bytes a message the fixed per-call cost is already small next to moving
+the bytes. It should hold for a small message and I did not test one; it is in
+"what is not measured" with P1.1 named as the payload that would answer it.
+
+**The concurrency invariant is answered for a managed host, with both controls.**
+One context per thread: 0 wrong of 200,000. One shared context: SIGABRT, and the
+new part is that the `catch (Exception)` around the call never runs. On .NET
+that is worse than in rust, because a .NET developer who shares an object
+expects an exception at the seam. The lock-free answer costs 7 to 8 contexts and
+7.4 to 8.4 MB of never-freed native staging on a four-processor box, and the two
+runs disagreeing by one context while doing identical work is the finding: the
+number follows the thread pool, not the call rate. Recorded as request 7.
+
+### 43. The grid, and the column that hid a 600x
+
+The core exported ABI v1 section 9's transport behind its `rpc` feature, so the
+RPC arm became a 2x2 grid: incumbent and core codec, grpc-dotnet and core
+transport, all four in one process against one server.
+
+**The headline is not the one the slice has been chasing.** Cell B over cell A --
+the same `Google.Protobuf` codec, only the transport swapped -- is 12 to 44
+percent less CPU per call, and at 16 in flight it is 42 to 44 percent agreeing to
+a hundredth across three runs and two cell orders. The codec alone (D/A) is 0.82
+to 1.04. So on .NET the proposal's value is in the half this slice has spent the
+least time on.
+
+**And the question the grid was built to answer, I cannot answer.** C-B and D-A
+are both "what the codec is worth", one under each transport, and they change
+SIGN with the arm order. Both are inside the round-to-round spreads. I wrote the
+"do they agree?" column into the harness before running it and it prints
+"differ by 100%" on rows where the honest reading is that neither number is
+distinguishable from zero. The thing that IS sayable is a ratio of magnitudes:
+the transport half is three to ten times the codec half.
+
+**Running both cell orders is now reflex and it earned its cost again.** Without
+the reversed run I would have reported C-B as positive at 8 and 16 in flight,
+which is the core codec being SLOWER, from a forward run alone.
+
+**The three deliveries are the same in CPU, and I nearly stopped there.** The
+check-in asked for that to be said plainly if it came out, and it did: callback,
+queue and blocking are within their spreads of each other at every concurrency.
+Which would have meant .NET is indifferent and the ABI carries the extra modes
+for the JVM. Then the blocking row's WALL clock stalled -- 208 ms once, 24 ms
+once, never in the other two deliveries. Two observations is an anecdote, so I
+built `--park`: one batch of 16 concurrent calls from a cold pool.
+
+Sixteen blocking calls take 2.5 to 8.3 seconds for work the callback does in 11
+to 15 ms. **190 to 630 times, and the CPU column shows none of it**, because the
+cost is the thread pool growing to replace threads parked in a native frame at
+one or two a second. `SetMinThreads` removes it; nothing else does. I had
+written into the probe's own output that this would be a one-off a long-lived
+process pays once. The third row refutes that: the same batch again with the pool
+grown is slow in five of six runs, because the pool retires idle threads between
+bursts. Writing the falsifiable version is what let the data refute it.
+
+**A hazard I predicted and that does not exist.** My own floor analysis found
+that a delegate thunk must be rooted for the lifetime of the vtable or the
+collector reclaims it. It does not apply here: `[UnmanagedCallersOnly]` compiles
+to a native entry point and `&OnDone` is its address, so there is no thunk. That
+rule belongs with the floor findings, not in the ABI's contract.
+
+The whole slice is re-gated against the rpc-featured core and is identical
+(152/0, the same 32 corpus rows, coreffi 0), which is what "the feature adds the
+transport and changes no codec entry point" has to mean to be worth saying.
