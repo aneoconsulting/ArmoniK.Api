@@ -87,6 +87,16 @@ pub unsafe extern "C" fn ak_runtime_destroy(r: *mut ak_runtime) {
     }
 }
 
+/// **A Unix domain socket is what ArmoniK's client actually dials**, and the core already
+/// reaches one: tonic's `Endpoint::from_shared` parses a `unix:` target itself
+/// (`transport/channel/endpoint.rs`, `uds_connector.rs`) and connects over a `UnixStream`.
+/// `unix:/path` and `unix:///path` both name a socket; anything else is dialled as a URI.
+///
+/// **This was thought to be missing and it is not.** A connector was written here before the
+/// tonic source was read, and it is deleted rather than kept beside a working one -- but the
+/// TEST it came with stays, because "the core dials a UDS" was an assumption nobody had
+/// exercised and `design/SHAPES.md` makes that transport the primary row. A slice that
+/// cannot reach a socket is looking at its own harness, not at this.
 #[no_mangle]
 pub unsafe extern "C" fn ak_client_new(
     r: *mut ak_runtime,
@@ -99,6 +109,7 @@ pub unsafe extern "C" fn ak_client_new(
         Err(_) => return core::ptr::null_mut(),
     };
     let chan = rt.rt.block_on(async move {
+        // `unix:` targets included: from_shared dispatches on the scheme.
         tonic::transport::Endpoint::from_shared(s)
             .ok()?
             .connect()
@@ -600,6 +611,50 @@ mod delivery_tests {
             // The drainer's exit: shutdown wakes it and says so, once the backlog is gone.
             ak_queue_shutdown(q);
             assert_eq!(ak_queue_next(q, &mut comp, u64::MAX), AK_QUEUE_SHUTDOWN);
+            ak_queue_destroy(q);
+
+            ak_client_destroy(c);
+            ak_runtime_destroy(r);
+        }
+    }
+
+    #[test]
+    fn the_core_dials_a_unix_domain_socket() {
+        // The transport row design/SHAPES.md makes primary, and what ArmoniK's client
+        // actually dials. Until this existed every RPC arm was forced onto loopback TCP,
+        // which measures a kernel path production does not take.
+        let r = ak_runtime_new(2);
+        assert!(!r.is_null());
+        let path = std::env::temp_dir().join(format!("ak-uds-test-{}.sock", std::process::id()));
+        let _srv = unsafe {
+            let rt = &*(r as *const RuntimeImpl);
+            rt.rt.block_on(rpc::serve_uds(Bytes::from_static(RESP), path.clone()))
+        };
+        let target = format!("unix:{}", path.display());
+        unsafe {
+            let c = ak_client_new(r, target.as_ptr(), target.len());
+            assert!(!c.is_null(), "the core did not connect to {target}");
+
+            let mut out = empty_ak_bytes();
+            assert_eq!(
+                ak_call_unary(c, rpc::PATH.as_ptr(), rpc::PATH.len(), b"req".as_ptr(), 3, &mut out),
+                AK_OK
+            );
+            assert_eq!(take(&mut out), RESP);
+
+            // And over the queue, so the UDS path is exercised by a delivery that does not
+            // block the calling thread inside the core.
+            let q = ak_queue_new();
+            let h = ak_call_unary_q(
+                c, rpc::PATH.as_ptr(), rpc::PATH.len(), b"req".as_ptr(), 3, q, 5,
+            );
+            assert!(!h.is_null());
+            let mut comp = ak_completion { tag: 0, status: 0, bytes: empty_ak_bytes() };
+            assert_eq!(ak_queue_next(q, &mut comp, 10_000), AK_QUEUE_OK);
+            assert_eq!(comp.tag, 5);
+            assert_eq!(take(&mut comp.bytes), RESP);
+            ak_call_destroy(h);
+            ak_queue_shutdown(q);
             ak_queue_destroy(q);
 
             ak_client_destroy(c);
