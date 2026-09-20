@@ -209,37 +209,20 @@ def strip_unknown(d):
 # reported, never suppressed: they print under a heading of their own and are counted
 # apart from the failures, because a slice that folds a disagreement into its pass count
 # has removed the only thing the corpus's first consumer is for.
-DISAGREEMENTS = {
-    ("U-map-entry", "C2"): (
-        "an unknown field inside a map entry. THREE readers, three answers, and this "
-        "slice is with the reference implementation:\n"
-        "         this slice, core and pure-Python control : the entry parses, tag 3 is "
-        "skipped, the map keeps its 4 entries\n"
-        "         protobuf 7.36.2, pure-Python backend     : the same -- {'k': 'v'} "
-        "survives an added tag-3 field inside the entry\n"
-        "         protobuf 7.36.2, upb backend (the DEFAULT, and what R14 measures "
-        "against): the entry is DROPPED and the map comes back EMPTY. Isolated on a "
-        "two-field message rather than inferred from this vector\n"
-        "         the corpus's own projection              : the entries are recorded as "
-        "`_unknown` content of TaskOptions, so its reader did not treat tag 1 as the map "
-        "either\n"
-        "       A map entry is a message on the wire, so an unknown field inside it is "
-        "skipped and the entry survives, which is what this vector's own `why` says it "
-        "tests. Reported upstream; the projection is not matched by changing the reader."),
-}
-
-# Rows that fail on a defect this slice does not own. Same rule as DISAGREEMENTS: named,
-# printed loudly, and counted apart -- but the exit code does NOT stay red for them,
-# because `run.sh` runs under `set -e` and a step that is permanently red is a step whose
-# result nobody reads. A row may only appear here with the defect's identifier.
-# EMPTY, and that is the point of keeping the mechanism. It held D7 -- the shared core
-# refusing an unknown field of the deprecated GROUP form, on `U-root-group`,
-# `U-nested-group` and `U-oneof-group`. The core fixed it (`Dec::skip` now takes the tag
-# and recurses to a MATCHING `END_GROUP`, bounded at 100 nests), all three arms went from
-# 123/126 to 126/126, and the entries came straight back out. A row left here after its
-# defect is closed is a regression nobody would see.
-UPSTREAM = {}
-UPSTREAM_WHY = {}
+# EMPTY, like UPSTREAM above, and for the same reason: a row left here after its cause is
+# gone is a regression nobody would see.
+#
+# It held `U-map-entry` C2. This slice's reader parsed the map entries and skipped the
+# unknown field inside each, the corpus's projection recorded the whole entries as
+# `_unknown`, and upb dropped them. The corpus now runs three oracles and WITHDREW that
+# projection rather than deciding it -- the vector has `projection: None` and is excluded
+# from the C2 denominator, which is why C2 reads 123/123 and not 123/124.
+#
+# The finding itself has not gone anywhere and is not this table's to carry: **protobuf
+# 7.36.2 on upb drops a whole map entry that carries any unknown field**, isolated on a
+# two-field message, while the same version's pure-Python backend keeps it. STATE.md's
+# defect table is where that lives.
+DISAGREEMENTS = {}
 
 ARMS = [
     ("core-ffi / C ext type",

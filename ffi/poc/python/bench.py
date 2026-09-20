@@ -66,6 +66,11 @@ def main():
           " linker", file=out)
     print("# fill:         ABI v1 decision 9's SPARSE fill (bulk clear, then only what"
           " differs)", file=out)
+    print("# gc:           ENABLED for the measured rounds (defect D11). Work unit 1's",
+          file=out)
+    print("#               harness disabled it, which subtracted up to 29% from the",
+          file=out)
+    print("#               facade's DECODE rows and nothing from any other row.", file=out)
     print("# allocator:    mallopt(M_TOP_PAD, 8 MiB) %s, set before the first allocation."
           % ("APPLIED" if _WARM else "NOT AVAILABLE (not glibc)"), file=out)
     print("#               Without it an encode above ~128 KiB is timed against glibc",
@@ -145,7 +150,11 @@ def main():
         cases.append(Case("the boundary, in this process", "fwd+reverse (no-op)",
                           lambda reps: arms._ffi.crossing(reps, "reverse")))
 
-    harness.run(cases)
+    # GC ENABLED, unlike work unit 1's microbenchmarks. Disabling the collector removes
+    # a cost that is almost entirely the facade's -- a P2.2 decode builds ~10,000
+    # GC-tracked objects and `FromString` builds an arena and one wrapper -- and it was
+    # worth up to 29% of one arm of one column. See harness.run's docstring, defect D11.
+    harness.run(cases, gc_enabled=True)
     rows = harness.report(
         cases, lambda g: "upb (incumbent)" if g[0] in "ed" else None, out)
 

@@ -241,9 +241,13 @@ Scope is now every root in `walk.ROOTS`, six of them, rather than
 
 | arm | C1 parse | C2 project | C3 re-encode | C4 refuse |
 |---|---|---|---|---|
-| `pycodec / plain` | 126/126 | 123/124 | 126/126 | 2/2 |
-| `core-ffi / C ext type` | **126/126** | 123/124 | **126/126** | 2/2 |
-| `core-ffi / plain` | **126/126** | 123/124 | **126/126** | 2/2 |
+| `pycodec / plain` | 126/126 | 123/123 | 126/126 | 2/2 |
+| `core-ffi / C ext type` | **126/126** | **123/123** | **126/126** | 2/2 |
+| `core-ffi / plain` | **126/126** | **123/123** | **126/126** | 2/2 |
+
+**Every obligation, every arm, against the three-oracle corpus.** C2's denominator
+is 123 and not 124 because the corpus withdrew `U-map-entry`'s projection rather
+than deciding it -- see below.
 
 **D7 is closed.** This slice reported it, the core fixed it (`Dec::skip` now takes
 the tag and recurses to a MATCHING `END_GROUP`, bounded at 100 nests), and
@@ -258,9 +262,10 @@ The same is true of the incumbent defect below. Both were reachable only because
 a second reader existed, which is `corpus/CONTRACT.md`'s argument for itself,
 twice.
 
-**The C2 miss is a disagreement, reported rather than folded into the pass
-count**, and it is an incumbent defect found the way CONTRACT.md says a first
-consumer finds things:
+**The C2 miss became a corpus change.** It was reported rather than folded into
+the pass count, the corpus now runs three oracles, and it withdrew that vector's
+projection instead of deciding it. The finding underneath is an incumbent defect,
+found the way CONTRACT.md says a first consumer finds things:
 
 > **protobuf 7.36.2 on upb DROPS an entire map entry that carries any unknown
 > field.** The map comes back empty. The same version's pure-Python backend keeps
@@ -270,9 +275,10 @@ consumer finds things:
 > survives -- which is what the vector's own `why` says it tests. **upb is the
 > default, and it is what R14 measures against.**
 
-The corpus's own projection records those entries as `_unknown` content of
+The corpus's own projection recorded those entries as `_unknown` content of
 `TaskOptions`, so its reader did not treat tag 1 as the map either. Three readers,
-three answers; this slice is with the reference implementation.
+three answers; this slice is with the reference implementation, and the corpus
+resolved it by marking the row disputed rather than by picking a winner.
 
 **ABI v1 decision 11, answered for python: this slice DROPS unknown fields.** The
 core carries `ak_unk_f` vtable slots and this shim passes NULL for every one, so
