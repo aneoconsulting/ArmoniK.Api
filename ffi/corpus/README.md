@@ -24,6 +24,7 @@ generated/               output. Regenerate it, never edit it
   manifest.json            every vector: what it tests, produce/consume, accepted
                            forms, which hosts can run it
   vectors/*.bin            the bytes
+  vectors.sha256           the bytes, FROZEN. The build refuses to move one
   projections/*.json       what a reader must SEE
 ```
 
@@ -78,31 +79,51 @@ naming who was seen writing it, and a reader must parse every one of them
 whatever it writes. `design/SHAPES.md` records this; the corpus generalises it.
 85 of 336 rows have more than one form.
 
-## What validates it
+## What validates it -- three runtimes, and not this directory
 
-Not this directory. Every vector is parsed, re-encoded and projected by
-**protobuf 7.36.2 with the upb backend**, over descriptors `protoc` compiled from
-the emitted `.proto` -- an implementation that shares no code with the writer.
-Two independent producers agreeing is worth far more than one producer and a
-hash, and the same pairing is what established the P2.5 result in the first
-place.
+The first version of this corpus decided every projection, every accepted
+encoding and every accept/reject verdict with **upb**. One runtime deciding what
+the right answer is makes that runtime the specification, and the corpus's first
+two consumers found a row where it is the minority (`U-map-entry`; `STATE.md`
+has it in full). So three are asked:
 
-Three things **fail the build** rather than being reported:
+| Oracle | Asked | Independence |
+|---|---|---|
+| protobuf, **upb** backend, in process | the structural checks, one reading, one re-encoding | a C parser, no code shared with the writer |
+| protobuf, **pure-python** backend, in a subprocess | a second reading and re-encoding, in the same projection format | a different parser through the same API. Less independent than protobuf C++, far easier to diff |
+| **protobuf C++**, via `protoc --decode` | the accept/reject verdict on every row, and its text reading as evidence | fully independent |
 
-1. an accept-vector upb will not parse, or whose re-encoding is neither a form
-   the vector declares nor a legal re-ordering of the same message;
-2. a reject-vector upb **accepts** -- a rejection test that nothing rejects is a
-   test nobody has watched work, and that lesson cost this branch twice;
+protobuf C++ is deliberately not asked for the projection: `protoc --decode`
+renders a map field as its wire-level repeated `MapEntry` list -- on
+`E-map-dup-key` it prints two entries with the same key, which a map cannot hold.
+The cpp slice's reflection arm can answer a map question, and does.
+
+**Where the readings disagree the row is `disputed`**: it carries every reading,
+names which runtime produced each, has no projection of its own, and is excluded
+from a consumer's pass or fail count. If two conformant runtimes read the same
+bytes differently, the corpus's job is to say so, not to pick.
+
+Four things **fail the build** rather than being reported:
+
+1. an accept-vector **no** oracle will parse;
+2. a reject-vector **every** oracle accepts -- a rejection test that nothing
+   rejects is a test nobody has watched work, and that lesson cost this branch
+   twice. All three refuse all 49 today, none disputed;
 3. a field shape present in the description that **no vector exercises**. The
    coverage table is computed by walking the description and comparing it against
    what the encoder traced itself writing, so this is a mechanical claim rather
    than a prose one. It failed twice while the corpus was being built and named
-   the shape both times.
+   the shape both times;
+4. a vector whose bytes differ from `generated/vectors.sha256`. Consumers have
+   pinned those bytes; the manifest's claims about them are what the generator is
+   allowed to revise.
 
 `emit/selftest.py` then does to each of those guards what they do to the
-vectors: hands it input it is supposed to refuse and fails if it does not. 25
-checks, including that `--check` notices drift in both directions and that no
-generated file carries an absolute path from the machine that wrote it.
+vectors: hands it input it is supposed to refuse and fails if it does not. 44
+checks, including that the seal refuses a changed, a missing and an added vector,
+that the dispute machinery produces a row whose readings really do differ, that
+`--check` notices drift in both directions, and that no generated file carries an
+absolute path from the machine that wrote it.
 
 ## The vector classes
 

@@ -172,7 +172,8 @@ def main():
        "; ".join("%s carries %s" % x for x in leaked[:3]))
 
     # 6. The manifest says what a consumer needs, for every vector.
-    man = json.load(open(os.path.join(out, "manifest.json")))
+    with open(os.path.join(out, "manifest.json")) as fh:
+        man = json.load(fh)
     missing = [k for k, v in man["vectors"].items()
                if not v.get("tests") or "produce" not in v or "consume" not in v
                or "expect" not in v or "sha256" not in v or "file" not in v]
@@ -192,6 +193,90 @@ def main():
     rejects = [v for v in man["vectors"].values() if v["expect"] == "reject"]
     ok("every reject row names what was seen refusing it",
        all("seen_failing" in v.get("reject", {}) for v in rejects), "%d rows" % len(rejects))
+
+    # 7. The seal. The committed vector bytes are pinned by every consumer that
+    #    has run against them, so the build must refuse to move one.
+    sealed = B.read_seal(out)
+    ok("the vector bytes are sealed (%d of them)" % (len(sealed or ())),
+       sealed is not None and len(sealed) == len(os.listdir(os.path.join(out, "vectors"))))
+    import hashlib as _h
+    live = {}
+    for f in os.listdir(os.path.join(out, "vectors")):
+        with open(os.path.join(out, "vectors", f), "rb") as fh:
+            live[f] = _h.sha256(fh.read()).hexdigest()
+    ok("every committed vector still matches the seal", live == sealed)
+    must_raise("the seal refuses a vector whose BYTES changed",
+               lambda: B.check_seal(out, dict(live, **{sorted(live)[0]: "0" * 64})), SystemExit)
+    must_raise("the seal refuses a vector that disappeared",
+               lambda: B.check_seal(out, dict((k, v) for k, v in list(live.items())[1:])),
+               SystemExit)
+    must_raise("the seal refuses a vector that was added",
+               lambda: B.check_seal(out, dict(live, **{"Z-new.bin": "0" * 64})), SystemExit)
+
+    # 8. The dispute machinery, watched working. A corpus that can only agree
+    #    with itself is a corpus with one oracle, which is where this started.
+    man2 = man
+    disputed = [k for k, v in man2["vectors"].items() if v.get("verdict") == "disputed"]
+    ok("at least one row is DISPUTED, so the machinery is not vacuous",
+       bool(disputed), ", ".join(disputed))
+    ok("every disputed row has no projection of its own and is excluded from pass/fail",
+       all(man2["vectors"][k].get("projection") is None
+           and man2["vectors"][k]["dispute"].get("excluded_from_pass_fail") is True
+           for k in disputed))
+    ok("every disputed row carries more than one reading, each naming its runtime",
+       all(len(man2["vectors"][k]["dispute"].get("readings", [])) > 1
+           and all(r.get("read_by") and r.get("projection")
+                   for r in man2["vectors"][k]["dispute"]["readings"])
+           for k in disputed if "readings" in man2["vectors"][k]["dispute"]))
+    for k in disputed:
+        rs = man2["vectors"][k]["dispute"].get("readings", [])
+        blobs = set()
+        for r in rs:
+            with open(os.path.join(out, r["projection"])) as fh:
+                blobs.add(fh.read())
+        ok("%s's readings really do differ" % k, len(blobs) == len(rs) > 1)
+    ok("a disputed row names WHERE the readings differ",
+       all(man2["vectors"][k]["dispute"].get("differs_at") for k in disputed
+           if "readings" in man2["vectors"][k]["dispute"]))
+    ok("the diff reporter is silent on two identical readings",
+       B.reading_diff({json.dumps({"a": 1}): ["x"], }) == set())
+    ok("the diff reporter names a nested path",
+       B.reading_diff({json.dumps({"a": {"b": [{"c": 1}]}}): ["x"],
+                       json.dumps({"a": {"b": [{"c": 2}]}}): ["y"]}) == {"a.b.[0].c"})
+
+    # 9. Every accepted encoding says WHO was seen writing it. "upb writes this
+    #    form" and "every conformant encoder writes this form" are different
+    #    claims and the manifest used to make only the first.
+    noprov = [k for k, v in man2["vectors"].items()
+              for a in v.get("accepted_encodings", [])
+              if not a.get("written_by") or "observed_in_a_protobuf_runtime" not in a]
+    ok("every accepted encoding names who was seen writing it", not noprov,
+       ", ".join(sorted(set(noprov))[:5]))
+    declared_only = sorted(set(
+        k for k, v in man2["vectors"].items()
+        for a in v.get("accepted_encodings", []) if not a["observed_in_a_protobuf_runtime"]))
+    ok("forms the corpus DECLARES but no runtime was seen writing are marked as such",
+       bool(declared_only), "%d rows, e.g. %s" % (len(declared_only), ", ".join(declared_only[:3])))
+    nocons = [k for k, v in man2["vectors"].items()
+              if v["expect"] == "accept" and v.get("verdict") == "agreed"
+              and not v.get("accepted_encodings")]
+    ok("every agreed accept row has at least one accepted encoding", not nocons,
+       ", ".join(nocons[:5]))
+    perm = sorted(k for k, v in man2["vectors"].items() if v.get("permutation_accepted"))
+    ok("the interleaved rows accept a permutation, so a conformant encoder passes C3",
+       "B-P7_1" in perm and "S-interleaved" in perm, ", ".join(perm))
+    ok("the permutation rule is not applied to rows that are not permutations",
+       not man2["vectors"]["B-P2_5"].get("permutation_accepted")
+       and not man2["vectors"]["E-half-absent"].get("permutation_accepted"))
+
+    # 10. Three oracles, and all three were asked.
+    used = [o["name"] for o in man2["oracles"]["used"]]
+    ok("three oracles are named in the manifest (%d)" % len(used), len(used) == 3,
+       "; ".join(used))
+    ok("every must-fail vector was refused by all three",
+       all(n == sum(1 for v in man2["vectors"].values() if v["expect"] == "reject")
+           for n in man2["oracles"]["refusals_confirmed_by"].values()),
+       json.dumps(man2["oracles"]["refusals_confirmed_by"]))
 
     bad = [r for r in RESULTS if not r[0]]
     for good_, name, detail in RESULTS:

@@ -382,3 +382,46 @@ them means bisecting a probabilistic outcome, so it is written down as unexplain
 
 Three of the four corrections this slice published about R9 stand. The two that do not are
 the two that were inferred rather than observed, and they are the two the README repeated.
+
+### J19. The pull family, and the number that did not appear
+
+The decode regression this slice spent W6 decomposing -- 1.22 to 1.62 on every M2 payload,
+7.004 upcalls per element at about 80 ns -- is gone under ABI v1 7.1's pull family. Against
+protobuf-java, M2 goes from 1.31-1.38 to 0.81-0.97. Push is never faster than pull with an
+established sign on any payload, and pull is faster on eight of sixteen.
+
+**The discipline that made it worth trusting was the order.** Correctness first: 1,389
+checks, 0 failures, both deliveries registered separately so neither could pass by falling
+back to the other, and the oracle is byte identity after a round trip because the replay
+dispatches to the SAME per-slot methods the push vtable reaches. Then the count, which is
+what the family's claim actually is: zero reverse calls, not fewer. Only then the timing.
+
+**Three redundant crossings surfaced on the way, all D6's class, and one was on the arm
+being compared against.** `beginDecode` called `Native.decErrReset` on every push decode
+when `ak_decode_*` clears the sticky slot itself and says so in a comment; `parse` called
+`bdrReset` when `ak_parse_*` resets the buffer itself; and the shim called
+`ak_bdr_count_forward` after a drain when `ak_bdr_drain` already bumps `forward` on the way
+in, so P1.2's drain read 10 crossings where it makes 6. The last one is a trap in the ABI's
+own documentation rather than in this slice, and it is filed as such.
+
+**And the honest part of the result is the one that did not appear.** Against arm R, the
+no-boundary control, `R - ffi-pull` straddles zero on every M2 payload. Pull does not make
+the C ABI beat a generated Java codec; it stops it losing to one, where push lost with a
+clean sign on four payloads. It would have been easy to quote the protobuf-java column and
+call the architecture settled. The control says a tie, so the slice says a tie.
+
+**The drain copy is the second thing that did not appear**, and it is worth as much. The C#
+slice estimated the pull family's intermediate at 12 to 19 percent of a parse; here
+`ffi-pull - ffi-pull-walk` straddles zero on all sixteen payloads. On a runtime where the
+crossing the family saves is worth 80 ns rather than 10, the copy it costs disappears. That
+is a better answer for the specification than either delivery alone, because it means a
+host can pick the one it can implement.
+
+**The pgrep trap, for the third time, and the second time after writing it down.** J12
+recorded it, J16 recorded walking into it again and prescribed `pgrep -f "bin/java.*ak.Bench"`
+as the working form. That form ALSO self-matches, because the waiter's own command line
+contains the string `bin/java.*ak.Bench`. I reported a finished run as still running across
+three exchanges. A pattern cannot exclude the process doing the matching when the pattern
+is part of that process's arguments; the fix that works is to hold the child's PID
+(`echo $! > pidfile`, then `kill -0`), and that is what the last run used. Writing a trap
+down twice is still not not walking into it.
