@@ -20,6 +20,14 @@ public static class Program
                 return UnknownFields.Run();
             case "content":
                 return ContentSets.Run(argv.Skip(1).ToArray());
+            case "coreffi2":
+#if NET8_0_OR_GREATER
+                return CoreFfiGate2.Run(argv.Skip(1).ToArray());
+#else
+                Console.Error.WriteLine("core-ffi is not built on the floor runtime: "
+                    + "net48 has no LibraryImport and no UnmanagedCallersOnly.");
+                return 2;
+#endif
             case "coreffi":
 #if NET8_0_OR_GREATER
                 return CoreFfiGate.Run(argv.Skip(1).ToArray());
@@ -38,7 +46,7 @@ public static class Program
             case "bench":
                 return Bench.Run(argv.Skip(1).ToArray());
             default:
-                Console.Error.WriteLine("usage: harness [conformance|unknown|counts|content|bench]");
+                Console.Error.WriteLine("usage: harness [conformance|unknown|counts|content|coreffi|coreffi2|mapforms|bench]");
                 return 2;
         }
     }

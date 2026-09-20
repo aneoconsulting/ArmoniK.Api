@@ -107,7 +107,17 @@ public sealed unsafe class CoreFfiM1 : IDisposable
     /// Fill the by-value group array from the facade, then one forward call. Returns
     /// the encoded length; the bytes are borrowed from the context and are valid until
     /// the next reset.
+    /// The host-side half on its own: zero the by-value group and stage every string,
+    /// then stop without calling the codec. The difference between this and `Encode` is
+    /// the codec plus every crossing, MEASURED rather than argued. It exists because
+    /// the M1 absent path's 2.361 was attributed to the group fill by elimination, and
+    /// elimination is not a measurement.
+    public int Fill(ListResultsResponse src) => FillOrEncode(src, false, out _, out _);
+
     public int Encode(ListResultsResponse src, out byte* outPtr, out int outLen)
+        => FillOrEncode(src, true, out outPtr, out outLen);
+
+    private int FillOrEncode(ListResultsResponse src, bool call, out byte* outPtr, out int outLen)
     {
         int n = src.Results.Count;
         if (n > _groupCap) throw new InvalidOperationException("group array too small");
@@ -145,6 +155,9 @@ public sealed unsafe class CoreFfiM1 : IDisposable
         _run->Chunk = Chunk;
         var vt = new ak_evt_ListResultsResponse { loop_results = &LoopResults };
         var fix = new ak_efix_ListResultsResponse { page = src.Page, total = src.Total };
+        // Before the tally, so the fill-only arm does not count crossings it
+        // did not make.
+        if (!call) { outPtr = null; outLen = at; return at; }
         ForwardCalls++;        // ak_encode_*
         ReverseCalls++;        // loop_results
         ForwardCalls += Chunk <= 0 ? 1 : (n + Chunk - 1) / Chunk;   // ak_elem_* per chunk

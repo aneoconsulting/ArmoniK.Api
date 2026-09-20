@@ -20,10 +20,13 @@ What it emits, and which arm each file serves:
   src/Harness/Generated/BuildGp.cs payload construction over Google.Protobuf
   src/Harness/Generated/Arms.cs    the per-payload arm table
 
-The `core-ffi` arm is NOT emitted. ABI v1 open decision 1 is unsettled, so the
-ABI is not frozen and a binding built against a draft would be a number about
-the draft. `ir.py` and the sink split in `cs_build.py` are laid out so that
-backend drops in beside these without moving anything.
+  src/Harness/Generated/Abi.cs      the C ABI of ABI v1, at the Rust build's offsets
+  src/Harness/Generated/CoreFfi.cs  the core-ffi host binding for M1
+  src/Harness/Generated/CoreFfi2.cs the core-ffi host binding for M2
+
+The core-ffi backends were held while ABI v1 open decision 1 was unsettled, on
+the grounds that a binding built against a draft is a number about the draft.
+Decision 1 is settled and they are emitted.
 """
 import os
 import sys
@@ -39,6 +42,7 @@ import cs_managed          # noqa: E402
 import cs_arms             # noqa: E402
 import cs_abi              # noqa: E402
 import cs_coreffi          # noqa: E402
+import cs_coreffi2         # noqa: E402
 
 ROOT = os.path.dirname(HERE)
 
@@ -65,6 +69,7 @@ def targets(ir):
         "src/Harness/Generated/Arms.cs": cs_arms.emit(ir),
         "src/Harness/Generated/Abi.cs": cs_abi.emit(ir),
         "src/Harness/Generated/CoreFfi.cs": cs_coreffi.emit(ir),
+        "src/Harness/Generated/CoreFfi2.cs": cs_coreffi2.emit(ir),
     }, sites
 
 

@@ -108,10 +108,57 @@ fn main() {
     ]);
     lay!(out, ak_dfix_ListTasksDetailedResponse, [page, total, presence]);
 
+    // The PRESENCE BIT VALUES, read from the Rust constants rather than inferred.
+    // `gen/cs_coreffi2.py` needs a bit per optional child of `TaskDetailed`, and
+    // the obvious rule -- position among the singular message fields -- is a
+    // guess. A guess that is right today is still a guess: this makes the C#
+    // emitter read the same constant the codec reads.
+    let mut pres: Vec<String> = Vec::new();
+    macro_rules! pc {
+        ($c:ident) => { pres.push(format!("    \"{}\": {}", stringify!($c), $c)); };
+    }
+    pc!(AK_EFIX_RESULTRAW_PRESENT_CREATED_AT);
+    pc!(AK_EFIX_RESULTRAW_PRESENT_COMPLETED_AT);
+    pc!(AK_DFIX_RESULTRAW_PRESENT_CREATED_AT);
+    pc!(AK_DFIX_RESULTRAW_PRESENT_COMPLETED_AT);
+    pc!(AK_EFIX_TASKOPTIONS_PRESENT_MAX_DURATION);
+    pc!(AK_DFIX_TASKOPTIONS_PRESENT_MAX_DURATION);
+    pc!(AK_EFIX_TASKDETAILED_PRESENT_OPTIONS);
+    pc!(AK_EFIX_TASKDETAILED_PRESENT_CREATED_AT);
+    pc!(AK_EFIX_TASKDETAILED_PRESENT_SUBMITTED_AT);
+    pc!(AK_EFIX_TASKDETAILED_PRESENT_STARTED_AT);
+    pc!(AK_EFIX_TASKDETAILED_PRESENT_ENDED_AT);
+    pc!(AK_EFIX_TASKDETAILED_PRESENT_POD_TTL);
+    pc!(AK_EFIX_TASKDETAILED_PRESENT_OUTPUT);
+    pc!(AK_EFIX_TASKDETAILED_PRESENT_RECEIVED_AT);
+    pc!(AK_EFIX_TASKDETAILED_PRESENT_ACQUIRED_AT);
+    pc!(AK_EFIX_TASKDETAILED_PRESENT_CREATION_TO_END_DURATION);
+    pc!(AK_EFIX_TASKDETAILED_PRESENT_PROCESSING_TO_END_DURATION);
+    pc!(AK_EFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION);
+    pc!(AK_EFIX_TASKDETAILED_PRESENT_PROCESSED_AT);
+    pc!(AK_EFIX_TASKDETAILED_PRESENT_FETCHED_AT);
+    pc!(AK_DFIX_TASKDETAILED_PRESENT_OPTIONS);
+    pc!(AK_DFIX_TASKDETAILED_PRESENT_CREATED_AT);
+    pc!(AK_DFIX_TASKDETAILED_PRESENT_SUBMITTED_AT);
+    pc!(AK_DFIX_TASKDETAILED_PRESENT_STARTED_AT);
+    pc!(AK_DFIX_TASKDETAILED_PRESENT_ENDED_AT);
+    pc!(AK_DFIX_TASKDETAILED_PRESENT_POD_TTL);
+    pc!(AK_DFIX_TASKDETAILED_PRESENT_OUTPUT);
+    pc!(AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_AT);
+    pc!(AK_DFIX_TASKDETAILED_PRESENT_ACQUIRED_AT);
+    pc!(AK_DFIX_TASKDETAILED_PRESENT_CREATION_TO_END_DURATION);
+    pc!(AK_DFIX_TASKDETAILED_PRESENT_PROCESSING_TO_END_DURATION);
+    pc!(AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION);
+    pc!(AK_DFIX_TASKDETAILED_PRESENT_PROCESSED_AT);
+    pc!(AK_DFIX_TASKDETAILED_PRESENT_FETCHED_AT);
+
     println!("{{");
     println!("  \"pointer_width\": {},", size_of::<usize>() * 8);
     println!("  \"structs\": {{");
     println!("{}", out.join(",\n"));
+    println!("  }},");
+    println!("  \"presence\": {{");
+    println!("{}", pres.join(",\n"));
     println!("  }}");
     println!("}}");
 }

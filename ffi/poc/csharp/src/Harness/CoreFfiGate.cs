@@ -104,18 +104,22 @@ public static class CoreFfiGate
         }
 
         Console.WriteLine();
-        Console.WriteLine("Reading the crossing columns. THERE ARE TWO CONVENTIONS AND THEY DIFFER.");
+        Console.WriteLine("Reading the crossing columns. THE TWO COLUMNS ARE THE SAME QUANTITY, and");
+        Console.WriteLine("this slice said otherwise once and was wrong; the correction is here so the");
+        Console.WriteLine("report does not repeat it.");
         Console.WriteLine();
-        Console.WriteLine("  core (R5) is the CORE's own counters, read through ak_enc_counters. This is");
-        Console.WriteLine("    the convention the cross-language table uses and the one the Rust and C++");
-        Console.WriteLine("    slices report, so it is the one to quote. `reverse` includes TRANSCODER");
-        Console.WriteLine("    invocations, which a host tally does not see at all. Zero unless the core");
-        Console.WriteLine("    was built with --features count.");
-        Console.WriteLine("  host is this binding's own tally of calls it issued. Useful for checking the");
-        Console.WriteLine("    binding does what it thinks, and NOT comparable with any other slice.");
+        Console.WriteLine("  core (R5) is the CORE's own counters, read through ak_enc_counters. Zero");
+        Console.WriteLine("    unless the core was built with --features count.");
+        Console.WriteLine("  host is this binding's own tally of the calls it issued.");
+        Console.WriteLine("  They AGREE, entry point for entry point. The only quantity in one and not");
+        Console.WriteLine("    the other is a TRANSCODER invocation, which the core counts as reverse");
+        Console.WriteLine("    and a host tally cannot see -- and this binding stages its strings as");
+        Console.WriteLine("    UTF-8 with ak_tc_bytes(), a pointer INTO the core, so it makes none.");
         Console.WriteLine();
-        Console.WriteLine("  The host tally is what this slice reported before, and reporting it against");
-        Console.WriteLine("  the Rust slice's number was comparing two different quantities.");
+        Console.WriteLine("  The gap this slice once reported against the rust slice was a CHUNK SIZE.");
+        Console.WriteLine("  Their host hands the codec 150 elements per ak_elem_* call; this one hands");
+        Console.WriteLine("  over the whole run. Set AK_CHUNK=150 and the columns match to the digit,");
+        Console.WriteLine("  at a cost of 0.7 percent, which is inside the spread. See JOURNAL.md 19.");
         Console.WriteLine("  They are CONSTANT in the element count, in BOTH directions, whether the");
         Console.WriteLine("  payload carries 4 elements or 1,000. The 5 and 4 cover an encode, a decode");
         Console.WriteLine("  and a re-encode:");
