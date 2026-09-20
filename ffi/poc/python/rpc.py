@@ -155,6 +155,29 @@ def measure(channel, name, deser, calls, inflight):
     return dc / n, dt / n, errs[0]
 
 
+def in_process_control(out):
+    """The same deserializers on the same bytes with NO transport, in THIS process.
+
+    Without it the arm can only be compared against `bench.py`, which is a different
+    process with a different allocator history and a different thread count -- and the
+    first run of this script showed the composed arm's codec costing about twice its
+    in-process figure, which is either a real property of decoding under a thread pool or
+    an artefact of comparing across scripts. One row settles which.
+    """
+    body = arms.reference(PID)
+    print("\n## the in-process control: the same decode, no transport, this process",
+          file=out)
+    print("   %-38s %12s %12s" % ("arm", "CPU ns/call", "wall ns/call"), file=out)
+    for name, deser in _deserializers():
+        deser(body)
+        n = 60
+        c0, t0 = _cpu(), time.perf_counter_ns()
+        for _ in range(n):
+            deser(body)
+        print("   %-38s %12.0f %12.0f"
+              % (name, (_cpu() - c0) / n, (time.perf_counter_ns() - t0) / n), file=out)
+
+
 def run_transport(out, label, target, args, argname):
     payload = arms.reference(PID)
     server = serve(payload, args)
@@ -328,6 +351,7 @@ def main():
         run_transport(out, "unix domain socket",
                       "unix:" + os.path.join(d, "s%d" % i), args, argname)
         run_transport(out, "loopback TCP", "tcp", args, argname)
+    in_process_control(out)
     report_flow_control(out)
     return 0
 
