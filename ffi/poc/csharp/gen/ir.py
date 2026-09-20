@@ -17,7 +17,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = os.path.normpath(os.path.join(HERE, "..", "..", "..", "schema"))
 sys.path.insert(0, os.path.join(SCHEMA, "emit"))
 
-import shapes as S          # noqa: E402
+import shapes as S          # noqa: E402  (re-exported: generate.py's
+#                            front-end cross-check reads the JSON through it)
 import csnames as N         # noqa: E402
 
 WIRE_VARINT, WIRE_I64, WIRE_LEN, WIRE_I32 = 0, 1, 2, 5
@@ -25,7 +26,7 @@ WIRE_VARINT, WIRE_I64, WIRE_LEN, WIRE_I32 = 0, 1, 2, 5
 # Every (kind, cardinality) pair this generator has a case for. A pair outside
 # it raises: R1's second half, and the reason it is a table and not a chain of
 # `if`s is that a chain has a fall-through and a table does not.
-KNOWN_KINDS = {"int32", "int64", "bool", "double", "string", "bytes", "enum", "message", "map"}
+KNOWN_KINDS = {"int32", "int64", "bool", "double", "fixed32", "string", "bytes", "enum", "message", "map"}
 KNOWN_CARDS = {"singular", "repeated", "packed", "map"}
 
 
@@ -58,7 +59,7 @@ class Field:
             raise Unsupported("%s.%s: card %r" % (owner, self.name, self.card))
         if self.card == "map" and (self.map_key, self.map_value_kind) != ("string", "string"):
             raise Unsupported("%s.%s: only map<string,string> has a case" % (owner, self.name))
-        if self.card == "packed" and self.kind not in ("int32", "int64", "bool", "double", "enum"):
+        if self.card == "packed" and self.kind not in ("int32", "int64", "bool", "double", "fixed32", "enum"):
             raise Unsupported("%s.%s: packed %s" % (owner, self.name, self.kind))
         if self.card == "repeated" and self.kind not in ("string", "message"):
             raise Unsupported("%s.%s: repeated %s" % (owner, self.name, self.kind))
@@ -75,6 +76,8 @@ class Field:
             return WIRE_VARINT
         if self.kind == "double":
             return WIRE_I64
+        if self.kind == "fixed32":
+            return WIRE_I32
         return WIRE_LEN
 
     @property
@@ -83,7 +86,7 @@ class Field:
 
     @property
     def is_scalar(self):
-        return self.kind in ("int32", "int64", "bool", "double")
+        return self.kind in ("int32", "int64", "bool", "double", "fixed32")
 
     def __repr__(self):
         return "<%s.%s %s %s>" % (self.owner, self.name, self.card, self.kind)

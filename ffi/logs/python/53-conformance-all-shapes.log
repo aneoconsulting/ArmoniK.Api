@@ -1,8 +1,8 @@
-# python slice, work unit 3: conformance and crossing counts, M1 and M2
+# python slice: conformance and crossing counts, M1 through M7
 #
-# date:      2026-09-20T11:23:00Z
+# date:      2026-09-20T15:03:52Z
 # machine:   4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
-# commit:    f24b900
+# commit:    9c3cee91
 # core:      ffi/poc/codec (README R0), ABI v1, libak_core.so via the dynamic linker
 # R13:       this machine's rust-slice crossing is 2.1 ns (fwd+reverse) to 2.8 ns
 #            (forward) -- 00-r13-rust-crossing.log. The composed arm also prices
@@ -111,6 +111,87 @@
         ok    core-ffi / C ext type
         ok    core-ffi / pyacc (python fn)
         ok    core-ffi / pyacc (C attrgetter)
+   P3.1    12097 bytes  sha 40c414645f0570dc  (200 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P4.1    65321 bytes  sha 1d9c1b4bb7d19784  (200 elements)
+        ok*   upb (incumbent)                  legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
+        ok*   upb, message parsed not built    legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
+        ok    upb, deterministic=True
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.1      116 bytes  sha 80ff3288bbc8df48  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.2    65620 bytes  sha 66e4ffb4730d0c77  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.3  1048660 bytes  sha 694243f8193e54f6  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.4  4194390 bytes  sha 349ae77b4d2f934a  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P6.1   123354 bytes  sha 115d4410844a087c  (200 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P7.1       98 bytes  sha 1325822514f15d1f  (6 elements)
+        ok*   upb (incumbent)                  a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   upb, message parsed not built    a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   pycodec / plain                  a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   pycodec / __slots__              a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / plain                 a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / __slots__             a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / C ext type            a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / pyacc (python fn)     a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / pyacc (C attrgetter)  a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
 
 ## decode: re-encode byte identity, and field identity against the incumbent
    P1.1 
@@ -185,6 +266,78 @@
         ok    core-ffi / C ext type
         ok    core-ffi / pyacc (python fn)
         ok    core-ffi / pyacc (C attrgetter)
+   P3.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P4.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.2 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.3 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.4 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P6.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P7.1 
+        ok*   upb (incumbent)  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   pycodec / plain  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   pycodec / __slots__  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / plain  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / __slots__  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / C ext type  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / pyacc (python fn)  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / pyacc (C attrgetter)  (a permutation of the same triples; SHAPES.md P7.1)
 
 ## crossing counts, counting build, BOTH halves (README R5)
 #  The core counts its own crossings and the shim counts what it does to
@@ -270,6 +423,86 @@
    P2.5  decode  C ext type             shim  51.00  core fwd  0.05 rev  7.05  [C-API value read=680, PyList element=340]
    P2.5  decode  pyacc (python fn)      shim 112.15  core fwd  0.05 rev  7.05  [C-API value read=680, PyList element=340, call into Python=1223]
    P2.5  decode  pyacc (C attrgetter)   shim 112.15  core fwd  0.05 rev  7.05  [C-API value read=680, PyList element=340, call into Python=1223]
+   P3.1  encode  plain                  shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, PyObject_GetAttr/SetAttr=1281]
+   P3.1  encode  __slots__              shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, PyObject_GetAttr/SetAttr=1281]
+   P3.1  encode  C ext type             shim   5.40  core fwd  0.01 rev  0.01  [C-API value read=880, PyList element=200]
+   P3.1  encode  pyacc (python fn)      shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, call into Python=1281]
+   P3.1  encode  pyacc (C attrgetter)   shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, call into Python=1281]
+   P3.1  decode  plain                  shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, PyObject_GetAttr/SetAttr=1361]
+   P3.1  decode  __slots__              shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, PyObject_GetAttr/SetAttr=1361]
+   P3.1  decode  C ext type             shim   3.15  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200]
+   P3.1  decode  pyacc (python fn)      shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, call into Python=1361]
+   P3.1  decode  pyacc (C attrgetter)   shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, call into Python=1361]
+   P4.1  encode  plain                  shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, PyObject_GetAttr/SetAttr=4601]
+   P4.1  encode  __slots__              shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, PyObject_GetAttr/SetAttr=4601]
+   P4.1  encode  C ext type             shim  23.00  core fwd  1.01 rev  1.00  [C-API value read=3600, PyList element=1000]
+   P4.1  encode  pyacc (python fn)      shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, call into Python=4601]
+   P4.1  encode  pyacc (C attrgetter)   shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, call into Python=4601]
+   P4.1  decode  plain                  shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, PyObject_GetAttr/SetAttr=5201]
+   P4.1  decode  __slots__              shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, PyObject_GetAttr/SetAttr=5201]
+   P4.1  decode  C ext type             shim  23.00  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000]
+   P4.1  decode  pyacc (python fn)      shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, call into Python=5201]
+   P4.1  decode  pyacc (C attrgetter)   shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, call into Python=5201]
+   P5.1  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.1  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.1  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.1  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.1  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.1  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.1  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.1  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.1  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.1  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.2  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.2  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.2  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.2  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.2  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.2  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.2  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.2  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.2  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.2  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.3  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.3  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.3  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.3  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.3  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.3  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.3  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.3  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.3  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.3  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.4  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.4  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.4  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.4  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.4  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.4  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.4  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.4  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.4  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.4  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P6.1  encode  plain                  shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  encode  __slots__              shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  encode  C ext type             shim 302.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200]
+   P6.1  encode  pyacc (python fn)      shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, call into Python=1201]
+   P6.1  encode  pyacc (C attrgetter)   shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, call into Python=1201]
+   P6.1  decode  plain                  shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  decode  __slots__              shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  decode  C ext type             shim 152.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200]
+   P6.1  decode  pyacc (python fn)      shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, call into Python=1201]
+   P6.1  decode  pyacc (C attrgetter)   shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, call into Python=1201]
+   P7.1  encode  plain                  shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  encode  __slots__              shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  encode  C ext type             shim   2.00  core fwd  0.50 rev  0.33  [C-API value read=6, PyList element=6]
+   P7.1  encode  pyacc (python fn)      shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, call into Python=14]
+   P7.1  encode  pyacc (C attrgetter)   shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, call into Python=14]
+   P7.1  decode  plain                  shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  decode  __slots__              shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  decode  C ext type             shim   2.00  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6]
+   P7.1  decode  pyacc (python fn)      shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, call into Python=14]
+   P7.1  decode  pyacc (C attrgetter)   shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, call into Python=14]
 
 ALL CHECKS PASS
 
@@ -374,6 +607,87 @@ ALL CHECKS PASS
         ok    core-ffi / C ext type
         ok    core-ffi / pyacc (python fn)
         ok    core-ffi / pyacc (C attrgetter)
+   P3.1    12097 bytes  sha 40c414645f0570dc  (200 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P4.1    65321 bytes  sha 1d9c1b4bb7d19784  (200 elements)
+        ok*   upb (incumbent)                  legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
+        ok*   upb, message parsed not built    legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
+        ok    upb, deterministic=True
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.1      116 bytes  sha 80ff3288bbc8df48  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.2    65620 bytes  sha 66e4ffb4730d0c77  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.3  1048660 bytes  sha 694243f8193e54f6  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.4  4194390 bytes  sha 349ae77b4d2f934a  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P6.1   123354 bytes  sha 115d4410844a087c  (200 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P7.1       98 bytes  sha 1325822514f15d1f  (6 elements)
+        ok*   upb (incumbent)                  a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   upb, message parsed not built    a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   pycodec / plain                  a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   pycodec / __slots__              a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / plain                 a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / __slots__             a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / C ext type            a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / pyacc (python fn)     a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / pyacc (C attrgetter)  a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
 
 ## decode: re-encode byte identity, and field identity against the incumbent
    P1.1 
@@ -448,6 +762,78 @@ ALL CHECKS PASS
         ok    core-ffi / C ext type
         ok    core-ffi / pyacc (python fn)
         ok    core-ffi / pyacc (C attrgetter)
+   P3.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P4.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.2 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.3 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.4 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P6.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P7.1 
+        ok*   upb (incumbent)  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   pycodec / plain  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   pycodec / __slots__  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / plain  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / __slots__  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / C ext type  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / pyacc (python fn)  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / pyacc (C attrgetter)  (a permutation of the same triples; SHAPES.md P7.1)
 
 ## crossing counts, counting build, BOTH halves (README R5)
 #  The core counts its own crossings and the shim counts what it does to
@@ -533,6 +919,86 @@ ALL CHECKS PASS
    P2.5  decode  C ext type             shim  51.00  core fwd  0.05 rev  7.05  [C-API value read=680, PyList element=340]
    P2.5  decode  pyacc (python fn)      shim 112.15  core fwd  0.05 rev  7.05  [C-API value read=680, PyList element=340, call into Python=1223]
    P2.5  decode  pyacc (C attrgetter)   shim 112.15  core fwd  0.05 rev  7.05  [C-API value read=680, PyList element=340, call into Python=1223]
+   P3.1  encode  plain                  shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, PyObject_GetAttr/SetAttr=1281]
+   P3.1  encode  __slots__              shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, PyObject_GetAttr/SetAttr=1281]
+   P3.1  encode  C ext type             shim   5.40  core fwd  0.01 rev  0.01  [C-API value read=880, PyList element=200]
+   P3.1  encode  pyacc (python fn)      shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, call into Python=1281]
+   P3.1  encode  pyacc (C attrgetter)   shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, call into Python=1281]
+   P3.1  decode  plain                  shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, PyObject_GetAttr/SetAttr=1361]
+   P3.1  decode  __slots__              shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, PyObject_GetAttr/SetAttr=1361]
+   P3.1  decode  C ext type             shim   3.15  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200]
+   P3.1  decode  pyacc (python fn)      shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, call into Python=1361]
+   P3.1  decode  pyacc (C attrgetter)   shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, call into Python=1361]
+   P4.1  encode  plain                  shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, PyObject_GetAttr/SetAttr=4601]
+   P4.1  encode  __slots__              shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, PyObject_GetAttr/SetAttr=4601]
+   P4.1  encode  C ext type             shim  23.00  core fwd  1.01 rev  1.00  [C-API value read=3600, PyList element=1000]
+   P4.1  encode  pyacc (python fn)      shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, call into Python=4601]
+   P4.1  encode  pyacc (C attrgetter)   shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, call into Python=4601]
+   P4.1  decode  plain                  shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, PyObject_GetAttr/SetAttr=5201]
+   P4.1  decode  __slots__              shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, PyObject_GetAttr/SetAttr=5201]
+   P4.1  decode  C ext type             shim  23.00  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000]
+   P4.1  decode  pyacc (python fn)      shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, call into Python=5201]
+   P4.1  decode  pyacc (C attrgetter)   shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, call into Python=5201]
+   P5.1  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.1  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.1  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.1  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.1  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.1  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.1  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.1  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.1  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.1  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.2  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.2  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.2  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.2  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.2  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.2  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.2  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.2  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.2  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.2  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.3  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.3  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.3  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.3  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.3  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.3  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.3  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.3  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.3  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.3  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.4  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.4  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.4  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.4  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.4  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.4  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.4  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.4  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.4  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.4  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P6.1  encode  plain                  shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  encode  __slots__              shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  encode  C ext type             shim 302.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200]
+   P6.1  encode  pyacc (python fn)      shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, call into Python=1201]
+   P6.1  encode  pyacc (C attrgetter)   shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, call into Python=1201]
+   P6.1  decode  plain                  shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  decode  __slots__              shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  decode  C ext type             shim 152.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200]
+   P6.1  decode  pyacc (python fn)      shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, call into Python=1201]
+   P6.1  decode  pyacc (C attrgetter)   shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, call into Python=1201]
+   P7.1  encode  plain                  shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  encode  __slots__              shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  encode  C ext type             shim   2.00  core fwd  0.50 rev  0.33  [C-API value read=6, PyList element=6]
+   P7.1  encode  pyacc (python fn)      shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, call into Python=14]
+   P7.1  encode  pyacc (C attrgetter)   shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, call into Python=14]
+   P7.1  decode  plain                  shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  decode  __slots__              shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  decode  C ext type             shim   2.00  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6]
+   P7.1  decode  pyacc (python fn)      shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, call into Python=14]
+   P7.1  decode  pyacc (C attrgetter)   shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, call into Python=14]
 
 ALL CHECKS PASS
 
@@ -637,6 +1103,87 @@ ALL CHECKS PASS
         ok    core-ffi / C ext type
         ok    core-ffi / pyacc (python fn)
         ok    core-ffi / pyacc (C attrgetter)
+   P3.1    12097 bytes  sha 40c414645f0570dc  (200 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P4.1    65321 bytes  sha 1d9c1b4bb7d19784  (200 elements)
+        ok*   upb (incumbent)                  legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
+        ok*   upb, message parsed not built    legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
+        ok    upb, deterministic=True
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.1      116 bytes  sha 80ff3288bbc8df48  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.2    65620 bytes  sha 66e4ffb4730d0c77  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.3  1048660 bytes  sha 694243f8193e54f6  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.4  4194390 bytes  sha 349ae77b4d2f934a  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P6.1   123354 bytes  sha 115d4410844a087c  (200 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P7.1       98 bytes  sha 1325822514f15d1f  (6 elements)
+        ok*   upb (incumbent)                  a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   upb, message parsed not built    a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   pycodec / plain                  a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   pycodec / __slots__              a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / plain                 a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / __slots__             a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / C ext type            a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / pyacc (python fn)     a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / pyacc (C attrgetter)  a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
 
 ## decode: re-encode byte identity, and field identity against the incumbent
    P1.1 
@@ -711,6 +1258,78 @@ ALL CHECKS PASS
         ok    core-ffi / C ext type
         ok    core-ffi / pyacc (python fn)
         ok    core-ffi / pyacc (C attrgetter)
+   P3.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P4.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.2 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.3 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.4 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P6.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P7.1 
+        ok*   upb (incumbent)  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   pycodec / plain  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   pycodec / __slots__  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / plain  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / __slots__  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / C ext type  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / pyacc (python fn)  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / pyacc (C attrgetter)  (a permutation of the same triples; SHAPES.md P7.1)
 
 ## crossing counts, counting build, BOTH halves (README R5)
 #  The core counts its own crossings and the shim counts what it does to
@@ -796,6 +1415,86 @@ ALL CHECKS PASS
    P2.5  decode  C ext type             shim  51.00  core fwd  0.05 rev  7.05  [C-API value read=680, PyList element=340]
    P2.5  decode  pyacc (python fn)      shim 112.15  core fwd  0.05 rev  7.05  [C-API value read=680, PyList element=340, call into Python=1223]
    P2.5  decode  pyacc (C attrgetter)   shim 112.15  core fwd  0.05 rev  7.05  [C-API value read=680, PyList element=340, call into Python=1223]
+   P3.1  encode  plain                  shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, PyObject_GetAttr/SetAttr=1281]
+   P3.1  encode  __slots__              shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, PyObject_GetAttr/SetAttr=1281]
+   P3.1  encode  C ext type             shim   5.40  core fwd  0.01 rev  0.01  [C-API value read=880, PyList element=200]
+   P3.1  encode  pyacc (python fn)      shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, call into Python=1281]
+   P3.1  encode  pyacc (C attrgetter)   shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, call into Python=1281]
+   P3.1  decode  plain                  shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, PyObject_GetAttr/SetAttr=1361]
+   P3.1  decode  __slots__              shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, PyObject_GetAttr/SetAttr=1361]
+   P3.1  decode  C ext type             shim   3.15  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200]
+   P3.1  decode  pyacc (python fn)      shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, call into Python=1361]
+   P3.1  decode  pyacc (C attrgetter)   shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, call into Python=1361]
+   P4.1  encode  plain                  shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, PyObject_GetAttr/SetAttr=4601]
+   P4.1  encode  __slots__              shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, PyObject_GetAttr/SetAttr=4601]
+   P4.1  encode  C ext type             shim  23.00  core fwd  1.01 rev  1.00  [C-API value read=3600, PyList element=1000]
+   P4.1  encode  pyacc (python fn)      shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, call into Python=4601]
+   P4.1  encode  pyacc (C attrgetter)   shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, call into Python=4601]
+   P4.1  decode  plain                  shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, PyObject_GetAttr/SetAttr=5201]
+   P4.1  decode  __slots__              shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, PyObject_GetAttr/SetAttr=5201]
+   P4.1  decode  C ext type             shim  23.00  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000]
+   P4.1  decode  pyacc (python fn)      shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, call into Python=5201]
+   P4.1  decode  pyacc (C attrgetter)   shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, call into Python=5201]
+   P5.1  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.1  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.1  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.1  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.1  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.1  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.1  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.1  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.1  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.1  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.2  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.2  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.2  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.2  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.2  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.2  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.2  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.2  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.2  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.2  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.3  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.3  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.3  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.3  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.3  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.3  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.3  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.3  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.3  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.3  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.4  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.4  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.4  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.4  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.4  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.4  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.4  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.4  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.4  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.4  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P6.1  encode  plain                  shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  encode  __slots__              shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  encode  C ext type             shim 302.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200]
+   P6.1  encode  pyacc (python fn)      shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, call into Python=1201]
+   P6.1  encode  pyacc (C attrgetter)   shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, call into Python=1201]
+   P6.1  decode  plain                  shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  decode  __slots__              shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  decode  C ext type             shim 152.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200]
+   P6.1  decode  pyacc (python fn)      shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, call into Python=1201]
+   P6.1  decode  pyacc (C attrgetter)   shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, call into Python=1201]
+   P7.1  encode  plain                  shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  encode  __slots__              shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  encode  C ext type             shim   2.00  core fwd  0.50 rev  0.33  [C-API value read=6, PyList element=6]
+   P7.1  encode  pyacc (python fn)      shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, call into Python=14]
+   P7.1  encode  pyacc (C attrgetter)   shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, call into Python=14]
+   P7.1  decode  plain                  shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  decode  __slots__              shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  decode  C ext type             shim   2.00  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6]
+   P7.1  decode  pyacc (python fn)      shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, call into Python=14]
+   P7.1  decode  pyacc (C attrgetter)   shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, call into Python=14]
 
 ALL CHECKS PASS
 
@@ -900,6 +1599,87 @@ ALL CHECKS PASS
         ok    core-ffi / C ext type
         ok    core-ffi / pyacc (python fn)
         ok    core-ffi / pyacc (C attrgetter)
+   P3.1    12097 bytes  sha 40c414645f0570dc  (200 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P4.1    65321 bytes  sha 1d9c1b4bb7d19784  (200 elements)
+        ok*   upb (incumbent)                  legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
+        ok*   upb, message parsed not built    legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
+        ok    upb, deterministic=True
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.1      116 bytes  sha 80ff3288bbc8df48  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.2    65620 bytes  sha 66e4ffb4730d0c77  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.3  1048660 bytes  sha 694243f8193e54f6  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.4  4194390 bytes  sha 349ae77b4d2f934a  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P6.1   123354 bytes  sha 115d4410844a087c  (200 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P7.1       98 bytes  sha 1325822514f15d1f  (6 elements)
+        ok*   upb (incumbent)                  a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   upb, message parsed not built    a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   pycodec / plain                  a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   pycodec / __slots__              a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / plain                 a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / __slots__             a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / C ext type            a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / pyacc (python fn)     a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / pyacc (C attrgetter)  a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
 
 ## decode: re-encode byte identity, and field identity against the incumbent
    P1.1 
@@ -974,6 +1754,78 @@ ALL CHECKS PASS
         ok    core-ffi / C ext type
         ok    core-ffi / pyacc (python fn)
         ok    core-ffi / pyacc (C attrgetter)
+   P3.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P4.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.2 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.3 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.4 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P6.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P7.1 
+        ok*   upb (incumbent)  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   pycodec / plain  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   pycodec / __slots__  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / plain  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / __slots__  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / C ext type  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / pyacc (python fn)  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / pyacc (C attrgetter)  (a permutation of the same triples; SHAPES.md P7.1)
 
 ## crossing counts, counting build, BOTH halves (README R5)
 #  The core counts its own crossings and the shim counts what it does to
@@ -1059,6 +1911,86 @@ ALL CHECKS PASS
    P2.5  decode  C ext type             shim  51.00  core fwd  0.05 rev  7.05  [C-API value read=680, PyList element=340]
    P2.5  decode  pyacc (python fn)      shim 112.15  core fwd  0.05 rev  7.05  [C-API value read=680, PyList element=340, call into Python=1223]
    P2.5  decode  pyacc (C attrgetter)   shim 112.15  core fwd  0.05 rev  7.05  [C-API value read=680, PyList element=340, call into Python=1223]
+   P3.1  encode  plain                  shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, PyObject_GetAttr/SetAttr=1281]
+   P3.1  encode  __slots__              shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, PyObject_GetAttr/SetAttr=1281]
+   P3.1  encode  C ext type             shim   5.40  core fwd  0.01 rev  0.01  [C-API value read=880, PyList element=200]
+   P3.1  encode  pyacc (python fn)      shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, call into Python=1281]
+   P3.1  encode  pyacc (C attrgetter)   shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, call into Python=1281]
+   P3.1  decode  plain                  shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, PyObject_GetAttr/SetAttr=1361]
+   P3.1  decode  __slots__              shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, PyObject_GetAttr/SetAttr=1361]
+   P3.1  decode  C ext type             shim   3.15  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200]
+   P3.1  decode  pyacc (python fn)      shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, call into Python=1361]
+   P3.1  decode  pyacc (C attrgetter)   shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, call into Python=1361]
+   P4.1  encode  plain                  shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, PyObject_GetAttr/SetAttr=4601]
+   P4.1  encode  __slots__              shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, PyObject_GetAttr/SetAttr=4601]
+   P4.1  encode  C ext type             shim  23.00  core fwd  1.01 rev  1.00  [C-API value read=3600, PyList element=1000]
+   P4.1  encode  pyacc (python fn)      shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, call into Python=4601]
+   P4.1  encode  pyacc (C attrgetter)   shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, call into Python=4601]
+   P4.1  decode  plain                  shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, PyObject_GetAttr/SetAttr=5201]
+   P4.1  decode  __slots__              shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, PyObject_GetAttr/SetAttr=5201]
+   P4.1  decode  C ext type             shim  23.00  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000]
+   P4.1  decode  pyacc (python fn)      shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, call into Python=5201]
+   P4.1  decode  pyacc (C attrgetter)   shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, call into Python=5201]
+   P5.1  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.1  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.1  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.1  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.1  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.1  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.1  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.1  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.1  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.1  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.2  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.2  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.2  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.2  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.2  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.2  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.2  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.2  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.2  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.2  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.3  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.3  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.3  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.3  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.3  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.3  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.3  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.3  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.3  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.3  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.4  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.4  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.4  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.4  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.4  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.4  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.4  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.4  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.4  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.4  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P6.1  encode  plain                  shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  encode  __slots__              shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  encode  C ext type             shim 302.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200]
+   P6.1  encode  pyacc (python fn)      shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, call into Python=1201]
+   P6.1  encode  pyacc (C attrgetter)   shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, call into Python=1201]
+   P6.1  decode  plain                  shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  decode  __slots__              shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  decode  C ext type             shim 152.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200]
+   P6.1  decode  pyacc (python fn)      shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, call into Python=1201]
+   P6.1  decode  pyacc (C attrgetter)   shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, call into Python=1201]
+   P7.1  encode  plain                  shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  encode  __slots__              shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  encode  C ext type             shim   2.00  core fwd  0.50 rev  0.33  [C-API value read=6, PyList element=6]
+   P7.1  encode  pyacc (python fn)      shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, call into Python=14]
+   P7.1  encode  pyacc (C attrgetter)   shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, call into Python=14]
+   P7.1  decode  plain                  shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  decode  __slots__              shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  decode  C ext type             shim   2.00  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6]
+   P7.1  decode  pyacc (python fn)      shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, call into Python=14]
+   P7.1  decode  pyacc (C attrgetter)   shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, call into Python=14]
 
 ALL CHECKS PASS
 

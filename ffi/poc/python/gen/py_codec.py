@@ -28,6 +28,8 @@ tag, an implicit-presence leaf holding the proto zero omitted, a message field
 written when present.
 """
 
+import struct as _struct
+
 _VARINT_CACHE = [bytes([i]) for i in range(128)]
 
 
@@ -49,7 +51,60 @@ def _varint(n, out):
 
 def _key(tag, wire, out):
     _varint((tag << 3) | wire, out)
+
+
+def _packed_varint(tag, vals, out):
+    """A packed run: ONE length-delimited field holding the concatenated varints.
+
+    Written even when every value is the proto zero. The omit-when-zero rule is about a
+    leaf, and a run is not one -- an empty run is absent, a run of zeros is not.
+    """
+    body = bytearray()
+    for v in vals:
+        _varint(int(v), body)
+    _key(tag, 2, out)
+    _varint(len(body), out)
+    out += body
+
+
+def _packed_f64(tag, vals, out):
+    body = _struct.pack("<%dd" % len(vals), *vals)
+    _key(tag, 2, out)
+    _varint(len(body), out)
+    out += body
 '''
+
+
+
+def _write(k, f, tag, val, ind):
+    """The lines that write ONE value of kind `k`, with no presence test of their own.
+
+    Split out from the guards because M3 made the same three writers serve three different
+    presence rules, and a copy per rule is how an `optional` field ends up silently sharing
+    the implicit-presence test.
+    """
+    if k == "string":
+        return [ind + "_b = %s.encode('utf-8')" % val,
+                ind + "_key(%d, 2, out)" % tag,
+                ind + "_varint(len(_b), out)",
+                ind + "out += _b"]
+    if k == "bytes":
+        return [ind + "_key(%d, 2, out)" % tag,
+                ind + "_varint(len(%s), out)" % val,
+                ind + "out += %s" % val]
+    if k in ("int32", "int64", "enum"):
+        return [ind + "_key(%d, 0, out)" % tag,
+                ind + "_varint(%s, out)" % val]
+    if k == "bool":
+        return [ind + "_key(%d, 0, out)" % tag,
+                ind + "out.append(1 if %s else 0)" % val]
+    if k == "message":
+        return [ind + "_key(%d, 2, out)" % tag,
+                ind + "_sub = bytearray()",
+                ind + "encode_%s(%s, _sub)" % (f["of"], val),
+                ind + "_varint(len(_sub), out)",
+                ind + "out += _sub"]
+    raise Unsupported("kind %r" % k)
 
 
 def emit_encode(schema, scope, root, roots):
@@ -63,14 +118,19 @@ def emit_encode(schema, scope, root, roots):
             if c == "map":
                 # ABI v1 section 11: a map has no case of its own on the wire, it is a
                 # repeated field of a pair message. The canonical form sorts entries by
-                # key and omits an empty value, which is the implicit-presence rule
-                # applied to the pair's second field.
+                # key and omits BOTH members when they hold the proto zero, because both
+                # are implicit-presence leaves of that pair message. Writing the key
+                # unconditionally was defect D10: it is invisible on every payload in the
+                # manifest, where no key is empty, and the corpus's `E-map-entry-empty`
+                # is the vector that exists for it -- an entry whose whole body is zero
+                # bytes. The shared core had it right; this control did not.
                 body += [
                     "    for _mk in sorted(o.%s):" % nm,
                     "        _mv = o.%s[_mk]" % nm,
                     "        _sub = bytearray()",
-                    "        _kb = _mk.encode('utf-8')",
-                    "        _key(1, 2, _sub); _varint(len(_kb), _sub); _sub += _kb",
+                    "        if _mk:",
+                    "            _kb = _mk.encode('utf-8')",
+                    "            _key(1, 2, _sub); _varint(len(_kb), _sub); _sub += _kb",
                     "        if _mv:",
                     "            _vb = _mv.encode('utf-8')",
                     "            _key(2, 2, _sub); _varint(len(_vb), _sub); _sub += _vb",
@@ -78,6 +138,16 @@ def emit_encode(schema, scope, root, roots):
                     "        _varint(len(_sub), out)",
                     "        out += _sub",
                 ]
+            elif c == "packed":
+                # A packed field is one call, not a loop: that is the whole point of the
+                # control. `flags` packs as varints too -- proto3 packs a `bool` run as
+                # one byte per value, not as a bitmap.
+                if k == "double":
+                    body += ["    _v = o.%s" % nm, "    if _v:",
+                             "        _packed_f64(%d, _v, out)" % tag]
+                else:
+                    body += ["    _v = o.%s" % nm, "    if _v:",
+                             "        _packed_varint(%d, _v, out)" % tag]
             elif c == "repeated" and k == "string":
                 body += [
                     "    for e in o.%s:" % nm,
@@ -95,48 +165,29 @@ def emit_encode(schema, scope, root, roots):
                     "        _varint(len(_sub), out)",
                     "        out += _sub",
                 ]
-            elif k == "string":
-                body += [
-                    "    _v = o.%s" % nm,
-                    "    if _v:",
-                    "        _b = _v.encode('utf-8')",
-                    "        _key(%d, 2, out)" % tag,
-                    "        _varint(len(_b), out)",
-                    "        out += _b",
-                ]
-            elif k == "bytes":
-                body += [
-                    "    _v = o.%s" % nm,
-                    "    if _v:",
-                    "        _key(%d, 2, out)" % tag,
-                    "        _varint(len(_v), out)",
-                    "        out += _v",
-                ]
-            elif k in ("int32", "int64", "enum"):
-                body += [
-                    "    _v = o.%s" % nm,
-                    "    if _v:",
-                    "        _key(%d, 0, out)" % tag,
-                    "        _varint(_v, out)",
-                ]
-            elif k == "bool":
-                body += [
-                    "    if o.%s:" % nm,
-                    "        _key(%d, 0, out)" % tag,
-                    "        out.append(1)",
-                ]
-            elif k == "message":
-                body += [
-                    "    _v = o.%s" % nm,
-                    "    if _v is not None:",
-                    "        _key(%d, 2, out)" % tag,
-                    "        _sub = bytearray()",
-                    "        encode_%s(_v, _sub)" % f["of"],
-                    "        _varint(len(_sub), out)",
-                    "        out += _sub",
-                ]
+            elif c in ("singular", "optional", "oneof"):
+                # One writer, three guards. Which guard applies is the whole of proto3's
+                # presence story and it is the part a hand-written codec gets wrong:
+                #
+                #   implicit (`singular`)  -- write when the value differs from the zero
+                #   explicit (`optional`)  -- write when it is not None, zero INCLUDED
+                #   oneof                  -- write when this member is the selected one,
+                #                             zero included, and never more than one
+                #
+                # An `optional int32` holding 0 and a oneof member holding "" are both
+                # messages a reader must be able to tell from the absent one, so neither
+                # may go through the implicit guard.
+                if c == "singular":
+                    guard = ("    _v = o.%s" % nm,
+                             "    if _v is not None:" if k == "message" else "    if _v:")
+                elif c == "optional":
+                    guard = ("    _v = o.%s" % nm, "    if _v is not None:")
+                else:
+                    guard = ("    _v = o.%s" % nm,
+                             "    if o.%s_case == %d:" % (f["oneof"], tag))
+                body += list(guard) + _write(k, f, tag, "_v", "        ")
             else:
-                raise Unsupported("%s.%s" % (name, nm))
+                raise Unsupported("%s.%s: cardinality %r" % (name, nm, c))
         L += body or ["    pass"]
         L.append("")
     L.append("")
@@ -166,6 +217,14 @@ def emit_encode(schema, scope, root, roots):
 # --------------------------------------------------------------------------------
 
 DEC_PRELUDE = '''
+
+def _unpack_f64(b, i, end):
+    return _struct.unpack("<%dd" % ((end - i) // 8), bytes(b[i:end]))
+
+
+def _rd_f64(b, i):
+    return _struct.unpack_from("<d", b, i)[0]
+
 
 def _rd_varint(b, i):
     n = b[i]
@@ -276,7 +335,7 @@ def emit_decode(schema, scope, root, roots):
         for f, k, c in flds:
             if c == "map":
                 L.append("    _m_%s = {}" % f["name"])
-            elif c == "repeated":
+            elif c in ("repeated", "packed"):
                 L.append("    _r_%s = []" % f["name"])
         L.append("    while i < end:")
         L.append("        _k, i = _rd_varint(b, i)")
@@ -287,7 +346,31 @@ def emit_decode(schema, scope, root, roots):
             kw = "if" if first else "elif"
             first = False
             L.append("        %s _t == %d:" % (kw, tag))
-            if c == "map":
+            if c == "packed":
+                # BOTH forms, and this is a conformance requirement rather than a
+                # kindness: proto3 says a parser must accept a packable field written
+                # unpacked, whatever the writer does. Only the packed branch is exercised
+                # by the manifest, so the unpacked one is what the corpus is for.
+                L.append("            if (_k & 7) == 2:")
+                L.append("                _n, i = _len(b, i, end)")
+                if k == "double":
+                    L.append("                _r_%s.extend(_unpack_f64(b, i, i + _n))" % nm)
+                    L.append("                i += _n")
+                else:
+                    L.append("                _e = i + _n")
+                    L.append("                while i < _e:")
+                    L.append("                    _v, i = _rd_varint(b, i)")
+                    L.append("                    _r_%s.append(%s)"
+                             % (nm, "bool(_v)" if k == "bool" else "_v"))
+                elif_ = "            else:"
+                L.append(elif_)
+                if k == "double":
+                    L.append("                _r_%s.append(_rd_f64(b, i)); i += 8" % nm)
+                else:
+                    L.append("                _v, i = _rd_varint(b, i)")
+                    L.append("                _r_%s.append(%s)"
+                             % (nm, "bool(_v)" if k == "bool" else "_v"))
+            elif c == "map":
                 L.append("            _n, i = _len(b, i, end)")
                 L.append("            _mk, _mv, i = _pair(b, i, i + _n)")
                 L.append("            _m_%s[_mk] = _mv" % nm)
@@ -320,6 +403,12 @@ def emit_decode(schema, scope, root, roots):
                 L.append("            i += _n")
             else:
                 raise Unsupported("%s.%s" % (name, nm))
+            if c == "oneof":
+                # Last member on the wire wins, which is proto3's rule and not a choice:
+                # a message carrying two members of one oneof is legal input and the
+                # reader must end up with the later one selected. Assigning the
+                # discriminant here, inside the branch, is what makes that true.
+                L.append("            o.%s_case = %d" % (f["oneof"], tag))
         if first:
             L.append("        if False:")
             L.append("            pass")
@@ -328,7 +417,7 @@ def emit_decode(schema, scope, root, roots):
         for f, k, c in flds:
             if c == "map":
                 L.append("    o.%s = _m_%s" % (f["name"], f["name"]))
-            elif c == "repeated":
+            elif c in ("repeated", "packed"):
                 L.append("    o.%s = _r_%s" % (f["name"], f["name"]))
         L.append("    return o")
     L.append("")

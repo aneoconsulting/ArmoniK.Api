@@ -58,7 +58,7 @@
          Excluding it keeps arm c honest about what it covers instead of
          letting a stale binary report a pass. -->
     <Compile Include="../Harness/**/*.cs" LinkBase="Harness"
-             Exclude="../Harness/obj/**;../Harness/bin/**;../Harness/obj-floor/**;../Harness/bin-floor/**;../Harness/Generated/Abi.cs;../Harness/Generated/CoreFfi.cs;../Harness/CoreFfiGate.cs" />
+             Exclude="../Harness/obj/**;../Harness/bin/**;../Harness/obj-floor/**;../Harness/bin-floor/**;../Harness/Generated/Abi.cs;../Harness/Generated/Core_*.cs;../Harness/Generated/CoreArms.cs;../Harness/CoreGate.cs" />
   </ItemGroup>
 
 </Project>

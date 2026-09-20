@@ -82,9 +82,34 @@ _pb2 = _try("the incumbent (protobuf/upb)", lambda: __import__("shapes_pb2"))
 # LEAF element; M2's element is not a leaf, which is the property every M1 figure rests on.
 PAYLOADS_M1 = ["P1.1", "P1.2", "P1.3"]
 PAYLOADS_M2 = ["P2.1", "P2.2", "P2.3", "P2.4", "P2.5"]
-PAYLOADS = PAYLOADS_M1 + PAYLOADS_M2
-ROOT_OF = {p: ("ListResultsResponse" if p.startswith("P1")
-               else "ListTasksDetailedResponse") for p in PAYLOADS}
+PAYLOADS_M3 = ["P3.1"]                  # oneof and explicit presence
+PAYLOADS_M4 = ["P4.1"]                  # the adapter site
+PAYLOADS_M5 = ["P5.1", "P5.2", "P5.3", "P5.4"]   # bulk bytes, 36 B to 4 MB
+PAYLOADS_M6 = ["P6.1"]                  # packed scalars and enums
+PAYLOADS_M7 = ["P7.1"]                  # the interleaved decode-only control
+PAYLOADS = (PAYLOADS_M1 + PAYLOADS_M2 + PAYLOADS_M3 + PAYLOADS_M4
+            + PAYLOADS_M5 + PAYLOADS_M6 + PAYLOADS_M7)
+ROOT_OF = {p: _SCHEMA["payloads"][p]["root"] for p in PAYLOADS}
+
+# P7.1 interleaves two repeated fields, and no canonical writer can produce those bytes:
+# a writer that emits a repeated field contiguously cannot interleave two of them. So it
+# is validated by DECODING, and the re-encode is checked against a permutation of the same
+# (tag, wire type, body) triples rather than against the manifest's hash (SHAPES.md).
+DECODE_ONLY = {"P7.1"}
+
+
+def elem_fields(pid):
+    """The root's repeated MESSAGE fields, as (name, element type name).
+
+    A list rather than one name: M5's root has none and M7's has two, and every helper
+    below that used to say `"results" if ... else "tasks"` was a root with exactly one
+    repeated field written into the slice rather than read off the description.
+    """
+    out = []
+    for f, k, c in W.walk(_SCHEMA, ROOT_OF[pid]):
+        if c == "repeated" and k == "message":
+            out.append((f["name"], f["of"]))
+    return out
 
 # The shim's HostTypes order, read off the module rather than listed, so widening the
 # scope cannot leave this behind.
@@ -171,7 +196,32 @@ def _fill_pb(dst, src, plan):
     what an application does. Driven from the description's plan, so it needs no case per
     shape and cannot fall behind a widened scope (R1)."""
     for name, k, c, child in plan:
+        if c == "oneof_case":
+            hit = child[1].get(getattr(src, name))
+            if hit is None:
+                continue
+            gn, gk, gchild = hit
+            gv = getattr(src, gn)
+            if gk == "message":
+                # `SetInParent` is how protobuf says "this member is selected and its body
+                # is empty". Assigning nothing to a submessage leaves the oneof UNSET, so
+                # the payload-free member would vanish from the wire.
+                child_msg = getattr(dst, gn)
+                child_msg.SetInParent()
+                if gchild:
+                    _fill_pb(child_msg, gv, gchild)
+            else:
+                setattr(dst, gn, gv)
+            continue
         v = getattr(src, name)
+        if c == "optional":
+            if v is not None:
+                setattr(dst, name, v)
+            continue
+        if c == "packed":
+            if v:
+                getattr(dst, name).extend(v)
+            continue
         if c == "map":
             if v:
                 getattr(dst, name).update(v)
@@ -201,14 +251,28 @@ def build_upb_native(pid):
     """
     if not _pb2:
         return None
-    root = ROOT_OF[pid]
-    elem = "ResultRaw" if root == "ListResultsResponse" else "TaskDetailed"
     src = build_facade(pid, CT_PLAIN)
     dst = _pb_root(pid)()
-    for e in getattr(src, elem_field(pid)):
-        _fill_pb(getattr(dst, elem_field(pid)).add(), e, _PLANS[elem])
-    dst.page, dst.total = src.page, src.total
+    # One plan for the whole root: M5's root has a singular child and no list at all, and
+    # M7's has two lists. `_fill_pb` already walks both from the plan.
+    _fill_pb(dst, src, _PLANS[ROOT_OF[pid]])
     return dst
+
+
+def _has_map(msg, seen=None):
+    """Whether a map is reachable from `msg`. The `deterministic=True` row exists because
+    `SerializeToString` does not sort map entries and the canonical form does, so it is a
+    row wherever there IS a map and nowhere else."""
+    seen = seen or set()
+    if msg in seen:
+        return False
+    seen = seen | {msg}
+    for f, k, c in W.walk(_SCHEMA, msg):
+        if c == "map":
+            return True
+        if k == "message" and _has_map(f["of"], seen):
+            return True
+    return False
 
 
 def encode_arms(pid, mod=None):
@@ -226,7 +290,7 @@ def encode_arms(pid, mod=None):
         # R14's second row: the map makes the production path and the canonical path
         # differ, because SerializeToString does not sort map entries and the corpus's
         # canonical form does. On M1 the two are the same call.
-        if root == "ListTasksDetailedResponse":
+        if _has_map(root):
             out.append(("upb, deterministic=True",
                         lambda _u=upb: _u.SerializeToString(deterministic=True)))
     fp = build_facade(pid, CT_PLAIN)
@@ -268,7 +332,14 @@ def decode_arms(pid, mod=None):
 
 
 def elem_field(pid):
-    return "results" if ROOT_OF[pid] == "ListResultsResponse" else "tasks"
+    """The FIRST repeated message field, or None where the root has none (M5)."""
+    ef = elem_fields(pid)
+    return ef[0][0] if ef else None
+
+
+def elem_type(pid):
+    ef = elem_fields(pid)
+    return ef[0][1] if ef else None
 
 
 # ----------------------------------------------------------------------------------
@@ -286,23 +357,60 @@ def elem_field(pid):
 # ----------------------------------------------------------------------------------
 
 def _plan(msg):
-    """[(name, kind, card, child plan or None)] for one message, from the description."""
+    """[(name, kind, card, child plan or None)] for one message, from the description.
+
+    A oneof member carries `c == "oneof"` and is NOT listed on its own: the plan records
+    the discriminant once per oneof, as `("<name>_case", "oneof_case", "oneof_case",
+    (name, {tag: (member, kind, child)}))`. Both readers then take the same two steps --
+    ask which member is selected, read that one -- which is `body_case` on the facade and
+    `WhichOneof` on the incumbent.
+    """
     out = []
     for f, k, c in W.walk(_SCHEMA, msg):
         child = _plan(f["of"]) if k == "message" else None
+        if c == "oneof":
+            continue
         out.append((f["name"], k, c, child))
+    for oname, members in W.oneof_groups(_SCHEMA, msg).items():
+        sel = {g["tag"]: (g["name"], g["kind"],
+                          _plan(g["of"]) if g["kind"] == "message" else None)
+               for g in members}
+        out.append(("%s_case" % oname, "oneof_case", "oneof_case", (oname, sel)))
     return out
 
 
-_PLANS = {m: _plan(m) for m in ("ResultRaw", "TaskDetailed")}
+# Keyed by ROOT rather than by element type, so one reader serves a root with two
+# repeated fields, a root with none, and the scalars beside them, with no case per shape.
+_PLANS = {r: _plan(r) for r in sorted({ROOT_OF[p] for p in PAYLOADS})}
 
 
 def _read(o, plan):
     n = 0
     for name, k, c, child in plan:
+        if c == "oneof_case":
+            n += 1
+            hit = child[1].get(getattr(o, name))
+            if hit is not None:
+                gn, gk, gchild = hit
+                gv = getattr(o, gn)
+                n += 1
+                if gk == "message":
+                    n += _read(gv, gchild)
+                elif gk in ("string", "bytes"):
+                    n += len(gv)
+            continue
         v = getattr(o, name)
         n += 1
-        if c == "map":
+        if c == "optional":
+            # Absent is None and there is nothing under it. The facade's presence test IS
+            # the attribute read; the incumbent needs a HasField and then a read, and that
+            # asymmetry is protobuf's API rather than something to hide.
+            if v is not None and k in ("string", "bytes"):
+                n += len(v)
+        elif c == "packed":
+            for x in v:
+                n += 1
+        elif c == "map":
             for k2, v2 in v.items():
                 n += len(k2) + len(v2)
         elif c == "repeated":
@@ -319,6 +427,31 @@ def _read(o, plan):
 def _read_pb(o, plan, present):
     n = 0
     for name, k, c, child in plan:
+        if c == "oneof_case":
+            oname, sel = child
+            n += 1
+            which = o.WhichOneof(oname)
+            if which is not None:
+                gk, gchild = next((v[1], v[2]) for v in sel.values() if v[0] == which)
+                gv = getattr(o, which)
+                n += 1
+                if gk == "message":
+                    n += _read_pb(gv, gchild, True)
+                elif gk in ("string", "bytes"):
+                    n += len(gv)
+            continue
+        if c == "optional":
+            n += 1
+            if o.HasField(name):
+                v = getattr(o, name)
+                if k in ("string", "bytes"):
+                    n += len(v)
+            continue
+        if c == "packed":
+            n += 1
+            for x in getattr(o, name):
+                n += 1
+            continue
         if k == "message" and c == "singular":
             # The one place the two readers MUST differ: a protobuf message has no absent
             # representation an attribute read would show, so presence is a HasField call
@@ -349,21 +482,11 @@ def touch(msg, pid):
     construct eagerly because that is what a facade IS. Applying the same read to both is
     what puts them on the same work.
     """
-    elem = "ResultRaw" if ROOT_OF[pid] == "ListResultsResponse" else "TaskDetailed"
-    plan = _PLANS[elem]
-    n = 0
-    for e in getattr(msg, elem_field(pid)):
-        n += _read(e, plan)
-    return n + int(msg.page) + int(msg.total)
+    return _read(msg, _PLANS[ROOT_OF[pid]])
 
 
 def touch_upb(msg, pid):
-    elem = "ResultRaw" if ROOT_OF[pid] == "ListResultsResponse" else "TaskDetailed"
-    plan = _PLANS[elem]
-    n = 0
-    for e in getattr(msg, elem_field(pid)):
-        n += _read_pb(e, plan, True)
-    return n + int(msg.page) + int(msg.total)
+    return _read_pb(msg, _PLANS[ROOT_OF[pid]], True)
 
 
 def decode_touch_arms(pid, mod=None):

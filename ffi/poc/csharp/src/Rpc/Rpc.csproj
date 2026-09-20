@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+       README 5.2's RPC arm, which design/SHAPES.md specifies as END TO END:
+       "the host's real gRPC stack against the core's, carrying P2.2". A
+       marshaller arm is NOT one; calling a SerializationContext measures the
+       codec path gRPC drives, which R14 asks for separately and which
+       ../Harness already has as gp-marshaller.
+
+       So this is a real grpc-dotnet client against a real grpc-dotnet server
+       over a Unix domain socket, with the CODEC swapped underneath by supplying
+       a different Marshaller. Everything above the marshaller (HTTP/2 framing,
+       flow control, the ASP.NET pipeline, the client's call machinery) is
+       identical across the arms, which is what makes the difference the codec's.
+
+       UDS is not a measurement convenience here: packages/csharp defaults its
+       worker and agent channels to GrpcSocketType.UnixDomainSocket at
+       /tmp/armonik.sock and listens with ListenUnixSocket(HttpProtocols.Http2).
+       So the primary row is what ArmoniK runs, and loopback TCP is the labelled
+       second row.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <AssemblyName>akrpc</AssemblyName>
+    <RootNamespace>Armonik.Ffi.Rpc</RootNamespace>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Grpc.AspNetCore" Version="2.66.0" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.66.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+         The arm table, the payload builders, the managed codec and the core-ffi
+         binding all live in the harness project and are EMITTED from ffi/schema
+         (R1), referenced rather than re-emitted, so the RPC arm cannot drift
+         from the in-process one.
+    -->
+    <ProjectReference Include="../Harness/Harness.csproj" />
+  </ItemGroup>
+
+</Project>

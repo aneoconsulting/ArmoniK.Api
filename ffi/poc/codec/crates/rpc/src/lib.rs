@@ -92,6 +92,37 @@ pub async fn serve(response: Bytes) -> Server {
     Server { addr, _handle: handle }
 }
 
+/// The same server over a **Unix domain socket**, which is what `design/SHAPES.md` makes the
+/// primary transport row and what ArmoniK's client actually dials. It exists so the core's
+/// own UDS path has something to dial in a test rather than only in a slice's harness.
+pub struct UdsServer {
+    pub path: std::path::PathBuf,
+    _handle: tokio::task::JoinHandle<()>,
+}
+
+impl Drop for UdsServer {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+    }
+}
+
+pub async fn serve_uds(response: Bytes, path: std::path::PathBuf) -> UdsServer {
+    let _ = std::fs::remove_file(&path);
+    let listener = tokio::net::UnixListener::bind(&path).unwrap();
+    let response = Arc::new(response);
+    let handle = tokio::spawn(async move {
+        let svc = BenchService { response };
+        let incoming = tokio_stream::wrappers::UnixListenerStream::new(listener);
+        tonic::transport::Server::builder()
+            .add_service(svc)
+            .serve_with_incoming(incoming)
+            .await
+            .unwrap();
+    });
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    UdsServer { path, _handle: handle }
+}
+
 #[derive(Clone)]
 struct BenchService {
     response: Arc<Bytes>,

@@ -25,7 +25,7 @@ would be a comparison of container types. `OrderedMap` is a `Dictionary` plus a
 """
 import ir as IR
 
-CS = {"int32": "int", "int64": "long", "bool": "bool", "double": "double"}
+CS = {"int32": "int", "int64": "long", "bool": "bool", "double": "double", "fixed32": "uint"}
 
 
 def scalar_cs(kind):
@@ -79,12 +79,17 @@ def oneof_case_type(m, name):
     return "%s%sCase" % (m.cs, N.pascal(name))
 
 
-def emit_types(ir):
+def emit_types(ir, ns="Armonik.Ffi.Facade"):
     o = Head("The facade types every arm of this slice operates on.")
     o += "using System;"
     o += "using System.Collections.Generic;"
+    if ns != "Armonik.Ffi.Facade":
+        # The corpus view reuses the FACADE's runtime -- OrderedMap, Enc, Dec, W --
+        # deliberately. A corpus that exercised a second container and a second
+        # wire reader would be testing the second ones.
+        o += "using Armonik.Ffi.Facade;"
     o += ""
-    o += "namespace Armonik.Ffi.Facade;"
+    o += "namespace %s;" % ns
     o += ""
 
     for ename, edef in ir.enums.items():
@@ -145,7 +150,7 @@ def emit_one(o, ir, m):
     o += ""
 
 
-def emit_eq(ir):
+def emit_eq(ir, ns="Armonik.Ffi.Facade"):
     """A structural comparer, generated.
 
     Byte identity is the oracle (R2), but it only covers the encode direction.
@@ -157,8 +162,10 @@ def emit_eq(ir):
     o = Head("Structural equality over the facade, for the decode half of the oracle.")
     o += "using System;"
     o += "using System.Collections.Generic;"
+    if ns != "Armonik.Ffi.Facade":
+        o += "using Armonik.Ffi.Facade;"
     o += ""
-    o += "namespace Armonik.Ffi.Facade;"
+    o += "namespace %s;" % ns
     o += ""
     o += "public static class Eq"
     o += "{"

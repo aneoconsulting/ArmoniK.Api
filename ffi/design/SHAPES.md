@@ -254,6 +254,45 @@ measures the codec path gRPC drives, which R14 asks for separately, and says not
 about the transport. The comparison the report needs is the host's real gRPC client
 against the core's, carrying P2.2.
 
+### The RPC arm is three cells, because two things change at once
+
+"The host's stack against the core's" moves the codec **and** the transport together,
+and the report has to say which one paid. So the arm is a grid, and the minimum is
+three cells:
+
+| cell | codec | transport | what it is |
+|---|---|---|---|
+| **A** | host protobuf | host gRPC | the incumbent: what ArmoniK ships today (R14) |
+| **B** | host protobuf | **core** gRPC | **README 13's outcome 2**, built rather than argued |
+| **C** | **core** | **core** gRPC | outcome 1: the whole proposal |
+
+**B − A is the transport difference and C − B is the codec difference**, and neither is
+recoverable from the A-against-C number the branch has been quoting. Cell B is not a
+contrivance invented for the grid: it is exactly the fallback the Java report
+recommended and the one README section 13 calls outcome 2, so **the grid prices the
+recommendation directly** instead of inferring it from two halves measured apart.
+
+**A fourth cell exists and one slice already has it.** Core codec + host transport is
+what the C# slice's RPC arm measured (four codecs under grpc-dotnet), which makes the
+2×2 nearly free there. Where a slice has all four, `D − A` and `C − B` are the codec
+difference under each transport, and **whether those two agree is the question nobody
+has asked**: if the codec is worth less under the core's transport than under the
+host's, the two halves of the proposal are not additive and the report cannot present
+them as if they were.
+
+**Cells B and C come in each of section 9's deliveries**, because the core's transport
+is not one thing: blocking, completion queue (`ak_call_unary_q`, no upcall) and callback
+(`ak_call_unary_cb`, one upcall onto a thread the host does not own). A slice runs the
+delivery its host should be best at as the headline — **the queue on the JVM, the
+callback on .NET** — and keeps blocking as a labelled row, because blocking was the only
+delivery built when the first transport figures were taken and those figures are
+blocking-mode figures.
+
+**The transport is a Unix socket in every cell, and the core reaches one.** tonic parses
+a `unix:` target itself, so `ak_client_new` takes `unix:/tmp/armonik.sock` exactly as a
+host's own stack does; this is exercised by a test in the core rather than assumed. A
+slice that cannot reach a socket is looking at its own harness.
+
 **Prefer a Unix domain socket, with loopback TCP as a labelled second row.** A UDS
 removes the TCP/IP stack from both arms equally, which is kernel time neither
 implementation is responsible for and which varies with the machine. All five stacks
@@ -286,14 +325,23 @@ largest message the stack accepts by default so that one maximum-size message cr
 without a `WINDOW_UPDATE` round trip. P2.2's 540 KB is then comfortably inside one
 window in every arm, which is what makes the arms comparable.
 
-Two traps in pinning it. **The connection window is a separate setting from the stream
-window** in every stack here (grpc-java's `flowControlWindow` sets
-`SETTINGS_INITIAL_WINDOW_SIZE`, which is per stream; tonic and hyper take the two
-separately), so raising only the stream window leaves the connection at 65,535 and
-changes nothing. And **pinning a window turns BDP auto-tuning off** in grpc-java, so
-the pinned arm is not the default arm: the pinned one is the headline and the stack
-default is a labelled second row. CPU per RPC stays the headline over both, and wall
-clock is reported beside it or not at all.
+Two traps in pinning it, **and each applies to some stacks and not others, so a slice
+establishes them from its own runtime's source rather than inheriting them**.
+
+- **The connection window is a separate setting from the stream window** on grpc-java
+  (`flowControlWindow` reaches `SETTINGS_INITIAL_WINDOW_SIZE`, per stream) and on
+  tonic/hyper, so raising only the stream window there leaves the connection at 65,535
+  and changes nothing. **Not on .NET**, where `Http2Connection` hardcodes a 64 MiB
+  connection window and raises it at setup.
+- **Pinning a window turns auto-tuning off on grpc-java and does not on .NET**, where
+  the configured size is a starting point that doubles to a 16 MiB cap unless the
+  `DisableDynamicWindowSizing` AppContext switch is also set — **a floor, not a cap**.
+
+The pinned arm is the headline and the stack default is a labelled second row. CPU per
+RPC stays the headline over both, and wall clock is reported beside it or not at all.
+**Where pinning configures something the shipped client cannot** — as on .NET, where
+`packages/csharp` sets no window and reaches gRPC through an `HttpClientHandler` that
+cannot — the arm says so rather than diverging silently.
 
 **Not in the RPC arm, and listed as not measured**: streaming, TLS, a real
 network, failure injection, the server side. Streaming is where the concurrency

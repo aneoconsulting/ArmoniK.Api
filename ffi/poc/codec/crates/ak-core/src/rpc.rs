@@ -6,10 +6,32 @@
 //! if the count per RPC were a function of field count, something here would have to know
 //! about fields.
 //!
+//! **Section 9's three delivery modes are all here now.** The blocking call, the callback
+//! and the completion queue are three DELIVERIES of one call path (`unary_once`), not three
+//! implementations, which is the same condition 7.1 puts on the two decode families: two
+//! bodies that have to agree is a fork at the place nobody tests. The java slice found only
+//! the blocking form built and measured the core against grpc-java through it, which is the
+//! mode the JVM is worst at -- blocking in a native frame pins a virtual thread's carrier
+//! (section 9's fourth amendment, measured) -- so the comparison was taken through the arm
+//! least suited to the host.
+//!
+//! **What each delivery costs at the boundary, which is the reason to have both.**
+//!
+//! | delivery | forward | reverse | who blocks |
+//! |---|---|---|---|
+//! | `ak_call_unary` | 2 (call, free) | 0 | a host thread, inside the core |
+//! | `ak_call_unary_cb` | 2 (call, free) | **1** (the completion) | nobody; the core calls out |
+//! | `ak_call_unary_q` | 3 (call, next, free) | **0** | a host thread, inside `ak_queue_next` |
+//!
+//! The queue trades one reverse call for one forward call, which is the whole of its case on
+//! a host where a reverse call is dear and an upcall onto a thread the host does not own is
+//! worse than dear. The callback is the mode for a host with cheap upcalls and an async
+//! idiom to complete into. Neither is a default the ABI picks.
+//!
 //! **What is NOT here, and is in STATE.md's not-measured list rather than stubbed**: TLS,
-//! retry and backoff, metadata, deadlines, the gRPC status code as a number, cancellation,
-//! the completion queue and the callback delivery modes, streaming, and `ak_init` with its
-//! one-shot installs. Section 9's case is behavioural and this is not a test of it.
+//! retry and backoff, metadata, deadlines, the gRPC status code as a number, streaming, and
+//! `ak_init` with its one-shot installs. Section 9's case is behavioural and this is not a
+//! test of it.
 
 use crate::{AK_ERR_HOST, AK_ERR_INVALID_STATE, AK_OK};
 use bytes::Bytes;
@@ -65,6 +87,16 @@ pub unsafe extern "C" fn ak_runtime_destroy(r: *mut ak_runtime) {
     }
 }
 
+/// **A Unix domain socket is what ArmoniK's client actually dials**, and the core already
+/// reaches one: tonic's `Endpoint::from_shared` parses a `unix:` target itself
+/// (`transport/channel/endpoint.rs`, `uds_connector.rs`) and connects over a `UnixStream`.
+/// `unix:/path` and `unix:///path` both name a socket; anything else is dialled as a URI.
+///
+/// **This was thought to be missing and it is not.** A connector was written here before the
+/// tonic source was read, and it is deleted rather than kept beside a working one -- but the
+/// TEST it came with stays, because "the core dials a UDS" was an assumption nobody had
+/// exercised and `design/SHAPES.md` makes that transport the primary row. A slice that
+/// cannot reach a socket is looking at its own harness, not at this.
 #[no_mangle]
 pub unsafe extern "C" fn ak_client_new(
     r: *mut ak_runtime,
@@ -77,6 +109,7 @@ pub unsafe extern "C" fn ak_client_new(
         Err(_) => return core::ptr::null_mut(),
     };
     let chan = rt.rt.block_on(async move {
+        // `unix:` targets included: from_shared dispatches on the scheme.
         tonic::transport::Endpoint::from_shared(s)
             .ok()?
             .connect()
@@ -125,27 +158,53 @@ pub unsafe extern "C" fn ak_call_unary(
         Err(_) => return AK_ERR_INVALID_STATE,
     };
     let body = Bytes::copy_from_slice(core::slice::from_raw_parts(req, req_len));
-    let mut grpc = tonic::client::Grpc::new(cl.chan.clone());
-    let res = rt.rt.block_on(async {
-        grpc.ready().await.map_err(|e| format!("ready: {e}"))?;
-        grpc.unary(tonic::Request::new(body), path, rpc::RawCodec)
-            .await
-            .map_err(|e| format!("unary: {e}"))
-    });
+    let res = rt.rt.block_on(unary_once(cl.chan.clone(), path, body));
     match res {
-        Ok(r) => {
-            let b = Box::new(r.into_inner());
-            (*out).ptr = b.as_ptr();
-            (*out).len = b.len();
-            (*out).owner = Box::into_raw(b) as *mut c_void;
+        Ok(b) => {
+            *out = into_ak_bytes(b);
             AK_OK
         }
         Err(e) => {
-            if std::env::var_os("AK_RPC_TRACE").is_some() {
-                eprintln!("ak_call_unary: {e}");
-            }
+            trace("ak_call_unary", &e);
             AK_ERR_HOST
         }
+    }
+}
+
+/// **One call path, three deliveries.** Every mode below awaits this, so a delivery cannot
+/// drift from another delivery: there is one place the request is sent and one place the
+/// response is taken.
+async fn unary_once(
+    chan: tonic::transport::Channel,
+    path: http::uri::PathAndQuery,
+    body: Bytes,
+) -> Result<Bytes, String> {
+    let mut grpc = tonic::client::Grpc::new(chan);
+    grpc.ready().await.map_err(|e| format!("ready: {e}"))?;
+    grpc.unary(tonic::Request::new(body), path, rpc::RawCodec)
+        .await
+        .map(|r| r.into_inner())
+        .map_err(|e| format!("unary: {e}"))
+}
+
+/// The one place response bytes become an `ak_bytes`, so every delivery hands the host the
+/// same thing and `ak_bytes_free` stays the only release path.
+fn into_ak_bytes(b: Bytes) -> ak_bytes {
+    let b = Box::new(b);
+    ak_bytes {
+        ptr: b.as_ptr(),
+        len: b.len(),
+        owner: Box::into_raw(b) as *mut c_void,
+    }
+}
+
+fn empty_ak_bytes() -> ak_bytes {
+    ak_bytes { ptr: core::ptr::null(), len: 0, owner: core::ptr::null_mut() }
+}
+
+fn trace(who: &str, e: &str) {
+    if std::env::var_os("AK_RPC_TRACE").is_some() {
+        eprintln!("{who}: {e}");
     }
 }
 
@@ -157,5 +216,491 @@ pub unsafe extern "C" fn ak_bytes_free(b: *mut ak_bytes) {
         (*b).owner = core::ptr::null_mut();
         (*b).ptr = core::ptr::null();
         (*b).len = 0;
+    }
+}
+
+// ---- ABI v1 section 9's two non-blocking deliveries -------------------------------------
+//
+// Both spawn `unary_once` on the runtime and differ only in where the result is put. The
+// java slice's transport arm was taken through the blocking mode because it was the only
+// one built, on the host whose own measurement says blocking in a native frame pins a
+// virtual thread's carrier. That is a harness handicap of exactly the class R14 names,
+// pointing at the core's own arm instead of at the incumbent.
+
+/// What a completion carries. The bytes are released with `ak_bytes_free` exactly as the
+/// blocking mode's are, so a host has one release path whichever delivery it takes.
+#[repr(C)]
+pub struct ak_completion {
+    pub tag: u64,
+    pub status: i32,
+    pub bytes: ak_bytes,
+}
+
+/// The callback a host registers. Called ONCE per call, on a tokio worker thread -- a
+/// thread the host does not own, which is the property that makes this mode wrong for a
+/// runtime that must attach before it can run managed code, and right for one that can
+/// complete a future from anywhere.
+pub type ak_completion_cb = extern "C" fn(user_data: *mut c_void, comp: *mut ak_completion);
+
+pub enum ak_call {}
+pub enum ak_queue {}
+
+struct CallImpl {
+    abort: tokio::task::AbortHandle,
+}
+
+/// The host's callback and its context, crossing into a spawned task. Raw pointers are not
+/// `Send`, and the host is the one asserting that its `user_data` may be touched from
+/// another thread -- which is what registering a completion callback MEANS. Stated here
+/// rather than left to a reader of the signature.
+struct CbCtx {
+    cb: ak_completion_cb,
+    user: *mut c_void,
+}
+unsafe impl Send for CbCtx {}
+
+/// The completion queue: a callback pushing onto a queue, as section 9 says, so it is
+/// strictly additive rather than a second transport.
+///
+/// `Mutex` plus `Condvar` rather than an mpsc receiver behind a lock, because a drainer
+/// blocked on `recv()` holding that lock serialises every other drainer. Section 9 says the
+/// queue "ships with one drainer" and a POC could have taken the simpler shape; the failure
+/// mode if a host runs two is a deadlock-shaped mystery rather than an error, and that is
+/// not a good thing to leave in a reference implementation.
+struct QueueImpl {
+    m: std::sync::Mutex<QueueState>,
+    cv: std::sync::Condvar,
+}
+
+struct QueueState {
+    q: std::collections::VecDeque<ak_completion>,
+    shutdown: bool,
+}
+
+// The queue holds `ak_completion`s, which carry raw pointers to core-owned bytes. They are
+// produced by the core and consumed by the host; nothing else touches them.
+unsafe impl Send for ak_completion {}
+
+/// `ak_queue_next` returned a completion.
+pub const AK_QUEUE_OK: i32 = 0;
+/// The timeout expired with no completion. Not an error: a drainer polls its own shutdown.
+pub const AK_QUEUE_TIMEOUT: i32 = 1;
+/// The queue is shutting down and is drained. Every drainer gets this, once the backlog is.
+pub const AK_QUEUE_SHUTDOWN: i32 = 2;
+
+#[no_mangle]
+pub extern "C" fn ak_queue_new() -> *mut ak_queue {
+    Box::into_raw(Box::new(QueueImpl {
+        m: std::sync::Mutex::new(QueueState {
+            q: std::collections::VecDeque::new(),
+            shutdown: false,
+        }),
+        cv: std::sync::Condvar::new(),
+    })) as *mut ak_queue
+}
+
+/// Wake every drainer and refuse further pushes. Completions already queued are still
+/// delivered, so a host drains to `AK_QUEUE_SHUTDOWN` and knows nothing was dropped.
+#[no_mangle]
+pub unsafe extern "C" fn ak_queue_shutdown(q: *mut ak_queue) {
+    if q.is_null() {
+        return;
+    }
+    let qi = &*(q as *const QueueImpl);
+    if let Ok(mut st) = qi.m.lock() {
+        st.shutdown = true;
+    }
+    qi.cv.notify_all();
+}
+
+/// Only after every call that names this queue has completed or been cancelled, and every
+/// drainer has left. Leaks the bytes of any completion still queued rather than freeing
+/// memory the host may hold a pointer into.
+#[no_mangle]
+pub unsafe extern "C" fn ak_queue_destroy(q: *mut ak_queue) {
+    if !q.is_null() {
+        drop(Box::from_raw(q as *mut QueueImpl));
+    }
+}
+
+/// **The downcall the host blocks in.** No upcall, no thread the host does not own, and on
+/// a managed runtime no pinning and no attach: the drainer is a host thread that entered
+/// the core and will come back out.
+///
+/// `timeout_ms` of 0 polls; `u64::MAX` waits without a deadline.
+#[no_mangle]
+pub unsafe extern "C" fn ak_queue_next(
+    q: *mut ak_queue,
+    out: *mut ak_completion,
+    timeout_ms: u64,
+) -> i32 {
+    if q.is_null() || out.is_null() {
+        return AK_ERR_INVALID_STATE;
+    }
+    let qi = &*(q as *const QueueImpl);
+    let mut st = match qi.m.lock() {
+        Ok(st) => st,
+        Err(_) => return AK_ERR_INVALID_STATE,
+    };
+    loop {
+        if let Some(c) = st.q.pop_front() {
+            *out = c;
+            return AK_QUEUE_OK;
+        }
+        if st.shutdown {
+            return AK_QUEUE_SHUTDOWN;
+        }
+        if timeout_ms == 0 {
+            return AK_QUEUE_TIMEOUT;
+        }
+        if timeout_ms == u64::MAX {
+            st = match qi.cv.wait(st) {
+                Ok(st) => st,
+                Err(_) => return AK_ERR_INVALID_STATE,
+            };
+        } else {
+            let (s, t) = match qi
+                .cv
+                .wait_timeout(st, std::time::Duration::from_millis(timeout_ms))
+            {
+                Ok(v) => v,
+                Err(_) => return AK_ERR_INVALID_STATE,
+            };
+            st = s;
+            if t.timed_out() && st.q.is_empty() && !st.shutdown {
+                return AK_QUEUE_TIMEOUT;
+            }
+        }
+    }
+}
+
+/// Cancel an in-flight call. The delivery still happens: an aborted call completes with
+/// `AK_ERR_HOST` and empty bytes, because a host that registered a completion and never
+/// got one has no way to stop waiting.
+#[no_mangle]
+pub unsafe extern "C" fn ak_call_cancel(h: *mut ak_call) {
+    if !h.is_null() {
+        (*(h as *mut CallImpl)).abort.abort();
+    }
+}
+
+/// Frees the handle. Only after the call's completion has been delivered.
+#[no_mangle]
+pub unsafe extern "C" fn ak_call_destroy(h: *mut ak_call) {
+    if !h.is_null() {
+        drop(Box::from_raw(h as *mut CallImpl));
+    }
+}
+
+/// Shared prologue: validate the path and copy the request out of host memory, which must
+/// happen on the calling thread because the host may reuse its buffer the moment this
+/// returns.
+unsafe fn call_parts(
+    c: *mut ak_client,
+    path: *const u8,
+    path_len: usize,
+    req: *const u8,
+    req_len: usize,
+) -> Option<(tonic::transport::Channel, &'static RuntimeImpl, http::uri::PathAndQuery, Bytes)> {
+    if c.is_null() {
+        return None;
+    }
+    let cl = &*(c as *const ClientImpl);
+    let rt = &*cl.rt;
+    let p = core::str::from_utf8(core::slice::from_raw_parts(path, path_len)).ok()?;
+    let path = http::uri::PathAndQuery::from_maybe_shared(p.to_string()).ok()?;
+    let body = Bytes::copy_from_slice(core::slice::from_raw_parts(req, req_len));
+    Some((cl.chan.clone(), rt, path, body))
+}
+
+/// **The callback delivery.** Returns immediately with a handle; the completion arrives on
+/// a tokio worker thread. The host's callback must be able to run on a thread the core
+/// owns -- on .NET an `UnmanagedCallersOnly` entry point completing a `TaskCompletionSource`,
+/// which is the idiom that runtime is built around.
+#[no_mangle]
+pub unsafe extern "C" fn ak_call_unary_cb(
+    c: *mut ak_client,
+    path: *const u8,
+    path_len: usize,
+    req: *const u8,
+    req_len: usize,
+    cb: ak_completion_cb,
+    user_data: *mut c_void,
+    tag: u64,
+) -> *mut ak_call {
+    let (chan, rt, path, body) = match call_parts(c, path, path_len, req, req_len) {
+        Some(v) => v,
+        None => return core::ptr::null_mut(),
+    };
+    let ctx = CbCtx { cb, user: user_data };
+    let task = rt.rt.spawn(async move {
+        let ctx = ctx;
+        let mut comp = match unary_once(chan, path, body).await {
+            Ok(b) => ak_completion { tag, status: AK_OK, bytes: into_ak_bytes(b) },
+            Err(e) => {
+                trace("ak_call_unary_cb", &e);
+                ak_completion { tag, status: AK_ERR_HOST, bytes: empty_ak_bytes() }
+            }
+        };
+        (ctx.cb)(ctx.user, &mut comp);
+    });
+    Box::into_raw(Box::new(CallImpl { abort: task.abort_handle() })) as *mut ak_call
+}
+
+/// **The completion-queue delivery.** Returns immediately with a handle; the completion is
+/// pushed onto `q`, where a host thread blocked in `ak_queue_next` takes it. No upcall at
+/// all, which is the point on a host where a reverse call is dear: the JVM, where a cached
+/// upcall measures 72 to 80 ns and an uncached one nearly 300.
+#[no_mangle]
+pub unsafe extern "C" fn ak_call_unary_q(
+    c: *mut ak_client,
+    path: *const u8,
+    path_len: usize,
+    req: *const u8,
+    req_len: usize,
+    q: *mut ak_queue,
+    tag: u64,
+) -> *mut ak_call {
+    if q.is_null() {
+        return core::ptr::null_mut();
+    }
+    let (chan, rt, path, body) = match call_parts(c, path, path_len, req, req_len) {
+        Some(v) => v,
+        None => return core::ptr::null_mut(),
+    };
+    // The queue outlives the call by the host's contract (`ak_queue_destroy` only after
+    // every call naming it has completed), so the task holds it as an address rather than
+    // an Arc -- which keeps the queue a plain C handle instead of a refcount the host
+    // cannot see.
+    let qaddr = q as usize;
+    let task = rt.rt.spawn(async move {
+        let comp = match unary_once(chan, path, body).await {
+            Ok(b) => ak_completion { tag, status: AK_OK, bytes: into_ak_bytes(b) },
+            Err(e) => {
+                trace("ak_call_unary_q", &e);
+                ak_completion { tag, status: AK_ERR_HOST, bytes: empty_ak_bytes() }
+            }
+        };
+        let qi = unsafe { &*(qaddr as *const QueueImpl) };
+        if let Ok(mut st) = qi.m.lock() {
+            st.q.push_back(comp);
+        }
+        qi.cv.notify_one();
+    });
+    Box::into_raw(Box::new(CallImpl { abort: task.abort_handle() })) as *mut ak_call
+}
+
+#[cfg(test)]
+mod delivery_tests {
+    //! Three deliveries of one call path, so the thing to test is that they agree on the
+    //! bytes and differ only in where the completion turns up. A mode that returns the
+    //! right bytes on an empty queue, or never completes at all, is the failure worth
+    //! catching: both look like "no output" from a benchmark harness.
+    use super::*;
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    const RESP: &[u8] = b"the response bytes, which every delivery must hand back intact";
+
+    /// A runtime and a client against a server answering with RESP. Returned raw because
+    /// that is how a host holds them.
+    fn fixture() -> (*mut ak_runtime, *mut ak_client) {
+        let r = ak_runtime_new(2);
+        assert!(!r.is_null());
+        let addr = unsafe {
+            let rt = &*(r as *const RuntimeImpl);
+            rt.rt.block_on(async { rpc::serve(Bytes::from_static(RESP)).await.addr })
+        };
+        let uri = format!("http://{addr}");
+        let c = unsafe { ak_client_new(r, uri.as_ptr(), uri.len()) };
+        assert!(!c.is_null(), "client did not connect to {uri}");
+        (r, c)
+    }
+
+    unsafe fn take(b: &mut ak_bytes) -> Vec<u8> {
+        let v = core::slice::from_raw_parts(b.ptr, b.len).to_vec();
+        ak_bytes_free(b);
+        v
+    }
+
+    #[test]
+    fn the_three_deliveries_return_the_same_bytes() {
+        let (r, c) = fixture();
+        unsafe {
+            // 1. blocking
+            let mut out = empty_ak_bytes();
+            assert_eq!(
+                ak_call_unary(c, rpc::PATH.as_ptr(), rpc::PATH.len(), b"req".as_ptr(), 3, &mut out),
+                AK_OK
+            );
+            assert_eq!(take(&mut out), RESP);
+
+            // 2. callback, completing a condvar the way a host completes a future
+            static SEEN: AtomicU32 = AtomicU32::new(0);
+            struct Sink {
+                m: std::sync::Mutex<Option<(u64, i32, Vec<u8>)>>,
+                cv: std::sync::Condvar,
+            }
+            extern "C" fn on_done(user: *mut c_void, comp: *mut ak_completion) {
+                SEEN.fetch_add(1, Ordering::SeqCst);
+                unsafe {
+                    let s = &*(user as *const Sink);
+                    let c = &mut *comp;
+                    let v = core::slice::from_raw_parts(c.bytes.ptr, c.bytes.len).to_vec();
+                    ak_bytes_free(&mut c.bytes);
+                    *s.m.lock().unwrap() = Some((c.tag, c.status, v));
+                    s.cv.notify_all();
+                }
+            }
+            let sink = Sink {
+                m: std::sync::Mutex::new(None),
+                cv: std::sync::Condvar::new(),
+            };
+            let h = ak_call_unary_cb(
+                c,
+                rpc::PATH.as_ptr(),
+                rpc::PATH.len(),
+                b"req".as_ptr(),
+                3,
+                on_done,
+                &sink as *const Sink as *mut c_void,
+                7,
+            );
+            assert!(!h.is_null());
+            let got = {
+                let mut g = sink.m.lock().unwrap();
+                while g.is_none() {
+                    let (ng, t) = sink
+                        .cv
+                        .wait_timeout(g, std::time::Duration::from_secs(10))
+                        .unwrap();
+                    g = ng;
+                    assert!(!t.timed_out(), "the callback never fired");
+                }
+                g.take().unwrap()
+            };
+            assert_eq!(got.0, 7, "the tag did not survive");
+            assert_eq!(got.1, AK_OK);
+            assert_eq!(got.2, RESP);
+            assert_eq!(SEEN.load(Ordering::SeqCst), 1, "the callback fired more than once");
+            ak_call_destroy(h);
+
+            // 3. the completion queue
+            let q = ak_queue_new();
+            let mut comp = ak_completion { tag: 0, status: 0, bytes: empty_ak_bytes() };
+            assert_eq!(
+                ak_queue_next(q, &mut comp, 0),
+                AK_QUEUE_TIMEOUT,
+                "an empty queue polled with no timeout must not block or invent a completion"
+            );
+            let h = ak_call_unary_q(
+                c,
+                rpc::PATH.as_ptr(),
+                rpc::PATH.len(),
+                b"req".as_ptr(),
+                3,
+                q,
+                99,
+            );
+            assert!(!h.is_null());
+            assert_eq!(ak_queue_next(q, &mut comp, 10_000), AK_QUEUE_OK);
+            assert_eq!(comp.tag, 99);
+            assert_eq!(comp.status, AK_OK);
+            assert_eq!(take(&mut comp.bytes), RESP);
+            ak_call_destroy(h);
+
+            // The drainer's exit: shutdown wakes it and says so, once the backlog is gone.
+            ak_queue_shutdown(q);
+            assert_eq!(ak_queue_next(q, &mut comp, u64::MAX), AK_QUEUE_SHUTDOWN);
+            ak_queue_destroy(q);
+
+            ak_client_destroy(c);
+            ak_runtime_destroy(r);
+        }
+    }
+
+    #[test]
+    fn the_core_dials_a_unix_domain_socket() {
+        // The transport row design/SHAPES.md makes primary, and what ArmoniK's client
+        // actually dials. Until this existed every RPC arm was forced onto loopback TCP,
+        // which measures a kernel path production does not take.
+        let r = ak_runtime_new(2);
+        assert!(!r.is_null());
+        let path = std::env::temp_dir().join(format!("ak-uds-test-{}.sock", std::process::id()));
+        let _srv = unsafe {
+            let rt = &*(r as *const RuntimeImpl);
+            rt.rt.block_on(rpc::serve_uds(Bytes::from_static(RESP), path.clone()))
+        };
+        let target = format!("unix:{}", path.display());
+        unsafe {
+            let c = ak_client_new(r, target.as_ptr(), target.len());
+            assert!(!c.is_null(), "the core did not connect to {target}");
+
+            let mut out = empty_ak_bytes();
+            assert_eq!(
+                ak_call_unary(c, rpc::PATH.as_ptr(), rpc::PATH.len(), b"req".as_ptr(), 3, &mut out),
+                AK_OK
+            );
+            assert_eq!(take(&mut out), RESP);
+
+            // And over the queue, so the UDS path is exercised by a delivery that does not
+            // block the calling thread inside the core.
+            let q = ak_queue_new();
+            let h = ak_call_unary_q(
+                c, rpc::PATH.as_ptr(), rpc::PATH.len(), b"req".as_ptr(), 3, q, 5,
+            );
+            assert!(!h.is_null());
+            let mut comp = ak_completion { tag: 0, status: 0, bytes: empty_ak_bytes() };
+            assert_eq!(ak_queue_next(q, &mut comp, 10_000), AK_QUEUE_OK);
+            assert_eq!(comp.tag, 5);
+            assert_eq!(take(&mut comp.bytes), RESP);
+            ak_call_destroy(h);
+            ak_queue_shutdown(q);
+            ak_queue_destroy(q);
+
+            ak_client_destroy(c);
+            ak_runtime_destroy(r);
+        }
+    }
+
+    #[test]
+    fn the_queue_delivers_every_tag_and_correlates_them() {
+        // The property the tag exists for: N calls in flight, N completions, each carrying
+        // its own tag. A queue that dropped or duplicated one would still look fine on a
+        // single call, which is why this is a separate test.
+        let (r, c) = fixture();
+        const N: u64 = 16;
+        unsafe {
+            let q = ak_queue_new();
+            let mut handles = Vec::new();
+            for tag in 0..N {
+                let h = ak_call_unary_q(
+                    c,
+                    rpc::PATH.as_ptr(),
+                    rpc::PATH.len(),
+                    b"req".as_ptr(),
+                    3,
+                    q,
+                    tag,
+                );
+                assert!(!h.is_null());
+                handles.push(h);
+            }
+            let mut seen = vec![0u32; N as usize];
+            for _ in 0..N {
+                let mut comp = ak_completion { tag: 0, status: 0, bytes: empty_ak_bytes() };
+                assert_eq!(ak_queue_next(q, &mut comp, 30_000), AK_QUEUE_OK);
+                assert_eq!(comp.status, AK_OK);
+                assert_eq!(take(&mut comp.bytes), RESP);
+                seen[comp.tag as usize] += 1;
+            }
+            assert!(seen.iter().all(|&n| n == 1), "tags dropped or duplicated: {seen:?}");
+            for h in handles {
+                ak_call_destroy(h);
+            }
+            ak_queue_shutdown(q);
+            ak_queue_destroy(q);
+            ak_client_destroy(c);
+            ak_runtime_destroy(r);
+        }
     }
 }

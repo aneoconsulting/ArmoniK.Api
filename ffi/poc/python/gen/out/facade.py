@@ -14,6 +14,9 @@ a test can use. A facade that is fast because it is unusable is not a
 facade.
 """
 
+Probe_body_MEMBERS = {10: 'as_int', 11: 'as_text', 12: 'as_blob', 13: 'as_stamp', 14: 'as_nothing'}
+
+
 class PlainListResultsResponse:
     def __init__(self, results=None, page=0, total=0):
         self.results = [] if results is None else results
@@ -21,7 +24,7 @@ class PlainListResultsResponse:
         self.total = total
 
     def __eq__(self, o):
-        return type(o) is type(self) and (self.results, self.page, self.total) == (o.results, o.page, o.total)
+        return type(o) is type(self) and (self.results, self.page, self.total, ) == (o.results, o.page, o.total, )
 
 
 class PlainResultRaw:
@@ -39,7 +42,7 @@ class PlainResultRaw:
         self.manual_deletion = manual_deletion
 
     def __eq__(self, o):
-        return type(o) is type(self) and (self.session_id, self.name, self.owner_task_id, self.status, self.created_at, self.completed_at, self.result_id, self.size, self.created_by, self.opaque_id, self.manual_deletion) == (o.session_id, o.name, o.owner_task_id, o.status, o.created_at, o.completed_at, o.result_id, o.size, o.created_by, o.opaque_id, o.manual_deletion)
+        return type(o) is type(self) and (self.session_id, self.name, self.owner_task_id, self.status, self.created_at, self.completed_at, self.result_id, self.size, self.created_by, self.opaque_id, self.manual_deletion, ) == (o.session_id, o.name, o.owner_task_id, o.status, o.created_at, o.completed_at, o.result_id, o.size, o.created_by, o.opaque_id, o.manual_deletion, )
 
 
 class PlainTimestamp:
@@ -48,7 +51,7 @@ class PlainTimestamp:
         self.nanos = nanos
 
     def __eq__(self, o):
-        return type(o) is type(self) and (self.seconds, self.nanos) == (o.seconds, o.nanos)
+        return type(o) is type(self) and (self.seconds, self.nanos, ) == (o.seconds, o.nanos, )
 
 
 class PlainListTasksDetailedResponse:
@@ -58,7 +61,7 @@ class PlainListTasksDetailedResponse:
         self.total = total
 
     def __eq__(self, o):
-        return type(o) is type(self) and (self.tasks, self.page, self.total) == (o.tasks, o.page, o.total)
+        return type(o) is type(self) and (self.tasks, self.page, self.total, ) == (o.tasks, o.page, o.total, )
 
 
 class PlainTaskDetailed:
@@ -92,7 +95,7 @@ class PlainTaskDetailed:
         self.created_by = created_by
 
     def __eq__(self, o):
-        return type(o) is type(self) and (self.id, self.session_id, self.owner_pod_id, self.parent_task_ids, self.data_dependencies, self.expected_output_ids, self.retry_of_ids, self.status, self.status_message, self.options, self.created_at, self.submitted_at, self.started_at, self.ended_at, self.pod_ttl, self.output, self.pod_hostname, self.received_at, self.acquired_at, self.creation_to_end_duration, self.processing_to_end_duration, self.initial_task_id, self.received_to_end_duration, self.processed_at, self.fetched_at, self.payload_id, self.created_by) == (o.id, o.session_id, o.owner_pod_id, o.parent_task_ids, o.data_dependencies, o.expected_output_ids, o.retry_of_ids, o.status, o.status_message, o.options, o.created_at, o.submitted_at, o.started_at, o.ended_at, o.pod_ttl, o.output, o.pod_hostname, o.received_at, o.acquired_at, o.creation_to_end_duration, o.processing_to_end_duration, o.initial_task_id, o.received_to_end_duration, o.processed_at, o.fetched_at, o.payload_id, o.created_by)
+        return type(o) is type(self) and (self.id, self.session_id, self.owner_pod_id, self.parent_task_ids, self.data_dependencies, self.expected_output_ids, self.retry_of_ids, self.status, self.status_message, self.options, self.created_at, self.submitted_at, self.started_at, self.ended_at, self.pod_ttl, self.output, self.pod_hostname, self.received_at, self.acquired_at, self.creation_to_end_duration, self.processing_to_end_duration, self.initial_task_id, self.received_to_end_duration, self.processed_at, self.fetched_at, self.payload_id, self.created_by, ) == (o.id, o.session_id, o.owner_pod_id, o.parent_task_ids, o.data_dependencies, o.expected_output_ids, o.retry_of_ids, o.status, o.status_message, o.options, o.created_at, o.submitted_at, o.started_at, o.ended_at, o.pod_ttl, o.output, o.pod_hostname, o.received_at, o.acquired_at, o.creation_to_end_duration, o.processing_to_end_duration, o.initial_task_id, o.received_to_end_duration, o.processed_at, o.fetched_at, o.payload_id, o.created_by, )
 
 
 class PlainTaskOptions:
@@ -109,7 +112,7 @@ class PlainTaskOptions:
         self.engine_type = engine_type
 
     def __eq__(self, o):
-        return type(o) is type(self) and (self.options, self.max_duration, self.max_retries, self.priority, self.partition_id, self.application_name, self.application_version, self.application_namespace, self.application_service, self.engine_type) == (o.options, o.max_duration, o.max_retries, o.priority, o.partition_id, o.application_name, o.application_version, o.application_namespace, o.application_service, o.engine_type)
+        return type(o) is type(self) and (self.options, self.max_duration, self.max_retries, self.priority, self.partition_id, self.application_name, self.application_version, self.application_namespace, self.application_service, self.engine_type, ) == (o.options, o.max_duration, o.max_retries, o.priority, o.partition_id, o.application_name, o.application_version, o.application_namespace, o.application_service, o.engine_type, )
 
 
 class PlainDuration:
@@ -118,7 +121,7 @@ class PlainDuration:
         self.nanos = nanos
 
     def __eq__(self, o):
-        return type(o) is type(self) and (self.seconds, self.nanos) == (o.seconds, o.nanos)
+        return type(o) is type(self) and (self.seconds, self.nanos, ) == (o.seconds, o.nanos, )
 
 
 class PlainTaskOutput:
@@ -127,7 +130,125 @@ class PlainTaskOutput:
         self.error = error
 
     def __eq__(self, o):
-        return type(o) is type(self) and (self.success, self.error) == (o.success, o.error)
+        return type(o) is type(self) and (self.success, self.error, ) == (o.success, o.error, )
+
+
+class PlainListProbeResponse:
+    def __init__(self, probes=None):
+        self.probes = [] if probes is None else probes
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.probes, ) == (o.probes, )
+
+
+class PlainProbe:
+    def __init__(self, id="", opt_count=None, opt_label=None, opt_flag=None, as_int=0, as_text="", as_blob=b"", as_stamp=None, as_nothing=None, body_case=0):
+        self.id = id
+        self.opt_count = opt_count
+        self.opt_label = opt_label
+        self.opt_flag = opt_flag
+        self.as_int = as_int
+        self.as_text = as_text
+        self.as_blob = as_blob
+        self.as_stamp = as_stamp
+        self.as_nothing = as_nothing
+        self.body_case = body_case
+
+    def _sel(self):
+        """The selected member of each oneof, or None."""
+        n_body = Probe_body_MEMBERS.get(self.body_case)
+        return (getattr(self, n_body) if n_body else None, )
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.id, self.opt_count, self.opt_label, self.opt_flag, self.body_case, ) + (self._sel(), ) == (o.id, o.opt_count, o.opt_label, o.opt_flag, o.body_case, ) + (o._sel(), )
+
+
+class PlainEmpty:
+    def __init__(self, ):
+        pass
+
+    def __eq__(self, o):
+        return type(o) is type(self) and () == ()
+
+
+class PlainListTaskSummaryResponse:
+    def __init__(self, tasks=None):
+        self.tasks = [] if tasks is None else tasks
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.tasks, ) == (o.tasks, )
+
+
+class PlainTaskSummary:
+    def __init__(self, id="", session_id="", options=None, status=0, created_at=None, error="", status_message="", count_data_dependencies=0):
+        self.id = id
+        self.session_id = session_id
+        self.options = options
+        self.status = status
+        self.created_at = created_at
+        self.error = error
+        self.status_message = status_message
+        self.count_data_dependencies = count_data_dependencies
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.id, self.session_id, self.options, self.status, self.created_at, self.error, self.status_message, self.count_data_dependencies, ) == (o.id, o.session_id, o.options, o.status, o.created_at, o.error, o.status_message, o.count_data_dependencies, )
+
+
+class PlainUploadResultDataMessage:
+    def __init__(self, upload=None):
+        self.upload = upload
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.upload, ) == (o.upload, )
+
+
+class PlainUploadResultData:
+    def __init__(self, session_id="", result_id="", data_chunk=b""):
+        self.session_id = session_id
+        self.result_id = result_id
+        self.data_chunk = data_chunk
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.session_id, self.result_id, self.data_chunk, ) == (o.session_id, o.result_id, o.data_chunk, )
+
+
+class PlainListMetricsResponse:
+    def __init__(self, batches=None):
+        self.batches = [] if batches is None else batches
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.batches, ) == (o.batches, )
+
+
+class PlainMetricsBatch:
+    def __init__(self, id="", ticks=None, values=None, codes=None, flags=None, statuses=None):
+        self.id = id
+        self.ticks = [] if ticks is None else ticks
+        self.values = [] if values is None else values
+        self.codes = [] if codes is None else codes
+        self.flags = [] if flags is None else flags
+        self.statuses = [] if statuses is None else statuses
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.id, self.ticks, self.values, self.codes, self.flags, self.statuses, ) == (o.id, o.ticks, o.values, o.codes, o.flags, o.statuses, )
+
+
+class PlainDualResponse:
+    def __init__(self, left=None, right=None):
+        self.left = [] if left is None else left
+        self.right = [] if right is None else right
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.left, self.right, ) == (o.left, o.right, )
+
+
+class PlainPair:
+    def __init__(self, key="", value=0):
+        self.key = key
+        self.value = value
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.key, self.value, ) == (o.key, o.value, )
 
 
 class SlotsListResultsResponse:
@@ -138,7 +259,7 @@ class SlotsListResultsResponse:
         self.total = total
 
     def __eq__(self, o):
-        return type(o) is type(self) and (self.results, self.page, self.total) == (o.results, o.page, o.total)
+        return type(o) is type(self) and (self.results, self.page, self.total, ) == (o.results, o.page, o.total, )
 
 
 class SlotsResultRaw:
@@ -157,7 +278,7 @@ class SlotsResultRaw:
         self.manual_deletion = manual_deletion
 
     def __eq__(self, o):
-        return type(o) is type(self) and (self.session_id, self.name, self.owner_task_id, self.status, self.created_at, self.completed_at, self.result_id, self.size, self.created_by, self.opaque_id, self.manual_deletion) == (o.session_id, o.name, o.owner_task_id, o.status, o.created_at, o.completed_at, o.result_id, o.size, o.created_by, o.opaque_id, o.manual_deletion)
+        return type(o) is type(self) and (self.session_id, self.name, self.owner_task_id, self.status, self.created_at, self.completed_at, self.result_id, self.size, self.created_by, self.opaque_id, self.manual_deletion, ) == (o.session_id, o.name, o.owner_task_id, o.status, o.created_at, o.completed_at, o.result_id, o.size, o.created_by, o.opaque_id, o.manual_deletion, )
 
 
 class SlotsTimestamp:
@@ -167,7 +288,7 @@ class SlotsTimestamp:
         self.nanos = nanos
 
     def __eq__(self, o):
-        return type(o) is type(self) and (self.seconds, self.nanos) == (o.seconds, o.nanos)
+        return type(o) is type(self) and (self.seconds, self.nanos, ) == (o.seconds, o.nanos, )
 
 
 class SlotsListTasksDetailedResponse:
@@ -178,7 +299,7 @@ class SlotsListTasksDetailedResponse:
         self.total = total
 
     def __eq__(self, o):
-        return type(o) is type(self) and (self.tasks, self.page, self.total) == (o.tasks, o.page, o.total)
+        return type(o) is type(self) and (self.tasks, self.page, self.total, ) == (o.tasks, o.page, o.total, )
 
 
 class SlotsTaskDetailed:
@@ -213,7 +334,7 @@ class SlotsTaskDetailed:
         self.created_by = created_by
 
     def __eq__(self, o):
-        return type(o) is type(self) and (self.id, self.session_id, self.owner_pod_id, self.parent_task_ids, self.data_dependencies, self.expected_output_ids, self.retry_of_ids, self.status, self.status_message, self.options, self.created_at, self.submitted_at, self.started_at, self.ended_at, self.pod_ttl, self.output, self.pod_hostname, self.received_at, self.acquired_at, self.creation_to_end_duration, self.processing_to_end_duration, self.initial_task_id, self.received_to_end_duration, self.processed_at, self.fetched_at, self.payload_id, self.created_by) == (o.id, o.session_id, o.owner_pod_id, o.parent_task_ids, o.data_dependencies, o.expected_output_ids, o.retry_of_ids, o.status, o.status_message, o.options, o.created_at, o.submitted_at, o.started_at, o.ended_at, o.pod_ttl, o.output, o.pod_hostname, o.received_at, o.acquired_at, o.creation_to_end_duration, o.processing_to_end_duration, o.initial_task_id, o.received_to_end_duration, o.processed_at, o.fetched_at, o.payload_id, o.created_by)
+        return type(o) is type(self) and (self.id, self.session_id, self.owner_pod_id, self.parent_task_ids, self.data_dependencies, self.expected_output_ids, self.retry_of_ids, self.status, self.status_message, self.options, self.created_at, self.submitted_at, self.started_at, self.ended_at, self.pod_ttl, self.output, self.pod_hostname, self.received_at, self.acquired_at, self.creation_to_end_duration, self.processing_to_end_duration, self.initial_task_id, self.received_to_end_duration, self.processed_at, self.fetched_at, self.payload_id, self.created_by, ) == (o.id, o.session_id, o.owner_pod_id, o.parent_task_ids, o.data_dependencies, o.expected_output_ids, o.retry_of_ids, o.status, o.status_message, o.options, o.created_at, o.submitted_at, o.started_at, o.ended_at, o.pod_ttl, o.output, o.pod_hostname, o.received_at, o.acquired_at, o.creation_to_end_duration, o.processing_to_end_duration, o.initial_task_id, o.received_to_end_duration, o.processed_at, o.fetched_at, o.payload_id, o.created_by, )
 
 
 class SlotsTaskOptions:
@@ -231,7 +352,7 @@ class SlotsTaskOptions:
         self.engine_type = engine_type
 
     def __eq__(self, o):
-        return type(o) is type(self) and (self.options, self.max_duration, self.max_retries, self.priority, self.partition_id, self.application_name, self.application_version, self.application_namespace, self.application_service, self.engine_type) == (o.options, o.max_duration, o.max_retries, o.priority, o.partition_id, o.application_name, o.application_version, o.application_namespace, o.application_service, o.engine_type)
+        return type(o) is type(self) and (self.options, self.max_duration, self.max_retries, self.priority, self.partition_id, self.application_name, self.application_version, self.application_namespace, self.application_service, self.engine_type, ) == (o.options, o.max_duration, o.max_retries, o.priority, o.partition_id, o.application_name, o.application_version, o.application_namespace, o.application_service, o.engine_type, )
 
 
 class SlotsDuration:
@@ -241,7 +362,7 @@ class SlotsDuration:
         self.nanos = nanos
 
     def __eq__(self, o):
-        return type(o) is type(self) and (self.seconds, self.nanos) == (o.seconds, o.nanos)
+        return type(o) is type(self) and (self.seconds, self.nanos, ) == (o.seconds, o.nanos, )
 
 
 class SlotsTaskOutput:
@@ -251,5 +372,134 @@ class SlotsTaskOutput:
         self.error = error
 
     def __eq__(self, o):
-        return type(o) is type(self) and (self.success, self.error) == (o.success, o.error)
+        return type(o) is type(self) and (self.success, self.error, ) == (o.success, o.error, )
+
+
+class SlotsListProbeResponse:
+    __slots__ = ("probes", )
+    def __init__(self, probes=None):
+        self.probes = [] if probes is None else probes
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.probes, ) == (o.probes, )
+
+
+class SlotsProbe:
+    __slots__ = ("id", "opt_count", "opt_label", "opt_flag", "as_int", "as_text", "as_blob", "as_stamp", "as_nothing", "body_case", )
+    def __init__(self, id="", opt_count=None, opt_label=None, opt_flag=None, as_int=0, as_text="", as_blob=b"", as_stamp=None, as_nothing=None, body_case=0):
+        self.id = id
+        self.opt_count = opt_count
+        self.opt_label = opt_label
+        self.opt_flag = opt_flag
+        self.as_int = as_int
+        self.as_text = as_text
+        self.as_blob = as_blob
+        self.as_stamp = as_stamp
+        self.as_nothing = as_nothing
+        self.body_case = body_case
+
+    def _sel(self):
+        """The selected member of each oneof, or None."""
+        n_body = Probe_body_MEMBERS.get(self.body_case)
+        return (getattr(self, n_body) if n_body else None, )
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.id, self.opt_count, self.opt_label, self.opt_flag, self.body_case, ) + (self._sel(), ) == (o.id, o.opt_count, o.opt_label, o.opt_flag, o.body_case, ) + (o._sel(), )
+
+
+class SlotsEmpty:
+    __slots__ = ()
+    def __init__(self, ):
+        pass
+
+    def __eq__(self, o):
+        return type(o) is type(self) and () == ()
+
+
+class SlotsListTaskSummaryResponse:
+    __slots__ = ("tasks", )
+    def __init__(self, tasks=None):
+        self.tasks = [] if tasks is None else tasks
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.tasks, ) == (o.tasks, )
+
+
+class SlotsTaskSummary:
+    __slots__ = ("id", "session_id", "options", "status", "created_at", "error", "status_message", "count_data_dependencies", )
+    def __init__(self, id="", session_id="", options=None, status=0, created_at=None, error="", status_message="", count_data_dependencies=0):
+        self.id = id
+        self.session_id = session_id
+        self.options = options
+        self.status = status
+        self.created_at = created_at
+        self.error = error
+        self.status_message = status_message
+        self.count_data_dependencies = count_data_dependencies
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.id, self.session_id, self.options, self.status, self.created_at, self.error, self.status_message, self.count_data_dependencies, ) == (o.id, o.session_id, o.options, o.status, o.created_at, o.error, o.status_message, o.count_data_dependencies, )
+
+
+class SlotsUploadResultDataMessage:
+    __slots__ = ("upload", )
+    def __init__(self, upload=None):
+        self.upload = upload
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.upload, ) == (o.upload, )
+
+
+class SlotsUploadResultData:
+    __slots__ = ("session_id", "result_id", "data_chunk", )
+    def __init__(self, session_id="", result_id="", data_chunk=b""):
+        self.session_id = session_id
+        self.result_id = result_id
+        self.data_chunk = data_chunk
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.session_id, self.result_id, self.data_chunk, ) == (o.session_id, o.result_id, o.data_chunk, )
+
+
+class SlotsListMetricsResponse:
+    __slots__ = ("batches", )
+    def __init__(self, batches=None):
+        self.batches = [] if batches is None else batches
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.batches, ) == (o.batches, )
+
+
+class SlotsMetricsBatch:
+    __slots__ = ("id", "ticks", "values", "codes", "flags", "statuses", )
+    def __init__(self, id="", ticks=None, values=None, codes=None, flags=None, statuses=None):
+        self.id = id
+        self.ticks = [] if ticks is None else ticks
+        self.values = [] if values is None else values
+        self.codes = [] if codes is None else codes
+        self.flags = [] if flags is None else flags
+        self.statuses = [] if statuses is None else statuses
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.id, self.ticks, self.values, self.codes, self.flags, self.statuses, ) == (o.id, o.ticks, o.values, o.codes, o.flags, o.statuses, )
+
+
+class SlotsDualResponse:
+    __slots__ = ("left", "right", )
+    def __init__(self, left=None, right=None):
+        self.left = [] if left is None else left
+        self.right = [] if right is None else right
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.left, self.right, ) == (o.left, o.right, )
+
+
+class SlotsPair:
+    __slots__ = ("key", "value", )
+    def __init__(self, key="", value=0):
+        self.key = key
+        self.value = value
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.key, self.value, ) == (o.key, o.value, )
 
