@@ -90,10 +90,10 @@ static int close_ld(Buf *b, size_t body) {
 '''
 
 
-def c_type_struct(schema, name):
+def c_type_struct(schema, name, scope):
     """The generated C facade type: storage candidate 3."""
     L = ["typedef struct {", "  PyObject_HEAD"]
-    for f, k, c in walk(schema, name):
+    for f, k, c in walk(schema, name, scope):
         if c == "repeated" or k in ("string", "bytes", "message"):
             L.append("  PyObject *%s;" % f["name"])
         elif k == "int64":
@@ -113,11 +113,11 @@ def emit(schema, scope, root):
 
     # --- the generated C facade type -------------------------------------
     for name in scope:
-        L.append(c_type_struct(schema, name))
+        L.append(c_type_struct(schema, name, scope))
         L.append("")
 
     for name in scope:
-        flds = list(walk(schema, name))
+        flds = list(walk(schema, name, scope))
         L.append("static PyMemberDef mem_%s[] = {" % name)
         for f, k, c in flds:
             if c == "repeated" or k in ("string", "bytes", "message"):
@@ -135,7 +135,7 @@ def emit(schema, scope, root):
 
     # Keyword init, so the C facade is constructed exactly like the Python ones.
     for name in scope:
-        flds = list(walk(schema, name))
+        flds = list(walk(schema, name, scope))
         objs = [f for f, k, c in flds if c == "repeated" or k in ("string", "bytes", "message")]
         fmt = ""
         for f, k, c in flds:
@@ -212,7 +212,7 @@ def emit(schema, scope, root):
         L.append("")
 
     # --- interned attribute-name keys, one per field ---------------------
-    names = sorted({f["name"] for n in scope for f, _, _ in walk(schema, n)})
+    names = sorted({f["name"] for n in scope for f, _, _ in walk(schema, n, scope)})
     L.append("/* Interned once at module init. PyObject_GetAttrString rebuilds the")
     L.append(" * name on every call and measured 5x worse; a generated shim would")
     L.append(" * never do that, so neither does this one. */")
@@ -239,12 +239,12 @@ def emit(schema, scope, root):
     L.append("")
     for backend in ("attr", "cext", "pyacc"):
         for name in scope:
-            L.append(emit_c_encode(schema, name, backend))
+            L.append(emit_c_encode(schema, name, backend, scope))
             L.append("")
     return "\n".join(L)
 
 
-def emit_c_encode(schema, name, backend):
+def emit_c_encode(schema, name, backend, scope):
     """One message, one backend.
 
     `getters` is a dict passed in from Python for the `pyacc` control, so the
@@ -260,7 +260,7 @@ def emit_c_encode(schema, name, backend):
     else:
         L.append("static int enc_%s_%s(PyObject *obj, Buf *b, PyObject *getters) {"
                  % (backend, name))
-    for f, k, c in walk(schema, name):
+    for f, k, c in walk(schema, name, scope):
         nm, tag = f["name"], f["tag"]
         L.append("  { /* %s (tag %d, %s %s) */" % (nm, tag, c, k))
         if backend == "cext" and not (c == "repeated" or k in ("string", "bytes", "message")):

@@ -55,8 +55,14 @@ def main():
           " differs)", file=out)
     print("# rounds:       %d, interleaved; per-case target %.0f ms"
           % (harness.ROUNDS, harness.TARGET_NS / 1e6), file=out)
-    print("# payloads:     %s (P1.3 is the absent path)" % ", ".join(arms.PAYLOADS),
+    print("# payloads:     %s" % ", ".join(arms.PAYLOADS), file=out)
+    print("#               P1.x: M1, a FLAT message whose element is a LEAF, so the",
           file=out)
+    print("#               batching predicate admits it and the crossing count per",
+          file=out)
+    print("#               element is constant. P2.x: M2, whose element is NOT a leaf.",
+          file=out)
+    print("#               P1.3 and P2.5 are the absent paths.", file=out)
     print("# absolutes:    instrumentation, not the deliverable. Read the signs and the",
           file=out)
     print("#               size classes; the controlled rerun owns the decimals.", file=out)
@@ -93,10 +99,14 @@ def main():
                                   lambda reps, _r=ref: _copy(_r, reps),
                                   "no traversal. An encode cannot go below this"))
             else:
-                n = len(arms.build_facade(pid, arms.PLAIN).results)
+                elem = ("ResultRaw" if arms.ROOT_OF[pid] == "ListResultsResponse"
+                        else "TaskDetailed")
+                n = len(getattr(arms.build_facade(pid, arms.CT_PLAIN),
+                                arms.elem_field(pid)))
+                ctor = arms.CT_PLAIN[elem]
                 cases.append(Case(
-                    g, "-- floor: %d bare objects + one copy" % n,
-                    lambda reps, _r=ref, _n=n, _c=arms.PLAIN[1]: _dfloor(_r, _n, _c, reps),
+                    g, "-- floor: %d bare %s + one copy" % (n, elem),
+                    lambda reps, _r=ref, _n=n, _c=ctor: _dfloor(_r, _n, _c, reps),
                     "construct N facade elements and copy the input, and nothing else"))
 
     # The boundary, priced in this process and this build, so every absolute above is
