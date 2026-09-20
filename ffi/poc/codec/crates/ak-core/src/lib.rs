@@ -1029,6 +1029,47 @@ pub extern "C" fn ak_noop(x: u64) -> u64 {
     x ^ 1
 }
 
+/// A SECOND bare crossing, identical to `ak_noop` in every respect, and the control that
+/// says what the `ak_noop` / `ak_noop_guarded` comparison can resolve.
+///
+/// Two exported functions with the same body are not the same cost: they land at different
+/// addresses, in different cache lines, with different alignment, and through different PLT
+/// entries. At a crossing of under 3 ns that difference is not small. So this arm must
+/// measure ZERO against `ak_noop`, and whatever it measures instead is the FLOOR of the
+/// method -- a guard cost below that floor is not measurable this way, and saying so is the
+/// result rather than quoting a number the control cannot support.
+///
+/// It exists because the first version of the comparison measured the GUARDED crossing as
+/// cheaper than the bare one, which cannot be true: the guard adds a load and a branch and
+/// can only cost. An arm with the wrong sign means the effect is under the noise, and the
+/// way to say that with evidence is to measure the noise.
+#[no_mangle]
+pub extern "C" fn ak_noop2(x: u64) -> u64 {
+    x ^ 1
+}
+
+/// The same crossing WITH ABI v1 section 3's guard on it, so the guard can be priced as a
+/// delta between two arms in one process and one build.
+///
+/// It exists because the compile-time form could not be measured. `--features init-guard`
+/// is a different binary, so the two arms cannot share a process, and the in-process
+/// control R4 requires for that case did not hold: `core-native`, which carries no guard at
+/// all, moved by up to 30 percent between the two builds. A cross-build ratio whose control
+/// moved is not a figure. This pair is the same question asked the way R4's sharpened half
+/// says to ask it -- a delta between two arms in the same interleaved rounds -- and it
+/// survives what the cross-build form did not.
+///
+/// The guard here is the SAME code the generator emits into every entry point: one relaxed
+/// load of the process-global init word, a compare and a branch. Multiply the delta by the
+/// counting build's forward-crossing count for the per-payload cost.
+#[no_mangle]
+pub extern "C" fn ak_noop_guarded(x: u64) -> u64 {
+    if !ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as u64;
+    }
+    x ^ 1
+}
+
 /// The same crossing with a reverse call in it: the core calls back through a function
 /// pointer the host supplied. That is what a loop callback, an `apply` and an `add` cost
 /// before any work is done.

@@ -1520,3 +1520,42 @@ byte-for-byte what it was and the two builds are the measurement. The check itse
 emitted as a post-pass over the finished codec text rather than at each of the ten places an
 entry point is written, for the D12/D13 reason: a rule applied at nine sites out of ten is
 the defect this generator keeps producing.
+
+### The guard's price took three attempts, and the first two failed their own controls
+
+I expected this to be the cheapest measurement of the session and it was the most expensive,
+because the effect is small enough that the method kept being the thing I was measuring.
+
+**Attempt 1, two builds with `bench` in each.** R4 says a comparison that cannot share a
+process carries an in-process control, so the control is `core-native`: no guard in either
+build, therefore it must not move. It moved by up to 30 percent — P1.3 encode 0.535-0.553 of
+prost in one build and 0.367-0.387 in the other. I then tried re-expressing it as the
+within-build ratio `core-ffi-rust / core-native`, which is R4's sharpened form, and that does
+not save it either: the denominator is the thing that moved. **A ratio whose control moved is
+not a figure**, so the run is in the log as evidence for the refusal rather than as a number.
+
+I also lost the first attempt at that run to two `bench` processes overlapping on the box,
+which is README section 11 word for word: "two benchmarks on one box corrupt each other
+silently: the numbers still come out". `gen/guardprice.sh` now refuses to start if anything
+else is benchmarking.
+
+**Attempt 2, one process, `ak_noop` against `ak_noop_guarded`.** It reported the guarded
+crossing as 0.71 ns *cheaper*. A load and a branch cannot make a call cheaper, so the arm had
+the wrong sign — and by this slice's own standing rule that means the effect is under the
+noise and I have not measured the noise.
+
+**Attempt 3 measures the noise.** `ak_noop2` is a twin: same body, no guard, so it must read
+zero against `ak_noop`. It reads **0.70 ns**, at a crossing of 2.1 ns. Two exported functions
+with identical bodies are not the same cost — different address, different cache line,
+different PLT slot — and **which one draws the penalty is not stable across builds**: attempt
+2's binary had no twin and put it on `ak_noop`, which is exactly what made the guard look
+like it cost 0.70 ns. With the twin present the guarded arm sits within 0.003 ns of it on
+every run. So the answer is a bound and not a value: `|guard| < 0.70 ns per crossing, ~0
+directly`.
+
+**What I would keep from this.** The rule I already knew — an arm with the wrong sign means
+the effect is under the noise — does not by itself tell you what to do next. What to do next
+is *add an arm that must read zero*. That is the same device as `core-native-opaque` and as
+the concurrency suite's planted violation, pointed at the measurement rather than at the code,
+and it turned an unusable number into a statement with a number attached to its own
+uncertainty.

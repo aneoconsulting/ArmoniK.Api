@@ -222,6 +222,13 @@ unsafe extern "C" {
 
     /// The boundary, priced on its own, in the same process and the same build.
     pub fn ak_noop(x: u64) -> u64;
+    /// A second bare crossing, identical to `ak_noop`. It must measure ZERO against it, and
+    /// what it measures instead is the resolution of the comparison below.
+    pub fn ak_noop2(x: u64) -> u64;
+    /// The same crossing with ABI v1 section 3's guard on it. The delta between the two,
+    /// measured in one process, is what "every entry point requires `ak_init`" costs per
+    /// crossing.
+    pub fn ak_noop_guarded(x: u64) -> u64;
     pub fn ak_noop_reverse(f: unsafe extern "C" fn(u64) -> u64, x: u64) -> u64;
 }
 
