@@ -14,3 +14,4 @@ obj-floor/
 abi/target/
 bin-strict/
 obj-strict/
+target-core/
