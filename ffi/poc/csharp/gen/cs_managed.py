@@ -69,7 +69,15 @@ class Codec:
         if f.kind == "bool":
             return expr
         if f.kind == "double":
-            return "%s != 0.0" % expr
+            # NOT `!= 0.0`. IEEE says -0.0 == 0.0, so the value test omits a
+            # minus zero that is a SET field; upb writes it and this used to
+            # drop it. `ffi/corpus`'s S-double-minus-zero is the vector, and its
+            # own note is "the omit-when-zero rule must compare bits and not
+            # value". Google.Protobuf's generated C# writes `!= 0D` and so has
+            # the same hole; this slice's managed codec no longer does.
+            return "BitConverter.DoubleToInt64Bits(%s) != 0L" % expr
+        if f.kind == "fixed32":
+            return "%s != 0u" % expr
         if f.kind == "enum":
             return "%s != 0" % expr
         return "%s != 0" % expr
@@ -115,6 +123,8 @@ class Codec:
             o += "%s    var mk = e.Begin(%d, %d);" % (p, f.tag, s)
             if f.kind == "double":
                 o += "%s    for (int i = 0; i < %s.Count; i++) e.F64(%s[i]);" % (p, acc, acc)
+            elif f.kind == "fixed32":
+                o += "%s    for (int i = 0; i < %s.Count; i++) e.Fixed32(%s[i]);" % (p, acc, acc)
             else:
                 o += "%s    for (int i = 0; i < %s.Count; i++) e.Varint(%s);" % (
                     p, acc, self.varint_of(f, "%s[i]" % acc))
@@ -169,12 +179,16 @@ class Codec:
             o += "%sif (%s.HasValue)" % (p, acc)
             if f.kind == "double":
                 o += "%s    e.F64Field(%d, %s.Value);" % (p, f.tag, acc)
+            elif f.kind == "fixed32":
+                o += "%s    e.Fixed32Field(%d, %s.Value);" % (p, f.tag, acc)
             else:
                 o += "%s    e.VarintField(%d, %s);" % (
                     p, f.tag, self.varint_of(f, acc + ".Value"))
             return
         if f.kind == "double":
             o += "%sif (%s) e.F64Field(%d, %s);" % (p, self.nonzero(f, acc), f.tag, acc)
+        elif f.kind == "fixed32":
+            o += "%sif (%s) e.Fixed32Field(%d, %s);" % (p, self.nonzero(f, acc), f.tag, acc)
         else:
             o += "%sif (%s) e.VarintField(%d, %s);" % (
                 p, self.nonzero(f, acc), f.tag, self.varint_of(f, acc))
@@ -206,6 +220,8 @@ class Codec:
                 o += "%s        e.BlobField(%d, %s);" % (p, f.tag, acc)
             elif f.kind == "double":
                 o += "%s        e.F64Field(%d, %s);" % (p, f.tag, acc)
+            elif f.kind == "fixed32":
+                o += "%s        e.Fixed32Field(%d, %s);" % (p, f.tag, acc)
             else:
                 o += "%s        e.VarintField(%d, %s);" % (p, f.tag, self.varint_of(f, acc))
             o += "%s        break;" % p
@@ -256,6 +272,8 @@ class Codec:
             o += "%s{" % p
             if f.kind == "double":
                 o += "%s    int b = %s.Count * 8;" % (p, acc)
+            elif f.kind == "fixed32":
+                o += "%s    int b = %s.Count * 4;" % (p, acc)
             else:
                 o += "%s    int b = 0;" % p
                 o += "%s    for (int i = 0; i < %s.Count; i++) b += W.VarintLen(%s);" % (
@@ -290,12 +308,16 @@ class Codec:
         if f.presence == "explicit":
             if f.kind == "double":
                 o += "%sif (%s.HasValue) n += %s + 8;" % (p, acc, kl)
+            elif f.kind == "fixed32":
+                o += "%sif (%s.HasValue) n += %s + 4;" % (p, acc, kl)
             else:
                 o += "%sif (%s.HasValue) n += %s + W.VarintLen(%s);" % (
                     p, acc, kl, self.varint_of(f, acc + ".Value"))
             return
         if f.kind == "double":
             o += "%sif (%s) n += %s + 8;" % (p, self.nonzero(f, acc), kl)
+        elif f.kind == "fixed32":
+            o += "%sif (%s) n += %s + 4;" % (p, self.nonzero(f, acc), kl)
         else:
             o += "%sif (%s) n += %s + W.VarintLen(%s);" % (
                 p, self.nonzero(f, acc), kl, self.varint_of(f, acc))
@@ -320,6 +342,8 @@ class Codec:
                     p, kl, acc, acc)
             elif f.kind == "double":
                 o += "%s        n += %s + 8;" % (p, kl)
+            elif f.kind == "fixed32":
+                o += "%s        n += %s + 4;" % (p, kl)
             else:
                 o += "%s        n += %s + W.VarintLen(%s);" % (p, kl, self.varint_of(f, acc))
             o += "%s        break;" % p
@@ -363,6 +387,9 @@ class Codec:
             if f.kind == "double":
                 o += "%s    e.SizedHeader(%d, %s.Count * 8);" % (p, f.tag, acc)
                 o += "%s    for (int i = 0; i < %s.Count; i++) e.F64(%s[i]);" % (p, acc, acc)
+            elif f.kind == "fixed32":
+                o += "%s    e.SizedHeader(%d, %s.Count * 4);" % (p, f.tag, acc)
+                o += "%s    for (int i = 0; i < %s.Count; i++) e.Fixed32(%s[i]);" % (p, acc, acc)
             else:
                 o += "%s    int b = 0;" % p
                 o += "%s    for (int i = 0; i < %s.Count; i++) b += W.VarintLen(%s);" % (
@@ -396,12 +423,16 @@ class Codec:
         if f.presence == "explicit":
             if f.kind == "double":
                 o += "%sif (%s.HasValue) e.F64Field(%d, %s.Value);" % (p, acc, f.tag, acc)
+            elif f.kind == "fixed32":
+                o += "%sif (%s.HasValue) e.Fixed32Field(%d, %s.Value);" % (p, acc, f.tag, acc)
             else:
                 o += "%sif (%s.HasValue) e.VarintField(%d, %s);" % (
                     p, acc, f.tag, self.varint_of(f, acc + ".Value"))
             return
         if f.kind == "double":
             o += "%sif (%s) e.F64Field(%d, %s);" % (p, self.nonzero(f, acc), f.tag, acc)
+        elif f.kind == "fixed32":
+            o += "%sif (%s) e.Fixed32Field(%d, %s);" % (p, self.nonzero(f, acc), f.tag, acc)
         else:
             o += "%sif (%s) e.VarintField(%d, %s);" % (
                 p, self.nonzero(f, acc), f.tag, self.varint_of(f, acc))
@@ -424,6 +455,8 @@ class Codec:
                 o += "%s        e.BlobField(%d, %s);" % (p, f.tag, acc)
             elif f.kind == "double":
                 o += "%s        e.F64Field(%d, %s);" % (p, f.tag, acc)
+            elif f.kind == "fixed32":
+                o += "%s        e.Fixed32Field(%d, %s);" % (p, f.tag, acc)
             else:
                 o += "%s        e.VarintField(%d, %s);" % (p, f.tag, self.varint_of(f, acc))
             o += "%s        break;" % p
@@ -435,6 +468,11 @@ class Codec:
     def emit_read(self, o, m):
         o += "    public static void Read%s(ref Dec d, %s m, int end)" % (m.cs, m.cs)
         o += "    {"
+        o += "        // ABI v1 open decision 7, and protobuf's own limit. Without it a"
+        o += "        // message nested 300 deep is 300 managed frames and a successful"
+        o += "        // parse, where every protobuf implementation rejects past 100."
+        o += "        // ffi/corpus X-depth-101 and X-depth-300."
+        o += "        if (++d.Depth > W.MaxDepth) { d.Err = W.ErrDepth; d.Depth--; return; }"
         o += "        while (d.Pos < end && d.Err == 0)"
         o += "        {"
         o += "            ulong k = d.Varint();"
@@ -443,6 +481,11 @@ class Codec:
         o += "            // deprecated GROUP form carries no length and its end is an"
         o += "            // END_GROUP whose field number must MATCH. See Wire.cs."
         o += "            int tag = (int)(k >> 3);"
+        o += "            // Field number 0 is not a legal tag, and it is the value a reader"
+        o += "            // gets from an empty buffer it forgot to bounds-check -- so"
+        o += "            // accepting it turns a truncation into a silently empty message."
+        o += "            // ffi/corpus X-tag-zero."
+        o += "            if (tag == 0) { d.Err = W.ErrMalformed; break; }"
         o += "            switch (tag)"
         o += "            {"
         for f in m.sorted_wire():
@@ -451,6 +494,7 @@ class Codec:
         o += "            }"
         o += "        }"
         o += "        if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;"
+        o += "        d.Depth--;"
         o += "    }"
         o += ""
 
@@ -490,6 +534,8 @@ class Codec:
             o += "%s    int e2 = d.LenEnd(); if (d.Err != 0) break;" % b
             if f.kind == "double":
                 o += "%s    while (d.Pos < e2 && d.Err == 0) %s.Add(d.F64());" % (b, acc)
+            elif f.kind == "fixed32":
+                o += "%s    while (d.Pos < e2 && d.Err == 0) %s.Add(d.Fixed32());" % (b, acc)
             else:
                 o += "%s    while (d.Pos < e2 && d.Err == 0) %s.Add(%s);" % (
                     b, acc, self.scalar_from_varint(f, "d.Varint()"))
@@ -497,6 +543,8 @@ class Codec:
             o += "%s}" % b
             if f.kind == "double":
                 o += "%selse if (wire == 1) %s.Add(d.F64());" % (b, acc)
+            elif f.kind == "fixed32":
+                o += "%selse if (wire == 5) %s.Add(d.Fixed32());" % (b, acc)
             else:
                 o += "%selse if (wire == 0) %s.Add(%s);" % (
                     b, acc, self.scalar_from_varint(f, "d.Varint()"))
@@ -556,6 +604,12 @@ class Codec:
             o += "%sbreak;" % b
             o += "%s}" % p
             return
+        if f.kind == "fixed32":
+            guard(5)
+            self.assign(o, b, m, f, "d.Fixed32()")
+            o += "%sbreak;" % b
+            o += "%s}" % p
+            return
 
         guard(0)
         self.assign(o, b, m, f, self.scalar_from_varint(f, "d.Varint()"))
@@ -572,13 +626,16 @@ class Codec:
             o += "%s%s = %s;" % (b, acc, val)
 
 
-def emit(ir):
+def emit(ir, ns="Armonik.Ffi.Facade", extra_using=None):
     c = Codec(ir)
     o = Head("The managed control codec: a generated pure-C# codec over the facade.")
     o += "using System;"
     o += "using System.Collections.Generic;"
     o += ""
-    o += "namespace Armonik.Ffi.Facade;"
+    for u in (extra_using or []):
+        o += "using %s;" % u
+    o += ""
+    o += "namespace %s;" % ns
     o += ""
     o += "public static class Codec"
     o += "{"
