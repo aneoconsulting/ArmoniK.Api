@@ -1626,3 +1626,36 @@ write the core at all. What they need is a rebuild, not a regeneration — and t
 more than a regeneration in trees I may not edit, which is the case the ruling says to stop
 and report. So it is on in this slice's defaults and off in the core's, and the report says
 what one line each host needs.
+
+### The pattern, not the incident: an oracle that is the code under test
+
+The aggregating session points out that "the reference was the code under test" is now the
+third instance in this branch in two days — the cpp slice hit it on its concurrency
+reference and again on its validator, and I hit it on mine. Worth recording as a class
+rather than three accidents.
+
+**The shape it takes.** You need a known-good answer. The thing nearest to hand that
+produces answers is the encoder you are testing, so you run it in a configuration you
+believe is clean — a fresh context, a single thread, a first call — and treat that as the
+oracle. It works, and it keeps working, right up until the defect lives in state that your
+"clean" configuration shares. Then the oracle moves with the thing it is checking and the
+suite reports zero.
+
+**Why it is so hard to see from inside.** The oracle is not obviously the code under test.
+Mine was a *fresh context*, which is the word that does the damage: fresh sounds like
+independent. It is only fresh in the state that is per-context, and the whole point of the
+defect was a table that is not. The cpp slice's was the same word wearing different clothes.
+
+**The rule that would have caught it without knowing the defect in advance**: an oracle must
+not share an implementation with the thing it checks — not a "clean instance" of it, not a
+"fresh" one, not a first call. Different code, ideally a different author. This slice had
+one sitting there the whole time: `prost`, a different codec over a different object graph,
+already checked against the validated manifest by stage 2. Switching to it cost four lines
+and zero measurement (both oracles report 0 where there is nothing to find).
+
+**And the general form of the tell.** A planted defect that the suite does not catch is the
+obvious signal, but it requires having planted it. The cheaper tell is the one this branch
+keeps rediscovering in other guises: **if an arm and its control can be wrong in the same
+direction, the control is not one.** That is the same sentence as R5's "an arm named 'no
+boundary' is only a control if it is not fused into the loop", and as the twin that had to be
+added to measure the guard. Three faces of one rule.

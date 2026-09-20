@@ -272,10 +272,24 @@ separate processes.
   is that a record is written exactly where push makes a reverse call, so the counts must be
   equal — and they are, to the digit, on all thirteen counted payloads** (P2.2 3501/3501),
   with pull's reverse count measured at zero everywhere.
+- **FOR THE SPECIFICATION, PLAINLY: PULL REMOVES THE UPCALLS, IT DOES NOT REDUCE THEM.**
+  The java slice's decode regression decomposes into 7.004 upcalls per element at about
+  80 ns. **`ak_parse_*` makes ZERO reverse calls** — measured, not asserted: the counting
+  build reports `pull rev = 0` on every one of the thirteen counted payloads, and the
+  traversal has no vtable to call. On P2.2 that is 3,501 upcalls going to **0**.
+  What replaces them is FORWARD crossings, and the count is per MESSAGE rather than per
+  element: **3 per decode** (parse, footprint, one drain) if the host sizes its chunk to the
+  footprint, or **16 on P2.2** at section 7.1's 32 KB chunks. The chunk size is the only knob
+  a host has on it, and it trades crossings against how much of the response is materialised
+  at once — which is the bound section 7.1 gives the host in the first place.
+  So for a host paying ~80 ns an upcall the trade is: **lose 7.004 x 80 ns per element, pay
+  3 to 16 forward calls per message plus the materialisation and (if it must copy) the
+  drain.** Those last two are what this slice priced: materialise 8.5% to 47% of a push
+  decode depending on shape, drain copy 1% to 12%.
 - **The interface figure, which is a property of the descriptor and not of this machine.**
   Push's crossings are per ELEMENT and pull's are per MESSAGE: P2.2 is **3,501 reverse
   against 16 forward**, or **3** if the host drains in one chunk, and 3 is the floor for
-  every payload in the set. The chunk size is the only knob a host has on that count.
+  every payload in the set.
 - **Pull costs a RUST host between −5% and +18% of a push decode, and the prediction going in
   was wrong.** At a 1.8 ns reverse call pull was expected to lose; over six runs it is 0.94
   to 1.18 of push, at or below push on nine of twelve payloads and a win on every M2 shape.
@@ -344,26 +358,40 @@ separate processes.
   `AK_INIT_NO_PANIC_HOOK`, the codec still correct afterwards, and **8 threads racing
   `ak_init`: exactly one `AK_OK`, seven `AK_ALREADY_INITIALIZED`, and no caller returning
   before the installs are visible**.
-- **The `AK_ERR_UNINITIALIZED` guard is under the noise floor, and it took three attempts
-  and two failed controls to be able to say so.** (a) Two builds with `bench` in each fails
-  R4's control: `core-native`, which has no guard in either build, moved by up to 30 percent.
-  (b) One process, `ak_noop` against `ak_noop_guarded`, said the GUARDED crossing was 0.71 ns
-  **cheaper**, which a load and a branch cannot be — an arm with the wrong sign means the
-  effect is under the noise. (c) Adding a TWIN (`ak_noop2`, byte-for-byte identical, no
-  guard) measures the noise: **two identical unguarded exports differ by 0.70 ns** at a 2.1 ns
-  crossing, and which one draws the penalty is not stable across builds. **The guarded arm is
-  within 0.003 ns of a twin on every run.** So `|guard| < 0.70 ns per crossing, and the direct
-  comparison says ~0`, stated as a bound. At the counted crossings that bounds P2.2 encode at
-  1.75 µs on a 1.4 ms encode — **0.125 percent** — and every decode at one crossing, because
-  the guard is per ENTRY POINT and entry points are per message or per run, never per field.
-  It also does not get dearer on a host whose crossing is dearer: the guard is work on the
-  core's side of the boundary. **Because it measured free it is now ON BY DEFAULT in this
-  slice** (`harness` default features), so section 3's rule is what the rust slice ships. It
-  is NOT on in `ak-core`'s own defaults, and that is deliberate: cpp and java build ak-core
-  with default features and their hosts do not call `ak_init` yet, so flipping the core
-  default would fail their gates on a rule they have not had the chance to satisfy. One line
-  per host fixes it and that line is not this slice's to write.
-- **Two findings came out of cases that FAILED first, and both failures were the
+- **THE `AK_ERR_UNINITIALIZED` GUARD ADDS NO MEASURABLE TIME. Stated so it cannot be
+  misquoted**, because "0.70 ns" appears in this result twice and means two different things:
+
+  | quantity | value | what it is |
+  |---|---|---|
+  | **the guard's own cost** | **+0.0005, −0.0005, +0.0029 ns** over three runs | guarded crossing minus an IDENTICAL UNGUARDED crossing, same process, same build, interleaved rounds. **This is the guard.** |
+  | the method's floor | **0.70 ns** | two byte-for-byte identical UNGUARDED exports disagreeing with each other. **This is the uncertainty, not the guard.** |
+  | the baseline | **2.12 and 2.82 ns** | what a bare forward crossing costs in THAT binary's loop. Not the slice's published 1.8 ns crossing, which is a different harness |
+
+  So: **the guard is indistinguishable from zero (|Δ| ≤ 0.003 ns), and it is bounded above by
+  the method's 0.70 ns resolution.** It is NOT "the guard adds 0.70 ns" — that reading would
+  make it a 33% tax on a 2.1 ns crossing and it is wrong. It is NOT "the guarded crossing is
+  0.70 ns" — that would be faster than unguarded and is impossible.
+  **Log: `ffi/logs/rust/stage5-lifecycle.log` section 5**, three runs of 21 rounds x 2,000,000
+  crossings, `gen/guardcost.sh`.
+- **How that bound lands per payload**, at the counted forward crossings: P2.2 encode
+  2,511 x 0.70 ns = **1.75 µs against a 1.4 ms encode, 0.125 percent, as an upper bound on an
+  effect measured at zero**. Every decode is one crossing on every payload however large,
+  because the guard is per ENTRY POINT and entry points are per message or per run, never per
+  field. It does not get dearer on a host whose crossing is dearer: the guard is work on the
+  core's side of the boundary, the same load and branch whoever called.
+- **It took three attempts and two failed controls to be able to say that.** (a) Two builds
+  with `bench` in each fails R4's control: `core-native`, which has no guard in either build,
+  moved by up to 30 percent. (b) One process, `ak_noop` against `ak_noop_guarded`, said the
+  GUARDED crossing was 0.71 ns **cheaper** — impossible, and by this slice's own rule an arm
+  with the wrong sign means the effect is under the noise. (c) Adding a TWIN that must read
+  zero measures the noise, and the answer falls out.
+- **The core default stays OFF; this slice keeps the guard ON in its own build.** That is the
+  aggregating session's ruling and the reason is sequencing, not merit: four slices have
+  published numbers taken against the current default artifact and two are mid-run, so
+  flipping the core default would move the measured path under all four for a cost that can
+  simply be stated. The valuable half is kept — section 3's "every entry point requires
+  `ak_init`" is exercised here, which it had never been anywhere in the branch.
+- **Two findings came out of cases that FAILED first,- **Two findings came out of cases that FAILED first, and both failures were the
   specification working.** (a) **The core's panic hook does not see a Rust host's panics**,
   because a cdylib carries its own copy of `std` and the two hooks are two different globals.
   Section 3 warns about that mechanism one level up; here it is `std`'s globals, and it is
