@@ -119,6 +119,12 @@ public static unsafe class Bench
                 if (coreSrc != null)
                 {
                     core = new CoreFfiM1(coreSrc.Results.Count + 1, row.Bytes * 3 + 65536);
+                    // AK_CHUNK sets elements per ak_elem_* call. 0 is the whole run.
+                    // The Rust slice's host chunks at 150; matching it reproduces its
+                    // crossing counts to the digit, so this is also what prices the
+                    // difference on a runtime whose crossing is 4x Rust's.
+                    var ck = Environment.GetEnvironmentVariable("AK_CHUNK");
+                    if (!string.IsNullOrEmpty(ck) && int.TryParse(ck, out int ckv)) core.Chunk = ckv;
                     var warm = core.EncodeToArray(coreSrc);   // learn the length widths
                     var c2 = core; var cs2 = coreSrc;
                     cases.Add(new Case

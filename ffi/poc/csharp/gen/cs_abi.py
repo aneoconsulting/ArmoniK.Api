@@ -95,6 +95,25 @@ def emit(ir):
         o += "}"
         o += ""
 
+    o.doc("The core's own counters. **This is the convention the cross-language "
+          "table uses** (R5): `forward` is every `extern \"C\"` entry point the host "
+          "called, `reverse` is every function pointer the core invoked INCLUDING "
+          "transcoders. A host-side tally is not the same quantity and the two must not "
+          "be compared -- which is exactly the discrepancy this slice reported against "
+          "the Rust slice, and reading the core's counters is how it is resolved rather "
+          "than negotiated.")
+    o += "[StructLayout(LayoutKind.Sequential)]"
+    o += "public struct AkCounters"
+    o += "{"
+    o += "    public ulong forward;"
+    o += "    public ulong reverse;"
+    o += "    public ulong transcode;"
+    o += "    public ulong prefix_moves;"
+    o += "    public ulong prefix_bytes;"
+    o += "    public ulong grows;"
+    o += "}"
+    o += ""
+
     # ---- the imports -------------------------------------------------
     o.doc("ABI v1 section 6: what a host calls in the codec are PLAIN EXPORTS, not a "
           "table, so the host declares the symbols it uses and a missing one is a load "
@@ -127,6 +146,13 @@ def emit(ir):
         ("void", "ak_fail", "IntPtr ctx, int code, byte* msg, uint msgLen"),
         ("int", "ak_decode_ListResultsResponse",
          "IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListResultsResponse* vt"),
+        # R5, in the CORE's own convention. Counting build only (--features count);
+        # in a non-counting core these return zeroes, which is why the harness
+        # reports the build it read them from.
+        ("void", "ak_enc_counters", "IntPtr ctx, AkCounters* outp"),
+        ("void", "ak_enc_counters_reset", "IntPtr ctx"),
+        ("void", "ak_dec_counters", "IntPtr ctx, AkCounters* outp"),
+        ("void", "ak_dec_counters_reset", "IntPtr ctx"),
     ]:
         ret, name, args = decl
         o += '    [LibraryImport(Lib)]'

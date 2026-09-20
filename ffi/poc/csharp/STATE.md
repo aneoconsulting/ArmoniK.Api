@@ -538,13 +538,30 @@ are in-process managed code and cross nothing.
 on decode, CONSTANT in the element count.** Counted by the host, which is the
 half R5 asks a host for.
 
-**One reconciliation is outstanding.** The Rust slice's counting build reports
-**9** forward for the same shape and direction where this host counts 2. The
-conventions differ -- this counts host-issued calls, the Rust counter counts
-something else, plausibly per-chunk or including internal transitions -- and
-**the two numbers must not be compared until that is settled**. It is a cheap
-check for whoever does it next: run `ffi/poc/rust` `counts` and this slice's
-`coreffi` on the same payload and diff the definitions, not the totals.
+**RESOLVED (`stage10-crossing-reconciliation.log`), and not the way it looked.
+The conventions never differed.** This slice now reads the CORE's own
+`ak_enc_counters`, which is the counter the Rust slice reads, and the
+difference is **chunk size** -- a host choice the ABI leaves open.
+
+The Rust log reports forward 2, 3 and 8 for 4, 300 and 1000 elements.
+Subtracting the one `ak_encode_*` call leaves 1, 2 and 7 `ak_elem_*` calls,
+which is exactly `ceil(n/150)`: **the Rust host chunks its run at 150
+elements and this slice's hands the whole run over in one call.** Set
+`AK_CHUNK=150` and this slice reproduces 2 / 8 / 3 forward and 1 / 1 / 1
+reverse, to the digit.
+
+**So the cross-language table is comparable**, provided each column states its
+chunk size. It is not a report-level defect.
+
+**And the extra crossings cost nothing measurable on .NET**: P1.2 encode is
+156.83 ns/element at 2 crossings and 157.95 at 8, 0.7 percent apart and inside
+the spread. Six crossings over a 218 KB payload is about 60 ns in total. "Make
+the crossings fewer, not cheaper" is a rule about crossings that scale with
+FIELD count -- the drafted ABI's 15,137 to decode a thousand rows -- not about
+2 against 8. Once the batching predicate admits a message, **chunk size on
+.NET should be chosen for memory, not for crossings**: whole-run needs a group
+array proportional to the element count (200 KB on P1.2), chunked needs 30 KB
+whatever the payload.
 
 ## Correctness
 
@@ -798,9 +815,10 @@ it, and the first item is much the largest.
 3. **The host-transcoder string form**, to replace an arithmetic prediction
    (5,000 reverse crossings for P1.2, 37 to 60 us at .NET's price) with a
    measurement.
-4. **Reconcile the crossing-count convention with the Rust slice**, which
-   reports 9 where this reports 2. Cheap, and until it is done the two
-   columns of the cross-language table are not comparable.
+4. ~~Reconcile the crossing-count convention with the Rust slice.~~ **DONE**:
+   the conventions never differed, the gap was a 150-element chunk in the Rust
+   host, and matching it reproduces their counts to the digit. See above and
+   `stage10-crossing-reconciliation.log`.
 5. **The old list, unchanged**: ABI v1 decision 13's borrowed spans (the
    decode side already hands the host `ak_span` offsets into its own buffer,
    so the ABI is ready and the facade's `string` is what is not); the RPC arm;
@@ -858,6 +876,7 @@ another container's. R13's one calibration run stands and is not to be tuned.
 | `ffi/logs/csharp/stage4-floor-arm-c.log` | **Mono 6.8.0.105**, net48, floor sources linked from the same tree, six payloads, two runs | **README 5.2 arm c, standalone.** Passes the same 136 checks on the floor runtime; the design's advantage survives it and is larger on decode. Mono absolutes, quoted as absolutes and never as a ratio against arm a |
 | `ffi/logs/csharp/stage5-content-sets.log` | arm a, .NET 8.0.31, all three content sets in ONE process, P1.2 and P2.2 | **The string path, which is 174 of 413 fields.** Wire widths matching the Rust slice (1.70/1.75 and 2.39/2.50), and the encode advantage narrowing from 0.31-0.43 to 0.45-0.61 while decode barely moves. Carries the set-definition defect and its correction |
 | `ffi/logs/csharp/stage5-content-sets-floor.log` | arm b, otherwise as above | The sharp version of arm b: b/a is 0.947 to 1.062 where the transcoder actually has work |
+| `ffi/logs/csharp/stage10-crossing-reconciliation.log` | the counting core (`--features count`), `ak_enc_counters` read from the host, at two chunk sizes | **R5's cross-slice reconciliation, resolved.** The conventions never differed; the Rust host chunks at 150 and this one did not. At `AK_CHUNK=150` this slice reproduces the Rust slice's 2/8/3 forward and 1/1/1 reverse exactly. Also prices the difference: nothing measurable, 0.7 percent |
 | `ffi/logs/csharp/stage9-shared-core.log` | the ONE core at `ffi/poc/codec`, default features so no `rpc`; loaded path confirmed with `LD_DEBUG=libs`; three arms gated, three timing processes, plus a pre-move control | **The W10 re-gate.** 152 checks 0 failures on all three arms; the core-ffi arm green on M1; **nothing moved** (worst 0.035 against a 0.026 floor on arms the core cannot touch). Records that arm c cannot carry the core-ffi arm and why, and that a stale binary reported a pass before the timestamp was checked |
 | `ffi/logs/csharp/stage8-core-ffi.log` | the arm through `libak_core.so`, shared-library linkage, generated binding, staged strings; correctness plus three timing processes | **The `core-ffi` arm, M1.** Byte identity and value identity on P1.1/P1.2/P1.3; layout agreement on 8 structs; crossings constant in the element count in both directions; the interface cost against the no-boundary control, including the two findings that point opposite ways -- the C ABI beating the managed codec on P1.2 decode, and the absent path collapsing on the total group fill |
 | `ffi/logs/csharp/stage7-benchmarkdotnet.log` + `bdn-results/*.csv`, `*-github.md` | **BenchmarkDotNet 0.15.8**, defaults, each benchmark in its own process, 144 benchmarks (16 payloads x 6 encode arms + 16 x 3 decode) | **The harness the CONTROLLED RERUN should use, and the cross-check that makes the hand-rolled one trustworthy.** It subtracts its own overhead, iterates warmup to a convergence criterion, reports a 99.9% CI, removes outliers and adds Gen0/1/2 counts. What it does not do is interleave, which is the whole point of the hand-rolled harness on a noisy shared container; on a controlled machine that noise is gone and the isolation is the better choice |

@@ -459,3 +459,50 @@ from 4 elements to 1,000, which is the fixed three crossings amortising.
 **What this arm is not.** M1 only. `TaskDetailed` is not a leaf, so M2 is where
 the batching predicate starts refusing and where the interface cost stops being
 three crossings; that is a different measurement and it is not taken.
+
+### 19. The crossing-count gap was a chunk size, not a convention
+
+The aggregating session ruled that this slice should re-report its crossing
+counts in the Rust slice's convention, the Rust one being established and
+independently reproduced by C++ to the digit. Following that ruling is what
+showed the premise was wrong.
+
+The right way to adopt another slice's convention is not to re-derive it but to
+**read the same counter**, so the binding now calls the core's own
+`ak_enc_counters`. It reports **2 forward and 1 reverse per M1 encode**, which
+is what this slice's host tally already said. So the host tally was never in a
+different convention.
+
+The Rust log's own table then explains itself. Forward is 2, 3 and 8 for 4, 300
+and 1000 elements; subtract the single `ak_encode_*` and that is 1, 2 and 7
+`ak_elem_*` calls, which is `ceil(n/150)` exactly. **The Rust host chunks its
+run at 150 elements.** This slice's host hands the whole run over in one call,
+which is why it reported 2 where they reported 8.
+
+Setting `AK_CHUNK=150` reproduces their counts to the digit: 2 / 8 / 3 forward
+and 1 / 1 / 1 reverse. The two columns of the cross-language table were always
+comparable; what they needed was a chunk size beside them, not a convention.
+
+**Then the interesting half.** The six extra crossings cost **nothing
+measurable**: 156.83 ns/element at 2 crossings against 157.95 at 8, 0.7 percent
+apart and inside the spread, because six crossings over a 218 KB payload is
+about 60 ns in total.
+
+That is worth stating as a limit on the branch's own slogan. "Make the
+crossings fewer, not cheaper" is a rule about crossings that scale with the
+FIELD count -- the drafted ABI made 15,137 to decode a thousand rows -- and it
+says nothing useful about 2 against 8. Once the batching predicate admits a
+message, **chunk size on .NET is free and should be chosen for memory**: the
+whole-run form needs a group array proportional to the element count, 200 KB on
+P1.2, where the chunked form needs 30 KB whatever the payload arrives as.
+
+**The transcoder question is also settled by the same counters.** `transc` is a
+separate column from `reverse` in both slices, because a transcoder is an
+indirect call the core makes into ITSELF. The Rust slice records 6,000 of them
+on P1.2 and one crossing; this slice reads reverse = 1 and the same structure.
+So staging strings does not avoid crossings the callback form would have paid
+-- it avoids TRANSCODER invocations, which were never crossings. The prediction
+in entry 18, that a host transcoder would cost 5,000 reverse crossings, is
+**wrong on the counting**, and what it would actually cost is 5,000 indirect
+calls into managed code, which is a different and probably larger thing. It
+still needs measuring; the arithmetic behind it does not.
