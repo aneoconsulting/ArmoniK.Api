@@ -132,11 +132,57 @@ public static unsafe class Bench
                         Payload = a.Id, Dir = "encode", Arm = "core-ffi",
                         Run = n => { for (int i = 0; i < n; i++) { c2.Encode(cs2, out byte* p, out int l); Consume(l); } },
                     });
+                    cases.Add(new Case
+                    {
+                        Payload = a.Id, Dir = "encode", Arm = "core-ffi fill",
+                        Run = n => { for (int i = 0; i < n; i++) Consume(c2.Fill(cs2)); },
+                    });
                     var wsrc = warm;
                     cases.Add(new Case
                     {
                         Payload = a.Id, Dir = "decode", Arm = "core-ffi",
                         Run = n => { for (int i = 0; i < n; i++) Consume(c2.Decode(wsrc, wsrc.Length).Results.Count); },
+                    });
+                }
+            }
+
+            // The core-ffi arm for M2. TaskDetailed is NOT a leaf, so unlike the
+            // block above this one pays five reverse calls and about five forward
+            // calls PER ELEMENT on encode, and section 7.2's two-calls-per-element
+            // on decode. That difference is the measurement, not an inefficiency
+            // in the binding: it is what the batching predicate stops buying.
+            CoreFfiM2 core2 = null;
+            if (a.Root == "ListTasksDetailedResponse")
+            {
+                ListTasksDetailedResponse src2 = a.Id switch
+                {
+                    "P2.1" => BuildFacade.P2_1(), "P2.2" => BuildFacade.P2_2(),
+                    "P2.3" => BuildFacade.P2_3(), "P2.4" => BuildFacade.P2_4(),
+                    "P2.5" => BuildFacade.P2_5(), _ => null,
+                };
+                if (src2 != null)
+                {
+                    var (nb2, ne2, by2) = CoreFfiGate2.Size(src2);
+                    core2 = new CoreFfiM2(src2.Tasks.Count + 1, nb2, ne2, by2);
+                    var ck2 = Environment.GetEnvironmentVariable("AK_CHUNK");
+                    if (!string.IsNullOrEmpty(ck2) && int.TryParse(ck2, out int ckv2)) core2.Chunk = ckv2;
+                    var warm2 = core2.EncodeToArray(src2);
+                    var c3 = core2; var cs3 = src2;
+                    cases.Add(new Case
+                    {
+                        Payload = a.Id, Dir = "encode", Arm = "core-ffi",
+                        Run = n => { for (int i = 0; i < n; i++) { c3.Encode(cs3, out byte* p, out int l); Consume(l); } },
+                    });
+                    cases.Add(new Case
+                    {
+                        Payload = a.Id, Dir = "encode", Arm = "core-ffi fill",
+                        Run = n => { for (int i = 0; i < n; i++) Consume(c3.Fill(cs3)); },
+                    });
+                    var w2 = warm2;
+                    cases.Add(new Case
+                    {
+                        Payload = a.Id, Dir = "decode", Arm = "core-ffi",
+                        Run = n => { for (int i = 0; i < n; i++) Consume(c3.Decode(w2, w2.Length).Tasks.Count); },
                     });
                 }
             }

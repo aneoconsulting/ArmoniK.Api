@@ -506,3 +506,92 @@ in entry 18, that a host transcoder would cost 5,000 reverse crossings, is
 **wrong on the counting**, and what it would actually cost is 5,000 indirect
 calls into managed code, which is a different and probably larger thing. It
 still needs measuring; the arithmetic behind it does not.
+
+### 20. M2's ABI surface, and a vtable slot invented by analogy
+
+Declaring `ak_dvt_ListTasksDetailedResponse` for C# I wrote an
+`unk_tasks_options_options` slot between `add_tasks_retry_of_ids` and
+`add_tasks_options_options`, by analogy with `ak_dvt_TaskDetailed`, which does
+have an `unk_options_options`. The root does not. Every slot after it would have
+been read one pointer along, so the codec would have called
+`add_tasks_options_options` through whatever the next field held.
+
+Nothing would have caught it: the struct has no size assert of its own, the
+layout probe covers `ak_efix_*` and `ak_dfix_*` and not vtables, and a wrong
+function pointer is a segfault at the first map entry rather than a diff.
+
+So `AbiLayout.Check()` now asserts **vtable slot counts** as well as struct
+sizes and offsets. Every slot is pointer sized, so a wrong count is a wrong
+size and nothing subtler is needed.
+
+The same lesson a second time, in the same file: the presence BIT VALUES. The
+obvious rule is a field's position among the singular message children, and it
+is right today for all fourteen of `TaskDetailed`'s. It is still a guess. The
+probe now prints the Rust constants into `gen/abi-layout.json` and the emitter
+reads them, so a bit that moves moves in one place.
+
+### 21. M2 answers the decode question, and the answer is no
+
+The claim under test was entry 18's: on M1/P1.2 the composed arm decodes at
+**0.899** of the pure managed codec, which is the opposite of the java slice and
+the most surprising number in this slice. Entry 18 said it was a claim about one
+flat leaf message. It was.
+
+On M2 the interface cost on decode is **0.97 to 1.14** across the five payloads,
+with every spread touching or crossing 1.0. It does not reverse; it ties.
+
+The part worth recording is how nearly I published the opposite. The first
+BenchmarkDotNet run on P2.2 read **0.900** -- M1's figure, to three digits --
+against the interleaved harness's 0.987. Two harnesses disagreeing is the signal
+to re-run, not to pick. Two more BDN runs read 0.963 and 0.987, so BDN's own
+spread is 0.900 to 0.987 and it overlaps the other harness's 0.923 to 1.052.
+0.900 was the bottom of a spread and I would have reported it as a reproduction.
+
+This also inverts entry 17's characterisation. There, BenchmarkDotNet was the
+CONSERVATIVE harness: it moved ratios against the challenger. Here it moves them
+for it. So "BDN is conservative" was a property of that table, not of the tool,
+and neither harness is the tie-breaker. Where they disagree, both ranges go in.
+
+### 22. The encode cost is the group fill, and it is not the absent path
+
+M2 encode is 1.69 to 1.94 against the managed control, up from 1.25 on M1/P1.2,
+and the obvious explanation is the crossings: M1 is three for a whole response,
+M2 is ten per task. The obvious explanation is 11 to 17 percent of it.
+
+Ten crossings at this slice's own measured .NET price of 7.5 to 12 ns is 75 to
+120 ns; the gap on P2.2 is 699 ns a task. So I built the arm that says where the
+rest is rather than arguing it: `core-ffi fill` does everything the encode arm
+does -- zero the 616-byte group, stage every string, build the run arrays -- and
+returns without calling the codec.
+
+**The fill is 40 to 57 percent of the whole core-ffi encode, on every payload of
+both shapes, in both harnesses.** Subtract it and the core's own work plus every
+crossing is 0.72 to 0.94 of the managed control on six of the eight payloads.
+The Rust codec across a C ABI encodes faster than the C# codec does; the arm
+loses on what the host must do to feed it.
+
+**And it corrects entry 18 and stage 8.** P1.3's 2.361 was attributed to the
+group fill by elimination, and read as a property of the ABSENT payload: 300
+groups of 200 bytes filled to describe 605 bytes of output. The fill arm says
+62.6 percent on P1.3 -- and 40 percent on P1.1 and P1.2, where nothing is absent
+at all. The cost is the group being filled whole. P1.3 does not cause it; it
+removes everything else that was hiding it.
+
+That is ABI v1 decision 9, and it is now the specified amendment with the
+largest measured value in this slice.
+
+### 23. Two gaps found in the harness while measuring, not by looking
+
+**BenchmarkDotNet did not have the R14 baseline arms.** `gp-marshaller` on
+encode and `gp-parse-seq` on decode were in the hand-rolled harness only; BDN's
+baselines were `gp-writeto` and `gp-parse`, the span forms. Every ratio in
+STATE.md is quoted against R14's path, and the harness the controlled rerun is
+supposed to use would have come back unable to produce that column. Found by
+adding a core-ffi class to BDN and having to choose its baseline.
+
+**The map fill allocated 24,000 bytes an operation on P2.2.** `OrderedMap`
+exposes `At(int)` precisely so an encoder can walk it without an enumerator, and
+the generated M2 fill used `foreach`, which boxes the `List` enumerator once per
+ELEMENT. 500 elements, 48 bytes each. It was visible only because the encode
+arm's allocation column should be zero and was not -- the arm was still correct
+and still beat the incumbent. Indexed instead: zero, and 4 percent faster.
