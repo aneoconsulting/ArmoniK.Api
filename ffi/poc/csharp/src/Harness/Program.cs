@@ -18,11 +18,17 @@ public static class Program
                 return Conformance.Run();
             case "unknown":
                 return UnknownFields.Run();
+            case "groups":
+                return GroupVectors.Run(argv.Skip(1).ToArray());
+            case "corpus":
+                return CorpusRun.Run(argv.Skip(1).ToArray());
+            case "utf8":
+                return Utf8Policy.Run(argv.Skip(1).ToArray());
             case "content":
                 return ContentSets.Run(argv.Skip(1).ToArray());
             case "coreffi":
 #if NET8_0_OR_GREATER
-                return CoreFfiGate.Run(argv.Skip(1).ToArray());
+                return CoreGate.Run(argv.Skip(1).ToArray());
 #else
                 // Arm c: .NET Framework 4.8 has no LibraryImport and no
                 // UnmanagedCallersOnly, so the core-ffi binding does not exist
@@ -38,7 +44,7 @@ public static class Program
             case "bench":
                 return Bench.Run(argv.Skip(1).ToArray());
             default:
-                Console.Error.WriteLine("usage: harness [conformance|unknown|counts|content|bench]");
+                Console.Error.WriteLine("usage: harness [conformance|unknown|groups|corpus|utf8|counts|content|coreffi|mapforms|bench]");
                 return 2;
         }
     }
