@@ -33,7 +33,7 @@ hdr() {
 }
 
 echo "===== 1. build ====="
-./build.sh "$@" 2>&1 | tee "$LOGS/54-build-m1m2.log" | tail -3
+./build.sh "$@" 2>&1 | tee "$LOGS/54-build-all-shapes.log" | tail -3
 
 echo "===== 2. R14: derive the baseline from Protos/V1 ====="
 { hdr "python slice: R14, the baseline is the path ArmoniK runs"; "$TARGET" verify_r14.py; } \
@@ -42,14 +42,14 @@ tail -4 "$LOGS/52-r14-baseline.log"
 
 echo "===== 3. conformance and crossing counts, every interpreter (R2, R5) ====="
 {
-  hdr "python slice, work unit 3: conformance and crossing counts, M1 and M2"
+  hdr "python slice: conformance and crossing counts, M1 through M7"
   for PY in "$@"; do
     echo "########## $("$PY" -c 'import sys;print(sys.version.split()[0])') ##########"
     "$PY" conformance.py
     echo
   done
-} > "$LOGS/53-conformance-m1m2.log" 2>&1
-grep -c "ALL CHECKS PASS" "$LOGS/53-conformance-m1m2.log" | sed 's/^/   interpreters passing: /'
+} > "$LOGS/53-conformance-all-shapes.log" 2>&1
+grep -c "ALL CHECKS PASS" "$LOGS/53-conformance-all-shapes.log" | sed 's/^/   interpreters passing: /'
 
 echo "===== 4. the conformance corpus (W8), every row this scope can root ====="
 {
@@ -65,18 +65,25 @@ echo "===== 5. the allocator control: why an encode above 128 KiB has two answer
 } > "$LOGS/55-allocator.log" 2>&1
 grep -c -- "  <-- " "$LOGS/55-allocator.log" | sed 's/^/   rows whose answer depends on it: /'
 
-echo "===== 6. the composed arm, target interpreter, 3 processes ====="
+echo "===== 6. concurrency: ABI v1 obligation 12.5, and the GIL ====="
 {
-  hdr "python slice, work unit 3: the composed arm, encode and decode, M1 and M2"
+  hdr "python slice: the concurrency suite no slice in the branch had"
+  "$TARGET" concurrency.py
+} > "$LOGS/56-concurrency.log" 2>&1
+tail -1 "$LOGS/56-concurrency.log" | sed 's/^/   /'
+
+echo "===== 7. the composed arm, target interpreter, 3 processes ====="
+{
+  hdr "python slice: the composed arm, encode and decode, M1 through M7"
   for i in 1 2 3; do
     echo "########## process $i ##########"
     "$TARGET" bench.py
     echo
   done
-} > "$LOGS/62-m1m2-py$TTAG.log" 2>&1
-echo "   $LOGS/62-m1m2-py$TTAG.log"
+} > "$LOGS/62-all-shapes-py$TTAG.log" 2>&1
+echo "   $LOGS/62-all-shapes-py$TTAG.log"
 
-echo "===== 7. the composed arm, every interpreter, 1 process ====="
+echo "===== 8. the composed arm, every interpreter, 1 process ====="
 {
   hdr "python slice, work unit 3: the composed arm across every interpreter here"
   for PY in "$@"; do
@@ -84,6 +91,6 @@ echo "===== 7. the composed arm, every interpreter, 1 process ====="
     "$PY" bench.py
     echo
   done
-} > "$LOGS/63-m1m2-all.log" 2>&1
-echo "   $LOGS/63-m1m2-all.log"
+} > "$LOGS/63-all-shapes-every-interpreter.log" 2>&1
+echo "   $LOGS/63-all-shapes-every-interpreter.log"
 echo "done."

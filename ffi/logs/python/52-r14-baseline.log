@@ -1,8 +1,8 @@
 # python slice: R14, the baseline is the path ArmoniK runs
 #
-# date:      2026-09-20T11:23:00Z
+# date:      2026-09-20T14:33:41Z
 # machine:   4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
-# commit:    f24b900
+# commit:    c8dc11df
 # core:      ffi/poc/codec (README R0), ABI v1, libak_core.so via the dynamic linker
 # R13:       this machine's rust-slice crossing is 2.1 ns (fwd+reverse) to 2.8 ns
 #            (forward) -- 00-r13-rust-crossing.log. The composed arm also prices
