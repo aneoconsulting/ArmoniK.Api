@@ -49,6 +49,20 @@ shim jnicnt  core-build/target-count
 shim jnong   core-build/target       -DAK_NO_GUARD
 shim jnitax  core-build/target       -DAK_CROSSING_TAX
 
+# ---- 3b. ABI v1 section 9, the RPC half. A SEPARATE core build, because the `rpc` feature
+# links tonic and tokio and a codec arm must not carry them -- which is why the feature
+# exists. One library so the RPC arm reaches the codec and the transport through the same
+# artifact, as a host would.
+say "core (rpc feature) and its shim"
+CARGO_TARGET_DIR=$HERE/core-build/target-rpc cargo build --release --features rpc \
+  --manifest-path $CORE
+mkdir -p build/jnirpc
+gcc -O2 -fPIC -shared -std=c11 -Wall -Wextra -Wno-unused-parameter \
+    -I"$J17/include" -I"$J17/include/linux" -Inative/generated \
+    -o build/jnirpc/libakjni.so native/generated/shim.c native/tax.c native/rpc.c \
+    -L"core-build/target-rpc/release" -lak_core \
+    -Wl,-rpath,"$HERE/core-build/target-rpc/release"
+
 # ---- 4. the incumbent's generated Java
 say "protoc"
 # Fetched if absent, so a clean tree builds. `build/` is gitignored and deleting it is the
