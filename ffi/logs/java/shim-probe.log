@@ -1,0 +1,129 @@
+== what a C shim would pay per operation on the JVM (README 9.1's shape, priced before building it) ==
+
+README section 9.1 is the Python binding's design: a generated C shim that speaks the
+host runtime's C API instead of calling back into the host language, because "the C API
+pays when it REMOVES a crossing, not when it replaces one". The JVM analogue is a shim
+that reads and writes facade fields through the JNI API instead of upcalling into Java,
+and it is aimed at this slice's decode regression: 7.004 reverse calls per element on
+P2.2 at about 80 ns each is 560 ns of a 1.441 ratio.
+
+Whether it can win is arithmetic, so this prices both sides of it before the arm exists.
+Each op is looped INSIDE one native call and reported net of an empty-loop control at the
+same count, because a shim is already in C when it pays these. Three collectors, because
+the answer turned out to depend on the write barrier.
+
+The `k` table is the comparison that matters. `upcall` is what the binding does today:
+one cached reverse call, k straight-line stores in bytecode inside it. `shim` is k
+SetObjectField calls and no reverse call. Both write k DISTINCT values into k DISTINCT
+fields -- the first cut of this probe had the callee storing one value into one field k
+times, which C2 reduces to a single store, and that defective control sat in the arm that
+decides whether to build the shim at all.
+
+---- -XX:+UseG1GC ----
+java.version=17.0.20  vm=17.0.20+8-1-24.04-Ubuntu
+rounds=11  n per call=4096  sink=16941236224
+op                          min_ns    med_ns    max_ns
+none (control)              -0.041     0.000     0.405
+GetObjectField              18.333    18.572    22.182
+SetObjectField              26.432    26.721    30.180
+SetIntField                 11.938    11.969    12.628
+NewObject                  125.758   139.211   150.419
+AllocObject                 44.811    47.731    57.121
+List.set upcall            101.486   105.767   112.346
+SetObjectArrayElement       27.905    27.956    32.080
+NewObjectArray(3)           49.410    55.250    59.438
+NewString(16)               87.921    95.057   102.565
+
+One run of k stores, the two ways. `upcall` is what the binding does
+today: one cached reverse call, the stores in bytecode inside it. `shim`
+is k SetObjectField calls and no reverse call. Nanoseconds per run.
+
+k            upcall         shim  shim-upcall
+1             71.07        27.38       -43.69
+2             72.03        56.20       -15.83
+4             72.31       111.72        39.40
+8             76.22       219.83       143.62
+16            80.08       443.98       363.91
+
+---- -XX:+UseParallelGC ----
+java.version=17.0.20  vm=17.0.20+8-1-24.04-Ubuntu
+rounds=11  n per call=4096  sink=16941236224
+op                          min_ns    med_ns    max_ns
+none (control)              -0.057     0.000     9.864
+GetObjectField              15.929    16.139    16.967
+SetObjectField              13.683    13.710    14.481
+SetIntField                 11.935    12.192    17.698
+NewObject                  111.527   126.507   133.264
+AllocObject                 44.751    49.064    53.681
+List.set upcall             93.600    97.860   102.630
+SetObjectArrayElement       15.468    15.616    19.472
+NewObjectArray(3)           47.710    53.559    56.412
+NewString(16)               81.650    90.044   102.438
+
+One run of k stores, the two ways. `upcall` is what the binding does
+today: one cached reverse call, the stores in bytecode inside it. `shim`
+is k SetObjectField calls and no reverse call. Nanoseconds per run.
+
+k            upcall         shim  shim-upcall
+1             71.27        14.61       -56.65
+2             73.27        28.79       -44.48
+4             72.01        57.34       -14.67
+8             73.76       117.94        44.17
+16            75.36       233.32       157.96
+
+---- -XX:+UseSerialGC ----
+java.version=17.0.20  vm=17.0.20+8-1-24.04-Ubuntu
+rounds=11  n per call=4096  sink=16941236224
+op                          min_ns    med_ns    max_ns
+none (control)              -0.065     0.000     0.494
+GetObjectField              15.297    15.709    21.459
+SetObjectField              13.332    13.700    18.005
+SetIntField                 11.580    11.910    22.862
+NewObject                  105.852   124.438   276.635
+AllocObject                 46.352    49.502    80.690
+List.set upcall             93.654    96.274   115.455
+SetObjectArrayElement       13.824    14.094    15.851
+NewObjectArray(3)           46.862    53.654    61.973
+NewString(16)               81.536    91.188   112.519
+
+One run of k stores, the two ways. `upcall` is what the binding does
+today: one cached reverse call, the stores in bytecode inside it. `shim`
+is k SetObjectField calls and no reverse call. Nanoseconds per run.
+
+k            upcall         shim  shim-upcall
+1             69.40        14.60       -54.80
+2             69.81        28.07       -41.74
+4             70.99        58.62       -12.37
+8             72.18       114.66        42.47
+16            77.58       231.06       153.48
+
+== what it says ==
+
+1. A JNI accessor is not a slot read. `SetIntField` is 11.7 to 12.0 ns and
+   `SetObjectField` is 13.7 ns without a write barrier and 26.2 with one. A cached upcall
+   on this machine is about 72 to 80 ns. So a JNI field store is a THIRD of a whole
+   reverse call, not a rounding error against it. Python's `PyObject_GetAttr` at 9.4 ns
+   against a 3.4 ns specialised bytecode LOAD_ATTR is the same shape of finding; the JVM's
+   version is worse, because the upcall it would be replacing is comparatively cheap.
+
+2. The crossover is at k = 2 to 3 stores per reverse call. G1, the default collector,
+   is the worst case: the shim wins at k=1 by 44 ns and loses at k=4 by 40. On Parallel
+   and Serial it wins at k=1 by 56 ns and loses at k=8 by 42.
+
+3. `TaskDetailed` has about 30 fields, so an element apply is k=30, not k=2. At G1's
+   26.2 ns that is about 790 ns of stores where the upcall shape pays about 80 ns of
+   transition plus the same stores in bytecode at a few ns each. The shim would also pay
+   `NewObject` at 123 to 136 ns per element where the Java side pays a bytecode `new`,
+   and `NewString(16)` at 89 to 95 ns per string either way.
+
+4. **So the shim arm loses, and the reason generalises: on the JVM the cost of the push
+   family is the NUMBER of transitions, not what happens inside them.** Making a
+   transition cheaper is not available -- a JNI accessor is already a third of one. Making
+   them fewer is, and that is the pull decode family and ABI v1 open decision 10, not
+   this. The rust slice is building the pull family for the same regression from the
+   other end; this result says the C-shim route is not a second way there.
+
+5. One thing worth keeping for its own sake: `SetObjectField` and
+   `SetObjectArrayElement` both DOUBLE under G1 against Parallel and Serial, and
+   `SetIntField` does not move. That is the G1 write barrier, priced, and it is a fact
+   about any native code that stores references into Java objects -- not only this design.

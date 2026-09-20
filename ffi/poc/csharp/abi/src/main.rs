@@ -71,6 +71,43 @@ fn main() {
     ]);
     lay!(out, ak_dfix_ListResultsResponse, [page, total, presence]);
 
+    // M2. TaskDetailed is NOT a leaf: it has four repeated string fields and a
+    // map, so its group carries loop slots the codec calls back through and the
+    // crossing count stops being constant in the element count.
+    lay!(out, ak_efix_Duration, [seconds, nanos, presence]);
+    lay!(out, ak_efix_TaskOptionsOptionsEntry, [key, value, presence]);
+    lay!(out, ak_efix_TaskOptions, [
+        max_duration, max_retries, priority, partition_id, application_name,
+        application_version, application_namespace, application_service,
+        engine_type, presence,
+    ]);
+    lay!(out, ak_efix_TaskOutput, [success, error, presence]);
+    lay!(out, ak_efix_TaskDetailed, [
+        id, session_id, owner_pod_id, status, status_message, options,
+        created_at, submitted_at, started_at, ended_at, pod_ttl, output,
+        pod_hostname, received_at, acquired_at, creation_to_end_duration,
+        processing_to_end_duration, initial_task_id, received_to_end_duration,
+        processed_at, fetched_at, payload_id, created_by, presence,
+    ]);
+    lay!(out, ak_efix_ListTasksDetailedResponse, [page, total, presence]);
+
+    lay!(out, ak_dfix_Duration, [seconds, nanos, presence]);
+    lay!(out, ak_dfix_TaskOptionsOptionsEntry, [key, value, presence]);
+    lay!(out, ak_dfix_TaskOptions, [
+        max_duration, max_retries, priority, partition_id, application_name,
+        application_version, application_namespace, application_service,
+        engine_type, presence,
+    ]);
+    lay!(out, ak_dfix_TaskOutput, [success, error, presence]);
+    lay!(out, ak_dfix_TaskDetailed, [
+        id, session_id, owner_pod_id, status, status_message, options,
+        created_at, submitted_at, started_at, ended_at, pod_ttl, output,
+        pod_hostname, received_at, acquired_at, creation_to_end_duration,
+        processing_to_end_duration, initial_task_id, received_to_end_duration,
+        processed_at, fetched_at, payload_id, created_by, presence,
+    ]);
+    lay!(out, ak_dfix_ListTasksDetailedResponse, [page, total, presence]);
+
     println!("{{");
     println!("  \"pointer_width\": {},", size_of::<usize>() * 8);
     println!("  \"structs\": {{");

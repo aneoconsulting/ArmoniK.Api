@@ -12,6 +12,26 @@ count = []
 # facade written the obvious way does and what proto3 says a parser must not do.
 dec-reject = []
 dec-reject-simd = ["dep:simdutf8"]
+# ABI v1 section 6: "The table lives in the context, never process-global."  This feature
+# builds the arrangement that sentence REFUSES -- one learned-width table for the whole
+# process -- so the refusal can be measured instead of inherited.  It is OFF by default and
+# no slice's normal build turns it on; the default build is byte-for-byte the code that was
+# there before it existed.  Added by the rust slice for its concurrency suite (obligation
+# 12.5), which is the first thing in the branch to run the codec on more than one thread.
+#
+# `Mark` still carries its own width by value, so the BYTES stay correct under this feature
+# and the two arms remain comparable: what it exposes is contention, which is what section
+# 6's claim is about.  A table that were also re-read at `end()` would be a correctness
+# defect as well, and the suite's positive control covers that class separately.
+global-widths = []
+# ABI v1 section 6's OTHER refusal, and the one that corrupts BYTES: pad the length prefix
+# to the learned width instead of moving the body. Legal wire, and refused because the
+# encoder's output then depends on its own history. TEST-ONLY, like `global-widths`: it is
+# not an option a host may pick, and it exists so obligation 12.5's suite has a plant that
+# produces WRONG BYTES rather than only one that aborts. The two refusals are independent
+# and only their combination is the worst case -- see ffi/logs/cpp/concurrency.log, which
+# separated them, and section 6, which was rewritten to say so.
+pad-widths = []
 
 [dependencies]
 simdutf8 = { workspace = true, optional = true }

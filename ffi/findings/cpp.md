@@ -160,6 +160,62 @@ explicit floor label under R2.
 **So the core's decode gap to the fastest C protobuf is a facade ownership
 question, reachable from Rust, rather than a codec or a language-runtime limit.**
 
+## 4b. The encode column was an ASCII column, and reading it without its set would have published a policy difference as codec speed
+
+This is the sharpest correction the slice produced and it arrived last.
+
+**The content set moves encode by an order of magnitude and barely moves decode.**
+On P1.2 the `ffi`/`pb` encode ratio runs **0.988 → 0.167 → 0.114** across ASCII,
+Latin-1 and wide; decode runs 0.656 → 0.671 → 0.546, and no payload's decode
+ratio moves more than about 0.15. So the published C++ **encode** column is an
+ASCII column and nothing else, while the decode column survives being read
+without its set. `design/SHAPES.md` already says a string-path figure without its
+content set is half a number; this says the halves are not the same size.
+
+**And most of that encode movement is not codec speed at all.** protobuf C++
+**validates UTF-8 when it serialises** — 37 unconditional `VerifyUtf8String(...,
+SERIALIZE)` call sites in the generated code, counted rather than inferred — and
+ABI v1 decision 3 says the core does not. Publishing `ffi`/`pb` alone on
+non-ASCII content would have reported a **policy difference as a codec win**,
+which is defect C7 pointing the other way: the slice's earlier trap was a
+handicapped incumbent, and this one would have been an incumbent doing work the
+core had been excused.
+
+Like for like, with the validating transcoder in the table for every set, the
+core is **at parity on ASCII (0.995 to 1.389) and about twice as fast on Latin-1
+and wide (0.421 to 0.626)** — which matches what `utf8.log` measures between the
+two validators directly. Growing each arm against its own ASCII row separates the
+three effects cleanly: `ffi` 1.04 to 1.05 (wire width alone), `ffi-valtc` 2.20 to
+2.82 (width plus the core's validator), `pb` 6.13 to 9.12 (width plus protobuf's
+validator plus its per-string costs).
+
+**An unplanned cross-generator check fell out of it.** Wire sizes came out at
+1.687 to 1.748× for Latin-1 and 2.373 to 2.495× for wide, against the rust
+slice's independently published 1.70 to 1.75 and 2.39 to 2.50. Two generators,
+two languages, agreement to three digits — R1's "one description drives
+everything" tested from a direction nobody designed a test for.
+
+## 4c. C16 has a mechanism, and it is the allocator
+
+The systematic outlier round on P1.2 decode, present in every log this slice ever
+produced, is **glibc's mmap path**. Pinning `MALLOC_MMAP_THRESHOLD_` *and*
+`MALLOC_TRIM_THRESHOLD_` removes the outlier and keeps the steady state flat from
+round one; forcing always-mmap reproduces the outlier's value in every round; the
+default allocator takes an order of magnitude more minor page faults. Pinning only
+the mmap threshold is not enough, because glibc then trims and the churn costs
+what mmap did — which is why the two-variable answer was not obvious.
+
+Refuted along the way: the machine, and the arm rotation. **And the validator work
+did not create C16, it uncovered it** — with the check disabled the row is flat,
+because a decode dominated by a slow validator hides a fixed per-iteration cost,
+and halving the validator turned that cost into a visible fraction.
+
+No figure is withdrawn; min-of-rounds plus the printed per-round list is exactly
+why. What remains is a caveat that is a **fact about C++ consumers rather than
+about the ABI**: decoding large messages pays an allocator cost that default glibc
+tuning only amortises after the first few messages. Not settled: when precisely
+the threshold adapts, which is a question about glibc.
+
 ## 5. This makes borrowed spans a cross-language decision, not a C++ arm
 
 The branch already held the other half of this and had not connected it. ABI v1's
@@ -251,3 +307,97 @@ Beyond the slice's own list, which is longer and should be read with it:
   or footprint column, content sets on the string path only.
 - **C16**, a systematic 34 % outlier round on P1.2 decode present in every log this
   slice produced, characterised and unexplained.
+
+## The group-skip defect: fixed, and the slice became a corpus consumer doing it
+
+**Closed.** `skip` takes the field number now, `skip_group` ends only on an
+`END_GROUP` whose number matches, bounded at 100 returning `ERR_DEPTH`, and the
+change was **swept across the generator rather than patched where it was found** —
+13 sites in `gen/cpp_core.py`, including the `sub.skip(ew)` inside the map-entry
+loop that a `default:`-only sweep would have missed. 11 checks at C++17 target and
+the C++17, C++14 and C++11 floors: 44 runs, 0 failures.
+
+**The two planted defects both fail, and the second is the interesting one.** Plant
+1 counts nesting depth instead of matching the field number and fails exactly the
+two mismatched-end cases — it *accepts* `X-group-mismatched-end`, which is what that
+vector exists to catch. Plant 2 drops the `case 5:` 32-bit arm while adding `case
+3:`, and fails every buffer carrying a `fixed32`. That second plant is not
+hypothetical: it is the regression I introduced in the shared core's own fix and
+caught only because the tests ran.
+
+**The before picture is worth keeping**, because it shows a gate that was passing
+for the wrong reason: of five probes against the old one-argument `skip`, two were
+outright wrong and the three that looked right all stopped at `pos 1` — refusing
+because wire type 3 was unknown, not because the group was unterminated or
+mismatched. A checker that only asks "did it reject" would have called that half
+correct.
+
+**And the timing question was measured rather than asserted.** The signature change
+recompiles every decode function in the control TU, so: 225 ratio rows, worst move
+0.164, median 0.009, **0 rows over R4's 0.240 drift bar**. The published tables
+stand. One honest side effect recorded rather than smoothed: gcc now inlines
+`dec_list_results_response` into its caller inside the control TU, so `boundary.log`
+reports 21 checks instead of 23.
+
+### The corpus consumer, and what it found
+
+**128 of 336 rows in scope**, three arms — `native`, `ffi`, and **protobuf C++ as an
+oracle projecting through its own reflection**, which is the first time any slice
+has put a second implementation beside its own on the corpus. 0 failures, and 128
+of 128 rows where the two arms agree on the decoded facade. Run at C++17 and at the
+C++11 floor with identical results.
+
+**A schema-less walker is the part other slices should copy.** The 62 `WireZoo`
+rows root at a message this slice has no type for, so they are out of C1-C3 scope
+entirely — but their wire forms are exactly what the group fix addresses. Run
+through `Dec::skip` with no schema at all, **62 of 62 agree with the corpus's
+verdict**, including both reject vectors for the right reason. That pattern is
+about twenty lines and it is what turned "three accept vectors" into "five vectors
+with the reject half actually watched". Every slice can reach those rows that way
+even where its codec has no matching root.
+
+**Decision 11, answered for C++**: this slice **drops** unknown fields in both arms
+where protobuf C++ retains them. Rust drops (prost), Python drops, Java retains,
+C++ drops. The decision now has four hosts and the split is the incumbent's, not
+the ABI's.
+
+**One defect of its own, and the tell is the lesson.** Its first corpus run reported
+the `ffi` arm writing an unaccepted form on 114 of 126 rows — a use-after-free in
+the harness, `ak_enc_take` handing back a pointer into a context freed before the
+copy. **The same wrong hash repeating across unrelated vectors** is what says
+"harness" rather than "codec", and a wrong C3 count that looks like a codec defect
+is the expensive kind of mistake.
+
+**Two rows it refused to decide, and both are the corpus's rather than the slice's**:
+`U-map-entry`, where upb disagrees with protobuf C++, pure-Python and this slice
+about whether an unknown field inside a map entry kills the entry (README 10.1,
+reproduced independently); and `B-P7_1`, whose only accepted encoding no canonical
+writer produces. Its verdict line keeps `failures / disputed / permuted` apart
+instead of folding them together, which is the right shape for a gate whose oracle
+is not settled.
+
+## The group-skip defect as it stood, for the record
+
+Found in the shared core by the python slice's corpus run and fixed there by the
+aggregating session; **this slice's own `include/ak/rt.h` has the same defect and
+it is still open.** `skip(uint32_t wire)` has cases for 0, 1, 2 and 5 and sends
+everything else to `ERR_MALFORMED`, so an unknown field of the deprecated GROUP
+form makes the floor and `core-native` arms reject a message that upb accepts
+(`U-root-group`, `U-nested-group`, `U-oneof-group` in `corpus/generated/vectors/`).
+
+Two things make it worth a paragraph rather than a line:
+
+- **The fix is not "add case 3".** A group carries no length, so the skipper has to
+  recurse to an `END_GROUP` **whose field number matches** the one that opened it.
+  Counting depth instead accepts `X-group-mismatched-end` and then mis-nests every
+  group after it, which is why that vector exists. It also needs a depth bound, or a
+  payload of nothing but start tags is a stack overflow rather than an error.
+- **Four slices gated clean on this.** Byte identity against a schema-generated
+  manifest cannot find it, because proto3 cannot express a group and so nothing the
+  generator emits produces one. Only a consumer of a hand-built corpus can, and only
+  one slice has been one.
+
+The java slice's `Dec.skip` is correct, field-number match and all. The C# slice's
+`Wire.Skip` has the same hole as this one. Neither is a measurement defect; both are
+conformance defects in an arm the branch is proposing as a replacement for a library
+that gets this right.

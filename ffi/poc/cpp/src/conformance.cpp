@@ -349,7 +349,7 @@ static void run_absent_and_unknown() {
           done = true;
         } else {
           size_t before = d.pos;
-          d.skip(wire);
+          d.skip(tag, wire);
           out.append(clean, keypos, d.pos - keypos);
           (void)before;
         }
@@ -410,7 +410,7 @@ static void run_absent_and_unknown() {
         out += body;
         done = true;
       } else {
-        d.skip(wire);
+        d.skip(tag, wire);
         out.append(base, keypos, d.pos - keypos);
       }
     }

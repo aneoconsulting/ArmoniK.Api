@@ -1,0 +1,86 @@
+Stage 10: the crossing-count reconciliation with the Rust slice. R5.
+
+commit:  b64797755da62536e50ed4021271fc3efb53b773 (+ this slice)
+core:    ffi/poc/codec built WITH --features count, so ak_enc_counters reports.
+
+THE CONVENTIONS NEVER DIFFERED. This slice previously reported 2 forward where
+the Rust slice reports 8 for P1.2 encode, and recorded it as an unresolved
+difference of convention. It is not one. Both count the same things, and the
+numbers below are read from the CORE's own ak_enc_counters, which is the same
+counter the Rust slice reads.
+
+The difference is CHUNK SIZE, which is a host choice the ABI leaves open.
+ffi/logs/rust/stage2-four-arms-M1.log reports forward 2, 3 and 8 for 4, 300 and
+1000 elements. Subtracting the one ak_encode_* call leaves 1, 2 and 7
+ak_elem_ResultRaw calls, which is exactly ceil(n/150). The Rust host chunks its
+run at 150 elements; this slice's host hands the whole run over in one call.
+
+Set AK_CHUNK=150 and this slice reproduces the Rust slice's counts TO THE DIGIT:
+
+---------- AK_CHUNK=0 ----------
+                                                      host      core (R5)
+payload  elements    bytes  encode  decode  value   fwd  rev    fwd   rev  note
+--------------------------------------------------------------------------------------------
+  chunk = the whole run elements per ak_elem_* call
+
+P1.1            4      858  ok      ok      ok        5    4      4     2  
+P1.2         1000   218121  ok      ok      ok        5    4      4     2  
+P1.3          300      605  ok      ok      ok        5    4      4     2  absent path
+  host is this binding's own tally of calls it issued. Useful for checking the
+    binding does what it thinks, and NOT comparable with any other slice.
+
+  The host tally is what this slice reported before, and reporting it against
+  the Rust slice's number was comparing two different quantities.
+  They are CONSTANT in the element count, in BOTH directions, whether the
+  payload carries 4 elements or 1,000. The 5 and 4 cover an encode, a decode
+  and a re-encode:
+    encode     2 forward (ak_encode_*, ak_elem_*)  1 reverse (loop_results)
+    decode     1 forward (ak_decode_*)             2 reverse (apply, add_results)
+  ResultRaw is a LEAF, so encode hands the whole run over in one ak_elem_*
+  call and decode gets it back in one add_results. That is ABI v1's batching
+  predicate doing the thing it exists for, on .NET.
+
+0 failure(s)
+---------- AK_CHUNK=150 ----------
+                                                      host      core (R5)
+payload  elements    bytes  encode  decode  value   fwd  rev    fwd   rev  note
+--------------------------------------------------------------------------------------------
+  chunk = 150 elements per ak_elem_* call
+
+P1.1            4      858  ok      ok      ok        5    4      4     2  
+P1.2         1000   218121  ok      ok      ok       17    4     16     2  
+P1.3          300      605  ok      ok      ok        7    4      6     2  absent path
+  host is this binding's own tally of calls it issued. Useful for checking the
+    binding does what it thinks, and NOT comparable with any other slice.
+
+  The host tally is what this slice reported before, and reporting it against
+  the Rust slice's number was comparing two different quantities.
+  They are CONSTANT in the element count, in BOTH directions, whether the
+  payload carries 4 elements or 1,000. The 5 and 4 cover an encode, a decode
+  and a re-encode:
+    encode     2 forward (ak_encode_*, ak_elem_*)  1 reverse (loop_results)
+    decode     1 forward (ak_decode_*)             2 reverse (apply, add_results)
+  ResultRaw is a LEAF, so encode hands the whole run over in one ak_elem_*
+  call and decode gets it back in one add_results. That is ABI v1's batching
+  predicate doing the thing it exists for, on .NET.
+
+0 failure(s)
+
+The core columns above cover an encode AND a re-encode, so halve them for one
+encode. At AK_CHUNK=150 that is forward 2 / 8 / 3 for P1.1 / P1.2 / P1.3 against
+the Rust slice's 2 / 8 / 3, and reverse 1 / 1 / 1 against its 1 / 1 / 1.
+
+WHAT THE EXTRA CROSSINGS COST ON .NET: nothing measurable.
+P1.2 encode, non-counting core, same process class:
+  AK_CHUNK=0    156.83 ns/element   2 forward crossings
+  AK_CHUNK=150  157.95 ns/element   8 forward crossings
+0.7 percent apart, inside the run-to-run spread. Six extra crossings over a 218 KB
+payload is about 60 ns in total at .NET's 7.5-12 ns, which is 0.06 ns/element.
+
+The reading that matters: "make the crossings fewer, not cheaper" is a rule about
+crossings that scale with FIELD COUNT -- the drafted ABI's 15,137 to decode a
+thousand rows -- and not about the difference between 2 and 8. Once the batching
+predicate admits a message, chunk size is free on .NET and the host should pick it
+for memory rather than for crossings: the whole-run form needs a group array
+proportional to the element count (1,000 x 200 bytes = 200 KB on P1.2), the
+chunked form needs 150 x 200 = 30 KB whatever the payload.

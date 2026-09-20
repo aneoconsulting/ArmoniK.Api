@@ -44,6 +44,24 @@ hdr() {
   ./gen/audit_tracked.sh
   echo "audit_tracked.sh exit $?"
   echo
+  echo "===== utf8.sh: the decode policy's validator, against an independent oracle ====="
+  # Four implementations of one predicate, every 1-, 2- and 3-byte string exhaustively,
+  # plus a structured 4-byte sweep and every named malformed class. 17.8 million checks.
+  bash gen/utf8.sh
+  echo "utf8.sh exit $?"
+  echo
+  echo "===== contentsets.sh: SHAPES.md's three sets, on whole payloads ====="
+  # Correctness per set first: no manifest oracle covers latin1 or wide, so every arm is
+  # checked against the INCUMBENT, which is itself anchored to manifest.json on ascii.
+  bash gen/contentsets.sh
+  echo "contentsets.sh exit $?"
+  echo
+  echo "===== concurrency.sh: ABI v1 obligation 12.5 ====="
+  # Two axes and four payload shapes, plus three PLANTED builds of the designs section 6
+  # refused, each of which must fail.
+  bash gen/concurrency.sh
+  echo "concurrency.sh exit $?"
+  echo
   echo "===== one_core.sh: R0, and the proof that R0 can fail ====="
   # The shared core's gate, not this slice's, but it runs here because this is where the
   # gates run and a rule checked by nobody is a rule that gets broken again. --selftest
@@ -61,6 +79,28 @@ hdr() {
     echo
   done
 } > "$L/conformance.log" 2>&1
+
+# C24: the GROUP skip. Its own log, because it is the one decode path a corpus generated
+# from the schema that reads it can never reach, and because two PLANTED builds have to be
+# seen failing for the test to mean anything.
+{
+  hdr "cpp slice: ak::Dec::skip over the deprecated GROUP form (C24)"
+  bash gen/groupskip.sh
+  echo "groupskip.sh exit $?"
+} > "$L/groupskip.log" 2>&1
+
+# W8: the conformance corpus. The oracle byte identity against a schema-generated manifest
+# cannot be. Target level and the C++11 floor, because the floor is a correctness gate.
+{
+  hdr "cpp slice: the conformance corpus (W8)"
+  echo "===== C++17 target, shared ====="
+  python3 gen/corpus.py build/corpus_a17_shared
+  echo "corpus.py (a17) exit $?"
+  echo
+  echo "===== C++11 floor, shared ====="
+  python3 gen/corpus.py build/corpus_c11_shared
+  echo "corpus.py (c11) exit $?"
+} > "$L/corpus.log" 2>&1
 
 ./gen/boundary.sh   > "$L/boundary.log" 2>&1
 ./gen/odr_check.sh  > "$L/odr.log" 2>&1
