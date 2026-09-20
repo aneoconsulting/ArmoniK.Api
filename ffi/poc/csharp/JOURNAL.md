@@ -1024,3 +1024,84 @@ published claim of mine:
 touched moved up to nine percent between sittings on this container. A
 within-process ratio is sound; comparing one stage's with another's is not, past
 the first digit.
+
+### 37. Decision 3 is free, and the reason is better than the number
+
+The rejecting UTF-8 decode policy closes all 31 of the corpus's open `T-dec-*`
+vectors and costs nothing measurable: -4.2% to +3.6% across four string-heavy
+payloads, inside a control that itself moved 4.6% between the two builds.
+
+Built as a third build rather than a runtime flag, for the same reason the floor
+is one: a flag puts a branch on both arms' hot path and stops the JIT
+devirtualising `Encoding.UTF8`, which would charge the lossy arm for the strict
+one's existence. Each build carries the incumbent as its in-process control, so
+the two are compared through that control and not across sittings.
+
+**Why it is free is the part worth carrying.** `Encoding.UTF8` already
+validates -- it has to, in order to know where to put U+FFFD. The scanning is
+identical and only the `DecoderFallback` differs. So on .NET the argument
+against decision 3's rejecting policy cannot be performance; it is a behaviour
+change, and `Google.Protobuf` substituting is what every C# consumer sees today.
+That is a judgement this slice can price and cannot make.
+
+### 38. The biggest number in the slice is one I nearly did not measure
+
+ABI v1 decision 13 is a borrowed string view, and STATE has carried it as "a
+strong candidate, the largest lever on a codec that is 174/413 strings" since
+stage 1 without a number. Redesigning the facade's public surface around one is
+a large change with a lifetime rule attached, and I was going to leave it named.
+
+Bounding it first cost an afternoon. A decode arm that does everything and
+materialises no string at all is the ceiling -- R2's floor-arm logic applied to
+a design question rather than to a measurement.
+
+**42 to 62 percent of a decode is string materialisation.** P4.1 is 0.383,
+P1.2 0.438, P2.2 0.466, P3.1 0.582.
+
+For scale: every codec difference this slice has measured -- managed against
+incumbent, push against pull, core-ffi against managed, staged against UTF-16 --
+lives inside a band of about thirty percent. The strings are half the decode.
+It is a ceiling and not a forecast, and it still says decision 13 is a larger
+lever than decision 3, decision 2, the push/pull question and the codec choice
+combined.
+
+The lesson is the cheap one: a ceiling is not an implementation and costs a
+fraction of one, and I had been treating "this needs a facade redesign" as a
+reason not to know the size of the prize.
+
+### 39. Retiring an item by measuring it, which is the same win as building it
+
+Stage 15 named a `Dec` over `ReadOnlySequence` as a real improvement the RPC arm
+had identified: gRPC hands the deserializer a segmented body and the facade's
+reader is over `byte[]`, so every call flattens.
+
+Instrumented, the first half is worse than I thought and the second half makes
+it moot. gRPC delivered a segmented body on **every single call** -- 3,960 of
+3,960, the single-segment fast path never taken at this payload size. And the
+flatten is 540 KB, which this slice's own `memcpy floor` arm already measures at
+12.8 us, against about 4,500 us of CPU per call. **Under 0.3 percent.**
+
+A segmented reader means every read handling a boundary, which risks the
+single-segment path every in-process arm in this slice uses, to recover a third
+of a percent of an RPC. So the item is retired rather than built, and the thing
+that retired it was two counters and an arm that already existed.
+
+### 40. The list, and what is actually left
+
+Every item is now either done, bounded, retired with evidence, or named as not
+this slice's:
+
+  * **done**: core-ffi on every shape, both decode families, the corpus, the
+    RPC arm, the two string forms, the crossing reconciliation, decision 3;
+  * **bounded**: decision 13, at 42-62 percent of a decode, and decision 9, at
+    28-71 percent of an encode;
+  * **retired with evidence**: the `ReadOnlySequence` reader;
+  * **not this slice's**: decision 9's implementation is an ABI addition and
+    `ffi/CLAUDE.md` routes a change to existing behaviour through the
+    aggregating session;
+  * **left, and it is one thing**: streaming, which design/SHAPES.md says is
+    where the concurrency invariant actually bites and which no slice in the
+    branch has touched.
+
+I am not going to invent an eleventh item. An idle session is cheaper than a
+fabricated one, and the branch is close to the report.

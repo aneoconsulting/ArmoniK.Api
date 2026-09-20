@@ -70,4 +70,13 @@
           CopyToOutputDirectory="PreserveNewest" Link="libak_core.so" />
   </ItemGroup>
 
+
+  <!-- ABI v1 open decision 3's REJECTING decode policy, as a second build for
+       the same reason the floor is one: a runtime flag would put a branch on
+       both arms' hot path. Run in the same sitting, each with the incumbent as
+       its in-process control. -->
+  <PropertyGroup Condition="'$(AkStrict)' == 'true'">
+    <DefineConstants>$(DefineConstants);AK_STRICT</DefineConstants>
+  </PropertyGroup>
+
 </Project>
