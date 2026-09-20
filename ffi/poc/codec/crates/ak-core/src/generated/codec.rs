@@ -2377,7 +2377,7 @@ unsafe fn dec_empty_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_E
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
         if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
-            _ => { d.skip(wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
+            _ => { d.skip(tag, wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
         }
     }
     out
@@ -2408,7 +2408,7 @@ unsafe fn dec_pair_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Pa
                 if cur != 0 { flush!(); cur = 0; }
                 out.value = d.varint() as i32;
             }
-            _ => { d.skip(wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
+            _ => { d.skip(tag, wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
         }
     }
     out
@@ -2489,7 +2489,7 @@ unsafe fn dec_probe_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_P
                 // Last one wins: a later member replaces the case.
                 out.body_case = 14;
             }
-            _ => { d.skip(wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
+            _ => { d.skip(tag, wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
         }
     }
     out
@@ -2550,7 +2550,7 @@ unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_d
                             if cur != 0 { flush!(); cur = 0; }
                             out.created_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -2575,7 +2575,7 @@ unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_d
                             if cur != 0 { flush!(); cur = 0; }
                             out.completed_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -2603,7 +2603,7 @@ unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_d
                 if cur != 0 { flush!(); cur = 0; }
                 out.manual_deletion = (d.varint() != 0) as u8;
             }
-            _ => { d.skip(wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
+            _ => { d.skip(tag, wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
         }
     }
     out
@@ -2635,7 +2635,7 @@ unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, unk: *mut
                 let (off, n) = d.len_body();
                 out.value = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
-            _ => { d.skip(wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
+            _ => { d.skip(tag, wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
         }
     }
     out
@@ -2665,7 +2665,7 @@ unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_df
                 if cur != 0 { flush!(); cur = 0; }
                 out.nanos = d.varint() as i32;
             }
-            _ => { d.skip(wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
+            _ => { d.skip(tag, wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
         }
     }
     out
@@ -2926,7 +2926,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                                         if cur != 0 { flush!(); cur = 0; }
                                         out.options.max_duration.nanos = cd.varint() as i32;
                                     }
-                                    _ => cd.skip(wire),
+                                    _ => cd.skip(tag, wire),
                                 }
                             }
                             if cd.err != 0 { cd.err = cd.err; }
@@ -2969,7 +2969,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                             let (off, n) = cd.len_body();
                             out.options.engine_type = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -2994,7 +2994,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                             if cur != 0 { flush!(); cur = 0; }
                             out.created_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -3019,7 +3019,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                             if cur != 0 { flush!(); cur = 0; }
                             out.submitted_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -3044,7 +3044,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                             if cur != 0 { flush!(); cur = 0; }
                             out.started_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -3069,7 +3069,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                             if cur != 0 { flush!(); cur = 0; }
                             out.ended_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -3094,7 +3094,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                             if cur != 0 { flush!(); cur = 0; }
                             out.pod_ttl.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -3120,7 +3120,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                             let (off, n) = cd.len_body();
                             out.output.error = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -3150,7 +3150,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                             if cur != 0 { flush!(); cur = 0; }
                             out.received_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -3175,7 +3175,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                             if cur != 0 { flush!(); cur = 0; }
                             out.acquired_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -3200,7 +3200,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                             if cur != 0 { flush!(); cur = 0; }
                             out.creation_to_end_duration.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -3225,7 +3225,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                             if cur != 0 { flush!(); cur = 0; }
                             out.processing_to_end_duration.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -3255,7 +3255,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                             if cur != 0 { flush!(); cur = 0; }
                             out.received_to_end_duration.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -3280,7 +3280,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                             if cur != 0 { flush!(); cur = 0; }
                             out.processed_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -3305,7 +3305,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                             if cur != 0 { flush!(); cur = 0; }
                             out.fetched_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -3320,7 +3320,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 let (off, n) = d.len_body();
                 out.created_by = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
     flush!();
@@ -3443,7 +3443,7 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                                         if cur != 0 { flush!(); cur = 0; }
                                         out.options.max_duration.nanos = cd.varint() as i32;
                                     }
-                                    _ => cd.skip(wire),
+                                    _ => cd.skip(tag, wire),
                                 }
                             }
                             if cd.err != 0 { cd.err = cd.err; }
@@ -3486,7 +3486,7 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                             let (off, n) = cd.len_body();
                             out.options.engine_type = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -3515,7 +3515,7 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                             if cur != 0 { flush!(); cur = 0; }
                             out.created_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -3534,7 +3534,7 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                 if cur != 0 { flush!(); cur = 0; }
                 out.count_data_dependencies = d.varint() as i64;
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
     flush!();
@@ -3795,7 +3795,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                 a_statuses[n_statuses].write(d.varint() as i32);
                 n_statuses += 1;
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
     flush!();
@@ -3888,7 +3888,7 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 out.total = d.varint() as i32;
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
     flush!();
@@ -3956,7 +3956,7 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 out.total = d.varint() as i32;
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
     flush!();
@@ -4045,7 +4045,7 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
                 if es.err != 0 { d.err = es.err; }
                 n_probes += 1;
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
     flush!();
@@ -4105,7 +4105,7 @@ pub unsafe extern "C" fn ak_decode_ListTaskSummaryResponse(
                 dec_list_task_summary_response_tasks_element(ctx, dcx, obj, vt, &mut sub, base0 + off);
                 if sub.err != 0 { d.err = sub.err; }
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
     flush!();
@@ -4185,12 +4185,12 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
                             let (off, n) = cd.len_body();
                             out.upload.data_chunk = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
     flush!();
@@ -4250,7 +4250,7 @@ pub unsafe extern "C" fn ak_decode_ListMetricsResponse(
                 dec_list_metrics_response_batches_element(ctx, dcx, obj, vt, &mut sub, base0 + off);
                 if sub.err != 0 { d.err = sub.err; }
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
     flush!();
@@ -4375,7 +4375,7 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
                 if es.err != 0 { d.err = es.err; }
                 n_right += 1;
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
     flush!();
@@ -4677,7 +4677,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                                         if cur != 0 { flush!(); cur = 0; }
                                         out.options.max_duration.nanos = cd.varint() as i32;
                                     }
-                                    _ => cd.skip(wire),
+                                    _ => cd.skip(tag, wire),
                                 }
                             }
                             if cd.err != 0 { cd.err = cd.err; }
@@ -4720,7 +4720,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                             let (off, n) = cd.len_body();
                             out.options.engine_type = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -4745,7 +4745,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                             if cur != 0 { flush!(); cur = 0; }
                             out.created_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -4770,7 +4770,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                             if cur != 0 { flush!(); cur = 0; }
                             out.submitted_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -4795,7 +4795,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                             if cur != 0 { flush!(); cur = 0; }
                             out.started_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -4820,7 +4820,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                             if cur != 0 { flush!(); cur = 0; }
                             out.ended_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -4845,7 +4845,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                             if cur != 0 { flush!(); cur = 0; }
                             out.pod_ttl.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -4871,7 +4871,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                             let (off, n) = cd.len_body();
                             out.output.error = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -4901,7 +4901,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                             if cur != 0 { flush!(); cur = 0; }
                             out.received_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -4926,7 +4926,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                             if cur != 0 { flush!(); cur = 0; }
                             out.acquired_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -4951,7 +4951,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                             if cur != 0 { flush!(); cur = 0; }
                             out.creation_to_end_duration.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -4976,7 +4976,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                             if cur != 0 { flush!(); cur = 0; }
                             out.processing_to_end_duration.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -5006,7 +5006,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                             if cur != 0 { flush!(); cur = 0; }
                             out.received_to_end_duration.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -5031,7 +5031,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                             if cur != 0 { flush!(); cur = 0; }
                             out.processed_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -5056,7 +5056,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                             if cur != 0 { flush!(); cur = 0; }
                             out.fetched_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -5071,7 +5071,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 let (off, n) = d.len_body();
                 out.created_by = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
     flush!();
@@ -5196,7 +5196,7 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                                         if cur != 0 { flush!(); cur = 0; }
                                         out.options.max_duration.nanos = cd.varint() as i32;
                                     }
-                                    _ => cd.skip(wire),
+                                    _ => cd.skip(tag, wire),
                                 }
                             }
                             if cd.err != 0 { cd.err = cd.err; }
@@ -5239,7 +5239,7 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                             let (off, n) = cd.len_body();
                             out.options.engine_type = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -5268,7 +5268,7 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                             if cur != 0 { flush!(); cur = 0; }
                             out.created_at.nanos = cd.varint() as i32;
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -5287,7 +5287,7 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                 if cur != 0 { flush!(); cur = 0; }
                 out.count_data_dependencies = d.varint() as i64;
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
     flush!();
@@ -5574,7 +5574,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                 a_statuses[n_statuses].write(d.varint() as i32);
                 n_statuses += 1;
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
     flush!();
@@ -5677,7 +5677,7 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
             // candidate and pull is a family, and pricing one through the other
             // would make neither answerable. Unknown fields are skipped here,
             // which is what the default push path does too.
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
     flush!();
@@ -5749,7 +5749,7 @@ pub unsafe extern "C" fn ak_parse_ListTasksDetailedResponse(
             // candidate and pull is a family, and pricing one through the other
             // would make neither answerable. Unknown fields are skipped here,
             // which is what the default push path does too.
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
     flush!();
@@ -5847,7 +5847,7 @@ pub unsafe extern "C" fn ak_parse_ListProbeResponse(
             // candidate and pull is a family, and pricing one through the other
             // would make neither answerable. Unknown fields are skipped here,
             // which is what the default push path does too.
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
     flush!();
@@ -5911,7 +5911,7 @@ pub unsafe extern "C" fn ak_parse_ListTaskSummaryResponse(
             // candidate and pull is a family, and pricing one through the other
             // would make neither answerable. Unknown fields are skipped here,
             // which is what the default push path does too.
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
     flush!();
@@ -5991,7 +5991,7 @@ pub unsafe extern "C" fn ak_parse_UploadResultDataMessage(
                             let (off, n) = cd.len_body();
                             out.upload.data_chunk = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                         }
-                        _ => cd.skip(wire),
+                        _ => cd.skip(tag, wire),
                     }
                 }
                 if cd.err != 0 { d.err = cd.err; }
@@ -6000,7 +6000,7 @@ pub unsafe extern "C" fn ak_parse_UploadResultDataMessage(
             // candidate and pull is a family, and pricing one through the other
             // would make neither answerable. Unknown fields are skipped here,
             // which is what the default push path does too.
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
     flush!();
@@ -6064,7 +6064,7 @@ pub unsafe extern "C" fn ak_parse_ListMetricsResponse(
             // candidate and pull is a family, and pricing one through the other
             // would make neither answerable. Unknown fields are skipped here,
             // which is what the default push path does too.
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
     flush!();
@@ -6203,7 +6203,7 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
             // candidate and pull is a family, and pricing one through the other
             // would make neither answerable. Unknown fields are skipped here,
             // which is what the default push path does too.
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }
+            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
     flush!();

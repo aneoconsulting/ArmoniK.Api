@@ -189,3 +189,21 @@ it says of P6.1 that "the managed arm allocates MORE (1.31) and is still faster"
 where the table and the preceding paragraph both correctly report P6.1 as the one
 **loss** at 1.019 to 1.031. The table is right. Flagged to the slice rather than
 edited here, but a reader of the handoff should not be able to find both sentences.
+
+## The group-skip defect, carried here and not yet fixed
+
+`Facade/Wire.cs`'s `Skip(int wire)` has cases for the four wire types the schema
+produces and sends everything else to `ErrMalformed`, so an unknown field of the
+deprecated GROUP form is rejected where `Google.Protobuf` accepts it. The shared
+core had the identical hole — found by the python slice's corpus run, fixed there —
+and the C++ slice's `rt.h` still has it; the java slice's `Dec.skip` is the only
+host-side one that was already right, field-number match included.
+
+The fix is not "add case 3": a group carries no length, so the skipper recurses to
+an `END_GROUP` whose field number matches the one that opened it, with a depth bound.
+Counting depth instead accepts `X-group-mismatched-end` and mis-nests everything
+after it. `MapForms.Skip` in the harness has the same hole and matters less, being a
+harness helper rather than the facade's decoder.
+
+Byte identity against the manifest cannot find this, because proto3 cannot express a
+group. Becoming a corpus consumer is what would have.
