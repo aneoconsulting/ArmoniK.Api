@@ -103,17 +103,28 @@ uint64_t h64(const std::string &path, int idx) {
   return v;
 }
 
+namespace {
+ContentSet g_set = kAscii;
+}
+
+ContentSet content_set() { return g_set; }
+void set_content_set(ContentSet cs) { g_set = cs; }
+
+// The three STRING rules run their result through the current content set. On kAscii
+// `recode` returns its input unchanged, so the manifest's bytes are unaffected and every
+// gate in this slice sees exactly what it saw before.
 std::string guid(const std::string &path, int idx) {
   std::string hx = sha256_hex(key_of(path, idx));
-  return hx.substr(0, 8) + "-" + hx.substr(8, 4) + "-" + hx.substr(12, 4) + "-" +
-         hx.substr(16, 4) + "-" + hx.substr(20, 12);
+  return recode(hx.substr(0, 8) + "-" + hx.substr(8, 4) + "-" + hx.substr(12, 4) + "-" +
+                    hx.substr(16, 4) + "-" + hx.substr(20, 12),
+                g_set);
 }
 
 std::string word(const std::string &path, int idx) {
   uint64_t h = h64(path, idx);
   char b[16];
   std::snprintf(b, sizeof(b), "%u", (unsigned)(h % 1000));
-  return std::string(VOCAB[h % 16]) + b;
+  return recode(std::string(VOCAB[h % 16]) + b, g_set);
 }
 
 std::string sentence(const std::string &path, int idx) {
@@ -123,7 +134,7 @@ std::string sentence(const std::string &path, int idx) {
     if (i) out += " ";
     out += VOCAB[(h >> (4 * i)) % 16];
   }
-  return out;
+  return recode(out, g_set);
 }
 
 std::string blob(const std::string &path, int idx, std::size_t n) {

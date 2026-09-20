@@ -50,6 +50,12 @@ hdr() {
   bash gen/utf8.sh
   echo "utf8.sh exit $?"
   echo
+  echo "===== contentsets.sh: SHAPES.md's three sets, on whole payloads ====="
+  # Correctness per set first: no manifest oracle covers latin1 or wide, so every arm is
+  # checked against the INCUMBENT, which is itself anchored to manifest.json on ascii.
+  bash gen/contentsets.sh
+  echo "contentsets.sh exit $?"
+  echo
   echo "===== concurrency.sh: ABI v1 obligation 12.5 ====="
   # Two axes and four payload shapes, plus three PLANTED builds of the designs section 6
   # refused, each of which must fail.

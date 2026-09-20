@@ -1,0 +1,143 @@
+# design/SHAPES.md's content sets, on whole payloads
+#   date            2026-09-20T09:00:33Z
+#   machine         Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
+#   compiler        g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, -O2 -g -DNDEBUG
+#   incumbent       protobuf C++ 3.21.12, SerializeToString / ParseFromString
+#   core            THE shared ak-core at ffi/poc/codec (R0), cdylib, AK_UTF8=1
+#   oracle          the INCUMBENT arm per set, itself anchored to manifest.json on ascii
+#   commit          05317db8 + the working tree this log was taken from
+
+What C++ measures here is NOT what a managed slice measures. A std::string is already
+UTF-8, so there is no narrowing transcoder and nothing can fail to be representable:
+these rows price WIDTH and VALIDATION, like the rust slice's, and must not be read
+across against a .NET or JVM column that prices a transcoder (SHAPES.md).
+
+== the content sets, on whole payloads ==
+-std=201703  impl=target  linkage=shared  rounds=9
+protobuf 3021012.  Oracle: the INCUMBENT arm, anchored to manifest.json on ascii
+C++ holds UTF-8 already, so these rows price WIDTH AND VALIDATION, never a
+narrowing transcoder. Not comparable with a managed slice's (SHAPES.md).
+
+-- byte identity, every arm against the incumbent, every set --
+
+  80 checks, 0 failures
+
+-- wire size: what the sets cost in bytes --
+  payload      ascii B     latin1 B       wide B   latin1/a     wide/a
+  P1.2         218121       370110       522099      1.697      2.394
+  P2.2         540422       944454      1348486      1.748      2.495
+  P3.1          12097        20658        29383      1.708      2.429
+  P4.1          65321       110170       155019      1.687      2.373
+  P6.1         123354       130554       137754      1.058      1.117
+
+-- encode and decode, per set, ffi against the incumbent IN THE SAME SET --
+  Each ratio has its own denominator: comparing a wide-set core against an
+  ascii-set protobuf would be comparing two different messages.
+
+  payload set       pb enc ns  ffi enc ns     enc   ffi-valtc   valtc   pb dec ns  ffi dec ns     dec
+  P1.2   ascii      127391.3    125912.7   0.988    150187.7   1.179    669741.7    439526.7   0.656
+  P1.2   latin1     781453.3    130687.3   0.167    329954.0   0.422   1381721.0    926677.3   0.671
+  P1.2   wide      1161246.0    132755.7   0.114    423370.0   0.365   1775730.7    968834.7   0.546
+  P2.2   ascii      588293.7    450819.3   0.766    613538.0   1.043   2120646.7   1594833.7   0.752
+  P2.2   latin1    2220046.3    490799.7   0.221   1063514.0   0.479   4150005.0   3220247.0   0.776
+  P2.2   wide      3237619.7    516828.0   0.160   1361842.7   0.421   5198755.0   3370226.0   0.648
+  P3.1   ascii        9330.7     10111.7   1.084     12959.3   1.389     48382.3     32578.7   0.673
+  P3.1   latin1      44300.0     10526.0   0.238     24404.0   0.551     85231.3     62416.0   0.732
+  P3.1   wide        62806.7     11307.0   0.180     31716.3   0.505    105669.0     67608.7   0.640
+  P4.1   ascii      106913.7     67053.7   0.627    106348.3   0.995    320478.0    249929.0   0.780
+  P4.1   latin1     240013.7     68248.7   0.284    150202.3   0.626    542820.7    478337.3   0.881
+  P4.1   wide       340705.7     64388.7   0.189    180626.0   0.530    659541.3    506100.3   0.767
+  P6.1   ascii       71226.0    119816.3   1.682    117561.3   1.651    285499.0    184777.0   0.647
+  P6.1   latin1      97803.3    113730.3   1.163    125902.7   1.287    297438.3    200865.3   0.675
+  P6.1   wide       116061.3    118957.3   1.025    129177.0   1.113    323550.3    204539.7   0.632
+
+-- and the same ratios against the ASCII row of the same arm --
+  This is the number SHAPES.md's sentence is about: how much of a published
+  ratio is a fact about the content set it was taken on.
+
+  payload set        ffi enc  valtc enc     pb enc    ffi dec     pb dec
+  P1.2   latin1       1.038      2.197      6.134      2.108      2.063
+  P1.2   wide         1.054      2.819      9.116      2.204      2.651
+  P2.2   latin1       1.089      1.733      3.774      2.019      1.957
+  P2.2   wide         1.146      2.220      5.503      2.113      2.451
+  P3.1   latin1       1.041      1.883      4.748      1.916      1.762
+  P3.1   wide         1.118      2.447      6.731      2.075      2.184
+  P4.1   latin1       1.018      1.412      2.245      1.914      1.694
+  P4.1   wide         0.960      1.698      3.187      2.025      2.058
+  P6.1   latin1       0.949      1.071      1.373      1.087      1.042
+  P6.1   wide         0.993      1.099      1.629      1.107      1.133
+
+================================================================================
+WHAT THIS MEASURED
+================================================================================
+
+1. Correctness first, and per set. 80 checks, 0 failures: on each of the three sets,
+   native, ffi and ffi-hosttc are byte-identical to the incumbent, the decode round
+   trip returns the same bytes, and the incumbent parses its own output. On ascii the
+   incumbent is checked against manifest.json before it is used as the oracle for the
+   other two, so the oracle is anchored where anchoring is possible.
+
+2. Wire size. latin1 is 1.687 to 1.748 times ascii and wide is 2.373 to 2.495 times.
+   The rust slice published 1.70-1.75 and 2.39-2.50 from its own generator over the
+   same description, and the two agree to three digits. That is a cheap but real R1
+   check: two slices' value rules produce the same strings.
+
+3. THE ANSWER TO SHAPES.MD'S SENTENCE, and it is different for the two directions.
+
+   THE ENCODE RATIO IS ALMOST ENTIRELY A FACT ABOUT THE CONTENT SET.
+   P1.2 ffi/pb goes 0.988 (ascii) -> 0.167 (latin1) -> 0.114 (wide). Every
+   string-bearing payload does the same thing. The published C++ encode column is an
+   ASCII column and nothing else.
+
+   THE DECODE RATIO IS NOT. P1.2 ffi/pb goes 0.656 -> 0.671 -> 0.546, and no payload
+   moves by more than about 0.15 across all three sets. The decode column survives
+   being read without its content set; the encode column does not.
+
+4. WHY, and this is the part that keeps the encode number honest. protobuf C++
+   VALIDATES UTF-8 WHEN IT SERIALISES a `string` -- verified in the generated code,
+   not inferred: shapes.pb.cc calls WireFormatLite::VerifyUtf8String(..., SERIALIZE)
+   unconditionally on every string field, 37 call sites. ABI v1 says the core does
+   not, because the encoder's check bought nothing and the parser cannot trust the
+   wire anyway. So most of that column is a check the core SKIPS, and reporting
+   `ffi` against `pb` alone on these sets would publish a policy difference as codec
+   speed.
+
+   The like-for-like row is `ffi-valtc`, the core's own validating transcoder:
+
+     P1.2   ascii  valtc/pb 1.179   latin1 0.422   wide 0.365
+     P2.2   ascii  valtc/pb 1.043   latin1 0.479   wide 0.421
+     P3.1   ascii  valtc/pb 1.389   latin1 0.551   wide 0.505
+     P4.1   ascii  valtc/pb 0.995   latin1 0.626   wide 0.530
+
+   So even doing the same work, the core is at parity or slightly worse on ascii and
+   roughly TWICE AS FAST on latin1 and wide. That is a statement about the two
+   validators and it agrees with logs/cpp/utf8.log measuring them directly: protobuf's
+   IsStructurallyValidUTF8 is 2.16 to 2.24 ns/byte on those sets where this slice's
+   lead-byte table is 1.19 to 1.74.
+
+   Growth against each arm's OWN ascii row, which separates the three effects:
+
+     arm         P1.2 latin1   P1.2 wide    what grows
+     ffi              1.038       1.054     width only -- the core does not validate
+     ffi-valtc        2.197       2.819     width + the core's validator
+     pb               6.134       9.116     width + protobuf's validator + its own
+                                            per-string costs
+
+5. P6.1 is the control and it behaves like one. M6 is packed scalars with one string
+   per batch: its wire size moves 1.058 and 1.117 where the others move 1.7 and 2.4,
+   and its ffi encode moves 0.95 to 0.99. A table where every payload moved by the
+   same factor would be measuring the harness.
+
+WHAT IS NOT MEASURED
+
+  * The floor. These are data sets, not language levels, and the C++11 arm compiles
+    the same traversal; nothing here would distinguish them, so there is no c11 build
+    of this arm.
+  * P5.x. M5 is bulk `bytes` and a content set says what is in the STRINGS, so there
+    is nothing for it to change. Deliberately absent rather than silently missing.
+  * A no-validation protobuf. protobuf C++ offers no supported way to turn its
+    serialize-side check off, and R14 says the baseline is what production runs, so
+    the `pb` column keeps it and `ffi-valtc` is the row that isolates it.
+  * Anything about a narrowing transcoder, which is the thing these sets price in a
+    managed host and cannot price here.
+
