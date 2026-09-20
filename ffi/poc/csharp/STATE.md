@@ -10,7 +10,7 @@ merges it. Everything the report needs from this slice is here.
 
 | | |
 |---|---|
-| **Status** | **the managed control is complete** on all 16 payloads and all 7 shapes, gated on three runtimes, **and this slice is now a `ffi/corpus` consumer** (336 vectors, three arms). **`core-ffi` is built and gated for M1 and M2**, encode and decode; M3 to M7 are not |
+| **Status** | **the managed control is complete** on all 16 payloads and all 7 shapes, gated on three runtimes; **this slice is a `ffi/corpus` consumer** (336 vectors, three arms); and **`core-ffi` covers every shape** -- all 16 payloads, encode, push decode and PULL decode, with R5 checked against the core's own counters on every row |
 | **Blocked on** | nothing |
 | **Floor** | netstandard2.0 (builds, passes) and .NET Framework 4.8 on Mono 6.8.0.105 (builds, passes, and is timed as arm c) |
 | **Target** | .NET 8.0.31, SDK 8.0.131 |
@@ -155,7 +155,9 @@ approach.
 | `memcpy floor` | `Buffer.BlockCopy` of the payload's own bytes: R2's bound | yes |
 | `gp-parse` | `Parser.ParseFrom(ReadOnlySpan<byte>)` | yes |
 | `managed-parse` | `Codec.Read` into a fresh facade graph | yes |
-| **`core-ffi`** | **the amended ABI, over the ONE core at `ffi/poc/codec` (R0)** | **YES for M1 and M2, encode and decode, on arm a. NOT on arms b or c**, see below. M3 to M7 NOT built |
+| **`core-ffi`** | **the amended ABI, over the ONE core at `ffi/poc/codec` (R0)**, push decode | **YES for every shape**, all 16 payloads, on arm a. **NOT on arms b or c**, see below |
+| **`core-ffi pull`** | ABI v1 7.1's PULL family: `ak_parse_*` writes a record stream and the host replays it, so the decode makes **no reverse call at all** | yes, every shape |
+| **`core-ffi utf16`** | the other string form of ABI v1 section 4: the host hands over UTF-16 and `ak_tc_utf16` converts, against staging UTF-8 and letting `ak_tc_bytes` copy. Both transcoders are pointers INTO the core, so neither crosses | yes, every shape |
 | **`core-ffi fill`** | the host-side half of the encode arm alone: zero the by-value group, stage every string, build the run arrays, stop before calling the codec. **The difference between it and `core-ffi` is the codec plus every crossing, measured rather than subtracted** | yes, M1 and M2 |
 
 ## What exists
@@ -1091,14 +1093,12 @@ it, and the first item is much the largest.
    **`core-ffi` for M3 to M7 is what remains.** M3 is the oneof and explicit
    presence, and the ABI half of both of this slice's two named gaps lives
    there.
-2. **A PULL decode arm (ABI v1 7.1), and it is now ahead of the sparse fill.**
-   Stage 11 supplies the reason from inside this slice rather than borrowing
-   it: M1 decode is 1 upcall per response and beats the managed control, M2
-   decode is 7.00 upcalls per element and ties it. design/ABI-v1.md decision 2
-   says pull REMOVES the upcalls and that four of five slices have only ever
-   measured push, so every decode figure in the branch is a push figure. The
-   codec already emits the family (`dec_*_pull`). **Nobody has bound one from a
-   managed host, and this slice now has the strongest reason to.**
+2. ~~A PULL decode arm.~~ **DONE** (`stage14-all-shapes-and-pull.log`): built,
+   gated on all 16 payloads with **zero reverse calls on every shape**, and
+   **faster than push everywhere** (0.69 to 0.97). It moves the composed arm
+   from just above to just below the managed control on decode. What remains of
+   it is the MEMORY half: the record buffer is proportional to the payload and
+   `ak_bdr_footprint` reports it, and this slice measured only the time.
 3. **Decision 9's sparse fill.** Stage 11 priced it directly rather than by
    elimination: the host-side group fill is **40 to 57 percent of the whole
    core-ffi encode on every payload of both shapes**, and subtracting it leaves
@@ -1119,9 +1119,14 @@ it, and the first item is much the largest.
    needs nothing: .NET hardcodes it at 64 MiB. Both established from the runtime
    source; see request 0 for the citations and for what `packages/csharp` itself
    does and does not set.
-5. **The host-transcoder string form**, to replace an arithmetic prediction
-   (5,000 reverse crossings for P1.2, 37 to 60 us at .NET's price) with a
-   measurement.
+5. ~~The host-transcoder string form.~~ **DONE, and the prediction was wrong
+   about the mechanism.** There is no host transcoder in the sense stage 8 meant:
+   `ak_tc_utf16` is a pointer INTO the core, like `ak_tc_bytes`, so neither form
+   costs a crossing and the "5,000 reverse crossings for P1.2" arithmetic was
+   about something that does not exist. Measured, the two forms are
+   indistinguishable (0.96 to 1.04 on every payload). **A true zero-copy form is
+   what remains**: hand the core a pointer into the managed heap, which on .NET
+   needs a pinned `GCHandle` per string and is probably a worse trade.
 6. ~~Reconcile the crossing-count convention with the Rust slice.~~ **DONE**:
    the conventions never differed, the gap was a 150-element chunk in the Rust
    host, and matching it reproduces their counts to the digit. Stage 11 makes
@@ -1197,6 +1202,7 @@ another container's. R13's one calibration run stands and is not to be tuned.
 | `ffi/logs/csharp/stage10-crossing-reconciliation.log` | the counting core (`--features count`), `ak_enc_counters` read from the host, at two chunk sizes | **R5's cross-slice reconciliation, resolved.** The conventions never differed; the Rust host chunks at 150 and this one did not. At `AK_CHUNK=150` this slice reproduces the Rust slice's 2/8/3 forward and 1/1/1 reverse exactly. Also prices the difference: nothing measurable, 0.7 percent |
 | `ffi/logs/csharp/stage9-shared-core.log` | the ONE core at `ffi/poc/codec`, default features so no `rpc`; loaded path confirmed with `LD_DEBUG=libs`; three arms gated, three timing processes, plus a pre-move control | **The W10 re-gate.** 152 checks 0 failures on all three arms; the core-ffi arm green on M1; **nothing moved** (worst 0.035 against a 0.026 floor on arms the core cannot touch). Records that arm c cannot carry the core-ffi arm and why, and that a stale binary reported a pass before the timestamp was checked |
 | `ffi/logs/csharp/stage8-core-ffi.log` | the arm through `libak_core.so`, shared-library linkage, generated binding, staged strings; correctness plus three timing processes | **The `core-ffi` arm, M1.** Byte identity and value identity on P1.1/P1.2/P1.3; layout agreement on 8 structs; crossings constant in the element count in both directions; the interface cost against the no-boundary control, including the two findings that point opposite ways -- the C ABI beating the managed codec on P1.2 decode, and the absent path collapsing on the total group fill |
+| `ffi/logs/csharp/stage14-all-shapes-and-pull.log` | the ABI declaration, layout probe and host binding all derived from one module; 42 structs and 28 vtables verified; a counting core for the crossing table; three interleaved processes | **core-ffi for every shape, and the PULL family on a managed host.** All 16 payloads gate on byte identity, round trip, value identity and R5. **Pull is faster than push everywhere** (0.69-0.97) and moves the composed arm from just above to just below the managed control on decode, which is design/ABI-v1.md decision 2's answer. **The two string forms are indistinguishable** (0.96-1.04): both transcoders are pointers into the core, so this slice's "a host transcoder costs a reverse crossing per string" was wrong about the mechanism. Corrects stage 8's M1 decode crossing count -- the run is NOT one callback, it is ceil(n/arena)+1 -- and establishes that cross-SITTING ratio comparisons on this container drift up to 9 percent |
 | `ffi/logs/csharp/stage13-corpus-consumer.log` | all 336 vectors of `ffi/corpus`, codec generated from `generated/corpus.proto` under rule 0 via a second generator front end, over the same `Enc`/`Dec`/`W` the measured arms use; three arms | **Corpus conformance, and four defects byte identity structurally could not reach.** Tag zero accepted; no recursion limit (ABI v1 decision 7, which the design says no slice exercises); minus zero dropped because the omit-when-zero rule compared value and not bits, where `Google.Protobuf` has the same hole and upb does not; plus stage 12's group skip. Prices the depth limit at nothing measurable. **And it settles the decode comparison**: `Google.Protobuf` does NOT validate UTF-8 either, so the managed decode margin is not bought by skipping validation. Wires the incumbent in as an independent oracle: accept/reject agrees on all 169 vectors where both have the type |
 | `ffi/logs/csharp/stage12-group-skip-and-d7-regate.log` | the core rebuilt with `poc/codec/gen/build.sh` after the D7 fix, loaded path and sha256 confirmed from `LD_DEBUG=libs`; all three arms re-gated | **The GROUP-skip defect, seen failing and then fixed.** `Dec.Skip` rejected three corpus vectors `Google.Protobuf` accepts, because it had no case for the deprecated group form. Carries the reverted-fix run (7 failures) as the proof the guard works, the field-number-match and depth-bound reasoning, and the statement that this slice is NOT a corpus consumer and what it would cost to become one. The D7 core itself moved nothing: 152 checks 0 failures on each arm |
 | `ffi/logs/csharp/stage11-core-ffi-m2.log` | the ONE core rebuilt after the branch merge (86 `ak_` exports, 800 KB, still no `rpc`); a second `--features count` build for the crossing table; correctness, three interleaved processes over M1 and M2 together, and four BenchmarkDotNet runs | **The `core-ffi` arm on M2, and two corrections.** All five M2 payloads gated first run; crossings 10.00 and 7.00 per task against the rust slice's 10.02 and 7.004, with R5 now CHECKED against the core's own counters rather than asserted. **The published ".NET's composed arm beats its own managed codec on decode" does not survive a non-leaf element**: 0.97 to 1.14, both harnesses straddling 1.0. **And the encode cost is the group fill, not the crossings**: a `core-ffi fill` arm puts the host-side half at 40 to 57 percent of the whole encode on every payload of both shapes, which also corrects stage 8's reading of P1.3 as an absent-path effect. Adds the R14 baseline arms to the BDN harness, which did not have them |

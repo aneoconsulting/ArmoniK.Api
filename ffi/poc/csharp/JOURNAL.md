@@ -794,3 +794,95 @@ Worth recording as a pattern rather than as two facts: both halves of the
 guidance were about the SHAPE of a stack's flow control, and both were right
 about some stack and wrong about this one. A cross-language table of transport
 configuration cannot be written once and applied five times.
+
+### 30. One derivation for seven shapes, and the two defects that fell out of it
+
+M1 and M2 had a hand-shaped core-ffi emitter each, and the second cost a vtable
+slot invented by analogy with a sibling (entry 20). Writing five more the same
+way would have been five more chances at the same mistake, so the ABI
+declaration, the layout probe and the host binding now all come from one module
+that follows `ffi/poc/codec/gen/rust_abi.py`'s own rules. 20 hand-listed structs
+and 5 vtables became 42 and 28, every one verified against the Rust build's
+offsets.
+
+Two rules were not guessable from the sibling cases and both were caught by the
+slot-count assert rather than by reading. A message that only ever appears as an
+INLINED child gets no vtable at all. And `unk_<slot>` exists only where a run's
+elements are messages, because a run of strings or packed scalars has nowhere to
+carry an unknown field -- which is why `ak_dvt_MetricsBatch` has seven slots.
+
+**M3's explicit-presence string was silently wrong**, and neither hand-written
+emitter could have found it because neither covered a message with explicit
+presence. The kind dispatch ran before the presence check, so an `optional
+string` took the implicit path: no presence bit, and a present-but-empty string
+reported identically to absent. 10,746 bytes against 12,097. That is exactly the
+case design/SHAPES.md says M3 exists to test.
+
+**And stage 8's M1 decode crossing count was wrong.** It said "1 forward, 2
+reverse, constant in the element count". The codec flushes a decode run when its
+element arena fills -- a BYTE budget divided by the group size, which the host
+cannot know -- so `add_results` runs `ceil(n/arena)+1` times: 5 on P1.2, 3 on
+P1.3. The count was PREDICTED from the graph, and the R5 cross-check caught it
+the moment a general gate ran a counting core over every payload instead of
+over the three whose arithmetic happened to be right. It is counted now, at the
+callback, so it is correct by construction rather than by argument.
+
+### 31. Pull, and the first managed measurement of a family with no upcalls
+
+design/ABI-v1.md decision 2 named this exactly: "a pull arm on a managed host is
+therefore the measurement that settles this decision in practice, and nobody has
+built one."
+
+`ak_parse_*` appends a record per deposit to a buffer in the decode context and
+makes no reverse call at all; the host replays the buffer afterwards. Because a
+drained buffer is a log of the calls push would have made, in order, the replay
+is emitted from the same slot table the push vtable is -- so the two families
+share their per-slot code and differ only in how it is reached.
+
+**Zero reverse calls on all sixteen payloads**, against push's 2 to 3,501. And
+faster everywhere: 0.69 to 0.97 of push, median about 0.91.
+
+The part that matters for this slice's headline is the sign. Against the
+no-boundary managed control on the real schema's shapes, push reads 0.978 /
+1.142 / 1.008 / 1.056 / 1.007 and pull reads 0.870 / 1.040 / 0.978 / 0.968 /
+0.955. Push straddles 1.0 from above; pull straddles it from below. **The
+composed arm beats the pure C# codec on a real message when it uses the pull
+family and not otherwise**, and the margin is small either way.
+
+### 32. The transcoder prediction was wrong about the mechanism, not the size
+
+Stage 8 said the alternative string form would cost "one reverse crossing per
+string: 5 per ResultRaw, 5,000 for P1.2, 37 to 60 us", and entry 19 already
+corrected the COUNTING half of that. The rest of it is also wrong, and in a more
+basic way: **there is no host transcoder.** `ak_tc_utf16` is a pointer into the
+core, exactly like `ak_tc_bytes`. Neither form crosses.
+
+So what the arm actually prices is which SIDE converts: the host staging UTF-8
+and the core copying it, or the host copying UTF-16 and the core converting.
+Measured on every payload, 0.96 to 1.04. It does not matter.
+
+A null result, and worth the day: a named gap in this slice's coverage closes,
+and a prediction that had been quoted three times is retired. The zero-copy
+variant -- a pointer into the managed heap -- is the one still open, and on .NET
+it needs a pinned GCHandle per string, so it is named rather than assumed.
+
+### 33. How far a figure in this slice travels, measured rather than assumed
+
+Comparing this sitting with stage 11's, two arms that NEITHER change touched
+moved by up to nine percent:
+
+    P1.2 managed-parse / gp-parse-seq   0.725 -> 0.711
+    P2.2 managed-parse / gp-parse-seq   0.800 -> 0.729
+    P2.2 managed / gp-marshaller        0.292 -> 0.309
+
+Identical code, same container, separate sittings. So a within-process ratio is
+sound and a cross-SITTING comparison of two within-process ratios is not, to
+better than about ten percent.
+
+That is a limit on how this slice's own history may be read. core-ffi/managed on
+P1.2 decode reads 0.899 in stage 8, 0.863 in stage 11 and 0.978 here, and I was
+about to attribute the last move to the general emitter. The control moved as
+far in the same window. Nothing that compares a number here with a number from
+an earlier stage should be read past its first digit -- and every same-sitting
+comparison in stage 14 stands, because each is computed against an arm that ran
+in the same rounds.
