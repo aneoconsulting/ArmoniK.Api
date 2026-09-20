@@ -1,0 +1,715 @@
+Stage 12: the GROUP-skip defect, and the re-gate on the D7 core.
+
+commit:    4555e645 (+ this slice)
+core:      ffi/poc/codec/target/release/libak_core.so, rebuilt with
+           poc/codec/gen/build.sh after merging the D7 fix (5a830730). 806,680
+           bytes, 86 ak_ exports, sha256 887e0148e6afe809...
+           **The LOADED object was confirmed from the dynamic linker, not the
+           build log**, because this slice has been caught twice by a stale
+           artifact and both times the linker said so when the build log did not:
+             LD_DEBUG=libs ... | grep ak_core
+             calling init: .../src/Harness/bin/Release/net8.0/libak_core.so
+           and that file's sha256 equals the one cargo just wrote.
+arms:      a (.NET 8.0.31), b (net8.0 with AK_FLOOR, floor sources), c (net48 on
+           Mono 6.8.0.105). Arms b and c do not carry the core-ffi arm; net48 has
+           no LibraryImport and no UnmanagedCallersOnly, and CoreFfi2.cs is now
+           excluded from arm c alongside CoreFfi.cs for the same reason.
+
+WHAT D7 WAS, ON THE CORE SIDE. The python slice's corpus run found that ak_rt's
+unknown-field skip had no case for the deprecated GROUP form, so wire type 3 fell
+through to AK_ERR_MALFORMED and the core rejected two corpus vectors that upb
+accepts. R0 makes that the aggregating session's, and it is fixed in the shared
+core. This slice loads libak_core.so as a file, so its obligation was: merge,
+rebuild, confirm the load, re-gate. Done, and nothing moved.
+
+WHAT IT WAS ON THIS SLICE'S SIDE, WHICH IS THE REASON THIS LOG EXISTS.
+`Facade/Wire.cs`'s `Dec.Skip(int wire)` had the identical hole: cases for the
+four wire types a proto3 schema produces and `ErrMalformed` for everything else.
+
+**Byte identity against ffi/schema's manifest could not have found this and never
+will.** Every payload there is emitted from the description the decoder is
+emitted from, so no payload in it can carry a field the decoder does not know,
+and proto3 cannot express a group at all. The slice's own hand-built
+unknown-field vectors (`harness unknown`) cover wire types 0, 1, 2 and 5, because
+those are the ones a proto3 writer can produce. The corpus is what found it.
+
+THE FIX IS NOT "ADD CASE 3", and the reject vectors are why.
+
+  A group carries no length. Its end is an END_GROUP tag whose FIELD NUMBER
+  matches the one that opened it, so the skipper recurses rather than seeking.
+
+  * A skipper that counts depth instead of matching the field number ACCEPTS
+    X-group-mismatched-end and then mis-nests every group after it. That is a
+    wrong parse, not a rejected one, and nothing downstream would notice.
+  * A skipper that scans for an end tag without checking the buffer walks off
+    the end of X-group-unterminated.
+  * A recursive skipper with no depth bound answers a nest of start tags with a
+    stack overflow, which is a crash and not an error. Bounded at 100, which is
+    protobuf's own default recursion limit, reported as a new facade error code.
+
+  Two error-code notes, both traps worth naming once. The facade's codes are its
+  own and are NOT the ABI's: ak-rt numbers malformed -2 and depth -4, this
+  numbers malformed -4, and nothing converts between them because the managed
+  control does not go through the C ABI at all. And the new depth code is -8
+  rather than -4, so it does not collide with the malformed code this slice has
+  been printing in logs since stage 1.
+
+THE DEFECT, SEEN FAILING. The fix was reverted once and the gate re-run, because
+a guard with no failing test is a guard nobody has watched work.
+
+WITHOUT the group case:
+
+vector                   bytes  expect  incumbent  managed  agree  note
+----------------------------------------------------------------------------------------------------------------------
+U-root-group              461  accept  ok         REJECTED!  NO     a group at the top level of the message that crosses the wire
+U-nested-group            244  accept  ok         REJECTED!  NO     a group INSIDE an element of a repeated field
+U-oneof-group              95  accept  ok         REJECTED!  NO     a group on a message that actually has a oneof
+X-group-unterminated       10  reject  ok         ok       yes    a group that is never closed (corpus root WireZoo; read here under ListResultsResponse, where tag 120 is equally unknown)
+X-group-mismatched-end     12  reject  ok         ok       yes    END_GROUP with a field number that does not match the group that opened (same substitution)
+
+And the case no vector covers, because a corpus of malformed bytes has to
+stop somewhere: 200 nested start tags, past the 100 the skipper allows. A
+recursive skipper with no bound answers this with a stack overflow, which
+is a crash and not a rejection.
+  err = -4, EXPECTED ErrDepth (-8)
+  Google.Protobuf: rejected, InvalidProtocolBufferException
+
+7 failure(s)
+
+  Note what the two X- rows say there: they PASSED without the fix, and they
+  passed for the wrong reason. `ErrMalformed` on an unhandled wire type is not
+  the same event as rejecting an unterminated group, and a reject vector that
+  passes tells you nothing about why. Only the accept vectors showed the hole.
+
+WITH it, on all three arms:
+
+---------- arm a ----------
+# harness: groups
+# utc:                 2026-09-20T14:46:30Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+The GROUP vectors from ffi/corpus. proto3 cannot express one, so this is
+the one class of unknown field the schema's own manifest cannot test.
+
+vector                   bytes  expect  incumbent  managed  agree  note
+----------------------------------------------------------------------------------------------------------------------
+U-root-group              461  accept  ok         ok       yes    a group at the top level of the message that crosses the wire
+U-nested-group            244  accept  ok         ok       yes    a group INSIDE an element of a repeated field
+U-oneof-group              95  accept  ok         ok       yes    a group on a message that actually has a oneof
+X-group-unterminated       10  reject  ok         ok       yes    a group that is never closed (corpus root WireZoo; read here under ListResultsResponse, where tag 120 is equally unknown)
+X-group-mismatched-end     12  reject  ok         ok       yes    END_GROUP with a field number that does not match the group that opened (same substitution)
+
+And the case no vector covers, because a corpus of malformed bytes has to
+stop somewhere: 200 nested start tags, past the 100 the skipper allows. A
+recursive skipper with no bound answers this with a stack overflow, which
+is a crash and not a rejection.
+  err = -8, ErrDepth, and the process is still here
+  Google.Protobuf: rejected, InvalidProtocolBufferException
+
+0 failure(s)
+
+---------- arm b ----------
+# harness: groups
+# utc:                 2026-09-20T14:46:30Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       YES (AK_FLOOR)
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+The GROUP vectors from ffi/corpus. proto3 cannot express one, so this is
+the one class of unknown field the schema's own manifest cannot test.
+
+vector                   bytes  expect  incumbent  managed  agree  note
+----------------------------------------------------------------------------------------------------------------------
+U-root-group              461  accept  ok         ok       yes    a group at the top level of the message that crosses the wire
+U-nested-group            244  accept  ok         ok       yes    a group INSIDE an element of a repeated field
+U-oneof-group              95  accept  ok         ok       yes    a group on a message that actually has a oneof
+X-group-unterminated       10  reject  ok         ok       yes    a group that is never closed (corpus root WireZoo; read here under ListResultsResponse, where tag 120 is equally unknown)
+X-group-mismatched-end     12  reject  ok         ok       yes    END_GROUP with a field number that does not match the group that opened (same substitution)
+
+And the case no vector covers, because a corpus of malformed bytes has to
+stop somewhere: 200 nested start tags, past the 100 the skipper allows. A
+recursive skipper with no bound answers this with a stack overflow, which
+is a crash and not a rejection.
+  err = -8, ErrDepth, and the process is still here
+  Google.Protobuf: rejected, InvalidProtocolBufferException
+
+0 failure(s)
+
+---------- arm c ----------
+# harness: groups
+# utc:                 2026-09-20T14:46:30Z
+# runtime:             Mono 6.8.0.105 (Debian 6.8.0.105+dfsg-3.6ubuntu2 Sun Mar 31 02:55:28 UTC 2024)
+# os:                  Unix 6.18.44.37
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       YES (AK_FLOOR)
+# facade TFM:          net48
+# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+The GROUP vectors from ffi/corpus. proto3 cannot express one, so this is
+the one class of unknown field the schema's own manifest cannot test.
+
+vector                   bytes  expect  incumbent  managed  agree  note
+----------------------------------------------------------------------------------------------------------------------
+U-root-group              461  accept  ok         ok       yes    a group at the top level of the message that crosses the wire
+U-nested-group            244  accept  ok         ok       yes    a group INSIDE an element of a repeated field
+U-oneof-group              95  accept  ok         ok       yes    a group on a message that actually has a oneof
+X-group-unterminated       10  reject  ok         ok       yes    a group that is never closed (corpus root WireZoo; read here under ListResultsResponse, where tag 120 is equally unknown)
+X-group-mismatched-end     12  reject  ok         ok       yes    END_GROUP with a field number that does not match the group that opened (same substitution)
+
+And the case no vector covers, because a corpus of malformed bytes has to
+stop somewhere: 200 nested start tags, past the 100 the skipper allows. A
+recursive skipper with no bound answers this with a stack overflow, which
+is a crash and not a rejection.
+  err = -8, ErrDepth, and the process is still here
+  Google.Protobuf: rejected, InvalidProtocolBufferException
+
+0 failure(s)
+
+################ the re-gate: all three arms, on the D7 core ################
+
+---------- arm a, conformance ----------
+# harness: conformance
+# utc:                 2026-09-20T14:46:38Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+payload  shape  root                        bytes  gp-tba  gp-wto  gp-bw   gp-mar  managed  2pass  vector  mrt  grt  value
+--------------------------------------------------------------------------------------------------------------------------------------
+P1.1     M1     ListResultsResponse          858  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P1.2     M1     ListResultsResponse       218121  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P1.3     M1     ListResultsResponse          605  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.1     M2     ListTasksDetailedResponse    1037  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.2     M2     ListTasksDetailedResponse  540422  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.3     M2     ListTasksDetailedResponse  647024  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.4     M2     ListTasksDetailedResponse  979465  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.5     M2     ListTasksDetailedResponse   19632  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P3.1     M3     ListProbeResponse          12097  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P4.1     M4     ListTaskSummaryResponse    65321  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.1     M5     UploadResultDataMessage      116  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.2     M5     UploadResultDataMessage    65620  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.3     M5     UploadResultDataMessage  1048660  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.4     M5     UploadResultDataMessage  4194390  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P6.1     M6     ListMetricsResponse       123354  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P7.1     -      DualResponse                  98  perm    perm    perm    perm    perm     perm   perm    ok   ok   ok
+
+152 checks, 0 failure(s)
+
+---------- arm a, unknown ----------
+# harness: unknown
+# utc:                 2026-09-20T14:46:40Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+vector                     bytes  gp-dec  man-dec  known-values-agree  gp-retains  man-retains
+------------------------------------------------------------------------------------------------------------
+root-varint-between          861  ok      ok       ok                  YES         no
+root-len                     865  ok      ok       ok                  YES         no
+elem-varint-interleaved      860  ok      ok       ok                  YES         no
+elem-i64                     868  ok      ok       ok                  YES         no
+elem-i32                     864  ok      ok       ok                  YES         no
+elem-len-nested              867  ok      ok       ok                  YES         no
+oneof-unrecognised-member  12099  ok      ok       ok                  YES         no
+
+  root-varint-between       unknown varint at the ROOT, tag 4, above every known root tag (1..3)
+  root-len                  unknown length-delimited field at the root
+  elem-varint-interleaved   unknown varint INSIDE element 0, at tag 7 -- the gap ResultRaw leaves between `completed_at` (6) and `result_id` (8), so it sits numerically BETWEEN two known tags
+  elem-i64                  unknown fixed64 inside element 0
+  elem-i32                  unknown fixed32 inside element 0
+  elem-len-nested           unknown length-delimited field inside element 0 whose body is itself a message -- a decoder that recursed into it rather than skipping it would report the inner tags as unknown fields of the OUTER message
+  oneof-unrecognised-member an unrecognised ONEOF member: tag 15 sits one past `as_nothing` (14) in Probe.body. design/SHAPES.md's row says this CANNOT round trip in any arm, because the grouping lives only in the descriptor and a parser cannot tell it from any other unknown field
+
+Reading the two retention columns.
+  `YES` means the arm's re-encode differs from the payload with the unknown
+  field removed, which for these vectors means it wrote the unknown field back.
+
+  Google.Protobuf keeps an UnknownFieldSet per message and writes it back, so a
+  message round-tripped through .NET today preserves a field this build has never
+  heard of. The managed codec as generated has no bag and drops it. Both accept
+  the input and neither loses a KNOWN value, so this is not a correctness gate;
+  it is ABI v1 open decision 11 with a cost attached, and on .NET the cost is a
+  guarantee that exists today and would be removed. prost drops unknown fields
+  too, which is why the Rust slice could not price this.
+
+  The oneof vector is the one design/SHAPES.md says cannot round trip in ANY arm.
+  Google.Protobuf retains the BYTES of tag 15 but the case stays at whatever
+  member the element already carried; the grouping is descriptor-only, so no
+  parser can recover the intent. Retention makes the bytes survive and does not
+  make the VALUE survive, and those are different claims.
+
+0 failure(s) -- a FAIL in a decode column, or a managed re-encode that is not
+the baseline (the managed codec is supposed to drop, so differing means a known
+value moved, which would be a real defect).
+
+---------- arm a, coreffi ----------
+# harness: coreffi
+# utc:                 2026-09-20T14:46:40Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+Layout agreement (ABI v1 obligation 12.3, as far as it goes here):
+  ok: 20 structs and 5 vtables match the Rust build; core ak_abi_version()=1
+
+M1 through the C ABI, against the validated manifest. Encode is byte
+identity; decode is a re-encode to the same bytes AND a field-by-field
+comparison against the graph the builder made, because a re-encode alone
+passes a decoder that drops a field the encoder also omits.
+
+                                                      host      core (R5)
+payload  elements    bytes  encode  decode  value   fwd  rev    fwd   rev  note
+--------------------------------------------------------------------------------------------
+  chunk = the whole run elements per ak_elem_* call
+
+P1.1            4      858  ok      ok      ok        5    4      0     0  
+P1.2         1000   218121  ok      ok      ok        5    4      0     0  
+P1.3          300      605  ok      ok      ok        5    4      0     0  absent path
+
+Reading the crossing columns. THE TWO COLUMNS ARE THE SAME QUANTITY, and
+this slice said otherwise once and was wrong; the correction is here so the
+report does not repeat it.
+
+  core (R5) is the CORE's own counters, read through ak_enc_counters. Zero
+    unless the core was built with --features count.
+  host is this binding's own tally of the calls it issued.
+  They AGREE, entry point for entry point. The only quantity in one and not
+    the other is a TRANSCODER invocation, which the core counts as reverse
+    and a host tally cannot see -- and this binding stages its strings as
+    UTF-8 with ak_tc_bytes(), a pointer INTO the core, so it makes none.
+
+  The gap this slice once reported against the rust slice was a CHUNK SIZE.
+  Their host hands the codec 150 elements per ak_elem_* call; this one hands
+  over the whole run. Set AK_CHUNK=150 and the columns match to the digit,
+  at a cost of 0.7 percent, which is inside the spread. See JOURNAL.md 19.
+  They are CONSTANT in the element count, in BOTH directions, whether the
+  payload carries 4 elements or 1,000. The 5 and 4 cover an encode, a decode
+  and a re-encode:
+    encode     2 forward (ak_encode_*, ak_elem_*)  1 reverse (loop_results)
+    decode     1 forward (ak_decode_*)             2 reverse (apply, add_results)
+  ResultRaw is a LEAF, so encode hands the whole run over in one ak_elem_*
+  call and decode gets it back in one add_results. That is ABI v1's batching
+  predicate doing the thing it exists for, on .NET.
+
+0 failure(s)
+
+---------- arm a, coreffi2 ----------
+# harness: coreffi2
+# utc:                 2026-09-20T14:46:40Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+Layout agreement (ABI v1 obligation 12.3, as far as it goes here):
+  ok: 20 structs and 5 vtables match the Rust build; core ak_abi_version()=1
+
+M2 through the C ABI. Encode is byte identity against the validated
+manifest; decode is a re-encode to the same bytes AND a field-by-field
+comparison, because a re-encode alone passes a decoder that drops a field
+the encoder also omits -- and on M2 the map is exactly such a field.
+
+  chunk = the whole run elements per ak_elemu_* call
+
+                                                      encode crossings      decode crossings
+                                                      total    per element    total    per element
+payload  elements    bytes  encode  decode  value   fwd   rev   fwd    rev   fwd   rev   fwd    rev
+----------------------------------------------------------------------------------------------------------------
+P2.1            1     1037  ok      ok      ok        7     6  7.00   6.00     1     8  1.00   8.00
+P2.2          500   540422  ok      ok      ok     2502  2501  5.00   5.00     1  3501  0.00   7.00
+P2.3          125   647024  ok      ok      ok      627   626  5.02   5.01     1   876  0.01   7.01
+P2.4           80   979465  ok      ok      ok      402   401  5.03   5.01     1   561  0.01   7.01
+P2.5           20    19632  ok      ok      ok      102   101  5.10   5.05     1   141  0.05   7.05
+
+The columns are the HOST's tally. The core's own ak_enc_counters read zero, because this core was not built with --features count
+
+Reading the crossing columns. THE TWO CONVENTIONS ARE THE SAME QUANTITY.
+  Where they used to disagree it was a CHUNK SIZE and not a convention:
+  set AK_CHUNK to what the other host chunks at and the columns match to
+  the digit. The core's `reverse` additionally counts transcoder calls, and
+  this binding stages its strings so it makes none. See JOURNAL.md 19.
+
+  ENCODE, per element, with every loop slot populated:
+    4 repeated string fields + 1 map = 5 reverse calls, and the host calls
+    forward again for each run that is not empty, so about 10 crossings a
+    task. Constant in the element count only in the sense that it is
+    LINEAR in it, which is exactly what the batching predicate buys on M1
+    and cannot buy here.
+  DECODE: ABI v1 section 7.2 refuses to batch a non-leaf, so it is
+    new_tasks then apply_tasks per element plus one run per inner field
+    that occurred: 2 + 5 = 7 reverse calls a task against ONE for a whole
+    thousand-element M1 response.
+
+0 failure(s)
+
+---------- arm b, conformance ----------
+# harness: conformance
+# utc:                 2026-09-20T14:46:40Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       YES (AK_FLOOR)
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+payload  shape  root                        bytes  gp-tba  gp-wto  gp-bw   gp-mar  managed  2pass  vector  mrt  grt  value
+--------------------------------------------------------------------------------------------------------------------------------------
+P1.1     M1     ListResultsResponse          858  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P1.2     M1     ListResultsResponse       218121  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P1.3     M1     ListResultsResponse          605  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.1     M2     ListTasksDetailedResponse    1037  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.2     M2     ListTasksDetailedResponse  540422  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.3     M2     ListTasksDetailedResponse  647024  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.4     M2     ListTasksDetailedResponse  979465  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.5     M2     ListTasksDetailedResponse   19632  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P3.1     M3     ListProbeResponse          12097  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P4.1     M4     ListTaskSummaryResponse    65321  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.1     M5     UploadResultDataMessage      116  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.2     M5     UploadResultDataMessage    65620  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.3     M5     UploadResultDataMessage  1048660  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.4     M5     UploadResultDataMessage  4194390  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P6.1     M6     ListMetricsResponse       123354  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P7.1     -      DualResponse                  98  perm    perm    perm    perm    perm     perm   perm    ok   ok   ok
+
+152 checks, 0 failure(s)
+
+---------- arm b, unknown ----------
+# harness: unknown
+# utc:                 2026-09-20T14:46:42Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       YES (AK_FLOOR)
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+vector                     bytes  gp-dec  man-dec  known-values-agree  gp-retains  man-retains
+------------------------------------------------------------------------------------------------------------
+root-varint-between          861  ok      ok       ok                  YES         no
+root-len                     865  ok      ok       ok                  YES         no
+elem-varint-interleaved      860  ok      ok       ok                  YES         no
+elem-i64                     868  ok      ok       ok                  YES         no
+elem-i32                     864  ok      ok       ok                  YES         no
+elem-len-nested              867  ok      ok       ok                  YES         no
+oneof-unrecognised-member  12099  ok      ok       ok                  YES         no
+
+  root-varint-between       unknown varint at the ROOT, tag 4, above every known root tag (1..3)
+  root-len                  unknown length-delimited field at the root
+  elem-varint-interleaved   unknown varint INSIDE element 0, at tag 7 -- the gap ResultRaw leaves between `completed_at` (6) and `result_id` (8), so it sits numerically BETWEEN two known tags
+  elem-i64                  unknown fixed64 inside element 0
+  elem-i32                  unknown fixed32 inside element 0
+  elem-len-nested           unknown length-delimited field inside element 0 whose body is itself a message -- a decoder that recursed into it rather than skipping it would report the inner tags as unknown fields of the OUTER message
+  oneof-unrecognised-member an unrecognised ONEOF member: tag 15 sits one past `as_nothing` (14) in Probe.body. design/SHAPES.md's row says this CANNOT round trip in any arm, because the grouping lives only in the descriptor and a parser cannot tell it from any other unknown field
+
+Reading the two retention columns.
+  `YES` means the arm's re-encode differs from the payload with the unknown
+  field removed, which for these vectors means it wrote the unknown field back.
+
+  Google.Protobuf keeps an UnknownFieldSet per message and writes it back, so a
+  message round-tripped through .NET today preserves a field this build has never
+  heard of. The managed codec as generated has no bag and drops it. Both accept
+  the input and neither loses a KNOWN value, so this is not a correctness gate;
+  it is ABI v1 open decision 11 with a cost attached, and on .NET the cost is a
+  guarantee that exists today and would be removed. prost drops unknown fields
+  too, which is why the Rust slice could not price this.
+
+  The oneof vector is the one design/SHAPES.md says cannot round trip in ANY arm.
+  Google.Protobuf retains the BYTES of tag 15 but the case stays at whatever
+  member the element already carried; the grouping is descriptor-only, so no
+  parser can recover the intent. Retention makes the bytes survive and does not
+  make the VALUE survive, and those are different claims.
+
+0 failure(s) -- a FAIL in a decode column, or a managed re-encode that is not
+the baseline (the managed codec is supposed to drop, so differing means a known
+value moved, which would be a real defect).
+
+---------- arm c, conformance ----------
+# harness: conformance
+# utc:                 2026-09-20T14:46:42Z
+# runtime:             Mono 6.8.0.105 (Debian 6.8.0.105+dfsg-3.6ubuntu2 Sun Mar 31 02:55:28 UTC 2024)
+# os:                  Unix 6.18.44.37
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       YES (AK_FLOOR)
+# facade TFM:          net48
+# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+payload  shape  root                        bytes  gp-tba  gp-wto  gp-bw   gp-mar  managed  2pass  vector  mrt  grt  value
+--------------------------------------------------------------------------------------------------------------------------------------
+P1.1     M1     ListResultsResponse          858  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P1.2     M1     ListResultsResponse       218121  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P1.3     M1     ListResultsResponse          605  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.1     M2     ListTasksDetailedResponse    1037  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.2     M2     ListTasksDetailedResponse  540422  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.3     M2     ListTasksDetailedResponse  647024  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.4     M2     ListTasksDetailedResponse  979465  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.5     M2     ListTasksDetailedResponse   19632  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P3.1     M3     ListProbeResponse          12097  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P4.1     M4     ListTaskSummaryResponse    65321  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.1     M5     UploadResultDataMessage      116  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.2     M5     UploadResultDataMessage    65620  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.3     M5     UploadResultDataMessage  1048660  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.4     M5     UploadResultDataMessage  4194390  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P6.1     M6     ListMetricsResponse       123354  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P7.1     -      DualResponse                  98  perm    perm    perm    perm    perm     perm   perm    ok   ok   ok
+
+152 checks, 0 failure(s)
+
+---------- arm c, unknown ----------
+# harness: unknown
+# utc:                 2026-09-20T14:46:44Z
+# runtime:             Mono 6.8.0.105 (Debian 6.8.0.105+dfsg-3.6ubuntu2 Sun Mar 31 02:55:28 UTC 2024)
+# os:                  Unix 6.18.44.37
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       YES (AK_FLOOR)
+# facade TFM:          net48
+# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+vector                     bytes  gp-dec  man-dec  known-values-agree  gp-retains  man-retains
+------------------------------------------------------------------------------------------------------------
+root-varint-between          861  ok      ok       ok                  YES         no
+root-len                     865  ok      ok       ok                  YES         no
+elem-varint-interleaved      860  ok      ok       ok                  YES         no
+elem-i64                     868  ok      ok       ok                  YES         no
+elem-i32                     864  ok      ok       ok                  YES         no
+elem-len-nested              867  ok      ok       ok                  YES         no
+oneof-unrecognised-member  12099  ok      ok       ok                  YES         no
+
+  root-varint-between       unknown varint at the ROOT, tag 4, above every known root tag (1..3)
+  root-len                  unknown length-delimited field at the root
+  elem-varint-interleaved   unknown varint INSIDE element 0, at tag 7 -- the gap ResultRaw leaves between `completed_at` (6) and `result_id` (8), so it sits numerically BETWEEN two known tags
+  elem-i64                  unknown fixed64 inside element 0
+  elem-i32                  unknown fixed32 inside element 0
+  elem-len-nested           unknown length-delimited field inside element 0 whose body is itself a message -- a decoder that recursed into it rather than skipping it would report the inner tags as unknown fields of the OUTER message
+  oneof-unrecognised-member an unrecognised ONEOF member: tag 15 sits one past `as_nothing` (14) in Probe.body. design/SHAPES.md's row says this CANNOT round trip in any arm, because the grouping lives only in the descriptor and a parser cannot tell it from any other unknown field
+
+Reading the two retention columns.
+  `YES` means the arm's re-encode differs from the payload with the unknown
+  field removed, which for these vectors means it wrote the unknown field back.
+
+  Google.Protobuf keeps an UnknownFieldSet per message and writes it back, so a
+  message round-tripped through .NET today preserves a field this build has never
+  heard of. The managed codec as generated has no bag and drops it. Both accept
+  the input and neither loses a KNOWN value, so this is not a correctness gate;
+  it is ABI v1 open decision 11 with a cost attached, and on .NET the cost is a
+  guarantee that exists today and would be removed. prost drops unknown fields
+  too, which is why the Rust slice could not price this.
+
+  The oneof vector is the one design/SHAPES.md says cannot round trip in ANY arm.
+  Google.Protobuf retains the BYTES of tag 15 but the case stays at whatever
+  member the element already carried; the grouping is descriptor-only, so no
+  parser can recover the intent. Retention makes the bytes survive and does not
+  make the VALUE survive, and those are different claims.
+
+0 failure(s) -- a FAIL in a decode column, or a managed re-encode that is not
+the baseline (the managed codec is supposed to drop, so differing means a known
+value moved, which would be a real defect).
+
+
+################ what this says ################
+
+1. **The D7 core changed nothing for this slice.** 152 checks 0 failures on
+   each of the three arms, the core-ffi arm green on M1 and on all five M2
+   payloads, and the loaded object confirmed as the one cargo just wrote. The
+   change is in the unknown-field skip, which no payload in `ffi/schema`
+   exercises, so no movement was expected and none was found.
+
+2. **This slice had the same defect one level up, and the corpus is what found
+   it.** Not a review, not byte identity, not the slice's own hand-built
+   unknown-field vectors: the corpus, because it is the only oracle in the
+   branch that is not generated from the description the decoder is generated
+   from. The finding in `ffi/findings/csharp.md` says exactly this and it is
+   right.
+
+3. **THIS SLICE IS STILL NOT A CORPUS CONSUMER, and the cost of becoming one is
+   nameable.** `ffi/corpus/CONTRACT.md` obliges a consumer to generate its codec
+   from `generated/corpus.proto`, parse all 287 accept vectors, project each one
+   to JSON, re-encode it to one of the accepted forms, and watch all 49 reject
+   vectors fail. This slice's generator drives off `ffi/schema/emit/shapes.py`
+   and has **no .proto front end at all**, so conformance means teaching it a
+   second one -- a work unit, not an afternoon. What ran here is the five
+   vectors the defect is about, read under a root this slice does have, and it
+   is labelled as the narrow thing it is rather than as a corpus pass.
+
+   Two of the five are read under a substituted root. The corpus reads
+   `X-group-unterminated` and `X-group-mismatched-end` under `WireZoo`, which
+   this slice does not generate; their only top-level field is tag 120, which is
+   equally unknown to `ListResultsResponse`, so the substitution exercises the
+   skipper and nothing else. Said in the harness source as well as here.
+
+4. **A reject vector passing is not evidence.** Both X- vectors passed before
+   the fix, because an unhandled wire type is also an error. The accept vectors
+   are what failed, and a slice that had only run the reject half would have
+   reported a pass on a decoder that rejects a third of the group class.
+
+################ what is NOT measured here ################
+
+- Corpus conformance, per paragraph 3. 331 of the 336 vectors are not run.
+- Timings. Nothing in this stage is a performance change: the group path is
+  never taken by any payload in `ffi/schema` and the skipper is one `switch`
+  arm longer in a loop that runs only on unknown fields.
+- `MapForms.Skip`, which deliberately has no group case: it is a harness
+  rewriter for P2.5's two map encodings and only ever walks bytes this slice
+  emitted, so it throws on a group rather than mis-parsing one. Named in the
+  source so that a later reader does not fix the wrong skipper.

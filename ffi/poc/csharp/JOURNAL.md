@@ -595,3 +595,44 @@ the generated M2 fill used `foreach`, which boxes the `List` enumerator once per
 ELEMENT. 500 elements, 48 bytes each. It was visible only because the encode
 arm's allocation column should be zero and was not -- the arm was still correct
 and still beat the incumbent. Indexed instead: zero, and 4 percent faster.
+
+### 24. The group-skip hole, and what a reject vector does not prove
+
+The aggregating session fixed D7 in the shared core -- `ak_rt`'s unknown-field
+skip had no case for the deprecated GROUP form -- and pointed out that
+`Facade/Wire.cs` has the identical hole. It did. `Dec.Skip(int wire)` had cases
+for wire types 0, 1, 2 and 5 and `ErrMalformed` for everything else, so it
+rejected three corpus vectors that `Google.Protobuf` accepts.
+
+**Nothing this slice owns could have found it.** Byte identity is against
+`ffi/schema/generated/manifest.json`, whose every payload is emitted from the
+description the decoder is emitted from; proto3 cannot express a group; and the
+slice's own hand-built unknown-field vectors cover exactly the four wire types a
+proto3 writer can produce, because that is what I could think to build. The
+corpus found it because it is the only oracle in the branch not generated from
+the thing it tests.
+
+Three things the fix needed beyond `case 3:`, and each is a different failure:
+
+  * the END_GROUP's FIELD NUMBER has to MATCH the tag that opened the group.
+    Counting depth instead accepts `X-group-mismatched-end` and then mis-nests
+    every group after it. A wrong parse, not a rejected one;
+  * the buffer has to be checked each iteration, or `X-group-unterminated`
+    walks off the end;
+  * the recursion has to be bounded, or 200 nested start tags is a stack
+    overflow instead of an error. Bounded at 100, protobuf's own default.
+
+**The part worth keeping is what the reject vectors did.** Both X- vectors
+PASSED before the fix. An unhandled wire type is an error too, so a rejection
+for the wrong reason looks exactly like a rejection for the right one. Only the
+three accept vectors failed. A slice that had run only the must-fail half would
+have reported a pass on a decoder that rejects a third of the group class --
+which is a general point about reject vectors and not about this one.
+
+I reverted the fix once and re-ran the gate before committing it: 7 failures
+without, 0 with. This slice's own standard, applied to its own fix.
+
+And the scope, said plainly because it would be easy to imply otherwise: **five
+vectors ran, 331 did not.** `ffi/corpus/CONTRACT.md` rule 0 is "generate your
+codec from `generated/corpus.proto`", and this generator has no .proto front
+end at all. Corpus conformance is a work unit and it is now on the list.

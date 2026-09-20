@@ -439,11 +439,15 @@ class Codec:
         o += "        {"
         o += "            ulong k = d.Varint();"
         o += "            int wire = (int)(k & 7UL);"
-        o += "            switch (k >> 3)"
+        o += "            // The TAG travels with the wire type into Skip, because the"
+        o += "            // deprecated GROUP form carries no length and its end is an"
+        o += "            // END_GROUP whose field number must MATCH. See Wire.cs."
+        o += "            int tag = (int)(k >> 3);"
+        o += "            switch (tag)"
         o += "            {"
         for f in m.sorted_wire():
             self.read_field(o, m, f)
-        o += "                default: d.Skip(wire); break;"
+        o += "                default: d.Skip(tag, wire); break;"
         o += "            }"
         o += "        }"
         o += "        if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;"
@@ -458,7 +462,7 @@ class Codec:
         b = p + "    "
 
         def guard(expected):
-            o.lines.append("%sif (wire != %d) { d.Skip(wire); break; }" % (b, expected))
+            o.lines.append("%sif (wire != %d) { d.Skip(%d, wire); break; }" % (b, expected, f.tag))
 
         if f.card == "map":
             guard(2)
@@ -469,7 +473,7 @@ class Codec:
             o += "%s    ulong k2 = d.Varint(); int w2 = (int)(k2 & 7UL);" % b
             o += "%s    if ((k2 >> 3) == 1 && w2 == 2) mk = d.Str();" % b
             o += "%s    else if ((k2 >> 3) == 2 && w2 == 2) mv = d.Str();" % b
-            o += "%s    else d.Skip(w2);" % b
+            o += "%s    else d.Skip((int)(k2 >> 3), w2);" % b
             o += "%s}" % b
             o += "%sd.Pos = e2;" % b
             o += "%s%s[mk] = mv;" % (b, acc)
@@ -496,7 +500,7 @@ class Codec:
             else:
                 o += "%selse if (wire == 0) %s.Add(%s);" % (
                     b, acc, self.scalar_from_varint(f, "d.Varint()"))
-            o += "%selse d.Skip(wire);" % b
+            o += "%selse d.Skip(%d, wire);" % (b, f.tag)
             o += "%sbreak;" % b
             o += "%s}" % p
             return

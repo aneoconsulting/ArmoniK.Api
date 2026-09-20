@@ -863,21 +863,25 @@ public static class Codec
         {
             ulong k = d.Varint();
             int wire = (int)(k & 7UL);
-            switch (k >> 3)
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            switch (tag)
             {
                 case 1:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(1, wire); break; }
                     m.Seconds = (long)(d.Varint());
                     break;
                 }
                 case 2:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(2, wire); break; }
                     m.Nanos = (int)(long)(d.Varint());
                     break;
                 }
-                default: d.Skip(wire); break;
+                default: d.Skip(tag, wire); break;
             }
         }
         if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
@@ -889,21 +893,25 @@ public static class Codec
         {
             ulong k = d.Varint();
             int wire = (int)(k & 7UL);
-            switch (k >> 3)
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            switch (tag)
             {
                 case 1:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(1, wire); break; }
                     m.Seconds = (long)(d.Varint());
                     break;
                 }
                 case 2:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(2, wire); break; }
                     m.Nanos = (int)(long)(d.Varint());
                     break;
                 }
-                default: d.Skip(wire); break;
+                default: d.Skip(tag, wire); break;
             }
         }
         if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
@@ -915,35 +923,39 @@ public static class Codec
         {
             ulong k = d.Varint();
             int wire = (int)(k & 7UL);
-            switch (k >> 3)
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            switch (tag)
             {
                 case 1:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(1, wire); break; }
                     m.SessionId = d.Str();
                     break;
                 }
                 case 2:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(2, wire); break; }
                     m.Name = d.Str();
                     break;
                 }
                 case 3:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(3, wire); break; }
                     m.OwnerTaskId = d.Str();
                     break;
                 }
                 case 4:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(4, wire); break; }
                     m.Status = (ResultStatus)(int)(long)(d.Varint());
                     break;
                 }
                 case 5:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(5, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.CreatedAt ?? new Timestamp();
                     ReadTimestamp(ref d, c, e2);
@@ -953,7 +965,7 @@ public static class Codec
                 }
                 case 6:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(6, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.CompletedAt ?? new Timestamp();
                     ReadTimestamp(ref d, c, e2);
@@ -963,35 +975,35 @@ public static class Codec
                 }
                 case 8:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(8, wire); break; }
                     m.ResultId = d.Str();
                     break;
                 }
                 case 9:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(9, wire); break; }
                     m.Size = (long)(d.Varint());
                     break;
                 }
                 case 10:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(10, wire); break; }
                     m.CreatedBy = d.Str();
                     break;
                 }
                 case 11:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(11, wire); break; }
                     m.OpaqueId = d.Bytes();
                     break;
                 }
                 case 12:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(12, wire); break; }
                     m.ManualDeletion = (d.Varint()) != 0UL;
                     break;
                 }
-                default: d.Skip(wire); break;
+                default: d.Skip(tag, wire); break;
             }
         }
         if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
@@ -1003,11 +1015,15 @@ public static class Codec
         {
             ulong k = d.Varint();
             int wire = (int)(k & 7UL);
-            switch (k >> 3)
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            switch (tag)
             {
                 case 1:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(1, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     string mk = "", mv = "";
                     while (d.Pos < e2 && d.Err == 0)
@@ -1015,7 +1031,7 @@ public static class Codec
                         ulong k2 = d.Varint(); int w2 = (int)(k2 & 7UL);
                         if ((k2 >> 3) == 1 && w2 == 2) mk = d.Str();
                         else if ((k2 >> 3) == 2 && w2 == 2) mv = d.Str();
-                        else d.Skip(w2);
+                        else d.Skip((int)(k2 >> 3), w2);
                     }
                     d.Pos = e2;
                     m.Options[mk] = mv;
@@ -1023,7 +1039,7 @@ public static class Codec
                 }
                 case 2:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(2, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.MaxDuration ?? new Duration();
                     ReadDuration(ref d, c, e2);
@@ -1033,53 +1049,53 @@ public static class Codec
                 }
                 case 3:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(3, wire); break; }
                     m.MaxRetries = (int)(long)(d.Varint());
                     break;
                 }
                 case 4:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(4, wire); break; }
                     m.Priority = (int)(long)(d.Varint());
                     break;
                 }
                 case 5:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(5, wire); break; }
                     m.PartitionId = d.Str();
                     break;
                 }
                 case 6:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(6, wire); break; }
                     m.ApplicationName = d.Str();
                     break;
                 }
                 case 7:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(7, wire); break; }
                     m.ApplicationVersion = d.Str();
                     break;
                 }
                 case 8:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(8, wire); break; }
                     m.ApplicationNamespace = d.Str();
                     break;
                 }
                 case 9:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(9, wire); break; }
                     m.ApplicationService = d.Str();
                     break;
                 }
                 case 10:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(10, wire); break; }
                     m.EngineType = d.Str();
                     break;
                 }
-                default: d.Skip(wire); break;
+                default: d.Skip(tag, wire); break;
             }
         }
         if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
@@ -1091,21 +1107,25 @@ public static class Codec
         {
             ulong k = d.Varint();
             int wire = (int)(k & 7UL);
-            switch (k >> 3)
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            switch (tag)
             {
                 case 1:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(1, wire); break; }
                     m.Success = (d.Varint()) != 0UL;
                     break;
                 }
                 case 2:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(2, wire); break; }
                     m.Error = d.Str();
                     break;
                 }
-                default: d.Skip(wire); break;
+                default: d.Skip(tag, wire); break;
             }
         }
         if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
@@ -1117,65 +1137,69 @@ public static class Codec
         {
             ulong k = d.Varint();
             int wire = (int)(k & 7UL);
-            switch (k >> 3)
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            switch (tag)
             {
                 case 1:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(1, wire); break; }
                     m.Id = d.Str();
                     break;
                 }
                 case 2:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(2, wire); break; }
                     m.SessionId = d.Str();
                     break;
                 }
                 case 3:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(3, wire); break; }
                     m.OwnerPodId = d.Str();
                     break;
                 }
                 case 4:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(4, wire); break; }
                     m.ParentTaskIds.Add(d.Str());
                     break;
                 }
                 case 5:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(5, wire); break; }
                     m.DataDependencies.Add(d.Str());
                     break;
                 }
                 case 6:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(6, wire); break; }
                     m.ExpectedOutputIds.Add(d.Str());
                     break;
                 }
                 case 7:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(7, wire); break; }
                     m.RetryOfIds.Add(d.Str());
                     break;
                 }
                 case 8:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(8, wire); break; }
                     m.Status = (TaskStatus)(int)(long)(d.Varint());
                     break;
                 }
                 case 9:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(9, wire); break; }
                     m.StatusMessage = d.Str();
                     break;
                 }
                 case 10:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(10, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.Options ?? new TaskOptions();
                     ReadTaskOptions(ref d, c, e2);
@@ -1185,7 +1209,7 @@ public static class Codec
                 }
                 case 11:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(11, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.CreatedAt ?? new Timestamp();
                     ReadTimestamp(ref d, c, e2);
@@ -1195,7 +1219,7 @@ public static class Codec
                 }
                 case 12:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(12, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.SubmittedAt ?? new Timestamp();
                     ReadTimestamp(ref d, c, e2);
@@ -1205,7 +1229,7 @@ public static class Codec
                 }
                 case 13:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(13, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.StartedAt ?? new Timestamp();
                     ReadTimestamp(ref d, c, e2);
@@ -1215,7 +1239,7 @@ public static class Codec
                 }
                 case 14:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(14, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.EndedAt ?? new Timestamp();
                     ReadTimestamp(ref d, c, e2);
@@ -1225,7 +1249,7 @@ public static class Codec
                 }
                 case 15:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(15, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.PodTtl ?? new Timestamp();
                     ReadTimestamp(ref d, c, e2);
@@ -1235,7 +1259,7 @@ public static class Codec
                 }
                 case 16:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(16, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.Output ?? new TaskOutput();
                     ReadTaskOutput(ref d, c, e2);
@@ -1245,13 +1269,13 @@ public static class Codec
                 }
                 case 17:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(17, wire); break; }
                     m.PodHostname = d.Str();
                     break;
                 }
                 case 18:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(18, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.ReceivedAt ?? new Timestamp();
                     ReadTimestamp(ref d, c, e2);
@@ -1261,7 +1285,7 @@ public static class Codec
                 }
                 case 19:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(19, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.AcquiredAt ?? new Timestamp();
                     ReadTimestamp(ref d, c, e2);
@@ -1271,7 +1295,7 @@ public static class Codec
                 }
                 case 20:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(20, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.CreationToEndDuration ?? new Duration();
                     ReadDuration(ref d, c, e2);
@@ -1281,7 +1305,7 @@ public static class Codec
                 }
                 case 21:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(21, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.ProcessingToEndDuration ?? new Duration();
                     ReadDuration(ref d, c, e2);
@@ -1291,13 +1315,13 @@ public static class Codec
                 }
                 case 22:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(22, wire); break; }
                     m.InitialTaskId = d.Str();
                     break;
                 }
                 case 23:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(23, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.ReceivedToEndDuration ?? new Duration();
                     ReadDuration(ref d, c, e2);
@@ -1307,7 +1331,7 @@ public static class Codec
                 }
                 case 24:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(24, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.ProcessedAt ?? new Timestamp();
                     ReadTimestamp(ref d, c, e2);
@@ -1317,7 +1341,7 @@ public static class Codec
                 }
                 case 25:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(25, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.FetchedAt ?? new Timestamp();
                     ReadTimestamp(ref d, c, e2);
@@ -1327,17 +1351,17 @@ public static class Codec
                 }
                 case 26:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(26, wire); break; }
                     m.PayloadId = d.Str();
                     break;
                 }
                 case 27:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(27, wire); break; }
                     m.CreatedBy = d.Str();
                     break;
                 }
-                default: d.Skip(wire); break;
+                default: d.Skip(tag, wire); break;
             }
         }
         if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
@@ -1349,23 +1373,27 @@ public static class Codec
         {
             ulong k = d.Varint();
             int wire = (int)(k & 7UL);
-            switch (k >> 3)
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            switch (tag)
             {
                 case 1:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(1, wire); break; }
                     m.Id = d.Str();
                     break;
                 }
                 case 2:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(2, wire); break; }
                     m.SessionId = d.Str();
                     break;
                 }
                 case 3:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(3, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.Options ?? new TaskOptions();
                     ReadTaskOptions(ref d, c, e2);
@@ -1375,13 +1403,13 @@ public static class Codec
                 }
                 case 4:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(4, wire); break; }
                     m.Status = (TaskStatus)(int)(long)(d.Varint());
                     break;
                 }
                 case 5:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(5, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.CreatedAt ?? new Timestamp();
                     ReadTimestamp(ref d, c, e2);
@@ -1391,23 +1419,23 @@ public static class Codec
                 }
                 case 8:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(8, wire); break; }
                     m.Error = d.Str();
                     break;
                 }
                 case 9:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(9, wire); break; }
                     m.StatusMessage = d.Str();
                     break;
                 }
                 case 11:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(11, wire); break; }
                     m.CountDataDependencies = (long)(d.Varint());
                     break;
                 }
-                default: d.Skip(wire); break;
+                default: d.Skip(tag, wire); break;
             }
         }
         if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
@@ -1419,53 +1447,57 @@ public static class Codec
         {
             ulong k = d.Varint();
             int wire = (int)(k & 7UL);
-            switch (k >> 3)
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            switch (tag)
             {
                 case 1:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(1, wire); break; }
                     m.Id = d.Str();
                     break;
                 }
                 case 2:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(2, wire); break; }
                     m.OptCount = (int)(long)(d.Varint());
                     break;
                 }
                 case 3:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(3, wire); break; }
                     m.OptLabel = d.Str();
                     break;
                 }
                 case 4:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(4, wire); break; }
                     m.OptFlag = (d.Varint()) != 0UL;
                     break;
                 }
                 case 10:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(10, wire); break; }
                     m.BodyCase = ProbeBodyCase.AsInt; m.AsInt = (long)(d.Varint());
                     break;
                 }
                 case 11:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(11, wire); break; }
                     m.BodyCase = ProbeBodyCase.AsText; m.AsText = d.Str();
                     break;
                 }
                 case 12:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(12, wire); break; }
                     m.BodyCase = ProbeBodyCase.AsBlob; m.AsBlob = d.Bytes();
                     break;
                 }
                 case 13:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(13, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     // A repeated occurrence MERGES into the member already selected,
                     // and REPLACES a different one: protobuf's oneof merge rule.
@@ -1477,7 +1509,7 @@ public static class Codec
                 }
                 case 14:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(14, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     // A repeated occurrence MERGES into the member already selected,
                     // and REPLACES a different one: protobuf's oneof merge rule.
@@ -1487,7 +1519,7 @@ public static class Codec
                     m.BodyCase = ProbeBodyCase.AsNothing; m.AsNothing = c;
                     break;
                 }
-                default: d.Skip(wire); break;
+                default: d.Skip(tag, wire); break;
             }
         }
         if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
@@ -1499,9 +1531,13 @@ public static class Codec
         {
             ulong k = d.Varint();
             int wire = (int)(k & 7UL);
-            switch (k >> 3)
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            switch (tag)
             {
-                default: d.Skip(wire); break;
+                default: d.Skip(tag, wire); break;
             }
         }
         if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
@@ -1513,27 +1549,31 @@ public static class Codec
         {
             ulong k = d.Varint();
             int wire = (int)(k & 7UL);
-            switch (k >> 3)
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            switch (tag)
             {
                 case 1:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(1, wire); break; }
                     m.SessionId = d.Str();
                     break;
                 }
                 case 2:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(2, wire); break; }
                     m.ResultId = d.Str();
                     break;
                 }
                 case 3:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(3, wire); break; }
                     m.DataChunk = d.Bytes();
                     break;
                 }
-                default: d.Skip(wire); break;
+                default: d.Skip(tag, wire); break;
             }
         }
         if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
@@ -1545,11 +1585,15 @@ public static class Codec
         {
             ulong k = d.Varint();
             int wire = (int)(k & 7UL);
-            switch (k >> 3)
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            switch (tag)
             {
                 case 1:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(1, wire); break; }
                     m.Id = d.Str();
                     break;
                 }
@@ -1562,7 +1606,7 @@ public static class Codec
                         d.Pos = e2;
                     }
                     else if (wire == 0) m.Ticks.Add((long)(d.Varint()));
-                    else d.Skip(wire);
+                    else d.Skip(2, wire);
                     break;
                 }
                 case 3:
@@ -1574,7 +1618,7 @@ public static class Codec
                         d.Pos = e2;
                     }
                     else if (wire == 1) m.Values.Add(d.F64());
-                    else d.Skip(wire);
+                    else d.Skip(3, wire);
                     break;
                 }
                 case 4:
@@ -1586,7 +1630,7 @@ public static class Codec
                         d.Pos = e2;
                     }
                     else if (wire == 0) m.Codes.Add((int)(long)(d.Varint()));
-                    else d.Skip(wire);
+                    else d.Skip(4, wire);
                     break;
                 }
                 case 5:
@@ -1598,7 +1642,7 @@ public static class Codec
                         d.Pos = e2;
                     }
                     else if (wire == 0) m.Flags.Add((d.Varint()) != 0UL);
-                    else d.Skip(wire);
+                    else d.Skip(5, wire);
                     break;
                 }
                 case 6:
@@ -1610,10 +1654,10 @@ public static class Codec
                         d.Pos = e2;
                     }
                     else if (wire == 0) m.Statuses.Add((TaskStatus)(int)(long)(d.Varint()));
-                    else d.Skip(wire);
+                    else d.Skip(6, wire);
                     break;
                 }
-                default: d.Skip(wire); break;
+                default: d.Skip(tag, wire); break;
             }
         }
         if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
@@ -1625,21 +1669,25 @@ public static class Codec
         {
             ulong k = d.Varint();
             int wire = (int)(k & 7UL);
-            switch (k >> 3)
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            switch (tag)
             {
                 case 1:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(1, wire); break; }
                     m.Key = d.Str();
                     break;
                 }
                 case 2:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(2, wire); break; }
                     m.Value = (int)(long)(d.Varint());
                     break;
                 }
-                default: d.Skip(wire); break;
+                default: d.Skip(tag, wire); break;
             }
         }
         if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
@@ -1651,11 +1699,15 @@ public static class Codec
         {
             ulong k = d.Varint();
             int wire = (int)(k & 7UL);
-            switch (k >> 3)
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            switch (tag)
             {
                 case 1:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(1, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = new ResultRaw();
                     ReadResultRaw(ref d, c, e2);
@@ -1665,17 +1717,17 @@ public static class Codec
                 }
                 case 2:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(2, wire); break; }
                     m.Page = (int)(long)(d.Varint());
                     break;
                 }
                 case 3:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(3, wire); break; }
                     m.Total = (int)(long)(d.Varint());
                     break;
                 }
-                default: d.Skip(wire); break;
+                default: d.Skip(tag, wire); break;
             }
         }
         if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
@@ -1687,11 +1739,15 @@ public static class Codec
         {
             ulong k = d.Varint();
             int wire = (int)(k & 7UL);
-            switch (k >> 3)
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            switch (tag)
             {
                 case 1:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(1, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = new TaskDetailed();
                     ReadTaskDetailed(ref d, c, e2);
@@ -1701,17 +1757,17 @@ public static class Codec
                 }
                 case 2:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(2, wire); break; }
                     m.Page = (int)(long)(d.Varint());
                     break;
                 }
                 case 3:
                 {
-                    if (wire != 0) { d.Skip(wire); break; }
+                    if (wire != 0) { d.Skip(3, wire); break; }
                     m.Total = (int)(long)(d.Varint());
                     break;
                 }
-                default: d.Skip(wire); break;
+                default: d.Skip(tag, wire); break;
             }
         }
         if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
@@ -1723,11 +1779,15 @@ public static class Codec
         {
             ulong k = d.Varint();
             int wire = (int)(k & 7UL);
-            switch (k >> 3)
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            switch (tag)
             {
                 case 1:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(1, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = new TaskSummary();
                     ReadTaskSummary(ref d, c, e2);
@@ -1735,7 +1795,7 @@ public static class Codec
                     m.Tasks.Add(c);
                     break;
                 }
-                default: d.Skip(wire); break;
+                default: d.Skip(tag, wire); break;
             }
         }
         if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
@@ -1747,11 +1807,15 @@ public static class Codec
         {
             ulong k = d.Varint();
             int wire = (int)(k & 7UL);
-            switch (k >> 3)
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            switch (tag)
             {
                 case 1:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(1, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = new Probe();
                     ReadProbe(ref d, c, e2);
@@ -1759,7 +1823,7 @@ public static class Codec
                     m.Probes.Add(c);
                     break;
                 }
-                default: d.Skip(wire); break;
+                default: d.Skip(tag, wire); break;
             }
         }
         if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
@@ -1771,11 +1835,15 @@ public static class Codec
         {
             ulong k = d.Varint();
             int wire = (int)(k & 7UL);
-            switch (k >> 3)
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            switch (tag)
             {
                 case 1:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(1, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = new MetricsBatch();
                     ReadMetricsBatch(ref d, c, e2);
@@ -1783,7 +1851,7 @@ public static class Codec
                     m.Batches.Add(c);
                     break;
                 }
-                default: d.Skip(wire); break;
+                default: d.Skip(tag, wire); break;
             }
         }
         if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
@@ -1795,11 +1863,15 @@ public static class Codec
         {
             ulong k = d.Varint();
             int wire = (int)(k & 7UL);
-            switch (k >> 3)
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            switch (tag)
             {
                 case 1:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(1, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = m.Upload ?? new UploadResultData();
                     ReadUploadResultData(ref d, c, e2);
@@ -1807,7 +1879,7 @@ public static class Codec
                     m.Upload = c;
                     break;
                 }
-                default: d.Skip(wire); break;
+                default: d.Skip(tag, wire); break;
             }
         }
         if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
@@ -1819,11 +1891,15 @@ public static class Codec
         {
             ulong k = d.Varint();
             int wire = (int)(k & 7UL);
-            switch (k >> 3)
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            switch (tag)
             {
                 case 1:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(1, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = new Pair();
                     ReadPair(ref d, c, e2);
@@ -1833,7 +1909,7 @@ public static class Codec
                 }
                 case 2:
                 {
-                    if (wire != 2) { d.Skip(wire); break; }
+                    if (wire != 2) { d.Skip(2, wire); break; }
                     int e2 = d.LenEnd(); if (d.Err != 0) break;
                     var c = new Pair();
                     ReadPair(ref d, c, e2);
@@ -1841,7 +1917,7 @@ public static class Codec
                     m.Right.Add(c);
                     break;
                 }
-                default: d.Skip(wire); break;
+                default: d.Skip(tag, wire); break;
             }
         }
         if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
