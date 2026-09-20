@@ -23,6 +23,11 @@ pub struct Mark {
 /// `global-widths`, off by default). One table for the whole process, shared by every
 /// context on every thread, sized at the largest site count any caller asks for.
 ///
+/// **This is a TEST-ONLY construction of a configuration the specification refuses. It is
+/// not an option a host may pick**, and no shipped build enables it. It exists so
+/// obligation 12.5's suite can be seen failing, and so section 6's claim is measured on a
+/// second host rather than inherited.
+///
 /// Relaxed atomics, so this is a real program rather than a data race: what it exposes is
 /// the CONTENTION section 6's claim is about -- one cache line written by every encoding
 /// thread -- and not undefined behaviour. The bytes stay correct because `Mark` carries its
@@ -160,6 +165,32 @@ impl Enc {
     pub fn end(&mut self, m: Mark) {
         let body = self.buf.len() - m.hdr - m.w;
         let need = varint_len(body as u64);
+
+        // ABI v1 section 6's SECOND refusal, built so it can be seen failing (feature
+        // `pad-widths`, off by default). Instead of moving the body when the guess was too
+        // wide, keep the reservation and write a NON-MINIMAL varint into it. That is legal
+        // wire -- every parser accepts a padded varint -- and it is exactly why it is
+        // refused: the encoder's output now depends on its own history, so two threads of
+        // one process emit two different legal encodings of one message, and a byte-vector
+        // corpus cannot express either.
+        //
+        // This is the refusal that corrupts BYTES. The process-global table (feature
+        // `global-widths`) is a data race and a throughput defect and not a byte defect,
+        // because this branch is what rewrites the prefix to the width the body actually
+        // needs whatever the guess was. The two are independent and only their combination
+        // is the worst case; the cpp slice separated them first
+        // (`ffi/logs/cpp/concurrency.log`) and section 6 was rewritten to say so.
+        #[cfg(feature = "pad-widths")]
+        if need < m.w {
+            let mut v = body as u64;
+            for i in 0..m.w {
+                let last = i + 1 == m.w;
+                self.buf[m.hdr + i] = ((v as u8) & 0x7f) | if last { 0 } else { 0x80 };
+                v >>= 7;
+            }
+            return;
+        }
+
         if need != m.w {
             self.resize_prefix(&m, body, need);
         }

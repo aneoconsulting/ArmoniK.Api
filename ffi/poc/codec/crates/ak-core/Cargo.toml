@@ -29,6 +29,7 @@ dec-reject-simd = ["ak-rt/dec-reject-simd"]
 # ABI v1 section 6's refused arrangement, for the rust slice's concurrency suite. Off by
 # default; see ak-rt's manifest for what it is and why it exists.
 global-widths = ["ak-rt/global-widths"]
+pad-widths = ["ak-rt/pad-widths"]
 # ABI v1 section 3: "Every other entry point requires `ak_init` to have returned
 # successfully, the codec included." Behind a feature so the claim can be PRICED -- with
 # it off, the emitted entry points are byte-for-byte what they were.

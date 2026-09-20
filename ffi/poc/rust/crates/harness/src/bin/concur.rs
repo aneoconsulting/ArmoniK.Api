@@ -61,10 +61,15 @@ fn main() {
     }
     let global = cfg!(feature = "global-widths");
     println!("# ABI v1 obligation 12.5: the concurrency suite");
-    println!("#   width table: {}", if global {
-        "PROCESS-GLOBAL (ABI v1 section 6's REFUSED arrangement, --features global-widths)"
-    } else {
-        "per context (ABI v1 section 6 as specified)"
+    let pad = cfg!(feature = "pad-widths");
+    println!("#   width table: {}", match (global, pad) {
+        (false, false) => "per context, prefix moved on a miss -- ABI v1 section 6 as SHIPPED",
+        (true, false) => "PROCESS-GLOBAL (--features global-widths). Section 6's first \
+refusal: a data race and a throughput defect, and NOT a byte defect. MUST PASS",
+        (false, true) => "prefix PADDED to the learned width (--features pad-widths). \
+Section 6's second refusal, and the one that corrupts bytes. MUST FAIL",
+        (true, true) => "PROCESS-GLOBAL *and* PADDED. The combination, which is the worst \
+case and the one a naive suite cannot see. MUST FAIL",
     });
     println!("#   guard:       {}", if cfg!(feature = "guard") { "on" } else { "OFF" });
     println!("#   shapes:      {SHAPE_A} and {SHAPE_B} (M1 leaf, M2 non-leaf), plus {SHAPE_A2} and {SHAPE_B2}");
@@ -72,26 +77,57 @@ fn main() {
     println!();
 
     let r = reference();
+    oracle_check(&r);
     let mut bad = 0usize;
     bad += sequence(&r);
     bad += together(&r);
-    bad += positive_control(&r);
-    throughput(&r);
+    // The planted-build arms are about the ENCODER, so the shared-context control and the
+    // throughput sweep are only run on the shipped build: on a build that is already wrong
+    // by construction they would be measuring the plant.
+    if !global && !pad {
+        bad += positive_control(&r);
+        throughput(&r);
+    } else {
+        println!("## 4 and 5 skipped: this is a planted build, and a control or a timing");
+        println!("## taken on one would be measuring the plant.");
+        println!();
+    }
 
     println!();
+    let must_fail = pad;
     if bad == 0 {
-        println!("# VERDICT: every encode in every section matched the single-threaded");
-        println!("# reference byte for byte, and every decode matched it by value.");
+        println!("# RESULT: every encode matched prost byte for byte, every decode matched");
+        println!("# by value. {} wrong.", bad);
     } else {
-        println!("# VERDICT: {bad} DISAGREEMENTS.");
+        println!("# RESULT: {bad} disagreements against prost.");
     }
+    if must_fail {
+        println!("# This build is a REFUSED design and MUST FAIL. {}",
+                 if bad == 0 { "It did not -- the suite is blind to it." }
+                 else { "It did, which is what says the suite works." });
+        std::process::exit(if bad == 0 { 1 } else { 0 });
+    }
+    println!("# This build MUST PASS.{}", if global {
+        " A process-global table is a throughput defect, not a byte defect."
+    } else { "" });
     std::process::exit(if bad == 0 { 0 } else { 1 });
 }
 
-/// The four shapes' wire bytes and facade values, taken single-threaded on fresh contexts.
-/// This is the oracle every later section is compared against; it is itself checked against
-/// `ffi/schema/generated/manifest.json` by `gen/stage2.sh`, so it is not two of the slice's
-/// own components agreeing with each other.
+/// The four shapes' wire bytes, **from the INCUMBENT's encoder**, not from the code under
+/// test.
+///
+/// This was a re-encode with a fresh `core-ffi` context and that is wrong, and the cpp
+/// slice's suite is what says so (`ffi/logs/cpp/concurrency.log`, and section 6 rewritten
+/// on its evidence). Section 6's two refusals are independent: a process-global width table
+/// is a throughput defect and not a byte defect, padding the prefix to the learned width IS
+/// a byte defect, and **their combination corrupts in a way a naive suite cannot see** --
+/// the threads agree with each other because they share the pollution, so comparing two
+/// threads finds nothing, and so does comparing against a reference taken with the same
+/// polluted encoder.
+///
+/// prost is independent of every core arm: a different codec over a different object graph,
+/// and itself checked against the validated manifest by `gen/stage2.sh`. That is the
+/// property the oracle needs and the only one that catches the combination.
 struct Ref {
     a: Vec<u8>,
     b: Vec<u8>,
@@ -100,23 +136,13 @@ struct Ref {
 }
 
 fn reference() -> Arc<Ref> {
-    let c = Ctx::new();
     let r = Ref {
-        a: arms::core_ffi_arm::encode(&c, &arms::armonik_arm::value(SHAPE_A)),
-        b: {
-            let c2 = Ctx::new();
-            arms_m2::core_ffi_arm::encode(&c2, &arms_m2::armonik_arm::value(SHAPE_B))
-        },
-        a2: {
-            let c3 = Ctx::new();
-            arms::core_ffi_arm::encode(&c3, &arms::armonik_arm::value(SHAPE_A2))
-        },
-        b2: {
-            let c4 = Ctx::new();
-            arms_m2::core_ffi_arm::encode(&c4, &arms_m2::armonik_arm::value(SHAPE_B2))
-        },
+        a: arms::prost_arm::encode(&arms::prost_arm::value(SHAPE_A)),
+        b: arms_m2::prost_arm::encode(&arms_m2::prost_arm::value(SHAPE_B)),
+        a2: arms::prost_arm::encode(&arms::prost_arm::value(SHAPE_A2)),
+        b2: arms_m2::prost_arm::encode(&arms_m2::prost_arm::value(SHAPE_B2)),
     };
-    println!("## 1. the reference, single-threaded, a fresh context per shape");
+    println!("## 1. the reference: prost, the INCUMBENT's encoder");
     println!();
     println!("{:<8} {:>10}", "shape", "bytes");
     println!("{:<8} {:>10}", SHAPE_A, r.a.len());
@@ -124,7 +150,67 @@ fn reference() -> Arc<Ref> {
     println!("{:<8} {:>10}", SHAPE_A2, r.a2.len());
     println!("{:<8} {:>10}", SHAPE_B2, r.b2.len());
     println!();
+    println!("# NOT a re-encode with the code under test. Section 6: only the COMBINATION of");
+    println!("# its two refusals corrupts, and it corrupts so that the threads agree with each");
+    println!("# other -- so a suite comparing two threads, or comparing against a reference");
+    println!("# taken with the same polluted encoder, finds nothing. It takes an independent");
+    println!("# encoder, and prost is one: different codec, different object graph, itself");
+    println!("# checked against the validated manifest by gen/stage2.sh.");
+    println!();
     Arc::new(r)
+}
+
+/// **What each oracle sees**, measured rather than cited.
+///
+/// The suite's reference used to be a re-encode with a fresh `core-ffi` context. Section 6
+/// says that cannot catch the combination of its two refusals, because a "fresh" context
+/// still reads the polluted GLOBAL table and so pads exactly as the threads do -- the
+/// reference is wrong in the same direction as the thing it is checking. This runs both
+/// oracles over the same encodes and prints what each of them finds.
+///
+/// On the shipped build both find zero, which is the point: the change costs nothing when
+/// there is nothing to find. On the planted builds the two columns are the argument.
+fn oracle_check(r: &Ref) {
+    println!("## 1b. what each oracle sees");
+    println!();
+    // A context WITH HISTORY, which is the state a padding defect needs.
+    let c = Ctx::new();
+    let va = arms::armonik_arm::value(SHAPE_A);
+    let va2 = arms::armonik_arm::value(SHAPE_A2);
+    for _ in 0..4 {
+        arms::core_ffi_arm::encode_into(&c, &va);
+        arms::core_ffi_arm::encode_into(&c, &va2);
+    }
+    let mut vs_prost = 0usize;
+    let mut vs_self = 0usize;
+    let mut n = 0usize;
+    for i in 0..8 {
+        let (v, want): (&_, &[u8]) = if i % 2 == 0 { (&va, &r.a) } else { (&va2, &r.a2) };
+        let got = arms::core_ffi_arm::encode_into(&c, v).to_vec();
+        // The oracle this suite used to use: the same encoder on a FRESH context.
+        let fresh = Ctx::new();
+        let self_ref = arms::core_ffi_arm::encode_into(&fresh, v);
+        n += 1;
+        if got != want { vs_prost += 1; }
+        if got != self_ref { vs_self += 1; }
+    }
+    println!("{:<44} {:>10}", "encodes from a context with history", n);
+    println!("{:<44} {:>10}", "wrong against PROST (the oracle now)", vs_prost);
+    println!("{:<44} {:>10}", "wrong against a fresh core-ffi context (the old oracle)", vs_self);
+    println!();
+    if vs_prost > 0 && vs_self == 0 {
+        println!("# THE OLD ORACLE IS BLIND HERE AND THE NEW ONE IS NOT. A fresh context is");
+        println!("# only fresh in the parts of the state that are per-context; with a global");
+        println!("# table it reads the same pollution the threads do, so it pads the same way");
+        println!("# and agrees. Section 6's sentence, on this host.");
+    } else if vs_prost > 0 {
+        println!("# Both oracles see this plant. The combination is the case where only the");
+        println!("# independent one does; run --features global-widths,pad-widths for it.");
+    } else {
+        println!("# Nothing to find on this build, and both oracles agree that there is");
+        println!("# nothing -- which is what the change to the oracle has to cost: zero.");
+    }
+    println!();
 }
 
 /// One thread, ONE context, the shapes alternating. This is the half of the obligation

@@ -24,6 +24,14 @@ dec-reject-simd = ["dep:simdutf8"]
 # 6's claim is about.  A table that were also re-read at `end()` would be a correctness
 # defect as well, and the suite's positive control covers that class separately.
 global-widths = []
+# ABI v1 section 6's OTHER refusal, and the one that corrupts BYTES: pad the length prefix
+# to the learned width instead of moving the body. Legal wire, and refused because the
+# encoder's output then depends on its own history. TEST-ONLY, like `global-widths`: it is
+# not an option a host may pick, and it exists so obligation 12.5's suite has a plant that
+# produces WRONG BYTES rather than only one that aborts. The two refusals are independent
+# and only their combination is the worst case -- see ffi/logs/cpp/concurrency.log, which
+# separated them, and section 6, which was rewritten to say so.
+pad-widths = []
 
 [dependencies]
 simdutf8 = { workspace = true, optional = true }
