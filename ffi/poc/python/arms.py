@@ -67,13 +67,19 @@ import payload_values as V  # noqa: E402  (generated)
 # defect as the rust slice's inlined counters -- a count that is not the build you think
 # it is. `AK_USE_COUNT=1` selects the counting build, and `conformance.py` runs that pass
 # in a subprocess of its own.
+# `AK_FFI_MODULE` picks WHICH shim, and it exists for the same reason `AK_USE_COUNT` does:
+# there are now three builds of one `libak_core.so` -- plain, counting, and the rpc-feature
+# one that pulls tonic in -- and the first of them loaded in a process satisfies the
+# others' NEEDED entry by soname. So a process gets exactly one, chosen here rather than by
+# import order. `rpc.py` sets `_akffi_rpc`; everything else takes the default.
 if os.environ.get("AK_USE_COUNT") == "1":
     _ffi = _try("the composed arm, counting build",
                 lambda: __import__("_akffi_count"))
     _ffi_count = _ffi
     COUNTING = True
 else:
-    _ffi = _try("the composed arm (_akffi)", lambda: __import__("_akffi"))
+    _MOD = os.environ.get("AK_FFI_MODULE", "_akffi")
+    _ffi = _try("the composed arm (%s)" % _MOD, lambda: __import__(_MOD))
     _ffi_count = None
     COUNTING = False
 _pb2 = _try("the incumbent (protobuf/upb)", lambda: __import__("shapes_pb2"))

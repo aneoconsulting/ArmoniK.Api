@@ -169,6 +169,7 @@ static PyObject *py_types(PyObject *m, PyObject *unused) {
   return t;
 }
 
+#ifdef AK_RPC
 /* ---------------------------------------------------------------------------------
  * ABI v1 section 9: the core's own RPC surface, bound to Python.
  *
@@ -199,6 +200,19 @@ typedef void (*ak_cb_t)(void *user, ak_completion_t *comp);
 extern void *ak_runtime_new(uint32_t worker_threads);
 extern void ak_runtime_destroy(void *rt);
 extern void *ak_client_new(void *rt, const uint8_t *uri, size_t uri_len);
+/* ABI v1 section 9's pinned dial. The struct is `ak_client_opts` and the field order is
+ * the core's; a host that gets it wrong pins the wrong thing silently, which is why the
+ * layout is restated here rather than assumed from a comment. */
+typedef struct {
+  uint32_t stream_window;
+  uint32_t connection_window;
+  int32_t adaptive_window;
+  uint32_t max_recv_message;
+  uint32_t max_send_message;
+  int32_t tcp_nagle;
+} ak_client_opts_t;
+extern void *ak_client_new_opts(void *rt, const uint8_t *uri, size_t uri_len,
+                                const ak_client_opts_t *opts);
 extern void ak_client_destroy(void *c);
 extern int32_t ak_call_unary(void *c, const uint8_t *path, size_t path_len,
                              const uint8_t *req, size_t req_len, void *out);
@@ -270,6 +284,29 @@ static PyObject *py_call_unary(PyObject *m, PyObject *args) {
   Py_END_ALLOW_THREADS
   if (rc != 0) { PyErr_Format(PyExc_RuntimeError, "ak_call_unary -> %d", (int)rc); return NULL; }
   return take_bytes(&out);
+}
+
+static PyObject *py_client_new_opts(PyObject *m, PyObject *args) {
+  (void)m;
+  PyObject *rtc;
+  const char *uri; Py_ssize_t ulen;
+  ak_client_opts_t o;
+  memset(&o, 0, sizeof o);
+  unsigned sw = 0, cw = 0, mr = 0, ms = 0;
+  int aw = -1, nagle = -1;
+  if (!PyArg_ParseTuple(args, "Os#|IIiIIi", &rtc, &uri, &ulen, &sw, &cw, &aw, &mr, &ms,
+                        &nagle))
+    return NULL;
+  o.stream_window = sw; o.connection_window = cw; o.adaptive_window = aw;
+  o.max_recv_message = mr; o.max_send_message = ms; o.tcp_nagle = nagle;
+  void *rt = PyCapsule_GetPointer(rtc, "ak_rt");
+  if (!rt) return NULL;
+  void *cl;
+  Py_BEGIN_ALLOW_THREADS
+  cl = ak_client_new_opts(rt, (const uint8_t *)uri, (size_t)ulen, &o);
+  Py_END_ALLOW_THREADS
+  if (!cl) { PyErr_Format(PyExc_RuntimeError, "ak_client_new_opts(%s)", uri); return NULL; }
+  return PyCapsule_New(cl, "ak_cl", cap_cl_free);
 }
 
 static PyObject *py_queue_new(PyObject *m, PyObject *unused) {
@@ -384,6 +421,8 @@ static PyObject *py_call_unary_cb(PyObject *m, PyObject *args) {
   Py_RETURN_NONE;
 }
 
+#endif /* AK_RPC */
+
 static PyMethodDef methods[] = {
     {"encode", py_encode, METH_VARARGS,
      "encode(backend, rootname, obj[, accessors]) -> bytes, through the shared core"},
@@ -399,8 +438,12 @@ static PyMethodDef methods[] = {
     {"abi_version", py_abi_version, METH_NOARGS, "ak_abi_version() from the core"},
     {"crossing", py_crossing, METH_VARARGS,
      "crossing(n[, 'forward'|'reverse']) -- the boundary, in this process"},
+#ifdef AK_RPC
     {"rt_new", py_rt_new, METH_VARARGS, "ak_runtime_new(worker_threads) -> capsule"},
     {"client_new", py_client_new, METH_VARARGS, "ak_client_new(rt, uri) -> capsule"},
+    {"client_new_opts", py_client_new_opts, METH_VARARGS,
+     "client_new_opts(rt, uri[, stream_window, connection_window, adaptive,"
+     " max_recv, max_send, nagle]) -> capsule. The transport PINNED (ABI v1 section 9)"},
     {"call_unary", py_call_unary, METH_VARARGS,
      "call_unary(client, path, req) -> bytes. Blocking, GIL released across the call"},
     {"queue_new", py_queue_new, METH_NOARGS, "ak_queue_new() -> capsule"},
@@ -412,6 +455,7 @@ static PyMethodDef methods[] = {
     {"call_unary_cb", py_call_unary_cb, METH_VARARGS,
      "call_unary_cb(client, path, req, fn, tag). Completes on a tokio worker, which must"
      " PyGILState_Ensure first"},
+#endif /* AK_RPC */
     {NULL, NULL, 0, NULL}};
 
 static int mod_exec(PyObject *m) {
