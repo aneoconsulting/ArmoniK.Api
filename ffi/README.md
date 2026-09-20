@@ -583,13 +583,33 @@ configuration to carry, from the core's current settings:
 At 4 MiB, P2.2's 540 KB response never fills the window, so **the wall-clock hazard
 above is a property of the default and not of the configuration under test** — which
 is the point of pinning the configuration rather than arguing about the default.
-Two things to get right when pinning it. **Set the connection window as well as the
-stream window**: grpc-java's `flowControlWindow` sets `SETTINGS_INITIAL_WINDOW_SIZE`,
-which is per stream, and tonic and hyper likewise take the two separately — raising
-only the stream window leaves the connection at 65,535 and the stall comes back
-unchanged. And **an explicit window turns BDP auto-tuning off** in grpc-java, so the
-pinned arm and the default arm are two different measurements; report the pinned one
-as the headline and the stack default as a labelled second row. The rest:
+Two things to get right when pinning it, **and both are per stack rather than
+general** — I stated them as general and the C# slice checked them against the runtime
+source rather than relaying them.
+
+- **The connection window is a separate knob on some stacks and not on others.**
+  grpc-java's `flowControlWindow` reaches `SETTINGS_INITIAL_WINDOW_SIZE`, which is per
+  stream, and tonic and hyper take the two separately — there, raising only the stream
+  window leaves the connection at 65,535 and the stall comes back unchanged. **On .NET
+  the hazard is not reachable**: `Http2Connection` hardcodes a 64 MiB connection window
+  and raises it by `WINDOW_UPDATE` at setup, so at a 4 MiB stream window the connection
+  is already sixteen times it.
+- **An explicit window turns auto-tuning off in grpc-java and does NOT on .NET.** There,
+  `flowControlWindow(int)` sets `autoFlowControl = false`. On .NET
+  `Http2StreamWindowManager` takes the configured size as a *starting point* and doubles
+  from it up to a 16 MiB cap, and `WindowScalingEnabled` is a separate switch that
+  defaults on — so **a pinned window is a floor, not a cap**, and pinning 4 MiB there
+  needs the property *and* the
+  `System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing` AppContext
+  switch, or the arm may be measuring 8 or 16 MiB by the end of the run.
+
+Report the pinned arm as the headline and the stack default as a labelled second row.
+**And note where pinning diverges from what ArmoniK ships**: `packages/csharp` sets no
+window on either side, and the client builds an `HttpClientHandler` through which
+`InitialHttp2StreamWindowSize` is not reachable at all — so on .NET the pinned arm
+configures something the shipped client cannot. UDS is the opposite case and needs no
+caveat: `GrpcChannel` already defaults to a Unix socket at `/tmp/armonik.sock` and the
+worker already calls `ListenUnixSocket`. The rest:
 JIT tiering and PGO off handicaps a managed incumbent, which the C# slice checked
 rather than assumed: no arm there crosses 1.0 under any of three configurations,
 and the default is the one *least* favourable to the managed arms. Two vCPUs is
