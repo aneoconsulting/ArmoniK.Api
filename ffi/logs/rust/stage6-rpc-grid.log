@@ -15,8 +15,12 @@ CONFIGURATION (R7, R13, R14)
              logs/rust/stage2-four-arms-M1.log, 20,000,000 crossings)
   payload    P2.2, 540,422 B -- the shape the control plane actually moves
   transport  Unix domain socket PRIMARY, loopback TCP as a labelled second row
-  pinned     stream window 4 MiB, CONNECTION window 4 MiB, max message 2 MiB.
+  pinned     stream window 4 MiB, CONNECTION window 4 MiB, max message 2 MiB,
+             adaptive window OFF, client Nagle at tonic's default (nodelay on).
              ArmoniK's settings, applied to BOTH the tonic arm and the core arms.
+             `armonik-transport` reads `GrpcClient__TcpNagleAlgorithm`, defaults
+             it false and applies `set_nodelay(!nagle)`, so ArmoniK ships Nagle
+             OFF and the CLIENT was never the problem here.
   rounds     7 x 96 calls, median; CPU per RPC is the headline, wall beside it
   script     poc/rust/gen/rpcgrid.sh
 
@@ -69,7 +73,7 @@ WHAT WAS ASKED FOR, AND WHAT CAME BACK
   B  prost + core      prost's codec, the core's transport
   C  core + core       both halves native, behind the C ABI
 
-  Every cell lands between 0.957 and 1.089 of A, on both transports, at every
+  Every cell lands between 0.933 and 1.064 of A, on both transports, at every
   flight -- which is this harness's noise.  Two readings, and the second is the
   one that matters:
 
@@ -99,14 +103,14 @@ WHAT WAS ASKED FOR, AND WHAT CAME BACK
   and machine identical on both sides of the minus sign.
 
       flight   opaque us/RPC   A us/RPC   codec us/RPC   codec %
-      UDS   1          1354.2     4895.8         3541.7     72.3%
+      UDS   1          1666.7     4687.5         3020.8     64.4%
       UDS   8          1979.2     4791.7         2812.5     58.7%
-      UDS  16          2187.5     5208.3         3020.8     58.0%
-      TCP   1          1458.3     5208.3         3750.0     72.0%
-      TCP   8          2083.3     4687.5         2604.2     55.6%
-      TCP  16          2083.3     5104.2         3020.8     59.2%
+      UDS  16          2083.3     5104.2         3020.8     59.2%
+      TCP   1          1458.3     4583.3         3125.0     68.2%
+      TCP   8          1770.8     4687.5         2916.7     62.2%
+      TCP  16          1979.2     4895.8         2916.7     59.6%
 
-  Between 56% and 72% of the CPU of a real gRPC call, about 60% away from the
+  Between 59% and 68% of the CPU of a real gRPC call, about 60% away from the
   flight-1 rows where the denominator is smallest, at the payload the control plane
   actually moves, is the codec.  That is the premise the whole exploration rests
   on and it had not been measured end to end anywhere in this branch: stages 1
@@ -167,13 +171,13 @@ WHAT WAS ASKED FOR, AND WHAT CAME BACK
 
   ONE SOCKET OPTION, NOTHING ELSE CHANGED:
 
-      transport  server socket        CPU us/RPC   wall us/RPC
-      UDS        -                        2708.3        2133.6
-      TCP        TCP_NODELAY              2708.3        2145.6
-      TCP        as `rpc::serve` is       3750.0       32416.4
-      UDS        -                         208.3         152.5   1 KB
-      TCP        TCP_NODELAY               208.3         149.6   1 KB
-      TCP        as `rpc::serve` is        833.3       44041.9   1 KB
+      transport  server socket          CPU us/RPC   wall us/RPC
+      UDS        -                          2708.3        2081.9
+      TCP        TCP_NODELAY (`serve`)      2500.0        2007.8
+      TCP        Nagle (`serve_nagle`)      3541.7       31585.6
+      UDS        -                           208.3         151.3   1 KB
+      TCP        TCP_NODELAY (`serve`)       104.2         141.8   1 KB
+      TCP        Nagle (`serve_nagle`)       729.2       44039.6   1 KB
 
   (All six are default-client rows from section 6's window-control table; the
   pinned rows are alongside them there and differ by a few percent.)
@@ -182,6 +186,35 @@ WHAT WAS ASKED FOR, AND WHAT CAME BACK
   columns.  **There was never a transport gap.**  Every loopback-TCP wall figure
   in this branch, stage 4's included, is measuring a harness defect, and any
   slice that reported UDS as faster than TCP reported this and not a transport.
+
+  AND THE CPU COLUMN MOVED TOO, WHICH MATTERS MORE THAN THE WALL COLUMN DID.
+  Every slice has been told CPU is the trustworthy column.  Against the old
+  server that was only half true.  Two rows of one table cannot establish it on a
+  shared box, so section 6 interleaves them -- nagle, nodelay, nagle, nodelay,
+  five adjacent pairs, so drift moves both members of a pair together and cannot
+  manufacture a consistent sign:
+
+      pair   nagle CPU   nodelay CPU   CPU x     nagle wall   nodelay wall  wall x
+         1      3333.3        2395.8   1.391x       29957.9         1863.2   16.1x
+         2      3229.2        2500.0   1.292x       31493.2         1935.6   16.3x
+         3      3541.7        2812.5   1.259x       29055.5         2215.9   13.1x
+         4      3854.2        2604.2   1.480x       29624.4         2074.8   14.3x
+         5      3645.8        2812.5   1.296x       28189.5         2273.1   12.4x
+       med                             1.296x                                14.3x
+
+  **Five pairs out of five, same sign, median 1.296x.**  Nagle on the server
+  inflated the loopback-TCP CPU column by about 30%.  The mechanism is the same
+  one: a stalled write parks the reactor and a timer wakes it, so the call costs
+  extra epoll and scheduler work at both ends -- and both ends are in this
+  process, so both land in its utime+stime.
+
+  WHAT THAT COSTS THE BRANCH, precisely.  A loopback-TCP CPU figure taken against
+  the old server is INFLATED, not merely accompanied by an unreadable wall
+  figure.  What it does NOT cost is a RATIO between two arms that both went
+  through the same server: stage 4's `CPU/tonic` column is such a ratio and still
+  stands, while its absolute `CPU us/RPC` column does not.  Any slice quoting an
+  absolute loopback-TCP CPU number from before the flip should re-take it; any
+  slice quoting a ratio need not.
 
   WHAT SURVIVES OF R9.  Its conclusion does -- "measure CPU, not wall clock" is
   now better supported, not worse, and so is "wall-clock columns are not
@@ -197,13 +230,14 @@ WHAT WAS ASKED FOR, AND WHAT CAME BACK
   correct and still worth having for a real deployment; it is just not what the
   loopback numbers were measuring.
 
-  WHAT WAS CHANGED AND WHAT WAS NOT.  `rpc::serve_nodelay` was ADDED beside
-  `rpc::serve`; `rpc::serve` is byte-for-byte what it was.  R0 says a change to
-  existing behaviour in the shared core invalidates the other slices' published
-  figures, so flipping the default is the aggregating session's call and not
-  mine.  The TCP tables in section 5 below are measured against the FIXED server,
-  because reporting the defective one as a transport row would be reporting the
-  artifact; the window-control table is where the artifact is kept as evidence.
+  WHAT WAS CHANGED, AND BY WHOM.  This slice ADDED `rpc::serve_nodelay` beside
+  `rpc::serve` and left `rpc::serve` byte-for-byte as it was, because R0 makes a
+  change to existing core behaviour the aggregating session's call.  It took the
+  flip: `rpc::serve` now sets the option, `rpc::serve_nagle` preserves the old
+  form so the artifact above stays reproducible, and `serve_nodelay` is a
+  deprecated alias.  This log's tables are re-taken against the flipped
+  `rpc::serve`; the window-control rows above reach the old behaviour through
+  `serve_nagle` and are where the artifact is kept as evidence.
 
 --------------------------------------------------------------------------------
  5. HAZARDS (R9), AND THEY ARE LARGE HERE
@@ -270,7 +304,7 @@ model name	: Intel(R) Xeon(R) Processor @ 2.10GHz
                  U ak_queue_shutdown
 
 # and the shared object ldd says is actually loaded:
-	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so (0x00007f6083800000)
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so (0x00007f8ff9600000)
 
 ===== 3. the run =====
 # stage 6: section 9's three deliveries, and the RPC grid
@@ -283,7 +317,7 @@ model name	: Intel(R) Xeon(R) Processor @ 2.10GHz
 #   incumbent  tonic 0.14 + tonic-prost, the codec packages/rust uses (R14)
 #   rounds     7 x 96 calls, CPU per RPC is the headline
 
-#   servers    unix:/tmp/ak-rpcgrid-23207.sock and 127.0.0.1:39159
+#   servers    unix:/tmp/ak-rpcgrid-1235.sock and 127.0.0.1:44969
 
 ## crossings per RPC, per delivery
 
@@ -301,15 +335,38 @@ queue     ak_call_unary_q            3         0          0  call + queue_next +
 ## is the window pinning live? (R5's question, asked of a new entry point)
 
 transport client        CPU us/RPC   wall us/RPC   server socket
-UDS      default           2708.3        2133.6   -
-UDS      pinned            2708.3        2157.7   -
-TCP      default           2708.3        2145.6   TCP_NODELAY
-TCP      pinned            2812.5        2218.9   TCP_NODELAY
-TCP      default           3750.0       32416.4   as `rpc::serve` is
-TCP      pinned            3854.2       28040.7   as `rpc::serve` is
-UDS      pinned             208.3         152.5   1 KB, -
-TCP      pinned             208.3         149.6   1 KB, TCP_NODELAY
-TCP      pinned             833.3       44041.9   1 KB, as `rpc::serve` is
+UDS      default           2708.3        2081.9   -
+UDS      pinned            2500.0        2004.6   -
+TCP      default           2500.0        2007.8   TCP_NODELAY (`serve`)
+TCP      pinned            2604.2        2075.6   TCP_NODELAY (`serve`)
+TCP      default           3541.7       31585.6   Nagle (`serve_nagle`)
+TCP      pinned            3541.7       28313.5   Nagle (`serve_nagle`)
+UDS      pinned             208.3         151.3   1 KB, -
+TCP      pinned             104.2         141.8   1 KB, TCP_NODELAY (`serve`)
+TCP      pinned             729.2       44039.6   1 KB, Nagle (`serve_nagle`)
+## did Nagle move the CPU column, or only the wall column?
+
+#  pair     nagle CPU     nodel CPU     CPU x     nagle wall    nodel wall    wall x
+#     1        3333.3        2395.8    1.391x        29957.9        1863.2     16.1x
+#     2        3229.2        2500.0    1.292x        31493.2        1935.6     16.3x
+#     3        3541.7        2812.5    1.259x        29055.5        2215.9     13.1x
+#     4        3854.2        2604.2    1.480x        29624.4        2074.8     14.3x
+#     5        3645.8        2812.5    1.296x        28189.5        2273.1     12.4x
+#   med                                1.296x                                  14.3x
+#
+# **THE CPU COLUMN MOVED TOO.** It is a smaller effect than the wall column's and
+# it is in the same direction, and the sign is consistent across interleaved
+# pairs, so it is not drift. The mechanism is the same one: a stalled write
+# means the reactor parks and is woken again by a timer, so the call costs
+# extra epoll and scheduler work on both ends -- and both ends are in THIS
+# process, so both land in this process's utime+stime.
+#
+# What that costs the branch: a loopback-TCP CPU figure taken against the old
+# server is inflated, not merely accompanied by an unreadable wall figure. What
+# it does NOT cost: a RATIO between two arms that both went through the same
+# server. Stage 4's `CPU/tonic` column is such a ratio and still stands; its
+# ABSOLUTE `CPU us/RPC` column does not.
+
 
 # READ THIS BEFORE THE TABLES BELOW.
 #
@@ -333,7 +390,7 @@ TCP      pinned             833.3       44041.9   1 KB, as `rpc::serve` is
 #    Nagle: a large response has full segments to send and never waits, while a
 #    1 KB one is a small write with nothing behind it, which is the stall case.
 #
-# 3. **AND HERE IS WHAT IT ACTUALLY IS.** The two `as rpc::serve is` rows differ
+# 3. **AND HERE IS WHAT IT ACTUALLY IS.** The two `serve_nagle` rows differ
 #    from the `TCP_NODELAY` rows above them in ONE SOCKET OPTION on the server's
 #    accepted socket, and in nothing else at all. `crates/rpc` drives
 #    tonic through `serve_with_incoming`, and tonic documents that the builder's
@@ -343,12 +400,13 @@ TCP      pinned             833.3       44041.9   1 KB, as `rpc::serve` is
 #    DATA, then TRAILERS; with Nagle on the writer the second small write waits
 #    for the peer's ACK of the first, and Linux's delayed-ACK timer is 40 ms.
 #    That is a HARNESS defect, not a transport result, and every loopback-TCP
-#    wall figure in this branch -- stage 4's included -- carries it.
+#    figure taken before `rpc::serve` was flipped -- stage 4's included --
+#    carries it. **Including its CPU column: see the control below.**
 #
 # 4. So THERE IS NO LOOPBACK-TCP PENALTY. With the one option set, TCP and UDS
-#    agree on both payloads. The TCP tables further down are measured against
-#    the FIXED server, because reporting the other one as a transport row would
-#    be reporting an artifact; the rows above are where the artifact is kept.
+#    agree on both payloads. The TCP tables further down go through
+#    `rpc::serve`, which now sets the option; `rpc::serve_nagle` keeps the old
+#    form so the artifact above stays reproducible.
 
 ==============================================================================
 == transport: UDS  (PRIMARY)
@@ -357,22 +415,22 @@ TCP      pinned             833.3       44041.9   1 KB, as `rpc::serve` is
 ### the three deliveries of one call path, UDS
 
 delivery      flight    CPU us/RPC   wall us/RPC   / blocking
-blocking           1        1354.2        1027.4        1.000
-blocking           8        1979.2         827.5        1.000
-blocking          16        2187.5         879.4        1.000
-callback           1        2083.3        1746.2        1.538
-callback           8        1979.2         779.5        1.000
-callback          16        2083.3         810.1        0.952
-queue              1        1875.0        1646.6        1.385
-queue              8        1979.2         822.5        1.000
-queue             16        1979.2         798.3        0.905
+blocking           1        1666.7        1329.6        1.000
+blocking           8        1979.2         799.2        1.000
+blocking          16        2083.3         894.4        1.000
+callback           1        1666.7        1421.2        1.000
+callback           8        2187.5         873.1        1.105
+callback          16        1979.2         803.9        0.950
+queue              1        1562.5        1327.4        0.938
+queue              8        1979.2         802.5        1.000
+queue             16        2083.3         805.0        1.000
 
 # the floor, UDS: what the delivery choice costs when a crossing is free
 #
 #  flight    min us/RPC     spread us    spread %  1 crossing %
-#       1        1354.2         729.2      53.85%     0.000133%
-#       8        1979.2           0.0       0.00%     0.000091%
-#      16        1979.2         208.3      10.53%     0.000091%
+#       1        1562.5         104.2       6.67%     0.000115%
+#       8        1979.2         208.3      10.53%     0.000091%
+#      16        1979.2         104.2       5.26%     0.000091%
 #
 # Read the last two columns against each other. The ABI difference between the
 # three deliveries is one crossing, which is about six orders of magnitude below
@@ -394,15 +452,15 @@ queue             16        1979.2         798.3        0.905
 ### the grid, UDS: A prost+tonic | B prost+core | C core+core
 
 cell                    flight    CPU us/RPC   wall us/RPC        / A
-A  prost + tonic             1        4895.8        4394.2      1.000
-A  prost + tonic             8        4791.7        1668.3      1.000
-A  prost + tonic            16        5208.3        1810.9      1.000
-B  prost + core              1        4895.8        4433.1      1.000
-B  prost + core              8        5208.3        1848.6      1.087
-B  prost + core             16        5416.7        1871.5      1.040
-C  core + core               1        4687.5        4223.6      0.957
-C  core + core               8        5208.3        1788.8      1.087
-C  core + core              16        5520.8        1872.0      1.060
+A  prost + tonic             1        4687.5        4225.3      1.000
+A  prost + tonic             8        4791.7        1664.9      1.000
+A  prost + tonic            16        5104.2        1758.7      1.000
+B  prost + core              1        4583.3        4266.9      0.978
+B  prost + core              8        4791.7        1667.2      1.000
+B  prost + core             16        5104.2        1731.4      1.000
+C  core + core               1        4375.0        3964.8      0.933
+C  core + core               8        4791.7        1657.6      1.000
+C  core + core              16        5104.2        1713.8      1.000
 
 # B - A IS NOT A TRANSPORT COMPARISON HERE. Both transports are tonic, so what
 # it isolates is the cost of putting the C ABI in front of the same transport,
@@ -413,9 +471,9 @@ C  core + core              16        5520.8        1872.0      1.060
 # the codec's share of one RPC, UDS
 #
 #  flight   opaque us/RPC        A us/RPC    codec us/RPC    codec %
-#       1          1354.2          4895.8          3541.7      72.3%
+#       1          1666.7          4687.5          3020.8      64.4%
 #       8          1979.2          4791.7          2812.5      58.7%
-#      16          2187.5          5208.3          3020.8      58.0%
+#      16          2083.3          5104.2          3020.8      59.2%
 #
 # **At the payload the control plane actually moves, over a real gRPC call, the
 # codec is the MAJORITY of the CPU.** That is the premise this whole exploration
@@ -437,22 +495,22 @@ C  core + core              16        5520.8        1872.0      1.060
 ### the three deliveries of one call path, TCP
 
 delivery      flight    CPU us/RPC   wall us/RPC   / blocking
-blocking           1        1458.3        1017.9        1.000
-blocking           8        2083.3         859.0        1.000
-blocking          16        2083.3         862.0        1.000
-callback           1        2500.0        2144.0        1.714
-callback           8        2187.5         895.1        1.050
-callback          16        1979.2         775.5        0.950
-queue              1        2291.7        1888.9        1.571
-queue              8        2187.5         889.8        1.050
-queue             16        2187.5         865.8        1.050
+blocking           1        1458.3         971.7        1.000
+blocking           8        1770.8         776.4        1.000
+blocking          16        1979.2         817.3        1.000
+callback           1        1875.0        1525.5        1.286
+callback           8        2187.5         896.3        1.235
+callback          16        2083.3         832.6        1.053
+queue              1        1770.8        1387.3        1.214
+queue              8        2187.5         878.5        1.235
+queue             16        2083.3         834.0        1.053
 
 # the floor, TCP: what the delivery choice costs when a crossing is free
 #
 #  flight    min us/RPC     spread us    spread %  1 crossing %
-#       1        1458.3        1041.7      71.43%     0.000123%
-#       8        2083.3         104.2       5.00%     0.000086%
-#      16        1979.2         208.3      10.53%     0.000091%
+#       1        1458.3         416.7      28.57%     0.000123%
+#       8        1770.8         416.7      23.53%     0.000102%
+#      16        1979.2         104.2       5.26%     0.000091%
 #
 # Read the last two columns against each other. The ABI difference between the
 # three deliveries is one crossing, which is about six orders of magnitude below
@@ -474,15 +532,15 @@ queue             16        2187.5         865.8        1.050
 ### the grid, TCP: A prost+tonic | B prost+core | C core+core
 
 cell                    flight    CPU us/RPC   wall us/RPC        / A
-A  prost + tonic             1        5208.3        4770.1      1.000
-A  prost + tonic             8        4687.5        1581.6      1.000
-A  prost + tonic            16        5104.2        1635.2      1.000
-B  prost + core              1        5520.8        5068.2      1.060
-B  prost + core              8        4895.8        1582.6      1.044
-B  prost + core             16        5312.5        1680.5      1.041
-C  core + core               1        5416.7        4941.3      1.040
-C  core + core               8        5104.2        1694.3      1.089
-C  core + core              16        5520.8        1740.7      1.082
+A  prost + tonic             1        4583.3        4179.0      1.000
+A  prost + tonic             8        4687.5        1563.1      1.000
+A  prost + tonic            16        4895.8        1527.4      1.000
+B  prost + core              1        4687.5        4267.2      1.023
+B  prost + core              8        4895.8        1570.9      1.044
+B  prost + core             16        5208.3        1607.1      1.064
+C  core + core               1        4687.5        4253.8      1.023
+C  core + core               8        4791.7        1626.7      1.022
+C  core + core              16        4895.8        1528.1      1.000
 
 # B - A IS NOT A TRANSPORT COMPARISON HERE. Both transports are tonic, so what
 # it isolates is the cost of putting the C ABI in front of the same transport,
@@ -493,9 +551,9 @@ C  core + core              16        5520.8        1740.7      1.082
 # the codec's share of one RPC, TCP
 #
 #  flight   opaque us/RPC        A us/RPC    codec us/RPC    codec %
-#       1          1458.3          5208.3          3750.0      72.0%
-#       8          2083.3          4687.5          2604.2      55.6%
-#      16          2083.3          5104.2          3020.8      59.2%
+#       1          1458.3          4583.3          3125.0      68.2%
+#       8          1770.8          4687.5          2916.7      62.2%
+#      16          1979.2          4895.8          2916.7      59.6%
 #
 # **At the payload the control plane actually moves, over a real gRPC call, the
 # codec is the MAJORITY of the CPU.** That is the premise this whole exploration
