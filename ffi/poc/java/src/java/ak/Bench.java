@@ -135,6 +135,8 @@ public final class Bench {
     Binding bFfi = new Binding();
     Binding bNoBatch = new Binding(); bNoBatch.batch = false;
     Binding bZeroed = new Binding(); bZeroed.zeroed = true;
+    Binding bPull = new Binding();
+    Binding bPullWalk = new Binding(); bPullWalk.pullWalk = true;
     ak.borrow.Binding bBorrow = new ak.borrow.Binding();
     PbArm pb = new PbArm();
     Enc enc = new Enc(Codec.SITES);
@@ -291,6 +293,31 @@ public final class Bench {
         return s;
       }
     });
+    // ABI v1 7.1's PULL family. Zero reverse calls on every payload (logs/java/counts.log),
+    // which is the whole reason it exists on this runtime: the push arm's decode regression
+    // decomposes into 7.004 upcalls per element at about 80 ns. Two deliveries, differing
+    // by exactly the drain copy, so the family's cost splits into "materialise the records"
+    // and "copy them to the host" instead of arriving as one number.
+    decArms.add(new Arm("ffi-pull", "7.1 pull, drained into host memory in 32 KB chunks:"
+        + " one forward crossing per chunk, no reverse call, wire never copied") {
+      long run(String id, int n) {
+        long s = 0;
+        bPull.pullWalk = false;
+        for (int i = 0; i < n; i++)
+          s += FfiArms.parse(bPull, id, wire, 0, wire.length) == null ? 0 : 1;
+        return s;
+      }
+    });
+    decArms.add(new Arm("ffi-pull-walk", "the same, read in place through ak_bdr_ptr:"
+        + " two forward crossings for the whole response and no intermediate") {
+      long run(String id, int n) {
+        long s = 0;
+        bPullWalk.pullWalk = true;
+        for (int i = 0; i < n; i++)
+          s += FfiArms.parse(bPullWalk, id, wire, 0, wire.length) == null ? 0 : 1;
+        return s;
+      }
+    });
     decArms.add(new Arm("ffi-borrow", "ABI v1 open decision 13: the facade holds views"
         + " over the host's own buffer rather than String") {
       long run(String id, int n) {
@@ -416,6 +443,15 @@ public final class Bench {
         {"pbj", "pbj-reused-out", "what the output allocation costs the incumbent"},
         {"ffi", "ffi-borrow", "open decision 13: positive means the borrowed facade is"
             + " FASTER"},
+        {"ffi", "ffi-pull", "ABI v1 7.1, the FAMILY question: positive means the pull"
+            + " family is faster than the push family. Both deliver through the same"
+            + " per-slot host code, so this is two deliveries of one traversal"},
+        {"ffi-pull", "ffi-pull-walk", "what the drain copy costs: positive means reading"
+            + " the records in place is faster. The C# slice estimated this at 12 to 19"
+            + " percent of a parse; here it is measured"},
+        {"R", "ffi-pull", "the architecture question again, against the no-boundary"
+            + " control: positive means the C ABI's pull family beats a generated Java"
+            + " codec, which the push family does on no payload at all"},
       };
       boolean any = false;
       for (String[] pr : pairs) {

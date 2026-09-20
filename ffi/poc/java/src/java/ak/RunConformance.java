@@ -26,6 +26,12 @@ public final class RunConformance {
       arms.add(new FfiArm("ffi-nobatch", false, false));
       arms.add(new FfiArm("ffi-zeroed", true, true));
       arms.add(new FfiArm("ffi-nobatch-zeroed", false, true));
+      // ABI v1 7.1's pull family, both deliveries. Decode only: the family is a decode
+      // delivery, so `encode` returns null and the oracle is byte identity after the
+      // round trip -- which is the right oracle, because a misordered or mis-slotted
+      // record stream builds a different object graph and the re-encode says so.
+      arms.add(new FfiPullArm("ffi-pull", false));
+      arms.add(new FfiPullArm("ffi-pull-walk", true));
       // Decision 13's arm is emitted for the TARGET only, so the floor build registers
       // nothing here rather than failing to compile. Reflection, so a missing arm is a
       // stated skip and never a silent pass.

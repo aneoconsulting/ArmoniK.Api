@@ -11,24 +11,52 @@ public final class NativeEntry {
 
   public static native long encodeListResultsResponse(Object self, long ctx, long vt, long fix);
   public static native int decodeListResultsResponse(Object self, long ctx, long buf, long len, long vt);
+  /** ABI v1 7.1's pull family. Takes the host's OWN array: `ak_parse_*`
+   *  makes no upcall, so the shim can hold a critical section over it and
+   *  the wire never has to be copied into native scratch. */
+  public static native int parseListResultsResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeListTasksDetailedResponse(Object self, long ctx, long vt, long fix);
   public static native int decodeListTasksDetailedResponse(Object self, long ctx, long buf, long len, long vt);
+  /** ABI v1 7.1's pull family. Takes the host's OWN array: `ak_parse_*`
+   *  makes no upcall, so the shim can hold a critical section over it and
+   *  the wire never has to be copied into native scratch. */
+  public static native int parseListTasksDetailedResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeListProbeResponse(Object self, long ctx, long vt, long fix);
   public static native int decodeListProbeResponse(Object self, long ctx, long buf, long len, long vt);
+  /** ABI v1 7.1's pull family. Takes the host's OWN array: `ak_parse_*`
+   *  makes no upcall, so the shim can hold a critical section over it and
+   *  the wire never has to be copied into native scratch. */
+  public static native int parseListProbeResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeListTaskSummaryResponse(Object self, long ctx, long vt, long fix);
   public static native int decodeListTaskSummaryResponse(Object self, long ctx, long buf, long len, long vt);
+  /** ABI v1 7.1's pull family. Takes the host's OWN array: `ak_parse_*`
+   *  makes no upcall, so the shim can hold a critical section over it and
+   *  the wire never has to be copied into native scratch. */
+  public static native int parseListTaskSummaryResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeUploadResultDataMessage(Object self, long ctx, long vt, long fix, long direct, long dlen);
   public static native int decodeUploadResultDataMessage(Object self, long ctx, long buf, long len, long vt);
+  /** ABI v1 7.1's pull family. Takes the host's OWN array: `ak_parse_*`
+   *  makes no upcall, so the shim can hold a critical section over it and
+   *  the wire never has to be copied into native scratch. */
+  public static native int parseUploadResultDataMessage(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeListMetricsResponse(Object self, long ctx, long vt, long fix);
   public static native int decodeListMetricsResponse(Object self, long ctx, long buf, long len, long vt);
+  /** ABI v1 7.1's pull family. Takes the host's OWN array: `ak_parse_*`
+   *  makes no upcall, so the shim can hold a critical section over it and
+   *  the wire never has to be copied into native scratch. */
+  public static native int parseListMetricsResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeDualResponse(Object self, long ctx, long vt, long fix);
   public static native int decodeDualResponse(Object self, long ctx, long buf, long len, long vt);
+  /** ABI v1 7.1's pull family. Takes the host's OWN array: `ak_parse_*`
+   *  makes no upcall, so the shim can hold a critical section over it and
+   *  the wire never has to be copied into native scratch. */
+  public static native int parseDualResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   /** ABI v1 section 8: the bulk field is pinned for the duration of the
    *  call with GetPrimitiveArrayCritical, which the generator-time refusal

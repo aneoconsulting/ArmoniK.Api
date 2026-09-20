@@ -98,7 +98,17 @@ public final class Dec {
    * and this arm follows the core rather than the incumbent on purpose -- the two columns
    * would otherwise not be the same work.
    */
-  public void skip(int tag) {
+  /** The core bounds group nesting at 100 and returns `AK_ERR_DEPTH`; this decoder
+   *  recursed without a bound, so a payload of start tags was a StackOverflowError
+   *  rather than a refusal. Caught by reading the core's D7 fix against this file, and
+   *  the corpus has the two vectors for it (`X-depth-101`, `X-depth-300`). The JVM makes
+   *  the unbounded form survivable where a native core makes it a crash inside the host's
+   *  process, which is ABI v1 open decision 7 -- but "survivable" is not "refused". */
+  static final int MAX_GROUP_DEPTH = 100;
+
+  public void skip(int tag) { skip(tag, 0); }
+
+  private void skip(int tag, int depth) {
     switch (tag & 7) {
       case 0: readVarint(); break;
       case 1: if (pos + 8 > limit) throw new Malformed("truncated i64"); pos += 8; break;
@@ -110,15 +120,19 @@ public final class Dec {
       case 2: { int n = readLen(); pos += n; break; }
       case 5: if (pos + 4 > limit) throw new Malformed("truncated i32"); pos += 4; break;
       case 3: {  // a start group: legal wire, and the schema has none, so refuse loudly
+        if (depth >= MAX_GROUP_DEPTH) throw new Malformed("group nesting past 100");
         int field = tag >>> 3;
         while (true) {
           int t = readTag();
           if (t == 0) throw new Malformed("unterminated group");
           if ((t & 7) == 4) {
+            // The END_GROUP's field number must MATCH the one that opened it. Counting
+            // depth instead accepts a mismatched end and mis-nests every group after it,
+            // which is what the core's D7 fix says and what this already did.
             if ((t >>> 3) != field) throw new Malformed("mismatched end group");
             break;
           }
-          skip(t);
+          skip(t, depth + 1);
         }
         break;
       }
