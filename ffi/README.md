@@ -602,8 +602,13 @@ messages under the same flow control. Neither fact changes a codec ratio; both
 change what an RPC arm is a measurement of.
 
 **So the RPC arms measure ArmoniK's transport configuration, not their stack's
-default**, which is R14 applied to the transport instead of to the codec. The
-configuration to carry, from the core's current settings:
+default**, which is R14 applied to the transport instead of to the codec.
+`packages/rust/armonik-transport` is the reference implementation and the only package
+that expresses these options: it disables Nagle by default
+(`tcp_nagle_algorithm: bool`, "defaults to false", applied as
+`http.set_nodelay(!config.tcp_nagle_algorithm)`) and **pins no HTTP/2 window at all**,
+so the window below is the configuration ArmoniK intends rather than the one it ships,
+and an arm that pins it labels it as such. The configuration to carry:
 
 - **chunking at 2 MiB** for upload and download, where `ArmoniK.Api.Mock` still
   shows the old 80 KB `DataChunkMaxSize`;
