@@ -6,12 +6,13 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | **stages 1 to 5 complete.** Stages 1 to 4 as before (four arms, every shape, the RPC arm, decision 3 on both sides). **Stage 5 adds three things the branch had specified and nobody had built**: ABI v1 section 7.1's **pull decode family** (open decision 2, both halves), obligation 12.5's **concurrency suite**, and section 3's **`ak_init` and lifecycle**. All three landed in the SHARED core at `poc/codec/` (R0), additively |
+| **Status** | **stages 1 to 6 complete.** Stages 1 to 4 as before (four arms, every shape, the RPC arm, decision 3 on both sides). **Stage 5** adds ABI v1 section 7.1's **pull decode family** (open decision 2, both halves), obligation 12.5's **concurrency suite**, and section 3's **`ak_init` and lifecycle**. **Stage 6** prices section 9's **three deliveries at the floor** and builds the **A/B/C RPC grid**, and came back with two things nobody asked for: **the codec is ~60% of a real RPC's CPU**, and **there is no loopback-TCP penalty — R9's flow-control hazard is a Nagle artifact in the harness**. All of it landed in the SHARED core at `poc/codec/` (R0), additively |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88 declared. **Not verified: no 1.88 toolchain exists in this container, only 1.94.1** |
 | **Target** (where the clock runs) | the same, one configuration (README section 5) |
 | **Incumbent** (the baseline every ratio is against) | prost 0.14.4, plus tonic 0.14 for stage 4. **R14, checked rather than assumed**: tonic-prost 0.14.6's `src/codec.rs` calls `Message::decode(buf)` (line 131) and `item.encode(buf)` (line 98), and prost's `Message::encode` computes `encoded_len()` before `encode_raw` — so for Rust the production path and the library's entry point are the SAME call in both directions and there is no second labelled row. Rust is the one slice where R14's check comes back empty |
-| **Outstanding** | nothing |
+| **Outstanding** | nothing of mine. **One decision is the aggregating session's**: whether to flip `rpc::serve`'s server socket to TCP_NODELAY. `rpc::serve_nodelay` was ADDED beside it and `rpc::serve` is untouched, because changing it moves every slice's published loopback-TCP wall figure (R0). See `stage6-rpc-grid.log` section 4 |
+| **Correction outstanding against a document I do not own** | **`README.md` R9's stated mechanism is wrong.** R9 attributes this slice's 33 ms-per-call wall figure to a 540 KB response against a 65,535-octet stream window. It is Nagle on the *server's* accepted socket: one socket option takes it to 2.1 ms, pinning the windows to ArmoniK's 4 MiB does not. R9's *conclusion* (measure CPU; wall columns are not comparable across slices) survives and is better supported. `design/SHAPES.md`'s window subsection is still correct for a real deployment, just not what the loopback numbers were measuring |
 
 ## The question this slice answers
 
@@ -431,8 +432,9 @@ separate processes.
 
 ## Next step
 
-Nothing is outstanding. Stage 5 closed the three items the previous session's list named,
-and each produced a result the list did not predict.
+Nothing is outstanding. Stage 6 closed the two items the aggregating session's last ruling
+named (the deliveries at the floor, the A/B/C grid), and like stage 5 it returned more than
+the list predicted — this time two corrections rather than one.
 
 If more is wanted, in the order I would do it:
 
@@ -445,7 +447,15 @@ If more is wanted, in the order I would do it:
    session's brief came first and this was explicitly ranked below them.
 3. **A concurrency suite over the RPC half.** D16 was an RPC defect and stage 5's suite
    covers the codec. `ak_call_unary` with an assertion per response, rather than stage 4's
-   throughput figure, is the thing that would replace the accident that found D16.
+   throughput figure, is the thing that would replace the accident that found D16. Stage 6
+   runs all three deliveries at 8 and 16 in flight but asserts only the response LENGTH, so
+   it is a load, not a correctness suite.
+6. **Re-take the RPC arm once the `rpc::serve` nodelay question is settled.** Stage 6's
+   tables are against a fixed server; stage 4's and every other slice's are not. Until that
+   is decided, no loopback-TCP WALL figure in this branch is comparable to another.
+7. **The codec share on a payload the RPC does not dominate.** Stage 6 measures it at P2.2
+   (540 KB) only, where it is 56-72%. The shape of that curve against message size is the
+   thing a reader will actually want, and one point is not a curve.
 4. **ThreadSanitizer over the cdylib.** Stage 5's suite asserts outputs; it is not a race
    detector, so a defect that races without changing bytes at this thread count passes.
 5. **The unbatched element form on decode**, and the pull family under decision 11's
@@ -563,11 +573,13 @@ Four, all reported to the aggregating session and none fixed here:
   calls it, so what a COLD first parse costs is unmeasured; a record larger than the chunk is
   `AK_ERR_CAPACITY` and no test makes that happen; and the drain contract requires an
   8-aligned destination, which nothing prices for a host that cannot give one.
-- **Most of the RPC half** (section 9). Built and measured: the blocking unary call over a
-  channel. **Not built**: the callback and completion-queue delivery modes, metadata,
-  deadlines, the gRPC status code as a number, cancellation (section 9 gives the blocking
-  call a handle so it can be cancelled and `ak_call_unary` takes none), retry and backoff,
-  TLS, streaming, a real network, failure injection and the server side. The RPC half's case
+- **Most of the RPC half** (section 9). Built and measured: **all three deliveries** of the
+  unary call path (blocking, callback, completion queue) over **both** a Unix socket and
+  loopback TCP, with ArmoniK's windows pinned through `ak_client_new_opts` — stage 6. **Still
+  not built**: metadata, deadlines, the gRPC status code as a number, retry and backoff, TLS,
+  streaming, a real network, failure injection and the server side. **Built but never
+  called**: `ak_call_cancel` — the handle exists and no arm cancels anything, so the
+  cancellation path is untested rather than absent. The RPC half's case
   is **behavioural** and none of that behaviour is exercised: stage 4 measures the call path,
   which is the half of section 9 whose case was never in doubt.
 - **`ak_init` and the lifecycle** (section 3): **built and exercised in stage 5**, and what
@@ -707,7 +719,8 @@ Four, all reported to the aggregating session and none fixed here:
 | `ffi/logs/rust/stage1-second-encoder.log` | as above, plus prost-reflect 0.16.5 | the rule is protobuf's, not prost's; the corrected sizes and hashes |
 | `ffi/logs/rust/stage1-manifest-vs-prost-after-fix.log` | as above, **schema at `07d3e05`** | 16 of 16 after the zero-leaf fix. **Its P6.1 row (116,954 B) is superseded by the log below**; every other row still stands |
 | `ffi/logs/rust/stage1-manifest-vs-prost-packed-enum.log` | as above, **schema at `945d3cd1`** | 16 of 16 including P6.1 at 123,354 B, the payload the packed enum moved and the one nothing had checked |
-| `ffi/logs/rust/stage4-rpc.log` | rustc 1.94.1 release, tonic 0.14 over loopback h2 no TLS, cdylib boundary, server in-process, 4 shared vCPUs | **Two crossings per RPC and zero per field.** CPU per RPC 0.91 to 1.10 of tonic over two processes at 1, 8 and 16 in flight: no measurable difference. The carrier-thread row is reported empty and not substituted for |
+| `ffi/logs/rust/stage4-rpc.log` | rustc 1.94.1 release, tonic 0.14 over loopback h2 no TLS, cdylib boundary, server in-process, 4 shared vCPUs. **Loopback TCP only, default 64 KiB windows, and the server socket had Nagle on (see stage 6)** | **Two crossings per RPC and zero per field.** CPU per RPC 0.91 to 1.10 of tonic over two processes at 1, 8 and 16 in flight: no measurable difference. The carrier-thread row is reported empty and not substituted for. **These are BLOCKING-MODE figures**: `ak_call_unary` only, which is one of section 9's three deliveries, and the other two did not exist when this was taken — stage 6 prices all three. **Its wall column is not readable**: the 33 ms at flight 1 is the Nagle artifact stage 6 identifies, not flow control and not the transport. The CPU column stands |
+| `ffi/logs/rust/stage6-rpc-grid.log` | rustc 1.94.1 release, prost 0.14.4 + tonic 0.14.6, cdylib boundary, server in-process, 4 shared vCPUs; **UDS primary and loopback TCP second row, both with ArmoniK's 4 MiB stream AND connection windows and 2 MiB chunking pinned via the new `ak_client_new_opts`**; 7 x 96 calls, median, CPU per RPC the headline | **Section 9's three deliveries priced AT THE FLOOR, and the A/B/C grid.** The deliveries differ by exactly one crossing (blocking 2/0, callback 2/1, queue 3/0), which at 1.8 ns against a 1.5 ms RPC is 0.0001% — six orders of magnitude below the 0-71% spread this harness resolves. **So they are indistinguishable BY CONSTRUCTION**: no run could have shown otherwise, which is what makes it a control for the managed slices. Grid cells A, B and C all land 0.957 to 1.089 of A, on both transports, at every flight; **B − A here is NOT a transport comparison** since both transports are tonic. Two unasked-for results: **the codec is 56-72% of a real RPC's CPU** (cell A minus the opaque delivery, same bytes same call), and **there is no loopback-TCP penalty** — one socket option on the server takes TCP from 32 ms to 2.1 ms wall and makes it match UDS, refuting R9's flow-control mechanism |
 | `ffi/logs/rust/stage1-manifest-vs-prost-adapter.log` | as above, **schema at `0c2d4d7f`** | 16 of 16 after the adapter fix. Supersedes the P2.x and P4.1 rows of the two earlier stage 1 logs |
 | `ffi/logs/rust/stage3-M2-M4-revalidated.log` | as stage3-M2 | M2 and M4 re-measured after `0c2d4d7f`. Crossings and decision 5 unchanged to the digit; ratios tighter and two moved toward parity. **Supersedes the M2 rows of `stage3-M2.log` and the M4 rows of `stage3-M4-M7.log`** |
 | `ffi/logs/rust/stage3-M4-M7.log` | as stage3-M2, ASCII, guard on | M4 to M7: byte identity on P4.1, P5.1 to P5.4, P6.1 and P7.1, with the class labelled per row; ABI v1 section 8's generator-time refusal exercised; the adapter's two wire forms checked by state; M7 by decode and permutation |

@@ -379,7 +379,12 @@ class NativeDec:
         o.append("                        2 if ew == 2 => { let (a, b) = sub.len_body();")
         o.append("                            match ak_rt::strings::decode_str(&eb[a..a + b]) {")
         o.append("                                Ok(s) => val = s, Err(e) => { d.err = e; return; } } }")
-        o.append("                        _ => sub.skip(ew),")
+        # `skip` takes the TAG as well as the wire type since the corpus work: the
+        # deprecated GROUP form carries no length, so the only way to find a group's end is
+        # an END_GROUP whose field number matches the one that opened it. This site was
+        # missed when that signature changed, and it could only be missed here -- the rust
+        # slice is the one that compiles `core_native.rs`, so no other slice's gate sees it.
+        o.append("                        _ => sub.skip(et, ew),")
         o.append("                    }")
         o.append("                }")
         o.append("                if sub.err != 0 { d.err = sub.err; }")
