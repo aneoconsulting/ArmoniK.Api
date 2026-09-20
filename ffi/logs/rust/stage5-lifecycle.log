@@ -1434,32 +1434,73 @@ VERDICT: every arm is byte-identical to the validated manifest on every payload 
    all four arms on the GUARDED build, because the guard adds a branch to every
    entry point and "additive" is a claim about behaviour.
 
-5. WHAT THE GUARD COSTS: NOT TAKEN IN THIS COMMIT
+5. WHAT THE GUARD COSTS, AND THE FIRST TWO ATTEMPTS BOTH FAILED THEIR CONTROLS
 
-   `gen/guardprice.sh` is the measurement and it is a SEPARATE script from
-   `gen/lifecycle.sh` for a reason worth recording: it is four `bench` runs, it
-   needs the box to itself, and this session lost a run to two benchmarks
-   overlapping on one machine -- which is README section 11's "two benchmarks on
-   one box corrupt each other silently: the numbers still come out", reproduced.
-   The script now refuses to start if anything else is benchmarking.
+   **Attempt 1: two builds, `--features init-guard` on and off, `bench` in each.**
+   `gen/guardprice.sh`, four runs.  R4 requires a comparison that cannot share a
+   process to carry an in-process control, and the control here is `core-native`,
+   which carries no guard in EITHER build and therefore must not move.  It moved
+   by up to 30 percent: P1.3 encode went 0.535-0.553 of prost to 0.367-0.387, and
+   P2.4 decode 1.064-1.082 to 0.946-0.982.  Re-expressing it as the within-build
+   ratio core-ffi-rust / core-native did not save it, because that ratio's
+   denominator is the thing that moved.  **A ratio whose control moved is not a
+   figure, so no guard price is quoted from that run**, and the run is in the tree
+   as evidence for the refusal rather than deleted.
 
-   **No figure is quoted here until that run exists**, which is the rule the
-   slice already lives by: a figure with no log behind it does not go in the
-   report.  What can be said without the run, because it comes from the crossing
-   counts rather than from a clock:
+   **Attempt 2: one process, one build, `ak_noop` against `ak_noop_guarded`.**
+   The same question in R4's sharpened form -- a delta between two arms in the
+   same interleaved rounds.  It said the GUARDED crossing was 0.71 ns CHEAPER than
+   the bare one.  A load and a branch cannot make a call cheaper, so the arm had
+   the wrong sign, which by this slice's own standing rule means the effect is
+   under the noise and the noise has not been measured.
 
-     The guard is a relaxed atomic load of one process-global word, a compare and
-     a branch, at each of the 47 emitted entry points.  The counting build says
-     how often those are reached: **1 forward crossing per decode on every
-     payload**, and on encode 8 for P1.2 (1,000 elements) and 2,511 for P2.2 (500
-     elements).  So the guard is per ENTRY POINT, and the entry points are per
-     message or per chunk -- never per field.  A cost model would put it below the
-     run-to-run spread on this machine, and the point of taking the measurement is
-     that "would be" is not "is".
+   **Attempt 3 measures the noise, and that is the answer.**  `ak_noop2` is a TWIN:
+   byte-for-byte the same body as `ak_noop`, no guard in either, so it must
+   measure zero against it.  Three runs, 21 rounds of 2,000,000 crossings each,
+   all three arms interleaved in one process (`gen/guardcost.sh`):
 
-   The arms and the control are already in place for it: `--features init-guard`
-   against the default build, with `prost` and `core-native` carried in both as
-   the in-process control R4 requires, since neither of them has the guard.
+     twin B - twin A   (the FLOOR)   +0.6973   +0.6965   +0.7007
+     guarded - twin A                +0.6978   +0.6960   +0.7036
+     guarded - twin B                +0.0005   -0.0005   +0.0029
+
+   **Two identical unguarded exports differ by 0.70 ns**, at a crossing of about
+   2.1 ns.  They differ because they land at different addresses, in different
+   cache lines, behind different PLT slots -- and which of the three functions
+   draws the penalty is not stable across builds: attempt 2's binary, which had no
+   twin, put it on `ak_noop` and made the guard look like it cost 0.70 ns.
+
+   **The guarded arm is within 0.003 ns of a twin on every run.**  So:
+
+       |guard| < 0.70 ns per crossing, and the direct comparison says ~0
+
+   stated as a BOUND rather than a value, because a value would be wrong in both
+   directions: negative is impossible, and positive-against-the-unlucky-twin is
+   reporting the linker's choices as the specification's cost.
+
+   WHAT THE BOUND IS PER PAYLOAD, at 0.70 ns times the forward-crossing count
+   from the counting build -- a property of the descriptor, not of this machine:
+
+     payload  direction  forward   bound ns
+     P1.1     encode           2        1.4
+     P1.2     encode           8        5.6
+     P1.3     encode           3        2.1
+     P2.1     encode           7        4.9
+     P2.2     encode       2,511    1,748
+     P6.1     encode       1,401      976
+     every payload, decode    1        0.7
+
+   The heaviest row is P2.2 encode at 1.75 us against an encode this slice
+   measures at about 1.4 ms: **0.125 percent, as an upper bound on an effect the
+   direct comparison puts at zero.**  The decode column is one crossing on every
+   payload however large, because the guard is per ENTRY POINT and the entry
+   points are per message or per run, never per field.
+
+   **And it does not get dearer on a host whose crossing is dearer.**  The guard
+   is work inside the core, on the core's side of the boundary: the same load and
+   the same branch whoever called.  What varies per host is how many entry points
+   get called, which is the count above.  So section 3's rule is affordable
+   everywhere the crossing counts are what this table says, and that is the form
+   another slice can use without re-measuring.
 
 6. WHAT THIS DOES NOT ESTABLISH
 
@@ -1484,3 +1525,1179 @@ VERDICT: every arm is byte-identical to the validated manifest on every payload 
    * **`ak_build_id` is exported and nothing compares two of them.**  Section 3's
      case for it is two copies of the core in one process; this slice loads one.
    * One machine, one configuration.
+===== configuration =====
+rustc 1.94.1 (e408947bf 2026-03-25)
+4
+model name	: Intel(R) Xeon(R) Processor @ 2.10GHz
+
+warning: useless assignment of field of type `i32` to itself
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:5202:46
+     |
+5202 | ...                   if cd.err != 0 { cd.err = cd.err; }
+     |                                        ^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: useless assignment of field of type `i32` to itself
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:4683:46
+     |
+4683 | ...                   if cd.err != 0 { cd.err = cd.err; }
+     |                                        ^^^^^^^^^^^^^^^
+
+warning: useless assignment of field of type `i32` to itself
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:3449:46
+     |
+3449 | ...                   if cd.err != 0 { cd.err = cd.err; }
+     |                                        ^^^^^^^^^^^^^^^
+
+warning: useless assignment of field of type `i32` to itself
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2932:46
+     |
+2932 | ...                   if cd.err != 0 { cd.err = cd.err; }
+     |                                        ^^^^^^^^^^^^^^^
+
+warning: function `enc_list_results_response_group` is never used
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:904:11
+    |
+904 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_results_response_ugroup` is never used
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:926:11
+    |
+926 | unsafe fn enc_list_results_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:949:11
+    |
+949 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:972:11
+    |
+972 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:996:11
+    |
+996 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1017:11
+     |
+1017 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1039:11
+     |
+1039 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1059:11
+     |
+1059 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1080:11
+     |
+1080 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1101:11
+     |
+1101 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1123:11
+     |
+1123 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1141:11
+     |
+1141 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1161:11
+     |
+1161 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1190:11
+     |
+1190 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `o`
+   --> crates/facade/src/generated/core_native.rs:215:14
+    |
+215 | fn enc_empty(o: &Empty, e: &mut Enc) {
+    |              ^ help: if this is intentional, prefix it with an underscore: `_o`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `e`
+   --> crates/facade/src/generated/core_native.rs:215:25
+    |
+215 | fn enc_empty(o: &Empty, e: &mut Enc) {
+    |                         ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `out`
+   --> crates/facade/src/generated/core_native.rs:976:27
+    |
+976 | fn dec_empty(d: &mut Dec, out: &mut Empty) {
+    |                           ^^^ help: if this is intentional, prefix it with an underscore: `_out`
+
+warning: unused variable: `buf`
+   --> crates/facade/src/generated/prost_impl.rs:400:26
+    |
+400 |     fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+    |                          ^^^ help: if this is intentional, prefix it with an underscore: `_buf`
+
+warning: variable does not need to be mutable
+   --> crates/facade/src/generated/prost_impl.rs:403:13
+    |
+403 |         let mut n = 0usize;
+    |             ----^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1364:17
+     |
+1364 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1399:17
+     |
+1399 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1434:17
+     |
+1434 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1468:17
+     |
+1468 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1691:17
+     |
+1691 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1724:17
+     |
+1724 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1757:17
+     |
+1757 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1790:17
+     |
+1790 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1828:17
+     |
+1828 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1924:17
+     |
+1924 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1959:17
+     |
+1959 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1994:17
+     |
+1994 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2028:17
+     |
+2028 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2256:17
+     |
+2256 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2693:17
+     |
+2693 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2728:17
+     |
+2728 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2763:17
+     |
+2763 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2797:17
+     |
+2797 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2830:17
+     |
+2830 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2865:17
+     |
+2865 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2900:17
+     |
+2900 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2934:17
+     |
+2934 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `pending` is never read
+    --> crates/harness/src/generated/binding.rs:3393:49
+     |
+3393 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+     |                                                 ^^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `pending` is never read
+    --> crates/harness/src/generated/binding.rs:3780:49
+     |
+3780 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+     |                                                 ^^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `pending` is never read
+    --> crates/harness/src/generated/binding.rs:4109:49
+     |
+4109 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+     |                                                 ^^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `pending` is never read
+    --> crates/harness/src/generated/binding.rs:4422:49
+     |
+4422 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+     |                                                 ^^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `pending` is never read
+    --> crates/harness/src/generated/binding.rs:4689:49
+     |
+4689 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+     |                                                 ^^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `pending` is never read
+    --> crates/harness/src/generated/binding.rs:5062:49
+     |
+5062 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+     |                                                 ^^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `pending` is never read
+    --> crates/harness/src/generated/binding.rs:5426:49
+     |
+5426 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+     |                                                 ^^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: function `fill_upload_result_data_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1006:15
+     |
+1006 | pub(crate) fn fill_upload_result_data_sparse(d: &mut ak_efix_UploadResultData, o: &UploadResultData, tc: (ak_transcode_fn, ak_tran...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `fill_list_results_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1036:15
+     |
+1036 | pub(crate) fn fill_list_results_response_sparse(d: &mut ak_efix_ListResultsResponse, o: &ListResultsResponse, tc: (ak_transcode_fn...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_tasks_detailed_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1046:15
+     |
+1046 | pub(crate) fn fill_list_tasks_detailed_response_sparse(d: &mut ak_efix_ListTasksDetailedResponse, o: &ListTasksDetailedResponse, t...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_task_summary_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1056:15
+     |
+1056 | pub(crate) fn fill_list_task_summary_response_sparse(d: &mut ak_efix_ListTaskSummaryResponse, o: &ListTaskSummaryResponse, tc: (ak...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_probe_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1064:15
+     |
+1064 | pub(crate) fn fill_list_probe_response_sparse(d: &mut ak_efix_ListProbeResponse, o: &ListProbeResponse, tc: (ak_transcode_fn, ak_t...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_metrics_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1072:15
+     |
+1072 | pub(crate) fn fill_list_metrics_response_sparse(d: &mut ak_efix_ListMetricsResponse, o: &ListMetricsResponse, tc: (ak_transcode_fn...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_upload_result_data_message_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1080:15
+     |
+1080 | pub(crate) fn fill_upload_result_data_message_sparse(d: &mut ak_efix_UploadResultDataMessage, o: &UploadResultDataMessage, tc: (ak...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_dual_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1089:15
+     |
+1089 | pub(crate) fn fill_dual_response_sparse(d: &mut ak_efix_DualResponse, o: &DualResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_upload_result_data_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1247:15
+     |
+1247 | pub(crate) fn fill_upload_result_data_unk_sparse(d: &mut ak_ufix_UploadResultData, o: &UploadResultData, tc: (ak_transcode_fn, ak_...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_results_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1280:15
+     |
+1280 | pub(crate) fn fill_list_results_response_unk_sparse(d: &mut ak_ufix_ListResultsResponse, o: &ListResultsResponse, tc: (ak_transcod...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_tasks_detailed_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1291:15
+     |
+1291 | pub(crate) fn fill_list_tasks_detailed_response_unk_sparse(d: &mut ak_ufix_ListTasksDetailedResponse, o: &ListTasksDetailedRespons...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_task_summary_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1302:15
+     |
+1302 | pub(crate) fn fill_list_task_summary_response_unk_sparse(d: &mut ak_ufix_ListTaskSummaryResponse, o: &ListTaskSummaryResponse, tc:...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_probe_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1311:15
+     |
+1311 | pub(crate) fn fill_list_probe_response_unk_sparse(d: &mut ak_ufix_ListProbeResponse, o: &ListProbeResponse, tc: (ak_transcode_fn, ...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_metrics_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1320:15
+     |
+1320 | pub(crate) fn fill_list_metrics_response_unk_sparse(d: &mut ak_ufix_ListMetricsResponse, o: &ListMetricsResponse, tc: (ak_transcod...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_upload_result_data_message_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1329:15
+     |
+1329 | pub(crate) fn fill_upload_result_data_message_unk_sparse(d: &mut ak_ufix_UploadResultDataMessage, o: &UploadResultDataMessage, tc:...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_dual_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1339:15
+     |
+1339 | pub(crate) fn fill_dual_response_unk_sparse(d: &mut ak_ufix_DualResponse, o: &DualResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_results_response` is never used
+    --> crates/harness/src/generated/binding.rs:3254:11
+     |
+3254 | unsafe fn fill_list_results_response(dst: &mut ListResultsResponse, f: &ak_dfix_ListResultsResponse, base: *const u8, ctx: *mut ak...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_tasks_detailed_response` is never used
+    --> crates/harness/src/generated/binding.rs:3262:11
+     |
+3262 | unsafe fn fill_list_tasks_detailed_response(dst: &mut ListTasksDetailedResponse, f: &ak_dfix_ListTasksDetailedResponse, base: *con...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_task_summary_response` is never used
+    --> crates/harness/src/generated/binding.rs:3270:11
+     |
+3270 | unsafe fn fill_list_task_summary_response(dst: &mut ListTaskSummaryResponse, f: &ak_dfix_ListTaskSummaryResponse, base: *const u8,...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_probe_response` is never used
+    --> crates/harness/src/generated/binding.rs:3276:11
+     |
+3276 | unsafe fn fill_list_probe_response(dst: &mut ListProbeResponse, f: &ak_dfix_ListProbeResponse, base: *const u8, ctx: *mut ak_dec_c...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_metrics_response` is never used
+    --> crates/harness/src/generated/binding.rs:3282:11
+     |
+3282 | unsafe fn fill_list_metrics_response(dst: &mut ListMetricsResponse, f: &ak_dfix_ListMetricsResponse, base: *const u8, ctx: *mut ak...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `from_upload_result_data_message` is never used
+    --> crates/harness/src/generated/binding.rs:3286:11
+     |
+3286 | unsafe fn from_upload_result_data_message(f: &ak_dfix_UploadResultDataMessage, base: *const u8, ctx: *mut ak_dec_ctx) -> UploadRes...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_dual_response` is never used
+    --> crates/harness/src/generated/binding.rs:3298:11
+     |
+3298 | unsafe fn fill_dual_response(dst: &mut DualResponse, f: &ak_dfix_DualResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: static variable `ELEM_VT_ListTasksDetailedResponse_tasks` should have an upper case name
+    --> crates/harness/src/generated/binding.rs:1840:8
+     |
+1840 | static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(non_upper_case_globals)]` (part of `#[warn(nonstandard_style)]`) on by default
+help: convert the identifier to upper case
+     |
+1840 - static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+1840 + static ELEM_VT_LIST_TASKS_DETAILED_RESPONSE_TASKS: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+     |
+
+warning: static variable `ELEM_VT_ListTaskSummaryResponse_tasks` should have an upper case name
+    --> crates/harness/src/generated/binding.rs:2268:8
+     |
+2268 | static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSummary {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+help: convert the identifier to upper case
+     |
+2268 - static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSummary {
+2268 + static ELEM_VT_LIST_TASK_SUMMARY_RESPONSE_TASKS: ak_evt_TaskSummary = ak_evt_TaskSummary {
+     |
+
+warning: static variable `ELEM_VT_ListMetricsResponse_batches` should have an upper case name
+    --> crates/harness/src/generated/binding.rs:2609:8
+     |
+2609 | static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+help: convert the identifier to upper case
+     |
+2609 - static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+2609 + static ELEM_VT_LIST_METRICS_RESPONSE_BATCHES: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+     |
+
+# the boundary is real: both no-ops are undefined dynamic imports (R5)
+                 U ak_noop
+                 U ak_noop2
+                 U ak_noop_guarded
+# and the shared object that got loaded, from ldd:
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so (0x00007fea8dc00000)
+
+----- run 1 -----
+# ABI v1 section 3's guard, priced as a within-process delta
+#   arms: ak_noop (bare crossing) and ak_noop_guarded (the same plus the
+#         guard the generator emits into every entry point)
+#   one process, one build, arms interleaved round-robin (R3, R4)
+#   rounds: 21, 2000000 crossings each
+
+arm                       median ns       min ns       max ns
+ak_noop  (twin A)            2.1219       2.1111       2.1521
+ak_noop2 (twin B)            2.8192       2.8073       2.8949
+ak_noop_guarded              2.8197       2.8041       2.8504
+
+twin B - twin A   (the FLOOR)           +0.6973
+guarded - twin A                        +0.6978
+guarded - twin B                        +0.0005
+
+# THE FLOOR IS THE VERDICT, AND IT IS WHY THE TWIN IS HERE. Two exported
+# functions with identical bodies and no guard in either differ by +0.6973 ns.
+# At a crossing of about 2.1 ns that is not small, and it is not stable across
+# builds either: an earlier build of this binary, WITHOUT the twin, put the
+# penalty on the other function and made the guard look like it cost 0.70 ns.
+# It is layout, and the twin is how that is shown rather than argued.
+
+# The guarded arm lands within +0.0005 ns of one twin and +0.6978 ns of the
+# other, and the twins are 0.6973 ns apart on their own. **The guard is under
+# this method's floor**, so the honest statement is a BOUND and not a value:
+#
+#     |guard| < 0.70 ns per crossing, and plausibly ~0
+#
+# A value would be the wrong claim in both directions here: a NEGATIVE one
+# would say a load and a branch make a call cheaper, which they cannot, and
+# a positive one taken against the unlucky twin would be reporting the
+# linker's choices as the specification's cost.
+
+# WHAT THAT BOUNDS PER PAYLOAD, using the forward-crossing counts from the
+# counting build (a property of the descriptor, not of this machine):
+
+payload    direction    forward     guard bound ns
+P1.1       encode             2               1.4
+P1.1       decode             1               0.7
+P1.2       encode             8               5.6
+P1.2       decode             1               0.7
+P1.3       encode             3               2.1
+P1.3       decode             1               0.7
+P2.1       encode             7               4.9
+P2.1       decode             1               0.7
+P2.2       encode          2511            1752.1
+P2.2       decode             1               0.7
+P3.1       encode             3               2.1
+P3.1       decode             1               0.7
+P6.1       encode          1401             977.6
+P6.1       decode             1               0.7
+
+# The guard is per ENTRY POINT and the entry points are per message or per
+# chunk, never per field -- which is why the decode column is one crossing on
+# every payload however large it is. The encode column is where the count
+# grows, and it grows with the number of ELEMENT RUNS, not with the fields.
+
+# AND AS A FRACTION OF THE WORK, which is the form that travels. The heaviest
+# row above is P2.2 encode: 1752.1 ns against an encode this slice measures at
+# about 1.4 ms, so 0.125 percent. The decode column is one crossing on every
+# payload, so the guard cannot reach a tenth of a percent of any decode here.
+#
+# A host whose forward crossing is dearer does NOT pay more for the guard: the
+# guard is work inside the core, on the core's side of the boundary, and it is
+# the same load and branch whoever called. What changes per host is how many
+# entry points get called, and that is the crossing count above.
+
+----- run 2 -----
+# ABI v1 section 3's guard, priced as a within-process delta
+#   arms: ak_noop (bare crossing) and ak_noop_guarded (the same plus the
+#         guard the generator emits into every entry point)
+#   one process, one build, arms interleaved round-robin (R3, R4)
+#   rounds: 21, 2000000 crossings each
+
+arm                       median ns       min ns       max ns
+ak_noop  (twin A)            2.1232       2.1095       2.2004
+ak_noop2 (twin B)            2.8197       2.8060       2.9022
+ak_noop_guarded              2.8192       2.8048       2.9064
+
+twin B - twin A   (the FLOOR)           +0.6965
+guarded - twin A                        +0.6960
+guarded - twin B                        -0.0005
+
+# THE FLOOR IS THE VERDICT, AND IT IS WHY THE TWIN IS HERE. Two exported
+# functions with identical bodies and no guard in either differ by +0.6965 ns.
+# At a crossing of about 2.1 ns that is not small, and it is not stable across
+# builds either: an earlier build of this binary, WITHOUT the twin, put the
+# penalty on the other function and made the guard look like it cost 0.70 ns.
+# It is layout, and the twin is how that is shown rather than argued.
+
+# The guarded arm lands within +0.0005 ns of one twin and +0.6960 ns of the
+# other, and the twins are 0.6965 ns apart on their own. **The guard is under
+# this method's floor**, so the honest statement is a BOUND and not a value:
+#
+#     |guard| < 0.70 ns per crossing, and plausibly ~0
+#
+# A value would be the wrong claim in both directions here: a NEGATIVE one
+# would say a load and a branch make a call cheaper, which they cannot, and
+# a positive one taken against the unlucky twin would be reporting the
+# linker's choices as the specification's cost.
+
+# WHAT THAT BOUNDS PER PAYLOAD, using the forward-crossing counts from the
+# counting build (a property of the descriptor, not of this machine):
+
+payload    direction    forward     guard bound ns
+P1.1       encode             2               1.4
+P1.1       decode             1               0.7
+P1.2       encode             8               5.6
+P1.2       decode             1               0.7
+P1.3       encode             3               2.1
+P1.3       decode             1               0.7
+P2.1       encode             7               4.9
+P2.1       decode             1               0.7
+P2.2       encode          2511            1749.0
+P2.2       decode             1               0.7
+P3.1       encode             3               2.1
+P3.1       decode             1               0.7
+P6.1       encode          1401             975.8
+P6.1       decode             1               0.7
+
+# The guard is per ENTRY POINT and the entry points are per message or per
+# chunk, never per field -- which is why the decode column is one crossing on
+# every payload however large it is. The encode column is where the count
+# grows, and it grows with the number of ELEMENT RUNS, not with the fields.
+
+# AND AS A FRACTION OF THE WORK, which is the form that travels. The heaviest
+# row above is P2.2 encode: 1749.0 ns against an encode this slice measures at
+# about 1.4 ms, so 0.125 percent. The decode column is one crossing on every
+# payload, so the guard cannot reach a tenth of a percent of any decode here.
+#
+# A host whose forward crossing is dearer does NOT pay more for the guard: the
+# guard is work inside the core, on the core's side of the boundary, and it is
+# the same load and branch whoever called. What changes per host is how many
+# entry points get called, and that is the crossing count above.
+
+----- run 3 -----
+# ABI v1 section 3's guard, priced as a within-process delta
+#   arms: ak_noop (bare crossing) and ak_noop_guarded (the same plus the
+#         guard the generator emits into every entry point)
+#   one process, one build, arms interleaved round-robin (R3, R4)
+#   rounds: 21, 2000000 crossings each
+
+arm                       median ns       min ns       max ns
+ak_noop  (twin A)            2.1196       2.1109       2.1851
+ak_noop2 (twin B)            2.8203       2.8094       2.8503
+ak_noop_guarded              2.8233       2.8105       2.8510
+
+twin B - twin A   (the FLOOR)           +0.7007
+guarded - twin A                        +0.7036
+guarded - twin B                        +0.0029
+
+# THE FLOOR IS THE VERDICT, AND IT IS WHY THE TWIN IS HERE. Two exported
+# functions with identical bodies and no guard in either differ by +0.7007 ns.
+# At a crossing of about 2.1 ns that is not small, and it is not stable across
+# builds either: an earlier build of this binary, WITHOUT the twin, put the
+# penalty on the other function and made the guard look like it cost 0.70 ns.
+# It is layout, and the twin is how that is shown rather than argued.
+
+# The guarded arm lands within +0.0029 ns of one twin and +0.7036 ns of the
+# other, and the twins are 0.7007 ns apart on their own. **The guard is under
+# this method's floor**, so the honest statement is a BOUND and not a value:
+#
+#     |guard| < 0.70 ns per crossing, and plausibly ~0
+#
+# A value would be the wrong claim in both directions here: a NEGATIVE one
+# would say a load and a branch make a call cheaper, which they cannot, and
+# a positive one taken against the unlucky twin would be reporting the
+# linker's choices as the specification's cost.
+
+# WHAT THAT BOUNDS PER PAYLOAD, using the forward-crossing counts from the
+# counting build (a property of the descriptor, not of this machine):
+
+payload    direction    forward     guard bound ns
+P1.1       encode             2               1.4
+P1.1       decode             1               0.7
+P1.2       encode             8               5.6
+P1.2       decode             1               0.7
+P1.3       encode             3               2.1
+P1.3       decode             1               0.7
+P2.1       encode             7               4.9
+P2.1       decode             1               0.7
+P2.2       encode          2511            1766.8
+P2.2       decode             1               0.7
+P3.1       encode             3               2.1
+P3.1       decode             1               0.7
+P6.1       encode          1401             985.8
+P6.1       decode             1               0.7
+
+# The guard is per ENTRY POINT and the entry points are per message or per
+# chunk, never per field -- which is why the decode column is one crossing on
+# every payload however large it is. The encode column is where the count
+# grows, and it grows with the number of ELEMENT RUNS, not with the fields.
+
+# AND AS A FRACTION OF THE WORK, which is the form that travels. The heaviest
+# row above is P2.2 encode: 1766.8 ns against an encode this slice measures at
+# about 1.4 ms, so 0.126 percent. The decode column is one crossing on every
+# payload, so the guard cannot reach a tenth of a percent of any decode here.
+#
+# A host whose forward crossing is dearer does NOT pay more for the guard: the
+# guard is work inside the core, on the core's side of the boundary, and it is
+# the same load and branch whoever called. What changes per host is how many
+# entry points get called, and that is the crossing count above.
+
+================================================================================
+ APPENDIX: the two-build attempt that failed its control (gen/guardprice.sh)
+ Kept because the refusal is the result. See section 5.
+================================================================================
+rustc 1.94.1 (e408947bf 2026-03-25)
+4
+model name	: Intel(R) Xeon(R) Processor @ 2.10GHz
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:5202:46
+5202 | ...                   if cd.err != 0 { cd.err = cd.err; }
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:4683:46
+4683 | ...                   if cd.err != 0 { cd.err = cd.err; }
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:3449:46
+3449 | ...                   if cd.err != 0 { cd.err = cd.err; }
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2932:46
+2932 | ...                   if cd.err != 0 { cd.err = cd.err; }
+
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:904:11
+904 | unsafe fn enc_list_results_response_group(
+
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:926:11
+926 | unsafe fn enc_list_results_response_ugroup(
+
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:949:11
+949 | unsafe fn enc_list_tasks_detailed_response_group(
+
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:972:11
+972 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:996:11
+996 | unsafe fn enc_list_task_summary_response_group(
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1017:11
+1017 | unsafe fn enc_list_task_summary_response_ugroup(
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1039:11
+1039 | unsafe fn enc_list_probe_response_group(
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1059:11
+1059 | unsafe fn enc_list_probe_response_ugroup(
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1080:11
+1080 | unsafe fn enc_list_metrics_response_group(
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1101:11
+1101 | unsafe fn enc_list_metrics_response_ugroup(
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1123:11
+1123 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1141:11
+1141 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1161:11
+1161 | unsafe fn enc_dual_response_group(
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1190:11
+1190 | unsafe fn enc_dual_response_ugroup(
+
+   --> crates/facade/src/generated/core_native.rs:215:14
+215 | fn enc_empty(o: &Empty, e: &mut Enc) {
+
+   --> crates/facade/src/generated/core_native.rs:215:25
+215 | fn enc_empty(o: &Empty, e: &mut Enc) {
+
+   --> crates/facade/src/generated/core_native.rs:976:27
+976 | fn dec_empty(d: &mut Dec, out: &mut Empty) {
+
+   --> crates/facade/src/generated/prost_impl.rs:400:26
+400 |     fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+
+   --> crates/facade/src/generated/prost_impl.rs:403:13
+403 |         let mut n = 0usize;
+
+    --> crates/harness/src/generated/binding.rs:1364:17
+1364 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1399:17
+1399 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1434:17
+1434 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1468:17
+1468 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1691:17
+1691 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1724:17
+1724 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1757:17
+1757 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1790:17
+1790 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1828:17
+1828 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1924:17
+1924 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1959:17
+1959 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1994:17
+1994 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2028:17
+2028 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2256:17
+2256 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2693:17
+2693 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2728:17
+2728 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2763:17
+2763 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2797:17
+2797 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2830:17
+2830 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2865:17
+2865 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2900:17
+2900 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2934:17
+2934 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:3393:49
+3393 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+
+    --> crates/harness/src/generated/binding.rs:3780:49
+3780 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+
+    --> crates/harness/src/generated/binding.rs:4109:49
+4109 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+
+    --> crates/harness/src/generated/binding.rs:4422:49
+4422 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+
+    --> crates/harness/src/generated/binding.rs:4689:49
+4689 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+
+    --> crates/harness/src/generated/binding.rs:5062:49
+5062 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+
+    --> crates/harness/src/generated/binding.rs:5426:49
+5426 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+
+    --> crates/harness/src/generated/binding.rs:1006:15
+1006 | pub(crate) fn fill_upload_result_data_sparse(d: &mut ak_efix_UploadResultData, o: &UploadResultData, tc: (ak_transcode_fn, ak_tran...
+
+    --> crates/harness/src/generated/binding.rs:1036:15
+1036 | pub(crate) fn fill_list_results_response_sparse(d: &mut ak_efix_ListResultsResponse, o: &ListResultsResponse, tc: (ak_transcode_fn...
+
+    --> crates/harness/src/generated/binding.rs:1046:15
+1046 | pub(crate) fn fill_list_tasks_detailed_response_sparse(d: &mut ak_efix_ListTasksDetailedResponse, o: &ListTasksDetailedResponse, t...
+
+    --> crates/harness/src/generated/binding.rs:1056:15
+1056 | pub(crate) fn fill_list_task_summary_response_sparse(d: &mut ak_efix_ListTaskSummaryResponse, o: &ListTaskSummaryResponse, tc: (ak...
+
+    --> crates/harness/src/generated/binding.rs:1064:15
+1064 | pub(crate) fn fill_list_probe_response_sparse(d: &mut ak_efix_ListProbeResponse, o: &ListProbeResponse, tc: (ak_transcode_fn, ak_t...
+
+    --> crates/harness/src/generated/binding.rs:1072:15
+1072 | pub(crate) fn fill_list_metrics_response_sparse(d: &mut ak_efix_ListMetricsResponse, o: &ListMetricsResponse, tc: (ak_transcode_fn...
+
+    --> crates/harness/src/generated/binding.rs:1080:15
+1080 | pub(crate) fn fill_upload_result_data_message_sparse(d: &mut ak_efix_UploadResultDataMessage, o: &UploadResultDataMessage, tc: (ak...
+
+    --> crates/harness/src/generated/binding.rs:1089:15
+1089 | pub(crate) fn fill_dual_response_sparse(d: &mut ak_efix_DualResponse, o: &DualResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+
+    --> crates/harness/src/generated/binding.rs:1247:15
+1247 | pub(crate) fn fill_upload_result_data_unk_sparse(d: &mut ak_ufix_UploadResultData, o: &UploadResultData, tc: (ak_transcode_fn, ak_...
+
+    --> crates/harness/src/generated/binding.rs:1280:15
+1280 | pub(crate) fn fill_list_results_response_unk_sparse(d: &mut ak_ufix_ListResultsResponse, o: &ListResultsResponse, tc: (ak_transcod...
+
+    --> crates/harness/src/generated/binding.rs:1291:15
+1291 | pub(crate) fn fill_list_tasks_detailed_response_unk_sparse(d: &mut ak_ufix_ListTasksDetailedResponse, o: &ListTasksDetailedRespons...
+
+    --> crates/harness/src/generated/binding.rs:1302:15
+1302 | pub(crate) fn fill_list_task_summary_response_unk_sparse(d: &mut ak_ufix_ListTaskSummaryResponse, o: &ListTaskSummaryResponse, tc:...
+
+    --> crates/harness/src/generated/binding.rs:1311:15
+1311 | pub(crate) fn fill_list_probe_response_unk_sparse(d: &mut ak_ufix_ListProbeResponse, o: &ListProbeResponse, tc: (ak_transcode_fn, ...
+
+    --> crates/harness/src/generated/binding.rs:1320:15
+1320 | pub(crate) fn fill_list_metrics_response_unk_sparse(d: &mut ak_ufix_ListMetricsResponse, o: &ListMetricsResponse, tc: (ak_transcod...
+
+    --> crates/harness/src/generated/binding.rs:1329:15
+1329 | pub(crate) fn fill_upload_result_data_message_unk_sparse(d: &mut ak_ufix_UploadResultDataMessage, o: &UploadResultDataMessage, tc:...
+
+    --> crates/harness/src/generated/binding.rs:1339:15
+1339 | pub(crate) fn fill_dual_response_unk_sparse(d: &mut ak_ufix_DualResponse, o: &DualResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+
+    --> crates/harness/src/generated/binding.rs:3254:11
+3254 | unsafe fn fill_list_results_response(dst: &mut ListResultsResponse, f: &ak_dfix_ListResultsResponse, base: *const u8, ctx: *mut ak...
+
+    --> crates/harness/src/generated/binding.rs:3262:11
+3262 | unsafe fn fill_list_tasks_detailed_response(dst: &mut ListTasksDetailedResponse, f: &ak_dfix_ListTasksDetailedResponse, base: *con...
+
+    --> crates/harness/src/generated/binding.rs:3270:11
+3270 | unsafe fn fill_list_task_summary_response(dst: &mut ListTaskSummaryResponse, f: &ak_dfix_ListTaskSummaryResponse, base: *const u8,...
+
+    --> crates/harness/src/generated/binding.rs:3276:11
+3276 | unsafe fn fill_list_probe_response(dst: &mut ListProbeResponse, f: &ak_dfix_ListProbeResponse, base: *const u8, ctx: *mut ak_dec_c...
+
+    --> crates/harness/src/generated/binding.rs:3282:11
+3282 | unsafe fn fill_list_metrics_response(dst: &mut ListMetricsResponse, f: &ak_dfix_ListMetricsResponse, base: *const u8, ctx: *mut ak...
+
+    --> crates/harness/src/generated/binding.rs:3286:11
+3286 | unsafe fn from_upload_result_data_message(f: &ak_dfix_UploadResultDataMessage, base: *const u8, ctx: *mut ak_dec_ctx) -> UploadRes...
+
+    --> crates/harness/src/generated/binding.rs:3298:11
+3298 | unsafe fn fill_dual_response(dst: &mut DualResponse, f: &ak_dfix_DualResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
+
+    --> crates/harness/src/generated/binding.rs:1840:8
+1840 | static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+
+    --> crates/harness/src/generated/binding.rs:2268:8
+2268 | static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSummary {
+
+    --> crates/harness/src/generated/binding.rs:2609:8
+2609 | static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:5202:46
+5202 | ...                   if cd.err != 0 { cd.err = cd.err; }
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:4683:46
+4683 | ...                   if cd.err != 0 { cd.err = cd.err; }
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:3449:46
+3449 | ...                   if cd.err != 0 { cd.err = cd.err; }
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2932:46
+2932 | ...                   if cd.err != 0 { cd.err = cd.err; }
+
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:904:11
+904 | unsafe fn enc_list_results_response_group(
+
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:926:11
+926 | unsafe fn enc_list_results_response_ugroup(
+
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:949:11
+949 | unsafe fn enc_list_tasks_detailed_response_group(
+
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:972:11
+972 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:996:11
+996 | unsafe fn enc_list_task_summary_response_group(
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1017:11
+1017 | unsafe fn enc_list_task_summary_response_ugroup(
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1039:11
+1039 | unsafe fn enc_list_probe_response_group(
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1059:11
+1059 | unsafe fn enc_list_probe_response_ugroup(
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1080:11
+1080 | unsafe fn enc_list_metrics_response_group(
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1101:11
+1101 | unsafe fn enc_list_metrics_response_ugroup(
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1123:11
+1123 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1141:11
+1141 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1161:11
+1161 | unsafe fn enc_dual_response_group(
+
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1190:11
+1190 | unsafe fn enc_dual_response_ugroup(
+
+   --> crates/facade/src/generated/core_native.rs:215:14
+215 | fn enc_empty(o: &Empty, e: &mut Enc) {
+
+   --> crates/facade/src/generated/core_native.rs:215:25
+215 | fn enc_empty(o: &Empty, e: &mut Enc) {
+
+   --> crates/facade/src/generated/core_native.rs:976:27
+976 | fn dec_empty(d: &mut Dec, out: &mut Empty) {
+
+   --> crates/facade/src/generated/prost_impl.rs:400:26
+400 |     fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+
+   --> crates/facade/src/generated/prost_impl.rs:403:13
+403 |         let mut n = 0usize;
+
+    --> crates/harness/src/generated/binding.rs:1364:17
+1364 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1399:17
+1399 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1434:17
+1434 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1468:17
+1468 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1691:17
+1691 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1724:17
+1724 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1757:17
+1757 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1790:17
+1790 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1828:17
+1828 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1924:17
+1924 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1959:17
+1959 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:1994:17
+1994 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2028:17
+2028 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2256:17
+2256 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2693:17
+2693 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2728:17
+2728 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2763:17
+2763 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2797:17
+2797 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2830:17
+2830 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2865:17
+2865 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2900:17
+2900 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:2934:17
+2934 |                 done += i;
+
+    --> crates/harness/src/generated/binding.rs:3393:49
+3393 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+
+    --> crates/harness/src/generated/binding.rs:3780:49
+3780 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+
+    --> crates/harness/src/generated/binding.rs:4109:49
+4109 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+
+    --> crates/harness/src/generated/binding.rs:4422:49
+4422 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+
+    --> crates/harness/src/generated/binding.rs:4689:49
+4689 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+
+    --> crates/harness/src/generated/binding.rs:5062:49
+5062 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+
+    --> crates/harness/src/generated/binding.rs:5426:49
+5426 |     let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
+
+    --> crates/harness/src/generated/binding.rs:1006:15
+1006 | pub(crate) fn fill_upload_result_data_sparse(d: &mut ak_efix_UploadResultData, o: &UploadResultData, tc: (ak_transcode_fn, ak_tran...
+
+    --> crates/harness/src/generated/binding.rs:1036:15
+1036 | pub(crate) fn fill_list_results_response_sparse(d: &mut ak_efix_ListResultsResponse, o: &ListResultsResponse, tc: (ak_transcode_fn...
+

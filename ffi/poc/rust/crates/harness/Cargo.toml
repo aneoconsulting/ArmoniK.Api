@@ -106,3 +106,7 @@ path = "src/bin/concur.rs"
 [[bin]]
 name = "lifecycle"
 path = "src/bin/lifecycle.rs"
+
+[[bin]]
+name = "guardcost"
+path = "src/bin/guardcost.rs"

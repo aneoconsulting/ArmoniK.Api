@@ -11,7 +11,7 @@ session, which makes it the most expensive defect in this directory.
 | **Floor** (must build and pass correctness) | MSRV 1.88 declared. **Not verified: no 1.88 toolchain exists in this container, only 1.94.1** |
 | **Target** (where the clock runs) | the same, one configuration (README section 5) |
 | **Incumbent** (the baseline every ratio is against) | prost 0.14.4, plus tonic 0.14 for stage 4. **R14, checked rather than assumed**: tonic-prost 0.14.6's `src/codec.rs` calls `Message::decode(buf)` (line 131) and `item.encode(buf)` (line 98), and prost's `Message::encode` computes `encoded_len()` before `encode_raw` — so for Rust the production path and the library's entry point are the SAME call in both directions and there is no second labelled row. Rust is the one slice where R14's check comes back empty |
-| **Outstanding** | one measurement: what section 3's `AK_ERR_UNINITIALIZED` guard costs (`gen/guardprice.sh`). Everything it needs is built; the run needs the box to itself |
+| **Outstanding** | nothing |
 
 ## The question this slice answers
 
@@ -47,6 +47,17 @@ gen/zeroed.sh               arm 2: the zeroed-group element fill, decision 9 can
 gen/unknown.sh              the unknown-field bag, decision 11
 gen/unknown_predicate.py    does the bag break the batching predicate? Run this FIRST
 gen/stability.sh            is a ratio reproducible across BUILDS? (R4, as sharpened)
+gen/pull.sh                 stage 5 item 1: the two decode families, end to end
+gen/concur.sh               stage 5 item 2: obligation 12.5, both width-table arms
+gen/lifecycle.sh            stage 5 item 3: section 3, both init-guard arms. Untimed
+gen/guardcost.sh            what section 3's guard costs, as a within-process delta
+                            with a TWIN arm that measures the layout floor. The one
+                            that survives its control
+gen/guardprice.sh           the two-build form of the same question. It does NOT
+                            survive its control -- core-native, which has no guard in
+                            either build, moves 30 percent -- and is kept because the
+                            refusal is the result. Refuses to start if anything else
+                            is benchmarking
 
 crates/shapes-prost         protox 0.9 -> prost-build 0.14 over the generated .proto
 crates/shapes-values        the value rules of emit/values.py, hand-re-derived
@@ -78,7 +89,7 @@ for stage 5's first commit was 2,048 insertions and **zero deletions**.
 Binaries: `conformance` (byte identity), `counts` (`--features count`), `bench`,
 `shapes`, `content`, `rpcbench`, `decpolicy`, `inlining`, `zeroed`, `unknown`,
 **`pullbench`** (the two decode families), **`concur`** (obligation 12.5),
-**`lifecycle`** (section 3).
+**`lifecycle`** (section 3), **`guardcost`** (what section 3's guard costs).
 Features: `guard` (on by default, ABI v1 section 5), `count`, the decode UTF-8 policy
 `dec-reject` / `dec-reject-simd` (default: lossy), **`global-widths`** and
 **`init-guard`** (both off by default; each builds an arrangement so it can be measured
@@ -316,12 +327,20 @@ separate processes.
   `AK_INIT_NO_PANIC_HOOK`, the codec still correct afterwards, and **8 threads racing
   `ak_init`: exactly one `AK_OK`, seven `AK_ALREADY_INITIALIZED`, and no caller returning
   before the installs are visible**.
-- **What the `AK_ERR_UNINITIALIZED` guard COSTS is not measured yet.** `gen/guardprice.sh`
-  is the run; it needs the box to itself and this session lost one attempt to two benchmarks
-  overlapping, which is README section 11 reproduced. No figure is quoted until it exists.
-  What the crossing counts already say without a clock: the guard is per ENTRY POINT, and
-  the entry points are 1 per decode and 8 (P1.2) to 2,511 (P2.2) per encode — per message or
-  per chunk, never per field.
+- **The `AK_ERR_UNINITIALIZED` guard is under the noise floor, and it took three attempts
+  and two failed controls to be able to say so.** (a) Two builds with `bench` in each fails
+  R4's control: `core-native`, which has no guard in either build, moved by up to 30 percent.
+  (b) One process, `ak_noop` against `ak_noop_guarded`, said the GUARDED crossing was 0.71 ns
+  **cheaper**, which a load and a branch cannot be — an arm with the wrong sign means the
+  effect is under the noise. (c) Adding a TWIN (`ak_noop2`, byte-for-byte identical, no
+  guard) measures the noise: **two identical unguarded exports differ by 0.70 ns** at a 2.1 ns
+  crossing, and which one draws the penalty is not stable across builds. **The guarded arm is
+  within 0.003 ns of a twin on every run.** So `|guard| < 0.70 ns per crossing, and the direct
+  comparison says ~0`, stated as a bound. At the counted crossings that bounds P2.2 encode at
+  1.75 µs on a 1.4 ms encode — **0.125 percent** — and every decode at one crossing, because
+  the guard is per ENTRY POINT and entry points are per message or per run, never per field.
+  It also does not get dearer on a host whose crossing is dearer: the guard is work on the
+  core's side of the boundary.
 - **Two findings came out of cases that FAILED first, and both failures were the
   specification working.** (a) **The core's panic hook does not see a Rust host's panics**,
   because a cdylib carries its own copy of `std` and the two hooks are two different globals.
@@ -626,5 +645,5 @@ Four, all reported to the aggregating session and none fixed here:
 | `ffi/logs/rust/stage3-M2.log` | rustc 1.94.1 release, prost 0.14.4, cdylib boundary, guard on (section 6 off), ASCII, 4 shared vCPUs | M2 over P2.1 to P2.5: byte identity across four arms plus value identity across the three facade decoders; 7.004 crossings per task on decode and 10.02 on encode; ABI v1 open decision 5 answered and isolated; the two shape-coverage findings; the guard priced on a shape that makes 7 to 10 reverse calls per element |
 | `ffi/logs/rust/stage5-pull-decode.log` | rustc 1.94.1 release, prost 0.14.4 (tonic-prost 0.14.6's decode path READ, not assumed), cdylib boundary, guard on, ASCII; two suite invocations, three timed runs each, arms interleaved in one process | **ABI v1 section 7.1's PULL family, built, and open decision 2 answered on both halves.** One `dec_walk` serves both families and the structural control says so: records written == reverse calls push would make, to the digit, on all thirteen counted payloads, with pull's reverse count zero. Crossings go from 3,501 per message (push, per element) to 16, or 3 with one drain chunk. Pull costs this host −5% to +18% of a push decode, with the opaque-replay control showing it is not an inlining artifact, and its cost tracks the record-to-wire byte ratio |
 | `ffi/logs/rust/stage5-concurrency.log` | rustc 1.94.1 release, cdylib, guard on, 4 vCPU; two builds (per-context and `--features global-widths`), three runs each, separate target dirs | **Obligation 12.5's concurrency suite.** Correctness clean: 0 wrong in 2,840 encodes and 2,840 decodes across sequence, 2/4/8 threads, on both builds. The positive control (four threads, one context) is **not** wrong bytes but a PROCESS ABORT, because a panic in the core cannot unwind through an `extern "C"` frame — a hole beside the one section 5 already calls the widest. Section 6's global-table claim measured: 0.5 to 11 percent, only above one thread and only on shapes sharing a site, with a disjoint-site control and the width flipping counted |
-| `ffi/logs/rust/stage5-lifecycle.log` | rustc 1.94.1 release, cdylib, two builds (default and `--features init-guard`), each case in its own process | **ABI v1 section 3, built and exercised for the first time in this branch.** Fourteen cases: the state machine, the version check, idempotence and its refusal, the log bridge and its flag, the panic hook and its flag, 8 threads racing `ak_init`. Two cases failed first and both failures were the specification working — the core's hook does not see a HOST panic (two copies of `std`), and the flags are a process-wide negotiation the first caller wins. **What the `AK_ERR_UNINITIALIZED` guard COSTS is not in it**: that run is `gen/guardprice.sh`, it needs the box to itself, and no figure is quoted until it exists |
+| `ffi/logs/rust/stage5-lifecycle.log` | rustc 1.94.1 release, cdylib, two builds (default and `--features init-guard`), each case in its own process | **ABI v1 section 3, built and exercised for the first time in this branch.** Fourteen cases: the state machine, the version check, idempotence and its refusal, the log bridge and its flag, the panic hook and its flag, 8 threads racing `ak_init`. Two cases failed first and both failures were the specification working — the core's hook does not see a HOST panic (two copies of `std`), and the flags are a process-wide negotiation the first caller wins. Carries what the `AK_ERR_UNINITIALIZED` guard costs, as a BOUND (`|guard| < 0.70 ns per crossing, ~0 directly`), together with the two attempts that failed their controls first — a two-build comparison whose unguarded control moved 30 percent, and a one-process pair whose sign was impossible until a twin was added to measure the layout floor |
 | `ffi/logs/rust/stage2-four-arms-M1.log` | rustc 1.94.1 release, prost 0.14.4, cdylib boundary, guard on (section 6 off), ASCII, 4 shared vCPUs | byte identity across four arms; crossing counts; the boundary is a real dynamic import; the crossing costs 1.8 ns; the ratio table above; the guard is free; UTF-8 validation costs 25-30 percent of an encode |
