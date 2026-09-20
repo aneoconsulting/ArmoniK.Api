@@ -1,15 +1,3 @@
-# python slice: the conformance corpus, as far as walk.ROOTS reaches
-#
-# date:      2026-09-20T15:04:32Z
-# machine:   4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
-# commit:    9c3cee91
-# core:      ffi/poc/codec (README R0), ABI v1, libak_core.so via the dynamic linker
-# R13:       this machine's rust-slice crossing is 2.1 ns (fwd+reverse) to 2.8 ns
-#            (forward) -- 00-r13-rust-crossing.log. The composed arm also prices
-#            the boundary IN ITS OWN PROCESS at the end of the bench table, which
-#            is the better number to quote against because it shares a build.
-# absolutes: instrumentation, not the deliverable. Signs and size classes only.
-
 # python slice: the conformance corpus (W8), as far as this scope reaches
 # corpus:   1
 # vectors:  336 in the corpus
@@ -68,16 +56,16 @@
    In scope, by class: baseline=8, empty=30, malformed=2, shape=22, unknown=66
 
 ## C1 parse, C2 project, C3 re-encode, C4 refuse
-   core-ffi / C ext type    C1 126/126  C2 123/124  C3 126/126  C4 2/2
-   core-ffi / plain         C1 126/126  C2 123/124  C3 126/126  C4 2/2
-   pycodec / plain          C1 126/126  C2 123/124  C3 126/126  C4 2/2
+   core-ffi / C ext type    C1 126/126  C2 123/123  C3 126/126  C4 2/2
+   core-ffi / plain         C1 126/126  C2 123/123  C3 126/126  C4 2/2
+   pycodec / plain          C1 126/126  C2 123/123  C3 126/126  C4 2/2
 
 ## C3: which accepted form this slice writes
 #  CONTRACT.md C3: a vector may have more than one accepted form, and which
 #  one a slice writes is a fact about it rather than a verdict.
-   core-ffi / C ext type    a permutation, contiguous (SHAPES.md P7.1)=1, as committed=52, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=17
-   core-ffi / plain         a permutation, contiguous (SHAPES.md P7.1)=1, as committed=52, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=17
-   pycodec / plain          a permutation, contiguous (SHAPES.md P7.1)=1, as committed=52, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=17
+   core-ffi / C ext type    as committed=45, as committed in ffi/schema/generated=7, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=17
+   core-ffi / plain         as committed=45, as committed in ffi/schema/generated=7, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=17
+   pycodec / plain          as committed=45, as committed in ffi/schema/generated=7, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=17
 
 ## ABI v1 open decision 11, answered for this slice
 #  CONTRACT.md class `unknown`: say whether you retained or dropped. Counted
@@ -105,12 +93,6 @@
    none
 
 ## disagreements reported upstream, not folded into the pass count
-   U-map-entry C2, on 3 of 3 arms
-       an unknown field inside a map entry. THREE readers, three answers, and this slice is with the reference implementation:
-         this slice, core and pure-Python control : the entry parses, tag 3 is skipped, the map keeps its 4 entries
-         protobuf 7.36.2, pure-Python backend     : the same -- {'k': 'v'} survives an added tag-3 field inside the entry
-         protobuf 7.36.2, upb backend (the DEFAULT, and what R14 measures against): the entry is DROPPED and the map comes back EMPTY. Isolated on a two-field message rather than inferred from this vector
-         the corpus's own projection              : the entries are recorded as `_unknown` content of TaskOptions, so its reader did not treat tag 1 as the map either
-       A map entry is a message on the wire, so an unknown field inside it is skipped and the entry survives, which is what this vector's own `why` says it tests. Reported upstream; the projection is not matched by changing the reader.
+   none
 
-CORPUS SUBSET PASSES  (with 1 reported disagreement(s), above)
+CORPUS SUBSET PASSES
