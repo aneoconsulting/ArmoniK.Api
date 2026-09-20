@@ -307,3 +307,29 @@ Beyond the slice's own list, which is longer and should be read with it:
   or footprint column, content sets on the string path only.
 - **C16**, a systematic 34 % outlier round on P1.2 decode present in every log this
   slice produced, characterised and unexplained.
+
+## The group-skip defect, carried here and not yet fixed
+
+Found in the shared core by the python slice's corpus run and fixed there by the
+aggregating session; **this slice's own `include/ak/rt.h` has the same defect and
+it is still open.** `skip(uint32_t wire)` has cases for 0, 1, 2 and 5 and sends
+everything else to `ERR_MALFORMED`, so an unknown field of the deprecated GROUP
+form makes the floor and `core-native` arms reject a message that upb accepts
+(`U-root-group`, `U-nested-group`, `U-oneof-group` in `corpus/generated/vectors/`).
+
+Two things make it worth a paragraph rather than a line:
+
+- **The fix is not "add case 3".** A group carries no length, so the skipper has to
+  recurse to an `END_GROUP` **whose field number matches** the one that opened it.
+  Counting depth instead accepts `X-group-mismatched-end` and then mis-nests every
+  group after it, which is why that vector exists. It also needs a depth bound, or a
+  payload of nothing but start tags is a stack overflow rather than an error.
+- **Four slices gated clean on this.** Byte identity against a schema-generated
+  manifest cannot find it, because proto3 cannot express a group and so nothing the
+  generator emits produces one. Only a consumer of a hand-built corpus can, and only
+  one slice has been one.
+
+The java slice's `Dec.skip` is correct, field-number match and all. The C# slice's
+`Wire.Skip` has the same hole as this one. Neither is a measurement defect; both are
+conformance defects in an arm the branch is proposing as a replacement for a library
+that gets this right.
