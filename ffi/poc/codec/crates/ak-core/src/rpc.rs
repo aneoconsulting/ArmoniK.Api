@@ -74,17 +74,32 @@ pub struct ak_bytes {
 /// hyper's client defaults, for the record the SHAPES.md table wants: **2 MiB initial
 /// stream window, 5 MiB initial connection window, adaptive window off**
 /// (`hyper/src/proto/h2/client.rs`, `DEFAULT_STREAM_WINDOW` / `DEFAULT_CONN_WINDOW`).
+///
+/// **This struct is the UNION of two independent additions and that is a finding in itself.**
+/// The rust and cpp slices each added an `ak_client_new_opts` on the same day, with different
+/// field sets, because each needed the core's transport pinned and neither could know the
+/// other was doing it. R0 stops a slice FORKING the core; it does not stop two slices adding
+/// the same thing at once, and nothing detected this until the merge failed to compile. The
+/// union is what both need, and the failure mode to note is that it could as easily have been
+/// two subtly different behaviours behind one name.
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct ak_client_opts {
-    /// `SETTINGS_INITIAL_WINDOW_SIZE`, per stream. 0 leaves hyper's 2 MiB.
+    /// `SETTINGS_INITIAL_WINDOW_SIZE`, per stream. 0 leaves hyper's 2 MiB. ArmoniK: 4 MiB.
     pub stream_window: u32,
     /// The connection-level window, which is a SEPARATE setting on hyper as it is on
-    /// grpc-java. 0 leaves hyper's 5 MiB.
+    /// grpc-java. 0 leaves hyper's 5 MiB. Raising only the stream window is the mistake this
+    /// entry point exists to make impossible to repeat.
     pub connection_window: u32,
     /// 1 on, 0 off, -1 leave the default (off). Adaptive sizing overrides the two windows
     /// above, which is why pinning a window and enabling this is a contradiction rather
     /// than a belt and braces.
     pub adaptive_window: i32,
+    /// Largest message the client will accept, bytes. 0 leaves tonic's default. ArmoniK
+    /// chunks at 2 MiB, so a cell that pins chunking pins this too.
+    pub max_recv_message: u32,
+    /// Largest message the client will send, bytes. 0 leaves tonic's default.
+    pub max_send_message: u32,
 }
 
 /// R5's counters for the RPC half. Process-global rather than per-context, because a call
@@ -245,81 +260,11 @@ pub unsafe extern "C" fn ak_client_new_opts(
         Ok(s) => s.to_string(),
         Err(_) => return core::ptr::null_mut(),
     };
-    let (sw, cw, ad) = if opts.is_null() {
-        (0u32, 0u32, -1i32)
-    } else {
-        ((*opts).stream_window, (*opts).connection_window, (*opts).adaptive_window)
-    };
-    let chan = rt.rt.block_on(async move {
-        // `unix:` targets included: from_shared dispatches on the scheme.
-        let mut ep = tonic::transport::Endpoint::from_shared(s).ok()?;
-        if sw != 0 {
-            ep = ep.initial_stream_window_size(sw);
-        }
-        if cw != 0 {
-            ep = ep.initial_connection_window_size(cw);
-        }
-        if ad >= 0 {
-            ep = ep.http2_adaptive_window(ad != 0);
-        }
-        ep.connect().await.ok()
-    });
-    match chan {
-        Some(chan) => Box::into_raw(Box::new(ClientImpl {
-            rt: r as *const RuntimeImpl,
-            chan,
-        })) as *mut ak_client,
-        None => core::ptr::null_mut(),
-    }
-}
-
-/// ABI v1 section 3 gives configuration to `ak_context_new(runtime, config_json, err)`, and
-/// that is unbuilt. This is the narrow piece a transport measurement cannot do without.
-///
-/// **The core could not express ArmoniK's transport at all**, and that is the finding rather
-/// than the entry point. ArmoniK pins 2 MiB chunking and a 4 MiB HTTP/2 window; `ak_client_new`
-/// takes a URI and nothing else, so every RPC figure in this branch was taken on tonic's
-/// defaults -- a **64 KiB** stream window. README R9 already says what that does to a 540 KB
-/// response: most of the wall clock is spent waiting for `WINDOW_UPDATE`. So a grid comparing
-/// the core's transport with a tonic channel the host configured would have been comparing
-/// window sizes, not interfaces.
-///
-/// **On tonic/hyper the stream and connection windows are separate settings**, and raising
-/// only the stream window leaves the connection at 65,535 -- which is the mistake this entry
-/// point exists to make impossible to repeat: both are arguments and neither has a default
-/// here.
-///
-/// Zero means "leave tonic's default", so a host that does not care passes zeros and gets
-/// exactly what `ak_client_new` gives.
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct ak_client_opts {
-    /// HTTP/2 initial stream window, bytes. ArmoniK: 4 MiB.
-    pub stream_window: u32,
-    /// HTTP/2 initial CONNECTION window, bytes. A separate setting on tonic/hyper.
-    pub connection_window: u32,
-    /// Largest message the client will accept, bytes. ArmoniK chunks at 2 MiB.
-    pub max_recv_message: u32,
-    /// Largest message the client will send, bytes.
-    pub max_send_message: u32,
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn ak_client_new_opts(
-    r: *mut ak_runtime,
-    uri: *const u8,
-    uri_len: usize,
-    opts: *const ak_client_opts,
-) -> *mut ak_client {
-    let rt = &*(r as *const RuntimeImpl);
-    let s = match core::str::from_utf8(core::slice::from_raw_parts(uri, uri_len)) {
-        Ok(s) => s.to_string(),
-        Err(_) => return core::ptr::null_mut(),
-    };
     let o = if opts.is_null() {
         ak_client_opts {
             stream_window: 0,
             connection_window: 0,
+            adaptive_window: -1,
             max_recv_message: 0,
             max_send_message: 0,
         }
@@ -327,12 +272,16 @@ pub unsafe extern "C" fn ak_client_new_opts(
         *opts
     };
     let chan = rt.rt.block_on(async move {
+        // `unix:` targets included: from_shared dispatches on the scheme.
         let mut ep = tonic::transport::Endpoint::from_shared(s).ok()?;
         if o.stream_window != 0 {
-            ep = ep.initial_stream_window_size(Some(o.stream_window));
+            ep = ep.initial_stream_window_size(o.stream_window);
         }
         if o.connection_window != 0 {
-            ep = ep.initial_connection_window_size(Some(o.connection_window));
+            ep = ep.initial_connection_window_size(o.connection_window);
+        }
+        if o.adaptive_window >= 0 {
+            ep = ep.http2_adaptive_window(o.adaptive_window != 0);
         }
         ep.connect().await.ok()
     });
@@ -946,10 +895,15 @@ mod delivery_tests {
             rt.rt.block_on(async { rpc::serve(Bytes::from_static(RESP)).await.addr })
         };
         let uri = format!("http://{addr}");
+        // ArmoniK's transport, as design/SHAPES.md pins it: a 4 MiB window on both the
+        // stream and the connection, adaptive off (it would override both), and the
+        // message limits that go with 2 MiB chunking.
         let opts = ak_client_opts {
             stream_window: 4 * 1024 * 1024,
             connection_window: 4 * 1024 * 1024,
             adaptive_window: 0,
+            max_recv_message: 4 * 1024 * 1024,
+            max_send_message: 4 * 1024 * 1024,
         };
         unsafe {
             let c = ak_client_new_opts(r, uri.as_ptr(), uri.len(), &opts);
