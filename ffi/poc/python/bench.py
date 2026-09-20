@@ -121,9 +121,14 @@ def main():
                 cases.append(Case(g, "-- floor: one copy of the output (%d B)" % len(ref),
                                   lambda reps, _r=ref: _copy(_r, reps),
                                   "no traversal. An encode cannot go below this"))
+            elif arms.elem_field(pid) is None:
+                # M5's root has no repeated field, so there is no element floor to state:
+                # the decode constructs one root and one child whatever the blob's size.
+                cases.append(Case(g, "-- floor: one copy of the input (%d B)" % len(ref),
+                                  lambda reps, _r=ref: _copy(_r, reps),
+                                  "no elements to construct; the blob is the whole cost"))
             else:
-                elem = ("ResultRaw" if arms.ROOT_OF[pid] == "ListResultsResponse"
-                        else "TaskDetailed")
+                elem = arms.elem_type(pid)
                 n = len(getattr(arms.build_facade(pid, arms.CT_PLAIN),
                                 arms.elem_field(pid)))
                 ctor = arms.CT_PLAIN[elem]

@@ -43,20 +43,14 @@ def first_diff(a, b):
 
 
 def fieldwise(obj, pb, pid):
-    """Every field of every element, the facade against the incumbent."""
-    bad = []
-    ef = arms.elem_field(pid)
-    oa, ob_ = getattr(obj, ef), getattr(pb, ef)
-    if len(oa) != len(ob_):
-        return ["element count %d vs %d" % (len(oa), len(ob_))]
-    for i, (a, b) in enumerate(zip(oa, ob_)):
-        bad += _cmp_msg(a, b, "elem %d" % i)
-        if len(bad) > 6:
-            return bad[:6] + ["..."]
-    for n in ("page", "total"):
-        if int(getattr(obj, n)) != int(getattr(pb, n)):
-            bad.append(".%s: %r vs %r" % (n, getattr(obj, n), getattr(pb, n)))
-    return bad
+    """Every field of the whole root, the facade against the incumbent.
+
+    Was "every field of every element, plus page and total", which is a root with exactly
+    one repeated field and two scalars beside it written into the checker. `_cmp_msg`
+    already recurses through a repeated message field, so the root is just another message
+    and M5's childless root and M7's two lists need no case of their own.
+    """
+    return _cmp_msg(obj, pb, "root")
 
 
 def _why_alt(got, want):
@@ -80,8 +74,37 @@ def _cmp_msg(a, b, where):
     rule as R1's walker, one level up: the oracle enumerates, the slice does not.
     """
     bad = []
+
+    # A proto3 `optional` field lives in a SYNTHETIC oneof of one member named `_<field>`:
+    # that is how protobuf carries explicit presence, and it is not a oneof the schema
+    # wrote. Telling the two apart by that convention is what keeps `opt_count` out of the
+    # oneof branch below. `real_oneofs` would be the tidier test and is empty on this build.
+    def _synthetic(fd):
+        co = fd.containing_oneof
+        return co is not None and len(co.fields) == 1 and co.name == "_" + fd.name
+
+    for oneof in b.DESCRIPTOR.oneofs:
+        if len(oneof.fields) == 1 and oneof.name.startswith("_"):
+            continue
+        which = b.WhichOneof(oneof.name)
+        tag = getattr(a, "%s_case" % oneof.name, None)
+        if tag is None:
+            bad.append("%s: the facade has no %s_case" % (where, oneof.name))
+            continue
+        mine = next((f.name for f in oneof.fields if f.number == tag), None)
+        if mine != which:
+            bad.append("%s oneof %s: facade selects %r (case %r), upb selects %r"
+                       % (where, oneof.name, mine, tag, which))
+
     for fd in b.DESCRIPTOR.fields:
         n = fd.name
+        co = fd.containing_oneof
+        if co is not None and not _synthetic(fd):
+            # A member nobody selected has no value to compare: both sides would return
+            # their own default and comparing two defaults proves nothing. WHICH member is
+            # selected was checked above; the selected one is compared below.
+            if b.WhichOneof(co.name) != n:
+                continue
         bv = getattr(b, n)
         try:
             av = getattr(a, n)
@@ -101,6 +124,22 @@ def _cmp_msg(a, b, where):
                         bad += _cmp_msg(x, y, "%s .%s[%d]" % (where, n, j))
             elif list(av) != list(bv):
                 bad.append("%s .%s: %r vs %r" % (where, n, list(av), list(bv)))
+        elif _synthetic(fd):
+            # Explicit presence: absent is None on the facade and `not HasField` on the
+            # incumbent, and present-and-zero must compare equal to present-and-zero rather
+            # than to absent. That distinction is what P3.1 is in the payload set for.
+            present = b.HasField(n)
+            if (av is not None) != present:
+                bad.append("%s .%s presence: %s vs %s"
+                           % (where, n, av is not None, present))
+            elif av is not None and fd.type == fd.TYPE_BOOL:
+                if bool(av) != bool(bv):
+                    bad.append("%s .%s: %r vs %r" % (where, n, av, bv))
+            elif av is not None and fd.type in (fd.TYPE_STRING, fd.TYPE_BYTES):
+                if av != bv:
+                    bad.append("%s .%s: %r vs %r" % (where, n, av, bv))
+            elif av is not None and int(av) != int(bv):
+                bad.append("%s .%s: %r vs %r" % (where, n, av, bv))
         elif fd.message_type is not None:
             present = b.HasField(n)
             if (av is not None) != present:
@@ -208,8 +247,19 @@ def main():
             # the INCUMBENT's bytes is only a failure if the two do not parse to the same
             # message -- checked, not assumed. A difference in one of THIS SLICE's arms is
             # always a failure: they are the ones claiming to produce canonical bytes.
-            alt = arms.same_message(pid, got, want) if name.startswith("upb") else None
-            if alt:
+            # P7.1 is the one payload where THIS SLICE gets the allowance too, and
+            # design/SHAPES.md says so in advance rather than after the fact: the vector
+            # interleaves two repeated fields, no canonical writer can produce it, and a
+            # slice is asked to validate it by decoding and to re-encode contiguously to a
+            # permutation of the same triples. `same_message` is the stronger form of that
+            # check -- both encodings parse to the same message, by the incumbent's parser.
+            allow = name.startswith("upb") or pid in arms.DECODE_ONLY
+            alt = arms.same_message(pid, got, want) if allow else None
+            if alt and pid in arms.DECODE_ONLY:
+                print("        ok*   %-32s a permutation: %s"
+                      % (name, "the manifest interleaves two repeated fields and no "
+                               "contiguous writer can; same triples, same message"))
+            elif alt:
                 print("        ok*   %-32s legal alternative form: %s"
                       % (name, _why_alt(got, want)))
             else:
@@ -226,7 +276,9 @@ def main():
             back = arms.reencode(name, obj, pid)
             ok = back == want
             alt = ""
-            if not ok and name.startswith("upb") and arms.same_message(pid, back, want):
+            if not ok and pid in arms.DECODE_ONLY and arms.same_message(pid, back, want):
+                ok, alt = True, "  (a permutation of the same triples; SHAPES.md P7.1)"
+            elif not ok and name.startswith("upb") and arms.same_message(pid, back, want):
                 # Same allowance as the encode section: the incumbent may legally write
                 # another accepted form. This slice's own arms get no such allowance.
                 ok, alt = True, "  (legal alternative form: %s)" % _why_alt(back, want)

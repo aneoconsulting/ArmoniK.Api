@@ -88,6 +88,12 @@ def outputs():
 
 
 def main():
+    # `--out DIR` emits somewhere else and touches nothing committed. It exists because
+    # widening the scope is a long edit across five emitters, and the alternative to
+    # checking each step is rewriting `gen/out/` while a benchmark process is importing it.
+    global OUT
+    if "--out" in sys.argv:
+        OUT = sys.argv[sys.argv.index("--out") + 1]
     os.makedirs(OUT, exist_ok=True)
     outs = outputs()
     check = "--check" in sys.argv
