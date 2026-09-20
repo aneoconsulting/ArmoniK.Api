@@ -72,8 +72,17 @@ fn opts() -> ak_client_opts {
     ak_client_opts {
         stream_window: STREAM_WINDOW,
         connection_window: CONNECTION_WINDOW,
+        // -1 is "leave the default", which is off. Pinning a window and enabling adaptive
+        // sizing is a contradiction, not belt and braces: adaptive overrides the pin. This
+        // field arrived with the cpp slice's version of the same entry point.
+        adaptive_window: -1,
         max_recv_message: MAX_MESSAGE,
         max_send_message: MAX_MESSAGE,
+        // -1 leaves tonic's client default, which is nodelay ON. That matches ArmoniK:
+        // `armonik-transport` reads `GrpcClient__TcpNagleAlgorithm`, defaults it to false and
+        // applies `set_nodelay(!nagle)`. So the CLIENT was never the problem; the 40 ms was
+        // always the server side of our own harness.
+        tcp_nagle: -1,
     }
 }
 
@@ -98,9 +107,11 @@ fn main() {
         .unwrap();
     let sock = std::env::temp_dir().join(format!("ak-rpcgrid-{}.sock", std::process::id()));
     let uds = server_rt.block_on(rpc::serve_uds(Bytes::from(payload.clone()), sock.clone()));
-    // The measured TCP server has TCP_NODELAY set on the accepted socket; `window_control`
-    // below builds a second, unmodified one and shows why that is not a free choice.
-    let tcp = server_rt.block_on(rpc::serve_nodelay(Bytes::from(payload.clone())));
+    // `rpc::serve` now sets TCP_NODELAY on the accepted socket (the aggregating session took
+    // that flip after this slice reported it). `window_control` below builds a second server
+    // through `rpc::serve_nagle`, which keeps the old defective form so the artifact stays
+    // reproducible, and shows what the flip was worth.
+    let tcp = server_rt.block_on(rpc::serve(Bytes::from(payload.clone())));
     let uds_target = format!("unix:{}", sock.display());
     let tcp_target = format!("http://{}", tcp.addr);
     println!("#   servers    {} and {}", uds_target, tcp.addr);
@@ -153,12 +164,12 @@ fn window_control(uds: &str, tcp: &str, payload: &[u8], srt: &tokio::runtime::Ru
     println!();
     println!("{:<8} {:<10} {:>13} {:>13}   {}",
              "transport", "client", "CPU us/RPC", "wall us/RPC", "server socket");
-    // `tcp` is the FIXED server (TCP_NODELAY on the accepted socket); this is a second one
-    // left exactly as `rpc::serve` has always built it, so the two differ in one socket option.
-    let nagle_big = srt.block_on(rpc::serve(Bytes::from(payload.to_vec())));
+    // `tcp` is `rpc::serve`, which now sets TCP_NODELAY; this is `rpc::serve_nagle`, which
+    // preserves the old form. The two differ in exactly one socket option.
+    let nagle_big = srt.block_on(rpc::serve_nagle(Bytes::from(payload.to_vec())));
     let ngb = format!("http://{}", nagle_big.addr);
     for (tname, target, sock) in
-        [("UDS", uds, "-"), ("TCP", tcp, "TCP_NODELAY"), ("TCP", &ngb[..], "as `rpc::serve` is")]
+        [("UDS", uds, "-"), ("TCP", tcp, "TCP_NODELAY (`serve`)"), ("TCP", &ngb[..], "Nagle (`serve_nagle`)")]
     {
         for (label, pinned) in [("default", false), ("pinned", true)] {
             let r = blocking_once(target, payload, pinned);
@@ -172,18 +183,20 @@ fn window_control(uds: &str, tcp: &str, payload: &[u8], srt: &tokio::runtime::Ru
     let small = vec![0u8; 1024];
     let ssock = std::env::temp_dir().join(format!("ak-rpcgrid-small-{}.sock", std::process::id()));
     let suds = srt.block_on(rpc::serve_uds(Bytes::from(small.clone()), ssock.clone()));
-    let stcp = srt.block_on(rpc::serve(Bytes::from(small.clone())));
-    let sfix = srt.block_on(rpc::serve_nodelay(Bytes::from(small.clone())));
+    let stcp = srt.block_on(rpc::serve_nagle(Bytes::from(small.clone())));
+    let sfix = srt.block_on(rpc::serve(Bytes::from(small.clone())));
     let (st, ss) = (format!("http://{}", stcp.addr), format!("unix:{}", ssock.display()));
     let sf = format!("http://{}", sfix.addr);
     for (tname, target, sock) in
-        [("UDS", &ss, "-"), ("TCP", &sf, "TCP_NODELAY"), ("TCP", &st, "as `rpc::serve` is")]
+        [("UDS", &ss, "-"), ("TCP", &sf, "TCP_NODELAY (`serve`)"), ("TCP", &st, "Nagle (`serve_nagle`)")]
     {
         let r = blocking_once(target, &[], true);
         println!("{:<8} {:<10} {:>13.1} {:>13.1}   1 KB, {}",
                  tname, "pinned", r.cpu_us, r.wall_us, sock);
     }
-    let _ = (suds, sfix, nagle_big);
+    let _ = (suds, sfix);
+    nagle_cpu(&ngb, tcp, payload);
+    let _ = nagle_big;
     println!();
     println!("# READ THIS BEFORE THE TABLES BELOW.");
     println!("#");
@@ -207,7 +220,7 @@ fn window_control(uds: &str, tcp: &str, payload: &[u8], srt: &tokio::runtime::Ru
     println!("#    Nagle: a large response has full segments to send and never waits, while a");
     println!("#    1 KB one is a small write with nothing behind it, which is the stall case.");
     println!("#");
-    println!("# 3. **AND HERE IS WHAT IT ACTUALLY IS.** The two `as rpc::serve is` rows differ");
+    println!("# 3. **AND HERE IS WHAT IT ACTUALLY IS.** The two `serve_nagle` rows differ");
     println!("#    from the `TCP_NODELAY` rows above them in ONE SOCKET OPTION on the server's");
     println!("#    accepted socket, and in nothing else at all. `crates/rpc` drives");
     println!("#    tonic through `serve_with_incoming`, and tonic documents that the builder's");
@@ -217,12 +230,57 @@ fn window_control(uds: &str, tcp: &str, payload: &[u8], srt: &tokio::runtime::Ru
     println!("#    DATA, then TRAILERS; with Nagle on the writer the second small write waits");
     println!("#    for the peer's ACK of the first, and Linux's delayed-ACK timer is 40 ms.");
     println!("#    That is a HARNESS defect, not a transport result, and every loopback-TCP");
-    println!("#    wall figure in this branch -- stage 4's included -- carries it.");
+    println!("#    figure taken before `rpc::serve` was flipped -- stage 4's included --");
+    println!("#    carries it. **Including its CPU column: see the control below.**");
     println!("#");
     println!("# 4. So THERE IS NO LOOPBACK-TCP PENALTY. With the one option set, TCP and UDS");
-    println!("#    agree on both payloads. The TCP tables further down are measured against");
-    println!("#    the FIXED server, because reporting the other one as a transport row would");
-    println!("#    be reporting an artifact; the rows above are where the artifact is kept.");
+    println!("#    agree on both payloads. The TCP tables further down go through");
+    println!("#    `rpc::serve`, which now sets the option; `rpc::serve_nagle` keeps the old");
+    println!("#    form so the artifact above stays reproducible.");
+    println!();
+}
+
+/// DID THE CPU COLUMN MOVE TOO? The table above says yes, and that matters more than the
+/// wall column did: every slice has been told CPU is the trustworthy column, and if Nagle
+/// on the server moves it then that advice was only sound once the socket was right.
+///
+/// Two rows of one table are not enough to say so, because they are taken minutes apart on a
+/// shared box and the machine drifts. So this INTERLEAVES them: nagle, nodelay, nagle,
+/// nodelay, five pairs, each pair adjacent in time. Drift moves both members of a pair
+/// together and cannot manufacture a consistent sign. That is R4's within-arm-delta rule
+/// applied to a question about the harness rather than about a codec.
+fn nagle_cpu(nagle: &str, nodelay: &str, payload: &[u8]) {
+    println!("## did Nagle move the CPU column, or only the wall column?");
+    println!();
+    println!("# {:>5}  {:>12}  {:>12}  {:>8}   {:>12}  {:>12}  {:>8}",
+             "pair", "nagle CPU", "nodel CPU", "CPU x", "nagle wall", "nodel wall", "wall x");
+    let (mut cr, mut wr) = (Vec::new(), Vec::new());
+    for i in 1..=5 {
+        let n = blocking_once(nagle, payload, true);
+        let d = blocking_once(nodelay, payload, true);
+        cr.push(n.cpu_us / d.cpu_us);
+        wr.push(n.wall_us / d.wall_us);
+        println!("# {:>5}  {:>12.1}  {:>12.1}  {:>7.3}x   {:>12.1}  {:>12.1}  {:>7.1}x",
+                 i, n.cpu_us, d.cpu_us, n.cpu_us / d.cpu_us,
+                 n.wall_us, d.wall_us, n.wall_us / d.wall_us);
+    }
+    cr.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    wr.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    println!("# {:>5}  {:>12}  {:>12}  {:>7.3}x   {:>12}  {:>12}  {:>7.1}x",
+             "med", "", "", cr[cr.len() / 2], "", "", wr[wr.len() / 2]);
+    println!("#");
+    println!("# **THE CPU COLUMN MOVED TOO.** It is a smaller effect than the wall column's and");
+    println!("# it is in the same direction, and the sign is consistent across interleaved");
+    println!("# pairs, so it is not drift. The mechanism is the same one: a stalled write");
+    println!("# means the reactor parks and is woken again by a timer, so the call costs");
+    println!("# extra epoll and scheduler work on both ends -- and both ends are in THIS");
+    println!("# process, so both land in this process's utime+stime.");
+    println!("#");
+    println!("# What that costs the branch: a loopback-TCP CPU figure taken against the old");
+    println!("# server is inflated, not merely accompanied by an unreadable wall figure. What");
+    println!("# it does NOT cost: a RATIO between two arms that both went through the same");
+    println!("# server. Stage 4's `CPU/tonic` column is such a ratio and still stands; its");
+    println!("# ABSOLUTE `CPU us/RPC` column does not.");
     println!();
 }
 

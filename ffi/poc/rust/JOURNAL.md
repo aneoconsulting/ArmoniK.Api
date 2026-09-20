@@ -1841,3 +1841,75 @@ committed by the same agent who read it, in the same session, into a script whos
 purpose is hygiene. `pgrep -x` on the basename cannot self-match. Noting it because the rule
 is clearly not enough on its own: the shape to watch for is *any* guard whose pattern is
 written down inside the thing being guarded.
+
+---
+
+## Stage 6b — the flip taken, and an ABI defect underneath it
+
+Both rulings came back as I would have hoped: `rpc::serve` flipped to `TCP_NODELAY` with
+`serve_nagle` keeping the defective form reproducible, and R9 rewritten around the Nagle
+diagnosis. Re-took the tables against the flipped server. Three things to record.
+
+### The CPU column moved too, and that is the part that cost something
+
+I was asked to say explicitly whether the loopback-TCP **CPU** column moved as well as the
+wall column, because every slice has been told CPU is the trustworthy one. It did. Two rows
+of one table cannot establish that on a shared box, so I interleaved them — nagle, nodelay,
+nagle, nodelay, five adjacent pairs, so drift moves both members of a pair together and
+cannot manufacture a consistent sign:
+
+| pair | 1 | 2 | 3 | 4 | 5 | median |
+|---|---|---|---|---|---|---|
+| CPU ratio | 1.391 | 1.292 | 1.259 | 1.480 | 1.296 | **1.296** |
+| wall ratio | 16.1 | 16.3 | 13.1 | 14.3 | 12.4 | **14.3** |
+
+Five of five, same sign. Nagle on the server inflated loopback-TCP CPU by about 30%. Same
+mechanism: a stalled write parks the reactor and a timer wakes it, so the call costs extra
+epoll and scheduler work at both ends — and both ends are in this process, so both land in
+its utime+stime.
+
+The precise cost to the branch, which is narrower than "CPU was wrong": an **absolute**
+loopback-TCP CPU figure from before the flip is inflated. A **ratio** between two arms that
+both went through the same server is not. Stage 4's `CPU/tonic` column stands; its
+`CPU us/RPC` column does not.
+
+### D21: `ak_client_opts` was declared twice and the two disagreed
+
+Rebuilding against the reconciled union did not compile, which is the only reason this was
+found. `ak-core` defined six fields; `ak-abi` — the declaration **every host compiles
+against** — still had four. The reconciliation updated the definition and not the
+declaration. Nothing failed, nothing warned, and what a host would have got is worse than a
+crash:
+
+- its `max_recv_message` lands on the core's `adaptive_window`, and 2 MiB is `>= 0` and
+  `!= 0`, so `http2_adaptive_window(true)` — **adaptive sizing on, overriding the very
+  windows this entry point exists to pin**;
+- its `max_send_message` lands on `max_recv_message`;
+- `max_send_message` and `tcp_nagle` are read **past the end** of the host's 16-byte object,
+  so `tcp_nodelay` comes from whatever was on the stack. A `1` there re-enables Nagle on the
+  client and resurrects the 40 ms artifact non-deterministically.
+
+Silent, wrong, and in the one setting the branch had just spent a day correcting.
+
+The fix is one line of struct. The **durable** fix is the guard that was absent: a `const`
+block beside the struct asserting size, alignment and **every field offset** against
+`ak_abi`'s copy. Offsets and not just size, because two structs with the same six 4-byte
+fields in a different order agree on size and alignment and disagree on every value.
+Verified failing: reinstating the four-field declaration fails the build with the `rpc`
+feature on.
+
+The uncomfortable part is that **I had already written exactly this guard for
+`ak_bdr_rec`**, in this same session, with a comment explaining why section 10 demands it.
+I wrote the defence for one struct and did not generalise it to the next `#[repr(C)]` type I
+added. The guard is not a clever idea that needs having twice; it is a rule that should
+attach to every type declared on both sides of the boundary. Worth one sweep of the others.
+
+### On R0 and the concurrent-addition gap
+
+Recorded by the aggregating session as a gap in R0 rather than against either slice, which
+is right: R0 stops a slice forking the core and says nothing about two slices adding the
+same entry point on the same day. Worth noting what actually caught the collision, though —
+not a rule and not a review, but a **compile error in a third party's harness**. If the cpp
+slice and I had both stopped at "it builds for me", the union would have shipped with the
+declaration mismatch in it. The layout assert is the thing that makes that structural rather
+than lucky.
