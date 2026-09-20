@@ -56,7 +56,10 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public final class RunRpc {
 
-  static final String ID = "P2.2";
+  /** Parameterised so the FIXED per-call cost can be separated from the per-byte
+   *  one: the core's blocking form copies the request, builds a Grpc and polls
+   *  readiness on every call, and those do not scale with the payload. */
+  static final String ID = System.getProperty("ak.rpc.id", "P2.2");
   static final String PATH = "/ak.Bench/ListTasksDetailed";
   static final int[] INFLIGHT = {1, 8, 16};
   static final long WARM_NS = Long.getLong("ak.rpc.warmns", 4_000_000_000L);
