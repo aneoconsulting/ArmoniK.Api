@@ -58,6 +58,32 @@ public struct AkCompletion
     public AkBytes Bytes;
 }
 
+/// ABI v1's transport settings, added after stage 18 measured cells B and C
+/// against TONIC'S DEFAULTS while cells A and D pinned ArmoniK's -- an R7/R14
+/// asymmetry in that grid, and what this struct exists to remove. Zero means
+/// "leave the stack default" on every `uint` field; the two `int`s use -1.
+[StructLayout(LayoutKind.Sequential)]
+public struct AkClientOpts
+{
+    public uint StreamWindow;
+    public uint ConnectionWindow;
+    /// 1 on, 0 off, -1 leave the default. Adaptive sizing OVERRIDES the two
+    /// windows, so pinning a window and enabling this is a contradiction rather
+    /// than belt and braces.
+    public int AdaptiveWindow;
+    public uint MaxRecvMessage;
+    public uint MaxSendMessage;
+    /// 1 enables Nagle, 0 disables it, -1 leaves tonic's default. The sixth
+    /// field, which the hand-off listing omitted; ArmoniK ships Nagle OFF.
+    public int TcpNagle;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct AkRpcCounters
+{
+    public ulong Forward, Reverse;
+}
+
 public static unsafe partial class AkRpc
 {
     public const string Lib = "ak_core";
@@ -74,6 +100,18 @@ public static unsafe partial class AkRpc
 
     [LibraryImport(Lib)]
     public static partial IntPtr ak_client_new(IntPtr r, byte* uri, nuint uriLen);
+    [LibraryImport(Lib)]
+    public static partial IntPtr ak_client_new_opts(IntPtr r, byte* uri, nuint uriLen,
+                                                    AkClientOpts* opts);
+    /// 1 if this core counts transport crossings. R5's hazard in one call: a
+    /// harness that reads zeroes out of a non-counting build has reported that
+    /// the boundary is free.
+    [LibraryImport(Lib)]
+    public static partial int ak_rpc_counting();
+    [LibraryImport(Lib)]
+    public static partial void ak_rpc_counters(AkRpcCounters* outc);
+    [LibraryImport(Lib)]
+    public static partial void ak_rpc_counters_reset();
     [LibraryImport(Lib)]
     public static partial void ak_client_destroy(IntPtr c);
 
@@ -133,12 +171,15 @@ public sealed class CoreChannel : IDisposable
     private readonly ConcurrentDictionary<ulong, CallState> _pending = new();
     private long _tag;
 
-    public unsafe CoreChannel(string uri, int workerThreads)
+    public unsafe CoreChannel(string uri, int workerThreads, AkClientOpts? opts = null)
     {
         _rt = AkRpc.ak_runtime_new((uint)workerThreads);
         if (_rt == IntPtr.Zero) throw new InvalidOperationException("ak_runtime_new");
         var u = Encoding.UTF8.GetBytes(uri);
-        fixed (byte* p = u) _cl = AkRpc.ak_client_new(_rt, p, (nuint)u.Length);
+        if (opts is AkClientOpts o)
+            fixed (byte* p = u) _cl = AkRpc.ak_client_new_opts(_rt, p, (nuint)u.Length, &o);
+        else
+            fixed (byte* p = u) _cl = AkRpc.ak_client_new(_rt, p, (nuint)u.Length);
         if (_cl == IntPtr.Zero)
         {
             AkRpc.ak_runtime_destroy(_rt);
