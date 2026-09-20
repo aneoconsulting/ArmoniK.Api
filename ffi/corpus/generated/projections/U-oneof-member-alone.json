@@ -1,0 +1,17 @@
+{
+ "probes": [
+  {
+   "_unknown": [
+    {
+     "hex": "676f6c66353832",
+     "tag": 15,
+     "wire_type": 2
+    }
+   ],
+   "id": "cec65063-0c0e-86c8-5466-506944018e6c",
+   "opt_count": "6477",
+   "opt_flag": false,
+   "opt_label": "golf726"
+  }
+ ]
+}
