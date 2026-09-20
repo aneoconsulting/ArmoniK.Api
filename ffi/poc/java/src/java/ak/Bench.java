@@ -443,6 +443,15 @@ public final class Bench {
         {"pbj", "pbj-reused-out", "what the output allocation costs the incumbent"},
         {"ffi", "ffi-borrow", "open decision 13: positive means the borrowed facade is"
             + " FASTER"},
+        {"ffi", "ffi-pull", "ABI v1 7.1, the FAMILY question: positive means the pull"
+            + " family is faster than the push family. Both deliver through the same"
+            + " per-slot host code, so this is two deliveries of one traversal"},
+        {"ffi-pull", "ffi-pull-walk", "what the drain copy costs: positive means reading"
+            + " the records in place is faster. The C# slice estimated this at 12 to 19"
+            + " percent of a parse; here it is measured"},
+        {"R", "ffi-pull", "the architecture question again, against the no-boundary"
+            + " control: positive means the C ABI's pull family beats a generated Java"
+            + " codec, which the push family does on no payload at all"},
       };
       boolean any = false;
       for (String[] pr : pairs) {
