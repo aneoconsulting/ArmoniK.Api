@@ -11,3 +11,5 @@ __pycache__/
 # re-inclusions, found the same way: by looking at what `git status` did NOT list.
 !crates/*/src/bin/
 !crates/*/src/bin/**
+target-gw/
+target-count/

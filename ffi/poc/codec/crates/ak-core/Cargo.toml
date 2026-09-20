@@ -26,6 +26,9 @@ count = ["ak-rt/count"]
 # facade written the obvious way does and what proto3 says a parser must not do.
 dec-reject = ["ak-rt/dec-reject"]
 dec-reject-simd = ["ak-rt/dec-reject-simd"]
+# ABI v1 section 6's refused arrangement, for the rust slice's concurrency suite. Off by
+# default; see ak-rt's manifest for what it is and why it exists.
+global-widths = ["ak-rt/global-widths"]
 # ABI v1 section 9, behind a feature so a codec arm does not link tonic and tokio into the
 # shared object it is timing. The rust slice turns it on; the cpp slice turns it on for its
 # RPC arm only; the java and csharp slices do not have one.
