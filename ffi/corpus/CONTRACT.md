@@ -13,6 +13,12 @@ repeated field and the inner map field were both tag 1. So a slice does four
 things with each vector, not one: it parses, it *projects*, it re-encodes, and
 where the vector must fail it watches it fail.
 
+**And the corpus is not its own authority either.** Its first version decided
+every projection, every accepted encoding and every accept/reject verdict with
+one runtime, upb, which makes that runtime the specification; the first two
+consumers found a row where it is the minority. Three runtimes now answer, and
+where they disagree the row says so instead of picking. See section 1.5.
+
 ## 0. The one rule that makes the rest mean anything
 
 **Generate your codec from `generated/corpus.proto`, never from
@@ -30,6 +36,47 @@ can, if it wants, build a **second, separate** decoder from it and check that
 what the reader skipped is what the superset reads. `projection_superset` in the
 manifest is that expectation, already computed.
 
+## 1.5 Which runtimes decided this, and what a DISPUTED row means
+
+The manifest's `oracles` section names them; `emit/build.py`'s docstring says why
+each is asked what it is asked.
+
+| Oracle | Asked | Independence |
+|---|---|---|
+| **protobuf, upb backend** | the structural checks, one reading, one re-encoding | a C parser, no code shared with the corpus's writer |
+| **protobuf, pure-python backend** | a second reading and re-encoding, **in the same projection format** | a genuinely different parser reached through the same API. Less independent than protobuf C++; far easier to diff, because a disagreement is a JSON difference rather than an argument |
+| **protobuf C++**, via `protoc --decode` | the accept/reject **verdict** on every row, and its text reading as evidence | fully independent |
+
+protobuf C++ is deliberately **not** asked for the projection. `protoc --decode`
+renders a map field as its wire-level repeated `MapEntry` list -- on
+`E-map-dup-key` it prints two entries with the same key, which a map cannot hold
+-- so it cannot answer a map-semantics question. The cpp slice's reflection arm
+can, because `Reflection::ListFields` over generated code *is* the presence rule
+section 3 describes, and that is where protobuf C++'s reading of `U-map-entry`
+comes from.
+
+**Every row carries a `verdict`.**
+
+- `"agreed"` -- every oracle asked read the vector the same way.
+  `verdict_agreed_by` names them, and `projection` is that shared reading.
+- `"disputed"` -- they did not. The row has **no `projection`**; it carries
+  `dispute.readings`, one per reading, each naming the runtimes that produced it
+  and pointing at its own projection file, plus `dispute.differs_at`, the dotted
+  paths the readings differ on.
+
+**A consumer excludes a disputed row from its pass or fail count.** It does not
+fail it and it does not silently drop it: it reports it as disputed, with which
+reading its own codec produced. That is data the branch wants -- a sixth opinion
+on an open question -- and it is not a verdict on the slice.
+
+One row is disputed today: **`U-map-entry`**, an unknown field inside every map
+entry. upb drops the entry from the map and keeps its bytes as an unknown field
+of the *parent*; protobuf-python's pure backend and protobuf C++ both put the
+entry in the map. A map field is shorthand for a repeated `MapEntry` message, and
+an unknown field inside a submessage is skipped while the submessage still
+parses, so upb looks like the minority -- but the corpus does not say so, because
+"two of the three I happened to ask" is not a specification either.
+
 ## 1. Read the manifest
 
 `generated/manifest.json`. Every path in it -- `file`, `projection`,
@@ -45,8 +92,10 @@ Each row carries:
 | `expect` | `accept` or `reject` |
 | `produce` | the slices that must EMIT these exact bytes |
 | `consume` | the slices that must PARSE them (all five, always) |
-| `accepted_encodings` | every encoding a conformant implementation may write |
-| `projection` | what a reader must SEE, or `null` with a named twin |
+| `verdict` | `agreed` or `disputed`; see section 1.5 |
+| `accepted_encodings` | every encoding a conformant implementation may write, each saying **who was seen writing it** |
+| `permutation_accepted` | true where a re-encoding may be any re-ordering of an accepted form |
+| `projection` | what a reader must SEE, or `null` -- with a named twin on a large row, with `dispute` on a disputed one |
 | `meta` | per-class facts a slice needs: chunk arithmetic, the UTF-16 input, the bad UTF-8 bytes |
 | `notes` | per-language exceptions, keyed by slice name or `all` |
 
@@ -63,25 +112,50 @@ slice that skips one records it by id.
 Where `projection` is not null, the decoded message must equal that JSON under
 the encoding in section 3. **This is the obligation that byte identity does not
 imply** and the reason the corpus carries projections at all: a codec can
-round-trip bytes it has misunderstood.
+round-trip bytes it has misunderstood. 281 rows carry one, and each is a reading
+**two runtimes agreed on**, not one runtime's opinion.
 
-Where `projection` is null the vector is one of the deliberately large runs;
-`projection_omitted.semantic_oracle_is` names the small vector of the same shape
-that carries the expectation, and byte identity plus `meta.elements` is the
-oracle for the large one.
+`projection` is null in three different situations and they are not the same
+obligation:
+
+| Why | What you do |
+|---|---|
+| `verdict` is `disputed` | exclude the row from pass/fail, and **report which of `dispute.readings` your codec produced** |
+| `projection_omitted` is present | one of the deliberately large runs. `projection_omitted.semantic_oracle_is` names the small vector of the same shape that carries the expectation; byte identity plus `meta.elements` is the oracle here |
+| the row is `baseline` and large | the same, against `ffi/schema`'s own manifest |
 
 ### C3 -- re-encode it, and say which form you wrote
 
 Re-encode what you parsed. The bytes must hash to one of
-`accepted_encodings[*].sha256`. **A vector may have more than one accepted form
-and that is not a weakness in the vector.** An empty map value is an
-implicit-presence leaf holding the proto zero: prost omits it, protobuf C++, upb
-and protobuf-java write it, both parse to the same map and neither encoder is
-wrong. 85 rows have more than one form. Your slice records which one it wrote,
-because which one it writes is a fact about its incumbent, not a verdict.
+`accepted_encodings[*].sha256` -- **or, where `permutation_accepted` is true, to
+any re-ordering of one of them**: protobuf does not fix field order on the wire,
+so the same fields in a different order are the same encoding of the same
+message. Four rows are permutation-accepted today, and `B-P7_1` is why the rule
+exists: it interleaves two repeated fields on purpose, so its committed bytes are
+a form **no conformant encoder produces** -- every one of them writes each
+repeated field contiguously -- and a consumer that re-encoded correctly used to
+fail this clause. `design/SHAPES.md` already validated P7.1 by permutation; the
+manifest does now too.
 
-`accepted_encodings[*].forms` labels each one and `produced_by` says who was
-seen writing it.
+**A vector may have more than one accepted form and that is not a weakness in the
+vector.** An empty map value is an implicit-presence leaf holding the proto zero:
+prost omits it, protobuf C++, upb and protobuf-java write it, both parse to the
+same map and neither encoder is wrong. 87 rows have more than one form. Your
+slice records which one it wrote, because which one it writes is a fact about its
+incumbent, not a verdict.
+
+Each form carries its **provenance**, and the two claims it can make are not the
+same strength:
+
+| Field | Claim |
+|---|---|
+| `forms` | what the form is, in words |
+| `written_by` | who was seen producing exactly these bytes |
+| `observed_in_a_protobuf_runtime` | **false** means only the corpus's own writer produced it: the form is asserted to be valid, and no protobuf runtime asked here was seen writing it |
+
+87 rows carry at least one form in that weaker category. "upb writes this form"
+and "every conformant encoder writes this form" are different sentences and the
+manifest used to make only the first.
 
 ### C4 -- refuse every reject vector, and prove you watched it refuse
 
@@ -90,9 +164,10 @@ error. Not a crash, not a partial message, not a silently truncated one.
 
 **Record the error you actually got, per vector id.** A rejection test that
 nothing rejects is a test nobody has watched work, and that lesson cost this
-branch twice. `reject.seen_failing` names what was watched refusing each vector
-here (upb, and the exception it raised), so "my decoder accepts this" is a
-finding in the slice and not a doubt about the vector.
+branch twice. `reject.seen_failing` names every runtime watched refusing each
+vector and the error each one raised. **All three refuse all 49**, with no row
+disputed, so "my decoder accepts this" is a finding in the slice and not a doubt
+about the vector.
 
 Two of these are about a *limit* rather than about malformed bytes:
 `X-depth-101` and `X-depth-300`. A decoder that recurses without one does not
@@ -238,7 +313,11 @@ forms machinery necessary.
 
 A slice claims the corpus when, for every row in the manifest:
 
-1. every `accept` vector parses, and projects equal where a projection exists;
+0. every row whose `verdict` is `disputed` is **excluded** from the pass/fail
+   count and reported as disputed, naming which of `dispute.readings` the slice's
+   own codec produced;
+1. every other `accept` vector parses, and projects equal where a projection
+   exists;
 2. every `reject` vector is refused, **and the slice's log names the error it
    got for each one**;
 3. every vector whose `produce` names the slice reproduces one of the accepted
@@ -249,6 +328,11 @@ A slice claims the corpus when, for every row in the manifest:
    (R2: that is what R2 is actually protecting);
 6. and every vector it could not run is listed **by id, with a reason**, in the
    slice's `STATE.md`. R11: a slice that does not name its gaps is not finished.
+
+A slice that finds a row where its own reading differs from every reading in the
+manifest has found either a defect in itself or a new dispute. It reports it as a
+finding either way, with the bytes and both readings, and does not adjust itself
+until someone has looked. That is how `U-map-entry` arrived.
 
 Anything less is a partial claim and is reported as one.
 
