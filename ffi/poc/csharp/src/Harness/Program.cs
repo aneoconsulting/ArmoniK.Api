@@ -26,17 +26,9 @@ public static class Program
                 return Utf8Policy.Run(argv.Skip(1).ToArray());
             case "content":
                 return ContentSets.Run(argv.Skip(1).ToArray());
-            case "coreffi2":
-#if NET8_0_OR_GREATER
-                return CoreFfiGate2.Run(argv.Skip(1).ToArray());
-#else
-                Console.Error.WriteLine("core-ffi is not built on the floor runtime: "
-                    + "net48 has no LibraryImport and no UnmanagedCallersOnly.");
-                return 2;
-#endif
             case "coreffi":
 #if NET8_0_OR_GREATER
-                return CoreFfiGate.Run(argv.Skip(1).ToArray());
+                return CoreGate.Run(argv.Skip(1).ToArray());
 #else
                 // Arm c: .NET Framework 4.8 has no LibraryImport and no
                 // UnmanagedCallersOnly, so the core-ffi binding does not exist
@@ -52,7 +44,7 @@ public static class Program
             case "bench":
                 return Bench.Run(argv.Skip(1).ToArray());
             default:
-                Console.Error.WriteLine("usage: harness [conformance|unknown|groups|corpus|utf8|counts|content|coreffi|coreffi2|mapforms|bench]");
+                Console.Error.WriteLine("usage: harness [conformance|unknown|groups|corpus|utf8|counts|content|coreffi|mapforms|bench]");
                 return 2;
         }
     }
