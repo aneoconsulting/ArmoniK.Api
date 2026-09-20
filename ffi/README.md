@@ -593,6 +593,25 @@ beside it as a second row, labelled — because "the incumbent's fastest API is 
 29 percent better than what gRPC drives" is a real finding about the incumbent,
 worth keeping and worth not confusing with the core's margin.
 
+**And the check runs in both directions.** Every fairness check in this branch
+was built looking outward — is the incumbent flattered? — and the java slice
+found one pointing **inward**: its own `ffi-take` arm, the one every encode
+headline is quoted from, was paying two crossings and two copies where the
+incumbent's `toByteArray` pays one allocation and one copy. An arm that does
+*extra* work is as wrong as a baseline that does, and it is harder to find
+because nobody is looking for a reason their own result is too low.
+
+Two notes from how that one went, both worth more than the fix. The same
+redundant crossing had already been removed from the sibling arm four lines
+away, because that earlier fix was aimed at the finding rather than at the
+mechanism the finding named — **R10's sweep rule, one level up, at the harness
+instead of the generator**. And when it was re-measured the fix turned out to
+change nothing: 80 µs, under a noise floor where an untouched arm moved 124 in
+the same pair of runs. The slice published that, kept both logs rather than
+replacing the cited one, and recorded that its own prediction was refuted.
+**A fix that changes nothing, reported as changing nothing, is worth more than
+one that appears to work.**
+
 A message is also serialised **once** in production, so a benchmark loop over one
 message instance is not the shape to measure: it amortises anything the library
 memoises per instance, which is exactly how protobuf-java's size-pass memo hid a
