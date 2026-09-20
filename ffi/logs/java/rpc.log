@@ -89,11 +89,11 @@ against a call of roughly 3 ms. The mode is not chosen on crossing arithmetic.
 - Absolutes are instrumentation (R13).
 
 
-== 5. The grid: which half pays, measured rather than inferred ==
+== 5. The grid: which half pays, with BOTH sides pinned ==
 
 "The host's stack against the core's" moves the codec and the transport at once, so the
 A-against-C number above cannot say which one paid. Four cells over a UDS, completion
-queue for the core transport:
+queue for the core transport, three runs each:
 
   cell   codec           transport
   A      protobuf-java   grpc-java
@@ -101,47 +101,64 @@ queue for the core transport:
   C      core            core
   D      core            grpc-java
 
-CPU us/RPC, median of 3 runs (min-max):
+CONFIGURATION: 4 MiB stream AND connection window on BOTH sides -- grpc-java through
+`flowControlWindow`, the core through `ak_client_new_opts`. **This is ArmoniK's INTENDED
+configuration and not what it ships**: `packages/rust/armonik-transport/src/` carries
+connect and request timeouts, rate limit, TCP keepalive, HTTP/2 ping settings, a max header
+list size and `tcp_nagle_algorithm` -- and no window setting of any kind, while
+`packages/csharp` cannot set one at all. So no ArmoniK client pins a window today, and this
+row is a labelled divergence from production rather than a silent one (R14 applied to the
+transport).
+
+Nagle is not a factor and was checked rather than assumed: ArmoniK ships
+`tcp_nagle_algorithm: false` applied as `set_nodelay(!nagle)` (connect.rs:127), tonic
+defaults `tcp_nodelay: true` (endpoint.rs:98,129), grpc-java/netty sets TCP_NODELAY, and
+these rows are over a UDS where Nagle does not exist.
+
+CPU us/RPC, median of 3 (min-max), spread 1 to 6 percent:
 
   cell            1                    8                   16
-  A    4089 (3090-4582)     2861 (2518-3147)     2671 (2382-2842)
-  B    4474 (3392-4803)     3303 (2809-3542)     3386 (2888-3450)
-  C    3870 (3088-4132)     2649 (2514-3038)     3126 (2513-3218)
-  D    4002 (3008-4383)     2473 (2294-2866)     2360 (2346-2780)
+  A    3288 (3170-3296)     2453 (2451-2558)     2538 (2363-2612)
+  B    3410 (3369-3553)     2821 (2796-2883)     2895 (2783-3008)
+  C    3005 (2998-3068)     2554 (2551-2571)     2594 (2468-2725)
+  D    3011 (2937-3366)     2545 (2515-2665)     2389 (2333-2452)
 
-**READ THE SIGNS, NOT THE MEDIANS.** The spread across three runs is 17 to 23 percent of
-the median, because each cell is a SEPARATE JVM: this is an unpaired comparison on a shared
-machine and it inherits every bit of drift R13 warns about. What survives is the per-run
-sign test, rep by rep:
+Per-run deltas, which are the claim:
 
-  delta                rep1    rep2    rep3   consistent
-  transport  B-A  @8   +681    +156    +291   YES
-  transport  B-A  @16  +608    +715    +505   YES
-  codec      C-B  @8   -892    -265    -295   YES
-  codec      C-B  @16  -324    -168    -375   YES
-  codec      D-A  @8     +5    -674    -224   no
-  codec      D-A  @16   -62    -324     -22   yes, two of them near zero
+  delta                rep1    rep2    rep3
+  transport  B-A  @8   +368    +345    +326   CONSISTENT
+  transport  B-A  @16  +246    +645    +283   CONSISTENT
+  codec      C-B  @8   -250    -245    -330   CONSISTENT
+  codec      C-B  @16  -189    -540    -169   CONSISTENT
+  codec      D-A  @8    +62    +214     -12   mixed
+  codec      D-A  @16  -204     +89    -222   mixed
 
-**1. The core's transport costs MORE than grpc-java's, in six runs out of six.** That cuts
-against the "adopt the RPC layer, generate the codec" fallback rather than for it, and it
-is the one claim here with a clean sign at both concurrency levels.
+**1. The core's transport costs MORE than grpc-java's**, six runs from six, by roughly
+330 to 370 us per RPC at 8 in flight. That cuts against the "adopt the RPC layer, generate
+the codec" fallback rather than for it.
 
-**2. The core's codec is cheaper than protobuf-java's UNDER THE CORE'S TRANSPORT**, also
-six from six. Consistent with the pull family's decode result measured separately.
+**2. The core's codec is cheaper than protobuf-java's under the core's transport**, also
+six from six, by roughly 250 to 330 us. Consistent in direction with the pull family's
+decode result measured separately.
 
-**3. Under grpc-java's transport the codec difference is NOT RESOLVED** at this precision.
-Mostly negative, one positive, two within noise of zero.
+**3. AND THE TWO NEARLY CANCEL.** C against A -- the whole core stack against the whole
+host stack -- is +101 us at 8 in flight on a 2,453 us call, about 4 percent, and the two
+component deltas are +368 and -268. **So the interesting fact is not the total, which is
+roughly break-even, but that the total hides a transport that costs and a codec that
+saves.** A report quoting only A against C would say "no difference" and would be hiding
+both.
 
-**4. On additivity, which is the question that prompted the grid: no evidence against it.**
-An earlier version of this grid had C-B at -703 and D-A at +399 -- opposite signs, which
-would have meant the two halves of the proposal could not be added. **That was a defect in
-cell D**, whose marshaller allocated a fresh 540 KB array per call and copied into it where
-cell A materialises none and cells B and C reuse a buffer. With cell D paying what its
-comparators pay, the sign flip is gone. The exciting result was the harness.
+**4. Under grpc-java's transport the codec difference is NOT resolved**: D-A is mixed in
+sign at both concurrency levels. So the codec's saving is visible under the core's
+transport and not under grpc-java's, which is a caution against assuming the two halves
+are independent even though nothing here shows they are not.
 
-**What this grid cannot do, and the fix is known.** Four cells in four processes cannot be
-paired, so the instrument is far blunter than `Bench`'s, which forms every ratio inside one
-round in one process and reports whether a delta's lo and hi share a sign. Putting all four
-cells in one process and interleaving them is what would resolve a 300 us delta here. Until
-that exists, deltas below roughly 500 us on this machine are not measurable by this arm and
-are reported as signs only.
+**5. On additivity: no evidence against it.** An earlier grid had C-B at -703 and D-A at
++399 -- opposite signs, which would have meant the halves cannot be added. That was cell
+D's marshaller allocating a fresh 540 KB array per call where cell A materialises none and
+cells B and C reuse one. The exciting result was the harness.
+
+**What this instrument cannot do.** Four cells in four JVMs cannot be paired, where `Bench`
+forms every ratio inside one round in one process and resolves a 40 ns delta. Here the
+quiet runs resolve about 250 us and the noisy ones nothing below 500. Putting all four
+cells in one process and interleaving them is the fix, and it is not built.

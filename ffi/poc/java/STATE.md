@@ -375,30 +375,36 @@ call whose completion depends on another Java thread** -- a binding-author rule 
 generalises past RPC. Fixing it also moved the figures by 5 to 7 percent, so the first
 published table was contaminated as well as unsafe.
 
-**The grid says which half pays, which the single comparison could not.** Four cells over
-a UDS -- A protobuf-java/grpc-java, B protobuf-java/core (outcome 2), C core/core, D
-core/grpc-java -- three runs each. The spread is 17 to 23 percent because each cell is a
-separate JVM, so the signs are the claim and the medians are not:
+**The grid says which half pays, and the total hides both halves.** Four cells over a UDS
+with 4 MiB pinned on BOTH sides (the earlier grid pinned only its grpc-java half), three
+runs each, spread 1 to 6 percent. CPU us/RPC at 8 in flight: A 2,453, B 2,821, C 2,554,
+D 2,545.
 
-| delta | consistent over 3 runs | reading |
+| delta | per-run signs | reading |
 |---|---|---|
-| transport `B - A` | **6 of 6 positive** | the core's transport costs MORE than grpc-java's |
-| codec `C - B` | **6 of 6 negative** | the core's codec is cheaper, under the core's transport |
-| codec `D - A` | mixed at 8, near zero at 16 | not resolved at this precision |
+| transport `B - A` | **6 of 6 positive**, ~330-370 us | the core's transport costs MORE |
+| codec `C - B` | **6 of 6 negative**, ~250-330 us | the core's codec is cheaper, under the core's transport |
+| codec `D - A` | mixed | not resolved under grpc-java's transport |
 
-**The core's transport costing more cuts against the "adopt the RPC layer, generate the
-codec" fallback rather than for it**, and it is the one claim here with a clean sign at
-both concurrency levels.
+**The two nearly cancel: C against A is +101 us on a 2,453 us call, about 4 percent.** So
+the whole core stack is roughly break-even against the whole host stack, and **a report
+quoting only that total would hide a transport that costs and a codec that saves.** The
+transport result cuts against the "adopt the RPC layer, generate the codec" fallback rather
+than for it.
 
-**On additivity there is no evidence against it**, and the evidence that there was came
-from a defect of mine: an earlier grid had `C - B` at -703 and `D - A` at +399, opposite
-signs, which would have meant the two halves cannot be added. Cell D's marshaller was
-allocating a fresh 540 KB array per call where cell A materialises none and cells B and C
-reuse one. With that removed the sign flip is gone.
+**The 4 MiB row is ArmoniK's INTENDED configuration, not its shipped one**:
+`packages/rust/armonik-transport` carries timeouts, rate limit, keepalive, HTTP/2 pings and
+`tcp_nagle_algorithm` but **no window setting at all**, and `packages/csharp` cannot set
+one. Nagle is not a factor here and was checked: both stacks default to nodelay and these
+rows are over a UDS.
 
-**The instrument is blunt and the fix is known**: four cells in four processes cannot be
-paired, so this inherits the drift `Bench` avoids by forming every ratio inside one round
-in one process. Deltas below roughly 500 us are not measurable by this arm today.
+**On additivity, no evidence against it**, and the evidence that there was came from a
+defect of mine -- cell D allocating a fresh 540 KB array per call, which produced an
+opposite-signs result that vanished when it paid what its comparators pay.
+
+**The instrument is blunt**: four cells in four JVMs cannot be paired, where `Bench` forms
+every ratio inside one round and resolves 40 ns. Quiet runs here resolve about 250 us,
+noisy ones nothing below 500. One process with interleaved cells is the fix and is unbuilt.
 
 **Still not established**: the ratios are floors, because client and server share one
 process and one CPU counter; the callback mode is unbuilt here and unmeasured anywhere;
