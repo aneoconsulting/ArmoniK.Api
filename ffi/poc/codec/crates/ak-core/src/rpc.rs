@@ -100,6 +100,17 @@ pub struct ak_client_opts {
     pub max_recv_message: u32,
     /// Largest message the client will send, bytes. 0 leaves tonic's default.
     pub max_send_message: u32,
+    /// **Nagle's algorithm, named the way ArmoniK names it**: 1 enables Nagle (clears
+    /// `TCP_NODELAY`), 0 disables it, -1 leaves tonic's default (which is nodelay ON).
+    ///
+    /// The spelling is `packages/rust/armonik-transport`'s: `tcp_nagle_algorithm: bool`,
+    /// "defaults to false", read from `GrpcClient__TcpNagleAlgorithm` and applied as
+    /// `http.set_nodelay(!config.tcp_nagle_algorithm)` (`src/connect.rs`). **So ArmoniK
+    /// ships with Nagle OFF**, tonic's client default agrees, and the branch's 40 ms
+    /// delayed-ACK artifact was only ever on the SERVER side of our own test harness.
+    /// Carried here so an arm states the setting rather than inheriting it (R7), and so
+    /// the non-default is reachable if anyone wants to price it.
+    pub tcp_nagle: i32,
 }
 
 /// R5's counters for the RPC half. Process-global rather than per-context, because a call
@@ -267,6 +278,7 @@ pub unsafe extern "C" fn ak_client_new_opts(
             adaptive_window: -1,
             max_recv_message: 0,
             max_send_message: 0,
+            tcp_nagle: -1,
         }
     } else {
         *opts
@@ -282,6 +294,10 @@ pub unsafe extern "C" fn ak_client_new_opts(
         }
         if o.adaptive_window >= 0 {
             ep = ep.http2_adaptive_window(o.adaptive_window != 0);
+        }
+        if o.tcp_nagle >= 0 {
+            // ArmoniK's sense, inverted for tonic's: nagle on means nodelay off.
+            ep = ep.tcp_nodelay(o.tcp_nagle == 0);
         }
         ep.connect().await.ok()
     });
@@ -904,6 +920,7 @@ mod delivery_tests {
             adaptive_window: 0,
             max_recv_message: 4 * 1024 * 1024,
             max_send_message: 4 * 1024 * 1024,
+            tcp_nagle: 0,
         };
         unsafe {
             let c = ak_client_new_opts(r, uri.as_ptr(), uri.len(), &opts);
