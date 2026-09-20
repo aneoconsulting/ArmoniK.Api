@@ -1146,6 +1146,57 @@ Three outcomes are possible and all three are acceptable results for this branch
 
 The report states which, and states the evidence that rules out the other two.
 
+### 13.1 The RPC grid, and why outcome 2 is not one recommendation
+
+Every RPC figure the branch had before today moved the codec and the transport at
+once. The grid separates them: **A** is the host's codec on the host's transport,
+**B** is the host's codec on the **core's** transport (which *is* outcome 2), **C**
+is both on the core's. `B − A` is the transport half and `C − B` is the codec half.
+Four hosts have now run it.
+
+| host | `B − A`, the transport half | `C − B`, the codec half |
+|---|---|---|
+| **Java** | **+368 µs at 8 in flight — the core's transport COSTS**, 6 runs of 6 | **−250 to −330 µs — the core's codec SAVES**, 6 of 6 |
+| **C++** | separates in only **1 of 12** rows (+1.4 % to +13.8 %) | **−38.4 % to −8.5 %, saves**, 12 of 12 |
+| **Python** | **3 to 15 % CHEAPER than grpcio**, 6 of 6 | **+3.1 to +3.6 ms — a large loss** |
+| **C#** | the transport is **3 to 10 times** the codec's cost | (the four codec arms do not separate end to end) |
+
+**The first result is that the total hides its own components.** On Java, C against
+A — the whole core stack against the whole host stack — is **+101 µs on a 2,453 µs
+call, about 4 percent**, which reads as "no difference". It is **+368 and −268**. A
+report quoting only A against C would have hidden a transport that costs and a codec
+that saves, and would have been wrong in both directions at once.
+
+**The second is that outcome 2 is not one recommendation, because both of its halves
+change sign by host.** Outcome 2 adopts the RPC layer and generates the codec:
+
+- **On Java it is the worst available combination.** It takes the half that costs
+  (+368) and drops the half that saves (−268). That is the opposite of what the
+  original Java report recommended, and the recommendation was made without the
+  grid that would have shown it.
+- **On Python it is exactly inverted.** The transport half is a win (3 to 15 percent
+  cheaper) and the codec half is a 34× to 60× loss, so outcome 2 is **on** the table
+  for Python's transport and **off** it for Python's codec — which is the shape this
+  slice already established from the codec side alone.
+- **On C++ the codec half is the whole of it** (12 of 12, up to 38 percent) and the
+  transport half barely separates, except on an empty call where grpc++ costs 44 to
+  89 percent more.
+
+**The third is a caution against arithmetic.** Java's `D − A` — the same codec swap
+under grpc-java's transport rather than the core's — is **mixed in sign** where
+`C − B` is consistent. So the codec's saving is visible under one transport and not
+the other, and the two halves may not simply add. An earlier Java grid appeared to
+prove they could not (opposite signs, `C − B` at −703 against `D − A` at +399); that
+was cell D's marshaller allocating a fresh 540 KB array per call, and **the exciting
+result was the harness**.
+
+**And the transport is most of an RPC.** Python's no-decode floor is 1.69 to 2.35 ms
+of a 2.8 to 3.5 ms call, so **the transport is roughly two thirds of what a call
+costs**, which is the same shape as C#'s finding that the codec is about 10 percent
+of CPU per call where the in-process column says 25. **Every headline ratio in this
+branch is an in-process codec ratio**, and the grid is what says by how much they
+overstate what a caller feels.
+
 ## 14. Out of scope
 
 - **The browser.** `packages/web` and `packages/angular` cannot load a native
