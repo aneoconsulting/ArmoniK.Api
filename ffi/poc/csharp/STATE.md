@@ -158,7 +158,8 @@ approach.
 | **`core-ffi`** | **the amended ABI, over the ONE core at `ffi/poc/codec` (R0)**, push decode | **YES for every shape**, all 16 payloads, on arm a. **NOT on arms b or c**, see below |
 | **`core-ffi pull`** | ABI v1 7.1's PULL family: `ak_parse_*` writes a record stream and the host replays it, so the decode makes **no reverse call at all** | yes, every shape |
 | **`core-ffi utf16`** | the other string form of ABI v1 section 4: the host hands over UTF-16 and `ak_tc_utf16` converts, against staging UTF-8 and letting `ak_tc_bytes` copy. Both transcoders are pointers INTO the core, so neither crosses | yes, every shape |
-| **`core-ffi fill`** | the host-side half of the encode arm alone: zero the by-value group, stage every string, build the run arrays, stop before calling the codec. **The difference between it and `core-ffi` is the codec plus every crossing, measured rather than subtracted** | yes, M1 and M2 |
+| **`core-ffi fill`** | the host-side half of the encode arm alone: zero the by-value group, stage every string, build the run arrays, stop before calling the codec. **The difference between it and `core-ffi` is the codec plus every crossing, measured rather than subtracted** | yes, every shape |
+| **the RPC arm** | a real grpc-dotnet client against a real grpc-dotnet server over a Unix domain socket, the server's marshaller a `byte[]` passthrough so only the client's codec varies. Four codecs: `gp-marshaller`, `managed`, `core-ffi`, `core-ffi pull`. ArmoniK's transport pinned, the stack default and loopback TCP as labelled rows, 1/8/16 in flight | yes, P2.2 |
 
 ## What exists
 
@@ -195,7 +196,23 @@ Commands: `harness conformance | unknown | counts | content | mapforms | bench`,
 and `dotnet run --project src/BenchDotNet -- --filter '*'` for the
 BenchmarkDotNet harness, which passes the whole BDN CLI through.
 Builds: default (arm a), `/p:AkFloor=true` (arm b), `/p:AkCount=true` (the
-counting build), and `src/HarnessFloor` (arm c).
+counting build), `src/HarnessFloor` (arm c), `src/BenchDotNet` (the
+BenchmarkDotNet harness the controlled rerun should use) and `src/Rpc` (the
+end-to-end RPC arm).
+
+Commands: `harness conformance | unknown | groups | corpus | utf8 | counts |
+content | coreffi | mapforms | bench`, and `akrpc [--stack-default] [--tcp]
+[--calls N] [--rounds N]`.
+
+**The generator is one derivation with several backends, and that is load
+bearing rather than tidy.** `gen/abi_ir.py` derives the by-value group, the
+presence bits, the loop slots and which messages get a vtable, following
+`ffi/poc/codec/gen/rust_abi.py`'s rules; `gen/rs_probe.py` emits the Rust layout
+probe from it, `gen/cs_abi.py` the managed declaration and `gen/cs_core.py` the
+host binding. Hand-writing any two of those three produced two defects in one
+work unit. `gen/protoparse.py` is a second front end over `corpus.proto`, and it
+is cross-checked against `shapes.json` at generation time on the nineteen
+messages they share.
 
 ## What is measured
 
@@ -945,38 +962,51 @@ Written here rather than edited into the documents, per the contract.
 
 A pass for completeness, not for brevity (README R11).
 
-### The arm that is not here
+### The arms that are not here
 
-- **`core-ffi` beyond M1.** Built and gated: `ListResultsResponse` /
-  `ResultRaw`, encode and decode, P1.1 / P1.2 / P1.3. **Not built: M2 to M7.**
-  That is the larger half and it is where the interesting refusals are.
-  `TaskDetailed` is not a leaf, so the batching predicate stops admitting it
-  and the crossing count stops being constant; M2 also carries the map, the
-  four repeated string fields and the four-level nesting, each of which needs
-  a loop callback the M1 binding never needed. M3's oneof and explicit
-  presence are the two shapes `design/SHAPES.md` records as unmeasured on
-  .NET, and **the ABI half of both is still unmeasured here**: whether the
-  by-value group reaches a oneof at all is an M3 question and M3 is not built.
-- **Decision 9's sparse fill**, which the arm that exists says is the single
-  biggest thing missing: 2.361 against the managed control on the absent path
-  is what the total fill costs.
-- **The host-transcoder string form**, `ak_str` with a `tc` callback into the
-  host, against the staged form that is built.
-- **`core-ffi` on the floor.** Arms b and c do not carry it: the floor has no
-  `UnmanagedCallersOnly` and no `SuppressGCTransition`, so its vtable is
-  delegate pointers and the delegates must be rooted for the lifetime of the
-  vtable or the collector reclaims a thunk the codec still holds -- a crash,
-  not a slowdown. Written down, not built.
-- **The accessor guard priced.** It is present on every reverse callback, but
-  on M1 that is one `try/catch` per message, so there is nothing to see. The
-  shape that would show it is one where the group does not reach every field. **Every crossing-count column in this slice is therefore zero, and
-  the interface-cost decomposition the Rust slice makes available to every
-  other slice is not subtracted against anything here.** The generator is laid
-  out so the backend drops in beside `cs_managed.py` without moving anything:
-  `ir.py` already computes the leafness predicate, and `cs_build.py`'s sink
-  split already separates the object model from the rules.
-- With it, ABI v1 open decisions 1, 2, 4, 6, 7, 8, 9, 10 and 12 are all
-  untouched on .NET.
+Every arm the brief scoped is built. What follows is what the finished ones
+opened, and none of it is a gap in the brief.
+
+- **Decision 9's sparse fill.** The largest remaining improvement to the C#
+  encode column, and now priced on every shape: the host-side group fill is
+  **28 to 71 percent of the whole `core-ffi` encode**. The ABI does not offer a
+  sparse fill; what is measured is the cost of not having one.
+- **A true zero-copy string form.** Both forms the ABI offers are built and are
+  indistinguishable (0.96 to 1.04), because both transcoders are pointers into
+  the core. The unbuilt one hands the core a pointer into the managed heap,
+  which on .NET needs a pinned `GCHandle` per string -- 5,000 for P1.2 -- and is
+  named rather than assumed equivalent.
+- **A validating-decode arm** (ABI v1 decision 3). `harness utf8` establishes
+  that neither this codec nor `Google.Protobuf` validates UTF-8 on decode, so
+  the decode comparison is like for like and the margin is not bought by
+  skipping validation. `new UTF8Encoding(false, throwOnInvalidBytes: true)`
+  rejects all 15 root-site corpus vectors, so the arm is one constructor
+  argument and pricing it is what decision 3 asks for.
+- **A `Dec` over `ReadOnlySequence`**, which the RPC arm identified: gRPC hands
+  the deserializer a segmented body and the facade's reader is over `byte[]`.
+- **The pull family's MEMORY.** `ak_parse_*` trades the upcalls for a record
+  buffer proportional to the payload, in the decode context; `ak_bdr_footprint`
+  reports it and this slice measured only the time half of that trade.
+- **Streaming**, and the core's own tonic stack as the other end of the RPC arm.
+  `design/SHAPES.md` lists streaming as not in the arm and says it is where the
+  concurrency invariant actually bites; no slice has touched it.
+- **`core-ffi` on the floor.** Arms b and c do not carry it, and that is a floor
+  FINDING rather than a build convenience: net48 has no `LibraryImport` (.NET 7+)
+  and no `UnmanagedCallersOnly` (.NET 5+), so the binding as generated cannot
+  compile there at all. A floor binding would be `DllImport` plus delegate
+  pointers, and the delegates must be rooted for the lifetime of the vtable or
+  the collector reclaims a thunk the codec still holds: a crash, not a slowdown.
+  `Core_*.cs`, `CoreArms.cs` and `CoreGate.cs` are excluded from arm c
+  explicitly, so a stale binary cannot report a pass.
+- **The abort guard priced.** It is present on every reverse callback and there
+  is now a shape where that is not one `try/catch` per message: M2 pays five per
+  element on encode and seven on decode. What is not done is an arm with the
+  guard REMOVED, which is the only way to price it, and removing it makes a
+  managed exception a process abort rather than an error.
+- **ABI v1 open decisions still untouched on .NET**: 4, 6, 8, 10 and 12. Decision
+  1 is settled, 2 is answered here (pull, on a managed host), 3 is measured as a
+  non-difference between the arms, 5 and 11 are in stage 1 and 2, 7 is now
+  exercised (the recursion limit the corpus forced), 9 is priced, 13 is named.
 
 ### Shapes and payloads
 
@@ -1140,11 +1170,34 @@ it, and the first item is much the largest.
 8. **The old list, unchanged**: ABI v1 decision 13's borrowed spans (the
    decode side already hands the host `ak_span` offsets into its own buffer,
    so the ABI is ready and the facade's `string` is what is not); a rejecting
-   decode policy.
+   decode policy, which is also what would close the corpus's 31 open
+   `T-dec-*` vectors and which `harness utf8` shows is one constructor argument.
+9. **A `Dec` over `ReadOnlySequence`.** The RPC arm is what identified it: gRPC
+   hands the deserializer a segmented body and the facade's reader is over
+   `byte[]`, so every call flattens where the incumbent reads the segments in
+   place. Small, contained, and it is the facade's shape rather than the ABI's.
+10. **Streaming**, which design/SHAPES.md says is where the concurrency
+   invariant actually bites and which no slice in the branch has touched.
 
 Deliberately NOT on the list: more rounds to tighten a spread, a cold-start
 column, and any attempt to make this container's absolutes comparable with
 another container's.
+
+### Read the numbers the way stage 14 measured them, not across stages
+
+**A within-process ratio is sound; a cross-SITTING comparison of two of them is
+not, to better than about ten percent.** Two arms that no change touched moved
+0.800 to 0.729 (`managed-parse / gp-parse-seq` on P2.2) and 0.292 to 0.309
+(`managed / gp-marshaller`) between two sittings on this container. So
+`core-ffi / managed` on P1.2 decode reading 0.899 in stage 8, 0.863 in stage 11
+and 0.978 in stage 14 is the container and not the binding, and I nearly
+attributed the last move to the code.
+
+Every same-sitting comparison stands, because each is computed against an arm
+that ran in the same rounds: pull against push, utf16 against staged, fill
+against whole, and every row within any one log's own table. **Nothing that
+compares a number in one stage with a number in another should be read past its
+first digit.**
 
 ### The original next-step list, superseded above but kept for its reasoning
 
