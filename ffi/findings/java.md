@@ -49,7 +49,10 @@ longer a series of slice defects. It is the branch's most reliable failure mode,
 and any figure in any prior report that was not taken against a checked baseline
 should be read with it in mind.
 
-## 2. The decode regression is real, and it points at a part of the ABI that does not exist
+## 2. The decode regression is real, and the pull family removes it
+
+**This section had a different title until the slice built the arm.** What follows is the
+push measurement, then what pull did to it.
 
 `ffi` decode is **1.22 to 1.62 on every M2 payload** — a regression, and the C ABI
 loses to the generated Java codec by 1,163 to 1,806 ns per element there, with a
@@ -60,12 +63,46 @@ element at about 80 ns is 560 ns of it**. That is the crossing count the branch
 has been quoting since the rust slice, multiplied by this host's reverse price,
 and it accounts for roughly half the gap.
 
-**This is the concrete argument for ABI v1 7.1's pull family, which the core does
-not implement.** The push family costs one upcall per field group; a pull decode
-would let the host drain the core without the core calling back. Until it exists,
-Java's decode verdict is a verdict about the push family only, and section 7.1's
-"which family does each binding take" is unanswerable for the host that needs it
-most.
+**This was the concrete argument for ABI v1 7.1's pull family. The family now exists
+in the shared core, this slice built the binding, and the regression is gone.**
+
+| payload | `R` (generated Java) | `ffi` push | `ffi-pull` | `ffi-pull-walk` |
+|---|---|---|---|---|
+| P2.1 | 0.747 | 1.311 | 0.947 | 0.923 |
+| **P2.2** | 0.884 | **1.383** | **0.807** | 0.853 |
+| P2.3 | 0.962 | 1.335 | 0.890 | 0.916 |
+| P2.5 | 0.812 | 1.383 | 0.846 | 0.822 |
+| P6.1 | 1.056 | 1.197 | **0.465** | 0.422 |
+| P7.1 | 0.523 | **3.000** | 1.157 | 0.901 |
+
+**Reverse crossings are zero on every payload in both deliveries**, where push makes
+3,501 on P2.2, and pull is **never slower than push**: a clean sign in its favour on
+eight of sixteen payloads, straddling zero on the rest, and not one payload with an
+established sign the other way. On P2.2 the delta is 1,606 ns per element — the 7.004
+upcalls at 80 ns, and then some.
+
+**The verdict against the no-boundary control is a tie, and the slice said so rather
+than taking the win.** `R - ffi-pull` straddles zero on every M2 payload. So **pull
+does not make the C ABI beat a generated Java codec on decode; it stops the C ABI
+losing to one.** Push loses to arm R with a clean sign on four payloads and pull loses
+to it nowhere. That is a smaller claim than the table's headline invites, and it is the
+right one.
+
+**Two things fall out that the branch did not ask for.** The drain copy **does not
+measure on the JVM** — `ffi-pull - ffi-pull-walk` straddles zero on all sixteen payloads
+— where the C# slice estimated the same intermediate at 12 to 19 percent of a parse on
+a host whose crossing is worth 10 ns rather than 80. So a binding that finds the walk
+delivery awkward can drain and lose nothing, which is a better answer for the
+specification than either delivery alone. And because `ak_parse_*` makes no upcall **by
+construction**, the binding hands the wire over under `GetPrimitiveArrayCritical` and
+never copies it into native scratch — the copy the push family forces, since an upcall
+and a critical section are mutually exclusive. The shim pushes no callback frame at all,
+so a future callback cannot be added without someone noticing.
+
+**This is the one result in the slice that changes an architecture rather than a
+number**, and it is the measurement decision 2 had been waiting on: four of five slices
+had only ever measured push, and the push-only evidence could not support "carry both
+families and let a JVM binding choose pull".
 
 ## 3. The batching crossover is confirmed quantitatively, and this is the strongest cross-slice result in the branch
 
@@ -215,9 +252,11 @@ controls rather than in codecs — which is where this branch's defects keep bei
 ## 7. What this asks of the design documents
 
 1. **Decision 9: adopt.** Three hosts, condition met.
-2. **Section 7.1: the pull family is now load-bearing**, not a design option. Java's
-   decode regression decomposes into upcalls, and the core does not implement the
-   family that would remove them.
+2. **Section 7.1: the pull family is built, measured on this host, and decision 2 can
+   be answered.** The ABI carries both families and a JVM binding takes pull: reverse
+   crossings zero, the M2 regression gone (P2.2 1.383 push to 0.807 pull), pull never
+   slower than push on any payload, a tie rather than a win against the no-boundary
+   control, and a drain copy that does not measure.
 3. **Section 9's virtual-thread amendment: promote from amendment to measured**, with
    the pinning table.
 4. **R9: corrected twice** in the README, both times on this slice's evidence. The
@@ -241,8 +280,8 @@ controls rather than in codecs — which is where this branch's defects keep bei
 - **There is no grpc-java comparison.** The RPC arm exists only as the pinning
   question. Java's transport half is unmeasured, which matters because outcome 2
   keeps the RPC layer on the C ABI and Java is the host where the crossing is
-  dearest.
-- **The pull family is unbuilt**, so the decode verdict covers the push family only.
+  dearest. It is now the slice's largest remaining gap, the pull family having
+  closed the other one.
 - **The decode regression's other half is unexplained.** 560 of 1,163 ns per element
   on P2.2 is upcalls; the rest is not decomposed.
 - **The R9 mechanism is settled but one of its readings is not.** `deopt=1`, the mode

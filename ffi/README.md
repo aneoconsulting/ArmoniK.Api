@@ -388,7 +388,7 @@ deliverable.
 | W3 | **Rust slice.** Section 4.1. | **Done.** Four arms over every message and payload of `design/SHAPES.md`, all byte-identical to the validated manifest, plus the three content sets, the unknown-field vectors and the RPC arm. The decomposition every other slice subtracts is available: **a crossing costs 1.8 ns through a shared library**, and the RPC half costs **two crossings per call, zero per field**. **Stage 5 completes it** with the three things the branch had specified and nobody had built, all landing in the shared core: ABI v1 7.1's **pull decode family** (one emitter, both families; pull's reverse count is zero everywhere, so it REMOVES the upcalls rather than reducing them, at −5 to +18 percent of a push decode on this host), obligation 12.5's **concurrency suite** (0 wrong of 2,840 encodes and 2,840 decodes), and section 3's **`ak_init` and lifecycle** (the guard is ±0.003 ns). **Its positive control found the branch's most serious defect**: a shared encode context aborts the process rather than producing wrong bytes, because the panic cannot unwind through `extern "C"`. See [`findings/rust.md`](findings/rust.md) for what it does not establish, which is still longer than what it does. |
 | W4 | **C++ slice on the amended ABI.** Rebuild against W1, re-measure against protobuf C++, and demonstrate the C++11 floor. **Done.** Full codec plus the RPC arm; shared library primary, static as a separately labelled second arm. It carried decision 1 and settled it. **Done.** See [`findings/cpp.md`](findings/cpp.md). "The managed amendments are free in C++" is now a measurement and the answer is no, not uniformly. 28 adversarial review findings answered, moving the encode column about 8 points and the RPC verdict 0.3, plus two arms nobody asked for: upb as a ceiling, and a borrowed-string facade. |
 | W5 | **C# slice.** ~~Import the existing slice~~, rebuild against W1, then close its two named gaps: a managed decode control, and oneofs plus explicit presence. **There is nothing to import**: no branch carries the prior slice's sources and only the published report survives, so this is a rebuild and open question 1 is moot. **Done for M1, not for the shape set**; see [`findings/csharp.md`](findings/csharp.md). The named gap is closed: **C# does not look like Java on decode** (a generated pure-C# codec at 0.72-0.82 of `Google.Protobuf` on the real schema's shapes), oneof and explicit presence are covered in the facade and the managed codec, and the floor builds and passes on netstandard2.0 and on Mono. **The `core-ffi` arm is not built**, so half of W5 remains and the ABI half of the two field shapes with it. | Both gaps have numbers, and the floor (netstandard2.0 or net48) compiles and passes correctness. |
-| W6 | **Java slice.** ~~Import~~, rebuild against W1, re-measure encode, and keep the generated-Java-codec arm as a first-class candidate. Nothing to import here either. **Done**; see [`findings/java.md`](findings/java.md). **The encode regression does not survive and the decode half of the verdict does**: the C ABI is 0.58-0.96 on encode and 1.22-1.62 on every M2 decode, where the generated Java codec beats it. The published regression is reconstructible from an incumbent that memoizes its size pass. The batching prediction was confirmed quantitatively, decisions 9 and 13 are answered for a managed host, and section 9's virtual-thread amendment is measured. **It then retracted two of its own published claims** on the JIT's compilation log: R9's hazard is C2 pruning an unreached branch rather than deoptimisation, and it shifts a probability rather than imposing a 2.16x cost. **README 9.1's C-shim arm is priced and refused** — a JNI field store is a third of an upcall, so on the JVM a transition can only be made rarer, not cheaper, which is 7.1's pull family and nothing else. No grpc-java transport comparison exists, and no pull arm. | The encode verdict is stated against ABI v1, on JDK 17 with JNI, with the Java 8 floor demonstrated. |
+| W6 | **Java slice.** ~~Import~~, rebuild against W1, re-measure encode, and keep the generated-Java-codec arm as a first-class candidate. Nothing to import here either. **Done**; see [`findings/java.md`](findings/java.md). **The encode regression does not survive and the decode half of the verdict does**: the C ABI is 0.58-0.96 on encode and 1.22-1.62 on every M2 decode, where the generated Java codec beats it. The published regression is reconstructible from an incumbent that memoizes its size pass. The batching prediction was confirmed quantitatively, decisions 9 and 13 are answered for a managed host, and section 9's virtual-thread amendment is measured. **It then retracted two of its own published claims** on the JIT's compilation log: R9's hazard is C2 pruning an unreached branch rather than deoptimisation, and it shifts a probability rather than imposing a 2.16x cost. **README 9.1's C-shim arm is priced and refused** — a JNI field store is a third of an upcall, so on the JVM a transition can only be made rarer, not cheaper, which is 7.1's pull family and nothing else. **And it built ABI v1 7.1's pull arm, which answers open decision 2**: reverse crossings go to zero, the M2 decode regression is gone (P2.2 from 1.383 of protobuf-java on push to 0.807 on pull), pull is never slower than push on any payload, the drain copy does not measure on the JVM, and against the no-boundary control it is a tie — so pull stops the C ABI losing to a generated Java codec rather than making it win. No grpc-java transport comparison exists, and it is now the slice's largest gap. | The encode verdict is stated against ABI v1, on JDK 17 with JNI, with the Java 8 floor demonstrated. |
 | W7 | **Python slice.** Section 9. **Work unit 1 done**, slice proper not started; see [`findings/python.md`](findings/python.md). The mechanism is settled (C extension; `ctypes` and `cffi` refused for the codec, their callback being 165-170x a C-to-C call), the storage is settled for encode, and 9.1's premise holds. **It also removed outcome 2 from the table for Python**: the generated pure-Python codec is 19.4 to 20.3 times upb. **Work unit 2 composed the two edges and M2 has since landed**: the shared core behind the generated CPython shim is **0.700-0.719 of upb on encode** and **0.888-0.897 on decode once both sides have produced Python values** (1.77-1.80 on the bare call, because `FromString` materialises nothing). The core and the boundary together cost about 0.10 of a upb encode, and the ABI's own crossings are **0.01 per element** against 7 for the shim-to-facade edge, so Python's crossing problem is not the ABI's. It is also the corpus's **first consumer**, which is how the shared core's group-skip defect was found. M3 to M7, most of the payload set, the RPC arm and concurrency are not built. | Python has a verdict of the same shape as the others, or a stated reason why the question is different there. |
 | W8 | **Conformance corpus.** Section 10. **Done**, on its own branch: `corpus/` holds a generator, **336 vectors** (74 unknown-field, 30 empty, 145 shape, 53 transcode, 8 chunking, 18 malformed, 8 baseline), a manifest carrying a *set* of accepted encodings per vector, projections of what a reader must SEE, a consumer contract so five slices do not each invent one, and a gate with a selftest. Validated against upb, an implementation sharing no code with the writer. **No slice consumes it yet**, and the first one that does is the second opinion. | Every slice produces and consumes the same bytes, and the corpus is generated rather than curated. |
 | W10 | **Consolidate the core into `poc/codec/`.** Move the emitters out of `poc/rust/gen/` and the crates out of `poc/rust/crates/`, fold in the C++ slice's counting entry point and the Java slice's two transcoders, and re-point every slice at one path dependency. | No slice contains a copy of the core, every slice's correctness gate passes against the shared one, and `codec.rs` exists once. **Low measurement risk**: the emitted codec is already byte-identical in three slices and both deltas are additive, so this re-gates rather than re-measures. |
@@ -583,13 +583,33 @@ configuration to carry, from the core's current settings:
 At 4 MiB, P2.2's 540 KB response never fills the window, so **the wall-clock hazard
 above is a property of the default and not of the configuration under test** — which
 is the point of pinning the configuration rather than arguing about the default.
-Two things to get right when pinning it. **Set the connection window as well as the
-stream window**: grpc-java's `flowControlWindow` sets `SETTINGS_INITIAL_WINDOW_SIZE`,
-which is per stream, and tonic and hyper likewise take the two separately — raising
-only the stream window leaves the connection at 65,535 and the stall comes back
-unchanged. And **an explicit window turns BDP auto-tuning off** in grpc-java, so the
-pinned arm and the default arm are two different measurements; report the pinned one
-as the headline and the stack default as a labelled second row. The rest:
+Two things to get right when pinning it, **and both are per stack rather than
+general** — I stated them as general and the C# slice checked them against the runtime
+source rather than relaying them.
+
+- **The connection window is a separate knob on some stacks and not on others.**
+  grpc-java's `flowControlWindow` reaches `SETTINGS_INITIAL_WINDOW_SIZE`, which is per
+  stream, and tonic and hyper take the two separately — there, raising only the stream
+  window leaves the connection at 65,535 and the stall comes back unchanged. **On .NET
+  the hazard is not reachable**: `Http2Connection` hardcodes a 64 MiB connection window
+  and raises it by `WINDOW_UPDATE` at setup, so at a 4 MiB stream window the connection
+  is already sixteen times it.
+- **An explicit window turns auto-tuning off in grpc-java and does NOT on .NET.** There,
+  `flowControlWindow(int)` sets `autoFlowControl = false`. On .NET
+  `Http2StreamWindowManager` takes the configured size as a *starting point* and doubles
+  from it up to a 16 MiB cap, and `WindowScalingEnabled` is a separate switch that
+  defaults on — so **a pinned window is a floor, not a cap**, and pinning 4 MiB there
+  needs the property *and* the
+  `System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing` AppContext
+  switch, or the arm may be measuring 8 or 16 MiB by the end of the run.
+
+Report the pinned arm as the headline and the stack default as a labelled second row.
+**And note where pinning diverges from what ArmoniK ships**: `packages/csharp` sets no
+window on either side, and the client builds an `HttpClientHandler` through which
+`InitialHttp2StreamWindowSize` is not reachable at all — so on .NET the pinned arm
+configures something the shipped client cannot. UDS is the opposite case and needs no
+caveat: `GrpcChannel` already defaults to a Unix socket at `/tmp/armonik.sock` and the
+worker already calls `ListenUnixSocket`. The rest:
 JIT tiering and PGO off handicaps a managed incumbent, which the C# slice checked
 rather than assumed: no arm there crosses 1.0 under any of three configurations,
 and the default is the one *least* favourable to the managed arms. Two vCPUs is
@@ -916,9 +936,17 @@ report:
 | runtime | what the map contains |
 |---|---|
 | **upb** | `{}` — the entry is dropped from the map and its bytes are retained as an unknown field of the parent (the re-encode is byte-identical to the input) |
-| protobuf C++ 3.21.12 (`protoc --decode`) | `options { key: "k" value: "v" 3: 7 }` |
 | protobuf-python 4.25.9, pure backend | `{'k': 'v'}` |
+| protobuf C++ (`protoc --decode`) | the entry is present |
 | the cpp slice, both arms | `{'k': 'v'}` |
+
+**One qualification on that third row, from the corpus agent and it is right**:
+`protoc --decode` renders a map field as its wire-level repeated `MapEntry` list, so
+it prints two entries with the same key on `E-map-dup-key`. It is therefore evidence
+*about* a map question rather than a vote *on* one, and the substantive disagreement
+rests on the pure-Python backend. Separately, protobuf C++ 35.1 drops the unknown
+field inside the entry where 3.21.12 retained it as `3: 7` — that is open decision 11
+and not this disagreement.
 
 A map field is shorthand for a repeated `MapEntry` message, and an unknown field
 inside a submessage is skipped while the submessage still parses — so three
@@ -933,15 +961,36 @@ rows anyone has checked are the ones where a slice happened to disagree. Until a
 second independent runtime is an oracle for the projections, a corpus failure is
 evidence that a slice differs from upb and not yet evidence that it is wrong.
 
-**What the corpus needs, in the order it matters**: a second runtime (protobuf C++
-through its own reflection is the cheapest, and the cpp slice already drives it as
-an oracle) generating the same projections; rows where the two disagree marked
-**disputed** and excluded from a pass or fail rather than decided; and the
-provenance of each accepted encoding recorded, since "upb writes it" and "every
-conformant encoder writes it" are different claims and the manifest currently
-makes only the first. `B-P7_1` is the other row of this kind: its only accepted
-encoding is one **no canonical writer produces**, which SHAPES.md already handles
-by permutation and the manifest does not.
+### 10.2 Fixed: three oracles, and the rows where they disagree are disputed rather than decided
+
+The corpus now runs **three** oracles — upb in process, protobuf-python's pure backend
+in a subprocess (the backend is fixed at import, so it cannot be a second in-process
+arm), and protobuf C++ through `protoc --decode` for the verdict on every row. **Zero
+vector bytes and zero `.proto` bytes moved**; what changed is the manifest's claims
+about them, and `generated/vectors.sha256` now freezes all 328 so the build refuses to
+change, add or drop one.
+
+- **A disagreement makes the row `disputed`**: it carries every reading, names the
+  runtime that produced each, gives the dotted paths they differ on, and is **excluded
+  from a consumer's pass or fail count**. Resolving by majority was refused, on the
+  grounds that two of the three runtimes someone happened to ask is not a specification
+  either. That is the right call and it is the one I would have been tempted to get
+  wrong.
+- **The build now fails only when EVERY oracle accepts a must-fail vector, or NO oracle
+  parses an accept vector.** All three refuse all 49 must-fail vectors with no row
+  disputed, which is a stronger claim than the single-oracle build could make.
+- **Accepted encodings carry provenance**: `written_by`, and
+  `observed_in_a_protobuf_runtime`, which is **false on 87 rows** where only the
+  corpus's own writer produced the form. `B-P7_1` was the row that exposed this — its
+  only accepted encoding was one no conformant encoder produces, so a consumer that
+  re-encoded *correctly* failed C3. The cause was that baseline rows never went through
+  the reconciliation every other row did; `permutation_accepted` now marks the four rows
+  where a re-encoding may be any re-ordering of an accepted form, which is how
+  `design/SHAPES.md` had always validated P7.1.
+
+**87 of the accepted encodings had never been observed in any protobuf runtime**, and
+that number is the honest measure of how much of the corpus was one writer agreeing
+with itself.
 
 ## 11. How the work is run
 

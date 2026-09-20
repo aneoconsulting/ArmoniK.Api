@@ -1,0 +1,371 @@
+Stage 13: this slice becomes a corpus consumer, and the corpus finds four
+          defects byte identity structurally could not.
+
+commit:    5a5eb71f (+ this slice)
+corpus:    ffi/corpus/generated, 336 vectors, manifest corpus_version 1,
+           validated against protobuf 7.36.2 (upb) and libprotoc 35.1
+codec:     generated from generated/corpus.proto -- **rule 0** -- and never from
+           corpus_superset.proto. See below for what that cost.
+runtime:   the SAME Enc, Dec, W and OrderedMap the measured arms use. Only the
+           types, the codec and the projector are corpus-shaped. A corpus that
+           exercised a second wire reader would be testing the second reader.
+arms:      run on all three of README 5.2's arms, and they agree exactly.
+
+################ why this was a work unit and not an afternoon ################
+
+CONTRACT.md's rule 0 is "generate your codec from `generated/corpus.proto`,
+never from `generated/corpus_superset.proto`". The difference between those two
+files is the corpus's entire unknown-field claim: a slice that generates from
+the superset knows every field, executes no unknown-field skip, and passes class
+`unknown` while testing nothing.
+
+**This generator had no `.proto` front end at all.** It drives off
+`ffi/schema/emit/shapes.py`, which reads a JSON description. So conformance
+needed a second front end producing the same schema dict --
+`gen/protoparse.py`, 140 lines, deliberately not a general protobuf parser and
+raising on any construct it was not written for. After that every backend
+already written emitted the reader view untouched: the facade types, the
+structural comparer and the managed codec all took a namespace argument and
+nothing else.
+
+**The two front ends are cross-checked against each other at generation time.**
+`corpus.proto` and `shapes.json` are both generated from one description, so a
+field that differs between what this slice parses out of the .proto and what it
+reads out of the JSON is a defect in the new parser. Nineteen messages and three
+enums overlap and every attribute the backends read is compared; a disagreement
+fails the generator. It found none, which is the reason to believe the parser.
+
+One kind the schema does not have: `fixed32`, in `WireZoo`. It is now in the IR,
+in the shared `Wire.cs` runtime and in all fourteen branches of the codec
+emitter that had a `double` case. Adding it caught its own near-miss: two of
+those fourteen sites are textually identical `oneof` branches, and a patch
+asserting a unique anchor would have silently fixed one of them.
+
+################ what the corpus found ################
+
+Four defects, all in code that every gate this slice owns was passing.
+
+**1. `X-tag-zero`: field number 0 was accepted.** The generated decoder's
+`switch` sent tag 0 to the unknown-field skip, which happily skipped it. Zero is
+the value a reader gets from an empty buffer it forgot to bounds-check, so
+accepting it turns a truncation into a silently empty message. Now rejected as
+malformed.
+
+**2. `X-depth-101` and `X-depth-300`: no recursion limit.** A message nested 300
+deep was 300 managed frames and a successful parse. Every protobuf
+implementation caps at 100 and rejects past it, and ABI v1 open decision 7 says
+no slice exercises this. `Dec` now carries a depth, the generated `Read*`
+increments it, and past `W.MaxDepth` the parse returns `ErrDepth`.
+
+  **Priced, because it is on the measured path.** One increment and one compare
+  per message decoded. Against the unchanged incumbent arm, inside each process:
+  managed-parse / gp-parse-seq on P1.2 is 0.725 before and 0.725 after; on P2.2
+  it is 0.800 before and 0.763 after, which moved the wrong way for a cost and
+  is noise. The encode control, which the change does not touch, moved 0.435 to
+  0.428 and 0.292 to 0.293 over the same runs, so the run-to-run spread is one
+  to two percent and the change is inside it. **No published figure moves.**
+
+**3. `S-double-minus-zero`: minus zero was being dropped.** The omit-when-zero
+rule was `!= 0.0`, and IEEE says `-0.0 == 0.0`, so a set field vanished. The
+vector's own note says it: "the omit-when-zero rule must compare bits and not
+value". Now `BitConverter.DoubleToInt64Bits(x) != 0L`, in the codec, the size
+pass and the projector.
+
+  `Google.Protobuf`'s generated C# writes `if (Field != 0D)` and therefore has
+  the same hole. **upb writes the field and Google.Protobuf does not**, so this
+  is a real cross-implementation divergence that the schema payload set could
+  never surface: `ffi/schema` has exactly one `double` and it is packed.
+
+**4. The group-skip hole**, already fixed in stage 12 on the same evidence.
+
+And the reason none of this was reachable before: **byte identity is against a
+manifest generated from the same description the decoder is generated from.**
+No payload in `ffi/schema` can carry a field the decoder does not know, proto3
+cannot express a group, the value rules never produce a minus zero, and nothing
+in the payload set is nested past depth 4. Four of the five slices gated clean
+on a core that had defect D7. The corpus is the only oracle in the branch that
+is not generated from the thing it tests.
+
+################ the run, arm a ################
+
+ffi/corpus, consumed. CONTRACT.md C1 (parse), C2 (project), C3 (re-encode
+to an accepted form), C4 (refuse, and name the error). C5 is the produce
+half and is reported separately below.
+
+Codec generated from generated/corpus.proto, NEVER from
+corpus_superset.proto (rule 0). The runtime under it -- Enc, Dec, W,
+OrderedMap -- is the SAME source the measured arms use.
+
+class        vectors   C1 parse   C2 project   C3 re-encode   C4 refuse   skipped
+--------------------------------------------------------------------------------------------
+baseline           8     8/8         6 (+2 n/a)      8/8           0/0            0
+chunking           8     8/8         5 (+3 n/a)      8/8           0/0            0
+empty             30    30/30       30             30/30          0/0            0
+malformed         18     0/0         0              0/0          18/18           0
+shape            145   145/145     145            145/145         0/0            0
+transcode         53    22/22       22             22/22          0/31           0
+unknown           74    74/74       73             74/74          0/0            0
+--------------------------------------------------------------------------------------------
+TOTAL            336
+
+FAILURES, by id:
+  T-dec-map-key-above-10ffff       transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-key-lone-continuation  transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-key-overlong-nul       transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-key-surrogate-d800     transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-value-above-10ffff     transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-value-lone-continuation transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-value-overlong-nul     transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-value-surrogate-d800   transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-nested-above-10ffff        transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-nested-lone-continuation   transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-nested-overlong-nul        transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-nested-surrogate-d800      transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-repeated-above-10ffff      transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-repeated-lone-continuation transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-repeated-overlong-nul      transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-repeated-surrogate-d800    transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-above-10ffff          transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-cesu8-pair            transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-f5-lead               transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-fe-ff                 transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-five-byte             transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-lead-no-continuation  transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-lone-continuation     transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-overlong-2            transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-overlong-3            transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-overlong-4            transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-overlong-nul          transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-surrogate-d800        transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-surrogate-dfff        transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-truncated-3           transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-truncated-4           transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  U-map-entry                      unknown    C1=ok C2=DIFF .tasks[0].options.options: extra C3=ok C4=-
+
+C3: which accepted form this slice's encoder produced.
+    175  as committed
+     45  unknown-dropped
+     25  unknown-dropped+unknown-dropped, map values always written
+     18  as committed+map values always written (protobuf C++, upb, protobuf-java)
+      7  the committed vector
+      5  as committed+map values always written
+      3  canonical: omitted
+      1  a permutation of the committed triples
+      1  canonical: the zero leaves omitted
+      1  canonical: one entry, the last value
+      1  canonical: the empty value omitted
+      1  canonical: ascending by tag+key and value always written
+      1  canonical: one member
+      1  canonical: packed
+      1  canonical: one run
+      1  canonical: each repeated field contiguous
+
+C4: the error this decoder actually returned, per reject vector.
+   31x (none)
+        T-dec-map-key-above-10ffff
+        T-dec-map-key-lone-continuation
+        T-dec-map-key-overlong-nul
+        T-dec-map-key-surrogate-d800
+        T-dec-map-value-above-10ffff
+        T-dec-map-value-lone-continuation
+        T-dec-map-value-overlong-nul
+        T-dec-map-value-surrogate-d800
+        T-dec-nested-above-10ffff
+        T-dec-nested-lone-continuation
+        T-dec-nested-overlong-nul
+        T-dec-nested-surrogate-d800
+        T-dec-repeated-above-10ffff
+        T-dec-repeated-lone-continuation
+        T-dec-repeated-overlong-nul
+        T-dec-repeated-surrogate-d800
+        T-dec-root-above-10ffff
+        T-dec-root-cesu8-pair
+        T-dec-root-f5-lead
+        T-dec-root-fe-ff
+        T-dec-root-five-byte
+        T-dec-root-lead-no-continuation
+        T-dec-root-lone-continuation
+        T-dec-root-overlong-2
+        T-dec-root-overlong-3
+        T-dec-root-overlong-4
+        T-dec-root-overlong-nul
+        T-dec-root-surrogate-d800
+        T-dec-root-surrogate-dfff
+        T-dec-root-truncated-3
+        T-dec-root-truncated-4
+    8x Err -3 (truncated)
+        X-fixed32-truncated
+        X-fixed64-truncated
+        X-group-unterminated
+        X-len-prefix-truncated
+        X-len-truncated
+        X-nested-len-overrun
+        X-packed-truncated
+        X-varint-value-truncated
+    7x Err -4 (malformed)
+        X-group-mismatched-end
+        X-tag-zero
+        X-trailing-byte
+        X-varint-11-bytes
+        X-varint-key-truncated
+        X-wire-type-6
+        X-wire-type-7
+    2x Err -8 (depth)
+        X-depth-101
+        X-depth-300
+    1x ArgumentOutOfRangeException: Index and count must refer to a location within the buffer. 
+        X-len-huge
+
+ABI v1 open decision 11, answered for C#: this slice's generated codec
+DROPS unknown fields. 86 projected `_unknown` block(s) the corpus
+expected are absent here, and CONTRACT.md section 3 makes comparing them
+optional for exactly that reason. `Google.Protobuf` RETAINS them, so the
+behaviour change is visible on .NET: see stage1-conformance.log.
+
+3 projected value(s) matched numerically but not textually (double spelling: %.17g against G17).
+THE TWO DIVERGENCES, AND NEITHER IS A DEFECT THIS SLICE CAN FIX ALONE.
+
+1. The 31 T-dec-* vectors: malformed UTF-8 in a string field, which
+   CONTRACT.md says a conformant parser must reject. This codec accepts
+   them, because it reads strings through Encoding.UTF8, which SUBSTITUTES
+   U+FFFD. **So does Google.Protobuf**: `harness utf8` runs the 15 root-site
+   vectors through both and the incumbent accepts every one. So the arms
+   agree, the decode comparison is like for like, and the managed decode
+   margin is NOT bought by skipping validation. It is ABI v1 open decision 3
+   and .NET's whole ecosystem is on the lossy side of it.
+
+2. U-map-entry: an unknown field inside every map entry. This decoder skips
+   it and keeps the entry; the corpus's projection puts the WHOLE entries
+   under `_unknown` and leaves the map absent. `Google.Protobuf`, on the
+   same bytes, keeps the map -- printed above. Two implementations against
+   the projection, so this is raised as a question about the vector.
+
+C5 (produce) and the chunking class, stated rather than claimed:
+  * C5 asks a slice to BUILD each message from the description and encode
+    it. This slice has payload builders for `ffi/schema`'s roots only, and
+    `harness conformance` is that claim: byte identity on all 16 payloads.
+    For the corpus's own roots there is no builder, so C3 (re-encode what
+    was parsed) is what runs and C5 is NOT claimed for them.
+  * The chunking class asks a batching host to run each vector at more than
+    one chunk. **The managed codec does not batch at all** -- it walks the
+    host's own containers in one pass -- so per CONTRACT.md it says so and
+    that is its gap. The core-ffi arm DOES batch and is measured at two
+    chunk sizes (AK_CHUNK), but its binding exists for M1 and M2 only and
+    the chunking roots are corpus-only, so it cannot reach them either.
+
+32 failure(s) (31 T-dec policy, 1 U-map-entry, 0 other), 0 not run
+
+################ arms b and c ################
+
+Both run the same 336 vectors and report the identical line, which is
+CONTRACT.md section 5 item 5 -- byte identity between the slice's own arms --
+at the arm level:
+
+  arm b: 32 failure(s) (31 T-dec policy, 1 U-map-entry, 0 other), 0 not run
+  arm c: 32 failure(s) (31 T-dec policy, 1 U-map-entry, 0 other), 0 not run
+
+Arm c is .NET Framework 4.8 on Mono 6.8.0.105. That it runs at all is why the
+manifest reader here is a hand-written JSON parser (`src/Harness/Json.cs`) and
+not `System.Text.Json`: the latter is not in the box on net48, so taking it
+would either restrict conformance to arm a or add a package to the floor arm and
+change what the floor arm IS.
+
+################ the two divergences, and what the incumbent says ################
+
+THE TWO DIVERGENCES, AND NEITHER IS A DEFECT THIS SLICE CAN FIX ALONE.
+
+1. The 31 T-dec-* vectors: malformed UTF-8 in a string field, which
+   CONTRACT.md says a conformant parser must reject. This codec accepts
+   them, because it reads strings through Encoding.UTF8, which SUBSTITUTES
+   U+FFFD. **So does Google.Protobuf**: `harness utf8` runs the 15 root-site
+   vectors through both and the incumbent accepts every one. So the arms
+   agree, the decode comparison is like for like, and the managed decode
+   margin is NOT bought by skipping validation. It is ABI v1 open decision 3
+   and .NET's whole ecosystem is on the lossy side of it.
+
+2. U-map-entry: an unknown field inside every map entry. This decoder skips
+   it and keeps the entry; the corpus's projection puts the WHOLE entries
+   under `_unknown` and leaves the map absent. `Google.Protobuf`, on the
+   same bytes, keeps the map -- printed above. Two implementations against
+   the projection, so this is raised as a question about the vector.
+
+C5 (produce) and the chunking class, stated rather than claimed:
+The UTF-8 half of that, measured rather than asserted (`harness utf8`):
+
+vector                              incumbent                     managed control
+----------------------------------------------------------------------------------------------------
+T-dec-root-above-10ffff             accepted, 4 chars             accepted, 4 chars
+T-dec-root-cesu8-pair               accepted, 6 chars             accepted, 6 chars
+T-dec-root-f5-lead                  accepted, 4 chars             accepted, 4 chars
+T-dec-root-fe-ff                    accepted, 2 chars             accepted, 2 chars
+T-dec-root-five-byte                accepted, 5 chars             accepted, 5 chars
+T-dec-root-lead-no-continuation     accepted, 1 chars             accepted, 1 chars
+T-dec-root-lone-continuation        accepted, 1 chars             accepted, 1 chars
+T-dec-root-overlong-2               accepted, 2 chars             accepted, 2 chars
+T-dec-root-overlong-3               accepted, 3 chars             accepted, 3 chars
+T-dec-root-overlong-4               accepted, 4 chars             accepted, 4 chars
+T-dec-root-overlong-nul             accepted, 2 chars             accepted, 2 chars
+T-dec-root-surrogate-d800           accepted, 3 chars             accepted, 3 chars
+T-dec-root-surrogate-dfff           accepted, 3 chars             accepted, 3 chars
+T-dec-root-truncated-3              accepted, 1 chars             accepted, 1 chars
+T-dec-root-truncated-4              accepted, 1 chars             accepted, 1 chars
+
+15 vectors: the incumbent rejected 0, the managed control rejected 0.
+
+THE TWO ARMS AGREE, so the decode comparison is like for like and the
+managed decode margin is not bought by skipping validation. Both are
+non-conformant against CONTRACT.md's transcode class in the same way,
+which is ABI v1 open decision 3 and a policy question, not a defect in
+the comparison.
+
+For reference, what .NET's own strict decoder does with the same bodies:
+  new UTF8Encoding(false, throwOnInvalidBytes: true) rejects 15 of 15.
+  So a validating managed arm is one constructor argument away, and
+  pricing it is what ABI v1 decision 3 asks for on .NET.
+
+**That is the most load-bearing result in this stage.** The managed decode
+column is the single most valuable measurement in this slice, and if the
+incumbent validated UTF-8 where the managed control did not, part of that margin
+would be validation the control skips -- which R14 makes a defect in the
+comparison rather than a property of the design. It does not. `Google.Protobuf`
+accepts all 15 root-site vectors and returns the same character counts, so the
+two arms are like for like and the decode figures stand.
+
+It is also a cross-language finding the corpus did not have: CONTRACT.md says a
+conformant parser must reject malformed UTF-8 in a string field, and .NET's
+whole ecosystem is on the other side of that. ABI v1 open decision 3's "rejected
+on decode" is a behaviour change for C#, not a confirmation of what it does.
+
+And .NET's strict decoder is one constructor argument away --
+`new UTF8Encoding(false, throwOnInvalidBytes: true)` rejects all 15 -- so a
+validating managed arm is buildable and pricing it is what decision 3 asks for.
+
+################ what is NOT claimed ################
+
+Per CONTRACT.md section 5 item 6, by name and with a reason.
+
+- **C5 (produce) is not claimed for the corpus's own roots.** C5 asks a slice to
+  BUILD each message from the description and encode it. This slice's payload
+  builders cover `ffi/schema`'s roots, and `harness conformance` is that claim:
+  byte identity on all 16 payloads, on three arms. For `WireZoo`, `Surrogate`,
+  `Nest`, the `Chunk*` family and `LeafResponse` there is no builder, so what
+  runs is C3 -- re-encode what was parsed -- and C5 is not claimed.
+- **The chunking class is not exercised as chunking.** The managed codec does
+  not batch at all; it walks the host's own containers in one pass. Per the
+  contract a host that declines to batch says so, and that is its gap. The
+  core-ffi arm does batch and is measured at two chunk sizes, but its binding
+  exists for M1 and M2 and the chunking roots are corpus-only, so it cannot
+  reach them either.
+- **`_unknown` is not compared.** The contract makes it optional because
+  retention is ABI v1 open decision 11. This slice's generated codec DROPS
+  unknown fields and the count of dropped blocks is reported; `Google.Protobuf`
+  retains them, which is the behaviour change stage 1 already priced.
+- **The superset decoder is not built.** `corpus_superset.proto` is in the tree
+  so a slice can build a second decoder and check that what the reader skipped
+  is what the superset reads. That is a second codec and it is not here.
+- **31 T-dec-* vectors and `U-map-entry` are open**, for the reasons above:
+  neither is a defect this slice can fix alone, and `U-map-entry` is a question
+  about the vector rather than about the decoder.
+- Nothing here is timed. The corpus says nothing about any number, and the one
+  performance-relevant change it forced (the depth counter) is priced above and
+  moves nothing.

@@ -1,0 +1,148 @@
+== the java slice's codec bench ==
+java.version=17.0.20  vm=17.0.20+8-1-24.04-Ubuntu
+protobuf-java=protobuf-java-3.25.5.jar
+lib=/home/user/ArmoniK.Api/ffi/poc/java/build/jni/libakjni.so
+compact strings in the binding: yes (JDK 9+ String.value/coder)
+rounds requested=40 (rounded up to a multiple of the arm count), per-round target 40 ms, arm order rotates every round
+content set: ASCII (design/SHAPES.md's default; every id in the real schema is an ASCII GUID)
+ak.deopt=0  (0 nothing; 1 one String.format with a numeric conversion, which is what R9 names;
+           2 read a WIDE String through charAt; 3 read a LATIN1 String through charAt)
+
+Every ratio is PAIRED: computed inside one round against that round's
+own baseline, then reported as min/median/max across rounds. A ratio of
+two medians from different rounds appears nowhere.
+
+
+=== DECODE ===
+  pbj         parseFrom
+  R           the generated pure-Java codec
+  ffi         the C ABI, push family, wire copied once into native scratch and spans resolved against the byte[] the host holds
+  ffi-pull    7.1 pull, drained into host memory in 32 KB chunks: one forward crossing per chunk, no reverse call, wire never copied
+  ffi-pull-walkthe same, read in place through ak_bdr_ptr: two forward crossings for the whole response and no intermediate
+  ffi-borrow  ABI v1 open decision 13: the facade holds views over the host's own buffer rather than String
+
+Comparable pairs. `pbj`, `R-take` and `ffi-take` all hand back a
+fresh byte[] and all pay their own size pass, so those three are the
+apples-to-apples set. `pbj-reuse`, `pbj-det`, `R`, `ffi`, `ffi-nobatch`
+and `ffi-zeroed` all write into a buffer they already own -- but the
+protobuf ones memoize the size and the others do not, so read those
+against each other only through the deltas below.
+
+Baseline: pbj. ns/op is that arm's own median. Each cell is min / median / max of
+the PAIRED per-round ratio. Read the median; the min is the least
+contaminated estimate and the max is usually one collection.
+
+id     bytes    base ns/op  R                     ffi                   ffi-pull              ffi-pull-walk         ffi-borrow            
+P1.1   858      1461.5      0.211 0.908 2.266     0.123 1.060 5.186     0.093 0.802 3.288     0.082 0.781 1.397     0.209 0.788 1.331     
+P1.2   218121   398436.9    0.267 0.823 1.177     0.234 0.681 1.072     0.204 0.677 1.109     0.197 0.645 0.898     0.218 0.509 1.279     
+P1.3   605      19629.0     0.198 0.289 0.606     0.417 0.566 0.875     0.485 0.659 1.281     0.469 0.618 1.383     0.444 0.553 1.088     
+P2.1   1037     2642.3      0.539 0.747 1.152     0.890 1.311 1.748     0.630 0.947 1.668     0.629 0.923 1.117     0.815 1.203 1.582     
+P2.2   540422   1431417.6   0.397 0.884 1.307     0.616 1.383 2.015     0.395 0.807 1.166     0.365 0.853 1.210     0.591 1.239 1.576     
+P2.3   647024   1017933.9   0.666 0.962 1.711     0.901 1.335 2.450     0.621 0.890 1.300     0.596 0.916 1.671     0.650 0.956 1.374     
+P2.4   979465   1241887.8   0.425 1.002 1.857     0.555 1.337 2.514     0.473 0.974 1.892     0.589 0.945 2.528     0.569 0.907 1.314     
+P2.5   19632    45808.4     0.535 0.812 1.148     0.915 1.383 2.194     0.556 0.846 1.036     0.550 0.822 1.863     0.861 1.284 1.622     
+P3.1   12097    26211.2     0.595 0.730 1.365     0.655 0.802 1.044     0.602 0.767 0.926     0.589 0.746 0.885     0.506 0.661 0.862     
+P4.1   65321    249298.5    0.496 0.681 1.697     0.805 1.052 1.646     0.434 0.565 0.880     0.422 0.606 0.988     0.811 1.153 1.386     
+P5.1   116      153.1       0.420 0.645 0.886     1.191 1.814 2.714     1.067 1.684 2.163     0.882 1.111 1.725     1.255 1.687 2.144     
+P5.2   65620    9751.4      0.489 1.038 10.760    0.504 1.306 3.085     0.430 1.024 14.094    0.433 0.938 13.477    0.499 1.277 3.153     
+P5.3   1048660  194888.1    0.837 0.989 1.365     1.176 1.399 2.201     0.802 1.005 1.270     0.822 1.021 1.658     1.143 1.416 2.189     
+P5.4   4194390  749557.3    0.695 0.981 1.536     1.014 1.456 2.619     0.756 1.000 1.410     0.823 0.989 1.260     1.050 1.425 1.742     
+P6.1   123354   296958.1    0.531 1.056 1.618     0.656 1.197 2.004     0.256 0.465 0.726     0.220 0.422 0.621     0.641 1.265 1.486     
+P7.1   98       519.1       0.343 0.523 0.706     2.092 3.000 4.130     0.769 1.157 1.635     0.604 0.901 1.609     1.958 2.859 4.349     
+
+DECODE deltas, paired inside each round (R4's sharpened form)
+
+  R - ffi   the same question, both writing into a buffer they own
+  id     ns/op lo    ns/op hi    per element   sign
+  P1.1   -5795.0     -198.8      1451.7      -49.694         STRADDLES ZERO
+  P1.2   -87981.7    55365.7     288674.9    55.366          STRADDLES ZERO
+  P1.3   -10460.6    -5327.2     157.9       -17.757         STRADDLES ZERO
+  P2.1   -2381.5     -1444.2     -511.8      -1444.236       -
+  P2.2   -1595664.0  -738241.2   17616.3     -1476.482       STRADDLES ZERO
+  P2.3   -1242312.7  -410324.7   338910.0    -3282.598       STRADDLES ZERO
+  P2.4   -1590462.0  -380137.4   332112.1    -4751.717       STRADDLES ZERO
+  P2.5   -46759.2    -25950.5    -9494.5     -1297.524       -
+  P3.1   -8025.5     -2092.7     13797.7     -10.463         STRADDLES ZERO
+  P4.1   -238304.4   -95359.2    130046.4    -476.796        STRADDLES ZERO
+  P5.1   -301.3      -174.5      -145.3      -174.464        -
+  P5.2   -19800.0    -2403.9     157686.7    -2403.948       STRADDLES ZERO
+  P5.3   -227126.9   -76598.3    -6572.4     -76598.255      -
+  P5.4   -1388193.9  -336260.4   -4513.5     -336260.357     -
+  P6.1   -222627.1   -46978.4    116691.8    -234.892        STRADDLES ZERO
+  P7.1   -1568.9     -1237.7     -1144.5     -206.289        -
+
+  ffi - ffi-borrow   open decision 13: positive means the borrowed facade is FASTER
+  id     ns/op lo    ns/op hi    per element   sign
+  P1.1   -1101.3     329.6       6423.6      82.407          STRADDLES ZERO
+  P1.2   -200616.8   63055.4     207892.5    63.055          STRADDLES ZERO
+  P1.3   -8212.2     -13.8       5967.4      -0.046          STRADDLES ZERO
+  P2.1   -577.5      404.0       1157.3      403.960         STRADDLES ZERO
+  P2.2   -203363.6   271609.2    1025338.7   543.218         STRADDLES ZERO
+  P2.3   74837.4     420685.1    1240110.0   3365.480        +
+  P2.4   -1901668.7  553182.9    1778481.8   6914.786        STRADDLES ZERO
+  P2.5   -10947.2    4268.6      39666.7     213.429         STRADDLES ZERO
+  P3.1   -3226.2     3948.4      9963.2      19.742          STRADDLES ZERO
+  P4.1   -93706.0    -13602.2    124157.2    -68.011         STRADDLES ZERO
+  P5.1   -56.0       21.9        151.3       21.871          STRADDLES ZERO
+  P5.2   -16361.5    244.3       17388.3     244.291         STRADDLES ZERO
+  P5.3   -218387.8   -3169.1     150145.7    -3169.117       STRADDLES ZERO
+  P5.4   -150764.5   15058.3     1126465.9   15058.319       STRADDLES ZERO
+  P6.1   -121514.4   -20197.4    201004.4    -100.987        STRADDLES ZERO
+  P7.1   -711.7      76.2        426.1       12.695          STRADDLES ZERO
+
+  ffi - ffi-pull   ABI v1 7.1, the FAMILY question: positive means the pull family is faster than the push family. Both deliver through the same per-slot host code, so this is two deliveries of one traversal
+  id     ns/op lo    ns/op hi    per element   sign
+  P1.1   -2203.4     333.4       6138.2      83.352          STRADDLES ZERO
+  P1.2   -163058.6   19868.9     118839.0    19.869          STRADDLES ZERO
+  P1.3   -11892.0    -1964.7     3259.2      -6.549          STRADDLES ZERO
+  P2.1   -980.5      1060.2      1847.9      1060.211        STRADDLES ZERO
+  P2.2   404842.8    803056.1    1520515.7   1606.112        +
+  P2.3   35679.3     442289.4    1306967.0   3538.316        +
+  P2.4   -526349.3   469362.6    1545798.3   5867.032        STRADDLES ZERO
+  P2.5   15905.3     23890.9     60519.5     1194.547        +
+  P3.1   -3373.4     1158.4      6020.8      5.792           STRADDLES ZERO
+  P4.1   62590.2     119440.9    258370.9    597.205         +
+  P5.1   -58.0       20.9        151.4       20.923          STRADDLES ZERO
+  P5.2   -149226.1   2264.3      20526.1     2264.328        STRADDLES ZERO
+  P5.3   26776.2     79713.0     189017.9    79712.960       +
+  P5.4   211677.3    330012.6    1407033.6   330012.642      +
+  P6.1   140600.8    213154.8    380798.4    1065.774        +
+  P7.1   744.6       941.7       1299.3      156.951         +
+
+  ffi-pull - ffi-pull-walk   what the drain copy costs: positive means reading the records in place is faster. The C# slice estimated this at 12 to 19 percent of a parse; here it is measured
+  id     ns/op lo    ns/op hi    per element   sign
+  P1.1   -721.7      115.4       3507.3      28.851          STRADDLES ZERO
+  P1.2   -116353.6   10739.2     149028.7    10.739          STRADDLES ZERO
+  P1.3   -12097.2    891.8       6581.5      2.973           STRADDLES ZERO
+  P2.1   -714.5      91.0        2028.5      90.978          STRADDLES ZERO
+  P2.2   -367504.0   -43231.7    479800.6    -86.463         STRADDLES ZERO
+  P2.3   -661418.7   34859.2     370279.8    278.873         STRADDLES ZERO
+  P2.4   -2214662.0  57271.6     1012560.6   715.894         STRADDLES ZERO
+  P2.5   -44482.5    1162.9      9537.6      58.143          STRADDLES ZERO
+  P3.1   -3440.1     620.4       4913.1      3.102           STRADDLES ZERO
+  P4.1   -87856.5    8457.1      58658.4     42.285          STRADDLES ZERO
+  P5.1   -17.1       87.8        158.9       87.781          STRADDLES ZERO
+  P5.2   -38564.8    427.8       13572.0     427.843         STRADDLES ZERO
+  P5.3   -138435.6   1922.5      33222.8     1922.488        STRADDLES ZERO
+  P5.4   -206432.4   -2730.8     433198.4    -2730.787       STRADDLES ZERO
+  P6.1   -46159.8    12647.9     94233.3     63.239          STRADDLES ZERO
+  P7.1   -70.2       105.8       329.1       17.628          STRADDLES ZERO
+
+  R - ffi-pull   the architecture question again, against the no-boundary control: positive means the C ABI's pull family beats a generated Java codec, which the push family does on no payload at all
+  id     ns/op lo    ns/op hi    per element   sign
+  P1.1   -3611.8     134.5       1883.0      33.635          STRADDLES ZERO
+  P1.2   -119732.3   64783.5     319512.0    64.784          STRADDLES ZERO
+  P1.3   -16428.6    -7362.6     -4797.7     -24.542         -
+  P2.1   -2454.3     -390.2      484.3       -390.195        STRADDLES ZERO
+  P2.2   -357889.0   93129.6     806588.9    186.259         STRADDLES ZERO
+  P2.3   -370759.3   30671.6     647816.4    245.373         STRADDLES ZERO
+  P2.4   -897443.4   22789.2     890125.3    284.866         STRADDLES ZERO
+  P2.5   -9360.9     -2137.2     22686.9     -106.861        STRADDLES ZERO
+  P3.1   -4986.9     -1149.5     14810.0     -5.747          STRADDLES ZERO
+  P4.1   -35924.5    21860.7     237751.7    109.304         STRADDLES ZERO
+  P5.1   -231.0      -152.1      -100.3      -152.057        -
+  P5.2   -148326.3   278.8       159414.9    278.762         STRADDLES ZERO
+  P5.3   -50946.0    1170.1      75237.5     1170.085        STRADDLES ZERO
+  P5.4   -396450.7   5087.5      409516.4    5087.500        STRADDLES ZERO
+  P6.1   107750.6    166299.2    339188.6    831.496         +
+  P7.1   -513.2      -291.0      -196.8      -48.496         -

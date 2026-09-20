@@ -60,6 +60,13 @@ public final class Native {
   public static native void decErrReset(long ctx);
   public static native void fail(long ctx, int code);
 
+  // ABI v1 7.1's record buffer: the pull family's forward half.
+  public static native void bdrReset(long ctx);
+  public static native long bdrFootprint(long ctx);
+  public static native int bdrReserve(long ctx, long bytes);
+  public static native int bdrPtr(long ctx, long[] out);
+  public static native long bdrDrain(long ctx, long dst, long cap, long[] cursor);
+
   public static native long tcUtf16();
   public static native long tcLatin1();
   public static native long tcBytes();

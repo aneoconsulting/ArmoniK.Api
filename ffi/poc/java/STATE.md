@@ -264,6 +264,55 @@ chunk amortises. **So 10 to 29 percent of an encode, against the published 2 to 
 Rust, C++ and now Java agree, and Java was one of the two slices the decision was waiting
 on.
 
+### ABI v1 7.1's pull family, and decision 2 answered for this host -- `logs/java/decode-pull.log`, `counts.log`
+
+**The family removes the upcalls rather than reducing them, on the host where that is the
+whole question.** Reverse crossings are **zero on every payload in both deliveries**, where
+push makes 3,501 on P2.2. Forward is 2 for the walk delivery whatever the size (parse plus
+`ak_bdr_ptr`) and 1 plus one per 32 KB chunk for the drain. `ak_parse_*` makes no upcall by
+construction, so the wire is handed over under `GetPrimitiveArrayCritical` and never copied
+into native scratch; the shim pushes no callback frame at all, so a future callback cannot
+compile without someone noticing the rule was broken.
+
+**1. Against the incumbent, the M2 decode regression is gone.** Median paired ratio to
+`pbj`:
+
+| payload | `R` | `ffi` push | `ffi-pull` | `ffi-pull-walk` |
+|---|---|---|---|---|
+| P2.1 | 0.747 | 1.311 | 0.947 | 0.923 |
+| **P2.2** | 0.884 | **1.383** | **0.807** | **0.853** |
+| P2.3 | 0.962 | 1.335 | 0.890 | 0.916 |
+| P2.4 | 1.002 | 1.337 | 0.974 | 0.945 |
+| P2.5 | 0.812 | 1.383 | 0.846 | 0.822 |
+| P4.1 | 0.681 | 1.052 | 0.565 | 0.606 |
+| P6.1 | 1.056 | 1.197 | **0.465** | **0.422** |
+| P7.1 | 0.523 | 3.000 | 1.157 | 0.901 |
+
+**2. The paired delta says pull is never slower than push and faster on half the set.**
+`ffi - ffi-pull`, positive meaning pull is faster: a clean sign on **P2.2, P2.3, P2.5,
+P4.1, P5.3, P5.4, P6.1 and P7.1**, and straddling zero on the other eight. **Not one
+payload has an established sign the other way.** On P2.2 it is 1,606 ns per element, which
+against 7.004 upcalls at this machine's 80 ns is the upcalls and then some.
+
+**3. But against the no-boundary control it is a tie, not a win, and that is the honest
+verdict.** `R - ffi-pull` straddles zero on every M2 payload. What moved is that the push
+family LOSES to arm R with a clean sign on P2.1, P2.2, P2.5 and P4.1, and pull loses to it
+nowhere. So the pull family does not make the C ABI beat a generated Java codec on decode;
+it stops the C ABI losing to one. The two exceptions are real and go both ways: **P6.1,
+where pull beats arm R by 831 ns per element with a clean sign**, and P1.3 and P5.1, where
+arm R wins with a clean sign.
+
+**4. The drain copy is not measurable on this host.** `ffi-pull - ffi-pull-walk` straddles
+zero on **all sixteen** payloads. The C# slice estimated the pull family's intermediate at
+12 to 19 percent of a parse on a runtime where the crossing it saves is worth 10 ns; on the
+JVM, where the crossing it saves is worth 80, the copy disappears into the noise. **A host
+that finds the walk delivery awkward can drain and lose nothing measurable**, which is a
+better answer for the specification than either arm alone.
+
+So decision 2, for this host: **the ABI should carry both families, and a JVM binding
+should choose pull.** That is the recommendation the push-only evidence could not support,
+and it is the one result in this slice that changes an architecture rather than a number.
+
 ### Open decision 13, borrowed spans -- `logs/java/decode.log`
 
 **Real on the JVM, and worth about a third of what it is in C++.**
@@ -703,11 +752,22 @@ In the order a fresh session should take them:
    work, for `String.coder` rather than for FFM; runtime capability dispatch is built and
    works; and `sun.misc.Unsafe` being on a removal path with FFM above the floor is the
    constraint that actually matters.
-8. **ABI v1 7.1's pull family is the decode verdict on this host.** Arm R is faster than
-   the C ABI on every M2 payload by 1,163 to 1,806 ns per element (clean sign on three of
-   five), and 560 ns of that is the 7.004 upcalls at this machine's 80 ns. The push family
-   is what makes the C ABI lose on decode here, and the pull family that would fix it is
-   specified and unbuilt in the core.
+8. **ABI v1 7.1's pull family is the decode verdict on this host, and it is now BUILT and
+   measured.** Zero reverse calls on every payload in both deliveries; the M2 regression
+   against protobuf-java is gone (1.31-1.38 push, 0.81-0.97 pull); pull is faster than push
+   with a clean sign on 8 of 16 payloads and slower with a sign on none; and against arm R
+   it is a tie where push lost with a sign on four payloads. **The drain copy does not
+   measure on the JVM** -- all sixteen straddle zero -- against the C# slice's estimate of
+   12 to 19 percent of a parse, so a host that finds the walk delivery awkward loses
+   nothing measurable by draining. Decision 2 for this host: carry both families, and a JVM
+   binding chooses pull.
+   **Two requests follow from building it.** The shared C header does not declare the pull
+   family, because no C or C++ host had reached it; the shim declares `ak_bdr_*` and
+   `ak_parse_*` locally, transcribed from `ak-abi/src/lib.rs`, and that belongs in
+   `cpp_header.py` which this slice does not own. And `ak_bdr_count_forward` is a trap as
+   documented: `ak_bdr_drain` is itself an entry point that bumps `forward`, so a host
+   following the doc comment counts every chunk twice. Either the comment should say it is
+   for a host whose drain is NOT an ABI call, or the call should go.
 9. **README R9 needs rewriting, and the correction already published there needs two
    further changes.** The hazard is real and larger than stated, and four clauses stand: it
    fires on JDK **17** and not 21, its trigger is a read of a Latin-1 String's characters
@@ -748,6 +808,7 @@ In the order a fresh session should take them:
 | `encode.log` | JDK 17, 36 rounds, 12 arms | the encode verdict, and the published regression reconstructed from `pbj-loop` |
 | `encode-take-fix.log` | JDK 17, 36 rounds, 12 arms, after D7 | the same run with `takeBytes` at one crossing and one copy. Kept beside `encode.log`, not in place of it: the fix is below the noise floor and this run drifted harder |
 | `decode.log` | JDK 17, 40 rounds, 4 arms | the decode verdict, and decision 13 |
+| `decode-pull.log` | JDK 17, 40 rounds, 6 arms, the D7 core | ABI v1 7.1's pull family: the M2 regression gone, a clean sign over push on 8 of 16 payloads, a tie against arm R, and a drain copy that does not measure |
 | `delta.log` | JDK 17, 40 rounds, no incumbent | the batching predicate and decision 9, paired |
 | `drift.log` | three neutrally perturbed builds | the drift bar: **0.078**, and which conclusions clear it |
 | `floor.log` | JDK 17 and JDK 8 | README 5.2's three arms, correctness on all three, arm b paired in one process, and two negative controls |

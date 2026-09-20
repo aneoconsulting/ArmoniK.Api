@@ -104,41 +104,66 @@ public static unsafe class Bench
                 Run = n => { for (int i = 0; i < n; i++) Consume(arms.GpMarshaller(mw)); },
             });
 
-            // The core-ffi arm, M1 only: ResultRaw is the only element type whose
-            // binding is built. Widening it is the next piece, not a measurement.
+            // The core-ffi arm, for every payload whose root has a binding --
+            // which since the emitter was generalised is every one of them. The
+            // arm is built from the same derivation as the ABI declaration, so
+            // a shape cannot be measured with a binding that does not match it.
+            //
+            // The shapes differ in the one way that matters: a LEAF element
+            // batches, so M1's whole run crosses once whatever its length, and a
+            // non-leaf cannot, so M2's crossings are linear in the element count.
+            // That difference is the measurement, not an inefficiency.
 #if NET8_0_OR_GREATER
-            CoreFfiM1 core = null;
-            ListResultsResponse coreSrc = null;
-            if (a.Root == "ListResultsResponse")
+            if (CoreArms.Ids.Contains(a.Id))
             {
-                coreSrc = a.Id switch
+                var core = CoreArms.New(a.Id);
+                // AK_CHUNK sets elements per element-entry call; 0 is the whole
+                // run. The rust slice's host chunks at 150, and matching it
+                // reproduces its crossing counts to the digit.
+                var ck = Environment.GetEnvironmentVariable("AK_CHUNK");
+                if (!string.IsNullOrEmpty(ck) && int.TryParse(ck, out int ckv)) core.Chunk = ckv;
+                var warm = core.EncodeToArray();     // learn the length widths
+                cases.Add(new Case
                 {
-                    "P1.1" => BuildFacade.P1_1(), "P1.2" => BuildFacade.P1_2(),
-                    "P1.3" => BuildFacade.P1_3(), _ => null,
-                };
-                if (coreSrc != null)
+                    Payload = a.Id, Dir = "encode", Arm = "core-ffi",
+                    Run = n => { for (int i = 0; i < n; i++) Consume(core.EncodeNoCopy()); },
+                });
+                // Everything the encode arm does EXCEPT calling the codec, so the
+                // difference between the two is the codec plus every crossing,
+                // measured rather than subtracted.
+                cases.Add(new Case
                 {
-                    core = new CoreFfiM1(coreSrc.Results.Count + 1, row.Bytes * 3 + 65536);
-                    // AK_CHUNK sets elements per ak_elem_* call. 0 is the whole run.
-                    // The Rust slice's host chunks at 150; matching it reproduces its
-                    // crossing counts to the digit, so this is also what prices the
-                    // difference on a runtime whose crossing is 4x Rust's.
-                    var ck = Environment.GetEnvironmentVariable("AK_CHUNK");
-                    if (!string.IsNullOrEmpty(ck) && int.TryParse(ck, out int ckv)) core.Chunk = ckv;
-                    var warm = core.EncodeToArray(coreSrc);   // learn the length widths
-                    var c2 = core; var cs2 = coreSrc;
-                    cases.Add(new Case
-                    {
-                        Payload = a.Id, Dir = "encode", Arm = "core-ffi",
-                        Run = n => { for (int i = 0; i < n; i++) { c2.Encode(cs2, out byte* p, out int l); Consume(l); } },
-                    });
-                    var wsrc = warm;
-                    cases.Add(new Case
-                    {
-                        Payload = a.Id, Dir = "decode", Arm = "core-ffi",
-                        Run = n => { for (int i = 0; i < n; i++) Consume(c2.Decode(wsrc, wsrc.Length).Results.Count); },
-                    });
-                }
+                    Payload = a.Id, Dir = "encode", Arm = "core-ffi fill",
+                    Run = n => { for (int i = 0; i < n; i++) Consume(core.Fill()); },
+                });
+                cases.Add(new Case
+                {
+                    Payload = a.Id, Dir = "decode", Arm = "core-ffi",
+                    Run = n => { for (int i = 0; i < n; i++) Consume(core.Decode(warm, warm.Length)); },
+                });
+                // ABI v1 7.1's PULL family. `ak_parse_*` makes no reverse call at
+                // all: it appends a record per deposit and the host replays the
+                // buffer afterwards. design/ABI-v1.md decision 2 says four of the
+                // five slices have only measured push, so every decode figure in
+                // the branch is a push figure. This is the managed pull arm.
+                cases.Add(new Case
+                {
+                    Payload = a.Id, Dir = "decode", Arm = "core-ffi pull",
+                    Run = n => { for (int i = 0; i < n; i++) Consume(core.Pull(warm, warm.Length)); },
+                });
+                // The other string form ABI v1 section 4 offers: hand the core the
+                // host's own UTF-16 and let ak_tc_utf16 convert, against staging
+                // UTF-8 in the host and letting ak_tc_bytes copy. Both transcoders
+                // are pointers INTO the core, so neither costs a crossing; what
+                // differs is which side does the conversion.
+                var u16 = CoreArms.New(a.Id, utf16: true);
+                if (!string.IsNullOrEmpty(ck) && int.TryParse(ck, out int ckv2)) u16.Chunk = ckv2;
+                u16.EncodeToArray();
+                cases.Add(new Case
+                {
+                    Payload = a.Id, Dir = "encode", Arm = "core-ffi utf16",
+                    Run = n => { for (int i = 0; i < n; i++) Consume(u16.EncodeNoCopy()); },
+                });
             }
 #endif
 
