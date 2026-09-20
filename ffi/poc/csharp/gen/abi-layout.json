@@ -8,6 +8,18 @@
     "ak_efix_ListResultsResponse": { "size": 12, "align": 4, "fields": { "page": 0, "total": 4, "presence": 8 } },
     "ak_dfix_Timestamp": { "size": 16, "align": 8, "fields": { "seconds": 0, "nanos": 8, "presence": 12 } },
     "ak_dfix_ResultRaw": { "size": 128, "align": 8, "fields": { "session_id": 0, "name": 12, "owner_task_id": 24, "status": 36, "created_at": 40, "completed_at": 56, "result_id": 72, "size": 88, "created_by": 96, "opaque_id": 108, "manual_deletion": 120, "presence": 124 } },
-    "ak_dfix_ListResultsResponse": { "size": 12, "align": 4, "fields": { "page": 0, "total": 4, "presence": 8 } }
+    "ak_dfix_ListResultsResponse": { "size": 12, "align": 4, "fields": { "page": 0, "total": 4, "presence": 8 } },
+    "ak_efix_Duration": { "size": 16, "align": 8, "fields": { "seconds": 0, "nanos": 8, "presence": 12 } },
+    "ak_efix_TaskOptionsOptionsEntry": { "size": 56, "align": 8, "fields": { "key": 0, "value": 24, "presence": 48 } },
+    "ak_efix_TaskOptions": { "size": 176, "align": 8, "fields": { "max_duration": 0, "max_retries": 16, "priority": 20, "partition_id": 24, "application_name": 48, "application_version": 72, "application_namespace": 96, "application_service": 120, "engine_type": 144, "presence": 168 } },
+    "ak_efix_TaskOutput": { "size": 40, "align": 8, "fields": { "success": 0, "error": 8, "presence": 32 } },
+    "ak_efix_TaskDetailed": { "size": 616, "align": 8, "fields": { "id": 0, "session_id": 24, "owner_pod_id": 48, "status": 72, "status_message": 80, "options": 104, "created_at": 280, "submitted_at": 296, "started_at": 312, "ended_at": 328, "pod_ttl": 344, "output": 360, "pod_hostname": 400, "received_at": 424, "acquired_at": 440, "creation_to_end_duration": 456, "processing_to_end_duration": 472, "initial_task_id": 488, "received_to_end_duration": 512, "processed_at": 528, "fetched_at": 544, "payload_id": 560, "created_by": 584, "presence": 608 } },
+    "ak_efix_ListTasksDetailedResponse": { "size": 12, "align": 4, "fields": { "page": 0, "total": 4, "presence": 8 } },
+    "ak_dfix_Duration": { "size": 16, "align": 8, "fields": { "seconds": 0, "nanos": 8, "presence": 12 } },
+    "ak_dfix_TaskOptionsOptionsEntry": { "size": 28, "align": 4, "fields": { "key": 0, "value": 12, "presence": 24 } },
+    "ak_dfix_TaskOptions": { "size": 104, "align": 8, "fields": { "max_duration": 0, "max_retries": 16, "priority": 20, "partition_id": 24, "application_name": 36, "application_version": 48, "application_namespace": 60, "application_service": 72, "engine_type": 84, "presence": 96 } },
+    "ak_dfix_TaskOutput": { "size": 20, "align": 4, "fields": { "success": 0, "error": 4, "presence": 16 } },
+    "ak_dfix_TaskDetailed": { "size": 432, "align": 8, "fields": { "id": 0, "session_id": 12, "owner_pod_id": 24, "status": 36, "status_message": 40, "options": 56, "created_at": 160, "submitted_at": 176, "started_at": 192, "ended_at": 208, "pod_ttl": 224, "output": 240, "pod_hostname": 260, "received_at": 272, "acquired_at": 288, "creation_to_end_duration": 304, "processing_to_end_duration": 320, "initial_task_id": 336, "received_to_end_duration": 352, "processed_at": 368, "fetched_at": 384, "payload_id": 400, "created_by": 412, "presence": 424 } },
+    "ak_dfix_ListTasksDetailedResponse": { "size": 12, "align": 4, "fields": { "page": 0, "total": 4, "presence": 8 } }
   }
 }
