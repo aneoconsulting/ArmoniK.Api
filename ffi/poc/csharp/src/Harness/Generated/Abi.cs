@@ -108,6 +108,23 @@ public struct ak_dfix_ListResultsResponse
     [FieldOffset(8)] public uint presence;
 }
 
+/// The core's own counters. **This is the convention the cross-language table uses**
+/// (R5): `forward` is every `extern "C"` entry point the host called, `reverse` is
+/// every function pointer the core invoked INCLUDING transcoders. A host-side tally is
+/// not the same quantity and the two must not be compared -- which is exactly the
+/// discrepancy this slice reported against the Rust slice, and reading the core's
+/// counters is how it is resolved rather than negotiated.
+[StructLayout(LayoutKind.Sequential)]
+public struct AkCounters
+{
+    public ulong forward;
+    public ulong reverse;
+    public ulong transcode;
+    public ulong prefix_moves;
+    public ulong prefix_bytes;
+    public ulong grows;
+}
+
 /// ABI v1 section 6: what a host calls in the codec are PLAIN EXPORTS, not a table, so
 /// the host declares the symbols it uses and a missing one is a load failure rather
 /// than a null slot found at the wrong moment.
@@ -183,6 +200,22 @@ public static unsafe partial class Abi
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
     internal static partial int ak_decode_ListResultsResponse(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListResultsResponse* vt);
+
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial void ak_enc_counters(IntPtr ctx, AkCounters* outp);
+
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial void ak_enc_counters_reset(IntPtr ctx);
+
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial void ak_dec_counters(IntPtr ctx, AkCounters* outp);
+
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial void ak_dec_counters_reset(IntPtr ctx);
 
 }
 
