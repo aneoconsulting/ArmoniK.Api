@@ -1400,3 +1400,327 @@ reproduces almost exactly**: 2.17–3.37 times its own ASCII cost against a publ
 Same measurement, same session, two forms; the cross-arm ratio drifted and the within-arm
 delta held. That is R4's new half demonstrated rather than argued, and it is the argument for
 writing findings as deltas wherever the question allows it.
+
+---
+
+## Work unit: the pull decode family (ABI v1 section 7.1, open decision 2)
+
+### What I expected, and it was wrong
+
+The slice's own next-step list had this as "turn 'push is the right default at 1.8 ns' from
+an argument into a measurement", and I went in expecting to confirm it: a family that trades
+reverse calls for a materialisation should lose on a host whose reverse call is 1.8 ns.
+Measured over six runs in two suite invocations, **pull is 0.94 to 1.18 of push and it is at
+or below push on nine of twelve payloads**, including every M2 shape. The prediction was
+wrong and the reason is that a push reverse call costs this host more than a crossing: it
+goes through a vtable slot reached from across the shared object, while the replay's
+equivalent is a local call over a buffer already in L2.
+
+### The thing I had to check before believing it
+
+A replay is host code calling host code, so rustc may inline `apply_*` and `add_*` into it;
+a push callback never can be. That is R5's second half in a new guise, and subtracting the
+families without checking it would have charged an optimiser difference to the interface.
+So `core-ffi-pull-opaque` runs the identical replay with every call through a `black_box`ed
+function pointer. **It measures the same as the plain walk arm on every payload.** The
+parity is not inlining. Had I not built that arm the headline would have been defensible
+only until the first review.
+
+### What travels, and it is not the nanoseconds
+
+Push's crossings are per element, pull's are per message: **3,501 reverse calls against 16
+forward ones on P2.2**, or 3 if the host drains in one chunk, and 3 is the floor for every
+payload in the set. That is a property of the descriptor, final under R13, and it is what a
+host paying 80 ns an upcall re-prices.
+
+### The control I did not plan and would keep
+
+A record is written exactly where push makes a reverse call, by construction, so the two
+counts must be equal. They are, to the digit, on all thirteen counted payloads. That single
+line is stronger evidence that one traversal emitter serves both families than the correctness
+gate is: byte identity says the two arms agree on the answer, and the count says they agree on
+the *structure*. It also cost nothing — the records were already being counted.
+
+### Where pull loses, the byte table answered it and the clock did not
+
+P1.3 (+5 to +13%) and P6.1 (+8 to +18%) are the two losing rows, and I was about to write
+"the absent path is worse for reasons unknown" when the footprint table gave it away: on P1.3
+the record stream is **63.6 times the wire**, 38,488 B for a 605 B message, because a record
+carries the whole fixed group of an element that encodes to nothing. Every payload whose
+record-to-wire ratio is below 1 is at or under push. So pull's cost tracks the sparseness of
+the element, not the size of the payload.
+
+## Work unit: the concurrency suite (obligation 12.5)
+
+### The first version found nothing, and it was the suite's fault
+
+I ran the throughput arms on P1.3 and P2.5 — one M1 shape and one M2 shape — and the
+per-context and process-global width tables measured the same. They are different messages,
+so they index **disjoint length-prefix sites**, and a shared table is shared in name only.
+Swapping to P1.1 and P1.3, both M1, made the same site want 2 bytes and then 1, and the
+ranges separated at two threads and stayed separated at four. The old pair is now the
+control row rather than deleted, because "different sites, same cache lines, no penalty" is
+the statement that makes the other row mean true sharing.
+
+That is the slice's standing question in its other form: not "is the change in the build"
+but "is the arm doing the thing its name says". I then counted it rather than arguing it —
+a warm context on one shape misses zero prefixes, the alternating pair misses exactly one
+per encode.
+
+### The positive control took three attempts and the third one is the finding
+
+Plan A was to share one encode context across threads in-process and count wrong bytes. It
+panicked. Plan B caught the panic with `catch_unwind` and counted panics. It aborted anyway:
+the panic is raised on the far side of an `extern "C"` frame, the unwind is refused there,
+and `catch_unwind` in the host never gets the chance. Plan C runs the control in a child
+process and reads the verdict from its exit status.
+
+**The third attempt is worth more than the control.** A shared context is not detected as
+wrong bytes; it aborts the process. Which means ABI v1 section 5's error channel — which the
+specification already calls the widest hole in the drafted interface — covers a failure the
+*host* reports and has nothing at all for a panic inside the core, and every codec entry
+point is exposed to that, not only a misused one.
+
+### And the width table's correctness exposure is nil
+
+Reading `Enc::end` while writing the global arm: `Mark` carries its width by value, so a
+wrong learned width is always resolved correctly and costs a memmove. A global table is
+therefore a throughput hazard and never a correctness one. That is why the global arm could
+be built at all as a comparable arm, and it is also why section 6's sentence is about
+threads rather than about bytes.
+
+## Work unit: `ak_init` and the lifecycle (section 3)
+
+### Two cases failed and both failures were the specification working
+
+`panic-hook` failed first because I panicked in *host* code and expected the core's hook to
+fire. It does not: a cdylib carries its own copy of `std`, so the core's hook and the host's
+hook are two different globals. Section 3 warns about exactly that mechanism one level up
+("two copies of the staticlib in one process either share Rust's globals or split-brain them
+with no warning"); here it is `std`'s globals, and the split is the reason the hook is worth
+installing rather than a defect. Testing it needed a panic *inside* the core, so the core now
+has `ak_panic_test`, and the case's verdict is "the host's sink got the message before the
+process aborted" — which is the whole of what the hook buys.
+
+`codec-after-init` failed second, with `AK_ERR_INVALID_STATE` and `AK_DETAIL_OPTS_DIFFER`,
+because the case called `ak_init` with one flag set and `Ctx::new()` then called it with
+another. That is section 3's "a second call with different options fails", working. It is
+also a consequence the specification does not spell out: **the flags are a process-wide
+negotiation and the first caller wins**, so two independent components in one process cannot
+both choose, and the second gets a hard failure for asking rather than the first's settings.
+Two hosts loading one shared library is the normal case. It is now a case of its own
+(`two-components`) rather than a fixed test.
+
+### The guard is behind a feature on purpose
+
+"Every entry point requires `ak_init`" is a claim with a price on the hot path, and no slice
+had quoted it. Emitting the check unconditionally would have changed every slice's build and
+made the price unmeasurable at the same time. Behind `init-guard` the default build is
+byte-for-byte what it was and the two builds are the measurement. The check itself is
+emitted as a post-pass over the finished codec text rather than at each of the ten places an
+entry point is written, for the D12/D13 reason: a rule applied at nine sites out of ten is
+the defect this generator keeps producing.
+
+### The guard's price took three attempts, and the first two failed their own controls
+
+I expected this to be the cheapest measurement of the session and it was the most expensive,
+because the effect is small enough that the method kept being the thing I was measuring.
+
+**Attempt 1, two builds with `bench` in each.** R4 says a comparison that cannot share a
+process carries an in-process control, so the control is `core-native`: no guard in either
+build, therefore it must not move. It moved by up to 30 percent — P1.3 encode 0.535-0.553 of
+prost in one build and 0.367-0.387 in the other. I then tried re-expressing it as the
+within-build ratio `core-ffi-rust / core-native`, which is R4's sharpened form, and that does
+not save it either: the denominator is the thing that moved. **A ratio whose control moved is
+not a figure**, so the run is in the log as evidence for the refusal rather than as a number.
+
+I also lost the first attempt at that run to two `bench` processes overlapping on the box,
+which is README section 11 word for word: "two benchmarks on one box corrupt each other
+silently: the numbers still come out". `gen/guardprice.sh` now refuses to start if anything
+else is benchmarking.
+
+**Attempt 2, one process, `ak_noop` against `ak_noop_guarded`.** It reported the guarded
+crossing as 0.71 ns *cheaper*. A load and a branch cannot make a call cheaper, so the arm had
+the wrong sign — and by this slice's own standing rule that means the effect is under the
+noise and I have not measured the noise.
+
+**Attempt 3 measures the noise.** `ak_noop2` is a twin: same body, no guard, so it must read
+zero against `ak_noop`. It reads **0.70 ns**, at a crossing of 2.1 ns. Two exported functions
+with identical bodies are not the same cost — different address, different cache line,
+different PLT slot — and **which one draws the penalty is not stable across builds**: attempt
+2's binary had no twin and put it on `ak_noop`, which is exactly what made the guard look
+like it cost 0.70 ns. With the twin present the guarded arm sits within 0.003 ns of it on
+every run. So the answer is a bound and not a value: `|guard| < 0.70 ns per crossing, ~0
+directly`.
+
+**What I would keep from this.** The rule I already knew — an arm with the wrong sign means
+the effect is under the noise — does not by itself tell you what to do next. What to do next
+is *add an arm that must read zero*. That is the same device as `core-native-opaque` and as
+the concurrency suite's planted violation, pointed at the measurement rather than at the code,
+and it turned an unusable number into a statement with a number attached to its own
+uncertainty.
+
+## Work unit: the aggregating session's ruling, and what the cpp slice's log changed
+
+The ruling approved both feature gates and told me to read `logs/cpp/concurrency.log`
+before designing any more planted builds, because section 6 had been rewritten and the old
+text would lead me to build the wrong suite. It did, and my suite was the wrong one in two
+specific ways.
+
+### Section 6's two refusals are independent, and I had only built half of one
+
+The old text ran "the table lives in the context, never process-global" and "do not pad the
+prefix" together. The cpp slice separated them and the rewritten section says: a global
+table is a data race and a **throughput** defect and **not** a byte defect, because an
+unpadded prefix is rewritten to whatever width the body actually needs; padding IS the byte
+defect; and **only the combination** corrupts in the way a naive suite cannot see.
+
+I had reached the first half independently — reading `Enc::end`, `Mark` carries its width by
+value, so a wrong learned width costs a memmove and never a wrong byte — and that is why my
+global arm was a throughput arm. What I had not built was the padding plant, so **my suite
+had never produced a wrong byte at all**. Its only plant was the shared context, which
+aborts. A suite whose failing test is "the process dies" has not shown that the byte
+comparison works.
+
+Now four builds, with the must-pass and must-fail in the script: shipped 0, global 0, pad 10,
+pad+global 1,410.
+
+### The oracle was the code under test, which is the mistake the combination exists to punish
+
+My reference was a re-encode with a fresh `core-ffi` context. Section 6 says that cannot
+catch the combination, because the threads agree with each other. I could have taken that on
+authority; instead I ran both oracles over the same encodes and printed both columns:
+
+    build                    vs prost   vs a fresh core-ffi context
+    shipped                         0                            0
+    pad-widths                      4                            4
+    global + pad                    4                            0   <-- blind
+
+A "fresh" context is only fresh in the state that is per-context. With a global table it
+reads the same pollution, pads the same way, and agrees. That is now section 1b of the
+suite, and it costs nothing on the builds that must pass — both oracles report zero.
+
+### Where my throughput number sits, and why it is not a contradiction
+
+Mine is 1.005-1.070 at two threads and 1.054-1.109 at four; cpp got 1.83-2.05 contended and
+java 1.32-2.23. The cpp slice's own refinement resolves it: the cost tracks how often the
+table is **written**, and its read-mostly leg is 1.13-1.23 with no scaling loss at all. My
+pair writes the table **exactly once per encode** — counted, not assumed: the learned width
+converges within an encode, the first element misses and the remaining 3 or 299 hit. So I am
+on the same curve at a lower write rate. Three hosts, one sign, a magnitude that is a
+function of the write rate.
+
+### The regen turned out to be nothing, which is itself worth having checked
+
+I expected to regenerate cpp, java and csharp. `gen/generate.py --check` reports **0 stale in
+all four slices**: the other generators reproduce the committed `codec.rs` and `abi.rs`
+exactly, because it is one emitter over one description with one ROOTS list. csharp does not
+write the core at all. What they need is a rebuild, not a regeneration — and the ABI gained
+20 entry points and lost none, so their gates should be untouched.
+
+### The one place I did not follow the ruling literally
+
+"If it is free, leave it on" — the guard measured free, so it is on. But turning it on in
+`ak-core`'s own defaults would turn it on for cpp and java, whose hosts do not call
+`ak_init`, and every call would return `AK_ERR_UNINITIALIZED`. That is a change that needs
+more than a regeneration in trees I may not edit, which is the case the ruling says to stop
+and report. So it is on in this slice's defaults and off in the core's, and the report says
+what one line each host needs.
+
+### The pattern, not the incident: an oracle that is the code under test
+
+The aggregating session points out that "the reference was the code under test" is now the
+third instance in this branch in two days — the cpp slice hit it on its concurrency
+reference and again on its validator, and I hit it on mine. Worth recording as a class
+rather than three accidents.
+
+**The shape it takes.** You need a known-good answer. The thing nearest to hand that
+produces answers is the encoder you are testing, so you run it in a configuration you
+believe is clean — a fresh context, a single thread, a first call — and treat that as the
+oracle. It works, and it keeps working, right up until the defect lives in state that your
+"clean" configuration shares. Then the oracle moves with the thing it is checking and the
+suite reports zero.
+
+**Why it is so hard to see from inside.** The oracle is not obviously the code under test.
+Mine was a *fresh context*, which is the word that does the damage: fresh sounds like
+independent. It is only fresh in the state that is per-context, and the whole point of the
+defect was a table that is not. The cpp slice's was the same word wearing different clothes.
+
+**The rule that would have caught it without knowing the defect in advance**: an oracle must
+not share an implementation with the thing it checks — not a "clean instance" of it, not a
+"fresh" one, not a first call. Different code, ideally a different author. This slice had
+one sitting there the whole time: `prost`, a different codec over a different object graph,
+already checked against the validated manifest by stage 2. Switching to it cost four lines
+and zero measurement (both oracles report 0 where there is nothing to find).
+
+**And the general form of the tell.** A planted defect that the suite does not catch is the
+obvious signal, but it requires having planted it. The cheaper tell is the one this branch
+keeps rediscovering in other guises: **if an arm and its control can be wrong in the same
+direction, the control is not one.** That is the same sentence as R5's "an arm named 'no
+boundary' is only a control if it is not fused into the loop", and as the twin that had to be
+added to measure the guard. Three faces of one rule.
+
+## Work unit: the content sets on every payload, and D20
+
+I put this last because it was the lowest-value item on the list. It found the worst defect
+of the session on its first run, and not the defect it was aimed at.
+
+### What it reported, and why the first reading was wrong
+
+P3.1 disagreed on latin1 and wide and agreed on ascii. That reads like a string-path defect,
+and I nearly wrote it up as one. It is not: **ASCII reproduces it**. What the extension
+actually changed was the ORDER in which payloads share one encode context — the old
+`content.rs` ran M1 and M2 only, and every other binary built its values so that the M5 cases
+came last.
+
+### The mechanism
+
+`String::new().as_ptr()` is `0x1`. `AK_STR_DIRECT` is `0x1`. `<[u8]>::as_ptr()` on an empty
+slice returns the type's dangling-but-aligned pointer, and for `u8` that is the address 1,
+which is the sentinel ABI v1 section 8 reserves for "these bytes are an argument of the call".
+So every empty string and every empty bytes field was taking the direct-argument path.
+
+**And it produced the right bytes.** On a context that has never encoded a direct-argument
+message, `direct_len` is 0, so the direct path writes a zero-length field, which is exactly
+what an empty field should be. Stage 1 through stage 5, every arm, every payload, every
+content set: green. The wrong path was indistinguishable from the right one until something
+put a non-zero `direct_len` in the context first.
+
+### The thing I want to remember
+
+R6 says a payload generator that fills every field cannot reach the absent path. True, and
+this slice has three defects that prove it. But **there are three cases, not two**: absent,
+present-and-empty, present-and-non-empty. The absent path has a rule and a payload (P1.3,
+P2.5). The present-and-empty path has neither — it exists in this schema only because M3's
+`opt_label` is an explicit-presence field that happens to be set to `""` in 21 of 200 probes,
+and that is an accident of the value generator rather than a designed vector. P1.3 does NOT
+catch D20, because its strings are absent and never reach `enc_blob` at all.
+
+The second half is a rule about state rather than about values: **a defect can live in
+per-context state that only ONE message type ever writes.** Every gate in this slice built
+its values fresh and its contexts fresh, or reused a context within one message type. Nothing
+crossed. The corpus (README section 10) asks for distinct tags and multiple chunks; it does
+not ask for a sequence across message types on one context, and after this it should.
+
+### Where the fix went, and what I did not fix
+
+The defect is the HOST's: the core behaves exactly as section 8 specifies, and it is the
+binding that must not hand it a data pointer of 1 for a non-direct field. `str_arg` and a new
+`blob_arg` route through `data_of`, which emits null for an empty slice — legal, because the
+ABI discriminates absent from empty by `tc` and not by `data`.
+
+What I did not fix is the hazard: **section 8 chose a sentinel from a range a legal empty
+buffer can occupy**, and nothing in the specification warns a binding author. That is an ABI
+decision and it belongs to the aggregating session. The other four slices' bindings have not
+been checked for the same collision and I cannot check them.
+
+### And the measurement the pass was actually for
+
+It came out clean and slightly more interesting than expected. "The content set changes no
+decode verdict" now holds on eleven payloads instead of two, with prost moving as much as the
+core arms or more everywhere. The magnitude is new: the ratio to prost moves by up to 0.28 on
+a decode row. And there is exactly one sign change in the whole table — P2.4 encode goes
+1.120 (a loss) on ascii to 0.766 (a win) on wide, on the payload built to defeat the learned
+width. The payload constructed to be hostile to the mechanism is also the one whose verdict
+is most content-dependent, which is tidy and which nobody could have seen while it was only
+ever run on ASCII.

@@ -200,6 +200,23 @@ path, where they are named in the table rather than assumed:
 A slice that reports one string-path number without saying which content set it
 came from has reported half a number.
 
+**And the halves are not the same size: the set moves encode by an order of
+magnitude and barely moves decode.** Measured on P1.2 in C++, the C ABI against
+protobuf C++ runs **0.988, 0.167, 0.114** on ASCII, Latin-1 and wide for
+**encode**, and 0.656, 0.671, 0.546 for **decode**, with no payload's decode
+ratio moving more than about 0.15. So an encode figure taken on ASCII alone is
+not a figure about the string path at all, while a decode figure survives being
+read without its set. Both still name their set; the encode one is the number
+that changes meaning without it.
+
+**A like-for-like encode comparison on a non-ASCII set needs the validating arm.**
+protobuf C++ validates UTF-8 when it *serialises* — 37 unconditional
+`VerifyUtf8String(..., SERIALIZE)` sites in its generated code — and ABI v1
+decision 3 says the core does not. So most of that encode movement is a policy
+difference rather than codec speed, and quoting the core against the incumbent
+alone would report one as the other. With the validating transcoder in the table
+the core is at parity on ASCII and about twice as fast on Latin-1 and wide.
+
 **What these sets price is not the same thing in every host, and a column must
 not be read across.** On .NET and the JVM the host holds UTF-16, so they make a
 *narrowing transcoder* do real work or fail. A Rust `String` is already UTF-8, so
@@ -230,6 +247,53 @@ payload (P2.2), against that language's gRPC incumbent, over loopback:
 - the crossing count per RPC (it should be two, not a function of field count);
 - whether the language's idiomatic wait (a `Task`, a `CompletableFuture`, a
   coroutine, a blocking call) can be satisfied without pinning a carrier thread.
+
+**Every slice measures against its own language's gRPC stack, end to end.** A
+marshaller arm is not an RPC arm: calling `ProtoLiteUtils` or a `SerializationContext`
+measures the codec path gRPC drives, which R14 asks for separately, and says nothing
+about the transport. The comparison the report needs is the host's real gRPC client
+against the core's, carrying P2.2.
+
+**Prefer a Unix domain socket, with loopback TCP as a labelled second row.** A UDS
+removes the TCP/IP stack from both arms equally, which is kernel time neither
+implementation is responsible for and which varies with the machine. All five stacks
+support it: `unix:` targets in grpc++ and grpcio, a `UnixStream` connector in tonic,
+netty domain sockets in grpc-java, and `UnixDomainSocketEndPoint` behind a
+`SocketsHttpHandler` connect callback on .NET.
+
+**It does not rescue R9's hazard, because that hazard is HTTP/2's and not TCP's —
+but the hazard is a property of one stack's DEFAULT rather than of the protocol, and
+the earlier wording here was wrong about that.** 65,535 octets is the *initial*
+stream window RFC 9113 mandates, and a window that is full throttles the sender until
+`WINDOW_UPDATE` arrives; it never caps a message. Where each stack goes from there
+differs, and it decides whether a wall-clock column is measuring the codec:
+
+| stack | initial stream window | auto-tuning |
+|---|---|---|
+| tonic / hyper (the rust slice's) | 65,535 | **off by default** |
+| grpc-java (Netty) | **1 MiB** (`DEFAULT_FLOW_CONTROL_WINDOW`) | **BDP, on by default since 1.30**; calling `flowControlWindow(int)` turns it off |
+| .NET `SocketsHttpHandler` (what `Grpc.Net.Client` rides) | 65,535 | **dynamic sizing on by default**, to a 16 MiB cap |
+
+So a 540 KB P2.2 response fits inside grpc-java's default window with no stall at all,
+and stalls repeatedly on tonic's. **Each RPC arm states its stream and connection
+window and whether auto-tuning is on**, in its configuration line, because two slices
+that do not are not measuring the same thing.
+
+**And every arm pins the same configuration, which is ArmoniK's rather than the
+stack's** — R14 applied to the transport. From the core's current settings: **2 MiB
+chunking** for upload and download, and a **4 MiB stream window**, sized to the
+largest message the stack accepts by default so that one maximum-size message crosses
+without a `WINDOW_UPDATE` round trip. P2.2's 540 KB is then comfortably inside one
+window in every arm, which is what makes the arms comparable.
+
+Two traps in pinning it. **The connection window is a separate setting from the stream
+window** in every stack here (grpc-java's `flowControlWindow` sets
+`SETTINGS_INITIAL_WINDOW_SIZE`, which is per stream; tonic and hyper take the two
+separately), so raising only the stream window leaves the connection at 65,535 and
+changes nothing. And **pinning a window turns BDP auto-tuning off** in grpc-java, so
+the pinned arm is not the default arm: the pinned one is the headline and the stack
+default is a labelled second row. CPU per RPC stays the headline over both, and wall
+clock is reported beside it or not at all.
 
 **Not in the RPC arm, and listed as not measured**: streaming, TLS, a real
 network, failure injection, the server side. Streaming is where the concurrency

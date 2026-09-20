@@ -393,11 +393,11 @@ static void dec_timestamp(ak::Dec *d, Timestamp *out) {
     switch (tag) {
       case 1: if (wire == 0) {
         out->seconds = (int64_t)d->varint();
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 2: if (wire == 0) {
         out->nanos = (int32_t)d->varint();
-        break; } else { d->skip(wire); break; }
-      default: d->skip(wire); break;
+        break; } else { d->skip(tag, wire); break; }
+      default: d->skip(tag, wire); break;
     }
   }
 }
@@ -411,11 +411,11 @@ static void dec_duration(ak::Dec *d, Duration *out) {
     switch (tag) {
       case 1: if (wire == 0) {
         out->seconds = (int64_t)d->varint();
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 2: if (wire == 0) {
         out->nanos = (int32_t)d->varint();
-        break; } else { d->skip(wire); break; }
-      default: d->skip(wire); break;
+        break; } else { d->skip(tag, wire); break; }
+      default: d->skip(tag, wire); break;
     }
   }
 }
@@ -431,55 +431,55 @@ static void dec_result_raw(ak::Dec *d, ResultRaw *out) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->session_id);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 2: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->name);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 3: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->owner_task_id);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 4: if (wire == 0) {
         out->status = ResultStatus((int32_t)d->varint());
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 5: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         Timestamp &dst_ = out->created_at.emplace();
         dec_timestamp(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 6: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         Timestamp &dst_ = out->completed_at.emplace();
         dec_timestamp(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 8: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->result_id);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 9: if (wire == 0) {
         out->size = (int64_t)d->varint();
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 10: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->created_by);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 11: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         out->opaque_id.assign((const char *)(d->buf + off), n);
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 12: if (wire == 0) {
         out->manual_deletion = (d->varint() != 0);
-        break; } else { d->skip(wire); break; }
-      default: d->skip(wire); break;
+        break; } else { d->skip(tag, wire); break; }
+      default: d->skip(tag, wire); break;
     }
   }
 }
@@ -507,7 +507,7 @@ static void dec_task_options(ak::Dec *d, TaskOptions *out) {
             int32_t rc = ak::decode_str(sub.buf + a, b, &v_);
             if (rc != 0) { d->err = rc; return; }
           } else {
-            sub.skip(ew);
+            sub.skip(et, ew);
           }
         }
         if (sub.err != 0) { d->err = sub.err; return; }
@@ -517,51 +517,51 @@ static void dec_task_options(ak::Dec *d, TaskOptions *out) {
 #else
         out->options[k_] = v_;
 #endif
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 2: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         Duration &dst_ = out->max_duration.emplace();
         dec_duration(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 3: if (wire == 0) {
         out->max_retries = (int32_t)d->varint();
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 4: if (wire == 0) {
         out->priority = (int32_t)d->varint();
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 5: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->partition_id);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 6: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->application_name);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 7: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->application_version);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 8: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->application_namespace);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 9: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->application_service);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 10: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->engine_type);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
-      default: d->skip(wire); break;
+        break; } else { d->skip(tag, wire); break; }
+      default: d->skip(tag, wire); break;
     }
   }
 }
@@ -575,13 +575,13 @@ static void dec_task_output(ak::Dec *d, TaskOutput *out) {
     switch (tag) {
       case 1: if (wire == 0) {
         out->success = (d->varint() != 0);
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 2: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->error);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
-      default: d->skip(wire); break;
+        break; } else { d->skip(tag, wire); break; }
+      default: d->skip(tag, wire); break;
     }
   }
 }
@@ -597,17 +597,17 @@ static void dec_task_detailed(ak::Dec *d, TaskDetailed *out) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->id);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 2: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->session_id);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 3: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->owner_pod_id);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 4: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
 #if AK_CXX17
@@ -619,7 +619,7 @@ static void dec_task_detailed(ak::Dec *d, TaskDetailed *out) {
 #endif
         int32_t rc = ak::decode_str(d->buf + off, n, &b_);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 5: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
 #if AK_CXX17
@@ -631,7 +631,7 @@ static void dec_task_detailed(ak::Dec *d, TaskDetailed *out) {
 #endif
         int32_t rc = ak::decode_str(d->buf + off, n, &b_);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 6: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
 #if AK_CXX17
@@ -643,7 +643,7 @@ static void dec_task_detailed(ak::Dec *d, TaskDetailed *out) {
 #endif
         int32_t rc = ak::decode_str(d->buf + off, n, &b_);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 7: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
 #if AK_CXX17
@@ -655,134 +655,134 @@ static void dec_task_detailed(ak::Dec *d, TaskDetailed *out) {
 #endif
         int32_t rc = ak::decode_str(d->buf + off, n, &b_);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 8: if (wire == 0) {
         out->status = TaskStatus((int32_t)d->varint());
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 9: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->status_message);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 10: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         TaskOptions &dst_ = out->options.emplace();
         dec_task_options(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 11: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         Timestamp &dst_ = out->created_at.emplace();
         dec_timestamp(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 12: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         Timestamp &dst_ = out->submitted_at.emplace();
         dec_timestamp(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 13: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         Timestamp &dst_ = out->started_at.emplace();
         dec_timestamp(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 14: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         Timestamp &dst_ = out->ended_at.emplace();
         dec_timestamp(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 15: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         Timestamp &dst_ = out->pod_ttl.emplace();
         dec_timestamp(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 16: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         TaskOutput &dst_ = out->output.emplace();
         dec_task_output(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 17: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->pod_hostname);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 18: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         Timestamp &dst_ = out->received_at.emplace();
         dec_timestamp(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 19: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         Timestamp &dst_ = out->acquired_at.emplace();
         dec_timestamp(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 20: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         Duration &dst_ = out->creation_to_end_duration.emplace();
         dec_duration(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 21: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         Duration &dst_ = out->processing_to_end_duration.emplace();
         dec_duration(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 22: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->initial_task_id);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 23: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         Duration &dst_ = out->received_to_end_duration.emplace();
         dec_duration(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 24: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         Timestamp &dst_ = out->processed_at.emplace();
         dec_timestamp(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 25: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         Timestamp &dst_ = out->fetched_at.emplace();
         dec_timestamp(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 26: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->payload_id);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 27: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->created_by);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
-      default: d->skip(wire); break;
+        break; } else { d->skip(tag, wire); break; }
+      default: d->skip(tag, wire); break;
     }
   }
 }
@@ -798,43 +798,43 @@ static void dec_task_summary(ak::Dec *d, TaskSummary *out) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->id);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 2: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->session_id);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 3: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         TaskOptions &dst_ = out->options.emplace();
         dec_task_options(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 4: if (wire == 0) {
         out->status = TaskStatus((int32_t)d->varint());
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 5: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         Timestamp &dst_ = out->created_at.emplace();
         dec_timestamp(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 8: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->error);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 9: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->status_message);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 11: if (wire == 0) {
         out->count_data_dependencies = (int64_t)d->varint();
-        break; } else { d->skip(wire); break; }
-      default: d->skip(wire); break;
+        break; } else { d->skip(tag, wire); break; }
+      default: d->skip(tag, wire); break;
     }
   }
 }
@@ -850,46 +850,46 @@ static void dec_probe(ak::Dec *d, Probe *out) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->id);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 2: if (wire == 0) {
         out->opt_count.set((int32_t)d->varint());
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 3: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         std::string &s_ = out->opt_label.emplace();
         int32_t rc = ak::decode_str(d->buf + off, n, &s_);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 4: if (wire == 0) {
         out->opt_flag.set((d->varint() != 0));
-        break; } else { d->skip(wire); break; }
-      case 10: if (wire == 0) { out->body.set_as_int() = (int64_t)d->varint(); break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
+      case 10: if (wire == 0) { out->body.set_as_int() = (int64_t)d->varint(); break; } else { d->skip(tag, wire); break; }
       case 11: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         std::string &s_ = out->body.set_as_text();
         int32_t rc = ak::decode_str(d->buf + off, n, &s_);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 12: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         std::string &s_ = out->body.set_as_blob();
         s_.assign((const char *)(d->buf + off), n);
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 13: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         Timestamp &c_ = out->body.set_as_stamp();
         dec_timestamp(&sub, &c_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 14: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         Empty &c_ = out->body.set_as_nothing();
         dec_empty(&sub, &c_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
-      default: d->skip(wire); break;
+        break; } else { d->skip(tag, wire); break; }
+      default: d->skip(tag, wire); break;
     }
   }
 }
@@ -901,7 +901,7 @@ static void dec_empty(ak::Dec *d, Empty *out) {
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
     if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
     switch (tag) {
-      default: d->skip(wire); break;
+      default: d->skip(tag, wire); break;
     }
   }
 }
@@ -917,17 +917,17 @@ static void dec_upload_result_data(ak::Dec *d, UploadResultData *out) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->session_id);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 2: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->result_id);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 3: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         out->data_chunk.assign((const char *)(d->buf + off), n);
-        break; } else { d->skip(wire); break; }
-      default: d->skip(wire); break;
+        break; } else { d->skip(tag, wire); break; }
+      default: d->skip(tag, wire); break;
     }
   }
 }
@@ -943,7 +943,7 @@ static void dec_metrics_batch(ak::Dec *d, MetricsBatch *out) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->id);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 2: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
@@ -1008,7 +1008,7 @@ static void dec_metrics_batch(ak::Dec *d, MetricsBatch *out) {
         // the default, it does not make the other form illegal.
         out->statuses.push_back(TaskStatus((int32_t)d->varint())); break;
       }
-      default: d->skip(wire); break;
+      default: d->skip(tag, wire); break;
     }
   }
 }
@@ -1024,11 +1024,11 @@ static void dec_pair(ak::Dec *d, Pair *out) {
         size_t off, n; d->len_body(&off, &n);
         int32_t rc = ak::decode_str(d->buf + off, n, &out->key);
         if (rc != 0) { d->err = rc; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 2: if (wire == 0) {
         out->value = (int32_t)d->varint();
-        break; } else { d->skip(wire); break; }
-      default: d->skip(wire); break;
+        break; } else { d->skip(tag, wire); break; }
+      default: d->skip(tag, wire); break;
     }
   }
 }
@@ -1046,14 +1046,14 @@ static void dec_list_results_response(ak::Dec *d, ListResultsResponse *out) {
         out->results.push_back(ResultRaw());
         dec_result_raw(&sub, &out->results.back());
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 2: if (wire == 0) {
         out->page = (int32_t)d->varint();
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 3: if (wire == 0) {
         out->total = (int32_t)d->varint();
-        break; } else { d->skip(wire); break; }
-      default: d->skip(wire); break;
+        break; } else { d->skip(tag, wire); break; }
+      default: d->skip(tag, wire); break;
     }
   }
 }
@@ -1071,14 +1071,14 @@ static void dec_list_tasks_detailed_response(ak::Dec *d, ListTasksDetailedRespon
         out->tasks.push_back(TaskDetailed());
         dec_task_detailed(&sub, &out->tasks.back());
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 2: if (wire == 0) {
         out->page = (int32_t)d->varint();
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 3: if (wire == 0) {
         out->total = (int32_t)d->varint();
-        break; } else { d->skip(wire); break; }
-      default: d->skip(wire); break;
+        break; } else { d->skip(tag, wire); break; }
+      default: d->skip(tag, wire); break;
     }
   }
 }
@@ -1096,8 +1096,8 @@ static void dec_list_task_summary_response(ak::Dec *d, ListTaskSummaryResponse *
         out->tasks.push_back(TaskSummary());
         dec_task_summary(&sub, &out->tasks.back());
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
-      default: d->skip(wire); break;
+        break; } else { d->skip(tag, wire); break; }
+      default: d->skip(tag, wire); break;
     }
   }
 }
@@ -1115,8 +1115,8 @@ static void dec_list_probe_response(ak::Dec *d, ListProbeResponse *out) {
         out->probes.push_back(Probe());
         dec_probe(&sub, &out->probes.back());
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
-      default: d->skip(wire); break;
+        break; } else { d->skip(tag, wire); break; }
+      default: d->skip(tag, wire); break;
     }
   }
 }
@@ -1134,8 +1134,8 @@ static void dec_list_metrics_response(ak::Dec *d, ListMetricsResponse *out) {
         out->batches.push_back(MetricsBatch());
         dec_metrics_batch(&sub, &out->batches.back());
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
-      default: d->skip(wire); break;
+        break; } else { d->skip(tag, wire); break; }
+      default: d->skip(tag, wire); break;
     }
   }
 }
@@ -1153,8 +1153,8 @@ static void dec_upload_result_data_message(ak::Dec *d, UploadResultDataMessage *
         UploadResultData &dst_ = out->upload.emplace();
         dec_upload_result_data(&sub, &dst_);
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
-      default: d->skip(wire); break;
+        break; } else { d->skip(tag, wire); break; }
+      default: d->skip(tag, wire); break;
     }
   }
 }
@@ -1172,15 +1172,15 @@ static void dec_dual_response(ak::Dec *d, DualResponse *out) {
         out->left.push_back(Pair());
         dec_pair(&sub, &out->left.back());
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
+        break; } else { d->skip(tag, wire); break; }
       case 2: if (wire == 2) {
         size_t off, n; d->len_body(&off, &n);
         ak::Dec sub(d->buf + off, n);
         out->right.push_back(Pair());
         dec_pair(&sub, &out->right.back());
         if (sub.err != 0) { d->err = sub.err; return; }
-        break; } else { d->skip(wire); break; }
-      default: d->skip(wire); break;
+        break; } else { d->skip(tag, wire); break; }
+      default: d->skip(tag, wire); break;
     }
   }
 }

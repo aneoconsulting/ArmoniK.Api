@@ -41,6 +41,27 @@ Stamp duration(int idx);
 enum ContentSet { kAscii = 0, kLatin1 = 1, kWide = 2 };
 std::string recode(const std::string &s, ContentSet cs);
 
+// Which set the STRING value rules return. `guid`, `word` and `sentence` honour it;
+// `blob` and `bulk` do not, because a content set says what is in the *strings* and a
+// `bytes` field has no encoding to be in. That distinction is C20: `ResultRaw.opaque_id`
+// is `bytes`, and treating it as a string is what put a field the policy does not apply to
+// into a table that priced the policy.
+//
+// It is process state, which is the one thing this slice spent a work unit arguing against
+// -- so: it is set only by `src/contentsets.cpp`, only around a build, and only on the main
+// thread before any measurement starts. `Scoped` makes "only around a build" structural
+// rather than a convention. The generated builders take no parameter for it because both
+// construction routes reach their values through these three functions, which is exactly
+// what makes the facade arm and the protobuf arm two independent routes to one value.
+ContentSet content_set();
+void set_content_set(ContentSet cs);
+
+struct ScopedContentSet {
+  ContentSet prev;
+  explicit ScopedContentSet(ContentSet cs) : prev(content_set()) { set_content_set(cs); }
+  ~ScopedContentSet() { set_content_set(prev); }
+};
+
 }  // namespace values
 }  // namespace ak
 #endif  // AK_VALUES_H

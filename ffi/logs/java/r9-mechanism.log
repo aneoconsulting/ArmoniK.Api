@@ -1,0 +1,101 @@
+== README R9's mechanism, from the JIT's own output rather than from inference ==
+
+java.version=17.0.20  vm=17.0.20+8-1-24.04-Ubuntu  protobuf-java 3.25.5
+payload P1.2, content set above U+00FF, encode only, `pbj` base ns/op.
+
+`logs/java/deopt.log` established that the hazard is real, that it is on JDK 17
+and not 21, that a LATIN1 probe triggers it and a WIDE one does not, and that the
+C ABI arm is immune. What it could not establish was WHY, and it said so: the
+mechanism was inferred from which arms move. This replaces the inference.
+
+-XX:+TraceDeoptimization and -Xlog:deoptimization are not available on a product
+build. -XX:+UnlockDiagnosticVMOptions -XX:+LogCompilation is, and it PRESERVES the
+effect. -XX:StartFlightRecording=settings=profile ERASES it (642 us at deopt=0
+against 1,261 without). So the first thing checked was whether the hazard survives
+being watched, and which instrument it survives.
+
+== 1. The mechanism, and it is not deoptimisation ==
+
+Six logged runs. The C2 compilation of com.google.protobuf.Utf8$UnsafeProcessor
+.encodeUtf8 has two String.charAt sites. Both inline String.isLatin1() and
+StringLatin1.charAt in every run. What differs is the other branch:
+
+  run                        pbj ns/op    StringUTF16.charAt at the two sites
+  deopt=0 rep1               1,263,883    inline_fail 'call site not reached' x2
+  deopt=0 rep2               1,279,672    inline_fail 'call site not reached' x2
+  deopt=1 (String.format)    1,298,338    inline_fail 'call site not reached' x2
+  deopt=2 (WIDE probe)       1,238,711    inline_fail 'call site not reached' x2
+  deopt=3 (LATIN1 probe)       619,520    compiled in, intrinsic _getCharStringU x2
+  deopt=3 rep2                 614,618    compiled in, intrinsic _getCharStringU x2
+
+The payload's strings are all above U+00FF, so StringUTF16.charAt is the path the
+measurement needs. In the slow state C2 compiled it out as unreachable.
+
+Runtime uncommon_trap events, whole process: 9 at deopt=0 (4 unstable_if, 4
+class_check, 1 loop_limit_check) and 11 at deopt=3. **Deoptimisation is not the
+mechanism and the slow state has FEWER traps, not more.** R9's word for this is
+wrong in this slice: it is a compile-time pruning decision.
+
+== 2. The inferred mechanism in STATE.md is refuted ==
+
+STATE.md said the two encoders 'are both charAt loops over a String and share one
+compact-string dispatch profile, which can only be specialised one way'. They do
+not. In the same six logs, ak.Utf8.encode and ak.Utf8.length compile IDENTICALLY
+in all four modes: zero 'call site not reached', the UTF16 branch present, and
+_getCharStringU applied, every time. Only protobuf-java's encoder is pruned.
+Whatever moves arm R in deopt.log's table, it is not a shared profile.
+
+== 3. The effect is bimodal and probabilistic, not a fixed penalty ==
+
+Ten runs per mode, -Dak.only=P1.2, microseconds:
+
+  mode        n     min  median     max   landed fast
+  deopt=0     10     595    1257    1276    2 of 10
+  deopt=1     10    1246    1273    1283    0 of 10
+  deopt=2     10     603    1224    1268    1 of 10
+  deopt=3     10     617     634     648   10 of 10
+
+  deopt=0: 595 621 1245 1251 1252 1263 1273 1274 1275 1276
+  deopt=1: 1246 1268 1270 1270 1272 1274 1280 1280 1283 1283
+  deopt=2: 603 1196 1201 1218 1221 1227 1228 1229 1234 1268
+  deopt=3: 617 620 625 627 630 638 638 638 644 648
+
+There is no continuum. Every run lands at about 620 us or at about 1,250 us and
+the gap between is empty. **The probe does not change the number, it changes the
+probability of landing in the state where the branch survived.** The LATIN1 probe
+makes it certain; without any probe the process gets there on its own about one
+run in ten. `logs/java/deopt.log` recorded exactly one such stray reading under
+mode 2 and declined to drop it; this is what that reading was.
+
+A published table with one reading per cell was therefore reporting a MODE, not a
+value, and could not have known it.
+
+== 4. deopt=1, the mode R9 actually names, no longer reproduces ==
+
+`logs/java/deopt.log` has four consecutive fast readings for mode 1 (586, 587,
+606, 602 us). Here it is slow in 13 of 13 runs. The payload restriction does not
+explain it: with the full payload set, P1.2 ns/op in microseconds
+
+  deopt=0: 626 905 922
+  deopt=1: 954 928 923
+  deopt=3: 630 606 621
+
+Mode 1 is slow there too. Mode 3 is fast in every configuration and every run.
+Note also that the full payload set moves the SLOW value from about 1,250 us to
+about 920: a more varied string diet before P1.2 partly saves the branch, which is
+what the pruning account predicts.
+
+What changed between deopt.log and here: the W10 re-gate onto the shared core and
+the D7 takeBytes fix, both of which change code in the measured process. Attributing
+the shift to one of them needs a bisection over a PROBABILISTIC outcome, so it is
+recorded as unexplained rather than guessed at. If mode 1 had mode 0's roughly one
+in ten chance, 0 fast in 13 runs has probability about 0.25; if it had deopt.log's
+apparent certainty, it has probability zero. The shift is real.
+
+== 5. What this means for the published correction ==
+
+README section R9 carries this slice's correction already. Three of its four
+clauses stand: JDK 17 and not 21, a LATIN1 read and not a numeric conversion, no
+narrowing loop, nothing on ASCII. Two need changing and the slice cannot edit that
+file: the mechanism is branch pruning rather than deoptimisation, and the effect is
+a probability rather than a penalty. The request is filed in STATE.md.

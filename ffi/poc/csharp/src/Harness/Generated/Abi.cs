@@ -108,6 +108,199 @@ public struct ak_dfix_ListResultsResponse
     [FieldOffset(8)] public uint presence;
 }
 
+/// Rust `ak_efix_Duration`: 16 bytes, align 8. Offsets are the Rust build's own, not
+/// C#'s packing.
+[StructLayout(LayoutKind.Explicit, Size = 16)]
+public struct ak_efix_Duration
+{
+    [FieldOffset(0)] public long seconds;
+    [FieldOffset(8)] public int nanos;
+    [FieldOffset(12)] public uint presence;
+}
+
+/// Rust `ak_efix_TaskOptionsOptionsEntry`: 56 bytes, align 8. Offsets are the Rust
+/// build's own, not C#'s packing.
+[StructLayout(LayoutKind.Explicit, Size = 56)]
+public struct ak_efix_TaskOptionsOptionsEntry
+{
+    [FieldOffset(0)] public ak_str key;
+    [FieldOffset(24)] public ak_str value;
+    [FieldOffset(48)] public uint presence;
+}
+
+/// Rust `ak_efix_TaskOptions`: 176 bytes, align 8. Offsets are the Rust build's own,
+/// not C#'s packing.
+[StructLayout(LayoutKind.Explicit, Size = 176)]
+public struct ak_efix_TaskOptions
+{
+    [FieldOffset(0)] public ak_efix_Duration max_duration;
+    [FieldOffset(16)] public int max_retries;
+    [FieldOffset(20)] public int priority;
+    [FieldOffset(24)] public ak_str partition_id;
+    [FieldOffset(48)] public ak_str application_name;
+    [FieldOffset(72)] public ak_str application_version;
+    [FieldOffset(96)] public ak_str application_namespace;
+    [FieldOffset(120)] public ak_str application_service;
+    [FieldOffset(144)] public ak_str engine_type;
+    [FieldOffset(168)] public uint presence;
+}
+
+/// Rust `ak_efix_TaskOutput`: 40 bytes, align 8. Offsets are the Rust build's own, not
+/// C#'s packing.
+[StructLayout(LayoutKind.Explicit, Size = 40)]
+public struct ak_efix_TaskOutput
+{
+    [FieldOffset(0)] public byte success;
+    [FieldOffset(8)] public ak_str error;
+    [FieldOffset(32)] public uint presence;
+}
+
+/// Rust `ak_efix_TaskDetailed`: 616 bytes, align 8. Offsets are the Rust build's own,
+/// not C#'s packing.
+[StructLayout(LayoutKind.Explicit, Size = 616)]
+public struct ak_efix_TaskDetailed
+{
+    [FieldOffset(0)] public ak_str id;
+    [FieldOffset(24)] public ak_str session_id;
+    [FieldOffset(48)] public ak_str owner_pod_id;
+    [FieldOffset(72)] public int status;
+    [FieldOffset(80)] public ak_str status_message;
+    [FieldOffset(104)] public ak_efix_TaskOptions options;
+    [FieldOffset(280)] public ak_efix_Timestamp created_at;
+    [FieldOffset(296)] public ak_efix_Timestamp submitted_at;
+    [FieldOffset(312)] public ak_efix_Timestamp started_at;
+    [FieldOffset(328)] public ak_efix_Timestamp ended_at;
+    [FieldOffset(344)] public ak_efix_Timestamp pod_ttl;
+    [FieldOffset(360)] public ak_efix_TaskOutput output;
+    [FieldOffset(400)] public ak_str pod_hostname;
+    [FieldOffset(424)] public ak_efix_Timestamp received_at;
+    [FieldOffset(440)] public ak_efix_Timestamp acquired_at;
+    [FieldOffset(456)] public ak_efix_Duration creation_to_end_duration;
+    [FieldOffset(472)] public ak_efix_Duration processing_to_end_duration;
+    [FieldOffset(488)] public ak_str initial_task_id;
+    [FieldOffset(512)] public ak_efix_Duration received_to_end_duration;
+    [FieldOffset(528)] public ak_efix_Timestamp processed_at;
+    [FieldOffset(544)] public ak_efix_Timestamp fetched_at;
+    [FieldOffset(560)] public ak_str payload_id;
+    [FieldOffset(584)] public ak_str created_by;
+    [FieldOffset(608)] public uint presence;
+}
+
+/// Rust `ak_efix_ListTasksDetailedResponse`: 12 bytes, align 4. Offsets are the Rust
+/// build's own, not C#'s packing.
+[StructLayout(LayoutKind.Explicit, Size = 12)]
+public struct ak_efix_ListTasksDetailedResponse
+{
+    [FieldOffset(0)] public int page;
+    [FieldOffset(4)] public int total;
+    [FieldOffset(8)] public uint presence;
+}
+
+/// Rust `ak_dfix_Duration`: 16 bytes, align 8. Offsets are the Rust build's own, not
+/// C#'s packing.
+[StructLayout(LayoutKind.Explicit, Size = 16)]
+public struct ak_dfix_Duration
+{
+    [FieldOffset(0)] public long seconds;
+    [FieldOffset(8)] public int nanos;
+    [FieldOffset(12)] public uint presence;
+}
+
+/// Rust `ak_dfix_TaskOptionsOptionsEntry`: 28 bytes, align 4. Offsets are the Rust
+/// build's own, not C#'s packing.
+[StructLayout(LayoutKind.Explicit, Size = 28)]
+public struct ak_dfix_TaskOptionsOptionsEntry
+{
+    [FieldOffset(0)] public ak_span key;
+    [FieldOffset(12)] public ak_span value;
+    [FieldOffset(24)] public uint presence;
+}
+
+/// Rust `ak_dfix_TaskOptions`: 104 bytes, align 8. Offsets are the Rust build's own,
+/// not C#'s packing.
+[StructLayout(LayoutKind.Explicit, Size = 104)]
+public struct ak_dfix_TaskOptions
+{
+    [FieldOffset(0)] public ak_dfix_Duration max_duration;
+    [FieldOffset(16)] public int max_retries;
+    [FieldOffset(20)] public int priority;
+    [FieldOffset(24)] public ak_span partition_id;
+    [FieldOffset(36)] public ak_span application_name;
+    [FieldOffset(48)] public ak_span application_version;
+    [FieldOffset(60)] public ak_span application_namespace;
+    [FieldOffset(72)] public ak_span application_service;
+    [FieldOffset(84)] public ak_span engine_type;
+    [FieldOffset(96)] public uint presence;
+}
+
+/// Rust `ak_dfix_TaskOutput`: 20 bytes, align 4. Offsets are the Rust build's own, not
+/// C#'s packing.
+[StructLayout(LayoutKind.Explicit, Size = 20)]
+public struct ak_dfix_TaskOutput
+{
+    [FieldOffset(0)] public byte success;
+    [FieldOffset(4)] public ak_span error;
+    [FieldOffset(16)] public uint presence;
+}
+
+/// Rust `ak_dfix_TaskDetailed`: 432 bytes, align 8. Offsets are the Rust build's own,
+/// not C#'s packing.
+[StructLayout(LayoutKind.Explicit, Size = 432)]
+public struct ak_dfix_TaskDetailed
+{
+    [FieldOffset(0)] public ak_span id;
+    [FieldOffset(12)] public ak_span session_id;
+    [FieldOffset(24)] public ak_span owner_pod_id;
+    [FieldOffset(36)] public int status;
+    [FieldOffset(40)] public ak_span status_message;
+    [FieldOffset(56)] public ak_dfix_TaskOptions options;
+    [FieldOffset(160)] public ak_dfix_Timestamp created_at;
+    [FieldOffset(176)] public ak_dfix_Timestamp submitted_at;
+    [FieldOffset(192)] public ak_dfix_Timestamp started_at;
+    [FieldOffset(208)] public ak_dfix_Timestamp ended_at;
+    [FieldOffset(224)] public ak_dfix_Timestamp pod_ttl;
+    [FieldOffset(240)] public ak_dfix_TaskOutput output;
+    [FieldOffset(260)] public ak_span pod_hostname;
+    [FieldOffset(272)] public ak_dfix_Timestamp received_at;
+    [FieldOffset(288)] public ak_dfix_Timestamp acquired_at;
+    [FieldOffset(304)] public ak_dfix_Duration creation_to_end_duration;
+    [FieldOffset(320)] public ak_dfix_Duration processing_to_end_duration;
+    [FieldOffset(336)] public ak_span initial_task_id;
+    [FieldOffset(352)] public ak_dfix_Duration received_to_end_duration;
+    [FieldOffset(368)] public ak_dfix_Timestamp processed_at;
+    [FieldOffset(384)] public ak_dfix_Timestamp fetched_at;
+    [FieldOffset(400)] public ak_span payload_id;
+    [FieldOffset(412)] public ak_span created_by;
+    [FieldOffset(424)] public uint presence;
+}
+
+/// Rust `ak_dfix_ListTasksDetailedResponse`: 12 bytes, align 4. Offsets are the Rust
+/// build's own, not C#'s packing.
+[StructLayout(LayoutKind.Explicit, Size = 12)]
+public struct ak_dfix_ListTasksDetailedResponse
+{
+    [FieldOffset(0)] public int page;
+    [FieldOffset(4)] public int total;
+    [FieldOffset(8)] public uint presence;
+}
+
+/// The core's own counters. **This is the convention the cross-language table uses**
+/// (R5): `forward` is every `extern "C"` entry point the host called, `reverse` is
+/// every function pointer the core invoked INCLUDING transcoders. A host-side tally is
+/// not the same quantity and the two must not be compared -- which is exactly the
+/// discrepancy this slice reported against the Rust slice, and reading the core's
+/// counters is how it is resolved rather than negotiated.
+[StructLayout(LayoutKind.Sequential)]
+public struct AkCounters
+{
+    public ulong forward;
+    public ulong reverse;
+    public ulong transcode;
+    public ulong prefix_moves;
+    public ulong prefix_bytes;
+    public ulong grows;
+}
+
 /// ABI v1 section 6: what a host calls in the codec are PLAIN EXPORTS, not a table, so
 /// the host declares the symbols it uses and a missing one is a load failure rather
 /// than a null slot found at the wrong moment.
@@ -184,6 +377,42 @@ public static unsafe partial class Abi
     [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
     internal static partial int ak_decode_ListResultsResponse(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListResultsResponse* vt);
 
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial int ak_elemu_TaskDetailed(IntPtr ctx, ak_efix_TaskDetailed* elems, int n, long tok0);
+
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial int ak_blob_run(IntPtr ctx, ak_str* elems, int n);
+
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial int ak_elem_TaskOptionsOptionsEntry(IntPtr ctx, ak_efix_TaskOptionsOptionsEntry* elems, int n);
+
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial nint ak_encode_ListTasksDetailedResponse(void* obj, IntPtr ctx, ak_evt_ListTasksDetailedResponse* vt, ak_efix_ListTasksDetailedResponse* fix);
+
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial int ak_decode_ListTasksDetailedResponse(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListTasksDetailedResponse* vt);
+
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial void ak_enc_counters(IntPtr ctx, AkCounters* outp);
+
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial void ak_enc_counters_reset(IntPtr ctx);
+
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial void ak_dec_counters(IntPtr ctx, AkCounters* outp);
+
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial void ak_dec_counters_reset(IntPtr ctx);
+
 }
 
 /// The encode vtable for `ListResultsResponse`: one reverse call, the loop over
@@ -194,6 +423,52 @@ public static unsafe partial class Abi
 public unsafe struct ak_evt_ListResultsResponse
 {
     public delegate* unmanaged[Cdecl]<IntPtr, void*, long, int> loop_results;
+}
+
+/// M2's encode vtables. `TaskDetailed` has FIVE loop slots -- the four repeated string
+/// fields and the map -- so unlike `ResultRaw` the codec calls back into the host once
+/// per slot PER ELEMENT, and the crossing count stops being constant in the element
+/// count. The root carries a pointer to the element's vtable because the codec has to
+/// reach those slots.
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ak_evt_TaskDetailed
+{
+    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, int> loop_parent_task_ids;
+    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, int> loop_data_dependencies;
+    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, int> loop_expected_output_ids;
+    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, int> loop_retry_of_ids;
+    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, int> loop_options_options;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ak_evt_ListTasksDetailedResponse
+{
+    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, int> loop_tasks;
+    public ak_evt_TaskDetailed* elem_tasks;
+}
+
+/// M2's decode vtable, and ABI v1 section 7.2's refusal in the interface.
+/// `TaskDetailed` carries repeated and map fields of its own, so the root's slot is
+/// **NOT batchable**: `new_tasks` then `apply_tasks` per element, plus one run per
+/// inner field that occurred. Two reverse calls per element before any content, against
+/// one for the whole run on a leaf.
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ak_dvt_ListTasksDetailedResponse
+{
+    public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_ListTasksDetailedResponse*, void> apply;
+    public IntPtr unknown;
+    public IntPtr unk_tasks;
+    public delegate* unmanaged[Cdecl]<IntPtr, void*, long> new_tasks;
+    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_dfix_TaskDetailed*, void> apply_tasks;
+    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_span*, int, void> add_tasks_parent_task_ids;
+    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_span*, int, void> add_tasks_data_dependencies;
+    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_span*, int, void> add_tasks_expected_output_ids;
+    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_span*, int, void> add_tasks_retry_of_ids;
+    // NOTE: there is NO unk_tasks_options_options here. The ELEMENT
+    // vtable ak_dvt_TaskDetailed has an unk_options_options slot and the
+    // root does not, and inferring one by analogy shifted every later
+    // slot by a pointer. VtableSlots below asserts the count.
+    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_dfix_TaskOptionsOptionsEntry*, int, void> add_tasks_options_options;
 }
 
 /// The DECODE vtable for `ListResultsResponse`. `add_results` is handed a whole RUN of
@@ -224,6 +499,32 @@ public static class AbiLayout
         ("ak_dfix_Timestamp", 16, new (string, int)[] { ("seconds", 0), ("nanos", 8), ("presence", 12) }),
         ("ak_dfix_ResultRaw", 128, new (string, int)[] { ("session_id", 0), ("name", 12), ("owner_task_id", 24), ("status", 36), ("created_at", 40), ("completed_at", 56), ("result_id", 72), ("size", 88), ("created_by", 96), ("opaque_id", 108), ("manual_deletion", 120), ("presence", 124) }),
         ("ak_dfix_ListResultsResponse", 12, new (string, int)[] { ("page", 0), ("total", 4), ("presence", 8) }),
+        ("ak_efix_Duration", 16, new (string, int)[] { ("seconds", 0), ("nanos", 8), ("presence", 12) }),
+        ("ak_efix_TaskOptionsOptionsEntry", 56, new (string, int)[] { ("key", 0), ("value", 24), ("presence", 48) }),
+        ("ak_efix_TaskOptions", 176, new (string, int)[] { ("max_duration", 0), ("max_retries", 16), ("priority", 20), ("partition_id", 24), ("application_name", 48), ("application_version", 72), ("application_namespace", 96), ("application_service", 120), ("engine_type", 144), ("presence", 168) }),
+        ("ak_efix_TaskOutput", 40, new (string, int)[] { ("success", 0), ("error", 8), ("presence", 32) }),
+        ("ak_efix_TaskDetailed", 616, new (string, int)[] { ("id", 0), ("session_id", 24), ("owner_pod_id", 48), ("status", 72), ("status_message", 80), ("options", 104), ("created_at", 280), ("submitted_at", 296), ("started_at", 312), ("ended_at", 328), ("pod_ttl", 344), ("output", 360), ("pod_hostname", 400), ("received_at", 424), ("acquired_at", 440), ("creation_to_end_duration", 456), ("processing_to_end_duration", 472), ("initial_task_id", 488), ("received_to_end_duration", 512), ("processed_at", 528), ("fetched_at", 544), ("payload_id", 560), ("created_by", 584), ("presence", 608) }),
+        ("ak_efix_ListTasksDetailedResponse", 12, new (string, int)[] { ("page", 0), ("total", 4), ("presence", 8) }),
+        ("ak_dfix_Duration", 16, new (string, int)[] { ("seconds", 0), ("nanos", 8), ("presence", 12) }),
+        ("ak_dfix_TaskOptionsOptionsEntry", 28, new (string, int)[] { ("key", 0), ("value", 12), ("presence", 24) }),
+        ("ak_dfix_TaskOptions", 104, new (string, int)[] { ("max_duration", 0), ("max_retries", 16), ("priority", 20), ("partition_id", 24), ("application_name", 36), ("application_version", 48), ("application_namespace", 60), ("application_service", 72), ("engine_type", 84), ("presence", 96) }),
+        ("ak_dfix_TaskOutput", 20, new (string, int)[] { ("success", 0), ("error", 4), ("presence", 16) }),
+        ("ak_dfix_TaskDetailed", 432, new (string, int)[] { ("id", 0), ("session_id", 12), ("owner_pod_id", 24), ("status", 36), ("status_message", 40), ("options", 56), ("created_at", 160), ("submitted_at", 176), ("started_at", 192), ("ended_at", 208), ("pod_ttl", 224), ("output", 240), ("pod_hostname", 260), ("received_at", 272), ("acquired_at", 288), ("creation_to_end_duration", 304), ("processing_to_end_duration", 320), ("initial_task_id", 336), ("received_to_end_duration", 352), ("processed_at", 368), ("fetched_at", 384), ("payload_id", 400), ("created_by", 412), ("presence", 424) }),
+        ("ak_dfix_ListTasksDetailedResponse", 12, new (string, int)[] { ("page", 0), ("total", 4), ("presence", 8) }),
+    };
+
+    /// Vtable SLOT COUNTS, from the Rust source. Every slot is pointer sized, so a
+    /// wrong count is a wrong size and nothing else is needed to catch it. This exists
+    /// because a slot WAS invented by analogy -- the element vtable has an
+    /// `unk_options_options` and the root does not -- which would have shifted every
+    /// later slot by eight bytes and called a garbage address.
+    public static readonly (string Name, int Slots)[] Vtables =
+    {
+        ("ak_evt_ListResultsResponse", 1),
+        ("ak_dvt_ListResultsResponse", 4),
+        ("ak_evt_TaskDetailed", 5),
+        ("ak_evt_ListTasksDetailedResponse", 2),
+        ("ak_dvt_ListTasksDetailedResponse", 10),
     };
 
     /// Checks the MANAGED declaration against the Rust build, and the loaded
@@ -288,9 +589,118 @@ public static class AbiLayout
         if ((int)Marshal.OffsetOf<ak_dfix_ListResultsResponse>("page") != 0) bad.Add($"ak_dfix_ListResultsResponse.page offset {(int)Marshal.OffsetOf<ak_dfix_ListResultsResponse>("page")} != 0");
         if ((int)Marshal.OffsetOf<ak_dfix_ListResultsResponse>("total") != 4) bad.Add($"ak_dfix_ListResultsResponse.total offset {(int)Marshal.OffsetOf<ak_dfix_ListResultsResponse>("total")} != 4");
         if ((int)Marshal.OffsetOf<ak_dfix_ListResultsResponse>("presence") != 8) bad.Add($"ak_dfix_ListResultsResponse.presence offset {(int)Marshal.OffsetOf<ak_dfix_ListResultsResponse>("presence")} != 8");
+        if (Unsafe.SizeOf<ak_efix_Duration>() != 16) bad.Add($"ak_efix_Duration size {Unsafe.SizeOf<ak_efix_Duration>()} != 16");
+        if ((int)Marshal.OffsetOf<ak_efix_Duration>("seconds") != 0) bad.Add($"ak_efix_Duration.seconds offset {(int)Marshal.OffsetOf<ak_efix_Duration>("seconds")} != 0");
+        if ((int)Marshal.OffsetOf<ak_efix_Duration>("nanos") != 8) bad.Add($"ak_efix_Duration.nanos offset {(int)Marshal.OffsetOf<ak_efix_Duration>("nanos")} != 8");
+        if ((int)Marshal.OffsetOf<ak_efix_Duration>("presence") != 12) bad.Add($"ak_efix_Duration.presence offset {(int)Marshal.OffsetOf<ak_efix_Duration>("presence")} != 12");
+        if (Unsafe.SizeOf<ak_efix_TaskOptionsOptionsEntry>() != 56) bad.Add($"ak_efix_TaskOptionsOptionsEntry size {Unsafe.SizeOf<ak_efix_TaskOptionsOptionsEntry>()} != 56");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskOptionsOptionsEntry>("key") != 0) bad.Add($"ak_efix_TaskOptionsOptionsEntry.key offset {(int)Marshal.OffsetOf<ak_efix_TaskOptionsOptionsEntry>("key")} != 0");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskOptionsOptionsEntry>("value") != 24) bad.Add($"ak_efix_TaskOptionsOptionsEntry.value offset {(int)Marshal.OffsetOf<ak_efix_TaskOptionsOptionsEntry>("value")} != 24");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskOptionsOptionsEntry>("presence") != 48) bad.Add($"ak_efix_TaskOptionsOptionsEntry.presence offset {(int)Marshal.OffsetOf<ak_efix_TaskOptionsOptionsEntry>("presence")} != 48");
+        if (Unsafe.SizeOf<ak_efix_TaskOptions>() != 176) bad.Add($"ak_efix_TaskOptions size {Unsafe.SizeOf<ak_efix_TaskOptions>()} != 176");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskOptions>("max_duration") != 0) bad.Add($"ak_efix_TaskOptions.max_duration offset {(int)Marshal.OffsetOf<ak_efix_TaskOptions>("max_duration")} != 0");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskOptions>("max_retries") != 16) bad.Add($"ak_efix_TaskOptions.max_retries offset {(int)Marshal.OffsetOf<ak_efix_TaskOptions>("max_retries")} != 16");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskOptions>("priority") != 20) bad.Add($"ak_efix_TaskOptions.priority offset {(int)Marshal.OffsetOf<ak_efix_TaskOptions>("priority")} != 20");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskOptions>("partition_id") != 24) bad.Add($"ak_efix_TaskOptions.partition_id offset {(int)Marshal.OffsetOf<ak_efix_TaskOptions>("partition_id")} != 24");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskOptions>("application_name") != 48) bad.Add($"ak_efix_TaskOptions.application_name offset {(int)Marshal.OffsetOf<ak_efix_TaskOptions>("application_name")} != 48");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskOptions>("application_version") != 72) bad.Add($"ak_efix_TaskOptions.application_version offset {(int)Marshal.OffsetOf<ak_efix_TaskOptions>("application_version")} != 72");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskOptions>("application_namespace") != 96) bad.Add($"ak_efix_TaskOptions.application_namespace offset {(int)Marshal.OffsetOf<ak_efix_TaskOptions>("application_namespace")} != 96");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskOptions>("application_service") != 120) bad.Add($"ak_efix_TaskOptions.application_service offset {(int)Marshal.OffsetOf<ak_efix_TaskOptions>("application_service")} != 120");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskOptions>("engine_type") != 144) bad.Add($"ak_efix_TaskOptions.engine_type offset {(int)Marshal.OffsetOf<ak_efix_TaskOptions>("engine_type")} != 144");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskOptions>("presence") != 168) bad.Add($"ak_efix_TaskOptions.presence offset {(int)Marshal.OffsetOf<ak_efix_TaskOptions>("presence")} != 168");
+        if (Unsafe.SizeOf<ak_efix_TaskOutput>() != 40) bad.Add($"ak_efix_TaskOutput size {Unsafe.SizeOf<ak_efix_TaskOutput>()} != 40");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskOutput>("success") != 0) bad.Add($"ak_efix_TaskOutput.success offset {(int)Marshal.OffsetOf<ak_efix_TaskOutput>("success")} != 0");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskOutput>("error") != 8) bad.Add($"ak_efix_TaskOutput.error offset {(int)Marshal.OffsetOf<ak_efix_TaskOutput>("error")} != 8");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskOutput>("presence") != 32) bad.Add($"ak_efix_TaskOutput.presence offset {(int)Marshal.OffsetOf<ak_efix_TaskOutput>("presence")} != 32");
+        if (Unsafe.SizeOf<ak_efix_TaskDetailed>() != 616) bad.Add($"ak_efix_TaskDetailed size {Unsafe.SizeOf<ak_efix_TaskDetailed>()} != 616");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("id") != 0) bad.Add($"ak_efix_TaskDetailed.id offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("id")} != 0");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("session_id") != 24) bad.Add($"ak_efix_TaskDetailed.session_id offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("session_id")} != 24");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("owner_pod_id") != 48) bad.Add($"ak_efix_TaskDetailed.owner_pod_id offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("owner_pod_id")} != 48");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("status") != 72) bad.Add($"ak_efix_TaskDetailed.status offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("status")} != 72");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("status_message") != 80) bad.Add($"ak_efix_TaskDetailed.status_message offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("status_message")} != 80");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("options") != 104) bad.Add($"ak_efix_TaskDetailed.options offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("options")} != 104");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("created_at") != 280) bad.Add($"ak_efix_TaskDetailed.created_at offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("created_at")} != 280");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("submitted_at") != 296) bad.Add($"ak_efix_TaskDetailed.submitted_at offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("submitted_at")} != 296");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("started_at") != 312) bad.Add($"ak_efix_TaskDetailed.started_at offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("started_at")} != 312");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("ended_at") != 328) bad.Add($"ak_efix_TaskDetailed.ended_at offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("ended_at")} != 328");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("pod_ttl") != 344) bad.Add($"ak_efix_TaskDetailed.pod_ttl offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("pod_ttl")} != 344");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("output") != 360) bad.Add($"ak_efix_TaskDetailed.output offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("output")} != 360");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("pod_hostname") != 400) bad.Add($"ak_efix_TaskDetailed.pod_hostname offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("pod_hostname")} != 400");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("received_at") != 424) bad.Add($"ak_efix_TaskDetailed.received_at offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("received_at")} != 424");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("acquired_at") != 440) bad.Add($"ak_efix_TaskDetailed.acquired_at offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("acquired_at")} != 440");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("creation_to_end_duration") != 456) bad.Add($"ak_efix_TaskDetailed.creation_to_end_duration offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("creation_to_end_duration")} != 456");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("processing_to_end_duration") != 472) bad.Add($"ak_efix_TaskDetailed.processing_to_end_duration offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("processing_to_end_duration")} != 472");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("initial_task_id") != 488) bad.Add($"ak_efix_TaskDetailed.initial_task_id offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("initial_task_id")} != 488");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("received_to_end_duration") != 512) bad.Add($"ak_efix_TaskDetailed.received_to_end_duration offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("received_to_end_duration")} != 512");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("processed_at") != 528) bad.Add($"ak_efix_TaskDetailed.processed_at offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("processed_at")} != 528");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("fetched_at") != 544) bad.Add($"ak_efix_TaskDetailed.fetched_at offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("fetched_at")} != 544");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("payload_id") != 560) bad.Add($"ak_efix_TaskDetailed.payload_id offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("payload_id")} != 560");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("created_by") != 584) bad.Add($"ak_efix_TaskDetailed.created_by offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("created_by")} != 584");
+        if ((int)Marshal.OffsetOf<ak_efix_TaskDetailed>("presence") != 608) bad.Add($"ak_efix_TaskDetailed.presence offset {(int)Marshal.OffsetOf<ak_efix_TaskDetailed>("presence")} != 608");
+        if (Unsafe.SizeOf<ak_efix_ListTasksDetailedResponse>() != 12) bad.Add($"ak_efix_ListTasksDetailedResponse size {Unsafe.SizeOf<ak_efix_ListTasksDetailedResponse>()} != 12");
+        if ((int)Marshal.OffsetOf<ak_efix_ListTasksDetailedResponse>("page") != 0) bad.Add($"ak_efix_ListTasksDetailedResponse.page offset {(int)Marshal.OffsetOf<ak_efix_ListTasksDetailedResponse>("page")} != 0");
+        if ((int)Marshal.OffsetOf<ak_efix_ListTasksDetailedResponse>("total") != 4) bad.Add($"ak_efix_ListTasksDetailedResponse.total offset {(int)Marshal.OffsetOf<ak_efix_ListTasksDetailedResponse>("total")} != 4");
+        if ((int)Marshal.OffsetOf<ak_efix_ListTasksDetailedResponse>("presence") != 8) bad.Add($"ak_efix_ListTasksDetailedResponse.presence offset {(int)Marshal.OffsetOf<ak_efix_ListTasksDetailedResponse>("presence")} != 8");
+        if (Unsafe.SizeOf<ak_dfix_Duration>() != 16) bad.Add($"ak_dfix_Duration size {Unsafe.SizeOf<ak_dfix_Duration>()} != 16");
+        if ((int)Marshal.OffsetOf<ak_dfix_Duration>("seconds") != 0) bad.Add($"ak_dfix_Duration.seconds offset {(int)Marshal.OffsetOf<ak_dfix_Duration>("seconds")} != 0");
+        if ((int)Marshal.OffsetOf<ak_dfix_Duration>("nanos") != 8) bad.Add($"ak_dfix_Duration.nanos offset {(int)Marshal.OffsetOf<ak_dfix_Duration>("nanos")} != 8");
+        if ((int)Marshal.OffsetOf<ak_dfix_Duration>("presence") != 12) bad.Add($"ak_dfix_Duration.presence offset {(int)Marshal.OffsetOf<ak_dfix_Duration>("presence")} != 12");
+        if (Unsafe.SizeOf<ak_dfix_TaskOptionsOptionsEntry>() != 28) bad.Add($"ak_dfix_TaskOptionsOptionsEntry size {Unsafe.SizeOf<ak_dfix_TaskOptionsOptionsEntry>()} != 28");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskOptionsOptionsEntry>("key") != 0) bad.Add($"ak_dfix_TaskOptionsOptionsEntry.key offset {(int)Marshal.OffsetOf<ak_dfix_TaskOptionsOptionsEntry>("key")} != 0");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskOptionsOptionsEntry>("value") != 12) bad.Add($"ak_dfix_TaskOptionsOptionsEntry.value offset {(int)Marshal.OffsetOf<ak_dfix_TaskOptionsOptionsEntry>("value")} != 12");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskOptionsOptionsEntry>("presence") != 24) bad.Add($"ak_dfix_TaskOptionsOptionsEntry.presence offset {(int)Marshal.OffsetOf<ak_dfix_TaskOptionsOptionsEntry>("presence")} != 24");
+        if (Unsafe.SizeOf<ak_dfix_TaskOptions>() != 104) bad.Add($"ak_dfix_TaskOptions size {Unsafe.SizeOf<ak_dfix_TaskOptions>()} != 104");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskOptions>("max_duration") != 0) bad.Add($"ak_dfix_TaskOptions.max_duration offset {(int)Marshal.OffsetOf<ak_dfix_TaskOptions>("max_duration")} != 0");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskOptions>("max_retries") != 16) bad.Add($"ak_dfix_TaskOptions.max_retries offset {(int)Marshal.OffsetOf<ak_dfix_TaskOptions>("max_retries")} != 16");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskOptions>("priority") != 20) bad.Add($"ak_dfix_TaskOptions.priority offset {(int)Marshal.OffsetOf<ak_dfix_TaskOptions>("priority")} != 20");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskOptions>("partition_id") != 24) bad.Add($"ak_dfix_TaskOptions.partition_id offset {(int)Marshal.OffsetOf<ak_dfix_TaskOptions>("partition_id")} != 24");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskOptions>("application_name") != 36) bad.Add($"ak_dfix_TaskOptions.application_name offset {(int)Marshal.OffsetOf<ak_dfix_TaskOptions>("application_name")} != 36");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskOptions>("application_version") != 48) bad.Add($"ak_dfix_TaskOptions.application_version offset {(int)Marshal.OffsetOf<ak_dfix_TaskOptions>("application_version")} != 48");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskOptions>("application_namespace") != 60) bad.Add($"ak_dfix_TaskOptions.application_namespace offset {(int)Marshal.OffsetOf<ak_dfix_TaskOptions>("application_namespace")} != 60");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskOptions>("application_service") != 72) bad.Add($"ak_dfix_TaskOptions.application_service offset {(int)Marshal.OffsetOf<ak_dfix_TaskOptions>("application_service")} != 72");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskOptions>("engine_type") != 84) bad.Add($"ak_dfix_TaskOptions.engine_type offset {(int)Marshal.OffsetOf<ak_dfix_TaskOptions>("engine_type")} != 84");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskOptions>("presence") != 96) bad.Add($"ak_dfix_TaskOptions.presence offset {(int)Marshal.OffsetOf<ak_dfix_TaskOptions>("presence")} != 96");
+        if (Unsafe.SizeOf<ak_dfix_TaskOutput>() != 20) bad.Add($"ak_dfix_TaskOutput size {Unsafe.SizeOf<ak_dfix_TaskOutput>()} != 20");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskOutput>("success") != 0) bad.Add($"ak_dfix_TaskOutput.success offset {(int)Marshal.OffsetOf<ak_dfix_TaskOutput>("success")} != 0");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskOutput>("error") != 4) bad.Add($"ak_dfix_TaskOutput.error offset {(int)Marshal.OffsetOf<ak_dfix_TaskOutput>("error")} != 4");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskOutput>("presence") != 16) bad.Add($"ak_dfix_TaskOutput.presence offset {(int)Marshal.OffsetOf<ak_dfix_TaskOutput>("presence")} != 16");
+        if (Unsafe.SizeOf<ak_dfix_TaskDetailed>() != 432) bad.Add($"ak_dfix_TaskDetailed size {Unsafe.SizeOf<ak_dfix_TaskDetailed>()} != 432");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("id") != 0) bad.Add($"ak_dfix_TaskDetailed.id offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("id")} != 0");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("session_id") != 12) bad.Add($"ak_dfix_TaskDetailed.session_id offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("session_id")} != 12");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("owner_pod_id") != 24) bad.Add($"ak_dfix_TaskDetailed.owner_pod_id offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("owner_pod_id")} != 24");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("status") != 36) bad.Add($"ak_dfix_TaskDetailed.status offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("status")} != 36");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("status_message") != 40) bad.Add($"ak_dfix_TaskDetailed.status_message offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("status_message")} != 40");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("options") != 56) bad.Add($"ak_dfix_TaskDetailed.options offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("options")} != 56");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("created_at") != 160) bad.Add($"ak_dfix_TaskDetailed.created_at offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("created_at")} != 160");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("submitted_at") != 176) bad.Add($"ak_dfix_TaskDetailed.submitted_at offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("submitted_at")} != 176");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("started_at") != 192) bad.Add($"ak_dfix_TaskDetailed.started_at offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("started_at")} != 192");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("ended_at") != 208) bad.Add($"ak_dfix_TaskDetailed.ended_at offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("ended_at")} != 208");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("pod_ttl") != 224) bad.Add($"ak_dfix_TaskDetailed.pod_ttl offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("pod_ttl")} != 224");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("output") != 240) bad.Add($"ak_dfix_TaskDetailed.output offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("output")} != 240");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("pod_hostname") != 260) bad.Add($"ak_dfix_TaskDetailed.pod_hostname offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("pod_hostname")} != 260");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("received_at") != 272) bad.Add($"ak_dfix_TaskDetailed.received_at offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("received_at")} != 272");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("acquired_at") != 288) bad.Add($"ak_dfix_TaskDetailed.acquired_at offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("acquired_at")} != 288");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("creation_to_end_duration") != 304) bad.Add($"ak_dfix_TaskDetailed.creation_to_end_duration offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("creation_to_end_duration")} != 304");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("processing_to_end_duration") != 320) bad.Add($"ak_dfix_TaskDetailed.processing_to_end_duration offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("processing_to_end_duration")} != 320");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("initial_task_id") != 336) bad.Add($"ak_dfix_TaskDetailed.initial_task_id offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("initial_task_id")} != 336");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("received_to_end_duration") != 352) bad.Add($"ak_dfix_TaskDetailed.received_to_end_duration offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("received_to_end_duration")} != 352");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("processed_at") != 368) bad.Add($"ak_dfix_TaskDetailed.processed_at offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("processed_at")} != 368");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("fetched_at") != 384) bad.Add($"ak_dfix_TaskDetailed.fetched_at offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("fetched_at")} != 384");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("payload_id") != 400) bad.Add($"ak_dfix_TaskDetailed.payload_id offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("payload_id")} != 400");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("created_by") != 412) bad.Add($"ak_dfix_TaskDetailed.created_by offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("created_by")} != 412");
+        if ((int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("presence") != 424) bad.Add($"ak_dfix_TaskDetailed.presence offset {(int)Marshal.OffsetOf<ak_dfix_TaskDetailed>("presence")} != 424");
+        if (Unsafe.SizeOf<ak_dfix_ListTasksDetailedResponse>() != 12) bad.Add($"ak_dfix_ListTasksDetailedResponse size {Unsafe.SizeOf<ak_dfix_ListTasksDetailedResponse>()} != 12");
+        if ((int)Marshal.OffsetOf<ak_dfix_ListTasksDetailedResponse>("page") != 0) bad.Add($"ak_dfix_ListTasksDetailedResponse.page offset {(int)Marshal.OffsetOf<ak_dfix_ListTasksDetailedResponse>("page")} != 0");
+        if ((int)Marshal.OffsetOf<ak_dfix_ListTasksDetailedResponse>("total") != 4) bad.Add($"ak_dfix_ListTasksDetailedResponse.total offset {(int)Marshal.OffsetOf<ak_dfix_ListTasksDetailedResponse>("total")} != 4");
+        if ((int)Marshal.OffsetOf<ak_dfix_ListTasksDetailedResponse>("presence") != 8) bad.Add($"ak_dfix_ListTasksDetailedResponse.presence offset {(int)Marshal.OffsetOf<ak_dfix_ListTasksDetailedResponse>("presence")} != 8");
+        if (Unsafe.SizeOf<ak_evt_ListResultsResponse>() != 1 * IntPtr.Size) bad.Add($"ak_evt_ListResultsResponse has {Unsafe.SizeOf<ak_evt_ListResultsResponse>() / IntPtr.Size} slots, expected 1");
+        if (Unsafe.SizeOf<ak_dvt_ListResultsResponse>() != 4 * IntPtr.Size) bad.Add($"ak_dvt_ListResultsResponse has {Unsafe.SizeOf<ak_dvt_ListResultsResponse>() / IntPtr.Size} slots, expected 4");
+        if (Unsafe.SizeOf<ak_evt_TaskDetailed>() != 5 * IntPtr.Size) bad.Add($"ak_evt_TaskDetailed has {Unsafe.SizeOf<ak_evt_TaskDetailed>() / IntPtr.Size} slots, expected 5");
+        if (Unsafe.SizeOf<ak_evt_ListTasksDetailedResponse>() != 2 * IntPtr.Size) bad.Add($"ak_evt_ListTasksDetailedResponse has {Unsafe.SizeOf<ak_evt_ListTasksDetailedResponse>() / IntPtr.Size} slots, expected 2");
+        if (Unsafe.SizeOf<ak_dvt_ListTasksDetailedResponse>() != 10 * IntPtr.Size) bad.Add($"ak_dvt_ListTasksDetailedResponse has {Unsafe.SizeOf<ak_dvt_ListTasksDetailedResponse>() / IntPtr.Size} slots, expected 10");
         uint v = Abi.ak_abi_version();
         return bad.Count == 0
-            ? $"ok: {Expected.Length} structs match the Rust build; core ak_abi_version()={v}"
+            ? $"ok: {Expected.Length} structs and {Vtables.Length} vtables match the Rust build; core ak_abi_version()={v}"
             : string.Join("; ", bad);
     }
 }

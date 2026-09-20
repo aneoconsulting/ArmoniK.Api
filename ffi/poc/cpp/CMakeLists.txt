@@ -118,6 +118,39 @@ endfunction()
 set(CONF ${CMAKE_CURRENT_SOURCE_DIR}/src/conformance.cpp)
 set(BENCH ${CMAKE_CURRENT_SOURCE_DIR}/src/bench.cpp)
 set(COUNTS ${CMAKE_CURRENT_SOURCE_DIR}/src/counts.cpp)
+set(CONC ${CMAKE_CURRENT_SOURCE_DIR}/src/concurrency.cpp)
+set(U8 ${CMAKE_CURRENT_SOURCE_DIR}/src/utf8check.cpp)
+set(CS ${CMAKE_CURRENT_SOURCE_DIR}/src/contentsets.cpp)
+
+# C18's control: a fixture with one function that MUST be called and one that MUST be
+# fused, so gen/boundary.sh's call-site counter is proved able to report both. No
+# protobuf, no core, no arm machinery -- it is a test of the checker, not of the slice.
+add_executable(fusion_probe ${CMAKE_CURRENT_SOURCE_DIR}/src/fusion_probe.cpp)
+set_property(TARGET fusion_probe PROPERTY CXX_STANDARD 17)
+
+# C24: `ak::Dec::skip` over the deprecated GROUP form. A unit test over `include/ak/rt.h`
+# alone -- no protobuf, no core, no facade -- so it can be built at every standard level
+# and in both implementations cheaply, which README 5.2 requires of anything in the
+# decode path. `gen/groupskip.sh` also builds the two PLANTS and requires each to fail.
+#
+# ak_group(<name> <std> <impl> <plant>)
+function(ak_group name std impl plant)
+  add_executable(${name} ${CMAKE_CURRENT_SOURCE_DIR}/src/groupskip.cpp)
+  target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  set_property(TARGET ${name} PROPERTY CXX_STANDARD ${std})
+  set_property(TARGET ${name} PROPERTY CXX_STANDARD_REQUIRED ON)
+  target_compile_definitions(${name} PRIVATE AK_GROUP_PLANT=${plant})
+  if(impl STREQUAL "floor")
+    target_compile_definitions(${name} PRIVATE AK_FLOOR_IMPL=1)
+  endif()
+endfunction()
+ak_group(groupskip_a17 17 target 0)
+ak_group(groupskip_b17 17 floor  0)
+ak_group(groupskip_c14 14 floor  0)
+ak_group(groupskip_c11 11 floor  0)
+# The plants. Correctness fixtures, never timed; gen/groupskip.sh inverts their exit code.
+ak_group(groupskip_plant_depth 17 target 1)
+ak_group(groupskip_plant_i32   17 target 2)
 
 # Correctness gates. README 5.2's arms: a = target impl at the target level; b = FLOOR
 # impl at the target level; c = floor impl at the floor level.
@@ -136,6 +169,12 @@ ak_arm(bench_c11_shared   ${BENCH} 11 floor  on  shared reject ${CORE_OUT})
 ak_arm(bench_c14_shared   ${BENCH} 14 floor  on  shared reject ${CORE_OUT})
 ak_arm(bench_a17_noguard  ${BENCH} 17 target off shared reject ${CORE_OUT})
 ak_arm(bench_a17_lossy    ${BENCH} 17 target on  shared lossy  ${CORE_OUT})
+# C16: the P1.2 decode outlier, which appeared in rounds 1 and 2 of the `ffi` arm in every
+# log this slice took and vanished when the validator changed. Same source, one define, so
+# the question "is the outlier the validator?" is answered by a build rather than argued.
+ak_arm(bench_a17_scalarv ${BENCH} 17 target on  shared reject ${CORE_OUT})
+target_compile_definitions(bench_a17_scalarv PRIVATE AK_UTF8=0)
+
 # R4's across-build control: the same source with a semantically neutral layout
 # perturbation, so a drift between two binaries can be measured instead of assumed absent.
 ak_arm(bench_a17_perturb  ${BENCH} 17 target on  shared reject ${CORE_OUT})
@@ -144,6 +183,40 @@ target_compile_definitions(bench_a17_perturb PRIVATE AK_PERTURB=1)
 # verdict transfers to .NET, FFM and JNI instead of being a fact about 1.85 ns.
 ak_arm(bench_a17_tax      ${BENCH} 17 target on  shared reject ${CORE_OUT})
 target_compile_definitions(bench_a17_tax PRIVATE AK_CROSSING_TAX=1)
+
+# ABI v1 obligation 12.5: the concurrency suite, plus the three PLANTED builds that show
+# it can fail. The plants are the two designs section 6 refused (see include/ak/rt.h); they
+# are correctness fixtures, never timed, and `gen/concurrency.sh` inverts their exit code.
+ak_arm(conc_a17_shared ${CONC} 17 target on shared reject ${CORE_OUT})
+ak_arm(conc_c11_shared ${CONC} 11 floor  on shared reject ${CORE_OUT})
+ak_arm(conc_a17_static ${CONC} 17 target on static reject ${CORE_OUT})
+ak_arm(conc_a17_pad    ${CONC} 17 target on shared reject ${CORE_OUT})
+target_compile_definitions(conc_a17_pad PRIVATE AK_CONC_PAD=1)
+ak_arm(conc_a17_global ${CONC} 17 target on shared reject ${CORE_OUT})
+target_compile_definitions(conc_a17_global PRIVATE AK_CONC_GLOBAL=1)
+ak_arm(conc_a17_both   ${CONC} 17 target on shared reject ${CORE_OUT})
+target_compile_definitions(conc_a17_both PRIVATE AK_CONC_PAD=1 AK_CONC_GLOBAL=1)
+
+# ABI v1 open decision 3's validator, which is what the decode-side number was really
+# about. Correctness first: an exhaustive differential test against an independent oracle,
+# then the timing, both in one process. Also built at the floor, because the DFA is the one
+# a core would ship and a core ships to C++11 hosts too.
+ak_arm(contentsets_a17 ${CS} 17 target on shared reject ${CORE_OUT})
+
+# W8: this slice as a consumer of ffi/corpus. The oracle byte identity against a
+# schema-generated manifest cannot be, because the manifest and the codec come from the
+# same description. Built at the target level and at the C++11 FLOOR, because the floor is
+# a correctness gate and this is correctness.
+# The projector is added to THESE TWO TARGETS ONLY, never to `ak_arm`'s common source
+# list: linking a file nothing calls into every timed binary perturbs its layout, and R4's
+# own drift control says a neutral layout perturbation is worth up to 0.240 of a ratio.
+ak_arm(corpus_a17_shared ${CMAKE_CURRENT_SOURCE_DIR}/src/corpus.cpp 17 target on shared reject ${CORE_OUT})
+ak_arm(corpus_c11_shared ${CMAKE_CURRENT_SOURCE_DIR}/src/corpus.cpp 11 floor  on shared reject ${CORE_OUT})
+target_sources(corpus_a17_shared PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/project.cpp)
+target_sources(corpus_c11_shared PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/project.cpp)
+
+ak_arm(utf8check_a17 ${U8} 17 target on shared reject ${CORE_OUT})
+ak_arm(utf8check_c11 ${U8} 11 floor  on shared reject ${CORE_OUT})
 
 # R5: the crossing counts come from a counting CORE, never from the timed binary.
 ak_arm(counts_a17_shared ${COUNTS} 17 target on shared reject ${CORE_COUNT_OUT})

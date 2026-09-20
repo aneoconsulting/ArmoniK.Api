@@ -52,64 +52,109 @@ echo "    over THIS core. That is a fact about the toolchain pair, reported rath
 echo "    assumed, and it would not hold for a core compiled by the same LTO."
 echo
 echo "== half two: is the no-boundary control fused into the benchmark loop? =="
+echo
+echo "  C18. This used to ask whether the control function was LARGER than the largest"
+echo "  timing closure in the image and take that as evidence it was not copied into one."
+echo "  Size is a proxy for fusion, not a test of it, and its positive control was -flto,"
+echo "  which fires only when the optimiser happens to fuse something. After the core moved"
+echo "  (W10) the largest closure went from 1433 B to 911 B, the 1155 B control landed on"
+echo "  the other side of the line, and the control went quiet without anyone deciding it"
+echo "  should. A size-threshold control is fragile by construction."
+echo
+echo "  Two direct properties instead, and a fixture that proves the checker can report"
+echo "  both. The control is reached through a FUNCTION POINTER handed to the case runner,"
+echo "  so there is no direct call site to count -- what fusion would destroy is (1) the"
+echo "  out-of-line body and (2) the call instruction in the closure."
+echo
+
+# Count call instructions inside one symbol's disassembly.
+calls_in() {  # $1 = binary, $2 = exact symbol name
+  objdump -d --no-show-raw-insn -C "$1" 2>/dev/null \
+    | awk -v s="$2" '
+        /^[0-9a-f]+ <.*>:$/ { inside = (index($0, "<" s ">:") > 0); next }
+        # NOT /\<call\>/. mawk is what is installed and \< \> are gawk-only word
+        # boundaries -- mawk silently matches nothing, so the counter returned 0 for every
+        # closure and half two reported total fusion. The same gawk-only trap as strtonum,
+        # in the same file, twice.
+        inside && /[ \t]call/ { n++ }
+        END { print n + 0 }'
+}
+
+# Does this symbol have an out-of-line body, and how big is it?
+body_of() {   # $1 = binary, $2 = symbol substring
+  nm -t d -S -C --defined-only "$1" 2>/dev/null \
+    | awk -v s="$2" 'index($0, s) { print $2 + 0; exit }'
+}
+
+echo "  the checker's own control (src/fusion_probe.cpp): one function that MUST be called"
+echo "  and one that MUST be fused, both by construction rather than by optimisation level"
+if [ -x "$B/fusion_probe" ]; then
+  c_called=$(calls_in "$B/fusion_probe" "ak_probe_loop_called")
+  c_fused=$(calls_in "$B/fusion_probe" "ak_probe_loop_fused")
+  b_called=$(body_of "$B/fusion_probe" " ak_probe_called")
+  if [ "${c_called:-0}" -ge 1 ]; then
+    chk ok "the counter sees the call in ak_probe_loop_called ($c_called)"
+  else
+    chk bad "the counter reports NO call in ak_probe_loop_called -- the counter is broken"
+  fi
+  if [ "${c_fused:-1}" -eq 0 ]; then
+    chk ok "the counter sees fusion: ak_probe_loop_fused has 0 calls"
+  else
+    chk bad "ak_probe_loop_fused has $c_fused calls -- it was supposed to be inlined, so"
+    chk bad "  the control proves nothing"
+  fi
+  if [ -n "$b_called" ] && [ "$b_called" -gt 0 ]; then
+    chk ok "ak_probe_called has an out-of-line body ($b_called B)"
+  else
+    chk bad "ak_probe_called has no out-of-line body -- the body test is broken"
+  fi
+else
+  chk bad "fusion_probe is not built, so half two has no control and proves nothing"
+fi
+echo
+
 for bin in bench_a17_shared bench_a17_shared_lto; do
+  [ -x "$B/$bin" ] || continue
   echo "  $bin:"
-  nm -t d -S -C --defined-only $B/$bin \
-    | grep -E 'shapes::native::(encode_into|decode)_list_(results|tasks_detailed|probe|metrics)_response|shapes::native::(enc|dec)_(result_raw|task_detailed|probe|metrics_batch)' \
-    | awk '{printf "    %8d B  %s\n", $2, substr($0, index($0,"shapes"))}' | sort -rn | head -10
-  loop=$(nm -t d -S -C --defined-only $B/$bin \
-        | awk '/double timed</ {if ($2+0 > m) m = $2+0} END {print m+0}')
-  echo "    largest timing closure in the image: $loop B"
-  # BOTH directions. README asks for both and the first version of this script printed
-  # encode symbols only -- while decode is the direction where this control misbehaves,
-  # so it is the direction where "is it fused?" most needed answering.
-  # The per-message traversals the entry points call. `decode_list_X` is a 94 B shim that
-  # calls an out-of-line `dec_list_X`, so the shim's size is not the question -- the
-  # traversal's is, and it is these.
+  # (1) every timing closure must still contain a call. A closure with none has absorbed
+  #     whatever it was timing.
+  zero=0
+  total=0
+  while IFS= read -r sym; do
+    total=$((total + 1))
+    n=$(calls_in "$B/$bin" "$sym")
+    [ "${n:-0}" -eq 0 ] && { zero=$((zero + 1)); echo "      ZERO calls: $sym"; }
+  done < <(nm -C --defined-only "$B/$bin" | sed -n 's/^[0-9a-f]* [tT] \(double timed<.*\)$/\1/p')
+  if [ "$zero" -eq 0 ]; then
+    chk ok "$bin: all $total timing closures still call out"
+  else
+    chk bad "$bin: $zero of $total timing closures contain no call at all"
+  fi
+  # (2) every control traversal must still have an out-of-line body.
   for sym in 'shapes::native::encode_into_list_results_response' \
              'shapes::native::enc_task_detailed' \
              'shapes::native::dec_list_results_response' \
              'shapes::native::dec_list_tasks_detailed_response' \
              'shapes::native::decode_list_metrics_response'; do
-    sz=$(nm -t d -S -C --defined-only $B/$bin | awk -v s="$sym" 'index($0, s) {print $2+0; exit}')
+    sz=$(body_of "$B/$bin" "$sym")
     if [ -z "$sz" ]; then
-      echo "    $sym: ABSENT (inlined into its caller within the control TU, which is fine:"
-      echo "      the question is whether the BENCHMARK LOOP contains it, and the loop is"
-      echo "      in another TU with no LTO in the default build)"
-      continue
-    fi
-    if [ "$bin" = bench_a17_shared_lto ]; then
-      # The POSITIVE CONTROL binary. `-flto` is the condition that would break the
-      # control, and it is built so the check can be seen under it. A fire HERE is the
-      # desired outcome and is not a failure of the slice: no figure comes from this
-      # binary. What it demonstrates is the trend -- under LTO the traversals shrink and
-      # the timing closures grow, which is the direction that ends in fusion.
-      if [ "$sz" -gt "${loop:-0}" ]; then
-        echo "    [control] $sym is $sz B, still larger than any closure ($loop B)"
-      else
-        echo "    [control FIRED] $sym is only $sz B against a $loop B closure -- which is"
-        echo "      what the check is for, and why no figure comes from this binary"
-        ctrl_fired=$((ctrl_fired + 1))
-      fi
-      continue
-    fi
-    if [ "$sz" -gt "${loop:-0}" ]; then
-      chk ok "$bin: $sym is $sz B, larger than any timing closure ($loop B)"
+      echo "      $sym: ABSENT -- inlined into its caller WITHIN the control TU, which is"
+      echo "        fine; the question is whether the benchmark loop carries it, and the"
+      echo "        loop is in another TU"
+    elif [ "$sz" -gt 0 ]; then
+      chk ok "$bin: $sym has an out-of-line body ($sz B)"
     else
-      chk bad "$bin: $sym is only $sz B, smaller than a timing closure -- check for fusion"
+      chk bad "$bin: $sym has a zero-length body"
     fi
   done
 done
 echo "  The control is reached through a FUNCTION POINTER passed to the case runner, so its"
-echo "  address is taken and an out-of-line body must exist; the sizes above say the loop is"
-echo "  not carrying a copy of it."
+echo "  address is taken and an out-of-line body must exist. Both properties above are the"
+echo "  question itself rather than a proxy for it, and the fixture says the checker can"
+echo "  report either answer."
 echo
 echo "boundary: $ok checks passed, $fail failed"
 if [ "$ctrl_fired" -gt 0 ]; then
-  echo "and the -flto POSITIVE CONTROL fired on $ctrl_fired symbols, which is what says the"
-  echo "check above is capable of failing. No figure in this slice comes from that binary."
-else
-  echo "WARNING: the -flto positive control did NOT fire, so the check above has not been"
-  echo "seen failing on this build. Treat the pass as unproven."
+  echo "and the -flto positive control fired on $ctrl_fired symbols."
 fi
 exit $((fail ? 1 : 0))

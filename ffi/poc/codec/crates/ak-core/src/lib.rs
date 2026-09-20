@@ -37,6 +37,8 @@
 //! into across the boundary at all (findings/rust.md).
 #![allow(non_camel_case_types, non_upper_case_globals)]
 
+extern crate alloc;
+
 use ak_abi::*;
 use ak_rt::Enc;
 use core::ffi::c_void;
@@ -58,6 +60,192 @@ pub mod generated {
 /// codec and calls nothing would otherwise get its symbols garbage-collected.
 pub fn link_anchor() -> u32 {
     AK_ABI_VERSION
+}
+
+// ---- section 3: the lifecycle -------------------------------------------------------
+//
+// "Nothing here is implicit."  Built by the rust slice, which found that every slice in the
+// branch had skipped it: the codec half needs none of it, so nobody built it, so section
+// 3's central claim -- "every other entry point requires `ak_init` to have returned
+// successfully, the codec included" -- had never been exercised anywhere.
+//
+// WHAT IS REAL HERE AND WHAT IS NOT, stated rather than left to be discovered.  The state
+// machine, the idempotence rules, the ABI-version check, the build id, the log bridge and
+// the panic hook are real and exercised.  The rustls crypto provider is NOT installed,
+// because this crate's codec build does not link rustls at all; `AK_INIT_NO_CRYPTO` names
+// that case and the RPC feature is where the install would go.  A one-line install nobody
+// has run is not evidence, and pretending otherwise is what this branch exists to avoid.
+
+use core::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+
+const INIT_NONE: u32 = 0;
+const INIT_RUNNING: u32 = 1;
+const INIT_DONE: u32 = 2;
+
+static INIT_STATE: AtomicU32 = AtomicU32::new(INIT_NONE);
+/// The options the first successful `ak_init` was given, folded into one word, so a second
+/// call with DIFFERENT options can be refused without storing a struct behind a lock. The
+/// log function pointer is part of it: two hosts asking for two different log sinks is
+/// exactly the disagreement the one-shot install cannot satisfy.
+static INIT_OPTS: AtomicU64 = AtomicU64::new(0);
+
+/// The host's log sink, installed once. Read on every log line, which is why it is an
+/// atomic pair rather than a mutex: a log call must be safe from inside a reverse-call
+/// frame, the same constraint section 5 puts on `ak_fail`.
+static LOG_FN: AtomicU64 = AtomicU64::new(0);
+static LOG_CTX: AtomicU64 = AtomicU64::new(0);
+
+/// Two copies of the staticlib in one process either share Rust's globals or split-brain
+/// them with no warning (section 3), so the build carries an id a host can compare.
+/// Null-terminated: it is the one string in this ABI that is, because it is a C string
+/// constant and not a wire value.
+static BUILD_ID: &[u8] = concat!(
+    "ak-core ", env!("CARGO_PKG_VERSION"), " abi1 ", env!("CARGO_PKG_NAME"), "\0"
+).as_bytes();
+
+fn opts_word(o: &ak_init_opts) -> u64 {
+    let log = o.log.map(|f| f as usize as u64).unwrap_or(0);
+    // The flags and the version in the high half, the sink's identity in the low. Two
+    // different sinks differ; two calls naming the same sink do not.
+    ((o.abi_version as u64) << 48) ^ ((o.flags as u64) << 32) ^ log ^ (o.log_ctx as u64)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ak_init(opts: *const ak_init_opts, err: *mut ak_err) -> i32 {
+    let set = |code: i32, detail: u32| -> i32 {
+        if !err.is_null() {
+            *err = ak_err { code, detail };
+        }
+        code
+    };
+    if opts.is_null() {
+        return set(AK_ERR_INVALID_STATE, AK_DETAIL_NULL_ARG);
+    }
+    let o = *opts;
+
+    // The version the HOST was generated against, checked by the side that knows it, once,
+    // at the only point where failing is cheap (section 3).
+    if o.abi_version != AK_ABI_VERSION {
+        return set(AK_ERR_ABI, AK_DETAIL_ABI_MISMATCH);
+    }
+
+    let word = opts_word(&o);
+    match INIT_STATE.compare_exchange(INIT_NONE, INIT_RUNNING, Ordering::AcqRel, Ordering::Acquire)
+    {
+        Ok(_) => {}
+        Err(_) => {
+            // Already initialising or initialised. Spin until the first call has finished,
+            // because a second caller must not return before the installs are visible --
+            // "every other entry point requires ak_init to have returned successfully" is
+            // a claim about ALL callers, not about the first.
+            while INIT_STATE.load(Ordering::Acquire) == INIT_RUNNING {
+                core::hint::spin_loop();
+            }
+            return if INIT_OPTS.load(Ordering::Acquire) == word {
+                set(AK_ALREADY_INITIALIZED, AK_DETAIL_NONE)
+            } else {
+                // The one-shot installs cannot be redone, so this is a failure and not a
+                // no-op. There is no ak_shutdown for the same reason.
+                set(AK_ERR_INVALID_STATE, AK_DETAIL_OPTS_DIFFER)
+            };
+        }
+    }
+
+    // ---- the one-shot installs, in the order section 3 gives them.
+
+    // 1. the crypto provider. NOT DONE, and the flag is how a host says so. The codec build
+    //    does not link rustls; see the module comment.
+    let _ = o.flags & AK_INIT_NO_CRYPTO;
+
+    // 2. the log bridge. `tracing::set_global_default` and `log::set_logger` are one-shot
+    //    per process, so who owns them is decided here or not at all.
+    if o.flags & AK_INIT_OWN_LOGGING == 0 {
+        LOG_FN.store(o.log.map(|f| f as usize as u64).unwrap_or(0), Ordering::Release);
+        LOG_CTX.store(o.log_ctx as u64, Ordering::Release);
+    }
+
+    // 3. the panic hook. It changes what a panic PRINTS; it does not stop one. A panic
+    //    raised inside an `extern "C"` entry point of this ABI still aborts the process,
+    //    because the unwind is refused at the boundary -- measured by the rust slice's
+    //    concurrency suite, which reaches that path on purpose.
+    if o.flags & AK_INIT_NO_PANIC_HOOK == 0 {
+        let prev = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            let msg = alloc::format!("panic in ak-core: {info}");
+            if !ak_log(0, msg.as_ptr(), msg.len()) {
+                prev(info);
+            }
+        }));
+    }
+
+    INIT_OPTS.store(word, Ordering::Release);
+    INIT_STATE.store(INIT_DONE, Ordering::Release);
+    set(AK_OK, AK_DETAIL_NONE)
+}
+
+/// Whether `ak_init` has returned successfully. Not in the specification; it is what makes
+/// "every other entry point requires `ak_init`" testable from outside the core.
+#[no_mangle]
+pub extern "C" fn ak_initialized() -> i32 {
+    i32::from(INIT_STATE.load(Ordering::Acquire) == INIT_DONE)
+}
+
+#[no_mangle]
+pub extern "C" fn ak_build_id() -> *const core::ffi::c_char {
+    BUILD_ID.as_ptr() as *const core::ffi::c_char
+}
+
+/// The guard section 3 requires on every other entry point.
+///
+/// Behind a feature, and that is a measurement decision rather than a design one: "every
+/// entry point requires `ak_init`" is a claim with a price on the hot path (`ak_elem_*` is
+/// called once per chunk, `ak_encode_*` once per message), and the price has never been
+/// quoted anywhere in this branch. With `init-guard` off the generated entry points are
+/// exactly what they were; with it on they check, and the difference is the price.
+#[inline(always)]
+pub fn ak_init_ok() -> bool {
+    // Relaxed: the store that makes it true is Release and happens-before any host call
+    // that could observe it, because the host had to see `ak_init` return first. What this
+    // load must not do is cost a fence on every encode.
+    INIT_STATE.load(Ordering::Relaxed) == INIT_DONE
+}
+
+/// Emit a line through the host's sink. Returns false if there is none, so a caller can
+/// fall back. Never allocates a sink, never locks, safe from inside a reverse-call frame.
+pub fn ak_log(level: u32, msg: *const u8, len: usize) -> bool {
+    let f = LOG_FN.load(Ordering::Acquire);
+    if f == 0 {
+        return false;
+    }
+    let f: ak_log_fn = unsafe { core::mem::transmute(f as usize) };
+    unsafe { f(LOG_CTX.load(Ordering::Acquire) as *mut c_void, level, msg, len) };
+    true
+}
+
+/// Emit a line, for a host that wants to see the bridge work without waiting for the core
+/// to have something to say. Exercises the same path a real log line takes.
+#[no_mangle]
+pub unsafe extern "C" fn ak_log_test(level: u32, msg: *const u8, len: usize) -> i32 {
+    i32::from(ak_log(level, msg, len))
+}
+
+/// Panic INSIDE the core, on purpose, so the panic hook can be seen working.
+///
+/// It exists because the hook cannot be tested any other way, and that is itself the
+/// finding: the hook covers a panic raised in the core, and a Rust host's own panics go to
+/// the host's hook, because a cdylib carries its own copy of `std` and the two hooks are
+/// two different globals. Section 3 warns about exactly this mechanism one level up ("two
+/// copies of the staticlib in one process either share Rust's globals or split-brain them
+/// with no warning"); here it is `std`'s globals rather than the core's, and the split is
+/// not a defect but the reason the hook is worth installing at all.
+///
+/// The caller does not get control back. This frame is `extern "C"`, so the unwind is
+/// refused at the boundary and the process aborts -- the hook's whole value is that the
+/// message reaches the host's log FIRST. A guard with no failing test is a guard nobody has
+/// seen work (README R1), and this is the failing test.
+#[no_mangle]
+pub extern "C" fn ak_panic_test() {
+    panic!("deliberate panic inside ak-core, from ak_panic_test");
 }
 
 // ---- contexts ---------------------------------------------------------------------
@@ -107,6 +295,14 @@ pub struct EncCtxImpl {
 pub struct DecCtxImpl {
     pub hdr: CtxHeader,
     pub c: ak_rt::Counters,
+    /// The pull family's deposit target (ABI v1 section 7.1). Empty and unallocated unless
+    /// a host calls `ak_parse_*`, so the push family pays nothing for it: one `Vec` header
+    /// in a context that is allocated once per host thread and reused.
+    ///
+    /// It is in the CONTEXT and not in a thread-local for section 7.3's reason, and in the
+    /// context rather than a local of the entry point because the whole point of pull is
+    /// that the host reads it AFTER the call returns.
+    pub bdr: ak_rt::Bdr,
 }
 
 #[no_mangle]
@@ -171,8 +367,130 @@ pub extern "C" fn ak_dec_ctx_new() -> *mut ak_dec_ctx {
     Box::into_raw(Box::new(DecCtxImpl {
         hdr: CtxHeader { kind: AK_CTX_DEC, err: AK_OK },
         c: Default::default(),
+        bdr: ak_rt::Bdr::new(),
     })) as *mut ak_dec_ctx
 }
+
+// ---- the pull family's buffer (ABI v1 section 7.1) ---------------------------------
+//
+// Schema-free, so it is hand-written here beside the contexts rather than emitted: what
+// the generator emits is `ak_parse_<Root>`, one per root, and every root deposits into
+// this one buffer through the same four entry points.
+
+/// Pre-size the record buffer. Optional: `ak_parse_*` grows it as it goes. A host that has
+/// already decoded one response of a shape calls `ak_bdr_footprint` after it and reserves
+/// that much before the next, which is the case this exists for.
+#[no_mangle]
+pub unsafe extern "C" fn ak_bdr_reserve(ctx: *mut ak_dec_ctx, bytes: usize) -> i32 {
+    if ctx.is_null() {
+        return AK_ERR_INVALID_STATE;
+    }
+    let cx = &mut *(ctx as *mut DecCtxImpl);
+    ak_rt::bump!(cx.c, forward);
+    cx.bdr.reserve(bytes);
+    AK_OK
+}
+
+/// How many bytes the last parse deposited. ABI v1 section 7.1's "the host can hold two
+/// decoded responses, read what it is paying, bound it and release it".
+#[no_mangle]
+pub unsafe extern "C" fn ak_bdr_footprint(ctx: *const ak_dec_ctx) -> usize {
+    let cx = &*(ctx as *const DecCtxImpl);
+    // A const pointer, so this one cannot bump a counter without a cast the signature is
+    // there to forbid. It is a forward crossing and the host counts it: see
+    // `ak_bdr_count_forward`.
+    cx.bdr.footprint()
+}
+
+/// Counting build only: let the HOST record the forward crossings its own drain loop makes
+/// through a `const` entry point. Same shape and same reason as `ak_enc_count_reverse`,
+/// which the cpp slice added for the mirror case (R5: count, do not infer).
+#[no_mangle]
+pub unsafe extern "C" fn ak_bdr_count_forward(ctx: *mut ak_dec_ctx, n: u32) {
+    #[cfg(feature = "count")]
+    {
+        let cx = &mut *(ctx as *mut DecCtxImpl);
+        cx.c.forward += n as u64;
+    }
+    #[cfg(not(feature = "count"))]
+    {
+        let _ = (ctx, n);
+    }
+}
+
+/// Copy whole records out, from `*cursor`, into a host buffer of `cap` bytes. Returns the
+/// bytes written, 0 when the buffer is exhausted, or a negative error code.
+///
+/// The host drives, which is the family's defining property: no upcall, and on the JVM the
+/// destination is a `byte[]` held under `GetPrimitiveArrayCritical`.
+#[no_mangle]
+pub unsafe extern "C" fn ak_bdr_drain(
+    ctx: *mut ak_dec_ctx,
+    dst: *mut u8,
+    cap: usize,
+    cursor: *mut usize,
+) -> isize {
+    if ctx.is_null() || dst.is_null() || cursor.is_null() {
+        return AK_ERR_INVALID_STATE as isize;
+    }
+    let cx = &mut *(ctx as *mut DecCtxImpl);
+    ak_rt::bump!(cx.c, forward);
+    let mut at = *cursor;
+    let n = cx.bdr.drain(dst, cap, &mut at);
+    *cursor = at;
+    n
+}
+
+/// The buffer in place, for a host with no pinning problem: C++, and Rust.
+///
+/// It is not a shortcut around `ak_bdr_drain` but the other half of the measurement. The
+/// drain copy is what a managed host pays to get the records into memory it can walk
+/// without a crossing; a native host walks them where they are. Reporting pull with the
+/// copy folded in would price the family against a cost only some of its hosts have.
+///
+/// The pointer is valid until the next `ak_parse_*` or `ak_dec_ctx_free` on this context.
+#[no_mangle]
+pub unsafe extern "C" fn ak_bdr_ptr(
+    ctx: *mut ak_dec_ctx,
+    ptr: *mut *const u8,
+    len: *mut usize,
+) -> i32 {
+    if ctx.is_null() || ptr.is_null() || len.is_null() {
+        return AK_ERR_INVALID_STATE;
+    }
+    let cx = &mut *(ctx as *mut DecCtxImpl);
+    ak_rt::bump!(cx.c, forward);
+    let b = cx.bdr.as_bytes();
+    *ptr = b.as_ptr();
+    *len = b.len();
+    AK_OK
+}
+
+/// Drop the records, keep the allocation. A parse resets on entry, so this is for a host
+/// that wants the memory back between responses rather than for correctness.
+#[no_mangle]
+pub unsafe extern "C" fn ak_bdr_reset(ctx: *mut ak_dec_ctx) {
+    let cx = &mut *(ctx as *mut DecCtxImpl);
+    cx.bdr.reset();
+}
+
+/// ABI v1 section 10, applied to the record header: the core writes `ak_rt::bdr::Rec` and
+/// the host reads `ak_abi::ak_bdr_rec`, and the two are separate declarations in crates
+/// that do not depend on each other. That is exactly the disagreement section 10 exists
+/// for -- a wrong value in a field, the worst way to find it -- so it is asserted at
+/// compile time here, where both are visible, rather than trusted.
+const _: () = {
+    assert!(core::mem::size_of::<ak_rt::bdr::Rec>() == core::mem::size_of::<ak_bdr_rec>());
+    assert!(core::mem::align_of::<ak_rt::bdr::Rec>() == core::mem::align_of::<ak_bdr_rec>());
+    assert!(core::mem::size_of::<ak_rt::bdr::Rec>() == 24);
+    // 8-aligned, so a group written straight after a header needs no per-record padding.
+    assert!(core::mem::align_of::<ak_rt::bdr::Rec>() == 8);
+    assert!(ak_rt::bdr::OP_APPLY == AK_BDR_APPLY);
+    assert!(ak_rt::bdr::OP_ADD == AK_BDR_ADD);
+    assert!(ak_rt::bdr::OP_NEW == AK_BDR_NEW);
+    assert!(ak_rt::bdr::OP_APPLY_ELEM == AK_BDR_APPLY_ELEM);
+    assert!(ak_rt::bdr::BDR_MIN_CHUNK == AK_BDR_MIN_CHUNK);
+};
 
 #[no_mangle]
 pub unsafe extern "C" fn ak_dec_ctx_free(ctx: *mut ak_dec_ctx) {
@@ -708,6 +1026,47 @@ pub(crate) unsafe fn enc_raw(cx: *mut EncCtxImpl, s: &ak_blob) -> bool {
 /// is not running."
 #[no_mangle]
 pub extern "C" fn ak_noop(x: u64) -> u64 {
+    x ^ 1
+}
+
+/// A SECOND bare crossing, identical to `ak_noop` in every respect, and the control that
+/// says what the `ak_noop` / `ak_noop_guarded` comparison can resolve.
+///
+/// Two exported functions with the same body are not the same cost: they land at different
+/// addresses, in different cache lines, with different alignment, and through different PLT
+/// entries. At a crossing of under 3 ns that difference is not small. So this arm must
+/// measure ZERO against `ak_noop`, and whatever it measures instead is the FLOOR of the
+/// method -- a guard cost below that floor is not measurable this way, and saying so is the
+/// result rather than quoting a number the control cannot support.
+///
+/// It exists because the first version of the comparison measured the GUARDED crossing as
+/// cheaper than the bare one, which cannot be true: the guard adds a load and a branch and
+/// can only cost. An arm with the wrong sign means the effect is under the noise, and the
+/// way to say that with evidence is to measure the noise.
+#[no_mangle]
+pub extern "C" fn ak_noop2(x: u64) -> u64 {
+    x ^ 1
+}
+
+/// The same crossing WITH ABI v1 section 3's guard on it, so the guard can be priced as a
+/// delta between two arms in one process and one build.
+///
+/// It exists because the compile-time form could not be measured. `--features init-guard`
+/// is a different binary, so the two arms cannot share a process, and the in-process
+/// control R4 requires for that case did not hold: `core-native`, which carries no guard at
+/// all, moved by up to 30 percent between the two builds. A cross-build ratio whose control
+/// moved is not a figure. This pair is the same question asked the way R4's sharpened half
+/// says to ask it -- a delta between two arms in the same interleaved rounds -- and it
+/// survives what the cross-build form did not.
+///
+/// The guard here is the SAME code the generator emits into every entry point: one relaxed
+/// load of the process-global init word, a compare and a branch. Multiply the delta by the
+/// counting build's forward-crossing count for the per-payload cost.
+#[no_mangle]
+pub extern "C" fn ak_noop_guarded(x: u64) -> u64 {
+    if !ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as u64;
+    }
     x ^ 1
 }
 

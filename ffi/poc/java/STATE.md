@@ -163,6 +163,47 @@ objects.
 `ffi-take` and `R-take` hand back a fresh `byte[]`, as `pbj` does. P1.3 is the absent-path
 inversion and decision 9 fixes it; P6.1 is the control twice over (see "storage" below).
 
+### D7 and the re-measurement -- `logs/java/encode-take-fix.log`
+
+**The `-take` arm was handicapped against itself**, which is the first of the three traps
+the brief named, pointing inward. `takeBytes` asked the core for the encoded length over
+the boundary, copied the bytes from native memory into a reused scratch array, then copied
+the scratch array into the result: two crossings and two copies, where `R-take` and
+`toByteArray` each cost one allocation and one copy. Both extras were avoidable. ABI v1's
+encode entry already returns the length, so the entry points record it and `encTake` now
+writes straight into the freshly allocated result. Re-gated before re-measuring: 1,297
+checks, 0 failures, unchanged, and the gate runs `take()` on every payload and all three
+content sets.
+
+**The fix is mechanical and its measured effect is below this machine's noise floor.** The
+instrument is the within-run paired delta `arm-take - arm`, median ns:
+
+| payload | `ffi-take - ffi` published | re-run | `R-take - R` published | re-run |
+|---|---|---|---|---|
+| P5.2, 64 KB | 11,866 | 9,080 | 11,807 | 9,227 |
+| P5.3, 1 MB | 269,687 | 211,277 | 202,726 | 180,648 |
+| P5.4, 4 MB | 938,102 | 733,547 | 698,122 | 573,972 |
+
+`R-take - R` is unchanged code, so its movement is run-to-run noise and it is **124 us on
+P5.4**. The ffi arm moved 204 us. The 80 us difference is what the fix can claim, against a
+noise floor half again as large.
+
+**So the published `-take` column was not materially distorted, and the earlier reading of
+why P5.3 and P5.4 are above 1.5 was wrong.** Decomposing P5.4 across the two runs:
+allocating and zeroing the 4 MB result costs roughly 530 us and each copy roughly 200 us.
+Both arms pay the allocation identically, so it cancels; the copy that was removed was
+about a fifth of the take overhead rather than most of it. The residual gap between the
+arms -- 160 us in the re-run against 240 us published -- is `SetByteArrayRegion` reading
+cold off-heap memory where arm R does an on-heap `System.arraycopy`. **That part is the
+ABI's own cost and does not go away.** `ffi-take` over `R-take` on P5.4 is 1.535 published
+and 1.538 now.
+
+**Both logs are kept and `encode.log` remains the cited one.** The re-run drifted harder
+(`pbj`'s own absolute moves -24% to +15% across payloads between the two) and three sign
+verdicts weakened to no-sign at unchanged magnitudes: P1.2 from `+`, P5.3 and P5.4 from
+`-`. That is a noisier run, not new information, and R13 defers absolutes to a controlled
+machine either way.
+
 ### Decode -- `logs/java/decode.log`
 
 | payload | `R` | `ffi` | `ffi-borrow` |
@@ -361,16 +402,99 @@ involved**, since modes 2 and 3 differ only in the probe string's coder; the inc
 **faster, not slower**; and **nothing happens on ASCII at all**, on either JDK, which is why
 every published managed figure has been blind to it.
 
-The mechanism the arms point at: protobuf-java's `Utf8.encode` and this slice's
-`ak.Utf8.encode` are both `charAt` loops over a `String` and share one compact-string
-dispatch profile, which can only be specialised one way -- so they move in opposite
-directions. Inferred from which triggers fire and which arms move, not from a compilation
-log; settling it is the first item in "next step".
+**The mechanism is now settled from the JIT's own output, and the inference above was
+wrong. See the next section.**
 
 **And the immunity is a result.** The C ABI arm has no such loop, because ABI v1 section 4
 put the transcoder in the core so that "every managed host stops maintaining a UTF-8
 encoder". That makes it the only arm here insensitive to the host JIT's profile history --
 an argument for the design that no benchmark was looking for.
+
+### R9's mechanism, settled -- `logs/java/r9-mechanism.log`
+
+`-XX:+TraceDeoptimization` and `-Xlog:deoptimization` do not exist on a product build.
+`-XX:+LogCompilation` does, and it **preserves** the effect; `-XX:StartFlightRecording`
+**erases** it (642 us at `deopt=0` against 1,261 without). So the first question was which
+instrument the hazard survives being watched by, and the answer decided the rest.
+
+**1. It is branch pruning, not deoptimisation.** `Utf8$UnsafeProcessor.encodeUtf8` has two
+`String.charAt` sites. Every run inlines `isLatin1()` and `StringLatin1.charAt` at both. In
+every slow run C2 emits `inline_fail reason='call site not reached'` for
+`StringUTF16.charAt` at both sites; in every fast run it compiles that branch with the
+`_getCharStringU` intrinsic. The payload's strings are all above U+00FF, so the pruned
+branch is the one the measurement needs. Six logged runs, perfect correlation. Runtime
+`uncommon_trap` events over the whole process are 9 at `deopt=0` and 11 at `deopt=3` --
+**the slow state has fewer traps, not more.**
+
+**2. The shared-profile story is refuted.** `ak.Utf8.encode` and `ak.Utf8.length` compile
+**identically in all four modes** in the same logs: no pruning, the UTF-16 branch present,
+`_getCharStringU` applied, every time. Only protobuf-java's encoder is pruned, so the two
+encoders do not share a fate and whatever moves arm R in `deopt.log` is not this.
+
+**3. The effect is bimodal and probabilistic, not a penalty.** Ten runs per mode, P1.2,
+`pbj` us:
+
+| mode | min | median | max | landed in the fast state |
+|---|---|---|---|---|
+| `deopt=0` nothing | 595 | 1,257 | 1,276 | **2 of 10** |
+| `deopt=1` `String.format` | 1,246 | 1,273 | 1,283 | **0 of 10** |
+| `deopt=2` wide probe | 603 | 1,224 | 1,268 | **1 of 10** |
+| `deopt=3` Latin-1 probe | 617 | 634 | 648 | **10 of 10** |
+
+Every run lands at about 620 us or about 1,250 and the gap is empty. **The probe changes
+the probability of the branch surviving, not the cost when it does not.** Without a probe
+the process gets there by itself about one run in ten -- which is what `deopt.log`'s one
+stray mode-2 reading was, recorded at the time rather than dropped.
+
+**4. `deopt=1` no longer reproduces**, and that is the mode R9 names. `deopt.log` has four
+consecutive fast readings for it; here it is slow in 13 of 13. The payload restriction does
+not explain it: over the full payload set mode 1 reads 923 to 954 us while mode 3 reads 606
+to 630. What changed since `deopt.log` is the W10 re-gate and the D7 fix, both of which
+change code in the measured process; attributing it needs a bisection over a probabilistic
+outcome, so it is recorded as unexplained rather than guessed at.
+
+**5. One prediction the pruning account makes, and it holds.** Over the full payload set
+the *slow* value drops from about 1,250 us to about 920: a more varied string diet before
+P1.2 partly saves the branch.
+
+### README 9.1's C shim, priced and refused -- `logs/java/shim-probe.log`
+
+**The arm is not built, and the reason is a measurement rather than a schedule.** README
+9.1's shape is a generated C shim that speaks the host runtime's C API instead of calling
+back into the host language. The JVM analogue writes facade fields through the JNI API
+instead of upcalling into Java, and it is aimed at exactly this slice's decode regression:
+7.004 reverse calls per element on P2.2 at about 80 ns is 560 ns of a 1.441 ratio. Pricing
+the primitives first says it cannot work.
+
+| op, net of an empty-loop control inside one native call | G1 (default) | Parallel | Serial |
+|---|---|---|---|
+| `SetIntField` | 11.97 | 11.97 | 11.96 |
+| `SetObjectField` | **26.7** | 13.7 | 13.7 |
+| `SetObjectArrayElement` | **28.0** | 15.6 | 15.5 |
+| `GetObjectField` | 18.6 | 16.2 | 16.1 |
+| `AllocObject` | 47.7 | 51.3 | 52.9 |
+| `NewObject` | 139.2 | 127.2 | 123.5 |
+| `NewString(16)` | 95.1 | 90.2 | 89.7 |
+| an upcall on a container method (`List.set`) | 105.8 | 101.8 | 99.7 |
+
+A cached reverse call on this machine is 72 to 80 ns (`logs/java/crossing.log`), so **a JNI
+field store is a third of a whole upcall, not a rounding error against it.** The crossover
+between "one upcall carrying k stores in bytecode" and "k JNI stores and no upcall" is at
+**k = 2 to 3**, worst on the default collector. `TaskDetailed`'s apply is k = 30, where the
+shim would pay about 790 ns of stores against about 80 ns of transition plus the same
+stores at a few ns each in bytecode, and a further 123 to 139 ns per element for
+`NewObject` where the Java side pays a bytecode `new`.
+
+**The generalisation is the useful part, and it composes with the rust slice's pull
+family.** On the JVM the push family's cost is the *number* of transitions, not what
+happens inside them. Making a transition cheaper is not on the table, because a JNI
+accessor already costs a third of one; making them fewer is, and that is the pull family
+and open decision 10. The C-shim route is not a second, independent way to the same place.
+
+**And a fact worth keeping on its own**: `SetObjectField` and `SetObjectArrayElement` both
+double under G1 against Parallel and Serial while `SetIntField` does not move. That is the
+G1 write barrier priced, and it applies to any native code storing references into Java
+objects, not only to this design.
 
 ### ABI v1 section 9's virtual-thread amendment, confirmed -- `logs/java/pinning.log`
 
@@ -431,6 +555,7 @@ nothing can settle that because its sources do not survive.
 | D4 | the bench kept the parse alive with `Message.hashCode()` | **fixed** |
 | D5 | `RunDelta`'s warmup ran 64,000 encodes per configuration per payload | **fixed**; it warms to a fixed time |
 | D6 | the `ffi` encode arm called `encodedLength()` for a value the JIT could not discard, adding a forward crossing per operation | **fixed**; the entry point returns its own result |
+| D7 | `takeBytes` paid two crossings and two copies where the incumbent pays one allocation and one copy: the same redundant crossing D6 removed from the `ffi` arm, left standing in the arm the incumbent is actually compared against | **fixed**, and re-measured. The effect is below the noise floor and no published figure moves; see `logs/java/encode-take-fix.log` |
 
 **None open.**
 
@@ -583,13 +708,21 @@ In the order a fresh session should take them:
    five), and 560 ns of that is the 7.004 upcalls at this machine's 80 ns. The push family
    is what makes the C ABI lose on decode here, and the pull family that would fix it is
    specified and unbuilt in the core.
-9. **README R9 needs rewriting, and the correction argues for the design.** The hazard is
-   real and larger than stated, but it fires on JDK **17** and not 21, its trigger is any
-   read of a Latin-1 String's characters rather than a numeric conversion, no narrowing
-   loop is involved, the incumbent gets **2.16 times faster** rather than slower, and
-   nothing happens on ASCII at all. The C ABI arm is the only arm immune, because the
-   transcoder is in the core -- which is section 4's own argument, arriving from a
-   direction nobody was looking in.
+9. **README R9 needs rewriting, and the correction already published there needs two
+   further changes.** The hazard is real and larger than stated, and four clauses stand: it
+   fires on JDK **17** and not 21, its trigger is a read of a Latin-1 String's characters
+   rather than a numeric conversion, no narrowing loop is involved, and nothing happens on
+   ASCII at all. The C ABI arm is the only arm immune, because the transcoder is in the
+   core -- section 4's own argument, arriving from a direction nobody was looking in.
+   **Two clauses must change, now that the mechanism is logged rather than inferred**
+   (`logs/java/r9-mechanism.log`): it is C2 pruning `StringUTF16.charAt` out of
+   protobuf-java's encoder as unreached, **not deoptimisation** -- the slow state has fewer
+   runtime traps than the fast one -- and the effect is **a probability, not a penalty**:
+   the process lands in the fast state about one run in ten unprompted and always with the
+   Latin-1 probe, with nothing in between. A published figure of "2.16 times" is a ratio of
+   two modes, not a cost. **And `deopt=1`, the mode R9 actually names, no longer
+   reproduces here at all** (0 of 13 against `deopt.log`'s 4 of 4), which the slice cannot
+   explain and has not tried to.
 10. **ABI v1 section 9's fourth amendment is confirmed** at three carrier counts, to within
    one percent of its own prediction. The blocking entry point pins a virtual thread's
    carrier and the callback mode does not, so the callback mode is load-bearing rather than
@@ -613,13 +746,16 @@ In the order a fresh session should take them:
 | `calibration-r13.log` | JDK 17 and rustc 1.94.1 | R13: this machine's rust crossing is 2.1 ns, and the slice's own shim crossing beside it |
 | `baseline.log` | JDK 17 | what protobuf-java's memoized size hides: 1.5 to 2.8 times the write |
 | `encode.log` | JDK 17, 36 rounds, 12 arms | the encode verdict, and the published regression reconstructed from `pbj-loop` |
+| `encode-take-fix.log` | JDK 17, 36 rounds, 12 arms, after D7 | the same run with `takeBytes` at one crossing and one copy. Kept beside `encode.log`, not in place of it: the fix is below the noise floor and this run drifted harder |
 | `decode.log` | JDK 17, 40 rounds, 4 arms | the decode verdict, and decision 13 |
 | `delta.log` | JDK 17, 40 rounds, no incumbent | the batching predicate and decision 9, paired |
 | `drift.log` | three neutrally perturbed builds | the drift bar: **0.078**, and which conclusions clear it |
 | `floor.log` | JDK 17 and JDK 8 | README 5.2's three arms, correctness on all three, arm b paired in one process, and two negative controls |
 | `contentsets.log` | JDK 17, P1.2 and P2.2 | all three content sets, encode and decode |
-| `deopt.log` | JDK 17 and JDK 21 | README R9's hazard: real, 2.16x, opposite sign, and the C ABI arm immune |
+| `deopt.log` | JDK 17 and JDK 21 | README R9's hazard: real, 2.16x, opposite sign, and the C ABI arm immune. Read with `r9-mechanism.log`, which corrects its mechanism and its shape |
+| `r9-mechanism.log` | JDK 17, `-XX:+LogCompilation`, 40 runs | R9 settled: C2 prunes `StringUTF16.charAt` from protobuf-java's encoder, it is not deoptimisation, the effect is bimodal and probabilistic, and `deopt=1` no longer reproduces |
 | `ffm.log` | JDK 21, preview | the FFM downcall price beside JNI's on the same JDK |
 | `pinning.log` | JDK 21, virtual threads | ABI v1 section 9's fourth amendment confirmed at three carrier counts |
+| `shim-probe.log` | JDK 17, three collectors | README 9.1's shape priced on the JVM before building it: a JNI field store is a third of an upcall, the crossover is k=2-3, and the G1 write barrier doubles a reference store |
 | `w10-regate.log` | all three arms, shared core | R0: 3,891 checks 0 failures, both transcoders resolved from `poc/codec`, worst drift move 0.052 against a 0.078 bar |
 | `r14.log`, `r14-summary.md` | JDK 17, the real grpc marshaller | R14: the headline against production's path, and `toByteArray` priced against it |

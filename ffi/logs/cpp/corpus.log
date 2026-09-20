@@ -1,0 +1,418 @@
+# cpp slice: the conformance corpus (W8)
+#   date            2026-09-20T14:44:14Z
+#   machine         Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
+#   compiler        g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+#   incumbent       protobuf C++ 3.21.12 (libprotobuf-dev, apt)
+#                   packages/cpp pins no protobuf version and sets CXX_STANDARD 14
+#   core            THE shared ak-core at ffi/poc/codec (R0), cdylib + staticlib;
+#                   codec emitted by ffi/poc/codec/gen/rust_abi.py (R1)
+#   rustc           rustc 1.94.1 (e408947bf 2026-03-25)
+#   commit          a12ae492
+
+===== C++17 target, shared =====
+# cpp slice: the conformance corpus (W8), as far as this scope reaches
+# corpus:   1
+# vectors:  336 in the corpus
+# reader:   generated from ffi/schema/shapes.json; roots = ListResultsResponse, ListTasksDetailedResponse, ListProbeResponse, ListTaskSummaryResponse, UploadResultDataMessage, ListMetricsResponse, DualResponse
+# binary:   corpus_a17_shared
+
+## CONTRACT.md rule 0: the reader is not generated from the superset
+   [ok]  ListResultsResponse: identical to corpus.proto; the superset adds 7 field(s) this reader does not know (u_varint, u_fixed64, u_len, u_fixed32)
+   [ok]  ListTasksDetailedResponse: identical to corpus.proto; the superset adds nothing HERE, so this root's unknown-field claim rests on its element types
+   [ok]  ListProbeResponse: identical to corpus.proto; the superset adds nothing HERE, so this root's unknown-field claim rests on its element types
+   [ok]  ListTaskSummaryResponse: identical to corpus.proto; the superset adds nothing HERE, so this root's unknown-field claim rests on its element types
+   [ok]  UploadResultDataMessage: identical to corpus.proto; the superset adds nothing HERE, so this root's unknown-field claim rests on its element types
+   [ok]  ListMetricsResponse: identical to corpus.proto; the superset adds nothing HERE, so this root's unknown-field claim rests on its element types
+   [ok]  DualResponse: identical to corpus.proto; the superset adds nothing HERE, so this root's unknown-field claim rests on its element types
+
+## scope
+   128 of 336 rows root at a message this slice's codec covers.
+   Out of scope, by root. Every one is a message this slice does not have,
+   never a row it chose to skip:
+      WireZoo                      62
+      Surrogate                    56
+      ChunkedResponse              15
+      Nest                         9
+      Probe                        8
+      ChunkedResponseWide          5
+      LeafResponse                 5
+      ChunkElement                 3
+      ChunkInner                   3
+      ChunkLeaf                    3
+      Duration                     3
+      Empty                        3
+      LeafElement                  3
+      MetricsBatch                 3
+      Pair                         3
+      ResultRaw                    3
+      SurrogateInner               3
+      TaskDetailed                 3
+      TaskOptions                  3
+      TaskOutput                   3
+      TaskSummary                  3
+      Timestamp                    3
+      UploadResultData             3
+   In scope, by class: baseline=8, empty=30, malformed=2, shape=22, unknown=66
+
+# cpp slice: the conformance corpus, the C++ half
+#   -std           201703
+#   linkage        shared
+#   arms           native (no boundary) and ffi (the C ABI over the shared core)
+#   walker         ak::Dec::skip over a buffer with no schema at all
+
+## C1 parse, C2 project, C3 re-encode, C4 refuse
+   native   C1 126/126  C2 123/124  C3 125/126  C4 2/2
+   ffi      C1 126/126  C2 123/124  C3 125/126  C4 2/2
+   pb       C1 126/126  C2 123/124  C3 124/126  C4 2/2   (the INCUMBENT: an oracle here, not a claimant)
+        note B-P2_5: C3 wrote a form the manifest does not accept (ff7e1f09a723, 19712 B; accepted: 45b80846=as committed)
+
+## C2 rows where this slice and the CORPUS disagree, and who is right
+#  Decided by a third implementation rather than by argument: the vector is
+#  re-read with protobuf-python on upb, built at run time from a descriptor
+#  set of corpus.proto. A row here is a finding about the corpus and is
+#  reported to the corpus's owner; this slice does not write corpus/**.
+   U-map-entry            native   this slice agrees with protobuf-python/pure and protobuf C++ (the incumbent); the corpus's projection does not
+        the difference: tasks: "[{'id': 'bbbb0ff8-2fff-4d0c-3231-a10e67527515', 'session_id vs "[{'acquired_at': {'seconds': '1700000000'}, 'created_at': {
+        who says what: upb=the corpus  pure-python=this slice  protobuf C++=this slice
+   U-map-entry            ffi      this slice agrees with protobuf-python/pure and protobuf C++ (the incumbent); the corpus's projection does not
+        the difference: tasks: "[{'id': 'bbbb0ff8-2fff-4d0c-3231-a10e67527515', 'session_id vs "[{'acquired_at': {'seconds': '1700000000'}, 'created_at': {
+        who says what: upb=the corpus  pure-python=this slice  protobuf C++=this slice
+   U-map-entry            pb       this slice agrees with protobuf-python/pure and protobuf C++ (the incumbent); the corpus's projection does not
+        the difference: tasks: "[{'id': 'bbbb0ff8-2fff-4d0c-3231-a10e67527515', 'session_id vs "[{'acquired_at': {'seconds': '1700000000'}, 'created_at': {
+        who says what: upb=the corpus  pure-python=this slice  protobuf C++=this slice
+
+## C3 rows re-encoded to a PERMUTATION of the same triples
+#  Not counted as a C3 pass anywhere above. An interleaved vector has no
+#  canonical writer, so every conformant encoder writes each repeated field
+#  contiguously and no encoder on earth reproduces the committed bytes. The
+#  manifest lists one accepted form for it. Recorded so the difference is
+#  visible as what it is: the same (tag, wire type, body) multiset.
+   B-P7_1                 native   0016f5b61ce6 98 B: same triples, different order
+   B-P7_1                 ffi      0016f5b61ce6 98 B: same triples, different order
+   B-P7_1                 pb       0016f5b61ce6 98 B: same triples, different order
+
+## R2 / CONTRACT.md 5.5: the two arms agree on the decoded value
+   128 of 128 rows: the native arm and the ffi arm decode to the same facade
+
+## C3: which accepted form this slice writes
+#  CONTRACT.md C3: a vector may have more than one accepted form, and which one
+#  a slice writes is a fact about it rather than a verdict.
+   ffi      as committed=52, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=17
+   native   as committed=52, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=17
+   pb       as committed=102, as upb writes it: the same message, encoded differently=1, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: the zero leaves omitted=1, key and value always written=2, key and value always written (protobuf C++, upb, protobuf-java)=2, map values always written (protobuf C++, upb, protobuf-java)=5, unknown-dropped=1, unknown-dropped, map values always written=1, unknown-retained, appended in tag order=6, unknown-retained, map values always written=16
+
+## ABI v1 open decision 11, answered for this slice
+   ffi      as committed=4, unknown-dropped=62, unknown-dropped, map values always written=17  (of 66 unknown-class rows)
+   native   as committed=4, unknown-dropped=62, unknown-dropped, map values always written=17  (of 66 unknown-class rows)
+   pb       as committed=58, as upb writes it: the same message, encoded differently=1, unknown-dropped=1, unknown-dropped, map values always written=1, unknown-retained, appended in tag order=6, unknown-retained, map values always written=16  (of 66 unknown-class rows)
+   **This slice DROPS unknown fields**, in both arms. protobuf C++, the
+   incumbent every ratio here is against, RETAINS them, so adopting the core
+   removes a proto3 guarantee a C++ caller has today. That is decision 11 and
+   it is a behaviour change, not a performance one.
+
+## C4: what the refusals looked like
+#  CONTRACT.md C4: 'a rejection test that nothing rejects is a test nobody has
+#  watched work'. Error codes are ABI v1 section 5's.
+   native   X-nested-len-overrun       -3 AK_ERR_TRUNCATED
+   native   X-packed-truncated         -3 AK_ERR_TRUNCATED
+   ffi      X-nested-len-overrun       -3 AK_ERR_TRUNCATED
+   ffi      X-packed-truncated         -3 AK_ERR_TRUNCATED
+   pb       X-nested-len-overrun       -2 AK_ERR_MALFORMED
+   pb       X-packed-truncated         -2 AK_ERR_MALFORMED
+
+## the unknown-field walker over the corpus's WireZoo vectors
+#  NOT a root decode and not counted as one: `ak::Dec::skip` over a buffer with
+#  no schema, which is the path a root decoder takes for a field it does not
+#  know. WireZoo is not in this slice's schema, so these rows are out of scope
+#  for C1-C3; the wire FORM they carry is exactly what this work unit fixed.
+   S-WireZoo-alt              accept accept err 0   at 78 of 78   ok
+   S-WireZoo-full             accept accept err 0   at 69 of 69   ok
+   S-WireZoo-min              accept accept err 0   at 0 of 0   ok
+   S-bigtag                   accept accept err 0   at 6 of 6   ok
+   S-bool-true                accept accept err 0   at 2 of 2   ok
+   S-bytes-all-256            accept accept err 0   at 259 of 259   ok
+   S-double-denormal-min      accept accept err 0   at 9 of 9   ok
+   S-double-epsilon           accept accept err 0   at 9 of 9   ok
+   S-double-inf               accept accept err 0   at 9 of 9   ok
+   S-double-max               accept accept err 0   at 9 of 9   ok
+   S-double-minus-inf         accept accept err 0   at 9 of 9   ok
+   S-double-minus-zero        accept accept err 0   at 9 of 9   ok
+   S-double-nan               accept accept err 0   at 9 of 9   ok
+   S-double-one               accept accept err 0   at 9 of 9   ok
+   S-fixed32-high-bit         accept accept err 0   at 5 of 5   ok
+   S-fixed32-max              accept accept err 0   at 5 of 5   ok
+   S-fixed32-one              accept accept err 0   at 5 of 5   ok
+   S-string-ascii             accept accept err 0   at 11 of 11   ok
+   S-string-astral            accept accept err 0   at 14 of 14   ok
+   S-string-boundary-0x7f-0x80 accept accept err 0   at 5 of 5   ok
+   S-string-boundary-0x7ff-0x800 accept accept err 0   at 7 of 7   ok
+   S-string-boundary-0xffff-0x10000 accept accept err 0   at 9 of 9   ok
+   S-string-embedded-nul      accept accept err 0   at 5 of 5   ok
+   S-string-latin1            accept accept err 0   at 34 of 34   ok
+   S-string-len-1             accept accept err 0   at 3 of 3   ok
+   S-string-len-127           accept accept err 0   at 129 of 129   ok
+   S-string-len-128           accept accept err 0   at 131 of 131   ok
+   S-string-len-16383         accept accept err 0   at 16386 of 16386   ok
+   S-string-len-16384         accept accept err 0   at 16388 of 16388   ok
+   S-string-max-codepoint     accept accept err 0   at 6 of 6   ok
+   S-string-wide              accept accept err 0   at 12 of 12   ok
+   S-varint-i32-1             accept accept err 0   at 2 of 2   ok
+   S-varint-i32-max           accept accept err 0   at 6 of 6   ok
+   S-varint-i32-min           accept accept err 0   at 11 of 11   ok
+   S-varint-i32-minus-1       accept accept err 0   at 11 of 11   ok
+   S-varint-i64-1             accept accept err 0   at 2 of 2   ok
+   S-varint-i64-127           accept accept err 0   at 2 of 2   ok
+   S-varint-i64-128           accept accept err 0   at 3 of 3   ok
+   S-varint-i64-16383         accept accept err 0   at 3 of 3   ok
+   S-varint-i64-16384         accept accept err 0   at 4 of 4   ok
+   S-varint-i64-2097151       accept accept err 0   at 4 of 4   ok
+   S-varint-i64-2097152       accept accept err 0   at 5 of 5   ok
+   S-varint-i64-268435455     accept accept err 0   at 5 of 5   ok
+   S-varint-i64-268435456     accept accept err 0   at 6 of 6   ok
+   S-varint-i64-int32-max     accept accept err 0   at 6 of 6   ok
+   S-varint-i64-int64-max     accept accept err 0   at 10 of 10   ok
+   S-varint-i64-int64-min     accept accept err 0   at 11 of 11   ok
+   S-varint-i64-minus-1       accept accept err 0   at 11 of 11   ok
+   X-fixed32-truncated        reject reject err -3  at 5 of 3   ok
+   X-fixed64-truncated        reject reject err -3  at 9 of 4   ok
+   X-group-mismatched-end     reject reject err -2  at 12 of 12   ok
+   X-group-unterminated       reject reject err -3  at 10 of 10   ok
+   X-len-huge                 reject reject err -3  at 6 of 6   ok
+   X-len-prefix-truncated     reject reject err -3  at 2 of 2   ok
+   X-len-truncated            reject reject err -3  at 2 of 5   ok
+   X-tag-zero                 reject reject err -2  at 1 of 2   ok
+   X-trailing-byte            reject reject err -2  at 3 of 3   ok
+   X-varint-11-bytes          reject reject err -2  at 11 of 12   ok
+   X-varint-key-truncated     reject reject err -3  at 1 of 1   ok
+   X-varint-value-truncated   reject reject err -3  at 3 of 3   ok
+   X-wire-type-6              reject reject err -2  at 1 of 1   ok
+   X-wire-type-7              reject reject err -2  at 1 of 1   ok
+   walker: 62 of 62 agree with the corpus's verdict
+
+## C5 produce, and what is NOT claimed
+   49 in-scope rows name `cpp` in `produce`.
+   8 of them are `baseline` rows, which REFERENCE ffi/schema's payloads; this
+   slice builds every one of those from its own facade and from protoc's types
+   and checks the bytes against manifest.json in `conformance` already.
+   The remaining 41 (classes empty and shape) are NOT produced here and that is
+   a partial claim, named as one (R11): producing them needs the CORPUS's own
+   value rules re-implemented in C++, a second value-rule implementation this
+   slice does not have. Listed by id in STATE.md.
+
+## the verdict, in three buckets
+   failures (this slice is wrong):            0
+   disputed  (the corpus vs two protobufs):   1  U-map-entry
+   permuted  (no canonical writer exists):    1  B-P7_1
+   the INCUMBENT's own C3 misses:             1
+      protobuf C++ does not reproduce those accepted forms either. It is in
+      this table as an oracle for C1 and C2, where it agrees with this slice
+      on every row but the disputed one; its C3 misses are a fact about where
+      protobuf C++ places a RETAINED unknown field and about P2.5's two valid
+      encodings, and they are not this slice's failures.
+
+CORPUS SUBSET PASSES, with 1 disputed and 1 permuted row(s) named
+corpus.py (a17) exit 0
+
+===== C++11 floor, shared =====
+# cpp slice: the conformance corpus (W8), as far as this scope reaches
+# corpus:   1
+# vectors:  336 in the corpus
+# reader:   generated from ffi/schema/shapes.json; roots = ListResultsResponse, ListTasksDetailedResponse, ListProbeResponse, ListTaskSummaryResponse, UploadResultDataMessage, ListMetricsResponse, DualResponse
+# binary:   corpus_c11_shared
+
+## CONTRACT.md rule 0: the reader is not generated from the superset
+   [ok]  ListResultsResponse: identical to corpus.proto; the superset adds 7 field(s) this reader does not know (u_varint, u_fixed64, u_len, u_fixed32)
+   [ok]  ListTasksDetailedResponse: identical to corpus.proto; the superset adds nothing HERE, so this root's unknown-field claim rests on its element types
+   [ok]  ListProbeResponse: identical to corpus.proto; the superset adds nothing HERE, so this root's unknown-field claim rests on its element types
+   [ok]  ListTaskSummaryResponse: identical to corpus.proto; the superset adds nothing HERE, so this root's unknown-field claim rests on its element types
+   [ok]  UploadResultDataMessage: identical to corpus.proto; the superset adds nothing HERE, so this root's unknown-field claim rests on its element types
+   [ok]  ListMetricsResponse: identical to corpus.proto; the superset adds nothing HERE, so this root's unknown-field claim rests on its element types
+   [ok]  DualResponse: identical to corpus.proto; the superset adds nothing HERE, so this root's unknown-field claim rests on its element types
+
+## scope
+   128 of 336 rows root at a message this slice's codec covers.
+   Out of scope, by root. Every one is a message this slice does not have,
+   never a row it chose to skip:
+      WireZoo                      62
+      Surrogate                    56
+      ChunkedResponse              15
+      Nest                         9
+      Probe                        8
+      ChunkedResponseWide          5
+      LeafResponse                 5
+      ChunkElement                 3
+      ChunkInner                   3
+      ChunkLeaf                    3
+      Duration                     3
+      Empty                        3
+      LeafElement                  3
+      MetricsBatch                 3
+      Pair                         3
+      ResultRaw                    3
+      SurrogateInner               3
+      TaskDetailed                 3
+      TaskOptions                  3
+      TaskOutput                   3
+      TaskSummary                  3
+      Timestamp                    3
+      UploadResultData             3
+   In scope, by class: baseline=8, empty=30, malformed=2, shape=22, unknown=66
+
+# cpp slice: the conformance corpus, the C++ half
+#   -std           201103
+#   linkage        shared
+#   arms           native (no boundary) and ffi (the C ABI over the shared core)
+#   walker         ak::Dec::skip over a buffer with no schema at all
+
+## C1 parse, C2 project, C3 re-encode, C4 refuse
+   native   C1 126/126  C2 123/124  C3 125/126  C4 2/2
+   ffi      C1 126/126  C2 123/124  C3 125/126  C4 2/2
+   pb       C1 126/126  C2 123/124  C3 124/126  C4 2/2   (the INCUMBENT: an oracle here, not a claimant)
+        note B-P2_5: C3 wrote a form the manifest does not accept (ff7e1f09a723, 19712 B; accepted: 45b80846=as committed)
+
+## C2 rows where this slice and the CORPUS disagree, and who is right
+#  Decided by a third implementation rather than by argument: the vector is
+#  re-read with protobuf-python on upb, built at run time from a descriptor
+#  set of corpus.proto. A row here is a finding about the corpus and is
+#  reported to the corpus's owner; this slice does not write corpus/**.
+   U-map-entry            native   this slice agrees with protobuf-python/pure and protobuf C++ (the incumbent); the corpus's projection does not
+        the difference: tasks: "[{'id': 'bbbb0ff8-2fff-4d0c-3231-a10e67527515', 'session_id vs "[{'acquired_at': {'seconds': '1700000000'}, 'created_at': {
+        who says what: upb=the corpus  pure-python=this slice  protobuf C++=this slice
+   U-map-entry            ffi      this slice agrees with protobuf-python/pure and protobuf C++ (the incumbent); the corpus's projection does not
+        the difference: tasks: "[{'id': 'bbbb0ff8-2fff-4d0c-3231-a10e67527515', 'session_id vs "[{'acquired_at': {'seconds': '1700000000'}, 'created_at': {
+        who says what: upb=the corpus  pure-python=this slice  protobuf C++=this slice
+   U-map-entry            pb       this slice agrees with protobuf-python/pure and protobuf C++ (the incumbent); the corpus's projection does not
+        the difference: tasks: "[{'id': 'bbbb0ff8-2fff-4d0c-3231-a10e67527515', 'session_id vs "[{'acquired_at': {'seconds': '1700000000'}, 'created_at': {
+        who says what: upb=the corpus  pure-python=this slice  protobuf C++=this slice
+
+## C3 rows re-encoded to a PERMUTATION of the same triples
+#  Not counted as a C3 pass anywhere above. An interleaved vector has no
+#  canonical writer, so every conformant encoder writes each repeated field
+#  contiguously and no encoder on earth reproduces the committed bytes. The
+#  manifest lists one accepted form for it. Recorded so the difference is
+#  visible as what it is: the same (tag, wire type, body) multiset.
+   B-P7_1                 native   0016f5b61ce6 98 B: same triples, different order
+   B-P7_1                 ffi      0016f5b61ce6 98 B: same triples, different order
+   B-P7_1                 pb       0016f5b61ce6 98 B: same triples, different order
+
+## R2 / CONTRACT.md 5.5: the two arms agree on the decoded value
+   128 of 128 rows: the native arm and the ffi arm decode to the same facade
+
+## C3: which accepted form this slice writes
+#  CONTRACT.md C3: a vector may have more than one accepted form, and which one
+#  a slice writes is a fact about it rather than a verdict.
+   ffi      as committed=52, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=17
+   native   as committed=52, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=17
+   pb       as committed=102, as upb writes it: the same message, encoded differently=1, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: the zero leaves omitted=1, key and value always written=2, key and value always written (protobuf C++, upb, protobuf-java)=2, map values always written (protobuf C++, upb, protobuf-java)=5, unknown-dropped=1, unknown-dropped, map values always written=1, unknown-retained, appended in tag order=6, unknown-retained, map values always written=16
+
+## ABI v1 open decision 11, answered for this slice
+   ffi      as committed=4, unknown-dropped=62, unknown-dropped, map values always written=17  (of 66 unknown-class rows)
+   native   as committed=4, unknown-dropped=62, unknown-dropped, map values always written=17  (of 66 unknown-class rows)
+   pb       as committed=58, as upb writes it: the same message, encoded differently=1, unknown-dropped=1, unknown-dropped, map values always written=1, unknown-retained, appended in tag order=6, unknown-retained, map values always written=16  (of 66 unknown-class rows)
+   **This slice DROPS unknown fields**, in both arms. protobuf C++, the
+   incumbent every ratio here is against, RETAINS them, so adopting the core
+   removes a proto3 guarantee a C++ caller has today. That is decision 11 and
+   it is a behaviour change, not a performance one.
+
+## C4: what the refusals looked like
+#  CONTRACT.md C4: 'a rejection test that nothing rejects is a test nobody has
+#  watched work'. Error codes are ABI v1 section 5's.
+   native   X-nested-len-overrun       -3 AK_ERR_TRUNCATED
+   native   X-packed-truncated         -3 AK_ERR_TRUNCATED
+   ffi      X-nested-len-overrun       -3 AK_ERR_TRUNCATED
+   ffi      X-packed-truncated         -3 AK_ERR_TRUNCATED
+   pb       X-nested-len-overrun       -2 AK_ERR_MALFORMED
+   pb       X-packed-truncated         -2 AK_ERR_MALFORMED
+
+## the unknown-field walker over the corpus's WireZoo vectors
+#  NOT a root decode and not counted as one: `ak::Dec::skip` over a buffer with
+#  no schema, which is the path a root decoder takes for a field it does not
+#  know. WireZoo is not in this slice's schema, so these rows are out of scope
+#  for C1-C3; the wire FORM they carry is exactly what this work unit fixed.
+   S-WireZoo-alt              accept accept err 0   at 78 of 78   ok
+   S-WireZoo-full             accept accept err 0   at 69 of 69   ok
+   S-WireZoo-min              accept accept err 0   at 0 of 0   ok
+   S-bigtag                   accept accept err 0   at 6 of 6   ok
+   S-bool-true                accept accept err 0   at 2 of 2   ok
+   S-bytes-all-256            accept accept err 0   at 259 of 259   ok
+   S-double-denormal-min      accept accept err 0   at 9 of 9   ok
+   S-double-epsilon           accept accept err 0   at 9 of 9   ok
+   S-double-inf               accept accept err 0   at 9 of 9   ok
+   S-double-max               accept accept err 0   at 9 of 9   ok
+   S-double-minus-inf         accept accept err 0   at 9 of 9   ok
+   S-double-minus-zero        accept accept err 0   at 9 of 9   ok
+   S-double-nan               accept accept err 0   at 9 of 9   ok
+   S-double-one               accept accept err 0   at 9 of 9   ok
+   S-fixed32-high-bit         accept accept err 0   at 5 of 5   ok
+   S-fixed32-max              accept accept err 0   at 5 of 5   ok
+   S-fixed32-one              accept accept err 0   at 5 of 5   ok
+   S-string-ascii             accept accept err 0   at 11 of 11   ok
+   S-string-astral            accept accept err 0   at 14 of 14   ok
+   S-string-boundary-0x7f-0x80 accept accept err 0   at 5 of 5   ok
+   S-string-boundary-0x7ff-0x800 accept accept err 0   at 7 of 7   ok
+   S-string-boundary-0xffff-0x10000 accept accept err 0   at 9 of 9   ok
+   S-string-embedded-nul      accept accept err 0   at 5 of 5   ok
+   S-string-latin1            accept accept err 0   at 34 of 34   ok
+   S-string-len-1             accept accept err 0   at 3 of 3   ok
+   S-string-len-127           accept accept err 0   at 129 of 129   ok
+   S-string-len-128           accept accept err 0   at 131 of 131   ok
+   S-string-len-16383         accept accept err 0   at 16386 of 16386   ok
+   S-string-len-16384         accept accept err 0   at 16388 of 16388   ok
+   S-string-max-codepoint     accept accept err 0   at 6 of 6   ok
+   S-string-wide              accept accept err 0   at 12 of 12   ok
+   S-varint-i32-1             accept accept err 0   at 2 of 2   ok
+   S-varint-i32-max           accept accept err 0   at 6 of 6   ok
+   S-varint-i32-min           accept accept err 0   at 11 of 11   ok
+   S-varint-i32-minus-1       accept accept err 0   at 11 of 11   ok
+   S-varint-i64-1             accept accept err 0   at 2 of 2   ok
+   S-varint-i64-127           accept accept err 0   at 2 of 2   ok
+   S-varint-i64-128           accept accept err 0   at 3 of 3   ok
+   S-varint-i64-16383         accept accept err 0   at 3 of 3   ok
+   S-varint-i64-16384         accept accept err 0   at 4 of 4   ok
+   S-varint-i64-2097151       accept accept err 0   at 4 of 4   ok
+   S-varint-i64-2097152       accept accept err 0   at 5 of 5   ok
+   S-varint-i64-268435455     accept accept err 0   at 5 of 5   ok
+   S-varint-i64-268435456     accept accept err 0   at 6 of 6   ok
+   S-varint-i64-int32-max     accept accept err 0   at 6 of 6   ok
+   S-varint-i64-int64-max     accept accept err 0   at 10 of 10   ok
+   S-varint-i64-int64-min     accept accept err 0   at 11 of 11   ok
+   S-varint-i64-minus-1       accept accept err 0   at 11 of 11   ok
+   X-fixed32-truncated        reject reject err -3  at 5 of 3   ok
+   X-fixed64-truncated        reject reject err -3  at 9 of 4   ok
+   X-group-mismatched-end     reject reject err -2  at 12 of 12   ok
+   X-group-unterminated       reject reject err -3  at 10 of 10   ok
+   X-len-huge                 reject reject err -3  at 6 of 6   ok
+   X-len-prefix-truncated     reject reject err -3  at 2 of 2   ok
+   X-len-truncated            reject reject err -3  at 2 of 5   ok
+   X-tag-zero                 reject reject err -2  at 1 of 2   ok
+   X-trailing-byte            reject reject err -2  at 3 of 3   ok
+   X-varint-11-bytes          reject reject err -2  at 11 of 12   ok
+   X-varint-key-truncated     reject reject err -3  at 1 of 1   ok
+   X-varint-value-truncated   reject reject err -3  at 3 of 3   ok
+   X-wire-type-6              reject reject err -2  at 1 of 1   ok
+   X-wire-type-7              reject reject err -2  at 1 of 1   ok
+   walker: 62 of 62 agree with the corpus's verdict
+
+## C5 produce, and what is NOT claimed
+   49 in-scope rows name `cpp` in `produce`.
+   8 of them are `baseline` rows, which REFERENCE ffi/schema's payloads; this
+   slice builds every one of those from its own facade and from protoc's types
+   and checks the bytes against manifest.json in `conformance` already.
+   The remaining 41 (classes empty and shape) are NOT produced here and that is
+   a partial claim, named as one (R11): producing them needs the CORPUS's own
+   value rules re-implemented in C++, a second value-rule implementation this
+   slice does not have. Listed by id in STATE.md.
+
+## the verdict, in three buckets
+   failures (this slice is wrong):            0
+   disputed  (the corpus vs two protobufs):   1  U-map-entry
+   permuted  (no canonical writer exists):    1  B-P7_1
+   the INCUMBENT's own C3 misses:             1
+      protobuf C++ does not reproduce those accepted forms either. It is in
+      this table as an oracle for C1 and C2, where it agrees with this slice
+      on every row but the disputed one; its C3 misses are a fact about where
+      protobuf C++ places a RETAINED unknown field and about P2.5's two valid
+      encodings, and they are not this slice's failures.
+
+CORPUS SUBSET PASSES, with 1 disputed and 1 permuted row(s) named
+corpus.py (c11) exit 0

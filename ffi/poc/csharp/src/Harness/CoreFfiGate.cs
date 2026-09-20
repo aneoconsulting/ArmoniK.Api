@@ -33,8 +33,16 @@ public static class CoreFfiGate
         Console.WriteLine("comparison against the graph the builder made, because a re-encode alone");
         Console.WriteLine("passes a decoder that drops a field the encoder also omits.");
         Console.WriteLine();
-        Console.WriteLine("payload  elements    bytes  encode  decode  value  fwd  rev  note");
-        Console.WriteLine(new string('-', 84));
+        Console.WriteLine("                                                      host      core (R5)");
+        Console.WriteLine("payload  elements    bytes  encode  decode  value   fwd  rev    fwd   rev  note");
+        Console.WriteLine(new string('-', 92));
+
+        int chunk = 0;
+        var ce = Environment.GetEnvironmentVariable("AK_CHUNK");
+        if (!string.IsNullOrEmpty(ce)) int.TryParse(ce, out chunk);
+        Console.WriteLine("  chunk = {0} elements per ak_elem_* call",
+            chunk <= 0 ? "the whole run" : chunk.ToString());
+        Console.WriteLine();
 
         foreach (var id in new[] { "P1.1", "P1.2", "P1.3" })
         {
@@ -55,8 +63,10 @@ public static class CoreFfiGate
             // Staging has to hold every string of every element at once, because the
             // batch is handed over whole. Sized from the payload, generously.
             using var core = new CoreFfiM1(facade.Results.Count + 1, row.Bytes * 3 + 65536);
+            core.Chunk = chunk;
             string enc = "-", dec = "-", val = "-";
             long fwd = 0, rev = 0;
+            AkCounters cc = default;
             byte[] got = null;
             try
             {
@@ -86,14 +96,26 @@ public static class CoreFfiGate
                 if (val != "ok") bad++;
             }
             fwd = core.ForwardCalls; rev = core.ReverseCalls;
-            Console.WriteLine("{0,-8} {1,8} {2,8}  {3,-6}  {4,-6}  {5,-5}  {6,3}  {7,3}  {8}",
+            cc = core.EncCounters();
+            Console.WriteLine("{0,-8} {1,8} {2,8}  {3,-6}  {4,-6}  {5,-5}  {6,4} {7,4}  {8,5} {9,5}  {10}",
                 id, row.Elements, row.Bytes, enc, dec, val, fwd, rev,
-                id == "P1.3" ? "the absent path" : "");
+                cc.forward, cc.reverse,
+                id == "P1.3" ? "absent path" : "");
         }
 
         Console.WriteLine();
-        Console.WriteLine("Reading the crossing columns.");
-        Console.WriteLine("  fwd/rev are counted by the HOST, which is the half R5 asks a host for.");
+        Console.WriteLine("Reading the crossing columns. THERE ARE TWO CONVENTIONS AND THEY DIFFER.");
+        Console.WriteLine();
+        Console.WriteLine("  core (R5) is the CORE's own counters, read through ak_enc_counters. This is");
+        Console.WriteLine("    the convention the cross-language table uses and the one the Rust and C++");
+        Console.WriteLine("    slices report, so it is the one to quote. `reverse` includes TRANSCODER");
+        Console.WriteLine("    invocations, which a host tally does not see at all. Zero unless the core");
+        Console.WriteLine("    was built with --features count.");
+        Console.WriteLine("  host is this binding's own tally of calls it issued. Useful for checking the");
+        Console.WriteLine("    binding does what it thinks, and NOT comparable with any other slice.");
+        Console.WriteLine();
+        Console.WriteLine("  The host tally is what this slice reported before, and reporting it against");
+        Console.WriteLine("  the Rust slice's number was comparing two different quantities.");
         Console.WriteLine("  They are CONSTANT in the element count, in BOTH directions, whether the");
         Console.WriteLine("  payload carries 4 elements or 1,000. The 5 and 4 cover an encode, a decode");
         Console.WriteLine("  and a re-encode:");

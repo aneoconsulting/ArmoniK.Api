@@ -20,6 +20,10 @@ public unsafe struct HostRun
 {
     public ak_efix_ResultRaw* Groups;
     public int Count;
+    /// Elements per ak_elem_* call. 0 means the whole run in one call.
+    /// The Rust slice's host chunks at 150, which is the ENTIRE reason its
+    /// crossing counts differ from this slice's; see JOURNAL.md entry 19.
+    public int Chunk;
 }
 
 public sealed unsafe class CoreFfiM1 : IDisposable
@@ -30,6 +34,8 @@ public sealed unsafe class CoreFfiM1 : IDisposable
     private ak_efix_ResultRaw* _groups;
     private int _groupCap;
     private HostRun* _run;
+    /// Elements per ak_elem_* call; 0 hands the whole run over at once.
+    public int Chunk;
     private static IntPtr _tcBytes;
 
     /// Counted so the arm can report crossings without a counting build:
@@ -62,7 +68,14 @@ public sealed unsafe class CoreFfiM1 : IDisposable
         try
         {
             var run = (HostRun*)obj;
-            return Abi.ak_elem_ResultRaw(ctx, run->Groups, run->Count);
+            int chunk = run->Chunk <= 0 ? run->Count : run->Chunk;
+            for (int off = 0; off < run->Count; off += chunk)
+            {
+                int n = run->Count - off; if (n > chunk) n = chunk;
+                int rc = Abi.ak_elem_ResultRaw(ctx, run->Groups + off, n);
+                if (rc < 0) return rc;
+            }
+            return 0;
         }
         catch
         {
@@ -129,11 +142,12 @@ public sealed unsafe class CoreFfiM1 : IDisposable
         }
         _run->Groups = _groups;
         _run->Count = n;
+        _run->Chunk = Chunk;
         var vt = new ak_evt_ListResultsResponse { loop_results = &LoopResults };
         var fix = new ak_efix_ListResultsResponse { page = src.Page, total = src.Total };
         ForwardCalls++;        // ak_encode_*
         ReverseCalls++;        // loop_results
-        ForwardCalls++;        // ak_elem_* inside it
+        ForwardCalls += Chunk <= 0 ? 1 : (n + Chunk - 1) / Chunk;   // ak_elem_* per chunk
         nint rc = Abi.ak_encode_ListResultsResponse(_run, _ctx, &vt, &fix);
         if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}");
         byte* p; nuint len;
@@ -272,6 +286,24 @@ public sealed unsafe class CoreFfiM1 : IDisposable
         finally { h.Free(); }
         return target;
     }
+
+    /// The CORE's counters for the last operation, in the core's own convention. Zero
+    /// from a non-counting build.
+    public AkCounters EncCounters()
+    {
+        AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c;
+    }
+
+    public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
+
+    public AkCounters DecCounters()
+    {
+        AkCounters c;
+        if (_dctx == IntPtr.Zero) return default;
+        Abi.ak_dec_counters(_dctx, &c); return c;
+    }
+
+    public void DecCountersReset() { if (_dctx != IntPtr.Zero) Abi.ak_dec_counters_reset(_dctx); }
 
     public void Dispose()
     {

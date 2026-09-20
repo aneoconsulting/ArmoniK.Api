@@ -21,6 +21,19 @@
   X("P5.4", UploadResultDataMessage, upload_result_data_message, p5_4, "349ae77b4d2f934a5bb7471333c65b39d9c957448a7bb5d9fe56f5742efde30d", 4194390) \
   X("P6.1", ListMetricsResponse, list_metrics_response, p6_1, "115d4410844a087c257361aa479921aa7079a68213bcb17a8c335bcc5e929c9b", 123354)
 
+// X(Root, snake_root): every message this slice can ROOT a decode at, which
+// is what decides which rows of ffi/corpus are in scope for it. Generated
+// from the same ROOTS list the codec is generated from, so the corpus
+// consumer cannot claim a scope the codec does not have.
+#define AK_ROOTS(X) \
+  X(ListResultsResponse, list_results_response) \
+  X(ListTasksDetailedResponse, list_tasks_detailed_response) \
+  X(ListProbeResponse, list_probe_response) \
+  X(ListTaskSummaryResponse, list_task_summary_response) \
+  X(UploadResultDataMessage, upload_result_data_message) \
+  X(ListMetricsResponse, list_metrics_response) \
+  X(DualResponse, dual_response)
+
 // P7.1 is DECODE ONLY: no canonical writer can produce interleaved repeated
 // fields, so it is validated by decoding the committed vector and re-encoding
 // contiguously to a permutation of the same (tag, wire type, body) triples.
