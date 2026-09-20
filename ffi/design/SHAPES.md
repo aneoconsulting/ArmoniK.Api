@@ -248,6 +248,23 @@ payload (P2.2), against that language's gRPC incumbent, over loopback:
 - whether the language's idiomatic wait (a `Task`, a `CompletableFuture`, a
   coroutine, a blocking call) can be satisfied without pinning a carrier thread.
 
+**Every slice measures against its own language's gRPC stack, end to end.** A
+marshaller arm is not an RPC arm: calling `ProtoLiteUtils` or a `SerializationContext`
+measures the codec path gRPC drives, which R14 asks for separately, and says nothing
+about the transport. The comparison the report needs is the host's real gRPC client
+against the core's, carrying P2.2.
+
+**Prefer a Unix domain socket, with loopback TCP as a labelled second row.** A UDS
+removes the TCP/IP stack from both arms equally, which is kernel time neither
+implementation is responsible for and which varies with the machine. All five stacks
+support it: `unix:` targets in grpc++ and grpcio, a `UnixStream` connector in tonic,
+netty domain sockets in grpc-java, and `UnixDomainSocketEndPoint` behind a
+`SocketsHttpHandler` connect callback on .NET.
+
+**It does not rescue R9's hazard, and nothing does.** The 64 KB default stream window
+is HTTP/2, not TCP, so a 540 KB response still stalls on `WINDOW_UPDATE` over a UDS.
+CPU per RPC stays the headline and wall clock is reported beside it or not at all.
+
 **Not in the RPC arm, and listed as not measured**: streaming, TLS, a real
 network, failure injection, the server side. Streaming is where the concurrency
 invariant actually bites, and no slice has touched it.

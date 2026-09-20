@@ -911,8 +911,27 @@ Each blocks something. None is settled by a measurement that exists today.
    amendments below (section 4's fast path, section 6's batching sentence) and
    decision 13 opened.
 2. **Which decode family does each binding take** (7.1), and is the single
-   parameterised emitter actually buildable? Settled by the first two slices that
-   pick different families.
+   parameterised emitter actually buildable?
+
+   **Half answered, and the unanswered half is now the more important one.** The
+   emitter is buildable: the rust slice emits one `dec_walk` once and instantiates
+   it twice, the families differing in a macro body, the entry point's prologue and
+   epilogue and one argument. Its structural control is that pull writes a record
+   exactly where push makes a reverse call, so the counts must be equal — and they
+   are, to the digit, on all thirteen counted payloads, with pull's reverse count
+   measured at **zero** everywhere. **Pull removes the upcalls; it does not reduce
+   them.**
+
+   **What is not answered is which family each binding should take, because four of
+   the five slices have only ever measured push.** C++, C#, Java and Python all
+   built the push family; only rust has a pull arm. So every decode figure in this
+   branch is a *push* figure — which matters most exactly where the evidence says
+   push is wrong: the java slice's decode regression decomposes into 7.004 upcalls
+   per element at about 80 ns, and its own reading is that on the JVM the cost is
+   the *number* of transitions rather than what crosses. **A pull arm on a managed
+   host is therefore the measurement that settles this decision in practice**, and
+   nobody has built one. Until then the specification can say pull exists and works;
+   it cannot say what it is worth to the hosts that need it.
 3. **Where does UTF-8 get checked? SETTLED: not on encode, and rejected on
    decode.** Asked three times. The first two framings ("fail or substitute",
    then "validate or trust the host") both assumed the check belongs on the encode
