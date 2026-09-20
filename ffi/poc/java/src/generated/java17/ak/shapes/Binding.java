@@ -126,7 +126,11 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   void beginDecode(byte[] wire, int off, int len) {
     decTokN = 0;
     lastHostError = null;
-    Native.decErrReset(decCtx);
+    // NOT `Native.decErrReset(decCtx)`. `ak_decode_*` clears the sticky slot at entry
+    // itself and says why: "doing it here rather than in the host costs no extra
+    // crossing and takes the obligation off the binding author". Calling it anyway was
+    // one forward crossing per decode charged to this arm for nothing -- D6 and D7 again,
+    // and this time on the arm the pull family is about to be compared against.
     if (wireCap < len) {
       if (wireNative != 0) Mem.free(wireNative);
       wireNative = Mem.alloc(Math.max(len, 1 << 16));
@@ -2782,6 +2786,533 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     int rc = ak.NativeEntry.decodeDualResponse(this, decCtx, wireNative, len, dvtDualResponse);
     check(rc);
     return r;
+  }
+
+  // ---- ABI v1 7.1, the pull family ---------------------------------------
+
+  /** Read the records in place through `ak_bdr_ptr` instead of draining them. The two
+   *  differ by exactly the drain copy, which is what the C# slice estimated at 12 to 19
+   *  percent of a parse and what this arm measures instead of estimating. */
+  public boolean pullWalk = false;
+
+  /** `ak_bdr_ptr` writes {base, len} here; `ak_bdr_drain` keeps its cursor in `pullCur`.
+   *  Instance state, never static: two bindings decode on two threads (R12). */
+  final long[] pullBox = new long[2];
+  final long[] pullCur = new long[1];
+
+  /** The drain's destination. ABI v1 section 7.1 says 32 KB chunks and the core refuses
+   *  less than one arena plus one header, so this is that minimum: a host that wanted the
+   *  whole response materialised at once would size it from `ak_bdr_footprint`, which is
+   *  a different arm and not the one the specification describes. 8-aligned because a
+   *  record's payload is an `ak_dfix_*` carrying `long` and `double`. */
+  static final int PULL_CHUNK = 32 * 1024 + 24;
+  long pullChunk = Mem.alloc(PULL_CHUNK);
+  final long pullChunkCap = PULL_CHUNK;
+
+  /** A record for a slot this host does not know is a GENERATOR disagreement, not wire
+   *  input, so it fails the operation rather than being skipped the way an unknown tag is.
+   *  The rust slice's replay says the same thing through `ak_fail`. */
+  static IllegalStateException abi(int op, int slot) {
+    return new IllegalStateException("ABI: no host slot for record op=" + op + " slot=" + slot);
+  }
+
+  /** What the last parse deposited, for the crossing count and for a host that wants to
+   *  bound what it is holding (section 7.1's stated reason for the call existing). */
+  public long bdrFootprint() { return Native.bdrFootprint(decCtx); }
+
+
+  /** Parse into the context making ZERO upcalls, then replay the records.
+   *  The wire is handed to the core under a critical section rather than
+   *  copied into native scratch, which a push entry point cannot do. */
+  public ListResultsResponse parseListResultsResponse(byte[] wire, int off, int len) {
+    lastHostError = null;
+    // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
+    // sticky slot AND resets the record buffer at entry. Calling either
+    // here would be a forward crossing per decode for nothing.
+    check(ak.NativeEntry.parseListResultsResponse(this, decCtx, wire, off, len));
+    ListResultsResponse r = new ListResultsResponse();
+    decRoot = r;
+    decTokN = 0;
+    // 7.4: spans resolve against the array the host already holds. The
+    // core parsed THAT array, not a copy of it.
+    wireHeap = wire;
+    wireBase = off;
+    if (pullWalk) {
+      // `ak_bdr_ptr`: read the records in place. One forward crossing for
+      // the whole response and no intermediate at all. A JVM host can do
+      // this because it reads off-heap through Unsafe without pinning.
+      check(Native.bdrPtr(decCtx, pullBox));
+      replayListResultsResponse(pullBox[0], pullBox[0] + pullBox[1]);
+    } else {
+      // `ak_bdr_drain`: 32 KB chunks into memory the host owns, which is
+      // what 7.1 specifies. One forward crossing per chunk, and the copy
+      // is the difference between the two arms.
+      pullCur[0] = 0;
+      for (;;) {
+        long got = Native.bdrDrain(decCtx, pullChunk, pullChunkCap, pullCur);
+        if (got < 0) throw new IllegalStateException("core returned " + got);
+        if (got == 0) break;
+        replayListResultsResponse(pullChunk, pullChunk + got);
+      }
+    }
+    return r;
+  }
+
+  /** A record stream IS the call sequence push would have made, so this
+   *  dispatches to the same `dec<i>` the push vtable reaches. */
+  private void replayListResultsResponse(long p, long end) {
+    while (p < end) {
+      int op = Mem.U.getInt(p);
+      int slot = Mem.U.getInt(p + 4);
+      long token = Mem.U.getLong(p + 8);
+      int n = Mem.U.getInt(p + 16);
+      long body = p + 24;
+      p = body + Mem.U.getInt(p + 20);
+      switch (op) {
+        case 1:   // AK_BDR_APPLY
+          switch (slot) {
+            case 0: dec0(body); break;
+            default: throw abi(op, slot);
+          }
+          break;
+        case 2:   // AK_BDR_ADD
+          switch (slot) {
+            case 1: dec1(token, body, n); break;
+            default: throw abi(op, slot);
+          }
+          break;
+        default: throw abi(op, slot);
+      }
+    }
+  }
+
+  /** Parse into the context making ZERO upcalls, then replay the records.
+   *  The wire is handed to the core under a critical section rather than
+   *  copied into native scratch, which a push entry point cannot do. */
+  public ListTasksDetailedResponse parseListTasksDetailedResponse(byte[] wire, int off, int len) {
+    lastHostError = null;
+    // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
+    // sticky slot AND resets the record buffer at entry. Calling either
+    // here would be a forward crossing per decode for nothing.
+    check(ak.NativeEntry.parseListTasksDetailedResponse(this, decCtx, wire, off, len));
+    ListTasksDetailedResponse r = new ListTasksDetailedResponse();
+    decRoot = r;
+    decTokN = 0;
+    // 7.4: spans resolve against the array the host already holds. The
+    // core parsed THAT array, not a copy of it.
+    wireHeap = wire;
+    wireBase = off;
+    if (pullWalk) {
+      // `ak_bdr_ptr`: read the records in place. One forward crossing for
+      // the whole response and no intermediate at all. A JVM host can do
+      // this because it reads off-heap through Unsafe without pinning.
+      check(Native.bdrPtr(decCtx, pullBox));
+      replayListTasksDetailedResponse(pullBox[0], pullBox[0] + pullBox[1]);
+    } else {
+      // `ak_bdr_drain`: 32 KB chunks into memory the host owns, which is
+      // what 7.1 specifies. One forward crossing per chunk, and the copy
+      // is the difference between the two arms.
+      pullCur[0] = 0;
+      for (;;) {
+        long got = Native.bdrDrain(decCtx, pullChunk, pullChunkCap, pullCur);
+        if (got < 0) throw new IllegalStateException("core returned " + got);
+        if (got == 0) break;
+        replayListTasksDetailedResponse(pullChunk, pullChunk + got);
+      }
+    }
+    return r;
+  }
+
+  /** A record stream IS the call sequence push would have made, so this
+   *  dispatches to the same `dec<i>` the push vtable reaches. */
+  private void replayListTasksDetailedResponse(long p, long end) {
+    while (p < end) {
+      int op = Mem.U.getInt(p);
+      int slot = Mem.U.getInt(p + 4);
+      long token = Mem.U.getLong(p + 8);
+      int n = Mem.U.getInt(p + 16);
+      long body = p + 24;
+      p = body + Mem.U.getInt(p + 20);
+      switch (op) {
+        case 1:   // AK_BDR_APPLY
+          switch (slot) {
+            case 0: dec2(body); break;
+            default: throw abi(op, slot);
+          }
+          break;
+        case 2:   // AK_BDR_ADD
+          switch (slot) {
+            case 65537: dec5(token, body, n); break;
+            case 65538: dec6(token, body, n); break;
+            case 65539: dec7(token, body, n); break;
+            case 65540: dec8(token, body, n); break;
+            case 65541: dec9(token, body, n); break;
+            default: throw abi(op, slot);
+          }
+          break;
+        case 3:   // AK_BDR_NEW
+          switch (slot) {
+            case 65536: dec3(); break;
+            default: throw abi(op, slot);
+          }
+          break;
+        case 4:   // AK_BDR_APPLY_ELEM
+          switch (slot) {
+            case 65536: dec4(token, body); break;
+            default: throw abi(op, slot);
+          }
+          break;
+        default: throw abi(op, slot);
+      }
+    }
+  }
+
+  /** Parse into the context making ZERO upcalls, then replay the records.
+   *  The wire is handed to the core under a critical section rather than
+   *  copied into native scratch, which a push entry point cannot do. */
+  public ListProbeResponse parseListProbeResponse(byte[] wire, int off, int len) {
+    lastHostError = null;
+    // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
+    // sticky slot AND resets the record buffer at entry. Calling either
+    // here would be a forward crossing per decode for nothing.
+    check(ak.NativeEntry.parseListProbeResponse(this, decCtx, wire, off, len));
+    ListProbeResponse r = new ListProbeResponse();
+    decRoot = r;
+    decTokN = 0;
+    // 7.4: spans resolve against the array the host already holds. The
+    // core parsed THAT array, not a copy of it.
+    wireHeap = wire;
+    wireBase = off;
+    if (pullWalk) {
+      // `ak_bdr_ptr`: read the records in place. One forward crossing for
+      // the whole response and no intermediate at all. A JVM host can do
+      // this because it reads off-heap through Unsafe without pinning.
+      check(Native.bdrPtr(decCtx, pullBox));
+      replayListProbeResponse(pullBox[0], pullBox[0] + pullBox[1]);
+    } else {
+      // `ak_bdr_drain`: 32 KB chunks into memory the host owns, which is
+      // what 7.1 specifies. One forward crossing per chunk, and the copy
+      // is the difference between the two arms.
+      pullCur[0] = 0;
+      for (;;) {
+        long got = Native.bdrDrain(decCtx, pullChunk, pullChunkCap, pullCur);
+        if (got < 0) throw new IllegalStateException("core returned " + got);
+        if (got == 0) break;
+        replayListProbeResponse(pullChunk, pullChunk + got);
+      }
+    }
+    return r;
+  }
+
+  /** A record stream IS the call sequence push would have made, so this
+   *  dispatches to the same `dec<i>` the push vtable reaches. */
+  private void replayListProbeResponse(long p, long end) {
+    while (p < end) {
+      int op = Mem.U.getInt(p);
+      int slot = Mem.U.getInt(p + 4);
+      long token = Mem.U.getLong(p + 8);
+      int n = Mem.U.getInt(p + 16);
+      long body = p + 24;
+      p = body + Mem.U.getInt(p + 20);
+      switch (op) {
+        case 1:   // AK_BDR_APPLY
+          switch (slot) {
+            case 0: dec10(body); break;
+            default: throw abi(op, slot);
+          }
+          break;
+        case 2:   // AK_BDR_ADD
+          switch (slot) {
+            case 1: dec11(token, body, n); break;
+            default: throw abi(op, slot);
+          }
+          break;
+        default: throw abi(op, slot);
+      }
+    }
+  }
+
+  /** Parse into the context making ZERO upcalls, then replay the records.
+   *  The wire is handed to the core under a critical section rather than
+   *  copied into native scratch, which a push entry point cannot do. */
+  public ListTaskSummaryResponse parseListTaskSummaryResponse(byte[] wire, int off, int len) {
+    lastHostError = null;
+    // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
+    // sticky slot AND resets the record buffer at entry. Calling either
+    // here would be a forward crossing per decode for nothing.
+    check(ak.NativeEntry.parseListTaskSummaryResponse(this, decCtx, wire, off, len));
+    ListTaskSummaryResponse r = new ListTaskSummaryResponse();
+    decRoot = r;
+    decTokN = 0;
+    // 7.4: spans resolve against the array the host already holds. The
+    // core parsed THAT array, not a copy of it.
+    wireHeap = wire;
+    wireBase = off;
+    if (pullWalk) {
+      // `ak_bdr_ptr`: read the records in place. One forward crossing for
+      // the whole response and no intermediate at all. A JVM host can do
+      // this because it reads off-heap through Unsafe without pinning.
+      check(Native.bdrPtr(decCtx, pullBox));
+      replayListTaskSummaryResponse(pullBox[0], pullBox[0] + pullBox[1]);
+    } else {
+      // `ak_bdr_drain`: 32 KB chunks into memory the host owns, which is
+      // what 7.1 specifies. One forward crossing per chunk, and the copy
+      // is the difference between the two arms.
+      pullCur[0] = 0;
+      for (;;) {
+        long got = Native.bdrDrain(decCtx, pullChunk, pullChunkCap, pullCur);
+        if (got < 0) throw new IllegalStateException("core returned " + got);
+        if (got == 0) break;
+        replayListTaskSummaryResponse(pullChunk, pullChunk + got);
+      }
+    }
+    return r;
+  }
+
+  /** A record stream IS the call sequence push would have made, so this
+   *  dispatches to the same `dec<i>` the push vtable reaches. */
+  private void replayListTaskSummaryResponse(long p, long end) {
+    while (p < end) {
+      int op = Mem.U.getInt(p);
+      int slot = Mem.U.getInt(p + 4);
+      long token = Mem.U.getLong(p + 8);
+      int n = Mem.U.getInt(p + 16);
+      long body = p + 24;
+      p = body + Mem.U.getInt(p + 20);
+      switch (op) {
+        case 1:   // AK_BDR_APPLY
+          switch (slot) {
+            case 0: dec12(body); break;
+            default: throw abi(op, slot);
+          }
+          break;
+        case 2:   // AK_BDR_ADD
+          switch (slot) {
+            case 65537: dec15(token, body, n); break;
+            default: throw abi(op, slot);
+          }
+          break;
+        case 3:   // AK_BDR_NEW
+          switch (slot) {
+            case 65536: dec13(); break;
+            default: throw abi(op, slot);
+          }
+          break;
+        case 4:   // AK_BDR_APPLY_ELEM
+          switch (slot) {
+            case 65536: dec14(token, body); break;
+            default: throw abi(op, slot);
+          }
+          break;
+        default: throw abi(op, slot);
+      }
+    }
+  }
+
+  /** Parse into the context making ZERO upcalls, then replay the records.
+   *  The wire is handed to the core under a critical section rather than
+   *  copied into native scratch, which a push entry point cannot do. */
+  public UploadResultDataMessage parseUploadResultDataMessage(byte[] wire, int off, int len) {
+    lastHostError = null;
+    // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
+    // sticky slot AND resets the record buffer at entry. Calling either
+    // here would be a forward crossing per decode for nothing.
+    check(ak.NativeEntry.parseUploadResultDataMessage(this, decCtx, wire, off, len));
+    UploadResultDataMessage r = new UploadResultDataMessage();
+    decRoot = r;
+    decTokN = 0;
+    // 7.4: spans resolve against the array the host already holds. The
+    // core parsed THAT array, not a copy of it.
+    wireHeap = wire;
+    wireBase = off;
+    if (pullWalk) {
+      // `ak_bdr_ptr`: read the records in place. One forward crossing for
+      // the whole response and no intermediate at all. A JVM host can do
+      // this because it reads off-heap through Unsafe without pinning.
+      check(Native.bdrPtr(decCtx, pullBox));
+      replayUploadResultDataMessage(pullBox[0], pullBox[0] + pullBox[1]);
+    } else {
+      // `ak_bdr_drain`: 32 KB chunks into memory the host owns, which is
+      // what 7.1 specifies. One forward crossing per chunk, and the copy
+      // is the difference between the two arms.
+      pullCur[0] = 0;
+      for (;;) {
+        long got = Native.bdrDrain(decCtx, pullChunk, pullChunkCap, pullCur);
+        if (got < 0) throw new IllegalStateException("core returned " + got);
+        if (got == 0) break;
+        replayUploadResultDataMessage(pullChunk, pullChunk + got);
+      }
+    }
+    return r;
+  }
+
+  /** A record stream IS the call sequence push would have made, so this
+   *  dispatches to the same `dec<i>` the push vtable reaches. */
+  private void replayUploadResultDataMessage(long p, long end) {
+    while (p < end) {
+      int op = Mem.U.getInt(p);
+      int slot = Mem.U.getInt(p + 4);
+      long token = Mem.U.getLong(p + 8);
+      int n = Mem.U.getInt(p + 16);
+      long body = p + 24;
+      p = body + Mem.U.getInt(p + 20);
+      switch (op) {
+        case 1:   // AK_BDR_APPLY
+          switch (slot) {
+            case 0: dec16(body); break;
+            default: throw abi(op, slot);
+          }
+          break;
+        default: throw abi(op, slot);
+      }
+    }
+  }
+
+  /** Parse into the context making ZERO upcalls, then replay the records.
+   *  The wire is handed to the core under a critical section rather than
+   *  copied into native scratch, which a push entry point cannot do. */
+  public ListMetricsResponse parseListMetricsResponse(byte[] wire, int off, int len) {
+    lastHostError = null;
+    // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
+    // sticky slot AND resets the record buffer at entry. Calling either
+    // here would be a forward crossing per decode for nothing.
+    check(ak.NativeEntry.parseListMetricsResponse(this, decCtx, wire, off, len));
+    ListMetricsResponse r = new ListMetricsResponse();
+    decRoot = r;
+    decTokN = 0;
+    // 7.4: spans resolve against the array the host already holds. The
+    // core parsed THAT array, not a copy of it.
+    wireHeap = wire;
+    wireBase = off;
+    if (pullWalk) {
+      // `ak_bdr_ptr`: read the records in place. One forward crossing for
+      // the whole response and no intermediate at all. A JVM host can do
+      // this because it reads off-heap through Unsafe without pinning.
+      check(Native.bdrPtr(decCtx, pullBox));
+      replayListMetricsResponse(pullBox[0], pullBox[0] + pullBox[1]);
+    } else {
+      // `ak_bdr_drain`: 32 KB chunks into memory the host owns, which is
+      // what 7.1 specifies. One forward crossing per chunk, and the copy
+      // is the difference between the two arms.
+      pullCur[0] = 0;
+      for (;;) {
+        long got = Native.bdrDrain(decCtx, pullChunk, pullChunkCap, pullCur);
+        if (got < 0) throw new IllegalStateException("core returned " + got);
+        if (got == 0) break;
+        replayListMetricsResponse(pullChunk, pullChunk + got);
+      }
+    }
+    return r;
+  }
+
+  /** A record stream IS the call sequence push would have made, so this
+   *  dispatches to the same `dec<i>` the push vtable reaches. */
+  private void replayListMetricsResponse(long p, long end) {
+    while (p < end) {
+      int op = Mem.U.getInt(p);
+      int slot = Mem.U.getInt(p + 4);
+      long token = Mem.U.getLong(p + 8);
+      int n = Mem.U.getInt(p + 16);
+      long body = p + 24;
+      p = body + Mem.U.getInt(p + 20);
+      switch (op) {
+        case 1:   // AK_BDR_APPLY
+          switch (slot) {
+            case 0: dec17(body); break;
+            default: throw abi(op, slot);
+          }
+          break;
+        case 2:   // AK_BDR_ADD
+          switch (slot) {
+            case 65537: dec20(token, body, n); break;
+            case 65538: dec21(token, body, n); break;
+            case 65539: dec22(token, body, n); break;
+            case 65540: dec23(token, body, n); break;
+            case 65541: dec24(token, body, n); break;
+            default: throw abi(op, slot);
+          }
+          break;
+        case 3:   // AK_BDR_NEW
+          switch (slot) {
+            case 65536: dec18(); break;
+            default: throw abi(op, slot);
+          }
+          break;
+        case 4:   // AK_BDR_APPLY_ELEM
+          switch (slot) {
+            case 65536: dec19(token, body); break;
+            default: throw abi(op, slot);
+          }
+          break;
+        default: throw abi(op, slot);
+      }
+    }
+  }
+
+  /** Parse into the context making ZERO upcalls, then replay the records.
+   *  The wire is handed to the core under a critical section rather than
+   *  copied into native scratch, which a push entry point cannot do. */
+  public DualResponse parseDualResponse(byte[] wire, int off, int len) {
+    lastHostError = null;
+    // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
+    // sticky slot AND resets the record buffer at entry. Calling either
+    // here would be a forward crossing per decode for nothing.
+    check(ak.NativeEntry.parseDualResponse(this, decCtx, wire, off, len));
+    DualResponse r = new DualResponse();
+    decRoot = r;
+    decTokN = 0;
+    // 7.4: spans resolve against the array the host already holds. The
+    // core parsed THAT array, not a copy of it.
+    wireHeap = wire;
+    wireBase = off;
+    if (pullWalk) {
+      // `ak_bdr_ptr`: read the records in place. One forward crossing for
+      // the whole response and no intermediate at all. A JVM host can do
+      // this because it reads off-heap through Unsafe without pinning.
+      check(Native.bdrPtr(decCtx, pullBox));
+      replayDualResponse(pullBox[0], pullBox[0] + pullBox[1]);
+    } else {
+      // `ak_bdr_drain`: 32 KB chunks into memory the host owns, which is
+      // what 7.1 specifies. One forward crossing per chunk, and the copy
+      // is the difference between the two arms.
+      pullCur[0] = 0;
+      for (;;) {
+        long got = Native.bdrDrain(decCtx, pullChunk, pullChunkCap, pullCur);
+        if (got < 0) throw new IllegalStateException("core returned " + got);
+        if (got == 0) break;
+        replayDualResponse(pullChunk, pullChunk + got);
+      }
+    }
+    return r;
+  }
+
+  /** A record stream IS the call sequence push would have made, so this
+   *  dispatches to the same `dec<i>` the push vtable reaches. */
+  private void replayDualResponse(long p, long end) {
+    while (p < end) {
+      int op = Mem.U.getInt(p);
+      int slot = Mem.U.getInt(p + 4);
+      long token = Mem.U.getLong(p + 8);
+      int n = Mem.U.getInt(p + 16);
+      long body = p + 24;
+      p = body + Mem.U.getInt(p + 20);
+      switch (op) {
+        case 1:   // AK_BDR_APPLY
+          switch (slot) {
+            case 0: dec25(body); break;
+            default: throw abi(op, slot);
+          }
+          break;
+        case 2:   // AK_BDR_ADD
+          switch (slot) {
+            case 1: dec26(token, body, n); break;
+            case 2: dec27(token, body, n); break;
+            default: throw abi(op, slot);
+          }
+          break;
+        default: throw abi(op, slot);
+      }
+    }
   }
 
   /** The encoded bytes, copied into a Java array -- the same place

@@ -15,6 +15,21 @@
 ak_transcode_fn ak_tc_utf16(void);
 ak_transcode_fn ak_tc_latin1(void);
 
+/* ABI v1 section 7.1's PULL family, for the same reason: the shared C header does not
+ * declare it yet, because until this slice built an arm no C or C++ host had reached it.
+ * The signatures are transcribed from `poc/codec/crates/ak-abi/src/lib.rs`, which is the
+ * ABI's own declaration and the authority the header is generated to match -- and a
+ * hand-transcribed declaration disagreeing with the core is precisely what section 10's
+ * layout guard exists to catch, so `ak_bdr_rec` is checked there rather than trusted here.
+ * Filed as a request: this belongs in `cpp_header.py`, which this slice does not own. */
+int32_t ak_bdr_reserve(ak_dec_ctx *ctx, size_t bytes);
+size_t  ak_bdr_footprint(const ak_dec_ctx *ctx);
+intptr_t ak_bdr_drain(ak_dec_ctx *ctx, uint8_t *dst, size_t cap, size_t *cursor);
+int32_t ak_bdr_ptr(ak_dec_ctx *ctx, const uint8_t **ptr, size_t *len);
+void    ak_bdr_reset(ak_dec_ctx *ctx);
+void    ak_bdr_count_forward(ak_dec_ctx *ctx, uint32_t n);
+
+/* One `ak_parse_<root>` per root, the pull family's entry points. */
 /* ---- the reverse-call context ----------------------------------------------------
  *
  * A trampoline has to find the JNIEnv and the Binding instance, and the ABI hands it
@@ -202,6 +217,16 @@ JNIEXPORT jlong JNICALL Java_ak_NativeEntry_decTrampoline(JNIEnv *e, jclass c, j
   (void) e; (void) c;  return (jlong)(intptr_t) AK_DTR[i];
 }
 
+/* The pull family's entry points, declared for the same reason as the two
+ * transcoders above: the shared header does not carry them yet. */
+int32_t ak_parse_ListResultsResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
+int32_t ak_parse_ListTasksDetailedResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
+int32_t ak_parse_ListProbeResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
+int32_t ak_parse_ListTaskSummaryResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
+int32_t ak_parse_UploadResultDataMessage(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
+int32_t ak_parse_ListMetricsResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
+int32_t ak_parse_DualResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
+
 /* ---- forward entry points: one JNI native each, never a dispatch table.
  * The batching delta this slice measures is a difference in forward
  * crossing COUNTS, so a shared switch would inflate the thing measured. */
@@ -228,6 +253,22 @@ JNIEXPORT jint JNICALL Java_ak_NativeEntry_decodeListResultsResponse(JNIEnv *env
   return (jint) rc;
 }
 
+/* PULL. `ak_parse_ListResultsResponse` deposits records and calls nobody, so the wire can
+ * be pinned for the duration instead of copied into native scratch: the copy
+ * the push arm pays, and the reason section 7.1 gives for the family
+ * existing on this runtime at all. An upcall in here would be a JVM crash
+ * rather than a slowdown, so there is no ak_push frame to make one from. */
+JNIEXPORT jint JNICALL Java_ak_NativeEntry_parseListResultsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_ListResultsResponse((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
 JNIEXPORT jlong JNICALL Java_ak_NativeEntry_encodeListTasksDetailedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
@@ -247,6 +288,22 @@ JNIEXPORT jint JNICALL Java_ak_NativeEntry_decodeListTasksDetailedResponse(JNIEn
       (const uint8_t *)(intptr_t) buf, (size_t) len,
       (const struct ak_dvt_ListTasksDetailedResponse *)(intptr_t) vt);
   ak_pop();
+  return (jint) rc;
+}
+
+/* PULL. `ak_parse_ListTasksDetailedResponse` deposits records and calls nobody, so the wire can
+ * be pinned for the duration instead of copied into native scratch: the copy
+ * the push arm pays, and the reason section 7.1 gives for the family
+ * existing on this runtime at all. An upcall in here would be a JVM crash
+ * rather than a slowdown, so there is no ak_push frame to make one from. */
+JNIEXPORT jint JNICALL Java_ak_NativeEntry_parseListTasksDetailedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_ListTasksDetailedResponse((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
   return (jint) rc;
 }
 
@@ -272,6 +329,22 @@ JNIEXPORT jint JNICALL Java_ak_NativeEntry_decodeListProbeResponse(JNIEnv *env, 
   return (jint) rc;
 }
 
+/* PULL. `ak_parse_ListProbeResponse` deposits records and calls nobody, so the wire can
+ * be pinned for the duration instead of copied into native scratch: the copy
+ * the push arm pays, and the reason section 7.1 gives for the family
+ * existing on this runtime at all. An upcall in here would be a JVM crash
+ * rather than a slowdown, so there is no ak_push frame to make one from. */
+JNIEXPORT jint JNICALL Java_ak_NativeEntry_parseListProbeResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_ListProbeResponse((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
 JNIEXPORT jlong JNICALL Java_ak_NativeEntry_encodeListTaskSummaryResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
@@ -291,6 +364,22 @@ JNIEXPORT jint JNICALL Java_ak_NativeEntry_decodeListTaskSummaryResponse(JNIEnv 
       (const uint8_t *)(intptr_t) buf, (size_t) len,
       (const struct ak_dvt_ListTaskSummaryResponse *)(intptr_t) vt);
   ak_pop();
+  return (jint) rc;
+}
+
+/* PULL. `ak_parse_ListTaskSummaryResponse` deposits records and calls nobody, so the wire can
+ * be pinned for the duration instead of copied into native scratch: the copy
+ * the push arm pays, and the reason section 7.1 gives for the family
+ * existing on this runtime at all. An upcall in here would be a JVM crash
+ * rather than a slowdown, so there is no ak_push frame to make one from. */
+JNIEXPORT jint JNICALL Java_ak_NativeEntry_parseListTaskSummaryResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_ListTaskSummaryResponse((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
   return (jint) rc;
 }
 
@@ -316,6 +405,22 @@ JNIEXPORT jint JNICALL Java_ak_NativeEntry_decodeUploadResultDataMessage(JNIEnv 
   return (jint) rc;
 }
 
+/* PULL. `ak_parse_UploadResultDataMessage` deposits records and calls nobody, so the wire can
+ * be pinned for the duration instead of copied into native scratch: the copy
+ * the push arm pays, and the reason section 7.1 gives for the family
+ * existing on this runtime at all. An upcall in here would be a JVM crash
+ * rather than a slowdown, so there is no ak_push frame to make one from. */
+JNIEXPORT jint JNICALL Java_ak_NativeEntry_parseUploadResultDataMessage(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_UploadResultDataMessage((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
 JNIEXPORT jlong JNICALL Java_ak_NativeEntry_encodeListMetricsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
@@ -338,6 +443,22 @@ JNIEXPORT jint JNICALL Java_ak_NativeEntry_decodeListMetricsResponse(JNIEnv *env
   return (jint) rc;
 }
 
+/* PULL. `ak_parse_ListMetricsResponse` deposits records and calls nobody, so the wire can
+ * be pinned for the duration instead of copied into native scratch: the copy
+ * the push arm pays, and the reason section 7.1 gives for the family
+ * existing on this runtime at all. An upcall in here would be a JVM crash
+ * rather than a slowdown, so there is no ak_push frame to make one from. */
+JNIEXPORT jint JNICALL Java_ak_NativeEntry_parseListMetricsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_ListMetricsResponse((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
 JNIEXPORT jlong JNICALL Java_ak_NativeEntry_encodeDualResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
@@ -357,6 +478,22 @@ JNIEXPORT jint JNICALL Java_ak_NativeEntry_decodeDualResponse(JNIEnv *env, jclas
       (const uint8_t *)(intptr_t) buf, (size_t) len,
       (const struct ak_dvt_DualResponse *)(intptr_t) vt);
   ak_pop();
+  return (jint) rc;
+}
+
+/* PULL. `ak_parse_DualResponse` deposits records and calls nobody, so the wire can
+ * be pinned for the duration instead of copied into native scratch: the copy
+ * the push arm pays, and the reason section 7.1 gives for the family
+ * existing on this runtime at all. An upcall in here would be a JVM crash
+ * rather than a slowdown, so there is no ak_push frame to make one from. */
+JNIEXPORT jint JNICALL Java_ak_NativeEntry_parseDualResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_DualResponse((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
   return (jint) rc;
 }
 
@@ -495,6 +632,48 @@ JNIEXPORT void JNICALL Java_ak_Native_decErrReset(JNIEnv *e, jclass c, jlong x) 
 }
 JNIEXPORT void JNICALL Java_ak_Native_fail(JNIEnv *e, jclass c, jlong ctx, jint code) {
   (void) e; (void) c;  ak_fail((void *)(intptr_t) ctx, (int32_t) code, NULL, 0);
+}
+
+/* ---- ABI v1 7.1's record buffer. The pull family's forward half. */
+JNIEXPORT void JNICALL Java_ak_Native_bdrReset(JNIEnv *e, jclass c, jlong x) {
+  (void) e; (void) c;  ak_bdr_reset((ak_dec_ctx *)(intptr_t) x);
+}
+JNIEXPORT jlong JNICALL Java_ak_Native_bdrFootprint(JNIEnv *e, jclass c, jlong x) {
+  (void) e; (void) c;  return (jlong) ak_bdr_footprint((const ak_dec_ctx *)(intptr_t) x);
+}
+JNIEXPORT jint JNICALL Java_ak_Native_bdrReserve(JNIEnv *e, jclass c, jlong x, jlong n) {
+  (void) e; (void) c;  return (jint) ak_bdr_reserve((ak_dec_ctx *)(intptr_t) x, (size_t) n);
+}
+/* {base, len} of the records in place. The walk arm: no intermediate at all. */
+JNIEXPORT jint JNICALL Java_ak_Native_bdrPtr(JNIEnv *env, jclass c, jlong x, jlongArray out) {
+  (void) c;
+  const uint8_t *p = NULL;
+  size_t n = 0;
+  int32_t rc = ak_bdr_ptr((ak_dec_ctx *)(intptr_t) x, &p, &n);
+  if (rc != AK_OK) return (jint) rc;
+  jlong v[2];
+  v[0] = (jlong)(intptr_t) p;
+  v[1] = (jlong) n;
+  (*env)->SetLongArrayRegion(env, out, 0, 2, v);
+  return (jint) AK_OK;
+}
+/* Whole records into memory the host owns, from *cursor. One crossing per chunk. */
+JNIEXPORT jlong JNICALL Java_ak_Native_bdrDrain(JNIEnv *env, jclass c, jlong x, jlong dst,
+                                                jlong cap, jlongArray cursor) {
+  (void) c;
+  jlong cur = 0;
+  (*env)->GetLongArrayRegion(env, cursor, 0, 1, &cur);
+  size_t at = (size_t) cur;
+  AK_TAX();
+  intptr_t got = ak_bdr_drain((ak_dec_ctx *)(intptr_t) x, (uint8_t *)(intptr_t) dst,
+                              (size_t) cap, &at);
+  cur = (jlong) at;
+  (*env)->SetLongArrayRegion(env, cursor, 0, 1, &cur);
+  /* NOT `ak_bdr_count_forward`. That call exists for a host whose drain loop the core
+     cannot see; `ak_bdr_drain` is itself an ABI entry point and bumps `forward` on the way
+     in, so calling it here counted every chunk twice and inflated the arm's own crossing
+     count. Caught by the count, which is what R5's "count, do not infer" is for. */
+  return (jlong) got;
 }
 
 JNIEXPORT jlong JNICALL Java_ak_Native_tcUtf16(JNIEnv *e, jclass c) {
