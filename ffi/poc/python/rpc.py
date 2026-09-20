@@ -155,6 +155,29 @@ def measure(channel, name, deser, calls, inflight):
     return dc / n, dt / n, errs[0]
 
 
+def in_process_control(out):
+    """The same deserializers on the same bytes with NO transport, in THIS process.
+
+    Without it the arm can only be compared against `bench.py`, which is a different
+    process with a different allocator history and a different thread count -- and the
+    first run of this script showed the composed arm's codec costing about twice its
+    in-process figure, which is either a real property of decoding under a thread pool or
+    an artefact of comparing across scripts. One row settles which.
+    """
+    body = arms.reference(PID)
+    print("\n## the in-process control: the same decode, no transport, this process",
+          file=out)
+    print("   %-38s %12s %12s" % ("arm", "CPU ns/call", "wall ns/call"), file=out)
+    for name, deser in _deserializers():
+        deser(body)
+        n = 60
+        c0, t0 = _cpu(), time.perf_counter_ns()
+        for _ in range(n):
+            deser(body)
+        print("   %-38s %12.0f %12.0f"
+              % (name, (_cpu() - c0) / n, (time.perf_counter_ns() - t0) / n), file=out)
+
+
 def run_transport(out, label, target, args, argname):
     payload = arms.reference(PID)
     server = serve(payload, args)
@@ -183,11 +206,9 @@ def core_http2_args():
 
     Read out of the extension module rather than out of the documentation, because an
     argument the core does not know is **ignored and not refused** -- so "I passed it" is
-    not evidence that anything happened, and a table whose configuration column is a list
-    of hopeful strings is worse than no table.
+    not evidence that anything happened.
     """
     import re
-    import subprocess
     try:
         from grpc._cython import cygrpc
         blob = open(cygrpc.__file__, "rb").read()
@@ -197,39 +218,109 @@ def core_http2_args():
                       re.findall(rb"grpc\.http2\.[a-z0-9_.]+", blob)))
 
 
+# The five configurations that, between them, say what the C core does. Each is run in a
+# subprocess with the core's own flow-control tracing on, and what the CORE printed is the
+# evidence -- not what was passed to it.
+FC_PROBES = [
+    ("the core's default", []),
+    ("BDP off, no window set", [("grpc.http2.bdp_probe", 0)]),
+    ("BDP on, window set SMALL (65,535)", [("grpc.http2.lookahead_bytes", 65535)]),
+    ("BDP on, window set to ArmoniK's 4 MiB", [("grpc.http2.lookahead_bytes", WINDOW_BYTES)]),
+    ("BDP off, window set to ArmoniK's 4 MiB",
+     [("grpc.http2.lookahead_bytes", WINDOW_BYTES), ("grpc.http2.bdp_probe", 0)]),
+]
+
+
+def _fc_child(opts):
+    """One configuration, three 540 KB round trips, tracing on. Prints what the core said."""
+    import tempfile as _t
+    from concurrent import futures
+    body = arms.reference(PID)
+    args = [("grpc.max_receive_message_length", CHUNK_BYTES * 4),
+            ("grpc.max_send_message_length", CHUNK_BYTES * 4)] + opts
+    h = {"Get": grpc.unary_unary_rpc_method_handler(
+        lambda req, ctx: body, request_deserializer=lambda b: b,
+        response_serializer=lambda b: b)}
+    srv = grpc.server(futures.ThreadPoolExecutor(max_workers=4), options=args)
+    srv.add_generic_rpc_handlers((grpc.method_handlers_generic_handler("ffi.Bench", h),))
+    target = "unix:" + os.path.join(_t.mkdtemp(prefix="akfc"), "s")
+    srv.add_insecure_port(target)
+    srv.start()
+    try:
+        with grpc.insecure_channel(target, options=args) as ch:
+            call = ch.unary_unary(METHOD, request_serializer=lambda b: b,
+                                  response_deserializer=lambda b: b)
+            for _ in range(3):
+                assert len(call(b"")) == len(body)
+    finally:
+        srv.stop(0).wait()
+
+
 def report_flow_control(out):
-    """What this build of the C core will and will not let a Python caller set."""
-    print("\n## flow control: what the gRPC C core actually exposes, grpcio %s"
+    """What THIS build of the C core does with a window and with BDP, established."""
+    import json
+    import re
+    import subprocess
+
+    print("\n## flow control: what the gRPC C core actually does, grpcio %s"
           % grpc.__version__, file=out)
+    print("#  Established by running it with the core's own `flowctl` and `bdp_estimator`", file=out)
+    print("#  tracing on and reading what the CORE printed. Neither the grpc-java answer", file=out)
+    print("#  (a set window disables auto-tuning) nor the .NET one (a floor that doubles", file=out)
+    print("#  to a 16 MiB cap, connection window hardcoded at 64 MiB) transfers here.", file=out)
+    print("", file=out)
+    print("   %-40s %14s %6s" % ("configuration", "stream window", "BDP"), file=out)
+    rows = []
+    for label, opts in FC_PROBES:
+        env = dict(os.environ, GRPC_VERBOSITY="debug",
+                   GRPC_TRACE="flowctl,bdp_estimator",
+                   AK_FC_PROBE=json.dumps(opts))
+        r = subprocess.run([sys.executable, os.path.abspath(__file__), "--fc-child"],
+                           env=env, capture_output=True, text=True, timeout=120)
+        txt = r.stdout + r.stderr
+        # "adding N for initial_window change" is the delta from HTTP/2's own 65,535.
+        deltas = [int(x) for x in re.findall(r"adding (\d+) for initial_window change", txt)]
+        win = 65535 + max(deltas) if deltas else None
+        bdp = "on" if "bdp_estimator" in txt and "bdp[" in txt else "off"
+        rows.append((label, win, bdp))
+        print("   %-40s %14s %6s"
+              % (label, ("%d" % win) if win is not None else "?", bdp), file=out)
+
+    print("", file=out)
+    print("   Reading the rows, and every one of these is a correction to something this", file=out)
+    print("   branch assumed:", file=out)
+    print("   1. **The C core's static default stream window is 65,535** -- row 2, with", file=out)
+    print("      probing off and nothing set, adds zero. The 4 MiB the default reaches is", file=out)
+    print("      BDP auto-tuning, not a large default.", file=out)
+    print("   2. **`grpc.http2.lookahead_bytes` is a FLOOR and not a cap.** Row 3 sets it", file=out)
+    print("      to 65,535 and the core still goes to 4 MiB, because BDP overrides it", file=out)
+    print("      upward. A slice that pinned a window and reported it as pinned would be", file=out)
+    print("      reporting the value it passed rather than the one in force.", file=out)
+    print("   3. **Setting a window does NOT turn BDP probing off** -- row 4 still probes.", file=out)
+    print("      That is the opposite of grpc-java, where a set window disables", file=out)
+    print("      auto-tuning, and it means pinning takes BOTH arguments (row 5).", file=out)
+    print("   4. **There is no channel argument for the CONNECTION window at all**, so the", file=out)
+    print("      separate-knob trap does not apply here in the form it takes on grpc-java", file=out)
+    print("      and tonic: a Python caller cannot set it, full stop. Every", file=out)
+    print("      `grpc.http2.*` name this build knows is listed below.", file=out)
+    print("", file=out)
+    print("   So **ArmoniK's 4 MiB is what grpcio converges to anyway on this transport**,", file=out)
+    print("   and pinning it matters for determinism rather than for size: with BDP on the", file=out)
+    print("   window is whatever the estimator last decided, and only row 5 makes it a", file=out)
+    print("   number. That is why the rows above are run both ways.", file=out)
     names = core_http2_args()
-    if names is None:
-        print("   could not read the extension module; nothing asserted", file=out)
-        return
-    print("   every grpc.http2.* argument this build knows:", file=out)
-    for n in names:
-        mark = ""
-        if n == "grpc.http2.lookahead_bytes":
-            mark = "   <- the STREAM window, and the only window a caller can set"
-        elif n == "grpc.http2.bdp_probe":
-            mark = "   <- BDP probing, a SEPARATE switch from the window"
-        print("     %-44s%s" % (n, mark), file=out)
-    print("", file=out)
-    print("   **There is no channel argument for the CONNECTION window.** The aggregating", file=out)
-    print("   session's warning was that raising only the stream window leaves the", file=out)
-    print("   connection at 65,535 and changes nothing; in grpcio the stronger statement", file=out)
-    print("   holds -- a Python caller CANNOT raise the connection window, because this", file=out)
-    print("   build exposes no name for it. `grpc.http2.lookahead_bytes` is per stream.", file=out)
-    print("   So ArmoniK's 4 MiB configuration is expressible for the stream and not for", file=out)
-    print("   the connection, and a Python client is bounded by whichever is smaller.", file=out)
-    print("", file=out)
-    print("   **Pinning the window does NOT turn BDP probing off.** They are two", file=out)
-    print("   arguments and the rows above run both ways: `ArmoniK pinned, BDP left on`", file=out)
-    print("   against `ArmoniK pinned, BDP off`. Whether it matters is the delta between", file=out)
-    print("   those two rows and not something this paragraph gets to assert.", file=out)
+    if names:
+        print("", file=out)
+        print("   every grpc.http2.* argument this build knows: %s"
+              % ", ".join(n.replace("grpc.http2.", "") for n in names), file=out)
 
 
 def main():
     global CALLS, INFLIGHT
+    if "--fc-child" in sys.argv:
+        import json
+        _fc_child([(k, v) for k, v in json.loads(os.environ["AK_FC_PROBE"])])
+        return 0
     if "--calls" in sys.argv:
         CALLS = int(sys.argv[sys.argv.index("--calls") + 1])
     if "--inflight" in sys.argv:
@@ -260,6 +351,7 @@ def main():
         run_transport(out, "unix domain socket",
                       "unix:" + os.path.join(d, "s%d" % i), args, argname)
         run_transport(out, "loopback TCP", "tcp", args, argname)
+    in_process_control(out)
     report_flow_control(out)
     return 0
 

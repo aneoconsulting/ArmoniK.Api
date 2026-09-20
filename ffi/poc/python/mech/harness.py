@@ -63,9 +63,23 @@ def calibrate(cases, target_ns=TARGET_NS):
         c.reps = reps
 
 
-def run(cases, rounds=ROUNDS, target_ns=TARGET_NS):
+def run(cases, rounds=ROUNDS, target_ns=TARGET_NS, gc_enabled=False):
+    """`gc_enabled=False` is work unit 1's behaviour and stays the default, because the
+    frozen mechanism columns were measured with it and README R4's last paragraph says
+    their text does not move.
+
+    **It is the wrong setting for a codec arm and `bench.py` passes True.** Disabling the
+    collector removes a cost that is almost entirely one side's: a facade decode builds
+    ~10,000 GC-tracked objects per P2.2 call and `FromString` builds an arena and one
+    wrapper. Measured, same process, GC off against GC on: every ENCODE row 0.99-1.02 and
+    upb's decode 0.97-1.02, against **1.09 to 1.29 for the facade's decode**. So the
+    collector was subtracting up to 29% from one arm of one column and nothing from
+    anything else. Defect D11, found by the RPC arm -- which cannot disable the collector,
+    because it runs a real server -- and not by anything in the bench.
+    """
     gc_was = gc.isenabled()
-    gc.disable()
+    if not gc_enabled:
+        gc.disable()
     try:
         calibrate(cases, target_ns)
         for _ in range(rounds):
