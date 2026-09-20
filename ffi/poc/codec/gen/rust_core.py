@@ -412,7 +412,7 @@ def emit_core_native(ir):
         body.append("        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }")
         body.append("        match tag {")
         walk_decode(ir, m, NativeDec(), body)
-        body.append("            _ => d.skip(wire),")
+        body.append("            _ => d.skip(tag, wire),")
         body.append("        }")
         body.append("    }")
         body.append("}")

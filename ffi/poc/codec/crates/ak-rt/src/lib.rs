@@ -39,6 +39,9 @@ pub mod strings;
 pub const ERR_CAPACITY: i32 = -7;
 pub const ERR_MALFORMED: i32 = -2;
 pub const ERR_TRUNCATED: i32 = -3;
+/// Mirrors ak-abi's AK_ERR_DEPTH: the decode recursion limit, which nested unknown
+/// GROUP fields are the one path in this crate that can reach.
+pub const ERR_DEPTH: i32 = -4;
 /// ABI v1 section 6: "the transcoder refused its input". The design text names this code
 /// for the malformed-string case (section, decision 3); `AK_ERR_MALFORMED` ("invalid wire")
 /// is the other defensible reading, since proto3 makes invalid UTF-8 a PARSE error and the

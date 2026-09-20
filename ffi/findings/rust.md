@@ -737,39 +737,119 @@ Unmeasured on the RPC side: the callback and completion-queue delivery modes,
 metadata, deadlines, the gRPC status code as a number, cancellation, retry,
 backoff, TLS, streaming, a real network, failure injection and the server seam.
 
+## Stage 5: the three things the branch had specified and nobody had built
+
+The slice is complete, and its last work unit closed the three largest gaps in
+this document at once, all of them additively in the SHARED core at `poc/codec/`
+rather than in the slice (R0).
+
+### The pull decode family exists, and open decision 2's buildability half is answered yes
+
+**One `dec_walk` is emitted once and instantiated twice.** The families differ in a
+macro body, the entry point's prologue and epilogue, and one argument. That was the
+condition the whole decode design rested on: two emitters would be a fork at the
+generator level, on exactly the shapes nobody tests.
+
+**Its control is structural, which is better than statistical.** A record is written
+exactly where push makes a reverse call, so the counts must be equal. They are, to
+the digit, on all thirteen counted payloads (P2.2: 3,501 and 3,501), and pull's
+reverse count is **zero** everywhere. So the specification can now say it plainly:
+**pull removes the upcalls, it does not reduce them.**
+
+**Pull costs a rust host −5 to +18 percent of a push decode, and the prediction going
+in was wrong.** At a 1.8 ns reverse call pull was expected to lose; it is 0.94 to 1.18
+of push, at or below push on nine of twelve payloads and a win on every M2 shape. The
+reason is the one the branch keeps finding: a push reverse call goes through a vtable
+slot reached across the shared object, while the replay's equivalent is a local call
+over a buffer already in L2. **An opaque-replay arm clears the obvious objection** —
+the parity is not rustc inlining the replay away.
+
+**And where pull loses, a byte table predicts it.** P1.3 (+5 to +13%) and P6.1 (+8 to
++18%) are the two losing rows, and on P1.3 the record stream is **63.6 times the wire**,
+38,488 B to describe a 605 B message, because a record carries an absent element's whole
+fixed group. Pull's cost tracks the record-to-wire byte ratio, which is a property of
+the **shape**, so a binding author can predict it before measuring. Every payload below
+a ratio of 1 is at or under push.
+
+This does not settle which family a managed host should take — rust is the host where
+the upcall is cheapest, so it is the host the decision least depends on. What it hands
+the managed slices is a re-pricing kit: crossings go per-message (3 to 16 on P2.2
+against 3,501 per-element), materialisation is 8.5 to 47 percent of a push decode and
+the drain copy 1 to 12.
+
+### A shared encode context aborts the process, and that is a hole in section 5
+
+**The concurrency suite (obligation 12.5) exists and the codec half is clean**: 0 wrong
+out of 2,840 encodes and 2,840 decodes across 2, 4 and 8 threads with a context each,
+phases offset, every encode compared byte for byte against a single-threaded reference.
+"No shared mutable state" is now a measurement rather than a reading of the source.
+
+**The positive control is the result.** Four threads on one context is D16's defect
+planted deliberately, and it is **not** detected as wrong bytes: the core panics inside
+`Enc`, the frame the panic must unwind through is an `extern "C"` entry point, the
+unwind is refused, and **the process aborts**. So section 5's error channel covers
+failures the *host* reports and has nothing at all for a panic inside the core, and
+every codec entry point is exposed to it. Section 3's panic hook changes what is
+printed, not whether the abort happens.
+
+That is a specification gap rather than a slice defect, and it is mine to carry:
+**a library that can abort its host process on a misuse the host can commit is not
+shippable as a drop-in codec**, whatever its ratios. The slice raised it and did not
+take it, correctly — an owning-thread id beside the context's existing `kind` word
+would turn it into `AK_ERR_INVALID_STATE` at the first misuse, and that is an ABI
+change, not a slice change.
+
+### `ak_init` and the lifecycle are exercised
+
+Section 3 stops being unexercised specification. The guard it installs is the one
+figure the branch had been quoting ambiguously, and it is now stated so it cannot be
+misquoted: **the per-entry-point init guard is ±0.003 ns, indistinguishable from
+zero.** An earlier reading of "0.70 ns" was the measurement's own floor, not the
+guard.
+
 ## The specified surface that is not built
 
 From the slice's completeness pass, and it belongs in the report rather than in a
 footnote, because a specification is not evidence:
 
-- **`ak_init` and the whole lifecycle of ABI v1 section 3 are not built at all**,
-  so "every entry point requires `ak_init`" is unexercised, as are the crypto
-  provider, the log and tracing bridges and the panic hook.
+**Three entries of this list were closed by stage 5** (`ak_init` and the lifecycle,
+the pull decode family, the concurrency suite) and are written up above. What is
+still specified and unbuilt:
+
 - **The codec's rollback of a half-written field is written and never triggered.**
   Section 6 calls that the widest hole in the drafted interface; nothing in this
   slice makes a host fail mid-run deliberately, so the fix for it is untested.
-- **Group-layout assertions, the `coder` hint, size and recursion limits, the pull
-  decode family and the whole RPC half** are specified and unbuilt here.
+- **Group-layout assertions, the `coder` hint, size and recursion limits and the
+  whole RPC half** are specified and unbuilt here.
 - **Malformed wire is unexercised**, and `ak_fail` is reachable only through a
-  panic.
+  panic — which stage 5 showed does not reach the host at all from inside an
+  `extern "C"` frame.
+- **Decision 11's unknown-field capture is deliberately not wired to pull**, so the
+  two open behaviours interact in a way nobody has measured.
+- **There is no `core-native-pull`**: the no-boundary control exists for the push
+  traversal only, so "what does the pull traversal cost without a boundary" is a
+  question this slice cannot answer. Push against pull is measured in the same
+  rounds, which is what decision 2 needed; the other decomposition is not there.
 
 ## What I would do next, if this slice is reopened
 
 In the order the slice itself proposes, which I agree with:
 
-1. **A concurrency suite** per conformance obligation 12.5. It is the only item on
-   this list with a defect already found by accident and nothing looking for the
-   class on purpose.
-2. **`ak_init` and the lifecycle**, so that section 3 stops being unexercised
-   specification.
-3. **The pull decode family**, to turn "push is the right default at a 1.8 ns
-   crossing" from an argument into a measurement. Rust is the cheapest place to
-   learn whether one traversal emitter can really serve both families, which is
-   ABI v1 open decision 2 and a condition the whole decode design rests on.
-4. **The remaining content sets, and the SIMD validator on a machine without
-   AVX2**, which is the floor question behind the reframed decision 3.
+**Items 1 to 3 of this list are done** — the concurrency suite, `ak_init` and the
+lifecycle, and the pull decode family — and they are the stage 5 section above. What
+is left, in the order the slice proposes and I agree with:
 
-None of it blocks another slice. Everything another slice needs from Rust exists.
+1. **The remaining content sets, and the SIMD validator on a machine without AVX2**,
+   which is the floor question behind the reframed decision 3.
+2. **The unbatched element form on decode, and the pull family under decision 11's
+   unknown-field capture**, which is the one interaction between two open decisions
+   that nobody has looked at.
+3. **The MSRV**, which is declared at 1.88 and unverified: this container has only
+   1.94.1, so the floor is a claim rather than a gate. Every other slice builds its
+   floor; rust does not, and it is the slice that defines the denominator.
+
+None of it blocks another slice. Everything another slice needs from Rust exists,
+and the pull family it needed most now does too.
 
 ## What the slice's own defect log says about method
 
