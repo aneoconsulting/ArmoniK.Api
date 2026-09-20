@@ -126,7 +126,8 @@ public static class Grid
             }
         });
 
-    public static async Task Run(CallInvoker inv, CoreChannel ch, int rounds, int[] levels, int calls)
+    public static async Task Run(CallInvoker inv, CoreChannel ch, CoreChannel dflt,
+                                 int rounds, int[] levels, int calls)
     {
         var cells = new List<Cell>
         {
@@ -138,6 +139,15 @@ public static class Grid
                        Run = n => CoreCellCb(ch, DecodeCore, n) },
             new Cell { Name = "D", Codec = "core-ffi", Transport = "grpc-dotnet", Delivery = "-",
                        Run = n => GrpcCell(inv, Codecs.Core, n) },
+            // **The correction to stage 18, kept visible rather than silently
+            // replacing it.** These two are the same cells against TONIC'S
+            // DEFAULTS, which is what stage 18 measured, so the difference
+            // between these rows and the pinned B and C above is how much of
+            // that grid's transport gap was the settings.
+            new Cell { Name = "B*", Codec = "Google.Protobuf", Transport = "core/dflt", Delivery = "callback",
+                       Run = n => CoreCellCb(dflt, DecodeGp, n) },
+            new Cell { Name = "C*", Codec = "core-ffi", Transport = "core/dflt", Delivery = "callback",
+                       Run = n => CoreCellCb(dflt, DecodeCore, n) },
             new Cell { Name = "B", Codec = "Google.Protobuf", Transport = "core", Delivery = "blocking",
                        Run = n => CoreCellBlocking(ch, DecodeGp, n) },
             new Cell { Name = "C", Codec = "core-ffi", Transport = "core", Delivery = "blocking",

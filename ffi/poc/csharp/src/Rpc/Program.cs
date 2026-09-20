@@ -117,6 +117,21 @@ public static class Program
         // looked normal, never in the callback or queue delivery. Two
         // observations is an anecdote; `--park` is the measurement.
         bool park = argv.Contains("--park");
+        // **The rust slice's Nagle diagnostic, reproduced here rather than
+        // assumed away.** Their signature was that a 1 KB response cost MORE
+        // than a 540 KB one over loopback TCP -- backwards for flow control,
+        // exactly right for Nagle. `--tiny` swaps P2.2 for P1.1 so this arm can
+        // be asked the same question. Both ends here are grpc-dotnet, not the
+        // core's test server, so the defect should not be present -- which is a
+        // prediction, and this is the measurement of it.
+        bool nagle = argv.Contains("--nagle");
+        // "Count crossings, do not infer them" (ffi/CLAUDE.md). The core now
+        // exports `ak_rpc_counters`, so the transport's crossings per call are a
+        // reading rather than an argument -- but only in a build with
+        // `--features count`, and `ak_rpc_counting()` is what says which build
+        // this is. R5's hazard is a harness that reads zeroes out of a
+        // non-counting core and publishes "the boundary is free".
+        bool crossings = argv.Contains("--crossings");
         int rounds = Arg(argv, "--rounds", 3);
         int calls = Arg(argv, "--calls", 300);
         var levels = new[] { 1, 8, 16 };
@@ -127,11 +142,12 @@ public static class Program
             AppContext.SetSwitch(
                 "System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing", true);
 
-        var facade = BuildFacade.P2_2();
-        var gp = BuildGp.P2_2();
         var e = Enc.New(Codec.Sites, 1 << 21);
-        Codec.WriteListTasksDetailedResponse(ref e, facade);
+        Codec.WriteListTasksDetailedResponse(ref e, BuildFacade.P2_2());
         Bench.Wire = e.ToArray();
+        var es = Enc.New(Codec.Sites, 1 << 16);
+        Codec.WriteListResultsResponse(ref es, BuildFacade.P1_1());
+        byte[] wireSmall = es.ToArray();
         Streamer.Wire22 = Bench.Wire;
         var e53 = Enc.New(Codec.Sites, (1 << 20) + 4096);
         Codec.WriteUploadResultDataMessage(ref e53, BuildFacade.P5_3());
@@ -226,6 +242,104 @@ public static class Program
                 Arg(argv, "--msgs22", 512), Arg(argv, "--msgs53", 128));
         }
 
+        if (crossings)
+        {
+            using var cc = new CoreChannel("unix:" + sock, Arg(argv, "--core-workers", 2));
+            cc.StartQueue();
+            int n = Arg(argv, "--calls", 200);
+            var path = System.Text.Encoding.UTF8.GetBytes("/armonik.ffi.Bench/Down");
+            Console.WriteLine("# harness: rpc --crossings (ABI v1 section 9's transport, counted)");
+            Console.WriteLine("# counting build: {0}", AkRpc.ak_rpc_counting() == 1 ? "YES" : "NO");
+            if (AkRpc.ak_rpc_counting() != 1)
+            {
+                Console.WriteLine();
+                Console.WriteLine("This core does NOT count. Every number below would be a zero and a");
+                Console.WriteLine("zero here means 'not measured', not 'free'. Build the core with the");
+                Console.WriteLine("count feature beside rpc and run this again.");
+                await app.StopAsync();
+                if (File.Exists(sock)) File.Delete(sock);
+                return 2;
+            }
+            Console.WriteLine("# calls:         {0} per delivery", n);
+            Console.WriteLine();
+            Console.WriteLine("delivery     forward/call   reverse/call");
+            Console.WriteLine(new string('-', 46));
+            foreach (var d in new[] { "callback", "blocking", "queue" })
+            {
+                AkRpc.ak_rpc_counters_reset();
+                for (int i = 0; i < n; i++)
+                {
+                    AkBytes got;
+                    if (d == "callback") got = await cc.CallCbAsync(path, Array.Empty<byte>());
+                    else if (d == "queue") got = await cc.CallQAsync(path, Array.Empty<byte>());
+                    else got = cc.CallBlocking(path, Array.Empty<byte>());
+                    CoreChannel.Release(ref got);
+                }
+                AkRpcCounters k;
+                unsafe { AkRpc.ak_rpc_counters(&k); }
+                Console.WriteLine("{0,-12} {1,12:F2} {2,14:F2}", d, (double)k.Forward / n, (double)k.Reverse / n);
+            }
+            Console.WriteLine();
+            Console.WriteLine("ABI v1 section 9 says two crossings per call and none per field. A number");
+            Console.WriteLine("that grows with the payload's field count would mean something in the");
+            Console.WriteLine("transport knows about messages, and nothing in it does.");
+            Console.WriteLine();
+            await app.StopAsync();
+            if (File.Exists(sock)) File.Delete(sock);
+            return 0;
+        }
+
+        if (nagle)
+        {
+            // **No codec at all**: the client's marshaller is the same `byte[]`
+            // passthrough the server uses, so this times the transport and
+            // nothing else. The signature being looked for is the SMALL payload
+            // costing MORE than the large one, which is backwards for flow
+            // control and exactly right for Nagle.
+            var raw = new Method<byte[], byte[]>(MethodType.Unary, Bench.Name, "Down",
+                Bench.Raw, Bench.Raw);
+            Console.WriteLine("# harness: rpc --nagle (the rust slice's diagnostic, on THIS stack)");
+            Console.WriteLine("# transport:  {0}", tcp ? "loopback TCP" : "unix domain socket");
+            Console.WriteLine("# both ends:  grpc-dotnet (Kestrel server, SocketsHttpHandler client),");
+            Console.WriteLine("#             NOT the core's test server, which is where the defect was");
+            Console.WriteLine("# codec:      none, byte[] passthrough both ways");
+            Console.WriteLine();
+            Console.WriteLine("payload bytes      calls     wall us/call");
+            Console.WriteLine(new string('-', 48));
+            byte[] big = Bench.Wire;
+            foreach (var w in new[] { wireSmall, big })
+            {
+                Bench.Wire = w;
+                int n = Arg(argv, "--calls", 300);
+                for (int k = 0; k < Math.Max(8, n / 10); k++)
+                {
+                    using var warm = inv.AsyncUnaryCall(raw, null, new CallOptions(), Array.Empty<byte>());
+                    Sink = await warm.ResponseAsync;
+                }
+                double best = double.MaxValue;
+                for (int r = 0; r < Math.Max(3, rounds); r++)
+                {
+                    var sw = Stopwatch.StartNew();
+                    for (int k = 0; k < n; k++)
+                    {
+                        using var c = inv.AsyncUnaryCall(raw, null, new CallOptions(), Array.Empty<byte>());
+                        Sink = await c.ResponseAsync;
+                    }
+                    sw.Stop();
+                    best = Math.Min(best, sw.Elapsed.TotalMicroseconds / n);
+                }
+                Console.WriteLine("{0,13:N0} {1,10} {2,16:F1}", w.Length, n, best);
+            }
+            Bench.Wire = big;
+            Console.WriteLine();
+            Console.WriteLine("If the small payload costs MORE than the large one, Nagle is on. If it");
+            Console.WriteLine("costs less in proportion to its size, it is not.");
+            Console.WriteLine();
+            await app.StopAsync();
+            if (File.Exists(sock)) File.Delete(sock);
+            return 0;
+        }
+
         if (park)
         {
             // **Does parking N host threads inside the core cost a managed host,
@@ -302,9 +416,36 @@ public static class Program
             Console.WriteLine("this process's Kestrel is listening on. Same process, same sitting.");
             Console.WriteLine(new string('=', 128));
             Console.WriteLine();
-            using var core = new CoreChannel("unix:" + sock, Arg(argv, "--core-workers", 2));
+            // **Cells B and C are PINNED to what the .NET client does**, which
+            // stage 18 did not do and which is an R7 defect in that grid: A and D
+            // pinned ArmoniK's transport and B and C took tonic's defaults, so
+            // part of what B-A measured may have been the settings rather than
+            // the stack. The mirror is the CLIENT's configuration, because the
+            // grid varies the client: a 4 MiB stream window, adaptive sizing OFF,
+            // a 64 MiB connection window (which `Http2Connection` hardcodes and
+            // this slice established from the runtime source), 64 MiB message
+            // limits, and Nagle off, which is what `armonik-transport` ships.
+            var pin = new AkClientOpts
+            {
+                StreamWindow = StreamWindow,
+                ConnectionWindow = 64u << 20,
+                AdaptiveWindow = 0,
+                MaxRecvMessage = 64u << 20,
+                MaxSendMessage = 64u << 20,
+                TcpNagle = 0,
+            };
+            using var core = new CoreChannel("unix:" + sock, Arg(argv, "--core-workers", 2), pin);
             core.StartQueue();
+            // The same client with tonic's defaults, kept as a LABELLED row so the
+            // correction to stage 18 is visible rather than silently replacing it.
+            using var coreDflt = new CoreChannel("unix:" + sock, Arg(argv, "--core-workers", 2));
             Console.WriteLine("# core transport:      tonic over unix:{0}", sock);
+            Console.WriteLine("# core client pinned:  stream {0} B, connection {1} B, adaptive OFF, "
+                + "msg limits {2} B, Nagle OFF", StreamWindow, 64 << 20, 64 << 20);
+            Console.WriteLine("# counting build:      {0}", AkRpc.ak_rpc_counting() == 1
+                ? "YES, ak_rpc_counters is live"
+                : "no (this core is built without --features count), so the crossing "
+                  + "columns are NOT read from it");
             Console.WriteLine("# core worker threads: {0} (ak_runtime_new, explicit -- ABI v1 section 3 "
                 + "says never Runtime::new(), which reads the cgroup quota)",
                 Arg(argv, "--core-workers", 2));
@@ -312,7 +453,7 @@ public static class Program
                 + "queue (second row, one drainer)");
             Console.WriteLine();
             Grid.Reverse = argv.Contains("--reverse-arms");
-            await Grid.Run(inv, core, rounds, levels, calls);
+            await Grid.Run(inv, core, coreDflt, rounds, levels, calls);
         }
 
         await app.StopAsync();
