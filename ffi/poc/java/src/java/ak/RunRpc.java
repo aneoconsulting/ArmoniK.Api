@@ -69,6 +69,8 @@ public final class RunRpc {
 
   static final AtomicLong SINK = new AtomicLong();
   static byte[] REQUEST = new byte[16];
+  /** Per thread, never static state shared across threads (R12). */
+  static final ThreadLocal<Binding> PARSE_BINDING = ThreadLocal.withInitial(Binding::new);
 
   /** Pass-through, for the server and for the request side of both clients. */
   static final MethodDescriptor.Marshaller<byte[]> BYTES =
@@ -94,11 +96,25 @@ public final class RunRpc {
   }
 
   public static void main(String[] args) throws Exception {
-    String arm = System.getProperty("ak.rpc.arm", "core-rpc");
+    // The grid. B minus A is the TRANSPORT difference and C minus B the CODEC difference;
+    // neither is recoverable from A against C, which moves both at once. Cell B is not a
+    // contrivance: it is README section 13's outcome 2, the fallback the original Java
+    // report recommended, priced directly instead of inferred from two halves.
+    //
+    //   cell   codec           transport
+    //   A      protobuf-java   grpc-java
+    //   B      protobuf-java   core          <- outcome 2
+    //   C      core            core
+    //   D      core            grpc-java     <- D-A and C-B are both the codec difference
+    String cell = System.getProperty("ak.rpc.cell", "C").toUpperCase();
     boolean pinned = !"0".equals(System.getProperty("ak.rpc.pinned", "1"));
+    boolean uds = !"0".equals(System.getProperty("ak.rpc.uds", "1"));
+    String delivery = System.getProperty("ak.rpc.delivery", "queue");
+    boolean coreTransport = cell.equals("B") || cell.equals("C");
+    Parse parse = (cell.equals("C") || cell.equals("D"))
+        ? (b, off, len) -> FfiArms.parse(PARSE_BINDING.get(), ID, b, off, len)
+        : PARSE_PBJ;
 
-    // The wire the server answers with: P2.2, encoded once, by the incumbent, so neither
-    // arm's codec is in the server's cost and both parse identical bytes.
     final byte[] body = ((Message) PbArms.build(ID, Values.ASCII)).toByteArray();
 
     MethodDescriptor<byte[], byte[]> serverMd = MethodDescriptor.<byte[], byte[]>newBuilder()
@@ -113,19 +129,44 @@ public final class RunRpc {
         }))
         .build();
 
-    NettyServerBuilder sb = NettyServerBuilder.forAddress(new InetSocketAddress("127.0.0.1", 0))
-        .addService(svc).maxInboundMessageSize(ARMONIK_MAX_MESSAGE);
+    // One server, reachable by BOTH transports over the same socket: grpc-java through
+    // netty's epoll domain-socket channel, and the core through tonic's `unix:` target,
+    // which `Endpoint::from_shared` strips and turns into a UnixStream connector
+    // (tonic 0.14.6, transport/channel/endpoint.rs:175 and new_uds at :111).
+    java.io.File sock = new java.io.File(System.getProperty("java.io.tmpdir"),
+        "ak-rpc-" + ProcessHandle.current().pid() + ".sock");
+    sock.deleteOnExit();
+    io.grpc.netty.shaded.io.netty.channel.epoll.EpollEventLoopGroup boss = null, work = null;
+    NettyServerBuilder sb;
+    if (uds) {
+      boss = new io.grpc.netty.shaded.io.netty.channel.epoll.EpollEventLoopGroup(1);
+      work = new io.grpc.netty.shaded.io.netty.channel.epoll.EpollEventLoopGroup();
+      sb = NettyServerBuilder.forAddress(
+              new io.grpc.netty.shaded.io.netty.channel.unix.DomainSocketAddress(sock))
+          .channelType(io.grpc.netty.shaded.io.netty.channel.epoll.EpollServerDomainSocketChannel.class)
+          .bossEventLoopGroup(boss).workerEventLoopGroup(work);
+    } else {
+      sb = NettyServerBuilder.forAddress(new InetSocketAddress("127.0.0.1", 0));
+    }
+    sb.addService(svc).maxInboundMessageSize(ARMONIK_MAX_MESSAGE);
     if (pinned) sb.flowControlWindow(ARMONIK_WINDOW);
     Server server = sb.build().start();
-    final int port = server.getPort();
+    final int port = uds ? -1 : server.getPort();
+
+    String coreTarget = uds ? "unix:" + sock.getAbsolutePath() : "http://127.0.0.1:" + port;
 
     Runner runner;
-    switch (arm) {
-      case "grpc-java": runner = new GrpcJavaRunner(port, pinned); break;
-      case "core-rpc":  runner = new CoreRunner(port); break;
-      case "core-queue":    runner = new QueueRunner(port, false); break;
-      case "core-queue-vt": runner = new QueueRunner(port, true); break;
-      default: throw new IllegalArgumentException(arm);
+    if (coreTransport) {
+      runner = delivery.equals("blocking")
+          ? new CoreRunner(coreTarget, parse)
+          : new QueueRunner(coreTarget, parse, delivery.equals("queue-vt"));
+    } else {
+      runner = uds
+          ? new GrpcJavaRunner(
+                new io.grpc.netty.shaded.io.netty.channel.unix.DomainSocketAddress(sock),
+                io.grpc.netty.shaded.io.netty.channel.epoll.EpollDomainSocketChannel.class,
+                work, pinned, parse)
+          : new GrpcJavaRunner(new InetSocketAddress("127.0.0.1", port), null, null, pinned, parse);
     }
 
     long[][] rows = new long[INFLIGHT.length][3];
@@ -142,11 +183,16 @@ public final class RunRpc {
 
     runner.close();
     server.shutdownNow();
+    if (boss != null) boss.shutdownGracefully(0, 0, java.util.concurrent.TimeUnit.SECONDS);
+    if (work != null) work.shutdownGracefully(0, 0, java.util.concurrent.TimeUnit.SECONDS);
 
     // ---- everything below here is after the last measurement (R9) ----
     StringBuilder sb2 = new StringBuilder();
-    sb2.append("arm=").append(arm)
-       .append("  transport=loopback TCP (the core's RPC half has no UDS connector)")
+    sb2.append("cell=").append(cell)
+       .append("  codec=").append(parse == PARSE_PBJ ? "protobuf-java" : "core")
+       .append("  transport=").append(coreTransport ? "core (tonic)" : "grpc-java")
+       .append(coreTransport ? "/" + delivery : "")
+       .append("  socket=").append(uds ? "unix domain" : "loopback TCP")
        .append("  config=").append(pinned
            ? "ArmoniK: flowControlWindow=" + ARMONIK_WINDOW + " (BDP OFF)"
            : "grpc-java default: 1048576, BDP ON")
@@ -167,6 +213,16 @@ public final class RunRpc {
 
   // ---- the two client stacks --------------------------------------------------------
 
+  /** The codec half of the grid. The transport moves opaque bytes and never sees a
+   *  message type, so the parser is free to vary against it -- which is what makes
+   *  B minus A the transport difference and C minus B the codec difference. */
+  interface Parse { Object parse(byte[] b, int off, int len); }
+
+  static final Parse PARSE_PBJ = (b, off, len) -> {
+    try { return PbArms.parse(ID, b, off, len); }
+    catch (Exception e) { throw new IllegalStateException(e); }
+  };
+
   interface Runner extends AutoCloseable {
     /** One call, including parsing the response into a live object graph. */
     void call() throws Exception;
@@ -178,9 +234,12 @@ public final class RunRpc {
     final ManagedChannel ch;
     final MethodDescriptor<byte[], Object> md;
 
-    GrpcJavaRunner(int port, boolean pinned) throws Exception {
-      NettyChannelBuilder cb = NettyChannelBuilder.forAddress("127.0.0.1", port)
+    GrpcJavaRunner(java.net.SocketAddress addr, Class<? extends io.grpc.netty.shaded.io.netty.channel.Channel> ct,
+                   io.grpc.netty.shaded.io.netty.channel.EventLoopGroup elg,
+                   boolean pinned, Parse parse) throws Exception {
+      NettyChannelBuilder cb = NettyChannelBuilder.forAddress(addr)
           .usePlaintext().maxInboundMessageSize(ARMONIK_MAX_MESSAGE);
+      if (ct != null) cb.channelType(ct).eventLoopGroup(elg);
       if (pinned) cb.flowControlWindow(ARMONIK_WINDOW);
       ch = cb.build();
       final MethodDescriptor.Marshaller<Message> pm =
@@ -192,7 +251,13 @@ public final class RunRpc {
           .setRequestMarshaller(BYTES)
           .setResponseMarshaller(new MethodDescriptor.Marshaller<Object>() {
             @Override public InputStream stream(Object v) { return pm.stream((Message) v); }
-            @Override public Object parse(InputStream s) { return pm.parse(s); }
+            @Override public Object parse(InputStream s) {
+              // Cell A reads it with protobuf-java; cell D reads the same bytes with the
+              // core, so D minus A is the codec difference under grpc-java's transport.
+              if (parse == PARSE_PBJ) return pm.parse(s);
+              byte[] b = readAll(s);
+              return parse.parse(b, 0, b.length);
+            }
           })
           .build();
     }
@@ -215,13 +280,16 @@ public final class RunRpc {
     final ThreadLocal<Binding> dec = ThreadLocal.withInitial(Binding::new);
     final ThreadLocal<byte[]> buf = ThreadLocal.withInitial(() -> new byte[1 << 16]);
 
-    CoreRunner(int port) {
+    final Parse parse;
+
+    CoreRunner(String target, Parse parse) {
+      this.parse = parse;
       NativeRpc.ensureBound();
       // Explicit worker count: ABI v1 section 3 refuses Runtime::new() because Rust reads
       // the cgroup quota and a requests-only pod would take every CPU on the node.
       rt = NativeRpc.runtimeNew(Integer.getInteger("ak.rpc.workers", 2));
       if (rt == 0) throw new IllegalStateException("ak_runtime_new failed");
-      byte[] uri = ("http://127.0.0.1:" + port).getBytes(StandardCharsets.UTF_8);
+      byte[] uri = target.getBytes(StandardCharsets.UTF_8);
       client = NativeRpc.clientNew(rt, uri, uri.length);
       if (client == 0) throw new IllegalStateException("ak_client_new failed");
       byte[] p = PATH.getBytes(StandardCharsets.UTF_8);
@@ -241,7 +309,7 @@ public final class RunRpc {
       // Unsafe, not a crossing: the copy is the host's and folding it into the call would
       // have made this arm one crossing against its own specification's two.
       Mem.copyToBytes(o[0], b, 0, n);
-      SINK.addAndGet(System.identityHashCode(FfiArms.parse(dec.get(), ID, b, 0, n)));
+      SINK.addAndGet(System.identityHashCode(parse.parse(b, 0, n)));
       // Crossing two.
       NativeRpc.bytesFree(o[0], o[1], o[2]);
     }
@@ -271,8 +339,8 @@ public final class RunRpc {
     final ThreadLocal<long[]> comp = ThreadLocal.withInitial(() -> new long[5]);
     final java.util.concurrent.atomic.AtomicLong tags = new java.util.concurrent.atomic.AtomicLong();
 
-    QueueRunner(int port, boolean virtual) {
-      this.base = new CoreRunner(port);
+    QueueRunner(String target, Parse parse, boolean virtual) {
+      this.base = new CoreRunner(target, parse);
       this.virtual = virtual;
       this.q = NativeRpc.queueNew();
       if (q == 0) throw new IllegalStateException("ak_queue_new failed");
@@ -296,7 +364,7 @@ public final class RunRpc {
       byte[] b = base.buf.get();
       if (b.length < n) { b = new byte[Integer.highestOneBit(n - 1) * 2]; base.buf.set(b); }
       Mem.copyToBytes(o[2], b, 0, n);
-      SINK.addAndGet(System.identityHashCode(FfiArms.parse(base.dec.get(), ID, b, 0, n)));
+      SINK.addAndGet(System.identityHashCode(base.parse.parse(b, 0, n)));
       NativeRpc.bytesFree(o[2], o[3], o[4]);
     }
 
