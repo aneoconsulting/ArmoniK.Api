@@ -702,10 +702,31 @@ whatever the payload.
   cannot express a group. The shared core had the identical hole (D7); the C++
   slice still does; java's was already right.
   The fix matches the END_GROUP's FIELD NUMBER rather than counting depth, and
-  is bounded at 100 nests. Both matter: counting depth ACCEPTS
-  `X-group-mismatched-end` and mis-nests everything after it, and an unbounded
-  recursive skipper answers a nest of start tags with a stack overflow. Seen
-  failing before it was seen passing -- 7 failures with the case removed.
+  is bounded at 100 nests. `MapForms.Skip`, the harness rewriter, has the same
+  fix; the argument for leaving it alone was that it only walks bytes this slice
+  emitted, which is true and is also what was believed about the facade's.
+- **Three WRONG fixes were each built and seen failing**, on the real `Wire.cs`
+  rather than a re-implementation, and **no one gate catches all three**:
+
+  | wrong implementation | `conformance` | `groups` | `unknown` |
+  |---|---|---|---|
+  | no group case at all | 0 fail | **3 fail** | 0 fail |
+  | group case, END_GROUP field number not matched | 0 fail | **2 fail** | 0 fail |
+  | group case added OVER the 32-bit arm | 0 fail | 0 fail | **1 fail** |
+
+  The third is the aggregating session's own near-miss in the core, and it
+  reproduces here exactly: byte identity AND the corpus group vectors both pass
+  a decoder that has silently lost wire type 5, and the only thing that catches
+  it is this slice's hand-built unknown-field suite -- the one it would have
+  been easiest to retire on acquiring a corpus. Byte identity reaches no unknown
+  field, the corpus vectors reach wire type 3, the hand-built ones reach 0, 1, 2
+  and 5. Keep all three.
+- **The depth bound is load bearing and the cheap case does not show it.** With
+  the bound removed, 200 and 20,000 nests still REJECT, as `ErrTruncated`
+  instead of `ErrDepth`: the buffer runs out before the stack does. At 200,000
+  the process prints `Stack overflow.` and aborts with SIGABRT, which .NET
+  cannot catch. The gate now carries both depths -- the small one checks the
+  error code, the large one checks there is still a process to report it.
 - **This slice is NOT a corpus consumer and should not be described as one.**
   `ffi/corpus/CONTRACT.md` obliges a consumer to generate its codec from
   `generated/corpus.proto` and run all 336 vectors with projections and

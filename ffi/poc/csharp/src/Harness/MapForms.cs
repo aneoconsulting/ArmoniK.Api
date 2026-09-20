@@ -135,7 +135,7 @@ public static class MapForms
             int start = p;
             if (wire != 2)
             {
-                Skip(src, ref p, wire);
+                Skip(src, ref p, tag, wire);
                 o.AddRange(Varint(key));
                 o.AddRange(src.Skip(start).Take(p - start));
                 continue;
@@ -174,7 +174,7 @@ public static class MapForms
         {
             ulong k = ReadVarint(entry, ref p);
             if ((k >> 3) == 2) return true;
-            Skip(entry, ref p, (int)(k & 7));
+            Skip(entry, ref p, (int)(k >> 3), (int)(k & 7));
         }
         return false;
     }
@@ -187,13 +187,22 @@ public static class MapForms
         return o;
     }
 
-    private static void Skip(byte[] b, ref int p, int wire)
+    /// Takes the TAG as well as the wire type, for the same reason `Dec.Skip`
+    /// does: a group carries no length, so its end is an END_GROUP whose field
+    /// number MATCHES the one that opened it. This is a harness rewriter and
+    /// only ever walks bytes this slice emitted, where proto3 cannot produce a
+    /// group -- so the group arm here will never execute on any payload in the
+    /// tree. It is here anyway because "this one cannot be reached" is exactly
+    /// what was believed about the facade's skipper, and because a helper that
+    /// silently mis-parses is worse than one that is simply correct.
+    private static void Skip(byte[] b, ref int p, int tag, int wire)
     {
         switch (wire)
         {
             case 0: ReadVarint(b, ref p); break;
             case 1: p += 8; break;
             case 5: p += 4; break;
+            case 3: SkipGroup(b, ref p, tag, 0); break;
             // NOT `p += (int)ReadVarint(b, ref p)`. C# loads the left operand
             // of `+=` BEFORE evaluating the right, and ReadVarint advances `p`
             // itself, so that spelling adds the body length to the PRE-varint
@@ -202,13 +211,31 @@ public static class MapForms
             // found. The generated decoder is unaffected: it spells this
             // `Pos = LenEnd()`.
             case 2: { int n = (int)ReadVarint(b, ref p); p += n; break; }
-            // NO group case, deliberately. This is a harness REWRITER for P2.5's
-            // two map encodings, not the facade's decoder: it only ever walks
-            // bytes this slice emitted, and proto3 cannot emit a group. The
-            // facade's `Dec.Skip` is the one that had to grow a group case (see
-            // `harness groups`), and this one throws rather than mis-parsing, so
-            // a group arriving here is loud.
+            // 4 is END_GROUP with nothing open; 6 and 7 do not exist.
             default: throw new InvalidOperationException("wire type " + wire);
+        }
+    }
+
+    /// protobuf's own default recursion limit, so a nest of start tags is an
+    /// exception and not a stack overflow.
+    private const int MaxGroupDepth = 100;
+
+    private static void SkipGroup(byte[] b, ref int p, int tag, int depth)
+    {
+        if (depth >= MaxGroupDepth) throw new InvalidOperationException("group nesting past " + MaxGroupDepth);
+        while (true)
+        {
+            if (p >= b.Length) throw new InvalidOperationException("unterminated group, tag " + tag);
+            ulong k = ReadVarint(b, ref p);
+            int t = (int)(k >> 3), w = (int)(k & 7);
+            if (t == 0) throw new InvalidOperationException("tag 0");
+            if (w == 4)
+            {
+                if (t != tag) throw new InvalidOperationException("END_GROUP tag " + t + " closes group " + tag);
+                return;
+            }
+            if (w == 3) { SkipGroup(b, ref p, t, depth + 1); continue; }
+            Skip(b, ref p, t, w);
         }
     }
 
