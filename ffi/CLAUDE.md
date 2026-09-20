@@ -2,7 +2,7 @@
 
 This directory is an exploration branch that is never merged. The deliverable is
 `REPORT.md`. Read [`README.md`](README.md) for the question, the rules a slice is
-run under (R1 to R13) and the work items. This file is the operating contract:
+run under (R0 to R14) and the work items. This file is the operating contract:
 who owns what, and how work survives the end of a session.
 
 ## Roles
@@ -12,6 +12,7 @@ who owns what, and how work survives the end of a session.
 | **Aggregating session** (the main agent) | `README.md`, `CLAUDE.md`, `design/**`, `findings/**`, `REPORT.md` | slice sources, logs |
 | **Slice agent** (`ffi-slice`, one per language) | `poc/<lang>/**`, `logs/<lang>/**` | `REPORT.md`, `findings/**`, `design/**`, `README.md` |
 | **Review agent** (`ffi-review`) | nothing at all | everything |
+| **Corpus agent** (W8) | `corpus/**` | everything else, slices included |
 
 The separation is the point. A slice agent that writes the verdict on its own
 slice writes the verdict its last measurement suggested; a review agent that can

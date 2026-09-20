@@ -3,12 +3,13 @@
 The aggregating session's reading of `poc/csharp`. What is here is what its
 results mean for the branch.
 
-**W5's named gap is closed and the `core-ffi` arm is not built.** The slice was
-scoped to its ABI-independent half while decision 1 was open, so what exists is
-the incumbent, the facade, the correctness gate on three runtimes, oneof and
-explicit presence, and — the reason the slice exists — **the managed decode
-control**. Decision 1 is now answered, so the held arm is unheld for a next work
-unit.
+**W5's named gap is closed and the `core-ffi` arm now exists for M1.** The slice
+was scoped to its ABI-independent half while decision 1 was open; that half is
+complete on all 16 payloads and all 7 shapes, gated on three runtimes. The held
+arm was then built and gated for M1 in both directions, and re-gated on the
+shared core after W10. **M2 to M7 are not built**, so C# has an ABI beachhead
+rather than an ABI column — and section 4b below is the most consequential thing
+in this document.
 
 **Configuration** (R7): `Google.Protobuf` 3.28.3, codegen by `Grpc.Tools` 2.66.0,
 target .NET 8.0.31, floor netstandard2.0 and .NET Framework 4.8 on Mono 6.8.0.105
@@ -110,6 +111,60 @@ runtime's incumbent, not of the approach.** The .NET result is not evidence abou
 Python and the Python result is not evidence about .NET. README section 13's
 outcome 2 is a managed-runtime recommendation, and the C# column is what stops it
 being read as a general one.
+
+## 4b. The `core-ffi` arm: C# and Java now disagree, and that is the finding
+
+The held arm is built and gated for M1, encode and decode, on arms a and b. **M2
+to M7 are not built**, so this is a beachhead rather than a column — read every
+figure below as "on the flat message", not "on the shape set".
+
+**Crossings are constant in the element count, in both directions**: 2 forward
+and 1 reverse on encode, 1 forward and 2 reverse on decode, whether the payload
+carries four elements or a thousand. `ResultRaw` is a leaf, so the batching
+predicate admits it, and at .NET's 7.5 to 12 ns crossing — far above the C++
+slice's 2 to 4 ns crossover — batching is not a close call.
+
+**The interface cost**, against the no-boundary managed control:
+
+| payload | encode | decode |
+|---|---|---|
+| P1.1, 4 elements | 1.330 | 1.062 |
+| P1.2, 1000 elements | 1.148 | **0.899** |
+| P1.3, the absent path | **2.361** | **1.981** |
+
+**On P1.2 decode, crossing the C ABI is faster than the pure managed codec** —
+0.899 of it, and 0.651 to 0.659 of `Google.Protobuf`. A Rust parser plus three
+crossings beats a C# parser doing the same work.
+
+**That is the opposite of Java**, where the generated pure-Java codec beat the C
+ABI on all five M2 payloads and the case had to rest on maintenance alone. So the
+two managed runtimes do not agree, and the branch can no longer speak of "managed
+hosts" as one thing. At .NET's crossing price the interface does not eat the
+core's advantage; at JNI's it does. That is the crossover argument again, arriving
+from a third direction and deciding an architecture rather than a mechanism.
+
+**The absent path collapses, and the cause is a decision that is specified and not
+built here.** P1.3 is 300 elements that each encode to nothing, and the host fills
+300 by-value groups of 200 bytes apiece: 60 KB of stores to describe 605 bytes of
+output. **Decision 9's sparse fill is now the specified path and this arm does not
+implement it**, so 2.361 is what the unfixed form costs on .NET and the distance
+to roughly 1.15 is what the fix is worth there. The Rust slice measured the same
+effect from the other side. This is not a finding against the ABI; it is the
+strongest case yet for the decision the ABI already took.
+
+**The floor cannot carry this arm at all, and that is a real constraint rather
+than a gap.** .NET Framework 4.8 has no `LibraryImport` and no
+`UnmanagedCallersOnly`, so the binding as generated does not compile on arm c. A
+floor binding would be `DllImport` plus delegate pointers, **and the delegates
+must be rooted for the lifetime of the vtable or the collector reclaims a thunk
+the codec still holds** — a crash, not a slowdown. The slice excludes arm c
+explicitly rather than quietly.
+
+**One process note worth more than a number.** The loaded artifact is confirmed
+from the dynamic linker rather than the build log, and it had to be twice: once a
+failed build left a stale core in the output directory, and once **arm c failed to
+build with 172 errors while Mono ran a three-hour-old binary and reported a
+pass**. A build log would have shown neither.
 
 ## 5. What is not established
 
