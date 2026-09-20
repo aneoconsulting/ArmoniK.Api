@@ -18,6 +18,8 @@ public static class Program
                 return Conformance.Run();
             case "unknown":
                 return UnknownFields.Run();
+            case "groups":
+                return GroupVectors.Run(argv.Skip(1).ToArray());
             case "content":
                 return ContentSets.Run(argv.Skip(1).ToArray());
             case "coreffi2":
@@ -46,7 +48,7 @@ public static class Program
             case "bench":
                 return Bench.Run(argv.Skip(1).ToArray());
             default:
-                Console.Error.WriteLine("usage: harness [conformance|unknown|counts|content|coreffi|coreffi2|mapforms|bench]");
+                Console.Error.WriteLine("usage: harness [conformance|unknown|groups|counts|content|coreffi|coreffi2|mapforms|bench]");
                 return 2;
         }
     }

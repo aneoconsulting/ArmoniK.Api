@@ -22,7 +22,22 @@ public static class W
 {
     public const int WireVarint = 0, WireI64 = 1, WireLen = 2, WireI32 = 5;
 
+    /// The deprecated GROUP form. proto3 cannot express one, so nothing this
+    /// generator emits ever writes these -- and a conformant reader still has
+    /// to SKIP one, because a proto2 peer may send it. `ffi/corpus`'s
+    /// `U-root-group`, `U-nested-group` and `U-oneof-group` are exactly that
+    /// case and this slice rejected all three until they were run.
+    public const int WireGroup = 3, WireEndGroup = 4;
+
+    /// **These are the FACADE's own error codes and they are not the ABI's.**
+    /// `ak-rt` numbers malformed -2 and depth -4; this numbers malformed -4.
+    /// Nothing converts between them and nothing should: the managed control
+    /// does not go through the C ABI at all. Said here because -4 meaning two
+    /// different things in one repository is a trap worth naming once.
     public const int ErrTruncated = -3, ErrMalformed = -4, ErrTranscode = -6;
+
+    /// The unknown-group recursion limit, hit before the stack is.
+    public const int ErrDepth = -8;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ulong Key(int tag, int wire) => ((ulong)(uint)tag << 3) | (uint)wire;
@@ -379,16 +394,56 @@ public struct Dec
 
     /// An unknown field: protobuf's forward compatibility, and the path a
     /// corpus generated from the schema that reads it never executes.
-    public void Skip(int wire)
+    ///
+    /// **It takes the TAG as well as the wire type, and that is the whole fix.**
+    /// A group carries no length, so its end is an `END_GROUP` tag whose FIELD
+    /// NUMBER matches the one that opened it. A skipper that counts depth
+    /// instead accepts `X-group-mismatched-end` and then mis-nests every group
+    /// after it, which is a wrong parse rather than a rejected one. This
+    /// version had cases for the four wire types a proto3 schema produces and
+    /// `ErrMalformed` for everything else, so it rejected three corpus vectors
+    /// that `Google.Protobuf` accepts. The shared core had the identical hole
+    /// (D7) and the C++ slice still does.
+    public void Skip(int tag, int wire)
     {
         switch (wire)
         {
             case W.WireVarint: Varint(); break;
             case W.WireI64: Pos += 8; break;
             case W.WireLen: Pos = LenEnd(); break;
+            case W.WireGroup: SkipGroup(tag, 0); break;
             case W.WireI32: Pos += 4; break;
+            // 4 is END_GROUP with nothing open; 6 and 7 do not exist.
             default: Err = W.ErrMalformed; return;
         }
         if (Pos > End) Err = W.ErrTruncated;
+    }
+
+    /// protobuf's own default recursion limit, applied to nested unknown groups.
+    private const int MaxGroupDepth = 100;
+
+    /// Recursive, because groups nest; bounded, because a payload of nothing but
+    /// start tags would otherwise be a stack overflow rather than an error.
+    private void SkipGroup(int tag, int depth)
+    {
+        if (depth >= MaxGroupDepth) { Err = W.ErrDepth; return; }
+        while (true)
+        {
+            if (Err != 0) return;
+            // An unterminated group: `X-group-unterminated`. A skipper that
+            // scans for the next end tag without checking the buffer walks off it.
+            if (Pos >= End) { Err = W.ErrTruncated; return; }
+            ulong k = Varint();
+            if (Err != 0) return;
+            int t = (int)(k >> 3), w = (int)(k & 7);
+            if (t == 0) { Err = W.ErrMalformed; return; }
+            if (w == W.WireEndGroup)
+            {
+                if (t != tag) Err = W.ErrMalformed;   // `X-group-mismatched-end`
+                return;
+            }
+            if (w == W.WireGroup) { SkipGroup(t, depth + 1); continue; }
+            Skip(t, w);
+        }
     }
 }

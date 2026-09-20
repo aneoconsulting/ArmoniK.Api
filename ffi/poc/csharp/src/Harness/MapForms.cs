@@ -202,6 +202,12 @@ public static class MapForms
             // found. The generated decoder is unaffected: it spells this
             // `Pos = LenEnd()`.
             case 2: { int n = (int)ReadVarint(b, ref p); p += n; break; }
+            // NO group case, deliberately. This is a harness REWRITER for P2.5's
+            // two map encodings, not the facade's decoder: it only ever walks
+            // bytes this slice emitted, and proto3 cannot emit a group. The
+            // facade's `Dec.Skip` is the one that had to grow a group case (see
+            // `harness groups`), and this one throws rather than mis-parsing, so
+            // a group arriving here is loud.
             default: throw new InvalidOperationException("wire type " + wire);
         }
     }

@@ -10,7 +10,7 @@ merges it. Everything the report needs from this slice is here.
 
 | | |
 |---|---|
-| **Status** | **the managed control is complete** on all 16 payloads and all 7 shapes, gated on three runtimes. **`core-ffi` is built and gated for M1 and M2**, encode and decode; M3 to M7 are not |
+| **Status** | **the managed control is complete** on all 16 payloads and all 7 shapes, gated on three runtimes. **`core-ffi` is built and gated for M1 and M2**, encode and decode; M3 to M7 are not. Re-gated on the D7 core |
 | **Blocked on** | nothing |
 | **Floor** | netstandard2.0 (builds, passes) and .NET Framework 4.8 on Mono 6.8.0.105 (builds, passes, and is timed as arm c) |
 | **Target** | .NET 8.0.31, SDK 8.0.131 |
@@ -692,6 +692,26 @@ whatever the payload.
 - P7.1 is validated as a permutation of the same (tag, wire type, body)
   triples, because no canonical writer can interleave two repeated fields.
 - P1.3 and P2.5, the absent-path payloads, are in the gate and pass.
+- **The five GROUP vectors from `ffi/corpus` pass on all three arms**
+  (`harness groups`, `stage12-group-skip-and-d7-regate.log`), and they did not
+  before. `Dec.Skip` had cases for the four wire types a proto3 schema produces
+  and `ErrMalformed` for everything else, so it rejected `U-root-group`,
+  `U-nested-group` and `U-oneof-group`, which `Google.Protobuf` accepts. **Byte
+  identity against `ffi/schema` could never have found this**: every payload
+  there is emitted from the description the decoder is emitted from, and proto3
+  cannot express a group. The shared core had the identical hole (D7); the C++
+  slice still does; java's was already right.
+  The fix matches the END_GROUP's FIELD NUMBER rather than counting depth, and
+  is bounded at 100 nests. Both matter: counting depth ACCEPTS
+  `X-group-mismatched-end` and mis-nests everything after it, and an unbounded
+  recursive skipper answers a nest of start tags with a stack overflow. Seen
+  failing before it was seen passing -- 7 failures with the case removed.
+- **This slice is NOT a corpus consumer and should not be described as one.**
+  `ffi/corpus/CONTRACT.md` obliges a consumer to generate its codec from
+  `generated/corpus.proto` and run all 336 vectors with projections and
+  re-encodes. This generator drives off `ffi/schema/emit/shapes.py` and has no
+  .proto front end, so conformance is a work unit rather than an afternoon.
+  Five vectors run; 331 do not.
 - **R1's walker guard is a test, not an assertion.** `ir.check_walker` fails if
   `walk()` ever stops enumerating oneof members, and fails if no message in the
   closure has a oneof at all, so the guard cannot silently prove nothing. This
@@ -950,7 +970,15 @@ it, and the first item is much the largest.
    this a CHECK rather than a claim: the gate compares the host tally with the
    core's own counters per payload and per direction and fails on a mismatch.
    See `stage10-crossing-reconciliation.log` and the M2 section above.
-7. **The old list, unchanged**: ABI v1 decision 13's borrowed spans (the
+7. **Corpus conformance (`ffi/corpus/CONTRACT.md`).** Named as a work unit
+   rather than a chore, because it is one: the contract's rule 0 is "generate
+   your codec from `generated/corpus.proto`", and this generator has no .proto
+   front end -- it drives off `ffi/schema/emit/shapes.py`. That is a second
+   front end plus C1 to C5 over 336 vectors with projections and re-encodes.
+   **It is worth it on the evidence**: the corpus found a decoder defect in this
+   slice that byte identity structurally cannot find, and 331 of its vectors are
+   still unrun here.
+8. **The old list, unchanged**: ABI v1 decision 13's borrowed spans (the
    decode side already hands the host `ak_span` offsets into its own buffer,
    so the ABI is ready and the facade's `string` is what is not); a rejecting
    decode policy.
@@ -1010,6 +1038,7 @@ another container's. R13's one calibration run stands and is not to be tuned.
 | `ffi/logs/csharp/stage10-crossing-reconciliation.log` | the counting core (`--features count`), `ak_enc_counters` read from the host, at two chunk sizes | **R5's cross-slice reconciliation, resolved.** The conventions never differed; the Rust host chunks at 150 and this one did not. At `AK_CHUNK=150` this slice reproduces the Rust slice's 2/8/3 forward and 1/1/1 reverse exactly. Also prices the difference: nothing measurable, 0.7 percent |
 | `ffi/logs/csharp/stage9-shared-core.log` | the ONE core at `ffi/poc/codec`, default features so no `rpc`; loaded path confirmed with `LD_DEBUG=libs`; three arms gated, three timing processes, plus a pre-move control | **The W10 re-gate.** 152 checks 0 failures on all three arms; the core-ffi arm green on M1; **nothing moved** (worst 0.035 against a 0.026 floor on arms the core cannot touch). Records that arm c cannot carry the core-ffi arm and why, and that a stale binary reported a pass before the timestamp was checked |
 | `ffi/logs/csharp/stage8-core-ffi.log` | the arm through `libak_core.so`, shared-library linkage, generated binding, staged strings; correctness plus three timing processes | **The `core-ffi` arm, M1.** Byte identity and value identity on P1.1/P1.2/P1.3; layout agreement on 8 structs; crossings constant in the element count in both directions; the interface cost against the no-boundary control, including the two findings that point opposite ways -- the C ABI beating the managed codec on P1.2 decode, and the absent path collapsing on the total group fill |
+| `ffi/logs/csharp/stage12-group-skip-and-d7-regate.log` | the core rebuilt with `poc/codec/gen/build.sh` after the D7 fix, loaded path and sha256 confirmed from `LD_DEBUG=libs`; all three arms re-gated | **The GROUP-skip defect, seen failing and then fixed.** `Dec.Skip` rejected three corpus vectors `Google.Protobuf` accepts, because it had no case for the deprecated group form. Carries the reverted-fix run (7 failures) as the proof the guard works, the field-number-match and depth-bound reasoning, and the statement that this slice is NOT a corpus consumer and what it would cost to become one. The D7 core itself moved nothing: 152 checks 0 failures on each arm |
 | `ffi/logs/csharp/stage11-core-ffi-m2.log` | the ONE core rebuilt after the branch merge (86 `ak_` exports, 800 KB, still no `rpc`); a second `--features count` build for the crossing table; correctness, three interleaved processes over M1 and M2 together, and four BenchmarkDotNet runs | **The `core-ffi` arm on M2, and two corrections.** All five M2 payloads gated first run; crossings 10.00 and 7.00 per task against the rust slice's 10.02 and 7.004, with R5 now CHECKED against the core's own counters rather than asserted. **The published ".NET's composed arm beats its own managed codec on decode" does not survive a non-leaf element**: 0.97 to 1.14, both harnesses straddling 1.0. **And the encode cost is the group fill, not the crossings**: a `core-ffi fill` arm puts the host-side half at 40 to 57 percent of the whole encode on every payload of both shapes, which also corrects stage 8's reading of P1.3 as an absent-path effect. Adds the R14 baseline arms to the BDN harness, which did not have them |
 | `ffi/logs/csharp/stage7-benchmarkdotnet.log` + `bdn-results/*.csv`, `*-github.md` | **BenchmarkDotNet 0.15.8**, defaults, each benchmark in its own process, 144 benchmarks (16 payloads x 6 encode arms + 16 x 3 decode) | **The harness the CONTROLLED RERUN should use, and the cross-check that makes the hand-rolled one trustworthy.** It subtracts its own overhead, iterates warmup to a convergence criterion, reports a 99.9% CI, removes outliers and adds Gen0/1/2 counts. What it does not do is interleave, which is the whole point of the hand-rolled harness on a noisy shared container; on a controlled machine that noise is gone and the isolation is the better choice |
 | `ffi/logs/csharp/stage6-tiering-sensitivity.log` | arm a, three processes differing ONLY in `DOTNET_TieredPGO` and `DOTNET_TieredCompilation`, P1.2 / P2.2 / P3.1 | **R9's JIT hazard, measured rather than argued.** Tiering off or PGO off slows the INCUMBENT by 5 to 20 percent, in the direction R9 names. **No arm crosses 1.0 under any configuration**, so no verdict in this slice is JIT-configuration dependent, and the default used everywhere else is the one least favourable to the managed arms |
