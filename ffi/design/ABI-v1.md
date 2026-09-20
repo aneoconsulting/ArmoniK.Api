@@ -805,6 +805,35 @@ rather than changing shape:
   channel, so it is strictly additive. Its case is not amortisation (the drain
   ratio never exceeds 2.19): a thread parked in a drain is in native state and
   costs a collection nothing, and on virtual threads it is the fastest arm.
+
+  **BUILT, in the shared core, and this paragraph was specification with nothing
+  under it until now.** `ak_call_unary_cb` and `ak_call_unary_q` are three
+  deliveries of **one call path**, which is the condition 7.1 puts on the decode
+  families for the same reason: two bodies that have to agree is a fork at the
+  place nobody tests. The queue is `Mutex` plus `Condvar` rather than a receiver
+  behind a lock, so a second drainer is slow rather than deadlocked.
+
+  | delivery | forward | reverse | who blocks, and where |
+  |---|---|---|---|
+  | `ak_call_unary` | 2 (call, free) | 0 | a host thread, **inside the core** |
+  | `ak_call_unary_cb` | 2 (call, free) | **1** (the completion) | nobody; the core calls out |
+  | `ak_call_unary_q` | 3 (call, next, free) | **0** | a host thread, inside `ak_queue_next` |
+
+  **The queue trades one reverse call for one forward call**, and that is its whole
+  case on a host where the two are priced differently: on the JVM a cached upcall
+  is 72 to 80 ns against a forward crossing of 11.9 to 12.9, so the trade is worth
+  about 60 ns per call before the pinning question is even asked. On .NET, where a
+  crossing is 7.5 to 12 ns in both directions and the runtime has a future to
+  complete from any thread, the callback is the natural one. **Neither is a default
+  the ABI picks**, which is why both are exported.
+
+  **Why this got built now, and it is an R14 finding pointed inward.** The java
+  slice's transport arm was taken through the **blocking** mode, because it was the
+  only one implemented — on the host whose own measurement (the fourth amendment
+  below) says blocking in a native frame pins a virtual thread's carrier. A harness
+  that makes the incumbent do extra work is a defect; so is one that makes the
+  core's own arm take the delivery its host is worst at, and this was the second
+  kind. The measurement stands as a blocking-mode measurement and is labelled one.
 - **At least one mode in which the caller waits in the host language.** Blocking
   in a native frame from a virtual thread pins its carrier; what fixes that is
   parking in Java on a future, which the callback mode already provides. The

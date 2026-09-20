@@ -35,6 +35,8 @@ http = "1"
 http-body = "1"
 http-body-util = "0.1"
 tower-service = "0.3"
+# Test-only: the UDS server the core's own UDS client arm is dialled against.
+tokio-stream = { version = "0.1", default-features = false }
 
 [profile.release]
 # Explicit rather than defaulted, because R5's hazard is exactly "what is the optimiser
