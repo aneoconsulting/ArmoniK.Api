@@ -286,14 +286,23 @@ largest message the stack accepts by default so that one maximum-size message cr
 without a `WINDOW_UPDATE` round trip. P2.2's 540 KB is then comfortably inside one
 window in every arm, which is what makes the arms comparable.
 
-Two traps in pinning it. **The connection window is a separate setting from the stream
-window** in every stack here (grpc-java's `flowControlWindow` sets
-`SETTINGS_INITIAL_WINDOW_SIZE`, which is per stream; tonic and hyper take the two
-separately), so raising only the stream window leaves the connection at 65,535 and
-changes nothing. And **pinning a window turns BDP auto-tuning off** in grpc-java, so
-the pinned arm is not the default arm: the pinned one is the headline and the stack
-default is a labelled second row. CPU per RPC stays the headline over both, and wall
-clock is reported beside it or not at all.
+Two traps in pinning it, **and each applies to some stacks and not others, so a slice
+establishes them from its own runtime's source rather than inheriting them**.
+
+- **The connection window is a separate setting from the stream window** on grpc-java
+  (`flowControlWindow` reaches `SETTINGS_INITIAL_WINDOW_SIZE`, per stream) and on
+  tonic/hyper, so raising only the stream window there leaves the connection at 65,535
+  and changes nothing. **Not on .NET**, where `Http2Connection` hardcodes a 64 MiB
+  connection window and raises it at setup.
+- **Pinning a window turns auto-tuning off on grpc-java and does not on .NET**, where
+  the configured size is a starting point that doubles to a 16 MiB cap unless the
+  `DisableDynamicWindowSizing` AppContext switch is also set — **a floor, not a cap**.
+
+The pinned arm is the headline and the stack default is a labelled second row. CPU per
+RPC stays the headline over both, and wall clock is reported beside it or not at all.
+**Where pinning configures something the shipped client cannot** — as on .NET, where
+`packages/csharp` sets no window and reaches gRPC through an `HttpClientHandler` that
+cannot — the arm says so rather than diverging silently.
 
 **Not in the RPC arm, and listed as not measured**: streaming, TLS, a real
 network, failure injection, the server side. Streaming is where the concurrency
