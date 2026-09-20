@@ -272,3 +272,41 @@ entry point every benchmark reaches for is about twice as fast as the one an app
 takes. Together with J7's memoization finding -- a loop over one message is another factor
 of two -- an encode ratio against protobuf-java can be moved by a factor of four by two
 harness choices that no published report in this branch states.
+
+### J16. The arm the incumbent is compared against was the one carrying the handicap
+
+Reading the `-take` column out loud to explain what it does is what found D7. `-take`
+exists so that an arm and `toByteArray` deliver the same thing: a fresh `byte[]`. Arm R's
+version is an allocation and one `System.arraycopy`. The ffi version asked the core for
+the length over the boundary, copied native memory into a reused scratch array, and then
+copied the scratch array into the result. Two crossings and two copies against one and
+one.
+
+Three things worth keeping from it.
+
+**The trap pointed inward.** The brief named a handicapped incumbent as the first of the
+three traps that cost the C++ slice about 8 points, and every check in this slice was
+built looking outward, at whether protobuf-java was being flattered. J7 and J8 found two
+of those. Nobody checked the same question in the other direction, and the arm that had it
+is the one every encode headline is quoted from.
+
+**It was a known defect in a place nobody looked twice.** D6 removed exactly this
+redundant `encodedLength` crossing from the `ffi` arm. The identical call sat four lines
+away in `takeBytes` and survived, because the fix was aimed at a finding rather than at
+the mechanism the finding named.
+
+**And the prediction about what it was worth was wrong, which is the part worth
+recording.** Before re-running I said the second copy was plausibly most of the P5.3 and
+P5.4 penalty. The re-run says otherwise: the fresh 4 MB allocation dominates and both arms
+pay it, the removed copy was about a fifth of the take overhead, and the 80 us the fix
+can claim on P5.4 sits under a 124 us noise floor measured on the *unchanged* arm in the
+same pair of runs. A defect can be real, worth fixing on instrument-correctness grounds,
+and change no published figure. Both logs are kept and `encode.log` stays the cited one.
+
+**The pgrep trap, for the second time.** J12 records `pkill -f RunDelta` killing my own
+shell and an `until ! pgrep -f "ak.RunDelta"` loop that never exited because it matched
+itself. I then waited on this bench with `while pgrep -f "ak.Bench"`, whose own `bash -c`
+command line contains `ak.Bench`. The bench finished in 3 minutes 11 seconds; the waiter
+spun for 1 hour 44. Writing a trap down is not the same as not walking into it. The
+working form matches on the JVM itself, `pgrep -f "bin/java.*ak.Bench"`, or better, holds
+the child's pid and waits on that.
