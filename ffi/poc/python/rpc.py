@@ -159,6 +159,11 @@ def core_client(target, pinned):
     connection-window argument at all.
     """
     rt = arms._ffi.rt_new(0)
+    # tonic's `Endpoint::from_shared` wants a URI with a scheme, where grpcio takes a bare
+    # `host:port`. A `unix:` target already has one. Getting this wrong fails loudly at
+    # connect rather than quietly at measurement, which is the good direction.
+    if not target.startswith("unix:") and "://" not in target:
+        target = "http://" + target
     if not pinned:
         return rt, arms._ffi.client_new(rt, target)
     # adaptive OFF: it overrides both windows, so pinning a window and leaving it on is a
@@ -510,9 +515,16 @@ def main():
           file=out)
     print("# server:       returns pre-serialised bytes and never encodes, so both arms", file=out)
     print("#               share it and only the response_deserializer differs", file=out)
-    print("# transport:    ArmoniK's configuration pinned (%d B chunking, %d B stream"
+    print("# grid:         A = upb codec + grpcio transport (the incumbent, end to end)",
+          file=out)
+    print("#               B = upb codec + CORE transport   -> B - A is the TRANSPORT",
+          file=out)
+    print("#               C = core codec + core transport  -> C - B is the CODEC", file=out)
+    print("# transport:    ArmoniK INTENDS %d B chunking and a %d B window; it SHIPS"
           % (CHUNK_BYTES, WINDOW_BYTES), file=out)
-    print("#               window), with grpcio's default as a labelled second row", file=out)
+    print("#               neither -- no ArmoniK client pins an HTTP/2 window today -- so",
+          file=out)
+    print("#               the stack-default row is the shipped configuration.", file=out)
     print("# headline:     CPU per RPC. Wall clock is beside it because R9's hazard moves", file=out)
     print("#               wall clock and does not move CPU", file=out)
     print("# allocator:    pinned, as in bench.py (%s)"
@@ -521,10 +533,19 @@ def main():
         print("# ARM ABSENT: %s" % a, file=out)
 
     d = tempfile.mkdtemp(prefix="akrpc")
+    # Cell A, over grpcio's transport, in each configuration.
     for i, (argname, args) in enumerate(CONFIGS):
         run_transport(out, "unix domain socket",
                       "unix:" + os.path.join(d, "s%d" % i), args, argname)
         run_transport(out, "loopback TCP", "tcp", args, argname)
+    # Cells B and C, over the CORE's transport, against the same server.
+    for i, (pinned, argname) in enumerate(
+            ((False, "the stack default (what ArmoniK SHIPS)"),
+             (True, "4 MiB pinned, BOTH windows, adaptive off (INTENDED)"))):
+        run_core(out, "unix domain socket",
+                 "unix:" + os.path.join(d, "c%d" % i), pinned, argname)
+        run_core(out, "loopback TCP", "tcp", pinned, argname)
+    nagle_probe(out)
     in_process_control(out)
     report_flow_control(out)
     return 0
