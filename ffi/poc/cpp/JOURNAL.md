@@ -731,3 +731,33 @@ withdrew the earlier "22 to 28 percent of a decode".
 `ffi-valtc` is untouched and I said otherwise in the first draft of the log: it reaches
 `ak_tc_utf8()`, the core's Rust transcoder. Whether the core's encode-side validator has
 the same 2x available is open and R0 makes it the aggregating session's.
+
+### C18, and the same gawk trap twice
+
+Half two of the boundary check asked whether a control function was *larger* than the
+largest timing closure in the image. Size is a proxy for fusion rather than a test of it,
+and the positive control was `-flto` — which fires only if the optimiser happens to fuse
+something. After W10 moved the core the largest closure went from 1433 B to 911 B, the
+1155 B control landed on the other side of the line, and the control went quiet without
+anyone deciding it should.
+
+Replaced with the question itself. The control is reached through a function pointer handed
+to the case runner, so there is no direct call site to count — I tried that first and my own
+fixture disproved it, reporting zero calls to `ak_probe_called` because the call goes
+through a volatile pointer. What fusion would actually destroy is the out-of-line body and
+the call instruction in the closure, so those are the two properties now checked.
+
+The control is `src/fusion_probe.cpp`: one function that must be called (`noinline`, address
+taken through a volatile pointer so it cannot be devirtualised) and one that must be fused
+(`always_inline`, static). Both guaranteed by construction. If the counter ever reports a
+call in the fused loop, or none in the called loop, the counter is broken and every other
+answer it gives is worthless.
+
+Building it found the counter broken immediately: `/\<call\>/` matched nothing, because
+**mawk is what is installed and `\<` `\>` are gawk-only word boundaries**. Half two duly
+reported that 10 of 10 timing closures were fused. That is the second gawk-only construct
+in this one file — `strtonum` was the first, months of sessions ago — and both failed
+*silently* rather than erroring. The fixture is what caught it; without a control that has
+a known answer, "10 of 10 fused" would have looked like a discovery.
+
+23 checks, 0 failed.

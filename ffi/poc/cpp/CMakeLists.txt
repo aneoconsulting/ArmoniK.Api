@@ -121,6 +121,12 @@ set(COUNTS ${CMAKE_CURRENT_SOURCE_DIR}/src/counts.cpp)
 set(CONC ${CMAKE_CURRENT_SOURCE_DIR}/src/concurrency.cpp)
 set(U8 ${CMAKE_CURRENT_SOURCE_DIR}/src/utf8check.cpp)
 
+# C18's control: a fixture with one function that MUST be called and one that MUST be
+# fused, so gen/boundary.sh's call-site counter is proved able to report both. No
+# protobuf, no core, no arm machinery -- it is a test of the checker, not of the slice.
+add_executable(fusion_probe ${CMAKE_CURRENT_SOURCE_DIR}/src/fusion_probe.cpp)
+set_property(TARGET fusion_probe PROPERTY CXX_STANDARD 17)
+
 # Correctness gates. README 5.2's arms: a = target impl at the target level; b = FLOOR
 # impl at the target level; c = floor impl at the floor level.
 ak_arm(conformance_a17_shared ${CONF} 17 target on shared reject ${CORE_OUT})
