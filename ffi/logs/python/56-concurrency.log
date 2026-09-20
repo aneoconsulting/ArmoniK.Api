@@ -1,0 +1,80 @@
+# python slice: the concurrency suite no slice in the branch had
+#
+# date:      2026-09-20T15:04:52Z
+# machine:   4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
+# commit:    9c3cee91
+# core:      ffi/poc/codec (README R0), ABI v1, libak_core.so via the dynamic linker
+# R13:       this machine's rust-slice crossing is 2.1 ns (fwd+reverse) to 2.8 ns
+#            (forward) -- 00-r13-rust-crossing.log. The composed arm also prices
+#            the boundary IN ITS OWN PROCESS at the end of the bench table, which
+#            is the better number to quote against because it shares a build.
+# absolutes: instrumentation, not the deliverable. Signs and size classes only.
+
+# python slice: concurrency (ABI v1 obligation 12.5, README section 9)
+# interpreter:  3.11.15 (main, Mar  3 2026, 09:26:23) [GCC 13.3.0]
+# shapes:       P1.2, P2.2
+# threads:      1, 2, 4, and `seq` is the same total work on one thread
+# allocator:    pinned, as in bench.py (applied)
+
+## 12.5: every encode asserted, two shapes, sequential and concurrent
+#  `shared` is one facade object handed to every thread, which is the analogue
+#  of the shared client the rust slice tripped over. `per-thread` is one each.
+#
+#  The reference is THE ARM'S OWN output, taken once before any thread starts,
+#  and `canon` says whether that equals the manifest's canonical bytes. It is
+#  not the manifest itself, because `SerializeToString` does not sort map
+#  entries and the canonical form does, so the incumbent legally writes another
+#  accepted form on M2 -- which conformance.py checks and this suite must not
+#  re-litigate. The question here is whether CONCURRENCY changes the bytes.
+   shape  arm                      canon objects     threads  encodes    wrong
+   P1.2   upb (incumbent)          yes   per-thread  seq          120        0
+   P1.2   upb (incumbent)          yes   per-thread  2             80        0
+   P1.2   upb (incumbent)          yes   per-thread  4            160        0
+   P1.2   upb (incumbent)          yes   shared      seq          120        0
+   P1.2   upb (incumbent)          yes   shared      2             80        0
+   P1.2   upb (incumbent)          yes   shared      4            160        0
+   P1.2   core-ffi / C ext type    yes   per-thread  seq          120        0
+   P1.2   core-ffi / C ext type    yes   per-thread  2             80        0
+   P1.2   core-ffi / C ext type    yes   per-thread  4            160        0
+   P1.2   core-ffi / C ext type    yes   shared      seq          120        0
+   P1.2   core-ffi / C ext type    yes   shared      2             80        0
+   P1.2   core-ffi / C ext type    yes   shared      4            160        0
+   P2.2   upb (incumbent)          alt   per-thread  seq          120        0
+   P2.2   upb (incumbent)          alt   per-thread  2             80        0
+   P2.2   upb (incumbent)          alt   per-thread  4            160        0
+   P2.2   upb (incumbent)          alt   shared      seq          120        0
+   P2.2   upb (incumbent)          alt   shared      2             80        0
+   P2.2   upb (incumbent)          alt   shared      4            160        0
+   P2.2   core-ffi / C ext type    yes   per-thread  seq          120        0
+   P2.2   core-ffi / C ext type    yes   per-thread  2             80        0
+   P2.2   core-ffi / C ext type    yes   per-thread  4            160        0
+   P2.2   core-ffi / C ext type    yes   shared      seq          120        0
+   P2.2   core-ffi / C ext type    yes   shared      2             80        0
+   P2.2   core-ffi / C ext type    yes   shared      4            160        0
+
+## the GIL: wall-clock throughput against one thread
+#  Both arms hold the GIL for the whole call, so 1.0 is the expected figure and
+#  anything above it would be the surprise. The control at the foot releases it.
+   shape  arm                      threads  ns/encode  speedup
+   P1.2   upb (incumbent)          1           260146     1.00
+   P1.2   upb (incumbent)          2           226343     1.15
+   P1.2   upb (incumbent)          4           209350     1.24
+   P1.2   core-ffi / C ext type    1           273681     1.00
+   P1.2   core-ffi / C ext type    2           254112     1.08
+   P1.2   core-ffi / C ext type    4           282896     0.97
+   P2.2   upb (incumbent)          1           741726     1.00
+   P2.2   upb (incumbent)          2           737533     1.01
+   P2.2   upb (incumbent)          4           768315     0.97
+   P2.2   core-ffi / C ext type    1          1085558     1.00
+   P2.2   core-ffi / C ext type    2          1042285     1.04
+   P2.2   core-ffi / C ext type    4          1070940     1.01
+
+## the control: CPU-bound work that RELEASES the GIL, same threads
+#  hashlib drops the lock above 2 KiB, so this is the parallelism the machine
+#  actually has. Read the table above against THIS, not against 1.0.
+   threads    ns/digest  speedup
+   1            9865064     1.00
+   2            4961945     1.99
+   4            3983572     2.48
+
+CONCURRENCY SUITE PASSES
