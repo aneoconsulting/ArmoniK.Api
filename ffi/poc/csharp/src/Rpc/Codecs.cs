@@ -89,6 +89,11 @@ public static class Codecs
     /// the facade's reader shape and it is named rather than hidden.
     [ThreadStatic] private static byte[] _flat;
 
+    /// How often gRPC hands the deserializer a SEGMENTED body, and how many
+    /// bytes were copied because of it. The flatten was charged to these arms
+    /// without anyone establishing it happens; this counts it.
+    public static long Segmented, Single, Copied;
+
     private static ListTasksDetailedResponse Read(ReadOnlySequence<byte> seq, bool pull, bool core = false)
     {
         byte[] buf;
@@ -96,10 +101,13 @@ public static class Codecs
         if (seq.IsSingleSegment && System.Runtime.InteropServices.MemoryMarshal.TryGetArray(
                 seq.First, out var seg) && seg.Offset == 0 && seg.Array.Length == len)
         {
+            Single++;
             buf = seg.Array;
         }
         else
         {
+            Segmented++;
+            Copied += len;
             // **A real cost of the facade's reader shape, and it is charged here
             // rather than hidden.** `Dec` is over `byte[]`, so a segmented body
             // has to be flattened, where the incumbent's

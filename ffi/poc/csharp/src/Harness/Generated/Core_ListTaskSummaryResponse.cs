@@ -327,8 +327,19 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ListTaskSummaryResponse Tgt(void* obj) => (ListTaskSummaryResponse)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
+    /// **A CEILING for ABI v1 decision 13, not an implementation of it.** The decode
+    /// side already hands the host `ak_span` OFFSETS into its own buffer, so the ABI is
+    /// ready for a borrowed string view and the facade's `string` is what is not.
+    /// Redesigning the facade is a public-surface change with a lifetime rule attached;
+    /// bounding the prize first is cheaper and says whether it is worth it. With
+    /// `SkipStrings` set, the decode does everything it otherwise does and materialises
+    /// no string at all, so the gap between that and the real arm is the MOST a
+    /// borrowed view could ever save. R2's floor-arm logic, applied to a design
+    /// question.
+    public static bool SkipStrings;
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string Str(byte* b, ak_span s) => s.len == 0 ? "" : Encoding.UTF8.GetString(b + s.off, (int)s.len);
+    private static string Str(byte* b, ak_span s) => s.len == 0 || SkipStrings ? "" : Encoding.UTF8.GetString(b + s.off, (int)s.len);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static byte[] Bytes(byte* b, ak_span s)
@@ -564,6 +575,12 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
 
     /// Zero the host's own tally. The core's counters have their own reset.
     public void CallsReset() { _fwd = 0; _rev = 0; }
+    /// What the PULL family trades the upcalls FOR: a record buffer in the decode
+    /// context, proportional to the decoded payload. `ak_bdr_footprint` reports the
+    /// high-water mark, so the trade can be read in both directions rather than only in
+    /// time.
+    public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
+
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
     public AkCounters DecCounters() { AkCounters c; if (_dctx == IntPtr.Zero) return default; Abi.ak_dec_counters(_dctx, &c); return c; }

@@ -60,7 +60,7 @@ public static class CoreGate
         Console.WriteLine();
         Console.WriteLine("                                                   encode crossings    decode crossings");
         Console.WriteLine("                                                   encode xings  push dec     pull dec");
-        Console.WriteLine("payload  root                          bytes  enc  dec  val  pull R5    fwd  rev   fwd  rev   fwd  rev");
+        Console.WriteLine("payload  root                          bytes  enc  dec  val  pull R5    fwd  rev   fwd  rev   fwd  rev   pull buf");
         Console.WriteLine(new string('-', 108));
 
         bool coreCounts = false;
@@ -71,7 +71,7 @@ public static class CoreGate
             if (!covered.Contains(id)) continue;
 
             string enc = "-", dec = "-", val = "-", r5 = "-", pull = "-";
-            long ef = 0, er = 0, df = 0, dr = 0, pf = 0, pr = 0;
+            long ef = 0, er = 0, df = 0, dr = 0, pf = 0, pr = 0, foot = 0;
             byte[] got = null;
             ICoreArm arm = null;
             try
@@ -131,6 +131,7 @@ public static class CoreGate
                     pull = Manifest.Sha(re2, re2.Length) != Manifest.Sha(got, got.Length) ? "RT!"
                          : !arm.SameAsSource() ? "VAL!"
                          : pr != 0 ? "REV " + pr : "ok";
+                    foot = arm.PullFootprint();
                 }
                 catch (Exception ex) { pull = "THREW " + ex.GetType().Name; }
                 if (pull != "ok") bad++;
@@ -149,8 +150,8 @@ public static class CoreGate
                     }
                 }
             }
-            Console.WriteLine("{0,-8} {1,-26} {2,7}  {3,-4} {4,-4} {5,-4} {6,-4} {7,-4} {8,4} {9,4} {10,5} {11,4} {12,5} {13,4}",
-                id, row.Root, row.Bytes, enc, dec, val, pull, r5, ef, er, df, dr, pf, pr);
+            Console.WriteLine("{0,-8} {1,-26} {2,7}  {3,-4} {4,-4} {5,-4} {6,-4} {7,-4} {8,4} {9,4} {10,5} {11,4} {12,5} {13,4} {14,9}",
+                id, row.Root, row.Bytes, enc, dec, val, pull, r5, ef, er, df, dr, pf, pr, foot);
             arm?.Dispose();
         }
 
@@ -177,7 +178,9 @@ public static class CoreGate
         Console.WriteLine("  two forward calls are ak_parse_* and ak_bdr_ptr. design/ABI-v1.md decision");
         Console.WriteLine("  2 says four of five slices have only measured push; this is the managed");
         Console.WriteLine("  pull arm it asks for, gated against push on the same bytes and the same");
-        Console.WriteLine("  comparer.");
+        Console.WriteLine("  comparer. `pull buf` is what it trades the upcalls FOR: the record");
+        Console.WriteLine("  buffer's high-water mark in the decode context (ak_bdr_footprint), so");
+        Console.WriteLine("  the trade reads in both directions and not only in time.");
         Console.WriteLine();
         Console.WriteLine("  A LEAF element batches (ABI v1 section 6), so the run crosses once");
         Console.WriteLine("  whatever its length and the count is CONSTANT in the element count.");

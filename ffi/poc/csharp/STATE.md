@@ -159,6 +159,8 @@ approach.
 | **`core-ffi pull`** | ABI v1 7.1's PULL family: `ak_parse_*` writes a record stream and the host replays it, so the decode makes **no reverse call at all** | yes, every shape |
 | **`core-ffi utf16`** | the other string form of ABI v1 section 4: the host hands over UTF-16 and `ak_tc_utf16` converts, against staging UTF-8 and letting `ak_tc_bytes` copy. Both transcoders are pointers INTO the core, so neither crosses | yes, every shape |
 | **`core-ffi fill`** | the host-side half of the encode arm alone: zero the by-value group, stage every string, build the run arrays, stop before calling the codec. **The difference between it and `core-ffi` is the codec plus every crossing, measured rather than subtracted** | yes, every shape |
+| **`core-ffi no-string`** | the decode with NO string materialised: **a CEILING for ABI v1 decision 13 and not an implementation of it**, so the gap to the real arm is the most a borrowed span could ever save | yes, every shape |
+| **strict decode** | ABI v1 decision 3's REJECTING UTF-8 policy, as a third build (`/p:AkStrict=true`) for the same reason the floor is one: a runtime flag would branch on both arms' hot path and stop the JIT devirtualising `Encoding.UTF8` | yes, arm a |
 | **the RPC arm** | a real grpc-dotnet client against a real grpc-dotnet server over a Unix domain socket, the server's marshaller a `byte[]` passthrough so only the client's codec varies. Four codecs: `gp-marshaller`, `managed`, `core-ffi`, `core-ffi pull`. ArmoniK's transport pinned, the stack default and loopback TCP as labelled rows, 1/8/16 in flight | yes, P2.2 |
 
 ## What exists
@@ -976,17 +978,13 @@ opened, and none of it is a gap in the brief.
   the core. The unbuilt one hands the core a pointer into the managed heap,
   which on .NET needs a pinned `GCHandle` per string -- 5,000 for P1.2 -- and is
   named rather than assumed equivalent.
-- **A validating-decode arm** (ABI v1 decision 3). `harness utf8` establishes
-  that neither this codec nor `Google.Protobuf` validates UTF-8 on decode, so
-  the decode comparison is like for like and the margin is not bought by
-  skipping validation. `new UTF8Encoding(false, throwOnInvalidBytes: true)`
-  rejects all 15 root-site corpus vectors, so the arm is one constructor
-  argument and pricing it is what decision 3 asks for.
-- **A `Dec` over `ReadOnlySequence`**, which the RPC arm identified: gRPC hands
-  the deserializer a segmented body and the facade's reader is over `byte[]`.
-- **The pull family's MEMORY.** `ak_parse_*` trades the upcalls for a record
-  buffer proportional to the payload, in the decode context; `ak_bdr_footprint`
-  reports it and this slice measured only the time half of that trade.
+- **The pull family's memory** is now measured, not omitted: `ak_bdr_footprint`
+  puts the record buffer at 0.36 to 1.6 times the wire payload on the real
+  shapes, and 63x on the absent path, where 300 elements that encode to nothing
+  still carry 300 groups through the record stream.
+- **Decision 13 itself**, as opposed to its ceiling, which stage 16 puts at 42
+  to 62 percent of a decode. The facade's public surface and the lifetime rule
+  are the work; the ceiling is what says whether to do it.
 - **Streaming**, and the core's own tonic stack as the other end of the RPC arm.
   `design/SHAPES.md` lists streaming as not in the arm and says it is where the
   concurrency invariant actually bites; no slice has touched it.
@@ -1129,12 +1127,25 @@ it, and the first item is much the largest.
    from just above to just below the managed control on decode. What remains of
    it is the MEMORY half: the record buffer is proportional to the payload and
    `ak_bdr_footprint` reports it, and this slice measured only the time.
-3. **Decision 9's sparse fill.** Stage 11 priced it directly rather than by
-   elimination: the host-side group fill is **40 to 57 percent of the whole
-   core-ffi encode on every payload of both shapes**, and subtracting it leaves
-   the core's own work plus every crossing BELOW the managed control on six of
-   eight. The encode arm loses on the fill and nothing else.
-4. ~~An RPC arm.~~ **DONE** (`stage15-rpc-arm.log`): grpc-dotnet both ends over
+3. **ABI v1 decision 13's borrowed span. THE LARGEST REMAINING LEVER IN THIS
+   SLICE, and now bounded rather than asserted.** A no-string decode arm puts
+   the ceiling at **42 to 62 percent of a decode** (`stage16`), which is larger
+   than every codec difference this slice has measured put together. It is a
+   ceiling and not a forecast: a borrowed view still records the offsets and a
+   consumer that needs a real `string` pays anyway. But it says where the money
+   is. The ABI is ready -- the decode side already hands the host `ak_span`
+   offsets into its own buffer -- and the work is the facade's public surface
+   and the lifetime rule that comes with it.
+4. **Decision 9's sparse fill. The largest remaining improvement to the ENCODE
+   column, and priced on every shape rather than two.** The host-side group fill
+   is **28 to 71 percent of the whole `core-ffi` encode**; subtract it and the
+   core's own work plus every crossing is below the managed control on most
+   payloads. M6 is the low end at 0.278, because a packed run is a memcpy with
+   no staging; P1.3, the absent path, is the high end at 0.705. **Not this
+   slice's to build**: it is an ABI addition, and `ffi/CLAUDE.md` puts a change
+   to existing behaviour through the aggregating session. What is measured is the
+   cost of not having one.
+5. ~~An RPC arm.~~ **DONE** (`stage15-rpc-arm.log`): grpc-dotnet both ends over
    a UDS, server marshaller a `byte[]` passthrough so only the client's codec
    varies, ArmoniK's transport pinned with the stack default and loopback TCP as
    labelled rows, 1/8/16 in flight. **Its headline is a deflation and belongs in
@@ -1144,7 +1155,7 @@ it, and the first item is much the largest.
    design/SHAPES.md says is where the concurrency invariant actually bites and
    which no slice has touched; and a `Dec` over `ReadOnlySequence`, which the arm
    identified as a real improvement and which this slice has not built.
-5. ~~The host-transcoder string form.~~ **DONE, and the prediction was wrong
+6. ~~The host-transcoder string form.~~ **DONE, and the prediction was wrong
    about the mechanism.** There is no host transcoder in the sense stage 8 meant:
    `ak_tc_utf16` is a pointer INTO the core, like `ak_tc_bytes`, so neither form
    costs a crossing and the "5,000 reverse crossings for P1.2" arithmetic was
@@ -1152,13 +1163,13 @@ it, and the first item is much the largest.
    indistinguishable (0.96 to 1.04 on every payload). **A true zero-copy form is
    what remains**: hand the core a pointer into the managed heap, which on .NET
    needs a pinned `GCHandle` per string and is probably a worse trade.
-6. ~~Reconcile the crossing-count convention with the Rust slice.~~ **DONE**:
+7. ~~Reconcile the crossing-count convention with the Rust slice.~~ **DONE**:
    the conventions never differed, the gap was a 150-element chunk in the Rust
    host, and matching it reproduces their counts to the digit. Stage 11 makes
    this a CHECK rather than a claim: the gate compares the host tally with the
    core's own counters per payload and per direction and fails on a mismatch.
    See `stage10-crossing-reconciliation.log` and the M2 section above.
-7. ~~Corpus conformance.~~ **DONE** (`stage13-corpus-consumer.log`): all 336
+8. ~~Corpus conformance.~~ **DONE** (`stage13-corpus-consumer.log`): all 336
    vectors on all three arms, codec generated from `corpus.proto` under rule 0,
    via a second generator front end. It found three more defects on top of the
    group-skip hole -- tag zero accepted, no recursion limit, minus zero dropped
@@ -1167,17 +1178,25 @@ it, and the first item is much the largest.
    31 open `T-dec-*` vectors are what would close); C5 for the corpus's own
    roots, which needs builders this slice has no reason to write otherwise; and
    the chunking class, which needs a core-ffi binding for a corpus-only root.
-8. **The old list, unchanged**: ABI v1 decision 13's borrowed spans (the
-   decode side already hands the host `ak_span` offsets into its own buffer,
-   so the ABI is ready and the facade's `string` is what is not); a rejecting
-   decode policy, which is also what would close the corpus's 31 open
-   `T-dec-*` vectors and which `harness utf8` shows is one constructor argument.
-9. **A `Dec` over `ReadOnlySequence`.** The RPC arm is what identified it: gRPC
-   hands the deserializer a segmented body and the facade's reader is over
-   `byte[]`, so every call flattens where the incumbent reads the segments in
-   place. Small, contained, and it is the facade's shape rather than the ABI's.
-10. **Streaming**, which design/SHAPES.md says is where the concurrency
-   invariant actually bites and which no slice in the branch has touched.
+9. ~~A rejecting decode policy (ABI v1 decision 3).~~ **DONE** (`stage16`), as a
+   third build, `/p:AkStrict=true`. It **closes all 31 open corpus `T-dec-*`
+   vectors** and **costs nothing measurable** (-4.2% to +3.6%, inside a control
+   that itself moved 4.6% between the builds), because `Encoding.UTF8` already
+   validates in order to know where to substitute and only the FALLBACK differs.
+   **On .NET the argument against the rejecting policy cannot be performance.**
+   It is a behaviour change, which this slice can price and cannot judge.
+10. ~~A `Dec` over `ReadOnlySequence`.~~ **RETIRED WITH EVIDENCE, not built.**
+   Instrumented, gRPC delivers a segmented body on **every single call** (3,960
+   of 3,960), so the single-segment fast path is never taken at this payload
+   size. But the flatten is 540 KB, which this slice's own `memcpy floor` arm
+   measures at **12.8 us against ~4,500 us of CPU per call: under 0.3 percent**.
+   A segmented reader means every read handling a boundary, risking the
+   single-segment path every in-process arm uses, to recover a third of a
+   percent of an RPC.
+11. **Streaming**, which design/SHAPES.md says is where the concurrency
+   invariant actually bites and which no slice in the branch has touched. **The
+   only item on this list that is scope rather than a decision**, and the only
+   one left that is this slice's to build.
 
 Deliberately NOT on the list: more rounds to tighten a spread, a cold-start
 column, and any attempt to make this container's absolutes comparable with
@@ -1250,6 +1269,7 @@ another container's. R13's one calibration run stands and is not to be tuned.
 | `ffi/logs/csharp/stage10-crossing-reconciliation.log` | the counting core (`--features count`), `ak_enc_counters` read from the host, at two chunk sizes | **R5's cross-slice reconciliation, resolved.** The conventions never differed; the Rust host chunks at 150 and this one did not. At `AK_CHUNK=150` this slice reproduces the Rust slice's 2/8/3 forward and 1/1/1 reverse exactly. Also prices the difference: nothing measurable, 0.7 percent |
 | `ffi/logs/csharp/stage9-shared-core.log` | the ONE core at `ffi/poc/codec`, default features so no `rpc`; loaded path confirmed with `LD_DEBUG=libs`; three arms gated, three timing processes, plus a pre-move control | **The W10 re-gate.** 152 checks 0 failures on all three arms; the core-ffi arm green on M1; **nothing moved** (worst 0.035 against a 0.026 floor on arms the core cannot touch). Records that arm c cannot carry the core-ffi arm and why, and that a stale binary reported a pass before the timestamp was checked |
 | `ffi/logs/csharp/stage8-core-ffi.log` | the arm through `libak_core.so`, shared-library linkage, generated binding, staged strings; correctness plus three timing processes | **The `core-ffi` arm, M1.** Byte identity and value identity on P1.1/P1.2/P1.3; layout agreement on 8 structs; crossings constant in the element count in both directions; the interface cost against the no-boundary control, including the two findings that point opposite ways -- the C ABI beating the managed codec on P1.2 decode, and the absent path collapsing on the total group fill |
+| `ffi/logs/csharp/stage16-decision3-and-13.log` | a third build for the rejecting decode policy, each build carrying the incumbent as its in-process control; a no-string decode arm as decision 13's ceiling; `ak_bdr_footprint`; the RPC arm instrumented for sequence shape | **Three answers the branch did not have.** Decision 3's rejecting policy **closes all 31 corpus `T-dec` vectors and costs nothing measurable**, because `Encoding.UTF8` already validates and only the fallback differs, so the case against it cannot be performance. **Decision 13's ceiling is 42 to 62 percent of a decode** -- larger than every codec difference this slice has measured combined. Pull's record buffer is 0.36 to 1.6x the wire payload, and 63x on the absent path. A `ReadOnlySequence` reader is **retired with evidence**: every body is segmented and the flatten is still under 0.3 percent of an RPC |
 | `ffi/logs/csharp/stage15-rpc-arm.log` | a real grpc-dotnet client against a real grpc-dotnet server over a Unix domain socket, server marshaller a `byte[]` passthrough so only the client's codec varies; ArmoniK's 4 MiB window and 2 MiB chunking pinned, stack default and loopback TCP as labelled rows; 1/8/16 in flight | **The RPC arm, and it is partly deflating.** The codec is worth about **10 percent** of CPU per call end to end where the in-process column says 25, so sizing the change from that column overestimates it two and a half times. The three codec arms are **indistinguishable from each other** at the RPC level. What survives the noise is allocation: every facade arm is **8.6 percent below** the incumbent on every configuration. Records that pinning a window on .NET needs the AppContext switch as well as the property, and that `packages/csharp` can set neither |
 | `ffi/logs/csharp/stage14-all-shapes-and-pull.log` | the ABI declaration, layout probe and host binding all derived from one module; 42 structs and 28 vtables verified; a counting core for the crossing table; three interleaved processes | **core-ffi for every shape, and the PULL family on a managed host.** All 16 payloads gate on byte identity, round trip, value identity and R5. **Pull is faster than push everywhere** (0.69-0.97) and moves the composed arm from just above to just below the managed control on decode, which is design/ABI-v1.md decision 2's answer. **The two string forms are indistinguishable** (0.96-1.04): both transcoders are pointers into the core, so this slice's "a host transcoder costs a reverse crossing per string" was wrong about the mechanism. Corrects stage 8's M1 decode crossing count -- the run is NOT one callback, it is ceil(n/arena)+1 -- and establishes that cross-SITTING ratio comparisons on this container drift up to 9 percent |
 | `ffi/logs/csharp/stage13-corpus-consumer.log` | all 336 vectors of `ffi/corpus`, codec generated from `generated/corpus.proto` under rule 0 via a second generator front end, over the same `Enc`/`Dec`/`W` the measured arms use; three arms | **Corpus conformance, and four defects byte identity structurally could not reach.** Tag zero accepted; no recursion limit (ABI v1 decision 7, which the design says no slice exercises); minus zero dropped because the omit-when-zero rule compared value and not bits, where `Google.Protobuf` has the same hole and upb does not; plus stage 12's group skip. Prices the depth limit at nothing measurable. **And it settles the decode comparison**: `Google.Protobuf` does NOT validate UTF-8 either, so the managed decode margin is not bought by skipping validation. Wires the incumbent in as an independent oracle: accept/reject agrees on all 169 vectors where both have the type |

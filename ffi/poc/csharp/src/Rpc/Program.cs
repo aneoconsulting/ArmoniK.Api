@@ -178,6 +178,14 @@ public static class Program
         Console.WriteLine();
         await Table(inv, down, levels, rounds, calls);
 
+        Console.WriteLine("Sequence shape, which decides whether the facade's byte[] reader costs");
+        Console.WriteLine("anything here: gRPC delivered {0} SEGMENTED bodies and {1} single-segment,",
+            Codecs.Segmented, Codecs.Single);
+        Console.WriteLine("copying {0:N0} bytes in total to flatten them. The copy is charged to the",
+            Codecs.Copied);
+        Console.WriteLine("facade arms; a ReadOnlySequence reader is what would remove it.");
+        Console.WriteLine();
+
         await app.StopAsync();
         if (File.Exists(sock)) File.Delete(sock);
         return 0;
