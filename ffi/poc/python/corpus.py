@@ -232,20 +232,14 @@ DISAGREEMENTS = {
 # printed loudly, and counted apart -- but the exit code does NOT stay red for them,
 # because `run.sh` runs under `set -e` and a step that is permanently red is a step whose
 # result nobody reads. A row may only appear here with the defect's identifier.
-UPSTREAM = {
-    ("U-root-group", "C1"): "D7",
-    ("U-nested-group", "C1"): "D7",
-    ("U-oneof-group", "C1"): "D7",
-}
-UPSTREAM_WHY = {
-    "D7": ("the shared core at poc/codec returns AK_ERR_MALFORMED on an unknown field of "
-           "the deprecated GROUP form. All three vectors are `expect: accept`, upb "
-           "accepts all three, and this slice's own pure-Python control accepts all "
-           "three -- so it is the core and not the binding. A group carries no length, so "
-           "skipping one means recursing to its END_GROUP. Reported in STATE.md; R0 says "
-           "a change to existing core behaviour goes through the aggregating session, "
-           "because it moves every slice's gate at once."),
-}
+# EMPTY, and that is the point of keeping the mechanism. It held D7 -- the shared core
+# refusing an unknown field of the deprecated GROUP form, on `U-root-group`,
+# `U-nested-group` and `U-oneof-group`. The core fixed it (`Dec::skip` now takes the tag
+# and recurses to a MATCHING `END_GROUP`, bounded at 100 nests), all three arms went from
+# 123/126 to 126/126, and the entries came straight back out. A row left here after its
+# defect is closed is a regression nobody would see.
+UPSTREAM = {}
+UPSTREAM_WHY = {}
 
 ARMS = [
     ("core-ffi / C ext type",
