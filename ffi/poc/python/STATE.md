@@ -6,388 +6,311 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | **work unit 1 complete**: the binding mechanism and the facade storage are each chosen by microbenchmark, the premise of README 9.1 is settled for encode, and the whole thing is byte-identical to the validated manifest on P1.1, P1.2 and P1.3. The slice proper (the shapes of `design/SHAPES.md`, decode, the RPC arm, the Rust core) is **not started** |
-| **Blocked on** | nothing. ABI v1 decision 1 did not touch this work unit and is now answered by the C++ slice anyway, so the next work unit can build against ABI v1 rather than around it |
-| **Floor** (must build and pass correctness) | still open question 4. **Not demonstrated**: no python3.7 on this machine (apt lists 3.7.17-1+noble2). Facts for the decision are in `ffi/logs/python/01-environment.log` |
-| **Target** (where the clock runs) | 3.11, as proposed. Every arm also builds and passes on 3.10, 3.12 and 3.13, and the verdict's shape is the same on all four |
-| **Incumbent** (the baseline every ratio is against) | `protobuf` 7.36.2 on **upb**, confirmed at run time by `api_implementation.Type()`. `grpcio` 1.84.0 installed but unused: there is no RPC arm yet |
-| **This machine's Rust crossing (R13)** | **2.1 ns** forward-plus-reverse, **2.8 ns** forward, against **1.8 ns** on the Rust slice's container and **2.1 to 2.2 / 1.5 ns** on the C++ slice's. Every absolute below is also a multiple of that |
-| **How to read every absolute here** | as **instrumentation, not a deliverable** (README section 8, after R13, and `CLAUDE.md`'s invariant). The cross-language comparison is re-taken on a controlled physical machine once every slice exists. What this work unit produces that a rerun cannot are the **crossing counts**, the **byte identity**, the **within-arm deltas** that settle README 9.1's premise, and the **feasibility** facts. The nanoseconds rank the candidates and nothing more |
+| **Status** | **work units 1 and 2 complete.** Work unit 1 chose the binding mechanism and the facade storage by microbenchmark and settled README 9.1's premise. Work unit 2 built **the composed arm** -- the shared core at `poc/codec/` behind a generated CPython shim, both directions -- added **decode**, and became the **conformance corpus's first consumer**. M2 through M7, the RPC arm and concurrency are **not started** |
+| **Blocked on** | nothing |
+| **Floor** | still README open question 4. Not demonstrated: no python3.7 here (apt lists 3.7.17-1+noble2). Facts in `logs/python/01-environment.log` |
+| **Target** | 3.11. Every arm builds and passes on 3.10, 3.12 and 3.13, and the verdict's shape holds on all four |
+| **Incumbent** (R14) | `protobuf` 7.36.2 on **upb**, through **the path ArmoniK runs**: `Message.SerializeToString` and `Message.FromString`, with no size pass and no buffer writer. **Derived, not assumed** -- `verify_r14.py` generates the real `Protos/V1/results_service.proto` stub and reads the serializer off it (`logs/python/52-r14-baseline.log`) |
+| **Core** | `ffi/poc/codec` (R0), reached by path, never copied. `poc/codec/gen/one_core.sh` passes |
+| **R13** | this machine's rust-slice crossing is **2.1 ns** (fwd+reverse) to **2.8 ns** (forward), against 1.8 on the rust slice's container and 2.1-2.2 / 1.5 on the cpp slice's. The composed arm also prices the boundary **in its own process and build** at the foot of every bench table (**1.8 ns** forward, **2.4 ns** fwd+reverse), which is the better number to quote against because it shares a build with the arms |
+| **How to read every absolute** | **instrumentation, not the deliverable**. Signs and size classes only; the controlled physical rerun owns the decimals |
 
-## Ambiguous rankings, left for the controlled run
+## The answer, in four lines
 
-Three comparisons here are **too close to call on this machine**, and the
-instruction is to record that rather than grind at it. None of the three changes
-a decision, which is why they are cheap to leave open.
+1. **Encode: the composed arm beats the incumbent.** 0.700 to 0.719 of upb on
+   P1.2 with a C-extension facade (0.679 to 0.719 across four interpreters).
+2. **Decode: it beats the incumbent too, once the comparison is like for like.**
+   1.77 to 1.80 of upb on the bare call, **0.888 to 0.897** once both sides have
+   actually produced Python values -- and `FromString` does not produce them.
+3. **The facade storage decides everything, and only one of the three works.**
+   A C extension type the shim reads as a struct: 7 crossings per element. The
+   two Python storages: 22 to 29, and 1.5 to 4.0 of upb.
+4. **The ABI is not where Python's crossing problem is.** The core's own boundary
+   costs **0.01 crossings per element**; the shim-to-facade edge costs 7 to 29.
 
-| comparison | what was measured | why it is left |
+## What work unit 2 establishes
+
+Ranges are the spread of **three processes on 3.11**, the target interpreter,
+unless a row says otherwise; the four-interpreter range is given beside the
+headline rows, and it is wider mostly because 3.10 is a slower interpreter rather
+than because the arms move against each other.
+`logs/python/60-composed-py3.11.log` and `61-composed-all.log`;
+`mech/summarise.py <log>` regenerates every table here.
+
+### 1. Encode, P1.2 (1,000 elements), against upb on the R14 path
+
+| arm | / upb, 3.11 | / upb, 3.10 - 3.13 |
 |---|---|---|
-| plain class against `__slots__`, both through `PyObject_GetAttr` | **the sign flips between payloads**: on P1.2 `__slots__` is marginally ahead (1.194 - 1.227 against 1.229 - 1.252 of upb), on P1.3 plain is (4.433 - 4.643 against 4.668 - 4.803), and at the primitive level plain is ahead (9.80 - 9.88 against 11.20 - 11.30 ns) | it does not matter: both lose to the C-extension type by a factor of two on P1.2 and by five on P1.3, and that gap is far outside any spread here. What is **not** ambiguous is the refutation of README 9.1's ordering, which only needs "`__slots__` is not clearly faster" |
-| `METH_O` against `METH_FASTCALL` | 22.2 - 23.1 against 22.8 - 23.6 ns: overlapping | the mechanism choice is C extension either way, and which calling convention a generated binding emits is not a question this slice has to answer |
-| abi3 against the full C-API, per primitive | 0.995 to 1.072 paired per process, and the forward call is the same row | the honest statement is **"no measurable difference on this workload"**, not a ratio. The one real difference is structural rather than timed: `PyList_SET_ITEM` does not exist in the limited API, so a shim uses `PyList_SetItem` at 1.97 to 2.01 times the cost of the macro. That one survives a controlled rerun because it is an API fact |
+| **`core-ffi / C ext type`** | **0.700 - 0.719** | 0.679 - 0.719 |
+| `core-ffi / __slots__` | 1.530 - 1.548 | 1.508 - 1.802 |
+| `core-ffi / plain` | 1.623 - 1.659 | 1.623 - 1.765 |
+| `core-ffi / pyacc` (the premise control) | 4.885 - 5.790 | 4.885 - 6.855 |
+| `pycodec` (R3's no-boundary control) | 25.1 - 26.5 | 25.1 - 37.8 |
+| *(floor: one copy of the 218 KB output)* | 0.017 | 0.017 - 0.018 |
 
-## The question this slice answers
+Work unit 1 measured the same storage at 0.600 - 0.612 **with no core behind
+it**. Adding the real core, the real ABI and the sparse fill moves it to 0.700 -
+0.719, so **the core and the boundary together cost about 0.10 of upb's encode**
+on this shape -- which is the decomposition README 4.1 asks every slice for, and
+it is small.
 
-Does the amended ABI beat an incumbent that is already native, and can it
-survive the GIL?
+On **P1.3, the absent path**, the C-extension arm is 1.271 - 1.393 and the two
+Python storages are 6.6 to 10.1. Decision 9's sparse fill is what keeps the first
+of those near 1 rather than near 2: it is built in from the start here, and the
+C# slice's composed arm not doing it cost its absent path a factor of two.
 
-## What work unit 1 establishes
+### 2. Decode, P1.2: two tables, because the bare call does not compare the same work
 
-Read `ffi/poc/python/JOURNAL.md` for the derivations; this is the short form.
-Ranges are the spread of three separate processes on 3.11 unless stated.
+| arm | decode (the call) | decode **+ read every field** |
+|---|---|---|
+| **`core-ffi / C ext type`** | 1.773 - 1.804 | **0.888 - 0.897** |
+| `core-ffi / __slots__` | 3.692 - 3.740 | 1.013 - 1.029 |
+| `core-ffi / plain` | 3.908 - 3.974 | 1.036 - 1.065 |
+| `core-ffi / pyacc` | 11.28 - 11.61 | 1.656 - 1.726 |
+| `pycodec` | 37.0 - 37.1 | 3.86 - 3.93 |
+| *(floor: 1,000 bare facade objects + one copy)* | **0.803 - 0.807** | - |
 
-### 1. The binding mechanism: the C extension, and it is not close
+Across four interpreters: the C-extension arm is 1.763 - 1.990 on the call and
+**0.865 - 0.975** like for like.
 
-Forward, per call from Python, every arm calling the same callee in the same
-`libakmech_cabi.so` (R7). The empty Python `for` loop that drives every row costs
-10.4 - 11.7 ns and the `net` column has it subtracted.
+**The floor row is why there are two tables.** Constructing the host objects and
+copying the input, with no parsing at all, already costs four fifths of upb's
+entire decode. A decode cannot cost less than producing what it produces, so upb
+is not producing it: `FromString` parses into a upb arena and materialises a
+Python object only when something reads it. The right-hand column applies the
+same read to every arm and puts them on the same work.
 
-The last column is R13's: the same figure as a multiple of **this machine's**
-Rust forward crossing, 2.8 ns, which is the form that survives the move to
-another container. It is taken on the net column, because the Rust figure has no
-Python loop in it either.
+Neither column is "the" answer and the report has to pick one deliberately: a
+caller that reads its fields pays the right-hand column, a caller that decodes
+and discards pays the left.
 
-| mechanism | ns | net of the loop | x a Rust forward crossing here |
+**P1.3 makes the point unmissable.** On the absent path the floor -- 300 bare
+objects and a copy of 605 bytes -- is **8.7 to 24.9 times** upb's entire decode,
+because upb has almost nothing to do and the facade must still construct 300
+objects. The bare call reads 6.2 to 6.9 for the C-extension arm and is a
+statement about object construction and nothing else; like for like it is
+**0.902 to 1.072**, parity.
+
+### 3. upb does not cache, and it changes which column is generous
+
+A second full read of the **same** upb message costs **3.12 - 3.16 ms** against
+3.41 - 3.48 for the first: all but about 10 percent of the materialisation is
+paid again. The facade's second read is **2.38 - 2.54 ms**.
+
+So the like-for-like column above charges upb the materialisation once and
+production would charge it per pass. **A caller that reads its response twice
+pays upb twice and the facade once.**
+
+**This refutes the hypothesis decision 13 was carrying.** upb aliases strings
+into its input buffer in C (`upb/wire/decode.h:29`), but a Python `str` is a
+fresh object built on every attribute read, so there is nothing borrowed at the
+Python level. Decision 13's borrowed span is **available to this facade and not
+already taken by the incumbent** -- the opposite of what the open question
+assumed. What a borrowed Python string would be is a facade question nobody has
+drafted, and this slice did not build it.
+
+### 4. Crossings, counted in both halves (`51-conformance-wu2.log`)
+
+Per element, P1.2. The core counts its own and the shim counts what it does to
+CPython; neither half can count the other's.
+
+| | shim -> CPython | core, forward | core, reverse |
 |---|---|---|---|
-| C extension, `METH_O` | 22.2 - 23.1 | 11.4 - 12.5 | 4.1 - 4.5 |
-| C extension, `METH_FASTCALL` | 22.8 - 23.6 | | |
-| C extension, abi3 | 22.2 - 23.3 | | |
-| PyO3 | 52.4 - 53.3 | 41.5 - 42.3 | 14.8 - 15.1 |
-| cffi, API mode | 76.7 - 77.1 | 65.4 - 66.3 | 23.4 - 23.7 |
-| cffi, ABI mode | 195.2 - 200.6 | 184.8 - 190.0 | 66.0 - 67.9 |
-| ctypes, `argtypes` declared | 235.0 - 241.1 | 224.6 - 230.5 | 80.2 - 82.3 |
-| *(a pure-Python function call)* | 40.3 - 40.9 | 29.2 - 29.9 | 10.4 - 10.7 |
+| encode, C extension facade | **7.00** | 0.01 | 0.00 |
+| encode, `PyObject_GetAttr` | 29.00 | 0.01 | 0.00 |
+| decode, C extension facade | **7.00** | 0.00 | 0.01 |
+| decode, `PyObject_GetAttr` | 22.00 | 0.00 | 0.01 |
 
-Reverse, per reverse call, driven from inside the C library so the forward cost
-is amortised away. The floor is a C-to-C call through a function pointer at
-1.41 - 1.42 ns.
+**The batched element run turns 1,000 elements into about ten core entries.** So
+the ABI's crossings are already negligible in Python and every crossing that
+matters is between the shim and the facade. That is a different sentence from
+every other slice's and it is what README 9.1's three layers predict.
 
-| | ns | x the C-to-C floor |
-|---|---|---|
-| C-API call on a primitive (the design's default) | **2.83 - 20.54** | 2 - 15 |
-| into the interpreter, C extension | 39.9 - 40.5 | 28 |
-| into the interpreter, PyO3 | 51.0 - 51.2 | 36 |
-| ctypes `CFUNCTYPE` callback | 119.4 - 119.8 | 84 |
-| cffi callback, **API mode as well as ABI mode** | 233.8 - 239.9 | 165 - 170 |
+### 5. The corpus (W8): first consumer, and three defects
 
-These are quoted against the C-to-C floor rather than against the Rust crossing,
-because a C-API call on a Python object is not a boundary crossing in the sense
-R13's number measures: the shim and CPython are in one address space with no
-dynamic-linker hop between them. The floor here (1.41 - 1.42 ns) and the Rust
-slice's forward-plus-reverse figure on this machine (2.1 ns) are the two
-comparable quantities, and they differ because the Rust loop makes a forward
-call as well.
+48 of 336 rows root at `ListResultsResponse`, which is what this scope reaches;
+every other row is reported out of scope **by root**, never silently dropped.
+CONTRACT.md rule 0 is checked rather than asserted: the three messages are
+identical to `corpus.proto` and the superset adds seven `u_*` fields this reader
+does not know. `logs/python/70-corpus-subset.log`.
 
-**`ctypes` and `cffi` are refused for the codec path and the log says why**, as
-README 9.1 asks: their callback is 165 to 170 times the floor and 6 times the C
-extension's own interpreter re-entry. Compiling the extension (cffi API mode)
-fixes the *forward* direction and does nothing at all for the reverse one.
-They remain candidates for the RPC layer, where the crossing count is two per
-call.
+| arm | C1 parse | C2 project | C3 re-encode | C4 refuse |
+|---|---|---|---|---|
+| `pycodec / plain` | 47/47 | 47/47 | 47/47 | 1/1 |
+| `core-ffi / C ext type` | 45/47 | 45/47 | 45/47 | 1/1 |
+| `core-ffi / plain` | 45/47 | 45/47 | 45/47 | 1/1 |
 
-**PyO3's cost is its per-call wrapper, not its primitives.** A `#[pyfunction]`
-with no arguments at all already costs 47.9 - 49.9 ns; its primitives run 0.67
-to 1.45 of the C-API spelling (faster on `extract::<i64>`, slower on
-`PyString::new` and `PyList::new`). Since a shim makes one forward call and thousands
-of primitive calls, this bears on the RPC layer more than on the codec.
+Two defects were this slice's and are fixed (D5, D6 below). **The two the
+core-ffi arms still fail are a defect in the shared core** and are the most
+important thing in this section: see the request to the aggregating session.
 
-**One `ctypes` row is wrong, not fast.** Without `argtypes` it is 143.0 - 145.4
-ns and truncates the return to `int`. The correctness gate in `bench_mech.py`
-catches it and the table carries the note.
-
-### 2. The facade storage: the C extension type, and only if the shim reads the struct
-
-| storage, as the shim reaches it | ns per field read | crossings per element |
-|---|---|---|
-| plain class, `PyObject_GetAttr` | 9.80 - 9.88 | 29 |
-| `__slots__` class, `PyObject_GetAttr` | 11.20 - 11.30 | 29 |
-| C extension type, through its member descriptor | 11.22 - 11.29 | 29 |
-| C extension type, **struct member read** | 0.48 - 0.50 (0.12 - 0.14 net of the loop floor: at the resolution limit) | **7** |
-
-Over a whole `ListResultsResponse`, against upb, P1.2 (1,000 elements):
-
-| arm | / upb |
-|---|---|
-| `cshim member / C ext type` | **0.600 - 0.612** |
-| `cshim getattr / __slots__` | 1.194 - 1.227 |
-| `cshim getattr / plain` | 1.229 - 1.252 |
-| `cshim pyacc (C attrgetter)` | 3.584 - 3.703 |
-| `cshim pyacc (python fn)` | 3.984 - 4.085 |
-| `pycodec` (pure Python, R3's no-boundary control) | 19.372 - 20.270 |
-| *(floor: one copy of the 218 KB output)* | 0.018 |
-
-**The absent path separates them much further.** On P1.3 the C-extension-type
-arm is 0.934 - 0.953 and the getattr arm is 4.433 - 4.643, because the getattr
-shim still pays all 29 crossings on an element that encodes to nothing. This is
-the same shape as the Rust slice's finding that the absent path inverts a
-verdict, and here it inverts one storage and not the other.
-
-### 3. The premise (README 9.1, last bullet): settled, and the layer earns its place
-
-The control is the same generated C traversal with **the same counted
-crossings**, each field reached by a Python-level accessor call instead of a
-C-API read. A within-arm delta (R4). It is **3.2 to 3.5 times worse** on the
-full payloads and **5.4 to 5.6 times worse** on the absent path. A
-C-*implemented* accessor called the same way recovers about a tenth of that, so
-the cost is the call and not the language the accessor is written in.
-
-### 4. Answers to open question 4 that are facts about the machine
-
-`ffi/logs/python/01-environment.log`, and none of this decides anything.
-
-- **Interpreters here**: 3.10.20, 3.11.15, 3.12.3, 3.13.12, with dev headers for
-  all four. 3.11 is the default. Every arm builds and passes conformance on all
-  four and the verdict's shape holds across them.
-- **No free-threaded build exists here and none is installable from this
-  container's apt**, so the 3.13t arm cannot be measured on this machine at all.
-- **python3.7 is not present**; apt lists 3.7.17-1+noble2. **The incumbent does
-  still exist for 3.7**: pip resolves `protobuf-4.24.4-cp37-abi3` and
-  `grpcio-1.62.3-cp37`. So a floor arm is buildable, with an incumbent three
-  years older than the target's, which under R7 makes a floor-against-target
-  ratio a comparison of library versions as well as of runtimes.
-- **abi3 (9.2) costs almost nothing for this workload.** One `.so` built against
-  `Py_LIMITED_API=0x030A0000` on 3.10 is loaded and timed by all four
-  interpreters. Forward call: the same row. Seven primitives, paired per
-  process: **0.995 to 1.072**. The one real loss is `PyList_SET_ITEM`, a macro
-  absent from the limited API, so a shim uses `PyList_SetItem` at **1.97 to
-  2.01 times** the cost on that one call. Everything else this slice needs is in
-  the limited API from 3.10.
-- **The incumbent has already made this trade**: protobuf ships `cp3x-abi3`
-  wheels and its upb extension on disk is `_message.abi3.so`.
-
-### 5. Two numbers for the design documents
-
-- **Releasing the GIL costs 34.2 - 34.7 ns** on 3.11 (34.3 - 43.4 across 3.10 to
-  3.13), which is about twelve C-API primitives. It bounds when 9.1's "a longer
-  window in which the pure parse runs with the GIL released" is worth doing.
-- **On CPython the UTF-8 passthrough is free only for ASCII.** Reading a `str`'s
-  UTF-8 is 2.19 - 2.27 ns for ASCII and **64.2 - 67.8 ns** for Latin-1 and
-  above-U+00FF content when the object has no UTF-8 cache yet, which is the state
-  a string that came off the wire is in. ArmoniK's ids are all ASCII GUIDs, so
-  the common path is the cheap one.
+**ABI v1 decision 11, answered for python: this slice DROPS unknown fields**, 29
+of 34 unknown-class rows re-encoding to the `unknown-dropped` form. The core
+carries `ak_unk_f` vtable slots and this shim passes NULL for every one, so the
+drop is the binding's choice and not a limit of the ABI.
 
 ## What exists
 
 ```
-mech/
-  build.sh              every arm, every interpreter. Includes the R5 check that
-                        the boundary into libakmech_cabi.so is a real import
-  run.sh                work unit 1 end to end; writes ffi/logs/python/*
-  environment.sh        what this machine offers (open question 4)
-  harness.py            interleaved rounds, median with min and max, per-case
-                        calibration, gc off (R4)
-  summarise.py          collapses a multi-process log into the ranges a finding
-                        may quote. Every table above regenerates from it
-  conformance.py        R2: byte identity across every arm against the validated
-                        manifest, plus R5 crossing counts from a counting build
-  bench_mech.py         the mechanism, primitive and storage microbenchmarks
-  bench_codec.py        the codec arms over M1, against upb
-  arms.py               the arm list, shared by conformance and bench
-  cffi_build.py         the cffi API-mode arm
-  gen/generate.py       THE generator (R1). Reads ffi/schema/shapes.json through
-                        ffi/schema/emit/shapes.py. One field walker; a shape it
-                        has no case for RAISES
-  gen/out/              emitted and COMMITTED: facade.py, pycodec.py,
-                        payload_values.py, _akcodec_gen.c
-  native/cabi.c         the plain C library: the callee every mechanism reaches
-  native/_akmech.c      the mechanism and primitive probe. Built twice, full API
-                        and abi3, from one source
-  native/_akcodec.c     the module wrapper around gen/out/_akcodec_gen.c
-  pyo3/                 the PyO3 arm, full and abi3
+gen/generate.py        THE generator (R1, R0). Imports poc/codec/gen/ir.py and the
+                       cpp slice's cpp_header.py read-only; writes nothing outside
+                       this slice
+gen/walk.py            the one field walker. A shape outside SCOPE raises
+gen/py_facade.py       the facade, plain and __slots__
+gen/py_codec.py        the pure-Python codec, encode and decode (R3's control)
+gen/py_binding.py      the COMPOSED arm's shim: 3 backends x 2 directions
+gen/py_shim.py         work unit 1's no-core C encoder, kept so its column stands
+gen/py_values.py       facade objects carrying the manifest's values
+gen/out/               emitted and COMMITTED, ak_abi.h included
+native/binding.c       the module wrapper. Names no message and no field
+build.sh               R0 check, R1 check, the core, the shim, the R5 boundary proof
+run.sh                 work unit 2 end to end; writes logs/python/5x, 6x
+conformance.py         R2 and R5: byte identity both directions, layout facts,
+                       crossing counts (the counting pass in its own process)
+corpus.py              W8: the corpus, scoped to what M1 can root
+verify_r14.py          derives the baseline from Protos/V1
+bench.py / arms.py     the arms and the timing
+mech/                  work unit 1, frozen: the mechanism, primitive and storage
+                       microbenchmarks, and the harness both work units share
 ```
 
-**Reproduce everything**: `mech/run.sh <target-python> [<other pythons>...]`.
-It builds, gates on conformance, and writes every log. The R13 calibration is
-separate and is `AK_BENCH_ONLY=P1.1 ffi/poc/rust/target/release/bench`.
-
-**Verified from a clean clone of the pushed branch, at a different path**, which
-is how D4 was found: `git clone --branch claude/ffi-slice-python . /tmp/v && cd
-/tmp/v/ffi/poc/python/mech && ./build.sh <python> && <python> conformance.py`
-builds every arm and passes every check. Do this at the end of a work unit. It is
-README R4's last paragraph as a command: a figure whose harness is not in the
-tree, or is in the tree and does not build, cannot be defended.
+**Reproduce**: `./build.sh <python>...` then `./run.sh <target-python> <others>...`.
+**Verify from a clean clone at another path** before calling a work unit done --
+that is how D4 was found and it is a step, not an idea.
 
 ## Correctness
 
-**Established, for what is built.** Every codec arm is byte-identical to
-`ffi/schema/generated/manifest.json` on **P1.1, P1.2 and P1.3**, on all four
-interpreters, including the incumbent and the pure-Python control, and the
-counting build is checked to produce the same bytes as the measured build. The
-absent path (P1.3) is in the gate, not beside it. `bench_codec.py` runs
+Established for what is built, and it gates everything: `bench.py` runs
 `conformance.py` as a subprocess and refuses to time anything if it fails.
 
-The unknown-field vectors are **not** covered: they are a decode obligation and
-there is no decode arm. Neither is P2.5, which is an M2 payload.
-
-`gen/generate.py --check` runs as a build step, so a measured artifact cannot
-have been compiled from a generated tree that no longer matches `shapes.json`.
+- Encode and decode byte-identical to `ffi/schema/generated/manifest.json` on
+  **P1.1, P1.2 and P1.3**, every arm, on 3.10 / 3.11 / 3.12 / 3.13. The absent
+  path is in the gate, not beside it.
+- Decode checked **twice**: by re-encoding to the same bytes, and field by field
+  against the incumbent, so a value both the decode and the re-encode lost
+  cannot hide.
+- ABI version and **380 group layout facts** checked at import (section 10,
+  obligation 12.3).
+- The boundary proved from the artifact in both builds (R5).
+- 48 corpus vectors, with the projections, the accepted-encoding set and the
+  reject vector (W8).
 
 ## Open defects
 
 | # | where | what |
 |---|---|---|
-| D1 | `native/_akmech.c` | the forward arm used `PyLong_AsLongLong` and raised above 2^63 while the PyO3 and cffi arms answered, so the arms were not doing the same work. **Fixed** (`PyLong_AsUnsignedLongLong`). Found by the correctness gate, not by reading the code |
-| D2 | `bench_codec.py` | the floor arm was `bytes(ref)` on a `bytes`, which returns the same object and copies nothing: 58 ns at 858 B and at 218 KB alike. **Fixed** (`memoryview.tobytes()`). A floor that is not doing the work is worse than no floor |
-| D3 | `ffi/poc/python/.gitignore` | the repository-wide `.gitignore` excludes any directory named `gen`, and `ffi/.gitignore` re-includes `poc/*/gen/**`, which does not reach `poc/python/mech/gen/`. **Fixed** by a re-inclusion in this slice's own `.gitignore`, checked with `git check-ignore`. This is the fourth time that file has eaten a source directory in this branch |
-| D4 | `gen/generate.py` | `payload_values.py` carried the ffi root as an **absolute path baked in at generate time**, so a clone of this branch at any other path regenerated a different file and `generate.py --check` refused the whole tree as stale: the committed sources could not rebuild themselves. **Fixed**: the generated module walks up to `schema/shapes.json` instead. Found by cloning the pushed branch and building it, not by reading the code, and it is the reason that clone-and-build is now the last step of a work unit. No measurement is affected: `_akcodec_gen.c` is byte-identical across the fix, and the only file that changed computes paths |
+| D1 | `mech/native/_akmech.c` | the forward arm raised above 2^63 while other arms answered. **Fixed.** Found by the correctness gate |
+| D2 | `mech/bench_codec.py` | the floor arm was `bytes()` on a `bytes`, which copies nothing. **Fixed.** Found by a ratio that did not move with payload size |
+| D3 | `.gitignore` | the repo-wide `gen` rule reached this slice's generator. **Fixed**, and `ffi/.gitignore` has since been widened to `poc/**/gen/**` |
+| D4 | `gen/py_values.py` | the generated tree embedded an absolute path, so a clone at another path could not rebuild itself. **Fixed.** Found by cloning the pushed branch and building it |
+| D5 | `gen/py_codec.py` | the pure-Python decoder bounds-checked a nested length against the whole buffer instead of the enclosing message, and accepted `X-nested-len-overrun`. **Fixed.** Found by the corpus |
+| D6 | `gen/py_codec.py` | the pure-Python decoder raised on an unknown GROUP field instead of skipping it. **Fixed.** Found by the corpus. The two fixes cost the pure-Python decode about 12 percent (33.0 -> 37.0 of upb), and the tables above are the post-fix run, so every figure here is the committed tree's |
+| **D7** | **`poc/codec` -- NOT this slice's to fix** | **`ak_decode_*` returns `AK_ERR_MALFORMED` on an unknown field of the deprecated GROUP form.** `U-root-group` and `U-nested-group` are `expect: accept`, upb accepts both (confirmed locally, not taken on trust), and every conformant parser must skip an unknown group: it carries no length, so a skipper has to recurse to its `END_GROUP`. **Open**, and it affects every slice |
 
-None open. Every one of the four was found by something running, not by review:
-D1 by the correctness gate, D2 by a ratio that did not move with payload size,
-D3 by reading what `git status` did NOT list, D4 by building a clean clone.
+D1 to D6 closed. **D7 is open and belongs to the aggregating session** (R0: a
+change to existing behaviour in the core moves every slice's gate at once).
 
-## What is not measured
-
-Long, and deliberately so.
-
-- **Decode, in every arm.** The whole of work unit 1 is encode. The storage
-  verdict may not carry: decode constructs objects rather than reading them, and
-  constructing one facade element (`PyObject_CallNoArgs` on the type) is 40.7 -
-  41.7 ns, as dear as a full interpreter re-entry and more than 300 times a
-  struct member READ. What a struct member *write* costs was not measured, which
-  is itself part of why decode is the next step and not a footnote.
-- **The Rust core.** No core in any arm. The codec arms price the
-  **shim-to-facade** edge, which is the one that is a crossing per field; the
-  shim-to-core edge is priced separately (a forward call at 22.2 - 23.1 ns and a
-  C-to-C reverse at 1.42 ns) but the two have never been composed, so no arm
-  here is "the design end to end".
-- **M2 through M7**, and every payload but P1.1, P1.2 and P1.3. The generator
-  raises on a message outside the M1 subtree rather than skipping it (R1), so the
-  scope is enforced by the build. That means **no oneof, no explicit presence, no
-  map, no packed field, no repeated string, no adapter site, no 4-level nesting,
-  no bulk bytes**, and none of the shape-coverage rows of `design/SHAPES.md`.
-- **The RPC arm.** Nothing. `grpcio` is installed and unused.
-- **The unknown-field vectors and the conformance corpus.**
-- **Content sets on a whole message.** Priced at the primitive level only; no
-  payload in this work unit carries non-ASCII content.
-- **Concurrency, and therefore the GIL question itself.** The cost of releasing
-  the GIL is measured; nothing runs two threads. README 9's question "can it
-  survive the GIL" is **not** answered by work unit 1.
-- **The floor (3.7) and the free-threaded arm.** Neither is on this machine.
-  Free-threaded is not installable here at all.
-- **Allocation per operation**, in any arm. Only time.
-- **A PyO3 spelling cheaper than the default `#[pyfunction]`**, if one exists.
-- **What abi3 costs on decode**, where `PyList_SET_ITEM` is used per element
-  rather than per field and the gap would be widest.
+Every one of the seven was found by something running, never by review: the
+correctness gate, a floor arm, what `git status` did not list, a clean-clone
+build, and the corpus twice.
 
 ## Requests to the aggregating session
 
-Written here because a slice agent does not edit `design/**` or `README.md`.
+1. **D7 is the one that matters.** The shared core refuses a legal message. Two
+   corpus vectors, `expect: accept`, upb accepts both. It is a decode-path
+   defect in `poc/codec/crates/ak-rt`'s unknown-field skip, it is the same for
+   every slice, and it was invisible until the corpus had a consumer -- which is
+   exactly what `corpus/CONTRACT.md` says the first consumer is for.
+2. **README 9.1's storage parenthetical is still wrong in its middle term**
+   (work unit 1's request 1, unchanged and now confirmed on decode as well):
+   `__slots__` is not faster than a plain class from a C shim. Only the struct
+   member read moves, and on decode it is worth **2.0 to 4.4 times**.
+3. **Decision 13 needs its Python premise corrected.** The branch's note
+   supposes upb may already borrow at the Python level. It does not: it copies on
+   **every** attribute read and caches nothing (measured, section 3). So the
+   borrowed-span option is open here and the incumbent has not taken it -- but
+   what a borrowed Python string *is* has no draft, and that is the blocker
+   rather than the measurement.
+4. **A Python row for section 2's crossing table, R13 applied.** A forward
+   crossing from a Python host through a C extension is 11.4 - 12.5 ns net of
+   the Python loop, **4.1 to 4.5 times a Rust forward crossing measured on the
+   same machine**. But the number that matters for Python is not that one: it is
+   **0.01 core crossings per element**, because the batching makes the ABI
+   boundary disappear and the CPython boundary is the whole cost.
+5. **Nothing in `design/SHAPES.md` needs changing.** Every M1 hash reproduced
+   first time, in five independent encoders now.
 
-1. **README 9.1's storage parenthetical is wrong in the middle term.** It says
-   "a plain class (a dict lookup), a `__slots__` class (a descriptor offset), or
-   a C extension type (a struct member ...). Each is more work than the last and
-   each is faster." Measured through `PyObject_GetAttr`, which is what a C shim
-   calls, `__slots__` is **slower** than a plain class (11.20 - 11.30 against
-   9.80 - 9.88) and so is a C extension type reached through its member
-   descriptor. Only the struct member read moves, so the sentence's conclusion is
-   right and its ordering is not. Suggested amendment: the three storages differ
-   only in whether the shim can **stop making a crossing**, not in how fast the
-   crossing is.
-2. **A finding for 9.1 that the design did not anticipate**: a specialised
-   bytecode `LOAD_ATTR` costs 3.37 - 3.91 ns and `PyObject_GetAttr` from C with
-   an interned key costs 9.44 - 9.52. CPython's interpreter has an inline cache
-   and the C API has no equivalent entry point, so **a C shim reading a plain
-   facade is doing the same work about 2.5 times more slowly than the interpreter
-   would**. It is the strongest argument in the slice for the C-extension facade
-   type and it belongs in 9.1 beside the crossing-count argument.
-3. **ABI v1 section 4, the transcoder table.** `ak_tc_latin1` ("CPython 1-byte")
-   and `ak_tc_ucs4` ("CPython 4-byte") would, on CPython, be competing with
-   CPython's own UTF-8 cache rather than with nothing: an uncached read costs
-   64.2 - 67.8 ns and the object keeps the result. Worth a line in decision 3's
-   "what survives", since it changes what the converting transcoders are for on
-   this host.
-4. **A number for section 2's per-runtime crossing table, with R13 applied.**
-   A Python host's forward crossing through a C extension costs **11.4 - 12.5 ns
-   net of the Python loop that calls it** (22.2 - 23.1 ns gross), against
-   **2.8 ns** for the Rust slice's own forward crossing measured on this same
-   machine: **4.1 to 4.5 times a Rust crossing**, which is the form that survives
-   the move to another container. For comparison with the managed rows of that
-   table, a *reverse* call into the interpreter is 39.9 - 40.5 ns, between .NET 8
-   (7.5 to 12) and JNI (98.4) -- but the whole point of README 9.1 is that the
-   Python design does not make that call, and the number that belongs beside the
-   others is the C-API primitive at 2.83 - 20.54 ns.
-5. **Nothing in `design/SHAPES.md` needs changing.** The M1 subtree, the value
-   rules and the P1.x manifest hashes all reproduced exactly, in four
-   independent encoders, on the first attempt.
+## Ambiguous rankings, left for the controlled run
+
+| comparison | why it is left |
+|---|---|
+| plain against `__slots__` through `PyObject_GetAttr` | the sign flips between payloads and between work units; both lose to the C extension type by 2 to 4 times either way, which is far outside any spread here |
+| `METH_O` against `METH_FASTCALL` | overlapping; the mechanism is a C extension either way |
+| abi3 against the full C-API per primitive | 0.995 to 1.072 paired is "no measurable difference". The one real difference is structural: `PyList_SET_ITEM` is absent from the limited API |
+| `pyacc` with a Python function against `operator.attrgetter` | 3.58-3.70 against 3.98-4.09 on encode and inverted on decode. The finding is that **the call** costs, not what the accessor is written in, and it does not need the two separated |
+
+## What is not measured
+
+- **M2 through M7**, and every payload but P1.1, P1.2, P1.3. The generator
+  **raises** on a message outside `walk.SCOPE`, so the scope is enforced by the
+  build. That means no oneof, no explicit presence, no map, no packed field, no
+  repeated string, no adapter site, no 4-level nesting, no bulk bytes. **P2.2,
+  the shape the control plane actually moves, is the largest single gap**: the
+  rust slice's convergence finding says a thin payload's verdict may not survive
+  an element that gains containers.
+- **The corpus beyond `ListResultsResponse`**: 288 of 336 rows, including every
+  `Surrogate` vector (the transcode pair) and every `WireZoo` one.
+- **The RPC arm.** Nothing. `grpcio` is installed and unused.
+- **Concurrency**, so README section 9's actual question -- can it survive the
+  GIL -- is still unanswered. `Py_BEGIN_ALLOW_THREADS` at 34.2-34.7 ns is the
+  only input to it.
+- **Allocation per operation**, in any arm. Only time.
+- **The floor (3.7) and free-threaded CPython.** Neither is on this machine and
+  free-threaded is not installable here at all.
+- **Decision 13's borrowed-span arm.** Priced as an opportunity, not built.
+- **abi3 on the composed arm.** Work unit 1 priced abi3 on the primitives; the
+  shim is built full-API only.
+- **The unknown-field bag.** The core has `ak_ufix_*` groups and `ak_unk_f`
+  slots and this shim passes NULL, so retention is unpriced here.
 
 ## Next step
 
-In order, and the first one is the one that could still change the verdict.
-
-1. **Decode, over the same M1 subtree, same three storages, same premise
-   control.** It is the direction where the storage answer is least safe (object
-   construction at ~41 ns per element dominates a field write at ~0.1 ns) and
-   where ABI v1's two delivery families (7.1) first become a real choice for
-   this host. Until it exists, "the C extension type wins" is an encode
-   statement.
-2. **Widen `SCOPE` in `gen/generate.py` to the rest of `design/SHAPES.md`**, one
-   shape at a time, letting the walker's `Unsupported` raise drive the order.
-   M2 and P2.2 first, since P2.2 is the shape the control plane actually moves
-   and the Rust slice's decode convergence finding says a thin payload's verdict
-   may not survive it.
-3. **Compose the two halves**: put the generated Rust core behind the generated C
-   shim, so there is an arm that is the design rather than one of its edges.
-   **ABI v1 decision 1 is now answered by the C++ slice**, so this builds against
-   ABI v1 rather than around it; the shim should still be written so that an ABI
-   change lands only in the binding backend. What this arm owes is a **crossing
-   count** and **byte identity**, both of which survive the controlled rerun; its
-   nanoseconds do not need to be tight.
-4. **The RPC arm**, where `ctypes` and `cffi` are back in the running and the
-   crossing count is two per call.
-5. **Concurrency**, which is where README section 9's actual question lives and
-   where nothing has been measured. `Py_BEGIN_ALLOW_THREADS` at ~35 ns is the
-   only input to it so far.
-
-## What the scope change means for this slice
-
-Relayed on 2026-09-19 and merged as `4aec4e8`: nobody tries hard at
-cross-language performance until the controlled physical run. Nothing in work
-unit 1 is withdrawn by it and nothing needs re-taking, because what this work
-unit was asked for is exactly what the note says survives: a mechanism choice
-(sign and rough magnitude), a storage choice (2x and 5x gaps, not percentages),
-the premise control (a 3.2x to 5.6x within-arm delta), counted crossings, and
-feasibility. The three comparisons that *were* close are recorded above as
-ambiguous rather than resolved.
-
-What it changes going forward: the next work units buy correctness, crossing
-counts and feasibility first, and no work unit is spent tightening a spread that
-already ranks its candidates.
-
-One cross-check the C++ slice's arrival makes possible. Its container measures
-the Rust crossing at **1.5 ns forward and 2.1 to 2.2 forward-plus-reverse**; this
-one measures **2.8 forward and 2.1 forward-plus-reverse**. The forward-plus-
-reverse row agrees between the two containers to 0.1 ns and the forward row
-differs by 1.9 times, which says the **forward loop** is the one that does not
-travel, not crossings in general. It is a third data point on the oddity recorded
-in `JOURNAL.md` J1 and a reason to prefer the forward-plus-reverse figure when
-one number is wanted.
+1. **M2 and P2.2.** Widen `walk.SCOPE` one shape at a time and let the walker's
+   raise drive the order. It is the largest gap and the one most likely to move
+   the verdict.
+2. **Concurrency**, which is where README section 9's question lives.
+3. **The RPC arm**, where `ctypes` and `cffi` are back in the running.
+4. **Decision 13's borrowed-span facade**, if the aggregating session wants the
+   option priced rather than only noted.
 
 ## Log index
 
-**The R13 calibration is the first row on purpose**: every absolute in this
-directory is a fact about this container and is quotable against it (R13).
-
 | Log | Configuration | What it establishes |
 |---|---|---|
-| `ffi/logs/python/00-r13-rust-crossing.log` | `ffi/poc/rust` unmodified, rustc 1.94.1 release, `libak_core.so` through the dynamic linker, 3 processes, 4 shared vCPU | **R13: this machine's Rust crossing is 2.1 ns (fwd+reverse) to 2.8 ns (forward)**, against 1.8 ns on the Rust slice's container. Also the R5 proof that the boundary is a real dynamic import |
-| `ffi/logs/python/01-environment.log` | this container | What python 3.x this machine can offer, that no free-threaded build exists or is installable, that 3.7 is absent but apt-reachable, that the incumbent is upb, and which wheels pip resolves for 3.7. Facts for README open question 4, no decision |
-| `ffi/logs/python/10-build.log` | gcc 13.3, `-O2 -Werror`, PyO3 0.29.2 release | Every arm built for 3.10 - 3.13; the R5 import check on each; the one abi3 artifact built on 3.10 loaded and run by all four |
-| `ffi/logs/python/20-conformance.log` | 3.10, 3.11, 3.12, 3.13 | **R2**: every codec arm byte-identical to the validated manifest on P1.1, P1.2 and P1.3 (the absent path included), on every interpreter. **R5**: crossing counts from the counting build -- 29.00 per element through `getattr`, **7.00** through a struct member read, 29.00 through the Python-accessor control |
-| `ffi/logs/python/30-mechanism-py3.11.log` | python 3.11.15, 3 separate processes, 11 interleaved rounds, gc off | The mechanism table, the reverse-call table, the primitive table, the abi3 comparison, the PyO3-against-C-API comparison, the three content sets, and the storage table. Everything in sections 1, 2, 4 and 5 above |
-| `ffi/logs/python/31-mechanism-all.log` | 3.10, 3.11, 3.12, 3.13, one process each | The same, across every interpreter here. Absolutes across the blocks are four processes and do not compare; what it establishes is that the **shape** of the answer holds from 3.10 to 3.13 |
-| `ffi/logs/python/40-codec-py3.11.log` | python 3.11.15, protobuf 7.36.2 on upb, 3 separate processes | The codec table of section 2 and the premise control of section 3, with the output-copy floor arm R2 requires |
-| `ffi/logs/python/41-codec-all.log` | 3.10 - 3.13, one process each | The same across interpreters: `cshim member` 0.597 - 0.637 of upb, `cshim getattr` 1.198 - 1.310, the premise control 3.880 - 5.021, pure Python 19.3 - 28.3 |
+| `00-r13-rust-crossing.log` | `ffi/poc/rust` unmodified, 3 processes | **R13**: this machine's rust crossing, 2.1 to 2.8 ns |
+| `01-environment.log` | this container | Which interpreters exist, that no free-threaded build does or can, that 3.7 is absent but apt-reachable and its incumbent still exists (protobuf 4.24.4 / grpcio 1.62.3). README open question 4's facts |
+| `10-build.log`, `20-conformance.log` | work unit 1 | The mechanism arms built and gated on 3.10 - 3.13 |
+| `30-mechanism-py3.11.log` | 3 processes, 11 interleaved rounds | Work unit 1: the mechanism, primitive, abi3, content-set and storage tables |
+| `31-mechanism-all.log` | 3.10 - 3.13, 1 process each | The same, and that the shape holds across interpreters |
+| `40-codec-py3.11.log`, `41-codec-all.log` | work unit 1, no core | The shim-to-facade edge priced on its own, and the premise control |
+| `50-build-wu2.log` | gcc 13.3 `-O2 -Werror`, cargo 1.94.1 | The composed arm built for 3.10 - 3.13; R0 check; **R5's boundary proof from the artifact** |
+| `51-conformance-wu2.log` | 3.10 - 3.13 | **R2** both directions against the validated manifest, the absent path included; the layout facts; **R5's crossing counts in both halves** |
+| `52-r14-baseline.log` | `Protos/V1/results_service.proto` | **R14 derived**: the production path is `SerializeToString` / `FromString` |
+| `60-composed-py3.11.log` | python 3.11.15, protobuf 7.36.2 on upb, 3 processes | **The composed arm**: encode, decode, decode+read, re-read, and the boundary priced in-process |
+| `61-composed-all.log` | 3.10 - 3.13, 1 process each | The same across interpreters: the verdict's shape holds |
+| `70-corpus-subset.log` | 3.11, 48 of 336 vectors | **W8's first consumer**: C1 to C4, the accepted forms written, decision 11 answered, and **D7** |
 
 ## Slice-specific notes
 
 - A reverse call into Python must hold the GIL, so the drafted ABI's per-field
-  upcall is the worst possible shape here. **Measured**: 39.9 - 40.5 ns against
-  2.83 - 20.54 for a C-API primitive.
+  upcall is the worst possible shape here. Measured: 39.9 - 40.5 ns against
+  2.83 - 20.54 for a C-API primitive, and the composed arm makes **zero** of them
+  per field -- the core's reverse count is 0.01 per element.
 - `packages/python` reads no transport environment configuration today, so
-  configuration homogeneity is a pure gain rather than a migration. Unchanged;
-  nothing in work unit 1 touched it.
-- A pure-Python control loses to the native incumbent by an order of magnitude.
-  **Measured at 19.4 - 20.3 times on P1.2**, and R9 says in advance that this is
-  a result: the codec question in Python is native against native.
-- Floor and target may be different code, gated at import rather than compiled
-  out. Untested: there is no floor build.
+  configuration homogeneity is a pure gain rather than a migration. Untouched.
+- A pure-Python control loses to the native incumbent by an order of magnitude
+  (25 to 37 times). R9 says in advance that this is a result: the codec question
+  in Python is native against native, and README outcome 2 ("generate the codec
+  into the host") is off the table for Python in a way it is not for Java.
+- Floor and target may be different code, gated at import. Untested: there is no
+  floor build.

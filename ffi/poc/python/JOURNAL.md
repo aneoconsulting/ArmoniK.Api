@@ -346,3 +346,155 @@ Three comparisons WERE close, and the instruction is to record rather than grind
   arm is possible but its incumbent would be three years older than the target's,
   which makes any floor-against-target ratio a comparison of library versions as
   well as of runtimes -- README R7's hazard, and README 5.2's reason for arm b.
+
+## Work unit 2
+
+### J13. The slice's generator is now one generator
+
+Work unit 1's `mech/gen/generate.py` had its own facade emitter. Work unit 2 needed the
+same facade, and two emitters for one facade is README R0's defect one level down from the
+core. The facade, the pure-Python codec, work unit 1's no-core C shim and the new binding
+are now emitted by one generator at `gen/`, which imports the shared core's `ir.py` and the
+cpp slice's `cpp_header.py` read-only. `mech/` reads `gen/out/` like everything else.
+
+The emitted facade and `_akcodec_gen.c` are byte-identical across the move, so work unit
+1's columns still trace to the files that produced them. `pycodec.py` gained a decode half
+and later two bounds fixes (J18), and its encode half is unchanged.
+
+### J14. The composed arm: the design, finally, rather than one of its edges
+
+`gen/py_binding.py` emits a CPython shim over the shared core at `poc/codec/`. Three
+accessor backends over one traversal, the same three work unit 1 used, so the two are
+comparable. **R0: nothing is copied.** `poc/codec/gen/one_core.sh` passes, the shim links
+`libak_core.so` by path, and `build.sh` proves the boundary from the artifact -- 14
+undefined `ak_*` imports and `libak_core.so` as a `NEEDED` entry, in both the measured and
+the counting build.
+
+**ABI v1 decision 9's sparse fill is what it emits**, from the first line rather than
+retrofitted: the host memsets the element-group chunk once and assigns only what differs.
+A memset to zero IS the group's default -- `tc == NULL` is absent, a zero scalar is the
+proto zero, a zero presence word is no child -- so the sparse fill and the canonical form
+agree by construction rather than by care.
+
+Correctness first (R2): byte-identical to the validated manifest on P1.1, P1.2 and P1.3 on
+3.10, 3.11, 3.12 and 3.13, encode and decode, with decode checked BOTH by re-encoding to
+the same bytes and field-by-field against the incumbent. ABI version and all 380 group
+layout facts checked at import (section 10).
+
+### J15. Crossings: the ABI is not where Python's crossing problem is
+
+Counted in both halves, because neither can count the other's
+(`51-conformance-wu2.log`). Per element, P1.2:
+
+| | shim -> CPython | core, forward | core, reverse |
+|---|---|---|---|
+| encode, C extension facade | **7.00** | 0.01 | 0.00 |
+| encode, `PyObject_GetAttr` | 29.00 | 0.01 | 0.00 |
+| decode, C extension facade | **7.00** | 0.00 | 0.01 |
+| decode, `PyObject_GetAttr` | 22.00 | 0.00 | 0.01 |
+
+**The core's own boundary costs one hundredth of a crossing per element** -- the batched
+element run turns 1,000 elements into about ten entries -- while the shim makes 7 to 29
+crossings into CPython for the same element. So in Python the crossing argument is not
+about the ABI at all: the ABI's crossings are already negligible and every crossing that
+matters is between the shim and the facade. That is a different statement from every other
+slice's, and it is what README 9.1's three layers predict.
+
+### J16. Decode inverts the encode verdict, and the floor arm is what explains it
+
+P1.2, seven independent processes across 3.10 to 3.13, against upb on the R14 production
+path:
+
+| | encode | decode (the call) | decode + read every field |
+|---|---|---|---|
+| core-ffi / C ext type | **0.695 - 0.717** | 1.765 - 1.997 | **0.887 - 0.912** |
+| core-ffi / `__slots__` | 1.49 - 1.59 | 3.70 - 3.75 | 1.026 - 1.056 |
+| core-ffi / plain | 1.59 - 1.78 | 3.96 - 6.93 | 1.059 - 1.082 |
+| core-ffi / pyacc | 4.91 - 5.63 | 11.29 - 11.74 | 1.688 - 1.747 |
+| pycodec (no boundary) | 25.4 - 25.7 | 33.0 - 33.3 | 3.56 - 3.68 |
+
+Taken at face value the middle column says the composed arm regresses on decode. **The
+floor arm says the middle column is not comparing the same work.** Constructing 1,000 bare
+facade objects and copying the input -- no parsing at all -- is **0.80 to 0.84 of upb's
+entire decode**. A decode cannot cost less than producing what it produces, so upb is not
+producing it: `FromString` parses into a upb arena and materialises a Python object only
+when something reads it.
+
+The right-hand column puts both on the same work and the composed arm is back under 1.
+
+### J17. upb does not cache, and that is the sharpest thing in this slice
+
+Measured directly rather than inferred. A second full read of the SAME upb message costs
+**3.04 to 3.13 ms** against 3.44 for the first, so all but about 12 percent of the
+materialisation is paid **again**. The facade's second read is **2.37 to 2.48 ms**, because
+the values are Python objects and stay Python objects.
+
+Two consequences, and the second is the one for the report:
+
+- the like-for-like decode comparison above is if anything generous to upb, since it
+  charges the materialisation once;
+- **a caller that reads its response twice pays upb twice and the facade once.** For a
+  control-plane client that lists results and walks them more than once, the gap widens
+  rather than closes.
+
+**This refutes the hypothesis the branch was carrying into decision 13.** The suggestion
+was that upb may already be doing borrowed spans at the Python level, so the comparison is
+fairer than it looks. It aliases strings into its input buffer *in C*
+(`upb/wire/decode.h:29`), and a Python `str` is a fresh object every time, built on every
+attribute read. There is nothing borrowed at the Python level at all. Decision 13's
+borrowed-span idea is therefore **available to the facade and not already taken by the
+incumbent**, which is the opposite of what the open question assumed -- though what a
+borrowed Python `str` would even be (a `memoryview`, a lazy `str` subclass) is a facade
+question nobody has drafted and this slice did not build.
+
+### J18. The corpus's first consumer, and it found three defects
+
+48 of 336 rows root at `ListResultsResponse`, which is what this slice's scope can reach.
+Rule 0 is checked rather than asserted: the three messages are identical to `corpus.proto`
+and the superset adds seven `u_*` fields this reader does not know, so the reader is the
+reader.
+
+**Two defects were mine, both in the generated pure-Python codec, both fixed:**
+
+- **D5**: it bounds-checked a nested length against the whole buffer instead of against the
+  enclosing message, so it accepted `X-nested-len-overrun` -- a well-formed outer frame
+  whose inner length reaches into a neighbouring field. Exactly the failure the vector's own
+  `why` predicts. The core rejects it correctly (`AK_ERR_TRUNCATED`).
+- **D6**: it raised on an unknown field of the deprecated GROUP form (wire type 3) instead
+  of skipping it. proto3 cannot express a group, so nothing generated from the schema
+  contains one, and a conformant parser still has to skip it.
+
+With both fixed the pure-Python arm passes **47/47 accept and 1/1 reject**.
+
+**The third is in the shared core and is not mine to fix.** `ak_decode_*` returns
+`AK_ERR_MALFORMED` on `U-root-group` and `U-nested-group`; upb accepts both, and I
+confirmed that locally rather than taking the manifest's word for it. Every conformant
+parser must skip an unknown group. It is a defect in `poc/codec/`, it affects every slice,
+and R0 says a change to existing behaviour goes to the aggregating session. Reported, not
+patched.
+
+Decision 11, answered for python: **this slice drops unknown fields** (29 of 34
+unknown-class rows re-encode to the `unknown-dropped` form; the other 3 have nothing to
+drop at the re-encode). The core carries `ak_unk_f` vtable slots and this shim passes NULL
+for every one, so the drop is the binding's choice and not a limit of the ABI.
+
+### J19. One exploratory run disagreed with seven, and the seven win
+
+An early single-process run put encode P1.2's C-extension arm at 0.999 of upb; the three
+committed processes and four cross-interpreter ones put it at 0.695 to 0.717. That run's
+upb row was also 15 percent slower than every later run's, so the whole process was slow
+rather than that one arm being fast. Recorded because the discarded number was the
+conservative one, and discarding a conservative outlier is exactly the move that needs to
+be visible.
+
+### J20. Two name collisions, both of the kind that measures the wrong thing silently
+
+- `mech/arms.py` and `arms.py` are two modules called `arms`. Putting `mech/` on `sys.path`
+  to reach the shared harness made `import arms` resolve to work unit 1's table. Caught by
+  an `AttributeError` this time; the version of this that does not raise is the one to
+  fear. The harness is now loaded by path and no directory that could shadow a module goes
+  on the path.
+- The measured core and the counting core are both `libak_core.so`, so the first one loaded
+  satisfies the other shim's `NEEDED` entry and the counting build silently gets the
+  non-counting core. That is how the first crossing counts came out as zeroes. The counting
+  pass now runs in a subprocess of its own.
