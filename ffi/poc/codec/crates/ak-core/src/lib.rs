@@ -37,6 +37,8 @@
 //! into across the boundary at all (findings/rust.md).
 #![allow(non_camel_case_types, non_upper_case_globals)]
 
+extern crate alloc;
+
 use ak_abi::*;
 use ak_rt::Enc;
 use core::ffi::c_void;
@@ -58,6 +60,192 @@ pub mod generated {
 /// codec and calls nothing would otherwise get its symbols garbage-collected.
 pub fn link_anchor() -> u32 {
     AK_ABI_VERSION
+}
+
+// ---- section 3: the lifecycle -------------------------------------------------------
+//
+// "Nothing here is implicit."  Built by the rust slice, which found that every slice in the
+// branch had skipped it: the codec half needs none of it, so nobody built it, so section
+// 3's central claim -- "every other entry point requires `ak_init` to have returned
+// successfully, the codec included" -- had never been exercised anywhere.
+//
+// WHAT IS REAL HERE AND WHAT IS NOT, stated rather than left to be discovered.  The state
+// machine, the idempotence rules, the ABI-version check, the build id, the log bridge and
+// the panic hook are real and exercised.  The rustls crypto provider is NOT installed,
+// because this crate's codec build does not link rustls at all; `AK_INIT_NO_CRYPTO` names
+// that case and the RPC feature is where the install would go.  A one-line install nobody
+// has run is not evidence, and pretending otherwise is what this branch exists to avoid.
+
+use core::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+
+const INIT_NONE: u32 = 0;
+const INIT_RUNNING: u32 = 1;
+const INIT_DONE: u32 = 2;
+
+static INIT_STATE: AtomicU32 = AtomicU32::new(INIT_NONE);
+/// The options the first successful `ak_init` was given, folded into one word, so a second
+/// call with DIFFERENT options can be refused without storing a struct behind a lock. The
+/// log function pointer is part of it: two hosts asking for two different log sinks is
+/// exactly the disagreement the one-shot install cannot satisfy.
+static INIT_OPTS: AtomicU64 = AtomicU64::new(0);
+
+/// The host's log sink, installed once. Read on every log line, which is why it is an
+/// atomic pair rather than a mutex: a log call must be safe from inside a reverse-call
+/// frame, the same constraint section 5 puts on `ak_fail`.
+static LOG_FN: AtomicU64 = AtomicU64::new(0);
+static LOG_CTX: AtomicU64 = AtomicU64::new(0);
+
+/// Two copies of the staticlib in one process either share Rust's globals or split-brain
+/// them with no warning (section 3), so the build carries an id a host can compare.
+/// Null-terminated: it is the one string in this ABI that is, because it is a C string
+/// constant and not a wire value.
+static BUILD_ID: &[u8] = concat!(
+    "ak-core ", env!("CARGO_PKG_VERSION"), " abi1 ", env!("CARGO_PKG_NAME"), "\0"
+).as_bytes();
+
+fn opts_word(o: &ak_init_opts) -> u64 {
+    let log = o.log.map(|f| f as usize as u64).unwrap_or(0);
+    // The flags and the version in the high half, the sink's identity in the low. Two
+    // different sinks differ; two calls naming the same sink do not.
+    ((o.abi_version as u64) << 48) ^ ((o.flags as u64) << 32) ^ log ^ (o.log_ctx as u64)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ak_init(opts: *const ak_init_opts, err: *mut ak_err) -> i32 {
+    let set = |code: i32, detail: u32| -> i32 {
+        if !err.is_null() {
+            *err = ak_err { code, detail };
+        }
+        code
+    };
+    if opts.is_null() {
+        return set(AK_ERR_INVALID_STATE, AK_DETAIL_NULL_ARG);
+    }
+    let o = *opts;
+
+    // The version the HOST was generated against, checked by the side that knows it, once,
+    // at the only point where failing is cheap (section 3).
+    if o.abi_version != AK_ABI_VERSION {
+        return set(AK_ERR_ABI, AK_DETAIL_ABI_MISMATCH);
+    }
+
+    let word = opts_word(&o);
+    match INIT_STATE.compare_exchange(INIT_NONE, INIT_RUNNING, Ordering::AcqRel, Ordering::Acquire)
+    {
+        Ok(_) => {}
+        Err(_) => {
+            // Already initialising or initialised. Spin until the first call has finished,
+            // because a second caller must not return before the installs are visible --
+            // "every other entry point requires ak_init to have returned successfully" is
+            // a claim about ALL callers, not about the first.
+            while INIT_STATE.load(Ordering::Acquire) == INIT_RUNNING {
+                core::hint::spin_loop();
+            }
+            return if INIT_OPTS.load(Ordering::Acquire) == word {
+                set(AK_ALREADY_INITIALIZED, AK_DETAIL_NONE)
+            } else {
+                // The one-shot installs cannot be redone, so this is a failure and not a
+                // no-op. There is no ak_shutdown for the same reason.
+                set(AK_ERR_INVALID_STATE, AK_DETAIL_OPTS_DIFFER)
+            };
+        }
+    }
+
+    // ---- the one-shot installs, in the order section 3 gives them.
+
+    // 1. the crypto provider. NOT DONE, and the flag is how a host says so. The codec build
+    //    does not link rustls; see the module comment.
+    let _ = o.flags & AK_INIT_NO_CRYPTO;
+
+    // 2. the log bridge. `tracing::set_global_default` and `log::set_logger` are one-shot
+    //    per process, so who owns them is decided here or not at all.
+    if o.flags & AK_INIT_OWN_LOGGING == 0 {
+        LOG_FN.store(o.log.map(|f| f as usize as u64).unwrap_or(0), Ordering::Release);
+        LOG_CTX.store(o.log_ctx as u64, Ordering::Release);
+    }
+
+    // 3. the panic hook. It changes what a panic PRINTS; it does not stop one. A panic
+    //    raised inside an `extern "C"` entry point of this ABI still aborts the process,
+    //    because the unwind is refused at the boundary -- measured by the rust slice's
+    //    concurrency suite, which reaches that path on purpose.
+    if o.flags & AK_INIT_NO_PANIC_HOOK == 0 {
+        let prev = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            let msg = alloc::format!("panic in ak-core: {info}");
+            if !ak_log(0, msg.as_ptr(), msg.len()) {
+                prev(info);
+            }
+        }));
+    }
+
+    INIT_OPTS.store(word, Ordering::Release);
+    INIT_STATE.store(INIT_DONE, Ordering::Release);
+    set(AK_OK, AK_DETAIL_NONE)
+}
+
+/// Whether `ak_init` has returned successfully. Not in the specification; it is what makes
+/// "every other entry point requires `ak_init`" testable from outside the core.
+#[no_mangle]
+pub extern "C" fn ak_initialized() -> i32 {
+    i32::from(INIT_STATE.load(Ordering::Acquire) == INIT_DONE)
+}
+
+#[no_mangle]
+pub extern "C" fn ak_build_id() -> *const core::ffi::c_char {
+    BUILD_ID.as_ptr() as *const core::ffi::c_char
+}
+
+/// The guard section 3 requires on every other entry point.
+///
+/// Behind a feature, and that is a measurement decision rather than a design one: "every
+/// entry point requires `ak_init`" is a claim with a price on the hot path (`ak_elem_*` is
+/// called once per chunk, `ak_encode_*` once per message), and the price has never been
+/// quoted anywhere in this branch. With `init-guard` off the generated entry points are
+/// exactly what they were; with it on they check, and the difference is the price.
+#[inline(always)]
+pub fn ak_init_ok() -> bool {
+    // Relaxed: the store that makes it true is Release and happens-before any host call
+    // that could observe it, because the host had to see `ak_init` return first. What this
+    // load must not do is cost a fence on every encode.
+    INIT_STATE.load(Ordering::Relaxed) == INIT_DONE
+}
+
+/// Emit a line through the host's sink. Returns false if there is none, so a caller can
+/// fall back. Never allocates a sink, never locks, safe from inside a reverse-call frame.
+pub fn ak_log(level: u32, msg: *const u8, len: usize) -> bool {
+    let f = LOG_FN.load(Ordering::Acquire);
+    if f == 0 {
+        return false;
+    }
+    let f: ak_log_fn = unsafe { core::mem::transmute(f as usize) };
+    unsafe { f(LOG_CTX.load(Ordering::Acquire) as *mut c_void, level, msg, len) };
+    true
+}
+
+/// Emit a line, for a host that wants to see the bridge work without waiting for the core
+/// to have something to say. Exercises the same path a real log line takes.
+#[no_mangle]
+pub unsafe extern "C" fn ak_log_test(level: u32, msg: *const u8, len: usize) -> i32 {
+    i32::from(ak_log(level, msg, len))
+}
+
+/// Panic INSIDE the core, on purpose, so the panic hook can be seen working.
+///
+/// It exists because the hook cannot be tested any other way, and that is itself the
+/// finding: the hook covers a panic raised in the core, and a Rust host's own panics go to
+/// the host's hook, because a cdylib carries its own copy of `std` and the two hooks are
+/// two different globals. Section 3 warns about exactly this mechanism one level up ("two
+/// copies of the staticlib in one process either share Rust's globals or split-brain them
+/// with no warning"); here it is `std`'s globals rather than the core's, and the split is
+/// not a defect but the reason the hook is worth installing at all.
+///
+/// The caller does not get control back. This frame is `extern "C"`, so the unwind is
+/// refused at the boundary and the process aborts -- the hook's whole value is that the
+/// message reaches the host's log FIRST. A guard with no failing test is a guard nobody has
+/// seen work (README R1), and this is the failing test.
+#[no_mangle]
+pub extern "C" fn ak_panic_test() {
+    panic!("deliberate panic inside ak-core, from ak_panic_test");
 }
 
 // ---- contexts ---------------------------------------------------------------------

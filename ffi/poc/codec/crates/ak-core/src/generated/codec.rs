@@ -1223,6 +1223,11 @@ pub unsafe extern "C" fn ak_elemu_MetricsBatch(
     n: i32,
     tok0: i64,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1262,6 +1267,11 @@ pub unsafe extern "C" fn ak_uelemu_MetricsBatch(
     n: i32,
     tok0: i64,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1297,6 +1307,11 @@ pub unsafe extern "C" fn ak_elem_Pair(
     elems: *const ak_efix_Pair,
     n: i32,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1329,6 +1344,11 @@ pub unsafe extern "C" fn ak_uelem_Pair(
     elems: *const ak_ufix_Pair,
     n: i32,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1360,6 +1380,11 @@ pub unsafe extern "C" fn ak_elem_Probe(
     elems: *const ak_efix_Probe,
     n: i32,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1392,6 +1417,11 @@ pub unsafe extern "C" fn ak_uelem_Probe(
     elems: *const ak_ufix_Probe,
     n: i32,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1423,6 +1453,11 @@ pub unsafe extern "C" fn ak_elem_ResultRaw(
     elems: *const ak_efix_ResultRaw,
     n: i32,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1455,6 +1490,11 @@ pub unsafe extern "C" fn ak_uelem_ResultRaw(
     elems: *const ak_ufix_ResultRaw,
     n: i32,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1487,6 +1527,11 @@ pub unsafe extern "C" fn ak_elemu_TaskDetailed(
     n: i32,
     tok0: i64,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1526,6 +1571,11 @@ pub unsafe extern "C" fn ak_uelemu_TaskDetailed(
     n: i32,
     tok0: i64,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1561,6 +1611,11 @@ pub unsafe extern "C" fn ak_elem_TaskOptionsOptionsEntry(
     elems: *const ak_efix_TaskOptionsOptionsEntry,
     n: i32,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1593,6 +1648,11 @@ pub unsafe extern "C" fn ak_uelem_TaskOptionsOptionsEntry(
     elems: *const ak_ufix_TaskOptionsOptionsEntry,
     n: i32,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1625,6 +1685,11 @@ pub unsafe extern "C" fn ak_elemu_TaskSummary(
     n: i32,
     tok0: i64,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1664,6 +1729,11 @@ pub unsafe extern "C" fn ak_uelemu_TaskSummary(
     n: i32,
     tok0: i64,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     // ABI v1: an element entry point must leave the codec's open-field state as it found
@@ -1700,6 +1770,11 @@ pub unsafe extern "C" fn ak_encode_ListResultsResponse(
     vt: *const ak_evt_ListResultsResponse,
     fix: *const ak_efix_ListResultsResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1728,6 +1803,11 @@ pub unsafe extern "C" fn ak_uencode_ListResultsResponse(
     vt: *const ak_evt_ListResultsResponse,
     fix: *const ak_ufix_ListResultsResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1757,6 +1837,11 @@ pub unsafe extern "C" fn ak_encode_ListTasksDetailedResponse(
     vt: *const ak_evt_ListTasksDetailedResponse,
     fix: *const ak_efix_ListTasksDetailedResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1786,6 +1871,11 @@ pub unsafe extern "C" fn ak_uencode_ListTasksDetailedResponse(
     vt: *const ak_evt_ListTasksDetailedResponse,
     fix: *const ak_ufix_ListTasksDetailedResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1816,6 +1906,11 @@ pub unsafe extern "C" fn ak_encode_ListProbeResponse(
     vt: *const ak_evt_ListProbeResponse,
     fix: *const ak_efix_ListProbeResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1842,6 +1937,11 @@ pub unsafe extern "C" fn ak_uencode_ListProbeResponse(
     vt: *const ak_evt_ListProbeResponse,
     fix: *const ak_ufix_ListProbeResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1869,6 +1969,11 @@ pub unsafe extern "C" fn ak_encode_ListTaskSummaryResponse(
     vt: *const ak_evt_ListTaskSummaryResponse,
     fix: *const ak_efix_ListTaskSummaryResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1896,6 +2001,11 @@ pub unsafe extern "C" fn ak_uencode_ListTaskSummaryResponse(
     vt: *const ak_evt_ListTaskSummaryResponse,
     fix: *const ak_ufix_ListTaskSummaryResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1926,6 +2036,11 @@ pub unsafe extern "C" fn ak_encode_UploadResultDataMessage(
     direct: *const u8,
     direct_len: usize,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1960,6 +2075,11 @@ pub unsafe extern "C" fn ak_uencode_UploadResultDataMessage(
     direct: *const u8,
     direct_len: usize,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -1994,6 +2114,11 @@ pub unsafe extern "C" fn ak_encode_ListMetricsResponse(
     vt: *const ak_evt_ListMetricsResponse,
     fix: *const ak_efix_ListMetricsResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -2021,6 +2146,11 @@ pub unsafe extern "C" fn ak_uencode_ListMetricsResponse(
     vt: *const ak_evt_ListMetricsResponse,
     fix: *const ak_ufix_ListMetricsResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -2049,6 +2179,11 @@ pub unsafe extern "C" fn ak_encode_DualResponse(
     vt: *const ak_evt_DualResponse,
     fix: *const ak_efix_DualResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -2084,6 +2219,11 @@ pub unsafe extern "C" fn ak_uencode_DualResponse(
     vt: *const ak_evt_DualResponse,
     fix: *const ak_ufix_DualResponse,
 ) -> isize {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED as isize;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
@@ -2119,6 +2259,11 @@ pub unsafe extern "C" fn ak_blob_run(
     elems: *const ak_str,
     n: i32,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
@@ -2130,6 +2275,11 @@ pub unsafe extern "C" fn ak_blob_run(
 
 #[no_mangle]
 pub unsafe extern "C" fn ak_run_i32(ctx: *mut ak_enc_ctx, p: *const i32, n: usize) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     if n == 0 { return AK_OK; }
@@ -2147,6 +2297,11 @@ pub unsafe extern "C" fn ak_run_i32(ctx: *mut ak_enc_ctx, p: *const i32, n: usiz
 
 #[no_mangle]
 pub unsafe extern "C" fn ak_run_i64(ctx: *mut ak_enc_ctx, p: *const i64, n: usize) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     if n == 0 { return AK_OK; }
@@ -2164,6 +2319,11 @@ pub unsafe extern "C" fn ak_run_i64(ctx: *mut ak_enc_ctx, p: *const i64, n: usiz
 
 #[no_mangle]
 pub unsafe extern "C" fn ak_run_f64(ctx: *mut ak_enc_ctx, p: *const f64, n: usize) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     if n == 0 { return AK_OK; }
@@ -2181,6 +2341,11 @@ pub unsafe extern "C" fn ak_run_f64(ctx: *mut ak_enc_ctx, p: *const f64, n: usiz
 
 #[no_mangle]
 pub unsafe extern "C" fn ak_run_u8(ctx: *mut ak_enc_ctx, p: *const u8, n: usize) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
     if n == 0 { return AK_OK; }
@@ -3648,6 +3813,11 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
     len: usize,
     vt: *const ak_dvt_ListResultsResponse,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -3740,6 +3910,11 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
     len: usize,
     vt: *const ak_dvt_ListTasksDetailedResponse,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -3803,6 +3978,11 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
     len: usize,
     vt: *const ak_dvt_ListProbeResponse,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -3887,6 +4067,11 @@ pub unsafe extern "C" fn ak_decode_ListTaskSummaryResponse(
     len: usize,
     vt: *const ak_dvt_ListTaskSummaryResponse,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -3942,6 +4127,11 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
     len: usize,
     vt: *const ak_dvt_UploadResultDataMessage,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -4022,6 +4212,11 @@ pub unsafe extern "C" fn ak_decode_ListMetricsResponse(
     len: usize,
     vt: *const ak_dvt_ListMetricsResponse,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -4077,6 +4272,11 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
     len: usize,
     vt: *const ak_dvt_DualResponse,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -5399,6 +5599,11 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
     buf: *const u8,
     len: usize,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
@@ -5500,6 +5705,11 @@ pub unsafe extern "C" fn ak_parse_ListTasksDetailedResponse(
     buf: *const u8,
     len: usize,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
@@ -5567,6 +5777,11 @@ pub unsafe extern "C" fn ak_parse_ListProbeResponse(
     buf: *const u8,
     len: usize,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
@@ -5660,6 +5875,11 @@ pub unsafe extern "C" fn ak_parse_ListTaskSummaryResponse(
     buf: *const u8,
     len: usize,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
@@ -5719,6 +5939,11 @@ pub unsafe extern "C" fn ak_parse_UploadResultDataMessage(
     buf: *const u8,
     len: usize,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
@@ -5803,6 +6028,11 @@ pub unsafe extern "C" fn ak_parse_ListMetricsResponse(
     buf: *const u8,
     len: usize,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
@@ -5862,6 +6092,11 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
     buf: *const u8,
     len: usize,
 ) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,

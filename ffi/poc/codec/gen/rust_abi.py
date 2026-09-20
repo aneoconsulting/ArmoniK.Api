@@ -456,6 +456,56 @@ RESTORE_LINES = """    (*cx).open_tag = saved.0;
 """.rstrip("\n").split("\n")
 
 
+def _init_guard(body):
+    """ABI v1 section 3: "Every other entry point requires `ak_init` to have returned
+    successfully, the codec included, and returns AK_ERR_UNINITIALIZED if it has not."
+
+    Emitted as a post-pass over the finished body rather than at each of the ten places an
+    entry point is written, because the rule is about the SET of entry points and a rule
+    applied at nine of ten sites is the defect class this generator keeps finding (D12,
+    D13): a walker that misses a case and reports nothing.  Here the pass finds every
+    `extern "C" fn ak_*` in the emitted text, so a new entry point gets the guard by
+    existing rather than by someone remembering.
+
+    Behind `init-guard`, off by default.  That is a measurement decision and not a design
+    one: the claim has a price on the hot path -- `ak_elem_*` runs once per chunk and
+    `ak_encode_*` once per message -- and no slice in this branch has quoted it.  With the
+    feature off the emitted entry points are byte-for-byte what they were.
+    """
+    out = []
+    i = 0
+    n = len(body)
+    while i < n:
+        ln = body[i]
+        out.append(ln)
+        if not (ln.startswith("pub unsafe extern \"C\" fn ak_")
+                or ln.startswith("pub extern \"C\" fn ak_")):
+            i += 1
+            continue
+        # Walk to the end of the signature, which is the first line ending in `{`.
+        j = i
+        while j < n and not body[j].rstrip().endswith("{"):
+            j += 1
+            out.append(body[j])
+        if j >= n:
+            i = j + 1
+            continue
+        sig = " ".join(body[i:j + 1])
+        if "-> isize" in sig:
+            bad = "return AK_ERR_UNINITIALIZED as isize;"
+        elif "->" in sig:
+            bad = "return AK_ERR_UNINITIALIZED;"
+        else:
+            bad = "return;"
+        out.append("    // ABI v1 section 3: every entry point requires `ak_init`.")
+        out.append("    #[cfg(feature = \"init-guard\")]")
+        out.append("    if !crate::ak_init_ok() {")
+        out.append("        %s" % bad)
+        out.append("    }")
+        i = j + 1
+    return out
+
+
 def emit_codec(ir):
     from rust_core import Sites
     sites = Sites()
@@ -814,6 +864,7 @@ def emit_codec(ir):
         body.append("")
 
     body.extend(_emit_decode(ir, sites))
+    body = _init_guard(body)
 
     global SITE_NAMES
     SITE_NAMES = ["/".join(str(x) for x in (k[0], k[1], ".".join(k[2]))) for k in sites.ids]

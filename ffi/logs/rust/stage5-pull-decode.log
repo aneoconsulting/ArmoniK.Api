@@ -1170,10 +1170,15 @@ P5.4            18.4     306540.7      -1730.4         1250.4         2980.8    
      replay        walk - materialise                      1.27-1.29M  13.4-13.7k
      drain copy    pull - walk                             18-56k      1.3-1.9k
 
-   As a fraction of a push decode: materialise is 8.5% (P2.4) to 26% (P1.3, and
-   47% on P6.1) ; the drain copy is 1% to 12%.  The C# slice ESTIMATED the pull
-   form's intermediate at 12 to 19 percent of a parse; measured here the copy
-   half of it is 1 to 12 percent of a whole decode.
+   As a fraction of a push decode: **materialise is 8.5% (P2.4) to 26% (P1.3),
+   and 47% on P6.1; the drain copy is 1% to 12%.**
+
+   Against the figure the branch is carrying: ABI v1 7.1 records that "the C#
+   slice measured the pull form's intermediate as costing an estimated 12 to 19
+   percent of a parse".  Both terms above are quoted rather than one, because
+   "the intermediate" could mean either of them and the two differ by up to a
+   factor of forty on this host.  What is NOT in doubt is that both are paid in
+   full by a managed host and only the first by a native one.
 
    P5.4 is the control that bounds the materialise term from below: a 4 MB bulk
    decode parses in 18-19 ns, because the core records a span and copies nothing.

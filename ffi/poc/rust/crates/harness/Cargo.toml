@@ -19,6 +19,9 @@ dec-reject-simd = ["ak-rt/dec-reject-simd"]
 # ABI v1 obligation 12.5 and section 6: the process-global learned-width table, which
 # section 6 refuses. Built so the refusal is measured rather than inherited.
 global-widths = ["ak-rt/global-widths", "ak-core/global-widths"]
+# ABI v1 section 3's "every entry point requires ak_init", as an arm, so what it costs on
+# the hot path is a number rather than a claim.
+init-guard = ["ak-core/init-guard"]
 
 [dependencies]
 # Build-ordering and feature plumbing only. `ak-core` is a cdylib: it is linked by
@@ -99,3 +102,7 @@ path = "src/bin/pullbench.rs"
 [[bin]]
 name = "concur"
 path = "src/bin/concur.rs"
+
+[[bin]]
+name = "lifecycle"
+path = "src/bin/lifecycle.rs"

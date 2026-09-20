@@ -1,52 +1,91 @@
 ================================================================================
- ABI v1 CONFORMANCE OBLIGATION 12.5: THE CONCURRENCY SUITE
- The first thing in this branch to run the codec on more than one thread.
+ ABI v1 SECTION 3: THE LIFECYCLE, BUILT AND EXERCISED
+ And what its one rule costs on the hot path.
 ================================================================================
 
 CONFIGURATION (R7, R14)
   rustc 1.94.1 (e408947bf 2026-03-25), release, lto=false, PIE
-  incumbent  none.  This suite has no incumbent arm and quotes no ratio against
-             prost: what it measures is the core against itself under two
-             arrangements of ONE mechanism, which is what R14's baseline rule is
-             about and which a codec-internal comparison does not engage.
+  incumbent  prost 0.14.4, through the path tonic-prost actually calls
+             (`Message::encode` / `Message::decode`; see
+             logs/rust/stage5-pull-decode.log for the reading of
+             tonic-prost 0.14.6's src/codec.rs that establishes it)
   linkage    shared library (ak-core as a cdylib), both arms, confirmed from ldd
   machine    4 vCPU Intel Xeon @ 2.10GHz, shared container
-  guard      ON
+  guard      ABI v1 section 5's accessor guard ON throughout.  Not to be confused
+             with `init-guard`, which is section 3's separate rule and is the arm
+             below.
   arms       one source tree, two builds:
-               default                     the learned-width table PER CONTEXT,
-                                           which is what ABI v1 section 6 says
-               --features global-widths    ONE table for the whole process, which
-                                           is what section 6 REFUSES
-             Both produce correct bytes, because `Mark` carries its own width by
-             value -- so the comparison isolates the table's location and nothing
-             else.  Separate CARGO_TARGET_DIRs, so neither build can be the
-             other's stale artifact.
-  R9         4 vCPUs in a shared container is the smallest contention a shared
-             cache line can have.  Every penalty below is a LOWER BOUND, and the
-             throughput half of this log is the part R9's warning is about.
+               default                 entry points do not check for `ak_init`
+               --features init-guard   every entry point checks, and returns
+                                       AK_ERR_UNINITIALIZED if it has not run
+             Separate CARGO_TARGET_DIRs, so neither build is the other's stale
+             artifact.
+  R4         The two builds cannot share a process, so the comparison carries the
+             in-process control R4 requires: `prost` and `core-native` are in
+             every run and NEITHER has the guard.  If they move between the
+             builds, the machine moved and the guard's column is not readable.
 
-WHY THE OBLIGATION EXISTS, AND WHY IT HAD NOT
-  Stage 4 found D16 -- `ak_call_unary` took `*mut ak_client` and mutated a shared
-  `Grpc`, so two host threads calling it at once raced; it worked at 1 call in
-  flight and failed outright at 8 -- BY ACCIDENT, because the RPC benchmark
-  happened to ask for 8.  Nothing in any slice looks for that class on purpose.
-  And the learned length-prefix width table, which ABI v1 section 6 says "lives
-  in the context, never process-global", had never been touched by two threads in
-  any slice of this branch.
+WHY SECTION 3 HAD NEVER BEEN BUILT, WHICH IS ITSELF THE FINDING
+  The codec half needs none of it.  So no slice built it, and section 3's central
+  claim -- "every other entry point requires `ak_init` to have returned
+  successfully, THE CODEC INCLUDED" -- had never been exercised anywhere in this
+  branch.  `findings/rust.md` lists it under "the specified surface that is not
+  built" and every other slice's list says the same.
 
-WHY TWO SHAPES, WHICH IS THE OBLIGATION'S OWN CONDITION
-  The table is indexed by SITE.  One shape exercises one set of sites, converges,
-  and a per-context state defect is then invisible; two shapes make the same site
-  want two different widths, which is the state a defect corrupts.  Section 2
-  below carries the one-shape row beside the two-shape row so the difference is
-  in the log rather than in this paragraph.
+WHAT IS BUILT HERE AND WHAT IS NOT
+  Built and exercised: `ak_init` with its options struct and flags; the `ak_err`
+  out-parameter and its detail codes; the ABI-version check, made by the side
+  that knows what it was generated against; idempotence under identical options,
+  with AK_ALREADY_INITIALIZED as a SUCCESS; refusal on different options; a null
+  options pointer; no `ak_shutdown`, by not existing; `ak_build_id`; the log
+  bridge and AK_INIT_OWN_LOGGING; the panic hook and AK_INIT_NO_PANIC_HOOK; the
+  AK_ERR_UNINITIALIZED guard on every entry point, behind a feature and priced;
+  and the one-shot rule under eight racing threads.
+
+  NOT built, and none of it is cheap to fake:
+    * the rustls crypto provider installed by name.  This build does not link
+      rustls at all; AK_INIT_NO_CRYPTO names the case a codec-only host is in,
+      which is four of the five slices.
+    * `tracing::set_global_default` and `log::set_logger`.  The bridge built here
+      is the ABI's own `ak_log_fn`, which is what a C host can consume; wiring
+      the two Rust crates to it is a different job.
+    * configuration precedence (an explicit setter beats the environment, the
+      environment beats the JSON handed to `ak_context_new`, that beats the
+      defaults) and the `worker_threads` default.  Both belong to
+      `ak_context_new` and `ak_runtime_opts`, which are the RPC half, and neither
+      exists here.  **This is the behavioural half of section 3 and it remains
+      unexercised** -- it is the half that turns `GrpcClient__AllowUnsafeConnection`
+      into a silent certificate bypass if the order is inverted.
+
+  A one-line install nobody has run is not evidence, which is why the list above
+  is in the log rather than in a footnote.
+
+WHY EVERY CASE IS ITS OWN PROCESS
+  `ak_init` is one-shot per process by construction and there is no
+  `ak_shutdown` to undo it, so a suite that ran two cases in one process would be
+  measuring the second case against the first case's installs.  The binary
+  re-runs itself with a case name and the parent reports each child's verdict.
+  Two of the cases cannot exit at all -- they end in a process abort, on purpose,
+  and the parent reads that from the exit status.
 
 ===== 0. configuration =====
 rustc 1.94.1 (e408947bf 2026-03-25)
 4
 model name	: Intel(R) Xeon(R) Processor @ 2.10GHz
 
-===== 1. build both arms =====
+===== 1. generator is current, and there is one core =====
+ok    crates/facade/src/generated/types.rs
+ok    crates/facade/src/generated/prost_impl.rs
+ok    crates/facade/src/generated/build.rs
+ok    crates/facade/src/generated/core_native.rs
+ok    ../codec/crates/ak-abi/src/generated/abi.rs
+ok    ../codec/crates/ak-core/src/generated/codec.rs
+ok    crates/harness/src/generated/binding.rs
+  [ok]   codec/gen/generate.py --check: 3 files ok
+
+one_core: 0 failure(s)
+
+===== 2. build both arms =====
 warning: unused variable: `o`
    --> crates/facade/src/generated/core_native.rs:215:14
     |
@@ -84,29 +123,29 @@ warning: variable does not need to be mutable
     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
 
 warning: useless assignment of field of type `i32` to itself
-    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:5002:46
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:5202:46
      |
-5002 | ...                   if cd.err != 0 { cd.err = cd.err; }
+5202 | ...                   if cd.err != 0 { cd.err = cd.err; }
      |                                        ^^^^^^^^^^^^^^^
      |
      = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
 
 warning: useless assignment of field of type `i32` to itself
-    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:4483:46
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:4683:46
      |
-4483 | ...                   if cd.err != 0 { cd.err = cd.err; }
+4683 | ...                   if cd.err != 0 { cd.err = cd.err; }
      |                                        ^^^^^^^^^^^^^^^
 
 warning: useless assignment of field of type `i32` to itself
-    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:3284:46
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:3449:46
      |
-3284 | ...                   if cd.err != 0 { cd.err = cd.err; }
+3449 | ...                   if cd.err != 0 { cd.err = cd.err; }
      |                                        ^^^^^^^^^^^^^^^
 
 warning: useless assignment of field of type `i32` to itself
-    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2767:46
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2932:46
      |
-2767 | ...                   if cd.err != 0 { cd.err = cd.err; }
+2932 | ...                   if cd.err != 0 { cd.err = cd.err; }
      |                                        ^^^^^^^^^^^^^^^
 
 warning: function `enc_list_results_response_group` is never used
@@ -603,38 +642,30 @@ help: convert the identifier to upper case
 2609 + static ELEM_VT_LIST_METRICS_RESPONSE_BATCHES: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
      |
 
-warning: unused variable: `sites`
-  --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-rt/src/enc.rs:56:16
-   |
-56 |     pub fn new(sites: usize) -> Self {
-   |                ^^^^^ help: if this is intentional, prefix it with an underscore: `_sites`
-   |
-   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
-
 warning: useless assignment of field of type `i32` to itself
-    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:5002:46
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:5202:46
      |
-5002 | ...                   if cd.err != 0 { cd.err = cd.err; }
+5202 | ...                   if cd.err != 0 { cd.err = cd.err; }
      |                                        ^^^^^^^^^^^^^^^
      |
      = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
 
 warning: useless assignment of field of type `i32` to itself
-    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:4483:46
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:4683:46
      |
-4483 | ...                   if cd.err != 0 { cd.err = cd.err; }
+4683 | ...                   if cd.err != 0 { cd.err = cd.err; }
      |                                        ^^^^^^^^^^^^^^^
 
 warning: useless assignment of field of type `i32` to itself
-    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:3284:46
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:3449:46
      |
-3284 | ...                   if cd.err != 0 { cd.err = cd.err; }
+3449 | ...                   if cd.err != 0 { cd.err = cd.err; }
      |                                        ^^^^^^^^^^^^^^^
 
 warning: useless assignment of field of type `i32` to itself
-    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2767:46
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2932:46
      |
-2767 | ...                   if cd.err != 0 { cd.err = cd.err; }
+2932 | ...                   if cd.err != 0 { cd.err = cd.err; }
      |                                        ^^^^^^^^^^^^^^^
 
 warning: function `enc_list_results_response_group` is never used
@@ -1167,778 +1198,289 @@ help: convert the identifier to upper case
 2609 + static ELEM_VT_LIST_METRICS_RESPONSE_BATCHES: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
      |
 
-# the shared object each binary actually loaded, from ldd and not from the build log:
-	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so (0x00007f6340800000)
-	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/rust/target-gw/release/deps/libak_core.so (0x00007fe785400000)
-
-===== 1b. the shared-site pair really does flip a width (counting build) =====
-# A contention arm that never contends measures nothing, so the flipping is counted.
-### does the shared-site pair flip a width? (counted, not argued)
-
-warm context                prefix misses    bytes moved
-P1.1 alone                              0              0
-P1.1 / P1.3 alternating                40           4140
-
-# A warm context on ONE shape misses nothing; the same context alternating the
-# two misses on every element. That is the state a shared table puts every
-# thread in at once, and it is why the pair was chosen.
-
-### P1.1 + P1.3, SHARED SITES (both M1, widths flip 2<->1) (per-context table)
-
-threads    enc/s aggregate  ns per encode    scaling    vs 1 thread
-1                  260686         3836.0       1.00x           0.0%
-
-===== 2. per-context table (ABI v1 section 6 as specified), three runs =====
-
------ per-context run 1 -----
-# ABI v1 obligation 12.5: the concurrency suite
-#   width table: per context (ABI v1 section 6 as specified)
-#   guard:       on
-#   shapes:      P1.2 and P2.2 (M1 leaf, M2 non-leaf), plus P1.3 and P2.5
-#   vCPUs:       4
-
-## 1. the reference, single-threaded, a fresh context per shape
-
-shape         bytes
-P1.2         218121
-P2.2         540422
-P1.3            605
-P2.5          19632
-
-## 2. SEQUENCE: two shapes alternating on ONE context, one thread
-
-  encodes 40, wrong 0
-  decodes 40, wrong 0
-
-# The one-shape control, which is the comparison obligation 12.5 asks for:
-  one shape (P1.2) on one context, 40 encodes, wrong 0
-# A per-shape-state defect is invisible to that row by construction and
-# visible to the rotation above. That is why the obligation says two shapes.
-
-## 3. TOGETHER: N threads, one context each, both shapes
-
-threads         encodes      wrong decodes wrong
-2                   400          0            0
-4                   800          0            0
-8                  1600          0            0
-
-# 8 threads on 4 vCPUs is deliberate: oversubscription puts a preemption
-# between a `begin` and its `end`, which is where a state defect that needs a
-# window to open would show. R9 is the caveat on the other side -- a
-# concurrency figure from a small container is a lower bound on contention,
-# and section 5 below is the figure, not this section.
-
-## 4. THE POSITIVE CONTROL: the suite has to be seen failing
-
-# Planted violation: 4 threads share ONE encode context, which ABI v1 section
-# 3 makes a host-owned single-threaded thing. D16's class -- a shared mutable
-# handle reached through an opaque pointer -- moved from the RPC half to the
-# codec half on purpose. It is a deliberate contract violation and a data race,
-# so it runs in a CHILD PROCESS and nothing downstream depends on it.
-
-  child exit: None
-  child stderr: thread '<unnamed>' (22043) panicked at /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-rt/src/enc.rs:190:18:
-
-  The control fires, so sections 2 and 3 are statements about the code and not
-  about a check that cannot fail.
-
-  AND THE SHAPE OF THE FAILURE IS A FINDING NOBODY ASKED FOR. The violation is
-  not detected as wrong bytes: two threads resizing one length prefix index the
-  encode buffer past its end, the core panics inside `Enc`, and because the
-  frame it has to unwind through is an `extern "C"` entry point of the ABI
-  (`ak_elem_ResultRaw`), the panic CANNOT unwind and the PROCESS ABORTS.
-
-  Three things follow, and they are for the specification rather than for this
-  slice:
-   1. ABI v1 section 5's error channel covers a failure the HOST reports, through
-      `ak_fail` and the generated guard. A panic inside the CORE has no channel
-      at all: it reaches a `extern "C"` boundary and aborts. Every entry point
-      in the codec is exposed to this, not only under a shared context.
-   2. Section 3 says `ak_init` installs a panic hook. It is unbuilt (this slice
-      builds it -- see the lifecycle log), and a hook changes what is PRINTED,
-      not whether the abort happens. Catching the unwind at the entry point is a
-      different and larger change.
-   3. The context already carries a `kind` word so a wrong pointer is
-      diagnosable. An owning-thread id beside it would turn this abort into
-      `AK_ERR_INVALID_STATE` at the first misuse rather than at an arbitrary
-      later one. That is a design question and it is raised, not taken.
-
-## 5. aggregate throughput, per-context width table
-
-### does the shared-site pair flip a width? (rebuild with --features count)
-
-### P1.1 + P1.3, SHARED SITES (both M1, widths flip 2<->1) (per-context table)
-
-threads    enc/s aggregate  ns per encode    scaling    vs 1 thread
-1                  271204         3687.3       1.00x           0.0%
-2                  557808         3585.5       2.06x          -2.8%
-4                 1107757         3610.9       4.08x          -2.1%
-
-### P1.3 + P2.5, disjoint sites (the control) (per-context table)
-
-threads    enc/s aggregate  ns per encode    scaling    vs 1 thread
-1                   99119        10088.9       1.00x           0.0%
-2                  190115        10520.0       1.92x           4.3%
-4                  374853        10670.9       3.78x           5.8%
-
-# The warm-up is outside the clock, so a per-context build has already learned
-# every width before the first timed encode. A global build cannot reach that
-# state on the SHARED-SITE row, because the two shapes keep taking it back --
-# and it reaches it immediately on the disjoint row, which is the control.
-# R9: 4 vCPUs in a shared container is the smallest contention a shared cache
-# line can have, so any penalty here is a LOWER BOUND.
-
-# VERDICT: every encode in every section matched the single-threaded
-# reference byte for byte, and every decode matched it by value.
-
------ per-context run 2 -----
-# ABI v1 obligation 12.5: the concurrency suite
-#   width table: per context (ABI v1 section 6 as specified)
-#   guard:       on
-#   shapes:      P1.2 and P2.2 (M1 leaf, M2 non-leaf), plus P1.3 and P2.5
-#   vCPUs:       4
-
-## 1. the reference, single-threaded, a fresh context per shape
-
-shape         bytes
-P1.2         218121
-P2.2         540422
-P1.3            605
-P2.5          19632
-
-## 2. SEQUENCE: two shapes alternating on ONE context, one thread
-
-  encodes 40, wrong 0
-  decodes 40, wrong 0
-
-# The one-shape control, which is the comparison obligation 12.5 asks for:
-  one shape (P1.2) on one context, 40 encodes, wrong 0
-# A per-shape-state defect is invisible to that row by construction and
-# visible to the rotation above. That is why the obligation says two shapes.
-
-## 3. TOGETHER: N threads, one context each, both shapes
-
-threads         encodes      wrong decodes wrong
-2                   400          0            0
-4                   800          0            0
-8                  1600          0            0
-
-# 8 threads on 4 vCPUs is deliberate: oversubscription puts a preemption
-# between a `begin` and its `end`, which is where a state defect that needs a
-# window to open would show. R9 is the caveat on the other side -- a
-# concurrency figure from a small container is a lower bound on contention,
-# and section 5 below is the figure, not this section.
-
-## 4. THE POSITIVE CONTROL: the suite has to be seen failing
-
-# Planted violation: 4 threads share ONE encode context, which ABI v1 section
-# 3 makes a host-owned single-threaded thing. D16's class -- a shared mutable
-# handle reached through an opaque pointer -- moved from the RPC half to the
-# codec half on purpose. It is a deliberate contract violation and a data race,
-# so it runs in a CHILD PROCESS and nothing downstream depends on it.
-
-  child exit: None
-  child stderr: thread '<unnamed>' (22103) panicked at /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-rt/src/enc.rs:190:18:
-  child stderr: panic in a function that cannot unwind
-
-  The control fires, so sections 2 and 3 are statements about the code and not
-  about a check that cannot fail.
-
-  AND THE SHAPE OF THE FAILURE IS A FINDING NOBODY ASKED FOR. The violation is
-  not detected as wrong bytes: two threads resizing one length prefix index the
-  encode buffer past its end, the core panics inside `Enc`, and because the
-  frame it has to unwind through is an `extern "C"` entry point of the ABI
-  (`ak_elem_ResultRaw`), the panic CANNOT unwind and the PROCESS ABORTS.
-
-  Three things follow, and they are for the specification rather than for this
-  slice:
-   1. ABI v1 section 5's error channel covers a failure the HOST reports, through
-      `ak_fail` and the generated guard. A panic inside the CORE has no channel
-      at all: it reaches a `extern "C"` boundary and aborts. Every entry point
-      in the codec is exposed to this, not only under a shared context.
-   2. Section 3 says `ak_init` installs a panic hook. It is unbuilt (this slice
-      builds it -- see the lifecycle log), and a hook changes what is PRINTED,
-      not whether the abort happens. Catching the unwind at the entry point is a
-      different and larger change.
-   3. The context already carries a `kind` word so a wrong pointer is
-      diagnosable. An owning-thread id beside it would turn this abort into
-      `AK_ERR_INVALID_STATE` at the first misuse rather than at an arbitrary
-      later one. That is a design question and it is raised, not taken.
-
-## 5. aggregate throughput, per-context width table
-
-### does the shared-site pair flip a width? (rebuild with --features count)
-
-### P1.1 + P1.3, SHARED SITES (both M1, widths flip 2<->1) (per-context table)
-
-threads    enc/s aggregate  ns per encode    scaling    vs 1 thread
-1                  289067         3459.4       1.00x           0.0%
-2                  569123         3514.2       1.97x           1.6%
-4                 1088398         3675.1       3.77x           6.2%
-
-### P1.3 + P2.5, disjoint sites (the control) (per-context table)
-
-threads    enc/s aggregate  ns per encode    scaling    vs 1 thread
-1                   96384        10375.2       1.00x           0.0%
-2                  193693        10325.6       2.01x          -0.5%
-4                  390632        10239.8       4.05x          -1.3%
-
-# The warm-up is outside the clock, so a per-context build has already learned
-# every width before the first timed encode. A global build cannot reach that
-# state on the SHARED-SITE row, because the two shapes keep taking it back --
-# and it reaches it immediately on the disjoint row, which is the control.
-# R9: 4 vCPUs in a shared container is the smallest contention a shared cache
-# line can have, so any penalty here is a LOWER BOUND.
-
-# VERDICT: every encode in every section matched the single-threaded
-# reference byte for byte, and every decode matched it by value.
-
------ per-context run 3 -----
-# ABI v1 obligation 12.5: the concurrency suite
-#   width table: per context (ABI v1 section 6 as specified)
-#   guard:       on
-#   shapes:      P1.2 and P2.2 (M1 leaf, M2 non-leaf), plus P1.3 and P2.5
-#   vCPUs:       4
-
-## 1. the reference, single-threaded, a fresh context per shape
-
-shape         bytes
-P1.2         218121
-P2.2         540422
-P1.3            605
-P2.5          19632
-
-## 2. SEQUENCE: two shapes alternating on ONE context, one thread
-
-  encodes 40, wrong 0
-  decodes 40, wrong 0
-
-# The one-shape control, which is the comparison obligation 12.5 asks for:
-  one shape (P1.2) on one context, 40 encodes, wrong 0
-# A per-shape-state defect is invisible to that row by construction and
-# visible to the rotation above. That is why the obligation says two shapes.
-
-## 3. TOGETHER: N threads, one context each, both shapes
-
-threads         encodes      wrong decodes wrong
-2                   400          0            0
-4                   800          0            0
-8                  1600          0            0
-
-# 8 threads on 4 vCPUs is deliberate: oversubscription puts a preemption
-# between a `begin` and its `end`, which is where a state defect that needs a
-# window to open would show. R9 is the caveat on the other side -- a
-# concurrency figure from a small container is a lower bound on contention,
-# and section 5 below is the figure, not this section.
-
-## 4. THE POSITIVE CONTROL: the suite has to be seen failing
-
-# Planted violation: 4 threads share ONE encode context, which ABI v1 section
-# 3 makes a host-owned single-threaded thing. D16's class -- a shared mutable
-# handle reached through an opaque pointer -- moved from the RPC half to the
-# codec half on purpose. It is a deliberate contract violation and a data race,
-# so it runs in a CHILD PROCESS and nothing downstream depends on it.
-
-  child exit: None
-  child stderr: thread '<unnamed>' (22165) panicked at /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-rt/src/enc.rs:190:18:
-  child stderr: panic in a function that cannot unwind
-
-  The control fires, so sections 2 and 3 are statements about the code and not
-  about a check that cannot fail.
-
-  AND THE SHAPE OF THE FAILURE IS A FINDING NOBODY ASKED FOR. The violation is
-  not detected as wrong bytes: two threads resizing one length prefix index the
-  encode buffer past its end, the core panics inside `Enc`, and because the
-  frame it has to unwind through is an `extern "C"` entry point of the ABI
-  (`ak_elem_ResultRaw`), the panic CANNOT unwind and the PROCESS ABORTS.
-
-  Three things follow, and they are for the specification rather than for this
-  slice:
-   1. ABI v1 section 5's error channel covers a failure the HOST reports, through
-      `ak_fail` and the generated guard. A panic inside the CORE has no channel
-      at all: it reaches a `extern "C"` boundary and aborts. Every entry point
-      in the codec is exposed to this, not only under a shared context.
-   2. Section 3 says `ak_init` installs a panic hook. It is unbuilt (this slice
-      builds it -- see the lifecycle log), and a hook changes what is PRINTED,
-      not whether the abort happens. Catching the unwind at the entry point is a
-      different and larger change.
-   3. The context already carries a `kind` word so a wrong pointer is
-      diagnosable. An owning-thread id beside it would turn this abort into
-      `AK_ERR_INVALID_STATE` at the first misuse rather than at an arbitrary
-      later one. That is a design question and it is raised, not taken.
-
-## 5. aggregate throughput, per-context width table
-
-### does the shared-site pair flip a width? (rebuild with --features count)
-
-### P1.1 + P1.3, SHARED SITES (both M1, widths flip 2<->1) (per-context table)
-
-threads    enc/s aggregate  ns per encode    scaling    vs 1 thread
-1                  273133         3661.2       1.00x           0.0%
-2                  556656         3592.9       2.04x          -1.9%
-4                 1093437         3658.2       4.00x          -0.1%
-
-### P1.3 + P2.5, disjoint sites (the control) (per-context table)
-
-threads    enc/s aggregate  ns per encode    scaling    vs 1 thread
-1                   99678        10032.3       1.00x           0.0%
-2                  204967         9757.7       2.06x          -2.7%
-4                  395354        10117.5       3.97x           0.8%
-
-# The warm-up is outside the clock, so a per-context build has already learned
-# every width before the first timed encode. A global build cannot reach that
-# state on the SHARED-SITE row, because the two shapes keep taking it back --
-# and it reaches it immediately on the disjoint row, which is the control.
-# R9: 4 vCPUs in a shared container is the smallest contention a shared cache
-# line can have, so any penalty here is a LOWER BOUND.
-
-# VERDICT: every encode in every section matched the single-threaded
-# reference byte for byte, and every decode matched it by value.
-
-===== 3. process-global table (the arrangement section 6 refuses), three runs =====
-# Correctness sections are repeated here on purpose: if a shared table could corrupt
-# bytes, this is the build where it would, and the suite says it does not.
-
------ global run 1 -----
-# ABI v1 obligation 12.5: the concurrency suite
-#   width table: PROCESS-GLOBAL (ABI v1 section 6's REFUSED arrangement, --features global-widths)
-#   guard:       on
-#   shapes:      P1.2 and P2.2 (M1 leaf, M2 non-leaf), plus P1.3 and P2.5
-#   vCPUs:       4
-
-## 1. the reference, single-threaded, a fresh context per shape
-
-shape         bytes
-P1.2         218121
-P2.2         540422
-P1.3            605
-P2.5          19632
-
-## 2. SEQUENCE: two shapes alternating on ONE context, one thread
-
-  encodes 40, wrong 0
-  decodes 40, wrong 0
-
-# The one-shape control, which is the comparison obligation 12.5 asks for:
-  one shape (P1.2) on one context, 40 encodes, wrong 0
-# A per-shape-state defect is invisible to that row by construction and
-# visible to the rotation above. That is why the obligation says two shapes.
-
-## 3. TOGETHER: N threads, one context each, both shapes
-
-threads         encodes      wrong decodes wrong
-2                   400          0            0
-4                   800          0            0
-8                  1600          0            0
-
-# 8 threads on 4 vCPUs is deliberate: oversubscription puts a preemption
-# between a `begin` and its `end`, which is where a state defect that needs a
-# window to open would show. R9 is the caveat on the other side -- a
-# concurrency figure from a small container is a lower bound on contention,
-# and section 5 below is the figure, not this section.
-
-## 4. THE POSITIVE CONTROL: the suite has to be seen failing
-
-# Planted violation: 4 threads share ONE encode context, which ABI v1 section
-# 3 makes a host-owned single-threaded thing. D16's class -- a shared mutable
-# handle reached through an opaque pointer -- moved from the RPC half to the
-# codec half on purpose. It is a deliberate contract violation and a data race,
-# so it runs in a CHILD PROCESS and nothing downstream depends on it.
-
-  child exit: None
-  child stderr: thread '<unnamed>' (22229) panicked at /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-rt/src/enc.rs:190:18:
-
-  The control fires, so sections 2 and 3 are statements about the code and not
-  about a check that cannot fail.
-
-  AND THE SHAPE OF THE FAILURE IS A FINDING NOBODY ASKED FOR. The violation is
-  not detected as wrong bytes: two threads resizing one length prefix index the
-  encode buffer past its end, the core panics inside `Enc`, and because the
-  frame it has to unwind through is an `extern "C"` entry point of the ABI
-  (`ak_elem_ResultRaw`), the panic CANNOT unwind and the PROCESS ABORTS.
-
-  Three things follow, and they are for the specification rather than for this
-  slice:
-   1. ABI v1 section 5's error channel covers a failure the HOST reports, through
-      `ak_fail` and the generated guard. A panic inside the CORE has no channel
-      at all: it reaches a `extern "C"` boundary and aborts. Every entry point
-      in the codec is exposed to this, not only under a shared context.
-   2. Section 3 says `ak_init` installs a panic hook. It is unbuilt (this slice
-      builds it -- see the lifecycle log), and a hook changes what is PRINTED,
-      not whether the abort happens. Catching the unwind at the entry point is a
-      different and larger change.
-   3. The context already carries a `kind` word so a wrong pointer is
-      diagnosable. An owning-thread id beside it would turn this abort into
-      `AK_ERR_INVALID_STATE` at the first misuse rather than at an arbitrary
-      later one. That is a design question and it is raised, not taken.
-
-## 5. aggregate throughput, PROCESS-GLOBAL width table
-
-### does the shared-site pair flip a width? (rebuild with --features count)
-
-### P1.1 + P1.3, SHARED SITES (both M1, widths flip 2<->1) (global table)
-
-threads    enc/s aggregate  ns per encode    scaling    vs 1 thread
-1                  285756         3499.5       1.00x           0.0%
-2                  553961         3610.4       1.94x           3.2%
-4                 1032180         3875.3       3.61x          10.7%
-
-### P1.3 + P2.5, disjoint sites (the control) (global table)
-
-threads    enc/s aggregate  ns per encode    scaling    vs 1 thread
-1                  102453         9760.6       1.00x           0.0%
-2                  200563         9971.9       1.96x           2.2%
-4                  418863         9549.7       4.09x          -2.2%
-
-# The warm-up is outside the clock, so a per-context build has already learned
-# every width before the first timed encode. A global build cannot reach that
-# state on the SHARED-SITE row, because the two shapes keep taking it back --
-# and it reaches it immediately on the disjoint row, which is the control.
-# R9: 4 vCPUs in a shared container is the smallest contention a shared cache
-# line can have, so any penalty here is a LOWER BOUND.
-
-# VERDICT: every encode in every section matched the single-threaded
-# reference byte for byte, and every decode matched it by value.
-
------ global run 2 -----
-# ABI v1 obligation 12.5: the concurrency suite
-#   width table: PROCESS-GLOBAL (ABI v1 section 6's REFUSED arrangement, --features global-widths)
-#   guard:       on
-#   shapes:      P1.2 and P2.2 (M1 leaf, M2 non-leaf), plus P1.3 and P2.5
-#   vCPUs:       4
-
-## 1. the reference, single-threaded, a fresh context per shape
-
-shape         bytes
-P1.2         218121
-P2.2         540422
-P1.3            605
-P2.5          19632
-
-## 2. SEQUENCE: two shapes alternating on ONE context, one thread
-
-  encodes 40, wrong 0
-  decodes 40, wrong 0
-
-# The one-shape control, which is the comparison obligation 12.5 asks for:
-  one shape (P1.2) on one context, 40 encodes, wrong 0
-# A per-shape-state defect is invisible to that row by construction and
-# visible to the rotation above. That is why the obligation says two shapes.
-
-## 3. TOGETHER: N threads, one context each, both shapes
-
-threads         encodes      wrong decodes wrong
-2                   400          0            0
-4                   800          0            0
-8                  1600          0            0
-
-# 8 threads on 4 vCPUs is deliberate: oversubscription puts a preemption
-# between a `begin` and its `end`, which is where a state defect that needs a
-# window to open would show. R9 is the caveat on the other side -- a
-# concurrency figure from a small container is a lower bound on contention,
-# and section 5 below is the figure, not this section.
-
-## 4. THE POSITIVE CONTROL: the suite has to be seen failing
-
-# Planted violation: 4 threads share ONE encode context, which ABI v1 section
-# 3 makes a host-owned single-threaded thing. D16's class -- a shared mutable
-# handle reached through an opaque pointer -- moved from the RPC half to the
-# codec half on purpose. It is a deliberate contract violation and a data race,
-# so it runs in a CHILD PROCESS and nothing downstream depends on it.
-
-  child exit: None
-  child stderr: thread '<unnamed>' (22291) panicked at /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-rt/src/enc.rs:190:18:
-
-  The control fires, so sections 2 and 3 are statements about the code and not
-  about a check that cannot fail.
-
-  AND THE SHAPE OF THE FAILURE IS A FINDING NOBODY ASKED FOR. The violation is
-  not detected as wrong bytes: two threads resizing one length prefix index the
-  encode buffer past its end, the core panics inside `Enc`, and because the
-  frame it has to unwind through is an `extern "C"` entry point of the ABI
-  (`ak_elem_ResultRaw`), the panic CANNOT unwind and the PROCESS ABORTS.
-
-  Three things follow, and they are for the specification rather than for this
-  slice:
-   1. ABI v1 section 5's error channel covers a failure the HOST reports, through
-      `ak_fail` and the generated guard. A panic inside the CORE has no channel
-      at all: it reaches a `extern "C"` boundary and aborts. Every entry point
-      in the codec is exposed to this, not only under a shared context.
-   2. Section 3 says `ak_init` installs a panic hook. It is unbuilt (this slice
-      builds it -- see the lifecycle log), and a hook changes what is PRINTED,
-      not whether the abort happens. Catching the unwind at the entry point is a
-      different and larger change.
-   3. The context already carries a `kind` word so a wrong pointer is
-      diagnosable. An owning-thread id beside it would turn this abort into
-      `AK_ERR_INVALID_STATE` at the first misuse rather than at an arbitrary
-      later one. That is a design question and it is raised, not taken.
-
-## 5. aggregate throughput, PROCESS-GLOBAL width table
-
-### does the shared-site pair flip a width? (rebuild with --features count)
-
-### P1.1 + P1.3, SHARED SITES (both M1, widths flip 2<->1) (global table)
-
-threads    enc/s aggregate  ns per encode    scaling    vs 1 thread
-1                  282181         3543.8       1.00x           0.0%
-2                  531753         3761.1       1.88x           6.1%
-4                 1004620         3981.6       3.56x          12.4%
-
-### P1.3 + P2.5, disjoint sites (the control) (global table)
-
-threads    enc/s aggregate  ns per encode    scaling    vs 1 thread
-1                  102305         9774.7       1.00x           0.0%
-2                  203142         9845.3       1.99x           0.7%
-4                  391582        10215.0       3.83x           4.5%
-
-# The warm-up is outside the clock, so a per-context build has already learned
-# every width before the first timed encode. A global build cannot reach that
-# state on the SHARED-SITE row, because the two shapes keep taking it back --
-# and it reaches it immediately on the disjoint row, which is the control.
-# R9: 4 vCPUs in a shared container is the smallest contention a shared cache
-# line can have, so any penalty here is a LOWER BOUND.
-
-# VERDICT: every encode in every section matched the single-threaded
-# reference byte for byte, and every decode matched it by value.
-
------ global run 3 -----
-# ABI v1 obligation 12.5: the concurrency suite
-#   width table: PROCESS-GLOBAL (ABI v1 section 6's REFUSED arrangement, --features global-widths)
-#   guard:       on
-#   shapes:      P1.2 and P2.2 (M1 leaf, M2 non-leaf), plus P1.3 and P2.5
-#   vCPUs:       4
-
-## 1. the reference, single-threaded, a fresh context per shape
-
-shape         bytes
-P1.2         218121
-P2.2         540422
-P1.3            605
-P2.5          19632
-
-## 2. SEQUENCE: two shapes alternating on ONE context, one thread
-
-  encodes 40, wrong 0
-  decodes 40, wrong 0
-
-# The one-shape control, which is the comparison obligation 12.5 asks for:
-  one shape (P1.2) on one context, 40 encodes, wrong 0
-# A per-shape-state defect is invisible to that row by construction and
-# visible to the rotation above. That is why the obligation says two shapes.
-
-## 3. TOGETHER: N threads, one context each, both shapes
-
-threads         encodes      wrong decodes wrong
-2                   400          0            0
-4                   800          0            0
-8                  1600          0            0
-
-# 8 threads on 4 vCPUs is deliberate: oversubscription puts a preemption
-# between a `begin` and its `end`, which is where a state defect that needs a
-# window to open would show. R9 is the caveat on the other side -- a
-# concurrency figure from a small container is a lower bound on contention,
-# and section 5 below is the figure, not this section.
-
-## 4. THE POSITIVE CONTROL: the suite has to be seen failing
-
-# Planted violation: 4 threads share ONE encode context, which ABI v1 section
-# 3 makes a host-owned single-threaded thing. D16's class -- a shared mutable
-# handle reached through an opaque pointer -- moved from the RPC half to the
-# codec half on purpose. It is a deliberate contract violation and a data race,
-# so it runs in a CHILD PROCESS and nothing downstream depends on it.
-
-  child exit: None
-
-  The control fires, so sections 2 and 3 are statements about the code and not
-  about a check that cannot fail.
-
-  AND THE SHAPE OF THE FAILURE IS A FINDING NOBODY ASKED FOR. The violation is
-  not detected as wrong bytes: two threads resizing one length prefix index the
-  encode buffer past its end, the core panics inside `Enc`, and because the
-  frame it has to unwind through is an `extern "C"` entry point of the ABI
-  (`ak_elem_ResultRaw`), the panic CANNOT unwind and the PROCESS ABORTS.
-
-  Three things follow, and they are for the specification rather than for this
-  slice:
-   1. ABI v1 section 5's error channel covers a failure the HOST reports, through
-      `ak_fail` and the generated guard. A panic inside the CORE has no channel
-      at all: it reaches a `extern "C"` boundary and aborts. Every entry point
-      in the codec is exposed to this, not only under a shared context.
-   2. Section 3 says `ak_init` installs a panic hook. It is unbuilt (this slice
-      builds it -- see the lifecycle log), and a hook changes what is PRINTED,
-      not whether the abort happens. Catching the unwind at the entry point is a
-      different and larger change.
-   3. The context already carries a `kind` word so a wrong pointer is
-      diagnosable. An owning-thread id beside it would turn this abort into
-      `AK_ERR_INVALID_STATE` at the first misuse rather than at an arbitrary
-      later one. That is a design question and it is raised, not taken.
-
-## 5. aggregate throughput, PROCESS-GLOBAL width table
-
-### does the shared-site pair flip a width? (rebuild with --features count)
-
-### P1.1 + P1.3, SHARED SITES (both M1, widths flip 2<->1) (global table)
-
-threads    enc/s aggregate  ns per encode    scaling    vs 1 thread
-1                  312496         3200.0       1.00x           0.0%
-2                  547089         3655.7       1.75x          14.2%
-4                  999233         4003.1       3.20x          25.1%
-
-### P1.3 + P2.5, disjoint sites (the control) (global table)
-
-threads    enc/s aggregate  ns per encode    scaling    vs 1 thread
-1                  101547         9847.7       1.00x           0.0%
-2                  200131         9993.4       1.97x           1.5%
-4                  396893        10078.3       3.91x           2.3%
-
-# The warm-up is outside the clock, so a per-context build has already learned
-# every width before the first timed encode. A global build cannot reach that
-# state on the SHARED-SITE row, because the two shapes keep taking it back --
-# and it reaches it immediately on the disjoint row, which is the control.
-# R9: 4 vCPUs in a shared container is the smallest contention a shared cache
-# line can have, so any penalty here is a LOWER BOUND.
-
-# VERDICT: every encode in every section matched the single-threaded
-# reference byte for byte, and every decode matched it by value.
+# what each binary actually loaded, from ldd and not from the build log:
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so (0x00007fbf42000000)
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/rust/target-ig/release/deps/libak_core.so (0x00007fed16e00000)
+
+===== 3. the lifecycle, guard OFF =====
+# ABI v1 section 3: the lifecycle
+#   init-guard: off -- entry points do not check; the guard's PRICE is section 4
+#   build id:   ak-core 0.0.0 abi1 ak-core
+#   ak_abi_version(): 1, the host was generated against 1
+
+# Each case below is a FRESH PROCESS. `ak_init` is one-shot and there is no
+# `ak_shutdown`, so a suite that ran two cases in one process would be
+# measuring the second case against the first case's installs.
+
+case                         exit   what it establishes
+uninit-first                 ok     an entry point BEFORE ak_init
+    guard off: encode before ak_init SUCCEEDED, which is what this
+    build means. Section 3's rule is unenforced unless init-guard is on.
+init-ok                      ok     ak_init returns AK_OK and ak_initialized() flips
+    ak_init -> 0 (AK_OK=0), detail 0
+    ak_initialized() -> 1
+init-twice-same              ok     the same options again: AK_ALREADY_INITIALIZED, a SUCCESS
+    first 0, second 1 (AK_ALREADY_INITIALIZED=1)
+    # and it is a SUCCESS, not an error: a host library that initialises
+    # defensively must not fail because another one got there first.
+init-twice-differ            ok     different options: refused, AK_DETAIL_OPTS_DIFFER
+    first 0, second -8, detail 2 (AK_DETAIL_OPTS_DIFFER=2)
+    # The one-shot installs cannot be redone, which is also why there is
+    # no ak_shutdown.
+init-bad-version             ok     a host generated against another ABI: AK_ERR_ABI
+    ak_init(abi_version=8) -> -11, detail 1
+    ak_initialized() -> 0 (must still be 0)
+    # The check is made by the side that KNOWS what it was generated
+    # against, once, at the only point where failing is cheap.
+init-null                    ok     a null options pointer: AK_ERR_INVALID_STATE, not a crash
+    ak_init(NULL) -> -8, detail 3
+    ak_init(NULL, NULL) -> -8
+log-bridge                   ok     the host's ak_log_fn receives a line
+        [host log, ctx=0x0] a line from the core
+    ak_init -> 0; ak_log_test delivered=1, lines=1
+log-declined                 ok     AK_INIT_OWN_LOGGING: no line reaches the host
+    ak_init(OWN_LOGGING) -> 0; delivered=0, lines=0
+    # The host passed a sink AND the flag; the flag wins, because the
+    # flag is the host saying it owns the process log.
+panic-hook                   ok     a panic IN THE CORE reaches the host's log, then aborts
+    WANT: one line through the host sink, then an abort
+        [host log, ctx=0x0] panic in ak-core: panicked at /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/lib.rs:248:5:
+    deliberate panic inside ak-core, from ak_panic_test
+        [host log, ctx=0x0] panic in ak-core: panicked at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library/core/src/panicking.rs:225:5:
+    panic in a function that cannot unwind
+    (child aborted, signal)
+no-panic-hook                ok     AK_INIT_NO_PANIC_HOOK: no line, and still an abort
+    WANT: no line through the host sink, and still an abort
+    (child aborted) panic in a function that cannot unwind
+host-panic-own-hook          ok     a HOST panic is not the core's; two copies of std
+    host hook fired 1 time(s); the CORE's sink got 0 line(s)
+    # The core installed a hook and it did not fire, because the cdylib
+    # carries its own `std`. That is not a defect: the hook is for panics
+    # in the CORE, which is where the host cannot see them.
+codec-after-init             ok     the codec works normally once initialised
+    initialised by Ctx::new(); P1.2 encode 218121 B, prost 218121 B, equal=true, round trip=true
+two-components               ok     two components, two flag sets: the first caller wins
+    component A -> 0; component B -> -8, detail 2
+    # THE FLAGS ARE A PROCESS-WIDE NEGOTIATION AND THE FIRST CALLER WINS.
+    # Section 3 says a second call with different options fails, and treats
+    # that as obviously right because the one-shot installs cannot be
+    # redone. It is right, and it also means two independent components in
+    # one process cannot both choose -- the second gets a hard failure for
+    # asking, not the first caller's settings. Two hosts loading the same
+    # core is the normal case for a shared library. Raised, not taken: the
+    # alternatives (ignore the later flags, or merge them) each give up
+    # something section 3 is deliberately buying.
+init-races                   ok     8 threads calling ak_init at once: exactly one installs
+    8 threads: 1 AK_OK, 7 AK_ALREADY_INITIALIZED, 0 other
+    callers that returned before the installs were visible: 0
+
+# VERDICT: section 3's lifecycle behaves as specified on every case built.
+
+===== 4. the lifecycle, guard ON (section 3 as specified) =====
+# ABI v1 section 3: the lifecycle
+#   init-guard: ON -- every entry point checks (section 3 as specified)
+#   build id:   ak-core 0.0.0 abi1 ak-core
+#   ak_abi_version(): 1, the host was generated against 1
+
+# Each case below is a FRESH PROCESS. `ak_init` is one-shot and there is no
+# `ak_shutdown`, so a suite that ran two cases in one process would be
+# measuring the second case against the first case's installs.
+
+case                         exit   what it establishes
+uninit-first                 ok     an entry point BEFORE ak_init
+    guard ON: encode before ak_init -> Err(-10) (want Err(-10))
+init-ok                      ok     ak_init returns AK_OK and ak_initialized() flips
+    ak_init -> 0 (AK_OK=0), detail 0
+    ak_initialized() -> 1
+init-twice-same              ok     the same options again: AK_ALREADY_INITIALIZED, a SUCCESS
+    first 0, second 1 (AK_ALREADY_INITIALIZED=1)
+    # and it is a SUCCESS, not an error: a host library that initialises
+    # defensively must not fail because another one got there first.
+init-twice-differ            ok     different options: refused, AK_DETAIL_OPTS_DIFFER
+    first 0, second -8, detail 2 (AK_DETAIL_OPTS_DIFFER=2)
+    # The one-shot installs cannot be redone, which is also why there is
+    # no ak_shutdown.
+init-bad-version             ok     a host generated against another ABI: AK_ERR_ABI
+    ak_init(abi_version=8) -> -11, detail 1
+    ak_initialized() -> 0 (must still be 0)
+    # The check is made by the side that KNOWS what it was generated
+    # against, once, at the only point where failing is cheap.
+init-null                    ok     a null options pointer: AK_ERR_INVALID_STATE, not a crash
+    ak_init(NULL) -> -8, detail 3
+    ak_init(NULL, NULL) -> -8
+log-bridge                   ok     the host's ak_log_fn receives a line
+        [host log, ctx=0x0] a line from the core
+    ak_init -> 0; ak_log_test delivered=1, lines=1
+log-declined                 ok     AK_INIT_OWN_LOGGING: no line reaches the host
+    ak_init(OWN_LOGGING) -> 0; delivered=0, lines=0
+    # The host passed a sink AND the flag; the flag wins, because the
+    # flag is the host saying it owns the process log.
+panic-hook                   ok     a panic IN THE CORE reaches the host's log, then aborts
+    WANT: one line through the host sink, then an abort
+        [host log, ctx=0x0] panic in ak-core: panicked at /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/lib.rs:248:5:
+    deliberate panic inside ak-core, from ak_panic_test
+        [host log, ctx=0x0] panic in ak-core: panicked at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library/core/src/panicking.rs:225:5:
+    panic in a function that cannot unwind
+    (child aborted, signal)
+no-panic-hook                ok     AK_INIT_NO_PANIC_HOOK: no line, and still an abort
+    WANT: no line through the host sink, and still an abort
+    (child aborted) panic in a function that cannot unwind
+host-panic-own-hook          ok     a HOST panic is not the core's; two copies of std
+    host hook fired 1 time(s); the CORE's sink got 0 line(s)
+    # The core installed a hook and it did not fire, because the cdylib
+    # carries its own `std`. That is not a defect: the hook is for panics
+    # in the CORE, which is where the host cannot see them.
+codec-after-init             ok     the codec works normally once initialised
+    initialised by Ctx::new(); P1.2 encode 218121 B, prost 218121 B, equal=true, round trip=true
+two-components               ok     two components, two flag sets: the first caller wins
+    component A -> 0; component B -> -8, detail 2
+    # THE FLAGS ARE A PROCESS-WIDE NEGOTIATION AND THE FIRST CALLER WINS.
+    # Section 3 says a second call with different options fails, and treats
+    # that as obviously right because the one-shot installs cannot be
+    # redone. It is right, and it also means two independent components in
+    # one process cannot both choose -- the second gets a hard failure for
+    # asking, not the first caller's settings. Two hosts loading the same
+    # core is the normal case for a shared library. Raised, not taken: the
+    # alternatives (ignore the later flags, or merge them) each give up
+    # something section 3 is deliberately buying.
+init-races                   ok     8 threads calling ak_init at once: exactly one installs
+    8 threads: 1 AK_OK, 7 AK_ALREADY_INITIALIZED, 0 other
+    callers that returned before the installs were visible: 0
+
+# VERDICT: section 3's lifecycle behaves as specified on every case built.
+
+===== 5. correctness with the guard on =====
+# The guard adds a branch to every entry point. Byte identity is re-run rather than
+# assumed, on the build that has it.
+                    produce these bytes, so no arm is asked to.
+
+VERDICT: every arm is byte-identical to the validated manifest on every payload it covers.
 
 ================================================================================
  WHAT THE RUNS ABOVE ESTABLISH
 ================================================================================
 
-1. CORRECTNESS UNDER CONCURRENCY: CLEAN, ON BOTH ARMS
+1. SECTION 3's CENTRAL CLAIM IS NOW EXERCISED, AND IT HAD NEVER BEEN
 
-   Every encode in every section matched the single-threaded reference byte for
-   byte, and every decode matched it by value:
+   `uninit-first` calls a codec entry point before `ak_init`. With the guard on
+   it returns **AK_ERR_UNINITIALIZED (-10)**, which is the first time anything in
+   this branch has run that path.  With the guard off the same call succeeds, and
+   the case says so rather than skipping: **section 3's rule is unenforced unless
+   the guard is compiled in**, and a slice that never built it had no way to know.
 
-     sequence  two shapes alternating on ONE context, one thread, rotating
-               through four payloads: 40 encodes, 40 decodes, 0 wrong, plus a
-               40-encode ONE-SHAPE control beside it, which is the comparison
-               obligation 12.5 asks for by name
-     together  2, 4 and 8 threads, one context each, both shapes, phases offset
-               per thread so the threads are not in lockstep:
-               400 / 800 / 1600 encodes, 0 wrong, 0 decodes wrong
-     and the same on the --features global-widths build, which is where a shared
-     table WOULD corrupt bytes if it could.
+   SCOPE, PRECISELY.  The guard is on all **47 emitted codec entry points** and
+   the count is checked rather than assumed (`grep -c 'extern "C" fn ak_'` and
+   `grep -c 'ak_init_ok'` over the emitted codec both return 47).  The **37
+   hand-written entry points** in `ak-core/src/lib.rs` -- the contexts, the
+   transcoders, the counters, the lifecycle itself -- are NOT guarded, and one of
+   them must never be: `ak_fail` is the error channel and has to work when
+   nothing else does.  Whether `ak_enc_ctx_new` should return null before
+   `ak_init` is a design question and is not taken here.
 
-   **The codec half has no shared mutable state, and that is now a measurement
-   rather than a reading of the source.**  8 threads on 4 vCPUs is deliberate:
-   oversubscription puts a preemption between a `begin` and its `end`, which is
-   where a state defect that needs a window would show.
+2. THE STATE MACHINE BEHAVES AS WRITTEN
 
-2. THE SUITE IS SEEN FAILING, AND THE SHAPE OF THE FAILURE IS THE FINDING
+     ak_init(good opts)                 -> AK_OK (0), ak_initialized() -> 1
+     ak_init(same opts again)           -> AK_ALREADY_INITIALIZED (1), a SUCCESS
+     ak_init(different opts)            -> AK_ERR_INVALID_STATE (-8),
+                                           detail AK_DETAIL_OPTS_DIFFER
+     ak_init(abi_version = 8)           -> AK_ERR_ABI (-11),
+                                           detail AK_DETAIL_ABI_MISMATCH,
+                                           and ak_initialized() stays 0
+     ak_init(NULL) and ak_init(NULL,NULL) -> AK_ERR_INVALID_STATE, not a crash
 
-   The planted violation is the one a C host can make and no type system stops:
-   four threads sharing ONE encode context, which ABI v1 section 3 makes a
-   host-owned single-threaded thing.  D16's class, moved from the RPC half to the
-   codec half on purpose.  It runs in a child process, because:
+   **The idempotence rule holds under contention, not only under a second call.**
+   Eight threads racing `ak_init`: exactly **1 AK_OK, 7 AK_ALREADY_INITIALIZED,
+   0 other**, and **0 callers returned before the installs were visible** -- which
+   is the half that matters, because "every other entry point requires `ak_init`
+   to have returned successfully" is a claim about every caller and not about the
+   first one.
 
-   **It is not detected as wrong bytes.  It ABORTS THE PROCESS.**  Two threads
-   resizing one length prefix index the encode buffer past its end, the core
-   panics inside `Enc`, and the frame the panic has to unwind through is an
-   `extern "C"` entry point of the ABI (`ak_elem_ResultRaw`) -- so the unwind is
-   refused and the runtime aborts:
+3. TWO CASES FAILED FIRST AND BOTH FAILURES WERE THE SPECIFICATION WORKING
 
-     thread caused non-unwinding panic. aborting.
+   a. **The core's panic hook does not see a Rust host's panics.**  The first
+      draft panicked in host code and expected the hook to fire.  It does not: a
+      cdylib carries its OWN copy of `std`, so the core's hook and the host's
+      hook are two different globals.  Section 3 warns about exactly this
+      mechanism one level up -- "two copies of the staticlib in one process
+      either share Rust's globals or split-brain them with no warning" -- and
+      here it is `std`'s globals rather than the core's.  It is not a defect: the
+      hook is for panics in the CORE, which is where the host cannot see them.
+      `host-panic-own-hook` keeps the contrast in the suite.
 
-   Three consequences, all for the specification rather than for this slice:
+      Testing it needed a panic INSIDE the core, so the core now carries
+      `ak_panic_test`, and the case's verdict is **"the host's sink got the
+      message, then the process aborted"** -- which is the whole of what the hook
+      buys.  It does not stop the panic.  `no-panic-hook` is the same case with
+      the flag set and requires the opposite: no line, and still an abort.
 
-   a. **ABI v1 section 5's error channel does not cover a panic in the core.**
-      Section 5 is about a failure the HOST reports, through `ak_fail` and the
-      generated guard, and that half works.  A panic INSIDE the core reaches an
-      `extern "C"` boundary and aborts, and every codec entry point is exposed to
-      it, not only under a shared context.  Section 5 calls the error channel
-      "the widest hole in the drafted interface"; this is a second hole beside it
-      and it has no channel at all.
-   b. **Section 3's panic hook does not fix this.**  A hook changes what is
-      printed, not whether the abort happens.  Catching the unwind at each entry
-      point is a different and larger change, and it is the one that would turn
-      this into `AK_ERR_PANIC`, which the error enum already reserves.
-   c. **The context already carries a `kind` word** so a wrong pointer is
-      diagnosable.  An owning-thread id beside it would turn this abort into
-      `AK_ERR_INVALID_STATE` at the FIRST misuse rather than at an arbitrary
-      later one.  Raised, not taken: it is a design question.
+   b. **The flags are a process-wide negotiation and the first caller wins.**
+      `codec-after-init` failed because the case called `ak_init` with one flag
+      set and `Ctx::new()` then called it with another.  That is section 3's "a
+      second call with different options fails", working.  It is also a
+      consequence the specification does not spell out: two independent
+      components in one process that both initialise defensively -- which is the
+      shape a host LIBRARY has, and which is why AK_ALREADY_INITIALIZED is a
+      success at all -- cannot both choose, and the second gets a hard failure
+      for asking rather than the first's settings.  **Two hosts loading one
+      shared library is the normal case.**  It is now `two-components`, a case of
+      its own, rather than a fixed test.  Raised and not taken: the alternatives
+      (ignore the later flags, or merge them) each give up something section 3 is
+      deliberately buying.
 
-3. SECTION 6's "NEVER PROCESS-GLOBAL" IS NOW MEASURED ON A SECOND HOST, AND THE
-   SIGN AGREES WHILE THE MAGNITUDE DOES NOT
+4. THE CODEC IS UNCHANGED BY ALL OF IT
 
-   ns per encode, three runs of each build, ranges across runs:
+   `codec-after-init` encodes P1.2 to 218,121 bytes, equal to prost's, and
+   round-trips.  Section 5 of the transcript re-runs full byte identity across
+   all four arms on the GUARDED build, because the guard adds a branch to every
+   entry point and "additive" is a claim about behaviour.
 
-   SHARED SITES (P1.1 + P1.3, both M1, so both index the same length-prefix
-   sites and `ResultRaw`'s wants 2 bytes in one and 1 in the other):
+5. WHAT THE GUARD COSTS: NOT TAKEN IN THIS COMMIT
 
-     threads   per-context      process-global    ratio            ranges
-     1         3459 - 3687      3200 - 3544       0.868 - 1.024    OVERLAP
-     2         3514 - 3593      3610 - 3761       1.005 - 1.070    DISJOINT
-     4         3611 - 3675      3875 - 4003       1.054 - 1.109    DISJOINT
+   `gen/guardprice.sh` is the measurement and it is a SEPARATE script from
+   `gen/lifecycle.sh` for a reason worth recording: it is four `bench` runs, it
+   needs the box to itself, and this session lost a run to two benchmarks
+   overlapping on one machine -- which is README section 11's "two benchmarks on
+   one box corrupt each other silently: the numbers still come out", reproduced.
+   The script now refuses to start if anything else is benchmarking.
 
-   DISJOINT SITES (P1.3 + P2.5, different messages, so different sites -- but
-   still the same cache lines of one 4 KB static array):
+   **No figure is quoted here until that run exists**, which is the rule the
+   slice already lives by: a figure with no log behind it does not go in the
+   report.  What can be said without the run, because it comes from the crossing
+   counts rather than from a clock:
 
-     threads   per-context      process-global    ratio            ranges
-     1        10032 - 10375     9761 - 9848       0.941 - 0.982    DISJOINT
-     2         9758 - 10520     9845 - 9993       0.936 - 1.024    OVERLAP
-     4        10118 - 10671     9550 - 10215      0.895 - 1.010    OVERLAP
+     The guard is a relaxed atomic load of one process-global word, a compare and
+     a branch, at each of the 47 emitted entry points.  The counting build says
+     how often those are reached: **1 forward crossing per decode on every
+     payload**, and on encode 8 for P1.2 (1,000 elements) and 2,511 for P2.2 (500
+     elements).  So the guard is per ENTRY POINT, and the entry points are per
+     message or per chunk -- never per field.  A cost model would put it below the
+     run-to-run spread on this machine, and the point of taking the measurement is
+     that "would be" is not "is".
 
-   **The global table costs 0.5 to 11 percent, only above one thread, and only
-   when two shapes want different widths at the SAME SITE.**  The disjoint-site
-   control shows no penalty at any thread count, so this is TRUE sharing and not
-   false sharing of the static's cache lines -- which the control was added to
-   separate, and which the first version of this suite could not, because it had
-   only the disjoint pair and therefore found nothing.
+   The arms and the control are already in place for it: `--features init-guard`
+   against the default build, with `prost` and `core-native` carried in both as
+   the in-process control R4 requires, since neither of them has the guard.
 
-   **The one-thread rows are the confound, and they are in the log rather than
-   removed.**  The global table is 2 to 6 percent CHEAPER at one thread, because
-   a static array is reached more cheaply than a `Box<[u8]>` held in the context.
-   So the arms differ in access path as well as in location, and the contention
-   figure above is a difference of differences.  Stated rather than corrected:
-   correcting it would mean an artificial indirection nobody would ship.
+6. WHAT THIS DOES NOT ESTABLISH
 
-   **Against the branch's inherited figure.**  The provenance table attributes
-   "1.32 to 2.23 times aggregate throughput at two threads, against a global
-   table" to the java slice.  Here at two threads it is 1.005 to 1.070 and it
-   takes four threads to reach 1.11.  The sign agrees; the magnitude is an order
-   of magnitude smaller.  R9 is the reason not to read that as a contradiction: 4
-   vCPUs is a lower bound on contention, and a JVM host writing the same line
-   from more cores would sit further along the same curve.
-
-4. THE CONTENTION ARM ACTUALLY CONTENDS, AND IT IS COUNTED
-
-   A contention arm that never contends measures nothing, so section 1b counts
-   it from a counting build instead of arguing it:
-
-     warm context                prefix misses    bytes moved
-     P1.1 alone                              0              0
-     P1.1 / P1.3 alternating                40           4140
-
-   40 encodes, 40 misses: exactly one per encode.  The learned width converges
-   WITHIN an encode -- the first element misses and the remaining 3 or 299 hit --
-   and is then taken back by the next encode of the other shape.  That is the
-   state a global table puts every thread in at once, and it is why the pair was
-   chosen.  It is also a small result of its own about the mechanism: a width
-   miss costs one element, not one message.
-
-5. WHAT THIS DOES NOT ESTABLISH
-
-   * **The RPC half is not in this suite.**  D16 was an RPC defect and its fix
-     (the client holds the Channel, a call clones it) is exercised only by stage
-     4's 8-in-flight arm, which is the accident this obligation exists to
-     replace.  A concurrency suite over `ak_call_unary` with an assertion per
-     response, rather than a throughput figure, is still missing.
-   * **The decode context is covered only as far as the codec goes.**  The pull
-     family's record buffer is per context and is exercised by the sequence
-     section; it is not exercised by two threads on one context, because that is
-     the violation of section 2 and it aborts.
-   * **Nothing here is a race DETECTOR.**  The suite asserts outputs; it does not
-     run under a sanitiser.  A defect that races without changing bytes on this
-     machine at this thread count would pass.  ThreadSanitizer on the cdylib is
-     the obvious next step and is not done.
-   * **4 vCPUs, one container, one microarchitecture**, and the throughput half
-     is visibly noisy: the per-context shared-site row moved by up to 6 percent
-     between runs of the same binary.  The claim rests on the RANGES not
-     overlapping at 2 and 4 threads, not on any single figure.
-   * **Two shapes, as the obligation asks, and not more.**  A third shape that
-     shared sites with both would be a stronger test of the same thing.
-   * The `global-widths` feature is OFF by default and no other slice's build
-     turns it on; the default build is byte-for-byte the code that was there
-     before it existed.  It is an addition to the shared core (R0) and the
-     aggregating session should say whether it stays.
+   * **The behavioural half of section 3 is untouched.**  Configuration
+     precedence -- an explicit setter beats the environment, the environment beats
+     the JSON handed to `ak_context_new`, that beats the defaults -- is the rule
+     whose inversion turns `GrpcClient__AllowUnsafeConnection`, a pod-spec
+     environment variable, into a silent certificate-verification bypass.  It
+     belongs to `ak_context_new`, which is the RPC half, and neither exists here.
+     Same for the `worker_threads` default, where the measured failure is a client
+     that "does not look slow, it looks erratic".
+   * **No crypto provider, no tracing or log crate bridge.**  Named above.
+   * **The guard covers the 47 emitted entry points and not the 37 hand-written
+     ones**, and `ak_fail` must never be guarded because it is the error channel.
+     Whether `ak_enc_ctx_new` should refuse before `ak_init` is not decided here.
+   * **The panic hook is a diagnostic and not a recovery.**  Every panic inside
+     the core reaches an `extern "C"` frame and aborts; the hook's whole value is
+     that the message gets to the host's log first.  Turning that into
+     `AK_ERR_PANIC` -- which section 5's enum already reserves -- means catching
+     the unwind at each entry point, which is a different and larger change and is
+     not made here.
+   * **`ak_build_id` is exported and nothing compares two of them.**  Section 3's
+     case for it is two copies of the core in one process; this slice loads one.
+   * One machine, one configuration.

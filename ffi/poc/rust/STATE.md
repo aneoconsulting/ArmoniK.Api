@@ -6,7 +6,7 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | **stages 1 to 4 complete**, plus the decode-side UTF-8 policy of decision 3's third framing. Every message and payload of `design/SHAPES.md` has all four arms byte-identical to the validated manifest, and the RPC arm is measured. Ready for the aggregating session to assemble |
+| **Status** | **stages 1 to 5 complete.** Stages 1 to 4 as before (four arms, every shape, the RPC arm, decision 3 on both sides). **Stage 5 adds three things the branch had specified and nobody had built**: ABI v1 section 7.1's **pull decode family** (open decision 2, both halves), obligation 12.5's **concurrency suite**, and section 3's **`ak_init` and lifecycle**. All three landed in the SHARED core at `poc/codec/` (R0), additively |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88 declared. **Not verified: no 1.88 toolchain exists in this container, only 1.94.1** |
 | **Target** (where the clock runs) | the same, one configuration (README section 5) |
@@ -16,14 +16,18 @@ session, which makes it the most expensive defect in this directory.
 
 What a host language loses against full Rust, and what the new design costs against `packages/rust` today. This slice is the denominator for every other one.
 
-## Arms, all four built
+## Arms
 
 | arm | what it is | where |
 |---|---|---|
 | `prost` | prost-build structs, prost's codec | `crates/shapes-prost`, driven from `crates/harness/src/arms.rs` |
 | `armonik` | facade types with generated `prost::Message` impls, no conversion layer | `crates/facade/src/generated/prost_impl.rs` |
 | `core-native` | the generated core traversal emitted into the host, no boundary (R3's control) | `crates/facade/src/generated/core_native.rs` |
-| `core-ffi-rust` | the same traversal through the C ABI, over a real shared-library boundary | `crates/ak-core` (cdylib) + `crates/harness/src/generated/binding.rs` |
+| `core-ffi-rust` | the same traversal through the C ABI, over a real shared-library boundary. The PUSH family | `../codec/crates/ak-core` (cdylib) + `crates/harness/src/generated/binding.rs` |
+| `core-ffi-pull` | ABI v1 7.1's **pull** family: `ak_parse_*` with zero upcalls, then `ak_bdr_drain` into host memory, then replay. The shape a managed host must use | `crates/harness/src/pull.rs` |
+| `core-ffi-pull-walk` | the same without the drain copy (`ak_bdr_ptr`, replay in place). The shape a native host uses | same |
+| `core-ffi-pull-opaque` | the walk arm with the replay's calls made opaque. R5's second half for this family | same |
+| `core-ffi-parse-only` | `ak_parse_*` alone. **Not a decode**: the materialisation term on its own | same |
 
 ## What exists
 
@@ -47,16 +51,37 @@ crates/shapes-prost         protox 0.9 -> prost-build 0.14 over the generated .p
 crates/shapes-values        the value rules of emit/values.py, hand-re-derived
 crates/stage1-validate      the stage 1 harness
 crates/facade               facade types, the armonik arm, core-native, the payload builder
-crates/ak-abi               the C ABI of design/ABI-v1.md. The generated header BOTH sides use
-crates/ak-rt                Enc/Dec runtime: varints, learned length widths, counters, arena size
-crates/ak-core              the core. **cdylib, not rlib**, see "Open defects" D3
 crates/harness              the binding, the arms table, conformance, counts, bench
+crates/harness/src/pull.rs  the pull family's arms
 ```
 
+**The core is NOT in this tree (R0).** `ak-abi`, `ak-rt`, `ak-core` and `rpc` live once at
+`poc/codec/` and this slice path-depends on them. A second copy is a defect with a
+mechanical check, `poc/codec/gen/one_core.sh`. What stage 5 ADDED there, all of it additive
+and all of it available to every slice:
+
+```
+ak-rt/src/bdr.rs            the pull family's record buffer (section 7.1)
+ak-core: ak_parse_<Root>    one per root, zero upcalls
+ak-core: ak_bdr_reserve / footprint / drain / ptr / reset / count_forward
+ak-core: ak_init, ak_initialized, ak_build_id, ak_log_test, ak_panic_test  (section 3)
+ak-rt feature `global-widths`   section 6's REFUSED arrangement, so it can be measured
+ak-core feature `init-guard`    section 3's "every entry point requires ak_init", so it
+                                can be PRICED. Emitted as a post-pass over the codec text,
+                                so a new entry point gets the guard by existing
+```
+
+Every one of those is off-by-default or new surface: `git diff --stat` over `poc/codec`
+for stage 5's first commit was 2,048 insertions and **zero deletions**.
+
 Binaries: `conformance` (byte identity), `counts` (`--features count`), `bench`,
-`shapes`, `content`, `rpcbench`, `decpolicy`, `inlining`, `zeroed`, `unknown`.
-Features: `guard` (on by default, ABI v1 section 5), `count`, and the decode UTF-8 policy
-`dec-reject` / `dec-reject-simd` (default: lossy).
+`shapes`, `content`, `rpcbench`, `decpolicy`, `inlining`, `zeroed`, `unknown`,
+**`pullbench`** (the two decode families), **`concur`** (obligation 12.5),
+**`lifecycle`** (section 3).
+Features: `guard` (on by default, ABI v1 section 5), `count`, the decode UTF-8 policy
+`dec-reject` / `dec-reject-simd` (default: lossy), **`global-widths`** and
+**`init-guard`** (both off by default; each builds an arrangement so it can be measured
+rather than inherited).
 
 ## What is measured
 
@@ -225,6 +250,87 @@ separate processes.
   improves the ASCII decode column by roughly 0.08-0.12 on M1 and 0.03-0.08 on M2.
 - **The content set changes no decode verdict.** Every arm validates on decode, so all three
   sets scale all arms together and the ratios move by less than the run-to-run spread.
+- **ABI v1 SECTION 7.1's PULL FAMILY IS BUILT, AND OPEN DECISION 2's SECOND HALF IS
+  ANSWERED YES** (`stage5-pull-decode.log`). One `dec_walk` is emitted once and instantiated
+  twice; the families differ in the `flush_*` macro body, the entry point's prologue and
+  epilogue, and one argument naming the non-leaf element decoder. **The structural control
+  is that a record is written exactly where push makes a reverse call, so the counts must be
+  equal — and they are, to the digit, on all thirteen counted payloads** (P2.2 3501/3501),
+  with pull's reverse count measured at zero everywhere.
+- **The interface figure, which is a property of the descriptor and not of this machine.**
+  Push's crossings are per ELEMENT and pull's are per MESSAGE: P2.2 is **3,501 reverse
+  against 16 forward**, or **3** if the host drains in one chunk, and 3 is the floor for
+  every payload in the set. The chunk size is the only knob a host has on that count.
+- **Pull costs a RUST host between −5% and +18% of a push decode, and the prediction going in
+  was wrong.** At a 1.8 ns reverse call pull was expected to lose; over six runs it is 0.94
+  to 1.18 of push, at or below push on nine of twelve payloads and a win on every M2 shape.
+  A push reverse call costs this host more than a crossing: it goes through a vtable slot
+  reached from across the shared object, and the replay's equivalent is a local call over a
+  buffer already in L2. **The opaque-replay control clears the obvious objection** — the
+  parity is not rustc inlining the replay, and that arm measures the same as the plain walk
+  arm on every payload.
+- **Where pull loses, the byte table explains it and the clock does not.** P1.3 (+5 to +13%)
+  and P6.1 (+8 to +18%) are the two losing rows, and the record stream is **63.6 times the
+  wire** on P1.3 — 38,488 B for a 605 B message — because a record carries the whole fixed
+  group of an element that encodes to nothing. **Pull's cost tracks the ratio of record bytes
+  to wire bytes, which is a property of the SHAPE.** Every payload whose ratio is below 1 is
+  at or under push.
+- **The decomposition, so another host can re-price it**: materialise (`ak_parse_*` alone) is
+  8.5% to 47% of a push decode depending on shape; the drain copy is 1% to 12%. The C# slice
+  ESTIMATED the pull intermediate at 12 to 19 percent of a parse; the copy half of it is
+  measured here.
+- **OBLIGATION 12.5's CONCURRENCY SUITE EXISTS, AND CORRECTNESS IS CLEAN**
+  (`stage5-concurrency.log`). Two shapes in sequence on one context, then 2, 4 and 8 threads
+  with a context each and phases offset so they are not in lockstep; every encode compared
+  byte for byte with a single-threaded reference and every decode by value. **0 wrong out of
+  2,840 encodes and 2,840 decodes, on both width-table builds.** The codec half has no shared mutable state, and that
+  is now a measurement rather than a reading of the source.
+- **A SHARED ENCODE CONTEXT ABORTS THE PROCESS, AND THAT IS A HOLE IN SECTION 5.** The
+  suite's positive control plants D16's class in the codec half — four threads, one context.
+  It is **not** detected as wrong bytes: the core panics inside `Enc`, the frame the panic
+  must unwind through is an `extern "C"` entry point, the unwind is refused and the runtime
+  aborts. So section 5's error channel covers a failure the HOST reports and has **nothing at
+  all for a panic inside the core**, and every codec entry point is exposed to it. Section
+  3's panic hook changes what is printed, not whether the abort happens. Raised, not taken:
+  an owning-thread id beside the context's existing `kind` word would turn this into
+  `AK_ERR_INVALID_STATE` at the first misuse.
+- **SECTION 6's "NEVER PROCESS-GLOBAL" IS MEASURED ON A SECOND HOST: the sign agrees and the
+  magnitude does not.** `--features global-widths` builds the refused arrangement. It costs
+  **0.5 to 11 percent**, only above one thread, and **only when two shapes want different
+  widths at the SAME site** — a disjoint-site control shows no penalty at any thread count,
+  so this is true sharing and not false sharing of the static's cache lines. Against the
+  branch's inherited java figure (1.32 to 2.23 at two threads) this host sees 1.005 to 1.070
+  at two and needs four to reach 1.11. R9 is why that is not a contradiction. **The
+  one-thread rows are a confound and are in the log rather than removed**: a static array is
+  reached more cheaply than a `Box<[u8]>` in the context, so the global arm is 2 to 6 percent
+  faster at one thread and the contention figure is a difference of differences.
+- **The contention arm is shown to contend rather than assumed to**: a warm context on one
+  shape misses zero length prefixes; the same context alternating the pair misses exactly one
+  per encode, which also says a width miss costs one element and not one message.
+- **SECTION 3's LIFECYCLE IS BUILT AND EXERCISED** (`stage5-lifecycle.log`), which it had
+  never been anywhere in this branch. Fourteen cases, each in its own process because
+  `ak_init` is one-shot and there is no `ak_shutdown`: the state machine, the ABI-version
+  check, idempotence (`AK_ALREADY_INITIALIZED` as a SUCCESS), refusal on different options,
+  a null options pointer, the log bridge and `AK_INIT_OWN_LOGGING`, the panic hook and
+  `AK_INIT_NO_PANIC_HOOK`, the codec still correct afterwards, and **8 threads racing
+  `ak_init`: exactly one `AK_OK`, seven `AK_ALREADY_INITIALIZED`, and no caller returning
+  before the installs are visible**.
+- **What the `AK_ERR_UNINITIALIZED` guard COSTS is not measured yet.** `gen/guardprice.sh`
+  is the run; it needs the box to itself and this session lost one attempt to two benchmarks
+  overlapping, which is README section 11 reproduced. No figure is quoted until it exists.
+  What the crossing counts already say without a clock: the guard is per ENTRY POINT, and
+  the entry points are 1 per decode and 8 (P1.2) to 2,511 (P2.2) per encode — per message or
+  per chunk, never per field.
+- **Two findings came out of cases that FAILED first, and both failures were the
+  specification working.** (a) **The core's panic hook does not see a Rust host's panics**,
+  because a cdylib carries its own copy of `std` and the two hooks are two different globals.
+  Section 3 warns about that mechanism one level up; here it is `std`'s globals, and it is
+  why the hook is worth installing rather than a defect. Testing it needed a panic inside the
+  core (`ak_panic_test`), and the verdict is "the host's sink got the message before the
+  process aborted". (b) **The flags are a process-wide negotiation and the first caller
+  wins**: two components in one process that both initialise defensively with different flags
+  cannot both choose, and the second gets a hard failure for asking. Section 3 does not spell
+  that out and two hosts loading one shared library is the normal case.
 - **ABI v1 open decision 5 is answered.** Zero warm misses on every uniform payload; on P2.4,
   one miss per element moving 980,938 of 981,222 bytes. Isolated with two added arms whose
   mean is P2.4 exactly, and with prost carried as the floor: the mechanism costs about
@@ -233,23 +339,24 @@ separate processes.
 
 ## Next step
 
-Nothing is outstanding. The slice has done what W3 asked: four arms, every shape, the
-interface-cost decomposition available to every other slice, and decision 3 answered on both
-sides of the wire.
+Nothing is outstanding. Stage 5 closed the three items the previous session's list named,
+and each produced a result the list did not predict.
 
 If more is wanted, in the order I would do it:
 
-1. **The `latin1`/`wide` sets on the remaining payloads**, and the SIMD validator on a
-   machine without AVX2. One machine is one machine.
-2. **A concurrency suite** (ABI v1 obligation 12.5): two payload shapes, threads in sequence
-   and together, every encode asserted against a reference. The learned-width table is per
-   context and has never been touched by two threads, which is the case section 6 says a
-   global table fails at. Stage 4's defect D16 is what that suite exists to catch, and it
-   was found by accident rather than by a suite.
-3. **`ak_init` and the lifecycle** (section 3), which is unbuilt, so "every entry point
-   requires `ak_init`" is unexercised.
-4. **The pull decode family**, to turn "push is the right default at 1.8 ns" from an argument
-   into a measurement.
+1. **The `latin1`/`wide` content sets on the remaining payloads**, and the SIMD validator on
+   a machine without AVX2. One machine is one machine. This is the only item from the old
+   list still open, and it was the lowest-value one then and now.
+2. **Consume `ffi/corpus/`** (W8, 336 vectors, `CONTRACT.md`). The python slice is its first
+   consumer and a second would be worth having. Not started here: items 1 to 3 of the
+   session's brief came first and this was explicitly ranked below them.
+3. **A concurrency suite over the RPC half.** D16 was an RPC defect and stage 5's suite
+   covers the codec. `ak_call_unary` with an assertion per response, rather than stage 4's
+   throughput figure, is the thing that would replace the accident that found D16.
+4. **ThreadSanitizer over the cdylib.** Stage 5's suite asserts outputs; it is not a race
+   detector, so a defect that races without changing bytes at this thread count passes.
+5. **The unbatched element form on decode**, and the pull family under decision 11's
+   unknown-field capture. Both are deliberately not built; see "what is not measured".
 
 ## Correctness
 
@@ -271,6 +378,26 @@ If more is wanted, in the order I would do it:
   subtraction would go on producing a plausible number. Whether that happens depends on LTO,
   on `#[inline]` on the entry point and on whether the entry point is generic, none of which
   appear in a configuration line, which is why it is a build step and not a note.
+- **The pull arms are gated by VALUE identity, not byte identity**, because pull is
+  decode-only and byte identity is an encode notion. 16 payloads over 7 roots, four decoders
+  each: the independent `armonik` arm, the push arm, and the two pull arms, all agreeing.
+  M7 is in the set, which matters: its bytes interleave two repeated fields of one type, so
+  it is the payload that exercises section 7.3's flush on a foreign tag, and that flush is
+  emitted by the traversal the two families SHARE.
+- **And the pull arms have a structural gate byte identity cannot give.** A record is
+  written exactly where the push family makes a reverse call, so the counts must be equal.
+  They are, to the digit, on all thirteen counted payloads. Byte identity says two arms
+  agree on the ANSWER; this says they agree on the STRUCTURE, which is what "one traversal
+  emitter, not two" needs.
+- **The push family's own gate is re-run whenever the core changes.** Stage 5 added
+  `ak_parse_*` beside `ak_decode_*`, a field to `DecCtxImpl` and `ak_init`; "additive" is a
+  claim about behaviour, so `gen/pull.sh` step 2 re-runs byte identity across all four arms,
+  and the crossing counts were re-taken and are unchanged to the digit (M1 9/6, M2
+  10.024/7.004).
+- **The concurrency suite's own control is that it can fail**: obligation 12.5's standard is
+  that a one-shape suite reports zero wrong bytes whether a defect is present or absent, so
+  a suite that has never reported one has shown nothing. `gen/concur.sh` plants a contract
+  violation and requires it to be caught.
 
 ## Open defects
 
@@ -335,9 +462,13 @@ Four, all reported to the aggregating session and none fixed here:
 
 ### ABI surface that is specified and not built
 
-- **The pull decode family** (section 7.1): only push is built, which is the right default for
-  a host whose reverse call costs 1.8 ns, but the claim that pull would be no better here is
-  an argument and not a measurement.
+- ~~The pull decode family~~ **BUILT** (stage 5). What remains unbuilt in it: decision 11's
+  unknown-field capture is deliberately not wired to pull (the bag is a candidate and pull is
+  a family; pricing one through the other would make neither answerable, so `ak_parse_*`
+  skips unknown fields as the default push path does); `ak_bdr_reserve` exists and no arm
+  calls it, so what a COLD first parse costs is unmeasured; a record larger than the chunk is
+  `AK_ERR_CAPACITY` and no test makes that happen; and the drain contract requires an
+  8-aligned destination, which nothing prices for a host that cannot give one.
 - **Most of the RPC half** (section 9). Built and measured: the blocking unary call over a
   channel. **Not built**: the callback and completion-queue delivery modes, metadata,
   deadlines, the gRPC status code as a number, cancellation (section 9 gives the blocking
@@ -345,10 +476,18 @@ Four, all reported to the aggregating session and none fixed here:
   TLS, streaming, a real network, failure injection and the server side. The RPC half's case
   is **behavioural** and none of that behaviour is exercised: stage 4 measures the call path,
   which is the half of section 9 whose case was never in doubt.
-- **`ak_init` and the lifecycle** (section 3): no runtime, context or client, no crypto
-  provider, no log or tracing bridge, no panic hook, no `worker_threads` default. The codec
-  half needs none of it and this slice built none of it, so section 3's claim that every entry
-  point requires `ak_init` is unexercised.
+- **`ak_init` and the lifecycle** (section 3): **built and exercised in stage 5**, and what
+  is NOT built there is listed rather than implied. Built: `ak_init`, the options struct and
+  the flags, the `ak_err` out-parameter, the ABI-version check, idempotence and its refusal
+  case, `ak_build_id`, the log bridge, the panic hook, the `AK_ERR_UNINITIALIZED` guard on
+  every entry point (behind `init-guard`), and the one-shot rule under 8 racing threads.
+  **Not built, and none of it is cheap to fake**: the rustls crypto provider installed by
+  name (this build does not link rustls; `AK_INIT_NO_CRYPTO` names the case);
+  `tracing::set_global_default` and `log::set_logger`, because the bridge is the ABI's
+  `ak_log_fn` and not those crates; no runtime, context or client, so **configuration
+  precedence (setter > environment > JSON > defaults) and the `worker_threads` default are
+  still unexercised** — both belong to `ak_context_new` and `ak_runtime_opts`, which are the
+  RPC half. A one-line install nobody has run is not evidence.
 - **Group layout export and assert at load** (section 10 and obligation 12.3). Both sides
   compile against one generated header here, so there is nothing to disagree — which means the
   insurance that matters to a hand-layout host (FFM) is untested.
@@ -359,6 +498,13 @@ Four, all reported to the aggregating session and none fixed here:
   alternative the aggregating session has ruled out on layout-reproducibility grounds, not a
   measured one.
 - **The unbatched element form on decode**: only the run form is built.
+- **The pull family's no-boundary control**: `core-native` is the PUSH traversal emitted into
+  the host and there is no `core-native-pull`. The question stage 5 asks is push against pull
+  THROUGH THE SAME BOUNDARY, which R4's sharpened half says to ask as a delta between two
+  arms in the same rounds, and it is — but a reader wanting "what does the pull traversal
+  cost with no boundary at all" will not find it here.
+- **Encode has one delivery family and section 7.1 is about decode**, so nothing in stage 5
+  bears on the encode column.
 
 ### Error paths
 
@@ -397,9 +543,17 @@ Four, all reported to the aggregating session and none fixed here:
   The nested groups inside an element keep the total fill and are not priced separately, and
   what the variant costs a host that is not Rust is a property of that host's branches, not
   of this measurement.
-- **Concurrency**: one thread everywhere. The learned-width table is per context and never
-  exercised by two threads, which is the case ABI v1 section 6 says a global table fails at,
-  and obligation 12.5's concurrency suite does not exist.
+- **Concurrency**: the CODEC half is covered by stage 5's suite (obligation 12.5) and the
+  rest is not. **The RPC half is not in the suite**, and D16 was an RPC defect: stage 4's
+  8-in-flight arm is the accident the obligation exists to replace, and a suite over
+  `ak_call_unary` with an assertion per response does not exist. **Nothing here is a race
+  DETECTOR** — the suite asserts outputs and does not run under a sanitiser, so a defect that
+  races without changing bytes on this machine at this thread count passes; ThreadSanitizer
+  over the cdylib is the obvious next step and is not done. Two shapes, as the obligation
+  asks, and not more. 4 vCPUs, which R9 makes a lower bound on contention, and the throughput
+  half is visibly noisy: the per-context shared-site row moved by up to 6 percent between
+  runs of the same binary, so the claim rests on the ranges not overlapping and not on any
+  single figure.
 - **Allocation and footprint**: nothing counts allocations, peak memory or the arena's real
   cost in any arm.
 - **Linkage**: a shared library only. A C or C++ host that statically links the same core
@@ -418,6 +572,29 @@ Four, all reported to the aggregating session and none fixed here:
 
 ## Slice-specific notes
 
+- **THIS SLICE ADDED TO THE SHARED CORE, AND THE AGGREGATING SESSION SHOULD SAY WHETHER IT
+  STAYS.** R0 allows a slice to add to `poc/codec/` additively and says a change to existing
+  behaviour is not a slice's to make. Stage 5 made five additions there. Four are plainly
+  additive new surface: `ak-rt/src/bdr.rs`, the `ak_parse_*` and `ak_bdr_*` entry points,
+  `ak_init` and its neighbours, and `ak_panic_test`. **Two are feature-gated alternative
+  arrangements and they are the ones to look at**:
+  - `ak-rt` feature **`global-widths`** builds the process-global learned-width table that
+    ABI v1 section 6 explicitly refuses. It exists so the refusal is measured rather than
+    inherited from the java slice, and it is off by default.
+  - `ak-core` feature **`init-guard`** emits section 3's `AK_ERR_UNINITIALIZED` check into
+    every entry point, so the rule can be priced. Off by default, and emitted by a post-pass
+    over the finished codec text so a new entry point gets it by existing rather than by
+    someone remembering.
+
+  With both off, the emitted codec and the runtime behave exactly as before: the first
+  stage-5 commit was 2,048 insertions and zero deletions across `poc/codec/crates`, and the
+  push family's byte-identity gate and crossing counts were re-run and are unchanged. But a
+  feature that builds a refused arrangement is a judgement call and it is flagged here rather
+  than buried.
+- **The other slices need to regenerate.** `codec.rs` and `abi.rs` changed (additively), and
+  cpp, java and this slice all write those paths from one emitter. A `gen/generate.py --check`
+  in another slice will read STALE until it regenerates, and will then agree, because the
+  text comes from the same emitter and the same description.
 - Reads `packages/rust`. Does not edit it.
 - This slice's `core-ffi-rust` number is what every other slice subtracts to separate
   interface cost from runtime tax, so it is the one arm that must exist before the managed
@@ -446,4 +623,7 @@ Four, all reported to the aggregating session and none fixed here:
 | `ffi/logs/rust/stage3-decode-utf8-policy.log` | rustc 1.94.1 release, prost 0.14.4, cdylib boundary, guard on; three POLICY BUILDS run round robin with a rotating order, plus one in-process table; simdutf8 0.1, AVX2 present | **ABI v1 open decision 3, third framing.** Validate-and-reject on decode costs 0.54 to 1.10 of today's lossy string path depending on content set, and 0.36 to 0.71 with `simdutf8::basic`, because `from_utf8_lossy` already validates. It moves the decode ratio against prost in this slice's favour and makes the comparison like-for-like, since prost rejects too. Carries the malformed-input case, the sticky-slot regression (D17) and the ordering hazard (D18) |
 | `ffi/logs/rust/stage3-content-sets.log` | as stage3-M2, plus simdutf8 0.1 as one arm; encode and decode over P1.2 and P2.2, all three content sets in ONE process | ABI v1 open decision 3: the scalar validator costs 2.2 to 3.0 times its ASCII self on non-ASCII content and loses 2.0 to 2.6 to prost; a SIMD validator with the same contract recovers half to two thirds of it; decode is unaffected in ordering |
 | `ffi/logs/rust/stage3-M2.log` | rustc 1.94.1 release, prost 0.14.4, cdylib boundary, guard on (section 6 off), ASCII, 4 shared vCPUs | M2 over P2.1 to P2.5: byte identity across four arms plus value identity across the three facade decoders; 7.004 crossings per task on decode and 10.02 on encode; ABI v1 open decision 5 answered and isolated; the two shape-coverage findings; the guard priced on a shape that makes 7 to 10 reverse calls per element |
+| `ffi/logs/rust/stage5-pull-decode.log` | rustc 1.94.1 release, prost 0.14.4 (tonic-prost 0.14.6's decode path READ, not assumed), cdylib boundary, guard on, ASCII; two suite invocations, three timed runs each, arms interleaved in one process | **ABI v1 section 7.1's PULL family, built, and open decision 2 answered on both halves.** One `dec_walk` serves both families and the structural control says so: records written == reverse calls push would make, to the digit, on all thirteen counted payloads, with pull's reverse count zero. Crossings go from 3,501 per message (push, per element) to 16, or 3 with one drain chunk. Pull costs this host −5% to +18% of a push decode, with the opaque-replay control showing it is not an inlining artifact, and its cost tracks the record-to-wire byte ratio |
+| `ffi/logs/rust/stage5-concurrency.log` | rustc 1.94.1 release, cdylib, guard on, 4 vCPU; two builds (per-context and `--features global-widths`), three runs each, separate target dirs | **Obligation 12.5's concurrency suite.** Correctness clean: 0 wrong in 2,840 encodes and 2,840 decodes across sequence, 2/4/8 threads, on both builds. The positive control (four threads, one context) is **not** wrong bytes but a PROCESS ABORT, because a panic in the core cannot unwind through an `extern "C"` frame — a hole beside the one section 5 already calls the widest. Section 6's global-table claim measured: 0.5 to 11 percent, only above one thread and only on shapes sharing a site, with a disjoint-site control and the width flipping counted |
+| `ffi/logs/rust/stage5-lifecycle.log` | rustc 1.94.1 release, cdylib, two builds (default and `--features init-guard`), each case in its own process | **ABI v1 section 3, built and exercised for the first time in this branch.** Fourteen cases: the state machine, the version check, idempotence and its refusal, the log bridge and its flag, the panic hook and its flag, 8 threads racing `ak_init`. Two cases failed first and both failures were the specification working — the core's hook does not see a HOST panic (two copies of `std`), and the flags are a process-wide negotiation the first caller wins. **What the `AK_ERR_UNINITIALIZED` guard COSTS is not in it**: that run is `gen/guardprice.sh`, it needs the box to itself, and no figure is quoted until it exists |
 | `ffi/logs/rust/stage2-four-arms-M1.log` | rustc 1.94.1 release, prost 0.14.4, cdylib boundary, guard on (section 6 off), ASCII, 4 shared vCPUs | byte identity across four arms; crossing counts; the boundary is a real dynamic import; the crossing costs 1.8 ns; the ratio table above; the guard is free; UTF-8 validation costs 25-30 percent of an encode |

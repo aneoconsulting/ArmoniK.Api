@@ -1400,3 +1400,123 @@ reproduces almost exactly**: 2.17–3.37 times its own ASCII cost against a publ
 Same measurement, same session, two forms; the cross-arm ratio drifted and the within-arm
 delta held. That is R4's new half demonstrated rather than argued, and it is the argument for
 writing findings as deltas wherever the question allows it.
+
+---
+
+## Work unit: the pull decode family (ABI v1 section 7.1, open decision 2)
+
+### What I expected, and it was wrong
+
+The slice's own next-step list had this as "turn 'push is the right default at 1.8 ns' from
+an argument into a measurement", and I went in expecting to confirm it: a family that trades
+reverse calls for a materialisation should lose on a host whose reverse call is 1.8 ns.
+Measured over six runs in two suite invocations, **pull is 0.94 to 1.18 of push and it is at
+or below push on nine of twelve payloads**, including every M2 shape. The prediction was
+wrong and the reason is that a push reverse call costs this host more than a crossing: it
+goes through a vtable slot reached from across the shared object, while the replay's
+equivalent is a local call over a buffer already in L2.
+
+### The thing I had to check before believing it
+
+A replay is host code calling host code, so rustc may inline `apply_*` and `add_*` into it;
+a push callback never can be. That is R5's second half in a new guise, and subtracting the
+families without checking it would have charged an optimiser difference to the interface.
+So `core-ffi-pull-opaque` runs the identical replay with every call through a `black_box`ed
+function pointer. **It measures the same as the plain walk arm on every payload.** The
+parity is not inlining. Had I not built that arm the headline would have been defensible
+only until the first review.
+
+### What travels, and it is not the nanoseconds
+
+Push's crossings are per element, pull's are per message: **3,501 reverse calls against 16
+forward ones on P2.2**, or 3 if the host drains in one chunk, and 3 is the floor for every
+payload in the set. That is a property of the descriptor, final under R13, and it is what a
+host paying 80 ns an upcall re-prices.
+
+### The control I did not plan and would keep
+
+A record is written exactly where push makes a reverse call, by construction, so the two
+counts must be equal. They are, to the digit, on all thirteen counted payloads. That single
+line is stronger evidence that one traversal emitter serves both families than the correctness
+gate is: byte identity says the two arms agree on the answer, and the count says they agree on
+the *structure*. It also cost nothing — the records were already being counted.
+
+### Where pull loses, the byte table answered it and the clock did not
+
+P1.3 (+5 to +13%) and P6.1 (+8 to +18%) are the two losing rows, and I was about to write
+"the absent path is worse for reasons unknown" when the footprint table gave it away: on P1.3
+the record stream is **63.6 times the wire**, 38,488 B for a 605 B message, because a record
+carries the whole fixed group of an element that encodes to nothing. Every payload whose
+record-to-wire ratio is below 1 is at or under push. So pull's cost tracks the sparseness of
+the element, not the size of the payload.
+
+## Work unit: the concurrency suite (obligation 12.5)
+
+### The first version found nothing, and it was the suite's fault
+
+I ran the throughput arms on P1.3 and P2.5 — one M1 shape and one M2 shape — and the
+per-context and process-global width tables measured the same. They are different messages,
+so they index **disjoint length-prefix sites**, and a shared table is shared in name only.
+Swapping to P1.1 and P1.3, both M1, made the same site want 2 bytes and then 1, and the
+ranges separated at two threads and stayed separated at four. The old pair is now the
+control row rather than deleted, because "different sites, same cache lines, no penalty" is
+the statement that makes the other row mean true sharing.
+
+That is the slice's standing question in its other form: not "is the change in the build"
+but "is the arm doing the thing its name says". I then counted it rather than arguing it —
+a warm context on one shape misses zero prefixes, the alternating pair misses exactly one
+per encode.
+
+### The positive control took three attempts and the third one is the finding
+
+Plan A was to share one encode context across threads in-process and count wrong bytes. It
+panicked. Plan B caught the panic with `catch_unwind` and counted panics. It aborted anyway:
+the panic is raised on the far side of an `extern "C"` frame, the unwind is refused there,
+and `catch_unwind` in the host never gets the chance. Plan C runs the control in a child
+process and reads the verdict from its exit status.
+
+**The third attempt is worth more than the control.** A shared context is not detected as
+wrong bytes; it aborts the process. Which means ABI v1 section 5's error channel — which the
+specification already calls the widest hole in the drafted interface — covers a failure the
+*host* reports and has nothing at all for a panic inside the core, and every codec entry
+point is exposed to that, not only a misused one.
+
+### And the width table's correctness exposure is nil
+
+Reading `Enc::end` while writing the global arm: `Mark` carries its width by value, so a
+wrong learned width is always resolved correctly and costs a memmove. A global table is
+therefore a throughput hazard and never a correctness one. That is why the global arm could
+be built at all as a comparable arm, and it is also why section 6's sentence is about
+threads rather than about bytes.
+
+## Work unit: `ak_init` and the lifecycle (section 3)
+
+### Two cases failed and both failures were the specification working
+
+`panic-hook` failed first because I panicked in *host* code and expected the core's hook to
+fire. It does not: a cdylib carries its own copy of `std`, so the core's hook and the host's
+hook are two different globals. Section 3 warns about exactly that mechanism one level up
+("two copies of the staticlib in one process either share Rust's globals or split-brain them
+with no warning"); here it is `std`'s globals, and the split is the reason the hook is worth
+installing rather than a defect. Testing it needed a panic *inside* the core, so the core now
+has `ak_panic_test`, and the case's verdict is "the host's sink got the message before the
+process aborted" — which is the whole of what the hook buys.
+
+`codec-after-init` failed second, with `AK_ERR_INVALID_STATE` and `AK_DETAIL_OPTS_DIFFER`,
+because the case called `ak_init` with one flag set and `Ctx::new()` then called it with
+another. That is section 3's "a second call with different options fails", working. It is
+also a consequence the specification does not spell out: **the flags are a process-wide
+negotiation and the first caller wins**, so two independent components in one process cannot
+both choose, and the second gets a hard failure for asking rather than the first's settings.
+Two hosts loading one shared library is the normal case. It is now a case of its own
+(`two-components`) rather than a fixed test.
+
+### The guard is behind a feature on purpose
+
+"Every entry point requires `ak_init`" is a claim with a price on the hot path, and no slice
+had quoted it. Emitting the check unconditionally would have changed every slice's build and
+made the price unmeasurable at the same time. Behind `init-guard` the default build is
+byte-for-byte what it was and the two builds are the measurement. The check itself is
+emitted as a post-pass over the finished codec text rather than at each of the ten places an
+entry point is written, for the D12/D13 reason: a rule applied at nine sites out of ten is
+the defect this generator keeps producing.
