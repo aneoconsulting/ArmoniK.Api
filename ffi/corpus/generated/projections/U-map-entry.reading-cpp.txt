@@ -1,0 +1,83 @@
+tasks {
+  id: "bbbb0ff8-2fff-4d0c-3231-a10e67527515"
+  session_id: "38e7281b-f77b-4e96-44b4-0f8d1123bac0"
+  owner_pod_id: "10ed9561-e590-d45e-8f57-85825c1f700e"
+  parent_task_ids: "872f2b92-d47e-82b3-2b6f-fd579ea7ca2f"
+  parent_task_ids: "6917c066-f191-437c-411d-6f93c80ed9cc"
+  data_dependencies: "6cf343e9-8a0b-3693-285f-82fce65c4bc5"
+  data_dependencies: "a4c28478-9db9-4a62-a2d4-8c9b6f5e6b3b"
+  expected_output_ids: "200eb271-8a5c-c9a0-9c39-96953eff6e0f"
+  expected_output_ids: "4e49ab33-d90d-0972-2156-412188c0fb83"
+  retry_of_ids: "939bef73-ed90-3103-ad89-3a232c94c7c7"
+  retry_of_ids: "ef7666fe-2414-d6a5-8b51-842b1224b6a8"
+  status_message: "hotel echo foxtrot golf mike"
+  options {
+    options {
+      key: "k00"
+      value: "alpha800"
+    }
+    options {
+      key: "k01"
+      value: "alpha656"
+    }
+    options {
+      key: "k02"
+      value: "echo180"
+    }
+    options {
+      key: "k03"
+      value: "bravo161"
+    }
+    max_duration {
+    }
+    max_retries: 73189
+    priority: 38870
+    partition_id: "foxtrot381"
+    application_name: "november773"
+    application_version: "lima707"
+    application_namespace: "alpha776"
+    application_service: "bravo665"
+    engine_type: "charlie850"
+  }
+  created_at {
+    seconds: 1700000000
+  }
+  submitted_at {
+    seconds: 1700000000
+  }
+  started_at {
+    seconds: 1700000000
+  }
+  ended_at {
+    seconds: 1700000000
+  }
+  pod_ttl {
+    seconds: 1700000000
+  }
+  output {
+    success: true
+    error: "lima juliet november juliet lima"
+  }
+  pod_hostname: "echo60"
+  received_at {
+    seconds: 1700000000
+  }
+  acquired_at {
+    seconds: 1700000000
+  }
+  creation_to_end_duration {
+  }
+  processing_to_end_duration {
+  }
+  initial_task_id: "2c53eb36-4bf0-91c6-32b8-ec83a5142698"
+  received_to_end_duration {
+  }
+  processed_at {
+    seconds: 1700000000
+  }
+  fetched_at {
+    seconds: 1700000000
+  }
+  payload_id: "e32df36b-e503-dac2-b180-68bf4ad6ec78"
+  created_by: "aacdaa19-b761-2130-bd49-05b02d5e7d0c"
+}

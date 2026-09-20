@@ -4,18 +4,25 @@
 one exists, a systematic misreading shared by its generator and by upb would survive.
 This is that consumer for the rows it can reach.
 
-**Scope, stated before any result.**  This slice's codec covers the M1 subtree, so it can
-root only the corpus rows whose `root` is `ListResultsResponse`: **48 of 336**.  Every
-other row is reported as out of scope by class, never silently dropped.  The 48 are not a
-thin slice of the corpus's intent: they include the `unknown` class at both the root and
-the element site, which is the one obligation nothing else in this slice touches.
+**Scope, stated before any result.**  A row is in scope when its root is a message this
+slice's codec roots, which is now every root in `walk.ROOTS` rather than
+`ListResultsResponse` alone.  Every other row is reported as out of scope BY ROOT, never
+silently dropped.
 
 **CONTRACT.md rule 0, and it is checked rather than asserted.**  A reader generated from
 `corpus_superset.proto` knows every field, executes no unknown-field skip, and passes
 class `unknown` while testing nothing.  This slice's codec is generated from
-`ffi/schema/shapes.json`, and `check_rule_zero()` below diffs the three messages it
-covers against BOTH corpus schemas: identical to `corpus.proto`, and missing exactly the
-seven `u_*` fields that `corpus_superset.proto` adds.  So the reader is the reader.
+`ffi/schema/shapes.json`, and `check_rule_zero()` below diffs every message it covers
+against BOTH corpus schemas.  Two conditions, and only the first is per message:
+
+*   **every** scoped message is identical to `corpus.proto`'s, and
+*   **at least one** of them is missing fields that `corpus_superset.proto` adds, so the
+    unknown-field skip is actually executed somewhere.
+
+The second used to be per message as well, which passed while the scope was M1 -- all
+three of its messages happen to gain `u_*` fields -- and turned into eleven spurious
+failures the moment the scope widened to messages the superset does not extend. A check
+that only holds for the scope it was written against is not a check.
 
 Obligations run: C1 (parse), C2 (project), C3 (re-encode to an accepted form, and say
 which), C4 (refuse, and record what the refusal looked like).  C5 (produce) is run for the
@@ -55,21 +62,33 @@ def check_rule_zero():
     mine = msgs(os.path.join(FFI, "schema", "generated", "shapes.proto"))
     reader = msgs(os.path.join(CORPUS, "corpus.proto"))
     sup = msgs(os.path.join(CORPUS, "corpus_superset.proto"))
-    ok, notes = True, []
+    ok, notes, extended = True, [], 0
     for n in W.SCOPE:
+        if n not in reader:
+            notes.append("%s: not in corpus.proto at all, so no row can reach it" % n)
+            continue
         if mine.get(n) != reader.get(n):
             ok = False
             notes.append("%s: this slice's schema differs from corpus.proto" % n)
+            continue
         extra = [x for x in sup.get(n, []) if x not in mine.get(n, [])]
-        if not extra:
-            ok = False
-            notes.append("%s: the superset adds nothing, so the unknown-field claim is "
-                         "untested here" % n)
-        else:
+        if extra:
+            extended += 1
             notes.append("%s: identical to corpus.proto; the superset adds %d fields "
                          "this reader does not know (%s)"
                          % (n, len(extra),
                             ", ".join(x.split()[-3] for x in extra[:3]) + ", ..."))
+        else:
+            notes.append("%s: identical to corpus.proto; the superset extends it "
+                         "nowhere, so the unknown-field skip is tested elsewhere" % n)
+    if not extended:
+        ok = False
+        notes.append("NO scoped message is extended by the superset: every `unknown` row "
+                     "would pass while executing no unknown-field skip at all")
+    else:
+        notes.append("%d of %d scoped messages are extended by the superset, which is "
+                     "what makes the `unknown` class mean something here"
+                     % (extended, len(W.SCOPE)))
     return ok, notes
 
 
@@ -81,10 +100,36 @@ def check_rule_zero():
 def project(obj, name):
     out = {}
     for f, k, c in W.walk(SCHEMA, name):
+        if c == "oneof":
+            continue                  # emitted below, once per oneof, under its case
         v = getattr(obj, f["name"])
+        if c == "optional":
+            # CONTRACT.md section 3: an explicit-presence field is projected when PRESENT,
+            # zero or not, and omitted when absent. That is the one shape where the
+            # projection and the omit-when-zero rule disagree on purpose.
+            if v is None:
+                continue
+            out[f["name"]] = (v if k == "string" else v.hex() if k == "bytes"
+                              else bool(v) if k == "bool" else str(int(v)))
+            continue
+        if c == "packed":
+            # CONTRACT.md section 3's type table, and a packed run follows it per VALUE:
+            # a bool is JSON true/false, a double is a string at `%.17g`, everything else
+            # is a decimal string. Note that `false` appears in the run -- the
+            # omit-when-zero rule is about a leaf, and a run's members are not leaves.
+            if v:
+                out[f["name"]] = [bool(x) if k == "bool"
+                                  else "%.17g" % x if k == "double"
+                                  else str(int(x)) for x in v]
+            continue
+        if c == "map":
+            if v:
+                out[f["name"]] = dict(v)
+            continue
         if c == "repeated":
             if v:
-                out[f["name"]] = [project(e, f["of"]) for e in v]
+                out[f["name"]] = ([e for e in v] if k == "string"
+                                  else [project(e, f["of"]) for e in v])
             continue
         if k == "message":
             if v is not None:
@@ -104,7 +149,40 @@ def project(obj, name):
                 out[f["name"]] = str(int(v))
         else:
             raise W.Unsupported("%s.%s: %s in a projection" % (name, f["name"], k))
+    for oname, members in W.oneof_groups(SCHEMA, name).items():
+        tag = getattr(obj, "%s_case" % oname)
+        g = next((x for x in members if x["tag"] == tag), None)
+        if g is None:
+            continue
+        v = getattr(obj, g["name"])
+        out[g["name"]] = (v if g["kind"] == "string"
+                          else v.hex() if g["kind"] == "bytes"
+                          else project(v, g["of"]) if g["kind"] == "message"
+                          else str(int(v)))
     return out
+
+
+DECODE_ONLY_ROOTS = set(W.DECODE_ONLY)
+
+
+def _triples(b):
+    """The (tag, wire type, body) multiset of a message's top-level fields.
+
+    Length-delimited fields only, which is all P7.1 has at the root. A vector that needed
+    more would need a real reader here, and this one does not.
+    """
+    out, i = [], 0
+    while i < len(b):
+        k = b[i]
+        i += 1
+        tag, wt = k >> 3, k & 7
+        if wt != 2 or i >= len(b):
+            return None
+        n = b[i]
+        i += 1
+        out.append((tag, wt, bytes(b[i:i + n])))
+        i += n
+    return sorted(out)
 
 
 def strip_unknown(d):
@@ -120,16 +198,59 @@ def strip_unknown(d):
 
 # --------------------------------------------------------------------------------------
 
+# Each arm is (name, decode(bytes, root) -> facade, encode(facade, root) -> bytes). The
+# ROOT is an argument because the corpus has rows at six of them; the previous table had
+# `decode(backend, buf, types)` baked in from work unit 2's three-argument entry point and
+# stopped running the moment the entry point grew a root. Nothing caught that, because
+# nothing ran `corpus.py` in `run.sh`. It runs there now.
+#
+# Rows where this slice disagrees with the corpus ON PURPOSE are listed in DISAGREEMENTS
+# below, each with the evidence that says which way the disagreement goes. They are
+# reported, never suppressed: they print under a heading of their own and are counted
+# apart from the failures, because a slice that folds a disagreement into its pass count
+# has removed the only thing the corpus's first consumer is for.
+DISAGREEMENTS = {
+    ("U-map-entry", "C2"): (
+        "an unknown field inside a map entry. THREE readers, three answers, and this "
+        "slice is with the reference implementation:\n"
+        "         this slice, core and pure-Python control : the entry parses, tag 3 is "
+        "skipped, the map keeps its 4 entries\n"
+        "         protobuf 7.36.2, pure-Python backend     : the same -- {'k': 'v'} "
+        "survives an added tag-3 field inside the entry\n"
+        "         protobuf 7.36.2, upb backend (the DEFAULT, and what R14 measures "
+        "against): the entry is DROPPED and the map comes back EMPTY. Isolated on a "
+        "two-field message rather than inferred from this vector\n"
+        "         the corpus's own projection              : the entries are recorded as "
+        "`_unknown` content of TaskOptions, so its reader did not treat tag 1 as the map "
+        "either\n"
+        "       A map entry is a message on the wire, so an unknown field inside it is "
+        "skipped and the entry survives, which is what this vector's own `why` says it "
+        "tests. Reported upstream; the projection is not matched by changing the reader."),
+}
+
+# Rows that fail on a defect this slice does not own. Same rule as DISAGREEMENTS: named,
+# printed loudly, and counted apart -- but the exit code does NOT stay red for them,
+# because `run.sh` runs under `set -e` and a step that is permanently red is a step whose
+# result nobody reads. A row may only appear here with the defect's identifier.
+# EMPTY, and that is the point of keeping the mechanism. It held D7 -- the shared core
+# refusing an unknown field of the deprecated GROUP form, on `U-root-group`,
+# `U-nested-group` and `U-oneof-group`. The core fixed it (`Dec::skip` now takes the tag
+# and recurses to a MATCHING `END_GROUP`, bounded at 100 nests), all three arms went from
+# 123/126 to 126/126, and the entries came straight back out. A row left here after its
+# defect is closed is a regression nobody would see.
+UPSTREAM = {}
+UPSTREAM_WHY = {}
+
 ARMS = [
     ("core-ffi / C ext type",
-     lambda b: arms._ffi.decode("cext", b, arms.CEXT),
-     lambda o: arms._ffi.encode("cext", o)),
+     lambda b, r: arms._ffi.decode("cext", r, b, arms.TY_CEXT),
+     lambda o, r: arms._ffi.encode("cext", r, o)),
     ("core-ffi / plain",
-     lambda b: arms._ffi.decode("attr", b, arms.PLAIN),
-     lambda o: arms._ffi.encode("attr", o)),
+     lambda b, r: arms._ffi.decode("attr", r, b, arms.TY_PLAIN),
+     lambda o, r: arms._ffi.encode("attr", r, o)),
     ("pycodec / plain",
-     lambda b: arms.pycodec.decode_root(b, arms.CTORS),
-     lambda o: arms.pycodec.encode_root(o)),
+     lambda b, r: getattr(arms.pycodec, "decode_root_" + r)(b, arms.CT_PLAIN),
+     lambda o, r: bytes(getattr(arms.pycodec, "encode_root_" + r)(o))),
 ]
 
 
@@ -148,15 +269,17 @@ def main():
         return 1
 
     rows = MAN["vectors"]
-    inscope = {k: r for k, r in rows.items() if r.get("root") in ("ListResultsResponse",)}
+    roots = set(W.ROOTS)
+    inscope = {k: r for k, r in rows.items() if r.get("root") in roots}
     print("\n## scope")
-    print("   %d of %d rows root at ListResultsResponse and are in scope."
-          % (len(inscope), len(rows)))
+    print("   %d of %d rows root at one of this slice's %d roots and are in scope."
+          % (len(inscope), len(rows), len(roots)))
+    print("   Roots covered: %s" % ", ".join(sorted(roots)))
     byroot = {}
     for k, r in rows.items():
         byroot.setdefault(r.get("root"), 0)
         byroot[r.get("root")] += 1
-    out_of_scope = {k: v for k, v in byroot.items() if k != "ListResultsResponse"}
+    out_of_scope = {k: v for k, v in byroot.items() if k not in roots}
     print("   Out of scope, by root, and every one of them is a message this slice does")
     print("   not cover rather than a row it chose to skip:")
     for k, v in sorted(out_of_scope.items(), key=lambda x: -x[1]):
@@ -169,6 +292,8 @@ def main():
           % ", ".join("%s=%d" % kv for kv in sorted(cls.items())))
 
     fails = 0
+    disagreed = {}
+    upstream = {}
     forms_written = {}
     unknown_forms = {}
     rejects_seen = []
@@ -182,17 +307,20 @@ def main():
             buf = open(path, "rb").read()
             if r["expect"] == "reject":
                 try:
-                    dec(buf)
+                    dec(buf, r["root"])
                     bad.append("%s: C4 accepted a reject vector" % vid)
                 except Exception as e:  # noqa: BLE001
                     nc4 += 1
                     rejects_seen.append((arm, vid, type(e).__name__, str(e)[:60]))
                 continue
             try:
-                obj = dec(buf)
+                obj = dec(buf, r["root"])
                 nc1 += 1
             except Exception as e:  # noqa: BLE001
-                bad.append("%s: C1 %s: %s" % (vid, type(e).__name__, str(e)[:70]))
+                if (vid, "C1") in UPSTREAM:
+                    upstream.setdefault((vid, "C1"), []).append(arm)
+                else:
+                    bad.append("%s: C1 %s: %s" % (vid, type(e).__name__, str(e)[:70]))
                 continue
             if r.get("projection"):
                 want = strip_unknown(json.load(
@@ -200,11 +328,13 @@ def main():
                 got = project(obj, r["root"])
                 if got == want:
                     nc2 += 1
+                elif (vid, "C2") in DISAGREEMENTS:
+                    disagreed.setdefault((vid, "C2"), []).append(arm)
                 else:
                     bad.append("%s: C2 projection differs: %s"
                                % (vid, _pdiff(got, want)))
             try:
-                back = enc(obj)
+                back = enc(obj, r["root"])
             except Exception as e:  # noqa: BLE001
                 bad.append("%s: C3 re-encode %s: %s" % (vid, type(e).__name__, e))
                 continue
@@ -215,6 +345,20 @@ def main():
             # own sha256 is the one accepted form.
             enc_list = r.get("accepted_encodings") or [
                 {"sha256": r["sha256"], "bytes": r["bytes"], "forms": ["as committed"]}]
+            if (r["root"] in DECODE_ONLY_ROOTS
+                    and h not in {a["sha256"] for a in enc_list}):
+                # design/SHAPES.md, P7.1: the vector interleaves two repeated fields and
+                # no writer that emits a repeated field contiguously can reproduce it. The
+                # obligation stated in advance is a permutation of the same (tag, wire
+                # type, body) triples, so that is what is checked, not the hash.
+                form = "a permutation, contiguous (SHAPES.md P7.1)"
+                if _triples(back) is not None and _triples(back) == _triples(buf):
+                    nc3 += 1
+                    forms_written.setdefault(arm, {}).setdefault(form, 0)
+                    forms_written[arm][form] += 1
+                else:
+                    bad.append("%s: C3 is not even a permutation of the vector" % vid)
+                continue
             acc = {a["sha256"]: a.get("forms", ["?"]) for a in enc_list}
             if h in acc:
                 nc3 += 1
@@ -272,7 +416,30 @@ def main():
     if not rejects_seen:
         print("   none in scope")
 
-    print("\n%s" % ("CORPUS SUBSET PASSES" if not fails else "%d FAILURE(S)" % fails))
+    print("\n## failures owned by another component, named and not fixed here")
+    if not upstream:
+        print("   none")
+    for (vid, ob), armlist in sorted(upstream.items()):
+        d = UPSTREAM[(vid, ob)]
+        print("   %-18s %s  %s, on %d of %d arms"
+              % (vid, ob, d, len(armlist), len(ARMS)))
+    for d in sorted({UPSTREAM[k] for k in upstream}):
+        print("       %s: %s" % (d, UPSTREAM_WHY[d]))
+
+    print("\n## disagreements reported upstream, not folded into the pass count")
+    if not disagreed:
+        print("   none")
+    for (vid, ob), armlist in sorted(disagreed.items()):
+        print("   %s %s, on %d of %d arms" % (vid, ob, len(armlist), len(ARMS)))
+        print("       %s" % DISAGREEMENTS[(vid, ob)])
+
+    extra = []
+    if upstream:
+        extra.append("%d row(s) failing on another component's defect" % len(upstream))
+    if disagreed:
+        extra.append("%d reported disagreement(s)" % len(disagreed))
+    print("\n%s%s" % ("CORPUS SUBSET PASSES" if not fails else "%d FAILURE(S)" % fails,
+                      ("  (with %s, above)" % " and ".join(extra)) if extra else ""))
     return 1 if fails else 0
 
 

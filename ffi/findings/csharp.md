@@ -207,3 +207,64 @@ harness helper rather than the facade's decoder.
 
 Byte identity against the manifest cannot find this, because proto3 cannot express a
 group. Becoming a corpus consumer is what would have.
+
+## 7. The RPC arm exists, and it is the most deflating number in the branch
+
+A real grpc-dotnet client against a real grpc-dotnet server over a **Unix domain
+socket**, the server's marshaller a `byte[]` passthrough so only the client's codec
+varies, four codecs, ArmoniK's transport pinned with the stack default and loopback TCP
+as labelled rows, at 1, 8 and 16 in flight, carrying P2.2.
+
+**The codec is worth about 10 percent of CPU per call end to end, where the in-process
+column says 25.** So sizing this whole change from the codec column overestimates it by
+about two and a half times — and every headline ratio in this branch is a codec ratio.
+That belongs in the report's first paragraph, not in a caveat at the end.
+
+**The three codec arms are indistinguishable from each other at the RPC level.**
+`gp-marshaller`, `managed`, `core-ffi` and `core-ffi pull` do not separate once a real
+transport is underneath them. **What survives the noise is allocation**: every facade arm
+is **8.6 percent below the incumbent on every configuration**. On a managed runtime that
+is a GC-pressure argument rather than a throughput one, and it is the only thing the RPC
+arm establishes about the codec choice.
+
+**Read it beside the C++ slice's**, which measured 0.856 to 0.870 of grpc++ CPU at the
+same three concurrencies with most of the ratio attributable to the codec. Two hosts,
+same shape of experiment, opposite reading of how much the codec matters end to end —
+because C++'s incumbent transport is cheaper relative to its codec than .NET's is.
+
+### And it settled the transport configuration from the runtime source
+
+Two things I had stated as general are per stack, and this slice checked rather than
+relayed them.
+
+- **The connection window is not a separate knob on .NET.** `Http2Connection` hardcodes
+  `ConnectionWindowSize = 64 MiB` and raises it by `WINDOW_UPDATE` at setup, so the
+  "raise only the stream window and the connection stays at 65,535" hazard is real for
+  tonic/hyper and grpc-java and **not reachable here**.
+- **Setting the window does not disable dynamic sizing on .NET.**
+  `Http2StreamWindowManager` treats the configured size as a starting point and doubles
+  to a 16 MiB cap; `WindowScalingEnabled` is a separate switch defaulting on. **So a pin
+  is a floor, not a cap**, and 4 MiB needs the property *and* the
+  `DisableDynamicWindowSizing` AppContext switch or the arm may end the run at 8 or 16.
+
+**And one divergence from R14 that is worth a line in the report.** `packages/csharp`
+sets no window on either side, and the client reaches gRPC through an `HttpClientHandler`
+where `InitialHttp2StreamWindowSize` is not reachable at all — so the pinned arm
+configures something **the shipped C# client cannot**. UDS is the opposite: `GrpcChannel`
+already defaults to a Unix socket at `/tmp/armonik.sock` and the worker already calls
+`ListenUnixSocket`, so the primary transport row is what production runs.
+
+## 8. What else closed since section 5 was written
+
+Section 5's gaps are largely gone: `core-ffi` is built **on every shape**, encode, push
+decode **and pull decode**, with R5 checked against the core's own counters on every row;
+the slice is a **`ffi/corpus` consumer** (336 vectors, three arms); and the crossings
+agree with the rust slice to the digit (10.00 and 7.00 per task against 10.02 and 7.004).
+
+**Two of its own published claims came out**, both found by looking rather than by a
+review. The M1 result that **".NET's composed arm beats its own managed codec on decode"
+does not survive a non-leaf element**: on M2 it is 0.97 to 1.14, with both harnesses
+straddling 1.0. And **the encode cost is the group fill, not the crossings** — a
+`core-ffi fill` arm puts the host-side half at **40 to 57 percent of the whole encode**
+on every payload of both shapes, which also corrects the earlier reading of P1.3 as an
+absent-path effect.

@@ -2,10 +2,19 @@
 
 The handoff for W8. Read this first; the transcript is gone.
 
-**Status: built and gated.** `ffi/corpus/` holds a generator, 336 vectors, a
-manifest, projections, a consumer contract and a gate. `./run.sh --check` passes
-from a clean clone at a different path. **No slice consumes it yet**, which is
-each slice's own work and deliberately not done here.
+**Status: built, gated, and revised once by its own consumers.** `ffi/corpus/`
+holds a generator, 336 vectors, a manifest, projections, a consumer contract and
+a gate. `./run.sh --check` passes from a clean clone at a different path.
+
+**Revision of 2026-09-20.** The first two consumers (`poc/python`, `poc/cpp`)
+found something about the corpus rather than about themselves: it decided every
+projection, every accepted encoding and every accept/reject verdict with **one
+runtime**, and one runtime deciding what the right answer is makes that runtime
+the specification. On `U-map-entry` it is the minority. **Three runtimes now
+answer, and where they disagree the row is DISPUTED rather than decided.** No
+vector byte changed -- `generated/vectors.sha256` freezes them and the build
+refuses to move one -- because consumers have already pinned them; what changed
+is the manifest's claims about them.
 
 ## What exists
 
@@ -17,12 +26,28 @@ each slice's own work and deliberately not done here.
 | Manifest | `generated/manifest.json` -- per vector: what it tests, produce/consume per slice, the **set** of accepted encodings, a projection, per-class metadata, per-language notes |
 | Projections | 336 + 65 superset projections. What a reader must SEE, not just bytes |
 | Contract | `CONTRACT.md`. The whole obligation, so five slices do not each invent it |
-| Gate | `run.sh` / `emit/build.py --check` / `emit/selftest.py` |
+| Verdicts | 335 `agreed`, **1 `disputed`** (`U-map-entry`) |
+| Seal | `generated/vectors.sha256`, 328 vectors. The build refuses to move a byte |
+| Gate | `run.sh` / `emit/build.py --check` / `emit/selftest.py` (44 checks) |
 
-Validated against **protobuf 7.36.2, upb backend**, over descriptors `protoc`
-35.1 compiled from the emitted `.proto`. An implementation that shares no code
-with the writer, which is the whole point: a corpus validated only by its own
-writer is a hash of itself.
+### The three oracles
+
+| Oracle | Asked | Why it |
+|---|---|---|
+| protobuf 7.36.2, **upb** | the structural checks, one reading, one re-encoding | a C parser sharing no code with the writer |
+| protobuf 7.36.2, **pure-python** | a second reading and re-encoding, in the same projection format | a genuinely different parser; a disagreement is a JSON diff rather than an argument. One env var away, so nearly free |
+| **protobuf C++** via `protoc --decode` | the accept/reject verdict on every row, and its text reading as evidence | fully independent |
+
+protobuf C++ is **not** asked for the projection, and that is a finding rather
+than a convenience: `protoc --decode` renders a map field as its wire-level
+repeated `MapEntry` list. On `E-map-dup-key` it prints two entries with the same
+key, which a map cannot hold, so it cannot answer a map-semantics question -- and
+the disputed row is a map-semantics question. The cpp slice's reflection arm can
+answer it, because `Reflection::ListFields` over generated code IS the presence
+rule CONTRACT.md section 3 describes.
+
+**All three refuse all 49 must-fail vectors**, with no row disputed. That is a
+materially stronger claim than the one this file made yesterday.
 
 ## The two decisions this was built on, restated because they are load-bearing
 
@@ -35,6 +60,33 @@ writer is a hash of itself.
    entry-point form), `Surrogate`, `WireZoo` and `Nest` of its own. Every vector
    declares produce / consume per slice.
 2. **A vector may have more than one accepted encoding.** 85 of 336 rows do.
+
+## The disputed row, in full
+
+`U-map-entry` puts an unknown varint field (tag 3) inside every entry of
+`TaskOptions.options`, a `map<string, string>`.
+
+| Runtime | The map | The unknown field | Re-encodes to |
+|---|---|---|---|
+| protobuf 7.36.2, **upb** | **empty** | the whole entry retained as an unknown field of the PARENT | 855 B, byte-identical to the input |
+| protobuf 7.36.2, **pure-python** | all four entries | dropped | 847 B |
+| **protobuf C++** 35.1, `protoc --decode` | all four entries | dropped from the text output | not comparable (text round-trip cannot re-encode an unknown field) |
+| protobuf C++ 3.21.12, reported by the aggregating session | the entry present | retained *inside* the entry (`3: 7`) | -- |
+| the cpp slice, both arms, reported | the entry present | -- | -- |
+
+Reproduced here from first principles, not taken on report. A map field is
+shorthand for a repeated `MapEntry` message and an unknown field inside a
+submessage is skipped while the submessage still parses, so upb looks like the
+one that is wrong -- **and the corpus does not say so.** It publishes both
+readings, names which runtime produced each, points at protobuf C++'s text
+reading as evidence, and excludes the row from a consumer's pass or fail count.
+Two of the three runtimes I happened to ask is not a specification either.
+
+Worth noting for whoever resolves it: the two C++ versions differ from *each
+other* on retention (3.21.12 keeps `3: 7` inside the entry, 35.1 drops it), which
+is ABI v1 open decision 11 territory and is already expressed as accepted forms
+everywhere else in the corpus. The map contents are the substantive
+disagreement; retention is the second-order one.
 
 ## Covered
 
@@ -73,13 +125,17 @@ writer is a hash of itself.
 
 ## Not covered, and why
 
-1. **No slice consumes it.** By design: that is each slice's work. Until one
-   does, the corpus has been validated by upb and by nothing else.
-2. **One independent implementation, not two.** upb parsed and re-encoded every
-   vector. prost validated `schema/`'s manifest but has never seen these
-   vectors, and neither have `Google.Protobuf` or protobuf-java. **The first
-   slice to consume the corpus is the second opinion**, and until then a
-   systematic misreading shared by this generator and upb would survive.
+1. **Two slices consume it, three do not.** `poc/python` (48 rows in scope) and
+   `poc/cpp` (128 rows, three arms, plus a schema-less walker reaching 62 more)
+   exist and found the dispute. csharp, java and rust have not run it.
+2. **Three runtimes, all from one project.** upb, protobuf-python's pure backend
+   and protobuf C++ are three parsers, but they are three Google parsers. prost
+   validated `schema/`'s manifest and has never seen these vectors; neither have
+   `Google.Protobuf` or protobuf-java. A misreading shared across the protobuf
+   project's own implementations would still survive, and the row that started
+   this revision is evidence that they do not always agree. **The slices remain
+   the widest opinion available** -- and the corpus was wrong in exactly the way
+   a single-oracle corpus is wrong until two of them ran.
 3. **The encode half of the transcode pair has not been RUN.** The corpus states
    what the core must put on the wire; nothing has produced those bytes from a
    UTF-16 host. The `?`-against-U+FFFD divergence is quoted from
@@ -144,6 +200,32 @@ item 5** whatever the manifest says. The corpus cannot compute the chunk count
 requires the slice to report what it saw. Expect this to be the first thing a
 slice quietly skips.
 
+## What this revision changed, mechanically
+
+- `emit/oracle.py` is new: one runtime's whole reading of the corpus, importable
+  and runnable as a subprocess, so a backend chosen by an environment variable at
+  import time can be asked the same questions.
+- `emit/build.py` runs three oracles, reconciles them, and fails only when
+  **every** oracle accepts a must-fail vector or **no** oracle parses an accept
+  vector. A single runtime's opinion no longer stops the build or decides a row.
+- Rows carry `verdict`, and a disputed row carries `dispute.readings`,
+  `dispute.differs_at` (dotted paths) and protobuf C++'s text reading as a file.
+- Accepted encodings carry `written_by` and `observed_in_a_protobuf_runtime`, so
+  "the corpus asserts this form is valid" and "a runtime was seen writing it" are
+  no longer the same sentence. 87 rows carry a form in the weaker category.
+- `permutation_accepted` marks the four rows where a re-encoding may be any
+  re-ordering of an accepted form. **`B-P7_1` is why**: its only accepted
+  encoding was one no conformant encoder produces, so a correct consumer failed
+  C3. Baselines now go through the same reconciliation as every other row, which
+  they did not before, and that was the defect behind it.
+- `generated/vectors.sha256` freezes the vector bytes. The build refuses to
+  change, add or drop one; `--reseal` is a deliberate decision, not a step.
+- `emit/selftest.py` is 44 checks, up from 25. The new ones watch the seal refuse
+  a changed, a missing and an added vector; watch the dispute machinery produce a
+  non-vacuous disputed row whose readings really do differ; and refuse a build
+  where the second oracle came back on the same backend as the first, because two
+  readings from one parser are one reading.
+
 ## Requests -- things outside `ffi/corpus/**` that this work wants
 
 I own `ffi/corpus/**` and nothing else, so these are requests, not edits.
@@ -177,17 +259,30 @@ I own `ffi/corpus/**` and nothing else, so these are requests, not edits.
    needs `pip install protobuf grpcio-tools` and about twenty seconds. ABI v1
    section 12.1 calls the corpus a release gate, so this is the step that makes
    that sentence true.
-7. **`ffi/schema/generated/manifest.json` records one hash for P2.5.** SHAPES.md
+7. **`U-map-entry` wants a resolution, and the corpus cannot supply one.** The
+   candidates: it is an upb defect worth reporting upstream; or map parsing with
+   an unknown field in an entry is genuinely unspecified and the ABI should say
+   what the core does. Either way it is a decision for `design/`, and until it is
+   made the row stays disputed and excluded. A conformant core that follows the
+   majority reading is not currently failing anything.
+8. **`ffi/schema/generated/manifest.json` records one hash for P2.5.** SHAPES.md
    documents the second form at length, but a slice reading only the schema
    manifest still sees a single hash. The corpus's `B-P2_5` row now carries upb's
    `+80` as data. Not a defect; a place where two files disagree in tone.
 
 ## If you are the next session on this
 
-Run `./run.sh` first. It regenerates, validates against upb, self-tests the
-guards and clones the branch to a different path to prove the tree rebuilds
-itself. If it passes, the corpus is in the state this file describes.
+Run `./run.sh` first. It regenerates, validates against three runtimes,
+self-tests the guards and clones the branch to a different path to prove the tree
+rebuilds itself. It takes about 35 seconds, most of it `protoc` started once per
+vector. If it passes, the corpus is in the state this file describes.
 
-The next real work is **not** in this directory: it is a slice consuming the
-corpus per `CONTRACT.md`, which is the first thing that will find out whether
-this generator and upb share a misreading.
+Two things to hold on to:
+
+- **The vector bytes are frozen and the manifest's claims about them are not.**
+  That split is what let this revision happen without breaking the two consumers
+  that had already run. Keep it.
+- **The next real work is still not in this directory.** Three slices have not
+  run the corpus, and each one is another opinion on the rows the three protobuf
+  runtimes here agree about -- which is the part no amount of care inside
+  `ffi/corpus/` can check.

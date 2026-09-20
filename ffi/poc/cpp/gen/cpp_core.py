@@ -166,7 +166,7 @@ class CppDec:
         o.append("        %s &dst_ = out->%s.emplace();" % (f.of, f.name))
         o.append("        dec_%s(&sub, &dst_);" % snake(f.of))
         o.append("        if (sub.err != 0) { d->err = sub.err; return; }")
-        o.append("        break; } else { d->skip(wire); break; }")
+        o.append("        break; } else { d->skip(tag, wire); break; }")
 
     def repeated_message(self, m, f, o):
         o.append("      case %d: if (wire == 2) {" % f.tag)
@@ -175,7 +175,7 @@ class CppDec:
         o.append("        out->%s.push_back(%s());" % (f.name, f.of))
         o.append("        dec_%s(&sub, &out->%s.back());" % (snake(f.of), f.name))
         o.append("        if (sub.err != 0) { d->err = sub.err; return; }")
-        o.append("        break; } else { d->skip(wire); break; }")
+        o.append("        break; } else { d->skip(tag, wire); break; }")
 
     def blob(self, m, f, o):
         o.append("      case %d: if (wire == 2) {" % f.tag)
@@ -189,7 +189,7 @@ class CppDec:
             o.append("        if (rc != 0) { d->err = rc; return; }")
         else:
             o.append("        %s.assign((const char *)(d->buf + off), n);" % tgt)
-        o.append("        break; } else { d->skip(wire); break; }")
+        o.append("        break; } else { d->skip(tag, wire); break; }")
 
     def scalar(self, m, f, o):
         o.append("      case %d: if (wire == 0) {" % f.tag)
@@ -205,11 +205,11 @@ class CppDec:
             o.append("        out->%s.set(%s);" % (f.name, v))
         else:
             o.append("        out->%s = %s;" % (f.name, v))
-        o.append("        break; } else { d->skip(wire); break; }")
+        o.append("        break; } else { d->skip(tag, wire); break; }")
 
     def double(self, m, f, o):
         o.append("      case %d: if (wire == 1) { out->%s = d->f64(); break; }"
-                 " else { d->skip(wire); break; }" % (f.tag, f.name))
+                 " else { d->skip(tag, wire); break; }" % (f.tag, f.name))
 
     def repeated_blob(self, m, f, o):
         o.append("      case %d: if (wire == 2) {" % f.tag)
@@ -226,7 +226,7 @@ class CppDec:
             o.append("        if (rc != 0) { d->err = rc; return; }")
         else:
             o.append("        b_.assign((const char *)(d->buf + off), n);")
-        o.append("        break; } else { d->skip(wire); break; }")
+        o.append("        break; } else { d->skip(tag, wire); break; }")
 
     def packed(self, m, f, o):
         # RESERVE. The wire gives the packed run's byte length, which is the exact element
@@ -269,7 +269,7 @@ class CppDec:
                     o.append("        if (rc != 0) { d->err = rc; return; }")
                 else:
                     o.append("        s_.assign((const char *)(d->buf + off), n);")
-                o.append("        break; } else { d->skip(wire); break; }")
+                o.append("        break; } else { d->skip(tag, wire); break; }")
             elif g.kind == "message":
                 o.append("      case %d: if (wire == 2) {" % g.tag)
                 o.append("        size_t off, n; d->len_body(&off, &n);")
@@ -277,14 +277,14 @@ class CppDec:
                 o.append("        %s &c_ = out->%s.set_%s();" % (g.of, oname, g.name))
                 o.append("        dec_%s(&sub, &c_);" % snake(g.of))
                 o.append("        if (sub.err != 0) { d->err = sub.err; return; }")
-                o.append("        break; } else { d->skip(wire); break; }")
+                o.append("        break; } else { d->skip(tag, wire); break; }")
             elif g.kind == "double":
                 o.append("      case %d: if (wire == 1) { out->%s.set_%s() = d->f64(); break; }"
-                         " else { d->skip(wire); break; }" % (g.tag, oname, g.name))
+                         " else { d->skip(tag, wire); break; }" % (g.tag, oname, g.name))
             else:
                 cast = {"int32": "(int32_t)", "int64": "(int64_t)", "bool": "0 != "}[g.kind]
                 o.append("      case %d: if (wire == 0) { out->%s.set_%s() = %sd->varint();"
-                         " break; } else { d->skip(wire); break; }"
+                         " break; } else { d->skip(tag, wire); break; }"
                          % (g.tag, oname, g.name, cast))
 
     def map(self, m, f, o):
@@ -305,7 +305,7 @@ class CppDec:
         o.append("            size_t a, b; sub.len_body(&a, &b);")
         o.extend(_map_read(vk_, "v_"))
         o.append("          } else {")
-        o.append("            sub.skip(ew);")
+        o.append("            sub.skip(et, ew);")
         o.append("          }")
         o.append("        }")
         o.append("        if (sub.err != 0) { d->err = sub.err; return; }")
@@ -315,7 +315,7 @@ class CppDec:
         o.append("#else")
         o.append("        out->%s[k_] = v_;" % f.name)
         o.append("#endif")
-        o.append("        break; } else { d->skip(wire); break; }")
+        o.append("        break; } else { d->skip(tag, wire); break; }")
 
 
 def emit_header(ir):
@@ -359,7 +359,7 @@ def emit(ir):
         body.append("    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }")
         body.append("    switch (tag) {")
         walk_decode(ir, m, CppDec(ir), body)
-        body.append("      default: d->skip(wire); break;")
+        body.append("      default: d->skip(tag, wire); break;")
         body.append("    }")
         body.append("  }")
         body.append("}")

@@ -308,7 +308,75 @@ Beyond the slice's own list, which is longer and should be read with it:
 - **C16**, a systematic 34 % outlier round on P1.2 decode present in every log this
   slice produced, characterised and unexplained.
 
-## The group-skip defect, carried here and not yet fixed
+## The group-skip defect: fixed, and the slice became a corpus consumer doing it
+
+**Closed.** `skip` takes the field number now, `skip_group` ends only on an
+`END_GROUP` whose number matches, bounded at 100 returning `ERR_DEPTH`, and the
+change was **swept across the generator rather than patched where it was found** —
+13 sites in `gen/cpp_core.py`, including the `sub.skip(ew)` inside the map-entry
+loop that a `default:`-only sweep would have missed. 11 checks at C++17 target and
+the C++17, C++14 and C++11 floors: 44 runs, 0 failures.
+
+**The two planted defects both fail, and the second is the interesting one.** Plant
+1 counts nesting depth instead of matching the field number and fails exactly the
+two mismatched-end cases — it *accepts* `X-group-mismatched-end`, which is what that
+vector exists to catch. Plant 2 drops the `case 5:` 32-bit arm while adding `case
+3:`, and fails every buffer carrying a `fixed32`. That second plant is not
+hypothetical: it is the regression I introduced in the shared core's own fix and
+caught only because the tests ran.
+
+**The before picture is worth keeping**, because it shows a gate that was passing
+for the wrong reason: of five probes against the old one-argument `skip`, two were
+outright wrong and the three that looked right all stopped at `pos 1` — refusing
+because wire type 3 was unknown, not because the group was unterminated or
+mismatched. A checker that only asks "did it reject" would have called that half
+correct.
+
+**And the timing question was measured rather than asserted.** The signature change
+recompiles every decode function in the control TU, so: 225 ratio rows, worst move
+0.164, median 0.009, **0 rows over R4's 0.240 drift bar**. The published tables
+stand. One honest side effect recorded rather than smoothed: gcc now inlines
+`dec_list_results_response` into its caller inside the control TU, so `boundary.log`
+reports 21 checks instead of 23.
+
+### The corpus consumer, and what it found
+
+**128 of 336 rows in scope**, three arms — `native`, `ffi`, and **protobuf C++ as an
+oracle projecting through its own reflection**, which is the first time any slice
+has put a second implementation beside its own on the corpus. 0 failures, and 128
+of 128 rows where the two arms agree on the decoded facade. Run at C++17 and at the
+C++11 floor with identical results.
+
+**A schema-less walker is the part other slices should copy.** The 62 `WireZoo`
+rows root at a message this slice has no type for, so they are out of C1-C3 scope
+entirely — but their wire forms are exactly what the group fix addresses. Run
+through `Dec::skip` with no schema at all, **62 of 62 agree with the corpus's
+verdict**, including both reject vectors for the right reason. That pattern is
+about twenty lines and it is what turned "three accept vectors" into "five vectors
+with the reject half actually watched". Every slice can reach those rows that way
+even where its codec has no matching root.
+
+**Decision 11, answered for C++**: this slice **drops** unknown fields in both arms
+where protobuf C++ retains them. Rust drops (prost), Python drops, Java retains,
+C++ drops. The decision now has four hosts and the split is the incumbent's, not
+the ABI's.
+
+**One defect of its own, and the tell is the lesson.** Its first corpus run reported
+the `ffi` arm writing an unaccepted form on 114 of 126 rows — a use-after-free in
+the harness, `ak_enc_take` handing back a pointer into a context freed before the
+copy. **The same wrong hash repeating across unrelated vectors** is what says
+"harness" rather than "codec", and a wrong C3 count that looks like a codec defect
+is the expensive kind of mistake.
+
+**Two rows it refused to decide, and both are the corpus's rather than the slice's**:
+`U-map-entry`, where upb disagrees with protobuf C++, pure-Python and this slice
+about whether an unknown field inside a map entry kills the entry (README 10.1,
+reproduced independently); and `B-P7_1`, whose only accepted encoding no canonical
+writer produces. Its verdict line keeps `failures / disputed / permuted` apart
+instead of folding them together, which is the right shape for a gate whose oracle
+is not settled.
+
+## The group-skip defect as it stood, for the record
 
 Found in the shared core by the python slice's corpus run and fixed there by the
 aggregating session; **this slice's own `include/ak/rt.h` has the same defect and

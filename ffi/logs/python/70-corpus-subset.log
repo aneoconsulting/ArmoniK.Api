@@ -1,7 +1,14 @@
-# python slice: the conformance corpus (W8), first consumer, scoped to M1
+# python slice: the conformance corpus, as far as walk.ROOTS reaches
 #
-# date:    2026-09-20T07:06:26Z
-# commit:  73007ad
+# date:      2026-09-20T15:04:32Z
+# machine:   4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
+# commit:    9c3cee91
+# core:      ffi/poc/codec (README R0), ABI v1, libak_core.so via the dynamic linker
+# R13:       this machine's rust-slice crossing is 2.1 ns (fwd+reverse) to 2.8 ns
+#            (forward) -- 00-r13-rust-crossing.log. The composed arm also prices
+#            the boundary IN ITS OWN PROCESS at the end of the bench table, which
+#            is the better number to quote against because it shares a build.
+# absolutes: instrumentation, not the deliverable. Signs and size classes only.
 
 # python slice: the conformance corpus (W8), as far as this scope reaches
 # corpus:   1
@@ -12,24 +19,36 @@
    [ok]  ListResultsResponse: identical to corpus.proto; the superset adds 7 fields this reader does not know (u_varint, u_fixed64, u_len, ...)
    [ok]  ResultRaw: identical to corpus.proto; the superset adds 7 fields this reader does not know (u_varint, u_fixed64, u_len, ...)
    [ok]  Timestamp: identical to corpus.proto; the superset adds 7 fields this reader does not know (u_varint, u_fixed64, u_len, ...)
+   [ok]  ListTasksDetailedResponse: identical to corpus.proto; the superset extends it nowhere, so the unknown-field skip is tested elsewhere
+   [ok]  TaskDetailed: identical to corpus.proto; the superset adds 7 fields this reader does not know (u_varint, u_fixed64, u_len, ...)
+   [ok]  TaskOptions: identical to corpus.proto; the superset adds 7 fields this reader does not know (u_varint, u_fixed64, u_len, ...)
+   [ok]  Duration: identical to corpus.proto; the superset extends it nowhere, so the unknown-field skip is tested elsewhere
+   [ok]  TaskOutput: identical to corpus.proto; the superset extends it nowhere, so the unknown-field skip is tested elsewhere
+   [ok]  ListProbeResponse: identical to corpus.proto; the superset extends it nowhere, so the unknown-field skip is tested elsewhere
+   [ok]  Probe: identical to corpus.proto; the superset adds 8 fields this reader does not know (u_as_extra, u_varint, u_fixed64, ...)
+   [ok]  Empty: identical to corpus.proto; the superset extends it nowhere, so the unknown-field skip is tested elsewhere
+   [ok]  ListTaskSummaryResponse: identical to corpus.proto; the superset extends it nowhere, so the unknown-field skip is tested elsewhere
+   [ok]  TaskSummary: identical to corpus.proto; the superset extends it nowhere, so the unknown-field skip is tested elsewhere
+   [ok]  UploadResultDataMessage: identical to corpus.proto; the superset extends it nowhere, so the unknown-field skip is tested elsewhere
+   [ok]  UploadResultData: identical to corpus.proto; the superset extends it nowhere, so the unknown-field skip is tested elsewhere
+   [ok]  ListMetricsResponse: identical to corpus.proto; the superset extends it nowhere, so the unknown-field skip is tested elsewhere
+   [ok]  MetricsBatch: identical to corpus.proto; the superset extends it nowhere, so the unknown-field skip is tested elsewhere
+   [ok]  DualResponse: identical to corpus.proto; the superset extends it nowhere, so the unknown-field skip is tested elsewhere
+   [ok]  Pair: identical to corpus.proto; the superset extends it nowhere, so the unknown-field skip is tested elsewhere
+   [ok]  6 of 19 scoped messages are extended by the superset, which is what makes the `unknown` class mean something here
 
 ## scope
-   48 of 336 rows root at ListResultsResponse and are in scope.
+   128 of 336 rows root at one of this slice's 7 roots and are in scope.
+   Roots covered: DualResponse, ListMetricsResponse, ListProbeResponse, ListResultsResponse, ListTaskSummaryResponse, ListTasksDetailedResponse, UploadResultDataMessage
    Out of scope, by root, and every one of them is a message this slice does
    not cover rather than a row it chose to skip:
       WireZoo                      62
       Surrogate                    56
-      ListTasksDetailedResponse    32
-      ListProbeResponse            24
       ChunkedResponse              15
       Nest                         9
-      ListMetricsResponse          8
       Probe                        8
-      ListTaskSummaryResponse      7
       ChunkedResponseWide          5
-      DualResponse                 5
       LeafResponse                 5
-      UploadResultDataMessage      4
       ChunkElement                 3
       ChunkInner                   3
       ChunkLeaf                    3
@@ -46,31 +65,27 @@
       TaskSummary                  3
       Timestamp                    3
       UploadResultData             3
-   In scope, by class: baseline=2, empty=8, malformed=1, shape=3, unknown=34
+   In scope, by class: baseline=8, empty=30, malformed=2, shape=22, unknown=66
 
 ## C1 parse, C2 project, C3 re-encode, C4 refuse
-   core-ffi / C ext type    C1 45/47  C2 45/47  C3 45/47  C4 1/1
-        FAIL U-nested-group: C1 ValueError: ak_decode_ListResultsResponse returned -2
-        FAIL U-root-group: C1 ValueError: ak_decode_ListResultsResponse returned -2
-   core-ffi / plain         C1 45/47  C2 45/47  C3 45/47  C4 1/1
-        FAIL U-nested-group: C1 ValueError: ak_decode_ListResultsResponse returned -2
-        FAIL U-root-group: C1 ValueError: ak_decode_ListResultsResponse returned -2
-   pycodec / plain          C1 47/47  C2 47/47  C3 47/47  C4 1/1
+   core-ffi / C ext type    C1 126/126  C2 123/124  C3 126/126  C4 2/2
+   core-ffi / plain         C1 126/126  C2 123/124  C3 126/126  C4 2/2
+   pycodec / plain          C1 126/126  C2 123/124  C3 126/126  C4 2/2
 
 ## C3: which accepted form this slice writes
 #  CONTRACT.md C3: a vector may have more than one accepted form, and which
 #  one a slice writes is a fact about it rather than a verdict.
-   core-ffi / C ext type    as committed=13, canonical: omitted=2, canonical: the zero leaves omitted=1, unknown-dropped=29
-   core-ffi / plain         as committed=13, canonical: omitted=2, canonical: the zero leaves omitted=1, unknown-dropped=29
-   pycodec / plain          as committed=13, canonical: omitted=2, canonical: the zero leaves omitted=1, unknown-dropped=31
+   core-ffi / C ext type    a permutation, contiguous (SHAPES.md P7.1)=1, as committed=52, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=17
+   core-ffi / plain         a permutation, contiguous (SHAPES.md P7.1)=1, as committed=52, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=17
+   pycodec / plain          a permutation, contiguous (SHAPES.md P7.1)=1, as committed=52, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=17
 
 ## ABI v1 open decision 11, answered for this slice
 #  CONTRACT.md class `unknown`: say whether you retained or dropped. Counted
 #  over the `unknown`-class rows only, because on any other row there is no
 #  unknown field and `as committed` means the canonical form.
-   core-ffi / C ext type    as committed=3, unknown-dropped=29  (of 34 unknown-class rows)
-   core-ffi / plain         as committed=3, unknown-dropped=29  (of 34 unknown-class rows)
-   pycodec / plain          as committed=3, unknown-dropped=31  (of 34 unknown-class rows)
+   core-ffi / C ext type    as committed=4, unknown-dropped=62, unknown-dropped, map values always written=17  (of 66 unknown-class rows)
+   core-ffi / plain         as committed=4, unknown-dropped=62, unknown-dropped, map values always written=17  (of 66 unknown-class rows)
+   pycodec / plain          as committed=4, unknown-dropped=62, unknown-dropped, map values always written=17  (of 66 unknown-class rows)
    **This slice DROPS unknown fields.** The core carries `ak_unk_f` vtable
    slots and this shim passes NULL for every one of them, so the drop is a
    choice the binding makes and not a limit of the ABI: a binding that wanted
@@ -80,7 +95,22 @@
 
 ## C4: what the refusals looked like
    core-ffi / C ext type    X-nested-len-overrun   ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-packed-truncated     ValueError: ak_decode_ListMetricsResponse returned -3
    core-ffi / plain         X-nested-len-overrun   ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-packed-truncated     ValueError: ak_decode_ListMetricsResponse returned -3
    pycodec / plain          X-nested-len-overrun   ValueError: length 12 at 2 overruns the enclosing message (ends 9)
+   pycodec / plain          X-packed-truncated     IndexError: index out of range
 
-4 FAILURE(S)
+## failures owned by another component, named and not fixed here
+   none
+
+## disagreements reported upstream, not folded into the pass count
+   U-map-entry C2, on 3 of 3 arms
+       an unknown field inside a map entry. THREE readers, three answers, and this slice is with the reference implementation:
+         this slice, core and pure-Python control : the entry parses, tag 3 is skipped, the map keeps its 4 entries
+         protobuf 7.36.2, pure-Python backend     : the same -- {'k': 'v'} survives an added tag-3 field inside the entry
+         protobuf 7.36.2, upb backend (the DEFAULT, and what R14 measures against): the entry is DROPPED and the map comes back EMPTY. Isolated on a two-field message rather than inferred from this vector
+         the corpus's own projection              : the entries are recorded as `_unknown` content of TaskOptions, so its reader did not treat tag 1 as the map either
+       A map entry is a message on the wire, so an unknown field inside it is skipped and the entry survives, which is what this vector's own `why` says it tests. Reported upstream; the projection is not matched by changing the reader.
+
+CORPUS SUBSET PASSES  (with 1 reported disagreement(s), above)

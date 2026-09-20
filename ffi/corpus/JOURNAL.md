@@ -177,3 +177,151 @@ And it did not get a second independent opinion on the vectors themselves. upb
 parsed every one of them; prost, `Google.Protobuf` and protobuf-java have not.
 **The first slice to consume the corpus is the second opinion**, and that is the
 next real step.
+
+---
+
+# Revision, 2026-09-20: a second oracle, and the disputed rows
+
+The first two consumers ran and found something about the corpus rather than
+about themselves.
+
+## 10. The finding, reproduced here rather than taken on report
+
+`emit/build.py` generated every vector, every accepted encoding and every
+projection with upb, and validated every accept and reject verdict by parsing
+with upb. **One runtime deciding what the right answer is makes that runtime the
+specification.** On `U-map-entry` -- an unknown varint field inside every entry
+of a `map<string, string>` -- it is the minority.
+
+Reproduced on a two-field map with an unknown field 3 inside the entry, from
+first principles, before touching any code:
+
+| runtime | the map | the unknown field | re-encode |
+|---|---|---|---|
+| protobuf 7.36.2, **upb** | `{}` | the whole entry kept as an unknown field of the PARENT | byte-identical to the input |
+| protobuf 7.36.2, **pure-python** | `{'k': 'v'}` | dropped | `0a060a016b120176` |
+| **protobuf C++ 35.1**, `protoc --decode` | `key: "k" value: "v"` | dropped from the text | `0a060a016b120176` |
+
+and at corpus scale on the real vector: upb's projection has no `options` map at
+all and re-encodes to 855 B; the pure backend has all four entries and re-encodes
+to 847 B.
+
+Two refinements the aggregating session's table does not have, both worth
+keeping because they change what the row means:
+
+- **protobuf C++ 35.1 drops the unknown field inside the entry**, where 3.21.12
+  retained it as `3: 7`. Both put the entry in the map, which is the substantive
+  claim; the two C++ versions differ from each other on *retention*, which is ABI
+  v1 open decision 11 and is already expressed as accepted forms everywhere else
+  in the corpus.
+- **`protoc --decode` renders a map field as its wire-level repeated `MapEntry`
+  list.** On `E-map-dup-key` it prints two entries with the same key, which a map
+  cannot hold. So protoc is evidence about a map question and not a vote on one,
+  and this is why protobuf C++ is asked for the verdict and the text reading but
+  **not** for the projection. The cpp slice's reflection arm is the thing that
+  can vote, because `Reflection::ListFields` over generated code is the presence
+  rule CONTRACT.md section 3 describes.
+
+## 11. Refuted: resolve it by majority
+
+Two of three runtimes put the entry in the map, and the wire format argument
+agrees with them: a map field is shorthand for a repeated `MapEntry` message, and
+an unknown field inside a submessage is skipped while the submessage still
+parses. It would have been easy, and defensible-sounding, to publish the majority
+reading and move on.
+
+Refused, and the brief was right to forbid it: **two of the three I happened to
+ask is not a specification either.** Three Google parsers is a wider sample than
+one Google parser and it is not a standard. So the row carries every reading,
+names which runtime produced each, points at protobuf C++'s text reading as a
+file, and is **excluded from a consumer's pass or fail count** rather than
+failing it. `dispute.differs_at` names the dotted paths -- here
+`tasks.[0].options.options` and `tasks.[0].options._unknown` -- so nobody has to
+diff two JSON files by eye.
+
+## 12. Refuted: one more oracle is enough, and the rest can stay as they were
+
+The obvious minimum was to add one second reading and mark the one row that
+differs. Two things made that wrong.
+
+**The verdict is a separate question from the reading.** The 49 must-fail rows
+were "seen failing by upb" and nothing else. Running all three over them
+converts that into *all three refuse all 49, none disputed*, which is a
+materially stronger claim and cost nothing once the plumbing existed.
+
+**`--check` regenerates into a temporary directory at a different path**, and the
+new oracle immediately died there with `FileNotFoundError:
+/schema/generated/payloads/P1_1.bin`. A baseline's `file` is
+`../../schema/generated/...`, relative to the manifest's own directory, which
+resolves only when that directory sits two levels deep. Found by the selftest,
+not by reading the code, and it is the same class as the python slice's D4 one
+more time: a path that happens to work where it was written. The generator now
+resolves baselines against the schema directory and passes an absolute `path` to
+the oracles.
+
+## 13. The provenance defect, which is the one a consumer actually tripped on
+
+`accepted_encodings` said `produced_by: ["upb"]`, and "upb writes this form" and
+"every conformant encoder writes this form" are different claims.
+
+**`B-P7_1` is where that bit.** It is SHAPES.md's P7.1, two repeated fields
+interleaved on purpose, and its only accepted encoding was the committed bytes --
+a form **no conformant encoder produces**, because every one of them writes each
+repeated field contiguously. A consumer that re-encoded *correctly* failed C3.
+`design/SHAPES.md` had always validated P7.1 by permutation ("re-encoding
+contiguously to a permutation of the same (tag, wire type, body) triples"); the
+manifest had not.
+
+The root cause was structural rather than local: **baselines never went through
+the reconciliation the other rows did.** They were assembled separately and
+carried no `accepted_encodings` at all. They now go through the same path, which
+fixes `B-P7_1` and also gives every schema payload each runtime's opinion beside
+prost's.
+
+Two fields came out of it:
+
+- `permutation_accepted`, computed rather than asserted: true where two accepted
+  encodings are the same `(tag, wire type, body)` triples in a different order.
+  Four rows today -- `B-P7_1`, `S-interleaved`, `U-root-before`,
+  `U-root-interleaved`.
+- `observed_in_a_protobuf_runtime`, false where only the corpus's own writer
+  produced the form. 87 rows carry at least one. The corpus asserts those are
+  valid; nothing was seen writing them, and the manifest now says which is which
+  instead of flattening both into one word.
+
+## 14. The seal
+
+The brief said: do not regenerate the vectors, do not change a committed byte.
+That is a promise, and a promise is not a mechanism. `generated/vectors.sha256`
+freezes all 328 vectors; `emit/build.py` refuses to write one whose bytes differ,
+to drop one, or to add one, and names it. `--reseal` exists and is a decision,
+not a step.
+
+The split it enforces is the one that made this whole revision possible without
+breaking the two consumers that had already run: **the bytes are what consumers
+pin, and the manifest is a set of claims about them that is expected to sharpen
+as more runtimes are asked.**
+
+Watched working, three ways, in `emit/selftest.py`: a changed vector, a missing
+one, an added one. The selftest is 44 checks, up from 25; the other new ones
+watch the dispute machinery produce a non-vacuous disputed row whose readings
+really do differ, watch the path-diff reporter stay silent on identical readings
+and name a nested path on different ones, and refuse a build where the second
+oracle came back on the same backend as the first -- because two readings from
+one parser are one reading.
+
+## 15. What moved, and what did not
+
+Zero vector bytes. Zero `.proto` bytes. `git status` on
+`generated/vectors/` is empty across the whole revision, which is the constraint
+the brief set and the thing the seal now enforces mechanically.
+
+What moved: `manifest.json`, one projection (`U-map-entry.json` became three
+files -- two readings and protobuf C++'s text), `emit/build.py`,
+`emit/selftest.py`, and two new files (`emit/oracle.py`,
+`generated/vectors.sha256`).
+
+Still true, and still the most useful sentence in `STATE.md`: three runtimes from
+one project is a wider sample than one, and it is not a standard. Three slices
+have not run the corpus. **They remain the widest opinion available**, and this
+revision is what happened when two of them ran.

@@ -80,6 +80,28 @@ hdr() {
   done
 } > "$L/conformance.log" 2>&1
 
+# C24: the GROUP skip. Its own log, because it is the one decode path a corpus generated
+# from the schema that reads it can never reach, and because two PLANTED builds have to be
+# seen failing for the test to mean anything.
+{
+  hdr "cpp slice: ak::Dec::skip over the deprecated GROUP form (C24)"
+  bash gen/groupskip.sh
+  echo "groupskip.sh exit $?"
+} > "$L/groupskip.log" 2>&1
+
+# W8: the conformance corpus. The oracle byte identity against a schema-generated manifest
+# cannot be. Target level and the C++11 floor, because the floor is a correctness gate.
+{
+  hdr "cpp slice: the conformance corpus (W8)"
+  echo "===== C++17 target, shared ====="
+  python3 gen/corpus.py build/corpus_a17_shared
+  echo "corpus.py (a17) exit $?"
+  echo
+  echo "===== C++11 floor, shared ====="
+  python3 gen/corpus.py build/corpus_c11_shared
+  echo "corpus.py (c11) exit $?"
+} > "$L/corpus.log" 2>&1
+
 ./gen/boundary.sh   > "$L/boundary.log" 2>&1
 ./gen/odr_check.sh  > "$L/odr.log" 2>&1
 ./gen/calibrate.sh  > "$L/calibration-r13.log" 2>&1

@@ -680,3 +680,61 @@ with the current ones. The M1 *decode* figures in them are unaffected.
 And a general one, for the other slices: **an incumbent that allocates one big output
 buffer per call and frees it is measuring the allocator, not the serialiser.** Every slice
 here has a large-payload encode arm. None of them, this one included, had checked.
+
+### J27. M3 to M7, and a script that had stopped running
+
+The scope widened one shape at a time and the walker's raise drove the order, which is
+what `walk.py` is for. What each one cost:
+
+| | shape | what it needed |
+|---|---|---|
+| **M4** | the plain adapter site | **nothing but the scope line.** `TaskSummary` is `TaskOptions` and a `Timestamp` over shapes M1 and M2 already carry, and the adapter site is a property of the payload's VALUES rather than of any field shape |
+| **M7** | two repeated fields, interleaved | a run list per ROOT repeated field, and the permutation check |
+| **M5** | bulk `bytes`, 36 B to 4 MB | a root with NO repeated field, and `V.bulk` threaded through the builder |
+| **M3** | a oneof and explicit presence | a new cardinality in every backend, both directions |
+| **M6** | packed scalars, and `double` | `ak_run_i32/i64/f64/u8`, and a packed run on the decode side |
+
+**Two cardinalities rather than two flags.** `walk()` now yields a oneof member with
+`c == "oneof"` and an `optional` scalar with `c == "optional"`, and nothing else changed
+about how a backend consumes it. The alternative -- yield `m.plain` the way the IR does
+and hand the oneof to the backends through a second accessor -- was rejected because a
+backend that forgot to call the second accessor would emit a complete-looking codec that
+silently dropped the oneof, which is the defect the walker exists because of. A
+cardinality nothing has a case for is a GENERATION-time failure, and that is how every
+one of the five emitters got its case: the generator refused to run until it had one.
+
+The same reasoning applies to `optional`. An `optional int32` that goes through the
+implicit-presence guard encodes absent and present-and-zero identically, and every payload
+but the absent one passes. `payloads.py` puts one element in seven at present-and-zero
+precisely so that shortcut fails loudly.
+
+**What the by-value group already had.** Nothing in the ABI needed extending: `ak_efix_Probe`
+carries `body_case` (the active member's TAG, 0 for unset) and a `presence` word with one
+bit per explicit-presence field, and `ak_run_i32/i64/f64/u8` were already there for the
+packed runs. So M3 and M6 are a binding exercise in Python and not an ABI question, which
+is worth saying plainly because the branch has been treating oneof and explicit presence
+as open.
+
+**A root is not "one repeated field plus page and total".** That sentence was written into
+four places -- the decode entry's single `h->list`, the like-for-like reader, the
+conformance comparison and the bench's decode floor -- and M5 (no repeated field) and M7
+(two) broke all four. The decode entry now carries one run list per root repeated field,
+the reader walks a plan built for the ROOT rather than for an element, and the conformance
+comparison is `_cmp_msg(root, root)` with no element loop at all, because `_cmp_msg`
+already recursed through a repeated message field. The generalisations are all shorter
+than what they replaced.
+
+**And `corpus.py` had stopped running.** Work unit 2's binding took `decode(backend, buf,
+types)`; the M2 commit gave it a root argument and renamed `arms.CEXT` to `arms.TY_CEXT`,
+and `corpus.py` was not updated. Nothing noticed, because `run.sh` never ran it -- the
+corpus pass was run by hand once, its log committed, and the log then outlived the code
+that produced it. It runs as step 4 of `run.sh` now, which is the actual fix; the code
+change is only what that exposed.
+
+Its rule-0 check had the same shape of defect. It demanded that EVERY message in scope be
+extended by `corpus_superset.proto`, which held while the scope was M1 -- all three of its
+messages happen to gain `u_*` fields -- and produced eleven spurious failures the moment
+the scope reached messages the superset does not extend. The obligation is that every
+scoped message matches `corpus.proto` and that at least one is extended, so the
+unknown-field skip is executed somewhere. A check that only holds for the scope it was
+written against is not a check.

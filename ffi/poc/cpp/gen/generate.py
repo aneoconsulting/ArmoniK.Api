@@ -54,6 +54,7 @@ import cpp_core              # noqa: E402
 import cpp_binding           # noqa: E402
 import cpp_layout            # noqa: E402  (shared core)
 import cpp_cases             # noqa: E402
+import cpp_project           # noqa: E402
 import cppnames              # noqa: E402
 
 ROOT = os.path.dirname(HERE)
@@ -100,6 +101,9 @@ def targets(ir):
         # `ak_span` is an offset into the buffer the host handed in.
         **_borrow(ir),
         "src/generated/cases.h": cpp_cases.emit(ir),
+        # ffi/corpus/CONTRACT.md obligation C2: what a reader must SEE.
+        "src/generated/project.h": cpp_project.emit_header(ir),
+        "src/generated/project.cpp": cpp_project.emit(ir),
         # The shared core (R0), written here as well as from `poc/codec/gen` and from
         # the other slices' generators -- one emitter, one description, so this slice's
         # `--check` gates the core it measures.

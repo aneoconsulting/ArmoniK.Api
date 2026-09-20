@@ -1,8 +1,8 @@
 # python slice: the allocator state, not the codec, owns the large-payload encode
 #
-# date:      2026-09-20T11:23:23Z
+# date:      2026-09-20T15:04:32Z
 # machine:   4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
-# commit:    f24b900
+# commit:    9c3cee91
 # core:      ffi/poc/codec (README R0), ABI v1, libak_core.so via the dynamic linker
 # R13:       this machine's rust-slice crossing is 2.1 ns (fwd+reverse) to 2.8 ns
 #            (forward) -- 00-r13-rust-crossing.log. The composed arm also prices
@@ -18,38 +18,70 @@
 #       allocation.  Identical bytes, identical arms, identical order.
 #
               arm                         bytes    cold med    cold min    warm med    warm max    c/w
-P1.1  decode  core-ffi / C ext type         858        2632        2512        2644        3031   1.00
-P1.1  decode  upb (incumbent)               858        1838        1750        1851        1972   0.99
-P1.1  encode  core-ffi / C ext type         858        1276        1244        1242        1379   1.03
-P1.1  encode  upb (incumbent)               858         946         923        1063        1252   0.89
-P1.2  decode  core-ffi / C ext type      218121      681431      647734      691194      725264   0.99
-P1.2  decode  upb (incumbent)            218121      295924      292301      296192      300213   1.00
-P1.2  encode  core-ffi / C ext type      218121      397061      395386      258126      272863   1.54  <-- 
-P1.2  encode  upb (incumbent)            218121      388835      383136      202071      208833   1.92  <-- 
-P1.3  decode  core-ffi / C ext type         605       46744       46123       46790       46978   1.00
-P1.3  decode  upb (incumbent)               605        7742        7504        7650        8447   1.01
-P1.3  encode  core-ffi / C ext type         605       10983       10826       10942       11140   1.00
-P1.3  encode  upb (incumbent)               605        8476        8352        8473        8594   1.00
-P2.1  decode  core-ffi / C ext type        1037        4081        3972        4095        4233   1.00
-P2.1  decode  upb (incumbent)              1037        2171        2071        2208        2602   0.98
-P2.1  encode  core-ffi / C ext type        1037        2044        1935        1959        2181   1.04
-P2.1  encode  upb (incumbent)              1037        1194        1171        1170        1410   1.02
-P2.2  decode  core-ffi / C ext type      540422     2967946     2762996     3003398     3121865   0.99
-P2.2  decode  upb (incumbent)            540422      906598      897406      914110      998788   0.99
-P2.2  encode  core-ffi / C ext type      540422     1005106      998174     1020586     1043300   0.98
-P2.2  encode  upb (incumbent)            540422      701067      688124      711556      722400   0.99
-P2.3  decode  core-ffi / C ext type      647024     1398236     1369406     1439179     1871594   0.97
-P2.3  decode  upb (incumbent)            647024      574018      568561      588730      622418   0.98
-P2.3  encode  core-ffi / C ext type      647024      712502      699692      714138      738299   1.00
-P2.3  encode  upb (incumbent)            647024      322378      318126      327916      336889   0.98
-P2.4  decode  core-ffi / C ext type      979465     1853448     1789312     1802576     2095856   1.03
-P2.4  decode  upb (incumbent)            979465      725652      715595      727019      829222   1.00
-P2.4  encode  core-ffi / C ext type      979465     1737806     1733309      956536      977237   1.82  <-- 
-P2.4  encode  upb (incumbent)            979465     1317457     1304057      345399      359120   3.81  <-- 
-P2.5  decode  core-ffi / C ext type       19632       62815       62447       62399       63346   1.01
-P2.5  decode  upb (incumbent)             19632       29132       28877       29248       29776   1.00
-P2.5  encode  core-ffi / C ext type       19632       32064       31467       32537       32960   0.99
-P2.5  encode  upb (incumbent)             19632       17999       17722       17694       18149   1.02
+P1.1  decode  core-ffi / C ext type         858        2633        2534        2707        2802   0.97
+P1.1  decode  upb (incumbent)               858        1842        1725        1767        2099   1.04
+P1.1  encode  core-ffi / C ext type         858        1240        1202        1241        1459   1.00
+P1.1  encode  upb (incumbent)               858         946         925         950        1157   1.00
+P1.2  decode  core-ffi / C ext type      218121      689846      666659      712058      745574   0.97
+P1.2  decode  upb (incumbent)            218121      291995      290806      300231      335291   0.97
+P1.2  encode  core-ffi / C ext type      218121      377553      376252      243783      250032   1.55  <-- 
+P1.2  encode  upb (incumbent)            218121      379113      378281      202502      205200   1.87  <-- 
+P1.3  decode  core-ffi / C ext type         605       45800       45656       46593       47323   0.98
+P1.3  decode  upb (incumbent)               605        7534        7459        7570        8092   1.00
+P1.3  encode  core-ffi / C ext type         605       11159       11062       11377       11746   0.98
+P1.3  encode  upb (incumbent)               605        8494        8352        8621        9001   0.99
+P2.1  decode  core-ffi / C ext type        1037        4086        4044        4246        4526   0.96
+P2.1  decode  upb (incumbent)              1037        2180        2096        2205        2416   0.99
+P2.1  encode  core-ffi / C ext type        1037        2027        1948        2067        2096   0.98
+P2.1  encode  upb (incumbent)              1037        1190        1163        1169        1324   1.02
+P2.2  decode  core-ffi / C ext type      540422     2985320     2756328     3146588     3348235   0.95
+P2.2  decode  upb (incumbent)            540422      894815      892380      914900     1025266   0.98
+P2.2  encode  core-ffi / C ext type      540422      996622      993943     1014985     1027165   0.98
+P2.2  encode  upb (incumbent)            540422      693851      692013      707171      724769   0.98
+P2.3  decode  core-ffi / C ext type      647024     1457536     1329999     1648669     1833727   0.88
+P2.3  decode  upb (incumbent)            647024      568827      564675      588642      634468   0.97
+P2.3  encode  core-ffi / C ext type      647024      699817      695112      712376      736794   0.98
+P2.3  encode  upb (incumbent)            647024      318891      317729      328336      345100   0.97
+P2.4  decode  core-ffi / C ext type      979465     1804098     1751514     1794284     2051805   1.01
+P2.4  decode  upb (incumbent)            979465      720882      714337      729854      811582   0.99
+P2.4  encode  core-ffi / C ext type      979465     1724120     1712404      949903      964543   1.82  <-- 
+P2.4  encode  upb (incumbent)            979465     1296299     1291328      345533      353169   3.75  <-- 
+P2.5  decode  core-ffi / C ext type       19632       62284       62083       62435       63752   1.00
+P2.5  decode  upb (incumbent)             19632       28684       28302       29219       29766   0.98
+P2.5  encode  core-ffi / C ext type       19632       32232       31830       32204       32929   1.00
+P2.5  encode  upb (incumbent)             19632       17813       17739       17881       18990   1.00
+P3.1  decode  core-ffi / C ext type       12097       58992       58645       59663       60507   0.99
+P3.1  decode  upb (incumbent)             12097       22462       22116       22767       27652   0.99
+P3.1  encode  core-ffi / C ext type       12097       20708       20302       21066       21421   0.98
+P3.1  encode  upb (incumbent)             12097       14081       13687       14042       14646   1.00
+P4.1  decode  core-ffi / C ext type       65321      345925      342997      389863      454128   0.89
+P4.1  decode  upb (incumbent)             65321      174375      173967      173846      174966   1.00
+P4.1  encode  core-ffi / C ext type       65321      189943      188898      191816      194104   0.99
+P4.1  encode  upb (incumbent)             65321       87608       86784       89281       90621   0.98
+P5.1  decode  core-ffi / C ext type         116         602         600         604         714   1.00
+P5.1  decode  upb (incumbent)               116         546         532         514         899   1.06
+P5.1  encode  core-ffi / C ext type         116         428         419         429         547   1.00
+P5.1  encode  upb (incumbent)               116         176         176         177         210   0.99
+P5.2  decode  core-ffi / C ext type       65620        2350        2306        2284        3390   1.03
+P5.2  decode  upb (incumbent)             65620        2308        2280        2253        2685   1.02
+P5.2  encode  core-ffi / C ext type       65620        6328        6167        6171        7171   1.03
+P5.2  encode  upb (incumbent)             65620        3570        3510        3542        4469   1.01
+P5.3  decode  core-ffi / C ext type     1048660       63154       61219      501885      505567   0.13
+P5.3  decode  upb (incumbent)           1048660       62119       61636      502567      508436   0.12
+P5.3  encode  core-ffi / C ext type     1048660      255401      251860     1101706     1195112   0.23
+P5.3  encode  upb (incumbent)           1048660      145690      143625     1044140     1060404   0.14
+P5.4  decode  core-ffi / C ext type     4194390      343947      341635     2040976     2099042   0.17
+P5.4  decode  upb (incumbent)           4194390      345489      342947     2047404     2327406   0.17
+P5.4  encode  core-ffi / C ext type     4194390     1260842     1245984     4677123     4893270   0.27
+P5.4  encode  upb (incumbent)           4194390      723850      718089     4388064     4741484   0.16
+P6.1  decode  core-ffi / C ext type      123354      895752      839215      915020      948549   0.98
+P6.1  decode  upb (incumbent)            123354      194456      193276      195296      210290   1.00
+P6.1  encode  core-ffi / C ext type      123354      461426      459831      463393      469088   1.00
+P6.1  encode  upb (incumbent)            123354      159399      158568      160606      163273   0.99
+P7.1  decode  core-ffi / C ext type          98        1406        1322        1336        1568   1.05
+P7.1  decode  upb (incumbent)                98         821         788         794         898   1.03
+P7.1  encode  core-ffi / C ext type          98         643         634         650         769   0.99
+P7.1  encode  upb (incumbent)                98         329         327         330         357   1.00
 
 # The rows marked <-- are the ones where the ANSWER depends on the state of
 # the allocator rather than on the codec.  Every one of them is an encode

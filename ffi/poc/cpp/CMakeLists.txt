@@ -128,6 +128,30 @@ set(CS ${CMAKE_CURRENT_SOURCE_DIR}/src/contentsets.cpp)
 add_executable(fusion_probe ${CMAKE_CURRENT_SOURCE_DIR}/src/fusion_probe.cpp)
 set_property(TARGET fusion_probe PROPERTY CXX_STANDARD 17)
 
+# C24: `ak::Dec::skip` over the deprecated GROUP form. A unit test over `include/ak/rt.h`
+# alone -- no protobuf, no core, no facade -- so it can be built at every standard level
+# and in both implementations cheaply, which README 5.2 requires of anything in the
+# decode path. `gen/groupskip.sh` also builds the two PLANTS and requires each to fail.
+#
+# ak_group(<name> <std> <impl> <plant>)
+function(ak_group name std impl plant)
+  add_executable(${name} ${CMAKE_CURRENT_SOURCE_DIR}/src/groupskip.cpp)
+  target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  set_property(TARGET ${name} PROPERTY CXX_STANDARD ${std})
+  set_property(TARGET ${name} PROPERTY CXX_STANDARD_REQUIRED ON)
+  target_compile_definitions(${name} PRIVATE AK_GROUP_PLANT=${plant})
+  if(impl STREQUAL "floor")
+    target_compile_definitions(${name} PRIVATE AK_FLOOR_IMPL=1)
+  endif()
+endfunction()
+ak_group(groupskip_a17 17 target 0)
+ak_group(groupskip_b17 17 floor  0)
+ak_group(groupskip_c14 14 floor  0)
+ak_group(groupskip_c11 11 floor  0)
+# The plants. Correctness fixtures, never timed; gen/groupskip.sh inverts their exit code.
+ak_group(groupskip_plant_depth 17 target 1)
+ak_group(groupskip_plant_i32   17 target 2)
+
 # Correctness gates. README 5.2's arms: a = target impl at the target level; b = FLOOR
 # impl at the target level; c = floor impl at the floor level.
 ak_arm(conformance_a17_shared ${CONF} 17 target on shared reject ${CORE_OUT})
@@ -178,6 +202,18 @@ target_compile_definitions(conc_a17_both PRIVATE AK_CONC_PAD=1 AK_CONC_GLOBAL=1)
 # then the timing, both in one process. Also built at the floor, because the DFA is the one
 # a core would ship and a core ships to C++11 hosts too.
 ak_arm(contentsets_a17 ${CS} 17 target on shared reject ${CORE_OUT})
+
+# W8: this slice as a consumer of ffi/corpus. The oracle byte identity against a
+# schema-generated manifest cannot be, because the manifest and the codec come from the
+# same description. Built at the target level and at the C++11 FLOOR, because the floor is
+# a correctness gate and this is correctness.
+# The projector is added to THESE TWO TARGETS ONLY, never to `ak_arm`'s common source
+# list: linking a file nothing calls into every timed binary perturbs its layout, and R4's
+# own drift control says a neutral layout perturbation is worth up to 0.240 of a ratio.
+ak_arm(corpus_a17_shared ${CMAKE_CURRENT_SOURCE_DIR}/src/corpus.cpp 17 target on shared reject ${CORE_OUT})
+ak_arm(corpus_c11_shared ${CMAKE_CURRENT_SOURCE_DIR}/src/corpus.cpp 11 floor  on shared reject ${CORE_OUT})
+target_sources(corpus_a17_shared PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/project.cpp)
+target_sources(corpus_c11_shared PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/project.cpp)
 
 ak_arm(utf8check_a17 ${U8} 17 target on shared reject ${CORE_OUT})
 ak_arm(utf8check_c11 ${U8} 11 floor  on shared reject ${CORE_OUT})

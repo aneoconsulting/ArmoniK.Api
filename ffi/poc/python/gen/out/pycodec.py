@@ -13,6 +13,8 @@ tag, an implicit-presence leaf holding the proto zero omitted, a message field
 written when present.
 """
 
+import struct as _struct
+
 _VARINT_CACHE = [bytes([i]) for i in range(128)]
 
 
@@ -34,6 +36,27 @@ def _varint(n, out):
 
 def _key(tag, wire, out):
     _varint((tag << 3) | wire, out)
+
+
+def _packed_varint(tag, vals, out):
+    """A packed run: ONE length-delimited field holding the concatenated varints.
+
+    Written even when every value is the proto zero. The omit-when-zero rule is about a
+    leaf, and a run is not one -- an empty run is absent, a run of zeros is not.
+    """
+    body = bytearray()
+    for v in vals:
+        _varint(int(v), body)
+    _key(tag, 2, out)
+    _varint(len(body), out)
+    out += body
+
+
+def _packed_f64(tag, vals, out):
+    body = _struct.pack("<%dd" % len(vals), *vals)
+    _key(tag, 2, out)
+    _varint(len(body), out)
+    out += body
 
 
 def encode_ListResultsResponse(o, out):
@@ -111,9 +134,10 @@ def encode_ResultRaw(o, out):
         _key(11, 2, out)
         _varint(len(_v), out)
         out += _v
-    if o.manual_deletion:
+    _v = o.manual_deletion
+    if _v:
         _key(12, 0, out)
-        out.append(1)
+        out.append(1 if _v else 0)
 
 
 def encode_Timestamp(o, out):
@@ -321,8 +345,9 @@ def encode_TaskOptions(o, out):
     for _mk in sorted(o.options):
         _mv = o.options[_mk]
         _sub = bytearray()
-        _kb = _mk.encode('utf-8')
-        _key(1, 2, _sub); _varint(len(_kb), _sub); _sub += _kb
+        if _mk:
+            _kb = _mk.encode('utf-8')
+            _key(1, 2, _sub); _varint(len(_kb), _sub); _sub += _kb
         if _mv:
             _vb = _mv.encode('utf-8')
             _key(2, 2, _sub); _varint(len(_vb), _sub); _sub += _vb
@@ -394,15 +419,230 @@ def encode_Duration(o, out):
 
 
 def encode_TaskOutput(o, out):
-    if o.success:
+    _v = o.success
+    if _v:
         _key(1, 0, out)
-        out.append(1)
+        out.append(1 if _v else 0)
     _v = o.error
     if _v:
         _b = _v.encode('utf-8')
         _key(2, 2, out)
         _varint(len(_b), out)
         out += _b
+
+
+def encode_ListProbeResponse(o, out):
+    for e in o.probes:
+        _key(1, 2, out)
+        _sub = bytearray()
+        encode_Probe(e, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+
+
+def encode_Probe(o, out):
+    _v = o.id
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(1, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.opt_count
+    if _v is not None:
+        _key(2, 0, out)
+        _varint(_v, out)
+    _v = o.opt_label
+    if _v is not None:
+        _b = _v.encode('utf-8')
+        _key(3, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.opt_flag
+    if _v is not None:
+        _key(4, 0, out)
+        out.append(1 if _v else 0)
+    _v = o.as_int
+    if o.body_case == 10:
+        _key(10, 0, out)
+        _varint(_v, out)
+    _v = o.as_text
+    if o.body_case == 11:
+        _b = _v.encode('utf-8')
+        _key(11, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.as_blob
+    if o.body_case == 12:
+        _key(12, 2, out)
+        _varint(len(_v), out)
+        out += _v
+    _v = o.as_stamp
+    if o.body_case == 13:
+        _key(13, 2, out)
+        _sub = bytearray()
+        encode_Timestamp(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.as_nothing
+    if o.body_case == 14:
+        _key(14, 2, out)
+        _sub = bytearray()
+        encode_Empty(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+
+
+def encode_Empty(o, out):
+    pass
+
+
+def encode_ListTaskSummaryResponse(o, out):
+    for e in o.tasks:
+        _key(1, 2, out)
+        _sub = bytearray()
+        encode_TaskSummary(e, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+
+
+def encode_TaskSummary(o, out):
+    _v = o.id
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(1, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.session_id
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(2, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.options
+    if _v is not None:
+        _key(3, 2, out)
+        _sub = bytearray()
+        encode_TaskOptions(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.status
+    if _v:
+        _key(4, 0, out)
+        _varint(_v, out)
+    _v = o.created_at
+    if _v is not None:
+        _key(5, 2, out)
+        _sub = bytearray()
+        encode_Timestamp(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.error
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(8, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.status_message
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(9, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.count_data_dependencies
+    if _v:
+        _key(11, 0, out)
+        _varint(_v, out)
+
+
+def encode_UploadResultDataMessage(o, out):
+    _v = o.upload
+    if _v is not None:
+        _key(1, 2, out)
+        _sub = bytearray()
+        encode_UploadResultData(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+
+
+def encode_UploadResultData(o, out):
+    _v = o.session_id
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(1, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.result_id
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(2, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.data_chunk
+    if _v:
+        _key(3, 2, out)
+        _varint(len(_v), out)
+        out += _v
+
+
+def encode_ListMetricsResponse(o, out):
+    for e in o.batches:
+        _key(1, 2, out)
+        _sub = bytearray()
+        encode_MetricsBatch(e, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+
+
+def encode_MetricsBatch(o, out):
+    _v = o.id
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(1, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.ticks
+    if _v:
+        _packed_varint(2, _v, out)
+    _v = o.values
+    if _v:
+        _packed_f64(3, _v, out)
+    _v = o.codes
+    if _v:
+        _packed_varint(4, _v, out)
+    _v = o.flags
+    if _v:
+        _packed_varint(5, _v, out)
+    _v = o.statuses
+    if _v:
+        _packed_varint(6, _v, out)
+
+
+def encode_DualResponse(o, out):
+    for e in o.left:
+        _key(1, 2, out)
+        _sub = bytearray()
+        encode_Pair(e, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    for e in o.right:
+        _key(2, 2, out)
+        _sub = bytearray()
+        encode_Pair(e, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+
+
+def encode_Pair(o, out):
+    _v = o.key
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(1, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.value
+    if _v:
+        _key(2, 0, out)
+        _varint(_v, out)
 
 
 
@@ -416,8 +656,41 @@ def encode_root_ListTasksDetailedResponse(o):
     encode_ListTasksDetailedResponse(o, out)
     return bytes(out)
 
+def encode_root_ListProbeResponse(o):
+    out = bytearray()
+    encode_ListProbeResponse(o, out)
+    return bytes(out)
+
+def encode_root_ListTaskSummaryResponse(o):
+    out = bytearray()
+    encode_ListTaskSummaryResponse(o, out)
+    return bytes(out)
+
+def encode_root_UploadResultDataMessage(o):
+    out = bytearray()
+    encode_UploadResultDataMessage(o, out)
+    return bytes(out)
+
+def encode_root_ListMetricsResponse(o):
+    out = bytearray()
+    encode_ListMetricsResponse(o, out)
+    return bytes(out)
+
+def encode_root_DualResponse(o):
+    out = bytearray()
+    encode_DualResponse(o, out)
+    return bytes(out)
+
 
 encode_root = encode_root_ListResultsResponse   # M1, the work unit 1 and 2 entry point
+
+
+def _unpack_f64(b, i, end):
+    return _struct.unpack("<%dd" % ((end - i) // 8), bytes(b[i:end]))
+
+
+def _rd_f64(b, i):
+    return _struct.unpack_from("<d", b, i)[0]
 
 
 def _rd_varint(b, i):
@@ -827,12 +1100,310 @@ def decode_TaskOutput(b, i, end, C):
             i = _skip(b, i, end, _k & 7, _t)
     return o
 
+def decode_ListProbeResponse(b, i, end, C):
+    o = C['ListProbeResponse']()
+    _r_probes = []
+    while i < end:
+        _k, i = _rd_varint(b, i)
+        _t = _k >> 3
+        if _t == 1:
+            _n, i = _len(b, i, end)
+            _r_probes.append(decode_Probe(b, i, i + _n, C))
+            i += _n
+        else:
+            i = _skip(b, i, end, _k & 7, _t)
+    o.probes = _r_probes
+    return o
+
+def decode_Probe(b, i, end, C):
+    o = C['Probe']()
+    while i < end:
+        _k, i = _rd_varint(b, i)
+        _t = _k >> 3
+        if _t == 1:
+            _n, i = _len(b, i, end)
+            o.id = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 2:
+            _v, i = _rd_varint(b, i)
+            o.opt_count = _v
+        elif _t == 3:
+            _n, i = _len(b, i, end)
+            o.opt_label = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 4:
+            _v, i = _rd_varint(b, i)
+            o.opt_flag = bool(_v)
+        elif _t == 10:
+            _v, i = _rd_varint(b, i)
+            o.as_int = _v
+            o.body_case = 10
+        elif _t == 11:
+            _n, i = _len(b, i, end)
+            o.as_text = b[i:i + _n].decode('utf-8')
+            i += _n
+            o.body_case = 11
+        elif _t == 12:
+            _n, i = _len(b, i, end)
+            o.as_blob = bytes(b[i:i + _n])
+            i += _n
+            o.body_case = 12
+        elif _t == 13:
+            _n, i = _len(b, i, end)
+            o.as_stamp = decode_Timestamp(b, i, i + _n, C)
+            i += _n
+            o.body_case = 13
+        elif _t == 14:
+            _n, i = _len(b, i, end)
+            o.as_nothing = decode_Empty(b, i, i + _n, C)
+            i += _n
+            o.body_case = 14
+        else:
+            i = _skip(b, i, end, _k & 7, _t)
+    return o
+
+def decode_Empty(b, i, end, C):
+    o = C['Empty']()
+    while i < end:
+        _k, i = _rd_varint(b, i)
+        _t = _k >> 3
+        if False:
+            pass
+        else:
+            i = _skip(b, i, end, _k & 7, _t)
+    return o
+
+def decode_ListTaskSummaryResponse(b, i, end, C):
+    o = C['ListTaskSummaryResponse']()
+    _r_tasks = []
+    while i < end:
+        _k, i = _rd_varint(b, i)
+        _t = _k >> 3
+        if _t == 1:
+            _n, i = _len(b, i, end)
+            _r_tasks.append(decode_TaskSummary(b, i, i + _n, C))
+            i += _n
+        else:
+            i = _skip(b, i, end, _k & 7, _t)
+    o.tasks = _r_tasks
+    return o
+
+def decode_TaskSummary(b, i, end, C):
+    o = C['TaskSummary']()
+    while i < end:
+        _k, i = _rd_varint(b, i)
+        _t = _k >> 3
+        if _t == 1:
+            _n, i = _len(b, i, end)
+            o.id = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 2:
+            _n, i = _len(b, i, end)
+            o.session_id = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 3:
+            _n, i = _len(b, i, end)
+            o.options = decode_TaskOptions(b, i, i + _n, C)
+            i += _n
+        elif _t == 4:
+            _v, i = _rd_varint(b, i)
+            o.status = _v
+        elif _t == 5:
+            _n, i = _len(b, i, end)
+            o.created_at = decode_Timestamp(b, i, i + _n, C)
+            i += _n
+        elif _t == 8:
+            _n, i = _len(b, i, end)
+            o.error = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 9:
+            _n, i = _len(b, i, end)
+            o.status_message = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 11:
+            _v, i = _rd_varint(b, i)
+            o.count_data_dependencies = _v
+        else:
+            i = _skip(b, i, end, _k & 7, _t)
+    return o
+
+def decode_UploadResultDataMessage(b, i, end, C):
+    o = C['UploadResultDataMessage']()
+    while i < end:
+        _k, i = _rd_varint(b, i)
+        _t = _k >> 3
+        if _t == 1:
+            _n, i = _len(b, i, end)
+            o.upload = decode_UploadResultData(b, i, i + _n, C)
+            i += _n
+        else:
+            i = _skip(b, i, end, _k & 7, _t)
+    return o
+
+def decode_UploadResultData(b, i, end, C):
+    o = C['UploadResultData']()
+    while i < end:
+        _k, i = _rd_varint(b, i)
+        _t = _k >> 3
+        if _t == 1:
+            _n, i = _len(b, i, end)
+            o.session_id = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 2:
+            _n, i = _len(b, i, end)
+            o.result_id = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 3:
+            _n, i = _len(b, i, end)
+            o.data_chunk = bytes(b[i:i + _n])
+            i += _n
+        else:
+            i = _skip(b, i, end, _k & 7, _t)
+    return o
+
+def decode_ListMetricsResponse(b, i, end, C):
+    o = C['ListMetricsResponse']()
+    _r_batches = []
+    while i < end:
+        _k, i = _rd_varint(b, i)
+        _t = _k >> 3
+        if _t == 1:
+            _n, i = _len(b, i, end)
+            _r_batches.append(decode_MetricsBatch(b, i, i + _n, C))
+            i += _n
+        else:
+            i = _skip(b, i, end, _k & 7, _t)
+    o.batches = _r_batches
+    return o
+
+def decode_MetricsBatch(b, i, end, C):
+    o = C['MetricsBatch']()
+    _r_ticks = []
+    _r_values = []
+    _r_codes = []
+    _r_flags = []
+    _r_statuses = []
+    while i < end:
+        _k, i = _rd_varint(b, i)
+        _t = _k >> 3
+        if _t == 1:
+            _n, i = _len(b, i, end)
+            o.id = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 2:
+            if (_k & 7) == 2:
+                _n, i = _len(b, i, end)
+                _e = i + _n
+                while i < _e:
+                    _v, i = _rd_varint(b, i)
+                    _r_ticks.append(_v)
+            else:
+                _v, i = _rd_varint(b, i)
+                _r_ticks.append(_v)
+        elif _t == 3:
+            if (_k & 7) == 2:
+                _n, i = _len(b, i, end)
+                _r_values.extend(_unpack_f64(b, i, i + _n))
+                i += _n
+            else:
+                _r_values.append(_rd_f64(b, i)); i += 8
+        elif _t == 4:
+            if (_k & 7) == 2:
+                _n, i = _len(b, i, end)
+                _e = i + _n
+                while i < _e:
+                    _v, i = _rd_varint(b, i)
+                    _r_codes.append(_v)
+            else:
+                _v, i = _rd_varint(b, i)
+                _r_codes.append(_v)
+        elif _t == 5:
+            if (_k & 7) == 2:
+                _n, i = _len(b, i, end)
+                _e = i + _n
+                while i < _e:
+                    _v, i = _rd_varint(b, i)
+                    _r_flags.append(bool(_v))
+            else:
+                _v, i = _rd_varint(b, i)
+                _r_flags.append(bool(_v))
+        elif _t == 6:
+            if (_k & 7) == 2:
+                _n, i = _len(b, i, end)
+                _e = i + _n
+                while i < _e:
+                    _v, i = _rd_varint(b, i)
+                    _r_statuses.append(_v)
+            else:
+                _v, i = _rd_varint(b, i)
+                _r_statuses.append(_v)
+        else:
+            i = _skip(b, i, end, _k & 7, _t)
+    o.ticks = _r_ticks
+    o.values = _r_values
+    o.codes = _r_codes
+    o.flags = _r_flags
+    o.statuses = _r_statuses
+    return o
+
+def decode_DualResponse(b, i, end, C):
+    o = C['DualResponse']()
+    _r_left = []
+    _r_right = []
+    while i < end:
+        _k, i = _rd_varint(b, i)
+        _t = _k >> 3
+        if _t == 1:
+            _n, i = _len(b, i, end)
+            _r_left.append(decode_Pair(b, i, i + _n, C))
+            i += _n
+        elif _t == 2:
+            _n, i = _len(b, i, end)
+            _r_right.append(decode_Pair(b, i, i + _n, C))
+            i += _n
+        else:
+            i = _skip(b, i, end, _k & 7, _t)
+    o.left = _r_left
+    o.right = _r_right
+    return o
+
+def decode_Pair(b, i, end, C):
+    o = C['Pair']()
+    while i < end:
+        _k, i = _rd_varint(b, i)
+        _t = _k >> 3
+        if _t == 1:
+            _n, i = _len(b, i, end)
+            o.key = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 2:
+            _v, i = _rd_varint(b, i)
+            o.value = _v
+        else:
+            i = _skip(b, i, end, _k & 7, _t)
+    return o
+
 
 def decode_root_ListResultsResponse(b, C):
     return decode_ListResultsResponse(b, 0, len(b), C)
 
 def decode_root_ListTasksDetailedResponse(b, C):
     return decode_ListTasksDetailedResponse(b, 0, len(b), C)
+
+def decode_root_ListProbeResponse(b, C):
+    return decode_ListProbeResponse(b, 0, len(b), C)
+
+def decode_root_ListTaskSummaryResponse(b, C):
+    return decode_ListTaskSummaryResponse(b, 0, len(b), C)
+
+def decode_root_UploadResultDataMessage(b, C):
+    return decode_UploadResultDataMessage(b, 0, len(b), C)
+
+def decode_root_ListMetricsResponse(b, C):
+    return decode_ListMetricsResponse(b, 0, len(b), C)
+
+def decode_root_DualResponse(b, C):
+    return decode_DualResponse(b, 0, len(b), C)
 
 
 decode_root = decode_root_ListResultsResponse
