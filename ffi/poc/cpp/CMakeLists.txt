@@ -120,6 +120,7 @@ set(BENCH ${CMAKE_CURRENT_SOURCE_DIR}/src/bench.cpp)
 set(COUNTS ${CMAKE_CURRENT_SOURCE_DIR}/src/counts.cpp)
 set(CONC ${CMAKE_CURRENT_SOURCE_DIR}/src/concurrency.cpp)
 set(U8 ${CMAKE_CURRENT_SOURCE_DIR}/src/utf8check.cpp)
+set(CS ${CMAKE_CURRENT_SOURCE_DIR}/src/contentsets.cpp)
 
 # C18's control: a fixture with one function that MUST be called and one that MUST be
 # fused, so gen/boundary.sh's call-site counter is proved able to report both. No
@@ -144,6 +145,12 @@ ak_arm(bench_c11_shared   ${BENCH} 11 floor  on  shared reject ${CORE_OUT})
 ak_arm(bench_c14_shared   ${BENCH} 14 floor  on  shared reject ${CORE_OUT})
 ak_arm(bench_a17_noguard  ${BENCH} 17 target off shared reject ${CORE_OUT})
 ak_arm(bench_a17_lossy    ${BENCH} 17 target on  shared lossy  ${CORE_OUT})
+# C16: the P1.2 decode outlier, which appeared in rounds 1 and 2 of the `ffi` arm in every
+# log this slice took and vanished when the validator changed. Same source, one define, so
+# the question "is the outlier the validator?" is answered by a build rather than argued.
+ak_arm(bench_a17_scalarv ${BENCH} 17 target on  shared reject ${CORE_OUT})
+target_compile_definitions(bench_a17_scalarv PRIVATE AK_UTF8=0)
+
 # R4's across-build control: the same source with a semantically neutral layout
 # perturbation, so a drift between two binaries can be measured instead of assumed absent.
 ak_arm(bench_a17_perturb  ${BENCH} 17 target on  shared reject ${CORE_OUT})
@@ -170,6 +177,8 @@ target_compile_definitions(conc_a17_both PRIVATE AK_CONC_PAD=1 AK_CONC_GLOBAL=1)
 # about. Correctness first: an exhaustive differential test against an independent oracle,
 # then the timing, both in one process. Also built at the floor, because the DFA is the one
 # a core would ship and a core ships to C++11 hosts too.
+ak_arm(contentsets_a17 ${CS} 17 target on shared reject ${CORE_OUT})
+
 ak_arm(utf8check_a17 ${U8} 17 target on shared reject ${CORE_OUT})
 ak_arm(utf8check_c11 ${U8} 11 floor  on shared reject ${CORE_OUT})
 

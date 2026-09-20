@@ -432,6 +432,58 @@ it the aggregating session's rather than a slice's.
   `native` arm, which makes zero crossings, moves between the two binaries too, so the
   difference is the build and not the boundary. The earlier causal sentence is withdrawn.
 
+### The content sets, on whole payloads — `logs/cpp/contentsets.log`
+
+SHAPES.md: "a slice that reports one string-path number without saying which content set it
+came from has reported half a number." This slice had priced the *string path* over all
+three sets and every *whole-payload* row over ASCII only, so the whole-payload rows were
+the half number.
+
+Correctness first and per set, because no manifest oracle covers latin1 or wide: **80
+checks, 0 failures** — every arm byte-identical to the **incumbent**, which is itself
+anchored to `manifest.json` on ASCII, plus a decode round trip per set.
+
+Wire size: latin1 **1.687–1.748×** ASCII, wide **2.373–2.495×**. The rust slice published
+1.70–1.75 and 2.39–2.50 from its own generator over the same description; the two agree to
+three digits, which is a cheap R1 check that two slices' value rules produce the same
+strings.
+
+**The answer is different for the two directions, and that is the finding:**
+
+| | ascii | latin1 | wide |
+|---|---|---|---|
+| P1.2 encode, `ffi`/`pb` | 0.988 | 0.167 | **0.114** |
+| P1.2 decode, `ffi`/`pb` | 0.656 | 0.671 | 0.546 |
+
+**The encode ratio is almost entirely a fact about the content set. The decode ratio is
+not** — no payload's decode ratio moves by more than about 0.15 across all three sets. The
+published C++ encode column is an ASCII column and nothing else; the decode column survives
+being read without its content set.
+
+**Why, and this keeps the encode number honest.** protobuf C++ **validates UTF-8 when it
+serialises** a `string` — verified in the generated code, not inferred: `shapes.pb.cc` calls
+`WireFormatLite::VerifyUtf8String(..., SERIALIZE)` unconditionally, 37 call sites. ABI v1
+says the core does not. So most of that column is a check the core *skips*, and reporting
+`ffi` against `pb` alone would publish a policy difference as codec speed. The like-for-like
+row is `ffi-valtc`:
+
+| payload | valtc/pb ascii | latin1 | wide |
+|---|---|---|---|
+| P1.2 | 1.179 | 0.422 | 0.365 |
+| P2.2 | 1.043 | 0.479 | 0.421 |
+| P3.1 | 1.389 | 0.551 | 0.505 |
+| P4.1 | 0.995 | 0.626 | 0.530 |
+
+Doing the same work, the core is at parity or slightly worse on ASCII and **about twice as
+fast on latin1 and wide** — which agrees with `utf8.log` measuring the two validators
+directly. Growth against each arm's own ASCII row separates the three effects: `ffi`
+1.04–1.05 (width only), `ffi-valtc` 2.20–2.82 (width + the core's validator), `pb`
+6.13–9.12 (width + protobuf's validator + its per-string costs).
+
+**P6.1 is the control and behaves like one**: packed scalars with one string per batch, so
+its wire size moves 1.058/1.117 where the others move 1.7/2.4. A table where every payload
+moved by the same factor would be measuring the harness.
+
 ### ABI v1 obligation 12.5: the concurrency suite — `logs/cpp/concurrency.log`
 
 No slice in the branch had one. Four payload shapes across two message types, threads in
@@ -493,12 +545,14 @@ re-taken, because nothing moved (`logs/cpp/w10-one-core.log`). In the order I wo
    a *change to existing behaviour* in the shared core, which R0 says is the
    aggregating session's to make rather than a slice's -- it moves every slice's gate
    at once. A slice may still ADD to `poc/codec`; this is not an addition.
-4. **The content sets on whole payloads**, now that `recode` is reachable.
+4. ~~The content sets on whole payloads~~ **done**, `logs/cpp/contentsets.log`.
 5. ~~A concurrency suite (ABI v1 obligation 12.5)~~ **done**, `logs/cpp/concurrency.log`.
    What remains is a TSan run (the core is a Rust cdylib built without it, so a TSan host
    would report the core's internals as uninstrumented) and the RPC half — the rust slice's
    shared-mutable-client defect is what motivated 12.5 and this suite covers the codec.
-6. **Explain the P1.2 decode outlier round**, which appears in every log.
+6. ~~Explain the P1.2 decode outlier round~~ **characterised**, `logs/cpp/c16.log`: it is
+   glibc's mmap path, demonstrated by removal. One residual named there, and it is a
+   question about glibc rather than about the ABI.
 7. **A `protoc-gen-upb` build**, if the ceiling ever needs to include the fast decoder.
    That needs Bazel and is the one thing this slice stopped short of.
 
@@ -521,7 +575,7 @@ re-taken, because nothing moved (`logs/cpp/w10-one-core.log`). In the order I wo
 | C13 | five backends | every shape dispatch ended in an unconditional scalar assignment instead of raising; `cpp_build` and `cpp_pbbuild` stopped testing cardinality after the repeated-string arm, so a repeated `bytes` would have emitted a scalar store against a `std::vector` | **fixed** and tested by `gen/refusal_test.py` |
 | C14 | `gen/cpp_binding.py`, `cpp_core.py` | the map path hardcoded `t.utf8` and the validating reader for both halves, so `map<string, bytes>` would have had UTF-8 validation applied to its value | **fixed**: derived from the pair message's declared kinds, and swept |
 | C15 | `src/bench.cpp` | `groupfill` exceeds the (`ffi` − `native`) delta it is a component of on P1.3 (22.6 against about 18.3 ns/element) | **open.** The suspected cause is refuted: a direct-call variant measures the same as the indirect one to 0.3 percent. `groupfill` is reported as an UPPER BOUND on the group's cost, not as a component |
-| C16 | this slice | a systematic outlier round on P1.2 decode, about 34 percent high, in every log | **open**, printed per round rather than hidden in a range |
+| C16 | the harness, not the core | the `ffi` arm's first two rounds on P1.2 decode ran 25-40 % high in every log, rounds 3-9 flat | **characterised, cause demonstrated, one residual named** (`logs/cpp/c16.log`). It is page-fault cost on **glibc's mmap path**: pinning `MALLOC_MMAP_THRESHOLD_` and `MALLOC_TRIM_THRESHOLD_` removes the outlier AND keeps the steady state, forcing always-mmap reproduces its value in every round, and the default allocator takes an order of magnitude more minor page faults (**10.8x** in the committed run, 10.8-13.1x across runs). Refuted: machine load (deterministic 6/6 on an idle box, both linkages) and the arm rotation. Not the cause but the reason it became visible now: the faster validator — with the old scalar one the row is flat at 0.62, because validation swamped a fixed per-iteration allocator cost. **Unexplained**: exactly *when* the threshold adapts. A different allocation history moves the outlier to a later round or removes it, and this does not predict which. What would settle it: a malloc hook logging size and mmap-or-not per call — a question about glibc, not about the ABI. **No figure withdrawn**: min-of-rounds plus the per-round list is exactly why |
 | C17 | `../rust/crates/harness/build.rs` | the rust harness searched `<profile>` before `<profile>/deps` for `libak_core.so`. Cargo only uplifts a workspace MEMBER's cdylib, so after R0 moved `ak-core` out of that workspace the harness would have linked the STALE pre-move copy still sitting in `<profile>` -- a change measuring the same because it is not in the build | **fixed** in W10: order flipped, stale copy deleted, and `ldd` shows the arm loading `deps/libak_core.so` |
 | C18 | `gen/boundary.sh` | half two asked whether a control function was LARGER than the largest timing closure and took that as evidence it was not copied into one. Size is a proxy for fusion, not a test of it, and its positive control was `-flto`, which fires only when the optimiser happens to fuse something. After W10 the largest closure went from 1433 B to 911 B and the control went quiet | **fixed.** Two direct properties instead: every timing closure still contains a call instruction, and every control traversal still has an out-of-line body. The control is now `src/fusion_probe.cpp` -- one function that MUST be called and one that MUST be fused, guaranteed by `noinline` + a volatile function pointer and by `always_inline`, not by optimisation level. 23 checks, 0 failed |
 | C23 | `gen/boundary.sh` | the new call counter used `/\<call\>/`. **mawk is what is installed and `\<` `\>` are gawk-only word boundaries**, so it silently matched nothing and half two reported that 10 of 10 timing closures were fused | **fixed**: `/[ \t]call/`. This is the SECOND gawk-only construct in this one file -- `strtonum` was the first -- and both failed silently rather than erroring. Worth a grep before the next awk line |
@@ -532,6 +586,10 @@ re-taken, because nothing moved (`logs/cpp/w10-one-core.log`). In the order I wo
 
 ## What is not measured
 
+- **Exactly when glibc's mmap threshold adapts**, which is C16's residual. The *cause* of
+  the outlier is demonstrated by removal; what a different allocation history does to its
+  *timing* is not predicted. A malloc hook logging size and mmap-or-not per call would
+  settle it, and it is a question about glibc rather than about the ABI.
 - **A thread sanitizer run.** The core is a Rust cdylib built without TSan, so a TSan
   host would report its internals as uninstrumented and the result would be noise. The
   `AK_CONC_GLOBAL` race is argued from the code and its throughput, not from a detector.
@@ -581,6 +639,8 @@ re-taken, because nothing moved (`logs/cpp/w10-one-core.log`). In the order I wo
 | `generator.log` | — | R1 as a gate: `--check` green on 21 files, 16 must-fail guards refused, the tracked-file audit green |
 | `concurrency.log` | 4 shapes x 2 message types, threads in sequence and together, C++17 + C++11 floor + both linkages, plus THREE PLANTED builds | **ABI v1 obligation 12.5, which no slice had.** Zero wrong bytes on every axis. 12.5's own claim measured: 0 wrong on one shape, 44 of 48 on two. Section 6's two refusals are independent — a global table is byte-clean and costs 1.83-2.05x under contention; padding is the byte defect |
 | `utf8.log` | four validators, 17.78 M differential checks against an independent oracle, then timed in one process | **Decision 3's decode-side check re-priced: 2.27x a raw copy on ASCII, not 4.4x**, and the core's validator is cheaper than the INCUMBENT'S OWN on all three sets (R14). C20: the old set validated a `bytes` field |
+| `c16.log` | one payload, one arm, six conditions incl. two `MALLOC_` tunings and a page-fault count | **C16 characterised.** The outlier is glibc's mmap page-fault cost, removed by pinning two thresholds; 13x more minor faults by default. Machine load refuted. One residual named |
+| `contentsets.log` | 5 payloads x 3 content sets, one process, oracle = the incumbent per set | **SHAPES.md's sentence answered, and differently for the two directions.** The encode ratio is almost entirely a fact about the content set (0.988 → 0.114 on P1.2); the decode ratio is not (moves ≤ 0.15). Most of the encode column is protobuf validating UTF-8 on serialize, so `ffi-valtc` is the like-for-like row |
 | `conformance.log` | six builds | R2. 443 checks, 0 failures, five times; 441 once and why. P2.5's two valid forms; protobuf C++ rejects malformed UTF-8 |
 | `boundary.log` | the built artifacts, plus `fusion_probe` | R5 both halves and both directions, **23 checks**. Half two rebuilt after C18: it tests call sites and out-of-line bodies rather than a size relation, and its control is a fixture that cannot stop firing |
 | `odr.log` | a C++11 TU and a C++17 TU, linked | README 5.1's hard stop: 144 facts, 0 moved; 49 under the positive control |

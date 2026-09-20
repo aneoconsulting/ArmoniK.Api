@@ -761,3 +761,105 @@ in this one file — `strtonum` was the first, months of sessions ago — and bo
 a known answer, "10 of 10 fused" would have looked like a discovery.
 
 23 checks, 0 failed.
+
+---
+
+## W12 — the content sets on whole payloads, and C16 finally has a mechanism
+
+### The content sets
+
+SHAPES.md: "a slice that reports one string-path number without saying which content set it
+came from has reported half a number." This slice had priced the *string path* over all
+three sets and every *whole-payload* row over ASCII only.
+
+The set is applied in the **value rules**, not in the generator. `guid`, `word` and
+`sentence` run their result through `recode`; `blob` and `bulk` do not, because a content
+set says what is in the *strings* and a `bytes` field has no encoding to be in — which is
+C20 restated as code. That also means both construction routes get it for free: the facade
+builder and the protobuf builder are generated separately over two object graphs and both
+reach their values through those three functions, which is exactly what makes them two
+independent routes to one value.
+
+Correctness first and per set, because no manifest oracle covers latin1 or wide: 80 checks,
+0 failures, every arm byte-identical to the **incumbent**, which is itself checked against
+`manifest.json` on ASCII so the oracle is anchored where anchoring is possible.
+
+Wire sizes came out at latin1 1.687–1.748× and wide 2.373–2.495×, against the rust slice's
+published 1.70–1.75 and 2.39–2.50. Two generators, two languages, three digits of
+agreement — a cheap R1 check I had not thought to look for.
+
+**The finding is that the answer differs by direction.** P1.2 encode `ffi`/`pb` goes 0.988
+→ 0.167 → 0.114; decode goes 0.656 → 0.671 → 0.546. So the published C++ **encode** column
+is an ASCII column and nothing else, and the **decode** column survives being read without
+its content set. SHAPES.md's sentence is right, and it is much more right about one half of
+the codec than the other.
+
+**And the encode number needed a guard immediately.** protobuf C++ validates UTF-8 when it
+*serialises* — I checked the generated code rather than inferring it: 37 unconditional
+`VerifyUtf8String(..., SERIALIZE)` call sites in `shapes.pb.cc`. ABI v1 says the core does
+not. So most of that column is a check the core skips, and publishing `ffi`/`pb` alone on
+these sets would have been publishing a policy difference as codec speed — the same shape
+of error as C7, pointing the other way. `ffi-valtc` is in the table for every set now, and
+like-for-like the core is at parity on ASCII and about twice as fast on latin1 and wide,
+which is the same ratio `utf8.log` measures between the two validators directly.
+
+The first version of the timing harness here reused one object per arm across decodes. A
+reused protobuf message keeps its allocations and parses into them; a reused facade
+*accumulates* into its vectors. That made the incumbent look 3.3× faster than it is and the
+core's output wrong at the same time — C7's defect with the sign flipped on one arm and
+pointing both ways at once. `bench.cpp` constructs a fresh object per decode and I should
+have copied it rather than rewritten it.
+
+### C16
+
+It had survived several work units as "a systematic outlier round, about 34 percent high,
+in every log". It is now characterised, and the interesting part is how much of the
+investigation was refuting my own first answers.
+
+**Refuted: the machine.** The obvious suspect was this container's own stale background
+pollers, which I had stopped at the start of W10. Six runs on an idle box across two
+linkages: rounds 1 and 2 high, 3–9 flat, every time, to three digits. Deterministic.
+
+**Refuted: the arm rotation.** `ffi` runs fourth in round 0 and third in round 1, so its
+position does not coincide with the affected rounds.
+
+**Refuted as the cause, but it is why the outlier appeared when it did: the validator.**
+`bench_a17_scalarv` is the same source with `AK_UTF8=0`. With the old scalar validator the
+row is *flat* at 0.62; with the table validator it is 0.54 with the first two rounds at
+0.67. A decode dominated by a slow validator hides a fixed per-iteration cost, and making
+the validator twice as fast turned that cost into a visible fraction. Which means W11 did
+not create C16 — it uncovered it.
+
+**Demonstrated, by removal: glibc's mmap path.** The default mmap threshold is 128 KB and
+it *adapts*: when an mmap'd block is freed the threshold rises to its size, so later
+allocations of that size are recycled from the heap instead of faulted in fresh. Pinning
+`MALLOC_MMAP_THRESHOLD_` and `MALLOC_TRIM_THRESHOLD_` high removes the outlier **and keeps
+the steady state** — 0.544,0.547,0.548,… flat from round 1. Forcing the threshold to 4096
+so everything always goes through mmap reproduces the outlier's *value* in every round.
+And the mechanism counted rather than inferred: an order of magnitude **more minor page
+faults** with the default allocator — 10.8× in the committed run, 10.8–13.1× across runs.
+
+Pinning the threshold alone was not enough and that is worth recording: it removed the
+outlier but left the steady state at 0.62, because glibc then trims the heap back and the
+churn costs what mmap did. Both thresholds together is what recovers 0.54.
+
+**What it does not explain, named rather than guessed — and one claim I had to withdraw
+before it reached a log.** My first pass ran each predecessor once and concluded "P1.1
+removes the outlier; P1.3, P2.1 and P4.1 do not", with a paragraph about why the smallest
+predecessor warming it was mysterious. The very next run of the same command put P1.1's
+outlier at round 8 instead of rounds 1–2. So the block now runs three times per
+predecessor, and what it actually shows is that a predecessor **moves** the outlier rather
+than removing it. That is consistent with an allocator-state effect whose timing depends on
+what was allocated before, and inconsistent with the deterministic per-message warm-up a
+single run had suggested. The same correction T7 needed in the concurrency suite, one work
+unit later, for the same reason: one run of a noisy thing is not a range.
+
+The residual is therefore narrower than I first wrote it: the cause is settled, the
+*timing* is not. A malloc hook logging size and mmap-or-not per call would settle it, and
+it is a question about glibc rather than about the ABI, so it stops here.
+
+**No figure is withdrawn.** The slice reports min-of-rounds and prints every round, so no
+published number came from an outlier round — which is what printing them was for. The
+caveat it adds is real: a C++ consumer decoding large messages pays an allocator cost that
+default glibc tuning only amortises after the first few messages, and two environment
+variables remove it.
