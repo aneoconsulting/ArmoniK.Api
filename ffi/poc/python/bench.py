@@ -19,6 +19,19 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
+import allocator  # noqa: E402  (before `arms`: `arms` allocates, and this must be first)
+
+# Pin the allocator BEFORE the first large allocation.  Without this, the encode absolute
+# for any payload bigger than what the process has allocated so far is a property of the
+# case list rather than of the codec: glibc trims the buffer back to the OS between calls
+# and the next call faults it in again.  `allocator.py` is the experiment -- 1.92x on the
+# incumbent's P1.2 encode, 3.81x on its P2.4 -- and it is what moved this slice's P1.2
+# encode ratio from 0.70 in work unit 2 (M1 only in the run, so nothing ever allocated
+# past 218 KiB) to 1.26 in work unit 3 (M2 in the run, so P2.4 warmed it).  Warm is the
+# state a long-lived gRPC server is in, and it is also the state that helps the incumbent
+# more than it helps us, so it is the conservative choice as well as the realistic one.
+_WARM = allocator.warm_up()
+
 import arms      # noqa: E402
 
 
@@ -44,7 +57,7 @@ Case = harness.Case
 
 def main():
     out = sys.stdout
-    print("# python slice, work unit 2: the COMPOSED arm over the M1 subtree", file=out)
+    print("# python slice, work unit 3: the COMPOSED arm over M1 and M2", file=out)
     print("#", file=out)
     print("# interpreter:  %s" % sys.version.replace("\n", " "), file=out)
     print("# incumbent:    protobuf %s on %s" % (_pbver(), _pbimpl()), file=out)
@@ -53,6 +66,16 @@ def main():
           " linker", file=out)
     print("# fill:         ABI v1 decision 9's SPARSE fill (bulk clear, then only what"
           " differs)", file=out)
+    print("# allocator:    mallopt(M_TOP_PAD, 8 MiB) %s, set before the first allocation."
+          % ("APPLIED" if _WARM else "NOT AVAILABLE (not glibc)"), file=out)
+    print("#               Without it an encode above ~128 KiB is timed against glibc",
+          file=out)
+    print("#               handing the buffer back to the OS between calls, and the",
+          file=out)
+    print("#               figure then depends on which payloads precede it in the run.",
+          file=out)
+    print("#               allocator.py is the experiment; logs/python/55-allocator.log.",
+          file=out)
     print("# rounds:       %d, interleaved; per-case target %.0f ms"
           % (harness.ROUNDS, harness.TARGET_NS / 1e6), file=out)
     print("# payloads:     %s" % ", ".join(arms.PAYLOADS), file=out)

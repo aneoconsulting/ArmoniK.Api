@@ -498,3 +498,185 @@ be visible.
   satisfies the other shim's `NEEDED` entry and the counting build silently gets the
   non-counting core. That is how the first crossing counts came out as zeroes. The counting
   pass now runs in a subprocess of its own.
+
+## Work unit 3: M2
+
+### J21. The verdict moves on M2, and it moves in both directions
+
+M1's element is a **leaf**, so the batching predicate admits it and a thousand elements
+cross in about ten core calls. `TaskDetailed` is not a leaf. Everything M1 measured rested
+on that property and this is the payload that tests it.
+
+P2.2, the shape ArmoniK's control plane actually moves, against upb on the R14 production
+path (`/tmp` single-process figures confirmed by the committed three-process run):
+
+| | M1 / P1.2 | M2 / P2.2 |
+|---|---|---|
+| encode, C-extension facade | **0.700 - 0.719** | **1.408** |
+| decode, the bare call | 1.773 - 1.804 | **2.416** |
+| decode + read every field | 0.888 - 0.897 | **0.629** |
+| re-read every field, facade against upb | 0.79 | **0.49** |
+
+**Encode regresses and like-for-like decode improves**, and both have the same cause seen
+from two sides. The non-leaf element costs crossings: 10.02 core crossings per element
+against M1's 0.01, and 51.67 shim crossings against 7. That is what makes encode 1.41.
+But M2 also carries far more content per element -- 17,500 strings and 2,000 map entries
+in 540 KB -- and upb defers all of that materialisation, so the more content an element
+has, the more the bare-call comparison flatters upb and the more the like-for-like one
+does not.
+
+So the answer to "does the M1 verdict survive an element that gains containers" is: **the
+encode half does not, and the decode half gets better.** A report that quotes only one of
+them is quoting half the slice.
+
+### J22. The crossing counts reproduce the rust slice's to the digit, from another host
+
+Counted in the core, in this process, through the python shim
+(`logs/python/53-conformance-m1m2.log`):
+
+| | this slice | ABI v1 section 6 / the rust slice |
+|---|---|---|
+| encode, per `TaskDetailed` | 5.02 forward + 5.00 reverse = **10.02** | **10.02** |
+| decode, per `TaskDetailed` | **7.00** | **7.004** |
+| encode, per `ResultRaw` | 0.01 | 9 per 1,000 elements |
+
+Five loop slots on `TaskDetailed` -- four repeated string fields and a map -- and each is
+one reverse call (the loop callback) plus one forward call (`ak_blob_run`, or
+`ak_elem_TaskOptionsOptionsEntry`) per element. R5 says a crossing count is what makes a
+result portable to a runtime nobody measured; here it is the same number in a second
+language over the same core, which is the strongest form that claim has taken on this
+branch.
+
+### J23. Two defects, and one of them is ABI v1 decision 10 in the flesh
+
+**D8.** Decode returned `options.options == {}` on every M2 payload while encode was
+byte-perfect. Cause: `apply` constructed a fresh inlined `TaskOptions` and assigned it,
+discarding the one the map's `add_` run had already created. Decision 10 says exactly
+this -- "runs may arrive before the group fields, so a binding that constructed from the
+group would discard them" -- and I built the binding that discards them anyway. Decode now
+**gets-or-creates** every child instead of constructing one.
+
+It is worth saying what caught it: **not** byte identity of the re-encode, which passed,
+because the re-encode of a facade with an empty map is a legal encoding of a different
+message. The field-by-field comparison against the incumbent caught it, and that
+comparison is driven from the incumbent's own descriptor rather than from a list this
+slice wrote, which is why it noticed a field the slice had lost.
+
+**D9.** The like-for-like reader walked nested messages with `dir()`. On M1 that is two
+Timestamps per element and it did not show; on M2 it is fourteen nested messages per
+element, and it made the facade's re-read 2.8 times upb's on a payload where M1's was
+*cheaper*. Entirely a fact about the reader. Both readers now follow one plan built from
+the description and perform an identical number of reads -- 444,701 on P2.2, checked
+rather than assumed -- and the facade's re-read comes out at 0.49 of upb's.
+
+The first version of that table would have been published as "the composed arm's decode
+gets worse on the shape that matters". It was wrong by a factor of four.
+
+### J24. The map forces the incumbent's canonical form open, and both forms are legal
+
+`SerializeToString` does not sort map entries; the canonical form in the manifest does. And
+on P2.5 upb writes an empty map value as a present zero-length field where the canonical
+form omits it. Neither is wrong -- `ffi/corpus/CONTRACT.md` C3 says so and lists 85 rows
+with more than one accepted form.
+
+So the conformance gate now distinguishes: this slice's own arms must produce the
+canonical bytes, and the **incumbent** may produce any encoding that parses to the same
+message, checked with the incumbent itself as the oracle. `deterministic=True` is carried
+as a labelled second row and costs 1.021 to 1.025 of the production path on encode, which
+is the price of the canonical form in the incumbent rather than in the core.
+
+### J25. The map's sort is the shim's, and it is visible
+
+The facade holds a `dict` because that is what a Python user expects; the wire wants
+entries sorted by key. So the shim calls `PyDict_Keys` and `PyList_Sort` per element. It
+is a cost the incumbent does not pay on its default path and this slice does not hide it:
+it is inside the 1.408 encode figure, not beside it. A facade that held a sorted structure
+would not pay it and would be less idiomatic; nothing here prices that trade.
+
+### J26. One arm moved 1.8x between two runs of the same benchmark, and it was the allocator
+
+Work unit 2 put the composed arm's P1.2 encode at **0.68-0.72 of the incumbent**. Work
+unit 3, same machine, same core, same shim, same bytes, put it at **1.26**. The composed
+arm's absolute had not moved at all (246-249 us then, 247-248 us now). The incumbent's
+had: 344-358 us then, 195-197 us now. So the question was never "why did our arm get
+slower", it was "why did upb get 1.8x faster", and until that was answered no P1.2 encode
+ratio was reportable (R2).
+
+**The first hypothesis was the fixture, and it is refuted.** Between the two runs
+`build_upb` changed from a hand-written field-by-field copy to `FromString`, and then
+`build_upb_native` was added to serialise a message built through protobuf's own setters
+the way production does. A message out of the parser has an arena the parser laid out; a
+message out of the setters has one the setters laid out; it is a reasonable suspect. All
+three, in one process, in interleaved rounds, on P1.2:
+
+| fixture | median |
+|---|---|
+| work unit 2's hand-written copy | 345,336 ns |
+| `build_upb_native`, setters | 347,742 ns |
+| `FromString` | 346,036 ns |
+
+Within 1%, all three byte-identical to the manifest -- and all three at work unit 2's
+*slow* number, in a process that does nothing but this. So the fixture is not it, and the
+fast number is the one that needs explaining.
+
+**It is the process's malloc state.** A single `bytes(1 << 20)` allocated and freed before
+the measurement takes P1.2's upb encode from 341,453 ns to 194,588 ns and leaves it there.
+A `bytearray` does it, serialising P2.4 once does it, and serialising *another* 218 KiB
+message does not -- it has to be bigger. Building P2.4 without serialising it makes things
+worse, not better, which rules out a warm cache or a clock ramp.
+
+Which glibc knob, measured one at a time in fresh processes:
+
+| | P1.2 upb encode |
+|---|---|
+| nothing | 349,589 ns |
+| `mallopt(M_MMAP_THRESHOLD, 8 MiB)` | 347,019 ns |
+| `mallopt(M_TRIM_THRESHOLD, 8 MiB)` | 296,498 ns |
+| both | 195,281 ns |
+| `mallopt(M_TOP_PAD, 8 MiB)` | 193,797 ns |
+
+So it is not that the buffer is mmap'd -- raising the mmap threshold alone recovers
+nothing. It is that glibc hands the buffer back to the OS when it is freed, by trimming
+the top of the heap, and the next call faults it in again; `M_TOP_PAD` keeps enough slack
+at the top that the trim never happens. Once a process has allocated and freed something
+*larger*, glibc raises its own thresholds and the same thing happens by accident.
+
+That is the whole story. Work unit 2's bench carried M1 only, so nothing in it ever
+allocated past 218 KiB and the incumbent ran cold for the entire run. Work unit 3's bench
+carries M2, `harness.calibrate` touches every case before the first round, and P2.4's
+979 KiB output warms the allocator for everything after it.
+
+**What it costs.** `allocator.py` is now the experiment, run as step 4 and logged to
+`logs/python/55-allocator.log`. Cold against warm, in the same order, only the two arms
+that matter:
+
+| | payload | cold | warm | cold/warm |
+|---|---|---|---|---|
+| P1.2 encode, upb | 218 KiB | 389 us | 202 us | **1.92** |
+| P1.2 encode, core-ffi / C ext | 218 KiB | 397 us | 258 us | **1.54** |
+| P2.4 encode, upb | 979 KiB | 1,317 us | 345 us | **3.81** |
+| P2.4 encode, core-ffi / C ext | 979 KiB | 1,738 us | 957 us | **1.82** |
+
+Flagged only where the two spreads do not touch, so a 2 us row's jitter cannot qualify;
+the four rows above are the only four that do, out of 32.
+
+Everything else -- every payload under 20 KiB, and every decode at every size -- is inside
+the noise. P2.2 and P2.3, at 540 and 647 KiB, are clean too, because by the time they run
+P1.2 has already raised glibc's thresholds past them. That is the point: the figure is a
+property of **what ran before it**, not of the codec.
+
+**What I did about it.** `bench.py` now calls `mallopt(M_TOP_PAD, 8 MiB)` before it
+imports `arms`, so every arm in every run is measured warm, and the header says so. Warm
+because it is the state a long-lived gRPC server is actually in, and because it is the
+state that helps the incumbent more than it helps us (1.92 against 1.54 on P1.2, 3.81
+against 1.82 on P2.4) -- so it is the conservative choice as well as the realistic one.
+
+**What it invalidates.** Work unit 2's headline, "the composed arm encodes P1.2 at 0.68 to
+0.72 of the incumbent", was an artefact of a bench that only ever allocated 218 KiB.
+Warm, it is ~1.26. `logs/python/60-composed-py3.11.log` and `61-composed-all.log` are kept
+because they are the record, and this entry is why their P1.2 encode rows do not agree
+with the current ones. The M1 *decode* figures in them are unaffected.
+
+And a general one, for the other slices: **an incumbent that allocates one big output
+buffer per call and frees it is measuring the allocator, not the serialiser.** Every slice
+here has a large-payload encode arm. None of them, this one included, had checked.

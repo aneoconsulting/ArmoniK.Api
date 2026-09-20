@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Work unit 2, end to end and reproducible.
+# Work unit 3 (M1 and M2), end to end and reproducible.
 #
 #   ./run.sh <target-python> [<other pythons>...]
 #
@@ -19,7 +19,10 @@ hdr() {
   echo "#"
   echo "# date:      $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "# machine:   $(nproc) vCPU, $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | xargs)"
-  echo "# commit:    $(git -C "$HERE" rev-parse --short HEAD)"
+  # The dirty marker matters: a log whose header names a commit that does not contain the
+  # code that produced it is the kind of thing that survives into a report unnoticed.
+  echo "# commit:    $(git -C "$HERE" rev-parse --short HEAD)$(
+        git -C "$HERE" diff --quiet HEAD -- "$HERE" || echo ' + UNCOMMITTED CHANGES in poc/python')"
   echo "# core:      ffi/poc/codec (README R0), ABI v1, libak_core.so via the dynamic linker"
   echo "# R13:       this machine's rust-slice crossing is 2.1 ns (fwd+reverse) to 2.8 ns"
   echo "#            (forward) -- 00-r13-rust-crossing.log. The composed arm also prices"
@@ -30,7 +33,7 @@ hdr() {
 }
 
 echo "===== 1. build ====="
-./build.sh "$@" 2>&1 | tee "$LOGS/50-build-wu2.log" | tail -3
+./build.sh "$@" 2>&1 | tee "$LOGS/54-build-m1m2.log" | tail -3
 
 echo "===== 2. R14: derive the baseline from Protos/V1 ====="
 { hdr "python slice: R14, the baseline is the path ArmoniK runs"; "$TARGET" verify_r14.py; } \
@@ -39,34 +42,41 @@ tail -4 "$LOGS/52-r14-baseline.log"
 
 echo "===== 3. conformance and crossing counts, every interpreter (R2, R5) ====="
 {
-  hdr "python slice, work unit 2: conformance and crossing counts on the composed arm"
+  hdr "python slice, work unit 3: conformance and crossing counts, M1 and M2"
   for PY in "$@"; do
     echo "########## $("$PY" -c 'import sys;print(sys.version.split()[0])') ##########"
     "$PY" conformance.py
     echo
   done
-} > "$LOGS/51-conformance-wu2.log" 2>&1
-grep -c "ALL CHECKS PASS" "$LOGS/51-conformance-wu2.log" | sed 's/^/   interpreters passing: /'
+} > "$LOGS/53-conformance-m1m2.log" 2>&1
+grep -c "ALL CHECKS PASS" "$LOGS/53-conformance-m1m2.log" | sed 's/^/   interpreters passing: /'
 
-echo "===== 4. the composed arm, target interpreter, 3 processes ====="
+echo "===== 4. the allocator control: why an encode above 128 KiB has two answers ====="
 {
-  hdr "python slice, work unit 2: the composed arm, encode and decode, over M1"
+  hdr "python slice: the allocator state, not the codec, owns the large-payload encode"
+  "$TARGET" allocator.py
+} > "$LOGS/55-allocator.log" 2>&1
+grep -c -- "<--" "$LOGS/55-allocator.log" | sed 's/^/   rows whose answer depends on it: /'
+
+echo "===== 5. the composed arm, target interpreter, 3 processes ====="
+{
+  hdr "python slice, work unit 3: the composed arm, encode and decode, M1 and M2"
   for i in 1 2 3; do
     echo "########## process $i ##########"
     "$TARGET" bench.py
     echo
   done
-} > "$LOGS/60-composed-py$TTAG.log" 2>&1
-echo "   $LOGS/60-composed-py$TTAG.log"
+} > "$LOGS/62-m1m2-py$TTAG.log" 2>&1
+echo "   $LOGS/62-m1m2-py$TTAG.log"
 
-echo "===== 5. the composed arm, every interpreter, 1 process ====="
+echo "===== 6. the composed arm, every interpreter, 1 process ====="
 {
-  hdr "python slice, work unit 2: the composed arm across every interpreter here"
+  hdr "python slice, work unit 3: the composed arm across every interpreter here"
   for PY in "$@"; do
     echo "########## $("$PY" -c 'import sys;print(sys.version.split()[0])') ##########"
     "$PY" bench.py
     echo
   done
-} > "$LOGS/61-composed-all.log" 2>&1
-echo "   $LOGS/61-composed-all.log"
+} > "$LOGS/63-m1m2-all.log" 2>&1
+echo "   $LOGS/63-m1m2-all.log"
 echo "done."

@@ -149,25 +149,80 @@ def _pb_root(pid):
 
 
 def build_upb(pid):
-    """The same values, in the incumbent's own message objects.
+    """The incumbent's message, PARSED from the canonical bytes.
 
-    Built by re-parsing the canonical bytes rather than by a hand-written field copy: the
-    copy was M1-sized and would have to grow a case per shape, which is exactly the
-    hand-written path R1 exists to keep out of a comparison. `FromString` of the
-    manifest's own bytes is the same values by construction.
+    Convenient, and **not the shape production serialises**: a message that came out of
+    `FromString` has an arena the parser laid out, and a message an application built has
+    one protobuf's own setters laid out. That was the first suspect when the P1.2 encode
+    ratio moved between work unit 2 and work unit 3, and it was WRONG -- the two arenas
+    serialise within 1-3% of each other (JOURNAL.md J26, and the labelled second row in
+    the bench keeps it visible). The cause was the process's allocator state; see
+    `allocator.py`. This one stays as the oracle for the conformance checks, where only
+    the values matter, and as that second row. `build_upb_native` is the row the ratios
+    come from, because R14 asks for the path production runs, not the cheap fixture.
     """
     if not _pb2:
         return None
     return _pb_root(pid).FromString(reference(pid))
 
 
+def _fill_pb(dst, src, plan):
+    """Copy one facade object into a protobuf message through the public API, which is
+    what an application does. Driven from the description's plan, so it needs no case per
+    shape and cannot fall behind a widened scope (R1)."""
+    for name, k, c, child in plan:
+        v = getattr(src, name)
+        if c == "map":
+            if v:
+                getattr(dst, name).update(v)
+        elif c == "repeated":
+            if not v:
+                continue
+            if k == "string":
+                getattr(dst, name).extend(v)
+            else:
+                for x in v:
+                    _fill_pb(getattr(dst, name).add(), x, child)
+        elif k == "message":
+            if v is not None:
+                _fill_pb(getattr(dst, name), v, child)
+        else:
+            setattr(dst, name, v)
+
+
+def build_upb_native(pid):
+    """The incumbent's message, BUILT through its own API from the same values.
+
+    This is what R14's "the path ArmoniK runs" means on the encode side: production builds
+    a message with setters and then serialises it. The parsed message is kept as a
+    labelled second row in the same interleaved rounds so the choice is visible; it turned
+    out not to matter (1-3%), but a fixture that had never been measured against the
+    alternative is not a fixture anyone should trust.
+    """
+    if not _pb2:
+        return None
+    root = ROOT_OF[pid]
+    elem = "ResultRaw" if root == "ListResultsResponse" else "TaskDetailed"
+    src = build_facade(pid, CT_PLAIN)
+    dst = _pb_root(pid)()
+    for e in getattr(src, elem_field(pid)):
+        _fill_pb(getattr(dst, elem_field(pid)).add(), e, _PLANS[elem])
+    dst.page, dst.total = src.page, src.total
+    return dst
+
+
 def encode_arms(pid, mod=None):
     m = mod or _ffi
     root = ROOT_OF[pid]
     out = []
-    upb = build_upb(pid)
+    upb = build_upb_native(pid)
     if upb is not None:
         out.append(("upb (incumbent)", upb.SerializeToString))
+        # The same values in a message the PARSER laid out rather than the setters. A
+        # within-arm delta (R4), and the reason it is a row: the harness used to make its
+        # fixture this way by accident and it moved P1.2's headline by a factor of 1.8.
+        parsed = build_upb(pid)
+        out.append(("upb, message parsed not built", parsed.SerializeToString))
         # R14's second row: the map makes the production path and the canonical path
         # differ, because SerializeToString does not sort map entries and the corpus's
         # canonical form does. On M1 the two are the same call.
