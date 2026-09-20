@@ -43,4 +43,27 @@ public final class NativeRpc {
 
   /** Crossing two, and the only other one. */
   public static native void bytesFree(long ptr, long len, long owner);
+
+  // ---- section 9's completion queue ------------------------------------------------
+  //
+  // Three forward crossings per call (submit, next, free) and ZERO reverse, against the
+  // blocking mode's two and zero. The drainer is a host thread that enters the core and
+  // comes back out, so there is no thread the JVM must attach and nothing to pin -- which
+  // is what `pinning.log` says the blocking mode gets wrong on a virtual thread.
+
+  public static final int QUEUE_OK = 0, QUEUE_TIMEOUT = 1, QUEUE_SHUTDOWN = 2;
+
+  public static native long queueNew();
+  public static native void queueShutdown(long q);
+  public static native void queueDestroy(long q);
+
+  /** Crossing one: submit and return a call handle. */
+  public static native long callUnaryQ(long client, long pathPtr, int pathLen,
+                                       byte[] req, int reqOff, int reqLen, long q, long tag);
+
+  /** Crossing two: the downcall the host blocks in. `out` gets
+   *  {status, tag, ptr, len, owner}; the return is the QUEUE status, not the call's. */
+  public static native int queueNext(long q, long timeoutMs, long[] out);
+
+  public static native void callDestroy(long handle);
 }

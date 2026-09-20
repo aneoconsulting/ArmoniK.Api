@@ -333,42 +333,54 @@ finding that decode is bounded by host-side container construction, seen from a 
 **Three hosts, one mechanism, and the managed host gets less of it.** That is a fact the
 lifetime contract has to be drafted against, not a reason to drop it.
 
-### ABI v1 section 9's RPC layer, measured end to end -- `logs/java/rpc.log`
+### ABI v1 section 9's RPC layer, and the delivery mode is the finding -- `logs/java/rpc.log`
 
-**The arm compares whole client stacks, because that is what outcome 2 proposes.** An arm
-that keeps grpc-java and swaps the marshaller measures the codec inside somebody else's
-transport, which `r14.log` already did without a server. Here `ak_call_unary` and tonic
-replace grpc-java, and one grpc-java server answers both arms with a fixed pre-encoded body
-so the server is a constant. Two crossings per call, kept as two.
+**These are BLOCKING-MODE and QUEUE-MODE figures, not "the core's" figures**, now that the
+core builds more than one delivery. CPU microseconds per RPC, JDK 17, P2.2 response:
 
-| in flight | grpc-java CPU | core-rpc CPU | grpc-java wall | core-rpc wall |
-|---|---|---|---|---|
-| 1 | 3,868 | **3,740** | 3,083 | **2,897** |
-| 8 | **2,781** | 3,699 | **900** | 1,174 |
-| 16 | **2,754** | 3,673 | **882** | 1,195 |
+| in flight | grpc-java | core blocking | core queue |
+|---|---|---|---|
+| 1 | **3,868** | 3,884 | 4,978 |
+| 8 | **2,781** | 3,509 | 3,025 |
+| 16 | **2,754** | 3,435 | 2,979 |
 
-Microseconds per RPC, ArmoniK's configuration. **At one in flight the core's RPC layer
-matches grpc-java and is slightly ahead on both measures; under concurrency grpc-java pulls
-ahead by about a third.** The shapes are what matters: `core-rpc` is flat across in-flight
-(3,740 / 3,699 / 3,673) and grpc-java falls (3,868 / 2,781 / 2,754), because multiplexed
-streams on one connection let its event loop coalesce work where blocking `block_on` calls
-from N host threads cannot. **The tokio worker count is not the explanation** -- 2, 4, 8
-and 16 workers show no trend past noise.
+**The delivery mode is worth more than the gap it was being blamed for.** The queue is 0.86
+of the blocking mode at 8 in flight and 0.87 at 16, which moves the core from 1.26 of
+grpc-java to 1.09. At 1 in flight the queue loses, because submitting and then waiting
+serialises what a blocking call does in one step and pays a third crossing for it.
 
-**Pinning the flow-control window buys nothing measurable on this payload.** Both arms move
-within a few percent between ArmoniK's 4 MiB and the 1 MiB default, and not consistently
-signed: 540 KB fits in either, so the pinning only turns BDP auto-tuning off. The window is
-worth pinning for a message that would not fit, and P2.2 is not one.
+**On JDK 21 the margin is larger and a virtual thread drains at no cost**: blocking 4,094,
+queue on a platform thread 2,869, queue on a virtual thread 2,708 at 16 in flight. Section
+9's "the drainer is a host thread that entered the core and will come back out" holds.
 
-**Three things this does not establish, and the first is the big one.** The ratio is
-**diluted**: both arms carry the same grpc-java server inside the process CPU counter, so
-the difference between them is entirely client-side but is divided by a total containing a
-common server half. **1.33 is a floor on the client-side ratio, not an estimate of it.**
-There is **no Unix domain socket**, because `ak_client_new` takes a URI and tonic connects
-over TCP -- the core's RPC half has no Unix-domain connector, which is a gap in the core
-rather than a setting here. And streaming, metadata, deadlines, cancellation, TLS, status
-codes and the completion queue are all absent from the core's RPC half, so this is one
-unary call and nothing else.
+**But this does not reproduce the pinning result and must not be read as doing so.**
+`pinning.log` had eight virtual threads each blocked; a queue has one drainer by design,
+and one drainer needs one carrier whether virtual or not. The queue is *usable* from a
+virtual thread; whether it *rescues* a host from the blocking mode's pinning is a different
+claim and is unmeasured. Section 9's "a thread parked in a drain costs a collection
+nothing" is also unmeasured -- no collection was instrumented.
+
+**Crossings, counted**: blocking 2 forward and 0 reverse, queue 3 forward and 0 reverse.
+About 12 ns of difference against a 3 ms call, so the mode is not chosen on crossing
+arithmetic.
+
+**A defect of this slice's own, worth more than the numbers.** The first version of the
+arm held `GetPrimitiveArrayCritical` across the whole blocking call, justified by analogy
+with the pull family's parse. The analogy is false: making no upcall is what makes a
+critical section *legal*, not what makes it *safe* when the call cannot complete until
+another Java thread makes progress. The peer is a grpc-java server in the same process
+which must allocate to answer, so a GC needed in that window deadlocks. It survived P2.2 by
+luck and hung on the first small payload. **A host must not pin a Java array across an ABI
+call whose completion depends on another Java thread** -- a binding-author rule that
+generalises past RPC. Fixing it also moved the figures by 5 to 7 percent, so the first
+published table was contaminated as well as unsafe.
+
+**Still not established**: the ratios are floors, because client and server share one
+process and one CPU counter; there is no Unix domain socket, because the core's RPC half
+has no Unix-domain connector; the callback mode is unbuilt here and unmeasured anywhere;
+and streaming, metadata, deadlines, TLS and status codes are absent from the core's RPC
+half. `ak_call_cancel` now exists, so the blocking form's cancellation handle is the only
+part of that amendment still missing.
 
 ### R14: the headline against gRPC's marshaller -- `logs/java/r14-summary.md`, `r14.log`
 
@@ -857,5 +869,5 @@ In the order a fresh session should take them:
 | `shim-probe.log` | JDK 17, three collectors | README 9.1's shape priced on the JVM before building it: a JNI field store is a third of an upcall, the crossover is k=2-3, and the G1 write barrier doubles a reference store |
 | `w10-regate.log` | all three arms, shared core | R0: 3,891 checks 0 failures, both transcoders resolved from `poc/codec`, worst drift move 0.052 against a 0.078 bar |
 | `flow-control.log` | grpc-java 1.74.0, read with javap | one call sets BOTH windows, pinning disables BDP, and the shipped default is 1 MiB |
-| `rpc.log` | JDK 17, tonic 0.14.6, loopback TCP | section 9 end to end: the core's RPC layer matches grpc-java at 1 in flight and is 1.33x its CPU at 8 and 16; the window pinning buys nothing on this payload |
+| `rpc.log` | JDK 17 and 21, tonic 0.14.6, loopback TCP | section 9 end to end, four arms: the completion queue is 0.86 of the blocking mode and 1.09 of grpc-java, a virtual thread drains at no cost, and a critical section held across a blocking call deadlocks |
 | `r14.log`, `r14-summary.md` | JDK 17, the real grpc marshaller | R14: the headline against production's path, and `toByteArray` priced against it |

@@ -1,85 +1,84 @@
 == ABI v1 section 9: the core's RPC layer against the host's, end to end ==
 
-java 17.0.20, protobuf-java 3.25.5, grpc-java 1.74.0, tonic 0.14.6, tokio multi-thread.
-Payload P2.2 (540,422 B) as the response, a 16 B request: the shape ListTasksDetailed
-actually has. Warm 4 s and measure 6 s per level, time-bounded rather than call-counted.
+java 17.0.20 and 21, protobuf-java 3.25.5, grpc-java 1.74.0, tonic 0.14.6.
+P2.2 (540,422 B) as the response, a 16 B request: ListTasksDetailed's real shape.
+Warm 4 s, measure 6 s per level, time-bounded. Loopback TCP.
 
-WHAT IS COMPARED. Whole client stacks, not marshallers:
+THIS FILE REPLACES AN EARLIER VERSION THAT WAS WRONG. The first core-rpc numbers were
+taken with `GetPrimitiveArrayCritical` held across the whole blocking call. That is a
+deadlock: a critical section blocks GC, the peer is a grpc-java server in this same
+process which must allocate to answer, so a GC needed in that window waits on a critical
+section that waits on the server that waits on the GC. It survived P2.2 by luck of timing
+and hung on the first small payload. The rule generalises past RPC: **a host must not pin
+a Java array across an ABI call whose completion depends on another Java thread.** Fixing
+it moved core-rpc's CPU by 5 to 7 percent at concurrency, so the earlier figures were
+contaminated as well as unsafe.
 
-  grpc-java : grpc-java client  + protobuf-java parse
-  core-rpc  : ak_call_unary     + the pull family's parse   (tonic, tokio, hyper)
+== 1. Four arms, JDK 17, CPU microseconds per RPC ==
 
-An arm that keeps grpc-java and swaps only the marshaller measures the codec inside
-somebody else's transport, which `logs/java/r14.log` already did without a server. Outcome
-2 puts the RPC LAYER on the C ABI, so the client stack is the variable.
+  in flight   grpc-java   core blocking   core queue
+  1              3867.5          3883.9       4978.0
+  8              2780.9          3508.8       3024.7
+  16             2754.1          3434.9       2978.5
 
-ONE SERVER, so the server is not a variable: grpc-java, answering with a fixed
-pre-encoded body through a pass-through byte marshaller. It does no work and knows no
-schema. Both arms parse identical bytes.
+  wall microseconds per RPC
+  1              3083.2          2977.0       3307.7
+  8               899.7          1133.4       1515.8
+  16              881.6          1118.4       1510.6
 
-TWO CROSSINGS PER CALL, kept as two. `ak_call_unary` returns bytes the core still owns and
-`ak_bytes_free` returns them; the copy in between is `Unsafe.copyMemory`, an intrinsic and
-not a crossing. Folding it into the call would have made this arm one crossing against its
-own specification.
+**The queue beats the blocking mode on CPU wherever there is concurrency** -- 0.86 of it
+at 8 in flight and 0.87 at 16 -- and loses to it at 1, where submitting and then waiting
+serialises what a blocking call does in one step and pays a third crossing for the
+privilege. Against grpc-java the queue is 1.09 at 8 and 1.08 at 16, where the blocking
+mode is 1.26 and 1.25. **So the delivery mode is worth more than the gap it was being
+blamed for.**
 
-== 1. The two stacks, ArmoniK's configuration (4 MiB window, BDP off) ==
+Read the wall column with the shape in mind: the queue runs ONE drainer keeping N calls
+outstanding, and the other two arms run N threads. CPU per RPC compares across those
+shapes and wall clock does not.
 
-in flight     grpc-java CPU   core-rpc CPU grpc-java wall  core-rpc wall
-1                    3867.5         3740.3         3083.2         2897.1
-8                    2780.9         3698.7          899.7         1173.5
-16                   2754.1         3672.5          881.6         1194.8
+== 2. JDK 21, and the drainer on a virtual thread ==
 
-microseconds per RPC. CPU is PROCESS cpu: client and server are both in this process.
+  arm                         1        8       16     (CPU us/RPC)
+  core blocking          4683.3   4402.3   4094.0
+  core queue, platform   4417.5   3018.1   2869.3
+  core queue, virtual    4588.1   2915.3   2708.0
 
-**At one in flight the core's RPC layer matches grpc-java**, and is slightly ahead on both
-CPU (0.97) and wall (0.94). **Under concurrency grpc-java pulls ahead by about a third**:
-1.33 on CPU and 1.30 to 1.36 on wall at 8 and 16.
+**The queue is 0.70 of the blocking mode at 16 in flight on JDK 21**, a larger margin than
+on 17. **And a virtual thread drains it at no cost**: 2708 against 2869 on a platform
+thread, with wall clock 1369 against 1430. Section 9's "the drainer is a host thread that
+entered the core and will come back out" holds -- there is nothing to attach and nothing
+to pin.
 
-The shapes differ and that is the finding. `core-rpc`'s CPU per RPC is FLAT (3740, 3699,
-3673) which is what a sound measurement looks like; grpc-java's FALLS (3868, 2781, 2754),
-because multiplexed streams on one HTTP/2 connection let its event loop coalesce work. The
-core arm, making blocking calls through `block_on` from N host threads, gets no such
-coalescing.
+**WHAT THIS DOES NOT SHOW, and it is the thing the check-in asked for.** It does not
+reproduce `pinning.log`'s carrier-pinning comparison. That test had EIGHT virtual threads
+each blocked for a known time, so a pinned carrier showed up as `ceil(N/P) x W`. A queue
+has ONE drainer by design, and one drainer needs one carrier whether it is virtual or not.
+So this says the queue is usable from a virtual thread without penalty; it does not say
+the queue rescues a host from the pinning the blocking mode causes. Those are different
+claims and only the first is measured here.
 
-== 2. The tokio worker count is NOT the explanation, which was the obvious confound ==
+**Section 9's "a thread parked in a drain is in native state and costs a collection
+nothing" is also NOT measured.** No collection was instrumented. It remains an assertion.
 
-core-rpc, ArmoniK's configuration, CPU us/RPC:
+== 3. Crossings, from the counting build ==
 
-  workers    inflight=1   inflight=8   inflight=16
-  2              3740.3       3698.7        3672.5
-  4              3621.6       3506.0        3468.1
-  8              4004.0       3646.7        3503.0
-  16             3806.3       3348.1        3468.4
+  blocking : 2 forward (ak_call_unary, ak_bytes_free), 0 reverse
+  queue    : 3 forward (ak_call_unary_q, ak_queue_next, ak_bytes_free), 0 reverse
 
-Four runtime sizes, no trend past noise. The flatness is the arm's, not the runtime's.
+At 11.9 to 12.9 ns a forward crossing, the queue's extra crossing costs about 12 ns
+against a call of roughly 3 ms. The mode is not chosen on crossing arithmetic.
 
-== 3. Pinning the flow-control window buys nothing measurable here ==
+== 4. What is still not established ==
 
-  arm         config                              1        8       16
-  grpc-java   ArmoniK 4 MiB, BDP off         3867.5   2780.9   2754.1
-  grpc-java   default 1 MiB, BDP on          4364.4   3103.3   2534.2
-  core-rpc    ArmoniK 4 MiB, BDP off         3740.3   3698.7   3672.5
-  core-rpc    default 1 MiB, BDP on          3824.7   3666.5   3750.0
-
-Within a few percent either way, and not consistently signed. Expected: 540 KB fits inside
-a 1 MiB window as well as a 4 MiB one, so the pinning changes nothing except turning BDP
-auto-tuning off (`logs/java/flow-control.log`). **The window is worth pinning for a
-message that would not fit, and this is not one.**
-
-== 4. What this does NOT establish, and the first item is the big one ==
-
-- **The ratio is DILUTED and the client-side ratio is larger than 1.33.** Both arms carry
-  the same grpc-java SERVER inside the process CPU counter, because client and server are
-  in one process. The difference between the arms is entirely client-side, but it is being
-  divided by a total that includes a server half common to both. Decomposing it needs a
-  server whose cost can be measured separately, which this harness cannot do. **1.33 is a
-  floor on the client-side ratio, not an estimate of it.**
-- **No Unix domain socket.** `ak_client_new` takes a URI and tonic connects over TCP: the
-  core's RPC half has no Unix-domain connector, so the UDS primary the branch asked for is
-  not reachable through it. Both arms run over loopback TCP, which keeps them comparable
-  and leaves the kernel's TCP stack in both. That is a GAP IN THE CORE, not a setting.
-- **Streaming, metadata, deadlines, cancellation, TLS, status codes and the completion
-  queue** are all absent from the core's RPC half (its own module says so), so this is one
-  unary call and nothing else.
-- **One connection per arm.** No connection pooling, no multiple channels.
-- Absolutes are instrumentation (R13); the signs and the ratios are the claim.
+- **The ratio is DILUTED.** Client and server are in one process, so every figure carries
+  the same grpc-java server. The difference between arms is entirely client-side but is
+  divided by a total containing a common server half, so these ratios are FLOORS on the
+  client-side ones.
+- **No Unix domain socket.** `ak_client_new` takes a URI and tonic connects over TCP; the
+  core's RPC half has no Unix-domain connector. A gap in the core, not a setting.
+- **No callback mode** (`ak_call_unary_cb`), which section 9 calls C#'s mode rather than
+  this host's, and which is unmeasured by anyone.
+- Streaming, metadata, deadlines, TLS and status codes are absent from the core's RPC
+  half. `ak_call_cancel` now exists; the BLOCKING form's cancellation handle does not.
+- Absolutes are instrumentation (R13).

@@ -119,8 +119,14 @@ public final class RunRpc {
     Server server = sb.build().start();
     final int port = server.getPort();
 
-    Runner runner = arm.equals("grpc-java")
-        ? new GrpcJavaRunner(port, pinned) : new CoreRunner(port);
+    Runner runner;
+    switch (arm) {
+      case "grpc-java": runner = new GrpcJavaRunner(port, pinned); break;
+      case "core-rpc":  runner = new CoreRunner(port); break;
+      case "core-queue":    runner = new QueueRunner(port, false); break;
+      case "core-queue-vt": runner = new QueueRunner(port, true); break;
+      default: throw new IllegalArgumentException(arm);
+    }
 
     long[][] rows = new long[INFLIGHT.length][3];
     for (int k = 0; k < INFLIGHT.length; k++) {
@@ -246,9 +252,78 @@ public final class RunRpc {
     }
   }
 
+  /**
+   * ABI v1 section 9's completion queue: submit, then block in `ak_queue_next`.
+   *
+   * <p>Three forward crossings per call and ZERO reverse, against the blocking mode's two
+   * and zero. The point is not the crossing arithmetic, which costs the queue about 12 ns
+   * a call; it is that the host thread waits in a downcall it entered rather than being
+   * blocked in a native frame for the duration of an RPC. On a virtual thread that is the
+   * difference {@code logs/java/pinning.log} measured as 2,420 ms against 305.
+   *
+   * <p>One drainer, as section 9 describes. The drainer keeps N calls in flight: it takes a
+   * completion, parses it, and submits a replacement.
+   */
+  static final class QueueRunner implements Runner {
+    final CoreRunner base;
+    final long q;
+    final boolean virtual;
+    final ThreadLocal<long[]> comp = ThreadLocal.withInitial(() -> new long[5]);
+    final java.util.concurrent.atomic.AtomicLong tags = new java.util.concurrent.atomic.AtomicLong();
+
+    QueueRunner(int port, boolean virtual) {
+      this.base = new CoreRunner(port);
+      this.virtual = virtual;
+      this.q = NativeRpc.queueNew();
+      if (q == 0) throw new IllegalStateException("ak_queue_new failed");
+    }
+
+    /** Submit one. Crossing one. */
+    long submit() {
+      long h = NativeRpc.callUnaryQ(base.client, base.pathPtr, base.pathLen,
+          REQUEST, 0, REQUEST.length, q, tags.incrementAndGet());
+      if (h == 0) throw new IllegalStateException("ak_call_unary_q failed");
+      return h;
+    }
+
+    /** Take one, parse it, release it. Crossings two and three. */
+    void take() {
+      long[] o = comp.get();
+      int rc = NativeRpc.queueNext(q, Long.MAX_VALUE, o);
+      if (rc != NativeRpc.QUEUE_OK) throw new IllegalStateException("queueNext rc=" + rc);
+      if (o[0] != 0) throw new IllegalStateException("call status " + o[0]);
+      int n = (int) o[3];
+      byte[] b = base.buf.get();
+      if (b.length < n) { b = new byte[Integer.highestOneBit(n - 1) * 2]; base.buf.set(b); }
+      Mem.copyToBytes(o[2], b, 0, n);
+      SINK.addAndGet(System.identityHashCode(FfiArms.parse(base.dec.get(), ID, b, 0, n)));
+      NativeRpc.bytesFree(o[2], o[3], o[4]);
+    }
+
+    @Override public void call() { NativeRpc.callDestroy(submit()); take(); }
+
+    @Override public void close() {
+      NativeRpc.queueShutdown(q);
+      NativeRpc.queueDestroy(q);
+      base.close();
+    }
+  }
+
+  /** JDK 21's virtual thread, reached reflectively so this file still compiles at 17. */
+  static Thread virtualThread(Runnable r) {
+    try {
+      Object b = Thread.class.getMethod("ofVirtual").invoke(null);
+      Class<?> bc = Class.forName("java.lang.Thread$Builder");
+      return (Thread) bc.getMethod("unstarted", Runnable.class).invoke(b, r);
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalStateException("virtual threads need JDK 21", e);
+    }
+  }
+
   // ---- driving ----------------------------------------------------------------------
 
   static long drive(Runner r, int inflight, long forNs) throws Exception {
+    if (r instanceof QueueRunner) return driveQueue((QueueRunner) r, inflight, forNs);
     final java.util.concurrent.atomic.AtomicLong made = new java.util.concurrent.atomic.AtomicLong();
     final long deadline = System.nanoTime() + forNs;
     if (inflight == 1) {
@@ -266,6 +341,29 @@ public final class RunRpc {
     }
     for (Thread t : ts) t.join();
     return Math.max(made.get(), 1);
+  }
+
+  /** One drainer keeping `inflight` calls outstanding, which is the shape section 9's
+   *  queue is for: the host thread waits in a downcall rather than in a native frame. */
+  static long driveQueue(QueueRunner r, int inflight, long forNs) throws Exception {
+    final long[] made = new long[1];
+    Runnable body = () -> {
+      long deadline = System.nanoTime() + forNs;
+      long[] hs = new long[inflight];
+      for (int i = 0; i < inflight; i++) hs[i] = r.submit();
+      while (System.nanoTime() < deadline) {
+        r.take();
+        made[0]++;
+        NativeRpc.callDestroy(hs[(int) (made[0] % inflight)]);
+        hs[(int) (made[0] % inflight)] = r.submit();
+      }
+      for (int i = 0; i < inflight; i++) { r.take(); made[0]++; }
+      for (long h : hs) NativeRpc.callDestroy(h);
+    };
+    Thread t = r.virtual ? virtualThread(body) : new Thread(body);
+    t.start();
+    t.join();
+    return Math.max(made[0], 1);
   }
 
   static long cpuNanos() {
