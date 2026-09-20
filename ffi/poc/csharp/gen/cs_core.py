@@ -609,8 +609,19 @@ def emit_decode(o, ir, root, m, slots):
     o += "    [MethodImpl(MethodImplOptions.AggressiveInlining)]"
     o += "    private static %s Tgt(void* obj) => (%s)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;" % (root, root)
     o += ""
+    o.doc("**A CEILING for ABI v1 decision 13, not an implementation of it.** The "
+          "decode side already hands the host `ak_span` OFFSETS into its own buffer, "
+          "so the ABI is ready for a borrowed string view and the facade's `string` "
+          "is what is not. Redesigning the facade is a public-surface change with a "
+          "lifetime rule attached; bounding the prize first is cheaper and says "
+          "whether it is worth it. With `SkipStrings` set, the decode does everything "
+          "it otherwise does and materialises no string at all, so the gap between "
+          "that and the real arm is the MOST a borrowed view could ever save. R2's "
+          "floor-arm logic, applied to a design question.", "    ")
+    o += "    public static bool SkipStrings;"
+    o += ""
     o += "    [MethodImpl(MethodImplOptions.AggressiveInlining)]"
-    o += '    private static string Str(byte* b, ak_span s) => s.len == 0 ? "" : Encoding.UTF8.GetString(b + s.off, (int)s.len);'
+    o += '    private static string Str(byte* b, ak_span s) => s.len == 0 || SkipStrings ? "" : Encoding.UTF8.GetString(b + s.off, (int)s.len);'
     o += ""
     o += "    [MethodImpl(MethodImplOptions.AggressiveInlining)]"
     o += "    private static byte[] Bytes(byte* b, ak_span s)"
@@ -801,6 +812,12 @@ def ir_child_type(ir, root, s, gpath):
 def emit_tail(o, root, slots):
     o += "    /// Zero the host's own tally. The core's counters have their own reset."
     o += "    public void CallsReset() { _fwd = 0; _rev = 0; }"
+    o.doc("What the PULL family trades the upcalls FOR: a record buffer in the "
+          "decode context, proportional to the decoded payload. `ak_bdr_footprint` "
+          "reports the high-water mark, so the trade can be read in both directions "
+          "rather than only in time.", "    ")
+    o += "    public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);"
+    o += ""
     o += "    public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }"
     o += "    public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);"
     o += "    public AkCounters DecCounters() { AkCounters c; if (_dctx == IntPtr.Zero) return default; Abi.ak_dec_counters(_dctx, &c); return c; }"
@@ -950,6 +967,9 @@ def emit_registry(ir, roots, payloads):
     o += "    AkCounters DecCounters();"
     o += "    void DecCountersReset();"
     o += "    void CallsReset();"
+    o += "    /// See CoreFfi_*.SkipStrings: a CEILING for decision 13, not an implementation."
+    o += "    bool SkipStrings { get; set; }"
+    o += "    long PullFootprint();"
     o += "}"
     o += ""
     for r in roots:
@@ -979,6 +999,8 @@ def emit_registry(ir, roots, payloads):
         o += "    public AkCounters DecCounters() => _c.DecCounters();"
         o += "    public void DecCountersReset() => _c.DecCountersReset();"
         o += "    public void CallsReset() => _c.CallsReset();"
+        o += "    public bool SkipStrings { get => CoreFfi_%s.SkipStrings; set => CoreFfi_%s.SkipStrings = value; }" % (r, r)
+        o += "    public long PullFootprint() => _c.PullFootprint();"
         o += "    public void Dispose() => _c.Dispose();"
         o += "}"
         o += ""

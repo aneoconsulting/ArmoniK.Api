@@ -409,17 +409,38 @@ public struct Dec
         return Pos + n;
     }
 
+#if AK_STRICT
+    /// ABI v1 open decision 3's REJECTING policy, as a separate build.
+    ///
+    /// A field or a flag would put a branch on the hot path of both arms and
+    /// block the JIT from devirtualising `Encoding.UTF8`, which would charge the
+    /// lossy arm for the strict one's existence. So this is `/p:AkStrict=true`,
+    /// the same shape as the floor arm: a second build, run in the same sitting,
+    /// each carrying the incumbent as its in-process control.
+    private static readonly UTF8Encoding Strict = new UTF8Encoding(false, true);
+#endif
+
     public string Str()
     {
         int e = LenEnd();
         if (Err != 0) return "";
         int off = Pos;
         Pos = e;
+        if (e == off) return "";
+#if AK_STRICT
+        // `ffi/corpus`'s transcode class: 31 T-dec-* vectors carry malformed
+        // UTF-8 in a string field and CONTRACT.md says a conformant parser must
+        // refuse it. `Google.Protobuf` does not, and neither does the default
+        // build; this one does.
+        try { return Strict.GetString(Buf, off, e - off); }
+        catch (DecoderFallbackException) { Err = W.ErrTranscode; return ""; }
+#else
         // `Encoding.UTF8` substitutes U+FFFD rather than throwing, which is the
         // LOSSY policy. Google.Protobuf reads strings through the same
         // encoding object, so the two arms are like for like; ABI v1 open
         // decision 3's rejecting policy is NOT what either of them runs.
-        return e == off ? "" : Encoding.UTF8.GetString(Buf, off, e - off);
+        return Encoding.UTF8.GetString(Buf, off, e - off);
+#endif
     }
 
     public byte[] Bytes()
