@@ -1,0 +1,90 @@
+# python slice: the GC bias the RPC arm found (defect D11)
+#
+# date:      2026-09-20T17:03:15Z
+# machine:   4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
+# commit:    a248a56b
+# core:      ffi/poc/codec (README R0), ABI v1, libak_core.so via the dynamic linker
+# R13:       this machine's rust-slice crossing is 2.1 ns (fwd+reverse) to 2.8 ns
+#            (forward) -- 00-r13-rust-crossing.log.
+# absolutes: instrumentation, not the deliverable. Signs and size classes only.
+
+# python slice: what disabling the collector was worth, and to whom
+# interpreter:  3.11.15 (main, Mar  3 2026, 09:26:23) [GCC 13.3.0]
+# allocator:    pinned, as in bench.py (applied)
+#
+# Same process, same payloads, same order; the ONLY difference is gc.disable().
+# Interleaved per arm rather than one block each, so a drift in the machine
+# cannot be read as a difference between the two settings.
+
+         dir     arm                         GC off ns     GC on ns   on/off
+   P1.1  encode  upb (incumbent)                   972          968     1.00
+   P1.1  encode  core-ffi / C ext type            1227         1220     0.99
+   P1.1  decode  upb (incumbent)                  1865         1862     1.00
+   P1.1  decode  core-ffi / C ext type            2565         2574     1.00
+   P1.2  encode  upb (incumbent)                212356       327118     1.54
+   P1.2  encode  core-ffi / C ext type          263294       243045     0.92
+   P1.2  decode  upb (incumbent)                295690       298107     1.01
+   P1.2  decode  core-ffi / C ext type          562203       661519     1.18
+   P1.3  encode  upb (incumbent)                 12475        11984     0.96
+   P1.3  encode  core-ffi / C ext type           11276        11139     0.99
+   P1.3  decode  upb (incumbent)                  7736         7652     0.99
+   P1.3  decode  core-ffi / C ext type           48217        46496     0.96
+   P2.1  encode  upb (incumbent)                  1162         1193     1.03
+   P2.1  encode  core-ffi / C ext type            1963         1981     1.01
+   P2.1  decode  upb (incumbent)                  2147         2124     0.99
+   P2.1  decode  core-ffi / C ext type            4147         4030     0.97
+   P2.2  encode  upb (incumbent)                715891       705377     0.99
+   P2.2  encode  core-ffi / C ext type         1007980      1003436     1.00
+   P2.2  decode  upb (incumbent)                901580       896416     0.99
+   P2.2  decode  core-ffi / C ext type         2145040      2700452     1.26  <--
+   P2.3  encode  upb (incumbent)                329276       336561     1.02
+   P2.3  encode  core-ffi / C ext type          737140       709182     0.96
+   P2.3  decode  upb (incumbent)                581334       580326     1.00
+   P2.3  decode  core-ffi / C ext type         1241192      1376685     1.11  <--
+   P2.4  encode  upb (incumbent)                806159       781240     0.97
+   P2.4  encode  core-ffi / C ext type          967926       961178     0.99
+   P2.4  decode  upb (incumbent)                735294       729824     0.99
+   P2.4  decode  core-ffi / C ext type         1578952      1837758     1.16  <--
+   P2.5  encode  upb (incumbent)                 17227        17345     1.01
+   P2.5  encode  core-ffi / C ext type           30834        31071     1.01
+   P2.5  decode  upb (incumbent)                 28238        28310     1.00
+   P2.5  decode  core-ffi / C ext type           64382        64288     1.00
+   P3.1  encode  upb (incumbent)                 13589        13551     1.00
+   P3.1  encode  core-ffi / C ext type           20110        20005     0.99
+   P3.1  decode  upb (incumbent)                 21811        21706     1.00
+   P3.1  decode  core-ffi / C ext type           60618        60161     0.99
+   P4.1  encode  upb (incumbent)                 87709        87621     1.00
+   P4.1  encode  core-ffi / C ext type          190668       191890     1.01
+   P4.1  decode  upb (incumbent)                173944       170007     0.98
+   P4.1  decode  core-ffi / C ext type          330396       347053     1.05
+   P5.1  encode  upb (incumbent)                   181          180     0.99
+   P5.1  encode  core-ffi / C ext type             433          432     1.00
+   P5.1  decode  upb (incumbent)                   597          594     0.99
+   P5.1  decode  core-ffi / C ext type             681          681     1.00
+   P5.2  encode  upb (incumbent)                  3623         3581     0.99
+   P5.2  encode  core-ffi / C ext type            6180         6172     1.00
+   P5.2  decode  upb (incumbent)                  2364         2347     0.99
+   P5.2  decode  core-ffi / C ext type            2373         2350     0.99
+   P5.3  encode  upb (incumbent)               1043290      1041914     1.00
+   P5.3  encode  core-ffi / C ext type         1104000      1094070     0.99
+   P5.3  decode  upb (incumbent)                518152       508969     0.98
+   P5.3  decode  core-ffi / C ext type          510976       513976     1.01
+   P5.4  encode  upb (incumbent)               4422512      4382980     0.99
+   P5.4  encode  core-ffi / C ext type         4777642      4921635     1.03
+   P5.4  decode  upb (incumbent)               2036100      2025048     0.99
+   P5.4  decode  core-ffi / C ext type         2044702      2064894     1.01
+   P6.1  encode  upb (incumbent)                158403       159364     1.01
+   P6.1  encode  core-ffi / C ext type          460937       461690     1.00
+   P6.1  decode  upb (incumbent)                194193       193715     1.00
+   P6.1  decode  core-ffi / C ext type          770497       853553     1.11  <--
+   P7.1  encode  upb (incumbent)                   341          333     0.98
+   P7.1  encode  core-ffi / C ext type             644          644     1.00
+   P7.1  decode  upb (incumbent)                   809          809     1.00
+   P7.1  decode  core-ffi / C ext type            1337         1339     1.00
+
+# Flagged where the two spreads do not touch and the ratio is over 1.05.
+# Every flagged row is the FACADE's DECODE and nothing else: an encode writes
+# one buffer and allocates no graph, and upb's decode allocates an arena the
+# collector never walks. Worst row: P2.2 decode core-ffi / C ext type at 1.26.
+# So `gc.disable()` was not neutral tuning -- it was a discount applied to one
+# arm of one column, and `bench.py` no longer takes it.
