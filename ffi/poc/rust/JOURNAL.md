@@ -1724,3 +1724,120 @@ a decode row. And there is exactly one sign change in the whole table — P2.4 e
 width. The payload constructed to be hostile to the mechanism is also the one whose verdict
 is most content-dependent, which is tidy and which nobody could have seen while it was only
 ever run on ASCII.
+
+---
+
+## Stage 6 — section 9's deliveries at the floor, the A/B/C grid, and two corrections
+
+**Asked for**: price the three deliveries at the floor so the managed slices' delivery
+tables have a control; build the RPC arm as an A/B/C grid over a Unix socket with ArmoniK's
+transport pinned; note that this slice's B − A is not a transport comparison; carry P2.2 at
+1, 8 and 16 in flight with CPU as the headline.
+
+Both landed. Neither is the most useful thing that came out of the work unit, which is worth
+recording as a pattern in itself: this is the third work unit running where the deliverable
+was routine and the control around it was not.
+
+### The core could not express ArmoniK's transport
+
+`ak_client_new` takes a URI and nothing else, so there was no way to set a stream window, a
+connection window or a max message size through the ABI. Every RPC figure in this branch —
+stage 4's, and the managed slices' — is therefore a 64 KiB-window figure whether or not its
+log says so. Added `ak_client_opts` and `ak_client_new_opts` to the shared core (additive,
+R0). This is the second time this session that a measurement I was asked to take turned out
+to be unrepresentable through the ABI as specified, the first being section 3's lifecycle.
+
+### Two harness defects found before any number was believed
+
+1. **The callback arm spun.** It waited on its completion with `yield_now()` while blocking
+   and queue parked. Callback read 1.37 to 1.67x blocking on CPU, which I nearly wrote down
+   as a delivery cost. It was my loop. Replaced with a mutex+condvar `Signal`.
+2. **Cell C built its context and its value inside the clock.** `Ctx::new()` and
+   `armonik_arm::value(P2.2)` ran per timed thread, making C read 1.5 to 1.8x A. Hoisted out
+   with a `CtxSlot` per flight slot.
+
+Both had the same shape: **the arm that looked expensive was the arm I had written
+differently**, not the arm that was different. Worth keeping next to the three earlier
+instances of "the oracle was the code under test".
+
+### The floor: what it is actually worth
+
+The deliveries came back indistinguishable, as predicted. The measured fact is nearly
+worthless on its own — the spread between the three arms reaches 71% at flight 1, so this
+harness could not resolve a real difference either. What is worth something is the
+arithmetic: the deliveries differ by **exactly one crossing** (2/0, 2/1, 3/0), a crossing is
+1.8 ns here, an RPC is 1.5 ms, so the delivery choice is 1.2 parts per million of the call.
+**No run of this harness could ever have shown a delivery difference**, and that is what
+makes it a control rather than a result. I wrote the arithmetic into the binary's own output
+rather than the log, so it travels with the table.
+
+The useful form for the managed slices: if Java or C# resolves a margin between its three
+deliveries, the margin is that host's price for the ONE crossing that differs plus whatever
+its runtime wraps around a callback or a queue. Java prices an upcall at ~80 ns, 44x this
+crossing, and callback is precisely the delivery taking a reverse crossing per call.
+
+### Correction 1: the codec is the majority of a real RPC's CPU
+
+Not asked for, and available only by accident: the deliveries table and the grid move the
+same bytes over the same call, because `main` builds the server's fixed response as prost's
+encoding of P2.2 and the deliveries arm sends exactly those bytes. So cell A minus blocking
+is one encode plus one decode with everything else identical. It is **56% to 72%**.
+
+Nobody in this branch had put the codec and the RPC on the same axis: stages 1-3 timed the
+codec alone, stage 4 timed the RPC with no codec in the loop. It is the premise the whole
+exploration rests on and it was unmeasured. Two caveats went in the log with it — cells A, B
+and C are indistinguishable, so on THIS host there is nothing to recover; and a loopback with
+a do-nothing server is the smallest denominator a deployment ever has, so it is an upper
+bound on the fraction.
+
+### Correction 2: there is no loopback-TCP penalty, and R9's mechanism is wrong
+
+This one started as R5 asked of a new entry point — *is the window pinning actually in the
+build?* — and the control answered a different question.
+
+Pinning ArmoniK's 4 MiB windows moved the wall column by a few percent. That should not have
+been possible if `README.md` R9 is right that a 540 KB response against a 65,535-octet window
+"spends most of its wall clock idle waiting for `WINDOW_UPDATE`". Three steps then:
+
+- The same 540 KB is ~2 ms over UDS and ~30 ms over loopback TCP. **Flow control is a
+  property of HTTP/2 and is identical on both transports**; a transport-independent cause
+  cannot produce a transport-dependent result.
+- A **1 KB** response over TCP costs **44 ms**, more than the 540 KB one. So what is left is
+  per-call, not per-byte.
+- And the direction is the sharp part. If flow control drove it, the payload needing the
+  round trips would cost more than the one needing none. It costs less. That is backwards for
+  flow control and exactly right for Nagle.
+
+Then the mechanism, from the source rather than from a guess: `crates/rpc` drives tonic
+through `serve_with_incoming`, and **tonic documents that the builder's `tcp_nodelay` is
+ignored on that path**; `TcpIncoming::from(listener)` leaves its own nodelay unset, so
+`set_accepted_socket_options` never touches the socket. The server kept Nagle on while
+tonic's client had it off by default. HEADERS, then DATA, then TRAILERS; the second small
+write waits for the peer's ACK; Linux's delayed-ACK timer is 40 ms. 44 ms for 1 KB is that
+timer plus a round trip.
+
+One socket option: TCP 540 KB goes 32 ms to 2.1 ms, TCP 1 KB goes 44 ms to 0.15 ms, and
+**TCP then matches UDS on both payloads and both columns**. There was never a transport gap.
+
+Added `rpc::serve_nodelay` beside `rpc::serve` and left `rpc::serve` byte-for-byte as it was:
+flipping it moves every slice's published loopback-TCP wall figure, which R0 makes the
+aggregating session's call. Measured stage 6's TCP tables against the fixed server, because
+reporting the defective one as a transport row would be reporting the artifact, and kept the
+defective rows in the window-control table where they are the evidence.
+
+What survives of R9: its conclusion. "Measure CPU, not wall clock" is better supported now,
+not worse. What is refuted is the mechanism and the inference a reader draws from it — that a
+slice showing a big wall/CPU gap on P2.2 has a window to raise. Raising the window bought a
+few percent; one socket option bought 14x to 300x. `design/SHAPES.md`'s window subsection is
+still correct for a real deployment; it is just not what the loopback numbers measured.
+
+### And the waiter rule caught me writing it
+
+`gen/rpcgrid.sh` opens with a refuse-if-benchmarking guard, which I wrote with
+`pgrep -f 'target/release/(bench|...|rpcgrid)'`. It refused on its first run, because
+`pgrep -f` matches the full command line of every process **including the shell running the
+guard**, whose command line contained the pattern. That is failure mode 1 in `ffi/CLAUDE.md`,
+committed by the same agent who read it, in the same session, into a script whose entire
+purpose is hygiene. `pgrep -x` on the basename cannot self-match. Noting it because the rule
+is clearly not enough on its own: the shape to watch for is *any* guard whose pattern is
+written down inside the thing being guarded.
