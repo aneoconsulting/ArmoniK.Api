@@ -601,3 +601,133 @@ working.
 Java's Java-level gates: only JDK 21 is installed and its build needs JDK 17 and JDK 8.
 C#: dotnet is not installed. Both builds were shown to *resolve* the shared core — java's
 core and JNI shim link against it, csharp's layout probe compiles — and no further.
+
+---
+
+## W11 — the concurrency suite, and a validator that was the finding rather than the figure
+
+Two items off this slice's own next-step list, promoted by the coordinator because both
+were branch-level holes rather than C++ polish.
+
+### ABI v1 obligation 12.5
+
+No slice had one. The suite is four payload shapes over two message types, two axes
+(threads joined one at a time, then started together), three arms per encode plus a
+decode-and-re-encode leg, every one memcmp'd against a reference. It runs at C++17, at the
+C++11 floor and on both linkages, and once with sixteen threads on four cores so the
+scheduler preempts *inside* an encode rather than between encodes.
+
+The shipped design passes every axis. That was never the interesting part.
+
+**The interesting part is that the first version of it passed on all three planted builds**
+and I nearly reported it as a success. The plants are the two designs ABI v1 section 6
+refused — pad the length prefix to the learned width, and put the learned-width table in a
+process-global — and they are the right plants, because section 6 refused both with
+arguments rather than measurements and a refusal with no evidence is a sentence.
+
+Why it passed: **widths only ever grow within a context**, so only "A then B, where A left
+a site wider than B needs" can show anything, and my four shapes had no such pair. P1.1
+(858 B) and P1.2 (218 KB) are the same message type and learn the *same* table — the
+prefixes that vary are per element, the elements are the same size in both, only the count
+differs, and a top-level message carries no prefix at all. Two shapes of *different*
+message types touch disjoint sites and can never over-reserve for each other. The pair that
+works is P1.1 and P1.3: one message type, one of them the absent-path payload.
+
+So T0 exists: it asks the encoder which ordered pairs have a history surface, and prints
+the answer **whether or not it is empty**, because an empty one means T1, T5 and T6 are
+testing nothing. Building T0 took three goes of its own —
+
+* a probe with `static F o = MK()` inside a function templated only on `F`, so all three
+  P1.x rows were really P1.1 (the identical byte counts gave it away);
+* an over-reserve count that included sites the target never writes, which made T5 pick
+  `after P2.2, P1.1` — two M2 sites that M1 never touches — and test a direction in which
+  nothing can happen. Fixed by *priming* every width to a value nothing needs and seeing
+  which come back reduced, which identifies the written-site set exactly and costs the hot
+  path nothing, rather than adding a `touched` store in `begin()` that every timed arm
+  would pay for;
+* and then T5 was coupled to T0 at all, which broke under `AK_CONC_PAD` because that plant
+  removes the very `resize_prefix` call the probe reads. T5 now runs *every* ordered pair.
+
+The reference had the same shape of bug: it was built by re-encoding with `ak::Enc`, which
+is where the plants live, so on the pad+global build the oracle itself was wrong and every
+arm was being compared against it. The sha anchor caught it — which is what an anchor is
+for — but the fix is an oracle no plant can reach, so it is protobuf's encoder now.
+
+**What it settles.** 12.5's last sentence is a claim, so it is measured: one shape 0 wrong
+of 24, two shapes 44 of 48. It holds. And section 6's two refusals turn out to be
+**independent**:
+
+| build | bytes wrong | threads disagree | contended scaling |
+|---|---|---|---|
+| shipped | 0 | 0 | 3.63-3.96x |
+| pad | 46/96 | 16/16 | — |
+| global | **0** | 0 | 2.80-2.87x |
+| both | 46/96 | **0** | — |
+
+A global table is a race and a throughput defect and **not** a byte defect: an unpadded
+prefix is rewritten to the width the body needs whatever the guess was. Padding is the byte
+defect, and it is the one that makes two threads emit two different legal encodings of the
+same message. Both together is the case a naive suite would miss — the threads *agree*,
+because they share the pollution, and are both wrong.
+
+Section 6's throughput claim reproduced at **1.83-2.05x** under contention, inside the java
+slice's 1.32-2.23x from another language and machine — but only under contention. When every
+thread encodes the same shape the table is written only on a miss, so it is read-mostly and
+shared clean, and the cost is 1.13-1.23x with *no* scaling loss. Measuring only that leg
+would have reported "a global table costs nothing". Three runs per build, because one run
+of a scaling leg is not a range and the single runs inside the sweep disagreed by more than
+the effect.
+
+### The validator, which turned out to be about a `bytes` field as much as about SIMD
+
+This slice published "4.5x to 20x" for the decode-side UTF-8 check and called it the
+largest single effect it measures. Two things were wrong with it.
+
+**C20, and it is the one I did not expect.** The string set was six fields of P1.2's
+elements and should have been five: `ResultRaw.opaque_id` is a **`bytes`** field. proto3
+puts no UTF-8 requirement on it, the codec reaches it through `ak_tc_bytes` and
+`decode_str_raw`, and no validator ever sees it. In the ASCII set its 1,000 values are
+arbitrary bytes, so the check arm *rejected* them on the first bad byte and did less work
+than a validation — the published ASCII row **understated** the cost. It was found by the
+new differential test asserting that every string it validates is valid, which the timing
+table itself had never done. One definition in `harness.h` now, shared by both.
+
+**And the validator.** Correctness first, because byte identity cannot see a validator
+defect at all: a manifest is made of things that *encode*, so it carries no malformed input
+and a validator that accepts a surrogate would pass every gate this slice has. So:
+exhaustively every 1-, 2- and 3-byte string (16.8 M), a structured 4-byte sweep on every
+lead byte and the range boundaries (864 K), 32 named malformed classes, and the payloads'
+own strings — 17.78 M differential checks against an oracle written from RFC 3629 one range
+per line, which is not one of the implementations under test.
+
+A textbook DFA was the first attempt and it is **slower than the scalar version on wide
+content** (0.78x): its state is a serial dependency, one dependent load per byte, and the
+branches it removes were being predicted correctly anyway on uniform content. The one that
+wins keeps the scalar shape — consume a whole sequence per iteration — and removes what is
+actually wasted, the code-point arithmetic. Validation needs no value, only ranges, and
+every range constraint in UTF-8 is a function of the lead byte alone: overlong forms,
+surrogates and everything above U+10FFFF are each exactly a constraint on the *second* byte
+given the first. One packed u32 per lead byte, one load per code point. The DFA is kept and
+stays in the differential test, as the evidence for that paragraph.
+
+The ceiling cost nothing: **protobuf C++'s own `IsStructurallyValidUTF8`**, already linked
+into every arm. That is a better ceiling than a fetched SIMD library for R14's purposes —
+it is literally the validator the incumbent runs on every `string` field it parses — and
+nobody has to believe a claim about how it was configured. (STATE.md said `utf8_range` was
+in this tree. It was not; it was in a scratch directory from the upb arm that does not
+survive. Corrected.)
+
+Result: the ASCII check is **2.27x a raw copy, not 4.4x**, and the core's validator is
+cheaper than the incumbent's own on all three content sets — 2.27 against 2.56, 15.9
+against 19.6, 19.6 against 34.4. So decision 3's check is not a cost the core imposes on a
+host that did not have one. It is cheaper than the check the host already pays.
+
+What is *not* claimed: the effect on a whole-payload decode ratio. The arithmetic says
+about 18% of an ffi decode, which is 0.10 on a ratio of 0.55 and inside R4's 0.240
+across-build bar, and the validator is a build-time choice so one process cannot hold both.
+The string path is where it is measured and where the claim stops — the same reasoning that
+withdrew the earlier "22 to 28 percent of a decode".
+
+`ffi-valtc` is untouched and I said otherwise in the first draft of the log: it reaches
+`ak_tc_utf8()`, the core's Rust transcoder. Whether the core's encode-side validator has
+the same 2x available is open and R0 makes it the aggregating session's.

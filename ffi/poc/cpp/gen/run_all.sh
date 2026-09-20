@@ -44,6 +44,18 @@ hdr() {
   ./gen/audit_tracked.sh
   echo "audit_tracked.sh exit $?"
   echo
+  echo "===== utf8.sh: the decode policy's validator, against an independent oracle ====="
+  # Four implementations of one predicate, every 1-, 2- and 3-byte string exhaustively,
+  # plus a structured 4-byte sweep and every named malformed class. 17.8 million checks.
+  bash gen/utf8.sh
+  echo "utf8.sh exit $?"
+  echo
+  echo "===== concurrency.sh: ABI v1 obligation 12.5 ====="
+  # Two axes and four payload shapes, plus three PLANTED builds of the designs section 6
+  # refused, each of which must fail.
+  bash gen/concurrency.sh
+  echo "concurrency.sh exit $?"
+  echo
   echo "===== one_core.sh: R0, and the proof that R0 can fail ====="
   # The shared core's gate, not this slice's, but it runs here because this is where the
   # gates run and a rule checked by nobody is a rule that gets broken again. --selftest

@@ -619,23 +619,25 @@ int main(int argc, char **argv) {
     ak::values::ContentSet sets[3] = {ak::values::kAscii, ak::values::kLatin1,
                                       ak::values::kWide};
     std::printf("\n-- ABI v1 decision 3, decode side: the string path ALONE, one process --\n");
-    std::printf("   %d strings of P1.2 per set. `check` validates UTF-8 and rejects;\n"
-                "   `raw` copies the bytes and does not look at them -- which is what a\n"
-                "   C++ non-validating arm IS. A C++ std::string holds arbitrary bytes, so\n"
-                "   there is no lossy-substituting path to compare against, unlike Rust's\n"
-                "   from_utf8_lossy, which already validates.\n", 6000);
-    std::printf("%-8s %10s %12s %12s %12s %10s\n", "set", "bytes", "raw ns/str",
-                "check ns/str", "delta", "check/raw");
+    std::printf("   %d strings of P1.2 per set: the FIVE `string` fields of each element.\n"
+                "   `ResultRaw.opaque_id` is a `bytes` field and the policy does not apply\n"
+                "   to it -- including it was C20, and in the ASCII set its 1,000 values are\n"
+                "   arbitrary bytes that the check arm rejected on the first bad byte, so\n"
+                "   the row understated the cost rather than overstating it.\n"
+                "   `check` validates UTF-8 and rejects; `raw` copies the bytes and does not\n"
+                "   look at them -- which is what a C++ non-validating arm IS. A C++\n"
+                "   std::string holds arbitrary bytes, so there is no lossy-substituting\n"
+                "   path to compare against, unlike Rust's from_utf8_lossy.\n"
+                "   Three validators, one process (C20): `scalar` is what every earlier\n"
+                "   figure in this slice was taken against, `table` is what the codec calls\n"
+                "   now, and `protobuf` is the INCUMBENT'S OWN IsStructurallyValidUTF8 --\n"
+                "   the validator it runs on every `string` field it parses, which is the\n"
+                "   comparison R14 asks for.\n", 5000);
+    std::printf("%-8s %10s %-9s %10s %10s %9s %10s\n", "set", "bytes", "validator",
+                "raw ns/str", "chk ns/str", "delta", "chk/raw");
     for (int si = 0; si < 3; ++si) {
       std::vector<std::string> ss;
-      for (size_t i = 0; i < m.results.size(); ++i) {
-        ss.push_back(ak::values::recode(m.results[i].session_id, sets[si]));
-        ss.push_back(ak::values::recode(m.results[i].name, sets[si]));
-        ss.push_back(ak::values::recode(m.results[i].owner_task_id, sets[si]));
-        ss.push_back(ak::values::recode(m.results[i].result_id, sets[si]));
-        ss.push_back(ak::values::recode(m.results[i].created_by, sets[si]));
-        ss.push_back(ak::values::recode(m.results[i].opaque_id, sets[si]));
-      }
+      p1_2_strings(sets[si], &ss);
       size_t total = 0;
       for (size_t i = 0; i < ss.size(); ++i) total += ss[i].size();
       std::string out;
@@ -645,24 +647,39 @@ int main(int argc, char **argv) {
           AK_SINK_MEM(out);
         }
       };
+      // One lambda per validator, all in this process, so the three are separated by
+      // interleaved rounds rather than by three binaries and R4's 0.240 drift bar.
+      struct V { const char *name; bool (*fn)(const uint8_t *, std::size_t); };
+      static const V vs[3] = {{"scalar", &ak::utf8_valid_scalar},
+                              {"table", &ak::utf8_valid_table},
+                              {"protobuf", &ak::utf8_valid_protobuf}};
+      bool (*vf)(const uint8_t *, std::size_t) = NULL;
       auto chk = [&]() {
         for (size_t i = 0; i < ss.size(); ++i) {
-          int32_t rc = ak::decode_str_checked((const uint8_t *)ss[i].data(), ss[i].size(), &out);
+          int32_t rc = ak::decode_str_with(vf, (const uint8_t *)ss[i].data(), ss[i].size(),
+                                           &out);
           AK_SINK(rc);
           AK_SINK_MEM(out);
         }
       };
       int n = calibrate(raw);
-      double blo = 1e300, bhi = -1e300, bcr = 0, brw = 0;
+      double brw = 0, best[3] = {0, 0, 0}, rlo[3] = {1e300, 1e300, 1e300},
+             rhi[3] = {-1e300, -1e300, -1e300};
       for (int r = 0; r < g_rounds; ++r) {
         double a = timed(raw, n) / ss.size();
-        double b = timed(chk, n) / ss.size();
-        if (b / a < blo) { blo = b / a; }
-        if (b / a > bhi) { bhi = b / a; }
-        if (r == 0 || b < bcr) { bcr = b; brw = a; }
+        if (r == 0 || a < brw) brw = a;
+        for (int k = 0; k < 3; ++k) {
+          vf = vs[k].fn;
+          double b = timed(chk, n) / ss.size();
+          if (b / a < rlo[k]) rlo[k] = b / a;
+          if (b / a > rhi[k]) rhi[k] = b / a;
+          if (r == 0 || b < best[k]) best[k] = b;
+        }
       }
-      std::printf("%-8s %10zu %12.3f %12.3f %12.3f %5.3f-%.3f\n", setname[si], total,
-                  brw, bcr, bcr - brw, blo, bhi);
+      for (int k = 0; k < 3; ++k)
+        std::printf("%-8s %10zu %-9s %10.3f %10.3f %+9.3f %5.3f-%.3f\n", setname[si], total,
+                    vs[k].name, brw, best[k], best[k] - brw, rlo[k], rhi[k]);
+
     }
   }
 

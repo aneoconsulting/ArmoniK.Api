@@ -33,6 +33,31 @@
 
 namespace ns = armonik::ffi::shapes::v1;
 
+// The strings the decode-side UTF-8 policy actually validates, recoded into a content set.
+//
+// FIVE fields, not six. `ResultRaw.opaque_id` is a `bytes` field: proto3 puts no UTF-8
+// requirement on it, the generated codec reaches it through `ak_tc_bytes` and
+// `decode_str_raw`, and no validator ever sees it. Including it was a defect in the
+// string-path table (C20) -- 1,000 of its 6,000 strings were a field the policy does not
+// apply to, and in the ASCII set those 1,000 are arbitrary bytes that the check arm
+// REJECTS on the first bad byte, so it did less work than a validation and the ASCII row
+// understated the cost. `src/utf8check.cpp` found it by asserting that every string it
+// validates is valid, which the table never did.
+//
+// One definition, used by `bench.cpp` and `utf8check.cpp`, so the two cannot drift.
+inline void p1_2_strings(ak::values::ContentSet cs, std::vector<std::string> *out) {
+  static shapes::ListResultsResponse m = shapes::build::payload_p1_2();
+  out->clear();
+  out->reserve(m.results.size() * 5);
+  for (std::size_t i = 0; i < m.results.size(); ++i) {
+    out->push_back(ak::values::recode(m.results[i].session_id, cs));
+    out->push_back(ak::values::recode(m.results[i].name, cs));
+    out->push_back(ak::values::recode(m.results[i].owner_task_id, cs));
+    out->push_back(ak::values::recode(m.results[i].result_id, cs));
+    out->push_back(ak::values::recode(m.results[i].created_by, cs));
+  }
+}
+
 inline std::string sha_of(const std::string &s) { return ak::values::sha256_hex(s); }
 inline std::string sha_of(const ak::Enc &e) {
   return ak::values::sha256_hex(std::string((const char *)e.data(), e.size()));
