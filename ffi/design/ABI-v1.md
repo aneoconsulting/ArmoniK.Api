@@ -971,16 +971,56 @@ Each blocks something. None is settled by a measurement that exists today.
    measured at **zero** everywhere. **Pull removes the upcalls; it does not reduce
    them.**
 
-   **What is not answered is which family each binding should take, because four of
-   the five slices have only ever measured push.** C++, C#, Java and Python all
-   built the push family; only rust has a pull arm. So every decode figure in this
-   branch is a *push* figure — which matters most exactly where the evidence says
-   push is wrong: the java slice's decode regression decomposes into 7.004 upcalls
-   per element at about 80 ns, and its own reading is that on the JVM the cost is
-   the *number* of transitions rather than what crosses. **A pull arm on a managed
-   host is therefore the measurement that settles this decision in practice**, and
-   nobody has built one. Until then the specification can say pull exists and works;
-   it cannot say what it is worth to the hosts that need it.
+   **And the java slice has now built the pull arm on the host where it matters, so
+   the practical half is answered too: the ABI carries BOTH families, and a JVM
+   binding takes pull.** Reverse crossings are **zero on every payload in both
+   deliveries**, where push makes 3,501 on P2.2; forward is 2 for the walk delivery
+   whatever the message size, and 1 plus one per 32 KB chunk for the drain.
+
+   **The M2 decode regression the branch has carried since the first Java report is
+   gone.** Median paired ratio to protobuf-java:
+
+   | payload | `R` (generated Java) | `ffi` push | `ffi-pull` | `ffi-pull-walk` |
+   |---|---|---|---|---|
+   | P2.1 | 0.747 | 1.311 | 0.947 | 0.923 |
+   | **P2.2** | 0.884 | **1.383** | **0.807** | 0.853 |
+   | P2.3 | 0.962 | 1.335 | 0.890 | 0.916 |
+   | P2.5 | 0.812 | 1.383 | 0.846 | 0.822 |
+   | P6.1 | 1.056 | 1.197 | **0.465** | 0.422 |
+   | P7.1 | 0.523 | **3.000** | 1.157 | 0.901 |
+
+   Paired against push, **pull is never slower**: a clean sign in its favour on eight
+   of sixteen payloads and straddling zero on the rest, with **not one payload having
+   an established sign the other way**. On P2.2 the delta is 1,606 ns per element,
+   which is the 7.004 upcalls at this machine's 80 ns and then some.
+
+   **The honest verdict is a tie against the no-boundary control, not a win.**
+   `R - ffi-pull` straddles zero on every M2 payload, so **pull does not make the C
+   ABI beat a generated Java codec on decode; it stops the C ABI losing to one** —
+   push loses to arm R with a clean sign on P2.1, P2.2, P2.5 and P4.1, and pull loses
+   to it nowhere. Two exceptions go both ways and are real: P6.1, where pull beats arm
+   R by 831 ns per element, and P1.3 and P5.1, where arm R wins.
+
+   **The drain copy does not measure on the JVM.** `ffi-pull - ffi-pull-walk` straddles
+   zero on **all sixteen** payloads. The C# slice estimated the intermediate at 12 to 19
+   percent of a parse on a runtime where the crossing it saves is worth 10 ns; where the
+   crossing is worth 80 the copy disappears. **So a host that finds the walk delivery
+   awkward can drain and lose nothing measurable**, which is a better answer for the
+   specification than either delivery alone.
+
+   **One structural consequence worth more than the ratios.** Because `ak_parse_*` makes
+   no upcall *by construction*, the JVM binding can hand the wire over under
+   `GetPrimitiveArrayCritical` and never copy it into native scratch — the thing the push
+   family forces, since an upcall and a critical section are mutually exclusive. The shim
+   pushes no callback frame at all, so a future callback cannot be added without someone
+   noticing the rule was broken. That is the design constraint 7.1 was written around,
+   now measured rather than argued.
+
+   **What is still open**: C++, C# and Python have push arms only, so their decode
+   figures remain push figures. The two hosts where that matters most are C# (crossing
+   7.5-12 ns, so the crossover is genuinely close) and Python (where the ABI's crossings
+   are already 0.01 per element and the answer may be that neither family is the
+   question).
 
    **What the rust slice CAN hand a managed host is a re-pricing kit, and it built
    one.** The crossing arithmetic is a property of the descriptor: push is per
