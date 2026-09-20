@@ -37,24 +37,47 @@ survives, so:
 
 ## Waiting for a background job
 
-**Never wait on `pgrep -f "<pattern>"` where the waiter's own command line contains
-the pattern.** `pgrep -f` matches the full command line of *every* process,
-including the shell doing the waiting, so the loop matches itself and spins
-forever. This has cost this branch several hours across two slices — the java
-slice logged it, then hit it a second time and watched a three-minute benchmark
-hold a waiter for an hour and forty-four; the cpp slice left eight of them
-spinning for five hours, on the same box its own benchmarks run on, which is
-measurement contention on top of waste.
+**This is about how an agent drives its tools, not about anything in the tree.**
+Every instance below was an ad-hoc Bash call, never part of a committed harness;
+`grep -rn pgrep poc/` finds nothing. So do not check your scripts, conclude the
+rule does not apply to you, and move on — it applies to what you type.
 
-Any of these is safe, and the last cannot go wrong:
+Two ways a waiter hangs forever, and the second is why the obvious fixes are not
+enough.
 
-- `pgrep -f '[g]en/foo.sh'` — the bracket keeps the pattern out of its own match
-- `pgrep -x` against the process name rather than the command line
-- wait for the artifact, not the process: `until [ -f done.marker ]; do ...`
-- **capture `$!` when you launch the job and `wait` on that PID**
+**1. The pattern matches the waiter.** `pgrep -f` matches the full command line of
+*every* process, the waiting shell included, so
+
+```
+until ! pgrep -f "gen/foo.sh" >/dev/null; do sleep 20; done
+```
+
+matches itself and never exits.
+
+**2. The condition became unreachable after the waiter was armed.** A watcher
+polling for a string in `/tmp/out.log` keeps polling after the job is re-run
+writing to `logs/out.log` instead. Nothing is self-matching; the thing it waits
+for simply will not happen. `pgrep -x`, a bracketed pattern and a marker file all
+fail to prevent this one.
+
+**So there is one form that cannot go wrong, and it is the one to use:**
+
+```
+./long_thing > out.log 2>&1 &
+wait $!
+```
+
+No pattern to self-match, no path to go stale, and it cannot outlive the job.
+
+**The compounding is the expensive part.** A waiter that cannot fire does not
+merely burn its own cycles: it manufactures more waiters, because each failure to
+notify reads as "still running", so the agent checks by hand and arms another. Of
+eight found spinning in one container, six were successive attempts to watch the
+*same* run. One stuck waiter costs almost nothing; the sixth costs five hours of
+a box that was also taking timings.
 
 And stop your own background jobs before you finish a work unit. Another session
-cannot clean them up for you: they are your workloads, and the permission
+cannot clean them up for you — they are your workloads, and the permission
 classifier is right to refuse when someone else tries.
 
 ## Committing
