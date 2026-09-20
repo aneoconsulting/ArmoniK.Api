@@ -1,0 +1,238 @@
+== the java slice's codec bench ==
+java.version=17.0.20  vm=17.0.20+8-1-24.04-Ubuntu
+protobuf-java=protobuf-java-3.25.5.jar
+lib=/home/user/ArmoniK.Api/ffi/poc/java/build/jni/libakjni.so
+compact strings in the binding: yes (JDK 9+ String.value/coder)
+rounds requested=36 (rounded up to a multiple of the arm count), per-round target 40 ms, arm order rotates every round
+content set: ASCII (design/SHAPES.md's default; every id in the real schema is an ASCII GUID)
+ak.deopt=0  (0 nothing; 1 one String.format with a numeric conversion, which is what R9 names;
+           2 read a WIDE String through charAt; 3 read a LATIN1 String through charAt)
+
+Every ratio is PAIRED: computed inside one round against that round's
+own baseline, then reported as min/median/max across rounds. A ratio of
+two medians from different rounds appears nowhere.
+
+
+=== ENCODE ===
+  pbj         toByteArray on a message serialised ONCE, which is what an application does: the size pass is paid, not memoized away
+  pbj-reused-outa fresh message, written into a buffer the caller owns: the exact pair for `R` and `ffi`
+  pbj-parsed  toByteArray on a message that was PARSED rather than built: its string fields hold ByteString, so it re-serialises with no UTF-8 transcoding at all
+  pbj-loop    the same object serialised again and again, with the size memoized: what a loop benchmark reports, and not an application's cost
+  pbj-reuse   writeTo a reused CodedOutputStream, size memoized: the fastest thing protobuf-java can be made to do here
+  pbj-det     pbj-reuse with deterministic serialization, which is what sorts map entries and is what byte identity needs
+  R           the generated pure-Java codec: README R3's no-boundary control, and section 13 outcome 2's architecture
+  ffi         the C ABI, batched, the core transcoding
+  ffi-nobatch the same, with the host declining to batch (ABI v1 section 6 allows it)
+  ffi-zeroed  open decision 9's candidate: bulk-clear the chunk, assign only what differs
+  R-take      arm R plus a fresh output array, so it and `pbj` deliver the same thing
+  ffi-take    the C ABI, batched, plus a fresh output array, so it and `pbj` deliver the same thing
+
+Comparable pairs. `pbj`, `R-take` and `ffi-take` all hand back a
+fresh byte[] and all pay their own size pass, so those three are the
+apples-to-apples set. `pbj-reuse`, `pbj-det`, `R`, `ffi`, `ffi-nobatch`
+and `ffi-zeroed` all write into a buffer they already own -- but the
+protobuf ones memoize the size and the others do not, so read those
+against each other only through the deltas below.
+
+Baseline: pbj. ns/op is that arm's own median. Each cell is min / median / max of
+the PAIRED per-round ratio. Read the median; the min is the least
+contaminated estimate and the max is usually one collection.
+
+id     bytes    base ns/op  pbj-reused-out        pbj-parsed            pbj-loop              pbj-reuse             pbj-det               R                     ffi                   ffi-nobatch           ffi-zeroed            R-take                ffi-take              
+P1.1   858      2135.4      0.290 0.456 1.989     0.652 0.962 1.689     0.367 0.501 0.961     0.258 0.451 0.995     0.259 0.452 0.835     0.323 0.816 1.558     0.208 0.646 1.133     0.250 0.640 1.332     0.240 0.671 1.160     0.563 0.855 1.652     0.508 0.808 1.413     
+P1.2   218121   504415.6    0.350 0.522 2.045     0.707 0.986 2.344     0.364 0.529 1.086     0.333 0.483 1.300     0.334 0.483 0.843     0.653 0.930 1.886     0.448 0.653 1.174     0.412 0.599 1.176     0.438 0.654 1.378     0.685 0.979 1.919     0.654 0.702 1.273     
+P1.3   605      12595.2     0.429 0.587 2.615     0.652 0.891 2.710     0.282 0.350 1.254     0.297 0.354 0.822     0.290 0.344 0.807     0.231 0.462 2.175     1.414 1.726 6.196     1.675 1.951 4.572     0.515 0.605 2.038     0.246 0.304 1.436     1.426 1.695 4.227     
+P2.1   1037     3347.3      0.335 0.540 2.248     0.521 0.994 2.053     0.266 0.543 0.918     0.362 0.515 0.841     0.304 0.537 1.356     0.416 0.866 1.763     0.405 0.856 1.741     0.357 0.849 1.488     0.347 0.885 1.526     0.297 0.850 1.418     0.475 0.900 1.591     
+P2.2   540422   2144905.0   0.496 0.601 1.863     0.888 0.978 1.786     0.473 0.514 0.871     0.428 0.462 0.795     0.447 0.491 0.847     0.666 0.869 1.568     0.705 0.770 1.299     0.746 0.817 1.420     0.677 0.756 1.330     0.679 0.781 1.274     0.687 0.764 1.345     
+P2.3   647024   2168546.9   0.286 0.516 1.594     0.472 0.955 2.406     0.200 0.471 0.788     0.160 0.424 0.672     0.162 0.426 0.674     0.352 0.843 1.365     0.235 0.590 0.956     0.266 0.662 1.202     0.234 0.590 1.048     0.318 0.804 1.318     0.249 0.622 0.971     
+P2.4   979465   2705818.9   0.457 0.520 1.765     0.877 0.978 1.667     0.472 0.552 0.942     0.401 0.489 0.867     0.436 0.492 0.869     0.755 0.976 1.705     0.505 0.660 1.226     0.513 0.813 1.550     0.437 0.619 1.164     0.717 0.949 1.724     0.480 0.649 1.259     
+P2.5   19632    62580.6     0.418 0.638 1.979     0.626 1.008 1.531     0.335 0.517 0.787     0.302 0.473 0.714     0.321 0.496 0.739     0.620 1.033 1.636     0.591 0.878 1.366     0.652 0.943 1.508     0.542 0.824 1.193     0.651 0.838 2.044     0.657 0.851 1.267     
+P3.1   12097    36935.0     0.577 0.763 2.177     0.693 0.890 1.573     0.359 0.481 0.917     0.315 0.440 0.679     0.339 0.444 0.772     0.681 1.171 2.070     0.530 0.694 1.089     0.566 0.780 1.446     0.503 0.618 0.997     0.681 0.863 1.440     0.537 0.627 1.164     
+P4.1   65321    321144.9    0.615 0.655 1.704     0.808 0.927 1.498     0.422 0.448 0.912     0.384 0.412 0.716     0.409 0.450 0.799     0.683 1.009 1.567     0.673 0.738 1.149     0.770 0.856 1.347     0.663 0.735 1.068     0.619 0.700 1.049     0.614 0.660 1.008     
+P5.1   116      171.3       0.412 0.568 1.600     0.837 0.988 2.110     0.521 0.586 1.516     0.328 0.549 0.990     0.344 0.559 0.965     0.762 1.262 1.995     0.550 0.917 1.452     0.531 0.890 1.413     0.565 0.883 1.367     0.790 1.257 2.472     0.776 1.204 2.329     
+P5.2   65620    14953.6     0.157 0.393 0.483     0.337 1.001 1.508     0.180 0.699 0.935     0.050 0.125 0.174     0.048 0.125 0.169     0.053 0.136 0.199     0.100 0.259 0.364     0.099 0.263 0.372     0.101 0.259 0.346     0.453 0.778 1.606     0.557 0.850 1.189     
+P5.3   1048660  186798.8    0.346 0.476 0.590     0.638 1.069 1.323     0.621 0.842 1.353     0.185 0.255 0.370     0.164 0.254 0.329     0.187 0.280 0.364     0.464 0.636 0.810     0.449 0.651 0.804     0.440 0.657 0.810     0.783 1.244 1.514     1.045 1.839 3.245     
+P5.4   4194390  1068040.6   0.304 0.439 0.529     0.616 0.895 1.167     0.546 0.775 1.203     0.226 0.332 0.504     0.230 0.306 0.387     0.251 0.360 0.457     0.486 0.699 1.043     0.510 0.697 0.936     0.394 0.694 0.899     0.498 0.911 2.539     1.006 1.401 2.147     
+P6.1   123354   226593.9    0.514 0.644 1.722     0.784 0.970 1.405     0.498 0.625 0.885     0.449 0.569 0.793     0.463 0.562 0.785     0.561 0.693 1.044     0.913 1.235 2.049     0.904 1.136 2.006     0.860 1.114 1.718     0.586 0.746 1.123     0.949 1.153 1.955     
+
+ENCODE deltas, paired inside each round (R4's sharpened form)
+
+  ffi-nobatch - ffi   the batching predicate (ABI v1 section 6): positive means batching is FASTER
+  id     ns/op lo    ns/op hi    per element   sign
+  P1.1   -356.5      3.2         652.7       0.793           STRADDLES ZERO
+  P1.2   -114557.6   -26132.2    76738.5     -26.132         STRADDLES ZERO
+  P1.3   -8626.7     2866.9      5259.7      9.556           STRADDLES ZERO
+  P2.1   -1749.1     22.1        821.5       22.065          STRADDLES ZERO
+  P2.2   -254770.8   109377.6    281176.1    218.755         STRADDLES ZERO
+  P2.3   -136728.6   162858.8    523397.5    1302.870        STRADDLES ZERO
+  P2.4   -147708.5   251794.0    790340.1    3147.425        STRADDLES ZERO
+  P2.5   -2915.2     4910.4      10088.7     245.521         STRADDLES ZERO
+  P3.1   -4273.2     2927.9      19813.6     14.639          STRADDLES ZERO
+  P4.1   -1376.7     34336.4     92425.6     171.682         STRADDLES ZERO
+  P5.1   -24.0       -2.9        11.0        -2.872          STRADDLES ZERO
+  P5.2   -423.7      22.6        1191.9      22.558          STRADDLES ZERO
+  P5.3   -22189.6    -1040.2     18386.9     -1040.160       STRADDLES ZERO
+  P5.4   -88566.5    13517.6     171058.1    13517.625       STRADDLES ZERO
+  P6.1   -71495.2    -3712.6     89414.5     -18.563         STRADDLES ZERO
+
+  ffi - ffi-zeroed   open decision 9's fill: positive means the sparse fill is FASTER
+  id     ns/op lo    ns/op hi    per element   sign
+  P1.1   -382.6      -32.4       337.5       -8.111          STRADDLES ZERO
+  P1.2   -122375.5   334.2       111250.2    0.334           STRADDLES ZERO
+  P1.3   10728.1     13946.8     24151.1     46.489          +
+  P2.1   -548.9      52.7        1790.7      52.740          STRADDLES ZERO
+  P2.2   -307778.4   37997.4     312845.8    75.995          STRADDLES ZERO
+  P2.3   -218578.1   17072.5     350842.8    136.580         STRADDLES ZERO
+  P2.4   -913261.3   149452.4    790233.0    1868.155        STRADDLES ZERO
+  P2.5   -28767.4    4817.1      12836.2     240.854         STRADDLES ZERO
+  P3.1   -8774.8     3252.7      7905.4      16.263          STRADDLES ZERO
+  P4.1   -59978.2    7453.9      46395.0     37.270          STRADDLES ZERO
+  P5.1   -10.7       2.6         20.2        2.593           STRADDLES ZERO
+  P5.2   -1372.7     34.7        624.4       34.655          STRADDLES ZERO
+  P5.3   -23846.9    -1241.8     22235.8     -1241.800       STRADDLES ZERO
+  P5.4   -80165.0    -15751.5    189806.0    -15751.500      STRADDLES ZERO
+  P6.1   -23592.4    15093.7     95487.7     75.468          STRADDLES ZERO
+
+  pbj-reuse - pbj-det   what deterministic serialization costs the incumbent, priced separately rather than charged to the headline. Both arms are one message into a reused buffer, so this is the sort and nothing else
+  id     ns/op lo    ns/op hi    per element   sign
+  P1.1   -256.8      -3.3        1481.4      -0.836          STRADDLES ZERO
+  P1.2   -21302.0    184.3       135860.8    0.184           STRADDLES ZERO
+  P1.3   -3528.9     100.3       1969.8      0.334           STRADDLES ZERO
+  P2.1   -2900.9     -94.0       1411.1      -94.017         STRADDLES ZERO
+  P2.2   -416284.2   -33034.5    142202.1    -66.069         STRADDLES ZERO
+  P2.3   -109562.4   -6851.8     106365.5    -54.814         STRADDLES ZERO
+  P2.4   -278024.4   -8266.8     248884.5    -103.334        STRADDLES ZERO
+  P2.5   -3574.1     -1077.9     1476.3      -53.895         STRADDLES ZERO
+  P3.1   -8080.4     16.0        3378.8      0.080           STRADDLES ZERO
+  P4.1   -42230.3    -11884.5    51263.7     -59.422         STRADDLES ZERO
+  P5.1   -46.3       0.1         16.9        0.071           STRADDLES ZERO
+  P5.2   -166.0      25.4        176.6       25.408          STRADDLES ZERO
+  P5.3   -8934.0     4508.0      14123.8     4507.960        STRADDLES ZERO
+  P5.4   -42154.4    11247.0     100960.0    11247.000       STRADDLES ZERO
+  P6.1   -8450.7     408.7       14885.2     2.043           STRADDLES ZERO
+
+  ffi-take - ffi   copying the encoded bytes back into a fresh Java array
+  id     ns/op lo    ns/op hi    per element   sign
+  P1.1   -160.3      339.2       4766.5      84.799          STRADDLES ZERO
+  P1.2   -97203.9    24094.6     337524.5    24.095          STRADDLES ZERO
+  P1.3   -10460.9    -364.8      2234.2      -1.216          STRADDLES ZERO
+  P2.1   -1550.5     103.5       1286.0      103.468         STRADDLES ZERO
+  P2.2   -145336.5   -36627.9    475728.5    -73.256         STRADDLES ZERO
+  P2.3   -331080.8   64857.6     932356.2    518.861         STRADDLES ZERO
+  P2.4   -539221.3   -73731.5    401388.0    -921.644        STRADDLES ZERO
+  P2.5   -9287.4     -1974.8     19142.8     -98.742         STRADDLES ZERO
+  P3.1   -9371.2     -1909.4     14049.6     -9.547          STRADDLES ZERO
+  P4.1   -57401.0    -29200.4    35507.4     -146.002        STRADDLES ZERO
+  P5.1   28.4        50.0        141.0       50.029          +
+  P5.2   7237.4      9079.5      33119.2     9079.479        +
+  P5.3   143527.0    211277.2    419147.5    211277.200      +
+  P5.4   491007.4    733546.6    1164432.5   733546.625      +
+  P6.1   -95585.9    -5586.2     173532.0    -27.931         STRADDLES ZERO
+
+  R-take - R   the same copy, for arm R
+  id     ns/op lo    ns/op hi    per element   sign
+  P1.1   -279.7      107.2       3734.1      26.803          STRADDLES ZERO
+  P1.2   -146152.0   27208.3     260073.9    27.208          STRADDLES ZERO
+  P1.3   -6450.0     -2202.3     2246.4      -7.341          STRADDLES ZERO
+  P2.1   -1022.4     -100.9      751.1       -100.893        STRADDLES ZERO
+  P2.2   -595463.8   -229989.9   95914.5     -459.980        STRADDLES ZERO
+  P2.3   -530047.6   -153525.4   468211.8    -1228.203       STRADDLES ZERO
+  P2.4   -328437.8   -110158.0   1083209.5   -1376.975       STRADDLES ZERO
+  P2.5   -23217.0    -11434.0    67636.7     -571.702        STRADDLES ZERO
+  P3.1   -30069.7    -9841.4     10248.9     -49.207         STRADDLES ZERO
+  P4.1   -136234.9   -94324.3    12500.2     -471.622        STRADDLES ZERO
+  P5.1   -29.2       2.1         102.9       2.136           STRADDLES ZERO
+  P5.2   7928.4      9226.6      25281.1     9226.611        +
+  P5.3   112385.6    180648.0    240229.8    180648.000      +
+  P5.4   452981.0    573972.4    1969675.4   573972.375      +
+  P6.1   -2793.0     10017.6     94418.6     50.088          STRADDLES ZERO
+
+  pbj - pbj-loop   what protobuf-java's memoized size hides from a loop benchmark: positive means the loop is faster than an application
+  id     ns/op lo    ns/op hi    per element   sign
+  P1.1   83.7        1095.4      1997.1      273.856         +
+  P1.2   -25769.7    237181.0    463604.8    237.181         STRADDLES ZERO
+  P1.3   -1347.6     8123.1      10511.2     27.077          STRADDLES ZERO
+  P2.1   241.1       1493.2      6346.7      1493.177        +
+  P2.2   160843.6    1052154.0   1183979.8   2104.308        +
+  P2.3   308236.4    1156383.4   4552890.8   9251.067        +
+  P2.4   90978.0     1220633.5   1632722.9   15257.919       +
+  P2.5   8826.1      30080.5     65220.3     1504.024        +
+  P3.1   1955.9      19170.5     31256.8     95.853          +
+  P4.1   18508.7     175522.5    207071.1    877.613         +
+  P5.1   -59.8       73.4        126.5       73.447          STRADDLES ZERO
+  P5.2   824.2       4533.6      31096.4     4533.589        +
+  P5.3   -56725.1    29766.7     99784.0     29766.720       STRADDLES ZERO
+  P5.4   -179110.9   256049.4    756077.1    256049.375      STRADDLES ZERO
+  P6.1   18714.8     84932.2     141377.6    424.661         +
+
+  R-take - ffi-take   the architecture question, both handing back a fresh array: positive means the C ABI is FASTER than a generated Java codec
+  id     ns/op lo    ns/op hi    per element   sign
+  P1.1   -463.7      191.4       496.4       47.838          STRADDLES ZERO
+  P1.2   -186332.8   140125.5    375566.0    140.125         STRADDLES ZERO
+  P1.3   -26746.5    -16959.4    -14823.2    -56.531         -
+  P2.1   -1941.9     -227.3      123.9       -227.320        STRADDLES ZERO
+  P2.2   -408201.8   27253.3     364754.4    54.507          STRADDLES ZERO
+  P2.3   196404.1    406666.9    518624.6    3253.336        +
+  P2.4   327445.5    807529.3    1474453.3   10094.116       +
+  P2.5   -7927.3     -1652.7     63188.3     -82.636         STRADDLES ZERO
+  P3.1   -7122.7     6579.9      17513.2     32.899          STRADDLES ZERO
+  P4.1   -44577.8    6454.3      91598.1     32.272          STRADDLES ZERO
+  P5.1   -20.1       9.5         38.7        9.462           STRADDLES ZERO
+  P5.2   -19728.9    -1247.7     14728.1     -1247.685       STRADDLES ZERO
+  P5.3   -288936.4   -101211.6   7559.5      -101211.640     STRADDLES ZERO
+  P5.4   -1075314.3  -510315.9   923150.0    -510315.875     STRADDLES ZERO
+  P6.1   -265834.1   -89009.7    -33676.7    -445.049        -
+
+  R - ffi   the same question, both writing into a buffer they own
+  id     ns/op lo    ns/op hi    per element   sign
+  P1.1   94.0        373.4       887.6       93.359          +
+  P1.2   13924.0     138952.3    313950.5    138.952         +
+  P1.3   -24855.0    -16410.3    -12921.5    -54.701         -
+  P2.1   -1814.5     32.9        706.4       32.948          STRADDLES ZERO
+  P2.2   -94721.5    219400.8    502965.9    438.802         STRADDLES ZERO
+  P2.3   345026.6    603139.8    789495.7    4825.118        +
+  P2.4   90322.1     831197.3    984323.4    10389.966       +
+  P2.5   -5329.1     9197.4      17661.7     459.870         STRADDLES ZERO
+  P3.1   2613.0      18019.0     30599.2     90.095          +
+  P4.1   -11654.3    87925.2     116512.7    439.626         STRADDLES ZERO
+  P5.1   41.4        58.8        76.7        58.789          +
+  P5.2   -2316.2     -1851.3     -1580.7     -1851.278       -
+  P5.3   -95774.5    -64513.8    -52575.0    -64513.760      -
+  P5.4   -490104.0   -338605.3   -292357.3   -338605.250     -
+  P6.1   -212915.0   -109371.2   -85643.8    -546.856        -
+
+  pbj - pbj-parsed   what a PARSED protobuf message saves by holding ByteString instead of String: positive means parsed is faster, and a harness whose pool comes from parseFrom measures that instead of the codec
+  id     ns/op lo    ns/op hi    per element   sign
+  P1.1   -1489.6     89.6        1170.8      22.389          STRADDLES ZERO
+  P1.2   -404641.8   9004.2      213734.2    9.004           STRADDLES ZERO
+  P1.3   -9084.7     1509.2      5094.9      5.031           STRADDLES ZERO
+  P2.1   -1965.6     21.3        4138.2      21.300          STRADDLES ZERO
+  P2.2   -977153.9   92983.7     248269.4    185.967         STRADDLES ZERO
+  P2.3   -2922921.1  112550.2    3004283.5   900.401         STRADDLES ZERO
+  P2.4   -1023047.1  69697.0     379362.1    871.213         STRADDLES ZERO
+  P2.5   -22027.5    286.3       36713.5     14.313          STRADDLES ZERO
+  P3.1   -13545.9    4000.5      14977.0     20.002          STRADDLES ZERO
+  P4.1   -104924.4   24911.8     68448.1     124.559         STRADDLES ZERO
+  P5.1   -128.6      2.6         42.7        2.614           STRADDLES ZERO
+  P5.2   -6987.7     125.1       25148.1     125.071         STRADDLES ZERO
+  P5.3   -57613.8    -9573.9     95289.8     -9573.920       STRADDLES ZERO
+  P5.4   -157594.3   139953.8    544665.0    139953.750      STRADDLES ZERO
+  P6.1   -65551.6    6920.1      59619.2     34.601          STRADDLES ZERO
+
+  pbj - pbj-reused-out   what the output allocation costs the incumbent
+  id     ns/op lo    ns/op hi    per element   sign
+  P1.1   -1264.9     1163.1      5495.2      290.783         STRADDLES ZERO
+  P1.2   -306883.1   239278.0    474094.3    239.278         STRADDLES ZERO
+  P1.3   -8578.5     5232.3      8370.0      17.441          STRADDLES ZERO
+  P2.1   -2328.0     1555.1      5747.8      1555.066        STRADDLES ZERO
+  P2.2   -1164451.4  845804.9    1124098.4   1691.610        STRADDLES ZERO
+  P2.3   -799036.6   1071269.9   4060200.4   8570.160        STRADDLES ZERO
+  P2.4   -1153598.6  1296144.1   1680200.5   16201.802       STRADDLES ZERO
+  P2.5   -40529.4    23274.0     57047.4     1163.701        STRADDLES ZERO
+  P3.1   -27809.6    8667.2      20652.9     43.336          STRADDLES ZERO
+  P4.1   -153478.7   113521.7    126055.7    567.608         STRADDLES ZERO
+  P5.1   -69.6       73.6        163.6       73.600          STRADDLES ZERO
+  P5.2   6518.0      9037.4      31983.7     9037.379        +
+  P5.3   63162.8     100505.9    165435.7    100505.880      +
+  P5.4   391421.1    608122.1    1191513.9   608122.125      +
+  P6.1   -117002.8   79970.6     136922.8    399.853         STRADDLES ZERO

@@ -163,6 +163,47 @@ objects.
 `ffi-take` and `R-take` hand back a fresh `byte[]`, as `pbj` does. P1.3 is the absent-path
 inversion and decision 9 fixes it; P6.1 is the control twice over (see "storage" below).
 
+### D7 and the re-measurement -- `logs/java/encode-take-fix.log`
+
+**The `-take` arm was handicapped against itself**, which is the first of the three traps
+the brief named, pointing inward. `takeBytes` asked the core for the encoded length over
+the boundary, copied the bytes from native memory into a reused scratch array, then copied
+the scratch array into the result: two crossings and two copies, where `R-take` and
+`toByteArray` each cost one allocation and one copy. Both extras were avoidable. ABI v1's
+encode entry already returns the length, so the entry points record it and `encTake` now
+writes straight into the freshly allocated result. Re-gated before re-measuring: 1,297
+checks, 0 failures, unchanged, and the gate runs `take()` on every payload and all three
+content sets.
+
+**The fix is mechanical and its measured effect is below this machine's noise floor.** The
+instrument is the within-run paired delta `arm-take - arm`, median ns:
+
+| payload | `ffi-take - ffi` published | re-run | `R-take - R` published | re-run |
+|---|---|---|---|---|
+| P5.2, 64 KB | 11,866 | 9,080 | 11,807 | 9,227 |
+| P5.3, 1 MB | 269,687 | 211,277 | 202,726 | 180,648 |
+| P5.4, 4 MB | 938,102 | 733,547 | 698,122 | 573,972 |
+
+`R-take - R` is unchanged code, so its movement is run-to-run noise and it is **124 us on
+P5.4**. The ffi arm moved 204 us. The 80 us difference is what the fix can claim, against a
+noise floor half again as large.
+
+**So the published `-take` column was not materially distorted, and the earlier reading of
+why P5.3 and P5.4 are above 1.5 was wrong.** Decomposing P5.4 across the two runs:
+allocating and zeroing the 4 MB result costs roughly 530 us and each copy roughly 200 us.
+Both arms pay the allocation identically, so it cancels; the copy that was removed was
+about a fifth of the take overhead rather than most of it. The residual gap between the
+arms -- 160 us in the re-run against 240 us published -- is `SetByteArrayRegion` reading
+cold off-heap memory where arm R does an on-heap `System.arraycopy`. **That part is the
+ABI's own cost and does not go away.** `ffi-take` over `R-take` on P5.4 is 1.535 published
+and 1.538 now.
+
+**Both logs are kept and `encode.log` remains the cited one.** The re-run drifted harder
+(`pbj`'s own absolute moves -24% to +15% across payloads between the two) and three sign
+verdicts weakened to no-sign at unchanged magnitudes: P1.2 from `+`, P5.3 and P5.4 from
+`-`. That is a noisier run, not new information, and R13 defers absolutes to a controlled
+machine either way.
+
 ### Decode -- `logs/java/decode.log`
 
 | payload | `R` | `ffi` | `ffi-borrow` |
@@ -431,6 +472,7 @@ nothing can settle that because its sources do not survive.
 | D4 | the bench kept the parse alive with `Message.hashCode()` | **fixed** |
 | D5 | `RunDelta`'s warmup ran 64,000 encodes per configuration per payload | **fixed**; it warms to a fixed time |
 | D6 | the `ffi` encode arm called `encodedLength()` for a value the JIT could not discard, adding a forward crossing per operation | **fixed**; the entry point returns its own result |
+| D7 | `takeBytes` paid two crossings and two copies where the incumbent pays one allocation and one copy: the same redundant crossing D6 removed from the `ffi` arm, left standing in the arm the incumbent is actually compared against | **fixed**, and re-measured. The effect is below the noise floor and no published figure moves; see `logs/java/encode-take-fix.log` |
 
 **None open.**
 
@@ -613,6 +655,7 @@ In the order a fresh session should take them:
 | `calibration-r13.log` | JDK 17 and rustc 1.94.1 | R13: this machine's rust crossing is 2.1 ns, and the slice's own shim crossing beside it |
 | `baseline.log` | JDK 17 | what protobuf-java's memoized size hides: 1.5 to 2.8 times the write |
 | `encode.log` | JDK 17, 36 rounds, 12 arms | the encode verdict, and the published regression reconstructed from `pbj-loop` |
+| `encode-take-fix.log` | JDK 17, 36 rounds, 12 arms, after D7 | the same run with `takeBytes` at one crossing and one copy. Kept beside `encode.log`, not in place of it: the fix is below the noise floor and this run drifted harder |
 | `decode.log` | JDK 17, 40 rounds, 4 arms | the decode verdict, and decision 13 |
 | `delta.log` | JDK 17, 40 rounds, no incumbent | the batching predicate and decision 9, paired |
 | `drift.log` | three neutrally perturbed builds | the drift bar: **0.078**, and which conclusions clear it |
