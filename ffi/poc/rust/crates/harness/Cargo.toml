@@ -123,3 +123,7 @@ path = "src/bin/lifecycle.rs"
 [[bin]]
 name = "guardcost"
 path = "src/bin/guardcost.rs"
+
+[[bin]]
+name = "contentall"
+path = "src/bin/contentall.rs"

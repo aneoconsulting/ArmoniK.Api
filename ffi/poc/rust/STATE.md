@@ -55,6 +55,7 @@ gen/lifecycle.sh            stage 5 item 3: section 3, both init-guard arms. Unt
 gen/guardcost.sh            what section 3's guard costs, as a within-process delta
                             with a TWIN arm that measures the layout floor. The one
                             that survives its control
+gen/contentall.sh           the content sets on EVERY payload. Found D20
 gen/guardprice.sh           the two-build form of the same question. It does NOT
                             survive its control -- core-native, which has no guard in
                             either build, moves 30 percent -- and is kept because the
@@ -91,7 +92,8 @@ for stage 5's first commit was 2,048 insertions and **zero deletions**.
 Binaries: `conformance` (byte identity), `counts` (`--features count`), `bench`,
 `shapes`, `content`, `rpcbench`, `decpolicy`, `inlining`, `zeroed`, `unknown`,
 **`pullbench`** (the two decode families), **`concur`** (obligation 12.5),
-**`lifecycle`** (section 3), **`guardcost`** (what section 3's guard costs).
+**`lifecycle`** (section 3), **`guardcost`** (what section 3's guard costs),
+**`contentall`** (the content sets on every payload).
 Features: `guard` (on by default, ABI v1 section 5), `count`, the decode UTF-8 policy
 `dec-reject` / `dec-reject-simd` (default: lossy), **`global-widths`** and **`pad-widths`** (both OFF
 by default, both TEST-ONLY constructions of arrangements section 6 refuses, neither an
@@ -401,6 +403,26 @@ separate processes.
   wins**: two components in one process that both initialise defensively with different flags
   cannot both choose, and the second gets a hard failure for asking. Section 3 does not spell
   that out and two hosts loading one shared library is the normal case.
+- **THE CONTENT SETS NOW COVER EVERY PAYLOAD** (`stage5-content-all.log`), where they
+  covered P1.2 and P2.2 only. 16 payloads x 3 sets in correctness, 11 in timing.
+- **DEFECT D20 CAME OUT OF IT ON THE FIRST RUN, AND IT IS NOT A CONTENT-SET DEFECT.** See
+  the defect table. The short form: an empty string's data pointer is section 8's
+  direct-argument sentinel, the wrong path produced the right bytes on any context that had
+  not encoded `UploadResultDataMessage`, and what the extension really changed was the ORDER
+  in which payloads share a context. **R6's absent-path rule has a third case under it that
+  nobody had separated: absent, present-and-empty, present-and-non-empty**, and the middle
+  one is what no payload generator builds on purpose.
+- **"The content set changes no decode verdict" now holds across the whole set**, not just
+  two payloads: prost moves as much as the core arms or more, on every payload and both
+  directions. What is new is the MAGNITUDE — the ratio to prost moves by up to 0.28 on a
+  decode row (P1.1, 0.961 ascii to 0.704 wide), so a report quoting a decode margin should
+  say which set it came from.
+- **One encode verdict DOES flip, and only on the payload built to defeat the learned
+  width**: `core-ffi-rust / prost` on P2.4 encode is **1.120 on ascii, 0.964 on latin1 and
+  0.766 on wide** — a 12 percent loss becoming a 23 percent win. Every other row's spread
+  across the three sets is under 0.14. It does not overturn decision 5, which was answered by
+  an in-process isolation rather than by this ratio; it says the payload built to defeat the
+  mechanism is also the one whose verdict is most content-dependent.
 - **ABI v1 open decision 5 is answered.** Zero warm misses on every uniform payload; on P2.4,
   one miss per element moving 980,938 of 981,222 bytes. Isolated with two added arms whose
   mean is P2.4 exactly, and with prost carried as the floor: the mechanism costs about
@@ -414,9 +436,10 @@ and each produced a result the list did not predict.
 
 If more is wanted, in the order I would do it:
 
-1. **The `latin1`/`wide` content sets on the remaining payloads**, and the SIMD validator on
-   a machine without AVX2. One machine is one machine. This is the only item from the old
-   list still open, and it was the lowest-value one then and now.
+1. ~~The `latin1`/`wide` content sets on the remaining payloads~~ **DONE**, and it was not
+   the lowest-value item after all: it found D20 on its first run. What remains of it is the
+   SIMD validator on a machine without AVX2, which is a floor question and cannot be answered
+   here — one machine is one machine.
 2. **Consume `ffi/corpus/`** (W8, 336 vectors, `CONTRACT.md`). The python slice is its first
    consumer and a second would be worth having. Not started here: items 1 to 3 of the
    session's brief came first and this was explicitly ranked below them.
@@ -473,6 +496,7 @@ If more is wanted, in the order I would do it:
 
 | # | Where | What | Status |
 |---|---|---|---|
+| D20 | `gen/rust_abi.py`'s `str_arg`, and every bytes-field construction | **An empty Rust string's data pointer IS `AK_STR_DIRECT`.** `<[u8]>::as_ptr()` on an empty slice returns the dangling-but-aligned address 1, and ABI v1 section 8 reserves 1 as the sentinel for "these bytes are an argument of the call" — so **every empty string and every empty bytes field took the direct-argument path** and `enc_blob` spliced in whatever `(*cx).direct_len` held. **It produced the RIGHT BYTES for as long as the context had never encoded `UploadResultDataMessage`**, because `direct_len` was 0 and a zero-length direct write is exactly what an empty field should be — which is why every arm, every payload, every content set and every stage passed. Seeing it needs a SEQUENCE (M5 then another message on the same context) and a PRESENT-BUT-EMPTY string; only P3.1 has one | **fixed** in the binding, which is where the defect is: the core behaves as section 8 specifies and it is the HOST that must not pass a data pointer of 1 for a non-direct field. `str_arg`/`blob_arg` route through `data_of`, which emits null for an empty slice. **Regression in `conformance`, seen failing**: revert the fix and P3.1 reads 1,388,437 against 12,097. **The ABI HAZARD is not fixed and is not mine**: section 8 picks a sentinel from a range a legal empty buffer can occupy, and the other four slices' bindings have not been checked for the same collision |
 | D1 | `ffi/schema/emit/payloads.py` | implicit-presence zero leaf written | **fixed by the aggregating session in `07d3e05`**, re-verified here at 16/16 |
 | D2 | this container | no rustc 1.88, so the declared MSRV is unverified | open, cannot be fixed here. Stated on every log |
 | D3 | `crates/ak-core` | an rlib let rustc inline every ABI entry point into the host, and the boundary-call counters still incremented because the counting code was inlined too | **fixed**: cdylib plus a dynamic-link build script, and `gen/stage2.sh` step 4 now checks it every run |
@@ -594,8 +618,11 @@ Four, all reported to the aggregating session and none fixed here:
 
 ### Measurement coverage
 
-- **Content sets**: `latin1` and `wide` on P1.2 and P2.2 only, encode and decode. Not on the
-  other payloads, and with no manifest oracle (byte identity against the prost arm instead).
+- **Content sets**: now on EVERY payload (`stage5-content-all.log`) — 16 in correctness, 11
+  in timing. Still **no manifest oracle** for latin1 or wide, because `ffi/schema/` emits
+  ASCII only, so correctness there is the four arms against the prost arm and a wrong byte
+  common to all four would pass. P5.3, P5.4 and P7.1 are not in the timing pass (bulk bytes
+  with no string content, and a decode-only control).
 - **The decode UTF-8 policy**: priced on P1.2 and P2.2 only. Every other payload's decode
   figure in every other log is a **lossy-policy** figure. Nothing prices what a reject does
   to a CALLER: a conformant parser rejects the whole message, so one bad string loses a batch

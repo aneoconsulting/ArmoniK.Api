@@ -129,7 +129,38 @@ unsafe fn b_of(base: *const u8, s: ak_span) -> ::bytes::Bytes {
 
 #[inline(always)]
 pub(crate) fn str_arg(s: &str, tc: ak_transcode_fn) -> ak_str {
-    ak_str { data: s.as_ptr() as *const c_void, len: s.len(), tc: Some(tc) }
+    ak_str { data: data_of(s.as_bytes()), len: s.len(), tc: Some(tc) }
+}
+
+pub(crate) fn blob_arg(b: &[u8], tc: ak_transcode_fn) -> ak_str {
+    ak_str { data: data_of(b), len: b.len(), tc: Some(tc) }
+}
+
+/// **The data pointer of an EMPTY slice must not be handed to the core** (defect D20).
+///
+/// `<[u8]>::as_ptr()` on an empty slice returns the type's dangling-but-aligned pointer,
+/// which for `u8` is the address `1` -- and `1` is exactly `AK_STR_DIRECT`, ABI v1 section
+/// 8's sentinel for "these bytes are an argument of the call". So **every empty string and
+/// every empty bytes field was taking the direct-argument path**, and `enc_blob` was
+/// splicing in whatever `(*cx).direct` and `(*cx).direct_len` happened to hold.
+///
+/// It was invisible for as long as it was, and that is the part worth keeping: on a context
+/// that has never encoded a direct-argument message, `direct_len` is 0, so the direct path
+/// writes a zero-length field -- which is exactly what an empty field should be. **The wrong
+/// path produced the right bytes.** It only corrupts once the same context has encoded
+/// `UploadResultDataMessage`, after which every empty string in the next message of any
+/// other type emits the stale multi-megabyte blob.
+///
+/// The ABI already has a way to say "empty": `tc` set with `len == 0`. `tc == null` is what
+/// says "absent". `data` is not the discriminator for either, so a null pointer here is
+/// well-formed and the core never dereferences a zero-length span.
+#[inline(always)]
+pub(crate) fn data_of(b: &[u8]) -> *const c_void {
+    if b.is_empty() {
+        ::core::ptr::null()
+    } else {
+        b.as_ptr() as *const c_void
+    }
 }
 
 /// The transcoders, resolved once. `ak_tc_utf8_trusted` rather than `ak_tc_utf8` because a
@@ -206,7 +237,7 @@ pub(crate) fn make_result_raw(o: &ResultRaw, tc: (ak_transcode_fn, ak_transcode_
         result_id: str_arg(&o.result_id, tc.0),
         size: o.size,
         created_by: str_arg(&o.created_by, tc.0),
-        opaque_id: ak_str { data: o.opaque_id.as_ptr() as *const c_void, len: o.opaque_id.len(), tc: Some(tc.1) },
+        opaque_id: blob_arg(&o.opaque_id, tc.1),
         manual_deletion: o.manual_deletion as u8,
         presence: ((o.created_at.is_some() as u32) << 0) | ((o.completed_at.is_some() as u32) << 1),
     }
@@ -365,7 +396,7 @@ pub(crate) fn make_probe(o: &Probe, tc: (ak_transcode_fn, ak_transcode_fn)) -> a
             _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },
         },
         body_as_blob: match &o.body {
-            Some(ProbeBody::AsBlob(v)) => ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) },
+            Some(ProbeBody::AsBlob(v)) => blob_arg(v, tc.1),
             _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },
         },
         body_as_stamp: match &o.body {
@@ -531,7 +562,7 @@ pub(crate) fn make_result_raw_unk(o: &ResultRaw, tc: (ak_transcode_fn, ak_transc
         result_id: str_arg(&o.result_id, tc.0),
         size: o.size,
         created_by: str_arg(&o.created_by, tc.0),
-        opaque_id: ak_str { data: o.opaque_id.as_ptr() as *const c_void, len: o.opaque_id.len(), tc: Some(tc.1) },
+        opaque_id: blob_arg(&o.opaque_id, tc.1),
         manual_deletion: o.manual_deletion as u8,
         unknown: ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() },
         presence: ((o.created_at.is_some() as u32) << 0) | ((o.completed_at.is_some() as u32) << 1),
@@ -705,7 +736,7 @@ pub(crate) fn make_probe_unk(o: &Probe, tc: (ak_transcode_fn, ak_transcode_fn)) 
             _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },
         },
         body_as_blob: match &o.body {
-            Some(ProbeBody::AsBlob(v)) => ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) },
+            Some(ProbeBody::AsBlob(v)) => blob_arg(v, tc.1),
             _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },
         },
         body_as_stamp: match &o.body {
@@ -893,7 +924,7 @@ pub(crate) fn fill_result_raw_sparse(d: &mut ak_efix_ResultRaw, o: &ResultRaw, t
     if !o.result_id.is_empty() { d.result_id = str_arg(&o.result_id, tc.0); }
     if o.size != 0 { d.size = o.size; }
     if !o.created_by.is_empty() { d.created_by = str_arg(&o.created_by, tc.0); }
-    if !o.opaque_id.is_empty() { d.opaque_id = ak_str { data: o.opaque_id.as_ptr() as *const c_void, len: o.opaque_id.len(), tc: Some(tc.1) }; }
+    if !o.opaque_id.is_empty() { d.opaque_id = blob_arg(&o.opaque_id, tc.1); }
     if o.manual_deletion { d.manual_deletion = 1; }
 }
 
@@ -985,7 +1016,7 @@ pub(crate) fn fill_probe_sparse(d: &mut ak_efix_Probe, o: &Probe, tc: (ak_transc
         None => {}
         Some(ProbeBody::AsInt(v)) => { d.body_case = 10; d.body_as_int = *v; }
         Some(ProbeBody::AsText(v)) => { d.body_case = 11; d.body_as_text = str_arg(v, tc.0); }
-        Some(ProbeBody::AsBlob(v)) => { d.body_case = 12; d.body_as_blob = ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) }; }
+        Some(ProbeBody::AsBlob(v)) => { d.body_case = 12; d.body_as_blob = blob_arg(v, tc.1); }
         Some(ProbeBody::AsStamp(v)) => { d.body_case = 13; fill_timestamp_sparse(&mut d.body_as_stamp, v, tc); }
         Some(ProbeBody::AsNothing(v)) => { d.body_case = 14; fill_empty_sparse(&mut d.body_as_nothing, v, tc); }
     }
@@ -1127,7 +1158,7 @@ pub(crate) fn fill_result_raw_unk_sparse(d: &mut ak_ufix_ResultRaw, o: &ResultRa
     if !o.result_id.is_empty() { d.result_id = str_arg(&o.result_id, tc.0); }
     if o.size != 0 { d.size = o.size; }
     if !o.created_by.is_empty() { d.created_by = str_arg(&o.created_by, tc.0); }
-    if !o.opaque_id.is_empty() { d.opaque_id = ak_str { data: o.opaque_id.as_ptr() as *const c_void, len: o.opaque_id.len(), tc: Some(tc.1) }; }
+    if !o.opaque_id.is_empty() { d.opaque_id = blob_arg(&o.opaque_id, tc.1); }
     if o.manual_deletion { d.manual_deletion = 1; }
     if !o.unknown_fields.is_empty() { d.unknown = ak_blob { data: o.unknown_fields.as_ptr() as *const c_void, len: o.unknown_fields.len() }; }
 }
@@ -1224,7 +1255,7 @@ pub(crate) fn fill_probe_unk_sparse(d: &mut ak_ufix_Probe, o: &Probe, tc: (ak_tr
         None => {}
         Some(ProbeBody::AsInt(v)) => { d.body_case = 10; d.body_as_int = *v; }
         Some(ProbeBody::AsText(v)) => { d.body_case = 11; d.body_as_text = str_arg(v, tc.0); }
-        Some(ProbeBody::AsBlob(v)) => { d.body_case = 12; d.body_as_blob = ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) }; }
+        Some(ProbeBody::AsBlob(v)) => { d.body_case = 12; d.body_as_blob = blob_arg(v, tc.1); }
         Some(ProbeBody::AsStamp(v)) => { d.body_case = 13; fill_timestamp_unk_sparse(&mut d.body_as_stamp, v, tc); }
         Some(ProbeBody::AsNothing(v)) => { d.body_case = 14; fill_empty_unk_sparse(&mut d.body_as_nothing, v, tc); }
     }
