@@ -1,0 +1,530 @@
+================================================================================
+ ABI v1 SECTION 9: THE THREE DELIVERIES AT THE FLOOR, AND THE A/B/C RPC GRID
+ With two corrections: there is no loopback-TCP penalty, and the codec is the
+ majority of a real RPC's CPU.
+================================================================================
+
+CONFIGURATION (R7, R13, R14)
+  rustc 1.94.1 (e408947bf 2026-03-25), release, PIE
+  incumbent  prost 0.14.4 + tonic 0.14.6, the codec `packages/rust` reaches
+             through gRPC's generated marshaller (R14)
+  linkage    shared library (ak-core as a cdylib), confirmed from ldd and not
+             from the build log
+  machine    4 vCPU Intel Xeon @ 2.10GHz, shared container
+  crossing   1.8 ns forward and 1.8 ns forward+reverse (R13, this box;
+             logs/rust/stage2-four-arms-M1.log, 20,000,000 crossings)
+  payload    P2.2, 540,422 B -- the shape the control plane actually moves
+  transport  Unix domain socket PRIMARY, loopback TCP as a labelled second row
+  pinned     stream window 4 MiB, CONNECTION window 4 MiB, max message 2 MiB.
+             ArmoniK's settings, applied to BOTH the tonic arm and the core arms.
+  rounds     7 x 96 calls, median; CPU per RPC is the headline, wall beside it
+  script     poc/rust/gen/rpcgrid.sh
+
+WHAT WAS ASKED FOR, AND WHAT CAME BACK
+  Asked: price section 9's three deliveries AT THE FLOOR, so that a managed
+  slice's delivery table has a control; and build the RPC arm as an A/B/C grid.
+  Both are below and both came back as expected.  Two things that were NOT asked
+  for came back with them, and they are the larger results.
+
+--------------------------------------------------------------------------------
+ 1. THE FLOOR: THE THREE DELIVERIES ARE INDISTINGUISHABLE, BY CONSTRUCTION
+--------------------------------------------------------------------------------
+
+  blocking  ak_call_unary        2 forward, 0 reverse
+  callback  ak_call_unary_cb     2 forward, 1 reverse
+  queue     ak_call_unary_q      3 forward, 0 reverse
+
+  The three differ by exactly ONE crossing.  On this host a crossing is 1.8 ns
+  and an RPC is 1.4 to 2.2 ms of CPU, so the delivery choice is 0.0001% of the
+  call -- roughly six orders of magnitude below the 0% to 71% spread this
+  harness can resolve at all.
+
+  So the measured answer ("indistinguishable", every ratio 1.000 to 1.2 and
+  unsigned) is worth much less than the reason for it.  **No run of this harness
+  could ever have shown a delivery difference.**  That is what makes it a
+  control rather than a result.
+
+  WHAT THIS LICENSES A MANAGED SLICE TO CONCLUDE.  If Java or C# measures its
+  three deliveries apart by a margin it can resolve, that margin is not the
+  delivery shape -- there is nothing in the delivery shape to measure.  It is
+  that host's price for the ONE crossing that differs, plus whatever its runtime
+  wraps around a callback (an upcall stub, a pinned object, a thread transition)
+  or around a queue (a wait, a handoff).  The Java slice prices an upcall at
+  about 80 ns, some 44x this slice's crossing, and callback is precisely the
+  delivery that takes a reverse crossing per call.  This table is the evidence
+  that there is nothing else in the ABI for such a margin to be.
+
+  The crossing counts are read from the code, not from a counting build: the
+  core's counters live in the encode and decode contexts and the RPC half has
+  neither.  What makes them trustworthy is the property section 9 rests on --
+  neither `crates/rpc` nor ak-core's rpc module mentions a message type, so
+  there is nowhere a per-field cost could enter.  `gen/rpcgrid.sh` step 1 checks
+  that mechanically rather than asserting it.
+
+--------------------------------------------------------------------------------
+ 2. THE GRID: A, B AND C ARE WITHIN THE NOISE OF EACH OTHER
+--------------------------------------------------------------------------------
+
+  A  prost + tonic     the incumbent stack (R14)
+  B  prost + core      prost's codec, the core's transport
+  C  core + core       both halves native, behind the C ABI
+
+  Every cell lands between 0.957 and 1.089 of A, on both transports, at every
+  flight -- which is this harness's noise.  Two readings, and the second is the
+  one that matters:
+
+  B - A IS NOT A TRANSPORT COMPARISON IN THIS SLICE.  Both transports are tonic,
+  so what B - A isolates here is the cost of putting the C ABI in front of one
+  transport, with the transport difference removed by construction.  It is about
+  zero.  For a managed host the same subtraction is grpc-java or grpc-dotnet
+  against tonic, which is a DIFFERENT QUANTITY and must not be read against this
+  row.  C - B is the codec with the transport held constant, and is also zero --
+  unsurprising, since prost is already native and stages 1 to 3 put the core
+  within a few percent of it on these shapes.
+
+  The honest summary of the grid on its own: on a host where the incumbent codec
+  is already native, wrapping the stack in the C ABI costs nothing measurable,
+  and swapping the codec gains nothing measurable.  Neither half of that is a
+  claim about a managed host.
+
+--------------------------------------------------------------------------------
+ 3. NOT ASKED FOR: THE CODEC IS THE MAJORITY OF A REAL RPC'S CPU
+--------------------------------------------------------------------------------
+
+  The deliveries table and the grid move THE SAME BYTES over THE SAME CALL: the
+  server's fixed response is prost's encoding of P2.2, the deliveries arm sends
+  those bytes and receives them back touching no codec at all, and cell A encodes
+  that same value and decodes that same response every call.  So A minus blocking
+  is exactly one encode plus one decode, with transport, server, windows, flight
+  and machine identical on both sides of the minus sign.
+
+      flight   opaque us/RPC   A us/RPC   codec us/RPC   codec %
+      UDS   1          1354.2     4895.8         3541.7     72.3%
+      UDS   8          1979.2     4791.7         2812.5     58.7%
+      UDS  16          2187.5     5208.3         3020.8     58.0%
+      TCP   1          1458.3     5208.3         3750.0     72.0%
+      TCP   8          2083.3     4687.5         2604.2     55.6%
+      TCP  16          2083.3     5104.2         3020.8     59.2%
+
+  Between 56% and 72% of the CPU of a real gRPC call, about 60% away from the
+  flight-1 rows where the denominator is smallest, at the payload the control plane
+  actually moves, is the codec.  That is the premise the whole exploration rests
+  on and it had not been measured end to end anywhere in this branch: stages 1
+  to 3 timed the codec in isolation, stage 4 timed the RPC with no codec in the
+  loop, and nobody had put the two on the same axis.
+
+  TWO THINGS IT DOES NOT SAY.  It does not say a native codec recovers that
+  share: cells A, B and C are indistinguishable here, so on THIS host there is
+  nothing to recover.  The share is what a managed host's codec has to compete
+  for, not a saving anyone has banked.  And it is a share of CPU against a
+  loopback with a do-nothing server, which is as small as a real deployment's
+  denominator ever gets -- so it is an UPPER bound on the fraction, not a
+  typical one.
+
+--------------------------------------------------------------------------------
+ 4. NOT ASKED FOR: THERE IS NO LOOPBACK-TCP PENALTY, AND STAGE 4'S STATED
+    HAZARD IS WRONG
+--------------------------------------------------------------------------------
+
+  `README.md` R9 attributes the order-of-magnitude gap between CPU and wall at
+  flight 1 to HTTP/2 flow control: "a 540 KB response does not fit the
+  65,535-octet initial stream window, so a single call in flight spends most of
+  its wall clock idle waiting for `WINDOW_UPDATE`", and it names this slice's own
+  33 ms per call as the case in point.  (The attribution is R9 in README.md;
+  `stage4-rpc.log` carries the 33 ms figures but states no mechanism.)  That
+  explanation is wrong, and this run refutes it in three steps, each of which is
+  a row in the window-control table.
+
+  (a) PINNING THE WINDOWS CHANGES ALMOST NOTHING.  ArmoniK's 4 MiB stream AND
+      connection windows move the wall column by a few percent on either
+      transport.  (Pinning them at all required a new entry point: `ak_client_new`
+      takes only a URI, so before `ak_client_new_opts` the core could not express
+      ArmoniK's transport at all, and every RPC figure in this branch is a
+      64 KiB-window figure.)
+
+  (b) THE SAME 540 KB IS 2 ms OVER UDS AND 30 ms OVER LOOPBACK TCP.  HTTP/2 flow
+      control is a property of the protocol and is identical on both transports.
+      A transport-independent cause cannot produce a transport-dependent result.
+
+  (c) 1 KB COSTS MORE THAN 540 KB OVER TCP -- 44 ms against 30 ms.  So what is
+      left is per-CALL, not per-BYTE, and a per-call cost of tens of milliseconds
+      is not flow control at any window size.  Note the DIRECTION, which is the
+      sharper half of this: if flow control drove the wall clock, the 540 KB
+      response (which needs the WINDOW_UPDATE round trips) would cost MORE than
+      the 1 KB one (which needs none).  It costs less.  That is backwards for
+      flow control and exactly right for Nagle, where a large response has full
+      segments to send and never waits while a small one is a lone short write.
+
+  AND HERE IS WHAT IT ACTUALLY IS.  `crates/rpc` drives tonic through
+  `serve_with_incoming`, and tonic documents that the builder's `tcp_nodelay`
+  (which defaults to TRUE) is IGNORED on that path; `TcpIncoming::from(listener)`
+  leaves its own nodelay unset, so `set_accepted_socket_options` never touches
+  the socket.  The server end kept Nagle ON while tonic's client had it off by
+  default.  A gRPC response is HEADERS, then DATA, then TRAILERS; with Nagle on
+  the writer the second small write waits for the peer's ACK of the first, and
+  Linux's delayed-ACK timer is 40 ms.  44 ms for a 1 KB response is that timer
+  with the round trip on top.
+
+  ONE SOCKET OPTION, NOTHING ELSE CHANGED:
+
+      transport  server socket        CPU us/RPC   wall us/RPC
+      UDS        -                        2708.3        2133.6
+      TCP        TCP_NODELAY              2708.3        2145.6
+      TCP        as `rpc::serve` is       3750.0       32416.4
+      UDS        -                         208.3         152.5   1 KB
+      TCP        TCP_NODELAY               208.3         149.6   1 KB
+      TCP        as `rpc::serve` is        833.3       44041.9   1 KB
+
+  (All six are default-client rows from section 6's window-control table; the
+  pinned rows are alongside them there and differ by a few percent.)
+
+  With the option set, loopback TCP and UDS agree on both payloads, on both
+  columns.  **There was never a transport gap.**  Every loopback-TCP wall figure
+  in this branch, stage 4's included, is measuring a harness defect, and any
+  slice that reported UDS as faster than TCP reported this and not a transport.
+
+  WHAT SURVIVES OF R9.  Its conclusion does -- "measure CPU, not wall clock" is
+  now better supported, not worse, and so is "wall-clock columns are not
+  comparable across slices unless the configuration is stated".  What is refuted
+  is the MECHANISM it names and the inference a reader draws from it: that a
+  slice showing a large wall/CPU gap on P2.2 has a window to raise.  Raising the
+  window here bought a few percent; one socket option bought 14x to 300x.  R9 and
+  README.md belong to the aggregating session, so this is reported, not edited.
+
+  AND ONE MORE THING IT COSTS.  Three slices have now spent effort pinning
+  windows to chase this gap, and `design/SHAPES.md` carries a whole subsection on
+  per-stack initial window and auto-tuning defaults.  That subsection is still
+  correct and still worth having for a real deployment; it is just not what the
+  loopback numbers were measuring.
+
+  WHAT WAS CHANGED AND WHAT WAS NOT.  `rpc::serve_nodelay` was ADDED beside
+  `rpc::serve`; `rpc::serve` is byte-for-byte what it was.  R0 says a change to
+  existing behaviour in the shared core invalidates the other slices' published
+  figures, so flipping the default is the aggregating session's call and not
+  mine.  The TCP tables in section 5 below are measured against the FIXED server,
+  because reporting the defective one as a transport row would be reporting the
+  artifact; the window-control table is where the artifact is kept as evidence.
+
+--------------------------------------------------------------------------------
+ 5. HAZARDS (R9), AND THEY ARE LARGE HERE
+--------------------------------------------------------------------------------
+
+  - FOUR vCPUs, with the server's two worker threads, each arm's runtime and N
+    host threads all on them.  At 8 and 16 in flight the machine is
+    oversubscribed before the measurement starts.  Those rows bound the arms'
+    RELATIVE behaviour under identical oversubscription and nothing else.
+  - One row was visibly a casualty of that on an earlier run of this same binary:
+    cell C at TCP flight 16 read 1.435 of A (6875 us against 4792).  It is the
+    MEDIAN of seven rounds, so it was sustained contention rather than one bad
+    round.  It did not reproduce -- the run in section 6 has it at 1.082 -- and
+    it is recorded here rather than quietly dropped.  It is not a finding, and it
+    is the reason the flight 8 and 16 rows carry no conclusions.
+  - The floor table's own spread column shows the same thing from the other side:
+    at flight 1 it reaches 71% between three arms that differ by 1.8 ns.  A
+    harness with a 71% spread is not measuring the arms; that is the point of
+    quoting it.
+  - The server is in the same process and contends for the same four vCPUs, so
+    server cost is inside every number in every cell equally.
+  - CPU is process utime+stime at 10 ms resolution.  The ROUND carries it and the
+    per-call figure is a division, not a per-call measurement.  That is why the
+    floor table quotes a spread rather than an error bar.
+  - No TLS, no retry, no metadata, no deadlines, no streaming, no failure
+    injection, no server-side measurement.  The RPC half's case is BEHAVIOURAL
+    and none of that behaviour is exercised here.
+  - Cancellation: `ak_call_cancel` exists and nothing here calls it.
+  - `design/SHAPES.md`'s carrier-thread row stays empty: Rust has no carrier
+    thread to pin, and R8 says report it empty rather than substitute.
+  - Absolutes do not travel (R13).  What travels is the crossing counts, the
+    ratios inside one process, and the two corrections in sections 3 and 4.
+
+--------------------------------------------------------------------------------
+ 6. THE RUN
+--------------------------------------------------------------------------------
+
+===== 0. configuration =====
+rustc 1.94.1 (e408947bf 2026-03-25)
+incumbent: prost 0.14.4
+           tonic  0.14.6
+4
+model name	: Intel(R) Xeon(R) Processor @ 2.10GHz
+
+===== 1. the RPC half mentions no message type =====
+# Section 9 rests on this and the crossing table asserts it, so it is checked and
+# not assumed. A hit here means the per-field column is a measurement, not a 0.
+../codec/crates/rpc/src/lib.rs               clean
+../codec/crates/ak-core/src/rpc.rs           clean
+
+===== 2. the boundary is real (R5), and the loaded artifact is the built one =====
+# the RPC entry points as undefined dynamic imports, resolved by the linker:
+                 U ak_bytes_free
+                 U ak_call_destroy
+                 U ak_call_unary
+                 U ak_call_unary_cb
+                 U ak_call_unary_q
+                 U ak_client_destroy
+                 U ak_client_new
+                 U ak_client_new_opts
+                 U ak_queue_destroy
+                 U ak_queue_new
+                 U ak_queue_next
+                 U ak_queue_shutdown
+
+# and the shared object ldd says is actually loaded:
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so (0x00007f6083800000)
+
+===== 3. the run =====
+# stage 6: section 9's three deliveries, and the RPC grid
+#   payload    P2.2, 540422 B, the shape the control plane actually moves
+#   transport  UNIX DOMAIN SOCKET (primary), loopback TCP as a second row
+#   pinned     stream window 4194304 B, CONNECTION window 4194304 B, max message 2097152 B
+#              -- ArmoniK's settings, on BOTH the tonic arm and the core arms.
+#              Before `ak_client_new_opts` the core could not express them at
+#              all, so every RPC figure in this branch is a 64 KiB-window one.
+#   incumbent  tonic 0.14 + tonic-prost, the codec packages/rust uses (R14)
+#   rounds     7 x 96 calls, CPU per RPC is the headline
+
+#   servers    unix:/tmp/ak-rpcgrid-23207.sock and 127.0.0.1:39159
+
+## crossings per RPC, per delivery
+
+delivery                       forward   reverse  per field  what it is
+blocking  ak_call_unary              2         0          0  call + ak_bytes_free
+callback  ak_call_unary_cb           2         1          0  call + free; the core calls back once
+queue     ak_call_unary_q            3         0          0  call + queue_next + free
+
+# Counted from the code, not from a counting build: the core's counters live in
+# the ENCODE and DECODE contexts and the RPC half has neither. What makes the
+# count trustworthy anyway is the same property section 9 rests on -- neither
+# `crates/rpc` nor `ak-core`'s rpc module mentions a message type, so there is
+# nowhere a per-field cost could enter. `per field` is 0 by construction.
+
+## is the window pinning live? (R5's question, asked of a new entry point)
+
+transport client        CPU us/RPC   wall us/RPC   server socket
+UDS      default           2708.3        2133.6   -
+UDS      pinned            2708.3        2157.7   -
+TCP      default           2708.3        2145.6   TCP_NODELAY
+TCP      pinned            2812.5        2218.9   TCP_NODELAY
+TCP      default           3750.0       32416.4   as `rpc::serve` is
+TCP      pinned            3854.2       28040.7   as `rpc::serve` is
+UDS      pinned             208.3         152.5   1 KB, -
+TCP      pinned             208.3         149.6   1 KB, TCP_NODELAY
+TCP      pinned             833.3       44041.9   1 KB, as `rpc::serve` is
+
+# READ THIS BEFORE THE TABLES BELOW.
+#
+# 1. The pinning barely moves the wall column on either transport, so the
+#    payload is NOT window-bound -- which means the grid below is a fair
+#    comparison either way, and also that pinning bought nothing here.
+#
+# 2. **R9's STATED HAZARD IS WRONG, and the UDS row is what refutes it.**
+#    `README.md` R9 says a 540 KB response does not fit the 65,535-octet initial
+#    stream window, so one call in flight `spends most of its wall clock idle
+#    waiting for WINDOW_UPDATE`, and names this slice's own 33 ms as the case.
+#    HTTP/2 flow control is a property of the protocol and is identical
+#    on both transports -- and UDS carries the same 540 KB in about 2 ms where
+#    loopback TCP takes about 30. A transport-independent cause cannot produce a
+#    transport-dependent result. The 1 KB rows say whether what remains is
+#    per-CALL or per-BYTE: 1 KB costs MORE than 540 KB over TCP, so it is
+#    per-CALL, and a per-call cost of tens of milliseconds is not flow control.
+#    Note the DIRECTION. If flow control drove this, 540 KB (which needs the
+#    WINDOW_UPDATE round trips) would cost more than 1 KB (which needs none).
+#    It costs less. That is backwards for flow control and exactly right for
+#    Nagle: a large response has full segments to send and never waits, while a
+#    1 KB one is a small write with nothing behind it, which is the stall case.
+#
+# 3. **AND HERE IS WHAT IT ACTUALLY IS.** The two `as rpc::serve is` rows differ
+#    from the `TCP_NODELAY` rows above them in ONE SOCKET OPTION on the server's
+#    accepted socket, and in nothing else at all. `crates/rpc` drives
+#    tonic through `serve_with_incoming`, and tonic documents that the builder's
+#    `tcp_nodelay` is IGNORED on that path, while `TcpIncoming::from(listener)`
+#    leaves its own nodelay unset -- so the server end kept Nagle ON while
+#    tonic's client had it off by default. A gRPC response is HEADERS, then
+#    DATA, then TRAILERS; with Nagle on the writer the second small write waits
+#    for the peer's ACK of the first, and Linux's delayed-ACK timer is 40 ms.
+#    That is a HARNESS defect, not a transport result, and every loopback-TCP
+#    wall figure in this branch -- stage 4's included -- carries it.
+#
+# 4. So THERE IS NO LOOPBACK-TCP PENALTY. With the one option set, TCP and UDS
+#    agree on both payloads. The TCP tables further down are measured against
+#    the FIXED server, because reporting the other one as a transport row would
+#    be reporting an artifact; the rows above are where the artifact is kept.
+
+==============================================================================
+== transport: UDS  (PRIMARY)
+==============================================================================
+
+### the three deliveries of one call path, UDS
+
+delivery      flight    CPU us/RPC   wall us/RPC   / blocking
+blocking           1        1354.2        1027.4        1.000
+blocking           8        1979.2         827.5        1.000
+blocking          16        2187.5         879.4        1.000
+callback           1        2083.3        1746.2        1.538
+callback           8        1979.2         779.5        1.000
+callback          16        2083.3         810.1        0.952
+queue              1        1875.0        1646.6        1.385
+queue              8        1979.2         822.5        1.000
+queue             16        1979.2         798.3        0.905
+
+# the floor, UDS: what the delivery choice costs when a crossing is free
+#
+#  flight    min us/RPC     spread us    spread %  1 crossing %
+#       1        1354.2         729.2      53.85%     0.000133%
+#       8        1979.2           0.0       0.00%     0.000091%
+#      16        1979.2         208.3      10.53%     0.000091%
+#
+# Read the last two columns against each other. The ABI difference between the
+# three deliveries is one crossing, which is about six orders of magnitude below
+# the spread this harness can resolve. **So on this host the three deliveries are
+# indistinguishable, and they are indistinguishable BY CONSTRUCTION, not by
+# luck**: the spread column is the harness's own noise, and no run of it could
+# ever have shown a delivery difference. That is what makes it a control.
+#
+# WHAT THIS LICENSES A MANAGED SLICE TO CONCLUDE, and what it does not.
+# If Java or C# measures its three deliveries apart by a resolvable margin, the
+# margin is NOT the delivery shape -- it is that host's cost for the ONE crossing
+# that differs, plus whatever its runtime wraps around a callback (an upcall
+# stub, a pinned object, a thread transition) or around a queue (a wait, a
+# handoff). The Java slice already prices an upcall at about 80 ns, some 44x this
+# slice's crossing, and the callback delivery is the one that takes a reverse
+# crossing per call. That is the quantity to attribute it to, and this table is
+# the evidence that there is nothing else in the ABI for it to be.
+
+### the grid, UDS: A prost+tonic | B prost+core | C core+core
+
+cell                    flight    CPU us/RPC   wall us/RPC        / A
+A  prost + tonic             1        4895.8        4394.2      1.000
+A  prost + tonic             8        4791.7        1668.3      1.000
+A  prost + tonic            16        5208.3        1810.9      1.000
+B  prost + core              1        4895.8        4433.1      1.000
+B  prost + core              8        5208.3        1848.6      1.087
+B  prost + core             16        5416.7        1871.5      1.040
+C  core + core               1        4687.5        4223.6      0.957
+C  core + core               8        5208.3        1788.8      1.087
+C  core + core              16        5520.8        1872.0      1.060
+
+# B - A IS NOT A TRANSPORT COMPARISON HERE. Both transports are tonic, so what
+# it isolates is the cost of putting the C ABI in front of the same transport,
+# with the transport difference removed by construction. For a managed host the
+# same subtraction is grpc-java or grpc-dotnet against tonic, which is a
+# different quantity. C - B is the codec, with the transport held constant.
+
+# the codec's share of one RPC, UDS
+#
+#  flight   opaque us/RPC        A us/RPC    codec us/RPC    codec %
+#       1          1354.2          4895.8          3541.7      72.3%
+#       8          1979.2          4791.7          2812.5      58.7%
+#      16          2187.5          5208.3          3020.8      58.0%
+#
+# **At the payload the control plane actually moves, over a real gRPC call, the
+# codec is the MAJORITY of the CPU.** That is the premise this whole exploration
+# rests on and it had not been measured end to end before: stages 1 to 3 timed
+# the codec in isolation, and stage 4 timed the RPC without one in the loop.
+#
+# Two things this does NOT say. It does not say a native codec would recover
+# that share -- cells A, B and C are within this harness's noise of each other,
+# so on THIS host, where prost is already native, there is nothing to recover;
+# the share is what a managed host's codec has to compete for. And it is a share
+# of CPU on a loopback with a do-nothing server, so the denominator is as small
+# as a real deployment's ever gets, which makes this an UPPER bound on the
+# fraction, not a typical one.
+
+==============================================================================
+== transport: TCP  (second row)
+==============================================================================
+
+### the three deliveries of one call path, TCP
+
+delivery      flight    CPU us/RPC   wall us/RPC   / blocking
+blocking           1        1458.3        1017.9        1.000
+blocking           8        2083.3         859.0        1.000
+blocking          16        2083.3         862.0        1.000
+callback           1        2500.0        2144.0        1.714
+callback           8        2187.5         895.1        1.050
+callback          16        1979.2         775.5        0.950
+queue              1        2291.7        1888.9        1.571
+queue              8        2187.5         889.8        1.050
+queue             16        2187.5         865.8        1.050
+
+# the floor, TCP: what the delivery choice costs when a crossing is free
+#
+#  flight    min us/RPC     spread us    spread %  1 crossing %
+#       1        1458.3        1041.7      71.43%     0.000123%
+#       8        2083.3         104.2       5.00%     0.000086%
+#      16        1979.2         208.3      10.53%     0.000091%
+#
+# Read the last two columns against each other. The ABI difference between the
+# three deliveries is one crossing, which is about six orders of magnitude below
+# the spread this harness can resolve. **So on this host the three deliveries are
+# indistinguishable, and they are indistinguishable BY CONSTRUCTION, not by
+# luck**: the spread column is the harness's own noise, and no run of it could
+# ever have shown a delivery difference. That is what makes it a control.
+#
+# WHAT THIS LICENSES A MANAGED SLICE TO CONCLUDE, and what it does not.
+# If Java or C# measures its three deliveries apart by a resolvable margin, the
+# margin is NOT the delivery shape -- it is that host's cost for the ONE crossing
+# that differs, plus whatever its runtime wraps around a callback (an upcall
+# stub, a pinned object, a thread transition) or around a queue (a wait, a
+# handoff). The Java slice already prices an upcall at about 80 ns, some 44x this
+# slice's crossing, and the callback delivery is the one that takes a reverse
+# crossing per call. That is the quantity to attribute it to, and this table is
+# the evidence that there is nothing else in the ABI for it to be.
+
+### the grid, TCP: A prost+tonic | B prost+core | C core+core
+
+cell                    flight    CPU us/RPC   wall us/RPC        / A
+A  prost + tonic             1        5208.3        4770.1      1.000
+A  prost + tonic             8        4687.5        1581.6      1.000
+A  prost + tonic            16        5104.2        1635.2      1.000
+B  prost + core              1        5520.8        5068.2      1.060
+B  prost + core              8        4895.8        1582.6      1.044
+B  prost + core             16        5312.5        1680.5      1.041
+C  core + core               1        5416.7        4941.3      1.040
+C  core + core               8        5104.2        1694.3      1.089
+C  core + core              16        5520.8        1740.7      1.082
+
+# B - A IS NOT A TRANSPORT COMPARISON HERE. Both transports are tonic, so what
+# it isolates is the cost of putting the C ABI in front of the same transport,
+# with the transport difference removed by construction. For a managed host the
+# same subtraction is grpc-java or grpc-dotnet against tonic, which is a
+# different quantity. C - B is the codec, with the transport held constant.
+
+# the codec's share of one RPC, TCP
+#
+#  flight   opaque us/RPC        A us/RPC    codec us/RPC    codec %
+#       1          1458.3          5208.3          3750.0      72.0%
+#       8          2083.3          4687.5          2604.2      55.6%
+#      16          2083.3          5104.2          3020.8      59.2%
+#
+# **At the payload the control plane actually moves, over a real gRPC call, the
+# codec is the MAJORITY of the CPU.** That is the premise this whole exploration
+# rests on and it had not been measured end to end before: stages 1 to 3 timed
+# the codec in isolation, and stage 4 timed the RPC without one in the loop.
+#
+# Two things this does NOT say. It does not say a native codec would recover
+# that share -- cells A, B and C are within this harness's noise of each other,
+# so on THIS host, where prost is already native, there is nothing to recover;
+# the share is what a managed host's codec has to compete for. And it is a share
+# of CPU on a loopback with a do-nothing server, so the denominator is as small
+# as a real deployment's ever gets, which makes this an UPPER bound on the
+# fraction, not a typical one.
+
+# HAZARDS (R9), and they are large here.
+#   - FOUR vCPUs, with the server's two worker threads, each arm's runtime and
+#     N host threads all on them. At 8 and 16 in flight the machine is
+#     oversubscribed before the measurement starts, so these rows are a LOWER
+#     bound and an upper bound on nothing. What survives is the arms' RELATIVE
+#     behaviour under identical oversubscription.
+#   - The server is in the same process and contends for the same four vCPUs,
+#     so server cost is inside every number in every cell equally.
+#   - CPU is process utime+stime at 10 ms resolution; the ROUND carries it and
+#     the per-call figure is a division, not a per-call measurement.
+#   - The windows are pinned now, so the wall column is no longer mostly
+#     WINDOW_UPDATE latency. It is still a shared-box wall clock.
+#   - No TLS, no retry, no metadata, no deadlines, no streaming, no failure
+#     injection, no server-side measurement. **The RPC half's case is
+#     BEHAVIOURAL and none of that behaviour is exercised here either.**
+#   - Cancellation: `ak_call_cancel` exists and nothing in this harness calls
+#     it. `design/SHAPES.md`'s carrier-thread row stays empty: Rust has no
+#     carrier thread to pin (R8, report it empty rather than substitute).

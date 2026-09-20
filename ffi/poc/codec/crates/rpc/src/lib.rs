@@ -75,12 +75,35 @@ pub struct Server {
 }
 
 pub async fn serve(response: Bytes) -> Server {
+    serve_opts(response, None).await
+}
+
+/// The same server, with TCP_NODELAY on the ACCEPTED socket set explicitly.
+///
+/// This exists because of a defect in the line above it, and the defect is worth stating
+/// because every loopback-TCP wall-clock figure in this branch carries it. `Server::builder()`
+/// defaults `tcp_nodelay` to true, but tonic documents that `tcp_nodelay` and `tcp_keepalive`
+/// are **ignored when the server is driven by `serve_with_incoming`** -- which is what `serve`
+/// does -- and `TcpIncoming::from(listener)` leaves its own `nodelay` at `None`, meaning the
+/// accepted socket is never touched. So the server end kept Nagle ON while tonic's client had
+/// it off by default. A gRPC response is HEADERS, then DATA, then TRAILERS; with Nagle on the
+/// writer, the second small write waits for the peer's ACK of the first, and Linux's
+/// delayed-ACK timer is 40 ms. That is the whole of the flight-1 TCP wall column.
+///
+/// `serve` is left exactly as it was (R0: a change to existing behaviour invalidates the
+/// other slices' published figures, so it is the aggregating session's call, not mine).
+pub async fn serve_nodelay(response: Bytes) -> Server {
+    serve_opts(response, Some(true)).await
+}
+
+async fn serve_opts(response: Bytes, nodelay: Option<bool>) -> Server {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let response = Arc::new(response);
     let handle = tokio::spawn(async move {
         let svc = BenchService { response };
-        let incoming = tonic::transport::server::TcpIncoming::from(listener);
+        let incoming =
+            tonic::transport::server::TcpIncoming::from(listener).with_nodelay(nodelay);
         tonic::transport::Server::builder()
             .add_service(svc)
             .serve_with_incoming(incoming)
