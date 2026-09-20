@@ -13,3 +13,4 @@ __pycache__/
 !crates/*/src/bin/**
 target-gw/
 target-count/
+target-ig/

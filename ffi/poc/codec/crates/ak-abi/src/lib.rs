@@ -36,6 +36,84 @@ pub const AK_ERR_ABI: i32 = -11;
 /// ABI v1 section 10: one version for the whole ABI, checked once in `ak_init`.
 pub const AK_ABI_VERSION: u32 = 1;
 
+// ---- section 3: the lifecycle -----------------------------------------------------
+//
+// "Nothing here is implicit. A host initialises the library, then builds a runtime, then a
+// context, then a client, and destroys them in the reverse order."
+
+/// The host takes the process log; the core installs no bridge.
+pub const AK_INIT_OWN_LOGGING: u32 = 1 << 0;
+/// The host keeps its own panic hook; the core installs none.
+pub const AK_INIT_NO_PANIC_HOOK: u32 = 1 << 1;
+/// The host will not use the RPC half, so the crypto provider is not installed.
+/// Not in the specification's flag list, which says "AK_INIT_OWN_LOGGING,
+/// AK_INIT_NO_PANIC_HOOK, ...". A codec-only host is the common case in this branch --
+/// four of the five slices build a codec arm and no RPC arm -- and without it every such
+/// host pays a one-shot install it will never reach.
+pub const AK_INIT_NO_CRYPTO: u32 = 1 << 2;
+
+/// A log line from the core. Severity follows `tracing`: 0 error, 1 warn, 2 info, 3 debug,
+/// 4 trace. The message is NOT null-terminated; it is a pointer and a length, like every
+/// other string in this ABI.
+pub type ak_log_fn = unsafe extern "C" fn(
+    ctx: *mut c_void,
+    level: u32,
+    msg: *const u8,
+    msg_len: usize,
+);
+
+/// ABI v1 section 3. `abi_version` is passed IN rather than only exported, so the check is
+/// made by the side that knows what it was generated against, once, at the only point
+/// where failing is cheap.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_init_opts {
+    pub abi_version: u32,
+    pub flags: u32,
+    pub log: Option<ak_log_fn>,
+    pub log_ctx: *mut c_void,
+}
+
+/// Section 5's out-parameter form. `ak_init` has no context to put a sticky error in,
+/// because a context cannot exist before it returns.
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct ak_err {
+    pub code: i32,
+    /// What the core wanted the host to know, as an index into `ak_err_text`. A pointer
+    /// would have to be owned by somebody; a code is owned by nobody.
+    pub detail: u32,
+}
+
+/// `ak_err.detail` values. Named so a host can switch on them rather than on prose.
+pub const AK_DETAIL_NONE: u32 = 0;
+pub const AK_DETAIL_ABI_MISMATCH: u32 = 1;
+pub const AK_DETAIL_OPTS_DIFFER: u32 = 2;
+pub const AK_DETAIL_NULL_ARG: u32 = 3;
+
+unsafe extern "C" {
+    /// Once per process, before anything else, the codec included.
+    ///
+    /// Idempotent under IDENTICAL options: a second call with the same options returns
+    /// `AK_ALREADY_INITIALIZED`, which is a success. A second call with different options
+    /// fails, because the one-shot installs cannot be redone. There is no `ak_shutdown`.
+    pub fn ak_init(opts: *const ak_init_opts, err: *mut ak_err) -> i32;
+    /// Whether `ak_init` has returned successfully. Not in the specification; it is what
+    /// makes "every other entry point requires `ak_init`" testable from outside.
+    pub fn ak_initialized() -> i32;
+    /// Two copies of the core in one process either share Rust's globals or split-brain
+    /// them with no warning, so the build id is checked rather than assumed (section 3).
+    /// Null-terminated, static, never freed.
+    pub fn ak_build_id() -> *const core::ffi::c_char;
+    /// Emit a line through the host's sink, so a host can see the bridge work without
+    /// waiting for the core to have something to say. Same path a real line takes.
+    /// Returns 1 if a sink took it, 0 if there is none.
+    pub fn ak_log_test(level: u32, msg: *const u8, len: usize) -> i32;
+    /// Panic inside the core, on purpose, so the hook can be seen working. Does not
+    /// return: the unwind is refused at this `extern "C"` boundary and the process aborts.
+    pub fn ak_panic_test();
+}
+
 // ---- section 4: common vocabulary -------------------------------------------------
 
 /// Encode: a string or bytes field as DATA inside the group, never a call.
