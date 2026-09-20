@@ -8,8 +8,13 @@ package armonik.ffi.shapes.v1;
 import "shapes.proto";
 
 service Shapes {
-  // Small request, P2.2-sized response: 540 KB, which is what makes R9's hazard reachable
-  // (the default HTTP/2 stream window is 64 KB, so a wall-clock figure here is a figure
-  // about flow control unless CPU is what is measured).
+  // Small request, P2.2-sized response: 540 KB. R9's hazard is reachable here IF the
+  // stream window is small, which is a property of a stack's default and not of HTTP/2 --
+  // `logs/cpp/rpcflow.log` establishes what each of the two stacks here actually does.
   rpc Fetch(Empty) returns (ListTasksDetailedResponse);
+  // Zero fields in and zero fields out. It exists for R5: the crossing count per RPC is
+  // claimed to be a property of the code rather than a function of field count, and one
+  // method with ~4,500 fields beside one with none is how that is COUNTED rather than
+  // argued from reading `rpc.rs`.
+  rpc Ping(Empty) returns (Empty);
 }
