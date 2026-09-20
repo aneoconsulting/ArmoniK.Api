@@ -66,11 +66,16 @@ def main():
           " linker", file=out)
     print("# fill:         ABI v1 decision 9's SPARSE fill (bulk clear, then only what"
           " differs)", file=out)
-    print("# gc:           ENABLED for the measured rounds (defect D11). Work unit 1's",
+    print("# gc:           DISABLED for the measured rounds, so a ratio is the codec's.",
           file=out)
-    print("#               harness disabled it, which subtracted up to 29% from the",
+    print("#               The collector is a real cost and it is the FACADE's -- 1.09 to",
           file=out)
-    print("#               facade's DECODE rows and nothing from any other row.", file=out)
+    print("#               1.26 on its decode, nothing on any other row -- but it cannot",
+          file=out)
+    print("#               be attributed inside an interleaved run. 57-gc-bias.log prices",
+          file=out)
+    print("#               it in isolation. Defect D11, and its first fix was worse.",
+          file=out)
     print("# allocator:    mallopt(M_TOP_PAD, 8 MiB) %s, set before the first allocation."
           % ("APPLIED" if _WARM else "NOT AVAILABLE (not glibc)"), file=out)
     print("#               Without it an encode above ~128 KiB is timed against glibc",
@@ -150,11 +155,23 @@ def main():
         cases.append(Case("the boundary, in this process", "fwd+reverse (no-op)",
                           lambda reps: arms._ffi.crossing(reps, "reverse")))
 
-    # GC ENABLED, unlike work unit 1's microbenchmarks. Disabling the collector removes
-    # a cost that is almost entirely the facade's -- a P2.2 decode builds ~10,000
-    # GC-tracked objects and `FromString` builds an arena and one wrapper -- and it was
-    # worth up to 29% of one arm of one column. See harness.run's docstring, defect D11.
-    harness.run(cases, gc_enabled=True)
+    # GC DISABLED here, and the collector's cost reported SEPARATELY by `gcbias.py`.
+    #
+    # The first fix for D11 was to enable it, and that was wrong -- worse than the defect.
+    # With the collector on, an interleaved run of ~500 cases attributes each collection to
+    # whichever case happens to trip the threshold, so P2.2's decode came out at 7.3x the
+    # incumbent here against 1.26x for the identical call measured in isolation. Neither
+    # the codec nor the live set explains the gap: holding all sixteen payloads' fixtures
+    # alive makes the isolated figure slightly FASTER, so it is attribution and nothing
+    # else. A figure that depends on what else is in the run is the same defect as the
+    # allocator one, and this bench already refuses that class.
+    #
+    # So the collector stays off where a ratio is formed, and `gcbias.py` prices it where
+    # it can be attributed: one payload, one direction, one process, nothing interleaved.
+    # The honest sentence is "these ratios exclude the collector, which adds 1.09 to 1.26
+    # to the facade's decode and nothing to any other row", and that sentence needs both
+    # halves to be measured -- which is what the two scripts are.
+    harness.run(cases)
     rows = harness.report(
         cases, lambda g: "upb (incumbent)" if g[0] in "ed" else None, out)
 
