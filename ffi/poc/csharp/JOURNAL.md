@@ -1159,3 +1159,55 @@ expects an exception at the seam. The lock-free answer costs 7 to 8 contexts and
 7.4 to 8.4 MB of never-freed native staging on a four-processor box, and the two
 runs disagreeing by one context while doing identical work is the finding: the
 number follows the thread pool, not the call rate. Recorded as request 7.
+
+### 43. The grid, and the column that hid a 600x
+
+The core exported ABI v1 section 9's transport behind its `rpc` feature, so the
+RPC arm became a 2x2 grid: incumbent and core codec, grpc-dotnet and core
+transport, all four in one process against one server.
+
+**The headline is not the one the slice has been chasing.** Cell B over cell A --
+the same `Google.Protobuf` codec, only the transport swapped -- is 12 to 44
+percent less CPU per call, and at 16 in flight it is 42 to 44 percent agreeing to
+a hundredth across three runs and two cell orders. The codec alone (D/A) is 0.82
+to 1.04. So on .NET the proposal's value is in the half this slice has spent the
+least time on.
+
+**And the question the grid was built to answer, I cannot answer.** C-B and D-A
+are both "what the codec is worth", one under each transport, and they change
+SIGN with the arm order. Both are inside the round-to-round spreads. I wrote the
+"do they agree?" column into the harness before running it and it prints
+"differ by 100%" on rows where the honest reading is that neither number is
+distinguishable from zero. The thing that IS sayable is a ratio of magnitudes:
+the transport half is three to ten times the codec half.
+
+**Running both cell orders is now reflex and it earned its cost again.** Without
+the reversed run I would have reported C-B as positive at 8 and 16 in flight,
+which is the core codec being SLOWER, from a forward run alone.
+
+**The three deliveries are the same in CPU, and I nearly stopped there.** The
+check-in asked for that to be said plainly if it came out, and it did: callback,
+queue and blocking are within their spreads of each other at every concurrency.
+Which would have meant .NET is indifferent and the ABI carries the extra modes
+for the JVM. Then the blocking row's WALL clock stalled -- 208 ms once, 24 ms
+once, never in the other two deliveries. Two observations is an anecdote, so I
+built `--park`: one batch of 16 concurrent calls from a cold pool.
+
+Sixteen blocking calls take 2.5 to 8.3 seconds for work the callback does in 11
+to 15 ms. **190 to 630 times, and the CPU column shows none of it**, because the
+cost is the thread pool growing to replace threads parked in a native frame at
+one or two a second. `SetMinThreads` removes it; nothing else does. I had
+written into the probe's own output that this would be a one-off a long-lived
+process pays once. The third row refutes that: the same batch again with the pool
+grown is slow in five of six runs, because the pool retires idle threads between
+bursts. Writing the falsifiable version is what let the data refute it.
+
+**A hazard I predicted and that does not exist.** My own floor analysis found
+that a delegate thunk must be rooted for the lifetime of the vtable or the
+collector reclaims it. It does not apply here: `[UnmanagedCallersOnly]` compiles
+to a native entry point and `&OnDone` is its address, so there is no thunk. That
+rule belongs with the floor findings, not in the ABI's contract.
+
+The whole slice is re-gated against the rpc-featured core and is identical
+(152/0, the same 32 corpus rows, coreffi 0), which is what "the feature adds the
+transport and changes no codec entry point" has to mean to be worth saying.

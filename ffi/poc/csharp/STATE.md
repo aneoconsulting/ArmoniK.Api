@@ -837,6 +837,31 @@ whatever the payload.
 
 Written here rather than edited into the documents, per the contract.
 
+**FIRST, AND IT BLOCKS A BUILD.** This branch does **not build standalone** as
+pushed. Stage 18 binds ABI v1 section 9's transport, which lives in the shared
+core behind its `rpc` cargo feature and arrived on
+`claude/poc-next-slice-76rbjx` (2c17c02b). This session was instructed to merge
+that branch and **was refused permission to do so**, and refused again when it
+tried to commit the core's files verbatim: writing anything under
+`ffi/poc/codec` is denied here. So `src/Rpc/CoreTransport.cs` and `src/Rpc/Grid.cs`
+are pushed against a core this branch does not carry.
+
+To build and re-run stage 18:
+
+    git merge origin/claude/poc-next-slice-76rbjx
+    cd ffi/poc/codec && CARGO_TARGET_DIR=../csharp/target-core \
+        cargo build --release -p ak-core --features rpc
+    cd ../csharp && dotnet build src/Rpc/Rpc.csproj -c Release
+    dotnet src/Rpc/bin/Release/net8.0/akrpc.dll --grid --rounds 9 --calls 300
+    dotnet src/Rpc/bin/Release/net8.0/akrpc.dll --park
+
+The measurements in `stage18-rpc-grid.log` were taken with exactly that core in
+the tree, byte for byte identical to 2c17c02b (`git diff` against it was empty),
+so the merge is a formality rather than a rebuild against something different.
+`Harness.csproj` prefers `poc/csharp/target-core/release/libak_core.so` when it
+exists and falls back to the shared `codec/target/` build otherwise, so a tree
+without the rpc build still runs every other arm.
+
 0. **The RPC arm's transport configuration on .NET, established from the runtime
    source rather than relayed.** The instruction is to pin ArmoniK's settings --
    2 MiB chunking, a 4 MiB stream window -- with the stack default as a labelled
@@ -1003,8 +1028,12 @@ opened, and none of it is a gap in the brief.
 - ~~**Streaming.**~~ **DONE** (`stage17-streaming.log`). What remains of it is
   named there: bidirectional streaming, a small-message stream, the server's
   codec, cancellation mid-stream, and backpressure with a window smaller than a
-  message. **The core's own tonic stack as the other end of the RPC arm** is
-  still not built.
+  message.
+- ~~**The core's own tonic stack as the other end of the RPC arm.**~~ **DONE**
+  (`stage18-rpc-grid.log`), as the A/B/C/D grid with all three of section 9's
+  deliveries. What remains is named there: the upstream direction, more than one
+  queue drainer, cancellation and deadlines, streaming over the core's transport,
+  and a floor binding of it.
 - **`core-ffi` on the floor.** Arms b and c do not carry it, and that is a floor
   FINDING rather than a build convenience: net48 has no `LibraryImport` (.NET 7+)
   and no `UnmanagedCallersOnly` (.NET 5+), so the binding as generated cannot
@@ -1127,6 +1156,8 @@ built. What remains is what `SHAPES.md` itself says is unreachable:
 ## Next step
 
 **The list below is empty of anything that is both this slice's and buildable.**
+(Item 12 was added afterwards by the aggregating session, when the shared core
+gained the transport it needed, and is done.)
 Every item is done, retired with evidence, or named as belonging elsewhere.
 Two remain open as questions rather than work: decision 13 is bounded at 42 to
 62 percent of a decode and building it is a redesign of the facade's public
@@ -1233,6 +1264,25 @@ this slice's to build, and stage 17 built it.
    contexts and 7.4 to 8.4 MB of never-freed native staging on a four-processor
    box -- a property of the thread pool, not of the call rate.
 
+12. ~~The RPC arm as a grid, and ABI v1 section 9's transport bound from .NET.~~
+   **DONE** (`stage18-rpc-grid.log`), after the core exported the transport
+   behind its `rpc` feature. All four cells in one process in one sitting, both
+   arm orders, nine rounds. **The transport is where the win is and the codec is
+   not**: cell B over cell A -- the same `Google.Protobuf` codec over the core's
+   tonic instead of grpc-dotnet -- is **12 to 44 percent less CPU per call, and
+   the advantage grows with concurrency** (42 to 44 percent at 16 in flight,
+   agreeing to a hundredth across three runs and two orders). The codec alone
+   (D/A) is 0.82 to 1.04, straddling 1.0. **Whether the two halves are additive
+   is NOT answerable at this precision**: C-B and D-A both change sign with the
+   arm order, so the honest statement is that the transport half is three to ten
+   times the codec half and the codec half is at the noise floor. **The three
+   deliveries are indistinguishable in CPU**, so .NET is indifferent between
+   callback and queue rather than needing the callback -- but **the blocking one
+   is 190 to 630 times slower in WALL CLOCK at 16 in flight** and the CPU column
+   shows none of it, because a host thread parked in a native frame is one the
+   pool must replace at one or two threads a second. Not a one-off: the pool
+   retires the threads again between bursts.
+
 Deliberately NOT on the list: more rounds to tighten a spread, a cold-start
 column, and any attempt to make this container's absolutes comparable with
 another container's.
@@ -1304,6 +1354,7 @@ another container's. R13's one calibration run stands and is not to be tuned.
 | `ffi/logs/csharp/stage10-crossing-reconciliation.log` | the counting core (`--features count`), `ak_enc_counters` read from the host, at two chunk sizes | **R5's cross-slice reconciliation, resolved.** The conventions never differed; the Rust host chunks at 150 and this one did not. At `AK_CHUNK=150` this slice reproduces the Rust slice's 2/8/3 forward and 1/1/1 reverse exactly. Also prices the difference: nothing measurable, 0.7 percent |
 | `ffi/logs/csharp/stage9-shared-core.log` | the ONE core at `ffi/poc/codec`, default features so no `rpc`; loaded path confirmed with `LD_DEBUG=libs`; three arms gated, three timing processes, plus a pre-move control | **The W10 re-gate.** 152 checks 0 failures on all three arms; the core-ffi arm green on M1; **nothing moved** (worst 0.035 against a 0.026 floor on arms the core cannot touch). Records that arm c cannot carry the core-ffi arm and why, and that a stale binary reported a pass before the timestamp was checked |
 | `ffi/logs/csharp/stage8-core-ffi.log` | the arm through `libak_core.so`, shared-library linkage, generated binding, staged strings; correctness plus three timing processes | **The `core-ffi` arm, M1.** Byte identity and value identity on P1.1/P1.2/P1.3; layout agreement on 8 structs; crossings constant in the element count in both directions; the interface cost against the no-boundary control, including the two findings that point opposite ways -- the C ABI beating the managed codec on P1.2 decode, and the absent path collapsing on the total group fill |
+| `ffi/logs/csharp/stage18-rpc-grid.log` | ABI v1 section 9's transport bound from .NET with all three deliveries; the RPC arm as an A/B/C/D grid in one process; nine rounds, both cell orders, spreads on every row; `--park`, six runs; the whole slice re-gated against the rpc-featured core | **The transport half of the proposal is worth three to ten times the codec half on .NET.** Cell B (README 13's outcome 2, incumbent codec + core transport) is **12 to 44 percent less CPU per call**, growing with concurrency; the codec alone straddles 1.0. **Whether the halves are additive is not answerable**: both codec subtractions change sign with the arm order. **The three deliveries are the same in CPU** -- so .NET is indifferent between callback and queue, not dependent on the callback -- **and the blocking one is 190 to 630x slower in wall clock**, a thread-pool cost the CPU column cannot see and that recurs rather than being paid once. The `[UnmanagedCallersOnly]` rooting hazard is a FLOOR rule, not a .NET one |
 | `ffi/logs/csharp/stage17-streaming.log` | streaming both directions, grpc-dotnet both ends over a UDS, five arms including a NO-CODEC transport floor, two payload families (P2.2 and ArmoniK's P5.3 chunk), 1/8/16 streams, 5 rounds with the round-to-round spread beside every row, plus a reversed-arm-order control and the concurrency contract's two controls | **The codec's share is much larger in a stream than in a unary call**: 54-82 percent of a P2.2 download and 36-50 percent of an upload, against stage 15's 10 percent per unary call. **On ArmoniK's chunk shape it is zero**, and the reversed-order run is what establishes that -- the harness's own position effect there (17-31 percent) is larger than every codec difference, so no ranking on P5.3 survives. **The arm's own prediction is refuted** at this payload size. **The concurrency invariant, both controls**: a shared encode context is a SIGABRT no managed `catch` sees, and `[ThreadStatic]`, the correct answer, costs one context and its staging buffer per POOL thread, forever |
 | `ffi/logs/csharp/stage16-decision3-and-13.log` | a third build for the rejecting decode policy, each build carrying the incumbent as its in-process control; a no-string decode arm as decision 13's ceiling; `ak_bdr_footprint`; the RPC arm instrumented for sequence shape | **Three answers the branch did not have.** Decision 3's rejecting policy **closes all 31 corpus `T-dec` vectors and costs nothing measurable**, because `Encoding.UTF8` already validates and only the fallback differs, so the case against it cannot be performance. **Decision 13's ceiling is 42 to 62 percent of a decode** -- larger than every codec difference this slice has measured combined. Pull's record buffer is 0.36 to 1.6x the wire payload, and 63x on the absent path. A `ReadOnlySequence` reader is **retired with evidence**: every body is segmented and the flatten is still under 0.3 percent of an RPC |
 | `ffi/logs/csharp/stage15-rpc-arm.log` | a real grpc-dotnet client against a real grpc-dotnet server over a Unix domain socket, server marshaller a `byte[]` passthrough so only the client's codec varies; ArmoniK's 4 MiB window and 2 MiB chunking pinned, stack default and loopback TCP as labelled rows; 1/8/16 in flight | **The RPC arm, and it is partly deflating.** The codec is worth about **10 percent** of CPU per call end to end where the in-process column says 25, so sizing the change from that column overestimates it two and a half times. The three codec arms are **indistinguishable from each other** at the RPC level. What survives the noise is allocation: every facade arm is **8.6 percent below** the incumbent on every configuration. Records that pinning a window on .NET needs the AppContext switch as well as the property, and that `packages/csharp` can set neither |

@@ -109,6 +109,14 @@ public static class Program
         // to unary" and this slice has already found that two arms nothing
         // touched move up to 9 percent between sittings on this container.
         bool stream = argv.Contains("--stream");
+        // ABI v1 section 9's transport, now that the core exports it. The grid is
+        // A/B/C/D in ONE process against ONE server, because B-A and C-B are
+        // subtractions and a subtraction across sittings is worth nothing here.
+        bool grid = argv.Contains("--grid");
+        // The blocking delivery stalled in WALL CLOCK twice while its CPU column
+        // looked normal, never in the callback or queue delivery. Two
+        // observations is an anecdote; `--park` is the measurement.
+        bool park = argv.Contains("--park");
         int rounds = Arg(argv, "--rounds", 3);
         int calls = Arg(argv, "--calls", 300);
         var levels = new[] { 1, 8, 16 };
@@ -218,9 +226,105 @@ public static class Program
                 Arg(argv, "--msgs22", 512), Arg(argv, "--msgs53", 128));
         }
 
+        if (park)
+        {
+            // **Does parking N host threads inside the core cost a managed host,
+            // and is it the THREAD POOL that pays?**
+            //
+            // Section 9's case for a non-blocking delivery is that blocking in a
+            // native frame pins a JVM virtual thread's carrier. .NET has no
+            // carrier to pin, so the branch has no reason to expect anything
+            // here -- but a host thread parked in `ak_call_unary` is a thread the
+            // pool cannot reuse, and .NET's pool grows past its minimum at about
+            // one or two threads a second. With 16 calls in flight and 4
+            // processors that is a wait nothing in the CPU column can show.
+            //
+            // The experiment is one batch from a COLD pool, because the stall is
+            // a growth cost and a warmed pool has already paid it. Three
+            // configurations, each in the same process but ordered so the
+            // blocking arm runs before anything can have grown the pool for it.
+            using var pc = new CoreChannel("unix:" + sock, Arg(argv, "--core-workers", 2));
+            int n = Arg(argv, "--park-inflight", 16);
+            var path = System.Text.Encoding.UTF8.GetBytes("/armonik.ffi.Bench/Down");
+            ThreadPool.GetMinThreads(out int wmin, out int cmin);
+            Console.WriteLine("# harness: rpc --park (what a parked host thread costs a managed host)");
+            Console.WriteLine("# processors:        {0}", Environment.ProcessorCount);
+            Console.WriteLine("# pool minimum:      {0} worker threads", wmin);
+            Console.WriteLine("# core workers:      {0}", Arg(argv, "--core-workers", 2));
+            Console.WriteLine("# in flight:         {0}, ONE batch, from a cold pool", n);
+            Console.WriteLine();
+
+            async Task<double> Batch(bool blocking)
+            {
+                var sw = Stopwatch.StartNew();
+                var ts = new Task[n];
+                for (int k = 0; k < n; k++)
+                    ts[k] = blocking
+                        ? Task.Run(() => { var b = pc.CallBlocking(path, Array.Empty<byte>());
+                                           CoreChannel.Release(ref b); })
+                        : Go(pc, path);
+                await Task.WhenAll(ts);
+                sw.Stop();
+                return sw.Elapsed.TotalMilliseconds;
+            }
+
+            double blockCold = await Batch(true);
+            double cbCold = await Batch(false);
+            double blockWarm = await Batch(true);
+            ThreadPool.SetMinThreads(Math.Max(wmin, n + 8), cmin);
+            double blockMin = await Batch(true);
+
+            Console.WriteLine("batch                                        wall ms for {0} calls", n);
+            Console.WriteLine(new string('-', 72));
+            Console.WriteLine("blocking, COLD pool                          {0,10:F1}", blockCold);
+            Console.WriteLine("callback, pool already grown by the above    {0,10:F1}", cbCold);
+            Console.WriteLine("blocking, pool already grown                 {0,10:F1}", blockWarm);
+            Console.WriteLine("blocking, SetMinThreads({0}), cold again   {1,10:F1}", n + 8, blockMin);
+            Console.WriteLine();
+            Console.WriteLine("The cost is the POOL GROWING to replace threads parked in a native frame:");
+            Console.WriteLine("`SetMinThreads` removes it and nothing else does. **It is NOT a one-off a");
+            Console.WriteLine("long-lived process pays once** -- the third row is the same batch again with");
+            Console.WriteLine("the pool already grown, and it is slow too, because the pool retires idle");
+            Console.WriteLine("threads between batches. A bursty caller pays it repeatedly. That claim was");
+            Console.WriteLine("written here the other way round first and the measurement refuted it.");
+            Console.WriteLine();
+            await app.StopAsync();
+            if (File.Exists(sock)) File.Delete(sock);
+            return 0;
+        }
+
+        if (grid)
+        {
+            if (tcp) { Console.Error.WriteLine("--grid is UDS only"); return 1; }
+            Console.WriteLine(new string('=', 128));
+            Console.WriteLine("THE GRID. A and D above are the same two codecs over grpc-dotnet; B and C");
+            Console.WriteLine("are the same two over the CORE's transport, dialling the same UNIX socket");
+            Console.WriteLine("this process's Kestrel is listening on. Same process, same sitting.");
+            Console.WriteLine(new string('=', 128));
+            Console.WriteLine();
+            using var core = new CoreChannel("unix:" + sock, Arg(argv, "--core-workers", 2));
+            core.StartQueue();
+            Console.WriteLine("# core transport:      tonic over unix:{0}", sock);
+            Console.WriteLine("# core worker threads: {0} (ak_runtime_new, explicit -- ABI v1 section 3 "
+                + "says never Runtime::new(), which reads the cgroup quota)",
+                Arg(argv, "--core-workers", 2));
+            Console.WriteLine("# deliveries:          callback (headline), blocking (labelled), "
+                + "queue (second row, one drainer)");
+            Console.WriteLine();
+            Grid.Reverse = argv.Contains("--reverse-arms");
+            await Grid.Run(inv, core, rounds, levels, calls);
+        }
+
         await app.StopAsync();
         if (File.Exists(sock)) File.Delete(sock);
         return 0;
+    }
+
+
+    private static async Task Go(CoreChannel c, byte[] path)
+    {
+        var b = await c.CallCbAsync(path, Array.Empty<byte>());
+        CoreChannel.Release(ref b);
     }
 
     private static int PickPort(out int port)
