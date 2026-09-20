@@ -160,6 +160,62 @@ explicit floor label under R2.
 **So the core's decode gap to the fastest C protobuf is a facade ownership
 question, reachable from Rust, rather than a codec or a language-runtime limit.**
 
+## 4b. The encode column was an ASCII column, and reading it without its set would have published a policy difference as codec speed
+
+This is the sharpest correction the slice produced and it arrived last.
+
+**The content set moves encode by an order of magnitude and barely moves decode.**
+On P1.2 the `ffi`/`pb` encode ratio runs **0.988 → 0.167 → 0.114** across ASCII,
+Latin-1 and wide; decode runs 0.656 → 0.671 → 0.546, and no payload's decode
+ratio moves more than about 0.15. So the published C++ **encode** column is an
+ASCII column and nothing else, while the decode column survives being read
+without its set. `design/SHAPES.md` already says a string-path figure without its
+content set is half a number; this says the halves are not the same size.
+
+**And most of that encode movement is not codec speed at all.** protobuf C++
+**validates UTF-8 when it serialises** — 37 unconditional `VerifyUtf8String(...,
+SERIALIZE)` call sites in the generated code, counted rather than inferred — and
+ABI v1 decision 3 says the core does not. Publishing `ffi`/`pb` alone on
+non-ASCII content would have reported a **policy difference as a codec win**,
+which is defect C7 pointing the other way: the slice's earlier trap was a
+handicapped incumbent, and this one would have been an incumbent doing work the
+core had been excused.
+
+Like for like, with the validating transcoder in the table for every set, the
+core is **at parity on ASCII (0.995 to 1.389) and about twice as fast on Latin-1
+and wide (0.421 to 0.626)** — which matches what `utf8.log` measures between the
+two validators directly. Growing each arm against its own ASCII row separates the
+three effects cleanly: `ffi` 1.04 to 1.05 (wire width alone), `ffi-valtc` 2.20 to
+2.82 (width plus the core's validator), `pb` 6.13 to 9.12 (width plus protobuf's
+validator plus its per-string costs).
+
+**An unplanned cross-generator check fell out of it.** Wire sizes came out at
+1.687 to 1.748× for Latin-1 and 2.373 to 2.495× for wide, against the rust
+slice's independently published 1.70 to 1.75 and 2.39 to 2.50. Two generators,
+two languages, agreement to three digits — R1's "one description drives
+everything" tested from a direction nobody designed a test for.
+
+## 4c. C16 has a mechanism, and it is the allocator
+
+The systematic outlier round on P1.2 decode, present in every log this slice ever
+produced, is **glibc's mmap path**. Pinning `MALLOC_MMAP_THRESHOLD_` *and*
+`MALLOC_TRIM_THRESHOLD_` removes the outlier and keeps the steady state flat from
+round one; forcing always-mmap reproduces the outlier's value in every round; the
+default allocator takes an order of magnitude more minor page faults. Pinning only
+the mmap threshold is not enough, because glibc then trims and the churn costs
+what mmap did — which is why the two-variable answer was not obvious.
+
+Refuted along the way: the machine, and the arm rotation. **And the validator work
+did not create C16, it uncovered it** — with the check disabled the row is flat,
+because a decode dominated by a slow validator hides a fixed per-iteration cost,
+and halving the validator turned that cost into a visible fraction.
+
+No figure is withdrawn; min-of-rounds plus the printed per-round list is exactly
+why. What remains is a caveat that is a **fact about C++ consumers rather than
+about the ABI**: decoding large messages pays an allocator cost that default glibc
+tuning only amortises after the first few messages. Not settled: when precisely
+the threshold adapts, which is a question about glibc.
+
 ## 5. This makes borrowed spans a cross-language decision, not a C++ arm
 
 The branch already held the other half of this and had not connected it. ABI v1's

@@ -200,6 +200,23 @@ path, where they are named in the table rather than assumed:
 A slice that reports one string-path number without saying which content set it
 came from has reported half a number.
 
+**And the halves are not the same size: the set moves encode by an order of
+magnitude and barely moves decode.** Measured on P1.2 in C++, the C ABI against
+protobuf C++ runs **0.988, 0.167, 0.114** on ASCII, Latin-1 and wide for
+**encode**, and 0.656, 0.671, 0.546 for **decode**, with no payload's decode
+ratio moving more than about 0.15. So an encode figure taken on ASCII alone is
+not a figure about the string path at all, while a decode figure survives being
+read without its set. Both still name their set; the encode one is the number
+that changes meaning without it.
+
+**A like-for-like encode comparison on a non-ASCII set needs the validating arm.**
+protobuf C++ validates UTF-8 when it *serialises* — 37 unconditional
+`VerifyUtf8String(..., SERIALIZE)` sites in its generated code — and ABI v1
+decision 3 says the core does not. So most of that encode movement is a policy
+difference rather than codec speed, and quoting the core against the incumbent
+alone would report one as the other. With the validating transcoder in the table
+the core is at parity on ASCII and about twice as fast on Latin-1 and wide.
+
 **What these sets price is not the same thing in every host, and a column must
 not be read across.** On .NET and the JVM the host holds UTF-16, so they make a
 *narrowing transcoder* do real work or fail. A Rust `String` is already UTF-8, so
