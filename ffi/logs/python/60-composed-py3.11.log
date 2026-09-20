@@ -1,0 +1,471 @@
+# python slice, work unit 2: the composed arm, encode and decode, over M1
+#
+# date:      2026-09-20T06:41:38Z
+# machine:   4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
+# commit:    73007ad
+# core:      ffi/poc/codec (README R0), ABI v1, libak_core.so via the dynamic linker
+# R13:       this machine's rust-slice crossing is 2.1 ns (fwd+reverse) to 2.8 ns
+#            (forward) -- 00-r13-rust-crossing.log. The composed arm also prices
+#            the boundary IN ITS OWN PROCESS at the end of the bench table, which
+#            is the better number to quote against because it shares a build.
+# absolutes: instrumentation, not the deliverable. Signs and size classes only.
+
+########## process 1 ##########
+# python slice, work unit 2: the COMPOSED arm over the M1 subtree
+#
+# interpreter:  3.11.15 (main, Mar  3 2026, 09:26:23) [GCC 13.3.0]
+# incumbent:    protobuf 7.36.2 on upb
+# baseline:     gRPC's generated marshaller path: Message.SerializeToString on encode and Message.FromString on decode (R14)
+# core:         ffi/poc/codec, ABI v1, libak_core.so through the dynamic linker
+# fill:         ABI v1 decision 9's SPARSE fill (bulk clear, then only what differs)
+# rounds:       11, interleaved; per-case target 20 ms
+# payloads:     P1.1, P1.2, P1.3 (P1.3 is the absent path)
+# absolutes:    instrumentation, not the deliverable. Read the signs and the
+#               size classes; the controlled rerun owns the decimals.
+
+## the correctness gate (README R2)
+   conformance.py exit 0: ALL CHECKS PASS
+
+## encode P1.1
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                      38644      1025.57    1018.29    1064.06                  1.000
+pycodec / plain                                       1080     34569.71   34401.65   34982.17                 33.708
+pycodec / __slots__                                   1136     34447.91   34292.59   34980.20                 33.589
+core-ffi / plain                                      8192      2698.66    2681.88    3555.52                  2.631
+core-ffi / __slots__                                  8192      2511.47    2495.80    3281.38                  2.449
+core-ffi / C ext type                                15500      1303.41    1299.21    1329.51                  1.271
+core-ffi / pyacc (python fn)                          3938      8580.25    8457.50    8664.53                  8.366
+core-ffi / pyacc (C attrgetter)                       2646      7680.44    7565.01    7885.26                  7.489
+-- floor: one copy of the output (858 B)            253006        79.68      79.13      80.26                  0.078
+                                                no traversal. An encode cannot go below this
+
+## decode P1.1
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                      21484      1809.82    1790.17    1880.87                  1.000
+pycodec / plain                                       1028     36934.21   36673.45   38038.94                 20.408
+pycodec / __slots__                                   1062     36578.73   36463.51   37152.80                 20.211
+core-ffi / plain                                      6974      5060.91    5036.74    5158.41                  2.796
+core-ffi / __slots__                                  7620      4811.16    4790.24    4933.43                  2.658
+core-ffi / C ext type                                 8192      2519.25    2500.85    2561.23                  1.392
+core-ffi / pyacc (python fn)                          1351     14244.36   14172.66   14508.66                  7.871
+core-ffi / pyacc (C attrgetter)                       2740     14523.60   14405.37   16688.27                  8.025
+-- floor: 4 bare objects + one copy                  15442      1311.00    1303.55    1537.77                  0.724
+                                                construct N facade elements and copy the input, and nothing else
+
+## decode+read every field P1.1
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                       2246     14734.95   14638.66   15009.32                  1.000
+pycodec / plain                                        830     47279.70   47123.10   47900.88                  3.209
+pycodec / __slots__                                    826     46893.47   46780.65   47964.66                  3.182
+core-ffi / plain                                      2640     14735.25   14607.99   15280.17                  1.000
+core-ffi / __slots__                                  1365     14277.69   14162.32   15859.47                  0.969
+core-ffi / C ext type                                 2936     12385.60   12340.80   12612.72                  0.841
+core-ffi / pyacc (python fn)                          1584     23999.73   23915.16   24494.68                  1.629
+core-ffi / pyacc (C attrgetter)                       1542     24272.51   24091.17   24519.21                  1.647
+
+## re-read every field P1.1
+arm                                                   reps    median ns        min        max
+upb (incumbent)                                       3044     12584.00   12481.76   12783.30
+facade / plain                                        3998      9347.82    9310.49    9445.98
+facade / __slots__                                    4140      9115.51    9073.18    9205.85
+facade / C ext type                                   4014      9657.41    9618.14    9704.84
+
+## encode P1.2
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                         64    354433.86  347552.47  361023.03                  1.000
+pycodec / plain                                         64   9105638.61 9015528.38 9233149.48                 25.691
+pycodec / __slots__                                     64   9048658.86 8934023.78 9177360.20                 25.530
+core-ffi / plain                                        64    572715.52  570282.50  641629.78                  1.616
+core-ffi / __slots__                                    64    528979.27  525041.33  742495.14                  1.492
+core-ffi / C ext type                                  128    248690.95  246274.38  252368.74                  0.702
+core-ffi / pyacc (python fn)                            64   1961898.94 1937671.11 2017053.00                  5.535
+core-ffi / pyacc (C attrgetter)                         64   1739274.22 1714429.45 1780187.50                  4.907
+-- floor: one copy of the output (218121 B)           3281      6465.46    6305.34    7368.15                  0.018
+                                                no traversal. An encode cannot go below this
+
+## decode P1.2
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                        128    295400.43  292817.52  329606.81                  1.000
+pycodec / plain                                         64   9771945.11 9724539.59 9962809.80                 33.080
+pycodec / __slots__                                     64   9754760.70 9701147.06 9905035.78                 33.022
+core-ffi / plain                                        64   1174046.52 1158667.53 1193469.81                  3.974
+core-ffi / __slots__                                    64   1107832.52 1098774.53 1171724.67                  3.750
+core-ffi / C ext type                                   64    523225.17  520880.14  572578.20                  1.771
+core-ffi / pyacc (python fn)                            64   3338135.31 3324980.64 3727784.28                 11.300
+core-ffi / pyacc (C attrgetter)                         64   3417715.66 3397862.98 3487652.16                 11.570
+-- floor: 1000 bare objects + one copy                 128    237251.95  234614.28  250480.23                  0.803
+                                                construct N facade elements and copy the input, and nothing else
+
+## decode+read every field P1.2
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                         64   3355727.59 3318765.55 3432815.03                  1.000
+pycodec / plain                                         64  12336239.55 12243649.72 13273794.03                  3.676
+pycodec / __slots__                                     64  12302290.72 12178456.78 12450594.89                  3.666
+core-ffi / plain                                        64   3630685.73 3612205.16 3829134.27                  1.082
+core-ffi / __slots__                                    64   3544711.00 3512422.08 3584963.16                  1.056
+core-ffi / C ext type                                   64   3061046.28 3042866.62 3108709.62                  0.912
+core-ffi / pyacc (python fn)                            64   5803598.78 5754063.42 6039252.67                  1.729
+core-ffi / pyacc (C attrgetter)                         64   5861154.09 5828927.45 5897695.11                  1.747
+
+## re-read every field P1.2
+arm                                                   reps    median ns        min        max
+upb (incumbent)                                         64   3035258.55 3019081.95 3091983.55
+facade / plain                                          64   2437263.97 2429391.23 2604209.44
+facade / __slots__                                      64   2381872.02 2371367.48 2463667.14
+facade / C ext type                                     64   2485597.14 2466393.45 2551009.78
+
+## encode P1.3
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                       4500      8559.52    8491.26    8769.31                  1.000
+pycodec / plain                                        128    176692.49  175910.48  188552.03                 20.643
+pycodec / __slots__                                    128    182706.01  180950.87  188804.76                 21.345
+core-ffi / plain                                       608     65784.06   65383.03   66707.19                  7.685
+core-ffi / __slots__                                   712     56521.94   56207.68   59068.40                  6.603
+core-ffi / C ext type                                 3342     11396.37   11345.99   12033.88                  1.331
+core-ffi / pyacc (python fn)                            64    367371.02  363169.41  401432.66                 42.920
+core-ffi / pyacc (C attrgetter)                         64    322467.12  319925.56  327139.84                 37.673
+-- floor: one copy of the output (605 B)            510998        76.30      76.05      76.86                  0.009
+                                                no traversal. An encode cannot go below this
+
+## decode P1.3
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                       4932      7672.13    7642.20    7853.99                  1.000
+pycodec / plain                                        128    190351.57  189046.15  196400.56                 24.811
+pycodec / __slots__                                    128    186915.67  185643.18  196702.26                 24.363
+core-ffi / plain                                       143    141319.90  139393.40  154078.03                 18.420
+core-ffi / __slots__                                   304    131302.10  130840.19  144344.99                 17.114
+core-ffi / C ext type                                  844     47592.85   47046.81   56197.98                  6.203
+core-ffi / pyacc (python fn)                            64    605115.16  599850.14 1100959.81                 78.872
+core-ffi / pyacc (C attrgetter)                         64    634801.92  623829.14  759732.59                 82.741
+-- floor: 300 bare objects + one copy                  596     67678.52   66975.81  101289.61                  8.821
+                                                construct N facade elements and copy the input, and nothing else
+
+## decode+read every field P1.3
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                         64    520714.22  514179.70  534641.22                  1.000
+pycodec / plain                                         64    644135.56  635395.80  678763.36                  1.237
+pycodec / __slots__                                     64    631301.47  625781.31  646495.45                  1.212
+core-ffi / plain                                        64    593450.33  587417.66  604967.70                  1.140
+core-ffi / __slots__                                    64    573097.59  567411.20  586826.94                  1.101
+core-ffi / C ext type                                   64    499853.16  497647.25  656360.36                  0.960
+core-ffi / pyacc (python fn)                            64   1055884.22 1046740.72 1158146.75                  2.028
+core-ffi / pyacc (C attrgetter)                         64   1078294.03 1073367.64 1128910.69                  2.071
+
+## re-read every field P1.3
+arm                                                   reps    median ns        min        max
+upb (incumbent)                                         64    509906.16  509127.78  512971.08
+facade / plain                                          64    446204.73  443780.03  453442.27
+facade / __slots__                                      64    435189.73  433462.23  439798.44
+facade / C ext type                                     64    446837.91  443912.89  454444.64
+
+## the boundary, in this process
+arm                                                   reps    median ns        min        max
+forward (no-op)                                   21723320         1.82       1.82       1.85
+fwd+reverse (no-op)                               16483286         2.43       2.42       2.51
+
+########## process 2 ##########
+# python slice, work unit 2: the COMPOSED arm over the M1 subtree
+#
+# interpreter:  3.11.15 (main, Mar  3 2026, 09:26:23) [GCC 13.3.0]
+# incumbent:    protobuf 7.36.2 on upb
+# baseline:     gRPC's generated marshaller path: Message.SerializeToString on encode and Message.FromString on decode (R14)
+# core:         ffi/poc/codec, ABI v1, libak_core.so through the dynamic linker
+# fill:         ABI v1 decision 9's SPARSE fill (bulk clear, then only what differs)
+# rounds:       11, interleaved; per-case target 20 ms
+# payloads:     P1.1, P1.2, P1.3 (P1.3 is the absent path)
+# absolutes:    instrumentation, not the deliverable. Read the signs and the
+#               size classes; the controlled rerun owns the decimals.
+
+## the correctness gate (README R2)
+   conformance.py exit 0: ALL CHECKS PASS
+
+## encode P1.1
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                      39102      1010.95    1004.64    1026.09                  1.000
+pycodec / plain                                       1078     34449.35   34309.81   35472.80                 34.076
+pycodec / __slots__                                   1138     34395.57   34120.77   35854.88                 34.023
+core-ffi / plain                                      8192      2633.44    2622.83    2645.74                  2.605
+core-ffi / __slots__                                  8192      2486.00    2470.81    2495.34                  2.459
+core-ffi / C ext type                                28092      1309.11    1300.74    1318.12                  1.295
+core-ffi / pyacc (python fn)                          4376      8709.15    8499.75    8891.79                  8.615
+core-ffi / pyacc (C attrgetter)                       5006      7684.72    7569.72    7775.85                  7.602
+-- floor: one copy of the output (858 B)            472698        79.64      79.17      82.74                  0.079
+                                                no traversal. An encode cannot go below this
+
+## decode P1.1
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                      22170      1776.14    1756.92    1837.86                  1.000
+pycodec / plain                                       1052     36893.94   36612.63   37226.41                 20.772
+pycodec / __slots__                                    535     36636.42   36350.67   37103.03                 20.627
+core-ffi / plain                                      7228      5158.40    5146.03    5209.09                  2.904
+core-ffi / __slots__                                  8014      4965.44    4937.36    5214.35                  2.796
+core-ffi / C ext type                                 8192      2517.47    2508.82    2577.53                  1.417
+core-ffi / pyacc (python fn)                          2664     14291.41   14223.58   14431.49                  8.046
+core-ffi / pyacc (C attrgetter)                       2562     14567.38   14504.49   14677.47                  8.202
+-- floor: 4 bare objects + one copy                  15343      1315.65    1309.55    1333.30                  0.741
+                                                construct N facade elements and copy the input, and nothing else
+
+## decode+read every field P1.1
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                       2558     14501.31   14436.49   14784.75                  1.000
+pycodec / plain                                        822     47078.96   46922.23   47619.75                  3.247
+pycodec / __slots__                                    848     46299.81   46143.19   46881.86                  3.193
+core-ffi / plain                                      1770     14797.53   14749.46   15214.07                  1.020
+core-ffi / __slots__                                  2646     14358.47   14294.88   14818.40                  0.990
+core-ffi / C ext type                                 1621     12378.63   12245.36   12792.26                  0.854
+core-ffi / pyacc (python fn)                          1632     24078.85   24020.07   27922.10                  1.660
+core-ffi / pyacc (C attrgetter)                        811     24350.04   24209.37   24609.23                  1.679
+
+## re-read every field P1.1
+arm                                                   reps    median ns        min        max
+upb (incumbent)                                       2734     12578.20   12468.59   13359.77
+facade / plain                                        2051      9326.84    9259.77    9567.92
+facade / __slots__                                    4214      9023.13    8981.69    9083.94
+facade / C ext type                                   4160      9576.06    9526.99   10715.62
+
+## encode P1.2
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                         64    350001.64  345556.59  383898.14                  1.000
+pycodec / plain                                         64   9003089.53 8933422.20 9198302.66                 25.723
+pycodec / __slots__                                     64   8912567.09 8840071.81 9053056.64                 25.464
+core-ffi / plain                                        64    568646.84  566726.55  659115.41                  1.625
+core-ffi / __slots__                                    64    524513.20  520859.45  583517.92                  1.499
+core-ffi / C ext type                                  128    246581.98  245165.90  255822.23                  0.705
+core-ffi / pyacc (python fn)                            64   1970383.16 1958449.67 1994392.02                  5.630
+core-ffi / pyacc (C attrgetter)                         64   1736685.66 1716623.97 1776152.06                  4.962
+-- floor: one copy of the output (218121 B)           5090      4945.19    4817.37    5489.21                  0.014
+                                                no traversal. An encode cannot go below this
+
+## decode P1.2
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                        128    293621.13  292092.95  296895.16                  1.000
+pycodec / plain                                         64   9740582.75 9706893.53 9850863.11                 33.174
+pycodec / __slots__                                     64   9716768.95 9655851.81 9823768.81                 33.093
+core-ffi / plain                                        64   1180221.91 1167370.50 1211859.08                  4.020
+core-ffi / __slots__                                    64   1100564.33 1090770.69 1118412.47                  3.748
+core-ffi / C ext type                                   64    524500.14  518089.03  547663.55                  1.786
+core-ffi / pyacc (python fn)                            64   3335874.22 3317012.89 3384475.45                 11.361
+core-ffi / pyacc (C attrgetter)                         64   3447230.47 3416240.41 3612607.55                 11.740
+-- floor: 1000 bare objects + one copy                 128    235593.36  234416.90  252786.80                  0.802
+                                                construct N facade elements and copy the input, and nothing else
+
+## decode+read every field P1.2
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                         64   3420118.84 3399318.61 3452952.94                  1.000
+pycodec / plain                                         64  12248827.27 12181616.62 12372773.28                  3.581
+pycodec / __slots__                                     64  12188974.00 12110769.06 12335804.70                  3.564
+core-ffi / plain                                        64   3646327.88 3616289.53 3669792.92                  1.066
+core-ffi / __slots__                                    64   3518193.77 3501975.11 3569533.53                  1.029
+core-ffi / C ext type                                   64   3053747.89 3033432.20 3135860.73                  0.893
+core-ffi / pyacc (python fn)                            64   5793420.33 5765328.67 5902907.25                  1.694
+core-ffi / pyacc (C attrgetter)                         64   5881305.73 5846114.89 5921144.33                  1.720
+
+## re-read every field P1.2
+arm                                                   reps    median ns        min        max
+upb (incumbent)                                         64   3115476.80 3092356.19 3179933.20
+facade / plain                                          64   2446775.38 2434320.42 2477552.88
+facade / __slots__                                      64   2375530.34 2360047.02 2417142.16
+facade / C ext type                                     64   2487549.00 2464883.05 2541972.88
+
+## encode P1.3
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                       4398      8474.65    8430.22    9026.98                  1.000
+pycodec / plain                                        128    177456.40  176463.46  180554.84                 20.940
+pycodec / __slots__                                    128    182506.92  181141.42  195096.10                 21.536
+core-ffi / plain                                       606     65522.66   65342.33   66854.70                  7.732
+core-ffi / __slots__                                   352     55973.20   55760.78   56666.63                  6.605
+core-ffi / C ext type                                 3444     11400.97   11341.84   11863.84                  1.345
+core-ffi / pyacc (python fn)                            64    370818.89  362032.97  388970.92                 43.756
+core-ffi / pyacc (C attrgetter)                         64    324784.23  317620.55  331887.84                 38.324
+-- floor: one copy of the output (605 B)            506534        76.48      76.23      77.29                  0.009
+                                                no traversal. An encode cannot go below this
+
+## decode P1.3
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                       3830      7688.55    7618.54    8443.44                  1.000
+pycodec / plain                                        128    191788.23  190440.09  200202.29                 24.945
+pycodec / __slots__                                    128    187255.46  186789.80  200573.90                 24.355
+core-ffi / plain                                       282    139928.09  139464.06  149828.27                 18.200
+core-ffi / __slots__                                   148    134935.68  134184.75  145744.69                 17.550
+core-ffi / C ext type                                  411     48308.67   47918.34   52959.88                  6.283
+core-ffi / pyacc (python fn)                            64    610264.59  603622.61  637240.98                 79.373
+core-ffi / pyacc (C attrgetter)                         64    633334.53  627849.50  642039.22                 82.374
+-- floor: 300 bare objects + one copy                  296     67771.44   67145.18   74705.73                  8.815
+                                                construct N facade elements and copy the input, and nothing else
+
+## decode+read every field P1.3
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                         64    529067.44  524664.45  531510.50                  1.000
+pycodec / plain                                         64    640175.89  638073.30  672744.28                  1.210
+pycodec / __slots__                                     64    625076.05  621648.59  643691.05                  1.181
+core-ffi / plain                                        64    591931.62  587000.97  607544.03                  1.119
+core-ffi / __slots__                                    64    571735.86  569463.11  596487.20                  1.081
+core-ffi / C ext type                                   64    495294.88  492636.59  506644.34                  0.936
+core-ffi / pyacc (python fn)                            64   1058099.45 1054241.59 1085369.16                  2.000
+core-ffi / pyacc (C attrgetter)                         64   1082777.72 1078060.30 1142050.38                  2.047
+
+## re-read every field P1.3
+arm                                                   reps    median ns        min        max
+upb (incumbent)                                         64    517733.98  513092.55  530415.53
+facade / plain                                          64    447460.25  444564.08  452929.55
+facade / __slots__                                      64    434173.12  429410.17  467696.61
+facade / C ext type                                     64    441690.06  438367.08  449679.55
+
+## the boundary, in this process
+arm                                                   reps    median ns        min        max
+forward (no-op)                                   10745676         1.82       1.81       1.85
+fwd+reverse (no-op)                               16292228         2.44       2.42       2.48
+
+########## process 3 ##########
+# python slice, work unit 2: the COMPOSED arm over the M1 subtree
+#
+# interpreter:  3.11.15 (main, Mar  3 2026, 09:26:23) [GCC 13.3.0]
+# incumbent:    protobuf 7.36.2 on upb
+# baseline:     gRPC's generated marshaller path: Message.SerializeToString on encode and Message.FromString on decode (R14)
+# core:         ffi/poc/codec, ABI v1, libak_core.so through the dynamic linker
+# fill:         ABI v1 decision 9's SPARSE fill (bulk clear, then only what differs)
+# rounds:       11, interleaved; per-case target 20 ms
+# payloads:     P1.1, P1.2, P1.3 (P1.3 is the absent path)
+# absolutes:    instrumentation, not the deliverable. Read the signs and the
+#               size classes; the controlled rerun owns the decimals.
+
+## the correctness gate (README R2)
+   conformance.py exit 0: ALL CHECKS PASS
+
+## encode P1.1
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                      19591      1024.33    1017.65    1048.54                  1.000
+pycodec / plain                                       1100     34468.46   34144.34   34897.55                 33.650
+pycodec / __slots__                                    583     34033.54   33898.84   34867.85                 33.225
+core-ffi / plain                                      8192      2653.45    2638.71    2718.29                  2.590
+core-ffi / __slots__                                  8192      2457.81    2442.25    2482.19                  2.399
+core-ffi / C ext type                                15925      1254.66    1251.15    1284.56                  1.225
+core-ffi / pyacc (python fn)                          4172      8575.91    8518.49    8718.03                  8.372
+core-ffi / pyacc (C attrgetter)                       5242      7602.62    7548.74    7737.21                  7.422
+-- floor: one copy of the output (858 B)            465802        79.59      79.24      84.92                  0.078
+                                                no traversal. An encode cannot go below this
+
+## decode P1.1
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                      22242      1759.97    1752.07    1798.15                  1.000
+pycodec / plain                                       1036     37078.33   36749.11   37663.73                 21.068
+pycodec / __slots__                                   1068     36613.56   36200.04   38462.44                 20.803
+core-ffi / plain                                      6692      5032.73    4997.89    5710.56                  2.860
+core-ffi / __slots__                                  8192      4772.70    4748.08    5120.48                  2.712
+core-ffi / C ext type                                 8192      2484.54    2463.84    2535.02                  1.412
+core-ffi / pyacc (python fn)                          2672     14205.12   14079.68   14390.34                  8.071
+core-ffi / pyacc (C attrgetter)                       2716     14572.53   14383.90   14715.83                  8.280
+-- floor: 4 bare objects + one copy                  30472      1327.45    1322.83    1340.21                  0.754
+                                                construct N facade elements and copy the input, and nothing else
+
+## decode+read every field P1.1
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                       2450     14744.03   14518.13   15582.83                  1.000
+pycodec / plain                                        818     47048.05   46775.76   47509.27                  3.191
+pycodec / __slots__                                    423     46673.09   45978.18   47209.37                  3.166
+core-ffi / plain                                      2628     14645.35   14531.54   15342.96                  0.993
+core-ffi / __slots__                                  2664     14181.18   14154.69   14420.79                  0.962
+core-ffi / C ext type                                 3114     12283.78   12248.39   12428.18                  0.833
+core-ffi / pyacc (python fn)                          1666     23974.71   23748.94   25350.38                  1.626
+core-ffi / pyacc (C attrgetter)                       1644     24097.21   24005.43   25152.80                  1.634
+
+## re-read every field P1.1
+arm                                                   reps    median ns        min        max
+upb (incumbent)                                       3026     12640.96   12592.33   14193.61
+facade / plain                                        2060      9255.19    9203.04   10353.32
+facade / __slots__                                    4198      9019.12    8979.65    9516.67
+facade / C ext type                                   2124      9606.58    9526.17   11691.60
+
+## encode P1.2
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                         64    350953.31  343453.14  390334.89                  1.000
+pycodec / plain                                         64   9002508.59 8915173.94 9097311.70                 25.652
+pycodec / __slots__                                     64   8926903.22 8804099.44 9068117.48                 25.436
+core-ffi / plain                                        64    573960.75  566481.91  597517.05                  1.635
+core-ffi / __slots__                                    64    526799.84  520074.36  564978.14                  1.501
+core-ffi / C ext type                                  128    246074.87  244958.34  251350.82                  0.701
+core-ffi / pyacc (python fn)                            64   1973654.05 1962912.61 2089490.36                  5.624
+core-ffi / pyacc (C attrgetter)                         64   1727169.00 1714135.36 1742818.56                  4.921
+-- floor: one copy of the output (218121 B)           5966      6168.14    5901.38    7258.80                  0.018
+                                                no traversal. An encode cannot go below this
+
+## decode P1.2
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                        128    294362.60  291635.95  310517.66                  1.000
+pycodec / plain                                         64   9789305.41 9696180.61 10065530.70                 33.256
+pycodec / __slots__                                     64   9745638.31 9672873.59 10019811.77                 33.108
+core-ffi / plain                                        64   1166888.38 1152051.50 1203102.55                  3.964
+core-ffi / __slots__                                    64   1090334.05 1077928.78 1129260.47                  3.704
+core-ffi / C ext type                                   64    519578.72  515511.12  525123.66                  1.765
+core-ffi / pyacc (python fn)                            64   3324602.98 3294132.95 3525246.89                 11.294
+core-ffi / pyacc (C attrgetter)                         64   3403806.33 3387654.92 3454497.38                 11.563
+-- floor: 1000 bare objects + one copy                 128    247371.91  245974.45  251628.92                  0.840
+                                                construct N facade elements and copy the input, and nothing else
+
+## decode+read every field P1.2
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                         64   3428028.95 3399303.48 3523429.23                  1.000
+pycodec / plain                                         64  12265244.55 12151755.19 12442307.70                  3.578
+pycodec / __slots__                                     64  12243572.23 12137627.16 12900189.83                  3.572
+core-ffi / plain                                        64   3630091.83 3605032.55 3712219.09                  1.059
+core-ffi / __slots__                                    64   3515630.50 3490897.48 3686367.33                  1.026
+core-ffi / C ext type                                   64   3041299.23 3022831.33 3079145.88                  0.887
+core-ffi / pyacc (python fn)                            64   5786171.50 5751020.33 6015715.66                  1.688
+core-ffi / pyacc (C attrgetter)                         64   5865411.80 5816011.98 6003071.23                  1.711
+
+## re-read every field P1.2
+arm                                                   reps    median ns        min        max
+upb (incumbent)                                         64   3130233.19 3109958.47 3175187.52
+facade / plain                                          64   2427963.34 2413079.88 3099869.64
+facade / __slots__                                      64   2373147.05 2357321.73 2534393.58
+facade / C ext type                                     64   2464786.31 2456114.17 2489820.38
+
+## encode P1.3
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                       4368      8506.97    8417.92    8945.21                  1.000
+pycodec / plain                                        128    177283.62  176314.43  190467.67                 20.840
+pycodec / __slots__                                    128    181932.93  180799.16  186315.50                 21.386
+core-ffi / plain                                       598     66621.99   66147.11   70314.71                  7.831
+core-ffi / __slots__                                   353     56207.97   55906.69   56546.45                  6.607
+core-ffi / C ext type                                 3480     11414.26   11336.82   11900.07                  1.342
+core-ffi / pyacc (python fn)                            64    370306.00  368302.39  375532.25                 43.530
+core-ffi / pyacc (C attrgetter)                         64    318847.80  316885.22  329866.69                 37.481
+-- floor: one copy of the output (605 B)            524288        76.56      75.90      78.97                  0.009
+                                                no traversal. An encode cannot go below this
+
+## decode P1.3
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                       4814      7711.62    7616.71    8051.10                  1.000
+pycodec / plain                                        128    190507.60  188419.55  196050.30                 24.704
+pycodec / __slots__                                    128    186451.78  185613.06  191861.50                 24.178
+core-ffi / plain                                       288    139765.83  138463.99  215878.68                 18.124
+core-ffi / __slots__                                   153    130893.61  129897.97  145401.85                 16.974
+core-ffi / C ext type                                  832     47286.08   46983.13   66941.22                  6.132
+core-ffi / pyacc (python fn)                            64    606103.14  600991.02  616912.58                 78.596
+core-ffi / pyacc (C attrgetter)                         64    621278.19  617138.75  630817.41                 80.564
+-- floor: 300 bare objects + one copy                  596     70397.45   70201.00   72404.75                  9.129
+                                                construct N facade elements and copy the input, and nothing else
+
+## decode+read every field P1.3
+arm                                                   reps    median ns        min        max      / upb (incumbent)
+upb (incumbent)                                         64    531586.52  524173.81  538970.73                  1.000
+pycodec / plain                                         64    636881.03  632635.20  649631.00                  1.198
+pycodec / __slots__                                     64    627689.97  621110.27  632019.41                  1.181
+core-ffi / plain                                        64    589055.38  585119.03  601017.89                  1.108
+core-ffi / __slots__                                    64    571410.39  568480.97  595980.89                  1.075
+core-ffi / C ext type                                   64    496850.88  491585.64  507857.22                  0.935
+core-ffi / pyacc (python fn)                            64   1055863.89 1048140.06 1106135.62                  1.986
+core-ffi / pyacc (C attrgetter)                         64   1072512.66 1063897.14 1784963.66                  2.018
+
+## re-read every field P1.3
+arm                                                   reps    median ns        min        max
+upb (incumbent)                                         64    521307.83  518365.62  683180.53
+facade / plain                                          64    444749.73  442318.52  490241.88
+facade / __slots__                                      64    432890.56  430181.09  463820.81
+facade / C ext type                                     64    440668.58  439074.03  444841.52
+
+## the boundary, in this process
+arm                                                   reps    median ns        min        max
+forward (no-op)                                   11324032         1.83       1.81       1.96
+fwd+reverse (no-op)                                8457758         2.43       2.42       2.46
+
