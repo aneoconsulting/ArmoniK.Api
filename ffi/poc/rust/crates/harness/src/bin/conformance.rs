@@ -115,6 +115,60 @@ fn main() {
         }
     }
 
+    // ---- D20's regression, and the vector the whole gate was missing.
+    //
+    // **An empty Rust string's data pointer IS `AK_STR_DIRECT`.** `<[u8]>::as_ptr()` on an
+    // empty slice returns the dangling-but-aligned address 1, and ABI v1 section 8 reserves
+    // 1 as the sentinel for "these bytes are an argument of the call". So every empty string
+    // and every empty bytes field took the direct-argument path.
+    //
+    // It produced the RIGHT BYTES for as long as the context had never encoded a
+    // direct-argument message, because `direct_len` was 0 and a zero-length direct write is
+    // exactly what an empty field should be. **The wrong path produced the right answer**,
+    // which is why every arm, every payload and every content set passed.
+    //
+    // What it takes to see it is a SEQUENCE: encode `UploadResultDataMessage` on a context,
+    // then encode any other message on the SAME context. Nothing in this slice did that --
+    // every case built its own value and the M5 cases ran last. The corpus (README section
+    // 10) asks for distinct tags and multiple chunks; it does not ask for this, and it is
+    // worth adding: a per-context state that only one message type sets.
+    {
+        use harness::arms_rest::{ffi, m5, P5_2};
+        let seq_ctx = core_ffi_arm::Ctx::new();
+        // Poison the context: after this, `direct`/`direct_len` hold a 64 KB blob.
+        let big = m5::facade_value(P5_2);
+        ffi::enc_m5(&seq_ctx, &big);
+        let mut seq_bad = 0usize;
+        for (pid, want, got) in [
+            ("P3.1", {
+                let v = harness::arms_m3::armonik_arm::value("P3.1");
+                (harness::arms_m3::prost_arm::encode(&harness::arms_m3::prost_arm::value("P3.1")),
+                 harness::arms_m3::core_ffi_arm::encode(&seq_ctx, &v))
+            }),
+            ("P1.3", {
+                let v = armonik_arm::value(P1_3);
+                (prost_arm::encode(&prost_arm::value(P1_3)),
+                 core_ffi_arm::encode(&seq_ctx, &v))
+            }),
+            ("P2.5", {
+                let v = harness::arms_m2::armonik_arm::value("P2.5");
+                (harness::arms_m2::prost_arm::encode(&harness::arms_m2::prost_arm::value("P2.5")),
+                 harness::arms_m2::core_ffi_arm::encode(&seq_ctx, &v))
+            }),
+        ].map(|(pid, (w, g))| (pid, w, g)) {
+            let ok = want == got;
+            if !ok { seq_bad += 1; }
+            println!("{:<7} {:<9} {:<16} {:>9} {:>9}  {:<8} {}",
+                     pid, "real", "after-direct", want.len(), got.len(),
+                     if ok { "ok" } else { "DIFFER" },
+                     "encoded on a context that already encoded UploadResultDataMessage");
+        }
+        println!("{:<7} {:<9} {}", "", "", "^ D20's regression: an empty string's data pointer");
+        println!("{:<7} {:<9} {}", "", "", "  is AK_STR_DIRECT, so it took the direct path and");
+        println!("{:<7} {:<9} {}", "", "", "  spliced in whatever the last M5 encode left.");
+        bad += seq_bad;
+    }
+
     // The two added arms (P2.4a, P2.4b) have no manifest row. Their check is byte identity
     // against the prost arm, which the manifest validated on every payload that does have
     // one, plus value identity across the three facade decoders.

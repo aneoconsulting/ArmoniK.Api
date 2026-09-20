@@ -351,6 +351,14 @@ def emit_abi(ir):
         o.append("        len: usize,")
         o.append("        vt: *const ak_dvt_%s," % root)
         o.append("    ) -> i32;")
+        o.append("    /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse")
+        o.append("    /// call. The decoded values land in the context's record buffer and the")
+        o.append("    /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.")
+        o.append("    pub fn ak_parse_%s(" % root)
+        o.append("        ctx: *mut ak_dec_ctx,")
+        o.append("        buf: *const u8,")
+        o.append("        len: usize,")
+        o.append("    ) -> i32;")
     for et in sorted(element_types(ir)):
         leaf = ir.msg(et).leaf
         if leaf:
@@ -446,6 +454,56 @@ RESTORE_LINES = """    (*cx).open_tag = saved.0;
     (*cx).open_vt = saved.3;
     (*cx).open_obj = saved.4;
 """.rstrip("\n").split("\n")
+
+
+def _init_guard(body):
+    """ABI v1 section 3: "Every other entry point requires `ak_init` to have returned
+    successfully, the codec included, and returns AK_ERR_UNINITIALIZED if it has not."
+
+    Emitted as a post-pass over the finished body rather than at each of the ten places an
+    entry point is written, because the rule is about the SET of entry points and a rule
+    applied at nine of ten sites is the defect class this generator keeps finding (D12,
+    D13): a walker that misses a case and reports nothing.  Here the pass finds every
+    `extern "C" fn ak_*` in the emitted text, so a new entry point gets the guard by
+    existing rather than by someone remembering.
+
+    Behind `init-guard`, off by default.  That is a measurement decision and not a design
+    one: the claim has a price on the hot path -- `ak_elem_*` runs once per chunk and
+    `ak_encode_*` once per message -- and no slice in this branch has quoted it.  With the
+    feature off the emitted entry points are byte-for-byte what they were.
+    """
+    out = []
+    i = 0
+    n = len(body)
+    while i < n:
+        ln = body[i]
+        out.append(ln)
+        if not (ln.startswith("pub unsafe extern \"C\" fn ak_")
+                or ln.startswith("pub extern \"C\" fn ak_")):
+            i += 1
+            continue
+        # Walk to the end of the signature, which is the first line ending in `{`.
+        j = i
+        while j < n and not body[j].rstrip().endswith("{"):
+            j += 1
+            out.append(body[j])
+        if j >= n:
+            i = j + 1
+            continue
+        sig = " ".join(body[i:j + 1])
+        if "-> isize" in sig:
+            bad = "return AK_ERR_UNINITIALIZED as isize;"
+        elif "->" in sig:
+            bad = "return AK_ERR_UNINITIALIZED;"
+        else:
+            bad = "return;"
+        out.append("    // ABI v1 section 3: every entry point requires `ak_init`.")
+        out.append("    #[cfg(feature = \"init-guard\")]")
+        out.append("    if !crate::ak_init_ok() {")
+        out.append("        %s" % bad)
+        out.append("    }")
+        i = j + 1
+    return out
 
 
 def emit_codec(ir):
@@ -806,6 +864,7 @@ def emit_codec(ir):
         body.append("")
 
     body.extend(_emit_decode(ir, sites))
+    body = _init_guard(body)
 
     global SITE_NAMES
     SITE_NAMES = ["/".join(str(x) for x in (k[0], k[1], ".".join(k[2]))) for k in sites.ids]
@@ -832,6 +891,19 @@ PACKED_KIND = {"int32": 1, "int64": 2, "bool": 3, "double": 4, "enum": 5}
 
 # ============================================================== the core, decode
 
+def _push_elemcall(root, sn, dexpr, baseexpr):
+    """The push family's deposit for a non-leaf element: a call that will make reverse
+    calls of its own."""
+    return "dec_%s_%s_element(ctx, dcx, obj, vt, %s, %s)" % (snake(root), sn, dexpr, baseexpr)
+
+
+def _pull_elemcall(root, sn, dexpr, baseexpr):
+    """The pull family's, into the record buffer. Same arguments, no `obj` and no `vt`,
+    because a parse makes no upcall at all -- which is the property the JVM needs and the
+    reason section 7.1 carries two families."""
+    return "dec_%s_%s_element_pull(dcx, %s, %s)" % (snake(root), sn, dexpr, baseexpr)
+
+
 def _emit_decode(ir, sites):
     """The push family (ABI v1 section 7.1), with section 7.2's batching predicate.
 
@@ -845,9 +917,22 @@ def _emit_decode(ir, sites):
     """
     out = []
 
-    def dec_walk(root, name, fxexpr, prefix, bufname, basename, depth, slot_id, o):
+    def dec_walk(root, name, fxexpr, prefix, bufname, basename, depth, slot_id, o,
+                 elemcall=None):
         """Emit the match arms for one message body. Recurses into a singular message child,
-        because the group inlines it and its loop slots are the parent's."""
+        because the group inlines it and its loop slots are the parent's.
+
+        **This function is the whole of ABI v1 open decision 2's second half.** The push
+        family and the pull family (section 7.1) share it verbatim: the tag match, the wire
+        checks, the span arithmetic, 7.2's batching predicate and 7.3's flush on a foreign
+        tag are one body of emitted code, and what the two families differ in is where a
+        completed value is DEPOSITED -- which reaches this function as exactly one
+        parameter, `elemcall`, plus the `flush_*` macros and the entry point's epilogue,
+        both of which are emitted around it rather than inside it. Two emitters would be a
+        fork at the generator level and the likeliest place for the families to drift apart
+        on a shape nobody tested; this is the alternative, built."""
+        if elemcall is None:
+            elemcall = _push_elemcall
         m = ir.msg(name)
         for f in m.plain:
             if f.oneof:
@@ -920,8 +1005,8 @@ def _emit_decode(ir, sites):
                     o.append("                if cur != 0 { flush!(); cur = 0; }")
                     o.append("                let (off, n) = %s.len_body();" % dd)
                     o.append("                let mut sub = Dec::new(&%s[off..off + n]);" % bufname)
-                    o.append("                dec_%s_%s_element(ctx, dcx, obj, vt, &mut sub, %s + off);"
-                             % (snake(root), sn, basename))
+                    o.append("                %s;" % elemcall(root, sn, "&mut sub",
+                                                                   "%s + off" % basename))
                     o.append("                if sub.err != 0 { %s.err = sub.err; }" % dd)
                     o.append("            }")
                 elif f.card == "packed":
@@ -1016,17 +1101,37 @@ def _emit_decode(ir, sites):
         else:
             o.append("%slet uk_%s: *mut UnkBuf = ::core::ptr::null_mut();" % (indent, sn))
 
-    def flush_macros(slots, tokarg, o, vtprefix=""):
-        """One macro per slot, and one that flushes them all."""
-        for sn, dty, cb in slots:
+    def flush_macros(slots, tokarg, o, family="push"):
+        """One macro per slot, and one that flushes them all.
+
+        **The deposit point.** For `push` a flush is a reverse call into the host; for
+        `pull` it is a record appended to the host-owned buffer of section 7.1. Everything
+        that decides WHEN a flush happens -- 7.2's batching predicate, 7.3's flush on a tag
+        that does not belong to the open batch, the arena filling up -- is emitted by
+        `dec_walk` and `arena_decl` and is identical in both families. This is the only
+        place the two differ, and `slots` carries per-family what it needs: the vtable
+        member for push, the record's slot id for pull."""
+        for sn, dty, extra in slots:
             o.append("    macro_rules! flush_%s {" % sn)
             o.append("        () => {")
             o.append("            if n_%s > 0 {" % sn)
-            o.append("                if let Some(add) = (*vt).%s {" % cb)
-            o.append("                    ak_rt::bump!((*dcx).c, reverse);")
-            o.append("                    add(ctx, obj, %s, a_%s.as_ptr() as *const %s, n_%s as i32);"
-                     % (tokarg, sn, dty, sn))
-            o.append("                }")
+            if family == "push":
+                o.append("                if let Some(add) = (*vt).%s {" % extra)
+                o.append("                    ak_rt::bump!((*dcx).c, reverse);")
+                o.append("                    add(ctx, obj, %s, a_%s.as_ptr() as *const %s, n_%s as i32);"
+                         % (tokarg, sn, dty, sn))
+                o.append("                }")
+            else:
+                o.append("                // No call: the run is copied into the record buffer and the")
+                o.append("                // host reads it after `ak_parse_*` returns.")
+                o.append("                (*dcx).bdr.push(")
+                o.append("                    ak_rt::bdr::OP_ADD,")
+                o.append("                    %d," % extra)
+                o.append("                    %s," % tokarg)
+                o.append("                    n_%s as u32," % sn)
+                o.append("                    a_%s.as_ptr() as *const u8," % sn)
+                o.append("                    n_%s * ::core::mem::size_of::<%s>()," % (sn, dty))
+                o.append("                );")
             o.append("                done_%s += n_%s;" % (sn, sn))
             o.append("                n_%s = 0;" % sn)
             o.append("                if !uk_%s.is_null() { (*uk_%s).flush(); }" % (sn, sn))
@@ -1187,6 +1292,145 @@ def _emit_decode(ir, sites):
         out.append("    if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }")
         out.append("}")
         out.append("")
+
+    # ================================================== the pull family (ABI v1 7.1)
+    #
+    # The same `dec_walk` above, the same `arena_decl` above, the same `flush_macros`
+    # above with its family switch flipped. What is written here is the entry point and
+    # the element decoder around them -- the prologue, the epilogue and the deposit -- and
+    # that is the measured answer to open decision 2's second half.
+    out.append("// " + "=" * 84)
+    out.append("// The PULL family (ABI v1 section 7.1). `ak_parse_*` makes NO reverse call:")
+    out.append("// it deposits into the host-owned context's record buffer, and the host reads")
+    out.append("// it afterwards with `ak_bdr_drain` or `ak_bdr_ptr`. On the JVM that is what")
+    out.append("// lets a parse run inside a critical section without first copying the wire")
+    out.append("// buffer into native scratch; on a host whose reverse call is cheap it is a")
+    out.append("// materialisation nobody needs, and the measurement says which is which.")
+    out.append("//")
+    out.append("// The traversal is `dec_walk`, shared verbatim with the push family above.")
+    out.append("// " + "=" * 84)
+    out.append("")
+
+    for root in ir.roots:
+        rslots = loop_slots(ir, root)
+        for j, (path, f) in enumerate(rslots):
+            et = elem_type(f)
+            if not et or ir.msg(et).leaf:
+                continue
+            sn = slot_name(path)
+            inner_slots = loop_slots(ir, et)
+            sid = {slot_name(p): k + 1 for k, (p, _) in enumerate(inner_slots)}
+            out.append("/// Pull form of the non-leaf element run. `new` becomes a minted token and")
+            out.append("/// an OP_NEW record, `apply` becomes an OP_APPLY_ELEM record; the host's")
+            out.append("/// replay does what its `new_%s`/`apply_%s` would have done." % (sn, sn))
+            out.append("unsafe fn dec_%s_%s_element_pull(" % (snake(root), sn))
+            out.append("    dcx: *mut DecCtxImpl,")
+            out.append("    d: &mut Dec,")
+            out.append("    base: usize,")
+            out.append(") {")
+            out.append("    // The codec MINTS the token because there is nobody to ask during a parse.")
+            out.append("    // A token is an index (ABI v1 section 10), and the host's replay pushes its")
+            out.append("    // elements in the order the records arrive, so index i names the same object")
+            out.append("    // on both sides without either holding an address.")
+            out.append("    let tok = (*dcx).bdr.mint();")
+            out.append("    (*dcx).bdr.push(ak_rt::bdr::OP_NEW, %d, tok, 0, ::core::ptr::null(), 0);"
+                       % ((j + 1) << 16))
+            out.append("    let mut out = ak_dfix_%s::ZERO;" % et)
+            out.append("    #[allow(unused_variables)]")
+            out.append("    let buf0 = d.buf;")
+            out.append("    let base0 = base;")
+            slots = []
+            for k, (ipath, iff) in enumerate(inner_slots):
+                isn = slot_name(ipath)
+                idty, _ = slot_elem_rust(iff)
+                arena_decl(isn, idty, out)
+                slots.append((isn, idty, ((j + 1) << 16) | (k + 1)))
+            flush_macros(slots, "tok", out, family="pull")
+            out.append("    let mut cur = 0u32;")
+            out.append("    while !d.at_end() {")
+            out.append("        let k = d.varint();")
+            out.append("        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);")
+            out.append("        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }")
+            out.append("        match tag {")
+            dec_walk(root, et, "out", (), "buf0", "base0", 0, sid, out,
+                     elemcall=_pull_elemcall)
+            out.append("            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }")
+            out.append("        }")
+            out.append("    }")
+            out.append("    flush!();")
+            out.append("    (*dcx).bdr.push(")
+            out.append("        ak_rt::bdr::OP_APPLY_ELEM,")
+            out.append("        %d," % ((j + 1) << 16))
+            out.append("        tok,")
+            out.append("        1,")
+            out.append("        &out as *const _ as *const u8,")
+            out.append("        ::core::mem::size_of::<ak_dfix_%s>()," % et)
+            out.append("    );")
+            out.append("}")
+            out.append("")
+
+    for root in ir.roots:
+        rslots = loop_slots(ir, root)
+        sid = {slot_name(p): i + 1 for i, (p, _) in enumerate(rslots)}
+        out.append("/// Pull family (ABI v1 section 7.1): parse into the context, zero upcalls.")
+        out.append("///")
+        out.append("/// The host then calls `ak_bdr_footprint` and either `ak_bdr_drain` (copy the")
+        out.append("/// records into its own memory, which is what a managed host must do) or")
+        out.append("/// `ak_bdr_ptr` (walk them in place, which is what a native host does).")
+        out.append("#[no_mangle]")
+        out.append("pub unsafe extern \"C\" fn ak_parse_%s(" % root)
+        out.append("    ctx: *mut ak_dec_ctx,")
+        out.append("    buf: *const u8,")
+        out.append("    len: usize,")
+        out.append(") -> i32 {")
+        out.append("    let dcx = ctx as *mut DecCtxImpl;")
+        out.append("    ak_rt::bump!((*dcx).c, forward);")
+        out.append("    // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,")
+        out.append("    // so a rejected parse cannot poison every later one on this context.")
+        out.append("    (*dcx).hdr.err = AK_OK;")
+        out.append("    (*dcx).bdr.reset();")
+        out.append("    let buf0 = ::core::slice::from_raw_parts(buf, len);")
+        out.append("    let base0 = 0usize;")
+        out.append("    let mut d = Dec::new(buf0);")
+        out.append("    let mut out = ak_dfix_%s::ZERO;" % root)
+        slots = []
+        for i, (path, f) in enumerate(rslots):
+            et = elem_type(f)
+            if et and not ir.msg(et).leaf:
+                continue
+            sn = slot_name(path)
+            dty, _ = slot_elem_rust(f)
+            arena_decl(sn, dty, out)
+            slots.append((sn, dty, i + 1))
+        flush_macros(slots, "AK_TOKEN_ROOT", out, family="pull")
+        out.append("    let mut cur = 0u32;")
+        out.append("    while !d.at_end() {")
+        out.append("        let k = d.varint();")
+        out.append("        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);")
+        out.append("        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }")
+        out.append("        match tag {")
+        dec_walk(root, root, "out", (), "buf0", "base0", 0, sid, out, elemcall=_pull_elemcall)
+        out.append("            // Decision 11's capture is NOT built for this family: the bag is a")
+        out.append("            // candidate and pull is a family, and pricing one through the other")
+        out.append("            // would make neither answerable. Unknown fields are skipped here,")
+        out.append("            // which is what the default push path does too.")
+        out.append("            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(wire); }")
+        out.append("        }")
+        out.append("    }")
+        out.append("    flush!();")
+        out.append("    // The root group LAST, exactly where the push family calls `apply`, so the")
+        out.append("    // record stream is the call sequence push would have made, in its order.")
+        out.append("    (*dcx).bdr.push(")
+        out.append("        ak_rt::bdr::OP_APPLY,")
+        out.append("        0,")
+        out.append("        AK_TOKEN_ROOT,")
+        out.append("        1,")
+        out.append("        &out as *const _ as *const u8,")
+        out.append("        ::core::mem::size_of::<ak_dfix_%s>()," % root)
+        out.append("    );")
+        out.append("    if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }")
+        out.append("}")
+        out.append("")
     return out
 
 
@@ -1321,7 +1565,38 @@ unsafe fn b_of(base: *const u8, s: ak_span) -> ::bytes::Bytes {
 
 #[inline(always)]
 pub(crate) fn str_arg(s: &str, tc: ak_transcode_fn) -> ak_str {
-    ak_str { data: s.as_ptr() as *const c_void, len: s.len(), tc: Some(tc) }
+    ak_str { data: data_of(s.as_bytes()), len: s.len(), tc: Some(tc) }
+}
+
+pub(crate) fn blob_arg(b: &[u8], tc: ak_transcode_fn) -> ak_str {
+    ak_str { data: data_of(b), len: b.len(), tc: Some(tc) }
+}
+
+/// **The data pointer of an EMPTY slice must not be handed to the core** (defect D20).
+///
+/// `<[u8]>::as_ptr()` on an empty slice returns the type's dangling-but-aligned pointer,
+/// which for `u8` is the address `1` -- and `1` is exactly `AK_STR_DIRECT`, ABI v1 section
+/// 8's sentinel for "these bytes are an argument of the call". So **every empty string and
+/// every empty bytes field was taking the direct-argument path**, and `enc_blob` was
+/// splicing in whatever `(*cx).direct` and `(*cx).direct_len` happened to hold.
+///
+/// It was invisible for as long as it was, and that is the part worth keeping: on a context
+/// that has never encoded a direct-argument message, `direct_len` is 0, so the direct path
+/// writes a zero-length field -- which is exactly what an empty field should be. **The wrong
+/// path produced the right bytes.** It only corrupts once the same context has encoded
+/// `UploadResultDataMessage`, after which every empty string in the next message of any
+/// other type emits the stale multi-megabyte blob.
+///
+/// The ABI already has a way to say "empty": `tc` set with `len == 0`. `tc == null` is what
+/// says "absent". `data` is not the discriminator for either, so a null pointer here is
+/// well-formed and the core never dereferences a zero-length span.
+#[inline(always)]
+pub(crate) fn data_of(b: &[u8]) -> *const c_void {
+    if b.is_empty() {
+        ::core::ptr::null()
+    } else {
+        b.as_ptr() as *const c_void
+    }
 }
 
 /// The transcoders, resolved once. `ak_tc_utf8_trusted` rather than `ak_tc_utf8` because a
@@ -1404,7 +1679,7 @@ def emit_binding(ir):
                     o.append("        },")
                 elif f.kind == "bytes":
                     o.append("        %s: match &o.%s {" % (f.name, f.name))
-                    o.append("            Some(v) => ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) },")
+                    o.append("            Some(v) => blob_arg(v, tc.1),")
                     o.append("            None => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
                     o.append("        },")
                 elif f.kind == "bool":
@@ -1423,8 +1698,7 @@ def emit_binding(ir):
             elif f.kind == "string":
                 o.append("        %s: str_arg(&o.%s, tc.0)," % (f.name, f.name))
             elif f.kind == "bytes":
-                o.append("        %s: ak_str { data: o.%s.as_ptr() as *const c_void, len: o.%s.len(), tc: Some(tc.1) },"
-                         % (f.name, f.name, f.name))
+                o.append("        %s: blob_arg(&o.%s, tc.1)," % (f.name, f.name))
             elif f.kind == "message":
                 o.append("        %s: match &o.%s {" % (f.name, f.name))
                 o.append("            Some(c) => make_%s(c, tc)," % snake(f.of))
@@ -1450,7 +1724,7 @@ def emit_binding(ir):
                     o.append("            Some(%s::%s(v)) => str_arg(v, tc.0)," % (ty, _camel(g.name)))
                     o.append("            _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
                 elif g.kind == "bytes":
-                    o.append("            Some(%s::%s(v)) => ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) },"
+                    o.append("            Some(%s::%s(v)) => blob_arg(v, tc.1),"
                              % (ty, _camel(g.name)))
                     o.append("            _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
                 elif g.kind == "message":
@@ -1499,7 +1773,7 @@ def emit_binding(ir):
                     o.append("        },")
                 elif f.kind == "bytes":
                     o.append("        %s: match &o.%s {" % (f.name, f.name))
-                    o.append("            Some(v) => ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) },")
+                    o.append("            Some(v) => blob_arg(v, tc.1),")
                     o.append("            None => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
                     o.append("        },")
                 elif f.kind == "bool":
@@ -1518,8 +1792,7 @@ def emit_binding(ir):
             elif f.kind == "string":
                 o.append("        %s: str_arg(&o.%s, tc.0)," % (f.name, f.name))
             elif f.kind == "bytes":
-                o.append("        %s: ak_str { data: o.%s.as_ptr() as *const c_void, len: o.%s.len(), tc: Some(tc.1) },"
-                         % (f.name, f.name, f.name))
+                o.append("        %s: blob_arg(&o.%s, tc.1)," % (f.name, f.name))
             elif f.kind == "message":
                 o.append("        %s: match &o.%s {" % (f.name, f.name))
                 o.append("            Some(c) => make_%s_unk(c, tc)," % snake(f.of))
@@ -1545,7 +1818,7 @@ def emit_binding(ir):
                     o.append("            Some(%s::%s(v)) => str_arg(v, tc.0)," % (ty, _camel(g.name)))
                     o.append("            _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
                 elif g.kind == "bytes":
-                    o.append("            Some(%s::%s(v)) => ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) },"
+                    o.append("            Some(%s::%s(v)) => blob_arg(v, tc.1),"
                              % (ty, _camel(g.name)))
                     o.append("            _ => ak_str { data: ::core::ptr::null(), len: 0, tc: None },")
                 elif g.kind == "message":
@@ -1600,7 +1873,7 @@ def emit_binding(ir):
                     o.append("    if let Some(v) = &o.%s { d.%s = str_arg(v, tc.0); d.presence |= 1 << %d; }"
                              % (f.name, f.name, bits[f.name]))
                 elif f.kind == "bytes":
-                    o.append("    if let Some(v) = &o.%s { d.%s = ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) }; d.presence |= 1 << %d; }"
+                    o.append("    if let Some(v) = &o.%s { d.%s = blob_arg(v, tc.1); d.presence |= 1 << %d; }"
                              % (f.name, f.name, bits[f.name]))
                 elif f.kind == "bool":
                     o.append("    if let Some(v) = o.%s { d.%s = v as u8; d.presence |= 1 << %d; }"
@@ -1618,8 +1891,8 @@ def emit_binding(ir):
             elif f.kind == "string":
                 o.append("    if !o.%s.is_empty() { d.%s = str_arg(&o.%s, tc.0); }" % (f.name, f.name, f.name))
             elif f.kind == "bytes":
-                o.append("    if !o.%s.is_empty() { d.%s = ak_str { data: o.%s.as_ptr() as *const c_void, len: o.%s.len(), tc: Some(tc.1) }; }"
-                         % (f.name, f.name, f.name, f.name))
+                o.append("    if !o.%s.is_empty() { d.%s = blob_arg(&o.%s, tc.1); }"
+                         % (f.name, f.name, f.name))
             elif f.kind == "message":
                 o.append("    if let Some(c) = &o.%s { fill_%s_sparse(&mut d.%s, c, tc); d.presence |= 1 << %d; }"
                          % (f.name, snake(f.of), f.name, bits[f.name]))
@@ -1639,7 +1912,7 @@ def emit_binding(ir):
                 if g.kind == "string":
                     val = "d.%s_%s = str_arg(v, tc.0);" % (oname, g.name)
                 elif g.kind == "bytes":
-                    val = "d.%s_%s = ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) };" % (oname, g.name)
+                    val = "d.%s_%s = blob_arg(v, tc.1);" % (oname, g.name)
                 elif g.kind == "message":
                     val = "fill_%s_sparse(&mut d.%s_%s, v, tc);" % (snake(g.of), oname, g.name)
                 elif g.kind == "bool":
@@ -1688,7 +1961,7 @@ def emit_binding(ir):
                     o.append("    if let Some(v) = &o.%s { d.%s = str_arg(v, tc.0); d.presence |= 1 << %d; }"
                              % (f.name, f.name, bits[f.name]))
                 elif f.kind == "bytes":
-                    o.append("    if let Some(v) = &o.%s { d.%s = ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) }; d.presence |= 1 << %d; }"
+                    o.append("    if let Some(v) = &o.%s { d.%s = blob_arg(v, tc.1); d.presence |= 1 << %d; }"
                              % (f.name, f.name, bits[f.name]))
                 elif f.kind == "bool":
                     o.append("    if let Some(v) = o.%s { d.%s = v as u8; d.presence |= 1 << %d; }"
@@ -1706,8 +1979,8 @@ def emit_binding(ir):
             elif f.kind == "string":
                 o.append("    if !o.%s.is_empty() { d.%s = str_arg(&o.%s, tc.0); }" % (f.name, f.name, f.name))
             elif f.kind == "bytes":
-                o.append("    if !o.%s.is_empty() { d.%s = ak_str { data: o.%s.as_ptr() as *const c_void, len: o.%s.len(), tc: Some(tc.1) }; }"
-                         % (f.name, f.name, f.name, f.name))
+                o.append("    if !o.%s.is_empty() { d.%s = blob_arg(&o.%s, tc.1); }"
+                         % (f.name, f.name, f.name))
             elif f.kind == "message":
                 o.append("    if let Some(c) = &o.%s { fill_%s_unk_sparse(&mut d.%s, c, tc); d.presence |= 1 << %d; }"
                          % (f.name, snake(f.of), f.name, bits[f.name]))
@@ -1727,7 +2000,7 @@ def emit_binding(ir):
                 if g.kind == "string":
                     val = "d.%s_%s = str_arg(v, tc.0);" % (oname, g.name)
                 elif g.kind == "bytes":
-                    val = "d.%s_%s = ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) };" % (oname, g.name)
+                    val = "d.%s_%s = blob_arg(v, tc.1);" % (oname, g.name)
                 elif g.kind == "message":
                     val = "fill_%s_unk_sparse(&mut d.%s_%s, v, tc);" % (snake(g.of), oname, g.name)
                 elif g.kind == "bool":
@@ -2113,6 +2386,216 @@ def emit_binding(ir):
         o.append("    Ok(out)")
         o.append("}")
         o.append("")
+
+        # ================== ABI v1 section 7.1's PULL family, host side =================
+        #
+        # The replay calls THE SAME host functions the push vtable registers. That is not
+        # economy, it is the control: if the two families deposited through two different
+        # bodies of host code, a difference between the arms would be a difference between
+        # two bindings and not between two deliveries. Here the only thing that differs is
+        # how the call sequence reaches the host -- as calls, or as records.
+        rslots = loop_slots(ir, root)
+        o.append("/// Replay one chunk of records (ABI v1 section 7.1: \"walk heap arrays\").")
+        o.append("///")
+        o.append("/// `toks` maps the token the CODEC minted, which is an index over the whole")
+        o.append("/// parse, to the one `new_*` returned, which is an index into one host vector.")
+        o.append("/// They coincide when a root has a single non-leaf slot and would not if it")
+        o.append("/// had two, so the map is kept rather than the coincidence relied on.")
+        o.append("///")
+        o.append("/// **`OPAQUE` is R5's second half, for this family.** A replay is HOST code")
+        o.append("/// calling host code, so rustc may inline `apply_*` and `add_*` into it and")
+        o.append("/// specialise them; a push callback is reached through a vtable from across")
+        o.append("/// the shared-library boundary and can never be. Subtracting the two families")
+        o.append("/// without saying so would charge an optimiser difference to the interface.")
+        o.append("/// With `OPAQUE`, every call goes through a `black_box`ed function pointer --")
+        o.append("/// no inlining, no devirtualisation, no constant propagation -- which is the")
+        o.append("/// same device the `core-native-opaque` arm already uses for the same reason.")
+        o.append("/// A const generic, so the branch folds away in both instantiations.")
+        o.append("unsafe fn replay_%s_g<const OPAQUE: bool>(" % rs)
+        o.append("    ctx: *mut ak_dec_ctx,")
+        o.append("    sink: *mut c_void,")
+        o.append("    recs: &[u64],")
+        o.append("    toks: &mut Vec<i64>,")
+        o.append(") {")
+        o.append("    macro_rules! c {")
+        o.append("        ($f:expr) => {")
+        o.append("            if OPAQUE { ::core::hint::black_box($f) } else { $f }")
+        o.append("        };")
+        o.append("    }")
+        o.append("    for (h, body) in ak_rt::bdr::RecIter::new(recs) {")
+        o.append("        match (h.op, h.slot) {")
+        o.append("            (AK_BDR_APPLY, 0) => c!(apply_%s)(ctx, sink, body as *const ak_dfix_%s),"
+                 % (rs, root))
+        for i, (path, f) in enumerate(rslots):
+            sn = slot_name(path)
+            et = elem_type(f)
+            dty, _ = slot_elem_rust(f)
+            if et and not ir.msg(et).leaf:
+                o.append("            (AK_BDR_NEW, %d) => toks.push(c!(new_%s_%s)(ctx, sink)),"
+                         % ((i + 1) << 16, rs, sn))
+                o.append("            (AK_BDR_APPLY_ELEM, %d) => c!(apply_%s_%s)(" % ((i + 1) << 16, rs, sn))
+                o.append("                ctx,")
+                o.append("                sink,")
+                o.append("                toks[h.token as usize],")
+                o.append("                body as *const ak_dfix_%s," % et)
+                o.append("            ),")
+                for k, (ipath, iff) in enumerate(loop_slots(ir, et)):
+                    isn = slot_name(ipath)
+                    idty, _ = slot_elem_rust(iff)
+                    o.append("            (AK_BDR_ADD, %d) => c!(add_%s_%s_%s)(" %
+                             (((i + 1) << 16) | (k + 1), rs, sn, isn))
+                    o.append("                ctx,")
+                    o.append("                sink,")
+                    o.append("                toks[h.token as usize],")
+                    o.append("                body as *const %s," % idty)
+                    o.append("                h.n as i32,")
+                    o.append("            ),")
+            else:
+                o.append("            (AK_BDR_ADD, %d) => c!(add_%s_%s)(" % (i + 1, rs, sn))
+                o.append("                ctx,")
+                o.append("                sink,")
+                o.append("                h.token,")
+                o.append("                body as *const %s," % dty)
+                o.append("                h.n as i32,")
+                o.append("            ),")
+        o.append("            // A record for a slot this host does not know is a generator")
+        o.append("            // disagreement, not wire input, so it fails the operation rather")
+        o.append("            // than being skipped the way an unknown TAG is.")
+        o.append("            _ => ak_fail(ctx as *mut c_void, AK_ERR_ABI, ::core::ptr::null(), 0),")
+        o.append("        }")
+        o.append("    }")
+        o.append("}")
+        o.append("")
+        o.append("#[inline]")
+        o.append("unsafe fn replay_%s(" % rs)
+        o.append("    ctx: *mut ak_dec_ctx, sink: *mut c_void, recs: &[u64], toks: &mut Vec<i64>,")
+        o.append(") {")
+        o.append("    replay_%s_g::<false>(ctx, sink, recs, toks)" % rs)
+        o.append("}")
+        o.append("")
+        o.append("#[inline]")
+        o.append("unsafe fn replay_%s_opaque(" % rs)
+        o.append("    ctx: *mut ak_dec_ctx, sink: *mut c_void, recs: &[u64], toks: &mut Vec<i64>,")
+        o.append(") {")
+        o.append("    replay_%s_g::<true>(ctx, sink, recs, toks)" % rs)
+        o.append("}")
+        o.append("")
+        o.append("/// Pull, as a host that must COPY does it: parse, then drain in chunks into")
+        o.append("/// the host's own memory and replay each chunk. This is the JVM shape --")
+        o.append("/// `GetPrimitiveArrayCritical` over a `byte[]`, no upcall anywhere -- and the")
+        o.append("/// copy is the part a native host does not need.")
+        o.append("///")
+        o.append("/// `scratch` is the host's chunk buffer, reused across calls so the arm")
+        o.append("/// measures the family and not an allocator. `Vec<u64>`: a record payload is")
+        o.append("/// an `ak_dfix_*` and has to be 8-aligned.")
+        o.append("pub fn parse_drain_with_%s(" % rs)
+        o.append("    ctx: *mut ak_dec_ctx,")
+        o.append("    b: &[u8],")
+        o.append("    scratch: &mut Vec<u64>,")
+        o.append("    toks: &mut Vec<i64>,")
+        o.append(") -> Result<%s, i32> {" % root)
+        o.append("    let mut out = %s::default();" % root)
+        o.append("    if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {")
+        o.append("        scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);")
+        o.append("    }")
+        o.append("    toks.clear();")
+        o.append("    let rc = unsafe {")
+        o.append("        let rc = ak_parse_%s(ctx, b.as_ptr(), b.len());" % root)
+        o.append("        if rc < 0 {")
+        o.append("            rc")
+        o.append("        } else {")
+        o.append("            let mut sink = Sink%s { out: &mut out, base: b.as_ptr(), pending: Vec::new() };"
+                 % root)
+        o.append("            let obj = &mut sink as *mut _ as *mut c_void;")
+        o.append("            // Two forward calls the counting build cannot see from inside,")
+        o.append("            // because `ak_bdr_footprint` takes a const context (R5).")
+        o.append("            let total = ak_bdr_footprint(ctx);")
+        o.append("            ak_bdr_count_forward(ctx, 1);")
+        o.append("            let cap = scratch.len() * 8;")
+        o.append("            let mut cursor = 0usize;")
+        o.append("            let mut rc = AK_OK;")
+        o.append("            while cursor < total {")
+        o.append("                let n = ak_bdr_drain(ctx, scratch.as_mut_ptr() as *mut u8, cap, &mut cursor);")
+        o.append("                if n < 0 { rc = n as i32; break; }")
+        o.append("                if n == 0 { break; }")
+        o.append("                replay_%s(ctx, obj, &scratch[..(n as usize) / 8], toks);" % rs)
+        o.append("            }")
+        o.append("            if rc == AK_OK { ak_dec_err(ctx) } else { rc }")
+        o.append("        }")
+        o.append("    };")
+        o.append("    if rc < 0 { Err(rc) } else { Ok(out) }")
+        o.append("}")
+        o.append("")
+        o.append("/// Pull, as a host with no pinning problem does it: parse, then walk the")
+        o.append("/// records where the core left them. C++ and Rust can; a JVM cannot.")
+        o.append("///")
+        o.append("/// It is not a shortcut around the drain but the other half of the")
+        o.append("/// decomposition: the difference between this arm and the one above IS the")
+        o.append("/// copy, measured rather than estimated.")
+        o.append("pub fn parse_walk_with_%s(" % rs)
+        o.append("    ctx: *mut ak_dec_ctx,")
+        o.append("    b: &[u8],")
+        o.append("    toks: &mut Vec<i64>,")
+        o.append(") -> Result<%s, i32> {" % root)
+        o.append("    let mut out = %s::default();" % root)
+        o.append("    toks.clear();")
+        o.append("    let rc = unsafe {")
+        o.append("        let rc = ak_parse_%s(ctx, b.as_ptr(), b.len());" % root)
+        o.append("        if rc < 0 {")
+        o.append("            rc")
+        o.append("        } else {")
+        o.append("            let mut sink = Sink%s { out: &mut out, base: b.as_ptr(), pending: Vec::new() };"
+                 % root)
+        o.append("            let obj = &mut sink as *mut _ as *mut c_void;")
+        o.append("            let mut p: *const u8 = ::core::ptr::null();")
+        o.append("            let mut n: usize = 0;")
+        o.append("            let rc = ak_bdr_ptr(ctx, &mut p, &mut n);")
+        o.append("            if rc < 0 {")
+        o.append("                rc")
+        o.append("            } else {")
+        o.append("                // 8-aligned by construction: the core's buffer is a `Vec<u64>`.")
+        o.append("                let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);")
+        o.append("                replay_%s(ctx, obj, recs, toks);" % rs)
+        o.append("                ak_dec_err(ctx)")
+        o.append("            }")
+        o.append("        }")
+        o.append("    };")
+        o.append("    if rc < 0 { Err(rc) } else { Ok(out) }")
+        o.append("}")
+        o.append("")
+        o.append("/// The same walk with the replay's calls made opaque (see `replay_*_g`). The")
+        o.append("/// arm exists so that \"pull is at parity with push here\" is not secretly")
+        o.append("/// \"pull's deposit code was inlined and push's could not be\".")
+        o.append("pub fn parse_walk_opaque_with_%s(" % rs)
+        o.append("    ctx: *mut ak_dec_ctx,")
+        o.append("    b: &[u8],")
+        o.append("    toks: &mut Vec<i64>,")
+        o.append(") -> Result<%s, i32> {" % root)
+        o.append("    let mut out = %s::default();" % root)
+        o.append("    toks.clear();")
+        o.append("    let rc = unsafe {")
+        o.append("        let rc = ak_parse_%s(ctx, b.as_ptr(), b.len());" % root)
+        o.append("        if rc < 0 {")
+        o.append("            rc")
+        o.append("        } else {")
+        o.append("            let mut sink = Sink%s { out: &mut out, base: b.as_ptr(), pending: Vec::new() };"
+                 % root)
+        o.append("            let obj = &mut sink as *mut _ as *mut c_void;")
+        o.append("            let mut p: *const u8 = ::core::ptr::null();")
+        o.append("            let mut n: usize = 0;")
+        o.append("            let rc = ak_bdr_ptr(ctx, &mut p, &mut n);")
+        o.append("            if rc < 0 {")
+        o.append("                rc")
+        o.append("            } else {")
+        o.append("                let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);")
+        o.append("                replay_%s_opaque(ctx, obj, recs, toks);" % rs)
+        o.append("                ak_dec_err(ctx)")
+        o.append("            }")
+        o.append("        }")
+        o.append("    };")
+        o.append("    if rc < 0 { Err(rc) } else { Ok(out) }")
+        o.append("}")
+        o.append("")
     return "\n".join(o)
 
 
@@ -2462,7 +2945,7 @@ def _emit_loop(ir, o, root, path, f, sn, top, elem_path=None, inner_path=None, e
         o.append("            });")
     elif f.kind in ("string", "bytes"):
         acc = "str_arg(v, tc.0)" if f.kind == "string" else \
-              "ak_str { data: v.as_ptr() as *const c_void, len: v.len(), tc: Some(tc.1) }"
+              "blob_arg(v, tc.1)"
         o.append("        for v in src.iter() {")
         o.append("            chunk[i].write(%s);" % acc)
     elif f.kind == "message":
