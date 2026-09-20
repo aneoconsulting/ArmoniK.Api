@@ -1,0 +1,347 @@
+# harness: rpc --grid (corrected), --nagle, --crossings
+# date:                  2026-09-20
+# runtime:               .NET 8.0.31, 4 processors
+# core:                  ffi/poc/codec at claude/poc-next-slice-76rbjx ef8fea95,
+#                        built with `rpc` (timed) and with `rpc count` (counted)
+#                        into poc/csharp/target-core and target-core-count
+# rounds:                9, best-of, round-to-round spread on every row
+# orders:                forward AND reversed
+# code:                  poc/csharp/src/Rpc/{CoreTransport,Grid,Program}.cs
+#
+# Three jobs, all of them follow-ups to stage 18 rather than new scope:
+#   1. CHECK, not assume, whether this slice's loopback-TCP row was a Nagle row.
+#   2. FIX an R7 defect in stage 18's own grid, using the core's new
+#      `ak_client_new_opts`, and report whether fixing it moves the number.
+#   3. COUNT the transport's crossings, which the core can now report, instead
+#      of quoting section 9's figure.
+
+
+================================================================================
+1. THE TCP ROW IS NOT A NAGLE ROW, AND IT WAS CHECKED RATHER THAN ARGUED
+================================================================================
+
+The defect found in the core's test server was that tonic ignores `tcp_nodelay`
+under `serve_with_incoming`, so a 1 KB response cost MORE than a 540 KB one over
+loopback TCP -- backwards for flow control, exactly right for Nagle. The
+diagnostic transfers, so it was run on THIS stack, with no codec at all (the
+`byte[]` passthrough both ways), at both payload sizes and both transports:
+
+    transport            payload bytes      wall us/call
+    loopback TCP                   858             133.2
+    loopback TCP               540,422             905.4
+    unix domain socket             858             180.2
+    unix domain socket         540,422           1,196.1
+
+**The small payload is 6.8 times CHEAPER on TCP, where the defect made it about
+1.4 times dearer.** No Nagle here. The reason is that both ends of this arm are
+grpc-dotnet -- Kestrel's socket transport and `SocketsHttpHandler` -- and not the
+core's test server, and both set `TCP_NODELAY` by default. **So no figure this
+slice has published moves**, and stage 15's finding 6 (loopback TCP slightly
+FASTER than the UDS, 4,193 against 5,086 CPU us/call) is reproduced here in wall
+clock at both sizes and stands.
+
+The sharper consequence of the core's finding is taken: CPU moved as well as wall
+clock there, so "CPU is the trustworthy column" holds only once the socket is
+right. It is right here, so this slice's CPU columns hold -- which is a claim with
+a measurement behind it now rather than an assumption.
+
+
+================================================================================
+2. STAGE 18'S GRID HAD AN R7 DEFECT. FIXING IT MOVES NOTHING.
+================================================================================
+
+**The defect, stated plainly.** Stage 18's cells A and D pinned ArmoniK's
+transport configuration on the .NET client -- a 4 MiB stream window, dynamic
+sizing off, 64 MiB message limits -- and cells B and C took TONIC'S DEFAULTS,
+because the only dial the core exported was `ak_client_new`. So part of what
+B-A measured could have been the settings rather than the stack, and the grid
+said so nowhere.
+
+`ak_client_new_opts` closes it. The core client is now pinned to what the .NET
+client does, because the grid varies the CLIENT: stream window 4 MiB, connection
+window 64 MiB (which `Http2Connection` hardcodes, established from the runtime
+source in stage 15), adaptive sizing OFF, 64 MiB message limits, Nagle off --
+which is what `armonik-transport` ships. The unpinned cells are KEPT as B* and
+C* so the correction is visible rather than silently replacing the number.
+
+B/A, the same codec over each transport, CPU per call:
+
+    in flight                     1          8         16
+    B  pinned, forward        0.823      0.832      0.548
+    B  pinned, reversed       0.812      0.852      0.536
+    B* tonic defaults, fwd    0.831      0.840      0.629
+    B* tonic defaults, rev    0.805      0.852      0.495
+
+**Pinning moves nothing outside the spreads, and at 16 in flight the unpinned
+client is slightly the faster of the two in one order and slower in the other.**
+So the defect was real methodology and an immaterial number, which is worth
+saying in exactly that order.
+
+**Stage 18's headline survives its own defect, and tightens.** Across four runs
+(two settings, two orders) the core's transport costs **18 to 19 percent less CPU
+per call at 1 in flight, 15 to 17 percent at 8, and 45 to 46 percent at 16**.
+Stage 18 reported 12 to 44 percent from three runs; these four agree with it and
+narrow it.
+
+**And the question the grid exists for is still not answerable.** C-B and D-A,
+the codec difference under each transport, across both orders:
+
+    in flight     C-B forward   C-B reversed   D-A forward   D-A reversed
+    1                   -33.3         -266.7        -133.3         -333.3
+    8                  +168.9         +371.6        -304.1         +405.4
+    16                 +625.0         -277.8        -138.9        -1145.8
+
+Both still change SIGN with the cell order and both still sit inside the
+round-to-round spreads (2 to 26 percent). |B-A| is 709 to 3,576 us a call;
+neither codec subtraction reaches 1,146. **The transport half is three to ten
+times the codec half and the codec half is at this harness's noise floor** --
+unchanged from stage 18, now with the R7 objection removed as an explanation.
+
+
+================================================================================
+3. THE TRANSPORT'S CROSSINGS, COUNTED. SECTION 9'S "TWO PER CALL" IS THE
+   BLOCKING MODE'S COUNT AND THE OTHER TWO COST FOUR.
+================================================================================
+
+The core now exports `ak_rpc_counters`, live only in a build carrying `count`
+beside `rpc`, with `ak_rpc_counting()` to say which build the host is holding.
+Both builds exist here and the harness REFUSES to print a count from the
+non-counting one, because a zero there means "not measured" and not "free".
+
+200 calls per delivery, P2.2 (200 elements of a 27-field message):
+
+    delivery     forward/call   reverse/call   total
+    blocking             2.00           0.00       2
+    callback             3.00           1.00       4
+    queue                4.00           0.00       4
+
+**Two per call is the blocking mode**: the call in, and `ak_bytes_free` out.
+The callback delivery costs FOUR -- `ak_call_unary_cb`, `ak_call_destroy`,
+`ak_bytes_free`, and the completion upcall -- and the queue costs four as well,
+with `ak_queue_next` in place of the upcall and no reverse crossing at all. The
+handle that makes a call cancellable is what the extra forward crossings buy.
+
+**None of them varies with the payload.** P2.2 carries thousands of fields and
+the counts are exactly 2, 4 and 4, so "the RPC half does not know the schema"
+is a reading here rather than an assertion.
+
+**What it costs: nothing.** Two extra crossings at this slice's own calibrated
+7.5 to 12 ns is 15 to 24 ns on a call of about 4,000 us -- four to six parts per
+million. So the correction is to the CLAIM and not to any number: section 9
+should say two crossings for the blocking form and four for each non-blocking
+one, rather than two for the family.
+
+
+================================================================================
+4. A SMALL CORRECTION TO THE HAND-OFF
+================================================================================
+
+`ak_client_opts` has SIX fields, not the five relayed: `tcp_nagle` (1 on, 0 off,
+-1 leave tonic's default, which is nodelay on) is the sixth, and it is the field
+the Nagle finding added. A host binding the five would have got a struct one
+word short of the core's and read garbage into it. Found by reading the struct
+rather than the message.
+
+
+================================================================================
+WHAT IS NOT MEASURED
+================================================================================
+
+  * Whether C-B and D-A agree. Two more orders did not settle it and more rounds
+    will not settle a difference that changes sign with cell order.
+  * The upstream direction, streaming over the core's transport, cancellation,
+    deadlines, metadata, status codes, TLS.
+  * More than one queue drainer.
+  * The crossing counts under concurrency: the count run is sequential, so it
+    establishes the per-call shape and not a contended one.
+  * Absolutes. R13: this container's numbers are instrumentation.
+
+
+================================================================================
+APPENDIX A -- the corrected grid, forward order
+================================================================================
+cell  codec             transport    delivery   inflight   calls    us/call   CPU us/call   alloc B/call   ratio   CPU spread
+--------------------------------------------------------------------------------------------------------------------------------
+A     Google.Protobuf   grpc-dotnet  -                 1     300     3138.4        4333.3        2335485   1.000        +16%
+B     Google.Protobuf   core         callback          1     300     3012.0        3566.7        2323829   0.823         +7%
+C     core-ffi          core         callback          1     300     2904.4        3533.3        2124929   0.815         +6%
+D     core-ffi          grpc-dotnet  -                 1     300     2957.4        4200.0        2136827   0.969         +7%
+B*    Google.Protobuf   core/dflt    callback          1     300     2988.8        3600.0        2323554   0.831        +15%
+C*    core-ffi          core/dflt    callback          1     300     2773.0        3366.7        2124900   0.777         +9%
+B     Google.Protobuf   core         blocking          1     300     3150.9        3766.7        2323448   0.869        +15%
+C     core-ffi          core         blocking          1     300     3125.1        3733.3        2124455   0.862        +11%
+B     Google.Protobuf   core         queue             1     300     3133.3        3733.3        2323624   0.862         +4%
+C     core-ffi          core         queue             1     300     2877.6        3466.7        2124919   0.800         +8%
+
+A     Google.Protobuf   grpc-dotnet  -                 8     296     2197.3        4425.7        2334851   1.000        +12%
+B     Google.Protobuf   core         callback          8     296     1730.5        3682.4        2325490   0.832        +11%
+C     core-ffi          core         callback          8     296     1770.6        3851.4        2127518   0.870        +10%
+D     core-ffi          grpc-dotnet  -                 8     296     1814.4        4121.6        2136707   0.931        +26%
+B*    Google.Protobuf   core/dflt    callback          8     296     1752.1        3716.2        2326007   0.840        +15%
+C*    core-ffi          core/dflt    callback          8     296     1706.9        3750.0        2127198   0.847        +13%
+B     Google.Protobuf   core         blocking          8     296     1915.1        3817.6        2324762   0.863        +12%
+C     core-ffi          core         blocking          8     296     1816.6        3851.4        2139715   0.870        +26%
+B     Google.Protobuf   core         queue             8     296     1987.8        4121.6        2325853   0.931         +8%
+C     core-ffi          core         queue             8     296     2159.3        4797.3        2127294   1.084         +9%
+
+A     Google.Protobuf   grpc-dotnet  -                16     288     4224.5        7291.7        2335182   1.000        +17%
+B     Google.Protobuf   core         callback         16     288     1940.6        3993.1        2325383   0.548        +22%
+C     core-ffi          core         callback         16     288     2134.8        4618.1        2127426   0.633         +9%
+D     core-ffi          grpc-dotnet  -                16     288     4012.9        7152.8        2136145   0.981         +8%
+B*    Google.Protobuf   core/dflt    callback         16     288     2199.7        4583.3        2326033   0.629         +2%
+C*    core-ffi          core/dflt    callback         16     288     1863.4        4062.5        2127068   0.557        +25%
+B     Google.Protobuf   core         blocking         16     288     1892.3        3888.9        2324553   0.533        +21%
+C     core-ffi          core         blocking         16     288     1679.4        3750.0        2125996   0.514         +9%
+B     Google.Protobuf   core         queue            16     288     1955.0        3958.3        2325196   0.543        +11%
+C     core-ffi          core         queue            16     288     1819.4        3958.3        2126409   0.543        +22%
+
+THE SUBTRACTION. B-A is the transport, C-B and D-A are both the codec, one
+under each transport. Callback delivery for B and C. CPU us per call:
+
+inflight    B-A (transport)   C-B (codec, core)   D-A (codec, grpc)   do they agree?
+----------------------------------------------------------------------------------------
+       1            -766.7               -33.3              -133.3   differ by 75%
+       8            -743.2               168.9              -304.1   differ by 156%
+      16           -3298.6               625.0              -138.9   differ by 550%
+
+
+
+================================================================================
+APPENDIX B -- the corrected grid, reversed cell order
+================================================================================
+cell  codec             transport    delivery   inflight   calls    us/call   CPU us/call   alloc B/call   ratio   CPU spread
+--------------------------------------------------------------------------------------------------------------------------------
+C     core-ffi          core         queue             1     300     2735.0        3300.0        2124437   0.744        +13%
+B     Google.Protobuf   core         queue             1     300     2992.4        3600.0        2323170   0.812         +7%
+C     core-ffi          core         blocking          1     300     2742.4        3333.3        2124392   0.752         +6%
+B     Google.Protobuf   core         blocking          1     300     3034.9        3600.0        2322987   0.812         +6%
+C*    core-ffi          core/dflt    callback          1     300     2879.4        3500.0        2124560   0.789         +6%
+B*    Google.Protobuf   core/dflt    callback          1     300     2998.4        3566.7        2323004   0.805         +7%
+D     core-ffi          grpc-dotnet  -                 1     300     2897.9        4100.0        2136797   0.925         +4%
+C     core-ffi          core         callback          1     300     2738.1        3333.3        2124595   0.752        +10%
+B     Google.Protobuf   core         callback          1     300     3011.8        3600.0        2323257   0.812         +6%
+A     Google.Protobuf   grpc-dotnet  -                 1     300     3204.9        4433.3        2335238   1.000         +7%
+
+C     core-ffi          core         queue             8     296     1704.7        3851.4        2127441   0.803         +5%
+B     Google.Protobuf   core         queue             8     296     1738.1        3750.0        2325770   0.782        +11%
+C     core-ffi          core         blocking          8     296     1736.4        3648.6        2126151   0.761        +13%
+B     Google.Protobuf   core         blocking          8     296     1893.0        3851.4        2324776   0.803        +12%
+C*    core-ffi          core/dflt    callback          8     296     2033.4        4425.7        2127338   0.923         +5%
+B*    Google.Protobuf   core/dflt    callback          8     296     1947.0        4087.8        2326126   0.852         +3%
+D     core-ffi          grpc-dotnet  -                 8     296     2286.1        5202.7        2135852   1.085        +12%
+C     core-ffi          core         callback          8     296     1949.7        4459.5        2127161   0.930         +5%
+B     Google.Protobuf   core         callback          8     296     1927.4        4087.8        2326449   0.852         +4%
+A     Google.Protobuf   grpc-dotnet  -                 8     296     2356.2        4797.3        2334663   1.000        +23%
+
+C     core-ffi          core         queue            16     288     1829.1        3993.1        2127123   0.518         +3%
+B     Google.Protobuf   core         queue            16     288     1852.7        3923.6        2325787   0.509        +12%
+C     core-ffi          core         blocking         16     288     1991.0        4340.3        2130490   0.563        +12%
+B     Google.Protobuf   core         blocking         16     288     1986.1        4131.9        2325687   0.536        +20%
+C*    core-ffi          core/dflt    callback         16     288     1771.7        3923.6        2126999   0.509        +20%
+B*    Google.Protobuf   core/dflt    callback         16     288     1793.1        3819.4        2325536   0.495         +4%
+D     core-ffi          grpc-dotnet  -                16     288     3584.7        6562.5        2137078   0.851        +16%
+C     core-ffi          core         callback         16     288     1781.4        3854.2        2126925   0.500        +19%
+B     Google.Protobuf   core         callback         16     288     1958.1        4131.9        2325684   0.536        +20%
+A     Google.Protobuf   grpc-dotnet  -                16     288     4332.2        7708.3        2335398   1.000        +11%
+
+THE SUBTRACTION. B-A is the transport, C-B and D-A are both the codec, one
+under each transport. Callback delivery for B and C. CPU us per call:
+
+inflight    B-A (transport)   C-B (codec, core)   D-A (codec, grpc)   do they agree?
+----------------------------------------------------------------------------------------
+       1            -833.3              -266.7              -333.3   differ by 20%
+       8            -709.5               371.6               405.4   within 10%
+      16           -3576.4              -277.8             -1145.8   differ by 76%
+
+
+
+================================================================================
+APPENDIX C -- the Nagle diagnostic, TCP then UDS, verbatim
+================================================================================
+# harness: rpc --nagle (the rust slice's diagnostic, on THIS stack)
+# transport:  loopback TCP
+# both ends:  grpc-dotnet (Kestrel server, SocketsHttpHandler client),
+#             NOT the core's test server, which is where the defect was
+# codec:      none, byte[] passthrough both ways
+
+payload bytes      calls     wall us/call
+------------------------------------------------
+          858        200            133.2
+      540,422        200            905.4
+
+If the small payload costs MORE than the large one, Nagle is on. If it
+costs less in proportion to its size, it is not.
+
+
+# harness: rpc (end to end, grpc-dotnet both ends)
+# utc:                 2026-09-20T19:02:55Z
+# runtime:             .NET 8.0.31
+# processors:          4
+# transport:           UNIX DOMAIN SOCKET -- what packages/csharp defaults its worker and agent channels to
+# stream window:       4194304 bytes (client InitialHttp2StreamWindowSize)
+# dynamic sizing:      OFF (Http2FlowControl.DisableDynamicWindowSizing). Without this the window STARTS at the pinned value and doubles to a 16 MB cap
+# connection window:   client 64 MiB, HARDCODED in Http2Connection and not configurable on .NET;
+#                      server 8388608 bytes (Kestrel). tonic and grpc-java take the two separately
+# chunking:            2097152 bytes, ArmoniK's
+# payload:             P2.2, 540422 bytes
+# server codec:        byte[] passthrough in EVERY arm, so the only codec work in the process is the client's
+
+DOWNSTREAM: the client DECODES a 540422-byte P2.2 response. The server's
+marshaller is a byte[] passthrough in every arm, so the only codec work
+in the process is the client's.
+
+arm              inflight   calls    us/call   CPU us/call   alloc B/call   ratio
+----------------------------------------------------------------------------------------
+gp-marshaller           1     200     3715.0        6750.0        2345385   1.000
+managed                 1     200     3223.8        4650.0        2136633   0.689
+core-ffi                1     200     2878.2        4000.0        2136887   0.593
+core-ffi pull           1     200     2912.0        4100.0        2136963   0.607
+
+gp-marshaller           8     200     2312.1        4600.0        2354246   1.000
+managed                 8     200     1910.5        4100.0        2137143   0.891
+core-ffi                8     200     1940.6        4400.0        2136258   0.957
+core-ffi pull           8     200     1873.2        3950.0        2141294   0.859
+
+gp-marshaller          16     192     3450.9        6250.0        2334931   1.000
+managed                16     192     2874.6        5364.6        2136150   0.858
+core-ffi               16     192     3047.7        5885.4        2136230   0.942
+core-ffi pull          16     192     2959.2        5781.2        2136062   0.925
+
+Sequence shape, which decides whether the facade's byte[] reader costs
+anything here: gRPC delivered 5508 SEGMENTED bodies and 0 single-segment,
+copying 2,976,644,376 bytes in total to flatten them. The copy is charged to the
+facade arms; a ReadOnlySequence reader is what would remove it.
+
+# harness: rpc --nagle (the rust slice's diagnostic, on THIS stack)
+# transport:  unix domain socket
+# both ends:  grpc-dotnet (Kestrel server, SocketsHttpHandler client),
+#             NOT the core's test server, which is where the defect was
+# codec:      none, byte[] passthrough both ways
+
+payload bytes      calls     wall us/call
+------------------------------------------------
+          858        200            180.2
+      540,422        200           1196.1
+
+If the small payload costs MORE than the large one, Nagle is on. If it
+costs less in proportion to its size, it is not.
+
+
+
+================================================================================
+APPENDIX D -- the crossing count, from the counting core
+================================================================================
+# harness: rpc --crossings (ABI v1 section 9's transport, counted)
+# counting build: YES
+# calls:         200 per delivery
+
+delivery     forward/call   reverse/call
+----------------------------------------------
+callback             3.00           1.00
+blocking             2.00           0.00
+queue                4.00           0.00
+
+ABI v1 section 9 says two crossings per call and none per field. A number
+that grows with the payload's field count would mean something in the
+transport knows about messages, and nothing in it does.
+

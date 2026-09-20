@@ -20,6 +20,17 @@
 #     conformance  152 checks, 0 failure(s)
 #     corpus       32 failure(s) (31 T-dec policy, 1 U-map-entry, 0 other)
 #     coreffi      0 failure(s)
+#
+# AMENDED BY stage19-grid-pinned-nagle-crossings.log, in two ways, and neither
+# changes a conclusion below:
+#   * cells B and C here took TONIC'S DEFAULTS while A and D pinned ArmoniK's
+#     transport configuration, which is an R7 defect in this grid. Stage 19 pins
+#     them with the core's `ak_client_new_opts` and the transport gap does not
+#     move: B/A is 0.81 to 0.85 at 1 and 8 in flight and 0.50 to 0.55 at 16,
+#     pinned or not, in both cell orders.
+#   * the crossing counts here are section 9's CLAIM rather than a reading.
+#     Stage 19 counts them from a core built with `count`: two per call is the
+#     BLOCKING mode, and the callback and queue deliveries cost four each.
 
 
 ================================================================================

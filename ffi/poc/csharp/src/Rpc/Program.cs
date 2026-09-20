@@ -102,7 +102,23 @@ public static class Program
         // harness with it. Run it as a child and read the exit status.
         if (argv.Contains("--shared-ctx")) return SharedCtx(argv);
 
-        bool pinned = !argv.Contains("--stack-default");
+        // **Three transport configurations, and only one of them ships.**
+        // `packages/rust/armonik-transport`'s `ClientConfig` has connect and
+        // request timeouts, a rate limit, TCP keepalive and its interval and
+        // retries, `tcp_nagle_algorithm`, the HTTP/2 PING interval, timeout and
+        // while-idle flag, and a max header list size -- and NO stream or
+        // connection window. `packages/csharp`'s `GrpcChannelProvider` sets no
+        // window either, but on the UNIX SOCKET path it does set
+        // `Http2FlowControl.DisableDynamicWindowSizing`, as a WORKAROUND for a
+        // connectivity issue (grpc-dotnet #2361) rather than for throughput.
+        //
+        // So production is: no window pinned, .NET's 64 KB default, and the
+        // auto-tuner that would otherwise grow it to 16 MB switched OFF. That is
+        // a third configuration, it is the R14 baseline, and this arm had not
+        // measured it -- `--pinned` is ArmoniK's INTENDED configuration and
+        // `--stack-default` is .NET's, and neither is what ships.
+        bool shipped = argv.Contains("--shipped");
+        bool pinned = !shipped && !argv.Contains("--stack-default");
         bool tcp = argv.Contains("--tcp");
         // Streaming runs IN THE SAME PROCESS as the unary table, because the
         // claim it exists to test is "streaming moves the codec's share relative
@@ -117,21 +133,39 @@ public static class Program
         // looked normal, never in the callback or queue delivery. Two
         // observations is an anecdote; `--park` is the measurement.
         bool park = argv.Contains("--park");
+        // **The rust slice's Nagle diagnostic, reproduced here rather than
+        // assumed away.** Their signature was that a 1 KB response cost MORE
+        // than a 540 KB one over loopback TCP -- backwards for flow control,
+        // exactly right for Nagle. `--tiny` swaps P2.2 for P1.1 so this arm can
+        // be asked the same question. Both ends here are grpc-dotnet, not the
+        // core's test server, so the defect should not be present -- which is a
+        // prediction, and this is the measurement of it.
+        bool nagle = argv.Contains("--nagle");
+        // "Count crossings, do not infer them" (ffi/CLAUDE.md). The core now
+        // exports `ak_rpc_counters`, so the transport's crossings per call are a
+        // reading rather than an argument -- but only in a build with
+        // `--features count`, and `ak_rpc_counting()` is what says which build
+        // this is. R5's hazard is a harness that reads zeroes out of a
+        // non-counting core and publishes "the boundary is free".
+        bool crossings = argv.Contains("--crossings");
         int rounds = Arg(argv, "--rounds", 3);
         int calls = Arg(argv, "--calls", 300);
         var levels = new[] { 1, 8, 16 };
 
-        if (pinned)
+        if (pinned || shipped)
             // Before the first handler exists, or it does not take. This is what
-            // actually HOLDS a pinned window; the property alone is a floor.
+            // actually HOLDS a pinned window; the property alone is a floor. The
+            // SHIPPED arm sets exactly this and no window, which is
+            // `GrpcChannelProvider.cs` line for line.
             AppContext.SetSwitch(
                 "System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing", true);
 
-        var facade = BuildFacade.P2_2();
-        var gp = BuildGp.P2_2();
         var e = Enc.New(Codec.Sites, 1 << 21);
-        Codec.WriteListTasksDetailedResponse(ref e, facade);
+        Codec.WriteListTasksDetailedResponse(ref e, BuildFacade.P2_2());
         Bench.Wire = e.ToArray();
+        var es = Enc.New(Codec.Sites, 1 << 16);
+        Codec.WriteListResultsResponse(ref es, BuildFacade.P1_1());
+        byte[] wireSmall = es.ToArray();
         Streamer.Wire22 = Bench.Wire;
         var e53 = Enc.New(Codec.Sites, (1 << 20) + 4096);
         Codec.WriteUploadResultDataMessage(ref e53, BuildFacade.P5_3());
@@ -164,8 +198,10 @@ public static class Program
         {
             EnableMultipleHttp2Connections = false,
             PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan,
-            InitialHttp2StreamWindowSize = pinned ? StreamWindow : 65535,
         };
+        // The shipped arm does not touch the property at all, because
+        // `GrpcChannelProvider` does not.
+        if (!shipped) handler.InitialHttp2StreamWindowSize = pinned ? StreamWindow : 65535;
         if (!tcp)
             handler.ConnectCallback = async (c, ct) =>
             {
@@ -184,6 +220,7 @@ public static class Program
             });
         var inv = ch.CreateCallInvoker();
 
+        Shipped = shipped;
         Header(tcp, pinned, Bench.Wire.Length, handler);
 
         // The four client-side codecs. The method NAME is the same in every arm,
@@ -224,6 +261,104 @@ public static class Program
             StreamRun.Reverse = argv.Contains("--reverse-arms");
             await StreamRun.Run(inv, rounds, levels,
                 Arg(argv, "--msgs22", 512), Arg(argv, "--msgs53", 128));
+        }
+
+        if (crossings)
+        {
+            using var cc = new CoreChannel("unix:" + sock, Arg(argv, "--core-workers", 2));
+            cc.StartQueue();
+            int n = Arg(argv, "--calls", 200);
+            var path = System.Text.Encoding.UTF8.GetBytes("/armonik.ffi.Bench/Down");
+            Console.WriteLine("# harness: rpc --crossings (ABI v1 section 9's transport, counted)");
+            Console.WriteLine("# counting build: {0}", AkRpc.ak_rpc_counting() == 1 ? "YES" : "NO");
+            if (AkRpc.ak_rpc_counting() != 1)
+            {
+                Console.WriteLine();
+                Console.WriteLine("This core does NOT count. Every number below would be a zero and a");
+                Console.WriteLine("zero here means 'not measured', not 'free'. Build the core with the");
+                Console.WriteLine("count feature beside rpc and run this again.");
+                await app.StopAsync();
+                if (File.Exists(sock)) File.Delete(sock);
+                return 2;
+            }
+            Console.WriteLine("# calls:         {0} per delivery", n);
+            Console.WriteLine();
+            Console.WriteLine("delivery     forward/call   reverse/call");
+            Console.WriteLine(new string('-', 46));
+            foreach (var d in new[] { "callback", "blocking", "queue" })
+            {
+                AkRpc.ak_rpc_counters_reset();
+                for (int i = 0; i < n; i++)
+                {
+                    AkBytes got;
+                    if (d == "callback") got = await cc.CallCbAsync(path, Array.Empty<byte>());
+                    else if (d == "queue") got = await cc.CallQAsync(path, Array.Empty<byte>());
+                    else got = cc.CallBlocking(path, Array.Empty<byte>());
+                    CoreChannel.Release(ref got);
+                }
+                AkRpcCounters k;
+                unsafe { AkRpc.ak_rpc_counters(&k); }
+                Console.WriteLine("{0,-12} {1,12:F2} {2,14:F2}", d, (double)k.Forward / n, (double)k.Reverse / n);
+            }
+            Console.WriteLine();
+            Console.WriteLine("ABI v1 section 9 says two crossings per call and none per field. A number");
+            Console.WriteLine("that grows with the payload's field count would mean something in the");
+            Console.WriteLine("transport knows about messages, and nothing in it does.");
+            Console.WriteLine();
+            await app.StopAsync();
+            if (File.Exists(sock)) File.Delete(sock);
+            return 0;
+        }
+
+        if (nagle)
+        {
+            // **No codec at all**: the client's marshaller is the same `byte[]`
+            // passthrough the server uses, so this times the transport and
+            // nothing else. The signature being looked for is the SMALL payload
+            // costing MORE than the large one, which is backwards for flow
+            // control and exactly right for Nagle.
+            var raw = new Method<byte[], byte[]>(MethodType.Unary, Bench.Name, "Down",
+                Bench.Raw, Bench.Raw);
+            Console.WriteLine("# harness: rpc --nagle (the rust slice's diagnostic, on THIS stack)");
+            Console.WriteLine("# transport:  {0}", tcp ? "loopback TCP" : "unix domain socket");
+            Console.WriteLine("# both ends:  grpc-dotnet (Kestrel server, SocketsHttpHandler client),");
+            Console.WriteLine("#             NOT the core's test server, which is where the defect was");
+            Console.WriteLine("# codec:      none, byte[] passthrough both ways");
+            Console.WriteLine();
+            Console.WriteLine("payload bytes      calls     wall us/call");
+            Console.WriteLine(new string('-', 48));
+            byte[] big = Bench.Wire;
+            foreach (var w in new[] { wireSmall, big })
+            {
+                Bench.Wire = w;
+                int n = Arg(argv, "--calls", 300);
+                for (int k = 0; k < Math.Max(8, n / 10); k++)
+                {
+                    using var warm = inv.AsyncUnaryCall(raw, null, new CallOptions(), Array.Empty<byte>());
+                    Sink = await warm.ResponseAsync;
+                }
+                double best = double.MaxValue;
+                for (int r = 0; r < Math.Max(3, rounds); r++)
+                {
+                    var sw = Stopwatch.StartNew();
+                    for (int k = 0; k < n; k++)
+                    {
+                        using var c = inv.AsyncUnaryCall(raw, null, new CallOptions(), Array.Empty<byte>());
+                        Sink = await c.ResponseAsync;
+                    }
+                    sw.Stop();
+                    best = Math.Min(best, sw.Elapsed.TotalMicroseconds / n);
+                }
+                Console.WriteLine("{0,13:N0} {1,10} {2,16:F1}", w.Length, n, best);
+            }
+            Bench.Wire = big;
+            Console.WriteLine();
+            Console.WriteLine("If the small payload costs MORE than the large one, Nagle is on. If it");
+            Console.WriteLine("costs less in proportion to its size, it is not.");
+            Console.WriteLine();
+            await app.StopAsync();
+            if (File.Exists(sock)) File.Delete(sock);
+            return 0;
         }
 
         if (park)
@@ -302,9 +437,36 @@ public static class Program
             Console.WriteLine("this process's Kestrel is listening on. Same process, same sitting.");
             Console.WriteLine(new string('=', 128));
             Console.WriteLine();
-            using var core = new CoreChannel("unix:" + sock, Arg(argv, "--core-workers", 2));
+            // **Cells B and C are PINNED to what the .NET client does**, which
+            // stage 18 did not do and which is an R7 defect in that grid: A and D
+            // pinned ArmoniK's transport and B and C took tonic's defaults, so
+            // part of what B-A measured may have been the settings rather than
+            // the stack. The mirror is the CLIENT's configuration, because the
+            // grid varies the client: a 4 MiB stream window, adaptive sizing OFF,
+            // a 64 MiB connection window (which `Http2Connection` hardcodes and
+            // this slice established from the runtime source), 64 MiB message
+            // limits, and Nagle off, which is what `armonik-transport` ships.
+            var pin = new AkClientOpts
+            {
+                StreamWindow = StreamWindow,
+                ConnectionWindow = 64u << 20,
+                AdaptiveWindow = 0,
+                MaxRecvMessage = 64u << 20,
+                MaxSendMessage = 64u << 20,
+                TcpNagle = 0,
+            };
+            using var core = new CoreChannel("unix:" + sock, Arg(argv, "--core-workers", 2), pin);
             core.StartQueue();
+            // The same client with tonic's defaults, kept as a LABELLED row so the
+            // correction to stage 18 is visible rather than silently replacing it.
+            using var coreDflt = new CoreChannel("unix:" + sock, Arg(argv, "--core-workers", 2));
             Console.WriteLine("# core transport:      tonic over unix:{0}", sock);
+            Console.WriteLine("# core client pinned:  stream {0} B, connection {1} B, adaptive OFF, "
+                + "msg limits {2} B, Nagle OFF", StreamWindow, 64 << 20, 64 << 20);
+            Console.WriteLine("# counting build:      {0}", AkRpc.ak_rpc_counting() == 1
+                ? "YES, ak_rpc_counters is live"
+                : "no (this core is built without --features count), so the crossing "
+                  + "columns are NOT read from it");
             Console.WriteLine("# core worker threads: {0} (ak_runtime_new, explicit -- ABI v1 section 3 "
                 + "says never Runtime::new(), which reads the cgroup quota)",
                 Arg(argv, "--core-workers", 2));
@@ -312,7 +474,7 @@ public static class Program
                 + "queue (second row, one drainer)");
             Console.WriteLine();
             Grid.Reverse = argv.Contains("--reverse-arms");
-            await Grid.Run(inv, core, rounds, levels, calls);
+            await Grid.Run(inv, core, coreDflt, rounds, levels, calls);
         }
 
         await app.StopAsync();
@@ -389,6 +551,8 @@ public static class Program
         }
     }
 
+    public static bool Shipped;
+
     private static void Header(bool tcp, bool pinned, int bytes, SocketsHttpHandler h)
     {
         Console.WriteLine("# harness: rpc (end to end, grpc-dotnet both ends)");
@@ -399,9 +563,15 @@ public static class Program
         Console.WriteLine("# transport:           {0}", tcp
             ? "loopback TCP (the labelled second row)"
             : "UNIX DOMAIN SOCKET -- what packages/csharp defaults its worker and agent channels to");
-        Console.WriteLine("# stream window:       {0} bytes (client InitialHttp2StreamWindowSize)",
-            h.InitialHttp2StreamWindowSize);
-        Console.WriteLine("# dynamic sizing:      {0}", pinned
+        Console.WriteLine("# stream window:       {0} bytes (client InitialHttp2StreamWindowSize){1}",
+            h.InitialHttp2StreamWindowSize,
+            Shipped ? " -- .NET's DEFAULT, untouched, which is what packages/csharp does" : "");
+        Console.WriteLine("# configuration:       {0}", Shipped
+            ? "SHIPPED -- what packages/csharp's GrpcChannelProvider actually does on a UDS: "
+              + "no window pinned and dynamic sizing OFF (a connectivity workaround, grpc-dotnet #2361)"
+            : (pinned ? "ArmoniK's INTENDED configuration, which no ArmoniK client ships"
+                      : ".NET's stack default"));
+        Console.WriteLine("# dynamic sizing:      {0}", pinned || Shipped
             ? "OFF (Http2FlowControl.DisableDynamicWindowSizing). Without this the window "
               + "STARTS at the pinned value and doubles to a 16 MB cap"
             : "ON, the .NET default");

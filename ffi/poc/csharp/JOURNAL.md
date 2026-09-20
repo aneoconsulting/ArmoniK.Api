@@ -1211,3 +1211,88 @@ rule belongs with the floor findings, not in the ABI's contract.
 The whole slice is re-gated against the rpc-featured core and is identical
 (152/0, the same 32 corpus rows, coreffi 0), which is what "the feature adds the
 transport and changes no codec entry point" has to mean to be worth saying.
+
+### 44. Three follow-ups, and the one that was a defect of mine
+
+**The TCP row is not a Nagle row, and I checked instead of arguing.** The
+temptation was to reason it away in a sentence -- both ends of my arm are
+grpc-dotnet, not the core's test server, and both set `TCP_NODELAY` by default.
+That reasoning is correct and it is not evidence. So I reproduced the rust
+slice's own diagnostic on my stack: 858 bytes costs 133.2 us and 540,422 costs
+905.4 over loopback TCP. The small payload is 6.8 times cheaper where the defect
+made it 1.4 times dearer. Nothing I have published moves.
+
+**Stage 18's grid had an R7 defect and it was mine.** Cells A and D pinned
+ArmoniK's transport on the .NET client; cells B and C took tonic's defaults,
+because `ak_client_new` was the only dial the core exported. So part of a
+published 12-to-44-percent transport gap could have been the settings, and the
+log said so nowhere. `ak_client_new_opts` closes it, and I kept the unpinned
+cells as B* and C* so the correction is visible rather than a quiet replacement.
+**Pinning moves nothing outside the spreads.** The defect was real methodology
+and an immaterial number, and it is worth saying in that order: I did not know
+which it would be until it ran.
+
+**The crossings were a quote and are now a reading.** "Count crossings, do not
+infer them" is one of the branch's own invariants and stage 18 broke it: I
+repeated section 9's two-per-call. Counted from a core built with `count`:
+blocking is 2, the callback is 3 forward plus 1 reverse, the queue is 4 forward.
+**Two per call is the blocking form and the non-blocking ones cost four**, the
+extra being `ak_call_destroy` on the handle that makes a call cancellable. It is
+four to six parts per million of a call, so nothing moves -- but the crossing
+table is meant to survive a rerun on other hardware, which is exactly the kind
+of claim that has to be right rather than cheap. The harness now refuses to
+print a count from a non-counting core, because a zero there reads as "free".
+
+And `ak_client_opts` has six fields, not the five I was handed. Binding five
+would have been a struct one word short of the core's, read as garbage. I found
+it by reading the struct instead of the message, which is the same habit as the
+first item on this list.
+
+**On streaming.** It was scope I added. It was on my next-step list because
+`design/SHAPES.md` names streaming as where the concurrency invariant bites and
+because a check-in asked for the list to be emptied; the grid never needed it.
+STATE.md now says so at the point where the result is claimed, and the log stays
+in the tree as an offer rather than as part of the RPC arm, because deleting a
+gated measurement destroys evidence rather than scope.
+
+### 45. Reading the package instead of the description, and finding my own R14 defect
+
+I was told the shipped clients pin no HTTP/2 window and that Nagle is off by
+name. Both are true and I checked them in `packages/rust/armonik-transport`
+rather than taking them: `ClientConfig` (config.rs:10) has seventeen fields and
+none of them is a window, `grep -rn window src/` is empty, and
+`tcp_nagle_algorithm` is "defaults to false", read from
+`GrpcClient__TcpNagleAlgorithm` and applied as
+`http.set_nodelay(!config.tcp_nagle_algorithm)`.
+
+**Then I read the C# package, which I had not been told about, and it says
+something neither of us had.** `GrpcChannelProvider.cs:88` sets
+`Http2FlowControl.DisableDynamicWindowSizing` on the UNIX SOCKET path, under a
+comment naming it a workaround for a connectivity issue. It still pins no
+window. So production on .NET is not my "pinned" row and not my "stack default"
+row: it is a 64 KB window with .NET's auto-tuner switched OFF, for a 540 KB
+message, with nothing left to grow it. **Both of the transport rows this arm has
+carried since stage 15 are wrong for R14**, and that is my defect, not a
+relayed one.
+
+Measured, it is the worst of the three: 27 to 39 percent more CPU per call than
+either alternative at 1 in flight, reproduced across two sweeps. The no-codec
+arm at two payload sizes is what makes it a mechanism rather than a number --
+149.2 against 142.9 and 143.0 on 858 bytes, and 1,689.6 against 1,197.5 and
+1,376.1 on 540,422. A cost that appears only above the window size is flow
+control and cannot be anything else.
+
+**The shape is the interesting part.** .NET's auto-tuner left alone gets most of
+the way to the pinned window. The workaround turns it off and puts nothing in
+its place, so the shipped configuration is worse than doing nothing at all. It
+costs what it costs because it is half a change.
+
+Every ratio I have published survives, because a ratio is taken between arms
+under the same transport and the transport divides out. What changes is which
+row is the headline, and STATE.md now says so at the top of the requests rather
+than in a log nobody re-reads.
+
+I am not proposing the one-line fix. Nothing under `packages/` changes, and I
+have not tested whether pinning a window reintroduces the connectivity issue the
+switch exists for -- which is the honest reason it is a recommendation and not a
+patch.
