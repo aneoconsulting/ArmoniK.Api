@@ -96,8 +96,19 @@ public static class Program
 
     public static async Task<int> Main(string[] argv)
     {
+        // The concurrency contract's POSITIVE CONTROL, and it runs in its own
+        // process on purpose: the rust slice found that a shared encode context
+        // ABORTS rather than returning an error, and an abort takes the whole
+        // harness with it. Run it as a child and read the exit status.
+        if (argv.Contains("--shared-ctx")) return SharedCtx(argv);
+
         bool pinned = !argv.Contains("--stack-default");
         bool tcp = argv.Contains("--tcp");
+        // Streaming runs IN THE SAME PROCESS as the unary table, because the
+        // claim it exists to test is "streaming moves the codec's share relative
+        // to unary" and this slice has already found that two arms nothing
+        // touched move up to 9 percent between sittings on this container.
+        bool stream = argv.Contains("--stream");
         int rounds = Arg(argv, "--rounds", 3);
         int calls = Arg(argv, "--calls", 300);
         var levels = new[] { 1, 8, 16 };
@@ -113,6 +124,10 @@ public static class Program
         var e = Enc.New(Codec.Sites, 1 << 21);
         Codec.WriteListTasksDetailedResponse(ref e, facade);
         Bench.Wire = e.ToArray();
+        Streamer.Wire22 = Bench.Wire;
+        var e53 = Enc.New(Codec.Sites, (1 << 20) + 4096);
+        Codec.WriteUploadResultDataMessage(ref e53, BuildFacade.P5_3());
+        Streamer.Wire53 = e53.ToArray();
 
         string sock = "/tmp/ak-ffi-rpc-" + Environment.ProcessId + ".sock";
         if (File.Exists(sock)) File.Delete(sock);
@@ -122,6 +137,8 @@ public static class Program
         b.Services.AddGrpc(o => { o.MaxReceiveMessageSize = 64 << 20; o.MaxSendMessageSize = 64 << 20; });
         b.Services.AddSingleton<Bench>();
         b.Services.AddSingleton<IServiceMethodProvider<Bench>, BenchProvider>();
+        b.Services.AddSingleton<Streamer>();
+        b.Services.AddSingleton<IServiceMethodProvider<Streamer>, StreamerProvider>();
         int port = 0;
         b.WebHost.ConfigureKestrel(o =>
         {
@@ -132,6 +149,7 @@ public static class Program
         });
         var app = b.Build();
         app.MapGrpcService<Bench>();
+        app.MapGrpcService<Streamer>();
         await app.StartAsync();
 
         var handler = new SocketsHttpHandler
@@ -185,6 +203,20 @@ public static class Program
             Codecs.Copied);
         Console.WriteLine("facade arms; a ReadOnlySequence reader is what would remove it.");
         Console.WriteLine();
+
+        if (stream)
+        {
+            Console.WriteLine(new string('=', 96));
+            Console.WriteLine("STREAMING. Same process, same channel, same sitting as the unary table");
+            Console.WriteLine("above -- which is the only way the comparison between them is readable,");
+            Console.WriteLine("because two arms this slice did not touch moved 9 percent between sittings");
+            Console.WriteLine("on this container.");
+            Console.WriteLine(new string('=', 96));
+            Console.WriteLine();
+            StreamRun.Reverse = argv.Contains("--reverse-arms");
+            await StreamRun.Run(inv, rounds, levels,
+                Arg(argv, "--msgs22", 512), Arg(argv, "--msgs53", 128));
+        }
 
         await app.StopAsync();
         if (File.Exists(sock)) File.Delete(sock);
@@ -278,6 +310,79 @@ public static class Program
         Console.WriteLine("# server codec:        byte[] passthrough in EVERY arm, so the only codec "
             + "work in the process is the client's");
         Console.WriteLine();
+    }
+
+
+    /// One encode context, several threads, ABI v1 section 3's "an encode
+    /// context is not thread safe" taken at its word. `--per-thread` runs the
+    /// same loop with a context each, which is the NEGATIVE control: it must
+    /// report zero wrong, or the detector is not detecting anything.
+    ///
+    /// Three outcomes are possible and they are not equally bad. Wrong bytes
+    /// with a zero exit status is the worst, because nothing tells the host.
+    /// A managed exception is the best. An abort is what the rust slice saw,
+    /// and on .NET it is worse than in rust: a .NET developer who shares an
+    /// object expects an `InvalidOperationException` at the seam, not a
+    /// SIGABRT with no stack in managed code.
+    private static unsafe int SharedCtx(string[] argv)
+    {
+        int threads = Arg(argv, "--threads", 4);
+        int iters = Arg(argv, "--iters", 20000);
+        bool shared = !argv.Contains("--per-thread");
+        var src = BuildFacade.P5_1();
+        var w = Enc.New(Codec.Sites, 1 << 20);
+        Codec.WriteUploadResultDataMessage(ref w, src);
+        byte[] wire = w.ToArray();
+
+        Console.WriteLine("# harness: rpc --shared-ctx (the concurrency contract's control)");
+        Console.WriteLine("# utc:       {0:yyyy-MM-ddTHH:mm:ssZ}", DateTime.UtcNow);
+        Console.WriteLine("# runtime:   {0}",
+            System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription);
+        Console.WriteLine("# mode:      {0}", shared
+            ? "SHARED -- one ak_enc_ctx, " + threads + " threads encoding into it at once"
+            : "per-thread -- one ak_enc_ctx each, the negative control");
+        Console.WriteLine("# payload:   P5.1, {0} wire bytes, {1} encodes a thread", wire.Length, iters);
+        Console.WriteLine("# expected:  zero wrong, or a managed exception, or the process does not "
+            + "reach the last line");
+        Console.Out.Flush();
+
+        var one = new CoreFfi_UploadResultDataMessage(
+            CoreFfi_UploadResultDataMessage.CapsFor(src));
+        long wrong = 0, done = 0, threw = 0;
+        var ts = new Thread[threads];
+        for (int t = 0; t < threads; t++)
+        {
+            ts[t] = new Thread(() =>
+            {
+                var c = shared ? one : new CoreFfi_UploadResultDataMessage(
+                    CoreFfi_UploadResultDataMessage.CapsFor(src));
+                for (int i = 0; i < iters; i++)
+                {
+                    try
+                    {
+                        c.Encode(src, out byte* q, out int len);
+                        bool bad = len != wire.Length;
+                        if (!bad)
+                            for (int k = 0; k < len; k++)
+                                if (q[k] != wire[k]) { bad = true; break; }
+                        if (bad) Interlocked.Increment(ref wrong);
+                    }
+                    catch (Exception) { Interlocked.Increment(ref threw); }
+                    Interlocked.Increment(ref done);
+                }
+            });
+            ts[t].Start();
+        }
+        foreach (var th in ts) th.Join();
+
+        Console.WriteLine();
+        Console.WriteLine("encodes:   {0:N0}", done);
+        Console.WriteLine("wrong:     {0:N0}", wrong);
+        Console.WriteLine("threw:     {0:N0}", threw);
+        Console.WriteLine("verdict:   {0}", wrong == 0 && threw == 0
+            ? "survived, every byte correct"
+            : (wrong > 0 ? "WRONG BYTES, and the process did not notice" : "threw, which is the good failure"));
+        return wrong == 0 && threw == 0 ? 0 : 2;
     }
 
     private static int Arg(string[] a, string name, int dflt)

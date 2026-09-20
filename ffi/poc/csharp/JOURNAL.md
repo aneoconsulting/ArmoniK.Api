@@ -1114,3 +1114,48 @@ The ignore file lists `bin/`, `obj/`, `bin-floor/` and `obj-floor/`, and I
 added `bin-strict/`/`obj-strict/` as output paths in `Directory.Build.props`
 without adding the matching rules. Untracked and the two rules appended. The
 build output was never a measurement input, so nothing in stage 16 changes.
+
+### 42. Streaming, and the control that stopped me publishing a ranking
+
+Item 11 is built (`stage17-streaming.log`). Four things came out of it and only
+two were the ones I expected.
+
+**The floor is what the arm is for.** A fifth arm streams the same messages with
+no codec at all, through the same contextual passthrough the other arms use, so
+its ratio is the share of CPU no codec choice can reach. On P2.2 that puts the
+codec at **54 to 82 percent of a streamed download and 36 to 50 percent of an
+upload**, where stage 15's unary headline was 10 percent of a call. A stream
+pays for headers, trailers and a stream once; what is left per message is the
+bytes and the codec.
+
+**The first floor I built was not a floor.** It used `Bench.Raw`, the SIMPLE
+`Marshallers.Create` form, and gRPC then copies the returned array into its send
+buffer -- a whole payload copy the contextual arms do not pay. It came out ABOVE
+the incumbent, which is impossible for a floor, and that is how I found it.
+
+**The reversed-order run is the part I nearly skipped.** Arms run in a fixed
+order with the first as the ratio base. On P5.3 the floor moves from 0.690 to
+1.000 on download and from 1.171 to 0.831 on upload on nothing but its position
+in the order: a position effect of 17 to 31 percent, larger than every codec
+difference on that shape. Without it I would have written that `core-ffi pull`
+is 0.761 on ArmoniK's chunk download. It is not; nothing is. The honest
+statement is that on the chunk shape no arm differs from no codec at all, and
+`stage14`'s in-process column says the same thing from the other side: core-ffi
+is 2.02x the incumbent on P5.3 encode and the excess is exactly one memcpy
+floor -- the staging copy -- which is 67 us against a 5,000 us streamed message.
+
+**The prediction the arm was built on is refuted.** I expected streaming to
+raise the codec's SHARE relative to unary, by removing the per-call transport
+cost. Same sitting, same process: it does not move outside the spread. At
+540,422 bytes a message the fixed per-call cost is already small next to moving
+the bytes. It should hold for a small message and I did not test one; it is in
+"what is not measured" with P1.1 named as the payload that would answer it.
+
+**The concurrency invariant is answered for a managed host, with both controls.**
+One context per thread: 0 wrong of 200,000. One shared context: SIGABRT, and the
+new part is that the `catch (Exception)` around the call never runs. On .NET
+that is worse than in rust, because a .NET developer who shares an object
+expects an exception at the seam. The lock-free answer costs 7 to 8 contexts and
+7.4 to 8.4 MB of never-freed native staging on a four-processor box, and the two
+runs disagreeing by one context while doing identical work is the finding: the
+number follows the thread pool, not the call rate. Recorded as request 7.
