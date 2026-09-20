@@ -6,7 +6,18 @@ version.workspace = true
 publish.workspace = true
 
 [features]
-default = ["guard"]
+# `init-guard` is ON here, which is ABI v1 section 3 as specified: every entry point
+# requires `ak_init`. It is on because it MEASURED FREE -- |guard| < 0.70 ns per crossing
+# and ~0 directly, bounded at 0.125% of the heaviest payload in this set
+# (ffi/logs/rust/stage5-lifecycle.log section 5) -- which is the condition the aggregating
+# session set for leaving it on rather than gating it.
+#
+# It is on for THIS SLICE and not in `ak-core`'s own defaults, and that is deliberate: the
+# cpp and java slices build ak-core with default features and their hosts do not call
+# `ak_init` yet, so flipping the core default would fail their gates on a rule they have
+# not had the chance to satisfy. One line in each host fixes it and that line is not this
+# slice's to write. See the report.
+default = ["guard", "init-guard"]
 # ABI v1 section 5. On by default, because every published managed figure was taken
 # WITHOUT it and this slice is not going to repeat that.
 guard = []
@@ -19,6 +30,8 @@ dec-reject-simd = ["ak-rt/dec-reject-simd"]
 # ABI v1 obligation 12.5 and section 6: the process-global learned-width table, which
 # section 6 refuses. Built so the refusal is measured rather than inherited.
 global-widths = ["ak-rt/global-widths", "ak-core/global-widths"]
+# Section 6's byte defect, as a must-FAIL plant for the concurrency suite.
+pad-widths = ["ak-rt/pad-widths", "ak-core/pad-widths"]
 # ABI v1 section 3's "every entry point requires ak_init", as an arm, so what it costs on
 # the hot path is a number rather than a claim.
 init-guard = ["ak-core/init-guard"]

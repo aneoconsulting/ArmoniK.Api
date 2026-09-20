@@ -48,7 +48,9 @@ gen/unknown.sh              the unknown-field bag, decision 11
 gen/unknown_predicate.py    does the bag break the batching predicate? Run this FIRST
 gen/stability.sh            is a ratio reproducible across BUILDS? (R4, as sharpened)
 gen/pull.sh                 stage 5 item 1: the two decode families, end to end
-gen/concur.sh               stage 5 item 2: obligation 12.5, both width-table arms
+gen/concur.sh               stage 5 item 2: obligation 12.5, FOUR builds --
+                            shipped and global must PASS, pad and pad+global
+                            must FAIL. Section 6's two refusals are independent
 gen/lifecycle.sh            stage 5 item 3: section 3, both init-guard arms. Untimed
 gen/guardcost.sh            what section 3's guard costs, as a within-process delta
                             with a TWIN arm that measures the layout floor. The one
@@ -91,9 +93,10 @@ Binaries: `conformance` (byte identity), `counts` (`--features count`), `bench`,
 **`pullbench`** (the two decode families), **`concur`** (obligation 12.5),
 **`lifecycle`** (section 3), **`guardcost`** (what section 3's guard costs).
 Features: `guard` (on by default, ABI v1 section 5), `count`, the decode UTF-8 policy
-`dec-reject` / `dec-reject-simd` (default: lossy), **`global-widths`** and
-**`init-guard`** (both off by default; each builds an arrangement so it can be measured
-rather than inherited).
+`dec-reject` / `dec-reject-simd` (default: lossy), **`global-widths`** and **`pad-widths`** (both OFF
+by default, both TEST-ONLY constructions of arrangements section 6 refuses, neither an
+option a host may pick), and **`init-guard`**, which is **ON by default here** because it
+measured free — ABI v1 section 3 as specified.
 
 ## What is measured
 
@@ -306,14 +309,28 @@ separate processes.
   3's panic hook changes what is printed, not whether the abort happens. Raised, not taken:
   an owning-thread id beside the context's existing `kind` word would turn this into
   `AK_ERR_INVALID_STATE` at the first misuse.
-- **SECTION 6's "NEVER PROCESS-GLOBAL" IS MEASURED ON A SECOND HOST: the sign agrees and the
-  magnitude does not.** `--features global-widths` builds the refused arrangement. It costs
+- **SECTION 6's TWO REFUSALS ARE BUILT INDEPENDENTLY, AND THE CPP SLICE'S SEPARATION OF THEM
+  IS REPRODUCED HERE.** Four builds, must-PASS/must-FAIL: shipped 0 wrong; `global-widths`
+  **0 wrong** (a data race and a throughput defect, NOT a byte defect, because `Mark` carries
+  its width by value and `end` recomputes what the body needs); `pad-widths` **10 wrong**
+  (the byte defect); the combination **1,410 wrong**. All four behaved as required.
+- **THE ORACLE HAD TO CHANGE, AND THE SUITE MEASURES WHY RATHER THAN CITING IT.** It was a
+  re-encode with a fresh `core-ffi` context — the code under test. On the combination that
+  oracle sees **0** where prost sees 4: a "fresh" context is only fresh in the per-context
+  state, so with a global table it reads the same pollution, pads the same way and agrees.
+  The change costs nothing where there is nothing to find (both oracles report 0 on both
+  must-pass builds).
+- **SECTION 6's THROUGHPUT CLAIM: the sign agrees and the magnitude does not.** `--features global-widths` builds the refused arrangement. It costs
   **0.5 to 11 percent**, only above one thread, and **only when two shapes want different
   widths at the SAME site** — a disjoint-site control shows no penalty at any thread count,
   so this is true sharing and not false sharing of the static's cache lines. Against the
   branch's inherited java figure (1.32 to 2.23 at two threads) this host sees 1.005 to 1.070
-  at two and needs four to reach 1.11. R9 is why that is not a contradiction. **The
-  one-thread rows are a confound and are in the log rather than removed**: a static array is
+  at two and needs four to reach 1.11. **The cpp slice explains the gap rather than leaving
+  it**: it split the question into a read-mostly leg (1.13-1.23) and a written leg
+  (1.83-2.05) and found the cost tracks how often the table is WRITTEN. This slice's pair
+  writes it exactly once per encode — counted, not assumed — so 1.05-1.11 is the same curve
+  at a lower write rate, not a contradiction. Three hosts now agree on the sign, and R9 makes
+  every figure here a lower bound. **The one-thread rows are a confound and are in the log rather than removed**: a static array is
   reached more cheaply than a `Box<[u8]>` in the context, so the global arm is 2 to 6 percent
   faster at one thread and the contention figure is a difference of differences.
 - **The contention arm is shown to contend rather than assumed to**: a warm context on one
@@ -340,7 +357,12 @@ separate processes.
   1.75 µs on a 1.4 ms encode — **0.125 percent** — and every decode at one crossing, because
   the guard is per ENTRY POINT and entry points are per message or per run, never per field.
   It also does not get dearer on a host whose crossing is dearer: the guard is work on the
-  core's side of the boundary.
+  core's side of the boundary. **Because it measured free it is now ON BY DEFAULT in this
+  slice** (`harness` default features), so section 3's rule is what the rust slice ships. It
+  is NOT on in `ak-core`'s own defaults, and that is deliberate: cpp and java build ak-core
+  with default features and their hosts do not call `ak_init` yet, so flipping the core
+  default would fail their gates on a rule they have not had the chance to satisfy. One line
+  per host fixes it and that line is not this slice's to write.
 - **Two findings came out of cases that FAILED first, and both failures were the
   specification working.** (a) **The core's panic hook does not see a Rust host's panics**,
   because a cdylib carries its own copy of `std` and the two hooks are two different globals.
@@ -592,29 +614,28 @@ Four, all reported to the aggregating session and none fixed here:
 
 ## Slice-specific notes
 
-- **THIS SLICE ADDED TO THE SHARED CORE, AND THE AGGREGATING SESSION SHOULD SAY WHETHER IT
-  STAYS.** R0 allows a slice to add to `poc/codec/` additively and says a change to existing
-  behaviour is not a slice's to make. Stage 5 made five additions there. Four are plainly
-  additive new surface: `ak-rt/src/bdr.rs`, the `ak_parse_*` and `ak_bdr_*` entry points,
-  `ak_init` and its neighbours, and `ak_panic_test`. **Two are feature-gated alternative
-  arrangements and they are the ones to look at**:
-  - `ak-rt` feature **`global-widths`** builds the process-global learned-width table that
-    ABI v1 section 6 explicitly refuses. It exists so the refusal is measured rather than
-    inherited from the java slice, and it is off by default.
-  - `ak-core` feature **`init-guard`** emits section 3's `AK_ERR_UNINITIALIZED` check into
-    every entry point, so the rule can be priced. Off by default, and emitted by a post-pass
-    over the finished codec text so a new entry point gets it by existing rather than by
-    someone remembering.
-
-  With both off, the emitted codec and the runtime behave exactly as before: the first
-  stage-5 commit was 2,048 insertions and zero deletions across `poc/codec/crates`, and the
-  push family's byte-identity gate and crossing counts were re-run and are unchanged. But a
-  feature that builds a refused arrangement is a judgement call and it is flagged here rather
-  than buried.
-- **The other slices need to regenerate.** `codec.rs` and `abi.rs` changed (additively), and
-  cpp, java and this slice all write those paths from one emitter. A `gen/generate.py --check`
-  in another slice will read STALE until it regenerates, and will then agree, because the
-  text comes from the same emitter and the same description.
+- **WHAT THIS SLICE ADDED TO THE SHARED CORE, AND THE RULING ON IT.** R0 allows a slice to
+  add to `poc/codec/` additively; a change to existing behaviour goes to the aggregating
+  session. Stage 5 asked and was answered. Additive new surface, approved by being additive:
+  `ak-rt/src/bdr.rs`, the `ak_parse_*` and `ak_bdr_*` entry points, `ak_init` and its
+  neighbours, `ak_panic_test`, `ak_noop2` and `ak_noop_guarded`. Then:
+  - **`global-widths` and `pad-widths`** (ak-rt): the two arrangements ABI v1 section 6
+    refuses, built so obligation 12.5's suite can be seen failing. **Approved as additions**,
+    on the conditions that they stay off by default, that the default artifact is unchanged,
+    and that they are documented as **test-only constructions of a configuration the
+    specification refuses, not options a host may pick** — which both crate manifests and
+    both doc comments now say.
+  - **`init-guard`** (ak-core): section 3's `AK_ERR_UNINITIALIZED` check on every emitted
+    entry point. **Approved as a change to existing behaviour, conditional on measuring the
+    cost**, which is done (see above): free, so it is ON by default in this slice and OFF in
+    `ak-core`'s own defaults until the other hosts call `ak_init`.
+- **NO REGENERATION IS NEEDED IN THE OTHER SLICES, and that was checked rather than assumed.**
+  `codec.rs` and `abi.rs` changed additively, and cpp, java and rust all write those paths
+  from one emitter — so the question was whether the other generators reproduce the committed
+  text. They do: `gen/generate.py --check` reports **0 stale in all four slices**. csharp has
+  its own IR and does not write the core at all. What the other slices DO need is a
+  **rebuild**, because the core's sources changed; the exported ABI gained 13 hand-written
+  entry points plus 7 `ak_parse_*` and **removed none**, so their gates should be unaffected.
 - Reads `packages/rust`. Does not edit it.
 - This slice's `core-ffi-rust` number is what every other slice subtracts to separate
   interface cost from runtime tax, so it is the one arm that must exist before the managed

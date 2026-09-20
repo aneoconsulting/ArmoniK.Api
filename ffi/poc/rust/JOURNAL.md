@@ -1559,3 +1559,70 @@ is *add an arm that must read zero*. That is the same device as `core-native-opa
 the concurrency suite's planted violation, pointed at the measurement rather than at the code,
 and it turned an unusable number into a statement with a number attached to its own
 uncertainty.
+
+## Work unit: the aggregating session's ruling, and what the cpp slice's log changed
+
+The ruling approved both feature gates and told me to read `logs/cpp/concurrency.log`
+before designing any more planted builds, because section 6 had been rewritten and the old
+text would lead me to build the wrong suite. It did, and my suite was the wrong one in two
+specific ways.
+
+### Section 6's two refusals are independent, and I had only built half of one
+
+The old text ran "the table lives in the context, never process-global" and "do not pad the
+prefix" together. The cpp slice separated them and the rewritten section says: a global
+table is a data race and a **throughput** defect and **not** a byte defect, because an
+unpadded prefix is rewritten to whatever width the body actually needs; padding IS the byte
+defect; and **only the combination** corrupts in the way a naive suite cannot see.
+
+I had reached the first half independently — reading `Enc::end`, `Mark` carries its width by
+value, so a wrong learned width costs a memmove and never a wrong byte — and that is why my
+global arm was a throughput arm. What I had not built was the padding plant, so **my suite
+had never produced a wrong byte at all**. Its only plant was the shared context, which
+aborts. A suite whose failing test is "the process dies" has not shown that the byte
+comparison works.
+
+Now four builds, with the must-pass and must-fail in the script: shipped 0, global 0, pad 10,
+pad+global 1,410.
+
+### The oracle was the code under test, which is the mistake the combination exists to punish
+
+My reference was a re-encode with a fresh `core-ffi` context. Section 6 says that cannot
+catch the combination, because the threads agree with each other. I could have taken that on
+authority; instead I ran both oracles over the same encodes and printed both columns:
+
+    build                    vs prost   vs a fresh core-ffi context
+    shipped                         0                            0
+    pad-widths                      4                            4
+    global + pad                    4                            0   <-- blind
+
+A "fresh" context is only fresh in the state that is per-context. With a global table it
+reads the same pollution, pads the same way, and agrees. That is now section 1b of the
+suite, and it costs nothing on the builds that must pass — both oracles report zero.
+
+### Where my throughput number sits, and why it is not a contradiction
+
+Mine is 1.005-1.070 at two threads and 1.054-1.109 at four; cpp got 1.83-2.05 contended and
+java 1.32-2.23. The cpp slice's own refinement resolves it: the cost tracks how often the
+table is **written**, and its read-mostly leg is 1.13-1.23 with no scaling loss at all. My
+pair writes the table **exactly once per encode** — counted, not assumed: the learned width
+converges within an encode, the first element misses and the remaining 3 or 299 hit. So I am
+on the same curve at a lower write rate. Three hosts, one sign, a magnitude that is a
+function of the write rate.
+
+### The regen turned out to be nothing, which is itself worth having checked
+
+I expected to regenerate cpp, java and csharp. `gen/generate.py --check` reports **0 stale in
+all four slices**: the other generators reproduce the committed `codec.rs` and `abi.rs`
+exactly, because it is one emitter over one description with one ROOTS list. csharp does not
+write the core at all. What they need is a rebuild, not a regeneration — and the ABI gained
+20 entry points and lost none, so their gates should be untouched.
+
+### The one place I did not follow the ruling literally
+
+"If it is free, leave it on" — the guard measured free, so it is on. But turning it on in
+`ak-core`'s own defaults would turn it on for cpp and java, whose hosts do not call
+`ak_init`, and every call would return `AK_ERR_UNINITIALIZED`. That is a change that needs
+more than a regeneration in trees I may not edit, which is the case the ruling says to stop
+and report. So it is on in this slice's defaults and off in the core's, and the report says
+what one line each host needs.
