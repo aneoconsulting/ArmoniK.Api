@@ -446,14 +446,38 @@ emits runs of length one and loses nothing.
 **Length placeholders use a learned width, held in the encode context.** The
 descriptor proves which messages can never exceed a one-byte length, and the
 generator emits a form with no branch and no move for those. For the rest the
-encoder reserves its best guess and moves only on a miss. **The table lives in
-the context, never process-global**: 37 live slots at four bytes pack about
-sixteen to a cache line, and a global table made two encoding threads slower than
-one. Do not pad the prefix to a fixed width: it was built three ways and refused
-three ways, most sharply because padding to the learned width makes the encoder's
-output depend on its own history, which a byte-vector corpus cannot express and
-which lets two threads of one process emit two different legal encodings of the
-same message.
+encoder reserves its best guess and moves only on a miss.
+
+**Two refusals live here and they are independent, which the earlier text ran
+together.** A concurrency suite built for obligation 12.5 separated them
+(`logs/cpp/concurrency.log`):
+
+- **The table lives in the context, never process-global.** 37 live slots at four
+  bytes pack about sixteen to a cache line. A global table is a data race and a
+  **throughput** defect — 1.83 to 2.05 times slower contended in C++, 1.32 to 2.23
+  in Java — but it is **not a byte defect**: an unpadded prefix is rewritten to
+  whatever width the body actually needs, whatever the guess was. Uncontended it
+  costs 1.13 to 1.23 and scaling does not degrade at all, so the cost tracks how
+  often the table is *written* rather than the fact of sharing.
+- **Do not pad the prefix to a fixed width.** Built three ways and refused three
+  ways, most sharply because padding to the learned width makes the encoder's
+  output depend on its own history — which a byte-vector corpus cannot express,
+  and which lets two threads of one process emit two different legal encodings of
+  one message.
+
+**Only the combination corrupts, and it corrupts in a way a naive suite cannot
+see**: the threads *agree* with each other, because they share the pollution, so
+a suite that compares two threads' output finds nothing. It takes an independent
+reference — the incumbent's encoder, not a re-encode with the code under test —
+to catch it. Measured: one payload shape gives 0 wrong of 24, two shapes that
+want different widths at a shared site give 44 of 48.
+
+**And the pair has to be chosen, not assumed.** Widths only ever grow within a
+context, so only an ordered pair where the first shape leaves a site *wider* than
+the second needs can reveal anything. Four shapes across two message types had no
+such pair and the first suite passed every planted build. A suite for this
+obligation asks the encoder which ordered pairs have a history surface and prints
+the answer **even when it is empty**.
 
 **Nothing the host calls in the codec is a table.** The host links the codec, so
 it knows the symbol; a table adds an indirection, a layout that has to be
@@ -935,6 +959,37 @@ Each blocks something. None is settled by a measurement that exists today.
    language where a conformant parser rejects the whole message; that is roughly
    what protobuf C++ does today, and it is not worth 25 to 30 percent of every
    encode by default.
+
+   **And it is now stronger than "free": the core's validator is cheaper than the
+   one the host is already running.** Measured against protobuf C++'s own
+   `IsStructurallyValidUTF8` — the validator the incumbent runs on every `string`
+   field it parses, already linked into every arm, so no configuration claim has
+   to be believed — the core's table validator costs **2.27× a raw copy on ASCII
+   against the incumbent's 2.56×, 15.9× against 19.6× on Latin-1, and 19.6×
+   against 34.4× on wide content** (`logs/cpp/utf8.log`). So decision 3's
+   decode-side check is not a cost the core imposes on a host that did not have
+   one; it is cheaper than the check that host already pays.
+
+   **The earlier "4.5× to 20×" is withdrawn, and it erred in the flattering
+   direction.** Its string set included `ResultRaw.opaque_id`, which is a `bytes`
+   field: proto3 puts no UTF-8 requirement on it, the codec reaches it through
+   `ak_tc_bytes`, and no validator ever sees it. In the ASCII set its values are
+   arbitrary bytes, so the check arm rejected on the first bad byte and did *less*
+   work than a validation — the published ASCII row understated the cost of
+   validating. Found by a differential test asserting that everything it validates
+   is valid, which the timing table had never done.
+
+   **Two notes on how that validator was arrived at, because they generalise.**
+   Byte identity cannot see a validator defect at all — a manifest is made of
+   things that *encode*, so it carries no malformed input, and a validator that
+   accepts an unpaired surrogate passes every gate the branch has; it took 17.78
+   million differential checks against an oracle written from RFC 3629, one range
+   per line, which is not one of the implementations under test. And a textbook
+   DFA turned out **slower than the scalar form on wide content** (0.78×), because
+   its state is a serial dependency and the branches it removes were being
+   predicted correctly anyway. What wins keeps the scalar shape and drops the
+   code-point arithmetic: validation needs ranges rather than values, and every
+   range constraint in UTF-8 is a function of the lead byte alone.
 
    **Where a fast validator earns its place is decode**, not encode, which is where
    the `simdutf8` dependency and its runtime-dispatch floor question go with it.
