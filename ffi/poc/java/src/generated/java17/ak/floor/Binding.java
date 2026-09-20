@@ -76,7 +76,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
    *  (open decision 12), so this is the Java side of that gap. */
   public Throwable lastHostError;
 
-  byte[] out = new byte[1 << 16];
+  /** The length the core returned from the last encode. ABI v1's encode entry hands
+   *  it back, so `takeBytes` does not have to cross the boundary to ask for it. */
+  int encLast = -1;
 
   public Binding() {
     Mem.checkBoolScale();
@@ -138,14 +140,17 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
 
   int wireBase;
 
+  /** One allocation and ONE copy, which is exactly what `toByteArray` costs the
+   *  incumbent. The earlier form asked the core for the length over the boundary and
+   *  then copied the bytes twice, native into a reused scratch array and the scratch
+   *  array into the result -- a handicap on this arm worth an entire memcpy of the
+   *  payload, which on the 4 MB bulk payload was most of the arm's reported cost. */
   byte[] takeBytes() {
-    int n = Native.encLen(encCtx);
-    if (n < 0) throw new IllegalStateException("core returned " + n);
-    if (out.length < n) out = new byte[Integer.highestOneBit(Math.max(n - 1, 1)) * 2];
-    int rc = Native.encTake(encCtx, out);
-    if (rc < 0) throw new IllegalStateException("core returned " + rc);
+    int n = encLast;
+    if (n < 0) throw new IllegalStateException("no encode to take, or it failed");
     byte[] r = new byte[n];
-    System.arraycopy(out, 0, r, 0, n);
+    int rc = Native.encTake(encCtx, r);
+    if (rc < 0) throw new IllegalStateException("core returned " + rc);
     return r;
   }
 
@@ -2607,6 +2612,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
 
   public int encodeListResultsResponse(ListResultsResponse o) {
     Native.encReset(encCtx);
+    encLast = -1;
     arena.reset();
     encTokN = 0;
     encRoot = o;
@@ -2614,7 +2620,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     long g = arena.alloc(ak.shapes.Layout.AK_EFIX_LISTRESULTSRESPONSE_SIZE);
     fillListResultsResponse(g, o);
     long rc = ak.NativeEntry.encodeListResultsResponse(this, encCtx, evtListResultsResponse, g);
-    return check((int) rc);
+    return encLast = check((int) rc);
   }
 
   public ListResultsResponse decodeListResultsResponse(byte[] wire, int off, int len) {
@@ -2628,6 +2634,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
 
   public int encodeListTasksDetailedResponse(ListTasksDetailedResponse o) {
     Native.encReset(encCtx);
+    encLast = -1;
     arena.reset();
     encTokN = 0;
     encRoot = o;
@@ -2635,7 +2642,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     long g = arena.alloc(ak.shapes.Layout.AK_EFIX_LISTTASKSDETAILEDRESPONSE_SIZE);
     fillListTasksDetailedResponse(g, o);
     long rc = ak.NativeEntry.encodeListTasksDetailedResponse(this, encCtx, evtListTasksDetailedResponse, g);
-    return check((int) rc);
+    return encLast = check((int) rc);
   }
 
   public ListTasksDetailedResponse decodeListTasksDetailedResponse(byte[] wire, int off, int len) {
@@ -2649,6 +2656,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
 
   public int encodeListProbeResponse(ListProbeResponse o) {
     Native.encReset(encCtx);
+    encLast = -1;
     arena.reset();
     encTokN = 0;
     encRoot = o;
@@ -2656,7 +2664,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     long g = arena.alloc(ak.shapes.Layout.AK_EFIX_LISTPROBERESPONSE_SIZE);
     fillListProbeResponse(g, o);
     long rc = ak.NativeEntry.encodeListProbeResponse(this, encCtx, evtListProbeResponse, g);
-    return check((int) rc);
+    return encLast = check((int) rc);
   }
 
   public ListProbeResponse decodeListProbeResponse(byte[] wire, int off, int len) {
@@ -2670,6 +2678,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
 
   public int encodeListTaskSummaryResponse(ListTaskSummaryResponse o) {
     Native.encReset(encCtx);
+    encLast = -1;
     arena.reset();
     encTokN = 0;
     encRoot = o;
@@ -2677,7 +2686,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     long g = arena.alloc(ak.shapes.Layout.AK_EFIX_LISTTASKSUMMARYRESPONSE_SIZE);
     fillListTaskSummaryResponse(g, o);
     long rc = ak.NativeEntry.encodeListTaskSummaryResponse(this, encCtx, evtListTaskSummaryResponse, g);
-    return check((int) rc);
+    return encLast = check((int) rc);
   }
 
   public ListTaskSummaryResponse decodeListTaskSummaryResponse(byte[] wire, int off, int len) {
@@ -2691,6 +2700,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
 
   public int encodeUploadResultDataMessage(UploadResultDataMessage o) {
     Native.encReset(encCtx);
+    encLast = -1;
     arena.reset();
     encTokN = 0;
     encRoot = o;
@@ -2704,7 +2714,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // critical section legal here.
     byte[] direct = o.upload.data_chunk == null ? ak.Native.NO_BYTES : o.upload.data_chunk;
     long rc = ak.NativeEntry.encodeDirectUploadResultDataMessage(this, encCtx, evtUploadResultDataMessage, g, direct, direct.length);
-    return check((int) rc);
+    return encLast = check((int) rc);
   }
 
   public UploadResultDataMessage decodeUploadResultDataMessage(byte[] wire, int off, int len) {
@@ -2718,6 +2728,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
 
   public int encodeListMetricsResponse(ListMetricsResponse o) {
     Native.encReset(encCtx);
+    encLast = -1;
     arena.reset();
     encTokN = 0;
     encRoot = o;
@@ -2725,7 +2736,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     long g = arena.alloc(ak.shapes.Layout.AK_EFIX_LISTMETRICSRESPONSE_SIZE);
     fillListMetricsResponse(g, o);
     long rc = ak.NativeEntry.encodeListMetricsResponse(this, encCtx, evtListMetricsResponse, g);
-    return check((int) rc);
+    return encLast = check((int) rc);
   }
 
   public ListMetricsResponse decodeListMetricsResponse(byte[] wire, int off, int len) {
@@ -2739,6 +2750,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
 
   public int encodeDualResponse(DualResponse o) {
     Native.encReset(encCtx);
+    encLast = -1;
     arena.reset();
     encTokN = 0;
     encRoot = o;
@@ -2746,7 +2758,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     long g = arena.alloc(ak.shapes.Layout.AK_EFIX_DUALRESPONSE_SIZE);
     fillDualResponse(g, o);
     long rc = ak.NativeEntry.encodeDualResponse(this, encCtx, evtDualResponse, g);
-    return check((int) rc);
+    return encLast = check((int) rc);
   }
 
   public DualResponse decodeDualResponse(byte[] wire, int off, int len) {
