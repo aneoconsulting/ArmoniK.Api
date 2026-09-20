@@ -707,6 +707,7 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None):
         o.append("")
         o.append("  public int encode%s(%s o) {" % (root, root))
         o.append("    Native.encReset(encCtx);")
+        o.append("    encLast = -1;")
         o.append("    arena.reset();")
         o.append("    encTokN = 0;")
         o.append("    encRoot = o;")
@@ -729,7 +730,11 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None):
         else:
             o.append("    long rc = ak.NativeEntry.encode%s(this, encCtx, evt%s, g);"
                      % (root, root))
-        o.append("    return check((int) rc);")
+        # The core's encode returns the encoded length. Recording it here is what
+        # lets `takeBytes` allocate the result without asking again: D6 removed one
+        # redundant crossing from the `ffi` arm and left the same one standing in the
+        # `-take` arm, which is the arm the incumbent is compared against.
+        o.append("    return encLast = check((int) rc);")
         o.append("  }")
         o.append("")
         o.append("  public %s decode%s(byte[] wire, int off, int len) {" % (root, root))
@@ -823,7 +828,9 @@ PRELUDE = '''
    *  (open decision 12), so this is the Java side of that gap. */
   public Throwable lastHostError;
 
-  byte[] out = new byte[1 << 16];
+  /** The length the core returned from the last encode. ABI v1's encode entry hands
+   *  it back, so `takeBytes` does not have to cross the boundary to ask for it. */
+  int encLast = -1;
 
   public Binding() {
     Mem.checkBoolScale();
@@ -885,14 +892,17 @@ PRELUDE = '''
 
   int wireBase;
 
+  /** One allocation and ONE copy, which is exactly what `toByteArray` costs the
+   *  incumbent. The earlier form asked the core for the length over the boundary and
+   *  then copied the bytes twice, native into a reused scratch array and the scratch
+   *  array into the result -- a handicap on this arm worth an entire memcpy of the
+   *  payload, which on the 4 MB bulk payload was most of the arm's reported cost. */
   byte[] takeBytes() {
-    int n = Native.encLen(encCtx);
-    if (n < 0) throw new IllegalStateException("core returned " + n);
-    if (out.length < n) out = new byte[Integer.highestOneBit(Math.max(n - 1, 1)) * 2];
-    int rc = Native.encTake(encCtx, out);
-    if (rc < 0) throw new IllegalStateException("core returned " + rc);
+    int n = encLast;
+    if (n < 0) throw new IllegalStateException("no encode to take, or it failed");
     byte[] r = new byte[n];
-    System.arraycopy(out, 0, r, 0, n);
+    int rc = Native.encTake(encCtx, r);
+    if (rc < 0) throw new IllegalStateException("core returned " + rc);
     return r;
   }
 
