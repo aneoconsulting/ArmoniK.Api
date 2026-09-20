@@ -163,7 +163,7 @@ def emit(ir):
         # ABI v1 7.1's PULL family: the codec writes a record stream and the host
         # replays it, so a decode makes no reverse calls at all.
         ("void", "ak_bdr_reset", "IntPtr ctx"),
-        ("IntPtr", "ak_bdr_ptr", "IntPtr ctx, nuint* len"),
+        ("int", "ak_bdr_ptr", "IntPtr ctx, byte** ptr, nuint* len"),
         ("int", "ak_bdr_reserve", "IntPtr ctx, nuint bytes"),
         ("nuint", "ak_bdr_footprint", "IntPtr ctx"),
         ("ulong", "ak_bdr_count_forward", "IntPtr ctx"),
