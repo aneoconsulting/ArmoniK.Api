@@ -277,7 +277,22 @@ differs, and it decides whether a wall-clock column is measuring the codec:
 So a 540 KB P2.2 response fits inside grpc-java's default window with no stall at all,
 and stalls repeatedly on tonic's. **Each RPC arm states its stream and connection
 window and whether auto-tuning is on**, in its configuration line, because two slices
-that do not are not measuring the same thing. CPU per RPC stays the headline and wall
+that do not are not measuring the same thing.
+
+**And every arm pins the same configuration, which is ArmoniK's rather than the
+stack's** — R14 applied to the transport. From the core's current settings: **2 MiB
+chunking** for upload and download, and a **4 MiB stream window**, sized to the
+largest message the stack accepts by default so that one maximum-size message crosses
+without a `WINDOW_UPDATE` round trip. P2.2's 540 KB is then comfortably inside one
+window in every arm, which is what makes the arms comparable.
+
+Two traps in pinning it. **The connection window is a separate setting from the stream
+window** in every stack here (grpc-java's `flowControlWindow` sets
+`SETTINGS_INITIAL_WINDOW_SIZE`, which is per stream; tonic and hyper take the two
+separately), so raising only the stream window leaves the connection at 65,535 and
+changes nothing. And **pinning a window turns BDP auto-tuning off** in grpc-java, so
+the pinned arm is not the default arm: the pinned one is the headline and the stack
+default is a labelled second row. CPU per RPC stays the headline over both, and wall
 clock is reported beside it or not at all.
 
 **Not in the RPC arm, and listed as not measured**: streaming, TLS, a real
