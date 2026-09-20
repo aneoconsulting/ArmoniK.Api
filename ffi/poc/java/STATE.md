@@ -413,6 +413,45 @@ put the transcoder in the core so that "every managed host stops maintaining a U
 encoder". That makes it the only arm here insensitive to the host JIT's profile history --
 an argument for the design that no benchmark was looking for.
 
+### README 9.1's C shim, priced and refused -- `logs/java/shim-probe.log`
+
+**The arm is not built, and the reason is a measurement rather than a schedule.** README
+9.1's shape is a generated C shim that speaks the host runtime's C API instead of calling
+back into the host language. The JVM analogue writes facade fields through the JNI API
+instead of upcalling into Java, and it is aimed at exactly this slice's decode regression:
+7.004 reverse calls per element on P2.2 at about 80 ns is 560 ns of a 1.441 ratio. Pricing
+the primitives first says it cannot work.
+
+| op, net of an empty-loop control inside one native call | G1 (default) | Parallel | Serial |
+|---|---|---|---|
+| `SetIntField` | 11.97 | 11.97 | 11.96 |
+| `SetObjectField` | **26.7** | 13.7 | 13.7 |
+| `SetObjectArrayElement` | **28.0** | 15.6 | 15.5 |
+| `GetObjectField` | 18.6 | 16.2 | 16.1 |
+| `AllocObject` | 47.7 | 51.3 | 52.9 |
+| `NewObject` | 139.2 | 127.2 | 123.5 |
+| `NewString(16)` | 95.1 | 90.2 | 89.7 |
+| an upcall on a container method (`List.set`) | 105.8 | 101.8 | 99.7 |
+
+A cached reverse call on this machine is 72 to 80 ns (`logs/java/crossing.log`), so **a JNI
+field store is a third of a whole upcall, not a rounding error against it.** The crossover
+between "one upcall carrying k stores in bytecode" and "k JNI stores and no upcall" is at
+**k = 2 to 3**, worst on the default collector. `TaskDetailed`'s apply is k = 30, where the
+shim would pay about 790 ns of stores against about 80 ns of transition plus the same
+stores at a few ns each in bytecode, and a further 123 to 139 ns per element for
+`NewObject` where the Java side pays a bytecode `new`.
+
+**The generalisation is the useful part, and it composes with the rust slice's pull
+family.** On the JVM the push family's cost is the *number* of transitions, not what
+happens inside them. Making a transition cheaper is not on the table, because a JNI
+accessor already costs a third of one; making them fewer is, and that is the pull family
+and open decision 10. The C-shim route is not a second, independent way to the same place.
+
+**And a fact worth keeping on its own**: `SetObjectField` and `SetObjectArrayElement` both
+double under G1 against Parallel and Serial while `SetIntField` does not move. That is the
+G1 write barrier priced, and it applies to any native code storing references into Java
+objects, not only to this design.
+
 ### ABI v1 section 9's virtual-thread amendment, confirmed -- `logs/java/pinning.log`
 
 Section 9's fourth amendment: "At least one mode in which the caller waits in the host
@@ -664,5 +703,6 @@ In the order a fresh session should take them:
 | `deopt.log` | JDK 17 and JDK 21 | README R9's hazard: real, 2.16x, opposite sign, and the C ABI arm immune |
 | `ffm.log` | JDK 21, preview | the FFM downcall price beside JNI's on the same JDK |
 | `pinning.log` | JDK 21, virtual threads | ABI v1 section 9's fourth amendment confirmed at three carrier counts |
+| `shim-probe.log` | JDK 17, three collectors | README 9.1's shape priced on the JVM before building it: a JNI field store is a third of an upcall, the crossover is k=2-3, and the G1 write barrier doubles a reference store |
 | `w10-regate.log` | all three arms, shared core | R0: 3,891 checks 0 failures, both transcoders resolved from `poc/codec`, worst drift move 0.052 against a 0.078 bar |
 | `r14.log`, `r14-summary.md` | JDK 17, the real grpc marshaller | R14: the headline against production's path, and `toByteArray` priced against it |
