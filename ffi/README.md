@@ -901,6 +901,48 @@ interface that lets the host choose emission order gives up byte identity by
 construction, so the corpus cannot validate it. That belongs in the ABI decision,
 not after it.
 
+### 10.1 The corpus is built and validated against ONE runtime, and that is now a known defect
+
+W8's corpus generates every vector, every accepted encoding and every projection
+with **protobuf 7.36.2 on the upb backend**, and validates the accept and reject
+verdicts by parsing with upb (`corpus/emit/build.py`). One runtime deciding what
+the right answer is makes that runtime's behaviour the specification, and the C++
+slice found a row where it is the *minority* behaviour.
+
+**`U-map-entry` puts an unknown field inside every map entry, and the runtimes do
+not agree on the same bytes.** Reproduced here directly rather than taken on
+report:
+
+| runtime | what the map contains |
+|---|---|
+| **upb** | `{}` — the entry is dropped from the map and its bytes are retained as an unknown field of the parent (the re-encode is byte-identical to the input) |
+| protobuf C++ 3.21.12 (`protoc --decode`) | `options { key: "k" value: "v" 3: 7 }` |
+| protobuf-python 4.25.9, pure backend | `{'k': 'v'}` |
+| the cpp slice, both arms | `{'k': 'v'}` |
+
+A map field is shorthand for a repeated `MapEntry` message, and an unknown field
+inside a submessage is skipped while the submessage still parses — so three
+implementations read it that way and upb's map parser appears to bail to the
+unknown path when the entry carries anything but its two known fields. **The
+corpus's projection is upb's**, so a conformant slice fails that row.
+
+**The consequence is larger than one vector**, and it is the reason this is in the
+README rather than in a slice's defect log: **every row where upb differs from the
+other runtimes silently encodes upb's answer as the expected one**, and the only
+rows anyone has checked are the ones where a slice happened to disagree. Until a
+second independent runtime is an oracle for the projections, a corpus failure is
+evidence that a slice differs from upb and not yet evidence that it is wrong.
+
+**What the corpus needs, in the order it matters**: a second runtime (protobuf C++
+through its own reflection is the cheapest, and the cpp slice already drives it as
+an oracle) generating the same projections; rows where the two disagree marked
+**disputed** and excluded from a pass or fail rather than decided; and the
+provenance of each accepted encoding recorded, since "upb writes it" and "every
+conformant encoder writes it" are different claims and the manifest currently
+makes only the first. `B-P7_1` is the other row of this kind: its only accepted
+encoding is one **no canonical writer produces**, which SHAPES.md already handles
+by permutation and the manifest does not.
+
 ## 11. How the work is run
 
 Three roles, and the separation between them is what keeps the report honest.
