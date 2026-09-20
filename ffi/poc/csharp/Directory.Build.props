@@ -21,8 +21,16 @@
        globbed obj/ for the same reason, because the SDK only ever excludes the
        intermediate directory of the build currently running. Both are excluded
        in both directions, for every build. -->
+  <!-- ABI v1 decision 3's rejecting policy, a third output next to the target
+       and the floor, for the same reason: a runtime flag would branch on both
+       arms' hot path and block the JIT from devirtualising Encoding.UTF8. -->
+  <PropertyGroup Condition="'$(AkStrict)' == 'true'">
+    <BaseOutputPath>$(MSBuildProjectDirectory)/bin-strict/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildProjectDirectory)/obj-strict/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+
   <PropertyGroup>
-    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**;obj-floor/**;bin-floor/**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**;obj-floor/**;bin-floor/**;obj-strict/**;bin-strict/**</DefaultItemExcludes>
   </PropertyGroup>
 
 </Project>

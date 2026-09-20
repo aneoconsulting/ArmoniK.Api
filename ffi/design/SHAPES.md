@@ -295,7 +295,12 @@ slice that cannot reach a socket is looking at its own harness.
 
 **Prefer a Unix domain socket, with loopback TCP as a labelled second row.** A UDS
 removes the TCP/IP stack from both arms equally, which is kernel time neither
-implementation is responsible for and which varies with the machine. All five stacks
+implementation is responsible for and which varies with the machine. **It is not
+faster than a correctly configured loopback TCP socket, and the branch believed
+otherwise for a while**: with `TCP_NODELAY` set on the server's accepted socket the
+two agree on both payloads and both columns, and the gap that made UDS look faster
+was Nagle in our own test server (README R9). Prefer UDS because it is what ArmoniK
+dials, not because it is quicker. All five stacks
 support it: `unix:` targets in grpc++ and grpcio, a `UnixStream` connector in tonic,
 netty domain sockets in grpc-java, and `UnixDomainSocketEndPoint` behind a
 `SocketsHttpHandler` connect callback on .NET.
@@ -319,11 +324,31 @@ window and whether auto-tuning is on**, in its configuration line, because two s
 that do not are not measuring the same thing.
 
 **And every arm pins the same configuration, which is ArmoniK's rather than the
-stack's** — R14 applied to the transport. From the core's current settings: **2 MiB
-chunking** for upload and download, and a **4 MiB stream window**, sized to the
-largest message the stack accepts by default so that one maximum-size message crosses
-without a `WINDOW_UPDATE` round trip. P2.2's 540 KB is then comfortably inside one
-window in every arm, which is what makes the arms comparable.
+stack's** — R14 applied to the transport: **2 MiB chunking** for upload and download,
+and a **4 MiB stream window**, sized to the largest message the stack accepts by
+default so one maximum-size message crosses without a `WINDOW_UPDATE` round trip.
+P2.2's 540 KB is then comfortably inside one window in every arm, which is what makes
+the arms comparable.
+
+**`packages/rust/armonik-transport` is the reference for what the client actually
+sets, and it is worth reading before copying anything** — it is the only package that
+expresses these options at all. Two things it settles:
+
+- **Nagle is off, by name and by default.** `ClientConfig::tcp_nagle_algorithm: bool`,
+  "defaults to false", read from `GrpcClient__TcpNagleAlgorithm` and applied as
+  `http.set_nodelay(!config.tcp_nagle_algorithm)` (`src/connect.rs`). So the shipped
+  client disables Nagle, tonic's client default agrees, and the branch's 40 ms
+  delayed-ACK artifact was only ever on the **server** side of our own harness. The
+  core's `ak_client_opts` now carries the flag under ArmoniK's name and sense so an arm
+  states it rather than inherits it.
+- **The shipped client pins NO HTTP/2 window.** `ClientConfig` carries connect timeout,
+  request timeout, rate limit, TCP keepalive and its interval and retries, the HTTP/2
+  ping interval, timeout and while-idle flag, and a max header list size — and nothing
+  for the stream or connection window, so hyper's defaults stand. **The 4 MiB window is
+  therefore the configuration ArmoniK intends, not the one it ships**, and an arm that
+  pins it says so. That distinction is R14's whole point pointed at the transport: the
+  baseline is what production runs, and where the arm deliberately differs it is a
+  labelled row rather than a silent one.
 
 Two traps in pinning it, **and each applies to some stacks and not others, so a slice
 establishes them from its own runtime's source rather than inheriting them**.

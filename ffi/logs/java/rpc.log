@@ -1,0 +1,147 @@
+== ABI v1 section 9: the core's RPC layer against the host's, end to end ==
+
+java 17.0.20 and 21, protobuf-java 3.25.5, grpc-java 1.74.0, tonic 0.14.6.
+P2.2 (540,422 B) as the response, a 16 B request: ListTasksDetailed's real shape.
+Warm 4 s, measure 6 s per level, time-bounded. Loopback TCP.
+
+THIS FILE REPLACES AN EARLIER VERSION THAT WAS WRONG. The first core-rpc numbers were
+taken with `GetPrimitiveArrayCritical` held across the whole blocking call. That is a
+deadlock: a critical section blocks GC, the peer is a grpc-java server in this same
+process which must allocate to answer, so a GC needed in that window waits on a critical
+section that waits on the server that waits on the GC. It survived P2.2 by luck of timing
+and hung on the first small payload. The rule generalises past RPC: **a host must not pin
+a Java array across an ABI call whose completion depends on another Java thread.** Fixing
+it moved core-rpc's CPU by 5 to 7 percent at concurrency, so the earlier figures were
+contaminated as well as unsafe.
+
+== 1. Four arms, JDK 17, CPU microseconds per RPC ==
+
+  in flight   grpc-java   core blocking   core queue
+  1              3867.5          3883.9       4978.0
+  8              2780.9          3508.8       3024.7
+  16             2754.1          3434.9       2978.5
+
+  wall microseconds per RPC
+  1              3083.2          2977.0       3307.7
+  8               899.7          1133.4       1515.8
+  16              881.6          1118.4       1510.6
+
+**The queue beats the blocking mode on CPU wherever there is concurrency** -- 0.86 of it
+at 8 in flight and 0.87 at 16 -- and loses to it at 1, where submitting and then waiting
+serialises what a blocking call does in one step and pays a third crossing for the
+privilege. Against grpc-java the queue is 1.09 at 8 and 1.08 at 16, where the blocking
+mode is 1.26 and 1.25. **So the delivery mode is worth more than the gap it was being
+blamed for.**
+
+Read the wall column with the shape in mind: the queue runs ONE drainer keeping N calls
+outstanding, and the other two arms run N threads. CPU per RPC compares across those
+shapes and wall clock does not.
+
+== 2. JDK 21, and the drainer on a virtual thread ==
+
+  arm                         1        8       16     (CPU us/RPC)
+  core blocking          4683.3   4402.3   4094.0
+  core queue, platform   4417.5   3018.1   2869.3
+  core queue, virtual    4588.1   2915.3   2708.0
+
+**The queue is 0.70 of the blocking mode at 16 in flight on JDK 21**, a larger margin than
+on 17. **And a virtual thread drains it at no cost**: 2708 against 2869 on a platform
+thread, with wall clock 1369 against 1430. Section 9's "the drainer is a host thread that
+entered the core and will come back out" holds -- there is nothing to attach and nothing
+to pin.
+
+**WHAT THIS DOES NOT SHOW, and it is the thing the check-in asked for.** It does not
+reproduce `pinning.log`'s carrier-pinning comparison. That test had EIGHT virtual threads
+each blocked for a known time, so a pinned carrier showed up as `ceil(N/P) x W`. A queue
+has ONE drainer by design, and one drainer needs one carrier whether it is virtual or not.
+So this says the queue is usable from a virtual thread without penalty; it does not say
+the queue rescues a host from the pinning the blocking mode causes. Those are different
+claims and only the first is measured here.
+
+**Section 9's "a thread parked in a drain is in native state and costs a collection
+nothing" is also NOT measured.** No collection was instrumented. It remains an assertion.
+
+== 3. Crossings, from the counting build ==
+
+  blocking : 2 forward (ak_call_unary, ak_bytes_free), 0 reverse
+  queue    : 3 forward (ak_call_unary_q, ak_queue_next, ak_bytes_free), 0 reverse
+
+At 11.9 to 12.9 ns a forward crossing, the queue's extra crossing costs about 12 ns
+against a call of roughly 3 ms. The mode is not chosen on crossing arithmetic.
+
+== 4. What is still not established ==
+
+- **The ratio is DILUTED.** Client and server are in one process, so every figure carries
+  the same grpc-java server. The difference between arms is entirely client-side but is
+  divided by a total containing a common server half, so these ratios are FLOORS on the
+  client-side ones.
+- ~~No Unix domain socket.~~ **WITHDRAWN, and it was wrong.** This file previously
+  recorded a gap in the core that does not exist. `Endpoint::from_shared` strips a `unix:`
+  prefix and builds `EndpointType::Uds` through `new_uds` (tonic 0.14.6,
+  `transport/channel/endpoint.rs:175` and `:111`), so `ak_client_new` has always taken
+  `unix:/tmp/armonik.sock`. The claim was an inference from reading `ak_client_new` alone,
+  stated as a fact about the core. **Every cell below runs over a UDS**, and the proof is
+  not the source reading: cell C dials the same domain socket cell A does.
+- **No callback mode** (`ak_call_unary_cb`), which section 9 calls C#'s mode rather than
+  this host's, and which is unmeasured by anyone.
+- Streaming, metadata, deadlines, TLS and status codes are absent from the core's RPC
+  half. `ak_call_cancel` now exists; the BLOCKING form's cancellation handle does not.
+- Absolutes are instrumentation (R13).
+
+
+== 5. The grid: which half pays, measured rather than inferred ==
+
+"The host's stack against the core's" moves the codec and the transport at once, so the
+A-against-C number above cannot say which one paid. Four cells over a UDS, completion
+queue for the core transport:
+
+  cell   codec           transport
+  A      protobuf-java   grpc-java
+  B      protobuf-java   core          <- README section 13's outcome 2
+  C      core            core
+  D      core            grpc-java
+
+CPU us/RPC, median of 3 runs (min-max):
+
+  cell            1                    8                   16
+  A    4089 (3090-4582)     2861 (2518-3147)     2671 (2382-2842)
+  B    4474 (3392-4803)     3303 (2809-3542)     3386 (2888-3450)
+  C    3870 (3088-4132)     2649 (2514-3038)     3126 (2513-3218)
+  D    4002 (3008-4383)     2473 (2294-2866)     2360 (2346-2780)
+
+**READ THE SIGNS, NOT THE MEDIANS.** The spread across three runs is 17 to 23 percent of
+the median, because each cell is a SEPARATE JVM: this is an unpaired comparison on a shared
+machine and it inherits every bit of drift R13 warns about. What survives is the per-run
+sign test, rep by rep:
+
+  delta                rep1    rep2    rep3   consistent
+  transport  B-A  @8   +681    +156    +291   YES
+  transport  B-A  @16  +608    +715    +505   YES
+  codec      C-B  @8   -892    -265    -295   YES
+  codec      C-B  @16  -324    -168    -375   YES
+  codec      D-A  @8     +5    -674    -224   no
+  codec      D-A  @16   -62    -324     -22   yes, two of them near zero
+
+**1. The core's transport costs MORE than grpc-java's, in six runs out of six.** That cuts
+against the "adopt the RPC layer, generate the codec" fallback rather than for it, and it
+is the one claim here with a clean sign at both concurrency levels.
+
+**2. The core's codec is cheaper than protobuf-java's UNDER THE CORE'S TRANSPORT**, also
+six from six. Consistent with the pull family's decode result measured separately.
+
+**3. Under grpc-java's transport the codec difference is NOT RESOLVED** at this precision.
+Mostly negative, one positive, two within noise of zero.
+
+**4. On additivity, which is the question that prompted the grid: no evidence against it.**
+An earlier version of this grid had C-B at -703 and D-A at +399 -- opposite signs, which
+would have meant the two halves of the proposal could not be added. **That was a defect in
+cell D**, whose marshaller allocated a fresh 540 KB array per call and copied into it where
+cell A materialises none and cells B and C reuse a buffer. With cell D paying what its
+comparators pay, the sign flip is gone. The exciting result was the harness.
+
+**What this grid cannot do, and the fix is known.** Four cells in four processes cannot be
+paired, so the instrument is far blunter than `Bench`'s, which forms every ratio inside one
+round in one process and reports whether a delta's lo and hi share a sign. Putting all four
+cells in one process and interleaving them is what would resolve a 300 us delta here. Until
+that exists, deltas below roughly 500 us on this machine are not measurable by this arm and
+are reported as signs only.

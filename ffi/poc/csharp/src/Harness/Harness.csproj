@@ -65,9 +65,32 @@
        was not re-gated for W10 in the aggregating session's container, which has no
        dotnet. It IS re-gated here: see ffi/logs/csharp/stage9-shared-core.log. -->
   <ItemGroup>
+    <!-- W11 adds a SECOND acceptable location, and it is not a second core. ABI
+         v1 section 9's transport lives behind the `rpc` cargo feature, which the
+         shared build script does not pass by default, and building the shared
+         `codec/target/` is not this slice's to do. So the same sources are built
+         with CARGO_TARGET_DIR=poc/csharp/target-core and the rpc feature, which is
+         exactly what the rust, cpp and java slices already do (see the comment in
+         `codec/gen/build.sh`: each builds this crate into its own target dir with
+         its own features). One core, N builds of it, which is what R0 says. The
+         rpc build is PREFERRED when present because it is a superset: the codec
+         entry points are identical and the transport is added, and the whole
+         conformance and corpus gate is re-run against it. -->
+    <None Include="../../target-core/release/libak_core.so"
+          Condition="Exists('../../target-core/release/libak_core.so')"
+          CopyToOutputDirectory="PreserveNewest" Link="libak_core.so" />
     <None Include="../../../codec/target/release/libak_core.so"
-          Condition="Exists('../../../codec/target/release/libak_core.so')"
+          Condition="!Exists('../../target-core/release/libak_core.so') And Exists('../../../codec/target/release/libak_core.so')"
           CopyToOutputDirectory="PreserveNewest" Link="libak_core.so" />
   </ItemGroup>
+
+
+  <!-- ABI v1 open decision 3's REJECTING decode policy, as a second build for
+       the same reason the floor is one: a runtime flag would put a branch on
+       both arms' hot path. Run in the same sitting, each with the incumbent as
+       its in-process control. -->
+  <PropertyGroup Condition="'$(AkStrict)' == 'true'">
+    <DefineConstants>$(DefineConstants);AK_STRICT</DefineConstants>
+  </PropertyGroup>
 
 </Project>

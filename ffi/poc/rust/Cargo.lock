@@ -816,6 +816,7 @@ dependencies = [
  "http-body",
  "http-body-util",
  "tokio",
+ "tokio-stream",
  "tonic",
  "tower-service",
 ]

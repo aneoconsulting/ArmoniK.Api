@@ -292,3 +292,50 @@ controls rather than in codecs — which is where this branch's defects keep bei
   explanation having been refuted by the compilation logs.
 - **FFM is a secondary arm**, not a target, and an FFM-to-JNI ratio remains a
   comparison of binding mechanisms.
+
+## 9. The transport arm, and the delivery mode was worth more than the gap
+
+**The slice was right that only the blocking call existed**, and taking the arm through it
+was the core's handicap rather than the slice's. With `ak_call_unary_q` built, CPU
+microseconds per RPC on P2.2, JDK 17:
+
+| in flight | grpc-java | core, blocking | core, queue |
+|---|---|---|---|
+| 1 | 3,867 | 3,884 | 4,978 |
+| 8 | 2,781 | 3,509 | **3,025** |
+| 16 | 2,754 | 3,435 | **2,979** |
+
+**Against grpc-java the core goes from 1.26 to 1.09 at 8 in flight, by changing nothing
+but the delivery.** On JDK 21 the queue is **0.70 of the blocking mode** at 16, and a
+**virtual thread drains it at no cost** (2,708 against 2,869 on a platform thread).
+
+**At 1 in flight the queue loses**, and that is the shape of the result rather than a
+blemish: submit-then-wait serialises what a blocking call does in one step and pays a
+third crossing for it. The queue is a concurrency mechanism, not a faster call.
+
+**Two things the slice refused to claim, and both refusals are right.** It does *not*
+reproduce the carrier-pinning comparison: a queue has one drainer by design and one
+drainer needs one carrier either way, so this shows the queue is **usable** from a virtual
+thread, not that it **rescues** a host from the blocking mode's pinning. And section 9's
+"a thread parked in a drain costs a collection nothing" is still an assertion — no
+collection was instrumented. A slice with a good number in hand that declines the two
+adjacent claims it did not measure is the behaviour this branch is built to get.
+
+### The deadlock, which is the most portable thing in the slice
+
+The first core-RPC figures were taken with `GetPrimitiveArrayCritical` held across the
+whole blocking call. **That is a deadlock, not a slow path**: a critical section blocks
+the collector, the peer was a grpc-java server in the same process which must allocate to
+answer, so a collection needed in that window waited on a critical section that waited on
+the server that waited on the collection. **It survived P2.2 by timing and hung on the
+first small payload** — the worst failure shape there is, because the large-payload run
+that everyone looks at passed.
+
+The rule it produces is now in ABI v1 section 9 and it is not a Java rule: **a host must
+not pin a managed array across an ABI call whose completion depends on another thread of
+that host.** It also explains why 7.1's pinned-buffer optimisation on decode *is* safe —
+`ak_parse_*` makes no upcall and needs no other host thread — which is a distinction the
+specification had not drawn because nobody had hit the other side of it.
+
+Fixing it moved the core's CPU by 5 to 7 percent at concurrency, so the withdrawn figures
+were contaminated as well as unsafe.

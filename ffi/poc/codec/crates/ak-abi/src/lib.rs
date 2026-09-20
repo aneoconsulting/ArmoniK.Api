@@ -333,6 +333,81 @@ unsafe extern "C" {
     ) -> i32;
     /// The second crossing, and the only other one.
     pub fn ak_bytes_free(b: *mut ak_bytes);
+
+    // ---- section 9's other two deliveries, and the transport settings ----------------
+
+    /// Callback delivery: returns a handle immediately, the completion arrives on a core
+    /// worker thread. 2 forward crossings and 1 reverse.
+    pub fn ak_call_unary_cb(
+        c: *mut ak_client,
+        path: *const u8,
+        path_len: usize,
+        req: *const u8,
+        req_len: usize,
+        cb: ak_completion_cb,
+        user_data: *mut c_void,
+        tag: u64,
+    ) -> *mut ak_call;
+    /// Completion-queue delivery: no upcall at all. 3 forward crossings and 0 reverse.
+    pub fn ak_call_unary_q(
+        c: *mut ak_client,
+        path: *const u8,
+        path_len: usize,
+        req: *const u8,
+        req_len: usize,
+        q: *mut ak_queue,
+        tag: u64,
+    ) -> *mut ak_call;
+    pub fn ak_queue_new() -> *mut ak_queue;
+    pub fn ak_queue_next(q: *mut ak_queue, out: *mut ak_completion, timeout_ms: i32) -> i32;
+    pub fn ak_queue_shutdown(q: *mut ak_queue);
+    pub fn ak_queue_destroy(q: *mut ak_queue);
+    pub fn ak_call_cancel(h: *mut ak_call);
+    pub fn ak_call_destroy(h: *mut ak_call);
+
+    /// A client with the transport pinned. `ak_client_new` takes a URI and nothing else, so
+    /// every RPC figure in this branch before it existed was taken on tonic's DEFAULT 64 KiB
+    /// stream window -- which README R9 says is most of the wall clock on a 540 KB response.
+    pub fn ak_client_new_opts(
+        r: *mut ak_runtime,
+        uri: *const u8,
+        uri_len: usize,
+        opts: *const ak_client_opts,
+    ) -> *mut ak_client;
+}
+
+pub enum ak_call {}
+pub enum ak_queue {}
+
+/// What a completion carries. Released with `ak_bytes_free`, exactly as the blocking
+/// mode's bytes are, so a host has one release path whichever delivery it takes.
+#[repr(C)]
+pub struct ak_completion {
+    pub tag: u64,
+    pub status: i32,
+    pub bytes: ak_bytes,
+}
+
+/// Called ONCE per call, on a thread the core owns.
+pub type ak_completion_cb = extern "C" fn(user_data: *mut c_void, comp: *mut ak_completion);
+
+/// `ak_queue_next` returned a completion.
+pub const AK_QUEUE_OK: i32 = 0;
+/// The timeout expired with no completion. Not an error.
+pub const AK_QUEUE_TIMEOUT: i32 = 1;
+/// The queue is shutting down and is drained.
+pub const AK_QUEUE_SHUTDOWN: i32 = 2;
+
+/// The transport settings ArmoniK pins. **The stream and the connection window are separate
+/// settings on tonic/hyper**, and raising only the stream window leaves the connection at
+/// 65,535 -- which is why both are here and neither has a default. Zero means "tonic's".
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct ak_client_opts {
+    pub stream_window: u32,
+    pub connection_window: u32,
+    pub max_recv_message: u32,
+    pub max_send_message: u32,
 }
 
 /// Boundary-call counts, from the counting build (README R5). Counted in the CORE, so a

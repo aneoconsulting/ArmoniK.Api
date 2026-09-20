@@ -12,3 +12,6 @@ __pycache__/
 bin-floor/
 obj-floor/
 abi/target/
+bin-strict/
+obj-strict/
+target-core/

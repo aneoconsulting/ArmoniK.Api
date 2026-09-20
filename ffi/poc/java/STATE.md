@@ -333,6 +333,79 @@ finding that decode is bounded by host-side container construction, seen from a 
 **Three hosts, one mechanism, and the managed host gets less of it.** That is a fact the
 lifetime contract has to be drafted against, not a reason to drop it.
 
+### ABI v1 section 9's RPC layer, and the delivery mode is the finding -- `logs/java/rpc.log`
+
+**These are BLOCKING-MODE and QUEUE-MODE figures, not "the core's" figures**, now that the
+core builds more than one delivery. CPU microseconds per RPC, JDK 17, P2.2 response:
+
+| in flight | grpc-java | core blocking | core queue |
+|---|---|---|---|
+| 1 | **3,868** | 3,884 | 4,978 |
+| 8 | **2,781** | 3,509 | 3,025 |
+| 16 | **2,754** | 3,435 | 2,979 |
+
+**The delivery mode is worth more than the gap it was being blamed for.** The queue is 0.86
+of the blocking mode at 8 in flight and 0.87 at 16, which moves the core from 1.26 of
+grpc-java to 1.09. At 1 in flight the queue loses, because submitting and then waiting
+serialises what a blocking call does in one step and pays a third crossing for it.
+
+**On JDK 21 the margin is larger and a virtual thread drains at no cost**: blocking 4,094,
+queue on a platform thread 2,869, queue on a virtual thread 2,708 at 16 in flight. Section
+9's "the drainer is a host thread that entered the core and will come back out" holds.
+
+**But this does not reproduce the pinning result and must not be read as doing so.**
+`pinning.log` had eight virtual threads each blocked; a queue has one drainer by design,
+and one drainer needs one carrier whether virtual or not. The queue is *usable* from a
+virtual thread; whether it *rescues* a host from the blocking mode's pinning is a different
+claim and is unmeasured. Section 9's "a thread parked in a drain costs a collection
+nothing" is also unmeasured -- no collection was instrumented.
+
+**Crossings, counted**: blocking 2 forward and 0 reverse, queue 3 forward and 0 reverse.
+About 12 ns of difference against a 3 ms call, so the mode is not chosen on crossing
+arithmetic.
+
+**A defect of this slice's own, worth more than the numbers.** The first version of the
+arm held `GetPrimitiveArrayCritical` across the whole blocking call, justified by analogy
+with the pull family's parse. The analogy is false: making no upcall is what makes a
+critical section *legal*, not what makes it *safe* when the call cannot complete until
+another Java thread makes progress. The peer is a grpc-java server in the same process
+which must allocate to answer, so a GC needed in that window deadlocks. It survived P2.2 by
+luck and hung on the first small payload. **A host must not pin a Java array across an ABI
+call whose completion depends on another Java thread** -- a binding-author rule that
+generalises past RPC. Fixing it also moved the figures by 5 to 7 percent, so the first
+published table was contaminated as well as unsafe.
+
+**The grid says which half pays, which the single comparison could not.** Four cells over
+a UDS -- A protobuf-java/grpc-java, B protobuf-java/core (outcome 2), C core/core, D
+core/grpc-java -- three runs each. The spread is 17 to 23 percent because each cell is a
+separate JVM, so the signs are the claim and the medians are not:
+
+| delta | consistent over 3 runs | reading |
+|---|---|---|
+| transport `B - A` | **6 of 6 positive** | the core's transport costs MORE than grpc-java's |
+| codec `C - B` | **6 of 6 negative** | the core's codec is cheaper, under the core's transport |
+| codec `D - A` | mixed at 8, near zero at 16 | not resolved at this precision |
+
+**The core's transport costing more cuts against the "adopt the RPC layer, generate the
+codec" fallback rather than for it**, and it is the one claim here with a clean sign at
+both concurrency levels.
+
+**On additivity there is no evidence against it**, and the evidence that there was came
+from a defect of mine: an earlier grid had `C - B` at -703 and `D - A` at +399, opposite
+signs, which would have meant the two halves cannot be added. Cell D's marshaller was
+allocating a fresh 540 KB array per call where cell A materialises none and cells B and C
+reuse one. With that removed the sign flip is gone.
+
+**The instrument is blunt and the fix is known**: four cells in four processes cannot be
+paired, so this inherits the drift `Bench` avoids by forming every ratio inside one round
+in one process. Deltas below roughly 500 us are not measurable by this arm today.
+
+**Still not established**: the ratios are floors, because client and server share one
+process and one CPU counter; the callback mode is unbuilt here and unmeasured anywhere;
+and streaming, metadata, deadlines, TLS and status codes are absent from the core's RPC
+half. `ak_call_cancel` now exists, so the blocking form's cancellation handle is the only
+part of that amendment still missing.
+
 ### R14: the headline against gRPC's marshaller -- `logs/java/r14-summary.md`, `r14.log`
 
 R14 arrived with W10 and lands on the baseline every other table here uses. The arm calls
@@ -819,4 +892,6 @@ In the order a fresh session should take them:
 | `pinning.log` | JDK 21, virtual threads | ABI v1 section 9's fourth amendment confirmed at three carrier counts |
 | `shim-probe.log` | JDK 17, three collectors | README 9.1's shape priced on the JVM before building it: a JNI field store is a third of an upcall, the crossover is k=2-3, and the G1 write barrier doubles a reference store |
 | `w10-regate.log` | all three arms, shared core | R0: 3,891 checks 0 failures, both transcoders resolved from `poc/codec`, worst drift move 0.052 against a 0.078 bar |
+| `flow-control.log` | grpc-java 1.74.0, read with javap | one call sets BOTH windows, pinning disables BDP, and the shipped default is 1 MiB |
+| `rpc.log` | JDK 17 and 21, tonic 0.14.6, loopback TCP | section 9 end to end, four arms: the completion queue is 0.86 of the blocking mode and 1.09 of grpc-java, a virtual thread drains at no cost, and a critical section held across a blocking call deadlocks |
 | `r14.log`, `r14-summary.md` | JDK 17, the real grpc marshaller | R14: the headline against production's path, and `toByteArray` priced against it |

@@ -34,6 +34,9 @@ public unsafe interface ICoreArm : IDisposable
     AkCounters DecCounters();
     void DecCountersReset();
     void CallsReset();
+    /// See CoreFfi_*.SkipStrings: a CEILING for decision 13, not an implementation.
+    bool SkipStrings { get; set; }
+    long PullFootprint();
 }
 
 public sealed unsafe class Arm_ListResultsResponse : ICoreArm
@@ -58,6 +61,8 @@ public sealed unsafe class Arm_ListResultsResponse : ICoreArm
     public AkCounters DecCounters() => _c.DecCounters();
     public void DecCountersReset() => _c.DecCountersReset();
     public void CallsReset() => _c.CallsReset();
+    public bool SkipStrings { get => CoreFfi_ListResultsResponse.SkipStrings; set => CoreFfi_ListResultsResponse.SkipStrings = value; }
+    public long PullFootprint() => _c.PullFootprint();
     public void Dispose() => _c.Dispose();
 }
 
@@ -83,6 +88,8 @@ public sealed unsafe class Arm_ListTasksDetailedResponse : ICoreArm
     public AkCounters DecCounters() => _c.DecCounters();
     public void DecCountersReset() => _c.DecCountersReset();
     public void CallsReset() => _c.CallsReset();
+    public bool SkipStrings { get => CoreFfi_ListTasksDetailedResponse.SkipStrings; set => CoreFfi_ListTasksDetailedResponse.SkipStrings = value; }
+    public long PullFootprint() => _c.PullFootprint();
     public void Dispose() => _c.Dispose();
 }
 
@@ -108,6 +115,8 @@ public sealed unsafe class Arm_ListProbeResponse : ICoreArm
     public AkCounters DecCounters() => _c.DecCounters();
     public void DecCountersReset() => _c.DecCountersReset();
     public void CallsReset() => _c.CallsReset();
+    public bool SkipStrings { get => CoreFfi_ListProbeResponse.SkipStrings; set => CoreFfi_ListProbeResponse.SkipStrings = value; }
+    public long PullFootprint() => _c.PullFootprint();
     public void Dispose() => _c.Dispose();
 }
 
@@ -133,6 +142,8 @@ public sealed unsafe class Arm_ListTaskSummaryResponse : ICoreArm
     public AkCounters DecCounters() => _c.DecCounters();
     public void DecCountersReset() => _c.DecCountersReset();
     public void CallsReset() => _c.CallsReset();
+    public bool SkipStrings { get => CoreFfi_ListTaskSummaryResponse.SkipStrings; set => CoreFfi_ListTaskSummaryResponse.SkipStrings = value; }
+    public long PullFootprint() => _c.PullFootprint();
     public void Dispose() => _c.Dispose();
 }
 
@@ -158,6 +169,8 @@ public sealed unsafe class Arm_UploadResultDataMessage : ICoreArm
     public AkCounters DecCounters() => _c.DecCounters();
     public void DecCountersReset() => _c.DecCountersReset();
     public void CallsReset() => _c.CallsReset();
+    public bool SkipStrings { get => CoreFfi_UploadResultDataMessage.SkipStrings; set => CoreFfi_UploadResultDataMessage.SkipStrings = value; }
+    public long PullFootprint() => _c.PullFootprint();
     public void Dispose() => _c.Dispose();
 }
 
@@ -183,6 +196,8 @@ public sealed unsafe class Arm_ListMetricsResponse : ICoreArm
     public AkCounters DecCounters() => _c.DecCounters();
     public void DecCountersReset() => _c.DecCountersReset();
     public void CallsReset() => _c.CallsReset();
+    public bool SkipStrings { get => CoreFfi_ListMetricsResponse.SkipStrings; set => CoreFfi_ListMetricsResponse.SkipStrings = value; }
+    public long PullFootprint() => _c.PullFootprint();
     public void Dispose() => _c.Dispose();
 }
 
@@ -208,6 +223,8 @@ public sealed unsafe class Arm_DualResponse : ICoreArm
     public AkCounters DecCounters() => _c.DecCounters();
     public void DecCountersReset() => _c.DecCountersReset();
     public void CallsReset() => _c.CallsReset();
+    public bool SkipStrings { get => CoreFfi_DualResponse.SkipStrings; set => CoreFfi_DualResponse.SkipStrings = value; }
+    public long PullFootprint() => _c.PullFootprint();
     public void Dispose() => _c.Dispose();
 }
 

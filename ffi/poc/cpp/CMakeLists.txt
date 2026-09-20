@@ -263,8 +263,20 @@ if(AK_RPC)
             ${CMAKE_CURRENT_SOURCE_DIR}/proto/shapes_svc.proto
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/proto/shapes_svc.proto ${SCHEMA}/shapes.proto
     COMMENT "protoc + grpc_cpp_plugin shapes_svc.proto")
-  add_executable(rpcbench
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/rpcbench.cpp
+  set(CORE_COUNT_RPC_OUT "${CORE_TGT}/target-rpc-count/release")
+  add_custom_target(core_rpc_count ALL
+    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-rpc-count
+            cargo build --release --features rpc,count --manifest-path ${CORE_DIR}/Cargo.toml
+    BYPRODUCTS ${CORE_COUNT_RPC_OUT}/libak_core.so
+    COMMENT "cargo build the shared ak-core --features rpc,count")
+
+  # Three binaries over one source set, and never one binary with three jobs:
+  #   rpcbench   the timed grid                     -- the core WITHOUT --features count
+  #   rpccounts  R5's crossing counts               -- the core WITH --features count
+  #   rpcflow    the flow-control probe, no timing  -- either; it links the non-counting one
+  # A counting core inside a timed binary is what R5 forbids.
+  set(RPC_COMMON
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rpc_common.cpp
     ${GEN}/shapes_svc.pb.cc ${GEN}/shapes_svc.grpc.pb.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/rt.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/values.cpp
@@ -272,16 +284,25 @@ if(AK_RPC)
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/build.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/pb_build.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/binding.cpp)
-  add_dependencies(rpcbench core_rpc)
-  target_include_directories(rpcbench PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src ${GEN}
-    ${GRPCPP_INCLUDE_DIRS})
-  target_link_libraries(rpcbench PRIVATE shapes_pb Threads::Threads
-    ${GRPCPP_LIBRARIES} ${CORE_RPC_OUT}/libak_core.so)
-  target_link_directories(rpcbench PRIVATE ${GRPCPP_LIBRARY_DIRS})
-  set_property(TARGET rpcbench PROPERTY CXX_STANDARD 17)
-  target_compile_definitions(rpcbench PRIVATE AK_LINKAGE="shared")
-  set_property(TARGET rpcbench APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-rpath,${CORE_RPC_OUT}")
+
+  # ak_rpc_bin(<name> <source> <core-dir> <core-target>)
+  function(ak_rpc_bin name src coredir coretgt)
+    add_executable(${name} ${src} ${RPC_COMMON})
+    add_dependencies(${name} ${coretgt})
+    target_include_directories(${name} PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src ${GEN}
+      ${GRPCPP_INCLUDE_DIRS})
+    target_link_libraries(${name} PRIVATE shapes_pb Threads::Threads
+      ${GRPCPP_LIBRARIES} ${coredir}/libak_core.so)
+    target_link_directories(${name} PRIVATE ${GRPCPP_LIBRARY_DIRS})
+    set_property(TARGET ${name} PROPERTY CXX_STANDARD 17)
+    target_compile_definitions(${name} PRIVATE AK_LINKAGE="shared")
+    set_property(TARGET ${name} APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-rpath,${coredir}")
+  endfunction()
+
+  ak_rpc_bin(rpcbench  ${CMAKE_CURRENT_SOURCE_DIR}/src/rpcbench.cpp  ${CORE_RPC_OUT}       core_rpc)
+  ak_rpc_bin(rpcflow   ${CMAKE_CURRENT_SOURCE_DIR}/src/rpcflow.cpp   ${CORE_RPC_OUT}       core_rpc)
+  ak_rpc_bin(rpccounts ${CMAKE_CURRENT_SOURCE_DIR}/src/rpccounts.cpp ${CORE_COUNT_RPC_OUT} core_rpc_count)
 endif()
 
 # ---- the upb arm: a CEILING, not a candidate ----------------------------------------
