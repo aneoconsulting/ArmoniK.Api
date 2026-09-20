@@ -1852,6 +1852,14 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_ListResultsResponse,
     ) -> i32;
+    /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
+    /// call. The decoded values land in the context's record buffer and the
+    /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
+    pub fn ak_parse_ListResultsResponse(
+        ctx: *mut ak_dec_ctx,
+        buf: *const u8,
+        len: usize,
+    ) -> i32;
     pub fn ak_encode_ListTasksDetailedResponse(
         obj: *const c_void,
         ctx: *mut ak_enc_ctx,
@@ -1872,6 +1880,14 @@ unsafe extern "C" {
         buf: *const u8,
         len: usize,
         vt: *const ak_dvt_ListTasksDetailedResponse,
+    ) -> i32;
+    /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
+    /// call. The decoded values land in the context's record buffer and the
+    /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
+    pub fn ak_parse_ListTasksDetailedResponse(
+        ctx: *mut ak_dec_ctx,
+        buf: *const u8,
+        len: usize,
     ) -> i32;
     pub fn ak_encode_ListProbeResponse(
         obj: *const c_void,
@@ -1894,6 +1910,14 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_ListProbeResponse,
     ) -> i32;
+    /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
+    /// call. The decoded values land in the context's record buffer and the
+    /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
+    pub fn ak_parse_ListProbeResponse(
+        ctx: *mut ak_dec_ctx,
+        buf: *const u8,
+        len: usize,
+    ) -> i32;
     pub fn ak_encode_ListTaskSummaryResponse(
         obj: *const c_void,
         ctx: *mut ak_enc_ctx,
@@ -1914,6 +1938,14 @@ unsafe extern "C" {
         buf: *const u8,
         len: usize,
         vt: *const ak_dvt_ListTaskSummaryResponse,
+    ) -> i32;
+    /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
+    /// call. The decoded values land in the context's record buffer and the
+    /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
+    pub fn ak_parse_ListTaskSummaryResponse(
+        ctx: *mut ak_dec_ctx,
+        buf: *const u8,
+        len: usize,
     ) -> i32;
     pub fn ak_encode_UploadResultDataMessage(
         obj: *const c_void,
@@ -1941,6 +1973,14 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_UploadResultDataMessage,
     ) -> i32;
+    /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
+    /// call. The decoded values land in the context's record buffer and the
+    /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
+    pub fn ak_parse_UploadResultDataMessage(
+        ctx: *mut ak_dec_ctx,
+        buf: *const u8,
+        len: usize,
+    ) -> i32;
     pub fn ak_encode_ListMetricsResponse(
         obj: *const c_void,
         ctx: *mut ak_enc_ctx,
@@ -1962,6 +2002,14 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_ListMetricsResponse,
     ) -> i32;
+    /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
+    /// call. The decoded values land in the context's record buffer and the
+    /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
+    pub fn ak_parse_ListMetricsResponse(
+        ctx: *mut ak_dec_ctx,
+        buf: *const u8,
+        len: usize,
+    ) -> i32;
     pub fn ak_encode_DualResponse(
         obj: *const c_void,
         ctx: *mut ak_enc_ctx,
@@ -1982,6 +2030,14 @@ unsafe extern "C" {
         buf: *const u8,
         len: usize,
         vt: *const ak_dvt_DualResponse,
+    ) -> i32;
+    /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
+    /// call. The decoded values land in the context's record buffer and the
+    /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
+    pub fn ak_parse_DualResponse(
+        ctx: *mut ak_dec_ctx,
+        buf: *const u8,
+        len: usize,
     ) -> i32;
     /// Unrestricted form: names element i as `tok0 + i` from a contiguous
     /// token range the host allocated, because the codec has to call back

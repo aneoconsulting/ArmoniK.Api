@@ -147,6 +147,71 @@ unsafe extern "C" {
     pub fn ak_noop_reverse(f: unsafe extern "C" fn(u64) -> u64, x: u64) -> u64;
 }
 
+// ---- section 7.1's PULL family: the host drives, the codec makes no reverse call -------
+//
+// The push family's `ak_decode_*` hands each value over by calling the host. The pull
+// family's `ak_parse_*` writes the same handovers as records into the host-owned decode
+// context, and the host reads them afterwards. So a record stream IS the call sequence the
+// push family would have made, in the same order, which is what makes the two families two
+// deliveries of one traversal rather than two decoders (open decision 2).
+
+/// One record. The host reads these out of a drained chunk, or in place.
+///
+/// 24 bytes with no padding, so a group that follows it is 8-aligned, which every
+/// `ak_dfix_*` needs. `ak-core` static-asserts this against the core's own `ak_rt::bdr::Rec`
+/// at compile time; the two are separate declarations on purpose, because that is the
+/// situation section 10 exists for and the rust slice could not otherwise reach it.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ak_bdr_rec {
+    pub op: u32,
+    /// `(outer << 16) | inner`. `outer` is the root's loop slot whose element this belongs
+    /// to, 1-based, or 0 for the root object itself; `inner` is the slot within that scope,
+    /// 1-based, or 0 for the element itself.
+    pub slot: u32,
+    /// The element index, or `AK_TOKEN_ROOT`. An index, never an address (section 10).
+    pub token: i64,
+    pub n: u32,
+    /// Payload bytes after this header, already rounded up to a multiple of 8.
+    pub bytes: u32,
+}
+
+/// The root group: what `apply` would have been called with.
+pub const AK_BDR_APPLY: u32 = 1;
+/// A run: what `add_<slot>(obj, token, elems, n)` would have been called with.
+pub const AK_BDR_ADD: u32 = 2;
+/// A non-leaf element begins: what `new_<slot>` would have returned, minted by the codec.
+pub const AK_BDR_NEW: u32 = 3;
+/// A non-leaf element's group: what `apply_<slot>(obj, token, fix)` would have been called with.
+pub const AK_BDR_APPLY_ELEM: u32 = 4;
+
+/// The smallest chunk `ak_bdr_drain` accepts, whatever the schema: section 7.3's 32 KB
+/// arena plus one header. A record is never split, because a host walking a chunk has to
+/// find a header at its start; a chunk smaller than one record returns `AK_ERR_CAPACITY`.
+pub const AK_BDR_MIN_CHUNK: usize = 32 * 1024 + 24;
+
+unsafe extern "C" {
+    /// Pre-size the record buffer. Optional.
+    pub fn ak_bdr_reserve(ctx: *mut ak_dec_ctx, bytes: usize) -> i32;
+    /// What the last parse deposited, so a host can read what it is paying and bound it.
+    pub fn ak_bdr_footprint(ctx: *const ak_dec_ctx) -> usize;
+    /// Copy whole records out, from `*cursor`. Returns bytes written, 0 at the end, or a
+    /// negative error. This is the forward-crossing half of the family, one call per chunk.
+    pub fn ak_bdr_drain(
+        ctx: *mut ak_dec_ctx,
+        dst: *mut u8,
+        cap: usize,
+        cursor: *mut usize,
+    ) -> isize;
+    /// The records in place, for a host with no pinning problem. Valid until the next parse.
+    pub fn ak_bdr_ptr(ctx: *mut ak_dec_ctx, ptr: *mut *const u8, len: *mut usize) -> i32;
+    pub fn ak_bdr_reset(ctx: *mut ak_dec_ctx);
+    /// Counting build only: the host records the forward crossings its drain loop made
+    /// through `ak_bdr_footprint`, which takes a `const` context and cannot bump a counter.
+    /// Same shape and same reason as `ak_enc_count_reverse` (R5: count, do not infer).
+    pub fn ak_bdr_count_forward(ctx: *mut ak_dec_ctx, n: u32);
+}
+
 // ---- section 9: the RPC half. It moves opaque bytes and dispatches on a path string.
 
 pub enum ak_runtime {}

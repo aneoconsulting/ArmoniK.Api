@@ -1,0 +1,1209 @@
+================================================================================
+ ABI v1 section 7.1: THE PULL DECODE FAMILY, BUILT AND MEASURED AGAINST PUSH
+ Open decision 2, both halves.
+================================================================================
+
+CONFIGURATION (R7, R14)
+  rustc 1.94.1 (e408947bf 2026-03-25), release, lto=false, PIE
+  incumbent  prost 0.14.4
+  R14        The baseline is the codec path ArmoniK actually runs, not the
+             library's best entry point.  For Rust that is tonic's generated
+             stub through `tonic-prost`, and it was READ rather than assumed:
+             tonic-prost 0.14.6 `src/codec.rs`, which is what the workspace's
+             `tonic-prost = "0.14"` resolves to.
+
+               decode, codec.rs:131   `Message::decode(buf)`
+               encode, codec.rs:98    `item.encode(buf)`, and prost's
+                                      `Message::encode` computes `encoded_len()`
+                                      to check capacity before `encode_raw`, so
+                                      the size pass IS production code here.
+
+             Both are exactly what this slice's `prost` arm calls (`arms.rs`
+             uses `prost::Message::encode(v, buf)` into a reused buffer and
+             `Message::decode`).  So for Rust the production path and the
+             library's entry point are the same call in both directions, and
+             there is no second labelled row to report.  This is worth stating
+             rather than passing over: R14 exists because three slices found a
+             handicapped or a flattered incumbent, and Rust is the one where the
+             check comes back empty.  Only decode figures are taken in this log.
+  linkage    shared library.  ak-core is a cdylib, the host links it through the
+             dynamic linker, and section 5 below shows ak_parse_* and ak_bdr_* as
+             undefined dynamic imports of the timed binary.
+  machine    4 vCPU Intel Xeon @ 2.10GHz, shared container
+  R13        this container's rust crossing: 1.8 ns (the slice's own figure; this
+             IS the rust slice)
+  guard      ON (ABI v1 section 5)
+  content    ASCII
+  runs       two independent invocations of gen/pull.sh, three timed runs each,
+             arms interleaved round-robin inside one process (R3, R4)
+
+WHAT WAS BUILT
+  Core (poc/codec/, additively -- R0):
+    ak_parse_<Root>       one per root.  Parses into the host-owned decode
+                          context and makes NO reverse call.
+    ak_bdr_reserve        pre-size the record buffer
+    ak_bdr_footprint      what the last parse deposited
+    ak_bdr_drain          copy whole records into host memory, from a cursor
+    ak_bdr_ptr            the records in place, for a host with no pinning problem
+    ak_bdr_reset          drop the records, keep the allocation
+    ak_bdr_count_forward  counting build only; the host reports the crossings it
+                          made through ak_bdr_footprint, which takes a const
+                          context and cannot bump a counter itself (R5)
+    ak_rt::bdr            the record buffer and its cursor
+  Host (poc/rust/):
+    replay_<root>         walk the records, calling the SAME apply_*/new_*/add_*
+                          the push vtable registers
+    parse_drain_with_*    parse, drain in chunks, replay each chunk
+    parse_walk_with_*     parse, ak_bdr_ptr, replay in place
+    parse_walk_opaque_*   the same with the replay's calls made opaque (R5)
+
+  THE DIFF IS STRICTLY ADDITIVE.  `git diff --stat` over poc/codec/crates is
+  2,048 insertions and ZERO deletions: every byte of the push family's emitted
+  codec is unchanged, which is what R0 requires of a slice's contribution.  The
+  one change to an existing type is a field appended to DecCtxImpl, which is
+  opaque to every host.  Section 2 below re-runs the push family's own gate
+  rather than asserting that.
+
+===== 0. configuration =====
+rustc 1.94.1 (e408947bf 2026-03-25)
+incumbent: prost 0.14.4
+core:      73007ad
+4
+model name	: Intel(R) Xeon(R) Processor @ 2.10GHz
+
+===== 1. generator is current, and there is one core =====
+ok    crates/facade/src/generated/types.rs
+ok    crates/facade/src/generated/prost_impl.rs
+ok    crates/facade/src/generated/build.rs
+ok    crates/facade/src/generated/core_native.rs
+ok    ../codec/crates/ak-abi/src/generated/abi.rs
+ok    ../codec/crates/ak-core/src/generated/codec.rs
+ok    crates/harness/src/generated/binding.rs
+== R0: one core, at poc/codec, reached by path ==
+
+# the ABI's entry points are defined once
+  [ok]   ak_enc_ctx_new: one definition, in codec/crates/ak-core/src/lib.rs
+  [ok]   ak_dec_ctx_new: one definition, in codec/crates/ak-core/src/lib.rs
+  [ok]   ak_tc_utf8: one definition, in codec/crates/ak-core/src/lib.rs
+  [ok]   ak_tc_utf16: one definition, in codec/crates/ak-core/src/lib.rs
+
+# the emitted core exists once
+  [ok]   codec.rs: one copy, at codec/crates/ak-core/src/generated/codec.rs
+  [ok]   layout.rs: one copy, at codec/crates/ak-core/src/generated/layout.rs
+  [ok]   abi.rs: one copy, at codec/crates/ak-abi/src/generated/abi.rs
+
+# one Cargo package per core crate
+  [ok]   ak-abi: one package, at codec/crates/ak-abi
+  [ok]   ak-rt: one package, at codec/crates/ak-rt
+  [ok]   ak-core: one package, at codec/crates/ak-core
+  [ok]   rpc: one package, at codec/crates/rpc
+
+# every path dependency on a core crate resolves to codec/crates/
+  [ok]   codec/crates/ak-core/Cargo.toml: ak-abi -> codec/crates/ak-abi
+  [ok]   codec/crates/ak-core/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   codec/crates/ak-core/Cargo.toml: rpc -> codec/crates/rpc
+  [ok]   csharp/abi/Cargo.toml: ak-abi -> codec/crates/ak-abi
+  [ok]   rust/crates/facade/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   rust/crates/harness/Cargo.toml: ak-core -> codec/crates/ak-core
+  [ok]   rust/crates/harness/Cargo.toml: ak-abi -> codec/crates/ak-abi
+  [ok]   rust/crates/harness/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   rust/crates/harness/Cargo.toml: rpc -> codec/crates/rpc
+
+# the emitters are shared too, which was the other half of the same defect
+  [ok]   ir.py: one shared copy; csharp/gen/ir.py is a separate C# IR, not a copy
+  [ok]   rust_abi.py: one copy, at codec/gen/rust_abi.py
+  [ok]   rust_core.py: one copy, at codec/gen/rust_core.py
+  [ok]   rustnames.py: one copy, at codec/gen/rustnames.py
+  [ok]   cpp_layout.py: one copy, at codec/gen/cpp_layout.py
+
+# no build links a per-slice core library
+  [ok]   every build links libak_core, the shared one
+
+# and what is committed is what the shared emitter writes (R1)
+  [ok]   codec/gen/generate.py --check: 3 files ok
+
+one_core: 0 failure(s)
+
+===== 2. the PUSH family's gate still passes =====
+# This work added ak_parse_* beside ak_decode_* and one field to DecCtxImpl.
+# Additive is a claim about behaviour, so the existing gate is re-run rather than
+# assumed: byte identity across all four arms on every payload.
+P5.3    real      prost              1048660   1048660  ok       ok       ok
+P5.3    real      armonik            1048660   1048660  ok       ok       ok
+P5.3    real      core-native        1048660   1048660  ok       ok       ok
+P5.3    real      core-ffi-rust      1048660   1048660  ok       ok       ok
+P5.4    real      prost              4194390   4194390  ok       ok       ok
+P5.4    real      armonik            4194390   4194390  ok       ok       ok
+P5.4    real      core-native        4194390   4194390  ok       ok       ok
+P5.4    real      core-ffi-rust      4194390   4194390  ok       ok       ok
+P6.1    mixed     prost               123354    123354  ok       ok       ok
+P6.1    mixed     armonik             123354    123354  ok       ok       ok
+P6.1    mixed     core-native         123354    123354  ok       ok       ok
+P6.1    mixed     core-ffi-rust       123354    123354  ok       ok       ok
+                  ^ M6 is MIXED: ticks/values/codes/flags are CONTROL
+                    (the schema has no packed scalar); statuses is REAL
+                    (all 3 packed fields in the schema are enums).
+P7.1    CONTROL   4 arms, decode          98        98  ok       ok       re-encode is a permutation of the same triples
+                  ^ CONTROL, and DECODE ONLY: no canonical writer can
+                    produce these bytes, so no arm is asked to.
+
+VERDICT: every arm is byte-identical to the validated manifest on every payload it covers.
+
+===== 3+4. correctness, crossings and the structural control =====
+# ABI v1 section 7.1: the PUSH family and the PULL family, one process
+#   guard:          on
+#   counting build: YES -- section 4's timings are NOT usable
+#   rounds: 15, interleaved; per-round target 25 ms
+
+#   arms
+#     prost                today's floor, the baseline every ratio is against
+#     core-native          the same traversal with no boundary (R3's control)
+#     core-ffi-push        ak_decode_*: the codec calls the host per field group
+#     core-ffi-pull        ak_parse_* + ak_bdr_drain into host memory + replay
+#     core-ffi-pull-walk   ak_parse_* + ak_bdr_ptr + replay in place, no copy
+#     core-ffi-pull-opaque the same walk with the replay's calls made OPAQUE, so
+#                          rustc can neither inline nor devirtualise them. R5's
+#                          second half: a replay is host code calling host code
+#                          and CAN be fused into the loop, where a push callback
+#                          reached through a vtable across the .so never can.
+#     core-ffi-parse-only  ak_parse_* alone. NOT A DECODE: no object graph is
+#                          built. It is the materialisation term on its own.
+
+## 1. correctness: four decoders, one value
+
+payload root          wire B    elems    armonik pull-drain  pull-walk
+P1.1    M1               858        4         ok         ok         ok
+P1.2    M1            218121     1000         ok         ok         ok
+P1.3    M1               605      300         ok         ok         ok
+P2.1    M2              1037        1         ok         ok         ok
+P2.2    M2            540422      500         ok         ok         ok
+P2.3    M2            647024      125         ok         ok         ok
+P2.4    M2            979465       80         ok         ok         ok
+P2.5    M2             19632       20         ok         ok         ok
+P3.1    M3             12097      200         ok         ok         ok
+P4.1    M4             65321      200         ok         ok         ok
+P5.1    M5               116        1         ok         ok         ok
+P5.2    M5             65620        1         ok         ok         ok
+P5.3    M5           1048660        1         ok         ok         ok
+P5.4    M5           4194390        1         ok         ok         ok
+P6.1    M6            123354      200         ok         ok         ok
+P7.1    M7                98        0         ok         ok         ok
+
+## 2. crossings, and the structural control
+
+payload root     elems  records  push fw  push rev  rev/elem  pull fw 1chunk fw  pull rev   agree
+P1.1    M1           4        2        1         2     0.500        3         3         0      ok
+P1.2    M1        1000        5        1         5     0.005        6         3         0      ok
+P1.3    M1         300        3        1         3     0.010        4         3         0      ok
+P2.1    M2           1        8        1         8     8.000        3         3         0      ok
+P2.2    M2         500     3501        1      3501     7.002       16         3         0      ok
+P2.3    M2         125      876        1       876     7.008       11         3         0      ok
+P2.4    M2          80      561        1       561     7.013       13         3         0      ok
+P2.5    M2          20      141        1       141     7.050        3         3         0      ok
+P3.1    M3         200        2        1         2     0.010        3         3         0      ok
+P4.1    M4         200      601        1       601     3.005        5         3         0      ok
+P5.4    M5           1        1        1         1     1.000        3         3         0      ok
+P6.1    M6         200     1401        1      1401     7.005        8         3         0      ok
+P7.1    M7           0        7        1         7         -        3         3         0      ok
+
+# THE STRUCTURAL CONTROL. A record is written exactly where the push family
+# makes a reverse call, by construction, so `records` must equal `push rev` on
+# every shape -- and it does, to the digit, on all thirteen. That is the evidence
+# that ONE traversal produced both families (ABI v1 open decision 2's second
+# half); a disagreement would mean they had drifted apart on some shape, which
+# is what "one traversal emitter, not two" exists to prevent. `pull rev` is 0
+# everywhere, which is the family's defining claim, measured rather than assumed.
+
+# AND THE INTERFACE ARGUMENT, which is a property of the descriptor and not of
+# this machine (R13): push's reverse column is PER ELEMENT and pull's forward
+# column is PER MESSAGE. On P2.2 that is 3,501 reverse calls against 16 forward
+# ones. At this host's 1.8 ns it buys nothing; at the java slice's ~80 ns
+# reverse call it is 280 us per response.
+
+## 3. what the intermediate costs in bytes
+
+payload root           wire B    records B     x wire
+P1.1    M1                858          576      0.671
+P1.2    M1             218121       128136      0.587
+P1.3    M1                605        38488     63.617
+P2.1    M2               1037          912      0.879
+P2.2    M2             540422       436040      0.807
+P2.3    M2             647024       269040      0.416
+P2.4    M2             979465       351400      0.359
+P2.5    M2              19632        17480      0.890
+P3.1    M3              12097        19256      1.592
+P4.1    M4              65321        75232      1.152
+P5.4    M5            4194390           72      0.000
+P6.1    M6             123354       187232      1.518
+
+# A record is 24 bytes of header plus one group per element, and a group is
+# wider than the wire form of a sparse element -- so the ratio is a property of
+# the SHAPE, not of the payload size, and the absent-path rows are the high ones.
+
+
+# Section 4 skipped: this is a counting build.
+
+===== 5. the boundary is real for the PULL entry points too (R5) =====
+# ak_parse_* and ak_bdr_* as undefined dynamic imports, resolved by the linker:
+                 U ak_bdr_count_forward
+                 U ak_bdr_drain
+                 U ak_bdr_footprint
+                 U ak_bdr_ptr
+                 U ak_parse_DualResponse
+                 U ak_parse_ListMetricsResponse
+                 U ak_parse_ListProbeResponse
+                 U ak_parse_ListResultsResponse
+                 U ak_parse_ListTaskSummaryResponse
+                 U ak_parse_ListTasksDetailedResponse
+                 U ak_parse_UploadResultDataMessage
+
+# and the shared object that actually got loaded, from ldd and not from the build log:
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so (0x00007f5490600000)
+
+===== 6. timings, three runs =====
+
+----- run 1 -----
+## 4. timings, interleaved, one process
+
+payload arm                        reps    median ns       min ns       max ns    / prost       / push
+
+P1.1    prost                     16823       1500.5       1356.4       1732.2      1.000        1.147
+P1.1    core-native               20990       1329.0       1157.6       1593.4      0.886        1.016
+P1.1    core-ffi-push             18129       1308.0       1115.7       1645.4      0.872        1.000
+P1.1    core-ffi-pull             19485       1349.5       1141.4       1593.2      0.899        1.032
+P1.1    core-ffi-pull-walk        20325       1266.9       1090.3       1576.8      0.844        0.969
+P1.1    core-ffi-pull-opaque      21312       1278.2       1108.7       1682.6      0.852        0.977
+P1.1    core-ffi-pull-1chunk      19904       1319.7       1163.1       1581.1      0.880        1.009
+P1.1    core-ffi-parse-only      119047        216.4        199.7        225.3      0.144        0.165
+
+P1.2    prost                        51     471844.9     414951.8     494216.7      1.000        1.234
+P1.2    core-native                  61     412077.1     368840.8     432831.3      0.873        1.078
+P1.2    core-ffi-push                63     382275.9     337937.0     400455.9      0.810        1.000
+P1.2    core-ffi-pull                66     386316.6     348646.3     419803.0      0.819        1.011
+P1.2    core-ffi-pull-walk           69     376572.9     343319.9     400993.0      0.798        0.985
+P1.2    core-ffi-pull-opaque         65     375179.7     333808.3     397855.9      0.795        0.981
+P1.2    core-ffi-pull-1chunk         73     385722.1     355471.5     395160.3      0.817        1.009
+P1.2    core-ffi-parse-only         424      59649.7      54015.9      63134.0      0.126        0.156
+
+P1.3    prost                      2296      10473.2       9662.7      11215.0      1.000        0.612
+P1.3    core-native                2059      12042.1      10803.3      12760.0      1.150        0.703
+P1.3    core-ffi-push              1389      17118.9      15766.5      18106.7      1.635        1.000
+P1.3    core-ffi-pull              1283      19356.7      17680.9      20554.7      1.848        1.131
+P1.3    core-ffi-pull-walk         1568      18048.8      16571.5      19449.0      1.723        1.054
+P1.3    core-ffi-pull-opaque       1525      18272.0      16308.2      20494.5      1.745        1.067
+P1.3    core-ffi-pull-1chunk       1432      19467.9      18453.2      20584.1      1.859        1.137
+P1.3    core-ffi-parse-only        5867       4391.4       3948.0       4597.4      0.419        0.257
+
+P2.1    prost                     12042       2123.7       1999.0       2222.9      1.000        0.761
+P2.1    core-native               12742       2182.5       2009.9       2296.6      1.028        0.782
+P2.1    core-ffi-push              9976       2791.2       2672.5       3015.2      1.314        1.000
+P2.1    core-ffi-pull              8308       3008.9       2727.9       3215.5      1.417        1.078
+P2.1    core-ffi-pull-walk         8738       2887.9       2743.6       3172.6      1.360        1.035
+P2.1    core-ffi-pull-opaque       8719       2923.1       2645.8       3148.5      1.376        1.047
+P2.1    core-ffi-pull-1chunk       9090       3009.4       2661.5       3231.5      1.417        1.078
+P2.1    core-ffi-parse-only       46296        591.4        546.1        615.6      0.278        0.212
+
+P2.2    prost                        18    1499257.3    1364216.7    1576596.9      1.000        0.896
+P2.2    core-native                  18    1509530.4    1399947.3    1589838.2      1.007        0.902
+P2.2    core-ffi-push                15    1673565.9    1555302.7    1773771.3      1.116        1.000
+P2.2    core-ffi-pull                11    1655155.4    1518109.4    1722674.7      1.104        0.989
+P2.2    core-ffi-pull-walk           15    1612689.1    1435159.9    1674583.2      1.076        0.964
+P2.2    core-ffi-pull-opaque         15    1610111.6    1447464.9    1685710.7      1.074        0.962
+P2.2    core-ffi-pull-1chunk         15    1657503.5    1467476.5    1733869.2      1.106        0.990
+P2.2    core-ffi-parse-only          69     345222.0     305842.8     368990.0      0.230        0.206
+
+P2.3    prost                        17    1371292.4    1260087.5    1469113.8      1.000        1.007
+P2.3    core-native                  16    1435641.5    1348208.6    1626223.6      1.047        1.054
+P2.3    core-ffi-push                16    1361678.8    1276163.2    1454602.6      0.993        1.000
+P2.3    core-ffi-pull                18    1334831.4    1225692.6    1441861.2      0.973        0.980
+P2.3    core-ffi-pull-walk           18    1300327.2    1223501.3    1373390.9      0.948        0.955
+P2.3    core-ffi-pull-opaque         19    1318312.9    1251023.7    1420734.1      0.961        0.968
+P2.3    core-ffi-pull-1chunk         18    1343127.5    1196421.9    1382215.8      0.979        0.986
+P2.3    core-ffi-parse-only         168     150738.4     140299.4     159891.1      0.110        0.111
+
+P2.4    prost                        13    1794018.5    1617361.0    1852536.1      1.000        1.007
+P2.4    core-native                  13    1854620.6    1663088.4    1931926.2      1.034        1.041
+P2.4    core-ffi-push                13    1781660.6    1577800.8    1856496.2      0.993        1.000
+P2.4    core-ffi-pull                12    1704497.7    1610210.5    1821063.5      0.950        0.957
+P2.4    core-ffi-pull-walk           14    1674963.7    1517829.1    1772936.6      0.934        0.940
+P2.4    core-ffi-pull-opaque         14    1700989.2    1572485.5    1765246.6      0.948        0.955
+P2.4    core-ffi-pull-1chunk         13    1723440.8    1534031.5    2098326.2      0.961        0.967
+P2.4    core-ffi-parse-only         154     153016.9     137702.4     186315.0      0.085        0.086
+
+P2.5    prost                       431      54571.3      48282.9      58568.7      1.000        0.904
+P2.5    core-native                 427      54306.7      49217.3      61438.7      0.995        0.900
+P2.5    core-ffi-push               401      60339.2      52878.8      64782.6      1.106        1.000
+P2.5    core-ffi-pull               403      60243.6      53785.6      63350.1      1.104        0.998
+P2.5    core-ffi-pull-walk          400      59377.4      54027.8      61729.0      1.088        0.984
+P2.5    core-ffi-pull-opaque        404      58864.8      52320.4      62221.8      1.079        0.976
+P2.5    core-ffi-pull-1chunk        396      60351.4      53086.5      63036.0      1.106        1.000
+P2.5    core-ffi-parse-only        2130      11241.8      10245.7      11914.6      0.206        0.186
+
+P3.1    prost                       656      35764.8      32866.1      38303.8      1.000        1.193
+P3.1    core-native                 765      31608.0      28890.6      33881.3      0.884        1.055
+P3.1    core-ffi-push               817      29974.4      27305.7      31836.6      0.838        1.000
+P3.1    core-ffi-pull               825      29911.7      28318.6      31945.5      0.836        0.998
+P3.1    core-ffi-pull-walk          821      29001.9      27648.2      31215.6      0.811        0.968
+P3.1    core-ffi-pull-opaque        795      29202.1      26607.9      30934.9      0.817        0.974
+P3.1    core-ffi-pull-1chunk        784      30362.8      26726.5      31663.3      0.849        1.013
+P3.1    core-ffi-parse-only        5375       4449.6       4063.5       4618.4      0.124        0.148
+
+P4.1    prost                        80     300688.7     268394.4     313321.6      1.000        1.077
+P4.1    core-native                  91     263907.8     243586.7     272969.8      0.878        0.945
+P4.1    core-ffi-push                87     279220.5     254573.9     287713.5      0.929        1.000
+P4.1    core-ffi-pull                89     269748.5     249143.9     282900.6      0.897        0.966
+P4.1    core-ffi-pull-walk           92     264086.0     250628.8     275040.5      0.878        0.946
+P4.1    core-ffi-pull-opaque         93     265753.7     241622.1     279657.2      0.884        0.952
+P4.1    core-ffi-pull-1chunk         93     265939.4     242573.8     284288.7      0.884        0.952
+P4.1    core-ffi-parse-only         678      34918.2      31083.4      36528.9      0.116        0.125
+
+P6.1    prost                        81     316773.5     284610.0     337967.3      1.000        2.042
+P6.1    core-native                  87     282956.7     251439.6     315997.2      0.893        1.824
+P6.1    core-ffi-push               156     155163.8     147797.8     161858.1      0.490        1.000
+P6.1    core-ffi-pull               139     168419.7     151900.4     180683.5      0.532        1.085
+P6.1    core-ffi-pull-walk          157     160318.3     145921.6     169943.7      0.506        1.033
+P6.1    core-ffi-pull-opaque        149     160869.0     148680.9     229578.7      0.508        1.037
+P6.1    core-ffi-pull-1chunk        142     165730.6     153223.7     211975.4      0.523        1.068
+P6.1    core-ffi-parse-only         330      71035.6      65363.1      85633.1      0.224        0.458
+
+P5.4    prost                         4     831309.5     786860.5     875051.8      1.000        2.662
+P5.4    core-native                  81     313410.5     288520.3     322720.5      0.377        1.004
+P5.4    core-ffi-push                80     312260.3     288441.9     319879.0      0.376        1.000
+P5.4    core-ffi-pull                76     313472.2     287627.2     325146.6      0.377        1.004
+P5.4    core-ffi-pull-walk           75     309156.3     285726.7     326049.9      0.372        0.990
+P5.4    core-ffi-pull-opaque         75     308872.1     286549.4     328340.7      0.372        0.989
+P5.4    core-ffi-pull-1chunk         76     309331.6     287072.4     336054.8      0.372        0.991
+P5.4    core-ffi-parse-only     1315789         18.2         16.5         26.7      0.000        0.000
+
+## 5. the decomposition
+
+payload  materialise       replay   drain copy    pull - push    walk - push  opaque - push
+P1.1           216.4       1050.6         82.6           41.5          -41.1          -29.8
+P1.2         59649.7     316923.2       9743.7         4040.7        -5703.0        -7096.2
+P1.3          4391.4      13657.5       1307.9         2237.8          929.9         1153.1
+P2.1           591.4       2296.5        121.0          217.6           96.7          131.9
+P2.2        345222.0    1267467.1      42466.3       -18410.5       -60876.8       -63454.3
+P2.3        150738.4    1149588.8      34504.2       -26847.4       -61351.6       -43365.9
+P2.4        153016.9    1521946.8      29534.0       -77162.9      -106696.9       -80671.4
+P2.5         11241.8      48135.6        866.2          -95.7         -961.8        -1474.5
+P3.1          4449.6      24552.3        909.8          -62.7         -972.5         -772.2
+P4.1         34918.2     229167.8       5662.5        -9472.0       -15134.5       -13466.8
+P6.1         71035.6      89282.8       8101.3        13255.9         5154.6         5705.3
+P5.4            18.2     309138.1       4315.9         1211.8        -3104.1        -3388.3
+
+# All five columns are ns per DECODE, not per element. Divide by the element
+# count of section 1 for a per-element figure, and only where the element count
+# is what the work scales with.
+
+# correctness: OK. Every pull arm decodes to the value the push arm does.
+
+----- run 2 -----
+## 4. timings, interleaved, one process
+
+payload arm                        reps    median ns       min ns       max ns    / prost       / push
+
+P1.1    prost                     17337       1535.2       1363.0       1576.6      1.000        1.022
+P1.1    core-native               22026       1408.9       1332.6       1575.0      0.918        0.938
+P1.1    core-ffi-push             17618       1502.0       1308.0       1629.8      0.978        1.000
+P1.1    core-ffi-pull             18712       1417.8       1248.4       1585.3      0.924        0.944
+P1.1    core-ffi-pull-walk        18782       1373.0       1313.1       1572.0      0.894        0.914
+P1.1    core-ffi-pull-opaque      18601       1364.8       1278.2       1582.4      0.889        0.909
+P1.1    core-ffi-pull-1chunk      20868       1407.8       1309.8       1592.0      0.917        0.937
+P1.1    core-ffi-parse-only      121359        222.2        203.5        239.0      0.145        0.148
+
+P1.2    prost                        54     488060.6     464414.6     497227.1      1.000        1.242
+P1.2    core-native                  61     423709.0     377259.9     479440.4      0.868        1.079
+P1.2    core-ffi-push                75     392841.5     359900.6     405765.3      0.805        1.000
+P1.2    core-ffi-pull                66     395025.7     373298.6     411957.5      0.809        1.006
+P1.2    core-ffi-pull-walk           61     395087.7     376988.2     406764.1      0.810        1.006
+P1.2    core-ffi-pull-opaque         63     397940.9     352733.4     413615.8      0.815        1.013
+P1.2    core-ffi-pull-1chunk         64     399248.0     342542.7     426521.4      0.818        1.016
+P1.2    core-ffi-parse-only         391      62723.5      54311.1      65291.4      0.129        0.160
+
+P1.3    prost                      2163      11379.4       9914.7      11911.0      1.000        0.596
+P1.3    core-native                2050      12628.8      11371.2      12739.9      1.110        0.661
+P1.3    core-ffi-push              1323      19095.4      16962.2      19423.8      1.678        1.000
+P1.3    core-ffi-pull              1241      20136.9      17720.6      23618.4      1.770        1.055
+P1.3    core-ffi-pull-walk         1442      18304.6      17294.7      22658.5      1.609        0.959
+P1.3    core-ffi-pull-opaque       1416      18593.8      17031.1      23020.3      1.634        0.974
+P1.3    core-ffi-pull-1chunk       1274      20265.4      18671.3      24315.3      1.781        1.061
+P1.3    core-ffi-parse-only        4911       4945.7       4707.2       5234.3      0.435        0.259
+
+P2.1    prost                     11452       2218.6       2092.3       2627.7      1.000        0.762
+P2.1    core-native               10688       2305.6       2234.4       2520.1      1.039        0.792
+P2.1    core-ffi-push              8644       2912.3       2689.5       3164.1      1.313        1.000
+P2.1    core-ffi-pull              7997       3079.7       2861.2       3205.4      1.388        1.057
+P2.1    core-ffi-pull-walk         8151       3028.9       2843.6       3174.5      1.365        1.040
+P2.1    core-ffi-pull-opaque       8124       3030.9       2772.5       3207.2      1.366        1.041
+P2.1    core-ffi-pull-1chunk       7928       3085.5       2785.2       3217.7      1.391        1.059
+P2.1    core-ffi-parse-only       39370        599.0        547.0        631.3      0.270        0.206
+
+P2.2    prost                        15    1557084.4    1370972.5    1731560.2      1.000        0.921
+P2.2    core-native                  15    1560423.5    1419902.7    1667374.4      1.002        0.923
+P2.2    core-ffi-push                14    1691302.0    1588660.3    1809335.7      1.086        1.000
+P2.2    core-ffi-pull                12    1664268.6    1585336.8    1761079.2      1.069        0.984
+P2.2    core-ffi-pull-walk           15    1645836.0    1460279.9    1680258.7      1.057        0.973
+P2.2    core-ffi-pull-opaque         15    1651857.1    1487916.1    1699914.7      1.061        0.977
+P2.2    core-ffi-pull-1chunk         15    1696978.3    1511143.8    1801124.1      1.090        1.003
+P2.2    core-ffi-parse-only          71     351084.9     321879.4     363173.8      0.225        0.208
+
+P2.3    prost                        18    1398672.3    1300848.0    1499035.9      1.000        1.001
+P2.3    core-native                  17    1477576.7    1353327.9    1578733.1      1.056        1.057
+P2.3    core-ffi-push                18    1397908.5    1338231.7    1442896.4      0.999        1.000
+P2.3    core-ffi-pull                18    1382635.9    1330254.2    1440907.2      0.989        0.989
+P2.3    core-ffi-pull-walk           19    1364627.1    1293527.9    1445164.4      0.976        0.976
+P2.3    core-ffi-pull-opaque         18    1350721.0    1221004.9    1388864.7      0.966        0.966
+P2.3    core-ffi-pull-1chunk         20    1383228.4    1229461.2    1468710.7      0.989        0.989
+P2.3    core-ffi-parse-only         182     156520.9     141896.6     177725.0      0.112        0.112
+
+P2.4    prost                        14    1856591.4    1654318.6    1989823.9      1.000        1.031
+P2.4    core-native                  13    1899062.9    1659378.8    2015806.8      1.023        1.055
+P2.4    core-ffi-push                14    1800377.7    1591705.4    1997163.0      0.970        1.000
+P2.4    core-ffi-pull                15    1774736.7    1578685.4    1930135.0      0.956        0.986
+P2.4    core-ffi-pull-walk           15    1756487.3    1550107.7    1809672.2      0.946        0.976
+P2.4    core-ffi-pull-opaque         15    1752992.8    1555191.3    1816342.8      0.944        0.974
+P2.4    core-ffi-pull-1chunk         14    1776308.9    1552545.1    1799970.1      0.957        0.987
+P2.4    core-ffi-parse-only         152     158261.8     143644.0     171635.7      0.085        0.088
+
+P2.5    prost                       491      56061.2      52306.9      63136.6      1.000        0.911
+P2.5    core-native                 458      56973.2      49679.3      61713.2      1.016        0.925
+P2.5    core-ffi-push               464      61561.4      54703.7      66436.9      1.098        1.000
+P2.5    core-ffi-pull               430      61276.5      54314.4      64090.6      1.093        0.995
+P2.5    core-ffi-pull-walk          432      61176.2      56242.6      65545.9      1.091        0.994
+P2.5    core-ffi-pull-opaque        425      61912.2      56074.8      63868.3      1.104        1.006
+P2.5    core-ffi-pull-1chunk        410      62406.1      56385.6      63557.8      1.113        1.014
+P2.5    core-ffi-parse-only        2145      11484.4      10414.0      12359.1      0.205        0.187
+
+P3.1    prost                       664      36485.5      32154.4      41519.4      1.000        1.201
+P3.1    core-native                 796      32879.3      28240.8      35161.8      0.901        1.082
+P3.1    core-ffi-push               822      30378.6      26591.7      33020.8      0.833        1.000
+P3.1    core-ffi-pull               930      31414.1      26613.5      32671.5      0.861        1.034
+P3.1    core-ffi-pull-walk          859      30230.9      26786.4      33003.7      0.829        0.995
+P3.1    core-ffi-pull-opaque        871      30999.6      25817.0      32086.4      0.850        1.020
+P3.1    core-ffi-pull-1chunk        849      31646.3      26668.9      33518.6      0.867        1.042
+P3.1    core-ffi-parse-only        5767       4507.1       3862.6       5199.7      0.124        0.148
+
+P4.1    prost                        89     306992.7     261000.8     324551.0      1.000        1.097
+P4.1    core-native                 103     265402.9     228250.8     271666.3      0.865        0.949
+P4.1    core-ffi-push                99     279793.8     243861.8     286477.5      0.911        1.000
+P4.1    core-ffi-pull                96     274109.7     235621.4     294614.0      0.893        0.980
+P4.1    core-ffi-pull-walk           94     269383.7     244591.1     281803.4      0.877        0.963
+P4.1    core-ffi-pull-opaque         95     272606.8     242240.4     280624.9      0.888        0.974
+P4.1    core-ffi-pull-1chunk         94     278651.2     244742.2     296921.0      0.908        0.996
+P4.1    core-ffi-parse-only         792      36037.2      31486.3      38133.6      0.117        0.129
+
+P6.1    prost                        82     322577.1     287608.5     336000.1      1.000        2.007
+P6.1    core-native                 100     297263.5     276766.4     304478.0      0.922        1.850
+P6.1    core-ffi-push               179     160698.3     148172.8     167432.9      0.498        1.000
+P6.1    core-ffi-pull               168     175623.5     158127.7     183467.6      0.544        1.093
+P6.1    core-ffi-pull-walk          177     165842.7     152260.2     171335.1      0.514        1.032
+P6.1    core-ffi-pull-opaque        175     166435.8     146465.0     179302.3      0.516        1.036
+P6.1    core-ffi-pull-1chunk        153     177371.9     154439.2     188474.7      0.550        1.104
+P6.1    core-ffi-parse-only         348      74669.3      63944.8      76470.4      0.231        0.465
+
+P5.4    prost                         4     864189.5     803587.2     973486.5      1.000        2.687
+P5.4    core-native                  83     324028.4     295089.8     334362.1      0.375        1.007
+P5.4    core-ffi-push                84     321675.8     288162.1     327871.3      0.372        1.000
+P5.4    core-ffi-pull                85     321326.5     290462.2     325410.4      0.372        0.999
+P5.4    core-ffi-pull-walk           76     318751.2     293358.8     335086.9      0.369        0.991
+P5.4    core-ffi-pull-opaque         79     318923.8     297784.0     326486.5      0.369        0.991
+P5.4    core-ffi-pull-1chunk         77     316160.9     306395.6     332401.6      0.366        0.983
+P5.4    core-ffi-parse-only     1315789         18.9         16.5         19.6      0.000        0.000
+
+## 5. the decomposition
+
+payload  materialise       replay   drain copy    pull - push    walk - push  opaque - push
+P1.1           222.2       1150.7         44.8          -84.3         -129.1         -137.3
+P1.2         62723.5     332364.2        -62.0         2184.2         2246.2         5099.4
+P1.3          4945.7      13358.9       1832.3         1041.5         -790.8         -501.6
+P2.1           599.0       2430.0         50.8          167.4          116.6          118.6
+P2.2        351084.9    1294751.1      18432.6       -27033.4       -45466.0       -39444.9
+P2.3        156520.9    1208106.2      18008.8       -15272.6       -33281.4       -47187.5
+P2.4        158261.8    1598225.4      18249.5       -25641.0       -43890.4       -47384.9
+P2.5         11484.4      49691.8        100.3         -284.9         -385.2          350.8
+P3.1          4507.1      25723.8       1183.2         1035.5         -147.7          621.0
+P4.1         36037.2     233346.5       4726.0        -5684.1       -10410.1        -7187.0
+P6.1         74669.3      91173.5       9780.8        14925.2         5144.4         5737.5
+P5.4            18.9     318732.3       2575.3         -349.3        -2924.6        -2752.0
+
+# All five columns are ns per DECODE, not per element. Divide by the element
+# count of section 1 for a per-element figure, and only where the element count
+# is what the work scales with.
+
+# correctness: OK. Every pull arm decodes to the value the push arm does.
+
+----- run 3 -----
+## 4. timings, interleaved, one process
+
+payload arm                        reps    median ns       min ns       max ns    / prost       / push
+
+P1.1    prost                     16191       1538.3       1452.0       1624.6      1.000        1.012
+P1.1    core-native               18288       1442.6       1306.5       1698.5      0.938        0.949
+P1.1    core-ffi-push             16846       1519.8       1435.9       1669.0      0.988        1.000
+P1.1    core-ffi-pull             18248       1428.5       1296.8       1561.0      0.929        0.940
+P1.1    core-ffi-pull-walk        17421       1412.8       1240.6       1561.5      0.918        0.930
+P1.1    core-ffi-pull-opaque      18684       1390.1       1166.8       1552.4      0.904        0.915
+P1.1    core-ffi-pull-1chunk      18395       1402.8       1210.8       1599.8      0.912        0.923
+P1.1    core-ffi-parse-only      113122        217.3        205.3        227.5      0.141        0.143
+
+P1.2    prost                        51     476683.8     439868.5     487494.8      1.000        1.231
+P1.2    core-native                  57     424868.5     394751.4     452241.7      0.891        1.097
+P1.2    core-ffi-push                66     387278.7     365850.4     402670.8      0.812        1.000
+P1.2    core-ffi-pull                61     384485.0     357550.2     402673.9      0.807        0.993
+P1.2    core-ffi-pull-walk           61     386371.5     345122.3     397057.0      0.811        0.998
+P1.2    core-ffi-pull-opaque         62     383740.7     363581.1     399997.6      0.805        0.991
+P1.2    core-ffi-pull-1chunk         61     386872.5     369429.7     408073.2      0.812        0.999
+P1.2    core-ffi-parse-only         396      61021.4      56948.8      64719.1      0.128        0.158
+
+P1.3    prost                      2125      11490.6      10828.5      11939.0      1.000        0.607
+P1.3    core-native                1960      11497.3      10620.2      11802.2      1.001        0.607
+P1.3    core-ffi-push              1252      18935.9      16828.6      19669.2      1.648        1.000
+P1.3    core-ffi-pull              1230      20218.0      19163.1      20827.1      1.760        1.068
+P1.3    core-ffi-pull-walk         1400      18524.3      17597.0      18775.9      1.612        0.978
+P1.3    core-ffi-pull-opaque       1344      18427.5      17409.7      19240.6      1.604        0.973
+P1.3    core-ffi-pull-1chunk       1273      19839.9      19310.3      20546.4      1.727        1.048
+P1.3    core-ffi-parse-only        5344       4823.6       4513.5       4960.7      0.420        0.255
+
+P2.1    prost                     11165       2202.8       2060.2       2265.9      1.000        0.763
+P2.1    core-native               10808       2286.9       2184.0       2486.6      1.038        0.792
+P2.1    core-ffi-push              8784       2888.5       2650.9       3132.6      1.311        1.000
+P2.1    core-ffi-pull              8119       3104.7       2912.5       3263.3      1.409        1.075
+P2.1    core-ffi-pull-walk         8599       3050.2       2876.5       3183.0      1.385        1.056
+P2.1    core-ffi-pull-opaque       8547       3044.9       2891.1       3253.6      1.382        1.054
+P2.1    core-ffi-pull-1chunk       8297       3096.5       2806.7       3868.7      1.406        1.072
+P2.1    core-ffi-parse-only       40584        657.6        623.5        674.8      0.299        0.228
+
+P2.2    prost                        16    1584604.5    1492715.5    1655682.8      1.000        0.927
+P2.2    core-native                  16    1554193.4    1485046.4    1632268.3      0.981        0.910
+P2.2    core-ffi-push                14    1708748.9    1632580.9    1754895.2      1.078        1.000
+P2.2    core-ffi-pull                12    1677249.2    1605768.5    1716086.8      1.058        0.982
+P2.2    core-ffi-pull-walk           15    1636757.8    1513859.7    1693786.7      1.033        0.958
+P2.2    core-ffi-pull-opaque         15    1644243.5    1525928.0    1714166.0      1.038        0.962
+P2.2    core-ffi-pull-1chunk         14    1665854.4    1596932.2    1721081.9      1.051        0.975
+P2.2    core-ffi-parse-only          74     361003.6     346929.0     371664.7      0.228        0.211
+
+P2.3    prost                        19    1405535.3    1346057.5    1429967.3      1.000        1.010
+P2.3    core-native                  18    1462866.6    1404781.8    1488938.6      1.041        1.051
+P2.3    core-ffi-push                18    1392021.4    1314388.6    1520856.8      0.990        1.000
+P2.3    core-ffi-pull                18    1370209.8    1314267.6    1451688.3      0.975        0.984
+P2.3    core-ffi-pull-walk           18    1358906.7    1294436.3    1392446.5      0.967        0.976
+P2.3    core-ffi-pull-opaque         18    1362138.1    1220057.7    1471423.1      0.969        0.979
+P2.3    core-ffi-pull-1chunk         18    1363966.6    1327634.3    1453560.5      0.970        0.980
+P2.3    core-ffi-parse-only         158     159185.6     152767.4     170076.6      0.113        0.114
+
+P2.4    prost                        12    1835221.8    1762442.4    1907126.2      1.000        1.019
+P2.4    core-native                  13    1886224.5    1783454.0    2076902.5      1.028        1.048
+P2.4    core-ffi-push                13    1800309.2    1649219.1    1910916.0      0.981        1.000
+P2.4    core-ffi-pull                13    1759169.4    1662838.8    1927074.2      0.959        0.977
+P2.4    core-ffi-pull-walk           13    1702466.6    1540837.5    1808910.1      0.928        0.946
+P2.4    core-ffi-pull-opaque         14    1721015.4    1651728.6    1933219.1      0.938        0.956
+P2.4    core-ffi-pull-1chunk         13    1767710.8    1654214.2    1856605.8      0.963        0.982
+P2.4    core-ffi-parse-only         151     157493.6     151169.4     166181.0      0.086        0.087
+
+P2.5    prost                       432      57327.0      52297.7      58989.9      1.000        0.927
+P2.5    core-native                 430      56542.8      53841.4      60684.3      0.986        0.914
+P2.5    core-ffi-push               400      61834.8      57530.7      65282.5      1.079        1.000
+P2.5    core-ffi-pull               398      61975.5      58396.4      64197.9      1.081        1.002
+P2.5    core-ffi-pull-walk          418      60823.5      58757.7      63314.1      1.061        0.984
+P2.5    core-ffi-pull-opaque        415      60990.7      59077.6      62825.0      1.064        0.986
+P2.5    core-ffi-pull-1chunk        408      61351.3      59385.2      64233.0      1.070        0.992
+P2.5    core-ffi-parse-only        2129      11922.6      11401.4      12593.2      0.208        0.193
+
+P3.1    prost                       699      37651.4      36288.2      38801.4      1.000        1.230
+P3.1    core-native                 785      33091.0      31902.1      33559.3      0.879        1.081
+P3.1    core-ffi-push               822      30621.6      29634.5      32455.5      0.813        1.000
+P3.1    core-ffi-pull               829      31206.5      30233.9      32440.1      0.829        1.019
+P3.1    core-ffi-pull-walk          844      30777.5      29028.9      31898.2      0.817        1.005
+P3.1    core-ffi-pull-opaque        838      30826.4      28465.0      31272.9      0.819        1.007
+P3.1    core-ffi-pull-1chunk        837      31170.6      29405.5      32174.6      0.828        1.018
+P3.1    core-ffi-parse-only        5935       4535.6       4335.3       4813.7      0.120        0.148
+
+P4.1    prost                        85     308879.4     296425.1     316595.4      1.000        1.097
+P4.1    core-native                  99     266013.8     252759.1     273005.7      0.861        0.945
+P4.1    core-ffi-push                91     281600.6     266537.6     293533.7      0.912        1.000
+P4.1    core-ffi-pull                93     273141.9     263705.0     277483.6      0.884        0.970
+P4.1    core-ffi-pull-walk           91     268887.8     251809.8     280388.3      0.871        0.955
+P4.1    core-ffi-pull-opaque         95     266335.9     254700.0     274190.9      0.862        0.946
+P4.1    core-ffi-pull-1chunk         89     272113.3     257921.9     281597.2      0.881        0.966
+P4.1    core-ffi-parse-only         708      35928.2      33856.8      36537.4      0.116        0.128
+
+P6.1    prost                        82     314743.2     306794.7     319938.3      1.000        2.077
+P6.1    core-native                  83     288106.8     278163.0     304008.7      0.915        1.901
+P6.1    core-ffi-push               165     151547.4     135823.1     154447.0      0.481        1.000
+P6.1    core-ffi-pull               148     171973.2     159447.8     183098.5      0.546        1.135
+P6.1    core-ffi-pull-walk          158     162173.2     154921.7     172880.9      0.515        1.070
+P6.1    core-ffi-pull-opaque        156     162402.2     154783.5     168556.9      0.516        1.072
+P6.1    core-ffi-pull-1chunk        144     172664.8     164829.6     185255.2      0.549        1.139
+P6.1    core-ffi-parse-only         337      74367.8      69489.9      75898.3      0.236        0.491
+
+P5.4    prost                         4     847147.2     803617.8     880793.2      1.000        2.656
+P5.4    core-native                  77     323183.3     312659.6     333895.5      0.381        1.013
+P5.4    core-ffi-push                77     318992.0     305555.0     329990.8      0.377        1.000
+P5.4    core-ffi-pull                78     319374.1     308452.5     330956.8      0.377        1.001
+P5.4    core-ffi-pull-walk           76     318114.3     293072.1     329002.5      0.376        0.997
+P5.4    core-ffi-pull-opaque         80     315639.9     294511.0     330399.1      0.373        0.989
+P5.4    core-ffi-pull-1chunk         80     316081.5     299784.3     335344.5      0.373        0.991
+P5.4    core-ffi-parse-only     1470588         18.7         18.1         20.2      0.000        0.000
+
+## 5. the decomposition
+
+payload  materialise       replay   drain copy    pull - push    walk - push  opaque - push
+P1.1           217.3       1195.5         15.7          -91.3         -107.0         -129.7
+P1.2         61021.4     325350.1      -1886.5        -2793.7         -907.2        -3538.0
+P1.3          4823.6      13700.7       1693.7         1282.1         -411.6         -508.4
+P2.1           657.6       2392.5         54.5          216.2          161.7          156.5
+P2.2        361003.6    1275754.2      40491.4       -31499.6       -71991.1       -64505.3
+P2.3        159185.6    1199721.1      11303.2       -21811.6       -33114.7       -29883.3
+P2.4        157493.6    1544973.1      56702.8       -41139.8       -97842.5       -79293.8
+P2.5         11922.6      48900.9       1152.0          140.7        -1011.3         -844.1
+P3.1          4535.6      26241.9        428.9          584.9          156.0          204.8
+P4.1         35928.2     232959.6       4254.0        -8458.7       -12712.7       -15264.7
+P6.1         74367.8      87805.4       9800.0        20425.8        10625.8        10854.8
+P5.4            18.7     318095.6       1259.8          382.0         -877.7        -3352.2
+
+# All five columns are ns per DECODE, not per element. Divide by the element
+# count of section 1 for a per-element figure, and only where the element count
+# is what the work scales with.
+
+# correctness: OK. Every pull arm decodes to the value the push arm does.
+===== 6. timings, three runs =====
+
+----- run 1 -----
+## 4. timings, interleaved, one process
+
+payload arm                        reps    median ns       min ns       max ns    / prost       / push
+
+P1.1    prost                     16202       1445.0       1316.6       1557.0      1.000        1.008
+P1.1    core-native               17482       1458.8       1254.1       1652.6      1.010        1.018
+P1.1    core-ffi-push             16286       1433.5       1240.4       1625.0      0.992        1.000
+P1.1    core-ffi-pull             15903       1393.3       1294.1       1648.1      0.964        0.972
+P1.1    core-ffi-pull-walk        15964       1415.4       1290.1       1688.8      0.980        0.987
+P1.1    core-ffi-pull-opaque      15576       1478.6       1329.6       1698.7      1.023        1.032
+P1.1    core-ffi-parse-only      113636        217.0        198.8        223.7      0.150        0.151
+
+P1.2    prost                        51     457758.2     415470.8     482667.2      1.000        1.145
+P1.2    core-native                  59     410993.4     365942.3     443808.4      0.898        1.028
+P1.2    core-ffi-push                57     399894.6     366838.0     428658.7      0.874        1.000
+P1.2    core-ffi-pull                59     406814.8     367001.1     440275.4      0.889        1.017
+P1.2    core-ffi-pull-walk           61     401960.9     365640.6     439613.7      0.878        1.005
+P1.2    core-ffi-pull-opaque         62     413679.6     368072.9     441788.5      0.904        1.034
+P1.2    core-ffi-parse-only         411      61368.1      56373.9      66316.3      0.134        0.153
+
+P1.3    prost                      2829      11500.3      10318.4      12402.7      1.000        0.647
+P1.3    core-native                2964      12019.2      10865.7      12463.6      1.045        0.676
+P1.3    core-ffi-push              1799      17785.7      16438.7      18590.7      1.547        1.000
+P1.3    core-ffi-pull              1616      18738.4      17515.4      19962.0      1.629        1.054
+P1.3    core-ffi-pull-walk         1556      18530.1      17669.9      19387.7      1.611        1.042
+P1.3    core-ffi-pull-opaque       1696      18434.6      17590.4      19574.7      1.603        1.036
+P1.3    core-ffi-parse-only        5973       4505.0       4266.5       4751.8      0.392        0.253
+
+P2.1    prost                     11882       2145.1       2003.8       2322.3      1.000        0.775
+P2.1    core-native               12658       2222.2       2023.7       2360.2      1.036        0.803
+P2.1    core-ffi-push              9035       2766.6       2402.4       3442.2      1.290        1.000
+P2.1    core-ffi-pull              8366       2962.0       2592.8       3226.0      1.381        1.071
+P2.1    core-ffi-pull-walk         8465       2969.2       2620.8       3197.2      1.384        1.073
+P2.1    core-ffi-pull-opaque       8497       2910.1       2548.0       3110.1      1.357        1.052
+P2.1    core-ffi-parse-only       41597        600.0        546.2        623.6      0.280        0.217
+
+P2.2    prost                        16    1498306.5    1433941.4    1587171.1      1.000        0.901
+P2.2    core-native                  17    1461384.9    1389684.8    1567353.6      0.975        0.879
+P2.2    core-ffi-push                15    1663081.7    1537529.5    1734926.7      1.110        1.000
+P2.2    core-ffi-pull                15    1629780.1    1518482.4    1714207.4      1.088        0.980
+P2.2    core-ffi-pull-walk           15    1594574.9    1458074.9    1752080.5      1.064        0.959
+P2.2    core-ffi-pull-opaque         15    1605834.7    1477840.9    1718853.2      1.072        0.966
+P2.2    core-ffi-parse-only          75     342943.5     310634.9     367943.5      0.229        0.206
+
+P2.3    prost                        18    1330373.4    1178574.8    1424933.2      1.000        0.974
+P2.3    core-native                  16    1486956.8    1389965.0    1599849.1      1.118        1.088
+P2.3    core-ffi-push                17    1366459.1    1248935.5    1431954.9      1.027        1.000
+P2.3    core-ffi-pull                18    1326689.7    1241216.7    1424985.8      0.997        0.971
+P2.3    core-ffi-pull-walk           20    1290070.1    1188694.1    1405079.2      0.970        0.944
+P2.3    core-ffi-pull-opaque         20    1311480.6    1192613.6    1366972.7      0.986        0.960
+P2.3    core-ffi-parse-only         157     154223.0     139221.5     159621.8      0.116        0.113
+
+P2.4    prost                        12    1805004.7    1667360.3    1850942.2      1.000        0.994
+P2.4    core-native                  11    2087465.6    1808764.0    2165399.0      1.156        1.149
+P2.4    core-ffi-push                13    1816188.2    1645332.0    1914279.3      1.006        1.000
+P2.4    core-ffi-pull                13    1822294.7    1598796.9    1885750.5      1.010        1.003
+P2.4    core-ffi-pull-walk           13    1793997.8    1638678.5    1861250.9      0.994        0.988
+P2.4    core-ffi-pull-opaque         13    1797795.8    1648768.8    1851316.5      0.996        0.990
+P2.4    core-ffi-parse-only         163     156245.3     143305.9     162671.8      0.087        0.086
+
+P2.5    prost                       443      55737.4      52214.3      64198.0      1.000        0.915
+P2.5    core-native                 451      56461.4      49315.5      59823.6      1.013        0.927
+P2.5    core-ffi-push               434      60901.4      57445.1      64120.2      1.093        1.000
+P2.5    core-ffi-pull               443      60809.3      56012.2      64180.4      1.091        0.998
+P2.5    core-ffi-pull-walk          458      59869.9      54307.8      62661.0      1.074        0.983
+P2.5    core-ffi-pull-opaque        410      59624.6      53585.4      65464.6      1.070        0.979
+P2.5    core-ffi-parse-only        2281      11277.4      10127.1      12627.1      0.202        0.185
+
+P3.1    prost                       708      35650.7      33230.3      38430.2      1.000        1.144
+P3.1    core-native                 883      31502.3      28887.7      34285.1      0.884        1.011
+P3.1    core-ffi-push               898      31162.8      27734.5      32262.3      0.874        1.000
+P3.1    core-ffi-pull               880      30449.8      28269.1      32939.8      0.854        0.977
+P3.1    core-ffi-pull-walk          887      30829.2      27230.6      35665.0      0.865        0.989
+P3.1    core-ffi-pull-opaque        896      30062.2      28530.2      32381.2      0.843        0.965
+P3.1    core-ffi-parse-only        6466       4275.0       3922.5       4568.3      0.120        0.137
+
+P4.1    prost                        90     291724.2     267009.5     310854.0      1.000        1.109
+P4.1    core-native                 108     254186.0     236077.3     271656.2      0.871        0.966
+P4.1    core-ffi-push                96     263055.1     244237.4     280347.6      0.902        1.000
+P4.1    core-ffi-pull               104     263486.8     235669.7     276800.8      0.903        1.002
+P4.1    core-ffi-pull-walk          103     254181.2     234454.6     276519.5      0.871        0.966
+P4.1    core-ffi-pull-opaque         94     256038.0     233915.9     273727.6      0.878        0.973
+P4.1    core-ffi-parse-only         680      34214.5      32086.2      36308.2      0.117        0.130
+
+P6.1    prost                        80     302174.9     268166.3     315250.1      1.000        1.991
+P6.1    core-native                  85     276608.3     233569.9     301651.4      0.915        1.822
+P6.1    core-ffi-push               154     151789.1     130718.0     166693.6      0.502        1.000
+P6.1    core-ffi-pull               148     163642.2     150283.4     184630.6      0.542        1.078
+P6.1    core-ffi-pull-walk          161     156219.8     145855.6     169885.3      0.517        1.029
+P6.1    core-ffi-pull-opaque        169     155882.0     144324.9     168732.0      0.516        1.027
+P6.1    core-ffi-parse-only         344      71954.7      66656.1      75641.0      0.238        0.474
+
+P5.4    prost                         8    3418459.1     726083.2    3712416.9      1.000       10.897
+P5.4    core-native                  79     325415.7     302978.1     346234.2      0.095        1.037
+P5.4    core-ffi-push                79     313706.2     284515.2     330659.1      0.092        1.000
+P5.4    core-ffi-pull                78     311072.0     283260.2     330536.6      0.091        0.992
+P5.4    core-ffi-pull-walk           78     308354.5     288444.9     326135.2      0.090        0.983
+P5.4    core-ffi-pull-opaque         79     307211.3     283563.1     326169.7      0.090        0.979
+P5.4    core-ffi-parse-only     1388888         18.3         16.5         20.0      0.000        0.000
+
+## 5. the decomposition
+
+payload  materialise       replay   drain copy    pull - push    walk - push  opaque - push
+P1.1           217.0       1198.4        -22.1          -40.1          -18.1           45.2
+P1.2         61368.1     340592.8       4853.9         6920.3         2066.4        13785.1
+P1.3          4505.0      14025.1        208.4          952.7          744.4          648.9
+P2.1           600.0       2369.2         -7.3          195.4          202.7          143.5
+P2.2        342943.5    1251631.4      35205.2       -33301.6       -68506.8       -57247.1
+P2.3        154223.0    1135847.1      36619.6       -39769.4       -76389.0       -54978.5
+P2.4        156245.3    1637752.5      28296.8         6106.5       -22190.4       -18392.5
+P2.5         11277.4      48592.6        939.3          -92.1        -1031.5        -1276.8
+P3.1          4275.0      26554.1       -379.4         -713.0         -333.6        -1100.6
+P4.1         34214.5     219966.6       9305.6          431.7        -8874.0        -7017.1
+P6.1         71954.7      84265.1       7422.4        11853.1         4430.7         4092.9
+P5.4            18.3     308336.2       2717.5        -2634.2        -5351.7        -6494.9
+
+# All five columns are ns per DECODE, not per element. Divide by the element
+# count of section 1 for a per-element figure, and only where the element count
+# is what the work scales with.
+
+# correctness: OK. Every pull arm decodes to the value the push arm does.
+
+----- run 2 -----
+## 4. timings, interleaved, one process
+
+payload arm                        reps    median ns       min ns       max ns    / prost       / push
+
+P1.1    prost                     15179       1516.2       1406.5       1560.8      1.000        0.979
+P1.1    core-native               17265       1541.1       1420.6       1602.1      1.016        0.995
+P1.1    core-ffi-push             16318       1548.6       1450.7       1627.0      1.021        1.000
+P1.1    core-ffi-pull             15337       1560.7       1455.9       1622.1      1.029        1.008
+P1.1    core-ffi-pull-walk        14952       1525.2       1355.2       1596.0      1.006        0.985
+P1.1    core-ffi-pull-opaque      15328       1530.0       1390.3       1664.8      1.009        0.988
+P1.1    core-ffi-parse-only      113122        213.5        201.2        227.2      0.141        0.138
+
+P1.2    prost                        49     459326.9     423715.5     507451.1      1.000        1.120
+P1.2    core-native                  56     420503.6     381774.0     500316.2      0.915        1.025
+P1.2    core-ffi-push                57     410159.9     383180.2     436192.9      0.893        1.000
+P1.2    core-ffi-pull                54     410694.5     384680.3     437421.8      0.894        1.001
+P1.2    core-ffi-pull-walk           61     414037.9     379863.7     431881.0      0.901        1.009
+P1.2    core-ffi-pull-opaque         63     413891.7     382428.9     511774.5      0.901        1.009
+P1.2    core-ffi-parse-only         449      60018.3      56801.5      63666.9      0.131        0.146
+
+P1.3    prost                      2638      11180.1      10559.1      11532.8      1.000        0.641
+P1.3    core-native                3126      12101.2      11072.3      12644.7      1.082        0.693
+P1.3    core-ffi-push              1855      17451.1      15610.1      18248.6      1.561        1.000
+P1.3    core-ffi-pull              1569      19764.9      18671.8      20512.8      1.768        1.133
+P1.3    core-ffi-pull-walk         1752      18189.7      15971.1      18829.7      1.627        1.042
+P1.3    core-ffi-pull-opaque       1703      18443.2      17222.4      18844.1      1.650        1.057
+P1.3    core-ffi-parse-only        5609       4521.4       4248.3       4687.7      0.404        0.259
+
+P2.1    prost                     11853       2226.1       2017.9       2708.1      1.000        0.764
+P2.1    core-native               11022       2220.2       2155.7       2364.1      0.997        0.762
+P2.1    core-ffi-push              9423       2913.2       2580.4       3095.9      1.309        1.000
+P2.1    core-ffi-pull              8647       3021.9       2626.8       3250.4      1.358        1.037
+P2.1    core-ffi-pull-walk         8741       2938.0       2569.3       3104.1      1.320        1.009
+P2.1    core-ffi-pull-opaque       9652       2939.7       2757.0       3127.8      1.321        1.009
+P2.1    core-ffi-parse-only       47528        606.0        568.5        636.2      0.272        0.208
+
+P2.2    prost                        17    1540779.7    1423617.3    1640210.3      1.000        0.906
+P2.2    core-native                  16    1507980.4    1345637.7    1630399.8      0.979        0.887
+P2.2    core-ffi-push                15    1700956.5    1514195.1    1765211.9      1.104        1.000
+P2.2    core-ffi-pull                15    1637375.0    1555184.2    1721757.7      1.063        0.963
+P2.2    core-ffi-pull-walk           15    1626979.3    1539342.7    1734929.2      1.056        0.957
+P2.2    core-ffi-pull-opaque         15    1633305.5    1529916.6    1697626.7      1.060        0.960
+P2.2    core-ffi-parse-only          71     354395.8     337932.7     372920.1      0.230        0.208
+
+P2.3    prost                        18    1346378.5    1246715.2    1408420.7      1.000        0.979
+P2.3    core-native                  16    1521438.7    1437647.7    1584177.3      1.130        1.106
+P2.3    core-ffi-push                18    1375108.2    1234107.3    1405791.3      1.021        1.000
+P2.3    core-ffi-pull                18    1344205.2    1220480.5    1397993.9      0.998        0.978
+P2.3    core-ffi-pull-walk           18    1345639.0    1189090.2    1397529.6      0.999        0.979
+P2.3    core-ffi-pull-opaque         17    1314311.4    1211451.1    1378230.6      0.976        0.956
+P2.3    core-ffi-parse-only         156     156721.2     140522.5     168017.6      0.116        0.114
+
+P2.4    prost                        13    1754052.5    1564653.2    1856177.8      1.000        0.952
+P2.4    core-native                  12    2021257.6    1883413.2    2104716.1      1.152        1.097
+P2.4    core-ffi-push                12    1841933.8    1705851.9    1910395.4      1.050        1.000
+P2.4    core-ffi-pull                13    1821691.1    1723529.7    1899251.2      1.039        0.989
+P2.4    core-ffi-pull-walk           13    1801317.7    1687091.2    1865134.7      1.027        0.978
+P2.4    core-ffi-pull-opaque         15    1801157.8    1630999.6    1891552.3      1.027        0.978
+P2.4    core-ffi-parse-only         167     153892.8     137113.2     159464.3      0.088        0.084
+
+P2.5    prost                       480      54757.8      49820.0      58653.1      1.000        0.865
+P2.5    core-native                 462      56333.4      51398.5      65565.4      1.029        0.890
+P2.5    core-ffi-push               410      63297.3      57933.4      71317.9      1.156        1.000
+P2.5    core-ffi-pull               410      61559.1      54280.2      64048.2      1.124        0.973
+P2.5    core-ffi-pull-walk          434      60334.9      55705.6      63509.2      1.102        0.953
+P2.5    core-ffi-pull-opaque        433      61377.2      58157.3      63741.8      1.121        0.970
+P2.5    core-ffi-parse-only        2495      11537.3      10870.1      15075.9      0.211        0.182
+
+P3.1    prost                       769      36935.7      32001.4      38562.6      1.000        1.165
+P3.1    core-native                 798      32572.6      30104.4      35209.8      0.882        1.028
+P3.1    core-ffi-push               780      31696.4      29479.5      32225.8      0.858        1.000
+P3.1    core-ffi-pull               756      32101.7      30941.9      32822.7      0.869        1.013
+P3.1    core-ffi-pull-walk          803      31108.3      29133.7      32426.5      0.842        0.981
+P3.1    core-ffi-pull-opaque        804      31219.3      28148.4      32622.3      0.845        0.985
+P3.1    core-ffi-parse-only        3809       4443.1       3982.9       4873.1      0.120        0.140
+
+P4.1    prost                        65     295942.2     272785.7     314971.6      1.000        1.063
+P4.1    core-native                  96     257982.0     247615.9     274757.6      0.872        0.927
+P4.1    core-ffi-push                89     278435.2     243886.9     282048.0      0.941        1.000
+P4.1    core-ffi-pull                93     272426.2     256203.1     284571.5      0.921        0.978
+P4.1    core-ffi-pull-walk           97     268457.9     252191.4     308644.1      0.907        0.964
+P4.1    core-ffi-pull-opaque         93     267295.6     244742.1     280381.1      0.903        0.960
+P4.1    core-ffi-parse-only         698      35429.8      32893.4      37079.2      0.120        0.127
+
+P6.1    prost                        81     303371.1     289800.8     313065.6      1.000        1.938
+P6.1    core-native                  85     280536.6     261204.0     297943.6      0.925        1.792
+P6.1    core-ffi-push               153     156505.9     144399.5     163498.2      0.516        1.000
+P6.1    core-ffi-pull               131     184457.3     174146.1     193173.5      0.608        1.179
+P6.1    core-ffi-pull-walk          151     162514.0     154299.8     168014.7      0.536        1.038
+P6.1    core-ffi-pull-opaque        139     174160.1     162771.6     188827.4      0.574        1.113
+P6.1    core-ffi-parse-only         328      71985.1      66860.5      78710.3      0.237        0.460
+
+P5.4    prost                         3    3787095.0     880637.0    4352019.7      1.000       12.075
+P5.4    core-native                  74     325798.5     305015.0     361735.1      0.086        1.039
+P5.4    core-ffi-push                77     313626.5     303999.0     338065.0      0.083        1.000
+P5.4    core-ffi-pull                75     315470.7     301655.8     337751.0      0.083        1.006
+P5.4    core-ffi-pull-walk           77     317062.9     293331.0     341971.5      0.084        1.011
+P5.4    core-ffi-pull-opaque         80     315498.5     297204.8     327961.5      0.083        1.006
+P5.4    core-ffi-parse-only     1315789         19.0         18.0         19.7      0.000        0.000
+
+## 5. the decomposition
+
+payload  materialise       replay   drain copy    pull - push    walk - push  opaque - push
+P1.1           213.5       1311.7         35.5           12.0          -23.5          -18.7
+P1.2         60018.3     354019.7      -3343.4          534.6         3878.0         3731.8
+P1.3          4521.4      13668.3       1575.2         2313.8          738.6          992.0
+P2.1           606.0       2332.1         83.9          108.7           24.8           26.5
+P2.2        354395.8    1272583.5      10395.7       -63581.5       -73977.3       -67651.0
+P2.3        156721.2    1188917.8      -1433.8       -30903.1       -29469.2       -60796.9
+P2.4        153892.8    1647424.9      20373.4       -20242.8       -40616.1       -40776.0
+P2.5         11537.3      48797.6       1224.2        -1738.2        -2962.4        -1920.1
+P3.1          4443.1      26665.1        993.4          405.3         -588.1         -477.1
+P4.1         35429.8     233028.1       3968.4        -6008.9        -9977.3       -11139.5
+P6.1         71985.1      90529.0      21943.3        27951.4         6008.2        17654.2
+P5.4            19.0     317044.0      -1592.2         1844.2         3436.4         1871.9
+
+# All five columns are ns per DECODE, not per element. Divide by the element
+# count of section 1 for a per-element figure, and only where the element count
+# is what the work scales with.
+
+# correctness: OK. Every pull arm decodes to the value the push arm does.
+
+----- run 3 -----
+## 4. timings, interleaved, one process
+
+payload arm                        reps    median ns       min ns       max ns    / prost       / push
+
+P1.1    prost                     18726       1459.5       1319.2       1562.4      1.000        0.945
+P1.1    core-native               18168       1529.9       1229.4       1606.3      1.048        0.991
+P1.1    core-ffi-push             17064       1543.8       1321.5       1622.6      1.058        1.000
+P1.1    core-ffi-pull             17531       1504.8       1321.3       1637.7      1.031        0.975
+P1.1    core-ffi-pull-walk        16501       1506.3       1358.5       1646.8      1.032        0.976
+P1.1    core-ffi-pull-opaque      16812       1529.9       1312.9       1658.8      1.048        0.991
+P1.1    core-ffi-parse-only      121951        216.2        188.5        226.6      0.148        0.140
+
+P1.2    prost                        59     467511.6     410149.6     486272.3      1.000        1.135
+P1.2    core-native                  63     416526.3     379884.3     433170.3      0.891        1.011
+P1.2    core-ffi-push                70     412028.5     371929.8     437677.9      0.881        1.000
+P1.2    core-ffi-pull                63     414964.2     370300.8     435942.0      0.888        1.007
+P1.2    core-ffi-pull-walk           69     408381.3     375606.8     433884.7      0.874        0.991
+P1.2    core-ffi-pull-opaque         67     406332.1     366873.6     455784.8      0.869        0.986
+P1.2    core-ffi-parse-only         389      60546.1      53493.9      63927.0      0.130        0.147
+
+P1.3    prost                      2537      10850.5       9828.9      11541.3      1.000        0.637
+P1.3    core-native                2737      11690.2      10751.8      12215.4      1.077        0.687
+P1.3    core-ffi-push              1518      17027.0      15584.6      18053.0      1.569        1.000
+P1.3    core-ffi-pull              1459      18745.0      16889.6      20378.9      1.728        1.101
+P1.3    core-ffi-pull-walk         1415      18481.8      17136.0      20009.4      1.703        1.085
+P1.3    core-ffi-pull-opaque       1428      18445.5      16438.1      19714.3      1.700        1.083
+P1.3    core-ffi-parse-only        5283       4539.7       4187.4       4854.5      0.418        0.267
+
+P2.1    prost                     11145       2100.1       1886.4       2376.3      1.000        0.774
+P2.1    core-native               10517       2178.9       2034.0       2445.5      1.038        0.803
+P2.1    core-ffi-push              8558       2712.6       2459.0       3064.7      1.292        1.000
+P2.1    core-ffi-pull              8041       2927.9       2618.0       3198.4      1.394        1.079
+P2.1    core-ffi-pull-walk         8269       2823.2       2609.4       3221.2      1.344        1.041
+P2.1    core-ffi-pull-opaque       8043       2813.1       2584.8       3072.6      1.340        1.037
+P2.1    core-ffi-parse-only       40584        580.1        542.6        623.2      0.276        0.214
+
+P2.2    prost                        15    1498956.7    1362425.6    1715333.5      1.000        0.905
+P2.2    core-native                  16    1448900.0    1388848.2    1603769.8      0.967        0.875
+P2.2    core-ffi-push                15    1655429.7    1518026.9    1820802.6      1.104        1.000
+P2.2    core-ffi-pull                15    1583186.5    1456047.3    1716666.1      1.056        0.956
+P2.2    core-ffi-pull-walk           15    1606241.6    1425442.5    1714762.3      1.072        0.970
+P2.2    core-ffi-pull-opaque         14    1602919.8    1429658.5    1738781.8      1.069        0.968
+P2.2    core-ffi-parse-only          74     339542.4     304069.0     359560.7      0.227        0.205
+
+P2.3    prost                        19    1314946.1    1196797.6    1439935.1      1.000        0.974
+P2.3    core-native                  17    1487216.1    1327949.1    1600642.8      1.131        1.102
+P2.3    core-ffi-push                18    1349735.6    1245967.3    1416886.5      1.026        1.000
+P2.3    core-ffi-pull                19    1292145.7    1176304.8    1399580.2      0.983        0.957
+P2.3    core-ffi-pull-walk           19    1290737.9    1163210.6    1401403.6      0.982        0.956
+P2.3    core-ffi-pull-opaque         21    1347485.8    1208649.0    1413676.2      1.025        0.998
+P2.3    core-ffi-parse-only         176     158629.2     140186.8     164678.3      0.121        0.118
+
+P2.4    prost                        15    1744204.8    1544328.9    1893549.0      1.000        0.944
+P2.4    core-native                  12    2019805.1    1830135.5    2167840.7      1.158        1.093
+P2.4    core-ffi-push                14    1847118.9    1715960.5    1935223.1      1.059        1.000
+P2.4    core-ffi-pull                13    1813751.7    1614842.2    1933452.5      1.040        0.982
+P2.4    core-ffi-pull-walk           14    1805902.7    1660363.8    1916614.1      1.035        0.978
+P2.4    core-ffi-pull-opaque         14    1811451.3    1611032.6    1862491.9      1.039        0.981
+P2.4    core-ffi-parse-only         167     158112.5     137886.3     164667.9      0.091        0.086
+
+P2.5    prost                       455      55289.1      48838.2      57644.2      1.000        0.905
+P2.5    core-native                 505      55224.4      48467.4      57704.3      0.999        0.904
+P2.5    core-ffi-push               414      61074.4      54673.1      64583.4      1.105        1.000
+P2.5    core-ffi-pull               420      60966.2      53684.4      67766.8      1.103        0.998
+P2.5    core-ffi-pull-walk          421      59621.7      52748.3      64867.7      1.078        0.976
+P2.5    core-ffi-pull-opaque        430      58359.3      53839.4      66576.6      1.056        0.956
+P2.5    core-ffi-parse-only        2405      11151.0      10122.9      12222.0      0.202        0.183
+
+P3.1    prost                       709      34116.5      32051.7      38201.8      1.000        1.137
+P3.1    core-native                 778      31537.2      28256.7      33646.8      0.924        1.051
+P3.1    core-ffi-push               820      29998.2      27395.3      34494.5      0.879        1.000
+P3.1    core-ffi-pull               761      30803.1      27671.3      35240.3      0.903        1.027
+P3.1    core-ffi-pull-walk          777      30338.5      27565.6      32967.7      0.889        1.011
+P3.1    core-ffi-pull-opaque        775      30591.5      28029.2      33592.0      0.897        1.020
+P3.1    core-ffi-parse-only        5512       4188.9       3896.1       4849.0      0.123        0.140
+
+P4.1    prost                        83     287755.4     262657.3     314385.3      1.000        1.069
+P4.1    core-native                 103     255730.5     231167.9     279788.5      0.889        0.950
+P4.1    core-ffi-push                93     269274.7     241169.7     297253.3      0.936        1.000
+P4.1    core-ffi-pull               104     266948.6     235650.2     279065.7      0.928        0.991
+P4.1    core-ffi-pull-walk           96     260318.8     241926.9     287303.9      0.905        0.967
+P4.1    core-ffi-pull-opaque        100     256691.2     232296.9     275546.8      0.892        0.953
+P4.1    core-ffi-parse-only         722      34458.3      32178.3      36814.8      0.120        0.128
+
+P6.1    prost                        87     294721.8     265558.3     315194.4      1.000        1.908
+P6.1    core-native                  93     274081.4     244297.5     291849.7      0.930        1.774
+P6.1    core-ffi-push               166     154485.9     137796.8     162467.5      0.524        1.000
+P6.1    core-ffi-pull               137     169601.2     151105.7     178224.4      0.575        1.098
+P6.1    core-ffi-pull-walk          161     158216.4     143552.5     176721.6      0.537        1.024
+P6.1    core-ffi-pull-opaque        164     158203.6     143331.2     169611.3      0.537        1.024
+P6.1    core-ffi-parse-only         324      70713.1      63890.3      74784.5      0.240        0.458
+
+P5.4    prost                         4     879186.2     785205.0    3773432.8      1.000        2.896
+P5.4    core-native                  88     317950.9     285109.3     335116.2      0.362        1.047
+P5.4    core-ffi-push                80     303578.4     286077.8     332296.8      0.345        1.000
+P5.4    core-ffi-pull                86     304828.8     283359.5     328091.6      0.347        1.004
+P5.4    core-ffi-pull-walk           85     306559.1     286669.1     331419.8      0.349        1.010
+P5.4    core-ffi-pull-opaque         89     306155.4     286754.5     327468.0      0.348        1.008
+P5.4    core-ffi-parse-only     1562500         18.4         16.8         19.3      0.000        0.000
+
+## 5. the decomposition
+
+payload  materialise       replay   drain copy    pull - push    walk - push  opaque - push
+P1.1           216.2       1290.1         -1.5          -39.0          -37.4          -13.8
+P1.2         60546.1     347835.2       6582.9         2935.7        -3647.2        -5696.4
+P1.3          4539.7      13942.1        263.2         1718.0         1454.8         1418.5
+P2.1           580.1       2243.1        104.7          215.3          110.6          100.6
+P2.2        339542.4    1266699.2     -23055.1       -72243.1       -49188.1       -52509.9
+P2.3        158629.2    1132108.7       1407.8       -57589.9       -58997.7        -2249.8
+P2.4        158112.5    1647790.2       7849.0       -33367.2       -41216.1       -35667.6
+P2.5         11151.0      48470.7       1344.5         -108.2        -1452.7        -2715.1
+P3.1          4188.9      26149.6        464.5          804.8          340.3          593.3
+P4.1         34458.3     225860.5       6629.9        -2326.1        -8955.9       -12583.4
+P6.1         70713.1      87503.4      11384.7        15115.3         3730.6         3717.7
+P5.4            18.4     306540.7      -1730.4         1250.4         2980.8         2577.1
+
+# All five columns are ns per DECODE, not per element. Divide by the element
+# count of section 1 for a per-element figure, and only where the element count
+# is what the work scales with.
+
+# correctness: OK. Every pull arm decodes to the value the push arm does.
+
+================================================================================
+ WHAT THE RUNS ABOVE ESTABLISH
+ Two suite invocations, six timed runs, every ratio formed inside one process.
+ (The three runs appended last are the FIRST invocation's, kept so the spread is
+ across two builds' worth of runs and not one.)
+================================================================================
+
+1. CORRECTNESS, AND IT IS THE GATE FOR EVERYTHING ELSE
+
+   16 payloads over 7 roots, four decoders each: the independent `armonik` arm
+   (prost's own codec over the facade's prost::Message impls), the push arm, and
+   the two pull arms.  All agree on the facade value, everywhere.  M7 is in the
+   set, which matters here: its bytes interleave two repeated fields of one type,
+   so it is the payload that exercises section 7.3's flush on a foreign tag --
+   emitted by the traversal the two families SHARE, and therefore inherited by
+   pull rather than reimplemented in it.
+
+   The push family's own gate (byte identity across all four arms against the
+   validated manifest, every payload) is re-run in section 2 of the transcript
+   and still passes.
+
+2. THE STRUCTURAL CONTROL, AND IT IS THE ANSWER TO DECISION 2's SECOND HALF
+
+   A record is written exactly where the push family makes a reverse call, by
+   construction, so the two counts must be equal.  They are, TO THE DIGIT, on all
+   thirteen counted payloads:
+
+     P1.1 2/2   P1.2 5/5   P1.3 3/3   P2.1 8/8   P2.2 3501/3501
+     P2.3 876/876   P2.4 561/561   P2.5 141/141   P3.1 2/2
+     P4.1 601/601   P5.4 1/1   P6.1 1401/1401   P7.1 7/7
+
+   and `pull rev` is 0 on every row, which is the family's defining claim
+   measured rather than assumed.
+
+   **One traversal emitter parameterised by where values are deposited is
+   buildable, and this is how much of it is shared.**  `dec_walk` in
+   poc/codec/gen/rust_abi.py -- the tag match, the wire checks, the span
+   arithmetic, 7.2's batching predicate, 7.3's flush on a foreign tag, the arena
+   declaration -- is emitted ONCE and instantiated twice.  What differs between
+   the families is three things and they are all outside it:
+
+     * the `flush_*` macro body: a vtable call, or a record append;
+     * the entry point's prologue and epilogue;
+     * one parameter, `elemcall`, naming the non-leaf element decoder.
+
+   `dec_walk` takes exactly one family-dependent argument.  That is the
+   condition section 7.1 sets ("not two emitters that have to agree"), met.
+
+3. THE INTERFACE ARGUMENT, WHICH IS A PROPERTY OF THE DESCRIPTOR AND NOT OF THIS
+   MACHINE (R13)
+
+     payload  push reverse   rev/elem   pull forward (32K)   pull forward (1 chunk)
+     P2.2     3,501          7.002      16                   3
+     P2.3       876          7.008      11                   3
+     P2.4       561          7.013      13                   3
+     P6.1     1,401          7.005       8                   3
+     P4.1       601          3.005       5                   3
+     P1.2         5          0.005       6                   3
+
+   **Push's crossings are per ELEMENT; pull's are per MESSAGE.**  On P2.2 that is
+   3,501 against 16, or against 3 if the host drains in one chunk.  Three is the
+   floor for every payload in the set regardless of shape or size: parse,
+   footprint, drain.
+
+   The chunk size is the only knob a host has on that count, and it is a trade
+   against how much of the response is materialised at once -- which is the bound
+   section 7.1 gives the host in the first place.  A host on a 100 ns forward
+   call and a 540 KB response pays 1.6 us at 32 KB chunks and 300 ns at one.
+
+4. WHAT PULL COSTS THIS HOST: -5% TO +18% OF A PUSH DECODE, AND THE SIGN IS
+   NEGATIVE ON THE SHAPE THE CONTROL PLANE MOVES
+
+   Ratio to the push arm, min and max over all six timed runs:
+
+     payload   pull (32K chunks)   pull-walk (no copy)   pull-opaque (control)
+     P1.1      0.940 - 1.032       0.914 - 0.987         0.909 - 1.032
+     P1.2      0.993 - 1.017       0.985 - 1.009         0.981 - 1.034
+     P1.3      1.054 - 1.133       0.959 - 1.085         0.973 - 1.083
+     P2.1      1.037 - 1.079       1.009 - 1.073         1.009 - 1.054
+     P2.2      0.956 - 0.989       0.957 - 0.973         0.960 - 0.977
+     P2.3      0.957 - 0.989       0.944 - 0.979         0.956 - 0.998
+     P2.4      0.957 - 1.003       0.940 - 0.988         0.955 - 0.990
+     P2.5      0.973 - 1.002       0.953 - 0.994         0.956 - 1.006
+     P3.1      0.977 - 1.034       0.968 - 1.011         0.965 - 1.020
+     P4.1      0.966 - 1.002       0.946 - 0.967         0.946 - 0.974
+     P6.1      1.078 - 1.179       1.024 - 1.070         1.024 - 1.113
+     P5.4      0.992 - 1.006       0.983 - 1.011         0.979 - 1.008
+
+   **This is not the result the slice expected.**  The prediction on the way in
+   was that at a 1.8 ns reverse call a family that trades reverse calls for a
+   materialisation would lose, and on nine of twelve payloads the no-copy arm is
+   at or below push.  What that says is that a push reverse call costs this host
+   more than a crossing: the arm goes through a vtable slot reached from across
+   the shared object, and the replay's equivalent is a local call over a buffer
+   already in L2.
+
+   THE TWO ROWS WHERE PULL LOSES, AND BOTH ARE THE SAME MECHANISM:
+     * P1.3 (+5 to +13% with the copy), the ABSENT path.  Section 3 of the
+       transcript has the reason and it is not a timing: the record stream is
+       **63.6 times the wire** there, 38,488 B of records for 605 B of message,
+       because a record carries the whole fixed group of an element that encodes
+       to almost nothing.  Pull materialises what the GROUP is, push hands the
+       same group over without storing it.
+     * P6.1 (+8 to +18% with the copy), 1,401 records for 200 elements and a
+       stream 1.52 times the wire.
+
+   So pull's cost tracks the RATIO OF RECORD BYTES TO WIRE BYTES, which is a
+   property of the shape (how sparse an element is), not of the payload size.
+   Every payload where that ratio is below 1 is at or under push.
+
+5. THE R5 CONTROL FOR THIS FAMILY, AND IT CLEARS
+
+   A replay is host code calling host code, so rustc may inline `apply_*` and
+   `add_*` into it; a push callback is reached through a vtable from across the
+   shared-library boundary and never can be.  Subtracting the two families
+   without checking that would charge an optimiser difference to the interface --
+   the same hazard R5's second half already names for the no-boundary control.
+
+   `core-ffi-pull-opaque` runs the identical replay with every call going through
+   a `black_box`ed function pointer: no inlining, no devirtualisation, no
+   constant propagation.  It measures the same as the plain walk arm on every
+   payload (the two columns above are inside each other's spread everywhere).
+   **The parity is not an inlining artifact.**
+
+6. THE DECOMPOSITION, SO ANOTHER HOST CAN RE-PRICE IT
+
+   ns per decode, medians from the same interleaved rounds:
+
+     term          what it is                              P2.2        P1.3
+     materialise   ak_parse_* alone, no object graph       345-361k    4.4-4.9k
+     replay        walk - materialise                      1.27-1.29M  13.4-13.7k
+     drain copy    pull - walk                             18-56k      1.3-1.9k
+
+   As a fraction of a push decode: materialise is 8.5% (P2.4) to 26% (P1.3, and
+   47% on P6.1) ; the drain copy is 1% to 12%.  The C# slice ESTIMATED the pull
+   form's intermediate at 12 to 19 percent of a parse; measured here the copy
+   half of it is 1 to 12 percent of a whole decode.
+
+   P5.4 is the control that bounds the materialise term from below: a 4 MB bulk
+   decode parses in 18-19 ns, because the core records a span and copies nothing.
+   Everything else on that row is the host's copy, which every arm pays.
+
+7. WHAT THIS DOES NOT ESTABLISH
+
+   * **It is not a verdict for the JVM, and it cannot be.**  What travels is the
+     crossing counts (section 3) and the mechanism (section 4's ratio rule).  The
+     ns figures are this container's.
+   * Pull is built for the SEVEN roots of design/SHAPES.md and no others.
+   * **Decision 11's unknown-field capture is not built for pull.**  The bag is a
+     candidate and pull is a family; pricing one through the other would make
+     neither answerable.  `ak_parse_*` skips unknown fields, which is what the
+     default push path does too.
+   * **`ak_bdr_reserve` is never called by these arms.**  Every timed pull decode
+     grows the buffer from whatever the previous one left, which is the steady
+     state; what a cold first parse costs is unmeasured.
+   * The drain contract requires an 8-ALIGNED destination, because the host reads
+     an ak_dfix_* out of it.  A JVM host reading through a VarHandle does not
+     care; a host that cannot guarantee it would need unaligned loads, and
+     nothing here measures what that costs.
+   * A record larger than the chunk is AK_ERR_CAPACITY rather than a split
+     record.  The largest a schema can produce is section 7.3's arena plus a
+     header, so a host sized at AK_BDR_MIN_CHUNK never sees it -- and no test
+     makes it happen.
+   * **The no-boundary control is not extended to pull.**  `core-native` is the
+     push traversal emitted into the host; there is no `core-native-pull`,
+     because the question here is push against pull THROUGH THE SAME BOUNDARY,
+     which R4's sharpened half says to ask as a delta between two arms in the
+     same rounds -- and it is.
+   * Encode is untouched.  Section 7.1 is about decode.
+   * One machine, one microarchitecture, one thread.

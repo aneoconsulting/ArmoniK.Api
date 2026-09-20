@@ -88,3 +88,7 @@ path = "src/bin/zeroed.rs"
 [[bin]]
 name = "unknown"
 path = "src/bin/unknown.rs"
+
+[[bin]]
+name = "pullbench"
+path = "src/bin/pullbench.rs"

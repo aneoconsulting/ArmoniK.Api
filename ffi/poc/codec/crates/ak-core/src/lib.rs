@@ -107,6 +107,14 @@ pub struct EncCtxImpl {
 pub struct DecCtxImpl {
     pub hdr: CtxHeader,
     pub c: ak_rt::Counters,
+    /// The pull family's deposit target (ABI v1 section 7.1). Empty and unallocated unless
+    /// a host calls `ak_parse_*`, so the push family pays nothing for it: one `Vec` header
+    /// in a context that is allocated once per host thread and reused.
+    ///
+    /// It is in the CONTEXT and not in a thread-local for section 7.3's reason, and in the
+    /// context rather than a local of the entry point because the whole point of pull is
+    /// that the host reads it AFTER the call returns.
+    pub bdr: ak_rt::Bdr,
 }
 
 #[no_mangle]
@@ -171,8 +179,130 @@ pub extern "C" fn ak_dec_ctx_new() -> *mut ak_dec_ctx {
     Box::into_raw(Box::new(DecCtxImpl {
         hdr: CtxHeader { kind: AK_CTX_DEC, err: AK_OK },
         c: Default::default(),
+        bdr: ak_rt::Bdr::new(),
     })) as *mut ak_dec_ctx
 }
+
+// ---- the pull family's buffer (ABI v1 section 7.1) ---------------------------------
+//
+// Schema-free, so it is hand-written here beside the contexts rather than emitted: what
+// the generator emits is `ak_parse_<Root>`, one per root, and every root deposits into
+// this one buffer through the same four entry points.
+
+/// Pre-size the record buffer. Optional: `ak_parse_*` grows it as it goes. A host that has
+/// already decoded one response of a shape calls `ak_bdr_footprint` after it and reserves
+/// that much before the next, which is the case this exists for.
+#[no_mangle]
+pub unsafe extern "C" fn ak_bdr_reserve(ctx: *mut ak_dec_ctx, bytes: usize) -> i32 {
+    if ctx.is_null() {
+        return AK_ERR_INVALID_STATE;
+    }
+    let cx = &mut *(ctx as *mut DecCtxImpl);
+    ak_rt::bump!(cx.c, forward);
+    cx.bdr.reserve(bytes);
+    AK_OK
+}
+
+/// How many bytes the last parse deposited. ABI v1 section 7.1's "the host can hold two
+/// decoded responses, read what it is paying, bound it and release it".
+#[no_mangle]
+pub unsafe extern "C" fn ak_bdr_footprint(ctx: *const ak_dec_ctx) -> usize {
+    let cx = &*(ctx as *const DecCtxImpl);
+    // A const pointer, so this one cannot bump a counter without a cast the signature is
+    // there to forbid. It is a forward crossing and the host counts it: see
+    // `ak_bdr_count_forward`.
+    cx.bdr.footprint()
+}
+
+/// Counting build only: let the HOST record the forward crossings its own drain loop makes
+/// through a `const` entry point. Same shape and same reason as `ak_enc_count_reverse`,
+/// which the cpp slice added for the mirror case (R5: count, do not infer).
+#[no_mangle]
+pub unsafe extern "C" fn ak_bdr_count_forward(ctx: *mut ak_dec_ctx, n: u32) {
+    #[cfg(feature = "count")]
+    {
+        let cx = &mut *(ctx as *mut DecCtxImpl);
+        cx.c.forward += n as u64;
+    }
+    #[cfg(not(feature = "count"))]
+    {
+        let _ = (ctx, n);
+    }
+}
+
+/// Copy whole records out, from `*cursor`, into a host buffer of `cap` bytes. Returns the
+/// bytes written, 0 when the buffer is exhausted, or a negative error code.
+///
+/// The host drives, which is the family's defining property: no upcall, and on the JVM the
+/// destination is a `byte[]` held under `GetPrimitiveArrayCritical`.
+#[no_mangle]
+pub unsafe extern "C" fn ak_bdr_drain(
+    ctx: *mut ak_dec_ctx,
+    dst: *mut u8,
+    cap: usize,
+    cursor: *mut usize,
+) -> isize {
+    if ctx.is_null() || dst.is_null() || cursor.is_null() {
+        return AK_ERR_INVALID_STATE as isize;
+    }
+    let cx = &mut *(ctx as *mut DecCtxImpl);
+    ak_rt::bump!(cx.c, forward);
+    let mut at = *cursor;
+    let n = cx.bdr.drain(dst, cap, &mut at);
+    *cursor = at;
+    n
+}
+
+/// The buffer in place, for a host with no pinning problem: C++, and Rust.
+///
+/// It is not a shortcut around `ak_bdr_drain` but the other half of the measurement. The
+/// drain copy is what a managed host pays to get the records into memory it can walk
+/// without a crossing; a native host walks them where they are. Reporting pull with the
+/// copy folded in would price the family against a cost only some of its hosts have.
+///
+/// The pointer is valid until the next `ak_parse_*` or `ak_dec_ctx_free` on this context.
+#[no_mangle]
+pub unsafe extern "C" fn ak_bdr_ptr(
+    ctx: *mut ak_dec_ctx,
+    ptr: *mut *const u8,
+    len: *mut usize,
+) -> i32 {
+    if ctx.is_null() || ptr.is_null() || len.is_null() {
+        return AK_ERR_INVALID_STATE;
+    }
+    let cx = &mut *(ctx as *mut DecCtxImpl);
+    ak_rt::bump!(cx.c, forward);
+    let b = cx.bdr.as_bytes();
+    *ptr = b.as_ptr();
+    *len = b.len();
+    AK_OK
+}
+
+/// Drop the records, keep the allocation. A parse resets on entry, so this is for a host
+/// that wants the memory back between responses rather than for correctness.
+#[no_mangle]
+pub unsafe extern "C" fn ak_bdr_reset(ctx: *mut ak_dec_ctx) {
+    let cx = &mut *(ctx as *mut DecCtxImpl);
+    cx.bdr.reset();
+}
+
+/// ABI v1 section 10, applied to the record header: the core writes `ak_rt::bdr::Rec` and
+/// the host reads `ak_abi::ak_bdr_rec`, and the two are separate declarations in crates
+/// that do not depend on each other. That is exactly the disagreement section 10 exists
+/// for -- a wrong value in a field, the worst way to find it -- so it is asserted at
+/// compile time here, where both are visible, rather than trusted.
+const _: () = {
+    assert!(core::mem::size_of::<ak_rt::bdr::Rec>() == core::mem::size_of::<ak_bdr_rec>());
+    assert!(core::mem::align_of::<ak_rt::bdr::Rec>() == core::mem::align_of::<ak_bdr_rec>());
+    assert!(core::mem::size_of::<ak_rt::bdr::Rec>() == 24);
+    // 8-aligned, so a group written straight after a header needs no per-record padding.
+    assert!(core::mem::align_of::<ak_rt::bdr::Rec>() == 8);
+    assert!(ak_rt::bdr::OP_APPLY == AK_BDR_APPLY);
+    assert!(ak_rt::bdr::OP_ADD == AK_BDR_ADD);
+    assert!(ak_rt::bdr::OP_NEW == AK_BDR_NEW);
+    assert!(ak_rt::bdr::OP_APPLY_ELEM == AK_BDR_APPLY_ELEM);
+    assert!(ak_rt::bdr::BDR_MIN_CHUNK == AK_BDR_MIN_CHUNK);
+};
 
 #[no_mangle]
 pub unsafe extern "C" fn ak_dec_ctx_free(ctx: *mut ak_dec_ctx) {

@@ -3416,6 +3416,178 @@ pub fn decode_with_list_results_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> 
     Ok(out)
 }
 
+/// Replay one chunk of records (ABI v1 section 7.1: "walk heap arrays").
+///
+/// `toks` maps the token the CODEC minted, which is an index over the whole
+/// parse, to the one `new_*` returned, which is an index into one host vector.
+/// They coincide when a root has a single non-leaf slot and would not if it
+/// had two, so the map is kept rather than the coincidence relied on.
+///
+/// **`OPAQUE` is R5's second half, for this family.** A replay is HOST code
+/// calling host code, so rustc may inline `apply_*` and `add_*` into it and
+/// specialise them; a push callback is reached through a vtable from across
+/// the shared-library boundary and can never be. Subtracting the two families
+/// without saying so would charge an optimiser difference to the interface.
+/// With `OPAQUE`, every call goes through a `black_box`ed function pointer --
+/// no inlining, no devirtualisation, no constant propagation -- which is the
+/// same device the `core-native-opaque` arm already uses for the same reason.
+/// A const generic, so the branch folds away in both instantiations.
+unsafe fn replay_list_results_response_g<const OPAQUE: bool>(
+    ctx: *mut ak_dec_ctx,
+    sink: *mut c_void,
+    recs: &[u64],
+    toks: &mut Vec<i64>,
+) {
+    macro_rules! c {
+        ($f:expr) => {
+            if OPAQUE { ::core::hint::black_box($f) } else { $f }
+        };
+    }
+    for (h, body) in ak_rt::bdr::RecIter::new(recs) {
+        match (h.op, h.slot) {
+            (AK_BDR_APPLY, 0) => c!(apply_list_results_response)(ctx, sink, body as *const ak_dfix_ListResultsResponse),
+            (AK_BDR_ADD, 1) => c!(add_list_results_response_results)(
+                ctx,
+                sink,
+                h.token,
+                body as *const ak_dfix_ResultRaw,
+                h.n as i32,
+            ),
+            // A record for a slot this host does not know is a generator
+            // disagreement, not wire input, so it fails the operation rather
+            // than being skipped the way an unknown TAG is.
+            _ => ak_fail(ctx as *mut c_void, AK_ERR_ABI, ::core::ptr::null(), 0),
+        }
+    }
+}
+
+#[inline]
+unsafe fn replay_list_results_response(
+    ctx: *mut ak_dec_ctx, sink: *mut c_void, recs: &[u64], toks: &mut Vec<i64>,
+) {
+    replay_list_results_response_g::<false>(ctx, sink, recs, toks)
+}
+
+#[inline]
+unsafe fn replay_list_results_response_opaque(
+    ctx: *mut ak_dec_ctx, sink: *mut c_void, recs: &[u64], toks: &mut Vec<i64>,
+) {
+    replay_list_results_response_g::<true>(ctx, sink, recs, toks)
+}
+
+/// Pull, as a host that must COPY does it: parse, then drain in chunks into
+/// the host's own memory and replay each chunk. This is the JVM shape --
+/// `GetPrimitiveArrayCritical` over a `byte[]`, no upcall anywhere -- and the
+/// copy is the part a native host does not need.
+///
+/// `scratch` is the host's chunk buffer, reused across calls so the arm
+/// measures the family and not an allocator. `Vec<u64>`: a record payload is
+/// an `ak_dfix_*` and has to be 8-aligned.
+pub fn parse_drain_with_list_results_response(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    scratch: &mut Vec<u64>,
+    toks: &mut Vec<i64>,
+) -> Result<ListResultsResponse, i32> {
+    let mut out = ListResultsResponse::default();
+    if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
+        scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
+    }
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_ListResultsResponse(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            // Two forward calls the counting build cannot see from inside,
+            // because `ak_bdr_footprint` takes a const context (R5).
+            let total = ak_bdr_footprint(ctx);
+            ak_bdr_count_forward(ctx, 1);
+            let cap = scratch.len() * 8;
+            let mut cursor = 0usize;
+            let mut rc = AK_OK;
+            while cursor < total {
+                let n = ak_bdr_drain(ctx, scratch.as_mut_ptr() as *mut u8, cap, &mut cursor);
+                if n < 0 { rc = n as i32; break; }
+                if n == 0 { break; }
+                replay_list_results_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
+            }
+            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// Pull, as a host with no pinning problem does it: parse, then walk the
+/// records where the core left them. C++ and Rust can; a JVM cannot.
+///
+/// It is not a shortcut around the drain but the other half of the
+/// decomposition: the difference between this arm and the one above IS the
+/// copy, measured rather than estimated.
+pub fn parse_walk_with_list_results_response(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    toks: &mut Vec<i64>,
+) -> Result<ListResultsResponse, i32> {
+    let mut out = ListResultsResponse::default();
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_ListResultsResponse(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            let mut p: *const u8 = ::core::ptr::null();
+            let mut n: usize = 0;
+            let rc = ak_bdr_ptr(ctx, &mut p, &mut n);
+            if rc < 0 {
+                rc
+            } else {
+                // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
+                let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+                replay_list_results_response(ctx, obj, recs, toks);
+                ak_dec_err(ctx)
+            }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// The same walk with the replay's calls made opaque (see `replay_*_g`). The
+/// arm exists so that "pull is at parity with push here" is not secretly
+/// "pull's deposit code was inlined and push's could not be".
+pub fn parse_walk_opaque_with_list_results_response(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    toks: &mut Vec<i64>,
+) -> Result<ListResultsResponse, i32> {
+    let mut out = ListResultsResponse::default();
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_ListResultsResponse(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            let mut p: *const u8 = ::core::ptr::null();
+            let mut n: usize = 0;
+            let rc = ak_bdr_ptr(ctx, &mut p, &mut n);
+            if rc < 0 {
+                rc
+            } else {
+                let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+                replay_list_results_response_opaque(ctx, obj, recs, toks);
+                ak_dec_err(ctx)
+            }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
 /// What the host hands the codec as `obj` on decode: the destination, plus
 /// the base pointer the spans are offsets into (ABI v1 section 7.4).
 pub struct SinkListTasksDetailedResponse<'a> {
@@ -3637,6 +3809,213 @@ pub fn decode_with_list_tasks_detailed_response_unk(ctx: *mut ak_dec_ctx, b: &[u
     Ok(out)
 }
 
+/// Replay one chunk of records (ABI v1 section 7.1: "walk heap arrays").
+///
+/// `toks` maps the token the CODEC minted, which is an index over the whole
+/// parse, to the one `new_*` returned, which is an index into one host vector.
+/// They coincide when a root has a single non-leaf slot and would not if it
+/// had two, so the map is kept rather than the coincidence relied on.
+///
+/// **`OPAQUE` is R5's second half, for this family.** A replay is HOST code
+/// calling host code, so rustc may inline `apply_*` and `add_*` into it and
+/// specialise them; a push callback is reached through a vtable from across
+/// the shared-library boundary and can never be. Subtracting the two families
+/// without saying so would charge an optimiser difference to the interface.
+/// With `OPAQUE`, every call goes through a `black_box`ed function pointer --
+/// no inlining, no devirtualisation, no constant propagation -- which is the
+/// same device the `core-native-opaque` arm already uses for the same reason.
+/// A const generic, so the branch folds away in both instantiations.
+unsafe fn replay_list_tasks_detailed_response_g<const OPAQUE: bool>(
+    ctx: *mut ak_dec_ctx,
+    sink: *mut c_void,
+    recs: &[u64],
+    toks: &mut Vec<i64>,
+) {
+    macro_rules! c {
+        ($f:expr) => {
+            if OPAQUE { ::core::hint::black_box($f) } else { $f }
+        };
+    }
+    for (h, body) in ak_rt::bdr::RecIter::new(recs) {
+        match (h.op, h.slot) {
+            (AK_BDR_APPLY, 0) => c!(apply_list_tasks_detailed_response)(ctx, sink, body as *const ak_dfix_ListTasksDetailedResponse),
+            (AK_BDR_NEW, 65536) => toks.push(c!(new_list_tasks_detailed_response_tasks)(ctx, sink)),
+            (AK_BDR_APPLY_ELEM, 65536) => c!(apply_list_tasks_detailed_response_tasks)(
+                ctx,
+                sink,
+                toks[h.token as usize],
+                body as *const ak_dfix_TaskDetailed,
+            ),
+            (AK_BDR_ADD, 65537) => c!(add_list_tasks_detailed_response_tasks_parent_task_ids)(
+                ctx,
+                sink,
+                toks[h.token as usize],
+                body as *const ak_span,
+                h.n as i32,
+            ),
+            (AK_BDR_ADD, 65538) => c!(add_list_tasks_detailed_response_tasks_data_dependencies)(
+                ctx,
+                sink,
+                toks[h.token as usize],
+                body as *const ak_span,
+                h.n as i32,
+            ),
+            (AK_BDR_ADD, 65539) => c!(add_list_tasks_detailed_response_tasks_expected_output_ids)(
+                ctx,
+                sink,
+                toks[h.token as usize],
+                body as *const ak_span,
+                h.n as i32,
+            ),
+            (AK_BDR_ADD, 65540) => c!(add_list_tasks_detailed_response_tasks_retry_of_ids)(
+                ctx,
+                sink,
+                toks[h.token as usize],
+                body as *const ak_span,
+                h.n as i32,
+            ),
+            (AK_BDR_ADD, 65541) => c!(add_list_tasks_detailed_response_tasks_options_options)(
+                ctx,
+                sink,
+                toks[h.token as usize],
+                body as *const ak_dfix_TaskOptionsOptionsEntry,
+                h.n as i32,
+            ),
+            // A record for a slot this host does not know is a generator
+            // disagreement, not wire input, so it fails the operation rather
+            // than being skipped the way an unknown TAG is.
+            _ => ak_fail(ctx as *mut c_void, AK_ERR_ABI, ::core::ptr::null(), 0),
+        }
+    }
+}
+
+#[inline]
+unsafe fn replay_list_tasks_detailed_response(
+    ctx: *mut ak_dec_ctx, sink: *mut c_void, recs: &[u64], toks: &mut Vec<i64>,
+) {
+    replay_list_tasks_detailed_response_g::<false>(ctx, sink, recs, toks)
+}
+
+#[inline]
+unsafe fn replay_list_tasks_detailed_response_opaque(
+    ctx: *mut ak_dec_ctx, sink: *mut c_void, recs: &[u64], toks: &mut Vec<i64>,
+) {
+    replay_list_tasks_detailed_response_g::<true>(ctx, sink, recs, toks)
+}
+
+/// Pull, as a host that must COPY does it: parse, then drain in chunks into
+/// the host's own memory and replay each chunk. This is the JVM shape --
+/// `GetPrimitiveArrayCritical` over a `byte[]`, no upcall anywhere -- and the
+/// copy is the part a native host does not need.
+///
+/// `scratch` is the host's chunk buffer, reused across calls so the arm
+/// measures the family and not an allocator. `Vec<u64>`: a record payload is
+/// an `ak_dfix_*` and has to be 8-aligned.
+pub fn parse_drain_with_list_tasks_detailed_response(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    scratch: &mut Vec<u64>,
+    toks: &mut Vec<i64>,
+) -> Result<ListTasksDetailedResponse, i32> {
+    let mut out = ListTasksDetailedResponse::default();
+    if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
+        scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
+    }
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_ListTasksDetailedResponse(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            // Two forward calls the counting build cannot see from inside,
+            // because `ak_bdr_footprint` takes a const context (R5).
+            let total = ak_bdr_footprint(ctx);
+            ak_bdr_count_forward(ctx, 1);
+            let cap = scratch.len() * 8;
+            let mut cursor = 0usize;
+            let mut rc = AK_OK;
+            while cursor < total {
+                let n = ak_bdr_drain(ctx, scratch.as_mut_ptr() as *mut u8, cap, &mut cursor);
+                if n < 0 { rc = n as i32; break; }
+                if n == 0 { break; }
+                replay_list_tasks_detailed_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
+            }
+            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// Pull, as a host with no pinning problem does it: parse, then walk the
+/// records where the core left them. C++ and Rust can; a JVM cannot.
+///
+/// It is not a shortcut around the drain but the other half of the
+/// decomposition: the difference between this arm and the one above IS the
+/// copy, measured rather than estimated.
+pub fn parse_walk_with_list_tasks_detailed_response(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    toks: &mut Vec<i64>,
+) -> Result<ListTasksDetailedResponse, i32> {
+    let mut out = ListTasksDetailedResponse::default();
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_ListTasksDetailedResponse(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            let mut p: *const u8 = ::core::ptr::null();
+            let mut n: usize = 0;
+            let rc = ak_bdr_ptr(ctx, &mut p, &mut n);
+            if rc < 0 {
+                rc
+            } else {
+                // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
+                let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+                replay_list_tasks_detailed_response(ctx, obj, recs, toks);
+                ak_dec_err(ctx)
+            }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// The same walk with the replay's calls made opaque (see `replay_*_g`). The
+/// arm exists so that "pull is at parity with push here" is not secretly
+/// "pull's deposit code was inlined and push's could not be".
+pub fn parse_walk_opaque_with_list_tasks_detailed_response(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    toks: &mut Vec<i64>,
+) -> Result<ListTasksDetailedResponse, i32> {
+    let mut out = ListTasksDetailedResponse::default();
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_ListTasksDetailedResponse(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            let mut p: *const u8 = ::core::ptr::null();
+            let mut n: usize = 0;
+            let rc = ak_bdr_ptr(ctx, &mut p, &mut n);
+            if rc < 0 {
+                rc
+            } else {
+                let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+                replay_list_tasks_detailed_response_opaque(ctx, obj, recs, toks);
+                ak_dec_err(ctx)
+            }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
 /// What the host hands the codec as `obj` on decode: the destination, plus
 /// the base pointer the spans are offsets into (ABI v1 section 7.4).
 pub struct SinkListProbeResponse<'a> {
@@ -3751,6 +4130,178 @@ pub fn decode_with_list_probe_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Re
         }
     }
     Ok(out)
+}
+
+/// Replay one chunk of records (ABI v1 section 7.1: "walk heap arrays").
+///
+/// `toks` maps the token the CODEC minted, which is an index over the whole
+/// parse, to the one `new_*` returned, which is an index into one host vector.
+/// They coincide when a root has a single non-leaf slot and would not if it
+/// had two, so the map is kept rather than the coincidence relied on.
+///
+/// **`OPAQUE` is R5's second half, for this family.** A replay is HOST code
+/// calling host code, so rustc may inline `apply_*` and `add_*` into it and
+/// specialise them; a push callback is reached through a vtable from across
+/// the shared-library boundary and can never be. Subtracting the two families
+/// without saying so would charge an optimiser difference to the interface.
+/// With `OPAQUE`, every call goes through a `black_box`ed function pointer --
+/// no inlining, no devirtualisation, no constant propagation -- which is the
+/// same device the `core-native-opaque` arm already uses for the same reason.
+/// A const generic, so the branch folds away in both instantiations.
+unsafe fn replay_list_probe_response_g<const OPAQUE: bool>(
+    ctx: *mut ak_dec_ctx,
+    sink: *mut c_void,
+    recs: &[u64],
+    toks: &mut Vec<i64>,
+) {
+    macro_rules! c {
+        ($f:expr) => {
+            if OPAQUE { ::core::hint::black_box($f) } else { $f }
+        };
+    }
+    for (h, body) in ak_rt::bdr::RecIter::new(recs) {
+        match (h.op, h.slot) {
+            (AK_BDR_APPLY, 0) => c!(apply_list_probe_response)(ctx, sink, body as *const ak_dfix_ListProbeResponse),
+            (AK_BDR_ADD, 1) => c!(add_list_probe_response_probes)(
+                ctx,
+                sink,
+                h.token,
+                body as *const ak_dfix_Probe,
+                h.n as i32,
+            ),
+            // A record for a slot this host does not know is a generator
+            // disagreement, not wire input, so it fails the operation rather
+            // than being skipped the way an unknown TAG is.
+            _ => ak_fail(ctx as *mut c_void, AK_ERR_ABI, ::core::ptr::null(), 0),
+        }
+    }
+}
+
+#[inline]
+unsafe fn replay_list_probe_response(
+    ctx: *mut ak_dec_ctx, sink: *mut c_void, recs: &[u64], toks: &mut Vec<i64>,
+) {
+    replay_list_probe_response_g::<false>(ctx, sink, recs, toks)
+}
+
+#[inline]
+unsafe fn replay_list_probe_response_opaque(
+    ctx: *mut ak_dec_ctx, sink: *mut c_void, recs: &[u64], toks: &mut Vec<i64>,
+) {
+    replay_list_probe_response_g::<true>(ctx, sink, recs, toks)
+}
+
+/// Pull, as a host that must COPY does it: parse, then drain in chunks into
+/// the host's own memory and replay each chunk. This is the JVM shape --
+/// `GetPrimitiveArrayCritical` over a `byte[]`, no upcall anywhere -- and the
+/// copy is the part a native host does not need.
+///
+/// `scratch` is the host's chunk buffer, reused across calls so the arm
+/// measures the family and not an allocator. `Vec<u64>`: a record payload is
+/// an `ak_dfix_*` and has to be 8-aligned.
+pub fn parse_drain_with_list_probe_response(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    scratch: &mut Vec<u64>,
+    toks: &mut Vec<i64>,
+) -> Result<ListProbeResponse, i32> {
+    let mut out = ListProbeResponse::default();
+    if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
+        scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
+    }
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_ListProbeResponse(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            // Two forward calls the counting build cannot see from inside,
+            // because `ak_bdr_footprint` takes a const context (R5).
+            let total = ak_bdr_footprint(ctx);
+            ak_bdr_count_forward(ctx, 1);
+            let cap = scratch.len() * 8;
+            let mut cursor = 0usize;
+            let mut rc = AK_OK;
+            while cursor < total {
+                let n = ak_bdr_drain(ctx, scratch.as_mut_ptr() as *mut u8, cap, &mut cursor);
+                if n < 0 { rc = n as i32; break; }
+                if n == 0 { break; }
+                replay_list_probe_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
+            }
+            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// Pull, as a host with no pinning problem does it: parse, then walk the
+/// records where the core left them. C++ and Rust can; a JVM cannot.
+///
+/// It is not a shortcut around the drain but the other half of the
+/// decomposition: the difference between this arm and the one above IS the
+/// copy, measured rather than estimated.
+pub fn parse_walk_with_list_probe_response(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    toks: &mut Vec<i64>,
+) -> Result<ListProbeResponse, i32> {
+    let mut out = ListProbeResponse::default();
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_ListProbeResponse(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            let mut p: *const u8 = ::core::ptr::null();
+            let mut n: usize = 0;
+            let rc = ak_bdr_ptr(ctx, &mut p, &mut n);
+            if rc < 0 {
+                rc
+            } else {
+                // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
+                let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+                replay_list_probe_response(ctx, obj, recs, toks);
+                ak_dec_err(ctx)
+            }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// The same walk with the replay's calls made opaque (see `replay_*_g`). The
+/// arm exists so that "pull is at parity with push here" is not secretly
+/// "pull's deposit code was inlined and push's could not be".
+pub fn parse_walk_opaque_with_list_probe_response(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    toks: &mut Vec<i64>,
+) -> Result<ListProbeResponse, i32> {
+    let mut out = ListProbeResponse::default();
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_ListProbeResponse(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            let mut p: *const u8 = ::core::ptr::null();
+            let mut n: usize = 0;
+            let rc = ak_bdr_ptr(ctx, &mut p, &mut n);
+            if rc < 0 {
+                rc
+            } else {
+                let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+                replay_list_probe_response_opaque(ctx, obj, recs, toks);
+                ak_dec_err(ctx)
+            }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
 }
 
 /// What the host hands the codec as `obj` on decode: the destination, plus
@@ -3896,6 +4447,185 @@ pub fn decode_with_list_task_summary_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]
     Ok(out)
 }
 
+/// Replay one chunk of records (ABI v1 section 7.1: "walk heap arrays").
+///
+/// `toks` maps the token the CODEC minted, which is an index over the whole
+/// parse, to the one `new_*` returned, which is an index into one host vector.
+/// They coincide when a root has a single non-leaf slot and would not if it
+/// had two, so the map is kept rather than the coincidence relied on.
+///
+/// **`OPAQUE` is R5's second half, for this family.** A replay is HOST code
+/// calling host code, so rustc may inline `apply_*` and `add_*` into it and
+/// specialise them; a push callback is reached through a vtable from across
+/// the shared-library boundary and can never be. Subtracting the two families
+/// without saying so would charge an optimiser difference to the interface.
+/// With `OPAQUE`, every call goes through a `black_box`ed function pointer --
+/// no inlining, no devirtualisation, no constant propagation -- which is the
+/// same device the `core-native-opaque` arm already uses for the same reason.
+/// A const generic, so the branch folds away in both instantiations.
+unsafe fn replay_list_task_summary_response_g<const OPAQUE: bool>(
+    ctx: *mut ak_dec_ctx,
+    sink: *mut c_void,
+    recs: &[u64],
+    toks: &mut Vec<i64>,
+) {
+    macro_rules! c {
+        ($f:expr) => {
+            if OPAQUE { ::core::hint::black_box($f) } else { $f }
+        };
+    }
+    for (h, body) in ak_rt::bdr::RecIter::new(recs) {
+        match (h.op, h.slot) {
+            (AK_BDR_APPLY, 0) => c!(apply_list_task_summary_response)(ctx, sink, body as *const ak_dfix_ListTaskSummaryResponse),
+            (AK_BDR_NEW, 65536) => toks.push(c!(new_list_task_summary_response_tasks)(ctx, sink)),
+            (AK_BDR_APPLY_ELEM, 65536) => c!(apply_list_task_summary_response_tasks)(
+                ctx,
+                sink,
+                toks[h.token as usize],
+                body as *const ak_dfix_TaskSummary,
+            ),
+            (AK_BDR_ADD, 65537) => c!(add_list_task_summary_response_tasks_options_options)(
+                ctx,
+                sink,
+                toks[h.token as usize],
+                body as *const ak_dfix_TaskOptionsOptionsEntry,
+                h.n as i32,
+            ),
+            // A record for a slot this host does not know is a generator
+            // disagreement, not wire input, so it fails the operation rather
+            // than being skipped the way an unknown TAG is.
+            _ => ak_fail(ctx as *mut c_void, AK_ERR_ABI, ::core::ptr::null(), 0),
+        }
+    }
+}
+
+#[inline]
+unsafe fn replay_list_task_summary_response(
+    ctx: *mut ak_dec_ctx, sink: *mut c_void, recs: &[u64], toks: &mut Vec<i64>,
+) {
+    replay_list_task_summary_response_g::<false>(ctx, sink, recs, toks)
+}
+
+#[inline]
+unsafe fn replay_list_task_summary_response_opaque(
+    ctx: *mut ak_dec_ctx, sink: *mut c_void, recs: &[u64], toks: &mut Vec<i64>,
+) {
+    replay_list_task_summary_response_g::<true>(ctx, sink, recs, toks)
+}
+
+/// Pull, as a host that must COPY does it: parse, then drain in chunks into
+/// the host's own memory and replay each chunk. This is the JVM shape --
+/// `GetPrimitiveArrayCritical` over a `byte[]`, no upcall anywhere -- and the
+/// copy is the part a native host does not need.
+///
+/// `scratch` is the host's chunk buffer, reused across calls so the arm
+/// measures the family and not an allocator. `Vec<u64>`: a record payload is
+/// an `ak_dfix_*` and has to be 8-aligned.
+pub fn parse_drain_with_list_task_summary_response(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    scratch: &mut Vec<u64>,
+    toks: &mut Vec<i64>,
+) -> Result<ListTaskSummaryResponse, i32> {
+    let mut out = ListTaskSummaryResponse::default();
+    if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
+        scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
+    }
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_ListTaskSummaryResponse(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            // Two forward calls the counting build cannot see from inside,
+            // because `ak_bdr_footprint` takes a const context (R5).
+            let total = ak_bdr_footprint(ctx);
+            ak_bdr_count_forward(ctx, 1);
+            let cap = scratch.len() * 8;
+            let mut cursor = 0usize;
+            let mut rc = AK_OK;
+            while cursor < total {
+                let n = ak_bdr_drain(ctx, scratch.as_mut_ptr() as *mut u8, cap, &mut cursor);
+                if n < 0 { rc = n as i32; break; }
+                if n == 0 { break; }
+                replay_list_task_summary_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
+            }
+            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// Pull, as a host with no pinning problem does it: parse, then walk the
+/// records where the core left them. C++ and Rust can; a JVM cannot.
+///
+/// It is not a shortcut around the drain but the other half of the
+/// decomposition: the difference between this arm and the one above IS the
+/// copy, measured rather than estimated.
+pub fn parse_walk_with_list_task_summary_response(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    toks: &mut Vec<i64>,
+) -> Result<ListTaskSummaryResponse, i32> {
+    let mut out = ListTaskSummaryResponse::default();
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_ListTaskSummaryResponse(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            let mut p: *const u8 = ::core::ptr::null();
+            let mut n: usize = 0;
+            let rc = ak_bdr_ptr(ctx, &mut p, &mut n);
+            if rc < 0 {
+                rc
+            } else {
+                // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
+                let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+                replay_list_task_summary_response(ctx, obj, recs, toks);
+                ak_dec_err(ctx)
+            }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// The same walk with the replay's calls made opaque (see `replay_*_g`). The
+/// arm exists so that "pull is at parity with push here" is not secretly
+/// "pull's deposit code was inlined and push's could not be".
+pub fn parse_walk_opaque_with_list_task_summary_response(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    toks: &mut Vec<i64>,
+) -> Result<ListTaskSummaryResponse, i32> {
+    let mut out = ListTaskSummaryResponse::default();
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_ListTaskSummaryResponse(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            let mut p: *const u8 = ::core::ptr::null();
+            let mut n: usize = 0;
+            let rc = ak_bdr_ptr(ctx, &mut p, &mut n);
+            if rc < 0 {
+                rc
+            } else {
+                let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+                replay_list_task_summary_response_opaque(ctx, obj, recs, toks);
+                ak_dec_err(ctx)
+            }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
 /// What the host hands the codec as `obj` on decode: the destination, plus
 /// the base pointer the spans are offsets into (ABI v1 section 7.4).
 pub struct SinkUploadResultDataMessage<'a> {
@@ -3977,6 +4707,171 @@ pub fn decode_with_upload_result_data_message_unk(ctx: *mut ak_dec_ctx, b: &[u8]
         }
     }
     Ok(out)
+}
+
+/// Replay one chunk of records (ABI v1 section 7.1: "walk heap arrays").
+///
+/// `toks` maps the token the CODEC minted, which is an index over the whole
+/// parse, to the one `new_*` returned, which is an index into one host vector.
+/// They coincide when a root has a single non-leaf slot and would not if it
+/// had two, so the map is kept rather than the coincidence relied on.
+///
+/// **`OPAQUE` is R5's second half, for this family.** A replay is HOST code
+/// calling host code, so rustc may inline `apply_*` and `add_*` into it and
+/// specialise them; a push callback is reached through a vtable from across
+/// the shared-library boundary and can never be. Subtracting the two families
+/// without saying so would charge an optimiser difference to the interface.
+/// With `OPAQUE`, every call goes through a `black_box`ed function pointer --
+/// no inlining, no devirtualisation, no constant propagation -- which is the
+/// same device the `core-native-opaque` arm already uses for the same reason.
+/// A const generic, so the branch folds away in both instantiations.
+unsafe fn replay_upload_result_data_message_g<const OPAQUE: bool>(
+    ctx: *mut ak_dec_ctx,
+    sink: *mut c_void,
+    recs: &[u64],
+    toks: &mut Vec<i64>,
+) {
+    macro_rules! c {
+        ($f:expr) => {
+            if OPAQUE { ::core::hint::black_box($f) } else { $f }
+        };
+    }
+    for (h, body) in ak_rt::bdr::RecIter::new(recs) {
+        match (h.op, h.slot) {
+            (AK_BDR_APPLY, 0) => c!(apply_upload_result_data_message)(ctx, sink, body as *const ak_dfix_UploadResultDataMessage),
+            // A record for a slot this host does not know is a generator
+            // disagreement, not wire input, so it fails the operation rather
+            // than being skipped the way an unknown TAG is.
+            _ => ak_fail(ctx as *mut c_void, AK_ERR_ABI, ::core::ptr::null(), 0),
+        }
+    }
+}
+
+#[inline]
+unsafe fn replay_upload_result_data_message(
+    ctx: *mut ak_dec_ctx, sink: *mut c_void, recs: &[u64], toks: &mut Vec<i64>,
+) {
+    replay_upload_result_data_message_g::<false>(ctx, sink, recs, toks)
+}
+
+#[inline]
+unsafe fn replay_upload_result_data_message_opaque(
+    ctx: *mut ak_dec_ctx, sink: *mut c_void, recs: &[u64], toks: &mut Vec<i64>,
+) {
+    replay_upload_result_data_message_g::<true>(ctx, sink, recs, toks)
+}
+
+/// Pull, as a host that must COPY does it: parse, then drain in chunks into
+/// the host's own memory and replay each chunk. This is the JVM shape --
+/// `GetPrimitiveArrayCritical` over a `byte[]`, no upcall anywhere -- and the
+/// copy is the part a native host does not need.
+///
+/// `scratch` is the host's chunk buffer, reused across calls so the arm
+/// measures the family and not an allocator. `Vec<u64>`: a record payload is
+/// an `ak_dfix_*` and has to be 8-aligned.
+pub fn parse_drain_with_upload_result_data_message(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    scratch: &mut Vec<u64>,
+    toks: &mut Vec<i64>,
+) -> Result<UploadResultDataMessage, i32> {
+    let mut out = UploadResultDataMessage::default();
+    if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
+        scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
+    }
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_UploadResultDataMessage(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            // Two forward calls the counting build cannot see from inside,
+            // because `ak_bdr_footprint` takes a const context (R5).
+            let total = ak_bdr_footprint(ctx);
+            ak_bdr_count_forward(ctx, 1);
+            let cap = scratch.len() * 8;
+            let mut cursor = 0usize;
+            let mut rc = AK_OK;
+            while cursor < total {
+                let n = ak_bdr_drain(ctx, scratch.as_mut_ptr() as *mut u8, cap, &mut cursor);
+                if n < 0 { rc = n as i32; break; }
+                if n == 0 { break; }
+                replay_upload_result_data_message(ctx, obj, &scratch[..(n as usize) / 8], toks);
+            }
+            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// Pull, as a host with no pinning problem does it: parse, then walk the
+/// records where the core left them. C++ and Rust can; a JVM cannot.
+///
+/// It is not a shortcut around the drain but the other half of the
+/// decomposition: the difference between this arm and the one above IS the
+/// copy, measured rather than estimated.
+pub fn parse_walk_with_upload_result_data_message(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    toks: &mut Vec<i64>,
+) -> Result<UploadResultDataMessage, i32> {
+    let mut out = UploadResultDataMessage::default();
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_UploadResultDataMessage(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            let mut p: *const u8 = ::core::ptr::null();
+            let mut n: usize = 0;
+            let rc = ak_bdr_ptr(ctx, &mut p, &mut n);
+            if rc < 0 {
+                rc
+            } else {
+                // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
+                let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+                replay_upload_result_data_message(ctx, obj, recs, toks);
+                ak_dec_err(ctx)
+            }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// The same walk with the replay's calls made opaque (see `replay_*_g`). The
+/// arm exists so that "pull is at parity with push here" is not secretly
+/// "pull's deposit code was inlined and push's could not be".
+pub fn parse_walk_opaque_with_upload_result_data_message(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    toks: &mut Vec<i64>,
+) -> Result<UploadResultDataMessage, i32> {
+    let mut out = UploadResultDataMessage::default();
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_UploadResultDataMessage(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            let mut p: *const u8 = ::core::ptr::null();
+            let mut n: usize = 0;
+            let rc = ak_bdr_ptr(ctx, &mut p, &mut n);
+            if rc < 0 {
+                rc
+            } else {
+                let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+                replay_upload_result_data_message_opaque(ctx, obj, recs, toks);
+                ak_dec_err(ctx)
+            }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
 }
 
 /// What the host hands the codec as `obj` on decode: the destination, plus
@@ -4196,6 +5091,213 @@ pub fn decode_with_list_metrics_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> 
     Ok(out)
 }
 
+/// Replay one chunk of records (ABI v1 section 7.1: "walk heap arrays").
+///
+/// `toks` maps the token the CODEC minted, which is an index over the whole
+/// parse, to the one `new_*` returned, which is an index into one host vector.
+/// They coincide when a root has a single non-leaf slot and would not if it
+/// had two, so the map is kept rather than the coincidence relied on.
+///
+/// **`OPAQUE` is R5's second half, for this family.** A replay is HOST code
+/// calling host code, so rustc may inline `apply_*` and `add_*` into it and
+/// specialise them; a push callback is reached through a vtable from across
+/// the shared-library boundary and can never be. Subtracting the two families
+/// without saying so would charge an optimiser difference to the interface.
+/// With `OPAQUE`, every call goes through a `black_box`ed function pointer --
+/// no inlining, no devirtualisation, no constant propagation -- which is the
+/// same device the `core-native-opaque` arm already uses for the same reason.
+/// A const generic, so the branch folds away in both instantiations.
+unsafe fn replay_list_metrics_response_g<const OPAQUE: bool>(
+    ctx: *mut ak_dec_ctx,
+    sink: *mut c_void,
+    recs: &[u64],
+    toks: &mut Vec<i64>,
+) {
+    macro_rules! c {
+        ($f:expr) => {
+            if OPAQUE { ::core::hint::black_box($f) } else { $f }
+        };
+    }
+    for (h, body) in ak_rt::bdr::RecIter::new(recs) {
+        match (h.op, h.slot) {
+            (AK_BDR_APPLY, 0) => c!(apply_list_metrics_response)(ctx, sink, body as *const ak_dfix_ListMetricsResponse),
+            (AK_BDR_NEW, 65536) => toks.push(c!(new_list_metrics_response_batches)(ctx, sink)),
+            (AK_BDR_APPLY_ELEM, 65536) => c!(apply_list_metrics_response_batches)(
+                ctx,
+                sink,
+                toks[h.token as usize],
+                body as *const ak_dfix_MetricsBatch,
+            ),
+            (AK_BDR_ADD, 65537) => c!(add_list_metrics_response_batches_ticks)(
+                ctx,
+                sink,
+                toks[h.token as usize],
+                body as *const i64,
+                h.n as i32,
+            ),
+            (AK_BDR_ADD, 65538) => c!(add_list_metrics_response_batches_values)(
+                ctx,
+                sink,
+                toks[h.token as usize],
+                body as *const f64,
+                h.n as i32,
+            ),
+            (AK_BDR_ADD, 65539) => c!(add_list_metrics_response_batches_codes)(
+                ctx,
+                sink,
+                toks[h.token as usize],
+                body as *const i32,
+                h.n as i32,
+            ),
+            (AK_BDR_ADD, 65540) => c!(add_list_metrics_response_batches_flags)(
+                ctx,
+                sink,
+                toks[h.token as usize],
+                body as *const u8,
+                h.n as i32,
+            ),
+            (AK_BDR_ADD, 65541) => c!(add_list_metrics_response_batches_statuses)(
+                ctx,
+                sink,
+                toks[h.token as usize],
+                body as *const i32,
+                h.n as i32,
+            ),
+            // A record for a slot this host does not know is a generator
+            // disagreement, not wire input, so it fails the operation rather
+            // than being skipped the way an unknown TAG is.
+            _ => ak_fail(ctx as *mut c_void, AK_ERR_ABI, ::core::ptr::null(), 0),
+        }
+    }
+}
+
+#[inline]
+unsafe fn replay_list_metrics_response(
+    ctx: *mut ak_dec_ctx, sink: *mut c_void, recs: &[u64], toks: &mut Vec<i64>,
+) {
+    replay_list_metrics_response_g::<false>(ctx, sink, recs, toks)
+}
+
+#[inline]
+unsafe fn replay_list_metrics_response_opaque(
+    ctx: *mut ak_dec_ctx, sink: *mut c_void, recs: &[u64], toks: &mut Vec<i64>,
+) {
+    replay_list_metrics_response_g::<true>(ctx, sink, recs, toks)
+}
+
+/// Pull, as a host that must COPY does it: parse, then drain in chunks into
+/// the host's own memory and replay each chunk. This is the JVM shape --
+/// `GetPrimitiveArrayCritical` over a `byte[]`, no upcall anywhere -- and the
+/// copy is the part a native host does not need.
+///
+/// `scratch` is the host's chunk buffer, reused across calls so the arm
+/// measures the family and not an allocator. `Vec<u64>`: a record payload is
+/// an `ak_dfix_*` and has to be 8-aligned.
+pub fn parse_drain_with_list_metrics_response(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    scratch: &mut Vec<u64>,
+    toks: &mut Vec<i64>,
+) -> Result<ListMetricsResponse, i32> {
+    let mut out = ListMetricsResponse::default();
+    if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
+        scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
+    }
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_ListMetricsResponse(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            // Two forward calls the counting build cannot see from inside,
+            // because `ak_bdr_footprint` takes a const context (R5).
+            let total = ak_bdr_footprint(ctx);
+            ak_bdr_count_forward(ctx, 1);
+            let cap = scratch.len() * 8;
+            let mut cursor = 0usize;
+            let mut rc = AK_OK;
+            while cursor < total {
+                let n = ak_bdr_drain(ctx, scratch.as_mut_ptr() as *mut u8, cap, &mut cursor);
+                if n < 0 { rc = n as i32; break; }
+                if n == 0 { break; }
+                replay_list_metrics_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
+            }
+            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// Pull, as a host with no pinning problem does it: parse, then walk the
+/// records where the core left them. C++ and Rust can; a JVM cannot.
+///
+/// It is not a shortcut around the drain but the other half of the
+/// decomposition: the difference between this arm and the one above IS the
+/// copy, measured rather than estimated.
+pub fn parse_walk_with_list_metrics_response(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    toks: &mut Vec<i64>,
+) -> Result<ListMetricsResponse, i32> {
+    let mut out = ListMetricsResponse::default();
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_ListMetricsResponse(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            let mut p: *const u8 = ::core::ptr::null();
+            let mut n: usize = 0;
+            let rc = ak_bdr_ptr(ctx, &mut p, &mut n);
+            if rc < 0 {
+                rc
+            } else {
+                // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
+                let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+                replay_list_metrics_response(ctx, obj, recs, toks);
+                ak_dec_err(ctx)
+            }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// The same walk with the replay's calls made opaque (see `replay_*_g`). The
+/// arm exists so that "pull is at parity with push here" is not secretly
+/// "pull's deposit code was inlined and push's could not be".
+pub fn parse_walk_opaque_with_list_metrics_response(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    toks: &mut Vec<i64>,
+) -> Result<ListMetricsResponse, i32> {
+    let mut out = ListMetricsResponse::default();
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_ListMetricsResponse(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            let mut p: *const u8 = ::core::ptr::null();
+            let mut n: usize = 0;
+            let rc = ak_bdr_ptr(ctx, &mut p, &mut n);
+            if rc < 0 {
+                rc
+            } else {
+                let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+                replay_list_metrics_response_opaque(ctx, obj, recs, toks);
+                ak_dec_err(ctx)
+            }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
 /// What the host hands the codec as `obj` on decode: the destination, plus
 /// the base pointer the spans are offsets into (ABI v1 section 7.4).
 pub struct SinkDualResponse<'a> {
@@ -4348,4 +5450,183 @@ pub fn decode_with_dual_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<D
         }
     }
     Ok(out)
+}
+
+/// Replay one chunk of records (ABI v1 section 7.1: "walk heap arrays").
+///
+/// `toks` maps the token the CODEC minted, which is an index over the whole
+/// parse, to the one `new_*` returned, which is an index into one host vector.
+/// They coincide when a root has a single non-leaf slot and would not if it
+/// had two, so the map is kept rather than the coincidence relied on.
+///
+/// **`OPAQUE` is R5's second half, for this family.** A replay is HOST code
+/// calling host code, so rustc may inline `apply_*` and `add_*` into it and
+/// specialise them; a push callback is reached through a vtable from across
+/// the shared-library boundary and can never be. Subtracting the two families
+/// without saying so would charge an optimiser difference to the interface.
+/// With `OPAQUE`, every call goes through a `black_box`ed function pointer --
+/// no inlining, no devirtualisation, no constant propagation -- which is the
+/// same device the `core-native-opaque` arm already uses for the same reason.
+/// A const generic, so the branch folds away in both instantiations.
+unsafe fn replay_dual_response_g<const OPAQUE: bool>(
+    ctx: *mut ak_dec_ctx,
+    sink: *mut c_void,
+    recs: &[u64],
+    toks: &mut Vec<i64>,
+) {
+    macro_rules! c {
+        ($f:expr) => {
+            if OPAQUE { ::core::hint::black_box($f) } else { $f }
+        };
+    }
+    for (h, body) in ak_rt::bdr::RecIter::new(recs) {
+        match (h.op, h.slot) {
+            (AK_BDR_APPLY, 0) => c!(apply_dual_response)(ctx, sink, body as *const ak_dfix_DualResponse),
+            (AK_BDR_ADD, 1) => c!(add_dual_response_left)(
+                ctx,
+                sink,
+                h.token,
+                body as *const ak_dfix_Pair,
+                h.n as i32,
+            ),
+            (AK_BDR_ADD, 2) => c!(add_dual_response_right)(
+                ctx,
+                sink,
+                h.token,
+                body as *const ak_dfix_Pair,
+                h.n as i32,
+            ),
+            // A record for a slot this host does not know is a generator
+            // disagreement, not wire input, so it fails the operation rather
+            // than being skipped the way an unknown TAG is.
+            _ => ak_fail(ctx as *mut c_void, AK_ERR_ABI, ::core::ptr::null(), 0),
+        }
+    }
+}
+
+#[inline]
+unsafe fn replay_dual_response(
+    ctx: *mut ak_dec_ctx, sink: *mut c_void, recs: &[u64], toks: &mut Vec<i64>,
+) {
+    replay_dual_response_g::<false>(ctx, sink, recs, toks)
+}
+
+#[inline]
+unsafe fn replay_dual_response_opaque(
+    ctx: *mut ak_dec_ctx, sink: *mut c_void, recs: &[u64], toks: &mut Vec<i64>,
+) {
+    replay_dual_response_g::<true>(ctx, sink, recs, toks)
+}
+
+/// Pull, as a host that must COPY does it: parse, then drain in chunks into
+/// the host's own memory and replay each chunk. This is the JVM shape --
+/// `GetPrimitiveArrayCritical` over a `byte[]`, no upcall anywhere -- and the
+/// copy is the part a native host does not need.
+///
+/// `scratch` is the host's chunk buffer, reused across calls so the arm
+/// measures the family and not an allocator. `Vec<u64>`: a record payload is
+/// an `ak_dfix_*` and has to be 8-aligned.
+pub fn parse_drain_with_dual_response(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    scratch: &mut Vec<u64>,
+    toks: &mut Vec<i64>,
+) -> Result<DualResponse, i32> {
+    let mut out = DualResponse::default();
+    if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
+        scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
+    }
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_DualResponse(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            // Two forward calls the counting build cannot see from inside,
+            // because `ak_bdr_footprint` takes a const context (R5).
+            let total = ak_bdr_footprint(ctx);
+            ak_bdr_count_forward(ctx, 1);
+            let cap = scratch.len() * 8;
+            let mut cursor = 0usize;
+            let mut rc = AK_OK;
+            while cursor < total {
+                let n = ak_bdr_drain(ctx, scratch.as_mut_ptr() as *mut u8, cap, &mut cursor);
+                if n < 0 { rc = n as i32; break; }
+                if n == 0 { break; }
+                replay_dual_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
+            }
+            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// Pull, as a host with no pinning problem does it: parse, then walk the
+/// records where the core left them. C++ and Rust can; a JVM cannot.
+///
+/// It is not a shortcut around the drain but the other half of the
+/// decomposition: the difference between this arm and the one above IS the
+/// copy, measured rather than estimated.
+pub fn parse_walk_with_dual_response(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    toks: &mut Vec<i64>,
+) -> Result<DualResponse, i32> {
+    let mut out = DualResponse::default();
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_DualResponse(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            let mut p: *const u8 = ::core::ptr::null();
+            let mut n: usize = 0;
+            let rc = ak_bdr_ptr(ctx, &mut p, &mut n);
+            if rc < 0 {
+                rc
+            } else {
+                // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
+                let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+                replay_dual_response(ctx, obj, recs, toks);
+                ak_dec_err(ctx)
+            }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// The same walk with the replay's calls made opaque (see `replay_*_g`). The
+/// arm exists so that "pull is at parity with push here" is not secretly
+/// "pull's deposit code was inlined and push's could not be".
+pub fn parse_walk_opaque_with_dual_response(
+    ctx: *mut ak_dec_ctx,
+    b: &[u8],
+    toks: &mut Vec<i64>,
+) -> Result<DualResponse, i32> {
+    let mut out = DualResponse::default();
+    toks.clear();
+    let rc = unsafe {
+        let rc = ak_parse_DualResponse(ctx, b.as_ptr(), b.len());
+        if rc < 0 {
+            rc
+        } else {
+            let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            let mut p: *const u8 = ::core::ptr::null();
+            let mut n: usize = 0;
+            let rc = ak_bdr_ptr(ctx, &mut p, &mut n);
+            if rc < 0 {
+                rc
+            } else {
+                let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+                replay_dual_response_opaque(ctx, obj, recs, toks);
+                ak_dec_err(ctx)
+            }
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
 }
