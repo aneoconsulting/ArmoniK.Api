@@ -1,0 +1,86 @@
+# python slice: the conformance corpus (W8), first consumer, scoped to M1
+#
+# date:    2026-09-20T07:06:26Z
+# commit:  73007ad
+
+# python slice: the conformance corpus (W8), as far as this scope reaches
+# corpus:   1
+# vectors:  336 in the corpus
+# reader:   generated from ffi/schema/shapes.json, M1 subtree
+
+## CONTRACT.md rule 0: the reader is not generated from the superset
+   [ok]  ListResultsResponse: identical to corpus.proto; the superset adds 7 fields this reader does not know (u_varint, u_fixed64, u_len, ...)
+   [ok]  ResultRaw: identical to corpus.proto; the superset adds 7 fields this reader does not know (u_varint, u_fixed64, u_len, ...)
+   [ok]  Timestamp: identical to corpus.proto; the superset adds 7 fields this reader does not know (u_varint, u_fixed64, u_len, ...)
+
+## scope
+   48 of 336 rows root at ListResultsResponse and are in scope.
+   Out of scope, by root, and every one of them is a message this slice does
+   not cover rather than a row it chose to skip:
+      WireZoo                      62
+      Surrogate                    56
+      ListTasksDetailedResponse    32
+      ListProbeResponse            24
+      ChunkedResponse              15
+      Nest                         9
+      ListMetricsResponse          8
+      Probe                        8
+      ListTaskSummaryResponse      7
+      ChunkedResponseWide          5
+      DualResponse                 5
+      LeafResponse                 5
+      UploadResultDataMessage      4
+      ChunkElement                 3
+      ChunkInner                   3
+      ChunkLeaf                    3
+      Duration                     3
+      Empty                        3
+      LeafElement                  3
+      MetricsBatch                 3
+      Pair                         3
+      ResultRaw                    3
+      SurrogateInner               3
+      TaskDetailed                 3
+      TaskOptions                  3
+      TaskOutput                   3
+      TaskSummary                  3
+      Timestamp                    3
+      UploadResultData             3
+   In scope, by class: baseline=2, empty=8, malformed=1, shape=3, unknown=34
+
+## C1 parse, C2 project, C3 re-encode, C4 refuse
+   core-ffi / C ext type    C1 45/47  C2 45/47  C3 45/47  C4 1/1
+        FAIL U-nested-group: C1 ValueError: ak_decode_ListResultsResponse returned -2
+        FAIL U-root-group: C1 ValueError: ak_decode_ListResultsResponse returned -2
+   core-ffi / plain         C1 45/47  C2 45/47  C3 45/47  C4 1/1
+        FAIL U-nested-group: C1 ValueError: ak_decode_ListResultsResponse returned -2
+        FAIL U-root-group: C1 ValueError: ak_decode_ListResultsResponse returned -2
+   pycodec / plain          C1 47/47  C2 47/47  C3 47/47  C4 1/1
+
+## C3: which accepted form this slice writes
+#  CONTRACT.md C3: a vector may have more than one accepted form, and which
+#  one a slice writes is a fact about it rather than a verdict.
+   core-ffi / C ext type    as committed=13, canonical: omitted=2, canonical: the zero leaves omitted=1, unknown-dropped=29
+   core-ffi / plain         as committed=13, canonical: omitted=2, canonical: the zero leaves omitted=1, unknown-dropped=29
+   pycodec / plain          as committed=13, canonical: omitted=2, canonical: the zero leaves omitted=1, unknown-dropped=31
+
+## ABI v1 open decision 11, answered for this slice
+#  CONTRACT.md class `unknown`: say whether you retained or dropped. Counted
+#  over the `unknown`-class rows only, because on any other row there is no
+#  unknown field and `as committed` means the canonical form.
+   core-ffi / C ext type    as committed=3, unknown-dropped=29  (of 34 unknown-class rows)
+   core-ffi / plain         as committed=3, unknown-dropped=29  (of 34 unknown-class rows)
+   pycodec / plain          as committed=3, unknown-dropped=31  (of 34 unknown-class rows)
+   **This slice DROPS unknown fields.** The core carries `ak_unk_f` vtable
+   slots and this shim passes NULL for every one of them, so the drop is a
+   choice the binding makes and not a limit of the ABI: a binding that wanted
+   retention has somewhere to put it. That is ABI v1 open decision 11's
+   answer for python, and it matches what four of the five incumbents do NOT
+   do -- upb retains, and this does not.
+
+## C4: what the refusals looked like
+   core-ffi / C ext type    X-nested-len-overrun   ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-nested-len-overrun   ValueError: ak_decode_ListResultsResponse returned -3
+   pycodec / plain          X-nested-len-overrun   ValueError: length 12 at 2 overruns the enclosing message (ends 9)
+
+4 FAILURE(S)

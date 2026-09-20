@@ -1,0 +1,230 @@
+== 1. R0: one core, at poc/codec, reached by path ==
+  [ok]   codec/gen/generate.py --check: 3 files ok
+
+one_core: 0 failure(s)
+
+== 2. R1: the generated tree is current with shapes.json ==
+generated tree is current with shapes.json (6 files)
+
+== 3. the shared core ==
+warning: useless assignment of field of type `i32` to itself
+    --> crates/ak-core/src/generated/codec.rs:3284:46
+     |
+3284 | ...                   if cd.err != 0 { cd.err = cd.err; }
+     |                                        ^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: useless assignment of field of type `i32` to itself
+    --> crates/ak-core/src/generated/codec.rs:2767:46
+     |
+2767 | ...                   if cd.err != 0 { cd.err = cd.err; }
+     |                                        ^^^^^^^^^^^^^^^
+
+warning: function `enc_list_results_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:904:11
+    |
+904 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_results_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:926:11
+    |
+926 | unsafe fn enc_list_results_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:949:11
+    |
+949 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:972:11
+    |
+972 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:996:11
+    |
+996 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1017:11
+     |
+1017 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1039:11
+     |
+1039 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1059:11
+     |
+1059 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1080:11
+     |
+1080 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1101:11
+     |
+1101 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1123:11
+     |
+1123 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1141:11
+     |
+1141 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1161:11
+     |
+1161 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1190:11
+     |
+1190 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+-rwxr-xr-x 2 root root 618264 Sep 20 06:21 /home/user/ArmoniK.Api/ffi/poc/codec/target/release/libak_core.so
+   exported ak_* entry points: 66
+warning: useless assignment of field of type `i32` to itself
+    --> crates/ak-core/src/generated/codec.rs:3284:46
+     |
+3284 | ...                   if cd.err != 0 { cd.err = cd.err; }
+     |                                        ^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: useless assignment of field of type `i32` to itself
+    --> crates/ak-core/src/generated/codec.rs:2767:46
+     |
+2767 | ...                   if cd.err != 0 { cd.err = cd.err; }
+     |                                        ^^^^^^^^^^^^^^^
+
+warning: function `enc_list_results_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:904:11
+    |
+904 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_results_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:926:11
+    |
+926 | unsafe fn enc_list_results_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:949:11
+    |
+949 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:972:11
+    |
+972 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:996:11
+    |
+996 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1017:11
+     |
+1017 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1039:11
+     |
+1039 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1059:11
+     |
+1059 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1080:11
+     |
+1080 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1101:11
+     |
+1101 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1123:11
+     |
+1123 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1141:11
+     |
+1141 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1161:11
+     |
+1161 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1190:11
+     |
+1190 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+== python 3.11 ==
+   built build/py3.11/_akffi.cpython-311-x86_64-linux-gnu.so and the counting build beside it
+   _akffi.cpython-311-x86_64-linux-gnu.so: 14 undefined ak_* imports, libak_core.so NEEDED
+   _akffi_count.cpython-311-x86_64-linux-gnu.so: 16 undefined ak_* imports, libak_core.so NEEDED
+
+== python 3.10 ==
+   built build/py3.10/_akffi.cpython-310-x86_64-linux-gnu.so and the counting build beside it
+   _akffi.cpython-310-x86_64-linux-gnu.so: 14 undefined ak_* imports, libak_core.so NEEDED
+   _akffi_count.cpython-310-x86_64-linux-gnu.so: 16 undefined ak_* imports, libak_core.so NEEDED
+
+== python 3.12 ==
+   built build/py3.12/_akffi.cpython-312-x86_64-linux-gnu.so and the counting build beside it
+   _akffi.cpython-312-x86_64-linux-gnu.so: 14 undefined ak_* imports, libak_core.so NEEDED
+   _akffi_count.cpython-312-x86_64-linux-gnu.so: 16 undefined ak_* imports, libak_core.so NEEDED
+
+== python 3.13 ==
+   built build/py3.13/_akffi.cpython-313-x86_64-linux-gnu.so and the counting build beside it
+   _akffi.cpython-313-x86_64-linux-gnu.so: 14 undefined ak_* imports, libak_core.so NEEDED
+   _akffi_count.cpython-313-x86_64-linux-gnu.so: 16 undefined ak_* imports, libak_core.so NEEDED
+
+./build.sh: line 77: conformance.py: command not found
+the composed arm is built.  gates it before anything is timed.
