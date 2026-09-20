@@ -4,12 +4,82 @@ The aggregating session's reading of `poc/python`, which is not the same documen
 as the slice's own `STATE.md`. What is here is what its results mean for the
 branch.
 
-**Work unit 1 is complete and the slice proper is not started.** What exists is
-encode, over the M1 subtree, on P1.1, P1.2 and P1.3, byte-identical to the
-validated manifest in four independent encoders on four interpreters. What does
-not exist is decode in any arm, any message beyond M1, the RPC arm, concurrency,
-and — importantly — **any arm that composes the shim with the Rust core**. The two
-edges are priced separately and have never been put together.
+**Work units 1 and 2 are complete, and M2 has since landed.** Work unit 1 chose
+the binding mechanism and the facade storage by microbenchmark and settled README
+9.1's premise; **work unit 2 built the composed arm** — the shared core behind a
+generated CPython shim, both directions — added decode, and made this slice the
+**conformance corpus's first consumer**, which is where it found a defect in the
+shared core that four other slices had not. What does not exist is M3 to M7, most
+of the payload set, the RPC arm and concurrency.
+
+*(The slice's own `STATE.md` still opens by saying M2 is not started. M2 landed in
+`f24b9000`, after the `STATE.md` rewrite. Flagged to the slice; the rest of that
+document is current.)*
+
+## 0. Work unit 2: the composed arm exists, and it wins in both directions
+
+The two edges were priced separately in work unit 1 and had never been put
+together. Now they have been, and the headline is not the one the branch expected
+for the language whose incumbent is already native.
+
+| | / upb, on P1.2 |
+|---|---|
+| **encode**, `core-ffi` with a C-extension facade | **0.700 - 0.719** (0.679 - 0.719 across four interpreters) |
+| **decode**, the bare call | 1.773 - 1.804 |
+| **decode, like for like** (both sides having produced Python values) | **0.888 - 0.897** |
+
+**The decode row needs both columns and the report has to choose one deliberately.**
+A floor arm settles why: constructing 1,000 bare facade objects and copying the
+input, *with no parsing at all*, already costs 0.803 to 0.807 of upb's entire
+decode. A decode cannot cost less than producing what it produces, so **upb is not
+producing it** — `FromString` parses into an arena and materialises a Python object
+only when something reads it. A caller that reads its fields pays the right-hand
+column; one that decodes and discards pays the left. On P1.3 the point is
+unmissable: the floor alone is 8.7 to 24.9 times upb's whole decode, and like for
+like the arm is 0.902 to 1.072.
+
+**The decomposition R4 asks for comes out small.** Work unit 1 measured the same
+storage at 0.600-0.612 with *no core behind it*; with the real core, the real ABI
+and decision 9's sparse fill it is 0.700-0.719. **The core and the boundary
+together cost about 0.10 of a upb encode on this shape.**
+
+**And the ABI is not where Python's crossing problem is**, which is a different
+sentence from every other slice's. The core's own boundary costs **0.01 crossings
+per element** because the batched element run turns 1,000 elements into about ten
+core entries; the shim-to-facade edge costs **7 with a C extension type and 22 to 29
+through `PyObject_GetAttr`**. README 9.1's three layers predicted exactly this, and
+it means the storage choice, not the ABI, is the Python design decision.
+
+**The sparse fill is built in here from the start**, which is why P1.3 is 1.271 to
+1.393 rather than near 2 — the C# composed arm not doing it cost its absent path a
+factor of two. Decision 9 now has a fourth host agreeing with it by construction.
+
+## 0b. It became the corpus's first consumer, and found a defect in the shared core
+
+48 of 336 corpus rows root at `ListResultsResponse`, which is what this scope
+reaches; every other row is reported out of scope **by root** rather than silently
+dropped, and `CONTRACT.md`'s rule 0 is checked rather than asserted.
+
+Two of its own defects came out of that run and are fixed (a nested length
+bounds-checked against the whole buffer instead of the enclosing message; an
+unknown GROUP field raised on instead of skipped). **The two the `core-ffi` arms
+still failed were mine**: `ak_rt`'s unknown-field skip had no case for the
+deprecated GROUP form at all, so the shared core rejected `U-root-group` and
+`U-nested-group`, which upb accepts. Fixed in the core, with the field-number match
+that `X-group-mismatched-end` exists to require and a depth bound so a nest of
+start tags is an error rather than a stack overflow.
+
+**The general point is the one `corpus/CONTRACT.md` argues for itself and this is
+the measurement of it**: byte identity against a schema-generated manifest can
+never find that defect, because proto3 cannot express a group, so nothing the
+generator emits produces one. Four slices had gated clean on the same core. One
+consumer of a hand-built corpus found it in its first run.
+
+**Decision 11, answered for Python: this slice drops unknown fields**, 29 of 34
+unknown-class rows re-encoding to the dropped form. The core carries the `ak_unk_f`
+slots and the shim passes NULL for every one, so the drop is the binding's choice
+and not a limit of the ABI — which is the cleanest statement of that decision any
+slice has produced.
 
 **Configuration** (R7): CPython 3.11.15 target, also built and passing on 3.10,
 3.12 and 3.13; `protobuf` 7.36.2 on the **upb** C extension, confirmed at run time
