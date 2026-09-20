@@ -129,17 +129,88 @@ is why it was cheap and why nobody had done it.
 
 **And R9's hazard makes the C ABI the only arm immune to the host JIT's profile
 history.** Reading a Latin-1 `String`'s characters before the first measurement
-makes every protobuf-java arm **2.16× faster**, makes the generated Java codec
-1.27× slower, and leaves the C ABI arm **unmoved** — because ABI v1 section 4 put
-the transcoder in the core, so that arm has no `charAt` loop to profile. That is an
-argument for the design that no benchmark was looking for, and it is the kind of
-thing only a slice that measures the hazard rather than avoiding it can find.
+moves every protobuf-java arm and leaves the C ABI arm **unmoved** — because ABI v1
+section 4 put the transcoder in the core, so that arm has no `charAt` site to
+profile. That is an argument for the design that no benchmark was looking for, and
+it is the kind of thing only a slice that measures the hazard rather than avoiding
+it can find.
 
 **R9's rule itself is wrong in four of five particulars and I have corrected it**:
 it reproduces on JDK 17 and not 21; the trigger is any read of a Latin-1 `String`'s
 chars rather than a numeric conversion; no narrowing loop is involved; the incumbent
 gets faster rather than slower; and nothing happens on ASCII at all — **which is why
 every published managed figure has been blind to it.**
+
+### 6b. Then the slice took the JIT's log, and two of its own published claims came out
+
+This is the best thing in the slice and it is a retraction. The mechanism above was
+inferred from which triggers fire and which arms move; `logs/java/r9-mechanism.log`
+replaces the inference with C2's own output, and the inference does not survive it.
+
+- **It is branch pruning, not deoptimisation.** C2 emits `inline_fail 'call site not
+  reached'` for `StringUTF16.charAt` at both sites in protobuf-java's `encodeUtf8` in
+  every slow run, and compiles the branch with `_getCharStringU` in every fast one.
+  Runtime `uncommon_trap` events are **9 in the slow state against 11 in the fast**,
+  which is the fact that rules deoptimisation out rather than merely failing to
+  support it.
+- **It is a probability, not a penalty.** Runs land at about 620 us or about 1,250 us
+  with an empty gap. The Latin-1 probe reaches the fast state 10 of 10; unprompted the
+  process gets there about 1 run in 10. **So "2.16×" was a ratio of two modes**, and
+  the branch's real content for the branch is that **a managed figure taken once is a
+  coin toss on this hazard.**
+- **The shared-profile story is refuted by the same logs.** `ak.Utf8.encode` and
+  `ak.Utf8.length` compile identically in all four modes, never pruned. So the 1.27×
+  reported for the generated Java codec is not this effect, and what moves that arm is
+  now unattributed.
+- **The trigger R9 names no longer fires at all**: `deopt=1`, the `String.format` mode,
+  is slow in 13 of 13 here against 4 of 4 fast when first recorded. The slice records
+  it as unexplained rather than picking between the two code changes since, because
+  attributing it means bisecting a probabilistic outcome. That is the right call and
+  it leaves a real loose end.
+
+**The methodological result is worth as much as the finding.** `-XX:+TraceDeoptimization`
+and `-Xlog:deoptimization` do not exist on a product build, `-XX:+LogCompilation`
+preserves the effect, and **JFR erases it** (642 us against 1,261). The first
+measurement had to be of the instruments. Any slice chasing a JIT-shaped hazard with a
+profiler attached is measuring the profiler.
+
+Both readings stay in the tree. **What this costs the branch: two sentences I had
+published in README R9 are withdrawn, and I withdrew them on the slice's own
+evidence.** R1's raise-not-skip working in the direction that hurts is the reason to
+trust the rest of this document.
+
+### 6c. README 9.1's C shim, priced on the JVM and refused
+
+I had promoted the C-shim arm to first on this slice's next-step list: it was aimed
+straight at the decode regression, since 7.004 upcalls per element at about 80 ns is
+560 ns of a 1.441 ratio. The slice priced its primitives before building it and the
+arm is refused.
+
+| op, net of an empty-loop control inside one native call | G1 (default) | Parallel | Serial |
+|---|---|---|---|
+| `SetIntField` | 11.97 | 11.97 | 11.96 |
+| `SetObjectField` | **26.7** | 13.7 | 13.7 |
+| `SetObjectArrayElement` | **28.0** | 15.6 | 15.5 |
+| `NewObject` | 139.2 | 127.2 | 123.5 |
+
+A cached upcall on this machine is 72 to 80 ns, so **a JNI field store is a third of a
+whole reverse call.** The crossover between one upcall carrying k stores in bytecode
+and k JNI stores with no upcall is at **k = 2 to 3**; `TaskDetailed`'s apply is k = 30.
+
+**The generalisation is what matters, and it decides a question the branch had open.**
+On the JVM the push family's cost is the *number* of transitions, not what happens
+inside them: a transition cannot be made cheaper, because the cheapest thing that
+crosses is already a third of one. It can only be made rarer, which is 7.1's pull
+family and open decision 10. **So the C shim is not a second independent route to
+Java's decode problem; there is one route.** That also bounds README 9.1: the shape is
+a Python default, because on CPython a C-API primitive call sits far below interpreter
+re-entry and on the JVM it does not.
+
+**And the probe's own first control was defective**, logged as J17: the upcall callee
+stored one value into one field k times, which C2 folds to a single store, putting the
+crossover at k = 4. Both sides now write k distinct values into k distinct fields.
+That is the second control-side defect in this slice in two days, and both were in
+controls rather than in codecs — which is where this branch's defects keep being.
 
 ## 7. What this asks of the design documents
 
@@ -149,12 +220,21 @@ every published managed figure has been blind to it.**
    family that would remove them.
 3. **Section 9's virtual-thread amendment: promote from amendment to measured**, with
    the pinning table.
-4. **R9: corrected** in the README, on this slice's evidence.
+4. **R9: corrected twice** in the README, both times on this slice's evidence. The
+   hazard is branch pruning rather than deoptimisation, and it shifts a probability
+   rather than imposing a cost, so the rule now asks for a repeat count rather than a
+   ratio.
 5. **Section 13 outcome 2**: Java's managed codec beats the C ABI on decode and does
    not on encode, so even in Java the fallback is direction-dependent.
 6. **P2.5**: protobuf-java writes 19,712 B, making it the **third independent Google
    runtime** to do so. `design/SHAPES.md`'s two-valid-encodings rule is now measured
    in three runtimes rather than two.
+7. **Section 9.1 is a Python default, not an ABI-wide shape.** The JVM analogue is
+   priced and refused, and the reason — the cheapest JNI accessor is already a third
+   of a transition — is now in the README beside the Python case for it.
+8. **Section 2's crossing table lists one number per runtime where JNI has two**, seven
+   times apart. Both directions are now stated, with caching the method id worth four
+   times the call.
 
 ## 8. What is not established
 
@@ -165,7 +245,11 @@ every published managed figure has been blind to it.**
 - **The pull family is unbuilt**, so the decode verdict covers the push family only.
 - **The decode regression's other half is unexplained.** 560 of 1,163 ns per element
   on P2.2 is upcalls; the rest is not decomposed.
-- **The R9 mechanism is inferred** from which triggers fire and which arms move, not
-  from a compilation log.
+- **The R9 mechanism is settled but one of its readings is not.** `deopt=1`, the mode
+  the rule names, fired 4 of 4 when first recorded and 0 of 13 now, and the slice did
+  not bisect the two code changes in between. Something in the measured process moved
+  a probabilistic outcome and nobody knows which thing.
+- **What moves the generated Java codec 1.27× is now unattributed**, the shared-profile
+  explanation having been refuted by the compilation logs.
 - **FFM is a secondary arm**, not a target, and an FFM-to-JNI ratio remains a
   comparison of binding mechanisms.

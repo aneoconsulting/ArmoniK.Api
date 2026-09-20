@@ -327,6 +327,27 @@ everywhere, and a caught panic needs somewhere to put its message. There is no
 thread-local `ak_last_error()`; the context is the place, and an entry point with
 no context takes an `ak_err` out-parameter.
 
+**That mandate is now measured rather than argued, and the core does not meet it.**
+The rust slice's concurrency suite planted the obvious host misuse — four threads
+sharing one encode context — as a positive control, expecting wrong bytes. It does
+not produce wrong bytes: the core panics inside `Enc`, the frame the unwind must
+cross is an `extern "C"` entry point, the unwind is refused, and **the process
+aborts**. Section 3's panic hook changes what is printed, not whether that happens.
+So every codec entry point is today exposed to the failure this paragraph exists to
+forbid, and **`catch_unwind` being mandatory is specification that nothing enforces**.
+Two things follow, and they are separate:
+
+- **`catch_unwind` at every entry point is a conformance obligation, not a note**,
+  and section 12 gains it with a test that plants a panic and requires
+  `AK_ERR_PANIC` at the boundary. A codec that can abort its host process on a
+  misuse the host is able to commit is not a drop-in for a library that throws.
+- **`AK_ERR_PANIC` is the wrong diagnosis for this particular misuse and a better
+  one is cheap.** An owning-thread id beside the context's existing `kind` word
+  turns a concurrent use into `AK_ERR_INVALID_STATE` at the *first* misuse, before
+  any state is corrupted, where a caught panic reports it afterwards and cannot say
+  why. The cost is one word in the context and one comparison per entry point,
+  against a guard that section 5 already prices at about 1.1 ns.
+
 **Cost, stated so a slice does not inherit an optimistic margin.** The guard
 measured +1.1 ns on a scalar accessor and +2.9 ns on a string accessor, and every
 published figure in both managed reports was measured *without* it. v1 makes that
@@ -613,6 +634,19 @@ deposited**, not two emitters that have to agree. Two emitters is a fork at the
 generator level and it is the most likely place for the two families to drift
 apart on a shape nobody tested.
 
+**Both families are now built in the shared core, from one emitter, and the
+condition is met rather than hoped for.** `dec_walk` is emitted once and
+instantiated twice; the families differ in a macro body, the entry point's
+prologue and epilogue, and one argument naming the non-leaf element decoder. The
+control that makes this checkable is structural rather than statistical: **pull
+writes a record exactly where push makes a reverse call, so the two counts must be
+equal**, and they are, to the digit, on all thirteen counted payloads (P2.2:
+3,501 and 3,501), with pull's reverse count measured at zero everywhere. A host
+gate on pull is by VALUE identity rather than byte identity, because a record
+stream is not wire bytes; byte identity comes back when the drained values are
+re-encoded. Open decision 2 carries what the families cost and how to re-price
+them on a host whose reverse call is dear.
+
 ```c
 /* push: one entry point per message, the arena is a local of THIS function, so
    it is per decode rather than per thread: reentrant and allocation-free. */
@@ -869,6 +903,21 @@ forbidden. Under callback delivery, "returned" means the completion has fired.
    shape reports zero wrong bytes with a per-thread-state defect present and
    absent alike; two shapes find it in twenty encodes out of twenty.
 
+   **Built once, and the positive control is worth more than the obligation.** The
+   rust slice's suite runs two shapes in sequence and then 2, 4 and 8 threads with a
+   context each, phases offset, every encode byte-compared against a
+   single-threaded reference: **0 wrong of 2,840 encodes and 2,840 decodes**, so the
+   codec half having no shared mutable state is now a measurement. The control that
+   plants the defect does **not** report wrong bytes — it aborts the process — which
+   is obligation 6.
+6. **A planted panic must arrive at the boundary as `AK_ERR_PANIC`, not as an
+   abort.** Section 5 makes `catch_unwind` mandatory at every entry point and
+   nothing enforces it; the one slice that provoked a panic in the core found the
+   process gone. The test is a deliberate panic behind each entry-point family with
+   the host asserting a code came back, and it is a gate rather than a measurement:
+   a codec that aborts its host on a misuse the host can commit cannot replace a
+   library that throws.
+
 ## 13. Open decisions
 
 Each blocks something. None is settled by a measurement that exists today.
@@ -932,6 +981,36 @@ Each blocks something. None is settled by a measurement that exists today.
    host is therefore the measurement that settles this decision in practice**, and
    nobody has built one. Until then the specification can say pull exists and works;
    it cannot say what it is worth to the hosts that need it.
+
+   **What the rust slice CAN hand a managed host is a re-pricing kit, and it built
+   one.** The crossing arithmetic is a property of the descriptor: push is per
+   ELEMENT and pull is per MESSAGE, so P2.2 goes from **3,501 reverse calls to 16
+   forward**, or to **3** if the host sizes one drain chunk to `ak_bdr_footprint`.
+   Three is the floor for every payload in the set, and the chunk size is the only
+   knob the host has — it trades crossings against how much of the response is
+   materialised at once, which is the bound 7.1 gives the host in the first place.
+   The two costs that replace the upcalls are decomposed so another host can price
+   them without building the arm: **materialisation (`ak_parse_*` alone) is 8.5 to 47
+   percent of a push decode depending on shape, and the drain copy 1 to 12 percent**.
+   A host paying about 80 ns an upcall therefore trades 7.004 × 80 ns per element
+   against 3 to 16 forward calls per message plus those two terms.
+
+   **On a host whose reverse call is cheap the families are near parity, and the
+   prediction going in was wrong.** At rust's 1.8 ns reverse call pull was expected to
+   lose; over six runs it is **0.94 to 1.18 of push**, at or below push on nine of
+   twelve payloads and a win on every M2 shape, because a push reverse call goes
+   through a vtable slot reached across the shared object while the replay's
+   equivalent is a local call over a buffer already in L2. An opaque-replay arm
+   clears the obvious objection: the parity is not rustc inlining the replay.
+
+   **Where pull loses, a byte table predicts it and the clock does not.** The two
+   losing rows are P1.3 (+5 to +13%) and P6.1 (+8 to +18%), and on P1.3 the record
+   stream is **63.6 times the wire** — 38,488 B to describe a 605 B message — because
+   a record carries an absent element's whole fixed group. **Pull's cost tracks the
+   ratio of record bytes to wire bytes, which is a property of the SHAPE**, and every
+   payload whose ratio is below 1 is at or under push. That is the rule a binding
+   author can apply to a shape before measuring it, and it makes the absent path the
+   one place where pull and decision 9 have to be reasoned about together.
 3. **Where does UTF-8 get checked? SETTLED: not on encode, and rejected on
    decode.** Asked three times. The first two framings ("fail or substitute",
    then "validate or trust the host") both assumed the check belongs on the encode
@@ -1193,6 +1272,25 @@ Each blocks something. None is settled by a measurement that exists today.
    decode spans as offsets into the host's buffer took a 4 MB download from 4.2
    times protobuf-java to 1.00. Three hosts, one mechanism, and the branch held
    both halves without connecting them.
+
+   **The java slice then measured the same mechanism on the JVM, and a managed host
+   gets about a third of it.** `ffi-borrow` takes P1.2 from 0.830 to **0.669** of
+   protobuf-java and P1.1 from 1.038 to 0.882, where the C++ slice's same arm moved
+   P1.2 two to three times further; on the container-heavy P2.2 it straddles zero,
+   which is the branch's own container-construction bound seen from a third host.
+   So the contract has to be drafted against a host that gets 16 percent where C++
+   gets 50, not against the best case.
+
+   **And the Python premise this decision was carrying is wrong.** The open question
+   supposed upb may already borrow at the Python level, which would make the option
+   moot there. It does not: upb aliases into its input buffer in C, but a Python
+   `str` is a fresh object built on **every** attribute read and nothing is cached —
+   a second full read of the *same* upb message costs 3.12-3.16 ms against 3.41-3.48
+   for the first, so all but about a tenth of the materialisation is paid again,
+   while the facade's second read is 2.38-2.54. **A caller that reads its response
+   twice pays upb twice and the facade once.** The borrowed span is therefore open
+   in Python and the incumbent has not taken it; what a borrowed Python string *is*
+   has no draft, and that is the blocker rather than the measurement.
 
    **What is actually open is the lifetime contract.** A borrowed view is valid
    only while the input buffer lives, which this document has never written down;

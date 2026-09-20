@@ -261,9 +261,39 @@ support it: `unix:` targets in grpc++ and grpcio, a `UnixStream` connector in to
 netty domain sockets in grpc-java, and `UnixDomainSocketEndPoint` behind a
 `SocketsHttpHandler` connect callback on .NET.
 
-**It does not rescue R9's hazard, and nothing does.** The 64 KB default stream window
-is HTTP/2, not TCP, so a 540 KB response still stalls on `WINDOW_UPDATE` over a UDS.
-CPU per RPC stays the headline and wall clock is reported beside it or not at all.
+**It does not rescue R9's hazard, because that hazard is HTTP/2's and not TCP's —
+but the hazard is a property of one stack's DEFAULT rather than of the protocol, and
+the earlier wording here was wrong about that.** 65,535 octets is the *initial*
+stream window RFC 9113 mandates, and a window that is full throttles the sender until
+`WINDOW_UPDATE` arrives; it never caps a message. Where each stack goes from there
+differs, and it decides whether a wall-clock column is measuring the codec:
+
+| stack | initial stream window | auto-tuning |
+|---|---|---|
+| tonic / hyper (the rust slice's) | 65,535 | **off by default** |
+| grpc-java (Netty) | **1 MiB** (`DEFAULT_FLOW_CONTROL_WINDOW`) | **BDP, on by default since 1.30**; calling `flowControlWindow(int)` turns it off |
+| .NET `SocketsHttpHandler` (what `Grpc.Net.Client` rides) | 65,535 | **dynamic sizing on by default**, to a 16 MiB cap |
+
+So a 540 KB P2.2 response fits inside grpc-java's default window with no stall at all,
+and stalls repeatedly on tonic's. **Each RPC arm states its stream and connection
+window and whether auto-tuning is on**, in its configuration line, because two slices
+that do not are not measuring the same thing.
+
+**And every arm pins the same configuration, which is ArmoniK's rather than the
+stack's** — R14 applied to the transport. From the core's current settings: **2 MiB
+chunking** for upload and download, and a **4 MiB stream window**, sized to the
+largest message the stack accepts by default so that one maximum-size message crosses
+without a `WINDOW_UPDATE` round trip. P2.2's 540 KB is then comfortably inside one
+window in every arm, which is what makes the arms comparable.
+
+Two traps in pinning it. **The connection window is a separate setting from the stream
+window** in every stack here (grpc-java's `flowControlWindow` sets
+`SETTINGS_INITIAL_WINDOW_SIZE`, which is per stream; tonic and hyper take the two
+separately), so raising only the stream window leaves the connection at 65,535 and
+changes nothing. And **pinning a window turns BDP auto-tuning off** in grpc-java, so
+the pinned arm is not the default arm: the pinned one is the headline and the stack
+default is a labelled second row. CPU per RPC stays the headline over both, and wall
+clock is reported beside it or not at all.
 
 **Not in the RPC arm, and listed as not measured**: streaming, TLS, a real
 network, failure injection, the server side. Streaming is where the concurrency
