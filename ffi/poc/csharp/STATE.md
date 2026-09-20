@@ -816,46 +816,53 @@ whatever the payload.
 
 Written here rather than edited into the documents, per the contract.
 
-0. **The RPC arm's "pin ArmoniK's transport configuration" reads differently from
-   inside `packages/csharp`, and the difference is R14's own point.**
-   `design/SHAPES.md` now says every RPC arm pins ArmoniK's settings -- 2 MiB
-   chunking and a 4 MiB stream window -- rather than the stack's defaults. Two
-   primary-source facts from this repository, which is the only part of ArmoniK
-   this session can read:
+0. **The RPC arm's transport configuration on .NET, established from the runtime
+   source rather than relayed.** The instruction is to pin ArmoniK's settings --
+   2 MiB chunking, a 4 MiB stream window -- with the stack default as a labelled
+   second row, and it names two things to get right. Both are now answered, and
+   one of them does not apply to .NET while the other applies harder than stated.
 
-   * **UDS is not a measurement convenience on .NET, it is what ArmoniK runs.**
-     `ArmoniK.Api.Common/Options/GrpcChannel.cs` defaults `SocketType` to
-     `GrpcSocketType.UnixDomainSocket` and `Address` to `/tmp/armonik.sock`, and
-     `ArmoniK.Api.Worker/Utils/WorkerServer.cs` calls
-     `options.ListenUnixSocket(address, ... Protocols = HttpProtocols.Http2)`.
-     So the UDS-primary choice is R14-correct here, not just noise reduction.
-   * **Neither side of the C# package sets an HTTP/2 window at all.**
-     `GrpcChannelFactory`'s `GrpcChannelOptions` carries `Credentials`,
-     `DisposeHttpClient`, `ServiceConfig` and `LoggerFactory` and nothing else,
-     and the worker's Kestrel setup touches `Limits.Http2` only for
-     `KeepAlivePingTimeout`, on the TCP branch. The client also builds an
-     `HttpClientHandler` rather than a `SocketsHttpHandler`, and
-     `InitialHttp2StreamWindowSize` is not reachable through the former, so as
-     written the C# client **could not** pin a stream window without changing
-     the handler type.
+   **The connection window is NOT a separate knob on .NET, and there is no trap
+   here.** `Http2Connection` hardcodes `ConnectionWindowSize = 64 * 1024 * 1024`
+   and sends a WINDOW_UPDATE at connection setup to raise it from RFC 7540's
+   `DefaultInitialWindowSize = 65535`. It is not configurable and it does not
+   depend on `InitialHttp2StreamWindowSize`. So the "raise only the stream window
+   and the connection stays at 65,535" hazard is real for tonic/hyper and for
+   grpc-java's `flowControlWindow`, and is not reachable on .NET: at a 4 MiB
+   stream window the connection window is already sixteen times it.
+   [Http2Connection.cs](https://github.com/dotnet/runtime/blob/main/src/libraries/System.Net.Http/src/System/Net/Http/SocketsHttpHandler/Http2Connection.cs)
 
-   The 4 MiB figure presumably comes from ArmoniK.Core, which is a different
-   repository and outside this session's scope, so I cannot check whether it is
-   a server-side Kestrel limit or a client setting. **If it is server-side, a C#
-   RPC arm that pins 4 MiB on the client is measuring a configuration ArmoniK's
-   own C# client does not use**, which is the exact failure R14 exists to
-   prevent. Asking for: which side of ArmoniK.Core sets the 4 MiB, so the C# arm
-   pins the same side.
+   **Setting the window does NOT disable dynamic sizing, which makes a pin a
+   FLOOR and not a cap.** `Http2StreamWindowManager` takes
+   `_streamWindowSize = settings._initialHttp2StreamWindowSize` as its starting
+   point and then doubles from there -- `Math.Min(MaxStreamWindowSize,
+   _streamWindowSize * 2)` -- whenever the bandwidth-delay product warrants it.
+   `WindowScalingEnabled => !DisableDynamicHttp2WindowSizing`, which is a
+   separate switch and defaults to scaling ON. `MaxHttp2StreamWindowSize`
+   defaults to 16 MB.
 
-   What this slice will state in its configuration line either way, now sourced:
-   `SocketsHttpHandler.InitialHttp2StreamWindowSize` must be between **65,535**
-   and the configured maximum, **16,777,216 by default**, and .NET's dynamic
-   HTTP/2 window sizing is ON unless the AppContext switch
+   **So "pinned at 4 MiB" on .NET needs two settings, not one**: the property
+   AND `AppContext`'s
    `System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing`
-   is set. So .NET's shape is neither tonic's (65,535, adaptive off) nor
-   grpc-java's (1 MiB, BDP on), and a pinned arm and a default arm are two rows.
-   [MS Learn](https://learn.microsoft.com/en-us/dotnet/api/system.net.http.socketshttphandler.initialhttp2streamwindowsize),
-   [dotnet/runtime #53372](https://github.com/dotnet/runtime/issues/53372).
+   (env `DOTNET_SYSTEM_NET_HTTP_SOCKETSHTTPHANDLER_HTTP2FLOWCONTROL_DISABLEDYNAMICWINDOWSIZING`),
+   or the arm starts at 4 MiB and may be measuring 8 or 16 by the end of the run.
+   The configuration line will state both, and the default row will state that it
+   starts at 65,535 and scales.
+   [Http2StreamWindowManager.cs](https://github.com/dotnet/runtime/blob/main/src/libraries/System.Net.Http/src/System/Net/Http/SocketsHttpHandler/Http2StreamWindowManager.cs),
+   [GlobalHttpSettings.cs](https://github.com/dotnet/runtime/blob/main/src/libraries/System.Net.Http/src/System/Net/Http/GlobalHttpSettings.cs)
+
+   **And one thing about `packages/csharp` that the pinning instruction runs
+   into.** Neither side sets a window today: `GrpcChannelFactory`'s
+   `GrpcChannelOptions` carries `Credentials`, `DisposeHttpClient`,
+   `ServiceConfig` and `LoggerFactory` and nothing else, and the worker's Kestrel
+   setup touches `Limits.Http2` only for `KeepAlivePingTimeout` on the TCP
+   branch. The client also builds an `HttpClientHandler`, through which
+   `InitialHttp2StreamWindowSize` is not reachable at all. So pinning 4 MiB in
+   the RPC arm means the arm configures something the shipped C# client cannot,
+   which is worth one line in the report rather than a silent divergence.
+   **UDS, by contrast, is what the shipped client already does**: `GrpcChannel`
+   defaults `SocketType` to `UnixDomainSocket` at `/tmp/armonik.sock` and the
+   worker calls `ListenUnixSocket(... HttpProtocols.Http2)`.
 
 5. **`U-map-entry`'s projection disagrees with two implementations.** The vector
    is an unknown field inside every map entry, and its own `why` is right: a map
@@ -1104,8 +1111,14 @@ it, and the first item is much the largest.
    has only the marshaller arm. **UDS is R14-correct on .NET rather than a
    convenience**: `packages/csharp` defaults its worker and agent channels to
    `GrpcSocketType.UnixDomainSocket` at `/tmp/armonik.sock` and listens with
-   `ListenUnixSocket(... HttpProtocols.Http2)`. The flow-control configuration
-   has to be stated and there is an open question about which one; see request 0.
+   `ListenUnixSocket(... HttpProtocols.Http2)`. It pins ArmoniK's transport --
+   2 MiB chunking, a 4 MiB stream window -- with the stack default as a labelled
+   second row, and **on .NET the pin needs two settings**: the property and the
+   `DisableDynamicWindowSizing` switch, because otherwise 4 MiB is where the
+   window STARTS and it doubles from there to a 16 MB cap. The connection window
+   needs nothing: .NET hardcodes it at 64 MiB. Both established from the runtime
+   source; see request 0 for the citations and for what `packages/csharp` itself
+   does and does not set.
 5. **The host-transcoder string form**, to replace an arithmetic prediction
    (5,000 reverse crossings for P1.2, 37 to 60 us at .NET's price) with a
    measurement.

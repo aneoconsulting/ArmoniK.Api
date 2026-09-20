@@ -766,3 +766,31 @@ The same mechanism turned out worth having generally: the runner points
 `Google.Protobuf` at every vector whose root `ffi/schema` also has, by
 descriptor name rather than by a switch over nineteen names. **Accept and
 reject agree on all 169 of them.**
+
+### 29. The transport pin, and the half of it that does not apply to .NET
+
+Queued behind M3, but the two facts the aggregating session asked me to
+establish are cheap and stale guidance is expensive, so they are settled now
+from `dotnet/runtime` rather than from memory.
+
+**"The connection window is a separate setting from the stream window" is true
+of tonic and grpc-java and false of .NET.** `Http2Connection` hardcodes
+`ConnectionWindowSize = 64 * 1024 * 1024` and raises the connection window to it
+with a WINDOW_UPDATE at setup, from RFC 7540's 65,535. Not configurable, and not
+a function of `InitialHttp2StreamWindowSize`. At a 4 MiB stream window the
+connection window is already sixteen times it, so there is nothing to get wrong
+here on this stack.
+
+**"Setting an explicit window may disable dynamic sizing" is the opposite of
+what happens, and the real hazard is sharper.** `Http2StreamWindowManager` takes
+the configured size as its STARTING point and then doubles from there under BDP
+pressure, up to a 16 MB cap, unless a separate switch says not to. So a pin is a
+floor, not a cap: set 4 MiB and the arm may be measuring 8 or 16 by the end of
+the run. Pinning on .NET is two settings -- the property and
+`System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing` --
+and an arm that sets only the first is not measuring what it says it is.
+
+Worth recording as a pattern rather than as two facts: both halves of the
+guidance were about the SHAPE of a stack's flow control, and both were right
+about some stack and wrong about this one. A cross-language table of transport
+configuration cannot be written once and applied five times.
