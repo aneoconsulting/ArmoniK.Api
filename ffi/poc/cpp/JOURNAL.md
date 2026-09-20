@@ -863,3 +863,118 @@ published number came from an outlier round — which is what printing them was 
 caveat it adds is real: a C++ consumer decoding large messages pays an allocator cost that
 default glibc tuning only amortises after the first few messages, and two environment
 variables remove it.
+
+---
+
+## C24: wire type 3, and the oracle that was built to miss it
+
+**The defect, first, because it is more interesting than the fix.** `ak::Dec::skip`
+switched on the wire type and had no `case 3:`, so wire type 3 -- the deprecated GROUP
+form -- fell into the `default:` arm and returned `ERR_MALFORMED`. That is a **legal
+message refused**. protobuf C++ accepts it, upb accepts it, protobuf-java accepts it; a
+parser has to skip what it does not know whatever shape the unknown thing is, and
+`START_GROUP`/`END_GROUP` are still wire types even though proto3 cannot declare one.
+
+**443 conformance checks passed over it, five times, at three standard levels, in both
+linkages, for as long as this slice has existed.** That is the part worth keeping. The
+oracle is byte identity against `ffi/schema/generated/manifest.json`; the manifest is
+generated from the same proto3 description the codec is generated from; proto3 cannot
+express a group; therefore no payload in the manifest carries wire type 3 and **no amount
+of byte identity against it can ever execute the group arm of the skip.** A generated
+corpus tests the shapes the generator can write. The unknown-field skip exists precisely
+for the shapes it cannot.
+
+I recorded the defect before fixing it, with a throwaway probe against the committed
+header (the output is the "before" block of `logs/cpp/groupskip.log`'s story; the probe
+itself does not survive the signature change, which is why the committed evidence is the
+plants instead):
+
+```
+  a group, well formed            MUST ACCEPT  reject ERR_MALFORMED (pos 1 of 6)
+  nested groups                   MUST ACCEPT  reject ERR_MALFORMED (pos 1 of 6)
+  X-group-unterminated            MUST REJECT  reject ERR_MALFORMED (pos 1 of 3)
+  X-group-mismatched-end          MUST REJECT  reject ERR_MALFORMED (pos 1 of 4)
+  an end tag with nothing open    MUST REJECT  reject ERR_MALFORMED (pos 1 of 1)
+```
+
+Two of five wrong -- and the three "right" answers are right for the wrong reason: they
+were refused because wire type 3 was unknown, not because the group was unterminated or
+mismatched. `pos 1` in every row says so.
+
+**The fix follows the shared core rather than inventing a second one** (`skip(tag, wire)`,
+a field-number-matching `skip_group`, recursion bounded at protobuf's own 100 with
+`ERR_DEPTH`). The one thing worth restating is why the tag is a parameter: a group carries
+no length, so its end is found by reading fields until an `END_GROUP` **whose field number
+matches the one that opened it**. A nesting counter is the fix everyone writes first, and
+it accepts `X-group-mismatched-end` and then mis-nests every group after that point.
+
+**What the plants were for.** `AK_GROUP_PLANT=1` is the depth counter, and it fails T4 and
+T5 -- exactly the two mismatched-end cases. `AK_GROUP_PLANT=2` is the `case 5:` arm dropped
+while `case 3:` was added, which is not a hypothetical: it is what the shared core's own
+first test run caught. It fails T8 and T10, every buffer carrying a `fixed32`. Both plants
+live in `include/ak/rt.h` beside `AK_CONC_PAD` and `AK_CONC_GLOBAL`, and
+`gen/groupskip.sh` inverts their exit code, because this slice has now lost two fixtures
+(C18, C23) by letting a check that could no longer fail keep reporting success.
+
+**Swept, not patched.** 13 emission sites in `gen/cpp_core.py`, including the
+`sub.skip(et, ew)` inside the map-entry loop that a `default:`-only sweep would have
+missed, plus two in `src/conformance.cpp`. `src/generated/core_native.cpp` was regenerated
+and `--check` is green on all 23 files including the shared core's two.
+
+**And it moved nothing on the clock**, which had to be measured rather than asserted
+because the signature change recompiled every decode function in the control TU: 225 ratio
+rows against the published bench log, worst move 0.164 against R4's 0.240 across-build
+drift bar (`logs/cpp/c24-timing.log`). One visible side effect: gcc now inlines
+`dec_list_results_response` into its caller inside the control TU, so `boundary.log`
+reports 21 checks instead of 23. The checker treats an absent symbol as fine and says why
+-- the question is whether the benchmark *loop* carries the traversal, and "all 10 timing
+closures still call out" is unchanged.
+
+## W8: the corpus, and what it caught that the manifest could not
+
+Then the thing that would have found it. `ffi/corpus` is written against a SUPERSET schema
+by a different tool, so it is the one oracle that is not a function of this slice's own
+description. 128 of its 336 rows root at a message this slice's codec covers; the scope is
+read out of `AK_ROOTS` in the generated `cases.h` so it cannot be claimed larger than the
+codec is.
+
+Three things I would do the same way again:
+
+**1. A third arm that is the incumbent.** protobuf C++ projects every row too, through its
+own reflection `ListFields` -- which IS CONTRACT.md section 3's presence rule, so there is
+no second reading of the contract to be wrong about. It agrees with the generated
+projector on 123 of 124 rows, which is what makes the 124th worth arguing about instead of
+worth assuming.
+
+**2. A walker for the rows the codec cannot root.** The corpus's 62 `WireZoo` vectors root
+at a message this slice has no type for, so C1-C3 cannot touch them -- but their wire forms
+are exactly what C24 fixed. Running them through `ak::Dec::skip` with no schema at all is
+not a root decode and is labelled as a walker everywhere it appears; it answers accept or
+reject and no more. **62 of 62 agree with the corpus**, and `X-group-unterminated` now
+refuses with `ERR_TRUNCATED` and `X-group-mismatched-end` with `ERR_MALFORMED` -- the right
+errors, not the accidental one. Without the walker this slice would have reported the
+group fix as tested by three accept vectors and no reject vectors at all.
+
+**3. Asking a third implementation instead of arguing.** `U-map-entry` -- a vector with an
+unknown field inside every map entry -- came back as a C2 mismatch, and the obvious reading
+was "this slice mis-parses a map entry". It does not. protobuf C++ 3.21.12 reads the four
+entries into the map (`protoc --decode` prints them, unknown field `3: 7` and all), and so
+does protobuf-python's pure-Python backend. **upb drops the whole entry and promotes it to
+an unknown field of the parent, and the corpus's projection is upb's.** Two Google runtimes
+disagree with each other on the same bytes. That is C25, it is a finding for the corpus
+agent and not for me, and the only reason I have it as a fact rather than a suspicion is
+that the driver re-reads the vector with two protobuf backends the moment a projection
+differs. **A consumer that trusts the corpus when it disagrees is a consumer that has not
+added an opinion.**
+
+**One defect of my own, named because it looked exactly like a codec defect.** The first
+run reported the `ffi` arm writing an unaccepted form on 114 of 126 rows, with the same
+wrong hash repeating across unrelated vectors. It was a use-after-free in the harness:
+`ak_enc_take` hands back a pointer into the context's buffer and I freed the context before
+copying. The repeating hash across unrelated rows is the tell, and it is the reason I did
+not start bisecting the encoder.
+
+**What I did not do**: C5 (produce) on the 41 `E-*`/`S-*` rows, which needs the corpus's
+own value rules implemented a second time in C++, and the `chunking` class, which needs a
+`ChunkedResponse` codec. Both are listed by id in `STATE.md` rather than left as a number
+that is silently smaller than it looks.

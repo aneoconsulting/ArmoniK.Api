@@ -62,6 +62,20 @@
 #define AK_CONC_GLOBAL 0
 #endif
 
+// A third plant, and the same reason: `src/groupskip.cpp` tests the GROUP skip below, and
+// a test that has only ever passed has not been seen working.
+//
+//   AK_GROUP_PLANT=1  skip a group by counting nesting DEPTH instead of matching the
+//                     field number of the tag that opened it. It is the fix everyone
+//                     writes first and it ACCEPTS corpus vector `X-group-mismatched-end`,
+//                     after which every group in the message is mis-nested.
+//   AK_GROUP_PLANT=2  the `case 5:` arm dropped while `case 3:` was being added. That is
+//                     not hypothetical: it is what the first run of the SHARED core's
+//                     tests caught, and no group test would have noticed it.
+#ifndef AK_GROUP_PLANT
+#define AK_GROUP_PLANT 0
+#endif
+
 namespace ak {
 
 #if AK_CONC_GLOBAL
@@ -76,8 +90,17 @@ inline std::vector<uint8_t> &conc_global_widths(std::size_t sites) {
 
 const int32_t ERR_MALFORMED = -2;
 const int32_t ERR_TRUNCATED = -3;
+// AK_ERR_DEPTH of ABI v1 section 5 / `ak_abi.h`. The decode recursion limit, which only
+// nested unknown GROUPs can reach in this slice: every other nesting in the description
+// is length-delimited and bounded by the description itself.
+const int32_t ERR_DEPTH = -4;
 const int32_t ERR_TRANSCODE = -6;
 const int32_t ERR_CAPACITY = -7;
+
+// protobuf's own default recursion limit, applied to nested groups. Namespace scope and
+// `const`, so it has internal linkage, needs no out-of-line definition at C++11, and adds
+// nothing to the layout of any installed type.
+const uint32_t MAX_GROUP_DEPTH = 100;
 
 const uint32_t WIRE_VARINT = 0;
 const uint32_t WIRE_I64 = 1;
@@ -294,16 +317,66 @@ class Dec {
     *n = k;
     pos += k;
   }
-  inline void skip(uint32_t wire) {
+  // An unknown field: proto3's forward compatibility, and the one decode path a corpus
+  // generated from the schema that reads it never executes.
+  //
+  // `tag` is the field number the wire type arrived with, and it is not decoration. The
+  // deprecated GROUP form (wire type 3) carries NO LENGTH, so the only way to find a
+  // group's end is to read fields until an END_GROUP whose field number MATCHES the one
+  // that opened it. A skipper that counts nesting depth instead accepts a mismatched end
+  // tag -- corpus vector `X-group-mismatched-end` -- and then mis-nests every group after
+  // it. That is why the tag is a parameter rather than a nesting counter.
+  //
+  // proto3 cannot express a group, so nothing this slice's generator emits produces one
+  // and byte identity against the manifest cannot reach this arm. It is still a message a
+  // conformant parser must accept: protobuf C++ and upb both do. Tested by
+  // `src/groupskip.cpp` against two planted defects, and by `gen/corpus.py` against the
+  // five corpus vectors.
+  inline void skip(uint32_t tag, uint32_t wire) {
     std::size_t o, n;
     switch (wire) {
       case 0: varint(); break;
       case 1: pos += 8; break;
       case 2: len_body(&o, &n); break;
+      case 3: skip_group(tag, 0); break;
+#if AK_GROUP_PLANT == 2
+      // PLANTED: the 32-bit arm dropped while the group arm was added.
+#else
       case 5: pos += 4; break;
+#endif
+      // 4 is END_GROUP with nothing open; 6 and 7 are not wire types at all.
       default: err = ERR_MALFORMED; break;
     }
     if (pos > len) err = ERR_TRUNCATED;
+  }
+
+  // The GROUP skip. Recursive, because groups nest, and BOUNDED, because a payload of
+  // nothing but start tags would otherwise be a stack overflow inside the host's process
+  // rather than an error -- which is what ERR_DEPTH is for (ABI v1 section 5).
+  //
+  // Mutually recursive with `skip` and defined inside the class, which is well-formed at
+  // C++11: a member function body is compiled in the complete-class context.
+  inline void skip_group(uint32_t tag, uint32_t depth) {
+    if (depth >= MAX_GROUP_DEPTH) { err = ERR_DEPTH; return; }
+    for (;;) {
+      if (err != 0) return;
+      if (pos >= len) { err = ERR_TRUNCATED; return; }  // X-group-unterminated
+      uint64_t k = varint();
+      if (err != 0) return;
+      uint32_t t = (uint32_t)(k >> 3), w = (uint32_t)(k & 7);
+      if (t == 0) { err = ERR_MALFORMED; return; }
+      if (w == 4) {
+#if AK_GROUP_PLANT == 1
+        // PLANTED: any END_GROUP closes any group, which is the depth counter.
+        (void)tag;
+#else
+        if (t != tag) err = ERR_MALFORMED;
+#endif
+        return;
+      }
+      if (w == 3) { skip_group(t, depth + 1); continue; }
+      skip(t, w);
+    }
   }
 };
 
