@@ -35,6 +35,28 @@ survives, so:
 - **Within one session, send the live agent another message** rather than
   spawning a fresh one; its context is intact. `ListAgents` shows the live ones.
 
+## Waiting for a background job
+
+**Never wait on `pgrep -f "<pattern>"` where the waiter's own command line contains
+the pattern.** `pgrep -f` matches the full command line of *every* process,
+including the shell doing the waiting, so the loop matches itself and spins
+forever. This has cost this branch several hours across two slices — the java
+slice logged it, then hit it a second time and watched a three-minute benchmark
+hold a waiter for an hour and forty-four; the cpp slice left eight of them
+spinning for five hours, on the same box its own benchmarks run on, which is
+measurement contention on top of waste.
+
+Any of these is safe, and the last cannot go wrong:
+
+- `pgrep -f '[g]en/foo.sh'` — the bracket keeps the pattern out of its own match
+- `pgrep -x` against the process name rather than the command line
+- wait for the artifact, not the process: `until [ -f done.marker ]; do ...`
+- **capture `$!` when you launch the job and `wait` on that PID**
+
+And stop your own background jobs before you finish a work unit. Another session
+cannot clean them up for you: they are your workloads, and the permission
+classifier is right to refuse when someone else tries.
+
 ## Committing
 
 - Slice agents commit their own directory, message prefix `poc(<lang>): `.
