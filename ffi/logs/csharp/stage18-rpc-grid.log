@@ -1,0 +1,445 @@
+# harness: rpc --grid and rpc --park (ABI v1 section 9's TRANSPORT, bound from .NET)
+# date:                  2026-09-20
+# runtime:               .NET 8.0.31, 4 processors
+# core:                  the shared core at ffi/poc/codec, built with the `rpc`
+#                        cargo feature into poc/csharp/target-core -- the same
+#                        sources, a second build, which is what the rust, cpp and
+#                        java slices already do (codec/gen/build.sh says so)
+# transport under test:  tonic, dialling unix:/tmp/ak-ffi-rpc-<pid>.sock, which is
+#                        the SAME socket this process's Kestrel is listening on
+# server:                grpc-dotnet in every cell, byte[] passthrough marshaller
+# payload:               P2.2, 540,422 bytes, downstream (the client decodes)
+# rounds:                9, best-of reported, round-to-round spread beside it
+# orders:                forward AND reversed, because stage 17 found a
+#                        position effect larger than what it was ranking
+# code:                  poc/csharp/src/Rpc/{CoreTransport,Grid,Program}.cs
+#
+# THE RE-GATE. The csproj now prefers the rpc-featured build, so the whole slice
+# runs against it. Identical to the codec-only core, as expected -- the feature
+# adds the transport and changes no codec entry point:
+#     conformance  152 checks, 0 failure(s)
+#     corpus       32 failure(s) (31 T-dec policy, 1 U-map-entry, 0 other)
+#     coreffi      0 failure(s)
+
+
+================================================================================
+THE GRID, AND WHAT IT SETTLES
+================================================================================
+
+  cell   codec              transport      what it is
+  A      Google.Protobuf    grpc-dotnet    R14's baseline, what ArmoniK runs
+  B      Google.Protobuf    core (tonic)   README section 13's outcome 2
+  C      core-ffi           core (tonic)   both halves of the proposal
+  D      core-ffi           grpc-dotnet    the codec alone
+
+All four in ONE process against ONE server in ONE sitting, because B-A and C-B
+are subtractions and a subtraction across sittings is worth nothing here.
+
+The cells MIRROR each other, which is what makes the subtraction legal. A parses
+straight out of gRPC's `ReadOnlySequence` with no flatten, because that is what
+`Grpc.Tools` emits; B parses straight out of the core's buffer with no copy. D
+flattens into a reused array because the facade's `Dec` is over `byte[]`; C
+copies out of the core's buffer into the same reused array for the same reason.
+
+
+1. **THE TRANSPORT IS WHERE THE WIN IS, AND IT IS NOT CLOSE.**
+
+B/A, the same codec over each transport, CPU per call, three runs (two forward,
+one reversed):
+
+    in flight        1              8             16
+    B/A          0.760          0.879          0.583
+                 0.804          0.710          0.573
+                 0.841          0.800          0.561
+
+**The core's transport costs 16 to 24 percent less CPU per call at 1 in flight,
+12 to 29 percent at 8, and 42 to 44 percent at 16** -- and the 16-in-flight
+column is the tightest of the three, agreeing to a hundredth across two orders
+and three runs. The advantage GROWS with concurrency, which is the opposite
+shape from a fixed per-call saving.
+
+C/A, both halves together, is 0.53 to 0.79 at 16 in flight.
+
+
+2. **THE CODEC HALF IS AT THIS HARNESS'S NOISE FLOOR IN A REAL RPC, AND THE
+   QUESTION THE GRID WAS BUILT TO ANSWER CANNOT BE ANSWERED AT THIS PRECISION.**
+
+D/A, the codec alone over grpc-dotnet, is 0.82 to 1.04 -- it straddles 1.0, which
+is stage 15's finding (about 10 percent of CPU per call) re-measured.
+
+The subtraction, CPU us per call:
+
+    in flight   B-A (transport)   C-B (codec, core)   D-A (codec, grpc)
+    forward  1         -1166.7              -300.0              -466.7
+    forward  8          -574.3              +337.8              +168.9
+    forward 16         -3159.7              +312.5              -694.4
+    reversed 1          -900.0              -200.0              -433.3
+    reversed 8         -1587.8               -33.8             -1013.5
+    reversed 16        -3263.9              -243.1              -902.8
+
+**C-B and D-A change SIGN with the arm order.** Both are inside the
+round-to-round spreads (4 to 27 percent). So whether they agree -- whether the
+two halves of the proposal are additive -- is not answerable here, and saying
+they agree or disagree from these numbers would be reading noise.
+
+**What IS answerable, and it is the report-level point.** |B-A| is 574 to 3,264
+us a call. |C-B| never exceeds 338 and |D-A| never exceeds 1,014. **The transport
+half is three to ten times the codec half, and the codec half is at the noise
+floor.** A report that presents the proposal as two comparable halves overstates
+the codec on .NET. Cell B alone -- README section 13's outcome 2, keeping
+`Google.Protobuf` and taking only the core's transport -- gets 12 to 44 percent
+of the CPU, which is most of what cell C gets.
+
+
+3. **THE THREE DELIVERIES ARE INDISTINGUISHABLE IN CPU, AND THE CHECK-IN ASKED
+   FOR THAT TO BE SAID PLAINLY IF IT CAME OUT, SO: IT CAME OUT.**
+
+Cell C, CPU us per call, forward then reversed:
+
+    in flight     callback     blocking        queue     spreads
+    1               3400.0       3533.3       3600.0     +9/+16/+8%
+    8               4527.0       4425.7       3918.9     +4/+8/+10%
+    16              4722.2       4062.5       4097.2     +4/+4/+9%
+    1 (rev)         3500.0       3433.3       3433.3     +5/+12/+14%
+    8 (rev)         3851.4       3614.9       3918.9     +11/+28/+21%
+    16 (rev)        4131.9       3923.6       4097.2     +12/+4/+26%
+
+Every difference is inside the spreads. **The callback's one reverse crossing is
+free on this host, exactly as the 7.5-to-12 ns calibration predicts, and so is
+the CLR attaching a tokio worker thread to run it.** But the queue is equally
+free, so **.NET is indifferent between the two non-blocking deliveries** -- it
+does not specifically need the callback. That is a cheaper conclusion for the ABI
+than the one the check-in expected: if the JVM prefers the queue and .NET is
+indifferent, one non-blocking mode would serve both.
+
+Caveat on the queue: this arm runs ONE drainer, as section 9 specifies. A single
+drainer at a higher call rate is a bottleneck this arm does not reach.
+
+
+4. **AND THEN THE CPU COLUMN IS HIDING SOMETHING, WHICH IS WHY THE BLOCKING
+   DELIVERY IS NOT MERELY INELEGANT ON .NET.**
+
+The blocking row's CPU is normal. Its WALL CLOCK stalled twice during the grid
+runs -- 208 ms and 24 ms a call -- and never in the callback or queue rows. Two
+observations is an anecdote, so `--park` is the measurement: one batch of 16
+concurrent calls from a COLD thread pool, six runs.
+
+    batch                                        wall ms for 16 calls
+    blocking, COLD pool                 8346  2835  2535  3738  4591  3652
+    callback, pool already grown          13    14    12    15    13    11
+    blocking, pool already grown           8  2987  1990  2985   990  2988
+    blocking, SetMinThreads(24)            8    11     8    12     9     8
+
+**Sixteen concurrent blocking calls take 2.5 to 8.3 SECONDS for work the callback
+delivery does in 11 to 15 milliseconds: 190 to 630 times.** A host thread parked
+in `ak_call_unary` is a thread the pool cannot reuse, and .NET grows its pool past
+its minimum at about one or two threads a second. `SetMinThreads` removes it
+entirely and nothing else does.
+
+**It is NOT a one-off a long-lived process pays once.** That is what this harness
+asserted in its own output before the measurement, and the third row refutes it:
+the same batch again, with the pool already grown, is slow in five of six runs,
+because the pool retires idle threads between batches. A bursty caller pays it
+again and again.
+
+So the argument for section 9's non-blocking delivery on .NET is not the JVM's
+argument re-stated. There is no carrier to pin. The cost is the thread pool, it
+is 190 to 630x in latency while the CPU column shows nothing, and the only
+alternative fix -- `ThreadPool.SetMinThreads` -- is a global setting a library has
+no business changing on its host's behalf.
+
+
+5. **A HAZARD THIS SLICE PREDICTED THAT DOES NOT EXIST HERE, AND WHY.**
+
+The check-in warned about the delegate-rooting hazard this slice found in its own
+floor analysis: a callback the collector reclaims while the core still holds it.
+**It does not apply to the target binding.** `[UnmanagedCallersOnly]` does not
+create a thunk -- the method is compiled to a native entry point at build time
+and `&OnDone` is its address, so there is nothing to collect. The hazard is
+`Marshal.GetFunctionPointerForDelegate`, whose thunk lives exactly as long as the
+delegate object, and that is what a net48 floor binding would have to use. So the
+rooting rule is a FLOOR rule, not a .NET rule, and it belongs beside the other
+floor findings rather than in the ABI's contract.
+
+The one real trap is the other direction: the completion fires on a tokio worker,
+so a continuation scheduled inline would decode 540 KB on a thread the core needs
+for its own I/O. The `TaskCompletionSource` is created with
+`RunContinuationsAsynchronously` for that reason and the callback copies three
+words and returns.
+
+
+6. **CORRECTNESS, BEFORE ANY OF THE ABOVE.**
+
+Eight cells (four of the grid, plus blocking and queue for B and C), one call
+each, the decoded value re-encoded and compared with the exact wire the server
+holds -- the facade cells by the managed codec, the incumbent cells by
+`ToByteArray`. 8 of 8 byte-identical, first attempt, including the core's dial of
+the Unix socket.
+
+
+================================================================================
+WHAT IS NOT MEASURED
+================================================================================
+
+  * Whether C-B and D-A agree, per finding 2. More rounds do not fix a
+    difference that changes sign with arm order.
+  * The upstream direction. Every cell decodes; the request is empty.
+  * More than one queue drainer, and the rate at which one becomes a bottleneck.
+  * Cancellation, deadlines, metadata, status codes, TLS, streaming over the
+    core's transport.
+  * `ak_call_unary`'s missing handle: section 9 gives the blocking form one so it
+    can be cancelled, and the core's own comment records that stage 4 did not
+    build it.
+  * A floor binding of the transport. net48 has neither `LibraryImport` nor
+    `UnmanagedCallersOnly`, so finding 5's rooting rule would bind there and this
+    arm does not build it.
+  * Absolutes. R13: this container's numbers are instrumentation.
+
+
+================================================================================
+APPENDIX A -- the grid, forward order, 9 rounds, verbatim
+================================================================================
+# harness: rpc (end to end, grpc-dotnet both ends)
+# utc:                 2026-09-20T18:05:32Z
+# runtime:             .NET 8.0.31
+# processors:          4
+# transport:           UNIX DOMAIN SOCKET -- what packages/csharp defaults its worker and agent channels to
+# stream window:       4194304 bytes (client InitialHttp2StreamWindowSize)
+# dynamic sizing:      OFF (Http2FlowControl.DisableDynamicWindowSizing). Without this the window STARTS at the pinned value and doubles to a 16 MB cap
+# connection window:   client 64 MiB, HARDCODED in Http2Connection and not configurable on .NET;
+#                      server 8388608 bytes (Kestrel). tonic and grpc-java take the two separately
+# chunking:            2097152 bytes, ArmoniK's
+# payload:             P2.2, 540422 bytes
+# server codec:        byte[] passthrough in EVERY arm, so the only codec work in the process is the client's
+
+DOWNSTREAM: the client DECODES a 540422-byte P2.2 response. The server's
+marshaller is a byte[] passthrough in every arm, so the only codec work
+in the process is the client's.
+
+arm              inflight   calls    us/call   CPU us/call   alloc B/call   ratio
+----------------------------------------------------------------------------------------
+gp-marshaller           1     300     3430.0        4700.0        2335462   1.000
+managed                 1     300     3318.0        4666.7        2140446   0.993
+core-ffi                1     300     3228.4        4466.7        2136957   0.950
+core-ffi pull           1     300     3159.9        4366.7        2136778   0.929
+
+gp-marshaller           8     296     2382.6        4628.4        2334825   1.000
+managed                 8     296     1854.8        3851.4        2136032   0.832
+core-ffi                8     296     1975.8        4358.1        2136155   0.942
+core-ffi pull           8     296     1812.9        3885.1        2136137   0.839
+
+gp-marshaller          16     288     3524.5        6250.0        2334839   1.000
+managed                16     288     2852.3        5451.4        2136009   0.872
+core-ffi               16     288     2983.3        5763.9        2136346   0.922
+core-ffi pull          16     288     3012.5        5763.9        2136119   0.922
+
+Sequence shape, which decides whether the facade's byte[] reader costs
+anything here: gRPC delivered 24138 SEGMENTED bodies and 0 single-segment,
+copying 13,044,706,236 bytes in total to flatten them. The copy is charged to the
+facade arms; a ReadOnlySequence reader is what would remove it.
+
+================================================================================================================================
+THE GRID. A and D above are the same two codecs over grpc-dotnet; B and C
+are the same two over the CORE's transport, dialling the same UNIX socket
+this process's Kestrel is listening on. Same process, same sitting.
+================================================================================================================================
+
+# core transport:      tonic over unix:/tmp/ak-ffi-rpc-6469.sock
+# core worker threads: 2 (ak_runtime_new, explicit -- ABI v1 section 3 says never Runtime::new(), which reads the cgroup quota)
+# deliveries:          callback (headline), blocking (labelled), queue (second row, one drainer)
+
+gate: one call per cell, decoded value re-encoded and compared with the
+server's wire (540,422 bytes).
+  cell A -         Google.Protobuf over grpc-dotnet byte-identical
+  cell B callback  Google.Protobuf over core        byte-identical
+  cell C callback  core-ffi        over core        byte-identical
+  cell D -         core-ffi        over grpc-dotnet byte-identical
+  cell B blocking  Google.Protobuf over core        byte-identical
+  cell C blocking  core-ffi        over core        byte-identical
+  cell B queue     Google.Protobuf over core        byte-identical
+  cell C queue     core-ffi        over core        byte-identical
+
+cell  codec             transport    delivery   inflight   calls    us/call   CPU us/call   alloc B/call   ratio   CPU spread
+--------------------------------------------------------------------------------------------------------------------------------
+A     Google.Protobuf   grpc-dotnet  -                 1     300     3549.6        4866.7        2335352   1.000        +14%
+B     Google.Protobuf   core         callback          1     300     3069.3        3700.0        2323038   0.760         +8%
+C     core-ffi          core         callback          1     300     2897.8        3400.0        2124628   0.699         +9%
+D     core-ffi          grpc-dotnet  -                 1     300     3136.4        4400.0        2136849   0.904         +5%
+B     Google.Protobuf   core         blocking          1     300     3205.8        3800.0        2322820   0.781         +4%
+C     core-ffi          core         blocking          1     300     2872.2        3533.3        2124645   0.726        +16%
+B     Google.Protobuf   core         queue             1     300     3221.1        3866.7        2322970   0.795         +9%
+C     core-ffi          core         queue             1     300     2945.0        3600.0        2124362   0.740         +8%
+
+A     Google.Protobuf   grpc-dotnet  -                 8     296     2298.2        4763.5        2334764   1.000        +13%
+B     Google.Protobuf   core         callback          8     296     1952.8        4189.2        2326408   0.879         +4%
+C     core-ffi          core         callback          8     296     2000.1        4527.0        2127621   0.950         +4%
+D     core-ffi          grpc-dotnet  -                 8     296     2043.3        4932.4        2136198   1.035        +14%
+B     Google.Protobuf   core         blocking          8     296     2036.6        4121.6        2326032   0.865        +11%
+C     core-ffi          core         blocking          8     296     2074.1        4425.7        2126697   0.929         +8%
+B     Google.Protobuf   core         queue             8     296     1835.4        3885.1        2325625   0.816        +13%
+C     core-ffi          core         queue             8     296     1752.7        3918.9        2126980   0.823        +10%
+
+A     Google.Protobuf   grpc-dotnet  -                16     288     4368.2        7569.4        2354197   1.000         +6%
+B     Google.Protobuf   core         callback         16     288     2082.0        4409.7        2325511   0.583         +6%
+C     core-ffi          core         callback         16     288     2164.0        4722.2        2127344   0.624         +4%
+D     core-ffi          grpc-dotnet  -                16     288     3708.3        6875.0        2140359   0.908        +10%
+B     Google.Protobuf   core         blocking         16     288     1993.9        3993.1        2324633   0.528         +8%
+C     core-ffi          core         blocking         16     288     1939.4        4062.5        2126367   0.537         +4%
+B     Google.Protobuf   core         queue            16     288     2025.2        4166.7        2325538   0.550        +10%
+C     core-ffi          core         queue            16     288     1915.4        4097.2        2127100   0.541         +9%
+
+THE SUBTRACTION. B-A is the transport, C-B and D-A are both the codec, one
+under each transport. Callback delivery for B and C. CPU us per call:
+
+inflight    B-A (transport)   C-B (codec, core)   D-A (codec, grpc)   do they agree?
+----------------------------------------------------------------------------------------
+       1           -1166.7              -300.0              -466.7   differ by 36%
+       8            -574.3               337.8               168.9   differ by 100%
+      16           -3159.7               312.5              -694.4   differ by 145%
+
+
+
+================================================================================
+APPENDIX B -- the grid, reversed cell order, 9 rounds, verbatim
+================================================================================
+================================================================================================================================
+THE GRID. A and D above are the same two codecs over grpc-dotnet; B and C
+are the same two over the CORE's transport, dialling the same UNIX socket
+this process's Kestrel is listening on. Same process, same sitting.
+================================================================================================================================
+
+# core transport:      tonic over unix:/tmp/ak-ffi-rpc-6706.sock
+# core worker threads: 2 (ak_runtime_new, explicit -- ABI v1 section 3 says never Runtime::new(), which reads the cgroup quota)
+# deliveries:          callback (headline), blocking (labelled), queue (second row, one drainer)
+
+gate: one call per cell, decoded value re-encoded and compared with the
+server's wire (540,422 bytes).
+  cell C queue     core-ffi        over core        byte-identical
+  cell B queue     Google.Protobuf over core        byte-identical
+  cell C blocking  core-ffi        over core        byte-identical
+  cell B blocking  Google.Protobuf over core        byte-identical
+  cell D -         core-ffi        over grpc-dotnet byte-identical
+  cell C callback  core-ffi        over core        byte-identical
+  cell B callback  Google.Protobuf over core        byte-identical
+  cell A -         Google.Protobuf over grpc-dotnet byte-identical
+
+cell  codec             transport    delivery   inflight   calls    us/call   CPU us/call   alloc B/call   ratio   CPU spread
+--------------------------------------------------------------------------------------------------------------------------------
+C     core-ffi          core         queue             1     300     2783.1        3433.3        2124984   0.746        +14%
+B     Google.Protobuf   core         queue             1     300     3061.0        3700.0        2323499   0.804         +5%
+C     core-ffi          core         blocking          1     300     2803.2        3433.3        2124979   0.746        +12%
+B     Google.Protobuf   core         blocking          1     300     3353.5        4100.0        2325062   0.891         +4%
+D     core-ffi          grpc-dotnet  -                 1     300     2959.4        4166.7        2136801   0.906        +13%
+C     core-ffi          core         callback          1     300     2884.4        3500.0        2125031   0.761         +5%
+B     Google.Protobuf   core         callback          1     300     3079.7        3700.0        2323458   0.804         +6%
+A     Google.Protobuf   grpc-dotnet  -                 1     300     3357.1        4600.0        2335450   1.000         +9%
+
+C     core-ffi          core         queue             8     296     1718.3        3918.9        2126962   0.716        +21%
+B     Google.Protobuf   core         queue             8     296     1907.6        3986.5        2325747   0.728        +10%
+C     core-ffi          core         blocking          8     296     1735.0        3614.9        2129401   0.660        +28%
+B     Google.Protobuf   core         blocking          8     296     1940.2        3885.1        2324563   0.710         +5%
+D     core-ffi          grpc-dotnet  -                 8     296     2047.8        4459.5        2161198   0.815         +9%
+C     core-ffi          core         callback          8     296     1779.0        3851.4        2126747   0.704        +11%
+B     Google.Protobuf   core         callback          8     296     1855.1        3885.1        2325415   0.710         +6%
+A     Google.Protobuf   grpc-dotnet  -                 8     296     2706.5        5473.0        2335095   1.000        +10%
+
+C     core-ffi          core         queue            16     288     1876.8        4097.2        2126817   0.536        +26%
+B     Google.Protobuf   core         queue            16     288     1901.0        4062.5        2325632   0.532         +3%
+C     core-ffi          core         blocking         16     288    24162.4        3923.6        2140663   0.514         +4%
+B     Google.Protobuf   core         blocking         16     288     1885.0        3888.9        2324317   0.509         +7%
+D     core-ffi          grpc-dotnet  -                16     288     3684.7        6736.1        2144857   0.882         +6%
+C     core-ffi          core         callback         16     288     1925.1        4131.9        2126854   0.541        +12%
+B     Google.Protobuf   core         callback         16     288     2081.9        4375.0        2326077   0.573        +10%
+A     Google.Protobuf   grpc-dotnet  -                16     288     4340.9        7638.9        2335600   1.000        +12%
+
+THE SUBTRACTION. B-A is the transport, C-B and D-A are both the codec, one
+under each transport. Callback delivery for B and C. CPU us per call:
+
+inflight    B-A (transport)   C-B (codec, core)   D-A (codec, grpc)   do they agree?
+----------------------------------------------------------------------------------------
+       1            -900.0              -200.0              -433.3   differ by 54%
+       8           -1587.8               -33.8             -1013.5   differ by 97%
+      16           -3263.9              -243.1              -902.8   differ by 73%
+
+
+
+================================================================================
+APPENDIX C -- rpc --park, six runs, verbatim
+================================================================================
+# harness: rpc --park (what a parked host thread costs a managed host)
+# processors:        4
+# pool minimum:      4 worker threads
+# core workers:      2
+# in flight:         16, ONE batch, from a cold pool
+
+batch                                        wall ms for 16 calls
+------------------------------------------------------------------------
+blocking, COLD pool                              3738.3
+callback, pool already grown by the above          14.6
+blocking, pool already grown                     2985.2
+blocking, SetMinThreads(24), cold again         11.9
+
+The cost is the POOL GROWING to replace threads parked in a native frame:
+`SetMinThreads` removes it and nothing else does. **It is NOT a one-off a
+long-lived process pays once** -- the third row is the same batch again with
+the pool already grown, and it is slow too, because the pool retires idle
+threads between batches. A bursty caller pays it repeatedly. That claim was
+written here the other way round first and the measurement refuted it.
+
+
+# harness: rpc --park (what a parked host thread costs a managed host)
+# processors:        4
+# pool minimum:      4 worker threads
+# core workers:      2
+# in flight:         16, ONE batch, from a cold pool
+
+batch                                        wall ms for 16 calls
+------------------------------------------------------------------------
+blocking, COLD pool                              4591.3
+callback, pool already grown by the above          12.8
+blocking, pool already grown                      989.8
+blocking, SetMinThreads(24), cold again          8.6
+
+The cost is the POOL GROWING to replace threads parked in a native frame:
+`SetMinThreads` removes it and nothing else does. **It is NOT a one-off a
+long-lived process pays once** -- the third row is the same batch again with
+the pool already grown, and it is slow too, because the pool retires idle
+threads between batches. A bursty caller pays it repeatedly. That claim was
+written here the other way round first and the measurement refuted it.
+
+
+# harness: rpc --park (what a parked host thread costs a managed host)
+# processors:        4
+# pool minimum:      4 worker threads
+# core workers:      2
+# in flight:         16, ONE batch, from a cold pool
+
+batch                                        wall ms for 16 calls
+------------------------------------------------------------------------
+blocking, COLD pool                              3652.0
+callback, pool already grown by the above          11.2
+blocking, pool already grown                     2987.6
+blocking, SetMinThreads(24), cold again          7.6
+
+The cost is the POOL GROWING to replace threads parked in a native frame:
+`SetMinThreads` removes it and nothing else does. **It is NOT a one-off a
+long-lived process pays once** -- the third row is the same batch again with
+the pool already grown, and it is slow too, because the pool retires idle
+threads between batches. A bursty caller pays it repeatedly. That claim was
+written here the other way round first and the measurement refuted it.
+
+
+
+================================================================================
+APPENDIX D -- the re-gate against the rpc-featured core
+================================================================================
+--- conformance ---
+
+152 checks, 0 failure(s)
+--- corpus ---
+
+32 failure(s) (31 T-dec policy, 1 U-map-entry, 0 other), 0 not run
+--- coreffi gate ---
+  new+apply per element plus a run per inner field on decode.
+
+0 failure(s)
