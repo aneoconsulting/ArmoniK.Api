@@ -125,6 +125,78 @@ pub unsafe extern "C" fn ak_client_new(
     }
 }
 
+/// ABI v1 section 3 gives configuration to `ak_context_new(runtime, config_json, err)`, and
+/// that is unbuilt. This is the narrow piece a transport measurement cannot do without.
+///
+/// **The core could not express ArmoniK's transport at all**, and that is the finding rather
+/// than the entry point. ArmoniK pins 2 MiB chunking and a 4 MiB HTTP/2 window; `ak_client_new`
+/// takes a URI and nothing else, so every RPC figure in this branch was taken on tonic's
+/// defaults -- a **64 KiB** stream window. README R9 already says what that does to a 540 KB
+/// response: most of the wall clock is spent waiting for `WINDOW_UPDATE`. So a grid comparing
+/// the core's transport with a tonic channel the host configured would have been comparing
+/// window sizes, not interfaces.
+///
+/// **On tonic/hyper the stream and connection windows are separate settings**, and raising
+/// only the stream window leaves the connection at 65,535 -- which is the mistake this entry
+/// point exists to make impossible to repeat: both are arguments and neither has a default
+/// here.
+///
+/// Zero means "leave tonic's default", so a host that does not care passes zeros and gets
+/// exactly what `ak_client_new` gives.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_client_opts {
+    /// HTTP/2 initial stream window, bytes. ArmoniK: 4 MiB.
+    pub stream_window: u32,
+    /// HTTP/2 initial CONNECTION window, bytes. A separate setting on tonic/hyper.
+    pub connection_window: u32,
+    /// Largest message the client will accept, bytes. ArmoniK chunks at 2 MiB.
+    pub max_recv_message: u32,
+    /// Largest message the client will send, bytes.
+    pub max_send_message: u32,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ak_client_new_opts(
+    r: *mut ak_runtime,
+    uri: *const u8,
+    uri_len: usize,
+    opts: *const ak_client_opts,
+) -> *mut ak_client {
+    let rt = &*(r as *const RuntimeImpl);
+    let s = match core::str::from_utf8(core::slice::from_raw_parts(uri, uri_len)) {
+        Ok(s) => s.to_string(),
+        Err(_) => return core::ptr::null_mut(),
+    };
+    let o = if opts.is_null() {
+        ak_client_opts {
+            stream_window: 0,
+            connection_window: 0,
+            max_recv_message: 0,
+            max_send_message: 0,
+        }
+    } else {
+        *opts
+    };
+    let chan = rt.rt.block_on(async move {
+        let mut ep = tonic::transport::Endpoint::from_shared(s).ok()?;
+        if o.stream_window != 0 {
+            ep = ep.initial_stream_window_size(Some(o.stream_window));
+        }
+        if o.connection_window != 0 {
+            ep = ep.initial_connection_window_size(Some(o.connection_window));
+        }
+        ep.connect().await.ok()
+    });
+    match chan {
+        Some(chan) => Box::into_raw(Box::new(ClientImpl {
+            rt: r as *const RuntimeImpl,
+            chan,
+        })) as *mut ak_client,
+        None => core::ptr::null_mut(),
+    }
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn ak_client_destroy(c: *mut ak_client) {
     if !c.is_null() {

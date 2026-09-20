@@ -341,7 +341,7 @@ fn dec_timestamp(d: &mut Dec, out: &mut Timestamp) {
         match tag {
             1 if wire == 0 => out.seconds = d.varint() as i64,
             2 if wire == 0 => out.nanos = d.varint() as i32,
-            _ => d.skip(wire),
+            _ => d.skip(tag, wire),
         }
     }
 }
@@ -357,7 +357,7 @@ fn dec_duration(d: &mut Dec, out: &mut Duration) {
         match tag {
             1 if wire == 0 => out.seconds = d.varint() as i64,
             2 if wire == 0 => out.nanos = d.varint() as i32,
-            _ => d.skip(wire),
+            _ => d.skip(tag, wire),
         }
     }
 }
@@ -449,7 +449,7 @@ fn dec_result_raw(d: &mut Dec, out: &mut ResultRaw) {
                 out.opaque_id = ::bytes::Bytes::copy_from_slice(&buf[off..off + n]);
             }
             12 if wire == 0 => out.manual_deletion = d.varint() != 0,
-            _ => d.skip(wire),
+            _ => d.skip(tag, wire),
         }
     }
 }
@@ -478,7 +478,7 @@ fn dec_task_options(d: &mut Dec, out: &mut TaskOptions) {
                         2 if ew == 2 => { let (a, b) = sub.len_body();
                             match ak_rt::strings::decode_str(&eb[a..a + b]) {
                                 Ok(s) => val = s, Err(e) => { d.err = e; return; } } }
-                        _ => sub.skip(ew),
+                        _ => sub.skip(et, ew),
                     }
                 }
                 if sub.err != 0 { d.err = sub.err; }
@@ -560,7 +560,7 @@ fn dec_task_options(d: &mut Dec, out: &mut TaskOptions) {
                     Err(e) => { d.err = e; return; }
                 }
             }
-            _ => d.skip(wire),
+            _ => d.skip(tag, wire),
         }
     }
 }
@@ -586,7 +586,7 @@ fn dec_task_output(d: &mut Dec, out: &mut TaskOutput) {
                     Err(e) => { d.err = e; return; }
                 }
             }
-            _ => d.skip(wire),
+            _ => d.skip(tag, wire),
         }
     }
 }
@@ -829,7 +829,7 @@ fn dec_task_detailed(d: &mut Dec, out: &mut TaskDetailed) {
                     Err(e) => { d.err = e; return; }
                 }
             }
-            _ => d.skip(wire),
+            _ => d.skip(tag, wire),
         }
     }
 }
@@ -905,7 +905,7 @@ fn dec_task_summary(d: &mut Dec, out: &mut TaskSummary) {
                 }
             }
             11 if wire == 0 => out.count_data_dependencies = d.varint() as i64,
-            _ => d.skip(wire),
+            _ => d.skip(tag, wire),
         }
     }
 }
@@ -967,7 +967,7 @@ fn dec_probe(d: &mut Dec, out: &mut Probe) {
                 if sub.err != 0 { d.err = sub.err; }
                 out.body = Some(ProbeBody::AsNothing(c));
             }
-            _ => d.skip(wire),
+            _ => d.skip(tag, wire),
         }
     }
 }
@@ -981,7 +981,7 @@ fn dec_empty(d: &mut Dec, out: &mut Empty) {
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
         if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
         match tag {
-            _ => d.skip(wire),
+            _ => d.skip(tag, wire),
         }
     }
 }
@@ -1021,7 +1021,7 @@ fn dec_upload_result_data(d: &mut Dec, out: &mut UploadResultData) {
                 let (off, n) = d.len_body();
                 out.data_chunk = ::bytes::Bytes::copy_from_slice(&buf[off..off + n]);
             }
-            _ => d.skip(wire),
+            _ => d.skip(tag, wire),
         }
     }
 }
@@ -1081,7 +1081,7 @@ fn dec_metrics_batch(d: &mut Dec, out: &mut MetricsBatch) {
                 if sub.err != 0 { d.err = sub.err; }
             }
             6 => out.statuses.push(TaskStatus::from_i32(d.varint() as i32)),
-            _ => d.skip(wire),
+            _ => d.skip(tag, wire),
         }
     }
 }
@@ -1107,7 +1107,7 @@ fn dec_pair(d: &mut Dec, out: &mut Pair) {
                 }
             }
             2 if wire == 0 => out.value = d.varint() as i32,
-            _ => d.skip(wire),
+            _ => d.skip(tag, wire),
         }
     }
 }
@@ -1131,7 +1131,7 @@ fn dec_list_results_response(d: &mut Dec, out: &mut ListResultsResponse) {
             }
             2 if wire == 0 => out.page = d.varint() as i32,
             3 if wire == 0 => out.total = d.varint() as i32,
-            _ => d.skip(wire),
+            _ => d.skip(tag, wire),
         }
     }
 }
@@ -1155,7 +1155,7 @@ fn dec_list_tasks_detailed_response(d: &mut Dec, out: &mut ListTasksDetailedResp
             }
             2 if wire == 0 => out.page = d.varint() as i32,
             3 if wire == 0 => out.total = d.varint() as i32,
-            _ => d.skip(wire),
+            _ => d.skip(tag, wire),
         }
     }
 }
@@ -1177,7 +1177,7 @@ fn dec_list_task_summary_response(d: &mut Dec, out: &mut ListTaskSummaryResponse
                 if sub.err != 0 { d.err = sub.err; }
                 out.tasks.push(c);
             }
-            _ => d.skip(wire),
+            _ => d.skip(tag, wire),
         }
     }
 }
@@ -1199,7 +1199,7 @@ fn dec_list_probe_response(d: &mut Dec, out: &mut ListProbeResponse) {
                 if sub.err != 0 { d.err = sub.err; }
                 out.probes.push(c);
             }
-            _ => d.skip(wire),
+            _ => d.skip(tag, wire),
         }
     }
 }
@@ -1221,7 +1221,7 @@ fn dec_list_metrics_response(d: &mut Dec, out: &mut ListMetricsResponse) {
                 if sub.err != 0 { d.err = sub.err; }
                 out.batches.push(c);
             }
-            _ => d.skip(wire),
+            _ => d.skip(tag, wire),
         }
     }
 }
@@ -1243,7 +1243,7 @@ fn dec_upload_result_data_message(d: &mut Dec, out: &mut UploadResultDataMessage
                 if sub.err != 0 { d.err = sub.err; }
                 out.upload = Some(c);
             }
-            _ => d.skip(wire),
+            _ => d.skip(tag, wire),
         }
     }
 }
@@ -1273,7 +1273,7 @@ fn dec_dual_response(d: &mut Dec, out: &mut DualResponse) {
                 if sub.err != 0 { d.err = sub.err; }
                 out.right.push(c);
             }
-            _ => d.skip(wire),
+            _ => d.skip(tag, wire),
         }
     }
 }
