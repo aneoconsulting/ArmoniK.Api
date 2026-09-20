@@ -37,6 +37,13 @@ public final class NativeRpc {
   public static native long clientNew(long rt, byte[] uri, int len);
   public static native void clientDestroy(long client);
 
+  /** The same dial with the transport pinned, so a core cell and a grpc-java cell can be
+   *  given the SAME window. Without this the grid pinned only its grpc-java half. */
+  public static native long clientNewOpts(long rt, byte[] uri, int len,
+                                          int streamWindow, int connectionWindow,
+                                          int adaptiveWindow, int maxRecv, int maxSend,
+                                          int tcpNagle);
+
   /** Crossing one. {@code out} receives {ptr, len, owner}; the core still owns the bytes. */
   public static native int callUnary(long client, long pathPtr, int pathLen,
                                      byte[] req, int reqOff, int reqLen, long[] out);

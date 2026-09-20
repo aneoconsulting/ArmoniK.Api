@@ -199,3 +199,44 @@ JNIEXPORT void JNICALL Java_ak_NativeRpc_callDestroy(JNIEnv *e, jclass c, jlong 
   (void) e; (void) c;
   if (h != 0) ak_call_destroy((void *)(intptr_t) h);
 }
+
+/* ---- ak_client_new_opts: pin the transport on the CORE side too -----------------------
+ *
+ * Cells B and C were dialling with `ak_client_new`, which passes null options, so they ran
+ * on hyper's defaults (2 MiB stream, 5 MiB connection) while cells A and D ran on the
+ * 4 MiB the grpc-java channel was given. The grid's "pinned" configuration pinned half of
+ * itself, and B minus A -- the transport delta, the one claim with a clean sign -- was
+ * comparing two transports at two different window sizes. Neither window is smaller than
+ * the 540 KB response, so no arm stalled; that is a reason it went unnoticed, not a reason
+ * it was sound.
+ */
+typedef struct {
+  uint32_t stream_window;
+  uint32_t connection_window;
+  int32_t  adaptive_window;
+  uint32_t max_recv_message;
+  uint32_t max_send_message;
+  int32_t  tcp_nagle;
+} ak_client_opts;
+
+void *ak_client_new_opts(void *r, const uint8_t *uri, size_t uri_len,
+                         const ak_client_opts *opts);
+
+JNIEXPORT jlong JNICALL Java_ak_NativeRpc_clientNewOpts(JNIEnv *env, jclass c, jlong r,
+                                                        jbyteArray uri, jint len,
+                                                        jint streamWin, jint connWin,
+                                                        jint adaptive, jint maxRecv,
+                                                        jint maxSend, jint nagle) {
+  (void) c;
+  ak_client_opts o;
+  o.stream_window = (uint32_t) streamWin;
+  o.connection_window = (uint32_t) connWin;
+  o.adaptive_window = (int32_t) adaptive;
+  o.max_recv_message = (uint32_t) maxRecv;
+  o.max_send_message = (uint32_t) maxSend;
+  o.tcp_nagle = (int32_t) nagle;
+  jbyte *u = (*env)->GetByteArrayElements(env, uri, NULL);
+  void *cl = ak_client_new_opts((void *)(intptr_t) r, (const uint8_t *) u, (size_t) len, &o);
+  (*env)->ReleaseByteArrayElements(env, uri, u, JNI_ABORT);
+  return (jlong)(intptr_t) cl;
+}
