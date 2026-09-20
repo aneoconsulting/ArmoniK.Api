@@ -978,3 +978,136 @@ not start bisecting the encoder.
 own value rules implemented a second time in C++, and the `chunking` class, which needs a
 `ChunkedResponse` codec. Both are listed by id in `STATE.md` rather than left as a number
 that is silently smaller than it looks.
+
+---
+
+## W12: the RPC arm re-taken as a grid, in all three deliveries, and the machine changed underneath it
+
+Two things were known to be wrong with the arm this slice had published, and a third turned
+up in the first ten minutes.
+
+**The container is a different machine.** `/proc/cpuinfo` says Intel Xeon @ **2.10 GHz**
+where every other figure in `STATE.md` came from a **2.80 GHz** one. The unchanged bench
+measures a forward crossing of **0.63 ns** here against the published **1.822 ns** -- a
+factor of about three, on a nominally slower clock. That is not a detail to put in a
+footnote: it means `rpc.log` and `rpcflow.log` share no absolute with any other log in this
+slice, and it is exactly the situation R13 exists for. Which made the next thing worse.
+
+**R13's calibration cannot be taken any more, and not because of anything here.** The rule
+is that each slice runs the RUST slice's crossing benchmark on its own machine, so the
+cross-language table stays reconstructible. `ffi/poc/rust` does not build on this branch:
+C24 changed the shared runtime's `skip(wire)` to `skip(tag, wire)` and swept this slice's 13
+emission sites, and the rust slice's generated tree was never regenerated. 20 E0061 errors.
+`poc/rust/**` is not mine to write, so it is C27 and the log says plainly that the yardstick
+it quotes is this slice's own crossing and not the common one. **Every future slice on every
+future machine hits this until somebody regenerates that tree.**
+
+### The grid, and what a pair could not have told anyone
+
+Four cells -- A (protobuf/grpc++), B (protobuf/core), C (core/core), D (core/grpc++) --
+times three deliveries for the two core-transport cells, times two transports, times pinned
+and unpinned, times three in-flight levels. Cell D is grpc++'s own generic `ByteBuffer`
+path, so the transport code is literally cell A's and only the marshaller changes.
+
+**The first version of the delta table was useless and I threw it away.** I reported
+best-of-nine differences with a bar built from the arms' full ranges, and since the arms'
+own round-to-round spread is 5 to 25 percent, everything was "INSIDE THE BAR" including
+differences that are plainly real. The fix is the discipline this slice already uses for
+decision 1: form every difference **within a round** and report lo, hi and whether they
+share a sign. With that, C - B separates in 12 of 12 and B - A in 0 of 12, out of the same
+data that a minute earlier said nothing at all.
+
+**What it says.** The transport is a wash on P2.2 (0 of 12) and the codec is the whole of
+the difference (12 of 12, -6.8 % to -33.4 %). So the 0.856-0.870 "RPC" ratio this slice
+published was a codec ratio. And `(C-B) - (D-A)` straddles zero in 12 of 12: **the codec is
+worth the same under either transport, so the two halves of the proposal are additive** --
+which was the question SHAPES.md said nobody had asked.
+
+### The deliveries do not separate, and then the Ping block said why
+
+Section 9 asserts the callback "suits C++ and C#" and C++ is where a reverse call is
+cheapest, so this is where the claim gets confirmed or refused. It is refused, and the
+refusal took two goes.
+
+First attempt: callback and queue beat blocking at 8 and 16 in flight, blocking does not,
+done. That is wrong, because the callback row keeps N calls outstanding from ONE host thread
+and blocking needs N threads, so the comparison moves two things. **The control is `cb x N`:
+the callback delivery in blocking's thread shape.** It does not separate from blocking (1 of
+12) and where it separates from the one-thread callback it is SLOWER. So the win is the
+thread count and not the delivery.
+
+Second problem: a 540 KB response is 4 ms of CPU and a reverse crossing is 0.30 ns. Nothing
+about a delivery can show through that, so "they do not separate" was not yet a result about
+the deliveries. Hence the **Ping block**: an empty request and an empty response, no codec on
+either side, which is what `Ping` was added to the service proto for. Queue against callback
+still separates in 0 of 3. The arithmetic is why: the deliveries differ by under a
+nanosecond of boundary against a call of 130 µs, which is two parts in a hundred thousand.
+**No payload this slice can build could see the difference, and that is the finding.**
+
+**And the Ping block found something the grid could not.** With the codec gone, one empty
+call in flight costs the core's transport **41 to 95 percent more CPU than grpc++'s** -- 53
+to 107 µs per call. The grid's "the transport is a wash" is true of a 540 KB call and false
+of a small one. Two points do not give a crossover and I am not pretending otherwise, but
+the qualification matters for README 13's outcome 2, which is precisely the recommendation
+to adopt the transport half.
+
+### Counting instead of quoting, and section 9's table is wrong
+
+R5 says count crossings, do not infer them, and section 9's per-delivery table (2/0, 2/1,
+3/0) was arithmetic nobody had run. I added `ak_rpc_counters` to the shared core under
+`#[cfg(feature = "count")]`, built it `--features rpc,count` into a separate binary, and
+counted. Blocking is 2/0 as claimed. **The callback is 3/1 and the queue 4/0: the table does
+not count `ak_call_destroy`**, which both non-blocking deliveries require or the host leaks a
+handle per RPC. Identical on `Fetch` (~4,500 fields) and `Ping` (none), which is the
+per-field half of the claim, counted.
+
+`ak_rpc_counting()` exists because of how this could have gone wrong: link the non-counting
+core by mistake, read zeroes, publish "the boundary is free". The counting binary refuses to
+run if it returns 0.
+
+### The flow-control probe, which I expected to be a formality
+
+`design/SHAPES.md` asks each arm to state its windows and whether auto-tuning is on, and to
+establish the two traps "from its own runtime's source rather than inheriting". I built the
+probe expecting to confirm the table. Four things came out and none of them was a
+confirmation.
+
+1. **grpc++ exposes no connection-window argument at all.** The two windows are separate
+   quantities -- the stall trace prints `t_win` and `s_win` side by side -- and only the
+   stream one is reachable. Proof by exhaustion: with the stream window at 4 MiB the stalls
+   sit at `t_win=0` with `s_win=3,653,887`, and raising the stream window SIXTEENFOLD to
+   64 MiB leaves them there.
+2. **An explicit window does not turn BDP probing off**, and with the probe on the window
+   you configured is not even what gets announced. That is grpc-java's behaviour inverted.
+3. **Turning BDP off SHRINKS the window to 64 KiB**, because grpc-core's ~4 MiB default
+   initial window is the estimator's doing. "Turn auto-tuning off so the arm is
+   deterministic" is, on its own, a 64x reduction.
+4. **SHAPES.md's table says tonic/hyper is at 65,535. It is at 2 MiB** (hyper's
+   `DEFAULT_STREAM_WINDOW`), with a 5 MiB connection window. **And this slice's own published
+   `rpc.log` repeated that number as the reason its wall-clock column was flow-control
+   bound.** Neither stack was at 64 KB; 540 KB fits inside both defaults with no stall; the
+   sentence is withdrawn. I had inherited it from the table and never checked, which is the
+   thing this branch exists to stop, so it is C30 and it is mine.
+
+The consequence for the arm is awkward and is published rather than smoothed: **SHAPES.md's
+"pin a 4 MiB stream window in every cell and make it the headline" is not reachable on
+grpc++**, and pinning what IS reachable makes the INCUMBENT stall where its default does not.
+So `rpc.log` carries pinned and unpinned in full. The verdict is the same in both, which is
+the honest way to report that the pinning did not matter here.
+
+### What I added to the shared core, and why it was not optional
+
+`ak_client_new` took a URI and nothing else, so cells B and C ran at hyper's defaults while
+cell A ran at grpc-core's -- two different transports compared as one. `ak_client_new_opts`
+is an ADDITION (R0 allows those) and `ak_client_new` is now one line calling it with NULL
+options, so there is one connect path rather than two that can drift. Both, plus the
+counters, live inside `--features rpc`, so the default artifact is untouched at 86 `ak_`
+exports. A core test dials a pinned endpoint and gets the bytes back, because a builder that
+rejects a setting fails at `connect()` and from a harness that looks exactly like "the
+server is not up yet".
+
+**What I did not do**: the payload sweep that would give the transport crossover, allocation
+per RPC (SHAPES.md asks for it beside CPU and a page-fault proxy dressed as a count would be
+worse than the gap), cells B and D on a small payload, and re-taking the codec tables on this
+machine -- which is now the largest outstanding item in `STATE.md`, because the slice
+publishes two machines' absolutes in one file.

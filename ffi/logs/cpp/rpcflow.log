@@ -1,0 +1,117 @@
+# The flow-control probe (design/SHAPES.md, 'each RPC arm states its stream and
+# connection window and whether auto-tuning is on')
+#   date     2026-09-20T17:43:53Z
+#   machine  Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
+#   commit   bccff35
+#   method   each row is a CHILD process with grpc's own tracers on; the answers are
+#            read out of grpc's trace, not out of a document
+
+grpc++ 1.51.1, protobuf C++ 3021012. Each row is a CHILD process with
+GRPC_TRACE=http,flowctl,bdp_estimator and GRPC_VERBOSITY=DEBUG, running 8x8
+P2.2 Fetches over loopback TCP against a server left at its DEFAULTS, so the
+only variable is the client's configuration.
+
+client configuration         announced last announced  settings  BDPping   stalls  min t_win  min s_win
+grpcpp default                 4194303       6799830         3        3        1          0    3782954
+grpcpp win 4M                  4194303       6945113         3        3        1          0    3782954
+grpcpp bdp off                   65535         65535         1        0      108          0          0
+grpcpp win 4M bdp off          4194304       4194304         1        0      259          0    3653887
+grpcpp win 64M                 4194303       5127941         2        3        1          0    3782954
+grpcpp win 64M bdp off        67108864      67108864         1        0      232          0   66568447
+core default                   2097152       2097152         1        0        0         -1         -1
+core win 4M conn 4M            4194304       4194304         1        0        7          0    3782989
+core win 4M conn 64K           4194304       4194304         1        0     4823          0    3655072
+
+`announced` is SETTINGS_INITIAL_WINDOW_SIZE as the SERVER received it, so it
+is what the client asked its peer to respect -- the window the 540 KB response
+has to fit inside. `settings` counts how many times the client re-announced it,
+which is auto-tuning made visible. `BDPping` counts the CLIENT transport's
+pings. `stalls` counts writing.cc's 'moved to stalled list' with the two
+windows printed, and `min t_win` / `min s_win` are the CONNECTION and STREAM
+windows at their lowest across those stalls. A stall at t_win=0 with s_win
+large is the connection window binding while the stream window is idle.
+
+-- SHAPES.md's two traps, answered from the rows above rather than inherited --
+
+1. ARE THE STREAM AND CONNECTION WINDOWS SEPARATE CHANNEL ARGUMENTS?
+   Two different answers for the two stacks, and neither is grpc-java's.
+
+   grpc++: they are separate QUANTITIES and only one of them is reachable.
+   grpc/impl/codegen/grpc_types.h exposes GRPC_ARG_HTTP2_STREAM_LOOKAHEAD_BYTES
+   and GRPC_ARG_HTTP2_BDP_PROBE and NO connection-window argument at all. That
+   they are separate is observed and not argued: `grpcpp win 4M bdp off` stalls
+   259 times at t_win=0 with s_win=3653887, and raising the stream window sixteen
+   times over to 64 MiB (`grpcpp win 64M bdp off`) leaves 232 stalls at
+   t_win=0 -- the argument does not reach the connection window, so it cannot
+   be pinned from a channel argument.
+
+   The core (tonic 0.14 / hyper 1.11): separate and BOTH reachable.
+   `initial_stream_window_size` and `initial_connection_window_size` are two
+   builder calls and they behave as two. Holding the stream window at 4 MiB and
+   moving only the connection window: 4 MiB gives 7 stalls, 65,535 gives 4823,
+   at t_win=0 with s_win=3655072. Same stream window, two orders of magnitude
+   apart in stalls, so the second setting is doing the work -- which is what
+   grpc++ has no argument for.
+
+2. DOES AN EXPLICIT WINDOW DISABLE BDP PROBING IN grpc++?
+   No, and the interaction runs the other way from grpc-java's.
+   With nothing configured the client sends 3 BDP pings and re-announces its
+   window 3 time(s), ending at 6799830. Setting the window to 4 MiB and leaving the
+   probe alone: 3 pings, 3 announcement(s), ending at 6945113 -- auto-tuning is
+   still running, and the configured value is not even what gets announced
+   (4194304 asked for, 4194303 announced), because with the estimator on it is a
+   starting point the estimator overwrites. Only GRPC_ARG_HTTP2_BDP_PROBE=0
+   stops it: 0 pings.
+   So on grpc++ the window argument and the probe argument are INDEPENDENT,
+   where on grpc-java calling flowControlWindow turns BDP off by itself. An
+   arm that set the window and not the probe would be measuring an auto-tuned
+   transport while its configuration line claimed a pinned one.
+
+3. AND A THIRD TRAP NEITHER SHAPES.md NOR THIS SLICE HAD: on grpc++, TURNING
+   AUTO-TUNING OFF SHRINKS THE WINDOW TO 64 KIB.
+   `grpcpp bdp off` -- the probe off and no window set -- announces 65535, not
+   the 4194303 the same build announces by default, and it stalls 108 times where
+   the default stalls 1. grpc-core's 4 MiB default initial window is the BDP
+   estimator's doing; switch the estimator off and the announced window falls
+   back to GRPC_ARG_HTTP2_STREAM_LOOKAHEAD_BYTES, whose documented default is
+   64 kb. So 'turn auto-tuning off so the arm is deterministic' is, on its own,
+   a 64x REDUCTION in the stream window, and a slice that did it without also
+   setting the window would have published a flow-control artefact as a
+   transport measurement.
+
+4. WHAT EACH STACK'S DEFAULT ACTUALLY IS, and SHAPES.md's table is wrong about
+   one of them.
+   grpc++ (grpc-core 1.51.1) announces 4194303 with nothing configured -- about 4 MiB,
+   not the 65,535 RFC 9113 gives as the protocol's initial value -- and
+   auto-tuning is ON.
+   tonic 0.14 over hyper 1.11 announces 2097152: hyper's DEFAULT_STREAM_WINDOW, 2
+   MiB, with DEFAULT_CONN_WINDOW at 5 MiB and adaptive sizing off
+   (hyper/src/proto/h2/client.rs:48-50). **SHAPES.md's table says tonic/hyper is
+   at 65,535 with auto-tuning off.** The auto-tuning half is right and the
+   window is wrong by a factor of 32.
+   The consequence is not cosmetic and it lands on this slice's own published
+   log: `logs/cpp/rpc.log` said a 540 KB response 'against a 64 KB default
+   stream window means a single call in flight spends most of its wall clock
+   waiting for WINDOW_UPDATE'. Neither stack was at 64 KB. 540 KB fits inside
+   2 MiB and inside 4 MiB with no stall at all, and the 5314 stalls this probe
+   does see are all in configurations that PIN a window, never in a default
+   one. That sentence is withdrawn.
+
+5. THE CORE COULD NOT BE PINNED AT ALL until this work unit.
+   `ak_client_new` took a URI and nothing else, so cells B and C ran at hyper's
+   defaults while cell A ran at grpc-core's, and the two were compared as
+   though that were one transport. `ak_client_new_opts` was ADDED to the shared
+   core (R0 permits an addition; `ak_client_new` is now a call to it with NULL
+   options, which is byte-for-byte the old behaviour). The pinned row is that
+   entry point working: 4194304 announced against 2097152 unpinned.
+
+6. WHAT THIS MEANS FOR THE TIMED ARM, and it is not what SHAPES.md assumes.
+   SHAPES.md says pin ArmoniK's 4 MiB stream window in every cell and make that
+   the headline, with the stack default as a labelled second row. On grpc++ the
+   pinned configuration is NOT REACHABLE: the connection window has no
+   argument, so pinning the stream window at 4 MiB and the probe off leaves the
+   connection window at its un-tuned value and produces 259 stalls that the
+   DEFAULT configuration does not have (1). `logs/cpp/rpc.log` therefore
+   carries BOTH configurations in full rather than publishing a pinned headline
+   whose incumbent is handicapped by the pinning -- which would be an R14
+   defect pointed at the incumbent by its own harness.

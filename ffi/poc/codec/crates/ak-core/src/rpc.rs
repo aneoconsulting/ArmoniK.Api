@@ -49,6 +49,127 @@ pub struct ak_bytes {
     pub owner: *mut c_void,
 }
 
+
+// ---- what the cpp slice added, and why -------------------------------------------------
+//
+// Two additions, both of them things a slice could not do from its own side.
+//
+// **1. `ak_client_new_opts`.** `design/SHAPES.md` requires every cell of the RPC grid to
+// pin the SAME transport configuration -- ArmoniK's rather than the stack's -- and to state
+// it. The core could not be pinned at all: `ak_client_new` took a URI and nothing else, so
+// the core's arm ran at hyper's defaults while the host's stack ran at its own, and the two
+// were being compared as if that were the same transport. `ak_client_new` is now a call to
+// `ak_client_new_opts` with no options, so the two cannot drift; passing NULL is
+// byte-for-byte the old behaviour.
+//
+// **2. RPC crossing counters, under `--features count`.** README R5 says count crossings,
+// do not infer them, and section 9's per-delivery table (2/0, 2/1, 3/0) was arithmetic
+// nobody had run. The counters are `#[cfg(feature = "count")]` inside entry points that
+// exist only under `--features rpc`, so the default artifact is untouched in both
+// dimensions.
+
+/// The transport knobs `design/SHAPES.md` asks each arm to pin and to state. A window of 0
+/// means "leave the stack's default", which is what NULL options give on every field.
+///
+/// hyper's client defaults, for the record the SHAPES.md table wants: **2 MiB initial
+/// stream window, 5 MiB initial connection window, adaptive window off**
+/// (`hyper/src/proto/h2/client.rs`, `DEFAULT_STREAM_WINDOW` / `DEFAULT_CONN_WINDOW`).
+#[repr(C)]
+pub struct ak_client_opts {
+    /// `SETTINGS_INITIAL_WINDOW_SIZE`, per stream. 0 leaves hyper's 2 MiB.
+    pub stream_window: u32,
+    /// The connection-level window, which is a SEPARATE setting on hyper as it is on
+    /// grpc-java. 0 leaves hyper's 5 MiB.
+    pub connection_window: u32,
+    /// 1 on, 0 off, -1 leave the default (off). Adaptive sizing overrides the two windows
+    /// above, which is why pinning a window and enabling this is a contradiction rather
+    /// than a belt and braces.
+    pub adaptive_window: i32,
+}
+
+/// R5's counters for the RPC half. Process-global rather than per-context, because a call
+/// has no context to hang them on: `ak_queue_next` names a queue and `ak_bytes_free` names
+/// nothing at all.
+#[cfg(feature = "count")]
+mod xcount {
+    use core::sync::atomic::{AtomicU64, Ordering};
+    pub static FWD: AtomicU64 = AtomicU64::new(0);
+    pub static REV: AtomicU64 = AtomicU64::new(0);
+    #[inline]
+    pub fn fwd() {
+        FWD.fetch_add(1, Ordering::Relaxed);
+    }
+    #[inline]
+    pub fn rev() {
+        REV.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+#[inline(always)]
+fn fwd() {
+    #[cfg(feature = "count")]
+    xcount::fwd();
+}
+
+#[inline(always)]
+fn rev() {
+    #[cfg(feature = "count")]
+    xcount::rev();
+}
+
+/// Forward and reverse crossings since the last reset. Zero in a build without
+/// `--features count`, and the host is told which build it is holding by
+/// `ak_rpc_counting()` rather than by reading zeroes and guessing.
+#[repr(C)]
+pub struct ak_rpc_counters {
+    pub forward: u64,
+    pub reverse: u64,
+}
+
+/// 1 if this core counts RPC crossings, 0 if it does not. R5's hazard in one call: a
+/// harness that reads zeroes out of a non-counting build and publishes them has reported
+/// that the boundary is free.
+#[no_mangle]
+pub extern "C" fn ak_rpc_counting() -> i32 {
+    #[cfg(feature = "count")]
+    {
+        1
+    }
+    #[cfg(not(feature = "count"))]
+    {
+        0
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ak_rpc_counters(out: *mut ak_rpc_counters) {
+    if out.is_null() {
+        return;
+    }
+    #[cfg(feature = "count")]
+    {
+        use core::sync::atomic::Ordering;
+        (*out).forward = xcount::FWD.load(Ordering::Relaxed);
+        (*out).reverse = xcount::REV.load(Ordering::Relaxed);
+    }
+    #[cfg(not(feature = "count"))]
+    {
+        (*out).forward = 0;
+        (*out).reverse = 0;
+    }
+}
+
+/// Not itself counted: the host calls it between measured windows, never inside one.
+#[no_mangle]
+pub extern "C" fn ak_rpc_counters_reset() {
+    #[cfg(feature = "count")]
+    {
+        use core::sync::atomic::Ordering;
+        xcount::FWD.store(0, Ordering::Relaxed);
+        xcount::REV.store(0, Ordering::Relaxed);
+    }
+}
+
 pub struct RuntimeImpl {
     pub rt: tokio::runtime::Runtime,
 }
@@ -103,18 +224,45 @@ pub unsafe extern "C" fn ak_client_new(
     uri: *const u8,
     uri_len: usize,
 ) -> *mut ak_client {
+    ak_client_new_opts(r, uri, uri_len, core::ptr::null())
+}
+
+/// The same dial with the transport pinned. ONE connect path, so an arm that pins and an
+/// arm that does not cannot diverge in anything but the settings.
+#[no_mangle]
+pub unsafe extern "C" fn ak_client_new_opts(
+    r: *mut ak_runtime,
+    uri: *const u8,
+    uri_len: usize,
+    opts: *const ak_client_opts,
+) -> *mut ak_client {
+    fwd();
+    if r.is_null() {
+        return core::ptr::null_mut();
+    }
     let rt = &*(r as *const RuntimeImpl);
     let s = match core::str::from_utf8(core::slice::from_raw_parts(uri, uri_len)) {
         Ok(s) => s.to_string(),
         Err(_) => return core::ptr::null_mut(),
     };
+    let (sw, cw, ad) = if opts.is_null() {
+        (0u32, 0u32, -1i32)
+    } else {
+        ((*opts).stream_window, (*opts).connection_window, (*opts).adaptive_window)
+    };
     let chan = rt.rt.block_on(async move {
         // `unix:` targets included: from_shared dispatches on the scheme.
-        tonic::transport::Endpoint::from_shared(s)
-            .ok()?
-            .connect()
-            .await
-            .ok()
+        let mut ep = tonic::transport::Endpoint::from_shared(s).ok()?;
+        if sw != 0 {
+            ep = ep.initial_stream_window_size(sw);
+        }
+        if cw != 0 {
+            ep = ep.initial_connection_window_size(cw);
+        }
+        if ad >= 0 {
+            ep = ep.http2_adaptive_window(ad != 0);
+        }
+        ep.connect().await.ok()
     });
     match chan {
         Some(chan) => Box::into_raw(Box::new(ClientImpl {
@@ -127,6 +275,7 @@ pub unsafe extern "C" fn ak_client_new(
 
 #[no_mangle]
 pub unsafe extern "C" fn ak_client_destroy(c: *mut ak_client) {
+    fwd();
     if !c.is_null() {
         drop(Box::from_raw(c as *mut ClientImpl));
     }
@@ -146,6 +295,7 @@ pub unsafe extern "C" fn ak_call_unary(
     req_len: usize,
     out: *mut ak_bytes,
 ) -> i32 {
+    fwd();
     // Shared, not exclusive: many host threads may be inside this at once.
     let cl = &*(c as *const ClientImpl);
     let rt = &*cl.rt;
@@ -211,6 +361,7 @@ fn trace(who: &str, e: &str) {
 /// The second crossing, and the only other one: the host is done with the response bytes.
 #[no_mangle]
 pub unsafe extern "C" fn ak_bytes_free(b: *mut ak_bytes) {
+    fwd();
     if !b.is_null() && !(*b).owner.is_null() {
         drop(Box::from_raw((*b).owner as *mut Bytes));
         (*b).owner = core::ptr::null_mut();
@@ -334,6 +485,7 @@ pub unsafe extern "C" fn ak_queue_next(
     out: *mut ak_completion,
     timeout_ms: u64,
 ) -> i32 {
+    fwd();
     if q.is_null() || out.is_null() {
         return AK_ERR_INVALID_STATE;
     }
@@ -379,6 +531,7 @@ pub unsafe extern "C" fn ak_queue_next(
 /// got one has no way to stop waiting.
 #[no_mangle]
 pub unsafe extern "C" fn ak_call_cancel(h: *mut ak_call) {
+    fwd();
     if !h.is_null() {
         (*(h as *mut CallImpl)).abort.abort();
     }
@@ -387,6 +540,7 @@ pub unsafe extern "C" fn ak_call_cancel(h: *mut ak_call) {
 /// Frees the handle. Only after the call's completion has been delivered.
 #[no_mangle]
 pub unsafe extern "C" fn ak_call_destroy(h: *mut ak_call) {
+    fwd();
     if !h.is_null() {
         drop(Box::from_raw(h as *mut CallImpl));
     }
@@ -428,6 +582,7 @@ pub unsafe extern "C" fn ak_call_unary_cb(
     user_data: *mut c_void,
     tag: u64,
 ) -> *mut ak_call {
+    fwd();
     let (chan, rt, path, body) = match call_parts(c, path, path_len, req, req_len) {
         Some(v) => v,
         None => return core::ptr::null_mut(),
@@ -442,6 +597,7 @@ pub unsafe extern "C" fn ak_call_unary_cb(
                 ak_completion { tag, status: AK_ERR_HOST, bytes: empty_ak_bytes() }
             }
         };
+        rev();
         (ctx.cb)(ctx.user, &mut comp);
     });
     Box::into_raw(Box::new(CallImpl { abort: task.abort_handle() })) as *mut ak_call
@@ -461,6 +617,7 @@ pub unsafe extern "C" fn ak_call_unary_q(
     q: *mut ak_queue,
     tag: u64,
 ) -> *mut ak_call {
+    fwd();
     if q.is_null() {
         return core::ptr::null_mut();
     }
@@ -699,6 +856,44 @@ mod delivery_tests {
             }
             ak_queue_shutdown(q);
             ak_queue_destroy(q);
+            ak_client_destroy(c);
+            ak_runtime_destroy(r);
+        }
+    }
+
+    #[test]
+    fn a_pinned_transport_still_dials_and_still_answers() {
+        // `design/SHAPES.md`: every cell of the RPC grid pins the SAME transport, and
+        // states it. The knob has to be exercised rather than trusted -- an `Endpoint`
+        // builder that rejects a setting returns an error at `connect()`, which from a
+        // harness looks exactly like "the server is not up yet".
+        let r = ak_runtime_new(2);
+        assert!(!r.is_null());
+        let addr = unsafe {
+            let rt = &*(r as *const RuntimeImpl);
+            rt.rt.block_on(async { rpc::serve(Bytes::from_static(RESP)).await.addr })
+        };
+        let uri = format!("http://{addr}");
+        let opts = ak_client_opts {
+            stream_window: 4 * 1024 * 1024,
+            connection_window: 4 * 1024 * 1024,
+            adaptive_window: 0,
+        };
+        unsafe {
+            let c = ak_client_new_opts(r, uri.as_ptr(), uri.len(), &opts);
+            assert!(!c.is_null(), "a pinned endpoint did not connect to {uri}");
+            let mut out = empty_ak_bytes();
+            assert_eq!(
+                ak_call_unary(c, rpc::PATH.as_ptr(), rpc::PATH.len(), b"req".as_ptr(), 3, &mut out),
+                AK_OK
+            );
+            assert_eq!(take(&mut out), RESP);
+            ak_client_destroy(c);
+
+            // NULL options is the old behaviour, and that is the property that lets
+            // `ak_client_new` be one line rather than a second connect path.
+            let c = ak_client_new_opts(r, uri.as_ptr(), uri.len(), core::ptr::null());
+            assert!(!c.is_null());
             ak_client_destroy(c);
             ak_runtime_destroy(r);
         }
