@@ -71,6 +71,16 @@ python slice measures the rust crossing at 2.1 ns forward-plus-reverse where the
 rust slice's own container gave 1.8 and the C++ slice's gave 2.1 to 2.2. Three
 slices, three machines, three numbers for one quantity.
 
+**And the table lists one number per runtime where a runtime has two.** The java
+slice measured both directions on one machine, against its own 2.1 ns rust
+crossing: **JNI forward 11.9 to 12.9 ns, a cached JNI upcall 75.8 to 91.0, a
+naive upcall 295.9 to 309.4.** So the published 98.4 ns is an *upcall* figure and
+the published 11.2 ns a *forward* figure, and they sit seven times apart in the
+same column. Which direction a row reports decides the batching arithmetic that
+depends on it, so every row of the re-taken table carries both, and a slice that
+quotes one says which. Caching the method id is worth four times the call: that
+is a binding defect the column can hide, not a property of JNI.
+
 For the record, and in the form R13 asks for rather than as absolutes: a **Python**
 forward crossing through a C extension is 11.4 to 12.5 ns net of the loop that
 drives it, **4.1 to 4.5 times a Rust crossing on the same machine**. The row that
@@ -96,17 +106,27 @@ Written down so that the report cannot quietly inherit an assumption.
 - **Python has no POC at all.** It is also the language whose incumbent is
   already native (protobuf-python on upb, grpcio on the gRPC C core), so it is
   the one where the crossing argument could land differently from every other.
-- **The Rust slice's codec half is done and its behavioural half is untouched.**
+- **The Rust slice is complete, and its behavioural half is now partly built.**
   Every shape and payload is measured (section 4.1, [`findings/rust.md`](findings/rust.md)):
   a crossing costs 1.8 ns; **the generated codec is 0.42 to 0.54 of prost on
   encode and crossing the C ABI hands all of that back, leaving parity**; decode
   converges to parity as an element gains containers; the group inverts the
   verdict on the absent path. An earlier encode figure of 0.79 to 0.92 through the
   ABI is **withdrawn**: it came from a harness that was never committed and the
-  oldest rebuildable commit disagrees with it. **What is not
-  established there is the larger list**: `ak_init` and the whole lifecycle are
-  unbuilt, so "every entry point requires `ak_init`" is unexercised; the codec's
-  rollback of a half-written field is written and never triggered; and on the RPC
+  oldest rebuildable commit disagrees with it. Its last stage closed the three
+  largest gaps this bullet used to list: **`ak_init` and the lifecycle are
+  exercised** (the per-entry-point guard measures ±0.003 ns, indistinguishable from
+  zero), **ABI v1 7.1's pull decode family is built** in the shared core from one
+  emitter, and **obligation 12.5's concurrency suite exists** (0 wrong of 2,840
+  encodes and 2,840 decodes).
+  **What that suite found is the most serious defect the branch holds**: four
+  threads on one encode context do not produce wrong bytes, they **abort the
+  process**, because the panic's unwind is refused at the `extern "C"` frame. ABI
+  v1 section 5 already makes `catch_unwind` mandatory at every entry point, and
+  nothing enforced it; it is now a conformance obligation.
+  **What is still not established**: the codec's rollback of a half-written field
+  is written and never triggered; the MSRV of 1.88 is declared and unverified,
+  because no such toolchain exists in that container; and on the RPC
   side the delivery modes, metadata, deadlines, the status code, cancellation,
   retry, backoff, TLS, streaming, failure injection and the server seam are all
   unmeasured. **The RPC half's case is behavioural, and none of that behaviour is
@@ -365,10 +385,10 @@ deliverable.
 |---|---|---|
 | W1 | **Specify ABI v1.** One specification, in this branch, merging the base design with the amendments from the C# and Java reports. Every amendment carries the figure that motivated it and the language it came from. | **Drafted.** `design/ABI-v1.md` carries 12 decisions, of which **2 are now settled**: 5 (the grow path, keep the learned width) and 3 (the string path: no check on encode, reject on decode, free in both directions). The Rust slice produced all of the movement, and also created three: **9** (does the group need an empty-element path), **10** (can decode deliver the group before the runs) and **11** (does the core retain unknown fields). **11 is the one to read first**: it is a behaviour change for four of the five languages. **Decision 1 is now ANSWERED by the C++ slice and no longer gates agreement**: the group costs the host, string-as-data is a win, and batching has a crossover at a forward crossing of 2 to 4 ns rather than a verdict. Decision 9 is adopted with its wording corrected, section 4 gains the two-pass blob write, and **decision 13 is new**: borrowed decode spans as a facade option, the largest decode effect the branch has measured. |
 | W2 | **Freeze the shapes and the payload set.** | **Done.** `schema/shapes.json` is the description, `schema/generated/` carries the emitted `.proto` and a payload manifest with a hash per payload, and the Rust slice has confirmed every hash against prost 0.14.4 and a second, independent encoder. One defect was found and fixed in `emit/payloads.py`; 8 of 16 hashes moved. A slice that disagrees with a hash now has a defect in itself, **with one measured exception: P2.5 has two valid encodings** and the manifest records prost's. protobuf C++ and upb both write an empty map value, at +80 B, so four of the five languages will disagree with that hash and be right. See `design/SHAPES.md`; taken literally the old sentence would have raised a false defect in three unbuilt slices. |
-| W3 | **Rust slice.** Section 4.1. | **Done.** Four arms over every message and payload of `design/SHAPES.md`, all byte-identical to the validated manifest, plus the three content sets, the unknown-field vectors and the RPC arm. The decomposition every other slice subtracts is available: **a crossing costs 1.8 ns through a shared library**, and the RPC half costs **two crossings per call, zero per field**. See [`findings/rust.md`](findings/rust.md) for what it does not establish, which is longer than what it does. |
+| W3 | **Rust slice.** Section 4.1. | **Done.** Four arms over every message and payload of `design/SHAPES.md`, all byte-identical to the validated manifest, plus the three content sets, the unknown-field vectors and the RPC arm. The decomposition every other slice subtracts is available: **a crossing costs 1.8 ns through a shared library**, and the RPC half costs **two crossings per call, zero per field**. **Stage 5 completes it** with the three things the branch had specified and nobody had built, all landing in the shared core: ABI v1 7.1's **pull decode family** (one emitter, both families; pull's reverse count is zero everywhere, so it REMOVES the upcalls rather than reducing them, at −5 to +18 percent of a push decode on this host), obligation 12.5's **concurrency suite** (0 wrong of 2,840 encodes and 2,840 decodes), and section 3's **`ak_init` and lifecycle** (the guard is ±0.003 ns). **Its positive control found the branch's most serious defect**: a shared encode context aborts the process rather than producing wrong bytes, because the panic cannot unwind through `extern "C"`. See [`findings/rust.md`](findings/rust.md) for what it does not establish, which is still longer than what it does. |
 | W4 | **C++ slice on the amended ABI.** Rebuild against W1, re-measure against protobuf C++, and demonstrate the C++11 floor. **Done.** Full codec plus the RPC arm; shared library primary, static as a separately labelled second arm. It carried decision 1 and settled it. **Done.** See [`findings/cpp.md`](findings/cpp.md). "The managed amendments are free in C++" is now a measurement and the answer is no, not uniformly. 28 adversarial review findings answered, moving the encode column about 8 points and the RPC verdict 0.3, plus two arms nobody asked for: upb as a ceiling, and a borrowed-string facade. |
 | W5 | **C# slice.** ~~Import the existing slice~~, rebuild against W1, then close its two named gaps: a managed decode control, and oneofs plus explicit presence. **There is nothing to import**: no branch carries the prior slice's sources and only the published report survives, so this is a rebuild and open question 1 is moot. **Done for M1, not for the shape set**; see [`findings/csharp.md`](findings/csharp.md). The named gap is closed: **C# does not look like Java on decode** (a generated pure-C# codec at 0.72-0.82 of `Google.Protobuf` on the real schema's shapes), oneof and explicit presence are covered in the facade and the managed codec, and the floor builds and passes on netstandard2.0 and on Mono. **The `core-ffi` arm is not built**, so half of W5 remains and the ABI half of the two field shapes with it. | Both gaps have numbers, and the floor (netstandard2.0 or net48) compiles and passes correctness. |
-| W6 | **Java slice.** ~~Import~~, rebuild against W1, re-measure encode, and keep the generated-Java-codec arm as a first-class candidate. Nothing to import here either. **Done**; see [`findings/java.md`](findings/java.md). **The encode regression does not survive and the decode half of the verdict does**: the C ABI is 0.58-0.96 on encode and 1.22-1.62 on every M2 decode, where the generated Java codec beats it. The published regression is reconstructible from an incumbent that memoizes its size pass. The batching prediction was confirmed quantitatively, decisions 9 and 13 are answered for a managed host, and section 9's virtual-thread amendment is measured. No grpc-java comparison exists. | The encode verdict is stated against ABI v1, on JDK 17 with JNI, with the Java 8 floor demonstrated. |
+| W6 | **Java slice.** ~~Import~~, rebuild against W1, re-measure encode, and keep the generated-Java-codec arm as a first-class candidate. Nothing to import here either. **Done**; see [`findings/java.md`](findings/java.md). **The encode regression does not survive and the decode half of the verdict does**: the C ABI is 0.58-0.96 on encode and 1.22-1.62 on every M2 decode, where the generated Java codec beats it. The published regression is reconstructible from an incumbent that memoizes its size pass. The batching prediction was confirmed quantitatively, decisions 9 and 13 are answered for a managed host, and section 9's virtual-thread amendment is measured. **It then retracted two of its own published claims** on the JIT's compilation log: R9's hazard is C2 pruning an unreached branch rather than deoptimisation, and it shifts a probability rather than imposing a 2.16x cost. **README 9.1's C-shim arm is priced and refused** — a JNI field store is a third of an upcall, so on the JVM a transition can only be made rarer, not cheaper, which is 7.1's pull family and nothing else. No grpc-java transport comparison exists, and no pull arm. | The encode verdict is stated against ABI v1, on JDK 17 with JNI, with the Java 8 floor demonstrated. |
 | W7 | **Python slice.** Section 9. **Work unit 1 done**, slice proper not started; see [`findings/python.md`](findings/python.md). The mechanism is settled (C extension; `ctypes` and `cffi` refused for the codec, their callback being 165-170x a C-to-C call), the storage is settled for encode, and 9.1's premise holds. **It also removed outcome 2 from the table for Python**: the generated pure-Python codec is 19.4 to 20.3 times upb. | Python has a verdict of the same shape as the others, or a stated reason why the question is different there. |
 | W8 | **Conformance corpus.** Section 10. **Done**, on its own branch: `corpus/` holds a generator, **336 vectors** (74 unknown-field, 30 empty, 145 shape, 53 transcode, 8 chunking, 18 malformed, 8 baseline), a manifest carrying a *set* of accepted encodings per vector, projections of what a reader must SEE, a consumer contract so five slices do not each invent one, and a gate with a selftest. Validated against upb, an implementation sharing no code with the writer. **No slice consumes it yet**, and the first one that does is the second opinion. | Every slice produces and consumes the same bytes, and the corpus is generated rather than curated. |
 | W10 | **Consolidate the core into `poc/codec/`.** Move the emitters out of `poc/rust/gen/` and the crates out of `poc/rust/crates/`, fold in the C++ slice's counting entry point and the Java slice's two transcoders, and re-point every slice at one path dependency. | No slice contains a copy of the core, every slice's correctness gate passes against the shared one, and `codec.rs` exists once. **Low measurement risk**: the emitted codec is already byte-identical in three slices and both deltas are additive, so this re-gates rather than re-measures. |
@@ -534,23 +554,53 @@ and the default is the one *least* favourable to the managed arms. Two vCPUs is
 the smallest contention a shared cache line can have, so a concurrency figure
 from it is a lower bound and not a figure.
 
-**The JVM hazard this rule used to state is real, is larger than stated, and was
-wrong in four of five particulars.** The java slice measured it rather than
-avoiding it. Reading a **Latin-1** `String`'s characters before the first
-measurement — which one `String.format` does internally — makes every
-protobuf-java arm **2.16 times faster**, makes a generated Java codec 1.27 times
-slower, and leaves the C ABI arm **unmoved**. So: it reproduces on **JDK 17 and
-not on 21**; the trigger is any read of a Latin-1 `String`'s chars rather than a
-numeric conversion, and a wide string does nothing; no narrowing loop is
-involved; the incumbent gets *faster*, not slower; and **nothing happens on ASCII
-at all, on either JDK, which is why every published managed figure has been blind
-to it**. A slice measures this and says which content set each string-path figure
-came from.
+**The JVM hazard this rule used to state is real and larger than stated, and the
+correction published here has itself been corrected once.** The java slice
+measured it rather than avoiding it, and then took the JIT's own compilation log
+rather than inferring from which triggers fire. Both readings are in the tree
+(`logs/java/deopt.log`, then `logs/java/r9-mechanism.log`); what survives is this.
 
-**The immunity is itself a result.** The C ABI arm does not move, because ABI v1
-section 4 put the transcoder in the core, so that arm has no `charAt` loop for the
-JIT to profile. It is the only arm insensitive to the host JIT's profile history,
-and it is an argument for the design that no benchmark was looking for.
+**The mechanism is branch pruning, not deoptimisation.** In every slow run C2
+emits `inline_fail reason='call site not reached'` for `StringUTF16.charAt` at
+both `charAt` sites in protobuf-java's `encodeUtf8`, and in every fast run it
+compiles that branch with the `_getCharStringU` intrinsic. The payload's strings
+are all above U+00FF, so the pruned branch is the one the measurement needs.
+Runtime `uncommon_trap` events are 9 in the slow state against 11 in the fast one:
+**the slow state has fewer traps, not more**, which is what rules deoptimisation
+out.
+
+**The effect is a probability, not a penalty.** Ten runs per mode land at about
+620 us or about 1,250 us with an empty gap between. A Latin-1 probe before the
+measurement reaches the fast state 10 times in 10; with no probe the process gets
+there by itself about 1 run in 10. So the **2.16 times** this rule used to quote is
+a ratio of two modes, not a cost a probe removes, and a single unprobed run is a
+coin toss that lands slow nine times out of ten. **A published managed figure with
+no repeat count is uninterpretable on this hazard**, which is the rule's real
+content.
+
+Four clauses of the earlier correction stand: it reproduces on **JDK 17 and not on
+21**; the trigger is a read of a Latin-1 `String`'s chars rather than a numeric
+conversion; no narrowing loop is involved; and **nothing happens on ASCII at all,
+on either JDK, which is why every published managed figure has been blind to it**.
+Two do not. The **1.27 times slower** reported for a generated Java codec was
+attributed to a profile shared with protobuf-java's encoder, and the same logs
+refute it: `ak.Utf8.encode` and `ak.Utf8.length` compile identically in all four
+modes, never pruned, intrinsic always applied. And **the `String.format` trigger
+this rule names no longer reproduces at all** (0 of 13 runs, against 4 of 4 when
+it was first recorded), which the slice records as unexplained rather than
+explaining. A slice measures this, repeats it, and says which content set each
+string-path figure came from.
+
+**The immunity survives the correction and is itself a result.** The C ABI arm
+does not move, in either reading, because ABI v1 section 4 put the transcoder in
+the core: that arm has no `charAt` site for C2 to prune. It is the only arm
+insensitive to the host JIT's profile history, and it is an argument for the
+design that no benchmark was looking for.
+
+**And the instrument is part of the hazard.** `-XX:+TraceDeoptimization` and
+`-Xlog:deoptimization` do not exist on a product build; `-XX:+LogCompilation`
+preserves the effect; **JFR erases it** (642 us against 1,261). Where a hazard is
+this shape, the first measurement is of the instruments.
 
 **R10. Keep a defect log.** Each slice records the defects found in it and what
 found them. Three of the most useful findings in the existing reports are defects
@@ -716,6 +766,31 @@ What follows from it:
 - **One control arm settles the premise rather than assuming it**: the same
   codec with Python-level accessors, measured once. If it is not clearly worse,
   the extra layer is not earning its place.
+
+**This shape is Python's, and the java slice established that it does not
+generalise — by pricing it rather than by building it.** The JVM analogue is a
+generated C shim that writes facade fields through the JNI API instead of
+upcalling into Java, and it was the most promising thing left unbuilt on the host
+with the dearest crossing. Its primitives say it cannot win: a `SetObjectField`
+is **26.7 ns under G1** and 13.7 under Parallel or Serial, against a cached upcall
+of 72 to 80 ns on the same machine. **A JNI field store is a third of a whole
+upcall**, so the crossover between one upcall carrying k stores in bytecode and k
+JNI stores with no upcall sits at **k = 2 to 3**, and `TaskDetailed`'s apply is k
+= 30 — about 790 ns of stores against about 80 ns of transition plus the same
+stores at a few ns each, plus 123 to 139 ns per element for `NewObject` where Java
+pays a bytecode `new`.
+
+**The two hosts differ in the ratio the section rests on.** On CPython a C-API
+call on a primitive is far below interpreter re-entry, so speaking the C API
+removes crossings and pays; on the JVM the cheapest thing that crosses is already
+a third of a transition, so **a transition cannot be made cheaper, only rarer** —
+which is ABI v1 7.1's pull family and open decision 10, not a second independent
+route to it. Section 9.1 is therefore a Python design default and not an ABI-wide
+one, and any later slice tempted by the shape prices its primitives first. Kept
+for its own sake from the same probe: `SetObjectField` and
+`SetObjectArrayElement` both double under G1 against Parallel and Serial while
+`SetIntField` does not move, which is the G1 write barrier priced for any native
+code storing a reference into a Java object.
 
 ### 9.2 The packaging constraint this creates
 
