@@ -404,10 +404,23 @@ pub const AK_QUEUE_SHUTDOWN: i32 = 2;
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
 pub struct ak_client_opts {
+    /// `SETTINGS_INITIAL_WINDOW_SIZE`, per stream. 0 leaves the stack's default.
+    /// ArmoniK: 4 MiB.
     pub stream_window: u32,
+    /// The connection-level window, a SEPARATE setting from the one above. 0 leaves the
+    /// stack's default. Raising only the stream window is the mistake this entry point
+    /// exists to make impossible to repeat.
     pub connection_window: u32,
+    /// 1 on, 0 off, -1 leave the default (off). Adaptive sizing OVERRIDES the two windows
+    /// above, so pinning a window and enabling this is a contradiction, not belt and braces.
+    pub adaptive_window: i32,
+    /// Largest message the client will accept, bytes. 0 leaves the stack's default.
     pub max_recv_message: u32,
+    /// Largest message the client will send, bytes. 0 leaves the stack's default.
     pub max_send_message: u32,
+    /// Nagle's algorithm, in ArmoniK's sense and spelling (`tcp_nagle_algorithm`):
+    /// 1 enables Nagle, 0 disables it, -1 leaves the default. ArmoniK ships it OFF.
+    pub tcp_nagle: i32,
 }
 
 /// Boundary-call counts, from the counting build (README R5). Counted in the CORE, so a
