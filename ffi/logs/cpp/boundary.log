@@ -1,5 +1,12 @@
+# R5, from the built artifacts -- and half two rebuilt after C18
+#   date            2026-09-20T08:52:31Z
+#   machine         Linux 6.18.44-fc-v37 x86_64, 4 vCPU
+#   compiler        g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, -O2 -g -DNDEBUG
+#   core            THE shared ak-core at ffi/poc/codec (R0)
+#   commit          4af8d2b8 + the working tree this log was taken from
+
 == half one: does the FFI arm cross? ==
-  shared: 37 ak_* symbols are UNDEFINED dynamic imports; the per-message ones are:
+  shared: 38 ak_* symbols are UNDEFINED dynamic imports; the per-message ones are:
                     U ak_decode_DualResponse
                     U ak_decode_ListMetricsResponse
                     U ak_decode_ListProbeResponse
@@ -23,16 +30,16 @@
                     U ak_encode_UploadResultDataMessage
   [ok]   shared arm: the boundary is a real dynamic import
 
-  static: 64 ak_* symbols are DEFINED in the image (that is what static linkage is)
-    ak_encode_ListResultsResponse             482 B entry point, 3 call sites
+  static: 66 ak_* symbols are DEFINED in the image (that is what static linkage is)
+    ak_encode_ListResultsResponse             482 B entry point, 6 call sites
   [ok]   static arm: ak_encode_ListResultsResponse is CALLED, not inlined away
-    ak_decode_ListResultsResponse           14524 B entry point, 1 call sites
+    ak_decode_ListResultsResponse           14524 B entry point, 2 call sites
   [ok]   static arm: ak_decode_ListResultsResponse is CALLED, not inlined away
-    ak_elem_ResultRaw                        3061 B entry point, 5 call sites
+    ak_elem_ResultRaw                        3061 B entry point, 10 call sites
   [ok]   static arm: ak_elem_ResultRaw is CALLED, not inlined away
-    ak_encode_ListTasksDetailedResponse       482 B entry point, 3 call sites
+    ak_encode_ListTasksDetailedResponse       482 B entry point, 6 call sites
   [ok]   static arm: ak_encode_ListTasksDetailedResponse is CALLED, not inlined away
-    ak_elemu_TaskDetailed                     777 B entry point, 5 call sites
+    ak_elemu_TaskDetailed                     777 B entry point, 10 call sites
   [ok]   static arm: ak_elemu_TaskDetailed is CALLED, not inlined away
 
   static + -flto (R5's named hazard, built on purpose):
@@ -46,46 +53,43 @@
     assumed, and it would not hold for a core compiled by the same LTO.
 
 == half two: is the no-boundary control fused into the benchmark loop? ==
-  bench_a17_shared:
-        3976 B  shapes::native::decode_list_metrics_response(unsigned char const*, unsigned long, shapes::ListMetricsResponse*)
-        3162 B  shapes::native::encode_into_list_metrics_response(shapes::ListMetricsResponse const&, ak::Enc*)
-        3043 B  shapes::native::encode_into_list_results_response(shapes::ListResultsResponse const&, ak::Enc*)
-        2903 B  shapes::native::enc_task_detailed(shapes::TaskDetailed const&, ak::Enc*)
-        2147 B  shapes::native::decode_list_probe_response(unsigned char const*, unsigned long, shapes::ListProbeResponse*)
-        1647 B  shapes::native::encode_into_list_probe_response(shapes::ListProbeResponse const&, ak::Enc*)
-         972 B  shapes::native::encode_into_list_tasks_detailed_response(shapes::ListTasksDetailedResponse const&, ak::Enc*)
-         107 B  shapes::native::decode_list_probe_response(unsigned char const*, unsigned long, shapes::ListProbeResponse*) [clone .cold]
-          94 B  shapes::native::decode_list_tasks_detailed_response(unsigned char const*, unsigned long, shapes::ListTasksDetailedResponse*)
-          94 B  shapes::native::decode_list_results_response(unsigned char const*, unsigned long, shapes::ListResultsResponse*)
-    largest timing closure in the image: 1433 B
-  [ok]   bench_a17_shared: shapes::native::encode_into_list_results_response is 3043 B, larger than any timing closure (1433 B)
-  [ok]   bench_a17_shared: shapes::native::enc_task_detailed is 2903 B, larger than any timing closure (1433 B)
-  [ok]   bench_a17_shared: shapes::native::dec_list_results_response is 1699 B, larger than any timing closure (1433 B)
-  [ok]   bench_a17_shared: shapes::native::dec_list_tasks_detailed_response is 3501 B, larger than any timing closure (1433 B)
-  [ok]   bench_a17_shared: shapes::native::decode_list_metrics_response is 3976 B, larger than any timing closure (1433 B)
-  bench_a17_shared_lto:
-        2903 B  shapes::native::enc_task_detailed(shapes::TaskDetailed const&, ak::Enc*)
-        2315 B  shapes::native::encode_into_list_metrics_response(shapes::ListMetricsResponse const&, ak::Enc*)
-        2291 B  shapes::native::decode_list_metrics_response(unsigned char const*, unsigned long, shapes::ListMetricsResponse*)
-        2125 B  shapes::native::decode_list_probe_response(unsigned char const*, unsigned long, shapes::ListProbeResponse*)
-        1214 B  shapes::native::encode_into_list_results_response(shapes::ListResultsResponse const&, ak::Enc*)
-         944 B  shapes::native::encode_into_list_probe_response(shapes::ListProbeResponse const&, ak::Enc*)
-         707 B  shapes::native::encode_into_list_tasks_detailed_response(shapes::ListTasksDetailedResponse const&, ak::Enc*)
-          94 B  shapes::native::decode_list_tasks_detailed_response(unsigned char const*, unsigned long, shapes::ListTasksDetailedResponse*)
-          94 B  shapes::native::decode_list_results_response(unsigned char const*, unsigned long, shapes::ListResultsResponse*)
-          41 B  shapes::native::decode_list_probe_response(unsigned char const*, unsigned long, shapes::ListProbeResponse*) [clone .cold]
-    largest timing closure in the image: 1433 B
-    [control FIRED] shapes::native::encode_into_list_results_response is only 1214 B against a 1433 B closure -- which is
-      what the check is for, and why no figure comes from this binary
-    [control] shapes::native::enc_task_detailed is 2903 B, still larger than any closure (1433 B)
-    [control FIRED] shapes::native::dec_list_results_response is only 1155 B against a 1433 B closure -- which is
-      what the check is for, and why no figure comes from this binary
-    [control] shapes::native::dec_list_tasks_detailed_response is 4585 B, still larger than any closure (1433 B)
-    [control] shapes::native::decode_list_metrics_response is 2291 B, still larger than any closure (1433 B)
-  The control is reached through a FUNCTION POINTER passed to the case runner, so its
-  address is taken and an out-of-line body must exist; the sizes above say the loop is
-  not carrying a copy of it.
 
-boundary: 13 checks passed, 0 failed
-and the -flto POSITIVE CONTROL fired on 2 symbols, which is what says the
-check above is capable of failing. No figure in this slice comes from that binary.
+  C18. This used to ask whether the control function was LARGER than the largest
+  timing closure in the image and take that as evidence it was not copied into one.
+  Size is a proxy for fusion, not a test of it, and its positive control was -flto,
+  which fires only when the optimiser happens to fuse something. After the core moved
+  (W10) the largest closure went from 1433 B to 911 B, the 1155 B control landed on
+  the other side of the line, and the control went quiet without anyone deciding it
+  should. A size-threshold control is fragile by construction.
+
+  Two direct properties instead, and a fixture that proves the checker can report
+  both. The control is reached through a FUNCTION POINTER handed to the case runner,
+  so there is no direct call site to count -- what fusion would destroy is (1) the
+  out-of-line body and (2) the call instruction in the closure.
+
+  the checker's own control (src/fusion_probe.cpp): one function that MUST be called
+  and one that MUST be fused, both by construction rather than by optimisation level
+  [ok]   the counter sees the call in ak_probe_loop_called (1)
+  [ok]   the counter sees fusion: ak_probe_loop_fused has 0 calls
+  [ok]   ak_probe_called has an out-of-line body (59 B)
+
+  bench_a17_shared:
+  [ok]   bench_a17_shared: all 10 timing closures still call out
+  [ok]   bench_a17_shared: shapes::native::encode_into_list_results_response has an out-of-line body (3043 B)
+  [ok]   bench_a17_shared: shapes::native::enc_task_detailed has an out-of-line body (2903 B)
+  [ok]   bench_a17_shared: shapes::native::dec_list_results_response has an out-of-line body (1699 B)
+  [ok]   bench_a17_shared: shapes::native::dec_list_tasks_detailed_response has an out-of-line body (3501 B)
+  [ok]   bench_a17_shared: shapes::native::decode_list_metrics_response has an out-of-line body (3976 B)
+  bench_a17_shared_lto:
+  [ok]   bench_a17_shared_lto: all 7 timing closures still call out
+  [ok]   bench_a17_shared_lto: shapes::native::encode_into_list_results_response has an out-of-line body (1214 B)
+  [ok]   bench_a17_shared_lto: shapes::native::enc_task_detailed has an out-of-line body (2903 B)
+  [ok]   bench_a17_shared_lto: shapes::native::dec_list_results_response has an out-of-line body (1155 B)
+  [ok]   bench_a17_shared_lto: shapes::native::dec_list_tasks_detailed_response has an out-of-line body (4846 B)
+  [ok]   bench_a17_shared_lto: shapes::native::decode_list_metrics_response has an out-of-line body (2291 B)
+  The control is reached through a FUNCTION POINTER passed to the case runner, so its
+  address is taken and an out-of-line body must exist. Both properties above are the
+  question itself rather than a proxy for it, and the fixture says the checker can
+  report either answer.
+
+boundary: 23 checks passed, 0 failed
