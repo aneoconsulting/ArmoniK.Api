@@ -693,7 +693,7 @@ public static unsafe partial class Abi
 
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
-    internal static partial IntPtr ak_bdr_ptr(IntPtr ctx, nuint* len);
+    internal static partial int ak_bdr_ptr(IntPtr ctx, byte** ptr, nuint* len);
 
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]

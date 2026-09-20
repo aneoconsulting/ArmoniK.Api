@@ -164,7 +164,7 @@ def emit(ir, root):
     o += ""
     o.doc("`cap` is a sizing hint per slot, taken from the graph by the caller. An "
           "undersized array throws here rather than writing past it.", "    ")
-    o += "    public %s(Caps c)" % cls
+    o += "    public %s(Caps c, bool utf16 = false)" % cls
     o += "    {"
     o += "        _ctx = Abi.ak_enc_ctx_new();"
     o += "        if (_ctx == IntPtr.Zero) throw new InvalidOperationException(\"ak_enc_ctx_new returned null\");"
@@ -172,7 +172,7 @@ def emit(ir, root):
     o += "        // the core, so neither costs a crossing. ak_tc_bytes takes UTF-8 the"
     o += "        // host already staged; ak_tc_utf16 reads the host's own UTF-16 in"
     o += "        // place and makes the staging copy unnecessary. AK_UTF16=1 picks it."
-    o += "        _utf16 = Environment.GetEnvironmentVariable(\"AK_UTF16\") == \"1\";"
+    o += "        _utf16 = utf16 || Environment.GetEnvironmentVariable(\"AK_UTF16\") == \"1\";"
     o += "        _tc = _utf16 ? Abi.ak_tc_utf16() : Abi.ak_tc_bytes();"
     o += "        _caps = c;"
     o += "        _stagingCap = c.Bytes;"
@@ -214,6 +214,7 @@ def emit(ir, root):
     emit_loops(o, ir, root, slots)
     emit_encode(o, ir, root, m, slots)
     emit_decode(o, ir, root, m, slots)
+    emit_pull(o, ir, root, m, slots)
     emit_tail(o, root, slots)
     o += "}"
     return str(o)
@@ -230,10 +231,24 @@ def emit_staging(o):
     o += "        if (s == null || s.Length == 0) return default;"
     o += "        if (_utf16)"
     o += "        {"
-    o += "            // The host's own UTF-16, handed over by pointer. Valid only while"
-    o += "            // the caller's `fixed` block holds; Encode takes one over the whole"
-    o += "            // graph, which is why this form needs no staging buffer at all."
-    o += "            return new ak_str { data = (IntPtr)_pin[_npin++], len = (nuint)(s.Length * 2), tc = _tc };"
+    o += "            // **UTF-16 staged, and the core transcodes.** The arm this exists to"
+    o += "            // price is WHO DOES THE TRANSCODE, not whether a copy happens: a"
+    o += "            // zero-copy form would hand the core a pointer into the managed heap,"
+    o += "            // and on .NET that means a pinned GCHandle per string -- 5,000 of them"
+    o += "            // for P1.2 -- which is a different and probably worse trade. So this"
+    o += "            // copies the UTF-16 (a memcpy, no transcode) and lets ak_tc_utf16 do"
+    o += "            // the conversion inside the core, against the staged form's"
+    o += "            // Encoding.UTF8.GetBytes in the host followed by ak_tc_bytes copying."
+    o += "            int nb = s.Length * 2;"
+    o += "            if (at + nb > _stagingCap) throw new InvalidOperationException(\"staging buffer too small\");"
+    o += "            fixed (char* cp = s)"
+    o += "                Buffer.MemoryCopy(cp, _staging + at, _stagingCap - at, nb);"
+    o += "            // `len` is the number of CODE UNITS, not of bytes: ak_tc_utf16 reads"
+    o += "            // `*const u16`. Passing the byte count doubles every string and the"
+    o += "            // byte-identity gate says so immediately -- 1,572 against 858 on P1.1."
+    o += "            var u = new ak_str { data = (IntPtr)(_staging + at), len = (nuint)s.Length, tc = _tc };"
+    o += "            at += nb;"
+    o += "            return u;"
     o += "        }"
     o += "        int n = Encoding.UTF8.GetBytes(s.AsSpan(), new Span<byte>(_staging + at, _stagingCap - at));"
     o += "        var r = new ak_str { data = (IntPtr)(_staging + at), len = (nuint)n, tc = _tc };"
@@ -269,9 +284,7 @@ def emit_staging(o):
     o += "        return StageBytes(v, ref at);"
     o += "    }"
     o += ""
-    o += "    private char** _pin;"
-    o += "    private int _npin, _pinCap;"
-    o += ""
+
 
 
 def emit_loops(o, ir, root, slots):
@@ -425,7 +438,6 @@ def emit_encode(o, ir, root, m, slots):
     o += "    {"
     o += "        Abi.ak_enc_reset(_ctx);"
     o += "        int at = 0;"
-    o += "        _npin = 0;"
     o += "        var fix = new ak_efix_%s();" % root
     lines = []
     fill(ir, m, "fix", "src", "        ", lines, True)
@@ -928,6 +940,9 @@ def emit_registry(ir, roots, payloads):
     o += "    /// Decodes and returns an O(1) value, so the arm is not timed building a"
     o += "    /// string of the result. The graph is parked in `Sink`."
     o += "    int Decode(byte[] src, int len);"
+    o += "    /// ABI v1 7.1's PULL family: parse into a record stream, then replay it."
+    o += "    /// No reverse call is made at all, which is the claim under test."
+    o += "    int Pull(byte[] src, int len);"
     o += "    object Sink { get; }"
     o += "    bool SameAsSource();"
     o += "    AkCounters EncCounters();"
@@ -945,7 +960,7 @@ def emit_registry(ir, roots, payloads):
         o += "    private readonly CoreFfi_%s _c;" % r
         o += "    private readonly %s _src;" % r
         o += "    private %s _sink;" % r
-        o += "    public Arm_%s(%s src) { _src = src; _c = new CoreFfi_%s(CoreFfi_%s.CapsFor(src)); }" % (r, r, r, r)
+        o += "    public Arm_%s(%s src, bool utf16 = false) { _src = src; _c = new CoreFfi_%s(CoreFfi_%s.CapsFor(src), utf16); }" % (r, r, r, r)
         o += "    public string Root => \"%s\";" % r
         o += "    public int Chunk { get => _c.Chunk; set => _c.Chunk = value; }"
         o += "    public long ForwardCalls => _c.ForwardCalls;"
@@ -954,6 +969,8 @@ def emit_registry(ir, roots, payloads):
         o += "    public int EncodeNoCopy() { _c.Encode(_src, out byte* p, out int l); return l; }"
         o += "    public int Fill() => _c.Fill(_src);"
         o += "    public int Decode(byte[] src, int len) { _sink = _c.Decode(src, len); return %s; }" % (
+            "_sink.%s.Count" % first if first else "1")
+        o += "    public int Pull(byte[] src, int len) { _sink = _c.Pull(src, len); return %s; }" % (
             "_sink.%s.Count" % first if first else "1")
         o += "    public object Sink => _sink;"
         o += "    public bool SameAsSource() => Eq.Same%s(_sink, _src);" % r
@@ -973,7 +990,7 @@ def emit_registry(ir, roots, payloads):
     o += "    public static readonly string[] Ids = { %s };" % ", ".join(
         '"%s"' % p for p, _ in payloads)
     o += ""
-    o += "    public static ICoreArm New(string id)"
+    o += "    public static ICoreArm New(string id, bool utf16 = false)"
     o += "    {"
     o += "        switch (id)"
     o += "        {"
@@ -985,3 +1002,143 @@ def emit_registry(ir, roots, payloads):
     o += "    }"
     o += "}"
     return str(o)
+
+
+def emit_pull(o, ir, root, m, slots):
+    """The PULL decode family, ABI v1 7.1, on a managed host.
+
+    `design/ABI-v1.md` decision 2: the parameterised emitter is buildable and
+    pull REMOVES the upcalls rather than reducing them, but four of the five
+    slices have only ever measured push, so every decode figure in the branch is
+    a push figure. This is the managed pull arm the decision says settles it.
+
+    `ak_parse_*` makes NO reverse call at all. It appends a record per deposit to
+    a buffer in the host-owned decode context, and the host reads that buffer
+    afterwards. A drained buffer is a log of the reverse calls push would have
+    made, in the order push would have made them, so the replay below is the same
+    per-slot code the vtable would have carried -- which is what makes the two
+    families comparable rather than two decoders.
+
+    The record header is 24 bytes and the payload that follows it is padded to 8,
+    because every `ak_dfix_*` carries an `i64` or an `f64`. The slot id is
+    `(outer << 16) | inner` with both halves 1-based and 0 meaning "the group
+    itself", so one `u32` names a root slot, an element's group and an inner run
+    without a second field.
+    """
+    o.doc("The pull family's record header. 24 bytes; the payload follows, padded to 8.",
+          "    ")
+    o += "    [StructLayout(LayoutKind.Sequential)]"
+    o += "    private struct Rec { public uint Op, Slot; public long Token; public uint N, Bytes; }"
+    o += ""
+    o += "    private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;"
+    o += ""
+    o.doc("Parse, then replay. The parse makes ZERO reverse calls, which is the whole "
+          "claim; the replay is managed code walking a byte buffer, so it makes none "
+          "either. `ForwardCalls` counts two -- `ak_parse_*` and `ak_bdr_ptr` -- and "
+          "`ReverseCalls` stays at zero, and that is the measurement.", "    ")
+    o += "    public %s Pull(byte[] src, int len)" % root
+    o += "    {"
+    o += "        if (_dctx == IntPtr.Zero)"
+    o += "        {"
+    o += "            _dctx = Abi.ak_dec_ctx_new();"
+    o += "            _drun = (DecRun*)NativeMemory.Alloc((nuint)sizeof(DecRun));"
+    o += "        }"
+    o += "        var t = new %s();" % root
+    o += "        fixed (byte* b = src)"
+    o += "        {"
+    o += "            _fwd++;"
+    o += "            int rc = Abi.ak_parse_%s(_dctx, b, (nuint)len);" % root
+    o += "            if (rc < 0) throw new InvalidOperationException($\"core parse failed: {rc}\");"
+    o += "            byte* recs; nuint rlen;"
+    o += "            _fwd++;"
+    o += "            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);"
+    o += "            if (pr != 0) throw new InvalidOperationException($\"ak_bdr_ptr failed: {pr}\");"
+    o += "            Replay(t, b, recs, (int)rlen);"
+    o += "        }"
+    o += "        return t;"
+    o += "    }"
+    o += ""
+    o += "    private static void Replay(%s t, byte* b, byte* p, int len)" % root
+    o += "    {"
+    o += "        int at = 0;"
+    o += "        while (at + sizeof(Rec) <= len)"
+    o += "        {"
+    o += "            ref var r = ref *(Rec*)(p + at);"
+    o += "            byte* body = p + at + sizeof(Rec);"
+    o += "            at += sizeof(Rec) + (int)r.Bytes;"
+    o += "            uint outer = r.Slot >> 16, inner = r.Slot & 0xFFFF;"
+    o += "            switch (r.Op)"
+    o += "            {"
+    o += "                case OP_APPLY:"
+    o += "                {"
+    o += "                    ref var d = ref *(ak_dfix_%s*)body;" % root
+    lines = []
+    unfill(ir, m, "d", "t", "                    ", lines)
+    for ln in lines:
+        o += ln
+    o += "                    break;"
+    o += "                }"
+    for si, s in enumerate(slots, 1):
+        if s.leaf:
+            o += "                case OP_ADD when r.Slot == %d:" % si
+            o += "                {"
+            o += "                    var xs = (%s*)body;" % s.cs_delem
+            emit_replay_run(o, ir, s, "t." + s.acc, "                    ")
+            o += "                    break;"
+            o += "                }"
+        else:
+            o += "                case OP_NEW when outer == %d:" % si
+            o += "                    t.%s.Add(new %s());" % (s.acc, s.elem)
+            o += "                    break;"
+            o += "                case OP_APPLY_ELEM when outer == %d:" % si
+            o += "                {"
+            o += "                    var e = t.%s[(int)r.Token];" % s.acc
+            o += "                    ref var d = ref *(ak_dfix_%s*)body;" % s.elem
+            el = []
+            keep = tuple(i.path[0] for i in s.inner if len(i.path) > 1)
+            unfill(ir, ir.msg(s.elem), "d", "e", "                    ", el, keep=keep)
+            for ln in el:
+                o += ln
+            o += "                    break;"
+            o += "                }"
+            for ii, i in enumerate(s.inner, 1):
+                o += "                case OP_ADD when outer == %d && inner == %d:" % (si, ii)
+                o += "                {"
+                o += "                    var e = t.%s[(int)r.Token];" % s.acc
+                holder, cur = "e", ir.msg(s.elem)
+                for pp in i.path[:-1]:
+                    fld = next(x for x in cur.walk() if x.name == pp)
+                    o += "                    e.%s ??= new %s();" % (fld.cs, fld.of)
+                    holder = "%s.%s" % (holder, fld.cs)
+                    cur = ir.msg(fld.of)
+                o += "                    var xs = (%s*)body;" % i.cs_delem
+                emit_replay_run(o, ir, i, "%s.%s" % (holder, i.acc.split(".")[-1]),
+                                "                    ")
+                o += "                    break;"
+                o += "                }"
+    o += "                default: break;"
+    o += "            }"
+    o += "        }"
+    o += "    }"
+    o += ""
+
+
+def emit_replay_run(o, ir, s, lst, ind):
+    o += "%svar lst = %s;" % (ind, lst)
+    if s.kind == "blob":
+        o += "%sfor (int i = 0; i < r.N; i++) lst.Add(Str(b, xs[i]));" % ind
+    elif s.kind == "packed":
+        o += "%sfor (int i = 0; i < r.N; i++) lst.Add(%s);" % (ind, scalar_out(s.f, "xs[i]"))
+    elif s.kind == "map":
+        o += "%sfor (int i = 0; i < r.N; i++) lst[Str(b, xs[i].key)] = Str(b, xs[i].value);" % ind
+    else:
+        o += "%sfor (int i = 0; i < r.N; i++)" % ind
+        o += "%s{" % ind
+        o += "%s    ref var d = ref xs[i];" % ind
+        o += "%s    var e = new %s();" % (ind, s.elem)
+        lines = []
+        unfill(ir, ir.msg(s.elem), "d", "e", ind + "    ", lines)
+        for ln in lines:
+            o += ln
+        o += "%s    lst.Add(e);" % ind
+        o += "%s}" % ind

@@ -46,7 +46,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
 
     /// `cap` is a sizing hint per slot, taken from the graph by the caller. An
     /// undersized array throws here rather than writing past it.
-    public CoreFfi_ListProbeResponse(Caps c)
+    public CoreFfi_ListProbeResponse(Caps c, bool utf16 = false)
     {
         _ctx = Abi.ak_enc_ctx_new();
         if (_ctx == IntPtr.Zero) throw new InvalidOperationException("ak_enc_ctx_new returned null");
@@ -54,7 +54,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         // the core, so neither costs a crossing. ak_tc_bytes takes UTF-8 the
         // host already staged; ak_tc_utf16 reads the host's own UTF-16 in
         // place and makes the staging copy unnecessary. AK_UTF16=1 picks it.
-        _utf16 = Environment.GetEnvironmentVariable("AK_UTF16") == "1";
+        _utf16 = utf16 || Environment.GetEnvironmentVariable("AK_UTF16") == "1";
         _tc = _utf16 ? Abi.ak_tc_utf16() : Abi.ak_tc_bytes();
         _caps = c;
         _stagingCap = c.Bytes;
@@ -106,10 +106,24 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         if (s == null || s.Length == 0) return default;
         if (_utf16)
         {
-            // The host's own UTF-16, handed over by pointer. Valid only while
-            // the caller's `fixed` block holds; Encode takes one over the whole
-            // graph, which is why this form needs no staging buffer at all.
-            return new ak_str { data = (IntPtr)_pin[_npin++], len = (nuint)(s.Length * 2), tc = _tc };
+            // **UTF-16 staged, and the core transcodes.** The arm this exists to
+            // price is WHO DOES THE TRANSCODE, not whether a copy happens: a
+            // zero-copy form would hand the core a pointer into the managed heap,
+            // and on .NET that means a pinned GCHandle per string -- 5,000 of them
+            // for P1.2 -- which is a different and probably worse trade. So this
+            // copies the UTF-16 (a memcpy, no transcode) and lets ak_tc_utf16 do
+            // the conversion inside the core, against the staged form's
+            // Encoding.UTF8.GetBytes in the host followed by ak_tc_bytes copying.
+            int nb = s.Length * 2;
+            if (at + nb > _stagingCap) throw new InvalidOperationException("staging buffer too small");
+            fixed (char* cp = s)
+                Buffer.MemoryCopy(cp, _staging + at, _stagingCap - at, nb);
+            // `len` is the number of CODE UNITS, not of bytes: ak_tc_utf16 reads
+            // `*const u16`. Passing the byte count doubles every string and the
+            // byte-identity gate says so immediately -- 1,572 against 858 on P1.1.
+            var u = new ak_str { data = (IntPtr)(_staging + at), len = (nuint)s.Length, tc = _tc };
+            at += nb;
+            return u;
         }
         int n = Encoding.UTF8.GetBytes(s.AsSpan(), new Span<byte>(_staging + at, _stagingCap - at));
         var r = new ak_str { data = (IntPtr)(_staging + at), len = (nuint)n, tc = _tc };
@@ -144,9 +158,6 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         if (v.Length == 0) return new ak_str { data = IntPtr.Zero, len = 0, tc = Abi.ak_tc_bytes() };
         return StageBytes(v, ref at);
     }
-
-    private char** _pin;
-    private int _npin, _pinCap;
 
     /// One reverse call per slot. For a LEAF element the whole run goes over in one
     /// forward call whatever its length, which is ABI v1 section 6's batching
@@ -187,7 +198,6 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     {
         Abi.ak_enc_reset(_ctx);
         int at = 0;
-        _npin = 0;
         var fix = new ak_efix_ListProbeResponse();
         _run->Chunk = Chunk;
         {
@@ -379,6 +389,98 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         }
         finally { h.Free(); }
         return target;
+    }
+
+    /// The pull family's record header. 24 bytes; the payload follows, padded to 8.
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Rec { public uint Op, Slot; public long Token; public uint N, Bytes; }
+
+    private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;
+
+    /// Parse, then replay. The parse makes ZERO reverse calls, which is the whole
+    /// claim; the replay is managed code walking a byte buffer, so it makes none
+    /// either. `ForwardCalls` counts two -- `ak_parse_*` and `ak_bdr_ptr` -- and
+    /// `ReverseCalls` stays at zero, and that is the measurement.
+    public ListProbeResponse Pull(byte[] src, int len)
+    {
+        if (_dctx == IntPtr.Zero)
+        {
+            _dctx = Abi.ak_dec_ctx_new();
+            _drun = (DecRun*)NativeMemory.Alloc((nuint)sizeof(DecRun));
+        }
+        var t = new ListProbeResponse();
+        fixed (byte* b = src)
+        {
+            _fwd++;
+            int rc = Abi.ak_parse_ListProbeResponse(_dctx, b, (nuint)len);
+            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
+            byte* recs; nuint rlen;
+            _fwd++;
+            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
+            Replay(t, b, recs, (int)rlen);
+        }
+        return t;
+    }
+
+    private static void Replay(ListProbeResponse t, byte* b, byte* p, int len)
+    {
+        int at = 0;
+        while (at + sizeof(Rec) <= len)
+        {
+            ref var r = ref *(Rec*)(p + at);
+            byte* body = p + at + sizeof(Rec);
+            at += sizeof(Rec) + (int)r.Bytes;
+            uint outer = r.Slot >> 16, inner = r.Slot & 0xFFFF;
+            switch (r.Op)
+            {
+                case OP_APPLY:
+                {
+                    ref var d = ref *(ak_dfix_ListProbeResponse*)body;
+                    break;
+                }
+                case OP_ADD when r.Slot == 1:
+                {
+                    var xs = (ak_dfix_Probe*)body;
+                    var lst = t.Probes;
+                    for (int i = 0; i < r.N; i++)
+                    {
+                        ref var d = ref xs[i];
+                        var e = new Probe();
+                        e.Id = Str(b, d.id);
+                        e.OptCount = (d.presence & AkPresent.AK_DFIX_PROBE_PRESENT_OPT_COUNT) != 0 ? d.opt_count : null;
+                        e.OptLabel = (d.presence & AkPresent.AK_DFIX_PROBE_PRESENT_OPT_LABEL) != 0 ? Str(b, d.opt_label) : null;
+                        e.OptFlag = (d.presence & AkPresent.AK_DFIX_PROBE_PRESENT_OPT_FLAG) != 0 ? d.opt_flag != 0 : null;
+                        e.BodyCase = (ProbeBodyCase)d.body_case;
+                        switch (d.body_case)
+                        {
+                            case 10:
+                                e.AsInt = d.body_as_int; break;
+                            case 11:
+                                e.AsText = Str(b, d.body_as_text); break;
+                            case 12:
+                                e.AsBlob = Bytes(b, d.body_as_blob); break;
+                            case 13:
+                                {
+                                    e.AsStamp = new Timestamp();
+                                    e.AsStamp.Seconds = d.body_as_stamp.seconds;
+                                    e.AsStamp.Nanos = d.body_as_stamp.nanos;
+                                    break;
+                                }
+                            case 14:
+                                {
+                                    e.AsNothing = new Empty();
+                                    break;
+                                }
+                            default: break;
+                        }
+                        lst.Add(e);
+                    }
+                    break;
+                }
+                default: break;
+            }
+        }
     }
 
     /// Zero the host's own tally. The core's counters have their own reset.

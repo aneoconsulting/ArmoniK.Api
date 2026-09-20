@@ -67,7 +67,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 
     /// `cap` is a sizing hint per slot, taken from the graph by the caller. An
     /// undersized array throws here rather than writing past it.
-    public CoreFfi_ListTasksDetailedResponse(Caps c)
+    public CoreFfi_ListTasksDetailedResponse(Caps c, bool utf16 = false)
     {
         _ctx = Abi.ak_enc_ctx_new();
         if (_ctx == IntPtr.Zero) throw new InvalidOperationException("ak_enc_ctx_new returned null");
@@ -75,7 +75,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         // the core, so neither costs a crossing. ak_tc_bytes takes UTF-8 the
         // host already staged; ak_tc_utf16 reads the host's own UTF-16 in
         // place and makes the staging copy unnecessary. AK_UTF16=1 picks it.
-        _utf16 = Environment.GetEnvironmentVariable("AK_UTF16") == "1";
+        _utf16 = utf16 || Environment.GetEnvironmentVariable("AK_UTF16") == "1";
         _tc = _utf16 ? Abi.ak_tc_utf16() : Abi.ak_tc_bytes();
         _caps = c;
         _stagingCap = c.Bytes;
@@ -193,10 +193,24 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         if (s == null || s.Length == 0) return default;
         if (_utf16)
         {
-            // The host's own UTF-16, handed over by pointer. Valid only while
-            // the caller's `fixed` block holds; Encode takes one over the whole
-            // graph, which is why this form needs no staging buffer at all.
-            return new ak_str { data = (IntPtr)_pin[_npin++], len = (nuint)(s.Length * 2), tc = _tc };
+            // **UTF-16 staged, and the core transcodes.** The arm this exists to
+            // price is WHO DOES THE TRANSCODE, not whether a copy happens: a
+            // zero-copy form would hand the core a pointer into the managed heap,
+            // and on .NET that means a pinned GCHandle per string -- 5,000 of them
+            // for P1.2 -- which is a different and probably worse trade. So this
+            // copies the UTF-16 (a memcpy, no transcode) and lets ak_tc_utf16 do
+            // the conversion inside the core, against the staged form's
+            // Encoding.UTF8.GetBytes in the host followed by ak_tc_bytes copying.
+            int nb = s.Length * 2;
+            if (at + nb > _stagingCap) throw new InvalidOperationException("staging buffer too small");
+            fixed (char* cp = s)
+                Buffer.MemoryCopy(cp, _staging + at, _stagingCap - at, nb);
+            // `len` is the number of CODE UNITS, not of bytes: ak_tc_utf16 reads
+            // `*const u16`. Passing the byte count doubles every string and the
+            // byte-identity gate says so immediately -- 1,572 against 858 on P1.1.
+            var u = new ak_str { data = (IntPtr)(_staging + at), len = (nuint)s.Length, tc = _tc };
+            at += nb;
+            return u;
         }
         int n = Encoding.UTF8.GetBytes(s.AsSpan(), new Span<byte>(_staging + at, _stagingCap - at));
         var r = new ak_str { data = (IntPtr)(_staging + at), len = (nuint)n, tc = _tc };
@@ -231,9 +245,6 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         if (v.Length == 0) return new ak_str { data = IntPtr.Zero, len = 0, tc = Abi.ak_tc_bytes() };
         return StageBytes(v, ref at);
     }
-
-    private char** _pin;
-    private int _npin, _pinCap;
 
     /// One reverse call per slot. For a LEAF element the whole run goes over in one
     /// forward call whatever its length, which is ABI v1 section 6's batching
@@ -354,7 +365,6 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     {
         Abi.ak_enc_reset(_ctx);
         int at = 0;
-        _npin = 0;
         var fix = new ak_efix_ListTasksDetailedResponse();
         fix.page = src.Page;
         fix.total = src.Total;
@@ -839,6 +849,216 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         }
         finally { h.Free(); }
         return target;
+    }
+
+    /// The pull family's record header. 24 bytes; the payload follows, padded to 8.
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Rec { public uint Op, Slot; public long Token; public uint N, Bytes; }
+
+    private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;
+
+    /// Parse, then replay. The parse makes ZERO reverse calls, which is the whole
+    /// claim; the replay is managed code walking a byte buffer, so it makes none
+    /// either. `ForwardCalls` counts two -- `ak_parse_*` and `ak_bdr_ptr` -- and
+    /// `ReverseCalls` stays at zero, and that is the measurement.
+    public ListTasksDetailedResponse Pull(byte[] src, int len)
+    {
+        if (_dctx == IntPtr.Zero)
+        {
+            _dctx = Abi.ak_dec_ctx_new();
+            _drun = (DecRun*)NativeMemory.Alloc((nuint)sizeof(DecRun));
+        }
+        var t = new ListTasksDetailedResponse();
+        fixed (byte* b = src)
+        {
+            _fwd++;
+            int rc = Abi.ak_parse_ListTasksDetailedResponse(_dctx, b, (nuint)len);
+            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
+            byte* recs; nuint rlen;
+            _fwd++;
+            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
+            Replay(t, b, recs, (int)rlen);
+        }
+        return t;
+    }
+
+    private static void Replay(ListTasksDetailedResponse t, byte* b, byte* p, int len)
+    {
+        int at = 0;
+        while (at + sizeof(Rec) <= len)
+        {
+            ref var r = ref *(Rec*)(p + at);
+            byte* body = p + at + sizeof(Rec);
+            at += sizeof(Rec) + (int)r.Bytes;
+            uint outer = r.Slot >> 16, inner = r.Slot & 0xFFFF;
+            switch (r.Op)
+            {
+                case OP_APPLY:
+                {
+                    ref var d = ref *(ak_dfix_ListTasksDetailedResponse*)body;
+                    t.Page = d.page;
+                    t.Total = d.total;
+                    break;
+                }
+                case OP_NEW when outer == 1:
+                    t.Tasks.Add(new TaskDetailed());
+                    break;
+                case OP_APPLY_ELEM when outer == 1:
+                {
+                    var e = t.Tasks[(int)r.Token];
+                    ref var d = ref *(ak_dfix_TaskDetailed*)body;
+                    e.Id = Str(b, d.id);
+                    e.SessionId = Str(b, d.session_id);
+                    e.OwnerPodId = Str(b, d.owner_pod_id);
+                    e.Status = (TaskStatus)d.status;
+                    e.StatusMessage = Str(b, d.status_message);
+                    if ((d.presence & AkPresent.AK_DFIX_TASKDETAILED_PRESENT_OPTIONS) != 0)
+                    {
+                        e.Options ??= new TaskOptions();
+                        if ((d.options.presence & AkPresent.AK_DFIX_TASKOPTIONS_PRESENT_MAX_DURATION) != 0)
+                        {
+                            e.Options.MaxDuration = new Duration();
+                            e.Options.MaxDuration.Seconds = d.options.max_duration.seconds;
+                            e.Options.MaxDuration.Nanos = d.options.max_duration.nanos;
+                        }
+                        e.Options.MaxRetries = d.options.max_retries;
+                        e.Options.Priority = d.options.priority;
+                        e.Options.PartitionId = Str(b, d.options.partition_id);
+                        e.Options.ApplicationName = Str(b, d.options.application_name);
+                        e.Options.ApplicationVersion = Str(b, d.options.application_version);
+                        e.Options.ApplicationNamespace = Str(b, d.options.application_namespace);
+                        e.Options.ApplicationService = Str(b, d.options.application_service);
+                        e.Options.EngineType = Str(b, d.options.engine_type);
+                    }
+                    if ((d.presence & AkPresent.AK_DFIX_TASKDETAILED_PRESENT_CREATED_AT) != 0)
+                    {
+                        e.CreatedAt = new Timestamp();
+                        e.CreatedAt.Seconds = d.created_at.seconds;
+                        e.CreatedAt.Nanos = d.created_at.nanos;
+                    }
+                    if ((d.presence & AkPresent.AK_DFIX_TASKDETAILED_PRESENT_SUBMITTED_AT) != 0)
+                    {
+                        e.SubmittedAt = new Timestamp();
+                        e.SubmittedAt.Seconds = d.submitted_at.seconds;
+                        e.SubmittedAt.Nanos = d.submitted_at.nanos;
+                    }
+                    if ((d.presence & AkPresent.AK_DFIX_TASKDETAILED_PRESENT_STARTED_AT) != 0)
+                    {
+                        e.StartedAt = new Timestamp();
+                        e.StartedAt.Seconds = d.started_at.seconds;
+                        e.StartedAt.Nanos = d.started_at.nanos;
+                    }
+                    if ((d.presence & AkPresent.AK_DFIX_TASKDETAILED_PRESENT_ENDED_AT) != 0)
+                    {
+                        e.EndedAt = new Timestamp();
+                        e.EndedAt.Seconds = d.ended_at.seconds;
+                        e.EndedAt.Nanos = d.ended_at.nanos;
+                    }
+                    if ((d.presence & AkPresent.AK_DFIX_TASKDETAILED_PRESENT_POD_TTL) != 0)
+                    {
+                        e.PodTtl = new Timestamp();
+                        e.PodTtl.Seconds = d.pod_ttl.seconds;
+                        e.PodTtl.Nanos = d.pod_ttl.nanos;
+                    }
+                    if ((d.presence & AkPresent.AK_DFIX_TASKDETAILED_PRESENT_OUTPUT) != 0)
+                    {
+                        e.Output = new TaskOutput();
+                        e.Output.Success = d.output.success != 0;
+                        e.Output.Error = Str(b, d.output.error);
+                    }
+                    e.PodHostname = Str(b, d.pod_hostname);
+                    if ((d.presence & AkPresent.AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_AT) != 0)
+                    {
+                        e.ReceivedAt = new Timestamp();
+                        e.ReceivedAt.Seconds = d.received_at.seconds;
+                        e.ReceivedAt.Nanos = d.received_at.nanos;
+                    }
+                    if ((d.presence & AkPresent.AK_DFIX_TASKDETAILED_PRESENT_ACQUIRED_AT) != 0)
+                    {
+                        e.AcquiredAt = new Timestamp();
+                        e.AcquiredAt.Seconds = d.acquired_at.seconds;
+                        e.AcquiredAt.Nanos = d.acquired_at.nanos;
+                    }
+                    if ((d.presence & AkPresent.AK_DFIX_TASKDETAILED_PRESENT_CREATION_TO_END_DURATION) != 0)
+                    {
+                        e.CreationToEndDuration = new Duration();
+                        e.CreationToEndDuration.Seconds = d.creation_to_end_duration.seconds;
+                        e.CreationToEndDuration.Nanos = d.creation_to_end_duration.nanos;
+                    }
+                    if ((d.presence & AkPresent.AK_DFIX_TASKDETAILED_PRESENT_PROCESSING_TO_END_DURATION) != 0)
+                    {
+                        e.ProcessingToEndDuration = new Duration();
+                        e.ProcessingToEndDuration.Seconds = d.processing_to_end_duration.seconds;
+                        e.ProcessingToEndDuration.Nanos = d.processing_to_end_duration.nanos;
+                    }
+                    e.InitialTaskId = Str(b, d.initial_task_id);
+                    if ((d.presence & AkPresent.AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION) != 0)
+                    {
+                        e.ReceivedToEndDuration = new Duration();
+                        e.ReceivedToEndDuration.Seconds = d.received_to_end_duration.seconds;
+                        e.ReceivedToEndDuration.Nanos = d.received_to_end_duration.nanos;
+                    }
+                    if ((d.presence & AkPresent.AK_DFIX_TASKDETAILED_PRESENT_PROCESSED_AT) != 0)
+                    {
+                        e.ProcessedAt = new Timestamp();
+                        e.ProcessedAt.Seconds = d.processed_at.seconds;
+                        e.ProcessedAt.Nanos = d.processed_at.nanos;
+                    }
+                    if ((d.presence & AkPresent.AK_DFIX_TASKDETAILED_PRESENT_FETCHED_AT) != 0)
+                    {
+                        e.FetchedAt = new Timestamp();
+                        e.FetchedAt.Seconds = d.fetched_at.seconds;
+                        e.FetchedAt.Nanos = d.fetched_at.nanos;
+                    }
+                    e.PayloadId = Str(b, d.payload_id);
+                    e.CreatedBy = Str(b, d.created_by);
+                    break;
+                }
+                case OP_ADD when outer == 1 && inner == 1:
+                {
+                    var e = t.Tasks[(int)r.Token];
+                    var xs = (ak_span*)body;
+                    var lst = e.ParentTaskIds;
+                    for (int i = 0; i < r.N; i++) lst.Add(Str(b, xs[i]));
+                    break;
+                }
+                case OP_ADD when outer == 1 && inner == 2:
+                {
+                    var e = t.Tasks[(int)r.Token];
+                    var xs = (ak_span*)body;
+                    var lst = e.DataDependencies;
+                    for (int i = 0; i < r.N; i++) lst.Add(Str(b, xs[i]));
+                    break;
+                }
+                case OP_ADD when outer == 1 && inner == 3:
+                {
+                    var e = t.Tasks[(int)r.Token];
+                    var xs = (ak_span*)body;
+                    var lst = e.ExpectedOutputIds;
+                    for (int i = 0; i < r.N; i++) lst.Add(Str(b, xs[i]));
+                    break;
+                }
+                case OP_ADD when outer == 1 && inner == 4:
+                {
+                    var e = t.Tasks[(int)r.Token];
+                    var xs = (ak_span*)body;
+                    var lst = e.RetryOfIds;
+                    for (int i = 0; i < r.N; i++) lst.Add(Str(b, xs[i]));
+                    break;
+                }
+                case OP_ADD when outer == 1 && inner == 5:
+                {
+                    var e = t.Tasks[(int)r.Token];
+                    e.Options ??= new TaskOptions();
+                    var xs = (ak_dfix_TaskOptionsOptionsEntry*)body;
+                    var lst = e.Options.Options;
+                    for (int i = 0; i < r.N; i++) lst[Str(b, xs[i].key)] = Str(b, xs[i].value);
+                    break;
+                }
+                default: break;
+            }
+        }
     }
 
     /// Zero the host's own tally. The core's counters have their own reset.

@@ -24,6 +24,9 @@ public unsafe interface ICoreArm : IDisposable
     /// Decodes and returns an O(1) value, so the arm is not timed building a
     /// string of the result. The graph is parked in `Sink`.
     int Decode(byte[] src, int len);
+    /// ABI v1 7.1's PULL family: parse into a record stream, then replay it.
+    /// No reverse call is made at all, which is the claim under test.
+    int Pull(byte[] src, int len);
     object Sink { get; }
     bool SameAsSource();
     AkCounters EncCounters();
@@ -38,7 +41,7 @@ public sealed unsafe class Arm_ListResultsResponse : ICoreArm
     private readonly CoreFfi_ListResultsResponse _c;
     private readonly ListResultsResponse _src;
     private ListResultsResponse _sink;
-    public Arm_ListResultsResponse(ListResultsResponse src) { _src = src; _c = new CoreFfi_ListResultsResponse(CoreFfi_ListResultsResponse.CapsFor(src)); }
+    public Arm_ListResultsResponse(ListResultsResponse src, bool utf16 = false) { _src = src; _c = new CoreFfi_ListResultsResponse(CoreFfi_ListResultsResponse.CapsFor(src), utf16); }
     public string Root => "ListResultsResponse";
     public int Chunk { get => _c.Chunk; set => _c.Chunk = value; }
     public long ForwardCalls => _c.ForwardCalls;
@@ -47,6 +50,7 @@ public sealed unsafe class Arm_ListResultsResponse : ICoreArm
     public int EncodeNoCopy() { _c.Encode(_src, out byte* p, out int l); return l; }
     public int Fill() => _c.Fill(_src);
     public int Decode(byte[] src, int len) { _sink = _c.Decode(src, len); return _sink.Results.Count; }
+    public int Pull(byte[] src, int len) { _sink = _c.Pull(src, len); return _sink.Results.Count; }
     public object Sink => _sink;
     public bool SameAsSource() => Eq.SameListResultsResponse(_sink, _src);
     public AkCounters EncCounters() => _c.EncCounters();
@@ -62,7 +66,7 @@ public sealed unsafe class Arm_ListTasksDetailedResponse : ICoreArm
     private readonly CoreFfi_ListTasksDetailedResponse _c;
     private readonly ListTasksDetailedResponse _src;
     private ListTasksDetailedResponse _sink;
-    public Arm_ListTasksDetailedResponse(ListTasksDetailedResponse src) { _src = src; _c = new CoreFfi_ListTasksDetailedResponse(CoreFfi_ListTasksDetailedResponse.CapsFor(src)); }
+    public Arm_ListTasksDetailedResponse(ListTasksDetailedResponse src, bool utf16 = false) { _src = src; _c = new CoreFfi_ListTasksDetailedResponse(CoreFfi_ListTasksDetailedResponse.CapsFor(src), utf16); }
     public string Root => "ListTasksDetailedResponse";
     public int Chunk { get => _c.Chunk; set => _c.Chunk = value; }
     public long ForwardCalls => _c.ForwardCalls;
@@ -71,6 +75,7 @@ public sealed unsafe class Arm_ListTasksDetailedResponse : ICoreArm
     public int EncodeNoCopy() { _c.Encode(_src, out byte* p, out int l); return l; }
     public int Fill() => _c.Fill(_src);
     public int Decode(byte[] src, int len) { _sink = _c.Decode(src, len); return _sink.Tasks.Count; }
+    public int Pull(byte[] src, int len) { _sink = _c.Pull(src, len); return _sink.Tasks.Count; }
     public object Sink => _sink;
     public bool SameAsSource() => Eq.SameListTasksDetailedResponse(_sink, _src);
     public AkCounters EncCounters() => _c.EncCounters();
@@ -86,7 +91,7 @@ public sealed unsafe class Arm_ListProbeResponse : ICoreArm
     private readonly CoreFfi_ListProbeResponse _c;
     private readonly ListProbeResponse _src;
     private ListProbeResponse _sink;
-    public Arm_ListProbeResponse(ListProbeResponse src) { _src = src; _c = new CoreFfi_ListProbeResponse(CoreFfi_ListProbeResponse.CapsFor(src)); }
+    public Arm_ListProbeResponse(ListProbeResponse src, bool utf16 = false) { _src = src; _c = new CoreFfi_ListProbeResponse(CoreFfi_ListProbeResponse.CapsFor(src), utf16); }
     public string Root => "ListProbeResponse";
     public int Chunk { get => _c.Chunk; set => _c.Chunk = value; }
     public long ForwardCalls => _c.ForwardCalls;
@@ -95,6 +100,7 @@ public sealed unsafe class Arm_ListProbeResponse : ICoreArm
     public int EncodeNoCopy() { _c.Encode(_src, out byte* p, out int l); return l; }
     public int Fill() => _c.Fill(_src);
     public int Decode(byte[] src, int len) { _sink = _c.Decode(src, len); return _sink.Probes.Count; }
+    public int Pull(byte[] src, int len) { _sink = _c.Pull(src, len); return _sink.Probes.Count; }
     public object Sink => _sink;
     public bool SameAsSource() => Eq.SameListProbeResponse(_sink, _src);
     public AkCounters EncCounters() => _c.EncCounters();
@@ -110,7 +116,7 @@ public sealed unsafe class Arm_ListTaskSummaryResponse : ICoreArm
     private readonly CoreFfi_ListTaskSummaryResponse _c;
     private readonly ListTaskSummaryResponse _src;
     private ListTaskSummaryResponse _sink;
-    public Arm_ListTaskSummaryResponse(ListTaskSummaryResponse src) { _src = src; _c = new CoreFfi_ListTaskSummaryResponse(CoreFfi_ListTaskSummaryResponse.CapsFor(src)); }
+    public Arm_ListTaskSummaryResponse(ListTaskSummaryResponse src, bool utf16 = false) { _src = src; _c = new CoreFfi_ListTaskSummaryResponse(CoreFfi_ListTaskSummaryResponse.CapsFor(src), utf16); }
     public string Root => "ListTaskSummaryResponse";
     public int Chunk { get => _c.Chunk; set => _c.Chunk = value; }
     public long ForwardCalls => _c.ForwardCalls;
@@ -119,6 +125,7 @@ public sealed unsafe class Arm_ListTaskSummaryResponse : ICoreArm
     public int EncodeNoCopy() { _c.Encode(_src, out byte* p, out int l); return l; }
     public int Fill() => _c.Fill(_src);
     public int Decode(byte[] src, int len) { _sink = _c.Decode(src, len); return _sink.Tasks.Count; }
+    public int Pull(byte[] src, int len) { _sink = _c.Pull(src, len); return _sink.Tasks.Count; }
     public object Sink => _sink;
     public bool SameAsSource() => Eq.SameListTaskSummaryResponse(_sink, _src);
     public AkCounters EncCounters() => _c.EncCounters();
@@ -134,7 +141,7 @@ public sealed unsafe class Arm_UploadResultDataMessage : ICoreArm
     private readonly CoreFfi_UploadResultDataMessage _c;
     private readonly UploadResultDataMessage _src;
     private UploadResultDataMessage _sink;
-    public Arm_UploadResultDataMessage(UploadResultDataMessage src) { _src = src; _c = new CoreFfi_UploadResultDataMessage(CoreFfi_UploadResultDataMessage.CapsFor(src)); }
+    public Arm_UploadResultDataMessage(UploadResultDataMessage src, bool utf16 = false) { _src = src; _c = new CoreFfi_UploadResultDataMessage(CoreFfi_UploadResultDataMessage.CapsFor(src), utf16); }
     public string Root => "UploadResultDataMessage";
     public int Chunk { get => _c.Chunk; set => _c.Chunk = value; }
     public long ForwardCalls => _c.ForwardCalls;
@@ -143,6 +150,7 @@ public sealed unsafe class Arm_UploadResultDataMessage : ICoreArm
     public int EncodeNoCopy() { _c.Encode(_src, out byte* p, out int l); return l; }
     public int Fill() => _c.Fill(_src);
     public int Decode(byte[] src, int len) { _sink = _c.Decode(src, len); return 1; }
+    public int Pull(byte[] src, int len) { _sink = _c.Pull(src, len); return 1; }
     public object Sink => _sink;
     public bool SameAsSource() => Eq.SameUploadResultDataMessage(_sink, _src);
     public AkCounters EncCounters() => _c.EncCounters();
@@ -158,7 +166,7 @@ public sealed unsafe class Arm_ListMetricsResponse : ICoreArm
     private readonly CoreFfi_ListMetricsResponse _c;
     private readonly ListMetricsResponse _src;
     private ListMetricsResponse _sink;
-    public Arm_ListMetricsResponse(ListMetricsResponse src) { _src = src; _c = new CoreFfi_ListMetricsResponse(CoreFfi_ListMetricsResponse.CapsFor(src)); }
+    public Arm_ListMetricsResponse(ListMetricsResponse src, bool utf16 = false) { _src = src; _c = new CoreFfi_ListMetricsResponse(CoreFfi_ListMetricsResponse.CapsFor(src), utf16); }
     public string Root => "ListMetricsResponse";
     public int Chunk { get => _c.Chunk; set => _c.Chunk = value; }
     public long ForwardCalls => _c.ForwardCalls;
@@ -167,6 +175,7 @@ public sealed unsafe class Arm_ListMetricsResponse : ICoreArm
     public int EncodeNoCopy() { _c.Encode(_src, out byte* p, out int l); return l; }
     public int Fill() => _c.Fill(_src);
     public int Decode(byte[] src, int len) { _sink = _c.Decode(src, len); return _sink.Batches.Count; }
+    public int Pull(byte[] src, int len) { _sink = _c.Pull(src, len); return _sink.Batches.Count; }
     public object Sink => _sink;
     public bool SameAsSource() => Eq.SameListMetricsResponse(_sink, _src);
     public AkCounters EncCounters() => _c.EncCounters();
@@ -182,7 +191,7 @@ public sealed unsafe class Arm_DualResponse : ICoreArm
     private readonly CoreFfi_DualResponse _c;
     private readonly DualResponse _src;
     private DualResponse _sink;
-    public Arm_DualResponse(DualResponse src) { _src = src; _c = new CoreFfi_DualResponse(CoreFfi_DualResponse.CapsFor(src)); }
+    public Arm_DualResponse(DualResponse src, bool utf16 = false) { _src = src; _c = new CoreFfi_DualResponse(CoreFfi_DualResponse.CapsFor(src), utf16); }
     public string Root => "DualResponse";
     public int Chunk { get => _c.Chunk; set => _c.Chunk = value; }
     public long ForwardCalls => _c.ForwardCalls;
@@ -191,6 +200,7 @@ public sealed unsafe class Arm_DualResponse : ICoreArm
     public int EncodeNoCopy() { _c.Encode(_src, out byte* p, out int l); return l; }
     public int Fill() => _c.Fill(_src);
     public int Decode(byte[] src, int len) { _sink = _c.Decode(src, len); return _sink.Left.Count; }
+    public int Pull(byte[] src, int len) { _sink = _c.Pull(src, len); return _sink.Left.Count; }
     public object Sink => _sink;
     public bool SameAsSource() => Eq.SameDualResponse(_sink, _src);
     public AkCounters EncCounters() => _c.EncCounters();
@@ -208,7 +218,7 @@ public static class CoreArms
     /// reason rather than as a pass.
     public static readonly string[] Ids = { "P1.1", "P1.2", "P1.3", "P2.1", "P2.2", "P2.3", "P2.4", "P2.5", "P3.1", "P4.1", "P5.1", "P5.2", "P5.3", "P5.4", "P6.1", "P7.1" };
 
-    public static ICoreArm New(string id)
+    public static ICoreArm New(string id, bool utf16 = false)
     {
         switch (id)
         {

@@ -141,6 +141,29 @@ public static unsafe class Bench
                     Payload = a.Id, Dir = "decode", Arm = "core-ffi",
                     Run = n => { for (int i = 0; i < n; i++) Consume(core.Decode(warm, warm.Length)); },
                 });
+                // ABI v1 7.1's PULL family. `ak_parse_*` makes no reverse call at
+                // all: it appends a record per deposit and the host replays the
+                // buffer afterwards. design/ABI-v1.md decision 2 says four of the
+                // five slices have only measured push, so every decode figure in
+                // the branch is a push figure. This is the managed pull arm.
+                cases.Add(new Case
+                {
+                    Payload = a.Id, Dir = "decode", Arm = "core-ffi pull",
+                    Run = n => { for (int i = 0; i < n; i++) Consume(core.Pull(warm, warm.Length)); },
+                });
+                // The other string form ABI v1 section 4 offers: hand the core the
+                // host's own UTF-16 and let ak_tc_utf16 convert, against staging
+                // UTF-8 in the host and letting ak_tc_bytes copy. Both transcoders
+                // are pointers INTO the core, so neither costs a crossing; what
+                // differs is which side does the conversion.
+                var u16 = CoreArms.New(a.Id, utf16: true);
+                if (!string.IsNullOrEmpty(ck) && int.TryParse(ck, out int ckv2)) u16.Chunk = ckv2;
+                u16.EncodeToArray();
+                cases.Add(new Case
+                {
+                    Payload = a.Id, Dir = "encode", Arm = "core-ffi utf16",
+                    Run = n => { for (int i = 0; i < n; i++) Consume(u16.EncodeNoCopy()); },
+                });
             }
 #endif
 

@@ -59,7 +59,8 @@ public static class CoreGate
             chunk <= 0 ? "the whole run" : chunk.ToString());
         Console.WriteLine();
         Console.WriteLine("                                                   encode crossings    decode crossings");
-        Console.WriteLine("payload  root                          bytes  enc  dec  val   R5    fwd   rev   fwd   rev");
+        Console.WriteLine("                                                   encode xings  push dec     pull dec");
+        Console.WriteLine("payload  root                          bytes  enc  dec  val  pull R5    fwd  rev   fwd  rev   fwd  rev");
         Console.WriteLine(new string('-', 108));
 
         bool coreCounts = false;
@@ -69,8 +70,8 @@ public static class CoreGate
             var row = rows[id];
             if (!covered.Contains(id)) continue;
 
-            string enc = "-", dec = "-", val = "-", r5 = "-";
-            long ef = 0, er = 0, df = 0, dr = 0;
+            string enc = "-", dec = "-", val = "-", r5 = "-", pull = "-";
+            long ef = 0, er = 0, df = 0, dr = 0, pf = 0, pr = 0;
             byte[] got = null;
             ICoreArm arm = null;
             try
@@ -119,6 +120,21 @@ public static class CoreGate
                 df = arm.ForwardCalls; dr = arm.ReverseCalls;
                 var dc = arm.DecCounters();
 
+                // The PULL family, ABI v1 7.1. Same bytes, same expected graph, and
+                // the structural claim is that it makes NO reverse call at all.
+                try
+                {
+                    arm.CallsReset();
+                    arm.Pull(got, got.Length);
+                    pf = arm.ForwardCalls; pr = arm.ReverseCalls;
+                    var re2 = arm.EncodeToArray();
+                    pull = Manifest.Sha(re2, re2.Length) != Manifest.Sha(got, got.Length) ? "RT!"
+                         : !arm.SameAsSource() ? "VAL!"
+                         : pr != 0 ? "REV " + pr : "ok";
+                }
+                catch (Exception ex) { pull = "THREW " + ex.GetType().Name; }
+                if (pull != "ok") bad++;
+
                 if (ec.forward != 0 || ec.reverse != 0 || dc.forward != 0 || dc.reverse != 0)
                 {
                     coreCounts = true;
@@ -133,8 +149,8 @@ public static class CoreGate
                     }
                 }
             }
-            Console.WriteLine("{0,-8} {1,-26} {2,7}  {3,-4} {4,-4} {5,-4} {6,-4} {7,5} {8,5} {9,5} {10,5}",
-                id, row.Root, row.Bytes, enc, dec, val, r5, ef, er, df, dr);
+            Console.WriteLine("{0,-8} {1,-26} {2,7}  {3,-4} {4,-4} {5,-4} {6,-4} {7,-4} {8,4} {9,4} {10,5} {11,4} {12,5} {13,4}",
+                id, row.Root, row.Bytes, enc, dec, val, pull, r5, ef, er, df, dr, pf, pr);
             arm?.Dispose();
         }
 
@@ -154,6 +170,15 @@ public static class CoreGate
         Console.WriteLine("AK_CHUNK=150 and the columns match to the digit. See JOURNAL.md 19.");
         Console.WriteLine();
         Console.WriteLine("What the counts mean, and the whole reason the shapes differ:");
+        Console.WriteLine("  THE PULL COLUMN IS THE POINT OF THE LAST TWO. `ak_parse_*` makes no");
+        Console.WriteLine("  reverse call at all: it appends a record per deposit to a buffer in the");
+        Console.WriteLine("  host-owned decode context, and the host replays it afterwards. So pull's");
+        Console.WriteLine("  reverse count is ZERO on every shape, where push's is 2 to 3,501, and the");
+        Console.WriteLine("  two forward calls are ak_parse_* and ak_bdr_ptr. design/ABI-v1.md decision");
+        Console.WriteLine("  2 says four of five slices have only measured push; this is the managed");
+        Console.WriteLine("  pull arm it asks for, gated against push on the same bytes and the same");
+        Console.WriteLine("  comparer.");
+        Console.WriteLine();
         Console.WriteLine("  A LEAF element batches (ABI v1 section 6), so the run crosses once");
         Console.WriteLine("  whatever its length and the count is CONSTANT in the element count.");
         Console.WriteLine("  A non-leaf cannot: section 7.2 refuses it, and the count becomes");
