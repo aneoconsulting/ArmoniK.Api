@@ -541,13 +541,35 @@ bytes across levels, and in C++ no divergence that reaches the layout of an
 installed header type. Section 5.
 
 **R9. State the measurement hazards each table is exposed to.** The known ones:
-**an RPC arm on P2.2 measures HTTP/2 flow control unless it measures CPU.** A 540
-KB response exceeds the 64 KB default h2 stream window, so a single call in flight
-spends most of its wall-clock idle waiting for `WINDOW_UPDATE`, and at 8 in flight
-the stalls overlap and wall-clock collapses by more than an order of magnitude. The
-Rust slice's first version would have reported 33 ms per call for a path that costs
-1.5 ms of CPU. SHAPES.md asks for CPU per RPC, and this is why; a wall-clock column
-is reported beside it or not at all. The rest:
+**an RPC arm on P2.2 measures its stack's HTTP/2 flow-control defaults unless it
+measures CPU.** A 540 KB response does not fit the 65,535-octet initial stream
+window, so a single call in flight spends most of its wall clock idle waiting for
+`WINDOW_UPDATE`, and at 8 in flight the stalls overlap and wall clock collapses by
+more than an order of magnitude. The Rust slice's first version would have reported
+33 ms per call for a path that costs 1.5 ms of CPU.
+
+**That is a default, not a property of HTTP/2, and stating it as the latter was
+wrong.** A full window throttles a sender; it never caps a message, which is why
+ArmoniK moves responses far larger than 64 KB. And the stacks diverge from the
+initial window immediately: **grpc-java starts at 1 MiB with BDP auto-tuning on by
+default**, .NET's `SocketsHttpHandler` starts at 65,535 with dynamic sizing on by
+default to a 16 MiB cap, and **tonic/hyper starts at 65,535 with adaptive window
+off** — which is the stack the 33 ms came from. So the same payload stalls on one
+slice's transport and not on another's, and the wall-clock columns are not
+comparable across slices unless the configuration is stated. **Every RPC arm names
+its stream and connection window and whether auto-tuning is on** (R7), SHAPES.md
+asks for CPU per RPC, and a wall-clock column is reported beside it or not at all.
+
+**ArmoniK's own configuration is worth reading before copying a default.**
+`GrpcWorkerServer` calls `.flowControlWindow(65535)` and then
+`.initialFlowControlWindow(1024)`; in grpc-java the first sets the window and turns
+auto-tuning *off* and the second sets the window and turns it *on*, so the second
+wins and the first is dead code — the worker server starts from a 1 KB window and
+lets BDP grow it. Separately, bulk data does not ride one large unary message at
+all: it is chunked at `DataChunkMaxSize` (80 KB in `ArmoniK.Api.Mock`) over
+streaming RPCs, so the large-payload path is many small messages under the same
+flow control. Neither fact changes a codec ratio; both change what an RPC arm is a
+measurement of. The rest:
 JIT tiering and PGO off handicaps a managed incumbent, which the C# slice checked
 rather than assumed: no arm there crosses 1.0 under any of three configurations,
 and the default is the one *least* favourable to the managed arms. Two vCPUs is

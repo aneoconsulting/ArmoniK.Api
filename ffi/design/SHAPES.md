@@ -261,9 +261,24 @@ support it: `unix:` targets in grpc++ and grpcio, a `UnixStream` connector in to
 netty domain sockets in grpc-java, and `UnixDomainSocketEndPoint` behind a
 `SocketsHttpHandler` connect callback on .NET.
 
-**It does not rescue R9's hazard, and nothing does.** The 64 KB default stream window
-is HTTP/2, not TCP, so a 540 KB response still stalls on `WINDOW_UPDATE` over a UDS.
-CPU per RPC stays the headline and wall clock is reported beside it or not at all.
+**It does not rescue R9's hazard, because that hazard is HTTP/2's and not TCP's —
+but the hazard is a property of one stack's DEFAULT rather than of the protocol, and
+the earlier wording here was wrong about that.** 65,535 octets is the *initial*
+stream window RFC 9113 mandates, and a window that is full throttles the sender until
+`WINDOW_UPDATE` arrives; it never caps a message. Where each stack goes from there
+differs, and it decides whether a wall-clock column is measuring the codec:
+
+| stack | initial stream window | auto-tuning |
+|---|---|---|
+| tonic / hyper (the rust slice's) | 65,535 | **off by default** |
+| grpc-java (Netty) | **1 MiB** (`DEFAULT_FLOW_CONTROL_WINDOW`) | **BDP, on by default since 1.30**; calling `flowControlWindow(int)` turns it off |
+| .NET `SocketsHttpHandler` (what `Grpc.Net.Client` rides) | 65,535 | **dynamic sizing on by default**, to a 16 MiB cap |
+
+So a 540 KB P2.2 response fits inside grpc-java's default window with no stall at all,
+and stalls repeatedly on tonic's. **Each RPC arm states its stream and connection
+window and whether auto-tuning is on**, in its configuration line, because two slices
+that do not are not measuring the same thing. CPU per RPC stays the headline and wall
+clock is reported beside it or not at all.
 
 **Not in the RPC arm, and listed as not measured**: streaming, TLS, a real
 network, failure injection, the server side. Streaming is where the concurrency
