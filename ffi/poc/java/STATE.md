@@ -6,11 +6,12 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | **W6 built and measured.** Full codec, both Java levels, seven arms through the correctness gate on all three content sets (1,297 checks, 0 failures), the encode verdict taken, the batching prediction tested, decisions 9 and 13 answered for a managed host, README R9's hazard measured and section 9's virtual-thread amendment confirmed. **The RPC arm is built only as the pinning question**; there is no grpc-java comparison (below). |
+| **Status** | **W6 built and measured; re-gated on the shared core (W10) and re-headlined under R14.** Full codec, both Java levels, seven arms through the correctness gate on all three content sets (1,297 checks, 0 failures), the encode verdict taken, the batching prediction tested, decisions 9 and 13 answered for a managed host, README R9's hazard measured and section 9's virtual-thread amendment confirmed. **The RPC arm is built only as the pinning question**; there is no grpc-java *transport* comparison, though R14 now puts grpc's marshaller in the codec baseline (below). |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | Java 8, `openjdk 1.8.0_502`. Builds, and passes all 437 correctness checks on the Java 8 runtime. |
 | **Target** (where the clock runs) | JDK 17 (`17.0.20`) with the JNI back end |
 | **Incumbent** | protobuf-java **3.25.5**, which is what `packages/java`'s pins actually resolve to: the pom declares 3.19.0 and grpc-java 1.74.0 brings 3.25.5, and the resolved one is what a consumer runs. protoc 3.19.0, the pinned one, generates the classes. |
+| **Core** | the shared crate at `poc/codec/crates/ak-core` (R0). This slice defines no core of its own; its two transcoders live there and are resolved from there, checked with `ldd` and `nm` on the loaded artifact (`w10-regate.log`). |
 | **R13 calibration** | this machine's rust-slice crossing is **2.1 ns** (`calibration-r13.log`), against 1.8 ns in the rust slice's container and 1.5 in the cpp slice's. Intel Xeon at 2.10 GHz, 4 vCPU, 15 GB, in a container, no pinning. |
 
 ## The question this slice answers, and the answer
@@ -31,6 +32,14 @@ rather than inferred, and it does not on encode.
 
 **What moved the encode column is a baseline, not the ABI**, and it is the most important
 thing in this document. See "the incumbent was flattered twice" below.
+
+**R14 was applied after the fact and did not change it.** The rule arrived with W10: the
+baseline is the path gRPC's marshaller takes, not the library's best entry point. Measured
+against the real `ProtoLiteUtils` marshaller the C ABI encodes at **0.60 to 0.88** on the
+element-bearing payloads where against `toByteArray` it is 0.58 to 0.96, and decode is
+unchanged in shape. What the rule *did* surface is that **the path production takes is 1.5
+to 1.9 times slower than the `toByteArray` every benchmark reaches for**
+(`logs/java/r14-summary.md`).
 
 ## What exists
 
@@ -233,6 +242,31 @@ finding that decode is bounded by host-side container construction, seen from a 
 
 **Three hosts, one mechanism, and the managed host gets less of it.** That is a fact the
 lifetime contract has to be drafted against, not a reason to drop it.
+
+### R14: the headline against gRPC's marshaller -- `logs/java/r14-summary.md`, `r14.log`
+
+R14 arrived with W10 and lands on the baseline every other table here uses. The arm calls
+the **real** `io.grpc.protobuf.lite.ProtoLiteUtils` marshaller, and its path was read from
+the bytecode rather than remembered: encode is `getSerializedSize()` then
+`writeTo(OutputStream)` through a 4 KB `CodedOutputStream`; decode reads into a thread-local
+array and parses from it, with a fast path that returns the same object if handed back its
+own stream, which the arm avoids.
+
+| | against `toByteArray` (the other tables) | **against the marshaller (R14's headline)** |
+|---|---|---|
+| encode, `ffi`, element-bearing payloads | 0.58 to 0.96 | **0.60 to 0.88** |
+| decode, `ffi`, M2 payloads | 1.22 to 1.62 | **1.22 to 1.62** |
+
+**The verdict does not change.** What R14 surfaces instead is about the incumbent:
+`toByteArray` is **0.48 to 0.65** of the marshaller path, so **the entry point every
+benchmark reaches for is roughly twice as fast as the one an application takes**, and none
+of the branch's three published reports says which it measured. On decode the marshaller
+costs only 2 to 8 percent over `parseFrom`, so the decode tables did not need re-taking --
+now a measurement rather than a claim.
+
+That table is noisier than the main ones (24 rounds, a pool rebuilt every round, a fourth
+arm) and its conclusions rest on its medians agreeing with them, which they do on every
+element-bearing payload.
 
 ### The content sets -- `logs/java/contentsets.log`
 
@@ -587,3 +621,5 @@ In the order a fresh session should take them:
 | `deopt.log` | JDK 17 and JDK 21 | README R9's hazard: real, 2.16x, opposite sign, and the C ABI arm immune |
 | `ffm.log` | JDK 21, preview | the FFM downcall price beside JNI's on the same JDK |
 | `pinning.log` | JDK 21, virtual threads | ABI v1 section 9's fourth amendment confirmed at three carrier counts |
+| `w10-regate.log` | all three arms, shared core | R0: 3,891 checks 0 failures, both transcoders resolved from `poc/codec`, worst drift move 0.052 against a 0.078 bar |
+| `r14.log`, `r14-summary.md` | JDK 17, the real grpc marshaller | R14: the headline against production's path, and `toByteArray` priced against it |

@@ -1,0 +1,72 @@
+== W10: the java slice re-gated over the shared core at poc/codec ==
+
+R0 moved the core to `poc/codec/crates/ak-core` and folded this slice's two transcoders --
+`ak_tc_latin1` and `ak_tc_utf16` -- into it. They were moved, not improved. This is the
+confirmation the aggregating session asked for, on the machine that has JDK 8, 17 and 21.
+
+## 1. The stale-artifact hazard, closed before anything was measured
+
+The warning was that a build locating the core by a directory search could link the
+pre-move `.so` still sitting in the old target directory, which "measures identical because
+it is not in the build". Two things close it here:
+
+* `build/` and the old `core/` were **deleted** before the first rebuild, so the pre-move
+  artifact does not exist to be found;
+* the shim links `-lak_core` (the shared crate's name) and the old one was
+  `libak_core_java.so`, so even a stale copy could not satisfy it.
+
+Checked from the LOADED artifact rather than the build log:
+
+    $ ldd build/jni/libakjni.so | grep ak_core
+      libak_core.so => .../ffi/poc/java/core-build/target/release/libak_core.so
+    $ nm -D --undefined-only build/jni/libakjni.so | grep -E 'ak_tc_(utf16|latin1)'
+                       U ak_tc_latin1
+                       U ak_tc_utf16
+    $ nm -D --defined-only core-build/target/release/libak_core.so | grep -E 'ak_tc_(utf16|latin1)'
+      0000000000044620 T ak_tc_latin1
+      0000000000044630 T ak_tc_utf16
+
+Both transcoders are undefined in the shim and defined by the shared core. Nothing in this
+slice defines them any more.
+
+## 2. Correctness: all three of README 5.2's arms, all three content sets
+
+| arm | build | runtime | compact strings | checks | failures |
+|---|---|---|---|---|---|
+| a | `src/generated/java17` | JDK 17 | in use | 1,297 | **0** |
+| b | `src/generated/java8` | JDK 17 | not available | 1,297 | **0** |
+| c | `src/generated/java8` | JDK 8 | not available | 1,297 | **0** |
+
+**3,891 checks, 0 failures.** Each arm's 1,297 is the ASCII set against the manifest (437,
+including the committed vectors and P2.5's two forms cross-parsed) plus the Latin-1 and
+above-U+00FF sets checked by cross-arm agreement and a round trip (430 each).
+
+**The content sets are what exercise the two transcoders**, and they are the reason this
+gate had to run here: `ak_tc_latin1` carries the ASCII and Latin-1 sets and `ak_tc_utf16`
+the set above U+00FF, so a transcoder that behaved differently from the shared crate would
+fail byte identity on 860 checks per arm. None did.
+
+## 3. Nothing moved past the drift bar
+
+The delta instrument, 40 rounds at 80 ms, identical parameters before and after the move.
+The bar for this instrument is **0.078** (`drift.log`).
+
+Worst move across 45 rows: **0.052**, on `P5.3 both`. Every other row is at or under 0.047,
+and 30 of the 45 are under 0.020.
+
+P5.3 is the one-megabyte bulk-bytes payload: it has no repeated field, so the batched and
+unbatched arms run the same code and that row is a noise indicator rather than a
+measurement. Its moving most is what run-to-run variance looks like.
+
+The rows that carry conclusions all held: P1.3's fill 0.320 -> 0.316, P2.4's batching
+1.289 -> 1.287, P2.3's 1.260 -> 1.281, P2.2's 1.100 -> 1.129.
+
+**Nothing to report outside the bar, and nothing re-taken.**
+
+## 4. What this run did NOT re-take
+
+The ratio tables against protobuf-java (`encode.log`, `decode.log`, `contentsets.log`), the
+floor arms and the drift builds are all from before the move. Nothing on the measured path
+changed and the instrument that can see a change says it did not, so they stand as they
+are. They will be re-taken only if something else forces it -- and something else does: see
+`r14.log`.
