@@ -1254,3 +1254,45 @@ because a check-in asked for the list to be emptied; the grid never needed it.
 STATE.md now says so at the point where the result is claimed, and the log stays
 in the tree as an offer rather than as part of the RPC arm, because deleting a
 gated measurement destroys evidence rather than scope.
+
+### 45. Reading the package instead of the description, and finding my own R14 defect
+
+I was told the shipped clients pin no HTTP/2 window and that Nagle is off by
+name. Both are true and I checked them in `packages/rust/armonik-transport`
+rather than taking them: `ClientConfig` (config.rs:10) has seventeen fields and
+none of them is a window, `grep -rn window src/` is empty, and
+`tcp_nagle_algorithm` is "defaults to false", read from
+`GrpcClient__TcpNagleAlgorithm` and applied as
+`http.set_nodelay(!config.tcp_nagle_algorithm)`.
+
+**Then I read the C# package, which I had not been told about, and it says
+something neither of us had.** `GrpcChannelProvider.cs:88` sets
+`Http2FlowControl.DisableDynamicWindowSizing` on the UNIX SOCKET path, under a
+comment naming it a workaround for a connectivity issue. It still pins no
+window. So production on .NET is not my "pinned" row and not my "stack default"
+row: it is a 64 KB window with .NET's auto-tuner switched OFF, for a 540 KB
+message, with nothing left to grow it. **Both of the transport rows this arm has
+carried since stage 15 are wrong for R14**, and that is my defect, not a
+relayed one.
+
+Measured, it is the worst of the three: 27 to 39 percent more CPU per call than
+either alternative at 1 in flight, reproduced across two sweeps. The no-codec
+arm at two payload sizes is what makes it a mechanism rather than a number --
+149.2 against 142.9 and 143.0 on 858 bytes, and 1,689.6 against 1,197.5 and
+1,376.1 on 540,422. A cost that appears only above the window size is flow
+control and cannot be anything else.
+
+**The shape is the interesting part.** .NET's auto-tuner left alone gets most of
+the way to the pinned window. The workaround turns it off and puts nothing in
+its place, so the shipped configuration is worse than doing nothing at all. It
+costs what it costs because it is half a change.
+
+Every ratio I have published survives, because a ratio is taken between arms
+under the same transport and the transport divides out. What changes is which
+row is the headline, and STATE.md now says so at the top of the requests rather
+than in a log nobody re-reads.
+
+I am not proposing the one-line fix. Nothing under `packages/` changes, and I
+have not tested whether pinning a window reintroduces the connectivity issue the
+switch exists for -- which is the honest reason it is a recommendation and not a
+patch.
