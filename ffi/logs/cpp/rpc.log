@@ -1,56 +1,776 @@
-# RPC arm (ABI v1 section 9, design/SHAPES.md's RPC arm)
-#   date       2026-09-19T10:07:01Z
-#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel Xeon @ 2.80GHz
+# The RPC arm (ABI v1 section 9, design/SHAPES.md's RPC arm), as a GRID
+#   date       2026-09-20T18:33:12Z
+#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
 #   incumbent  grpc++ 1.51.1 + protobuf C++ 3.21.12 (apt). packages/cpp pins neither
-#   core       tonic 0.14 over hyper, through the C ABI, shared library
-#   transport  loopback TCP, no TLS, server IN-PROCESS on its own threads
-#   payload    P2.2, 540,422 B response, small request
-#   commit     23d510bc
+#   core       tonic 0.14 over hyper 1.11, through the C ABI, shared library, 2 tokio workers
+#   transport  Unix domain socket PRIMARY, loopback TCP as a labelled second row; server IN-PROCESS
+#   windows    stated per run below, and established from each stack's own behaviour in logs/cpp/rpcflow.log
+#   payload    P2.2, 540,422 B response, EMPTY request
+#   build      -O2 -g -DNDEBUG, C++17, shared linkage
+#   commit     bccff35
+
+== R13: this machine, and it is NOT the machine the published tables came from ==
+   The cross-language crossing table is a table of absolutes, so every slice
+   calibrates its own. This container is an Intel Xeon at 2.10 GHz; every other
+   figure in this slice's STATE.md was taken on a 2.80 GHz one. Nothing here is
+   comparable to those absolutes and the ratios inside this file are the result.
+   This slice's own crossing, measured HERE by the unchanged bench:
+     -- the crossing itself, same process and build, linkage=shared --
+        register-only barrier, to match the rust harness R13 compares against
+       forward 0.497 ns   forward+reverse 0.739 ns   reverse alone 0.241 ns
+       forward 0.504 ns   forward+reverse 0.764 ns   reverse alone 0.260 ns
+       forward 0.522 ns   forward+reverse 0.770 ns   reverse alone 0.248 ns
+       forward 0.602 ns   forward+reverse 0.912 ns   reverse alone 0.310 ns
+   The rust slice's own crossing benchmark -- what R13 actually asks each slice to
+   quote -- COULD NOT BE RUN, and that is a defect in another slice rather than a
+   choice here. `ffi/poc/rust/crates/facade/src/generated/core_native.rs` still calls
+   `d.skip(wire)`; C24 changed the shared runtime's signature to `skip(tag, wire)`
+   and swept the CPP generator's 13 emission sites, and the rust slice's generated
+   tree was not regenerated. 20 E0061 errors, so `cargo build --bin bench` fails.
+   `poc/rust/**` is not this slice's to write. Logged as C27.
+
+== R0: what this slice ADDED to the shared core, and what it did not touch ==
+   ak_client_new_opts (design/SHAPES.md wants every cell pinned and the core could not be
+   pinned at all) and ak_rpc_counters / ak_rpc_counters_reset / ak_rpc_counting (R5). All
+   of them inside --features rpc, so the DEFAULT artifact is untouched. Counted:
+   target: 86 ak_ exports
+   target-rpc: 104 ak_ exports
+   target-rpc-count: 104 ak_ exports
+   The default build is 86, which is what it was before this work unit. The rpc builds
+   carry section 9's entry points on top and are never what a codec arm links.
 
 == ABI v1 section 9: the RPC half does not know the schema ==
    'It moves opaque bytes and dispatches on a path string, so there is no place a
     per-field cost could enter.' Checked rather than trusted:
-   core/src/rpc.rs: 0 mentions of any message type in this schema
-   ../rust/crates/rpc/src/lib.rs: 2 mentions of any message type in this schema
+   ../codec/crates/ak-core/src/rpc.rs: 0 mentions of any message type in this schema
+   ../codec/crates/rpc/src/lib.rs: 2 mentions of any message type in this schema
 
-== the arm ==
-grpc++ 1.51.1 server on 127.0.0.1:50077, in-process
+== R5: the crossing count per RPC, from a COUNTING core ==
+   A separate binary linking ak-core built --features rpc,count. The timed binary
+   below links the core WITHOUT it, which is what R5 requires.
+   counting core: ak_rpc_counting() = 1
+   configuration: grpc++ 1.51.1 server, UDS, transport pinned, 20 RPCs per cell
+   
+   delivery   method                   resp bytes   fwd/RPC   rev/RPC   ABI v1 section 9 says
+   blocking   Fetch (~4,500 fields)        540422     2.000     0.000   2 fwd / 0 rev
+   callback   Fetch (~4,500 fields)        540422     3.000     1.000   2 fwd / 1 rev
+   queue      Fetch (~4,500 fields)        540422     4.000     0.000   3 fwd / 0 rev
+   blocking   Ping  (0 fields)                  0     2.000     0.000   2 fwd / 0 rev
+   callback   Ping  (0 fields)                  0     3.000     1.000   2 fwd / 1 rev
+   queue      Ping  (0 fields)                  0     4.000     0.000   3 fwd / 0 rev
+   
+   What the two methods settle: the counts are identical on a 540 KB response
+   with about 4,500 fields and on an empty one with none, so the crossing count
+   per RPC is not a function of field count. That is section 9's claim, COUNTED.
+   
+   What the table gets wrong, and it is not rounding. The callback and the
+   queue both return an `ak_call*` the host must release, and section 9's table
+   does not count `ak_call_destroy`. A host that does not call it leaks a handle
+   per RPC. Counted with the handle released as the ABI requires:
+     blocking  2 fwd / 0 rev   (the table's 2/0, and this one is right --
+                                      the blocking form takes no handle here)
+     callback  3 fwd / 1 rev   (the table says 2/1)
+     queue     4 fwd / 0 rev   (the table says 3/0)
+   
+   Still the point section 9 is making: three, four crossings against a call of
+   about a millisecond of CPU. At this slice's measured 1.82 ns per forward
+   crossing through a shared library, the whole boundary is under 8 ns.
 
-Crossings per RPC: TWO, and it is a property of the code rather than a
-measurement -- `ak_call_unary` in, `ak_bytes_free` out. The core's RPC module
-names no message type anywhere, so there is no place a per-field cost could
-enter; `gen/rpc.sh` greps for that rather than trusting this sentence.
+==================================================================================
+== the grid: transport uds, pinning pin ==
+configuration: grpc++ 1.51.1, protobuf C++ 3021012, -O2 -g -DNDEBUG, shared linkage
+transport pinning: ON  -- stream window 4194304, connection window 4194304, max message 2097152, BDP probe off
+rounds 9, 80 RPCs per round per arm per in-flight level, best of rounds
 
-arm        inflight   proc-srv CPU harness-thr CPU     server CPU    wall ns/RPC  (p-s)/pb
-grpc++     1               6528357        4015297        1804018        7473718     1.000
-core-ffi   1               5680943        2608300        1759182        6323383     0.870
-grpc++     8               7385838        4547900        2365587        3044252     1.000
-core-ffi   8               6407696        3117287        2424529        2574659     0.868
-grpc++     16              7638320        4762447        2235205        2714178     1.000
-core-ffi   16              6535451        3265919        2220336        2396775     0.856
+== transport: uds (/tmp/ak-rpc-7389.sock), pinning on ==
+arm                cell delivery  inflt   hostthr      CPU ns/RPC   spr%   wall ns/RPC      CPU/A     wall/A
+A  pb/grpc++       A    blocking  1       1               4904695    5.9       5253091      1.000      1.000
+B  pb/core         B    blocking  1       1               5016135   15.3       5254074      1.023      1.000
+B  pb/core cb      B    callback  1       1               4719824    8.8       4913078      0.962      0.935
+B  pb/core queue   B    queue     1       1               4720723    6.0       4970258      0.962      0.946
+C  core/core       C    blocking  1       1               4164444   10.5       4331409      0.849      0.825
+C  core/core cb    C    callback  1       1               3972450    6.8       4196877      0.810      0.799
+C  core/core q     C    queue     1       1               3951510    7.4       4210629      0.806      0.802
+C  core/core cbxN  C    cb x N    1       1               3903063    7.8       4207485      0.796      0.801
+D  core/grpc++     D    blocking  1       1               3981485   10.3       4318440      0.812      0.822
 
--- the same response decoded standalone, in this process, ns of thread CPU --
-  protobuf C++ 3402547    the core through the C ABI 2274054    ratio 0.668
-  So the client CPU above is mostly the CODEC; what is left after subtracting
-  it is the transport half, where ABI v1 section 9 spends TWO crossings and
-  zero per field.
+   within-round deltas, 9 rounds (R4). 'sign' is whether lo and hi agree;
+   a delta that straddles zero has NOT separated and is not quoted as a
+   number. %A is the delta as a percentage of that round's cell A.
+   delta                                         lo ns        hi ns    lo %A    hi %A   sign
+   B-A  transport, blocking                      71711       699678     1.44    13.76    yes
+   C-B  codec under the core transport        -1407834      -506109   -27.69   -10.26    yes
+   D-A  codec under grpc++'s transport        -1073272      -539522   -20.67   -10.94    yes
+   C-A  both halves together                   -941604      -328330   -18.13    -6.66    yes
+   cb - blocking, cell C                       -468201       -23839    -9.49    -0.46    yes
+   queue - blocking, cell C                    -542559       -78210   -11.00    -1.54    yes
+   queue - callback, cell C                    -292528       131156    -5.89     2.62     NO
+   cb x N - blocking, cell C  (control)        -476506      -133848    -9.66    -2.69    yes
+   cb x N - cb, cell C        (control)        -228084        94571    -4.60     1.89     NO
+   cb - blocking, cell B                       -648119      -181888   -12.75    -3.71    yes
+   queue - blocking, cell B                    -790127       -94373   -15.54    -1.92    yes
+   (C-B) - (D-A)  do the halves add?           -411358       189254                       NO
+   cell D also pays 51262 ns/RPC of slice concatenation at this level, which
+   cell A does not; D-A with it removed is that much more negative.
 
-sink 1460000
+A  pb/grpc++       A    blocking  8       N               4356333   20.1       1969777      1.000      1.000
+B  pb/core         B    blocking  8       N               4794748    9.3       1987838      1.101      1.009
+B  pb/core cb      B    callback  8       1               4304675   27.8       1986881      0.988      1.009
+B  pb/core queue   B    queue     8       1               4428078   21.1       2042243      1.016      1.037
+C  core/core       C    blocking  8       N               3866418   10.8       1627070      0.888      0.826
+C  core/core cb    C    callback  8       1               3733313   14.2       1646343      0.857      0.836
+C  core/core q     C    queue     8       1               3746579    7.8       1780418      0.860      0.904
+C  core/core cbxN  C    cb x N    8       N               3816570    9.9       1686065      0.876      0.856
+D  core/grpc++     D    blocking  8       N               3622075   10.8       1687557      0.831      0.857
 
-The idiomatic C++ wait is a blocking call on a thread the host owns, and
-both arms use it. C++ has no carrier-thread notion to pin, so SHAPES.md's
-third RPC question is answered trivially here and is a real question only on
-a runtime with virtual threads.
+   within-round deltas, 9 rounds (R4). 'sign' is whether lo and hi agree;
+   a delta that straddles zero has NOT separated and is not quoted as a
+   number. %A is the delta as a percentage of that round's cell A.
+   delta                                         lo ns        hi ns    lo %A    hi %A   sign
+   B-A  transport, blocking                    -260363       438415    -4.98    10.06     NO
+   C-B  codec under the core transport        -1241340      -581668   -25.27   -11.90    yes
+   D-A  codec under grpc++'s transport        -1215995      -734257   -23.25   -16.85    yes
+   C-A  both halves together                  -1270830      -234572   -24.29    -5.38    yes
+   cb - blocking, cell C                       -260246       366382    -5.63     7.46     NO
+   queue - blocking, cell C                    -536107       173270   -10.97     3.53     NO
+   queue - callback, cell C                    -447142       111264   -10.26     2.44     NO
+   cb x N - blocking, cell C  (control)        -300561       245401    -6.15     5.00     NO
+   cb x N - cb, cell C        (control)        -184749       265751    -3.86     5.82     NO
+   cb - blocking, cell B                       -661617       708417   -13.47    16.26     NO
+   queue - blocking, cell B                    -813320       565976   -16.76    12.99     NO
+   (C-B) - (D-A)  do the halves add?           -284547       460747                       NO
+   cell D also pays 73433 ns/RPC of slice concatenation at this level, which
+   cell A does not; D-A with it removed is that much more negative.
 
-`proc-srv CPU` is getrusage(RUSAGE_SELF) minus the server handler's own
-CPU, and it is the column to read: it counts EVERY thread in the process,
-so the core's tokio workers are in it. `harness-thr CPU` sums
-CLOCK_THREAD_CPUTIME_ID over the threads this harness spawned, which counts
-the grpc++ stub's transport (it runs on the calling thread) and MISSES the
-core's (it does not) -- it is printed to show the size of that bias, not to
-be quoted. Best of 9 rounds, arms alternating which goes first.
+A  pb/grpc++       A    blocking  16      N               4816327    8.9       2108259      1.000      1.000
+B  pb/core         B    blocking  16      N               4958449   10.0       2078799      1.030      0.986
+B  pb/core cb      B    callback  16      1               4274269   20.1       2008028      0.887      0.952
+B  pb/core queue   B    queue     16      1               4380250   18.3       2073806      0.909      0.984
+C  core/core       C    blocking  16      N               3920872   20.6       1665048      0.814      0.790
+C  core/core cb    C    callback  16      1               3495609   25.0       1580232      0.726      0.750
+C  core/core q     C    queue     16      1               3643285   15.1       1651303      0.756      0.783
+C  core/core cbxN  C    cb x N    16      N               3737828   22.3       1671455      0.776      0.793
+D  core/grpc++     D    blocking  16      N               3837029    9.8       1837189      0.797      0.871
 
-The wall-clock column is beside the CPU column and is NOT a throughput
-figure: 540 KB per response against a 64 KB default stream window means a
-single call in flight spends most of its wall clock waiting for WINDOW_UPDATE.
-Both arms' CPU includes the in-process server, which cancels in the ratio.
+   within-round deltas, 9 rounds (R4). 'sign' is whether lo and hi agree;
+   a delta that straddles zero has NOT separated and is not quoted as a
+   number. %A is the delta as a percentage of that round's cell A.
+   delta                                         lo ns        hi ns    lo %A    hi %A   sign
+   B-A  transport, blocking                     -63341       622951    -1.21    12.89     NO
+   C-B  codec under the core transport        -1174843      -454912   -22.98    -8.67    yes
+   D-A  codec under grpc++'s transport        -1232890      -644506   -24.32   -13.27    yes
+   C-A  both halves together                  -1191937      -386291   -23.31    -7.95    yes
+   cb - blocking, cell C                       -831741      -102001   -15.85    -2.10    yes
+   queue - blocking, cell C                    -753601      -102144   -14.36    -2.00    yes
+   queue - callback, cell C                    -436991       425242    -9.00     8.39     NO
+   cb x N - blocking, cell C  (control)        -538238       204488   -10.26     4.00     NO
+   cb x N - cb, cell C        (control)         -30954       805415    -0.64    15.89     NO
+   cb - blocking, cell B                       -821445       175661   -16.07     3.61     NO
+   queue - blocking, cell B                    -753056        -2788   -15.40    -0.05    yes
+   (C-B) - (D-A)  do the halves add?           -149905       777468                       NO
+   cell D also pays 120509 ns/RPC of slice concatenation at this level, which
+   cell A does not; D-A with it removed is that much more negative.
+
+cell D's slice concatenation at 16 in flight: 120509 ns/RPC over 720 calls, 720 of them multi-slice.
+   protobuf parses off grpc++'s slice list; the core's decoder needs a
+   contiguous buffer, so cell D pays this and cell A does not. It is inside
+   D's column above and is printed so it can be taken out.
+
+standalone decode of the same 540422 B response, ns of thread CPU:
+   protobuf C++ 2462082    the core through the C ABI 1413860    ratio 0.574
+   difference -1048222 ns, which is what C-B and D-A above should come to if
+   the codec is the only thing that differs between those cells.
+
+sink 9778000
+
+How to read the columns.
+  `CPU ns/RPC` is getrusage(RUSAGE_SELF) MINUS the server handler's own CPU, both
+  measured per round and divided by the RPCs in it. It counts every thread in the
+  process, so the core's tokio workers are in it and grpc++'s transport is too; a
+  per-thread sum over the threads the harness spawned is NOT like-for-like and
+  biases the ratio by about 0.2 (C11 in this slice's defect log).
+  `hostthr` is what N in flight costs the arm in HOST threads. Blocking needs N of
+  them by construction -- a thread inside `ak_call_unary` is inside the core until
+  the response lands. The callback and the queue need one. That is the deliveries'
+  real difference and it is why the wall-clock ratio at 8 and 16 is not a like-for-
+  like column: one host thread cannot decode 16 responses at once.
+  `wall/A` is printed beside the CPU column and is never the headline (R9).
+  `spr%` is the arm's own round-to-round spread on the CPU column, (max-min)/min.
+  It is 5 to 25 percent here, which is why every DIFFERENCE below the table is a
+  within-round delta and not a difference of two best-of-nine figures.
+
+What is inside the numbers and is not the thing being measured.
+  Thread creation. The blocking arms, `cb x N`, cell A and cell D spawn their host
+  threads per round, so a round of 80 RPCs at 16 in flight pays 16 pthread_create
+  and join pairs. At a generous 30 us each that is 480 us over 80 RPCs, about 6 us
+  per RPC against a call of roughly 4,000 us -- 0.15 percent. It is arithmetic and
+  not a measurement, and it is stated because it lands on exactly the arms the
+  delivery comparison is between. It is two orders of magnitude below the
+  differences that separate and cannot account for any of them.
+  Cell D's slice concatenation, printed per level above: grpc++ hands the generic
+  path a slice list and the core's decoder needs one buffer, where protobuf parses
+  straight off the list. Cell A does not pay it and cell D does.
+  The server. It is in-process and its handler CPU is subtracted from every cell,
+  but its transport threads are not and cannot be; they are the same work for all
+  four cells, so they dilute every ratio toward 1 rather than favouring one.
+
+What this grid does NOT measure, per R11.
+  The ENCODE direction. The request is an empty message, so the codec difference
+  here is a decode difference and nothing else. A grid with a large request would
+  be a different measurement and this one does not stand in for it.
+  Allocation per RPC, which design/SHAPES.md's RPC arm asks for beside CPU. Nothing
+  here counts allocations, and a page-fault or RSS proxy dressed as an allocation
+  count would be worse than the gap.
+  Streaming, TLS, retry, deadlines, metadata, the status code as a number, a real
+  network, failure injection, and the server side. Section 9's case is behavioural
+  and this arm is not a test of it.
+
+==================================================================================
+== the grid: transport uds, pinning nopin ==
+configuration: grpc++ 1.51.1, protobuf C++ 3021012, -O2 -g -DNDEBUG, shared linkage
+transport pinning: OFF (each stack's own default)
+rounds 9, 80 RPCs per round per arm per in-flight level, best of rounds
+
+== transport: uds (/tmp/ak-rpc-14680.sock), pinning off ==
+arm                cell delivery  inflt   hostthr      CPU ns/RPC   spr%   wall ns/RPC      CPU/A     wall/A
+A  pb/grpc++       A    blocking  1       1               4821582    7.2       5057367      1.000      1.000
+B  pb/core         B    blocking  1       1               5005635    7.0       5175839      1.038      1.023
+B  pb/core cb      B    callback  1       1               4761409    9.5       5043761      0.988      0.997
+B  pb/core queue   B    queue     1       1               4660627    9.9       4899227      0.967      0.969
+C  core/core       C    blocking  1       1               4235778    6.9       4423206      0.879      0.875
+C  core/core cb    C    callback  1       1               4061886    3.0       4344475      0.842      0.859
+C  core/core q     C    queue     1       1               3977206    5.7       4486746      0.825      0.887
+C  core/core cbxN  C    cb x N    1       1               3979999    4.7       4295780      0.825      0.849
+D  core/grpc++     D    blocking  1       1               3888911    9.9       4118006      0.807      0.814
+
+   within-round deltas, 9 rounds (R4). 'sign' is whether lo and hi agree;
+   a delta that straddles zero has NOT separated and is not quoted as a
+   number. %A is the delta as a percentage of that round's cell A.
+   delta                                         lo ns        hi ns    lo %A    hi %A   sign
+   B-A  transport, blocking                      -3952       294710    -0.08     5.96     NO
+   C-B  codec under the core transport        -1097796      -566503   -21.24   -11.74    yes
+   D-A  codec under grpc++'s transport         -990831      -789368   -19.97   -16.00    yes
+   C-A  both halves together                   -908392      -294055   -17.57    -6.10    yes
+   cb - blocking, cell C                       -406763       -77821    -8.44    -1.51    yes
+   queue - blocking, cell C                    -381732      -114218    -7.71    -2.26    yes
+   queue - callback, cell C                    -167431        81850    -3.34     1.70     NO
+   cb x N - blocking, cell C  (control)        -547528      -129654   -11.36    -2.65    yes
+   cb x N - cb, cell C        (control)        -187615        50214    -3.63     1.03     NO
+   cb - blocking, cell B                       -491705       117688    -9.81     2.44     NO
+   queue - blocking, cell B                    -579012        57344   -11.71     1.14     NO
+   (C-B) - (D-A)  do the halves add?           -201588       401671                       NO
+   cell D also pays 44566 ns/RPC of slice concatenation at this level, which
+   cell A does not; D-A with it removed is that much more negative.
+
+A  pb/grpc++       A    blocking  8       N               4323537   14.8       1897441      1.000      1.000
+B  pb/core         B    blocking  8       N               4514827   11.4       1954481      1.044      1.030
+B  pb/core cb      B    callback  8       1               4414215   12.3       2047204      1.021      1.079
+B  pb/core queue   B    queue     8       1               4371134   12.8       1956662      1.011      1.031
+C  core/core       C    blocking  8       N               3739042    8.9       1647601      0.865      0.868
+C  core/core cb    C    callback  8       1               3625825   17.4       1533548      0.839      0.808
+C  core/core q     C    queue     8       1               3600723   21.7       1529792      0.833      0.806
+C  core/core cbxN  C    cb x N    8       N               3640737   13.5       1522095      0.842      0.802
+D  core/grpc++     D    blocking  8       N               3511069   11.7       1597892      0.812      0.842
+
+   within-round deltas, 9 rounds (R4). 'sign' is whether lo and hi agree;
+   a delta that straddles zero has NOT separated and is not quoted as a
+   number. %A is the delta as a percentage of that round's cell A.
+   delta                                         lo ns        hi ns    lo %A    hi %A   sign
+   B-A  transport, blocking                     -30243       629551    -0.65    14.50     NO
+   C-B  codec under the core transport        -1262946      -473243   -28.40   -10.68    yes
+   D-A  codec under grpc++'s transport        -1267752      -678041   -25.55   -15.24    yes
+   C-A  both halves together                   -940573      -389626   -18.95    -8.79    yes
+   cb - blocking, cell C                       -438853       331761    -9.67     7.33     NO
+   queue - blocking, cell C                    -373806       359663    -8.44     7.95     NO
+   queue - callback, cell C                    -571984       643168   -11.53    13.77     NO
+   cb x N - blocking, cell C  (control)        -226457       272541    -5.24     6.02     NO
+   cb x N - cb, cell C        (control)        -209383       394943    -4.22     8.66     NO
+   cb - blocking, cell B                       -452190       173741    -9.11     3.93     NO
+   queue - blocking, cell B                    -477944       290163   -11.00     6.21     NO
+   (C-B) - (D-A)  do the halves add?           -570501       345755                       NO
+   cell D also pays 59272 ns/RPC of slice concatenation at this level, which
+   cell A does not; D-A with it removed is that much more negative.
+
+A  pb/grpc++       A    blocking  16      N               4773054    9.9       2065234      1.000      1.000
+B  pb/core         B    blocking  16      N               5018329   14.8       1899492      1.051      0.920
+B  pb/core cb      B    callback  16      1               4326535   30.9       2000181      0.906      0.969
+B  pb/core queue   B    queue     16      1               4206042   25.8       2024635      0.881      0.980
+C  core/core       C    blocking  16      N               4024797   13.8       1788513      0.843      0.866
+C  core/core cb    C    callback  16      1               3561094   10.7       1582720      0.746      0.766
+C  core/core q     C    queue     16      1               3376915   15.5       1490536      0.707      0.722
+C  core/core cbxN  C    cb x N    16      N               3919584   12.2       1723578      0.821      0.835
+D  core/grpc++     D    blocking  16      N               3912098   10.8       1825200      0.820      0.884
+
+   within-round deltas, 9 rounds (R4). 'sign' is whether lo and hi agree;
+   a delta that straddles zero has NOT separated and is not quoted as a
+   number. %A is the delta as a percentage of that round's cell A.
+   delta                                         lo ns        hi ns    lo %A    hi %A   sign
+   B-A  transport, blocking                     -85892       511892    -1.68     9.77     NO
+   C-B  codec under the core transport        -1365356      -674599   -26.02   -13.22    yes
+   D-A  codec under grpc++'s transport        -1146630      -439483   -21.85    -9.21    yes
+   C-A  both halves together                   -916635      -461651   -18.55    -9.16    yes
+   cb - blocking, cell C                       -767522      -139122   -15.22    -2.82    yes
+   queue - blocking, cell C                   -1131949      -370755   -21.77    -7.50    yes
+   queue - callback, cell C                    -565512       135614   -10.87     2.70     NO
+   cb x N - blocking, cell C  (control)        -410650        46474    -8.05     0.94     NO
+   cb x N - cb, cell C        (control)          58909       582704     1.15    11.56    yes
+   cb - blocking, cell B                      -1116514       155707   -21.28     3.10     NO
+   queue - blocking, cell B                   -1141666       178935   -21.76     3.62     NO
+   (C-B) - (D-A)  do the halves add?           -578693       118153                       NO
+   cell D also pays 84074 ns/RPC of slice concatenation at this level, which
+   cell A does not; D-A with it removed is that much more negative.
+
+cell D's slice concatenation at 16 in flight: 84074 ns/RPC over 720 calls, 720 of them multi-slice.
+   protobuf parses off grpc++'s slice list; the core's decoder needs a
+   contiguous buffer, so cell D pays this and cell A does not. It is inside
+   D's column above and is printed so it can be taken out.
+
+standalone decode of the same 540422 B response, ns of thread CPU:
+   protobuf C++ 2026708    the core through the C ABI 1060773    ratio 0.523
+   difference -965935 ns, which is what C-B and D-A above should come to if
+   the codec is the only thing that differs between those cells.
+
+sink 9778000
+
+How to read the columns.
+  `CPU ns/RPC` is getrusage(RUSAGE_SELF) MINUS the server handler's own CPU, both
+  measured per round and divided by the RPCs in it. It counts every thread in the
+  process, so the core's tokio workers are in it and grpc++'s transport is too; a
+  per-thread sum over the threads the harness spawned is NOT like-for-like and
+  biases the ratio by about 0.2 (C11 in this slice's defect log).
+  `hostthr` is what N in flight costs the arm in HOST threads. Blocking needs N of
+  them by construction -- a thread inside `ak_call_unary` is inside the core until
+  the response lands. The callback and the queue need one. That is the deliveries'
+  real difference and it is why the wall-clock ratio at 8 and 16 is not a like-for-
+  like column: one host thread cannot decode 16 responses at once.
+  `wall/A` is printed beside the CPU column and is never the headline (R9).
+  `spr%` is the arm's own round-to-round spread on the CPU column, (max-min)/min.
+  It is 5 to 25 percent here, which is why every DIFFERENCE below the table is a
+  within-round delta and not a difference of two best-of-nine figures.
+
+What is inside the numbers and is not the thing being measured.
+  Thread creation. The blocking arms, `cb x N`, cell A and cell D spawn their host
+  threads per round, so a round of 80 RPCs at 16 in flight pays 16 pthread_create
+  and join pairs. At a generous 30 us each that is 480 us over 80 RPCs, about 6 us
+  per RPC against a call of roughly 4,000 us -- 0.15 percent. It is arithmetic and
+  not a measurement, and it is stated because it lands on exactly the arms the
+  delivery comparison is between. It is two orders of magnitude below the
+  differences that separate and cannot account for any of them.
+  Cell D's slice concatenation, printed per level above: grpc++ hands the generic
+  path a slice list and the core's decoder needs one buffer, where protobuf parses
+  straight off the list. Cell A does not pay it and cell D does.
+  The server. It is in-process and its handler CPU is subtracted from every cell,
+  but its transport threads are not and cannot be; they are the same work for all
+  four cells, so they dilute every ratio toward 1 rather than favouring one.
+
+What this grid does NOT measure, per R11.
+  The ENCODE direction. The request is an empty message, so the codec difference
+  here is a decode difference and nothing else. A grid with a large request would
+  be a different measurement and this one does not stand in for it.
+  Allocation per RPC, which design/SHAPES.md's RPC arm asks for beside CPU. Nothing
+  here counts allocations, and a page-fault or RSS proxy dressed as an allocation
+  count would be worse than the gap.
+  Streaming, TLS, retry, deadlines, metadata, the status code as a number, a real
+  network, failure injection, and the server side. Section 9's case is behavioural
+  and this arm is not a test of it.
+
+==================================================================================
+== the grid: transport tcp, pinning pin ==
+configuration: grpc++ 1.51.1, protobuf C++ 3021012, -O2 -g -DNDEBUG, shared linkage
+transport pinning: ON  -- stream window 4194304, connection window 4194304, max message 2097152, BDP probe off
+rounds 9, 80 RPCs per round per arm per in-flight level, best of rounds
+
+== transport: tcp (127.0.0.1:50077), pinning on ==
+arm                cell delivery  inflt   hostthr      CPU ns/RPC   spr%   wall ns/RPC      CPU/A     wall/A
+A  pb/grpc++       A    blocking  1       1               4680895   12.0       5163862      1.000      1.000
+B  pb/core         B    blocking  1       1               4666266    6.2       5083569      0.997      0.984
+B  pb/core cb      B    callback  1       1               4515802    7.6       5008971      0.965      0.970
+B  pb/core queue   B    queue     1       1               4429131   10.4       4919506      0.946      0.953
+C  core/core       C    blocking  1       1               3808522    8.6       4213571      0.814      0.816
+C  core/core cb    C    callback  1       1               3685393    8.7       4230081      0.787      0.819
+C  core/core q     C    queue     1       1               3691386    5.5       4170472      0.789      0.808
+C  core/core cbxN  C    cb x N    1       1               3759709    7.0       4260075      0.803      0.825
+D  core/grpc++     D    blocking  1       1               3919031    8.7       4409026      0.837      0.854
+
+   within-round deltas, 9 rounds (R4). 'sign' is whether lo and hi agree;
+   a delta that straddles zero has NOT separated and is not quoted as a
+   number. %A is the delta as a percentage of that round's cell A.
+   delta                                         lo ns        hi ns    lo %A    hi %A   sign
+   B-A  transport, blocking                    -434605       100505    -8.29     2.07     NO
+   C-B  codec under the core transport        -1036477      -783001   -20.91   -15.23    yes
+   D-A  codec under grpc++'s transport        -1214898      -670591   -23.66   -14.33    yes
+   C-A  both halves together                  -1233242      -846845   -23.69   -16.99    yes
+   cb - blocking, cell C                       -340152        -2963    -6.82    -0.06    yes
+   queue - blocking, cell C                    -349224        -8298    -7.01    -0.18    yes
+   queue - callback, cell C                    -159801       147568    -3.27     2.92     NO
+   cb x N - blocking, cell C  (control)        -288091        95726    -5.78     1.89     NO
+   cb x N - cb, cell C        (control)        -143318       273503    -2.93     5.41     NO
+   cb - blocking, cell B                       -303457       118680    -6.25     2.38     NO
+   queue - blocking, cell B                    -528350       144581   -10.88     2.82     NO
+   (C-B) - (D-A)  do the halves add?           -311907       394475                       NO
+   cell D also pays 47539 ns/RPC of slice concatenation at this level, which
+   cell A does not; D-A with it removed is that much more negative.
+
+A  pb/grpc++       A    blocking  8       N               4497993   14.6       1947789      1.000      1.000
+B  pb/core         B    blocking  8       N               4312784   21.8       1547815      0.959      0.795
+B  pb/core cb      B    callback  8       1               4313199   16.6       1969724      0.959      1.011
+B  pb/core queue   B    queue     8       1               4451870   11.1       2013980      0.990      1.034
+C  core/core       C    blocking  8       N               3750295   12.2       1408752      0.834      0.723
+C  core/core cb    C    callback  8       1               3462358   22.1       1401206      0.770      0.719
+C  core/core q     C    queue     8       1               3324517   27.5       1299494      0.739      0.667
+C  core/core cbxN  C    cb x N    8       N               3535542   16.5       1359528      0.786      0.698
+D  core/grpc++     D    blocking  8       N               3660435   12.0       1622926      0.814      0.833
+
+   within-round deltas, 9 rounds (R4). 'sign' is whether lo and hi agree;
+   a delta that straddles zero has NOT separated and is not quoted as a
+   number. %A is the delta as a percentage of that round's cell A.
+   delta                                         lo ns        hi ns    lo %A    hi %A   sign
+   B-A  transport, blocking                    -383962       389444    -7.92     8.66     NO
+   C-B  codec under the core transport        -1240976      -396420   -25.52    -8.46    yes
+   D-A  codec under grpc++'s transport        -1320832      -673744   -25.63   -14.12    yes
+   C-A  both halves together                  -1330745      -299317   -25.82    -6.64    yes
+   cb - blocking, cell C                       -660281       476687   -14.09    10.44     NO
+   queue - blocking, cell C                    -798121       486927   -17.03    10.67     NO
+   queue - callback, cell C                    -183793       232568    -3.78     4.80     NO
+   cb x N - blocking, cell C  (control)        -501696       210674   -11.02     4.41     NO
+   cb x N - cb, cell C        (control)        -553529       231532   -12.12     4.85     NO
+   cb - blocking, cell B                       -911623       313294   -18.75     6.68     NO
+   queue - blocking, cell B                    -460094       315173    -9.46     6.99     NO
+   (C-B) - (D-A)  do the halves add?           -322976       630136                       NO
+   cell D also pays 75209 ns/RPC of slice concatenation at this level, which
+   cell A does not; D-A with it removed is that much more negative.
+
+A  pb/grpc++       A    blocking  16      N               4873906    7.4       2014127      1.000      1.000
+B  pb/core         B    blocking  16      N               4978998    5.8       1726153      1.022      0.857
+B  pb/core cb      B    callback  16      1               4384189   14.5       2105446      0.900      1.045
+B  pb/core queue   B    queue     16      1               4412216   11.0       2137288      0.905      1.061
+C  core/core       C    blocking  16      N               3946531   10.0       1456375      0.810      0.723
+C  core/core cb    C    callback  16      1               3589271   15.2       1475378      0.736      0.733
+C  core/core q     C    queue     16      1               3320145   22.8       1332939      0.681      0.662
+C  core/core cbxN  C    cb x N    16      N               3756401    9.6       1383727      0.771      0.687
+D  core/grpc++     D    blocking  16      N               3977734   10.5       1678282      0.816      0.833
+
+   within-round deltas, 9 rounds (R4). 'sign' is whether lo and hi agree;
+   a delta that straddles zero has NOT separated and is not quoted as a
+   number. %A is the delta as a percentage of that round's cell A.
+   delta                                         lo ns        hi ns    lo %A    hi %A   sign
+   B-A  transport, blocking                    -151782       392306    -2.90     8.05     NO
+   C-B  codec under the core transport        -1268907      -712416   -26.03   -13.99    yes
+   D-A  codec under grpc++'s transport         -897832      -579329   -18.39   -11.76    yes
+   C-A  both halves together                  -1286840      -752651   -24.59   -14.78    yes
+   cb - blocking, cell C                       -530163       -40565   -10.73    -0.80    yes
+   queue - blocking, cell C                    -832387       -98591   -16.34    -1.94    yes
+   queue - callback, cell C                    -471656       229546    -9.68     4.63     NO
+   cb x N - blocking, cell C  (control)        -478286        72343    -9.39     1.48     NO
+   cb x N - cb, cell C        (control)        -379795       339854    -7.46     6.72     NO
+   cb - blocking, cell B                       -697401       -53224   -13.33    -1.04    yes
+   queue - blocking, cell B                    -803401      -143118   -16.39    -2.93    yes
+   (C-B) - (D-A)  do the halves add?           -477798       185416                       NO
+   cell D also pays 124902 ns/RPC of slice concatenation at this level, which
+   cell A does not; D-A with it removed is that much more negative.
+
+cell D's slice concatenation at 16 in flight: 124902 ns/RPC over 720 calls, 720 of them multi-slice.
+   protobuf parses off grpc++'s slice list; the core's decoder needs a
+   contiguous buffer, so cell D pays this and cell A does not. It is inside
+   D's column above and is printed so it can be taken out.
+
+standalone decode of the same 540422 B response, ns of thread CPU:
+   protobuf C++ 1940660    the core through the C ABI 1098830    ratio 0.566
+   difference -841830 ns, which is what C-B and D-A above should come to if
+   the codec is the only thing that differs between those cells.
+
+sink 9778000
+
+How to read the columns.
+  `CPU ns/RPC` is getrusage(RUSAGE_SELF) MINUS the server handler's own CPU, both
+  measured per round and divided by the RPCs in it. It counts every thread in the
+  process, so the core's tokio workers are in it and grpc++'s transport is too; a
+  per-thread sum over the threads the harness spawned is NOT like-for-like and
+  biases the ratio by about 0.2 (C11 in this slice's defect log).
+  `hostthr` is what N in flight costs the arm in HOST threads. Blocking needs N of
+  them by construction -- a thread inside `ak_call_unary` is inside the core until
+  the response lands. The callback and the queue need one. That is the deliveries'
+  real difference and it is why the wall-clock ratio at 8 and 16 is not a like-for-
+  like column: one host thread cannot decode 16 responses at once.
+  `wall/A` is printed beside the CPU column and is never the headline (R9).
+  `spr%` is the arm's own round-to-round spread on the CPU column, (max-min)/min.
+  It is 5 to 25 percent here, which is why every DIFFERENCE below the table is a
+  within-round delta and not a difference of two best-of-nine figures.
+
+What is inside the numbers and is not the thing being measured.
+  Thread creation. The blocking arms, `cb x N`, cell A and cell D spawn their host
+  threads per round, so a round of 80 RPCs at 16 in flight pays 16 pthread_create
+  and join pairs. At a generous 30 us each that is 480 us over 80 RPCs, about 6 us
+  per RPC against a call of roughly 4,000 us -- 0.15 percent. It is arithmetic and
+  not a measurement, and it is stated because it lands on exactly the arms the
+  delivery comparison is between. It is two orders of magnitude below the
+  differences that separate and cannot account for any of them.
+  Cell D's slice concatenation, printed per level above: grpc++ hands the generic
+  path a slice list and the core's decoder needs one buffer, where protobuf parses
+  straight off the list. Cell A does not pay it and cell D does.
+  The server. It is in-process and its handler CPU is subtracted from every cell,
+  but its transport threads are not and cannot be; they are the same work for all
+  four cells, so they dilute every ratio toward 1 rather than favouring one.
+
+What this grid does NOT measure, per R11.
+  The ENCODE direction. The request is an empty message, so the codec difference
+  here is a decode difference and nothing else. A grid with a large request would
+  be a different measurement and this one does not stand in for it.
+  Allocation per RPC, which design/SHAPES.md's RPC arm asks for beside CPU. Nothing
+  here counts allocations, and a page-fault or RSS proxy dressed as an allocation
+  count would be worse than the gap.
+  Streaming, TLS, retry, deadlines, metadata, the status code as a number, a real
+  network, failure injection, and the server side. Section 9's case is behavioural
+  and this arm is not a test of it.
+
+==================================================================================
+== the grid: transport tcp, pinning nopin ==
+configuration: grpc++ 1.51.1, protobuf C++ 3021012, -O2 -g -DNDEBUG, shared linkage
+transport pinning: OFF (each stack's own default)
+rounds 9, 80 RPCs per round per arm per in-flight level, best of rounds
+
+== transport: tcp (127.0.0.1:50077), pinning off ==
+arm                cell delivery  inflt   hostthr      CPU ns/RPC   spr%   wall ns/RPC      CPU/A     wall/A
+A  pb/grpc++       A    blocking  1       1               4602791    9.4       4963594      1.000      1.000
+B  pb/core         B    blocking  1       1               4648492   22.8       5071715      1.010      1.022
+B  pb/core cb      B    callback  1       1               4457558   12.4       4922201      0.968      0.992
+B  pb/core queue   B    queue     1       1               4484585    9.6       4980576      0.974      1.003
+C  core/core       C    blocking  1       1               3788348    7.3       4223874      0.823      0.851
+C  core/core cb    C    callback  1       1               3687820    8.6       4177232      0.801      0.842
+C  core/core q     C    queue     1       1               3600463    6.8       4089012      0.782      0.824
+C  core/core cbxN  C    cb x N    1       1               3657331   10.3       4165976      0.795      0.839
+D  core/grpc++     D    blocking  1       1               3822196    9.2       4451076      0.830      0.897
+
+   within-round deltas, 9 rounds (R4). 'sign' is whether lo and hi agree;
+   a delta that straddles zero has NOT separated and is not quoted as a
+   number. %A is the delta as a percentage of that round's cell A.
+   delta                                         lo ns        hi ns    lo %A    hi %A   sign
+   B-A  transport, blocking                     -91969      1008961    -1.94    21.46     NO
+   C-B  codec under the core transport        -1803531      -767080   -38.36   -16.18    yes
+   D-A  codec under grpc++'s transport        -1107025      -527563   -21.99   -11.22    yes
+   C-A  both halves together                  -1096618      -663320   -21.79   -14.26    yes
+   cb - blocking, cell C                       -263171       122442    -5.49     2.58     NO
+   queue - blocking, cell C                    -433019        14052    -9.20     0.30     NO
+   queue - callback, cell C                    -264178       114358    -5.57     2.42     NO
+   cb x N - blocking, cell C  (control)        -376152        94725    -8.00     2.01     NO
+   cb x N - cb, cell C        (control)        -137805       231789    -2.93     4.83     NO
+   cb - blocking, cell B                      -1054893        -8889   -22.44    -0.19    yes
+   queue - blocking, cell B                   -1225765       -13134   -26.07    -0.28    yes
+   (C-B) - (D-A)  do the halves add?           -924337       120273                       NO
+   cell D also pays 51917 ns/RPC of slice concatenation at this level, which
+   cell A does not; D-A with it removed is that much more negative.
+
+A  pb/grpc++       A    blocking  8       N               4816215    9.9       1872938      1.000      1.000
+B  pb/core         B    blocking  8       N               4682537   11.9       1691641      0.972      0.903
+B  pb/core cb      B    callback  8       1               4398745   17.3       1991044      0.913      1.063
+B  pb/core queue   B    queue     8       1               4429132   15.9       2023744      0.920      1.081
+C  core/core       C    blocking  8       N               3816184   15.5       1450136      0.792      0.774
+C  core/core cb    C    callback  8       1               3400953   20.9       1323948      0.706      0.707
+C  core/core q     C    queue     8       1               3359272   25.0       1373548      0.697      0.733
+C  core/core cbxN  C    cb x N    8       N               3589525   16.9       1358243      0.745      0.725
+D  core/grpc++     D    blocking  8       N               3730631   13.0       1552046      0.775      0.829
+
+   within-round deltas, 9 rounds (R4). 'sign' is whether lo and hi agree;
+   a delta that straddles zero has NOT separated and is not quoted as a
+   number. %A is the delta as a percentage of that round's cell A.
+   delta                                         lo ns        hi ns    lo %A    hi %A   sign
+   B-A  transport, blocking                    -348741       264669    -6.76     5.37     NO
+   C-B  codec under the core transport        -1251572      -722384   -25.42   -15.00    yes
+   D-A  codec under grpc++'s transport        -1508094      -707702   -28.49   -14.37    yes
+   C-A  both halves together                  -1192171      -856062   -23.80   -16.74    yes
+   cb - blocking, cell C                       -520029       150955   -10.58     3.13     NO
+   queue - blocking, cell C                    -477519       383391    -9.53     7.66     NO
+   queue - callback, cell C                    -284037       518967    -5.84    10.36     NO
+   cb x N - blocking, cell C  (control)        -668824       344858   -12.64     6.88     NO
+   cb x N - cb, cell C        (control)        -353849       780697    -6.82    15.58     NO
+   cb - blocking, cell B                       -714071       267598   -14.53     5.56     NO
+   queue - blocking, cell B                    -661952       319725   -13.47     6.19     NO
+   (C-B) - (D-A)  do the halves add?           -543870       674124                       NO
+   cell D also pays 71235 ns/RPC of slice concatenation at this level, which
+   cell A does not; D-A with it removed is that much more negative.
+
+A  pb/grpc++       A    blocking  16      N               4672434   12.6       1733563      1.000      1.000
+B  pb/core         B    blocking  16      N               4496557   23.7       1522013      0.962      0.878
+B  pb/core cb      B    callback  16      1               4253148   16.6       2063164      0.910      1.190
+B  pb/core queue   B    queue     16      1               4356285   14.7       2036958      0.932      1.175
+C  core/core       C    blocking  16      N               3753771   15.9       1422195      0.803      0.820
+C  core/core cb    C    callback  16      1               3691601    7.5       1617266      0.790      0.933
+C  core/core q     C    queue     16      1               3305005   20.0       1365435      0.707      0.788
+C  core/core cbxN  C    cb x N    16      N               3628662   16.4       1279792      0.777      0.738
+D  core/grpc++     D    blocking  16      N               3749948   12.9       1410471      0.803      0.814
+
+   within-round deltas, 9 rounds (R4). 'sign' is whether lo and hi agree;
+   a delta that straddles zero has NOT separated and is not quoted as a
+   number. %A is the delta as a percentage of that round's cell A.
+   delta                                         lo ns        hi ns    lo %A    hi %A   sign
+   B-A  transport, blocking                    -234721       466748    -4.96     9.57     NO
+   C-B  codec under the core transport        -1673602      -443071   -32.64    -9.36    yes
+   D-A  codec under grpc++'s transport        -1353638      -561439   -26.40   -11.70    yes
+   C-A  both halves together                  -1315965      -460506   -25.01    -9.86    yes
+   cb - blocking, cell C                       -503551        82882   -10.53     1.66     NO
+   queue - blocking, cell C                    -714884        42079   -14.66     0.84     NO
+   queue - callback, cell C                    -448772       214150    -9.36     4.29     NO
+   cb x N - blocking, cell C  (control)        -428759       247025    -9.03     5.15     NO
+   cb x N - cb, cell C        (control)        -207991       374886    -4.17     7.61     NO
+   cb - blocking, cell B                       -982760       -87595   -19.17    -1.85    yes
+   queue - blocking, cell B                   -1042072       297368   -20.32     6.29     NO
+   (C-B) - (D-A)  do the halves add?           -521986       339495                       NO
+   cell D also pays 94242 ns/RPC of slice concatenation at this level, which
+   cell A does not; D-A with it removed is that much more negative.
+
+cell D's slice concatenation at 16 in flight: 94242 ns/RPC over 720 calls, 720 of them multi-slice.
+   protobuf parses off grpc++'s slice list; the core's decoder needs a
+   contiguous buffer, so cell D pays this and cell A does not. It is inside
+   D's column above and is printed so it can be taken out.
+
+standalone decode of the same 540422 B response, ns of thread CPU:
+   protobuf C++ 2458062    the core through the C ABI 1365112    ratio 0.555
+   difference -1092950 ns, which is what C-B and D-A above should come to if
+   the codec is the only thing that differs between those cells.
+
+sink 9778000
+
+How to read the columns.
+  `CPU ns/RPC` is getrusage(RUSAGE_SELF) MINUS the server handler's own CPU, both
+  measured per round and divided by the RPCs in it. It counts every thread in the
+  process, so the core's tokio workers are in it and grpc++'s transport is too; a
+  per-thread sum over the threads the harness spawned is NOT like-for-like and
+  biases the ratio by about 0.2 (C11 in this slice's defect log).
+  `hostthr` is what N in flight costs the arm in HOST threads. Blocking needs N of
+  them by construction -- a thread inside `ak_call_unary` is inside the core until
+  the response lands. The callback and the queue need one. That is the deliveries'
+  real difference and it is why the wall-clock ratio at 8 and 16 is not a like-for-
+  like column: one host thread cannot decode 16 responses at once.
+  `wall/A` is printed beside the CPU column and is never the headline (R9).
+  `spr%` is the arm's own round-to-round spread on the CPU column, (max-min)/min.
+  It is 5 to 25 percent here, which is why every DIFFERENCE below the table is a
+  within-round delta and not a difference of two best-of-nine figures.
+
+What is inside the numbers and is not the thing being measured.
+  Thread creation. The blocking arms, `cb x N`, cell A and cell D spawn their host
+  threads per round, so a round of 80 RPCs at 16 in flight pays 16 pthread_create
+  and join pairs. At a generous 30 us each that is 480 us over 80 RPCs, about 6 us
+  per RPC against a call of roughly 4,000 us -- 0.15 percent. It is arithmetic and
+  not a measurement, and it is stated because it lands on exactly the arms the
+  delivery comparison is between. It is two orders of magnitude below the
+  differences that separate and cannot account for any of them.
+  Cell D's slice concatenation, printed per level above: grpc++ hands the generic
+  path a slice list and the core's decoder needs one buffer, where protobuf parses
+  straight off the list. Cell A does not pay it and cell D does.
+  The server. It is in-process and its handler CPU is subtracted from every cell,
+  but its transport threads are not and cannot be; they are the same work for all
+  four cells, so they dilute every ratio toward 1 rather than favouring one.
+
+What this grid does NOT measure, per R11.
+  The ENCODE direction. The request is an empty message, so the codec difference
+  here is a decode difference and nothing else. A grid with a large request would
+  be a different measurement and this one does not stand in for it.
+  Allocation per RPC, which design/SHAPES.md's RPC arm asks for beside CPU. Nothing
+  here counts allocations, and a page-fault or RSS proxy dressed as an allocation
+  count would be worse than the gap.
+  Streaming, TLS, retry, deadlines, metadata, the status code as a number, a real
+  network, failure injection, and the server side. Section 9's case is behavioural
+  and this arm is not a test of it.
+
+==================================================================================
+== the deliveries on a call small enough to SEE them: Ping, UDS, pinned ==
+   The grid above sits on a 540 KB response and about 4 ms of CPU, where a 0.30 ns
+   reverse crossing cannot be seen whatever it costs. This block removes the codec
+   from both sides so what is left is the transport and the three deliveries.
+configuration: grpc++ 1.51.1, UDS, pinning on, 9 rounds, 500 RPCs per round per
+arm per in-flight level. EMPTY request, EMPTY response: no codec on either
+side, so the boundary is what is left.
+
+arm                delivery  inflt   hostthr      CPU ns/RPC   spr%   wall ns/RPC      CPU/A
+A  grpc++ Ping     blocking  1       1                121156   16.3         80887      1.000
+core Ping          blocking  1       1                201656   20.6        137742      1.664
+core Ping cb       callback  1       1                181724   20.1        127332      1.500
+core Ping queue    queue     1       1                181326   22.5        129674      1.497
+core Ping cbxN     cb x N    1       1                183816   15.7        132606      1.517
+
+   within-round deltas, 9 rounds. A delta that straddles zero has NOT
+   separated.
+   delta                                   lo ns        hi ns    lo %A    hi %A   sign
+   core - grpc++, blocking                 61294       110952    43.67    89.07    yes
+   cb - blocking                          -33926        -6408   -26.10    -4.57    yes
+   queue - blocking                       -55042          144   -39.08     0.10     NO
+   queue - callback                       -21130         7130   -15.00     5.48     NO
+   cb x N - blocking  (control)           -42274         2052   -33.26     1.46     NO
+   cb x N - cb        (control)           -13986         8460   -11.23     6.03     NO
+
+A  grpc++ Ping     blocking  8       N                132688   23.9         54940      1.000
+core Ping          blocking  8       N                119679   40.4         48267      0.902
+core Ping cb       callback  8       1                127659   22.7         46061      0.962
+core Ping queue    queue     8       1                138970   10.3         50595      1.047
+core Ping cbxN     cb x N    8       N                124008   28.0         48608      0.935
+
+   within-round deltas, 9 rounds. A delta that straddles zero has NOT
+   separated.
+   delta                                   lo ns        hi ns    lo %A    hi %A   sign
+   core - grpc++, blocking                -35583        24591   -22.92    18.37     NO
+   cb - blocking                          -29423        30835   -21.98    19.86     NO
+   queue - blocking                       -28456        29091   -17.31    18.74     NO
+   queue - callback                        -9028        23919    -5.49    17.87     NO
+   cb x N - blocking  (control)           -36885        39034   -22.44    25.14     NO
+   cb x N - cb        (control)           -17458        13403   -11.07     9.82     NO
+
+A  grpc++ Ping     blocking  16      N                145986   14.1         52816      1.000
+core Ping          blocking  16      N                108683   53.5         47599      0.744
+core Ping cb       callback  16      1                104040  103.1         41633      0.713
+core Ping queue    queue     16      1                119796   38.4         45790      0.821
+core Ping cbxN     cb x N    16      N                130073   21.1         49304      0.891
+
+   within-round deltas, 9 rounds. A delta that straddles zero has NOT
+   separated.
+   delta                                   lo ns        hi ns    lo %A    hi %A   sign
+   core - grpc++, blocking                -52048         7270   -32.38     4.73     NO
+   cb - blocking                          -32897        62909   -21.95    38.63     NO
+   queue - blocking                       -29718        57081   -20.28    35.51     NO
+   queue - callback                       -77798        35101   -47.78    23.42     NO
+   cb x N - blocking  (control)           -29157        47948   -17.51    29.83     NO
+   cb x N - cb        (control)           -59560        33286   -36.58    22.20     NO
+
+sink 67240
+
+The boundary arithmetic this arm is measured against. On this machine a forward
+crossing is 0.63 ns and a reverse one 0.30 ns, so the deliveries differ by 0.3 ns
+(callback) or 0.63 ns (queue) of BOUNDARY per call. Against the CPU column above,
+that is the last digit or beyond it. A delta that separates here is therefore NOT
+the crossing: it is the delivery's machinery -- a spawned task, a mutex and a
+condvar, a wakeup -- or the host thread count, and the `cb x N` control is what
+tells those two apart.
+
+
+== every difference, counted across every configuration it was asked in ==
+
+   A difference is counted as SEPARATED in a configuration only where its lo and
+   hi over the nine within-round deltas share a sign. The range below is over the
+   configurations where it did separate, as a percentage of cell A; quoting a
+   range over the subset with the wanted sign is exactly what the sign column
+   exists to stop, so the COUNT is printed beside it and is the thing to read.
+   A difference that separates in a minority of configurations has not separated.
+
+   -- the P2.2 grid: 2 transports x 2 pinnings x 3 in-flight levels --
+   difference                                separates   range where it does, % of A
+   B-A  transport, blocking                      1 / 12   +1.44% to +13.76%
+   C-B  codec under the core transport          12 / 12   -38.36% to -8.46%
+   D-A  codec under grpc++'s transport          12 / 12   -28.49% to -9.21%
+   C-A  both halves together                    12 / 12   -25.82% to -5.38%
+   cb - blocking, cell C                         6 / 12   -15.85% to -0.06%
+   queue - blocking, cell C                      6 / 12   -21.77% to -0.18%
+   queue - callback, cell C                      0 / 12   --
+   cb x N - blocking, cell C  (control)          2 / 12   -11.36% to -2.65%
+   cb x N - cb, cell C        (control)          1 / 12   +1.15% to +11.56%
+   cb - blocking, cell B                         4 / 12   -22.44% to -0.19%
+   queue - blocking, cell B                      4 / 12   -26.07% to -0.05%
+   (C-B) - (D-A)  do the halves add?             0 / 12   --
+
+   -- the Ping block (no codec on either side): UDS, pinned, 3 in-flight levels --
+   difference                                separates   range where it does, % of A
+   core - grpc++, blocking                       1 / 3    +43.67% to +89.07%
+   cb - blocking                                 1 / 3    -26.10% to -4.57%
+   queue - blocking                              0 / 3    --
+   queue - callback                              0 / 3    --
+   cb x N - blocking  (control)                  0 / 3    --
+   cb x N - cb        (control)                  0 / 3    --
+
