@@ -62,21 +62,33 @@ JNIEXPORT void JNICALL Java_ak_NativeRpc_clientDestroy(JNIEnv *e, jclass c, jlon
 
 /* Crossing one. `out` receives {ptr, len, owner}; the core still owns the bytes.
  *
- * The request is pinned rather than copied, for the same reason the pull family's parse
- * is: this call makes no upcall, so a critical section over it is legal and the host's
- * array never has to be staged. */
+ * THE REQUEST IS COPIED, NOT PINNED, AND THE REASON IS A DEADLOCK.
+ *
+ * The first version held `GetPrimitiveArrayCritical` across the whole call, by analogy
+ * with the pull family's parse: that call makes no upcall, so a critical section over it
+ * is legal. The analogy is false for a BLOCKING call. Making no upcall is what makes a
+ * critical section legal under JNI's rules; it does not make it safe when the call cannot
+ * complete until other Java threads make progress. A critical section blocks GC, the peer
+ * is a grpc-java server in this same process, and that server must allocate to produce a
+ * response -- so a GC needed inside the window waits for a critical section that waits for
+ * the server that waits for the GC. It hung on the first small payload, having survived a
+ * large one by luck of timing.
+ *
+ * The rule generalises past this arm and past RPC: a host must not pin a Java array across
+ * an ABI call whose completion depends on another Java thread. `GetByteArrayElements` with
+ * a copy is correct here, and the request is small by construction -- it is a request. */
 JNIEXPORT jint JNICALL Java_ak_NativeRpc_callUnary(JNIEnv *env, jclass c, jlong cl,
                                                    jlong pathPtr, jint pathLen,
                                                    jbyteArray req, jint reqOff, jint reqLen,
                                                    jlongArray out) {
   (void) c;
   ak_bytes b = {NULL, 0, NULL};
-  void *base = (*env)->GetPrimitiveArrayCritical(env, req, NULL);
+  jbyte *base = (*env)->GetByteArrayElements(env, req, NULL);
   if (base == NULL) return -1;
   int32_t rc = ak_call_unary((void *)(intptr_t) cl,
                              (const uint8_t *)(intptr_t) pathPtr, (size_t) pathLen,
                              (const uint8_t *) base + reqOff, (size_t) reqLen, &b);
-  (*env)->ReleasePrimitiveArrayCritical(env, req, base, JNI_ABORT);
+  (*env)->ReleaseByteArrayElements(env, req, base, JNI_ABORT);
   if (rc == 0) {
     jlong v[3];
     v[0] = (jlong)(intptr_t) b.ptr;
@@ -96,4 +108,94 @@ JNIEXPORT void JNICALL Java_ak_NativeRpc_bytesFree(JNIEnv *e, jclass c, jlong pt
   b.len = (size_t) len;
   b.owner = (void *)(intptr_t) owner;
   ak_bytes_free(&b);
+}
+
+/* ---- section 9's completion queue ---------------------------------------------------
+ *
+ * The mode section 9 says a managed host should want: no upcall at all, and no thread the
+ * host does not own. The drainer is a host thread that enters `ak_queue_next` and comes
+ * back out, so there is nothing for the JVM to attach and nothing to pin -- which is the
+ * claim this slice is placed to test, because its own `pinning.log` is where the blocking
+ * mode's carrier pinning was measured.
+ *
+ * Three forward crossings per call (submit, next, free) and zero reverse, against the
+ * blocking mode's two and zero. On this machine a forward crossing is 11.9 to 12.9 ns, so
+ * the queue spends about 12 ns more per call to stop blocking a host thread in a native
+ * frame for the duration of an RPC.
+ */
+typedef struct {
+  uint64_t tag;
+  int32_t  status;
+  ak_bytes bytes;
+} ak_completion;
+
+void   *ak_queue_new(void);
+void   *ak_call_unary_q(void *c, const uint8_t *path, size_t path_len,
+                        const uint8_t *req, size_t req_len, void *q, uint64_t tag);
+int32_t ak_queue_next(void *q, ak_completion *out, uint64_t timeout_ms);
+void    ak_queue_shutdown(void *q);
+void    ak_queue_destroy(void *q);
+void    ak_call_cancel(void *h);
+void    ak_call_destroy(void *h);
+
+JNIEXPORT jlong JNICALL Java_ak_NativeRpc_queueNew(JNIEnv *e, jclass c) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_queue_new();
+}
+
+JNIEXPORT void JNICALL Java_ak_NativeRpc_queueShutdown(JNIEnv *e, jclass c, jlong q) {
+  (void) e; (void) c;
+  ak_queue_shutdown((void *)(intptr_t) q);
+}
+
+JNIEXPORT void JNICALL Java_ak_NativeRpc_queueDestroy(JNIEnv *e, jclass c, jlong q) {
+  (void) e; (void) c;
+  ak_queue_destroy((void *)(intptr_t) q);
+}
+
+/* Crossing one: submit and return. The request is copied, not pinned, for the deadlock
+ * reason above -- and here it matters even more, because the submitting thread goes on to
+ * do other work while the call is in flight. */
+JNIEXPORT jlong JNICALL Java_ak_NativeRpc_callUnaryQ(JNIEnv *env, jclass c, jlong cl,
+                                                     jlong pathPtr, jint pathLen,
+                                                     jbyteArray req, jint reqOff, jint reqLen,
+                                                     jlong q, jlong tag) {
+  (void) c;
+  jbyte *base = (*env)->GetByteArrayElements(env, req, NULL);
+  if (base == NULL) return 0;
+  void *h = ak_call_unary_q((void *)(intptr_t) cl,
+                            (const uint8_t *)(intptr_t) pathPtr, (size_t) pathLen,
+                            (const uint8_t *) base + reqOff, (size_t) reqLen,
+                            (void *)(intptr_t) q, (uint64_t) tag);
+  (*env)->ReleaseByteArrayElements(env, req, base, JNI_ABORT);
+  return (jlong)(intptr_t) h;
+}
+
+/* Crossing two: the downcall the host blocks in. `out` receives
+ * {status, tag, ptr, len, owner}; the rc is the queue status, not the call's. */
+JNIEXPORT jint JNICALL Java_ak_NativeRpc_queueNext(JNIEnv *env, jclass c, jlong q,
+                                                   jlong timeoutMs, jlongArray out) {
+  (void) c;
+  ak_completion comp;
+  comp.tag = 0;
+  comp.status = 0;
+  comp.bytes.ptr = NULL;
+  comp.bytes.len = 0;
+  comp.bytes.owner = NULL;
+  int32_t rc = ak_queue_next((void *)(intptr_t) q, &comp, (uint64_t) timeoutMs);
+  if (rc == 0) {
+    jlong v[5];
+    v[0] = (jlong) comp.status;
+    v[1] = (jlong) comp.tag;
+    v[2] = (jlong)(intptr_t) comp.bytes.ptr;
+    v[3] = (jlong) comp.bytes.len;
+    v[4] = (jlong)(intptr_t) comp.bytes.owner;
+    (*env)->SetLongArrayRegion(env, out, 0, 5, v);
+  }
+  return (jint) rc;
+}
+
+JNIEXPORT void JNICALL Java_ak_NativeRpc_callDestroy(JNIEnv *e, jclass c, jlong h) {
+  (void) e; (void) c;
+  if (h != 0) ak_call_destroy((void *)(intptr_t) h);
 }
