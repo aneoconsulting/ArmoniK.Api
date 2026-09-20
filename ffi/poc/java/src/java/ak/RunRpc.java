@@ -160,8 +160,8 @@ public final class RunRpc {
     Runner runner;
     if (coreTransport) {
       runner = delivery.equals("blocking")
-          ? new CoreRunner(coreTarget, parse)
-          : new QueueRunner(coreTarget, parse, delivery.equals("queue-vt"));
+          ? new CoreRunner(coreTarget, parse, pinned)
+          : new QueueRunner(coreTarget, parse, delivery.equals("queue-vt"), pinned);
     } else {
       runner = uds
           ? new GrpcJavaRunner(
@@ -304,7 +304,9 @@ public final class RunRpc {
 
     final Parse parse;
 
-    CoreRunner(String target, Parse parse) {
+    CoreRunner(String target, Parse parse) { this(target, parse, true); }
+
+    CoreRunner(String target, Parse parse, boolean pinned) {
       this.parse = parse;
       NativeRpc.ensureBound();
       // Explicit worker count: ABI v1 section 3 refuses Runtime::new() because Rust reads
@@ -312,7 +314,14 @@ public final class RunRpc {
       rt = NativeRpc.runtimeNew(Integer.getInteger("ak.rpc.workers", 2));
       if (rt == 0) throw new IllegalStateException("ak_runtime_new failed");
       byte[] uri = target.getBytes(StandardCharsets.UTF_8);
-      client = NativeRpc.clientNew(rt, uri, uri.length);
+      // ArmoniK's INTENDED configuration on the core side too. Nagle: -1, leave the
+      // default, because tonic already defaults tcp_nodelay=true and
+      // packages/rust/armonik-transport ships tcp_nagle_algorithm=false, so both are
+      // already Nagle-off and pinning it would change nothing.
+      client = pinned
+          ? NativeRpc.clientNewOpts(rt, uri, uri.length, ARMONIK_WINDOW, ARMONIK_WINDOW,
+                                    -1, ARMONIK_MAX_MESSAGE, ARMONIK_MAX_MESSAGE, -1)
+          : NativeRpc.clientNew(rt, uri, uri.length);
       if (client == 0) throw new IllegalStateException("ak_client_new failed");
       byte[] p = PATH.getBytes(StandardCharsets.UTF_8);
       pathLen = p.length;
@@ -361,8 +370,8 @@ public final class RunRpc {
     final ThreadLocal<long[]> comp = ThreadLocal.withInitial(() -> new long[5]);
     final java.util.concurrent.atomic.AtomicLong tags = new java.util.concurrent.atomic.AtomicLong();
 
-    QueueRunner(String target, Parse parse, boolean virtual) {
-      this.base = new CoreRunner(target, parse);
+    QueueRunner(String target, Parse parse, boolean virtual, boolean pinned) {
+      this.base = new CoreRunner(target, parse, pinned);
       this.virtual = virtual;
       this.q = NativeRpc.queueNew();
       if (q == 0) throw new IllegalStateException("ak_queue_new failed");
