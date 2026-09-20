@@ -837,23 +837,35 @@ whatever the payload.
 
 Written here rather than edited into the documents, per the contract.
 
-**FIRST, AND IT BLOCKS A BUILD.** This branch does **not build standalone** as
-pushed. Stage 18 binds ABI v1 section 9's transport, which lives in the shared
+**FIRST, AND IT STILL BLOCKS A BUILD.** A check-in reported that the core is
+merged and that merge permission is no longer needed. **It is still refused in
+this session** -- `git merge origin/claude/poc-next-slice-76rbjx` was denied
+again, with a different reason than before, as was committing the core's files
+verbatim. So this stands, now against ef8fea95 rather than 2c17c02b. This branch
+does **not build standalone** as pushed. Stage 18 binds ABI v1 section 9's transport, which lives in the shared
 core behind its `rpc` cargo feature and arrived on
-`claude/poc-next-slice-76rbjx` (2c17c02b). This session was instructed to merge
-that branch and **was refused permission to do so**, and refused again when it
-tried to commit the core's files verbatim: writing anything under
-`ffi/poc/codec` is denied here. So `src/Rpc/CoreTransport.cs` and `src/Rpc/Grid.cs`
-are pushed against a core this branch does not carry.
+`claude/poc-next-slice-76rbjx`, now at **ef8fea95**. Writing anything under
+`ffi/poc/codec` is denied in this session, by merge or by commit. So
+`src/Rpc/CoreTransport.cs`, `src/Rpc/Grid.cs` and every stage 18 and 19
+measurement are pushed against a core this branch does not carry. Stage 19 also
+needs a SECOND build of it, with `count` beside `rpc`, for the crossing counts.
 
 To build and re-run stage 18:
 
     git merge origin/claude/poc-next-slice-76rbjx
-    cd ffi/poc/codec && CARGO_TARGET_DIR=../csharp/target-core \
+    cd ffi/poc/codec
+    CARGO_TARGET_DIR=../csharp/target-core \
         cargo build --release -p ak-core --features rpc
+    CARGO_TARGET_DIR=../csharp/target-core-count \
+        cargo build --release -p ak-core --features "rpc count"
     cd ../csharp && dotnet build src/Rpc/Rpc.csproj -c Release
     dotnet src/Rpc/bin/Release/net8.0/akrpc.dll --grid --rounds 9 --calls 300
+    dotnet src/Rpc/bin/Release/net8.0/akrpc.dll --grid --reverse-arms --rounds 9 --calls 300
     dotnet src/Rpc/bin/Release/net8.0/akrpc.dll --park
+    dotnet src/Rpc/bin/Release/net8.0/akrpc.dll --nagle --tcp
+    # --crossings needs the COUNTING core in the output directory:
+    cp target-core-count/release/libak_core.so src/Rpc/bin/Release/net8.0/
+    dotnet src/Rpc/bin/Release/net8.0/akrpc.dll --crossings
 
 The measurements in `stage18-rpc-grid.log` were taken with exactly that core in
 the tree, byte for byte identical to 2c17c02b (`git diff` against it was empty),
@@ -930,6 +942,24 @@ without the rpc build still runs every other arm.
    change -- asking that the report say which languages the rejecting policy is a
    change FOR, because for C# it is one and the corpus currently reads as though
    every slice simply fails there.
+
+8. **Section 9's "two crossings per call" is the BLOCKING form's count, and the
+   other two deliveries cost four.** Read from the core's own
+   `ak_rpc_counters` in a build carrying `count`
+   (`stage19-grid-pinned-nagle-crossings.log`): blocking is 2 forward and 0
+   reverse; the callback is 3 forward and 1 reverse; the queue is 4 forward and
+   0 reverse. The extra forward crossings are `ak_call_destroy` on the handle
+   that makes a call cancellable, plus `ak_queue_next` in the queue's case. At
+   7.5 to 12 ns a crossing this is four to six parts per million of a call, so
+   the correction is to the CLAIM and not to a number -- but "two per call" as
+   a property of the family is wrong, and the crossing table is one of the few
+   things in this branch that is supposed to survive a rerun on other hardware.
+
+9. **`ak_client_opts` has six fields, not five.** The hand-off listed
+   `stream_window`, `connection_window`, `adaptive_window`, `max_recv_message`
+   and `max_send_message`, and omitted `tcp_nagle` (1 on, 0 off, -1 leave
+   tonic's default). A host binding the five would have declared a struct one
+   word short of the core's. Caught by reading the struct.
 
 7. **ABI v1 section 9's owning-thread check, with a managed host's evidence for
    it.** Section 9 already proposes it -- "an owning-thread id beside the
@@ -1246,7 +1276,17 @@ this slice's to build, and stage 17 built it.
    A segmented reader means every read handling a boundary, risking the
    single-segment path every in-process arm uses, to recover a third of a
    percent of an RPC.
-11. ~~Streaming.~~ **DONE** (`stage17-streaming.log`), and it produced the
+11. ~~Streaming.~~ **BUILT, AND IT WAS SCOPE THIS SLICE ADDED. Read the next
+   paragraph before the result.** `design/SHAPES.md` lists streaming under "not
+   in the RPC arm, and listed as not measured". It was on this list because that
+   same sentence says streaming is where the concurrency invariant bites, and
+   because a check-in asked for the list to be worked to empty. **The grid did
+   not need it.** So it belongs in the report's not-measured list for the RPC
+   arm, not in the arm, and the aggregating session should treat
+   `stage17-streaming.log` as an offer rather than as part of the arm. It is
+   left in the tree rather than deleted because it is gated, reproducible
+   measurement and deleting a log destroys evidence rather than scope; nothing
+   further will be spent on it. What it found, for whoever decides:
    largest codec share this slice has measured in a real transport as well as
    the arm's own refutation. **A no-codec transport floor is the number it
    exists for**: on P2.2 the codec is **54 to 82 percent of a streamed download
@@ -1282,6 +1322,21 @@ this slice's to build, and stage 17 built it.
    shows none of it, because a host thread parked in a native frame is one the
    pool must replace at one or two threads a second. Not a one-off: the pool
    retires the threads again between bursts.
+
+13. ~~The grid's R7 defect, the Nagle question, and the transport's crossings.~~
+   **DONE** (`stage19-grid-pinned-nagle-crossings.log`). **The TCP row is not a
+   Nagle row and this was checked, not argued**: on this stack 858 bytes costs
+   133.2 us and 540,422 bytes costs 905.4 us over loopback TCP, so the small
+   payload is 6.8x CHEAPER where the defect made it 1.4x dearer -- both ends here
+   are grpc-dotnet, which sets `TCP_NODELAY` by default, not the core's test
+   server. No published figure moves. **Stage 18's grid had a real R7 defect**
+   (B and C took tonic's defaults while A and D pinned ArmoniK's) and
+   `ak_client_new_opts` fixes it; **fixing it moves nothing**, and the transport
+   gap tightens to 18-19 percent at 1 in flight, 15-17 at 8 and 45-46 at 16
+   across four runs and two orders. **The transport's crossings are now counted
+   rather than quoted**: two per call is the BLOCKING mode; the callback costs
+   three forward and one reverse and the queue four forward and none, and none
+   of them varies with the payload's field count.
 
 Deliberately NOT on the list: more rounds to tighten a spread, a cold-start
 column, and any attempt to make this container's absolutes comparable with
@@ -1354,6 +1409,7 @@ another container's. R13's one calibration run stands and is not to be tuned.
 | `ffi/logs/csharp/stage10-crossing-reconciliation.log` | the counting core (`--features count`), `ak_enc_counters` read from the host, at two chunk sizes | **R5's cross-slice reconciliation, resolved.** The conventions never differed; the Rust host chunks at 150 and this one did not. At `AK_CHUNK=150` this slice reproduces the Rust slice's 2/8/3 forward and 1/1/1 reverse exactly. Also prices the difference: nothing measurable, 0.7 percent |
 | `ffi/logs/csharp/stage9-shared-core.log` | the ONE core at `ffi/poc/codec`, default features so no `rpc`; loaded path confirmed with `LD_DEBUG=libs`; three arms gated, three timing processes, plus a pre-move control | **The W10 re-gate.** 152 checks 0 failures on all three arms; the core-ffi arm green on M1; **nothing moved** (worst 0.035 against a 0.026 floor on arms the core cannot touch). Records that arm c cannot carry the core-ffi arm and why, and that a stale binary reported a pass before the timestamp was checked |
 | `ffi/logs/csharp/stage8-core-ffi.log` | the arm through `libak_core.so`, shared-library linkage, generated binding, staged strings; correctness plus three timing processes | **The `core-ffi` arm, M1.** Byte identity and value identity on P1.1/P1.2/P1.3; layout agreement on 8 structs; crossings constant in the element count in both directions; the interface cost against the no-boundary control, including the two findings that point opposite ways -- the C ABI beating the managed codec on P1.2 decode, and the absent path collapsing on the total group fill |
+| `ffi/logs/csharp/stage19-grid-pinned-nagle-crossings.log` | the grid re-run with the core client PINNED to ArmoniK's transport via `ak_client_new_opts`, unpinned cells kept as labelled rows; the rust slice's Nagle diagnostic reproduced on this stack at two payload sizes and two transports; the transport's crossings read from a core built with `count` | **The TCP row is not a Nagle row**, checked rather than argued: 858 B costs 133.2 us against 540,422 B at 905.4 us on loopback TCP, the opposite sign from the defect. **Stage 18's R7 defect was real and immaterial**: pinning moves nothing and the transport gap tightens to 15-19 percent at 1-8 in flight and 45-46 at 16. **Section 9's "two crossings per call" is the BLOCKING mode's count** -- the callback and queue deliveries cost four -- and `ak_client_opts` has six fields, not the five relayed |
 | `ffi/logs/csharp/stage18-rpc-grid.log` | ABI v1 section 9's transport bound from .NET with all three deliveries; the RPC arm as an A/B/C/D grid in one process; nine rounds, both cell orders, spreads on every row; `--park`, six runs; the whole slice re-gated against the rpc-featured core | **The transport half of the proposal is worth three to ten times the codec half on .NET.** Cell B (README 13's outcome 2, incumbent codec + core transport) is **12 to 44 percent less CPU per call**, growing with concurrency; the codec alone straddles 1.0. **Whether the halves are additive is not answerable**: both codec subtractions change sign with the arm order. **The three deliveries are the same in CPU** -- so .NET is indifferent between callback and queue, not dependent on the callback -- **and the blocking one is 190 to 630x slower in wall clock**, a thread-pool cost the CPU column cannot see and that recurs rather than being paid once. The `[UnmanagedCallersOnly]` rooting hazard is a FLOOR rule, not a .NET one |
 | `ffi/logs/csharp/stage17-streaming.log` | streaming both directions, grpc-dotnet both ends over a UDS, five arms including a NO-CODEC transport floor, two payload families (P2.2 and ArmoniK's P5.3 chunk), 1/8/16 streams, 5 rounds with the round-to-round spread beside every row, plus a reversed-arm-order control and the concurrency contract's two controls | **The codec's share is much larger in a stream than in a unary call**: 54-82 percent of a P2.2 download and 36-50 percent of an upload, against stage 15's 10 percent per unary call. **On ArmoniK's chunk shape it is zero**, and the reversed-order run is what establishes that -- the harness's own position effect there (17-31 percent) is larger than every codec difference, so no ranking on P5.3 survives. **The arm's own prediction is refuted** at this payload size. **The concurrency invariant, both controls**: a shared encode context is a SIGABRT no managed `catch` sees, and `[ThreadStatic]`, the correct answer, costs one context and its staging buffer per POOL thread, forever |
 | `ffi/logs/csharp/stage16-decision3-and-13.log` | a third build for the rejecting decode policy, each build carrying the incumbent as its in-process control; a no-string decode arm as decision 13's ceiling; `ak_bdr_footprint`; the RPC arm instrumented for sequence shape | **Three answers the branch did not have.** Decision 3's rejecting policy **closes all 31 corpus `T-dec` vectors and costs nothing measurable**, because `Encoding.UTF8` already validates and only the fallback differs, so the case against it cannot be performance. **Decision 13's ceiling is 42 to 62 percent of a decode** -- larger than every codec difference this slice has measured combined. Pull's record buffer is 0.36 to 1.6x the wire payload, and 63x on the absent path. A `ReadOnlySequence` reader is **retired with evidence**: every body is segmented and the flatten is still under 0.3 percent of an RPC |

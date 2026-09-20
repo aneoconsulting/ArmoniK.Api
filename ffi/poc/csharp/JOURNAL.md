@@ -1211,3 +1211,46 @@ rule belongs with the floor findings, not in the ABI's contract.
 The whole slice is re-gated against the rpc-featured core and is identical
 (152/0, the same 32 corpus rows, coreffi 0), which is what "the feature adds the
 transport and changes no codec entry point" has to mean to be worth saying.
+
+### 44. Three follow-ups, and the one that was a defect of mine
+
+**The TCP row is not a Nagle row, and I checked instead of arguing.** The
+temptation was to reason it away in a sentence -- both ends of my arm are
+grpc-dotnet, not the core's test server, and both set `TCP_NODELAY` by default.
+That reasoning is correct and it is not evidence. So I reproduced the rust
+slice's own diagnostic on my stack: 858 bytes costs 133.2 us and 540,422 costs
+905.4 over loopback TCP. The small payload is 6.8 times cheaper where the defect
+made it 1.4 times dearer. Nothing I have published moves.
+
+**Stage 18's grid had an R7 defect and it was mine.** Cells A and D pinned
+ArmoniK's transport on the .NET client; cells B and C took tonic's defaults,
+because `ak_client_new` was the only dial the core exported. So part of a
+published 12-to-44-percent transport gap could have been the settings, and the
+log said so nowhere. `ak_client_new_opts` closes it, and I kept the unpinned
+cells as B* and C* so the correction is visible rather than a quiet replacement.
+**Pinning moves nothing outside the spreads.** The defect was real methodology
+and an immaterial number, and it is worth saying in that order: I did not know
+which it would be until it ran.
+
+**The crossings were a quote and are now a reading.** "Count crossings, do not
+infer them" is one of the branch's own invariants and stage 18 broke it: I
+repeated section 9's two-per-call. Counted from a core built with `count`:
+blocking is 2, the callback is 3 forward plus 1 reverse, the queue is 4 forward.
+**Two per call is the blocking form and the non-blocking ones cost four**, the
+extra being `ak_call_destroy` on the handle that makes a call cancellable. It is
+four to six parts per million of a call, so nothing moves -- but the crossing
+table is meant to survive a rerun on other hardware, which is exactly the kind
+of claim that has to be right rather than cheap. The harness now refuses to
+print a count from a non-counting core, because a zero there reads as "free".
+
+And `ak_client_opts` has six fields, not the five I was handed. Binding five
+would have been a struct one word short of the core's, read as garbage. I found
+it by reading the struct instead of the message, which is the same habit as the
+first item on this list.
+
+**On streaming.** It was scope I added. It was on my next-step list because
+`design/SHAPES.md` names streaming as where the concurrency invariant bites and
+because a check-in asked for the list to be emptied; the grid never needed it.
+STATE.md now says so at the point where the result is claimed, and the log stays
+in the tree as an offer rather than as part of the RPC arm, because deleting a
+gated measurement destroys evidence rather than scope.

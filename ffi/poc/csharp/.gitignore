@@ -15,3 +15,4 @@ abi/target/
 bin-strict/
 obj-strict/
 target-core/
+target-core-count/
