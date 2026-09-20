@@ -1,0 +1,85 @@
+== ABI v1 section 9: the core's RPC layer against the host's, end to end ==
+
+java 17.0.20, protobuf-java 3.25.5, grpc-java 1.74.0, tonic 0.14.6, tokio multi-thread.
+Payload P2.2 (540,422 B) as the response, a 16 B request: the shape ListTasksDetailed
+actually has. Warm 4 s and measure 6 s per level, time-bounded rather than call-counted.
+
+WHAT IS COMPARED. Whole client stacks, not marshallers:
+
+  grpc-java : grpc-java client  + protobuf-java parse
+  core-rpc  : ak_call_unary     + the pull family's parse   (tonic, tokio, hyper)
+
+An arm that keeps grpc-java and swaps only the marshaller measures the codec inside
+somebody else's transport, which `logs/java/r14.log` already did without a server. Outcome
+2 puts the RPC LAYER on the C ABI, so the client stack is the variable.
+
+ONE SERVER, so the server is not a variable: grpc-java, answering with a fixed
+pre-encoded body through a pass-through byte marshaller. It does no work and knows no
+schema. Both arms parse identical bytes.
+
+TWO CROSSINGS PER CALL, kept as two. `ak_call_unary` returns bytes the core still owns and
+`ak_bytes_free` returns them; the copy in between is `Unsafe.copyMemory`, an intrinsic and
+not a crossing. Folding it into the call would have made this arm one crossing against its
+own specification.
+
+== 1. The two stacks, ArmoniK's configuration (4 MiB window, BDP off) ==
+
+in flight     grpc-java CPU   core-rpc CPU grpc-java wall  core-rpc wall
+1                    3867.5         3740.3         3083.2         2897.1
+8                    2780.9         3698.7          899.7         1173.5
+16                   2754.1         3672.5          881.6         1194.8
+
+microseconds per RPC. CPU is PROCESS cpu: client and server are both in this process.
+
+**At one in flight the core's RPC layer matches grpc-java**, and is slightly ahead on both
+CPU (0.97) and wall (0.94). **Under concurrency grpc-java pulls ahead by about a third**:
+1.33 on CPU and 1.30 to 1.36 on wall at 8 and 16.
+
+The shapes differ and that is the finding. `core-rpc`'s CPU per RPC is FLAT (3740, 3699,
+3673) which is what a sound measurement looks like; grpc-java's FALLS (3868, 2781, 2754),
+because multiplexed streams on one HTTP/2 connection let its event loop coalesce work. The
+core arm, making blocking calls through `block_on` from N host threads, gets no such
+coalescing.
+
+== 2. The tokio worker count is NOT the explanation, which was the obvious confound ==
+
+core-rpc, ArmoniK's configuration, CPU us/RPC:
+
+  workers    inflight=1   inflight=8   inflight=16
+  2              3740.3       3698.7        3672.5
+  4              3621.6       3506.0        3468.1
+  8              4004.0       3646.7        3503.0
+  16             3806.3       3348.1        3468.4
+
+Four runtime sizes, no trend past noise. The flatness is the arm's, not the runtime's.
+
+== 3. Pinning the flow-control window buys nothing measurable here ==
+
+  arm         config                              1        8       16
+  grpc-java   ArmoniK 4 MiB, BDP off         3867.5   2780.9   2754.1
+  grpc-java   default 1 MiB, BDP on          4364.4   3103.3   2534.2
+  core-rpc    ArmoniK 4 MiB, BDP off         3740.3   3698.7   3672.5
+  core-rpc    default 1 MiB, BDP on          3824.7   3666.5   3750.0
+
+Within a few percent either way, and not consistently signed. Expected: 540 KB fits inside
+a 1 MiB window as well as a 4 MiB one, so the pinning changes nothing except turning BDP
+auto-tuning off (`logs/java/flow-control.log`). **The window is worth pinning for a
+message that would not fit, and this is not one.**
+
+== 4. What this does NOT establish, and the first item is the big one ==
+
+- **The ratio is DILUTED and the client-side ratio is larger than 1.33.** Both arms carry
+  the same grpc-java SERVER inside the process CPU counter, because client and server are
+  in one process. The difference between the arms is entirely client-side, but it is being
+  divided by a total that includes a server half common to both. Decomposing it needs a
+  server whose cost can be measured separately, which this harness cannot do. **1.33 is a
+  floor on the client-side ratio, not an estimate of it.**
+- **No Unix domain socket.** `ak_client_new` takes a URI and tonic connects over TCP: the
+  core's RPC half has no Unix-domain connector, so the UDS primary the branch asked for is
+  not reachable through it. Both arms run over loopback TCP, which keeps them comparable
+  and leaves the kernel's TCP stack in both. That is a GAP IN THE CORE, not a setting.
+- **Streaming, metadata, deadlines, cancellation, TLS, status codes and the completion
+  queue** are all absent from the core's RPC half (its own module says so), so this is one
+  unary call and nothing else.
+- **One connection per arm.** No connection pooling, no multiple channels.
+- Absolutes are instrumentation (R13); the signs and the ratios are the claim.

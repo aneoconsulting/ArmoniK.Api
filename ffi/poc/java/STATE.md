@@ -333,6 +333,43 @@ finding that decode is bounded by host-side container construction, seen from a 
 **Three hosts, one mechanism, and the managed host gets less of it.** That is a fact the
 lifetime contract has to be drafted against, not a reason to drop it.
 
+### ABI v1 section 9's RPC layer, measured end to end -- `logs/java/rpc.log`
+
+**The arm compares whole client stacks, because that is what outcome 2 proposes.** An arm
+that keeps grpc-java and swaps the marshaller measures the codec inside somebody else's
+transport, which `r14.log` already did without a server. Here `ak_call_unary` and tonic
+replace grpc-java, and one grpc-java server answers both arms with a fixed pre-encoded body
+so the server is a constant. Two crossings per call, kept as two.
+
+| in flight | grpc-java CPU | core-rpc CPU | grpc-java wall | core-rpc wall |
+|---|---|---|---|---|
+| 1 | 3,868 | **3,740** | 3,083 | **2,897** |
+| 8 | **2,781** | 3,699 | **900** | 1,174 |
+| 16 | **2,754** | 3,673 | **882** | 1,195 |
+
+Microseconds per RPC, ArmoniK's configuration. **At one in flight the core's RPC layer
+matches grpc-java and is slightly ahead on both measures; under concurrency grpc-java pulls
+ahead by about a third.** The shapes are what matters: `core-rpc` is flat across in-flight
+(3,740 / 3,699 / 3,673) and grpc-java falls (3,868 / 2,781 / 2,754), because multiplexed
+streams on one connection let its event loop coalesce work where blocking `block_on` calls
+from N host threads cannot. **The tokio worker count is not the explanation** -- 2, 4, 8
+and 16 workers show no trend past noise.
+
+**Pinning the flow-control window buys nothing measurable on this payload.** Both arms move
+within a few percent between ArmoniK's 4 MiB and the 1 MiB default, and not consistently
+signed: 540 KB fits in either, so the pinning only turns BDP auto-tuning off. The window is
+worth pinning for a message that would not fit, and P2.2 is not one.
+
+**Three things this does not establish, and the first is the big one.** The ratio is
+**diluted**: both arms carry the same grpc-java server inside the process CPU counter, so
+the difference between them is entirely client-side but is divided by a total containing a
+common server half. **1.33 is a floor on the client-side ratio, not an estimate of it.**
+There is **no Unix domain socket**, because `ak_client_new` takes a URI and tonic connects
+over TCP -- the core's RPC half has no Unix-domain connector, which is a gap in the core
+rather than a setting here. And streaming, metadata, deadlines, cancellation, TLS, status
+codes and the completion queue are all absent from the core's RPC half, so this is one
+unary call and nothing else.
+
 ### R14: the headline against gRPC's marshaller -- `logs/java/r14-summary.md`, `r14.log`
 
 R14 arrived with W10 and lands on the baseline every other table here uses. The arm calls
@@ -819,4 +856,6 @@ In the order a fresh session should take them:
 | `pinning.log` | JDK 21, virtual threads | ABI v1 section 9's fourth amendment confirmed at three carrier counts |
 | `shim-probe.log` | JDK 17, three collectors | README 9.1's shape priced on the JVM before building it: a JNI field store is a third of an upcall, the crossover is k=2-3, and the G1 write barrier doubles a reference store |
 | `w10-regate.log` | all three arms, shared core | R0: 3,891 checks 0 failures, both transcoders resolved from `poc/codec`, worst drift move 0.052 against a 0.078 bar |
+| `flow-control.log` | grpc-java 1.74.0, read with javap | one call sets BOTH windows, pinning disables BDP, and the shipped default is 1 MiB |
+| `rpc.log` | JDK 17, tonic 0.14.6, loopback TCP | section 9 end to end: the core's RPC layer matches grpc-java at 1 in flight and is 1.33x its CPU at 8 and 16; the window pinning buys nothing on this payload |
 | `r14.log`, `r14-summary.md` | JDK 17, the real grpc marshaller | R14: the headline against production's path, and `toByteArray` priced against it |
