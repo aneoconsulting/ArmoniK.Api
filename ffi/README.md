@@ -566,10 +566,30 @@ asks for CPU per RPC, and a wall-clock column is reported beside it or not at al
 auto-tuning *off* and the second sets the window and turns it *on*, so the second
 wins and the first is dead code — the worker server starts from a 1 KB window and
 lets BDP grow it. Separately, bulk data does not ride one large unary message at
-all: it is chunked at `DataChunkMaxSize` (80 KB in `ArmoniK.Api.Mock`) over
-streaming RPCs, so the large-payload path is many small messages under the same
-flow control. Neither fact changes a codec ratio; both change what an RPC arm is a
-measurement of. The rest:
+all: it is chunked over streaming RPCs, so the large-payload path is many small
+messages under the same flow control. Neither fact changes a codec ratio; both
+change what an RPC arm is a measurement of.
+
+**So the RPC arms measure ArmoniK's transport configuration, not their stack's
+default**, which is R14 applied to the transport instead of to the codec. The
+configuration to carry, from the core's current settings:
+
+- **chunking at 2 MiB** for upload and download, where `ArmoniK.Api.Mock` still
+  shows the old 80 KB `DataChunkMaxSize`;
+- **a 4 MiB stream window**, sized to the largest message the stack accepts by
+  default, so one maximum-size message crosses without waiting for a
+  `WINDOW_UPDATE` at all.
+
+At 4 MiB, P2.2's 540 KB response never fills the window, so **the wall-clock hazard
+above is a property of the default and not of the configuration under test** — which
+is the point of pinning the configuration rather than arguing about the default.
+Two things to get right when pinning it. **Set the connection window as well as the
+stream window**: grpc-java's `flowControlWindow` sets `SETTINGS_INITIAL_WINDOW_SIZE`,
+which is per stream, and tonic and hyper likewise take the two separately — raising
+only the stream window leaves the connection at 65,535 and the stall comes back
+unchanged. And **an explicit window turns BDP auto-tuning off** in grpc-java, so the
+pinned arm and the default arm are two different measurements; report the pinned one
+as the headline and the stack default as a labelled second row. The rest:
 JIT tiering and PGO off handicaps a managed incumbent, which the C# slice checked
 rather than assumed: no arm there crosses 1.0 under any of three configurations,
 and the default is the one *least* favourable to the managed arms. Two vCPUs is
