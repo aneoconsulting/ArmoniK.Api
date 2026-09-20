@@ -837,6 +837,14 @@ whatever the payload.
 
 Written here rather than edited into the documents, per the contract.
 
+**READ THIS BEFORE QUOTING ANY ABSOLUTE FROM THE RPC ARM.** Stage 15's and
+stage 18's "pinned" rows are ArmoniK's INTENDED transport configuration and no
+ArmoniK client ships it; stage 20 establishes that production is a third
+configuration and measures it. Ratios are unaffected -- the transport is
+common-mode between arms and divides out -- but under R14 the shipped row is the
+headline and the pinned one is the labelled divergence, which is the opposite of
+how stage 15 labelled them. `--shipped` is the flag that reproduces it.
+
 **FIRST, AND IT STILL BLOCKS A BUILD.** A check-in reported that the core is
 merged and that merge permission is no longer needed. **It is still refused in
 this session** -- `git merge origin/claude/poc-next-slice-76rbjx` was denied
@@ -942,6 +950,23 @@ without the rpc build still runs every other arm.
    change -- asking that the report say which languages the rejecting policy is a
    change FOR, because for C# it is one and the corpus currently reads as though
    every slice simply fails there.
+
+10. **No ArmoniK client pins an HTTP/2 window, so the window belongs in the
+   report as a RECOMMENDATION and not as a baseline.**
+   `packages/rust/armonik-transport`'s `ClientConfig` has no stream- or
+   connection-window field (`grep -rn window src/` is empty);
+   `packages/csharp`'s `GrpcChannelProvider` sets none either. What the C#
+   client DOES set, on the UDS path only, is
+   `Http2FlowControl.DisableDynamicWindowSizing`, under a comment naming it a
+   workaround for grpc-dotnet#2361 -- so it disables .NET's window auto-tuner
+   and puts nothing in its place, and ships a 64 KB window for a 540 KB message.
+   `stage20-shipped-window.log` measures that at **27 to 39 percent of CPU per
+   call at 1 in flight**, bigger than every codec difference this slice has
+   found in a real RPC, with a no-codec control confirming it is the window.
+   The fix is one line beside the switch that is already there, and this slice
+   is not proposing it because nothing under `packages/` changes -- but whether
+   pinning a window reintroduces the connectivity issue the workaround exists
+   for is untested, and that is the only reason it is a recommendation.
 
 8. **Section 9's "two crossings per call" is the BLOCKING form's count, and the
    other two deliveries cost four.** Read from the core's own
@@ -1281,12 +1306,12 @@ this slice's to build, and stage 17 built it.
    in the RPC arm, and listed as not measured". It was on this list because that
    same sentence says streaming is where the concurrency invariant bites, and
    because a check-in asked for the list to be worked to empty. **The grid did
-   not need it.** So it belongs in the report's not-measured list for the RPC
-   arm, not in the arm, and the aggregating session should treat
-   `stage17-streaming.log` as an offer rather than as part of the arm. It is
-   left in the tree rather than deleted because it is gated, reproducible
-   measurement and deleting a log destroys evidence rather than scope; nothing
-   further will be spent on it. What it found, for whoever decides:
+   not need it, and the user has since ruled on it: not sure of its pertinence,
+   and not expecting it to change the performance ordering.** That is the gap
+   note the report should carry, and it is a better one than "we ran out of
+   time". Nothing further is spent on it. The log stays in the tree, not chased
+   and not deleted, because deleting a gated measurement destroys evidence
+   rather than scope. What it found, for whoever wants it:
    largest codec share this slice has measured in a real transport as well as
    the arm's own refutation. **A no-codec transport floor is the number it
    exists for**: on P2.2 the codec is **54 to 82 percent of a streamed download
@@ -1337,6 +1362,27 @@ this slice's to build, and stage 17 built it.
    rather than quoted**: two per call is the BLOCKING mode; the callback costs
    three forward and one reverse and the queue four forward and none, and none
    of them varies with the payload's field count.
+
+14. ~~R14 pointed at the transport: what the shipped clients actually
+   configure.~~ **DONE** (`stage20-shipped-window.log`), read from the packages
+   rather than from a description, and **it found an R14 defect in this slice's
+   own RPC arm**. Neither of the two transport rows this arm has carried since
+   stage 15 is what production runs. `packages/rust/armonik-transport`'s
+   `ClientConfig` has no window field at all, and `packages/csharp`'s
+   `GrpcChannelProvider` sets no window either -- but on the UDS path it DOES
+   set `Http2FlowControl.DisableDynamicWindowSizing`, as a stated workaround for
+   grpc-dotnet#2361. **So production is a third configuration: no window, .NET's
+   64 KB default, and the auto-tuner that would have grown it switched off.**
+   Measured, it is **27 to 39 percent more CPU per call at 1 in flight than
+   either alternative** and 13 to 15 percent more than the intended one at 8;
+   with no codec at all it is 1,689 us against 1,198 (pinned) and 1,376 (stack
+   default) on a 540 KB payload and **identical on an 858-byte one**, which is
+   the flow-control signature and rules out anything payload-independent. **The
+   workaround costs what it costs because it is half a change**: it disables
+   .NET's auto-tuner and puts nothing in its place, so it is worse than doing
+   nothing. Every RATIO this slice has published is unaffected (the transport is
+   common-mode between arms and divides out); what changes is which row is the
+   headline.
 
 Deliberately NOT on the list: more rounds to tighten a spread, a cold-start
 column, and any attempt to make this container's absolutes comparable with
@@ -1409,6 +1455,7 @@ another container's. R13's one calibration run stands and is not to be tuned.
 | `ffi/logs/csharp/stage10-crossing-reconciliation.log` | the counting core (`--features count`), `ak_enc_counters` read from the host, at two chunk sizes | **R5's cross-slice reconciliation, resolved.** The conventions never differed; the Rust host chunks at 150 and this one did not. At `AK_CHUNK=150` this slice reproduces the Rust slice's 2/8/3 forward and 1/1/1 reverse exactly. Also prices the difference: nothing measurable, 0.7 percent |
 | `ffi/logs/csharp/stage9-shared-core.log` | the ONE core at `ffi/poc/codec`, default features so no `rpc`; loaded path confirmed with `LD_DEBUG=libs`; three arms gated, three timing processes, plus a pre-move control | **The W10 re-gate.** 152 checks 0 failures on all three arms; the core-ffi arm green on M1; **nothing moved** (worst 0.035 against a 0.026 floor on arms the core cannot touch). Records that arm c cannot carry the core-ffi arm and why, and that a stale binary reported a pass before the timestamp was checked |
 | `ffi/logs/csharp/stage8-core-ffi.log` | the arm through `libak_core.so`, shared-library linkage, generated binding, staged strings; correctness plus three timing processes | **The `core-ffi` arm, M1.** Byte identity and value identity on P1.1/P1.2/P1.3; layout agreement on 8 structs; crossings constant in the element count in both directions; the interface cost against the no-boundary control, including the two findings that point opposite ways -- the C ABI beating the managed codec on P1.2 decode, and the absent path collapsing on the total group fill |
+| `ffi/logs/csharp/stage20-shipped-window.log` | the transport configuration read from `packages/rust/armonik-transport` and `packages/csharp` rather than described; three configurations (shipped, ArmoniK's intended, .NET's stack default) measured twice each, plus a no-codec arm at two payload sizes | **NO ARMONIK CLIENT PINS AN HTTP/2 WINDOW**, so the 4 MiB figure is an intention and not a baseline -- and this arm's two transport rows were both wrong for R14. **Production is a third configuration**: no window and `DisableDynamicWindowSizing` on, set as a connectivity workaround, which leaves a 64 KB window for a 540 KB message with nothing to grow it. It costs **27 to 39 percent more CPU per call at 1 in flight** than either alternative, and the no-codec arm shows the cost only on the large payload, which is flow control and nothing else. Larger than every codec difference this slice has found in a real RPC |
 | `ffi/logs/csharp/stage19-grid-pinned-nagle-crossings.log` | the grid re-run with the core client PINNED to ArmoniK's transport via `ak_client_new_opts`, unpinned cells kept as labelled rows; the rust slice's Nagle diagnostic reproduced on this stack at two payload sizes and two transports; the transport's crossings read from a core built with `count` | **The TCP row is not a Nagle row**, checked rather than argued: 858 B costs 133.2 us against 540,422 B at 905.4 us on loopback TCP, the opposite sign from the defect. **Stage 18's R7 defect was real and immaterial**: pinning moves nothing and the transport gap tightens to 15-19 percent at 1-8 in flight and 45-46 at 16. **Section 9's "two crossings per call" is the BLOCKING mode's count** -- the callback and queue deliveries cost four -- and `ak_client_opts` has six fields, not the five relayed |
 | `ffi/logs/csharp/stage18-rpc-grid.log` | ABI v1 section 9's transport bound from .NET with all three deliveries; the RPC arm as an A/B/C/D grid in one process; nine rounds, both cell orders, spreads on every row; `--park`, six runs; the whole slice re-gated against the rpc-featured core | **The transport half of the proposal is worth three to ten times the codec half on .NET.** Cell B (README 13's outcome 2, incumbent codec + core transport) is **12 to 44 percent less CPU per call**, growing with concurrency; the codec alone straddles 1.0. **Whether the halves are additive is not answerable**: both codec subtractions change sign with the arm order. **The three deliveries are the same in CPU** -- so .NET is indifferent between callback and queue, not dependent on the callback -- **and the blocking one is 190 to 630x slower in wall clock**, a thread-pool cost the CPU column cannot see and that recurs rather than being paid once. The `[UnmanagedCallersOnly]` rooting hazard is a FLOOR rule, not a .NET one |
 | `ffi/logs/csharp/stage17-streaming.log` | streaming both directions, grpc-dotnet both ends over a UDS, five arms including a NO-CODEC transport floor, two payload families (P2.2 and ArmoniK's P5.3 chunk), 1/8/16 streams, 5 rounds with the round-to-round spread beside every row, plus a reversed-arm-order control and the concurrency contract's two controls | **The codec's share is much larger in a stream than in a unary call**: 54-82 percent of a P2.2 download and 36-50 percent of an upload, against stage 15's 10 percent per unary call. **On ArmoniK's chunk shape it is zero**, and the reversed-order run is what establishes that -- the harness's own position effect there (17-31 percent) is larger than every codec difference, so no ranking on P5.3 survives. **The arm's own prediction is refuted** at this payload size. **The concurrency invariant, both controls**: a shared encode context is a SIGABRT no managed `catch` sees, and `[ThreadStatic]`, the correct answer, costs one context and its staging buffer per POOL thread, forever |

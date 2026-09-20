@@ -102,7 +102,23 @@ public static class Program
         // harness with it. Run it as a child and read the exit status.
         if (argv.Contains("--shared-ctx")) return SharedCtx(argv);
 
-        bool pinned = !argv.Contains("--stack-default");
+        // **Three transport configurations, and only one of them ships.**
+        // `packages/rust/armonik-transport`'s `ClientConfig` has connect and
+        // request timeouts, a rate limit, TCP keepalive and its interval and
+        // retries, `tcp_nagle_algorithm`, the HTTP/2 PING interval, timeout and
+        // while-idle flag, and a max header list size -- and NO stream or
+        // connection window. `packages/csharp`'s `GrpcChannelProvider` sets no
+        // window either, but on the UNIX SOCKET path it does set
+        // `Http2FlowControl.DisableDynamicWindowSizing`, as a WORKAROUND for a
+        // connectivity issue (grpc-dotnet #2361) rather than for throughput.
+        //
+        // So production is: no window pinned, .NET's 64 KB default, and the
+        // auto-tuner that would otherwise grow it to 16 MB switched OFF. That is
+        // a third configuration, it is the R14 baseline, and this arm had not
+        // measured it -- `--pinned` is ArmoniK's INTENDED configuration and
+        // `--stack-default` is .NET's, and neither is what ships.
+        bool shipped = argv.Contains("--shipped");
+        bool pinned = !shipped && !argv.Contains("--stack-default");
         bool tcp = argv.Contains("--tcp");
         // Streaming runs IN THE SAME PROCESS as the unary table, because the
         // claim it exists to test is "streaming moves the codec's share relative
@@ -136,9 +152,11 @@ public static class Program
         int calls = Arg(argv, "--calls", 300);
         var levels = new[] { 1, 8, 16 };
 
-        if (pinned)
+        if (pinned || shipped)
             // Before the first handler exists, or it does not take. This is what
-            // actually HOLDS a pinned window; the property alone is a floor.
+            // actually HOLDS a pinned window; the property alone is a floor. The
+            // SHIPPED arm sets exactly this and no window, which is
+            // `GrpcChannelProvider.cs` line for line.
             AppContext.SetSwitch(
                 "System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing", true);
 
@@ -180,8 +198,10 @@ public static class Program
         {
             EnableMultipleHttp2Connections = false,
             PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan,
-            InitialHttp2StreamWindowSize = pinned ? StreamWindow : 65535,
         };
+        // The shipped arm does not touch the property at all, because
+        // `GrpcChannelProvider` does not.
+        if (!shipped) handler.InitialHttp2StreamWindowSize = pinned ? StreamWindow : 65535;
         if (!tcp)
             handler.ConnectCallback = async (c, ct) =>
             {
@@ -200,6 +220,7 @@ public static class Program
             });
         var inv = ch.CreateCallInvoker();
 
+        Shipped = shipped;
         Header(tcp, pinned, Bench.Wire.Length, handler);
 
         // The four client-side codecs. The method NAME is the same in every arm,
@@ -530,6 +551,8 @@ public static class Program
         }
     }
 
+    public static bool Shipped;
+
     private static void Header(bool tcp, bool pinned, int bytes, SocketsHttpHandler h)
     {
         Console.WriteLine("# harness: rpc (end to end, grpc-dotnet both ends)");
@@ -540,9 +563,15 @@ public static class Program
         Console.WriteLine("# transport:           {0}", tcp
             ? "loopback TCP (the labelled second row)"
             : "UNIX DOMAIN SOCKET -- what packages/csharp defaults its worker and agent channels to");
-        Console.WriteLine("# stream window:       {0} bytes (client InitialHttp2StreamWindowSize)",
-            h.InitialHttp2StreamWindowSize);
-        Console.WriteLine("# dynamic sizing:      {0}", pinned
+        Console.WriteLine("# stream window:       {0} bytes (client InitialHttp2StreamWindowSize){1}",
+            h.InitialHttp2StreamWindowSize,
+            Shipped ? " -- .NET's DEFAULT, untouched, which is what packages/csharp does" : "");
+        Console.WriteLine("# configuration:       {0}", Shipped
+            ? "SHIPPED -- what packages/csharp's GrpcChannelProvider actually does on a UDS: "
+              + "no window pinned and dynamic sizing OFF (a connectivity workaround, grpc-dotnet #2361)"
+            : (pinned ? "ArmoniK's INTENDED configuration, which no ArmoniK client ships"
+                      : ".NET's stack default"));
+        Console.WriteLine("# dynamic sizing:      {0}", pinned || Shipped
             ? "OFF (Http2FlowControl.DisableDynamicWindowSizing). Without this the window "
               + "STARTS at the pinned value and doubles to a 16 MB cap"
             : "ON, the .NET default");
