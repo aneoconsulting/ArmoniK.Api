@@ -72,7 +72,14 @@ echo "===== 6. concurrency: ABI v1 obligation 12.5, and the GIL ====="
 } > "$LOGS/56-concurrency.log" 2>&1
 tail -1 "$LOGS/56-concurrency.log" | sed 's/^/   /'
 
-echo "===== 7. the composed arm, target interpreter, 3 processes ====="
+echo "===== 7. the collector: what disabling it was worth, and to whom ====="
+{
+  hdr "python slice: the GC bias the RPC arm found (defect D11)"
+  "$TARGET" gcbias.py
+} > "$LOGS/57-gc-bias.log" 2>&1
+grep -c -- "  <--" "$LOGS/57-gc-bias.log" | sed 's/^/   rows the collector was discounting: /'
+
+echo "===== 8. the composed arm, target interpreter, 3 processes ====="
 {
   hdr "python slice: the composed arm, encode and decode, M1 through M7"
   for i in 1 2 3; do
@@ -83,7 +90,7 @@ echo "===== 7. the composed arm, target interpreter, 3 processes ====="
 } > "$LOGS/62-all-shapes-py$TTAG.log" 2>&1
 echo "   $LOGS/62-all-shapes-py$TTAG.log"
 
-echo "===== 8. the composed arm, every interpreter, 1 process ====="
+echo "===== 9. the composed arm, every interpreter, 1 process ====="
 {
   hdr "python slice, work unit 3: the composed arm across every interpreter here"
   for PY in "$@"; do
