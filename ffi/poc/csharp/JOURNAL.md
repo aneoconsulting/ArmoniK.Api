@@ -1105,3 +1105,12 @@ this slice's:
 
 I am not going to invent an eleventh item. An idle session is cheaper than a
 fabricated one, and the branch is close to the report.
+
+### 41. A defect in entry 40's own commit
+
+`baa114aa` staged eight files under `src/Facade/obj-strict/` and
+`src/Harness/obj-strict/`: NuGet restore intermediates for the third build.
+The ignore file lists `bin/`, `obj/`, `bin-floor/` and `obj-floor/`, and I
+added `bin-strict/`/`obj-strict/` as output paths in `Directory.Build.props`
+without adding the matching rules. Untracked and the two rules appended. The
+build output was never a measurement input, so nothing in stage 16 changes.
