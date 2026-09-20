@@ -102,4 +102,11 @@ gcc -O2 -fPIC -shared -I"$J17/include" -I"$J17/include/linux" \
 "$J21/bin/javac" -nowarn -d build/pin src/java/ak/Pin.java
 "$J17/bin/javac" -nowarn -d build/probe probe/Probe.java
 
+# The shim-primitive probe: what a generated C shim would pay per JNI accessor, priced
+# before the arm that would depend on it is built. Its own .so, so `crossing.log`'s
+# artifact does not move.
+gcc -O2 -fPIC -shared -I"$J17/include" -I"$J17/include/linux" \
+  -o build/probe/libshimprobe.so probe/shimprobe.c
+"$J17/bin/javac" -nowarn -d build/probe probe/ShimProbe.java
+
 say "done"
