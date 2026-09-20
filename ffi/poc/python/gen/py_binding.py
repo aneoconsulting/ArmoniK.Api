@@ -52,6 +52,11 @@ CHUNK_BYTES = 32768   # ABI v1 sections 6 and 7.3: batched runs chunk at 32 KB.
 # raises rather than emitting something it has not thought about (R1).
 MAX_ELEM_DEPTH = 1
 
+# How many repeated fields a ROOT may have. M1 to M4 and M6 have one, M5 has none and M7
+# has two, so a shim with a single `h->list` had "exactly one" written into it rather than
+# derived from the description -- which is the R1 failure in miniature.
+MAX_ROOT_LOOPS = 4
+
 
 class Unsupported(Exception):
     """A shape this backend has no case for. R1: raise, never skip."""
@@ -61,7 +66,67 @@ def fields(ir, name):
     return ir.msg(name).fields
 
 
+class CaseField:
+    """The facade attribute that says which member of a oneof is selected.
+
+    It is not in the description, because a oneof's discriminant is not a field: it has no
+    tag of its own and nothing on the wire. It IS an attribute of the facade, and the group
+    has `<name>_case` for it (ABI v1 section 6), so it needs a C struct member, a
+    `PyMemberDef` entry, an interned key and an `__init__` keyword exactly like a field
+    does. Giving it the shape of a `Field` is what lets every one of those emitters stay
+    generic instead of growing a second path.
+
+    `int32` and not `uint32`: the group's field is `u32`, but the facade's storage is a
+    Python int and the C member is what `read_scalar` produces, and a tag never comes near
+    2^31. The cast at the group is explicit.
+    """
+
+    def __init__(self, owner, oname, members):
+        self.owner = owner
+        self.oneof = None
+        self.name = "%s_case" % oname
+        self.kind = "int32"
+        self.card = "singular"
+        self.tag = 0
+        self.of = None
+        self.explicit = False
+        self.members = members
+        self.direct = False
+        self.adapter_site = None
+
+
+def case_fields(ir, name):
+    return [CaseField(name, o, ms) for o, ms in ir.msg(name).oneofs.items()]
+
+
+def attrs(ir, name):
+    """Every attribute the facade carries: the fields, then one discriminant per oneof.
+
+    The order matters in one place only -- the C extension type's `__init__` keyword list --
+    and it matches `py_facade.py`, so a positional construction means the same thing in
+    both storages.
+    """
+    return list(fields(ir, name)) + case_fields(ir, name)
+
+
+def oneof_list(ir, name):
+    """[(oneof name, [member field, ...])] in declaration order."""
+    return list(ir.msg(name).oneofs.items())
+
+
+def presence_bit(gprefix, owner, f):
+    return "AK_%sFIX_%s_PRESENT_%s" % (gprefix.upper(), owner.upper(), f.name.upper())
+
+
 def is_obj(f):
+    if isinstance(f, _AsObj):
+        return True
+    # An explicit-presence scalar holds `None` for absent, and `None` does not fit in a
+    # `long`. So the C extension type stores it as an object like a string, and the cost of
+    # explicit presence on this facade is one boxed int per present field rather than one
+    # struct member -- which is a real cost and belongs in the M3 table, not in a footnote.
+    if getattr(f, "explicit", False):
+        return True
     return (f.kind in ("string", "bytes", "message", "map")
             or f.card in ("repeated", "packed", "map"))
 
@@ -133,11 +198,11 @@ def emit_ctypes(ir, names):
     L = []
     for name in names:
         L.append("typedef struct {\n  PyObject_HEAD")
-        for f in fields(ir, name):
+        for f in attrs(ir, name):
             L.append("  %s%s;" % (cty(f), f.name))
         L.append("} C%s;\n" % name)
     for name in names:
-        ff = fields(ir, name)
+        ff = attrs(ir, name)
         L.append("static PyMemberDef mem_%s[] = {" % name)
         for f in ff:
             t = ("T_OBJECT_EX" if is_obj(f) else
@@ -153,6 +218,20 @@ def emit_ctypes(ir, names):
         L.append("static int init_%s(PyObject *self, PyObject *a, PyObject *kw) {" % name)
         L.append("  static char *kwl[] = {%s NULL};"
                  % "".join('"%s", ' % f.name for f in ff))
+        # `Empty` has no fields at all -- it is the oneof's payload-free member -- and an
+        # argument list with nothing in it is a syntax error in C rather than an empty one.
+        if not ff:
+            L.append("  (void)self;")
+            L.append('  if (!PyArg_ParseTupleAndKeywords(a, kw, "", kwl)) return -1;')
+            L.append("  return 0;\n}")
+            L.append("static int trav_%s(PyObject *s, visitproc visit, void *arg) {" % name)
+            L.append("  (void)s; (void)visit; (void)arg;")
+            L.append("  return 0;\n}")
+            L.append("static int clear_%s(PyObject *s) {" % name)
+            L.append("  (void)s;")
+            L.append("  return 0;\n}")
+            L.append(_ctype_tail(name))
+            continue
         L.append("  C%s *o = (C%s *)self;" % (name, name))
         for f in ff:
             L.append("  %sv_%s = %s;" % (cty(f), f.name, "NULL" if is_obj(f) else "0"))
@@ -193,22 +272,27 @@ def emit_ctypes(ir, names):
         else:
             L.append("  (void)s;")
         L.append("  return 0;\n}")
-        L.append("static void dealloc_%s(PyObject *s) {" % name)
-        L.append("  PyTypeObject *t = Py_TYPE(s);")
-        L.append("  PyObject_GC_UnTrack(s); clear_%s(s);" % name)
-        L.append("  ((freefunc)PyType_GetSlot(t, Py_tp_free))(s); Py_DECREF(t);\n}")
-        L.append("static PyType_Slot slots_%s[] = {" % name)
-        L.append("  {Py_tp_init, (void *)init_%s}, {Py_tp_members, (void *)mem_%s},"
-                 % (name, name))
-        L.append("  {Py_tp_new, (void *)PyType_GenericNew},"
-                 " {Py_tp_dealloc, (void *)dealloc_%s}," % name)
-        L.append("  {Py_tp_traverse, (void *)trav_%s}, {Py_tp_clear, (void *)clear_%s},"
-                 % (name, name))
-        L.append("  {0, NULL}};")
-        L.append('static PyType_Spec spec_%s = {"_akffi.C%s", sizeof(C%s), 0,'
-                 % (name, name, name))
-        L.append("  Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC,"
-                 " slots_%s};\n" % name)
+        L.append(_ctype_tail(name))
+    return "\n".join(L)
+
+
+def _ctype_tail(name):
+    L = ["static void dealloc_%s(PyObject *s) {" % name,
+         "  PyTypeObject *t = Py_TYPE(s);",
+         "  PyObject_GC_UnTrack(s); clear_%s(s);" % name,
+         "  ((freefunc)PyType_GetSlot(t, Py_tp_free))(s); Py_DECREF(t);\n}",
+         "static PyType_Slot slots_%s[] = {" % name,
+         "  {Py_tp_init, (void *)init_%s}, {Py_tp_members, (void *)mem_%s},"
+         % (name, name),
+         "  {Py_tp_new, (void *)PyType_GenericNew},"
+         " {Py_tp_dealloc, (void *)dealloc_%s}," % name,
+         "  {Py_tp_traverse, (void *)trav_%s}, {Py_tp_clear, (void *)clear_%s},"
+         % (name, name),
+         "  {0, NULL}};",
+         'static PyType_Spec spec_%s = {"_akffi.C%s", sizeof(C%s), 0,'
+         % (name, name, name),
+         "  Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC,"
+         " slots_%s};\n" % name]
     return "\n".join(L)
 
 
@@ -311,20 +395,43 @@ def read_scalar(backend, owner, f, var, objexpr="ob", ind="  ", ret="-1"):
 # Encode: the group fill, sparse (ABI v1 decision 9).
 # --------------------------------------------------------------------------------------
 
-def emit_group_fill(ir, name, backend, fnname, gtype):
-    """Fill `e` (already zeroed) from `ob`. Loop-slot fields are skipped: they cross
-    through the vtable, not through the group."""
+def emit_group_fill(ir, name, backend, fnname, gtype, zero=False):
+    """Fill `e` from `ob`. Loop-slot fields are skipped: they cross through the vtable,
+    not through the group.
+
+    `zero` memsets first. An inlined child's group is a member of its parent's and was
+    already cleared by the parent's memset; a ROOT's is a local in the encode entry point
+    and is not.
+    """
     L = ["static int %s(struct %s *e, PyObject *ob, HostCtx *h) {" % (fnname, gtype)]
     L.append("  (void)h; (void)e; (void)ob;")
+    if zero:
+        L.append("  memset(e, 0, sizeof *e);")
+    gp = "e" if gtype.startswith("ak_efix") else "d"
     for f in fields(ir, name):
         if is_loop(f):
             L.append("  /* %s: a loop slot, reached through the vtable */" % f.name)
             continue
+        if f.oneof:
+            continue                     # emitted below, once per oneof, under its case
         L.append("  { /* %s, tag %d, %s */" % (f.name, f.tag, f.kind))
         if f.kind in ("string", "bytes"):
             L.append(read_obj(backend, name, f.name, "v", "ob", "    "))
             L.append("    BUMP(C_READ);")
-            if f.kind == "string":
+            if f.explicit:
+                # Absent reads as None and has no bytes to point at, so the conversion is
+                # skipped rather than attempted: PyUnicode_AsUTF8AndSize(None) is a TypeError.
+                L.append("    const char *sp = NULL; Py_ssize_t sl = 0;")
+                if f.kind == "string":
+                    L.append("    if (v != Py_None) { sp = PyUnicode_AsUTF8AndSize(v, &sl);")
+                    L.append("      if (!sp) { if (own_v) Py_DECREF(v); return -1; } }")
+                else:
+                    L.append("    if (v != Py_None) {")
+                    L.append("      char *bp_ = NULL;")
+                    L.append("      if (PyBytes_AsStringAndSize(v, &bp_, &sl))"
+                             " { if (own_v) Py_DECREF(v); return -1; }")
+                    L.append("      sp = bp_; }")
+            elif f.kind == "string":
                 L.append("    Py_ssize_t sl = 0;")
                 L.append("    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);")
                 L.append("    if (!sp) { if (own_v) Py_DECREF(v); return -1; }")
@@ -332,10 +439,36 @@ def emit_group_fill(ir, name, backend, fnname, gtype):
                 L.append("    char *sp = NULL; Py_ssize_t sl = 0;")
                 L.append("    if (PyBytes_AsStringAndSize(v, &sp, &sl))"
                          " { if (own_v) Py_DECREF(v); return -1; }")
-            L.append("    if (sl) { e->%s.data = sp; e->%s.len = (size_t)sl;"
-                     " e->%s.tc = %s; }"
-                     % (f.name, f.name, f.name,
-                        "TC_UTF8" if f.kind == "string" else "TC_BYTES"))
+            if f.explicit:
+                # Explicit presence: `None` is absent, and "" is PRESENT and empty. The
+                # length cannot say which, so the presence word does and the span is set
+                # whatever the length is. Guarding on `sl` here is exactly the bug that
+                # makes an `optional string = ""` encode as absent.
+                L.append("    if (v != Py_None) {")
+                L.append("      e->presence |= %s;" % presence_bit(gp, name, f))
+                L.append("      e->%s.data = sp; e->%s.len = (size_t)sl; e->%s.tc = %s;"
+                         % (f.name, f.name, f.name,
+                            "TC_UTF8" if f.kind == "string" else "TC_BYTES"))
+                L.append("    }")
+            elif f.direct:
+                # ABI v1 section 8: the group carries the SENTINEL and the length, and the
+                # bytes go to the call BESIDE the group, so a host with a pinning cost can
+                # hold a critical section across it. CPython has no pinning cost -- a
+                # `bytes` object's buffer is already a stable address for as long as the
+                # facade holds it -- so this path should save nothing here, and the arm
+                # exists to say that with a measurement rather than by assertion.
+                #
+                # No transcoder: a direct field carries the sentinel instead, which is why
+                # the core's implicit-presence guard for it tests the LENGTH and not `tc`
+                # (poc/codec/gen/rust_abi.py, the `f.direct` branch).
+                L.append("    e->%s.data = AK_STR_DIRECT; e->%s.len = (size_t)sl;"
+                         % (f.name, f.name))
+                L.append("    h->direct = (const uint8_t *)sp; h->direct_len = (size_t)sl;")
+            else:
+                L.append("    if (sl) { e->%s.data = sp; e->%s.len = (size_t)sl;"
+                         " e->%s.tc = %s; }"
+                         % (f.name, f.name, f.name,
+                            "TC_UTF8" if f.kind == "string" else "TC_BYTES"))
             L.append("    if (own_v) Py_DECREF(v);")
         elif f.kind == "message":
             L.append(read_obj(backend, name, f.name, "v", "ob", "    "))
@@ -347,11 +480,85 @@ def emit_group_fill(ir, name, backend, fnname, gtype):
                      % (backend, f.of, f.name))
             L.append("    }")
             L.append("    if (own_v) Py_DECREF(v);")
+        elif f.explicit:
+            # `None` is absent; anything else is present, INCLUDING 0 and False. So the
+            # value is read as an object first and only then converted -- the sparse fill's
+            # "assign only what differs from zero" shortcut does not apply to a field whose
+            # zero is a value.
+            ct = ("int32_t" if f.kind in ("int32", "enum")
+                  else "int64_t" if f.kind == "int64" else "uint8_t")
+            L.append(read_obj(backend, name, f.name, "v", "ob", "    "))
+            L.append("    BUMP(C_READ);")
+            L.append("    if (v != Py_None) {")
+            L.append("      e->presence |= %s;" % presence_bit(gp, name, f))
+            if f.kind == "bool":
+                L.append("      int t_ = PyObject_IsTrue(v);")
+                L.append("      if (t_ < 0) { if (own_v) Py_DECREF(v); return -1; }")
+                L.append("      e->%s = (uint8_t)t_;" % f.name)
+            else:
+                L.append("      long long n_ = PyLong_AsLongLong(v);")
+                L.append("      if (n_ == -1 && PyErr_Occurred())"
+                         " { if (own_v) Py_DECREF(v); return -1; }")
+                L.append("      e->%s = (%s)n_;" % (f.name, ct))
+            L.append("    }")
+            L.append("    if (own_v) Py_DECREF(v);")
         else:
             L.append(read_scalar(backend, name, f, "sv", "ob", "    "))
             L.append("    if (sv) e->%s = (%s)sv;"
                      % (f.name, "int32_t" if f.kind in ("int32", "enum")
                         else "int64_t" if f.kind == "int64" else "uint8_t"))
+        L.append("  }")
+
+    for oname, members in oneof_list(ir, name):
+        # ONE read of the discriminant per element, then a switch. The alternative -- ask
+        # each member whether it is set -- is five reads where this is one, and it cannot
+        # express "selected and holding the zero" at all.
+        cf = CaseField(name, oname, members)
+        L.append("  { /* oneof %s: the discriminant carries the active member's TAG */"
+                 % oname)
+        L.append(read_scalar(backend, name, cf, "cs", "ob", "    "))
+        L.append("    e->%s_case = (uint32_t)cs;" % oname)
+        L.append("    switch (cs) {")
+        for g in members:
+            gn = "%s_%s" % (oname, g.name)
+            L.append("    case %d: {" % g.tag)
+            if g.kind in ("string", "bytes"):
+                L.append(read_obj(backend, name, g.name, "mv", "ob", "      "))
+                L.append("      BUMP(C_READ);")
+                if g.kind == "string":
+                    L.append("      Py_ssize_t ml = 0;")
+                    L.append("      const char *mp = PyUnicode_AsUTF8AndSize(mv, &ml);")
+                    L.append("      if (!mp) { if (own_mv) Py_DECREF(mv); return -1; }")
+                else:
+                    L.append("      char *mp = NULL; Py_ssize_t ml = 0;")
+                    L.append("      if (PyBytes_AsStringAndSize(mv, &mp, &ml))"
+                             " { if (own_mv) Py_DECREF(mv); return -1; }")
+                # A selected member is written whatever its length: "" is a message, and
+                # the codec writes it because the CASE says so, not because the value does.
+                L.append("      e->%s.data = mp; e->%s.len = (size_t)ml; e->%s.tc = %s;"
+                         % (gn, gn, gn,
+                            "TC_UTF8" if g.kind == "string" else "TC_BYTES"))
+                L.append("      if (own_mv) Py_DECREF(mv);")
+            elif g.kind == "message":
+                L.append(read_obj(backend, name, g.name, "mv", "ob", "      "))
+                L.append("      if (mv == Py_None) { if (own_mv) Py_DECREF(mv);")
+                L.append("        PyErr_SetString(PyExc_ValueError,"
+                         " \"%s.%s is selected but None\"); return -1; }" % (name, g.name))
+                L.append("      if (into_%s_%s(&e->%s, mv, h))"
+                         " { if (own_mv) Py_DECREF(mv); return -1; }"
+                         % (backend, g.of, gn))
+                L.append("      if (own_mv) Py_DECREF(mv);")
+            else:
+                L.append(read_scalar(backend, name, g, "mv", "ob", "      "))
+                L.append("      e->%s = (%s)mv;"
+                         % (gn, "int32_t" if g.kind in ("int32", "enum")
+                            else "int64_t" if g.kind == "int64" else "uint8_t"))
+            L.append("      break; }")
+        L.append("    case 0: break;")
+        L.append("    default:")
+        L.append("      PyErr_Format(PyExc_ValueError, \"%s.%s_case = %%ld is not a"
+                 " member's tag\", (long)cs); return -1;" % (name, oname))
+        L.append("    }")
         L.append("  }")
     L.append("  return 0;\n}")
     return "\n".join(L)
@@ -462,6 +669,96 @@ def emit_blob_loop(ir, owner, path, f, backend, depth):
     return "\n".join(L)
 
 
+PACKED_C = {"int64": ("int64_t", "ak_run_i64"), "int32": ("int32_t", "ak_run_i32"),
+            "enum": ("int32_t", "ak_run_i32"), "bool": ("uint8_t", "ak_run_u8"),
+            "double": ("double", "ak_run_f64")}
+
+
+def emit_packed_loop(ir, owner, path, f, backend, depth):
+    """A packed scalar field on an element: one `ak_run_*` per chunk.
+
+    The crossing count is what this shape is in the payload set FOR: 30 values cross in
+    one call rather than thirty, so a packed field of any length costs the same one
+    boundary call as an empty one, and the per-element crossing count does not move with
+    the run length. The read of each Python int still happens, once per value, on this
+    side of the boundary -- which is the cost the control is meant to expose.
+    """
+    slot = IR.slot_name(path)
+    cty_, runfn = PACKED_C[f.kind]
+    L = ["static int32_t loop_%s_%s_%s(ak_enc_ctx *ctx, const void *obj, int64_t token) {"
+         % (backend, owner, slot)]
+    L += ["  HostCtx *h = (HostCtx *)obj;",
+          "  PyObject *el = PyList_GetItem(h->cur[%d], (Py_ssize_t)token);" % (depth - 1),
+          "  if (!el) return -1;"]
+    holder, owner_msg = emit_walk_path(ir, owner, path[:-1], backend, "el", "  ")
+    L.append(holder)
+    L.append(read_obj(backend, owner_msg, f.name, "lst", "cur", "  "))
+    L += [
+        "  Py_ssize_t n = PyList_Size(lst);",
+        "  if (n < 0) { if (own_lst) Py_DECREF(lst); return -1; }",
+        "  %s chunk[CHUNK_PACKED];" % cty_,
+        "  int32_t rc = 0;",
+        "  for (Py_ssize_t i = 0; i < n; i += CHUNK_PACKED) {",
+        "    int32_t k = (int32_t)((n - i < CHUNK_PACKED) ? (n - i) : CHUNK_PACKED);",
+        "    for (int32_t j = 0; j < k; j++) {",
+        "      BUMP(C_ITEM); BUMP(C_READ);",
+        "      PyObject *v = PyList_GetItem(lst, i + j);",
+        "      if (!v) { rc = -1; goto out; }",
+    ]
+    if f.kind == "double":
+        L += ["      double d = PyFloat_AsDouble(v);",
+              "      if (d == -1.0 && PyErr_Occurred()) { rc = -1; goto out; }",
+              "      chunk[j] = d;"]
+    elif f.kind == "bool":
+        L += ["      int t = PyObject_IsTrue(v);",
+              "      if (t < 0) { rc = -1; goto out; }",
+              "      chunk[j] = (uint8_t)t;"]
+    else:
+        L += ["      long long x = PyLong_AsLongLong(v);",
+              "      if (x == -1 && PyErr_Occurred()) { rc = -1; goto out; }",
+              "      chunk[j] = (%s)x;" % cty_]
+    L += [
+        "    }",
+        "    if (%s(ctx, chunk, (size_t)k)) { rc = -1; goto out; }" % runfn,
+        "  }",
+        "out:",
+        "  if (own_lst) Py_DECREF(lst);",
+        "  return rc;\n}",
+    ]
+    return "\n".join(L)
+
+
+def emit_packed_add(ir, root, ef, path, sf, backend, li):
+    """The decode side: a batch of packed values, appended to the facade's list."""
+    slot = IR.slot_name(path)
+    cty_, _ = PACKED_C[sf.kind]
+    L = ["static void add_%s_%s_%s_%s(ak_dec_ctx *ctx, void *obj, int64_t tok,"
+         % (backend, root, ef.name, slot),
+         "        const %s *elems, int32_t n) {" % cty_,
+         "  (void)ctx;",
+         "  HostCtx *h = (HostCtx *)obj;",
+         "  if (h->failed) return;",
+         "  PyObject *ob = PyList_GetItem(h->lists[%d], (Py_ssize_t)tok);" % li,
+         "  if (!ob) { h->failed = 1; return; }"]
+    code, owner_msg = emit_reach_child(ir, ef.of, path[:-1], backend, "  ")
+    L.append(code)
+    L.append(read_obj(backend, owner_msg, sf.name, "lst", "cur", "  ", ret=""))
+    box = ("PyFloat_FromDouble(elems[i])" if sf.kind == "double"
+           else "PyBool_FromLong((long)elems[i])" if sf.kind == "bool"
+           else "PyLong_FromLongLong((long long)elems[i])")
+    L += ["  for (int32_t i = 0; i < n; i++) {",
+          "    BUMP(C_ITEM);",
+          "    PyObject *v = %s;" % box,
+          "    if (!v) { h->failed = 1; break; }",
+          "    if (PyList_Append(lst, v) < 0) { h->failed = 1; Py_DECREF(v); break; }",
+          "    Py_DECREF(v);",
+          "  }",
+          "  if (own_lst) Py_DECREF(lst);",
+          "  Py_DECREF(cur);",
+          "}"]
+    return "\n".join(L)
+
+
 def emit_map_loop(ir, owner, path, f, backend, depth):
     """A map field: a repeated run of the synthetic pair message (ABI v1 section 11).
 
@@ -555,19 +852,16 @@ def emit_walk_path(ir, owner, path, backend, start, ind):
 # --------------------------------------------------------------------------------------
 
 def emit_root_fix(ir, root, backend):
-    L = ["static int fix_%s_%s(struct ak_efix_%s *fix, PyObject *ob, HostCtx *h) {"
-         % (backend, root, root)]
-    L.append("  (void)h; (void)ob;")
-    L.append("  memset(fix, 0, sizeof *fix);")
-    for f in fields(ir, root):
-        if is_loop(f) or f.kind == "message":
-            continue
-        L.append("  {")
-        L.append(read_scalar(backend, root, f, "sv_" + f.name, "ob", "    "))
-        L.append("    if (sv_%s) fix->%s = (int32_t)sv_%s;" % (f.name, f.name, f.name))
-        L.append("  }")
-    L.append("  return 0;\n}")
-    return "\n".join(L)
+    """The root's own group.
+
+    The same fill every other group gets, rather than a scalars-only special case: M5's
+    root carries a singular message child and nothing else, and a root fix that skipped
+    message fields encoded it as absent -- while emitting `into_<backend>_UploadResultData`
+    for nobody to call, which is what `-Werror=unused-function` turned into a build
+    failure instead of a wrong payload.
+    """
+    return emit_group_fill(ir, root, backend, "fix_%s_%s" % (backend, root),
+                           "ak_efix_%s" % root, zero=True)
 
 
 def emit_encode_entry(ir, root, backend, leafmap):
@@ -598,7 +892,9 @@ def emit_encode_entry(ir, root, backend, leafmap):
     L += [
         "  ak_enc_ctx *ctx = ak_enc_ctx_new();",
         "  if (!ctx) return PyErr_NoMemory();",
-        "  intptr_t rc = ak_encode_%s(h, ctx, &VT, &fix);" % root,
+        ("  intptr_t rc = ak_encode_%s(h, ctx, &VT, &fix, h->direct, h->direct_len);"
+         % root) if IR.direct_fields(ir, root) else
+        ("  intptr_t rc = ak_encode_%s(h, ctx, &VT, &fix);" % root),
         "  if (rc < 0) {",
         "    ak_enc_ctx_free(ctx);",
         "    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError,"
@@ -646,9 +942,33 @@ def emit_setgroup(ir, name, backend):
     for f in fields(ir, name):
         if is_loop(f):
             continue
+        if f.oneof:
+            continue                     # emitted below, once per oneof
         sp = "e->%s" % f.name
         L.append("  { /* %s */" % f.name)
-        if f.kind in ("string", "bytes"):
+        if f.explicit:
+            # The mirror of the encode side: the presence WORD decides, and absent is
+            # written as None rather than left at the facade's default, because the facade
+            # object may be reused (decision 10's get-or-create) and a stale value from a
+            # previous message would read as present.
+            L.append("    if (e->presence & %s) {" % presence_bit("d", name, f))
+            if f.kind in ("string", "bytes"):
+                L.append("      BUMP(C_READ);")
+                L.append(write_field(backend, name, f, span_value(f, sp), "      ",
+                                     fail="return -1;"))
+            else:
+                # The value is boxed here rather than by `write_field`, because the field
+                # now takes the OBJECT path (absent is None) and `write_field` only boxes
+                # for a field it believes is a scalar.
+                boxed = ("PyBool_FromLong((long)(%s))" % sp if f.kind == "bool"
+                         else "PyLong_FromLongLong((long long)(%s))" % sp)
+                L.append(write_field(backend, name, _AsObj(f), boxed, "      ",
+                                     fail="return -1;"))
+            L.append("    } else {")
+            L.append(write_field(backend, name, _AsObj(f), "Py_NewRef(Py_None)", "      ",
+                                 fail="return -1;"))
+            L.append("    }")
+        elif f.kind in ("string", "bytes"):
             L.append("    BUMP(C_READ);")
             L.append(write_field(backend, name, f, span_value(f, sp), "    ",
                                  fail="return -1;"))
@@ -665,8 +985,53 @@ def emit_setgroup(ir, name, backend):
         else:
             L.append(write_field(backend, name, f, sp, "    ", fail="return -1;"))
         L.append("  }")
+
+    for oname, members in oneof_list(ir, name):
+        cf = CaseField(name, oname, members)
+        L.append("  { /* oneof %s */" % oname)
+        L.append("    switch (e->%s_case) {" % oname)
+        for g in members:
+            gn = "%s_%s" % (oname, g.name)
+            L.append("    case %d: {" % g.tag)
+            if g.kind in ("string", "bytes"):
+                L.append("      BUMP(C_READ);")
+                L.append(write_field(backend, name, g, span_value(g, "e->%s" % gn),
+                                     "      ", fail="return -1;"))
+            elif g.kind == "message":
+                code, _ = emit_reach_child(ir, name, (g.name,), backend, "      ",
+                                           fail="return -1;")
+                L.append(code)
+                L.append("      if (setgroup_%s_%s(h, cur, &e->%s))"
+                         " { Py_DECREF(cur); return -1; }" % (backend, g.of, gn))
+                L.append("      Py_DECREF(cur);")
+            else:
+                L.append(write_field(backend, name, g, "e->%s" % gn, "      ",
+                                     fail="return -1;"))
+            L.append("      break; }")
+        L.append("    default: break;")
+        L.append("    }")
+        # The discriminant LAST, so a facade that is watched while it fills never shows a
+        # case pointing at a member that has not been written yet.
+        L.append(write_field(backend, name, cf, "e->%s_case" % oname, "    ",
+                             fail="return -1;"))
+        L.append("  }")
     L.append("  return 0;\n}")
     return "\n".join(L)
+
+
+class _AsObj:
+    """One field, seen as an object-valued one, so `write_field` stores None into it.
+
+    An `optional int32` is a C `long` in the extension type and a Python int elsewhere, and
+    absent is `None` in both -- which the C storage cannot hold. So the extension type keeps
+    an object for every explicit-presence field (`cty` says so) and this wrapper is what
+    tells `write_field` to take the object path for a field whose kind says scalar.
+    """
+
+    def __init__(self, f):
+        self.__dict__.update({k: getattr(f, k) for k in
+                              ("owner", "name", "kind", "card", "tag", "of", "explicit")})
+        self.oneof = getattr(f, "oneof", None)
 
 
 def emit_apply_root(ir, root, backend):
@@ -681,7 +1046,7 @@ def emit_apply_root(ir, root, backend):
     return "\n".join(L)
 
 
-def emit_leaf_add(ir, root, f, backend):
+def emit_leaf_add(ir, root, f, backend, li):
     elem = f.of
     L = ["static void add_%s_%s_%s(ak_dec_ctx *ctx, void *obj, int64_t tok,"
          % (backend, root, f.name),
@@ -698,14 +1063,14 @@ def emit_leaf_add(ir, root, f, backend):
          "    if (setgroup_%s_%s(h, ob, e)) { h->failed = 1; Py_DECREF(ob); return; }"
          % (backend, elem),
          "    BUMP(C_ITEM);",
-         "    if (PyList_Append(h->list, ob) < 0) h->failed = 1;",
+         "    if (PyList_Append(h->lists[%d], ob) < 0) h->failed = 1;" % li,
          "    Py_DECREF(ob);",
          "    if (h->failed) return;",
          "  }\n}"]
     return "\n".join(L)
 
 
-def emit_nonleaf_decode(ir, root, f, backend):
+def emit_nonleaf_decode(ir, root, f, backend, li):
     """`new_`, `apply_` and one `add_` per loop slot of the element."""
     elem = f.of
     L = []
@@ -717,8 +1082,8 @@ def emit_nonleaf_decode(ir, root, f, backend):
           "  PyObject *ob = PyObject_CallNoArgs(h->ty_%s);" % elem,
           "  if (!ob) { h->failed = 1; return 0; }",
           "  BUMP(C_ITEM);",
-          "  Py_ssize_t idx = PyList_Size(h->list);",
-          "  if (PyList_Append(h->list, ob) < 0) h->failed = 1;",
+          "  Py_ssize_t idx = PyList_Size(h->lists[%d]);" % li,
+          "  if (PyList_Append(h->lists[%d], ob) < 0) h->failed = 1;" % li,
           "  Py_DECREF(ob);",
           "  return (int64_t)idx;\n}"]
     L += ["static void apply_%s_%s_%s(ak_dec_ctx *ctx, void *obj, int64_t tok,"
@@ -727,16 +1092,18 @@ def emit_nonleaf_decode(ir, root, f, backend):
           "  (void)ctx;",
           "  HostCtx *h = (HostCtx *)obj;",
           "  if (h->failed) return;",
-          "  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);",
+          "  PyObject *ob = PyList_GetItem(h->lists[%d], (Py_ssize_t)tok);" % li,
           "  if (!ob) { h->failed = 1; return; }",
           "  if (setgroup_%s_%s(h, ob, e)) h->failed = 1;" % (backend, elem),
           "}"]
     for path, sf in IR.loop_slots(ir, elem):
         slot = IR.slot_name(path)
         if sf.card == "map":
-            L.append(emit_map_add(ir, root, f, path, sf, backend))
+            L.append(emit_map_add(ir, root, f, path, sf, backend, li))
+        elif sf.card == "packed":
+            L.append(emit_packed_add(ir, root, f, path, sf, backend, li))
         elif sf.kind in ("string", "bytes"):
-            L.append(emit_blob_add(ir, root, f, path, sf, backend))
+            L.append(emit_blob_add(ir, root, f, path, sf, backend, li))
         else:
             raise Unsupported("%s.%s: a %s %s run on decode" % (elem, sf.name,
                                                                 sf.card, sf.kind))
@@ -776,7 +1143,7 @@ def emit_reach_child(ir, owner, path, backend, ind, fail=None, start="ob"):
     return "\n".join(L), cur_owner
 
 
-def emit_blob_add(ir, root, ef, path, sf, backend):
+def emit_blob_add(ir, root, ef, path, sf, backend, li):
     slot = IR.slot_name(path)
     L = ["static void add_%s_%s_%s_%s(ak_dec_ctx *ctx, void *obj, int64_t tok,"
          % (backend, root, ef.name, slot),
@@ -784,7 +1151,7 @@ def emit_blob_add(ir, root, ef, path, sf, backend):
          "  (void)ctx;",
          "  HostCtx *h = (HostCtx *)obj;",
          "  if (h->failed) return;",
-         "  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);",
+         "  PyObject *ob = PyList_GetItem(h->lists[%d], (Py_ssize_t)tok);" % li,
          "  if (!ob) { h->failed = 1; return; }"]
     code, owner_msg = emit_reach_child(ir, ef.of, path[:-1], backend, "  ")
     L.append(code)
@@ -802,7 +1169,7 @@ def emit_blob_add(ir, root, ef, path, sf, backend):
     return "\n".join(x for x in L if x)
 
 
-def emit_map_add(ir, root, ef, path, sf, backend):
+def emit_map_add(ir, root, ef, path, sf, backend, li):
     slot = IR.slot_name(path)
     entry = sf.entry
     L = ["static void add_%s_%s_%s_%s(ak_dec_ctx *ctx, void *obj, int64_t tok,"
@@ -811,7 +1178,7 @@ def emit_map_add(ir, root, ef, path, sf, backend):
          "  (void)ctx;",
          "  HostCtx *h = (HostCtx *)obj;",
          "  if (h->failed) return;",
-         "  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);",
+         "  PyObject *ob = PyList_GetItem(h->lists[%d], (Py_ssize_t)tok);" % li,
          "  if (!ob) { h->failed = 1; return; }"]
     code, owner_msg = emit_reach_child(ir, ef.of, path[:-1], backend, "  ")
     L.append(code)
@@ -834,9 +1201,15 @@ def emit_map_add(ir, root, ef, path, sf, backend):
     return "\n".join(L)
 
 
-def emit_decode_entry(ir, root, backend, leafmap, scope):
+def emit_decode_entry(ir, root, backend, leafmap, scope, li_of):
+    """The decode entry point for one root.
+
+    Written for N repeated fields at the root rather than for one: M5's root has none at
+    all and M7's has two, and each of the two needs a run list of its own -- `add_left`
+    and `add_right` appending to one list is a decoder that returns both halves in both
+    fields and passes a hash check that only looks at the bytes it wrote.
+    """
     loops = [f for f in fields(ir, root) if f.card == "repeated"]
-    lf = loops[0]
     L = ["static PyObject *decode_%s_%s(PyObject *buf, PyObject *acc, HostTypes *T) {"
          % (backend, root)]
     L += [
@@ -850,25 +1223,32 @@ def emit_decode_entry(ir, root, backend, leafmap, scope):
     ]
     for n in scope:
         L.append("  h.ty_%s = T->ty_%s;" % (n, n))
+    # One run list per root repeated field, allocated up front so the error paths have a
+    # single shape whatever N is.
+    for f in loops:
+        i = li_of[f.name]
+        L.append("  h.lists[%d] = PyList_New(0);" % i)
+        L.append("  if (!h.lists[%d]) { %s Py_DECREF(rootobj); return NULL; }"
+                 % (i, _free_lists(loops, li_of, upto=i)))
+    freeall = _free_lists(loops, li_of)
     L += [
-        "  h.list = PyList_New(0);",
-        "  if (!h.list) { Py_DECREF(rootobj); return NULL; }",
         "  static const struct ak_dvt_%s VT = {" % root,
         "    .apply = apply_%s_%s," % (backend, root),
     ]
-    if leafmap[lf.of]:
-        L.append("    .add_%s = add_%s_%s_%s," % (lf.name, backend, root, lf.name))
-    else:
-        L.append("    .new_%s = new_%s_%s_%s," % (lf.name, backend, root, lf.name))
-        L.append("    .apply_%s = apply_%s_%s_%s," % (lf.name, backend, root, lf.name))
-        for path, sf in IR.loop_slots(ir, lf.of):
-            slot = IR.slot_name(path)
-            L.append("    .add_%s_%s = add_%s_%s_%s_%s,"
-                     % (lf.name, slot, backend, root, lf.name, slot))
+    for lf in loops:
+        if leafmap[lf.of]:
+            L.append("    .add_%s = add_%s_%s_%s," % (lf.name, backend, root, lf.name))
+        else:
+            L.append("    .new_%s = new_%s_%s_%s," % (lf.name, backend, root, lf.name))
+            L.append("    .apply_%s = apply_%s_%s_%s," % (lf.name, backend, root, lf.name))
+            for path, sf in IR.loop_slots(ir, lf.of):
+                slot = IR.slot_name(path)
+                L.append("    .add_%s_%s = add_%s_%s_%s_%s,"
+                         % (lf.name, slot, backend, root, lf.name, slot))
     L += [
         "  };",
         "  ak_dec_ctx *ctx = ak_dec_ctx_new();",
-        "  if (!ctx) { Py_DECREF(h.list); Py_DECREF(rootobj); return PyErr_NoMemory(); }",
+        "  if (!ctx) { %s Py_DECREF(rootobj); return PyErr_NoMemory(); }" % freeall,
         "  int32_t rc = ak_decode_%s(ctx, &h, (const uint8_t *)p, (size_t)blen, &VT);"
         % root,
         "#ifdef AK_COUNT",
@@ -876,22 +1256,35 @@ def emit_decode_entry(ir, root, backend, leafmap, scope):
         "#endif",
         "  ak_dec_ctx_free(ctx);",
         "  if (rc || h.failed) {",
-        "    Py_DECREF(h.list); Py_DECREF(rootobj);",
+        "    %s Py_DECREF(rootobj);" % freeall,
         "    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError,"
         " \"ak_decode_%s returned %%d\", (int)rc);" % root,
         "    return NULL;",
         "  }",
-        "  if (setlist_%s_%s(rootobj, h.list, &h))" % (backend, root),
-        "    { Py_DECREF(h.list); Py_DECREF(rootobj); return NULL; }",
-        "  Py_DECREF(h.list);",
-        "  return rootobj;\n}",
     ]
+    for f in loops:
+        L.append("  if (setlist_%s_%s_%s(rootobj, h.lists[%d], &h))"
+                 % (backend, root, f.name, li_of[f.name]))
+        L.append("    { %s Py_DECREF(rootobj); return NULL; }" % freeall)
+    L.append("  %s" % freeall)
+    L.append("  return rootobj;\n}")
     return "\n".join(L)
 
 
+def _free_lists(loops, li_of, upto=None):
+    """`Py_DECREF` for every run list allocated so far, as one line."""
+    out = []
+    for f in loops:
+        i = li_of[f.name]
+        if upto is not None and i >= upto:
+            continue
+        out.append("Py_DECREF(h.lists[%d]);" % i)
+    return " ".join(out)
+
+
 def emit_root_setlist(ir, root, f, backend):
-    L = ["static int setlist_%s_%s(PyObject *ob, PyObject *lst, HostCtx *h) {"
-         % (backend, root)]
+    L = ["static int setlist_%s_%s_%s(PyObject *ob, PyObject *lst, HostCtx *h) {"
+         % (backend, root, f.name)]
     L.append("  (void)h; (void)ob; (void)lst;")
     L.append(write_field(backend, root, f, "Py_NewRef(lst)", "  ", fail="return -1;"))
     L.append("  return 0;\n}")
@@ -932,6 +1325,10 @@ static ak_transcode_fn TC_UTF8, TC_BYTES;
 
 /* A run of strings chunks by count rather than by group size. */
 #define CHUNK_BLOB ((int32_t)(32768 / sizeof(struct ak_str)))
+
+/* A packed run chunks by count too: a packed value is not a group, so the group-size
+ * chunking of ak_elem_* does not apply to it. */
+#define CHUNK_PACKED 4096
 '''
 
 
@@ -963,6 +1360,14 @@ def emit(ir, scope, roots):
             allnames.append(n)
     # The batching predicate, from the descriptor, computed once (ABI v1 section 7.2).
     leafmap = {n: is_leaf(ir, n) for n in allnames}
+    # Which run list each ROOT repeated field appends to.
+    li_of = {}
+    for r in roots:
+        loops = [f for f in fields(ir, r) if f.card == "repeated"]
+        if len(loops) > MAX_ROOT_LOOPS:
+            raise Unsupported("%s has %d repeated fields; MAX_ROOT_LOOPS is %d"
+                              % (r, len(loops), MAX_ROOT_LOOPS))
+        li_of[r] = {f.name: i for i, f in enumerate(loops)}
 
     L = [PRELUDE, ""]
     L.append(emit_ctypes(ir, allnames))
@@ -972,7 +1377,7 @@ def emit(ir, scope, roots):
         L.append("                  (int32_t)(%d / sizeof(struct ak_efix_%s)) : 1)"
                  % (CHUNK_BYTES, name))
     L.append("")
-    fnames = sorted({f.name for n in allnames for f in fields(ir, n)})
+    fnames = sorted({f.name for n in allnames for f in attrs(ir, n)})
     for n in fnames:
         L.append("static PyObject *K_%s;" % n)
     L.append("")
@@ -985,10 +1390,16 @@ def emit(ir, scope, roots):
     L.append("  PyObject *root;      /* the facade root */")
     L.append("  const uint8_t *base; /* decode: ABI v1 7.4, spans are offsets into this */")
     L.append("  PyObject *acc;       /* pyacc backend: the accessor table */")
-    L.append("  PyObject *list;      /* decode: the run being appended to */")
+    L.append("  PyObject *lists[%d];  /* decode: one run per ROOT repeated field."
+             % max(1, MAX_ROOT_LOOPS))
+    L.append("                        M7's root has two and M5's has none, so a single")
+    L.append("                        `list` was a root with exactly one repeated field")
+    L.append("                        written into the shim rather than derived. */")
     L.append("  PyObject *cur[%d];   /* encode: the element list, per nesting level */"
              % MAX_ELEM_DEPTH)
     L.append("  int failed;")
+    L.append("  const uint8_t *direct;  /* ABI v1 section 8: the bulk field's bytes, */")
+    L.append("  size_t direct_len;      /* passed BESIDE the group rather than in it. */")
     for n in allnames:
         L.append("  PyObject *ty_%s;" % n)
     L.append("} HostCtx;")
@@ -1018,8 +1429,10 @@ def emit(ir, scope, roots):
             L.append("static int setgroup_%s_%s(HostCtx *, PyObject *,"
                      " const struct ak_dfix_%s *);" % (backend, n, n))
         for r in roots:
-            L.append("static int setlist_%s_%s(PyObject *, PyObject *, HostCtx *);"
-                     % (backend, r))
+            for f in fields(ir, r):
+                if f.card == "repeated":
+                    L.append("static int setlist_%s_%s_%s(PyObject *, PyObject *,"
+                             " HostCtx *);" % (backend, r, f.name))
         L.append("")
         for n in inl:
             L.append(emit_into(ir, n, backend))
@@ -1036,6 +1449,8 @@ def emit(ir, scope, roots):
                     for path, sf in IR.loop_slots(ir, f.of):
                         if sf.card == "map":
                             L.append(emit_map_loop(ir, f.of, path, sf, backend, depth))
+                        elif sf.card == "packed":
+                            L.append(emit_packed_loop(ir, f.of, path, sf, backend, depth))
                         elif sf.kind in ("string", "bytes"):
                             L.append(emit_blob_loop(ir, f.of, path, sf, backend, depth))
                         else:
@@ -1054,10 +1469,11 @@ def emit(ir, scope, roots):
                 if f.card != "repeated":
                     continue
                 if leafmap[f.of]:
-                    L.append(emit_leaf_add(ir, r, f, backend))
+                    L.append(emit_leaf_add(ir, r, f, backend, li_of[r][f.name]))
                 else:
-                    L.append(emit_nonleaf_decode(ir, r, f, backend))
-            L.append(emit_decode_entry(ir, r, backend, leafmap, allnames))
+                    L.append(emit_nonleaf_decode(ir, r, f, backend, li_of[r][f.name]))
+            L.append(emit_decode_entry(ir, r, backend, leafmap, allnames,
+                                       li_of[r]))
         L.append("")
 
     L.append("/* ---- dispatch, so native/binding.c names no message and no field ---- */")

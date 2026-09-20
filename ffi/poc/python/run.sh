@@ -51,14 +51,21 @@ echo "===== 3. conformance and crossing counts, every interpreter (R2, R5) =====
 } > "$LOGS/53-conformance-m1m2.log" 2>&1
 grep -c "ALL CHECKS PASS" "$LOGS/53-conformance-m1m2.log" | sed 's/^/   interpreters passing: /'
 
-echo "===== 4. the allocator control: why an encode above 128 KiB has two answers ====="
+echo "===== 4. the conformance corpus (W8), every row this scope can root ====="
+{
+  hdr "python slice: the conformance corpus, as far as walk.ROOTS reaches"
+  "$TARGET" corpus.py
+} > "$LOGS/70-corpus-subset.log" 2>&1
+grep -m1 "rows root at" "$LOGS/70-corpus-subset.log" | sed 's/^ */   /'
+
+echo "===== 5. the allocator control: why an encode above 128 KiB has two answers ====="
 {
   hdr "python slice: the allocator state, not the codec, owns the large-payload encode"
   "$TARGET" allocator.py
 } > "$LOGS/55-allocator.log" 2>&1
-grep -c -- "<--" "$LOGS/55-allocator.log" | sed 's/^/   rows whose answer depends on it: /'
+grep -c -- "  <-- " "$LOGS/55-allocator.log" | sed 's/^/   rows whose answer depends on it: /'
 
-echo "===== 5. the composed arm, target interpreter, 3 processes ====="
+echo "===== 6. the composed arm, target interpreter, 3 processes ====="
 {
   hdr "python slice, work unit 3: the composed arm, encode and decode, M1 and M2"
   for i in 1 2 3; do
@@ -69,7 +76,7 @@ echo "===== 5. the composed arm, target interpreter, 3 processes ====="
 } > "$LOGS/62-m1m2-py$TTAG.log" 2>&1
 echo "   $LOGS/62-m1m2-py$TTAG.log"
 
-echo "===== 6. the composed arm, every interpreter, 1 process ====="
+echo "===== 7. the composed arm, every interpreter, 1 process ====="
 {
   hdr "python slice, work unit 3: the composed arm across every interpreter here"
   for PY in "$@"; do

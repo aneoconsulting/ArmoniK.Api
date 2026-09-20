@@ -75,16 +75,33 @@ def _scalar(kind, path, idx):
     return bool(v) if kind == "bool" else int(v)
 
 
-def build_message(name, path, idx, mode, repeats, ctors):
+def build_message(name, path, idx, mode, repeats, ctors, bulk=None):
     """One message, built the way `payloads.py` encodes it."""
     kw = {}
-    for f in S.fields(SCHEMA["messages"][name]):
+    msg = SCHEMA["messages"][name]
+    for f in S.fields(msg):
         nm, k, c = f["name"], f["kind"], S.card(f)
         fpath = "%s.%s" % (path, nm)
+        if f.get("oneof"):
+            continue                      # selected once, below, by `payloads.py`'s rule
+        if f.get("presence") == "explicit" and c == "singular":
+            # `payloads.py:enc_field`, the explicit-presence branch, in facade terms.
+            # Absent is None; one element in seven is PRESENT and holds the proto zero,
+            # which is the whole reason the shape is in the payload set.
+            if not _explicit_present(f, idx):
+                kw[nm] = None
+            elif idx % 7 == 0:
+                kw[nm] = "" if k == "string" else (False if k == "bool" else 0)
+            elif k == "string":
+                kw[nm] = {"guid": V.guid, "word": V.word,
+                          "sentence": V.sentence}[f.get("value", "word")](fpath, idx)
+            else:
+                kw[nm] = _scalar(k, fpath, idx)
+            continue
         if _absent(f, mode, idx):
             kw[nm] = {"string": "", "bytes": b"", "message": None,
                       "map": {}, "bool": False}.get(k, 0)
-            if c == "repeated":
+            if c in ("repeated", "packed"):
                 kw[nm] = []
             continue
         if c == "map":
@@ -96,6 +113,23 @@ def build_message(name, path, idx, mode, repeats, ctors):
                       else V.word(fpath + ".value", idx * 31 + j))
                 d[mk] = mv
             kw[nm] = d
+            continue
+        if c == "packed":
+            # `payloads.py:enc_field`, the packed branch: a run of `count` values from the
+            # same rules the singular fields use, stepped by 97 so the run is not constant,
+            # and written even when every member is the proto zero -- the omit-when-zero
+            # rule is about a leaf, not about a run.
+            n = f.get("count", 30)
+            if k == "enum":
+                vals = [V.enum_value(SCHEMA["enums"][f["of"]]["values"], idx * 97 + j)
+                        for j in range(n)]
+            else:
+                vals = [V.scalar(k, fpath, idx * 97 + j) for j in range(n)]
+                if k == "bool":
+                    vals = [bool(v) for v in vals]
+                elif k != "double":
+                    vals = [int(v) for v in vals]
+            kw[nm] = vals
             continue
         if c == "repeated":
             if k == "string":
@@ -112,19 +146,46 @@ def build_message(name, path, idx, mode, repeats, ctors):
                 kw[nm] = {"guid": V.guid, "word": V.word,
                           "sentence": V.sentence}[f.get("value", "word")](fpath, idx)
         elif k == "bytes":
-            kw[nm] = V.blob(fpath, idx)
+            # `payloads.py:enc_field`: a field whose value rule is `bulk` carries the
+            # payload's size rather than the ordinary per-path blob.
+            kw[nm] = (V.bulk(bulk) if f.get("value") == "bulk" and bulk is not None
+                      else V.blob(fpath, idx))
         elif k == "enum":
             kw[nm] = V.enum_value(SCHEMA["enums"][f["of"]]["values"], idx)
         elif k in ("int32", "int64", "bool"):
             kw[nm] = _scalar(k, fpath, idx)
         elif k == "message":
-            kw[nm] = _child(f, fpath, idx, mode, repeats, ctors)
+            kw[nm] = _child(f, fpath, idx, mode, repeats, ctors, bulk)
         else:
             raise NotImplementedError("%s.%s: %s" % (name, nm, k))
+
+    # The oneof, exactly as `payloads.py:oneof_member` writes it: ONE member, cycled by
+    # element index so that every variant including the payload-free one is reached. The
+    # facade says which with `<oneof>_case`, holding the member's TAG.
+    for oname, members in S.oneofs(msg).items():
+        g = members[idx % len(members)]
+        gp = "%s.%s" % (name, g["name"])     # `name`, not `path`: oneof_member uses the
+        kw["%s_case" % oname] = g["tag"]     # message name, and the two must agree
+        if g["kind"] == "string":
+            kw[g["name"]] = V.word(gp, idx)
+        elif g["kind"] == "bytes":
+            kw[g["name"]] = V.blob(gp, idx)
+        elif g["kind"] == "int64":
+            kw[g["name"]] = int(V.scalar("int64", gp, idx))
+        elif g["kind"] == "message" and g["of"] == "Empty":
+            # Present and empty. The facade has to hold an OBJECT here, not None: the
+            # member is selected, and "selected" is what puts the tag and a zero length on
+            # the wire. A None would be indistinguishable from unset.
+            kw[g["name"]] = ctors["Empty"]()
+        elif g["kind"] == "message":
+            t = V.timestamp(gp, idx)
+            kw[g["name"]] = ctors[g["of"]](seconds=t["seconds"], nanos=t["nanos"])
+        else:
+            raise NotImplementedError("%s.%s: oneof %s" % (name, g["name"], g["kind"]))
     return ctors[name](**kw)
 
 
-def _child(f, fpath, idx, mode, repeats, ctors):
+def _child(f, fpath, idx, mode, repeats, ctors, bulk=None):
     """A singular message child, with `payloads.py`'s three special cases."""
     of = f["of"]
     if f.get("adapter_site") == "nested":
@@ -144,14 +205,37 @@ def _child(f, fpath, idx, mode, repeats, ctors):
     if of == "Duration":
         t = V.duration(fpath, idx)
         return ctors[of](seconds=t["seconds"], nanos=t["nanos"])
-    return build_message(of, fpath, idx, mode, repeats, ctors)
+    return build_message(of, fpath, idx, mode, repeats, ctors, bulk)
 
 
 def build(payload_id, ctors):
     """`ctors` maps a message name to its facade constructor, so one builder serves the
     plain facade, the `__slots__` facade and the C extension type."""
     spec = SCHEMA["payloads"][payload_id]
-    root, field = spec["root"], spec["field"]
+    root = spec["root"]
+
+    if "bulk" in spec:                              # P5.x
+        # One message, one child, and one `bytes` field carrying the whole payload. The
+        # root has no repeated field at all, which is the point: it is the shape where the
+        # per-element cost is zero and the only thing measured is the blob.
+        f = S.fields(SCHEMA["messages"][root])[0]
+        return ctors[root](**{f["name"]: build_message(f["of"], f["of"], 0, None, 3,
+                                                       ctors, bulk=spec["bulk"])})
+
+    if spec.get("interleaved"):                     # P7.1
+        # The facade holds two lists and cannot express the interleaving, which is exactly
+        # what makes this a control: an encoder that emits each repeated field contiguously
+        # produces a PERMUTATION of the manifest's bytes and not the bytes. `payloads.py`
+        # builds both lists from the same element index sequence, so the two agree on
+        # values even though they cannot agree on order.
+        left, right = S.fields(SCHEMA["messages"][root])[:2]
+        kw = {}
+        for f in (left, right):
+            kw[f["name"]] = [build_message(f["of"], f["of"], j, None, 3, ctors)
+                             for j in range(spec["count"])]
+        return ctors[root](**kw)
+
+    field = spec["field"]
     f = next(x for x in S.fields(SCHEMA["messages"][root]) if x["name"] == field)
     mode = spec.get("mode")
     reps = spec.get("repeats", 3)
@@ -159,7 +243,15 @@ def build(payload_id, ctors):
     for j in range(spec["count"]):
         r = reps[j % len(reps)] if isinstance(reps, list) else reps
         elems.append(build_message(f["of"], f["of"], j, mode, r, ctors))
-    return ctors[root](**{field: elems, "page": 1, "total": spec["count"]})
+    # `page` and `total` only where the root has them: `payloads.py:build` writes them by
+    # looking for those names among the root's fields, and M3's root carries neither.
+    kw = {field: elems}
+    have = {x["name"] for x in S.fields(SCHEMA["messages"][root])}
+    if "page" in have:
+        kw["page"] = 1
+    if "total" in have:
+        kw["total"] = spec["count"]
+    return ctors[root](**kw)
 
 
 def reference(payload_id):

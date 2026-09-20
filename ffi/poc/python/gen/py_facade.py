@@ -12,7 +12,20 @@ The third candidate, a C extension type, is emitted by `py_binding.py` into the 
 shim, because its whole point is that a field read from C is a struct member
 rather than a crossing.
 """
-from walk import walk, pydefault
+from walk import walk, pydefault, oneof_groups
+
+
+def case_attr(oname):
+    """The facade's discriminator for one oneof.
+
+    It holds **the active member's tag**, 0 for unset, which is what the ABI's
+    `<name>_case` holds (ABI v1 section 6). Storing the member's NAME would read better
+    from Python and would cost a string compare per element in the shim; storing the tag
+    costs a `==` on an int and matches the group with no translation. The names are beside
+    the class in `<Message>_<oneof>_MEMBERS` so a caller never has to know a tag, and the
+    readable-discriminator facade is recorded as unmeasured rather than dismissed.
+    """
+    return "%s_case" % oname
 
 
 def emit(schema, scope):
@@ -32,18 +45,31 @@ def emit(schema, scope):
          'facade.',
          '"""',
          '']
+    # The member tables, once per message rather than once per storage: a tag is a
+    # property of the description, not of where the facade keeps its attributes.
+    for name in scope:
+        for oname, members in oneof_groups(schema, name).items():
+            L.append("%s_%s_MEMBERS = {%s}"
+                     % (name, oname,
+                        ", ".join("%d: %r" % (f["tag"], f["name"]) for f in members)))
+            L.append("")
+    L.append("")
+
     for variant, slots in (("Plain", False), ("Slots", True)):
         for name in scope:
             flds = list(walk(schema, name))
+            ones = oneof_groups(schema, name)
+            # The discriminator sits after the members it selects, so the generated
+            # signature keeps tag order and a positional call is still legible.
+            attrs = [f["name"] for f, _, _ in flds] + [case_attr(o) for o in ones]
             L.append("class %s%s:" % (variant, name))
             if slots:
-                L.append("    __slots__ = (%s)"
-                         % "".join('"%s", ' % f["name"] for f, _, _ in flds))
-            args = ", ".join("%s=%s" % (f["name"], pydefault(k, c))
-                             for f, k, c in flds)
-            L.append("    def __init__(self, %s):" % args)
+                L.append("    __slots__ = (%s)" % "".join('"%s", ' % a for a in attrs))
+            args = ", ".join(["%s=%s" % (f["name"], pydefault(k, c)) for f, k, c in flds]
+                             + ["%s=0" % case_attr(o) for o in ones])
+            L.append("    def __init__(self, %s):" % (args or "",))
             for f, k, c in flds:
-                if c in ("repeated", "map"):
+                if c in ("repeated", "packed", "map"):
                     # A map is a `dict` on the facade, which is what a Python user
                     # expects, and a repeated field of a pair message on the wire (ABI v1
                     # section 11). The canonical form sorts map entries by key, so the
@@ -53,11 +79,33 @@ def emit(schema, scope):
                              % (f["name"], empty, f["name"], f["name"]))
                 else:
                     L.append("        self.%s = %s" % (f["name"], f["name"]))
+            for o in ones:
+                L.append("        self.%s = %s" % (case_attr(o), case_attr(o)))
+            if not attrs:
+                L.append("        pass")
             L.append("")
+            # `__eq__` compares the plain fields, the discriminator, and ONLY the selected
+            # member. Two messages that differ in a member neither of them selects are the
+            # same message, and an `__eq__` that says otherwise makes the conformance
+            # gate's "decoded == built" check fail on a difference the wire cannot carry.
+            plain = [f["name"] for f, _, c in flds if c != "oneof"]
+            keys = plain + [case_attr(o) for o in ones]
+            if ones:
+                L.append("    def _sel(self):")
+                L.append('        """The selected member of each oneof, or None."""')
+                for o in ones:
+                    L.append("        n_%s = %s_%s_MEMBERS.get(self.%s)"
+                             % (o, name, o, case_attr(o)))
+                L.append("        return (%s)"
+                         % "".join("getattr(self, n_%s) if n_%s else None, " % (o, o)
+                                   for o in ones))
+                L.append("")
+            sel = " + (self._sel(), )" if ones else ""
+            osel = " + (o._sel(), )" if ones else ""
             L.append("    def __eq__(self, o):")
-            L.append("        return type(o) is type(self) and (%s) == (%s)"
-                     % (", ".join("self." + f["name"] for f, _, _ in flds),
-                        ", ".join("o." + f["name"] for f, _, _ in flds)))
+            L.append("        return type(o) is type(self) and (%s)%s == (%s)%s"
+                     % ("".join("self.%s, " % a for a in keys), sel,
+                        "".join("o.%s, " % a for a in keys), osel))
             L.append("")
             L.append("")
     return "\n".join(L)
