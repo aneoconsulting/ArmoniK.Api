@@ -71,6 +71,8 @@ public final class RunRpc {
   static byte[] REQUEST = new byte[16];
   /** Per thread, never static state shared across threads (R12). */
   static final ThreadLocal<Binding> PARSE_BINDING = ThreadLocal.withInitial(Binding::new);
+  /** Cell D's reused read buffer, so it pays what cells B and C pay. */
+  static final ThreadLocal<byte[]> DBUF = ThreadLocal.withInitial(() -> new byte[1 << 16]);
 
   /** Pass-through, for the server and for the request side of both clients. */
   static final MethodDescriptor.Marshaller<byte[]> BYTES =
@@ -255,8 +257,28 @@ public final class RunRpc {
               // Cell A reads it with protobuf-java; cell D reads the same bytes with the
               // core, so D minus A is the codec difference under grpc-java's transport.
               if (parse == PARSE_PBJ) return pm.parse(s);
-              byte[] b = readAll(s);
-              return parse.parse(b, 0, b.length);
+              // Into a REUSED buffer, not readAll's fresh array. The first version
+              // allocated 540 KB per call and copied into it, where cell A's marshaller
+              // never materialises one and cells B and C both copy into a buffer they
+              // keep -- so cell D was paying an allocation and a copy that neither its
+              // own comparator nor the other codec delta pays. That handicap was worth
+              // about 400 ns per element and it was sitting in the arm that decides
+              // whether the two halves of outcome 2 are additive.
+              try {
+                int n = s.available();
+                byte[] b = DBUF.get();
+                if (b.length < n) { b = new byte[Integer.highestOneBit(n - 1) * 2]; DBUF.set(b); }
+                int at = 0;
+                for (;;) {
+                  int k = s.read(b, at, b.length - at);
+                  if (k < 0) break;
+                  at += k;
+                  if (at == b.length) break;
+                }
+                return parse.parse(b, 0, at);
+              } catch (IOException e) {
+                throw new IllegalStateException(e);
+              }
             }
           })
           .build();
