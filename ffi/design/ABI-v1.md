@@ -1273,6 +1273,25 @@ Each blocks something. None is settled by a measurement that exists today.
    times protobuf-java to 1.00. Three hosts, one mechanism, and the branch held
    both halves without connecting them.
 
+   **The java slice then measured the same mechanism on the JVM, and a managed host
+   gets about a third of it.** `ffi-borrow` takes P1.2 from 0.830 to **0.669** of
+   protobuf-java and P1.1 from 1.038 to 0.882, where the C++ slice's same arm moved
+   P1.2 two to three times further; on the container-heavy P2.2 it straddles zero,
+   which is the branch's own container-construction bound seen from a third host.
+   So the contract has to be drafted against a host that gets 16 percent where C++
+   gets 50, not against the best case.
+
+   **And the Python premise this decision was carrying is wrong.** The open question
+   supposed upb may already borrow at the Python level, which would make the option
+   moot there. It does not: upb aliases into its input buffer in C, but a Python
+   `str` is a fresh object built on **every** attribute read and nothing is cached —
+   a second full read of the *same* upb message costs 3.12-3.16 ms against 3.41-3.48
+   for the first, so all but about a tenth of the materialisation is paid again,
+   while the facade's second read is 2.38-2.54. **A caller that reads its response
+   twice pays upb twice and the facade once.** The borrowed span is therefore open
+   in Python and the incumbent has not taken it; what a borrowed Python string *is*
+   has no draft, and that is the blocker rather than the measurement.
+
    **What is actually open is the lifetime contract.** A borrowed view is valid
    only while the input buffer lives, which this document has never written down;
    in C# and Java it interacts with pinning, in C++ it means a facade type that is
