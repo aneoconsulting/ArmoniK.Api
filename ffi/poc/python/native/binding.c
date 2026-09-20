@@ -26,25 +26,28 @@ static int backend_index(const char *name) {
 
 static PyObject *py_encode(PyObject *m, PyObject *args) {
   (void)m;
-  const char *backend;
+  const char *backend, *rootname;
   PyObject *root, *acc = NULL;
-  if (!PyArg_ParseTuple(args, "sO|O", &backend, &root, &acc)) return NULL;
+  if (!PyArg_ParseTuple(args, "ssO|O", &backend, &rootname, &root, &acc)) return NULL;
   int b = backend_index(backend);
-  if (b < 0) return NULL;
-  return AK_ENC[b](root, acc);
+  int r = root_index(rootname);
+  if (b < 0 || r < 0) return NULL;
+  return AK_ENC[b][r](root, acc);
 }
 
 static PyObject *py_decode(PyObject *m, PyObject *args) {
   (void)m;
-  const char *backend;
+  const char *backend, *rootname;
   PyObject *buf, *types, *acc = NULL;
-  if (!PyArg_ParseTuple(args, "sOO|O", &backend, &buf, &types, &acc)) return NULL;
+  if (!PyArg_ParseTuple(args, "ssOO|O", &backend, &rootname, &buf, &types, &acc))
+    return NULL;
   int b = backend_index(backend);
-  if (b < 0) return NULL;
+  int r = root_index(rootname);
+  if (b < 0 || r < 0) return NULL;
   HostTypes T;
   memset(&T, 0, sizeof T);
   if (types_from_seq(&T, types)) return NULL;
-  return AK_DEC[b](buf, acc, &T);
+  return AK_DEC[b][r](buf, acc, &T);
 }
 
 /* ABI v1 section 10 and obligation 12.3.  The shim and the core restate the same group
@@ -153,11 +156,25 @@ static PyObject *py_crossing(PyObject *m, PyObject *args) {
   return PyLong_FromUnsignedLongLong(x);
 }
 
+static PyObject *py_types(PyObject *m, PyObject *unused) {
+  (void)m;
+  (void)unused;
+  PyObject *t = PyTuple_New(AK_NTYPES);
+  if (!t) return NULL;
+  for (int i = 0; i < AK_NTYPES; i++) {
+    PyObject *s = PyUnicode_FromString(AK_TYPE_NAMES[i]);
+    if (!s) { Py_DECREF(t); return NULL; }
+    PyTuple_SET_ITEM(t, i, s);
+  }
+  return t;
+}
+
 static PyMethodDef methods[] = {
     {"encode", py_encode, METH_VARARGS,
-     "encode(backend, root[, accessors]) -> bytes, through the shared core"},
+     "encode(backend, rootname, obj[, accessors]) -> bytes, through the shared core"},
     {"decode", py_decode, METH_VARARGS,
-     "decode(backend, buf, types[, accessors]) -> facade, through the shared core"},
+     "decode(backend, rootname, buf, types[, accessors]) -> facade"},
+    {"types", py_types, METH_NOARGS, "the facade type names, in HostTypes order"},
     {"layout_facts", py_layout_check, METH_NOARGS,
      "the core's own view of every group layout (ABI v1 section 10)"},
     {"core_counters", py_core_counters, METH_VARARGS, "reserved"},

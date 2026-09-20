@@ -1,0 +1,63 @@
+# python slice: the allocator state, not the codec, owns the large-payload encode
+#
+# date:      2026-09-20T11:23:23Z
+# machine:   4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
+# commit:    f24b900
+# core:      ffi/poc/codec (README R0), ABI v1, libak_core.so via the dynamic linker
+# R13:       this machine's rust-slice crossing is 2.1 ns (fwd+reverse) to 2.8 ns
+#            (forward) -- 00-r13-rust-crossing.log. The composed arm also prices
+#            the boundary IN ITS OWN PROCESS at the end of the bench table, which
+#            is the better number to quote against because it shares a build.
+# absolutes: instrumentation, not the deliverable. Signs and size classes only.
+
+# cold  no mallopt: glibc's defaults, and its own dynamic adjustment
+# warm  mallopt(M_TOP_PAD, 8388608) -> True
+
+# cold: a fresh process that has allocated nothing larger than the payload.
+# warm: the same process with mallopt(M_TOP_PAD, 8 MiB) set before the first
+#       allocation.  Identical bytes, identical arms, identical order.
+#
+              arm                         bytes    cold med    cold min    warm med    warm max    c/w
+P1.1  decode  core-ffi / C ext type         858        2632        2512        2644        3031   1.00
+P1.1  decode  upb (incumbent)               858        1838        1750        1851        1972   0.99
+P1.1  encode  core-ffi / C ext type         858        1276        1244        1242        1379   1.03
+P1.1  encode  upb (incumbent)               858         946         923        1063        1252   0.89
+P1.2  decode  core-ffi / C ext type      218121      681431      647734      691194      725264   0.99
+P1.2  decode  upb (incumbent)            218121      295924      292301      296192      300213   1.00
+P1.2  encode  core-ffi / C ext type      218121      397061      395386      258126      272863   1.54  <-- 
+P1.2  encode  upb (incumbent)            218121      388835      383136      202071      208833   1.92  <-- 
+P1.3  decode  core-ffi / C ext type         605       46744       46123       46790       46978   1.00
+P1.3  decode  upb (incumbent)               605        7742        7504        7650        8447   1.01
+P1.3  encode  core-ffi / C ext type         605       10983       10826       10942       11140   1.00
+P1.3  encode  upb (incumbent)               605        8476        8352        8473        8594   1.00
+P2.1  decode  core-ffi / C ext type        1037        4081        3972        4095        4233   1.00
+P2.1  decode  upb (incumbent)              1037        2171        2071        2208        2602   0.98
+P2.1  encode  core-ffi / C ext type        1037        2044        1935        1959        2181   1.04
+P2.1  encode  upb (incumbent)              1037        1194        1171        1170        1410   1.02
+P2.2  decode  core-ffi / C ext type      540422     2967946     2762996     3003398     3121865   0.99
+P2.2  decode  upb (incumbent)            540422      906598      897406      914110      998788   0.99
+P2.2  encode  core-ffi / C ext type      540422     1005106      998174     1020586     1043300   0.98
+P2.2  encode  upb (incumbent)            540422      701067      688124      711556      722400   0.99
+P2.3  decode  core-ffi / C ext type      647024     1398236     1369406     1439179     1871594   0.97
+P2.3  decode  upb (incumbent)            647024      574018      568561      588730      622418   0.98
+P2.3  encode  core-ffi / C ext type      647024      712502      699692      714138      738299   1.00
+P2.3  encode  upb (incumbent)            647024      322378      318126      327916      336889   0.98
+P2.4  decode  core-ffi / C ext type      979465     1853448     1789312     1802576     2095856   1.03
+P2.4  decode  upb (incumbent)            979465      725652      715595      727019      829222   1.00
+P2.4  encode  core-ffi / C ext type      979465     1737806     1733309      956536      977237   1.82  <-- 
+P2.4  encode  upb (incumbent)            979465     1317457     1304057      345399      359120   3.81  <-- 
+P2.5  decode  core-ffi / C ext type       19632       62815       62447       62399       63346   1.01
+P2.5  decode  upb (incumbent)             19632       29132       28877       29248       29776   1.00
+P2.5  encode  core-ffi / C ext type       19632       32064       31467       32537       32960   0.99
+P2.5  encode  upb (incumbent)             19632       17999       17722       17694       18149   1.02
+
+# The rows marked <-- are the ones where the ANSWER depends on the state of
+# the allocator rather than on the codec.  Every one of them is an encode
+# whose output is larger than anything the process had allocated BEFORE it:
+# P1.2 at 218 KiB, which is the first thing past the 128 KiB threshold, and
+# P2.4 at 979 KiB, which is the first thing past what P1.2 raised it to.
+# P2.2 and P2.3 sit between the two and are clean, because by the time they
+# run glibc has already adjusted -- which is the whole point: the figure
+# depends on WHAT RAN BEFORE IT, so it is a property of the case list and not
+# of the codec.  Every decode is clean at every size, because a decode
+# allocates many small objects rather than one large buffer.
