@@ -16,6 +16,9 @@ count = ["ak-rt/count", "ak-core/count"]
 # Default = lossy. These two make decode validate and REJECT.
 dec-reject = ["ak-rt/dec-reject"]
 dec-reject-simd = ["ak-rt/dec-reject-simd"]
+# ABI v1 obligation 12.5 and section 6: the process-global learned-width table, which
+# section 6 refuses. Built so the refusal is measured rather than inherited.
+global-widths = ["ak-rt/global-widths", "ak-core/global-widths"]
 
 [dependencies]
 # Build-ordering and feature plumbing only. `ak-core` is a cdylib: it is linked by
@@ -92,3 +95,7 @@ path = "src/bin/unknown.rs"
 [[bin]]
 name = "pullbench"
 path = "src/bin/pullbench.rs"
+
+[[bin]]
+name = "concur"
+path = "src/bin/concur.rs"
