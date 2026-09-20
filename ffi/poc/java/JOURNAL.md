@@ -310,3 +310,75 @@ command line contains `ak.Bench`. The bench finished in 3 minutes 11 seconds; th
 spun for 1 hour 44. Writing a trap down is not the same as not walking into it. The
 working form matches on the JVM itself, `pgrep -f "bin/java.*ak.Bench"`, or better, holds
 the child's pid and waits on that.
+
+### J17. The C-shim arm was refused by a probe, and the probe's first control was defective
+
+The aggregating session promoted README 9.1's C-shim binding arm to first: have the
+generated C read and write facade fields through the JNI API instead of upcalling into
+Java, removing the 7.004 reverse calls per element that are 560 ns of this slice's decode
+regression. The Python slice validated that shape in its own runtime.
+
+Pricing the primitives before building the arm took an afternoon and refused it. A JNI
+`SetObjectField` is 26.7 ns under G1 and 13.7 under Parallel; a cached upcall is 72 to 80.
+So a JNI accessor is a *third of a whole reverse call*, and the crossover between "one
+upcall carrying k stores" and "k JNI stores and no upcall" lands at k = 2 to 3.
+`TaskDetailed`'s apply is k = 30. `NewObject` at 123 to 139 ns per element makes it worse.
+
+**The first version of the probe said the crossover was at k = 4**, because its upcall
+callee stored one value into one field k times and C2 reduces that to a single store. Both
+sides now write k distinct values into k distinct fields. That defect was the second of the
+three traps the brief named -- a defective no-boundary control -- sitting inside the
+instrument that decides whether to build an arm. Two in two days, D7 and this one, both in
+controls rather than in codecs.
+
+What the result is good for is not the refusal. It is that **on the JVM the push family's
+cost is the number of transitions, not what happens inside them.** A transition cannot be
+made cheaper, because the cheapest thing that crosses is already a third of one. It can
+only be made rarer, which is the pull family and open decision 10, and which the rust
+slice is building. So this is not a second independent route to that result; it is a
+reason there is only one route.
+
+Kept for its own sake: `SetObjectField` and `SetObjectArrayElement` both double under G1
+against Parallel and Serial while `SetIntField` does not move. The G1 write barrier,
+priced, for any native code that stores a reference into a Java object.
+
+### J18. The instrument decides whether the hazard exists, and the inference it replaced was wrong
+
+R9's mechanism was the one inference left standing in this slice, and the README had
+already published the correction resting on it. Settling it needed the JIT's own output.
+
+**First problem: the flags R9 would be settled with do not exist here.**
+`-XX:+TraceDeoptimization` and `-Xlog:deoptimization` are develop-build only.
+`-XX:+LogCompilation` works and **preserves** the effect. `-XX:StartFlightRecording` works
+and **erases** it: 642 us at `deopt=0` where the same run without it reads 1,261. So the
+hazard's existence depends on which instrument is watching, and the first measurement had
+to be of the instruments rather than of the thing.
+
+**Second: the mechanism is not what the arms suggested.** In every slow run C2 emits
+`inline_fail reason='call site not reached'` for `StringUTF16.charAt` at both `charAt`
+sites in protobuf-java's `encodeUtf8`; in every fast run it compiles that branch with the
+`_getCharStringU` intrinsic. The payload is entirely above U+00FF, so the pruned branch is
+the one the work needs. It is compile-time pruning, and the slow state has FEWER runtime
+uncommon traps than the fast one -- so "deoptimises", R9's word, is wrong in this slice.
+
+**Third: the inference this slice published was refuted by the same logs.** STATE.md said
+the two encoders share one compact-string dispatch profile that can only be specialised one
+way, so they move in opposite directions. `ak.Utf8.encode` and `ak.Utf8.length` compile
+identically in all four modes: never pruned, intrinsic always applied. Only protobuf-java's
+encoder is affected. The story was plausible, consistent with every number in `deopt.log`,
+and false.
+
+**Fourth, and the part that changes how the result should be stated: the effect is
+bimodal.** Ten runs per mode land at either about 620 us or about 1,250 with nothing
+between. The Latin-1 probe makes the fast state certain; with no probe the process reaches
+it about one run in ten. So the probe changes a PROBABILITY, and a table with one reading
+per cell -- which is what `deopt.log` is -- reports a mode rather than a value. The one
+stray mode-2 reading `deopt.log` wrote down instead of dropping was the tenth run.
+
+**Fifth: `deopt=1` no longer reproduces**, 0 of 13 against `deopt.log`'s 4 of 4, and that
+is the mode R9 actually names. The payload restriction does not explain it. Two things
+changed in the measured process since -- the W10 re-gate and D7 -- and choosing between
+them means bisecting a probabilistic outcome, so it is written down as unexplained.
+
+Three of the four corrections this slice published about R9 stand. The two that do not are
+the two that were inferred rather than observed, and they are the two the README repeated.
