@@ -735,6 +735,47 @@ whatever the payload.
 
 Written here rather than edited into the documents, per the contract.
 
+0. **The RPC arm's "pin ArmoniK's transport configuration" reads differently from
+   inside `packages/csharp`, and the difference is R14's own point.**
+   `design/SHAPES.md` now says every RPC arm pins ArmoniK's settings -- 2 MiB
+   chunking and a 4 MiB stream window -- rather than the stack's defaults. Two
+   primary-source facts from this repository, which is the only part of ArmoniK
+   this session can read:
+
+   * **UDS is not a measurement convenience on .NET, it is what ArmoniK runs.**
+     `ArmoniK.Api.Common/Options/GrpcChannel.cs` defaults `SocketType` to
+     `GrpcSocketType.UnixDomainSocket` and `Address` to `/tmp/armonik.sock`, and
+     `ArmoniK.Api.Worker/Utils/WorkerServer.cs` calls
+     `options.ListenUnixSocket(address, ... Protocols = HttpProtocols.Http2)`.
+     So the UDS-primary choice is R14-correct here, not just noise reduction.
+   * **Neither side of the C# package sets an HTTP/2 window at all.**
+     `GrpcChannelFactory`'s `GrpcChannelOptions` carries `Credentials`,
+     `DisposeHttpClient`, `ServiceConfig` and `LoggerFactory` and nothing else,
+     and the worker's Kestrel setup touches `Limits.Http2` only for
+     `KeepAlivePingTimeout`, on the TCP branch. The client also builds an
+     `HttpClientHandler` rather than a `SocketsHttpHandler`, and
+     `InitialHttp2StreamWindowSize` is not reachable through the former, so as
+     written the C# client **could not** pin a stream window without changing
+     the handler type.
+
+   The 4 MiB figure presumably comes from ArmoniK.Core, which is a different
+   repository and outside this session's scope, so I cannot check whether it is
+   a server-side Kestrel limit or a client setting. **If it is server-side, a C#
+   RPC arm that pins 4 MiB on the client is measuring a configuration ArmoniK's
+   own C# client does not use**, which is the exact failure R14 exists to
+   prevent. Asking for: which side of ArmoniK.Core sets the 4 MiB, so the C# arm
+   pins the same side.
+
+   What this slice will state in its configuration line either way, now sourced:
+   `SocketsHttpHandler.InitialHttp2StreamWindowSize` must be between **65,535**
+   and the configured maximum, **16,777,216 by default**, and .NET's dynamic
+   HTTP/2 window sizing is ON unless the AppContext switch
+   `System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing`
+   is set. So .NET's shape is neither tonic's (65,535, adaptive off) nor
+   grpc-java's (1 MiB, BDP on), and a pinned arm and a default arm are two rows.
+   [MS Learn](https://learn.microsoft.com/en-us/dotnet/api/system.net.http.socketshttphandler.initialhttp2streamwindowsize),
+   [dotnet/runtime #53372](https://github.com/dotnet/runtime/issues/53372).
+
 1. **`ffi/schema` should pin the content sets, not name them by range.** It
    emits ASCII only and describes the others as "U+00A0 to U+00FF" and "above
    U+00FF". The second admits a two-byte and a three-byte encoding, and this
@@ -956,11 +997,13 @@ it, and the first item is much the largest.
    eight. The encode arm loses on the fill and nothing else.
 4. **An RPC arm.** design/SHAPES.md now specifies it: the host's real gRPC
    stack against the core's, end to end, carrying P2.2, over a Unix domain
-   socket (`UnixDomainSocketEndPoint` behind `SocketsHttpHandler.ConnectCallback`)
-   with loopback TCP as a labelled second row, CPU and allocation per call at 1,
-   8 and 16 in flight. A marshaller arm is NOT one, and this slice has only the
-   marshaller arm. R9's 64 KB stream window is HTTP/2 and a UDS does not rescue
-   it, so CPU per RPC is the headline and wall clock is reported beside it.
+   socket with loopback TCP as a labelled second row, CPU and allocation per
+   call at 1, 8 and 16 in flight. A marshaller arm is NOT one, and this slice
+   has only the marshaller arm. **UDS is R14-correct on .NET rather than a
+   convenience**: `packages/csharp` defaults its worker and agent channels to
+   `GrpcSocketType.UnixDomainSocket` at `/tmp/armonik.sock` and listens with
+   `ListenUnixSocket(... HttpProtocols.Http2)`. The flow-control configuration
+   has to be stated and there is an open question about which one; see request 0.
 5. **The host-transcoder string form**, to replace an arithmetic prediction
    (5,000 reverse crossings for P1.2, 37 to 60 us at .NET's price) with a
    measurement.
