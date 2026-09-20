@@ -48,14 +48,44 @@ sys.path.insert(0, HERE)
 import allocator  # noqa: E402  (before `arms`, as in bench.py)
 _WARM = allocator.warm_up()
 
+# ONE core in this process, and it is the rpc-feature one.
+#
+# ABI v1 section 9 lives behind a cargo feature that pulls tonic and tokio in, so it is
+# built into its own `libak_core.so` with `_akffi_rpc` as the shim over it. Importing that
+# BESIDE `_akffi` would put two libraries of one soname in a process and the first loaded
+# would satisfy the other's NEEDED entry -- which is how the counting build's numbers came
+# out as zeroes in work unit 2, and how the first draft of this file came out with no
+# section 9 at all. `AK_FFI_MODULE` chooses instead of import order, and it is set BEFORE
+# `arms` is imported because importing `arms` is what loads a shim.
+#
+# So cell C's codec is measured over a core with tonic linked in: same codec code, larger
+# library, and every cell in this script shares it.
+os.environ.setdefault("AK_FFI_MODULE", "_akffi_rpc")
+sys.path.insert(0, os.path.join(HERE, "build", "py%d.%d" % sys.version_info[:2]))
+
 import arms  # noqa: E402
 
 try:
     import grpc
-except ImportError as e:  # noqa: BLE001
+except ImportError as _e:  # noqa: BLE001
     grpc = None
-    _GRPC_WHY = str(e)
+    _GRPC_WHY = str(_e)
 
+# The grid. "The host's stack against the core's" moves the codec and the transport at
+# once, and the report has to say which one paid, so:
+#
+#   A  upb codec   + grpcio transport     the incumbent, end to end
+#   B  upb codec   + CORE transport       B - A is the TRANSPORT difference
+#   C  core codec  + CORE transport       C - B is the CODEC difference
+#
+# B is README section 13's outcome 2, and this slice already removed outcome 2 from the
+# table for Python on the CODEC side (a pure-Python control loses to upb by 34x to 60x),
+# so pricing its transport half here is the other half of that answer. It is cheap: upb
+# makes the request bytes and reads the response bytes, and the core's transport moves
+# opaque bytes and never sees a message type.
+#
+# Every cell talks to ONE grpcio server that returns pre-serialised bytes, so the server is
+# in no difference.
 PID = "P2.2"                       # SHAPES.md: the RPC arm carries P2.2
 METHOD = "/ffi.Bench/Get"
 CALLS = 200
@@ -71,15 +101,22 @@ WINDOW_BYTES = 4 << 20
 # the core did with them is reported, not assumed.
 _MSG = [("grpc.max_receive_message_length", CHUNK_BYTES * 4),
         ("grpc.max_send_message_length", CHUNK_BYTES * 4)]
+DEFAULT_SERVER_ARGS = _MSG
 
 # Three configurations, and the third exists because "does pinning a window turn BDP
 # probing off" is answerable by running both rather than by reading about it.
+# **The 4 MiB window is what ArmoniK INTENDS, not what it ships.**
+# `packages/rust/armonik-transport`'s `ClientConfig` carries connect and request timeouts,
+# a rate limit, TCP keepalive, the HTTP/2 ping settings and a max header list size -- and
+# nothing for either window; `packages/csharp` cannot set one at all. So no ArmoniK client
+# pins an HTTP/2 window today, and the stack-default row is the SHIPPED configuration
+# rather than a fallback.
 CONFIGS = [
-    ("grpcio's default", _MSG),
-    ("ArmoniK pinned, BDP left on",
+    ("the stack default (what ArmoniK SHIPS)", _MSG),
+    ("4 MiB pinned, BDP left on (INTENDED)",
      _MSG + [("grpc.http2.lookahead_bytes", WINDOW_BYTES),
              ("grpc.http2.max_frame_size", 1 << 20)]),
-    ("ArmoniK pinned, BDP off",
+    ("4 MiB pinned, BDP off (INTENDED, deterministic)",
      _MSG + [("grpc.http2.lookahead_bytes", WINDOW_BYTES),
              ("grpc.http2.max_frame_size", 1 << 20),
              ("grpc.http2.bdp_probe", 0)]),
@@ -111,6 +148,97 @@ def serve(payload, args):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=16), options=args)
     server.add_generic_rpc_handlers((generic,))
     return server
+
+
+def core_client(target, pinned):
+    """A core transport client, pinned or at the stack default.
+
+    ABI v1 section 9's `ak_client_opts`: the stream and connection windows are SEPARATE,
+    which is the mistake this entry point exists to make impossible -- and note that on
+    grpcio the same mistake is unreachable for the opposite reason, because there is no
+    connection-window argument at all.
+    """
+    rt = arms._ffi.rt_new(0)
+    # tonic's `Endpoint::from_shared` wants a URI with a scheme, where grpcio takes a bare
+    # `host:port`. A `unix:` target already has one. Getting this wrong fails loudly at
+    # connect rather than quietly at measurement, which is the good direction.
+    if not target.startswith("unix:") and "://" not in target:
+        target = "http://" + target
+    if not pinned:
+        return rt, arms._ffi.client_new(rt, target)
+    # adaptive OFF: it overrides both windows, so pinning a window and leaving it on is a
+    # contradiction rather than belt and braces. Nagle left at the default, which is
+    # `packages/rust/armonik-transport`'s shipped value (nodelay on).
+    return rt, arms._ffi.client_new_opts(rt, target, WINDOW_BYTES, WINDOW_BYTES, 0,
+                                         CHUNK_BYTES * 4, CHUNK_BYTES * 4, -1)
+
+
+def core_cells(target, pinned):
+    """Cells B and C over the core's transport, in each of section 9's three deliveries.
+
+    The GIL is why the three are not interchangeable here and it is a Python reason rather
+    than a borrowed one: the queue's drainer is a thread CPython already knows, which drops
+    the lock while it waits; the callback arrives on a tokio worker that must
+    `PyGILState_Ensure` before it can touch anything. The queue should win and the arm
+    checks it.
+    """
+    if arms._ffi is None or not hasattr(arms._ffi, "call_unary"):
+        return []
+    root = arms.ROOT_OF[PID]
+    rt, cl = core_client(target, pinned)
+    R = getattr(arms._pb2, root) if arms._pb2 is not None else None
+    out = []
+
+    def blocking(deser):
+        def go():
+            return deser(arms._ffi.call_unary(cl, METHOD, b""))
+        return go
+
+    def queued(deser):
+        q = arms._ffi.queue_new()
+
+        def go():
+            arms._ffi.call_unary_q(cl, METHOD, b"", q, 1)
+            c = arms._ffi.queue_next(q)
+            return deser(c[2]) if c else None
+        go.q = q
+        return go
+
+    def called_back(deser):
+        """The callback delivery, used the way a Python caller would: an Event per call.
+
+        The completion runs on a tokio worker, so the trampoline must `PyGILState_Ensure`
+        before it can set the Event, and the caller is a Python thread waiting on it. Two
+        GIL transitions per call that the queue does not make, plus the Event -- and the
+        Event is the honest part of the comparison rather than overhead to subtract,
+        because a caller who chose this mode has to synchronise somehow.
+        """
+        def go():
+            done = threading.Event()
+            box = []
+
+            def cb(tag, status, body):
+                box.append(body)
+                done.set()
+
+            arms._ffi.call_unary_cb(cl, METHOD, b"", cb, 1)
+            done.wait()
+            return deser(box[0]) if box else None
+        return go
+
+    if R is not None:
+        out.append(("B  upb codec / core transport, blocking", blocking(R.FromString)))
+        out.append(("B  upb codec / core transport, queue", queued(R.FromString)))
+        out.append(("B  upb codec / core transport, callback", called_back(R.FromString)))
+    dec = (lambda b, _r=root: arms._ffi.decode("cext", _r, b, arms.TY_CEXT))
+    out.append(("C  core codec / core transport, blocking", blocking(dec)))
+    out.append(("C  core codec / core transport, queue", queued(dec)))
+    out.append(("C  core codec / core transport, callback", called_back(dec)))
+    out.append(("-- floor: core transport, no decode", blocking(lambda b: b)))
+    # Keep the runtime and client alive for as long as the closures are.
+    for _n, f in out:
+        f._keep = (rt, cl)
+    return out
 
 
 def _deserializers():
@@ -176,6 +304,57 @@ def in_process_control(out):
             deser(body)
         print("   %-38s %12.0f %12.0f"
               % (name, (_cpu() - c0) / n, (time.perf_counter_ns() - t0) / n), file=out)
+
+
+def run_core(out, label, target, pinned, argname):
+    """Cells B and C, against the same grpcio server cell A used."""
+    payload = arms.reference(PID)
+    server = serve(payload, DEFAULT_SERVER_ARGS)
+    if target.startswith("unix:"):
+        server.add_insecure_port(target)
+        real = target
+    else:
+        port = server.add_insecure_port("127.0.0.1:0")
+        real = "127.0.0.1:%d" % port
+    server.start()
+    try:
+        cells = core_cells(real, pinned)
+        if not cells:
+            print("\n## %s, %s -- CORE TRANSPORT ABSENT from the shim" % (label, argname),
+                  file=out)
+            return
+        print("\n## %s, %s (%s) -- cells B and C" % (label, argname, real), file=out)
+        print("   %-46s %-9s %12s %12s %7s"
+              % ("arm", "in flight", "CPU ns/RPC", "wall ns/RPC", "errors"), file=out)
+        for name, fn in cells:
+            fn()
+            for k in INFLIGHT:
+                cpu, wall, err = measure_fn(fn, CALLS, k)
+                print("   %-46s %-9d %12.0f %12.0f %7d"
+                      % (name, k, cpu, wall, err), file=out)
+    finally:
+        server.stop(0).wait()
+
+
+def measure_fn(fn, calls, inflight):
+    per_thread = max(1, calls // inflight)
+    errs = [0]
+
+    def work():
+        try:
+            for _ in range(per_thread):
+                fn()
+        except Exception:  # noqa: BLE001
+            errs[0] += 1
+
+    c0, t0 = _cpu(), time.perf_counter_ns()
+    ths = [threading.Thread(target=work) for _ in range(inflight)]
+    for t in ths:
+        t.start()
+    for t in ths:
+        t.join()
+    n = per_thread * inflight
+    return (_cpu() - c0) / n, (time.perf_counter_ns() - t0) / n, errs[0]
 
 
 def run_transport(out, label, target, args, argname):
@@ -254,6 +433,53 @@ def _fc_child(opts):
                 assert len(call(b"")) == len(body)
     finally:
         srv.stop(0).wait()
+
+
+def nagle_probe(out):
+    """Does grpcio show the delayed-ACK artifact the rust slice found in tonic's server?
+
+    The test identifies it rather than looking for a number: under Nagle plus delayed ACK a
+    SMALL response costs MORE than a large one, which is backwards for flow control and
+    right for Nagle. Measured rather than inherited, because this build has no
+    `grpc.tcp_nodelay` argument -- a caller cannot set it either way, so what the C core
+    does by default is the only answer there is.
+    """
+    print("\n## Nagle: is a small response dearer than a large one?", file=out)
+    print("   %-10s %10s %12s" % ("transport", "bytes", "ms/RPC"), file=out)
+    for kind in ("unix", "tcp"):
+        for size in (1024, len(arms.reference(PID))):
+            body = b"\x5a" * size
+            server = serve(body, DEFAULT_SERVER_ARGS)
+            if kind == "unix":
+                t = "unix:" + os.path.join(tempfile.mkdtemp(prefix="akng"), "s")
+                server.add_insecure_port(t)
+            else:
+                t = "127.0.0.1:%d" % server.add_insecure_port("127.0.0.1:0")
+            server.start()
+            try:
+                with grpc.insecure_channel(t, options=DEFAULT_SERVER_ARGS) as ch:
+                    call = ch.unary_unary(METHOD, request_serializer=lambda b: b,
+                                          response_deserializer=lambda b: b)
+                    call(b"")
+                    v = []
+                    for _ in range(30):
+                        t0 = time.perf_counter_ns()
+                        call(b"")
+                        v.append(time.perf_counter_ns() - t0)
+                    v.sort()
+                    print("   %-10s %10d %12.3f"
+                          % (kind, size, v[len(v) // 2] / 1e6), file=out)
+            finally:
+                server.stop(0).wait()
+    print("   Monotone in size on both transports, with nothing near 40 ms, means the C",
+          file=out)
+    print("   core sets TCP_NODELAY itself. The artifact was the tonic SERVER's under",
+          file=out)
+    print("   serve_with_incoming and it does not reach a Python caller -- and there is no",
+          file=out)
+    print("   grpc.tcp_nodelay in this build, so it is not a setting anyone could have got",
+          file=out)
+    print("   wrong from here.", file=out)
 
 
 def report_flow_control(out):
@@ -336,9 +562,16 @@ def main():
           file=out)
     print("# server:       returns pre-serialised bytes and never encodes, so both arms", file=out)
     print("#               share it and only the response_deserializer differs", file=out)
-    print("# transport:    ArmoniK's configuration pinned (%d B chunking, %d B stream"
+    print("# grid:         A = upb codec + grpcio transport (the incumbent, end to end)",
+          file=out)
+    print("#               B = upb codec + CORE transport   -> B - A is the TRANSPORT",
+          file=out)
+    print("#               C = core codec + core transport  -> C - B is the CODEC", file=out)
+    print("# transport:    ArmoniK INTENDS %d B chunking and a %d B window; it SHIPS"
           % (CHUNK_BYTES, WINDOW_BYTES), file=out)
-    print("#               window), with grpcio's default as a labelled second row", file=out)
+    print("#               neither -- no ArmoniK client pins an HTTP/2 window today -- so",
+          file=out)
+    print("#               the stack-default row is the shipped configuration.", file=out)
     print("# headline:     CPU per RPC. Wall clock is beside it because R9's hazard moves", file=out)
     print("#               wall clock and does not move CPU", file=out)
     print("# allocator:    pinned, as in bench.py (%s)"
@@ -347,10 +580,19 @@ def main():
         print("# ARM ABSENT: %s" % a, file=out)
 
     d = tempfile.mkdtemp(prefix="akrpc")
+    # Cell A, over grpcio's transport, in each configuration.
     for i, (argname, args) in enumerate(CONFIGS):
         run_transport(out, "unix domain socket",
                       "unix:" + os.path.join(d, "s%d" % i), args, argname)
         run_transport(out, "loopback TCP", "tcp", args, argname)
+    # Cells B and C, over the CORE's transport, against the same server.
+    for i, (pinned, argname) in enumerate(
+            ((False, "the stack default (what ArmoniK SHIPS)"),
+             (True, "4 MiB pinned, BOTH windows, adaptive off (INTENDED)"))):
+        run_core(out, "unix domain socket",
+                 "unix:" + os.path.join(d, "c%d" % i), pinned, argname)
+        run_core(out, "loopback TCP", "tcp", pinned, argname)
+    nagle_probe(out)
     in_process_control(out)
     report_flow_control(out)
     return 0
