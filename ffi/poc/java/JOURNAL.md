@@ -310,3 +310,34 @@ command line contains `ak.Bench`. The bench finished in 3 minutes 11 seconds; th
 spun for 1 hour 44. Writing a trap down is not the same as not walking into it. The
 working form matches on the JVM itself, `pgrep -f "bin/java.*ak.Bench"`, or better, holds
 the child's pid and waits on that.
+
+### J17. The C-shim arm was refused by a probe, and the probe's first control was defective
+
+The aggregating session promoted README 9.1's C-shim binding arm to first: have the
+generated C read and write facade fields through the JNI API instead of upcalling into
+Java, removing the 7.004 reverse calls per element that are 560 ns of this slice's decode
+regression. The Python slice validated that shape in its own runtime.
+
+Pricing the primitives before building the arm took an afternoon and refused it. A JNI
+`SetObjectField` is 26.7 ns under G1 and 13.7 under Parallel; a cached upcall is 72 to 80.
+So a JNI accessor is a *third of a whole reverse call*, and the crossover between "one
+upcall carrying k stores" and "k JNI stores and no upcall" lands at k = 2 to 3.
+`TaskDetailed`'s apply is k = 30. `NewObject` at 123 to 139 ns per element makes it worse.
+
+**The first version of the probe said the crossover was at k = 4**, because its upcall
+callee stored one value into one field k times and C2 reduces that to a single store. Both
+sides now write k distinct values into k distinct fields. That defect was the second of the
+three traps the brief named -- a defective no-boundary control -- sitting inside the
+instrument that decides whether to build an arm. Two in two days, D7 and this one, both in
+controls rather than in codecs.
+
+What the result is good for is not the refusal. It is that **on the JVM the push family's
+cost is the number of transitions, not what happens inside them.** A transition cannot be
+made cheaper, because the cheapest thing that crosses is already a third of one. It can
+only be made rarer, which is the pull family and open decision 10, and which the rust
+slice is building. So this is not a second independent route to that result; it is a
+reason there is only one route.
+
+Kept for its own sake: `SetObjectField` and `SetObjectArrayElement` both double under G1
+against Parallel and Serial while `SetIntField` does not move. The G1 write barrier,
+priced, for any native code that stores a reference into a Java object.
