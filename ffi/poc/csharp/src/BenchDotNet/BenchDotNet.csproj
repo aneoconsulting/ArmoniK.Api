@@ -28,6 +28,9 @@
          <name> in ... and its subfolders", having executed zero benchmarks. -->
     <RootNamespace>Armonik.Ffi.Bdn</RootNamespace>
     <Optimize>true</Optimize>
+    <!-- The core-ffi arm hands the codec a raw pointer out of Encode, so the
+         class that times it is unsafe. Nothing else here is. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- BenchmarkDotNet refuses to run a non-optimized assembly, and warns on a
          debugger. Both are what we want; neither is set here. -->
     <ServerGarbageCollection>false</ServerGarbageCollection>

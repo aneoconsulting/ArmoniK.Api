@@ -22,7 +22,27 @@ public static class W
 {
     public const int WireVarint = 0, WireI64 = 1, WireLen = 2, WireI32 = 5;
 
+    /// The deprecated GROUP form. proto3 cannot express one, so nothing this
+    /// generator emits ever writes these -- and a conformant reader still has
+    /// to SKIP one, because a proto2 peer may send it. `ffi/corpus`'s
+    /// `U-root-group`, `U-nested-group` and `U-oneof-group` are exactly that
+    /// case and this slice rejected all three until they were run.
+    public const int WireGroup = 3, WireEndGroup = 4;
+
+    /// **These are the FACADE's own error codes and they are not the ABI's.**
+    /// `ak-rt` numbers malformed -2 and depth -4; this numbers malformed -4.
+    /// Nothing converts between them and nothing should: the managed control
+    /// does not go through the C ABI at all. Said here because -4 meaning two
+    /// different things in one repository is a trap worth naming once.
     public const int ErrTruncated = -3, ErrMalformed = -4, ErrTranscode = -6;
+
+    /// The recursion limit, hit before the stack is. Two callers: the
+    /// unknown-group skipper, and the generated decoder's nested-message
+    /// descent (ABI v1 open decision 7).
+    public const int ErrDepth = -8;
+
+    /// protobuf's own default, and what every implementation rejects past.
+    public const int MaxDepth = 100;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ulong Key(int tag, int wire) => ((ulong)(uint)tag << 3) | (uint)wire;
@@ -158,6 +178,28 @@ public struct Enc
         b[p + 3] = (byte)(bits >> 24); b[p + 4] = (byte)(bits >> 32); b[p + 5] = (byte)(bits >> 40);
         b[p + 6] = (byte)(bits >> 48); b[p + 7] = (byte)(bits >> 56);
         Pos = p + 8;
+    }
+
+    /// **`fixed32` exists here for `ffi/corpus` and for nothing in
+    /// `ffi/schema`.** The payload set has no fixed-width 32-bit field, so this
+    /// is never called by any arm that produces a number; `WireZoo.v_fixed32`
+    /// is. It is in the shared runtime rather than in a corpus-only one on
+    /// purpose: a corpus that tests a second encoder tests the second encoder.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Fixed32Field(int tag, uint v)
+    {
+        Varint(W.Key(tag, W.WireI32));
+        Fixed32(v);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Fixed32(uint v)
+    {
+        Need(4);
+        var b = Buf;
+        int p = Pos;
+        b[p] = (byte)v; b[p + 1] = (byte)(v >> 8); b[p + 2] = (byte)(v >> 16); b[p + 3] = (byte)(v >> 24);
+        Pos = p + 4;
     }
 
     /// A length-delimited field whose length is known before the body is
@@ -309,6 +351,10 @@ public struct Dec
     public int Pos;
     public int End;
     public int Err;
+    /// Nested-message depth. One increment and one compare per message decoded,
+    /// which is the price of not turning a 300-deep payload into 300 managed
+    /// frames. See `W.MaxDepth`.
+    public int Depth;
 
     public static Dec Over(byte[] b) => new Dec { Buf = b, Pos = 0, End = b.Length, Err = 0 };
 
@@ -341,6 +387,17 @@ public struct Dec
                   | ((long)b[p + 7] << 56);
         Pos = p + 8;
         return BitConverter.Int64BitsToDouble(bits);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public uint Fixed32()
+    {
+        if (Pos + 4 > End) { Err = W.ErrTruncated; return 0; }
+        var b = Buf;
+        int p = Pos;
+        uint v = (uint)(b[p] | (b[p + 1] << 8) | (b[p + 2] << 16) | (b[p + 3] << 24));
+        Pos = p + 4;
+        return v;
     }
 
     /// The end offset of a length-delimited body, having consumed its prefix.
@@ -379,16 +436,56 @@ public struct Dec
 
     /// An unknown field: protobuf's forward compatibility, and the path a
     /// corpus generated from the schema that reads it never executes.
-    public void Skip(int wire)
+    ///
+    /// **It takes the TAG as well as the wire type, and that is the whole fix.**
+    /// A group carries no length, so its end is an `END_GROUP` tag whose FIELD
+    /// NUMBER matches the one that opened it. A skipper that counts depth
+    /// instead accepts `X-group-mismatched-end` and then mis-nests every group
+    /// after it, which is a wrong parse rather than a rejected one. This
+    /// version had cases for the four wire types a proto3 schema produces and
+    /// `ErrMalformed` for everything else, so it rejected three corpus vectors
+    /// that `Google.Protobuf` accepts. The shared core had the identical hole
+    /// (D7) and the C++ slice still does.
+    public void Skip(int tag, int wire)
     {
         switch (wire)
         {
             case W.WireVarint: Varint(); break;
             case W.WireI64: Pos += 8; break;
             case W.WireLen: Pos = LenEnd(); break;
+            case W.WireGroup: SkipGroup(tag, 0); break;
             case W.WireI32: Pos += 4; break;
+            // 4 is END_GROUP with nothing open; 6 and 7 do not exist.
             default: Err = W.ErrMalformed; return;
         }
         if (Pos > End) Err = W.ErrTruncated;
+    }
+
+    /// protobuf's own default recursion limit, applied to nested unknown groups.
+    private const int MaxGroupDepth = 100;
+
+    /// Recursive, because groups nest; bounded, because a payload of nothing but
+    /// start tags would otherwise be a stack overflow rather than an error.
+    private void SkipGroup(int tag, int depth)
+    {
+        if (depth >= MaxGroupDepth) { Err = W.ErrDepth; return; }
+        while (true)
+        {
+            if (Err != 0) return;
+            // An unterminated group: `X-group-unterminated`. A skipper that
+            // scans for the next end tag without checking the buffer walks off it.
+            if (Pos >= End) { Err = W.ErrTruncated; return; }
+            ulong k = Varint();
+            if (Err != 0) return;
+            int t = (int)(k >> 3), w = (int)(k & 7);
+            if (t == 0) { Err = W.ErrMalformed; return; }
+            if (w == W.WireEndGroup)
+            {
+                if (t != tag) Err = W.ErrMalformed;   // `X-group-mismatched-end`
+                return;
+            }
+            if (w == W.WireGroup) { SkipGroup(t, depth + 1); continue; }
+            Skip(t, w);
+        }
     }
 }
