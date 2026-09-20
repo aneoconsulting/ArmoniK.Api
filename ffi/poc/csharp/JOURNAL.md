@@ -962,3 +962,65 @@ carries Credentials, DisposeHttpClient, ServiceConfig and LoggerFactory and
 nothing else, and it builds an `HttpClientHandler`, through which the property
 is not reachable at all. So the pinned arm configures something the shipped
 client cannot -- a finding about the client, not about the codec.
+
+### 36. The slice, closed out
+
+The brief was: own `poc/csharp` and `logs/csharp`, build the incumbent arm, the
+facade, the managed control codec in both directions, and the correctness gate;
+R13 first; `core-ffi` held pending decision 1. Everything in it exists and is
+gated, and so does everything the check-ins added afterwards.
+
+What the slice ended up being, in one list:
+
+  * the managed control, encode and decode, on 16 payloads and 7 shapes, gated
+    on three runtimes (net8.0, netstandard2.0 sources, net48 on Mono);
+  * `core-ffi` on every shape, encode and BOTH decode families, with the ABI
+    declaration, the layout probe and the host binding derived from one module
+    -- 42 structs and 28 vtables verified against the Rust build;
+  * a `ffi/corpus` consumer, 336 vectors on three arms, via a second generator
+    front end over `corpus.proto`;
+  * an end-to-end RPC arm, grpc-dotnet both ends over a UDS with ArmoniK's
+    transport pinned;
+  * two harnesses that agree, and a BenchmarkDotNet build for the controlled
+    rerun.
+
+**The five results I would defend**, in the order I would put them to someone
+deciding:
+
+1. **A generated pure-C# codec decodes at 0.72 to 0.82 of `Google.Protobuf` on
+   every shape the real schema has.** C# does not look like Java on decode, and
+   that was the single measurement the Java report named as able to change its
+   own recommendation.
+2. **Pull beats push on every shape** (0.69 to 0.97) and removes the upcalls
+   entirely rather than reducing them. It moves the composed arm from just above
+   to just below the managed control. That is decision 2's open half, answered
+   from a managed host.
+3. **The encode arm loses on the group fill and nothing else.** 28 to 71 percent
+   of the `core-ffi` encode is the host filling a by-value group; subtract it and
+   the Rust codec plus every crossing is below the C# codec on most payloads.
+   Decision 9's sparse fill is the largest available improvement.
+4. **End to end, the codec is worth about 10 percent of CPU per call, not 25.**
+   The transport is the rest. What survives the noise is allocation: 8.6 percent
+   below the incumbent, on every configuration.
+5. **Correctness found four defects that no timing arm could have.** Three of
+   them -- the group skip, tag zero, the missing recursion limit -- were in code
+   every other gate was passing, and the corpus is the only oracle in the branch
+   not generated from the thing it tests.
+
+**And the three corrections I would want a reader to see**, because each was a
+published claim of mine:
+
+  * ".NET's composed arm beats its own managed codec on decode" was a claim
+    about one flat leaf message. On a real one it is a tie, and only pull puts
+    it back on the right side of 1.0.
+  * "M1 decode is 2 reverse calls, constant in the element count" is wrong. A
+    decode run flushes when the codec's arena fills, so it is `ceil(n/arena)+1`:
+    5 on P1.2. The count was predicted rather than counted, and is counted now.
+  * "A host transcoder costs a reverse crossing per string" was wrong about the
+    mechanism, not just the arithmetic. There is no host transcoder;
+    `ak_tc_utf16` is a pointer into the core and neither string form crosses.
+
+**The methodological one that limits all of it**: two arms that no change
+touched moved up to nine percent between sittings on this container. A
+within-process ratio is sound; comparing one stage's with another's is not, past
+the first digit.
