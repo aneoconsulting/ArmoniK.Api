@@ -295,7 +295,12 @@ slice that cannot reach a socket is looking at its own harness.
 
 **Prefer a Unix domain socket, with loopback TCP as a labelled second row.** A UDS
 removes the TCP/IP stack from both arms equally, which is kernel time neither
-implementation is responsible for and which varies with the machine. All five stacks
+implementation is responsible for and which varies with the machine. **It is not
+faster than a correctly configured loopback TCP socket, and the branch believed
+otherwise for a while**: with `TCP_NODELAY` set on the server's accepted socket the
+two agree on both payloads and both columns, and the gap that made UDS look faster
+was Nagle in our own test server (README R9). Prefer UDS because it is what ArmoniK
+dials, not because it is quicker. All five stacks
 support it: `unix:` targets in grpc++ and grpcio, a `UnixStream` connector in tonic,
 netty domain sockets in grpc-java, and `UnixDomainSocketEndPoint` behind a
 `SocketsHttpHandler` connect callback on .NET.
