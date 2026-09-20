@@ -212,6 +212,121 @@ is a crash and not a rejection.
 
 0 failure(s)
 
+################ the three WRONG fixes, each seen failing ################
+
+The aggregating session asked to see the reject vectors fail before they pass,
+and warned that its own first attempt at the core silently dropped the 32-bit
+arm while adding the group arm. Both are here, plus the depth bound, because
+each is a different wrong implementation and each is caught by a different gate.
+
+Method: patch the REAL `src/Facade/Wire.cs`, rebuild, run the real gates,
+restore. Not a re-implementation -- a re-implementation would be the oracle
+being the code under test.
+
+---------- VARIANT A: END_GROUP accepted whatever its field number (count depth instead of matching) ----------
+  $ groups   (exit 2)
+    vector                   bytes  expect  incumbent  managed  agree  note
+    U-root-group              461  accept  ok         ok       yes    a group at the top level of the message that crosses the wire
+    U-nested-group            244  accept  ok         ok       yes    a group INSIDE an element of a repeated field
+    U-oneof-group              95  accept  ok         ok       yes    a group on a message that actually has a oneof
+    X-group-unterminated       10  reject  ok         ok       yes    a group that is never closed (corpus root WireZoo; read here under ListResultsResponse, where tag 120 is equally unknown)
+    X-group-mismatched-end     12  reject  ok         ACCEPTED!  NO     END_GROUP with a field number that does not match the group that opened (same substitution)
+      err = -8, ErrDepth, and the process is still here
+      err = -8, ErrDepth, and the process is still here
+    2 failure(s)
+  $ unknown   (exit 0)
+    vector                     bytes  gp-dec  man-dec  known-values-agree  gp-retains  man-retains
+    root-varint-between          861  ok      ok       ok                  YES         no
+    root-len                     865  ok      ok       ok                  YES         no
+    elem-varint-interleaved      860  ok      ok       ok                  YES         no
+    elem-i64                     868  ok      ok       ok                  YES         no
+    elem-i32                     864  ok      ok       ok                  YES         no
+    elem-len-nested              867  ok      ok       ok                  YES         no
+    oneof-unrecognised-member  12099  ok      ok       ok                  YES         no
+    0 failure(s) -- a FAIL in a decode column, or a managed re-encode that is not
+  $ conformance   (exit 0)
+    152 checks, 0 failure(s)
+
+---------- VARIANT B: no depth bound ----------
+  $ groups AK_NEST=200   (exit -6)
+    vector                   bytes  expect  incumbent  managed  agree  note
+    U-root-group              461  accept  ok         ok       yes    a group at the top level of the message that crosses the wire
+    U-nested-group            244  accept  ok         ok       yes    a group INSIDE an element of a repeated field
+    U-oneof-group              95  accept  ok         ok       yes    a group on a message that actually has a oneof
+    X-group-unterminated       10  reject  ok         ok       yes    a group that is never closed (corpus root WireZoo; read here under ListResultsResponse, where tag 120 is equally unknown)
+    X-group-mismatched-end     12  reject  ok         ok       yes    END_GROUP with a field number that does not match the group that opened (same substitution)
+      err = -3, EXPECTED ErrDepth (-8)
+    Stack overflow.
+  $ groups AK_NEST=20000   (exit -6)
+    vector                   bytes  expect  incumbent  managed  agree  note
+    U-root-group              461  accept  ok         ok       yes    a group at the top level of the message that crosses the wire
+    U-nested-group            244  accept  ok         ok       yes    a group INSIDE an element of a repeated field
+    U-oneof-group              95  accept  ok         ok       yes    a group on a message that actually has a oneof
+    X-group-unterminated       10  reject  ok         ok       yes    a group that is never closed (corpus root WireZoo; read here under ListResultsResponse, where tag 120 is equally unknown)
+    X-group-mismatched-end     12  reject  ok         ok       yes    END_GROUP with a field number that does not match the group that opened (same substitution)
+      err = -3, EXPECTED ErrDepth (-8)
+    Stack overflow.
+  $ groups AK_NEST=200000   (exit -6)
+    vector                   bytes  expect  incumbent  managed  agree  note
+    U-root-group              461  accept  ok         ok       yes    a group at the top level of the message that crosses the wire
+    U-nested-group            244  accept  ok         ok       yes    a group INSIDE an element of a repeated field
+    U-oneof-group              95  accept  ok         ok       yes    a group on a message that actually has a oneof
+    X-group-unterminated       10  reject  ok         ok       yes    a group that is never closed (corpus root WireZoo; read here under ListResultsResponse, where tag 120 is equally unknown)
+    X-group-mismatched-end     12  reject  ok         ok       yes    END_GROUP with a field number that does not match the group that opened (same substitution)
+    Stack overflow.
+
+---------- VARIANT C: the group arm added OVER the 32-bit arm (the core's own near-miss) ----------
+  $ groups   (exit 0)
+    vector                   bytes  expect  incumbent  managed  agree  note
+    U-root-group              461  accept  ok         ok       yes    a group at the top level of the message that crosses the wire
+    U-nested-group            244  accept  ok         ok       yes    a group INSIDE an element of a repeated field
+    U-oneof-group              95  accept  ok         ok       yes    a group on a message that actually has a oneof
+    X-group-unterminated       10  reject  ok         ok       yes    a group that is never closed (corpus root WireZoo; read here under ListResultsResponse, where tag 120 is equally unknown)
+    X-group-mismatched-end     12  reject  ok         ok       yes    END_GROUP with a field number that does not match the group that opened (same substitution)
+      err = -8, ErrDepth, and the process is still here
+      err = -8, ErrDepth, and the process is still here
+    0 failure(s)
+  $ conformance   (exit 0)
+    152 checks, 0 failure(s)
+  $ unknown   (exit 1)
+    vector                     bytes  gp-dec  man-dec  known-values-agree  gp-retains  man-retains
+    root-varint-between          861  ok      ok       ok                  YES         no
+    root-len                     865  ok      ok       ok                  YES         no
+    elem-varint-interleaved      860  ok      ok       ok                  YES         no
+    elem-i64                     868  ok      ok       ok                  YES         no
+    elem-i32                     864  ok      FAIL InvalidOperationException  see below           YES         -
+    elem-len-nested              867  ok      ok       ok                  YES         no
+    oneof-unrecognised-member  12099  ok      ok       ok                  YES         no
+    1 failure(s) -- a FAIL in a decode column, or a managed re-encode that is not
+
+
+READING THESE THREE, WHICH IS THE POINT OF RUNNING THEM.
+
+**A -- counting depth instead of matching the END_GROUP's field number.** Caught
+by `X-group-mismatched-end`, and by nothing else: `groups` reports 2 failures
+while `conformance` reports 152 checks 0 failures and `unknown` reports 0. This
+is the vector earning its place. A skipper that got here would accept the vector
+and then attribute every subsequent group to the wrong nesting level.
+
+**B -- no depth bound.** At 200 and at 20,000 nests the unbounded skipper still
+REJECTS, with `ErrTruncated` instead of `ErrDepth`: the buffer runs out before
+the stack does, so the cheap case checks the REASON and not the crash. At
+200,000 it prints `Stack overflow.` and aborts with SIGABRT, which .NET cannot
+catch and no `try` can survive. That is why the committed gate now carries a
+200,000-nest case as well as the 200 one: the small case checks the error code,
+the large one checks that there is still a process to report it. With the bound
+the same 400 KB costs 100 frames and returns `ErrDepth`.
+
+**C -- the group arm added over the 32-bit arm, the core's own near-miss, and it
+reproduces exactly.** `groups` reports 0 failures. `conformance` reports 152
+checks and 0 failures. The corpus group vectors and byte identity BOTH say the
+decoder is fine. The only gate that catches it is `harness unknown` -- this
+slice's own hand-built unknown-field vectors, whose `elem-i32` row goes FAIL --
+and that is the suite it would have been easiest to think superseded now that
+there is a corpus. It is not superseded: it covers the four wire types a proto3
+writer can produce and the corpus group vectors cover the fifth, and neither set
+covers the other.
+
 ################ the re-gate: all three arms, on the D7 core ################
 
 ---------- arm a, conformance ----------
@@ -703,13 +818,31 @@ value moved, which would be a real defect).
    are what failed, and a slice that had only run the reject half would have
    reported a pass on a decoder that rejects a third of the group class.
 
+   The reject vectors earn their place against a DIFFERENT wrong implementation,
+   which is why variant A above exists: the one that has a group case and gets
+   it wrong. That is the implementation somebody writes after being told to add
+   case 3, and `X-group-mismatched-end` is the only thing in this tree that
+   catches it.
+
+5. **No single gate covers the skipper, and the three that do cover it do not
+   overlap.** Variant C is the proof: byte identity and the corpus group vectors
+   both pass a decoder that has silently lost its 32-bit arm, and only this
+   slice's own hand-built unknown-field vectors fail. Byte identity cannot reach
+   unknown fields at all; the corpus group vectors reach wire type 3; the
+   hand-built vectors reach 0, 1, 2 and 5. Removing any of the three would leave
+   a hole, and the temptation after acquiring a corpus is to retire the
+   hand-built set.
+
 ################ what is NOT measured here ################
 
 - Corpus conformance, per paragraph 3. 331 of the 336 vectors are not run.
 - Timings. Nothing in this stage is a performance change: the group path is
   never taken by any payload in `ffi/schema` and the skipper is one `switch`
   arm longer in a loop that runs only on unknown fields.
-- `MapForms.Skip`, which deliberately has no group case: it is a harness
-  rewriter for P2.5's two map encodings and only ever walks bytes this slice
-  emitted, so it throws on a group rather than mis-parsing one. Named in the
-  source so that a later reader does not fix the wrong skipper.
+- Nothing in the skipper, now. `MapForms.Skip` was going to be left alone with a
+  comment saying it is a harness rewriter that only ever walks bytes this slice
+  emitted, where proto3 cannot produce a group. That reasoning is true and it is
+  also exactly what was believed about the facade's skipper, so it was fixed
+  instead: same field-number match, same 100-nest bound, throwing rather than
+  returning a code because it is a harness helper and a loud stop is what it
+  wants.

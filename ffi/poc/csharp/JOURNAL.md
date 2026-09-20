@@ -636,3 +636,43 @@ And the scope, said plainly because it would be easy to imply otherwise: **five
 vectors ran, 331 did not.** `ffi/corpus/CONTRACT.md` rule 0 is "generate your
 codec from `generated/corpus.proto`", and this generator has no .proto front
 end at all. Corpus conformance is a work unit and it is now on the list.
+
+### 25. Three wrong fixes, and the gate that caught the third was the one I nearly retired
+
+Entry 24 fixed the group-skip hole and showed it failing by removing the case.
+That demonstration was weaker than it looked, and the aggregating session's
+follow-up said so from experience: its own first attempt at the core silently
+dropped the 32-bit arm while adding the group arm, and a reading would not have
+caught it. So all three plausible wrong implementations were built on the real
+`Wire.cs` -- not a re-implementation, which would be the oracle being the code
+under test -- and run through the real gates.
+
+| wrong implementation | `conformance` | `groups` | `unknown` |
+|---|---|---|---|
+| no group case at all | 0 fail | **3 fail** | 0 fail |
+| END_GROUP field number not matched | 0 fail | **2 fail** | 0 fail |
+| group case added OVER the 32-bit arm | 0 fail | 0 fail | **1 fail** |
+
+**No gate catches more than one of them, and the third is the interesting row.**
+Byte identity against the schema manifest passes it -- of course, it cannot
+reach an unknown field at all. The corpus group vectors pass it -- of course,
+they are about wire type 3. The only thing that fails is `harness unknown`, the
+hand-built vectors I wrote before there was a corpus, whose `elem-i32` row
+covers exactly the arm that went missing.
+
+That is the part worth keeping. Having acquired a corpus, the obvious tidy-up is
+to retire the hand-built suite as superseded. It is not superseded: it covers
+the four wire types a proto3 writer can produce and the corpus covers the fifth,
+and the sets do not overlap.
+
+**And the depth bound turned out to need a bigger demonstration than I gave it.**
+With the bound removed, 200 nests still reject -- as `ErrTruncated` rather than
+`ErrDepth`, because the buffer runs out before the stack does. So the 200-nest
+case checks the error code and not the crash. 20,000 behaves the same. At
+200,000 the process prints `Stack overflow.` and aborts with SIGABRT, which .NET
+cannot catch and no `try` survives. The gate now carries both depths.
+
+I had also decided to leave `MapForms.Skip` alone with a comment, on the grounds
+that it is a harness rewriter that only ever walks bytes this slice emitted,
+where proto3 cannot produce a group. That is true. It is also precisely what was
+believed about the facade's skipper. Fixed.

@@ -130,14 +130,19 @@ public static class GroupVectors
         }
 
         Console.WriteLine();
+        int depth = 200;
+        var ne = Environment.GetEnvironmentVariable("AK_NEST");
+        if (!string.IsNullOrEmpty(ne)) int.TryParse(ne, out depth);
         Console.WriteLine("And the case no vector covers, because a corpus of malformed bytes has to");
-        Console.WriteLine("stop somewhere: 200 nested start tags, past the 100 the skipper allows. A");
-        Console.WriteLine("recursive skipper with no bound answers this with a stack overflow, which");
-        Console.WriteLine("is a crash and not a rejection.");
+        Console.WriteLine("stop somewhere: {0} nested start tags, past the 100 the skipper allows.", depth);
+        Console.WriteLine("AK_NEST sets the depth. At 200 the bound is what makes the rejection say");
+        Console.WriteLine("ErrDepth rather than ErrTruncated -- an unbounded skipper still rejects");
+        Console.WriteLine("this one, for the wrong reason. Deep enough and an unbounded skipper does");
+        Console.WriteLine("not reject at all: it overflows the stack, which .NET cannot catch.");
         {
             // Tag 120, wire 3: key = (120 << 3) | 3 = 963, varint 0xc3 0x07.
-            var nest = new byte[400];
-            for (int i = 0; i < 200; i++) { nest[2 * i] = 0xc3; nest[2 * i + 1] = 0x07; }
+            var nest = new byte[2 * depth];
+            for (int i = 0; i < depth; i++) { nest[2 * i] = 0xc3; nest[2 * i + 1] = 0x07; }
             var d = new Dec { Buf = nest, Pos = 0, End = nest.Length, Err = 0 };
             bool threw = false;
             try { Codec.ReadListResultsResponse(ref d, new ListResultsResponse(), nest.Length); }
@@ -154,6 +159,24 @@ public static class GroupVectors
             try { Gp.ListResultsResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(nest)); gp = "ACCEPTED"; }
             catch (Exception ex) { gp = "rejected, " + ex.GetType().Name; }
             Console.WriteLine("  Google.Protobuf: {0}", gp);
+        }
+
+        // And the depth that actually kills an unbounded skipper on this runtime,
+        // measured rather than assumed: with the bound removed, 20,000 nests still
+        // return (wrongly, as ErrTruncated) and 200,000 print "Stack overflow." and
+        // abort with SIGABRT, which .NET cannot catch and no gate can survive. With
+        // the bound, the same bytes cost 100 frames. The cheap case above checks the
+        // REASON; this one checks that the process is still here to print a reason.
+        Console.WriteLine();
+        Console.WriteLine("The same at 200,000, which is past where an unbounded skipper aborts:");
+        {
+            var deep = new byte[400000];
+            for (int i = 0; i < 200000; i++) { deep[2 * i] = 0xc3; deep[2 * i + 1] = 0x07; }
+            var d = new Dec { Buf = deep, Pos = 0, End = deep.Length, Err = 0 };
+            Codec.ReadListResultsResponse(ref d, new ListResultsResponse(), deep.Length);
+            Console.WriteLine("  err = {0}, {1}", d.Err,
+                d.Err == W.ErrDepth ? "ErrDepth, and the process is still here" : "EXPECTED ErrDepth");
+            if (d.Err != W.ErrDepth) bad++;
         }
 
         Console.WriteLine();
