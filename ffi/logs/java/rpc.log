@@ -75,10 +75,73 @@ against a call of roughly 3 ms. The mode is not chosen on crossing arithmetic.
   the same grpc-java server. The difference between arms is entirely client-side but is
   divided by a total containing a common server half, so these ratios are FLOORS on the
   client-side ones.
-- **No Unix domain socket.** `ak_client_new` takes a URI and tonic connects over TCP; the
-  core's RPC half has no Unix-domain connector. A gap in the core, not a setting.
+- ~~No Unix domain socket.~~ **WITHDRAWN, and it was wrong.** This file previously
+  recorded a gap in the core that does not exist. `Endpoint::from_shared` strips a `unix:`
+  prefix and builds `EndpointType::Uds` through `new_uds` (tonic 0.14.6,
+  `transport/channel/endpoint.rs:175` and `:111`), so `ak_client_new` has always taken
+  `unix:/tmp/armonik.sock`. The claim was an inference from reading `ak_client_new` alone,
+  stated as a fact about the core. **Every cell below runs over a UDS**, and the proof is
+  not the source reading: cell C dials the same domain socket cell A does.
 - **No callback mode** (`ak_call_unary_cb`), which section 9 calls C#'s mode rather than
   this host's, and which is unmeasured by anyone.
 - Streaming, metadata, deadlines, TLS and status codes are absent from the core's RPC
   half. `ak_call_cancel` now exists; the BLOCKING form's cancellation handle does not.
 - Absolutes are instrumentation (R13).
+
+
+== 5. The grid: which half pays, measured rather than inferred ==
+
+"The host's stack against the core's" moves the codec and the transport at once, so the
+A-against-C number above cannot say which one paid. Four cells over a UDS, completion
+queue for the core transport:
+
+  cell   codec           transport
+  A      protobuf-java   grpc-java
+  B      protobuf-java   core          <- README section 13's outcome 2
+  C      core            core
+  D      core            grpc-java
+
+CPU us/RPC, median of 3 runs (min-max):
+
+  cell            1                    8                   16
+  A    4089 (3090-4582)     2861 (2518-3147)     2671 (2382-2842)
+  B    4474 (3392-4803)     3303 (2809-3542)     3386 (2888-3450)
+  C    3870 (3088-4132)     2649 (2514-3038)     3126 (2513-3218)
+  D    4002 (3008-4383)     2473 (2294-2866)     2360 (2346-2780)
+
+**READ THE SIGNS, NOT THE MEDIANS.** The spread across three runs is 17 to 23 percent of
+the median, because each cell is a SEPARATE JVM: this is an unpaired comparison on a shared
+machine and it inherits every bit of drift R13 warns about. What survives is the per-run
+sign test, rep by rep:
+
+  delta                rep1    rep2    rep3   consistent
+  transport  B-A  @8   +681    +156    +291   YES
+  transport  B-A  @16  +608    +715    +505   YES
+  codec      C-B  @8   -892    -265    -295   YES
+  codec      C-B  @16  -324    -168    -375   YES
+  codec      D-A  @8     +5    -674    -224   no
+  codec      D-A  @16   -62    -324     -22   yes, two of them near zero
+
+**1. The core's transport costs MORE than grpc-java's, in six runs out of six.** That cuts
+against the "adopt the RPC layer, generate the codec" fallback rather than for it, and it
+is the one claim here with a clean sign at both concurrency levels.
+
+**2. The core's codec is cheaper than protobuf-java's UNDER THE CORE'S TRANSPORT**, also
+six from six. Consistent with the pull family's decode result measured separately.
+
+**3. Under grpc-java's transport the codec difference is NOT RESOLVED** at this precision.
+Mostly negative, one positive, two within noise of zero.
+
+**4. On additivity, which is the question that prompted the grid: no evidence against it.**
+An earlier version of this grid had C-B at -703 and D-A at +399 -- opposite signs, which
+would have meant the two halves of the proposal could not be added. **That was a defect in
+cell D**, whose marshaller allocated a fresh 540 KB array per call and copied into it where
+cell A materialises none and cells B and C reuse a buffer. With cell D paying what its
+comparators pay, the sign flip is gone. The exciting result was the harness.
+
+**What this grid cannot do, and the fix is known.** Four cells in four processes cannot be
+paired, so the instrument is far blunter than `Bench`'s, which forms every ratio inside one
+round in one process and reports whether a delta's lo and hi share a sign. Putting all four
+cells in one process and interleaving them is what would resolve a 300 us delta here. Until
+that exists, deltas below roughly 500 us on this machine are not measurable by this arm and
+are reported as signs only.
