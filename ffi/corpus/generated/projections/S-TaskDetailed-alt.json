@@ -1,0 +1,98 @@
+{
+ "acquired_at": {
+  "nanos": "39595",
+  "seconds": "1700000185"
+ },
+ "created_at": {
+  "nanos": "39595",
+  "seconds": "1700000185"
+ },
+ "created_by": "8001910c-491c-37ef-7699-03c92c87cba5",
+ "creation_to_end_duration": {
+  "nanos": "523645",
+  "seconds": "5"
+ },
+ "data_dependencies": [
+  "68d30ed1-b01d-fe4d-f109-2581f8f9b737",
+  "2e114454-6683-c6c4-ff0d-0e9d9dca7a75"
+ ],
+ "ended_at": {
+  "nanos": "39595",
+  "seconds": "1700000185"
+ },
+ "expected_output_ids": [
+  "ba9fe871-e7b5-d4c7-af5b-7bafeac6b558",
+  "912ad967-8d0e-03f9-3ebb-434e10a10904"
+ ],
+ "fetched_at": {
+  "nanos": "39595",
+  "seconds": "1700000185"
+ },
+ "id": "676a1ca9-937c-1cc9-8372-0a835d748d27",
+ "initial_task_id": "889b39c1-acaf-3e48-fc06-7845b7798ed4",
+ "options": {
+  "application_name": "india136",
+  "application_namespace": "hotel775",
+  "application_service": "charlie538",
+  "application_version": "alpha624",
+  "engine_type": "echo612",
+  "max_duration": {
+   "nanos": "523645",
+   "seconds": "5"
+  },
+  "max_retries": "57816",
+  "options": {
+   "k00": "kilo530",
+   "k01": "echo372",
+   "k02": "charlie946",
+   "k03": "november765"
+  },
+  "partition_id": "echo156",
+  "priority": "32967"
+ },
+ "output": {
+  "error": "mike echo kilo hotel lima"
+ },
+ "owner_pod_id": "edeca394-7beb-f584-74f9-3c9b097e8fbe",
+ "parent_task_ids": [
+  "14c1e89d-07de-90e0-285b-2cff513a40dc",
+  "80d2e4b8-d632-fea1-adae-85dc92b4f5a5"
+ ],
+ "payload_id": "e398c5b6-44d2-4c26-7d29-032854d68419",
+ "pod_hostname": "juliet57",
+ "pod_ttl": {
+  "nanos": "39595",
+  "seconds": "1700000185"
+ },
+ "processed_at": {
+  "nanos": "39595",
+  "seconds": "1700000185"
+ },
+ "processing_to_end_duration": {
+  "nanos": "523645",
+  "seconds": "5"
+ },
+ "received_at": {
+  "nanos": "39595",
+  "seconds": "1700000185"
+ },
+ "received_to_end_duration": {
+  "nanos": "523645",
+  "seconds": "5"
+ },
+ "retry_of_ids": [
+  "ca49b702-21e9-0844-8654-adda0fe42033",
+  "b70a4f89-8aec-9227-6364-b67b2d07392e"
+ ],
+ "session_id": "d0315cd4-192b-20e6-83b9-70929dd0079f",
+ "started_at": {
+  "nanos": "39595",
+  "seconds": "1700000185"
+ },
+ "status": "5",
+ "status_message": "lima golf lima november kilo",
+ "submitted_at": {
+  "nanos": "39595",
+  "seconds": "1700000185"
+ }
+}

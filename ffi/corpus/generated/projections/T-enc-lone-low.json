@@ -1,0 +1,13 @@
+{
+ "attrs": {
+  "k": "A\ufffdB"
+ },
+ "nested": {
+  "text": "A\ufffdB"
+ },
+ "raw": "410000dc4200",
+ "text": "A\ufffdB",
+ "texts": [
+  "A\ufffdB"
+ ]
+}

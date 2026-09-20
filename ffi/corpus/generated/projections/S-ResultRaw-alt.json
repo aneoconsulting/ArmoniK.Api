@@ -1,0 +1,18 @@
+{
+ "completed_at": {
+  "nanos": "39595",
+  "seconds": "1700000185"
+ },
+ "created_at": {
+  "nanos": "39595",
+  "seconds": "1700000185"
+ },
+ "created_by": "e75e9095-0faf-7a21-0b5e-1c2b81f00872",
+ "name": "juliet665",
+ "opaque_id": "df28083b4fe536349a0f9e3b63ddfc8b",
+ "owner_task_id": "b7f5597a-8cba-cc5a-a3c3-c6d0b65f815f",
+ "result_id": "26569f2a-3f11-e65f-b6db-7403d5826e05",
+ "session_id": "59b93702-a8aa-dc03-dfcf-1957eb1e7b55",
+ "size": "801786340564",
+ "status": "127"
+}
