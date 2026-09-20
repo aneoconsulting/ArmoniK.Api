@@ -886,3 +886,79 @@ far in the same window. Nothing that compares a number here with a number from
 an earlier stage should be read past its first digit -- and every same-sitting
 comparison in stage 14 stands, because each is computed against an arm that ran
 in the same rounds.
+
+### 34. The RPC arm, and the number that shrinks when you put a socket in it
+
+design/SHAPES.md is emphatic that a marshaller arm is not an RPC arm, and it is
+right for a reason I only saw once the socket was in.
+
+In process, on P2.2, the decode arms read 0.73 (managed), 0.88 (core-ffi push)
+and 0.77 (pull) of the incumbent. End to end, through a real grpc-dotnet client
+against a real grpc-dotnet server over a Unix domain socket, they read **0.83 to
+1.06 of CPU per call**, median about 0.88.
+
+**A codec a quarter cheaper is a tenth cheaper once the transport is in the
+measurement**, and anyone sizing the change from the in-process column alone
+overestimates it by about two and a half times. That is the single most useful
+thing this arm produced and it is a deflation of this slice's own headline.
+
+Two more that only the end-to-end view gives.
+
+The three codec arms are **indistinguishable from each other** at the RPC level,
+and their ordering flips between rows: pull is best at 16 in flight over UDS and
+worst at 16 over TCP. Stage 14's differences between them are real and measured;
+they are simply below the transport's noise floor. So the push-versus-pull
+decision is not an RPC-level one.
+
+And the result that survives the noise is not CPU at all: every facade arm
+allocates **2.136 MB per call against the incumbent's 2.336**, about 8.6 percent
+less, on every configuration and every concurrency level, with a far tighter
+spread than the CPU column. For a control plane moving this shape continuously
+that is a GC-pressure argument, and it is the one I would put in front of
+someone deciding.
+
+The arm also found a cost of the facade's own shape that the in-process
+measurement cannot see. gRPC hands the deserializer a `ReadOnlySequence`; `Dec`
+is over `byte[]`; Kestrel delivers 540 KB in several segments; so every call
+flattens. The buffer is reused rather than allocated, because allocating one
+would charge these arms 540 KB a call no real implementation would pay, but the
+copy is theirs and is in the numbers. **A `Dec` over `ReadOnlySequence` is a
+real improvement, identified here and not built.**
+
+Isolation, because it is what makes the arms comparable: the SERVER's marshaller
+is a `byte[]` passthrough in every arm, so the server does no codec work and the
+only codec in the process is the client's. The server registers its methods
+through `IServiceMethodProvider<T>`, grpc-dotnet's own seam, because four arms
+need four marshallers on one method and a generated service base fixes the
+marshaller at build time.
+
+### 35. Pinning a window, and two settings where the guidance says one
+
+The RPC arm pins ArmoniK's transport rather than .NET's default, which is R14
+applied to the transport. Doing that correctly on .NET needs two settings and
+the guidance I was given named one.
+
+`InitialHttp2StreamWindowSize` says where the stream window STARTS. It does not
+cap it: `Http2StreamWindowManager` takes it as the starting value and doubles
+from there under bandwidth-delay pressure, to a 16 MB default. What HOLDS a
+pinned window is the AppContext switch
+`System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing`, set
+before the first handler exists. An arm that sets only the property is not
+measuring the window it claims to.
+
+And the connection window, which the guidance flagged as the trap, is not one
+here: `Http2Connection` hardcodes 64 MiB and raises it at setup, not
+configurable and not a function of the stream window. That trap is real for
+tonic and for grpc-java and unreachable on .NET.
+
+Measured, pinning is worth about 3 percent at this payload -- 5,086 against
+5,240 CPU us/call -- because 540 KB fits in a 4 MiB window with room to spare
+and does not stall badly even at the default. R9's hazard is real at larger
+payloads; P2.2 is not where it bites. The pinned row is still the one to quote,
+because R14 says the configuration under test is ArmoniK's and not the stack's.
+
+Worth recording: `packages/csharp` can set NEITHER. Its `GrpcChannelOptions`
+carries Credentials, DisposeHttpClient, ServiceConfig and LoggerFactory and
+nothing else, and it builds an `HttpClientHandler`, through which the property
+is not reachable at all. So the pinned arm configures something the shipped
+client cannot -- a finding about the client, not about the codec.

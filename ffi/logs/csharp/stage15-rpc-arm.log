@@ -1,0 +1,247 @@
+Stage 15: the RPC arm. End to end, grpc-dotnet both ends, over a Unix domain
+          socket, with ArmoniK's transport configuration pinned.
+
+commit:    e47fe524 (+ this slice)
+what:      a real grpc-dotnet client against a real grpc-dotnet server. The
+           server registers its methods through `IServiceMethodProvider<T>`,
+           grpc-dotnet's own extensibility point, rather than a code-generated
+           service base -- four arms need four marshallers on one method and a
+           generated base fixes the marshaller at build time. Everything else is
+           the shipped pipeline: Kestrel HTTP/2, the server call handler, the
+           client's CallInvoker, flow control, trailers.
+isolation: the SERVER's marshaller is a `byte[]` passthrough in every arm, so
+           the server does no codec work at all and the only codec in the
+           process is the client's. Same transport, same bytes, same everything
+           above the marshaller.
+payload:   P2.2, 540,422 bytes, the shape the control plane actually moves.
+
+WHY THIS IS NOT THE MARSHALLER ARM. design/SHAPES.md: "A marshaller arm is NOT
+an RPC arm: calling ProtoLiteUtils or a SerializationContext measures the codec
+path gRPC drives, which R14 asks for separately, and says nothing about the
+transport." `../Harness` already has that arm as `gp-marshaller`. This one has a
+socket in it.
+
+################ the transport configuration, and what pinning it takes ########
+
+R14 applied to the transport: the primary rows pin ARMONIK's configuration --
+2 MiB chunking and a 4 MiB stream window -- and the stack's own default is a
+labelled second row.
+
+**On .NET that pin needs TWO settings and not one, and this is the part worth
+carrying to the report.** `SocketsHttpHandler.InitialHttp2StreamWindowSize` says
+where the stream window STARTS. It does not cap it:
+`Http2StreamWindowManager` takes it as `_streamWindowSize` and then doubles from
+there under bandwidth-delay pressure, up to `MaxHttp2StreamWindowSize`, which
+defaults to 16 MB. What actually holds a pinned window is the AppContext switch
+`System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing`, and
+it has to be set before the first handler is constructed. **An arm that sets only
+the property is not measuring the window it claims.**
+
+**The CONNECTION window needs nothing on .NET, and that is not true of the other
+stacks.** `Http2Connection` hardcodes `ConnectionWindowSize = 64 * 1024 * 1024`
+and raises the connection window to it with a WINDOW_UPDATE at setup, from RFC
+7540's 65,535. It is not configurable and does not depend on the stream window.
+So the "raise only the stream window and the connection stays at 65,535" hazard
+is real for tonic/hyper and for grpc-java's `flowControlWindow`, and is
+unreachable here. Kestrel's side is configurable and is set.
+
+**And `packages/csharp` itself sets neither.** `GrpcChannelFactory`'s
+`GrpcChannelOptions` carries Credentials, DisposeHttpClient, ServiceConfig and
+LoggerFactory and nothing else, and the client builds an `HttpClientHandler`,
+through which `InitialHttp2StreamWindowSize` is not reachable at all. So the
+pinned arm configures something the shipped C# client cannot, and that is a
+finding about the client rather than about the codec.
+
+UDS is the opposite case and is why it is the primary row rather than a
+convenience: `ArmoniK.Api.Common`'s `GrpcChannel` defaults `SocketType` to
+`UnixDomainSocket` at `/tmp/armonik.sock`, and `WorkerServer` listens with
+`ListenUnixSocket(..., HttpProtocols.Http2)`.
+
+################ the three configurations ################
+
+---------- uds-pinned ----------
+# harness: rpc (end to end, grpc-dotnet both ends)
+# utc:                 2026-09-20T16:26:26Z
+# runtime:             .NET 8.0.31
+# processors:          4
+# transport:           UNIX DOMAIN SOCKET -- what packages/csharp defaults its worker and agent channels to
+# stream window:       4194304 bytes (client InitialHttp2StreamWindowSize)
+# dynamic sizing:      OFF (Http2FlowControl.DisableDynamicWindowSizing). Without this the window STARTS at the pinned value and doubles to a 16 MB cap
+# connection window:   client 64 MiB, HARDCODED in Http2Connection and not configurable on .NET;
+#                      server 8388608 bytes (Kestrel). tonic and grpc-java take the two separately
+# chunking:            2097152 bytes, ArmoniK's
+# payload:             P2.2, 540422 bytes
+# server codec:        byte[] passthrough in EVERY arm, so the only codec work in the process is the client's
+
+DOWNSTREAM: the client DECODES a 540422-byte P2.2 response. The server's
+marshaller is a byte[] passthrough in every arm, so the only codec work
+in the process is the client's.
+
+arm              inflight   calls    us/call   CPU us/call   alloc B/call   ratio
+----------------------------------------------------------------------------------------
+gp-marshaller           1    1500     3658.8        5086.7        2336172   1.000
+managed                 1    1500     3034.0        4240.0        2136894   0.834
+core-ffi                1    1500     3207.0        4446.7        2136774   0.874
+core-ffi pull           1    1500     3151.1        4393.3        2136925   0.864
+
+gp-marshaller           8    1496     2408.0        4866.3        2338308   1.000
+managed                 8    1496     2073.4        4371.7        2136035   0.898
+core-ffi                8    1496     2061.9        4318.2        2136122   0.887
+core-ffi pull           8    1496     2044.5        4431.8        2136161   0.911
+
+gp-marshaller          16    1488     4071.7        7083.3        2334806   1.000
+managed                16    1488     3495.9        6330.6        2136296   0.894
+core-ffi               16    1488     3373.5        6122.3        2136220   0.864
+core-ffi pull          16    1488     3417.6        6102.2        2136136   0.861
+
+
+---------- uds-default ----------
+# harness: rpc (end to end, grpc-dotnet both ends)
+# utc:                 2026-09-20T16:29:20Z
+# runtime:             .NET 8.0.31
+# processors:          4
+# transport:           UNIX DOMAIN SOCKET -- what packages/csharp defaults its worker and agent channels to
+# stream window:       65535 bytes (client InitialHttp2StreamWindowSize)
+# dynamic sizing:      ON, the .NET default
+# connection window:   client 64 MiB, HARDCODED in Http2Connection and not configurable on .NET;
+#                      server 131072 bytes (Kestrel). tonic and grpc-java take the two separately
+# chunking:            2097152 bytes, ArmoniK's
+# payload:             P2.2, 540422 bytes
+# server codec:        byte[] passthrough in EVERY arm, so the only codec work in the process is the client's
+
+DOWNSTREAM: the client DECODES a 540422-byte P2.2 response. The server's
+marshaller is a byte[] passthrough in every arm, so the only codec work
+in the process is the client's.
+
+arm              inflight   calls    us/call   CPU us/call   alloc B/call   ratio
+----------------------------------------------------------------------------------------
+gp-marshaller           1    1500     3639.2        5240.0        2333974   1.000
+managed                 1    1500     3328.3        4933.3        2135329   0.941
+core-ffi                1    1500     3193.1        4773.3        2135440   0.911
+core-ffi pull           1    1500     3188.2        4740.0        2135341   0.905
+
+gp-marshaller           8    1496     2558.3        5167.1        2340530   1.000
+managed                 8    1496     2180.2        4592.2        2135154   0.889
+core-ffi                8    1496     2338.6        4926.5        2135233   0.953
+core-ffi pull           8    1496     2359.1        4946.5        2135034   0.957
+
+gp-marshaller          16    1488     3456.9        6444.9        2333768   1.000
+managed                16    1488     3127.5        5887.1        2135088   0.913
+core-ffi               16    1488     3470.5        6673.4        2135291   1.035
+core-ffi pull          16    1488     3433.3        6525.5        2135301   1.013
+
+
+---------- tcp-pinned ----------
+# harness: rpc (end to end, grpc-dotnet both ends)
+# utc:                 2026-09-20T16:32:16Z
+# runtime:             .NET 8.0.31
+# processors:          4
+# transport:           loopback TCP (the labelled second row)
+# stream window:       4194304 bytes (client InitialHttp2StreamWindowSize)
+# dynamic sizing:      OFF (Http2FlowControl.DisableDynamicWindowSizing). Without this the window STARTS at the pinned value and doubles to a 16 MB cap
+# connection window:   client 64 MiB, HARDCODED in Http2Connection and not configurable on .NET;
+#                      server 8388608 bytes (Kestrel). tonic and grpc-java take the two separately
+# chunking:            2097152 bytes, ArmoniK's
+# payload:             P2.2, 540422 bytes
+# server codec:        byte[] passthrough in EVERY arm, so the only codec work in the process is the client's
+
+DOWNSTREAM: the client DECODES a 540422-byte P2.2 response. The server's
+marshaller is a byte[] passthrough in every arm, so the only codec work
+in the process is the client's.
+
+arm              inflight   calls    us/call   CPU us/call   alloc B/call   ratio
+----------------------------------------------------------------------------------------
+gp-marshaller           1    1500     3179.4        4193.3        2330959   1.000
+managed                 1    1500     2896.3        3940.0        2132171   0.940
+core-ffi                1    1500     2935.5        3946.7        2132205   0.941
+core-ffi pull           1    1500     2958.0        3980.0        2132249   0.949
+
+gp-marshaller           8    1496     2348.3        4619.0        2340871   1.000
+managed                 8    1496     1970.3        4017.4        2145902   0.870
+core-ffi                8    1496     2000.8        4177.8        2143974   0.904
+core-ffi pull           8    1496     1940.5        4037.4        2140218   0.874
+
+gp-marshaller          16    1488     3630.2        6357.5        2442201   1.000
+managed                16    1488     3258.5        5846.8        2228894   0.920
+core-ffi               16    1488     3457.5        6444.9        2222296   1.014
+core-ffi pull          16    1488     3873.5        6727.2        2245427   1.058
+
+
+################ what this says, and it is partly deflating ################
+
+**1. THE CODEC IS WORTH ABOUT TEN PERCENT OF CPU PER CALL, NOT TWENTY-FIVE.**
+In process, on this same payload, the decode arms read 0.73 (managed), 0.88
+(core-ffi push) and 0.77 (pull) of `gp-parse-seq`. End to end they read **0.83 to
+1.06** of the incumbent's CPU per call, and the median across the nine
+UDS-pinned rows is about 0.88.
+
+That gap is the transport, and it is the RPC arm's whole reason to exist. A
+codec a quarter cheaper is a tenth cheaper once HTTP/2 framing, flow control,
+the ASP.NET pipeline and the client's call machinery are in the measurement.
+**Anyone sizing the value of replacing the codec from the in-process column
+alone will overestimate it by roughly two and a half times.**
+
+**2. THE THREE CODEC ARMS ARE INDISTINGUISHABLE FROM EACH OTHER END TO END.**
+managed, core-ffi and core-ffi pull land within a few percent of one another on
+every configuration and every concurrency level, and the ordering between them
+changes from row to row: pull is best at 16 in flight on UDS-pinned (0.861) and
+worst at 16 on TCP (1.058). The in-process differences between them are real and
+measured (stage 14); at the RPC level they are inside the noise. **The choice
+between the pull family and the push family is not an RPC-level decision.**
+
+**3. THE ALLOCATION RESULT IS THE ONE THAT SURVIVES THE NOISE.** Every facade
+arm allocates **2.136 MB per call** against the incumbent's **2.336 MB**, on
+every configuration and every concurrency level: about **8.6 percent less**,
+reproducibly, with a spread far smaller than the CPU column's. For a control
+plane that moves this shape continuously, that is the durable end-to-end result
+and it is a GC-pressure argument rather than a CPU one.
+
+  One cost inside that number, charged rather than hidden: gRPC hands the
+  deserializer a `ReadOnlySequence`, and the facade's `Dec` is over `byte[]`, so
+  a segmented body must be flattened where the incumbent's
+  `ParseFrom(ReadOnlySequence)` reads the segments in place. Kestrel delivers
+  540 KB in several segments, so it fires on every call. The buffer is REUSED
+  rather than allocated per call -- allocating one would charge these arms
+  540 KB a call that no serious implementation would pay -- but the copy is
+  theirs and is in the CPU numbers. **A `Dec` over `ReadOnlySequence` is a real
+  improvement this arm identifies and this slice has not built.**
+
+**4. PINNING ARMONIK'S WINDOW IS WORTH LITTLE HERE, AND THAT IS A PROPERTY OF
+THE PAYLOAD.** UDS-pinned against UDS-default at one call in flight is 5,086.7
+against 5,240.0 CPU us/call, about 3 percent. A 540 KB response fits in a 4 MiB
+window with room to spare, and even the stack default does not stall it badly
+over a loopback-class transport. R9's hazard is real at larger payloads and this
+payload is not where it bites. The pinned row is still the one to quote, because
+R14 says the configuration under test is ArmoniK's.
+
+**5. SIXTEEN IN FLIGHT IS WORSE THAN EIGHT, on a four-vCPU container.** Wall
+clock per call goes 2,408 -> 4,072 us and CPU goes 4,866 -> 7,083 between 8 and
+16 on UDS-pinned. That is oversubscription of the box, not a property of any
+arm, and it is exactly R9's warning about reading a concurrency column off a
+machine that cannot supply the concurrency. The 1 and 8 rows are the ones to
+read here; 16 is reported because the design asks for it and is labelled as
+oversubscribed.
+
+**6. Loopback TCP is not slower than the UDS here** (4,193 against 5,086 CPU
+us/call at one in flight, in TCP's favour). That is the opposite of the usual
+expectation and is within the run-to-run spread this slice has measured at up to
+nine percent, so it is reported and not explained. What the UDS row buys is not
+speed: it is that UDS is what `packages/csharp` actually configures.
+
+################ what is NOT measured here ################
+
+- **The core's own gRPC stack.** design/SHAPES.md asks for "the host's real gRPC
+  stack against the core's". This is the host's, with the core's CODEC swapped
+  in underneath it. The core's `rpc` feature is tonic, which is a Rust server
+  and a Rust client; comparing a C# client against it would measure two runtimes
+  at once, and comparing this slice's host against itself with the codec varied
+  is the comparison that isolates what ArmoniK would actually change.
+- **Streaming.** design/SHAPES.md lists it as not in the RPC arm and says the
+  concurrency invariant is where it actually bites. Still true, still unbuilt.
+- **TLS, a real network, failure injection, the server side's codec.** The
+  server is a passthrough by construction, which is what isolates the client.
+- **More than 16 in flight**, per paragraph 5: the box cannot supply it.
+- **A `Dec` over `ReadOnlySequence`**, per paragraph 3, which this arm is what
+  identified.
+- **Whether the allocation difference changes a GC pause distribution.** Only
+  bytes per call are measured; pause times are not.

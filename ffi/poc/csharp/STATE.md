@@ -10,7 +10,7 @@ merges it. Everything the report needs from this slice is here.
 
 | | |
 |---|---|
-| **Status** | **the managed control is complete** on all 16 payloads and all 7 shapes, gated on three runtimes; **this slice is a `ffi/corpus` consumer** (336 vectors, three arms); and **`core-ffi` covers every shape** -- all 16 payloads, encode, push decode and PULL decode, with R5 checked against the core's own counters on every row |
+| **Status** | **complete.** The managed control on all 16 payloads and all 7 shapes, gated on three runtimes; a **`ffi/corpus` consumer** (336 vectors, three arms); **`core-ffi` on every shape**, encode, push decode and PULL decode, R5 checked against the core's own counters on every row; and an **end-to-end RPC arm** over a UDS with ArmoniK's transport pinned |
 | **Blocked on** | nothing |
 | **Floor** | netstandard2.0 (builds, passes) and .NET Framework 4.8 on Mono 6.8.0.105 (builds, passes, and is timed as arm c) |
 | **Target** | .NET 8.0.31, SDK 8.0.131 |
@@ -1104,21 +1104,16 @@ it, and the first item is much the largest.
    core-ffi encode on every payload of both shapes**, and subtracting it leaves
    the core's own work plus every crossing BELOW the managed control on six of
    eight. The encode arm loses on the fill and nothing else.
-4. **An RPC arm.** design/SHAPES.md now specifies it: the host's real gRPC
-   stack against the core's, end to end, carrying P2.2, over a Unix domain
-   socket with loopback TCP as a labelled second row, CPU and allocation per
-   call at 1, 8 and 16 in flight. A marshaller arm is NOT one, and this slice
-   has only the marshaller arm. **UDS is R14-correct on .NET rather than a
-   convenience**: `packages/csharp` defaults its worker and agent channels to
-   `GrpcSocketType.UnixDomainSocket` at `/tmp/armonik.sock` and listens with
-   `ListenUnixSocket(... HttpProtocols.Http2)`. It pins ArmoniK's transport --
-   2 MiB chunking, a 4 MiB stream window -- with the stack default as a labelled
-   second row, and **on .NET the pin needs two settings**: the property and the
-   `DisableDynamicWindowSizing` switch, because otherwise 4 MiB is where the
-   window STARTS and it doubles from there to a 16 MB cap. The connection window
-   needs nothing: .NET hardcodes it at 64 MiB. Both established from the runtime
-   source; see request 0 for the citations and for what `packages/csharp` itself
-   does and does not set.
+4. ~~An RPC arm.~~ **DONE** (`stage15-rpc-arm.log`): grpc-dotnet both ends over
+   a UDS, server marshaller a `byte[]` passthrough so only the client's codec
+   varies, ArmoniK's transport pinned with the stack default and loopback TCP as
+   labelled rows, 1/8/16 in flight. **Its headline is a deflation and belongs in
+   the report**: the codec is worth about 10 percent of CPU per call end to end
+   where the in-process column says 25. What survives is allocation, 8.6 percent
+   below the incumbent on every row. **What remains of it**: streaming, which
+   design/SHAPES.md says is where the concurrency invariant actually bites and
+   which no slice has touched; and a `Dec` over `ReadOnlySequence`, which the arm
+   identified as a real improvement and which this slice has not built.
 5. ~~The host-transcoder string form.~~ **DONE, and the prediction was wrong
    about the mechanism.** There is no host transcoder in the sense stage 8 meant:
    `ak_tc_utf16` is a pointer INTO the core, like `ak_tc_bytes`, so neither form
@@ -1202,6 +1197,7 @@ another container's. R13's one calibration run stands and is not to be tuned.
 | `ffi/logs/csharp/stage10-crossing-reconciliation.log` | the counting core (`--features count`), `ak_enc_counters` read from the host, at two chunk sizes | **R5's cross-slice reconciliation, resolved.** The conventions never differed; the Rust host chunks at 150 and this one did not. At `AK_CHUNK=150` this slice reproduces the Rust slice's 2/8/3 forward and 1/1/1 reverse exactly. Also prices the difference: nothing measurable, 0.7 percent |
 | `ffi/logs/csharp/stage9-shared-core.log` | the ONE core at `ffi/poc/codec`, default features so no `rpc`; loaded path confirmed with `LD_DEBUG=libs`; three arms gated, three timing processes, plus a pre-move control | **The W10 re-gate.** 152 checks 0 failures on all three arms; the core-ffi arm green on M1; **nothing moved** (worst 0.035 against a 0.026 floor on arms the core cannot touch). Records that arm c cannot carry the core-ffi arm and why, and that a stale binary reported a pass before the timestamp was checked |
 | `ffi/logs/csharp/stage8-core-ffi.log` | the arm through `libak_core.so`, shared-library linkage, generated binding, staged strings; correctness plus three timing processes | **The `core-ffi` arm, M1.** Byte identity and value identity on P1.1/P1.2/P1.3; layout agreement on 8 structs; crossings constant in the element count in both directions; the interface cost against the no-boundary control, including the two findings that point opposite ways -- the C ABI beating the managed codec on P1.2 decode, and the absent path collapsing on the total group fill |
+| `ffi/logs/csharp/stage15-rpc-arm.log` | a real grpc-dotnet client against a real grpc-dotnet server over a Unix domain socket, server marshaller a `byte[]` passthrough so only the client's codec varies; ArmoniK's 4 MiB window and 2 MiB chunking pinned, stack default and loopback TCP as labelled rows; 1/8/16 in flight | **The RPC arm, and it is partly deflating.** The codec is worth about **10 percent** of CPU per call end to end where the in-process column says 25, so sizing the change from that column overestimates it two and a half times. The three codec arms are **indistinguishable from each other** at the RPC level. What survives the noise is allocation: every facade arm is **8.6 percent below** the incumbent on every configuration. Records that pinning a window on .NET needs the AppContext switch as well as the property, and that `packages/csharp` can set neither |
 | `ffi/logs/csharp/stage14-all-shapes-and-pull.log` | the ABI declaration, layout probe and host binding all derived from one module; 42 structs and 28 vtables verified; a counting core for the crossing table; three interleaved processes | **core-ffi for every shape, and the PULL family on a managed host.** All 16 payloads gate on byte identity, round trip, value identity and R5. **Pull is faster than push everywhere** (0.69-0.97) and moves the composed arm from just above to just below the managed control on decode, which is design/ABI-v1.md decision 2's answer. **The two string forms are indistinguishable** (0.96-1.04): both transcoders are pointers into the core, so this slice's "a host transcoder costs a reverse crossing per string" was wrong about the mechanism. Corrects stage 8's M1 decode crossing count -- the run is NOT one callback, it is ceil(n/arena)+1 -- and establishes that cross-SITTING ratio comparisons on this container drift up to 9 percent |
 | `ffi/logs/csharp/stage13-corpus-consumer.log` | all 336 vectors of `ffi/corpus`, codec generated from `generated/corpus.proto` under rule 0 via a second generator front end, over the same `Enc`/`Dec`/`W` the measured arms use; three arms | **Corpus conformance, and four defects byte identity structurally could not reach.** Tag zero accepted; no recursion limit (ABI v1 decision 7, which the design says no slice exercises); minus zero dropped because the omit-when-zero rule compared value and not bits, where `Google.Protobuf` has the same hole and upb does not; plus stage 12's group skip. Prices the depth limit at nothing measurable. **And it settles the decode comparison**: `Google.Protobuf` does NOT validate UTF-8 either, so the managed decode margin is not bought by skipping validation. Wires the incumbent in as an independent oracle: accept/reject agrees on all 169 vectors where both have the type |
 | `ffi/logs/csharp/stage12-group-skip-and-d7-regate.log` | the core rebuilt with `poc/codec/gen/build.sh` after the D7 fix, loaded path and sha256 confirmed from `LD_DEBUG=libs`; all three arms re-gated | **The GROUP-skip defect, seen failing and then fixed.** `Dec.Skip` rejected three corpus vectors `Google.Protobuf` accepts, because it had no case for the deprecated group form. Carries the reverted-fix run (7 failures) as the proof the guard works, the field-number-match and depth-bound reasoning, and the statement that this slice is NOT a corpus consumer and what it would cost to become one. The D7 core itself moved nothing: 152 checks 0 failures on each arm |
