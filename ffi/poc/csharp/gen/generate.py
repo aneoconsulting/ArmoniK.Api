@@ -43,6 +43,8 @@ import cs_arms             # noqa: E402
 import cs_abi              # noqa: E402
 import cs_coreffi          # noqa: E402
 import cs_coreffi2         # noqa: E402
+import cs_proj             # noqa: E402
+import protoparse          # noqa: E402
 
 ROOT = os.path.dirname(HERE)
 
@@ -57,9 +59,64 @@ ROOTS = [
 ]
 
 
+CORPUS = os.path.normpath(os.path.join(ROOT, "..", "..", "corpus", "generated"))
+
+
+def corpus_ir():
+    """The corpus's READER view, parsed from `corpus.proto`.
+
+    `ffi/corpus/CONTRACT.md` rule 0: generate from `corpus.proto`, NEVER from
+    `corpus_superset.proto`. The difference between the two files is the
+    corpus's entire unknown-field claim, and a slice that generates from the
+    superset knows every field and tests nothing.
+    """
+    schema = protoparse.parse(os.path.join(CORPUS, "corpus.proto"))
+    check_front_ends_agree(schema)
+    return IR.Ir(schema, list(schema["messages"]))
+
+
+def check_front_ends_agree(corpus):
+    """The two front ends must describe the shared messages identically.
+
+    `corpus.proto` and `shapes.json` are generated from one description
+    (`ffi/corpus/emit/build.py` reads `../schema/shapes.json`), so a field that
+    differs between what this slice parses out of the .proto and what it reads
+    out of the JSON is a defect in THIS parser, not a disagreement between the
+    descriptions. Nineteen messages and three enums overlap; every attribute
+    the backends read is compared.
+    """
+    schema = IR.S.load()
+    bad = []
+    for name in sorted(set(corpus["messages"]) & set(schema["messages"])):
+        a = {f["name"]: f for f in corpus["messages"][name]["fields"]}
+        b = {f["name"]: f for f in IR.S.fields(schema["messages"][name])}
+        if set(a) != set(b):
+            bad.append("%s: field sets differ (%s)" % (name, sorted(set(a) ^ set(b))))
+            continue
+        for k in sorted(a):
+            for attr in ("tag", "kind", "of", "card", "presence", "key", "value_kind"):
+                if a[k].get(attr) != b[k].get(attr):
+                    bad.append("%s.%s %s: proto=%r json=%r"
+                               % (name, k, attr, a[k].get(attr), b[k].get(attr)))
+    for name in sorted(set(corpus["enums"]) & set(schema["enums"])):
+        if corpus["enums"][name]["values"] != schema["enums"][name]["values"]:
+            bad.append("enum %s differs" % name)
+    if bad:
+        raise SystemExit("the .proto front end disagrees with shapes.json:\n  "
+                         + "\n  ".join(bad))
+    return len(set(corpus["messages"]) & set(schema["messages"]))
+
+
 def targets(ir):
     codec, sites = cs_managed.emit(ir)
+    cir = corpus_ir()
+    ccodec, csites = cs_managed.emit(cir, ns="Armonik.Ffi.Corpus",
+                                     extra_using=["Armonik.Ffi.Facade"])
     return {
+        "src/Harness/Corpus/Types.cs": cs_facade.emit_types(cir, ns="Armonik.Ffi.Corpus"),
+        "src/Harness/Corpus/Eq.cs": cs_facade.emit_eq(cir, ns="Armonik.Ffi.Corpus"),
+        "src/Harness/Corpus/Codec.cs": ccodec,
+        "src/Harness/Corpus/Proj.cs": cs_proj.emit(cir),
         "src/Facade/Generated/Types.cs": cs_facade.emit_types(ir),
         "src/Facade/Generated/Eq.cs": cs_facade.emit_eq(ir),
         "src/Facade/Generated/Values.cs": cs_values.emit(ir),

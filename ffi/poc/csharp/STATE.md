@@ -10,7 +10,7 @@ merges it. Everything the report needs from this slice is here.
 
 | | |
 |---|---|
-| **Status** | **the managed control is complete** on all 16 payloads and all 7 shapes, gated on three runtimes. **`core-ffi` is built and gated for M1 and M2**, encode and decode; M3 to M7 are not. Re-gated on the D7 core |
+| **Status** | **the managed control is complete** on all 16 payloads and all 7 shapes, gated on three runtimes, **and this slice is now a `ffi/corpus` consumer** (336 vectors, three arms). **`core-ffi` is built and gated for M1 and M2**, encode and decode; M3 to M7 are not |
 | **Blocked on** | nothing |
 | **Floor** | netstandard2.0 (builds, passes) and .NET Framework 4.8 on Mono 6.8.0.105 (builds, passes, and is timed as arm c) |
 | **Target** | .NET 8.0.31, SDK 8.0.131 |
@@ -727,12 +727,72 @@ whatever the payload.
   the process prints `Stack overflow.` and aborts with SIGABRT, which .NET
   cannot catch. The gate now carries both depths -- the small one checks the
   error code, the large one checks there is still a process to report it.
-- **This slice is NOT a corpus consumer and should not be described as one.**
-  `ffi/corpus/CONTRACT.md` obliges a consumer to generate its codec from
-  `generated/corpus.proto` and run all 336 vectors with projections and
-  re-encodes. This generator drives off `ffi/schema/emit/shapes.py` and has no
-  .proto front end, so conformance is a work unit rather than an afternoon.
-  Five vectors run; 331 do not.
+- **This slice IS a corpus consumer** (`stage13-corpus-consumer.log`). All 336
+  vectors of `ffi/corpus` run, on all three arms, which report the identical
+  line. The codec is generated from `generated/corpus.proto` and never from
+  `corpus_superset.proto` (rule 0), over the SAME `Enc`/`Dec`/`W`/`OrderedMap`
+  the measured arms use. It cost a second generator front end
+  (`gen/protoparse.py`), because this generator drives off
+  `ffi/schema/emit/shapes.py` and had no `.proto` reader at all; the two front
+  ends are cross-checked against each other at generation time on the nineteen
+  messages and three enums they share, and a disagreement fails the generator.
+
+  **It found four defects, every one of them in code that every other gate this
+  slice owns was passing:**
+
+  | vector | defect |
+  |---|---|
+  | `X-tag-zero` | field number 0 was accepted and skipped as an unknown field. Zero is what a reader gets from a buffer it forgot to bounds-check, so accepting it turns a truncation into a silently empty message |
+  | `X-depth-101`, `X-depth-300` | **no recursion limit.** 300 levels of nesting was 300 managed frames and a successful parse; every protobuf implementation caps at 100. ABI v1 open decision 7, which the design says no slice exercises |
+  | `S-double-minus-zero` | the omit-when-zero rule was `!= 0.0`, and IEEE says `-0.0 == 0.0`, so a set field vanished. Must compare BITS. `Google.Protobuf` has the same hole and upb does not |
+  | the group-skip hole | stage 12, on the same evidence |
+
+  The depth limit is on the measured path and is **priced**: managed-parse
+  against the unchanged incumbent arm is 0.725 before and after on P1.2, and
+  0.800 to 0.763 on P2.2, which moved the wrong way for a cost. The encode
+  control moved 0.435 to 0.428 over the same runs, so the spread is one to two
+  percent and the change is inside it. No published figure moves.
+
+- **32 vectors are open, and neither is a defect this slice can fix alone.**
+
+  **The 31 `T-dec-*` vectors: malformed UTF-8 in a string field**, which
+  CONTRACT.md says a conformant parser must reject. This codec accepts them:
+  `Encoding.UTF8` substitutes U+FFFD. **So does `Google.Protobuf`** -- `harness
+  utf8` runs the 15 root-site vectors through both and the incumbent accepts
+  every one, returning the same character counts.
+
+  That matters more than it looks. **The managed decode column is the single
+  most valuable measurement in this slice, and if the incumbent validated where
+  the control did not, part of the margin would be validation the control
+  skips** -- which R14 makes a defect in the comparison and not a property of
+  the design. It does not. The two arms are like for like and the decode figures
+  stand. It is also a finding the corpus did not have: ABI v1 open decision 3's
+  "rejected on decode" is a BEHAVIOUR CHANGE for .NET, not a description of it,
+  and `new UTF8Encoding(false, throwOnInvalidBytes: true)` rejects all 15, so a
+  validating managed arm is one constructor argument away and pricing it is what
+  decision 3 asks for.
+
+  **`U-map-entry`: an unknown field inside every map entry.** This decoder skips
+  it and keeps the entry; the corpus's projection puts the whole entries under
+  `_unknown` and leaves the map absent. `Google.Protobuf`, on the same bytes,
+  keeps the map -- printed in the log. Two implementations against the
+  projection, so it is raised as a question about the vector (request 5).
+
+- **The incumbent is wired in as an independent oracle.** Nineteen of the
+  corpus's thirty roots exist in `shapes.proto` too, so the runner points
+  `Google.Protobuf` at the same bytes by descriptor name: **accept/reject agrees
+  on all 169 vectors where both have the type.** The corpus's expectations were
+  computed with upb, and where this slice and the corpus disagree the question
+  R14 asks is what the library ArmoniK actually runs does.
+
+- **What corpus conformance does NOT claim here**, by name (CONTRACT.md section
+  5 item 6): C5 (produce) for the corpus's own roots, because the payload
+  builders cover `ffi/schema`'s roots only and `harness conformance` is that
+  claim; the chunking class as chunking, because the managed codec does not
+  batch and the core-ffi arm's binding does not reach corpus-only roots;
+  `_unknown` comparison, which the contract makes optional and which this slice
+  answers by saying it DROPS; a second decoder built from the superset; and 32
+  open vectors, below.
 - **R1's walker guard is a test, not an assertion.** `ir.check_walker` fails if
   `walk()` ever stops enumerating oneof members, and fails if no message in the
   closure has a oneof at all, so the guard cannot silently prove nothing. This
@@ -796,6 +856,27 @@ Written here rather than edited into the documents, per the contract.
    grpc-java's (1 MiB, BDP on), and a pinned arm and a default arm are two rows.
    [MS Learn](https://learn.microsoft.com/en-us/dotnet/api/system.net.http.socketshttphandler.initialhttp2streamwindowsize),
    [dotnet/runtime #53372](https://github.com/dotnet/runtime/issues/53372).
+
+5. **`U-map-entry`'s projection disagrees with two implementations.** The vector
+   is an unknown field inside every map entry, and its own `why` is right: a map
+   entry is a message on the wire, so it has an unknown-field skip of its own.
+   This slice skips the extra field and keeps the entry. **`Google.Protobuf`, on
+   the same bytes, also keeps the entry** -- the runner prints its proto3 JSON
+   beside the mismatch. The committed projection instead puts all four whole
+   entries under `options._unknown` and omits the map. If that is upb dropping a
+   map entry that carries an unknown field, it is worth recording as an upb
+   behaviour rather than as the expectation; if it is the projector's handling of
+   `_unknown` inside a map, the projection is wrong. Either way one of the two
+   implementations that disagree with it is the library R14 names.
+
+6. **The transcode class asks for a policy .NET does not have.** 31 `T-dec-*`
+   vectors require a conformant parser to reject malformed UTF-8 in a string
+   field. `Google.Protobuf` accepts all 15 root-site ones, so on .NET the
+   incumbent is on the lossy side and ABI v1 decision 3's "rejected on decode" is
+   a behaviour change rather than a description. Not asking for the vectors to
+   change -- asking that the report say which languages the rejecting policy is a
+   change FOR, because for C# it is one and the corpus currently reads as though
+   every slice simply fails there.
 
 1. **`ffi/schema` should pin the content sets, not name them by range.** It
    emits ASCII only and describes the others as "U+00A0 to U+00FF" and "above
@@ -1034,14 +1115,15 @@ it, and the first item is much the largest.
    this a CHECK rather than a claim: the gate compares the host tally with the
    core's own counters per payload and per direction and fails on a mismatch.
    See `stage10-crossing-reconciliation.log` and the M2 section above.
-7. **Corpus conformance (`ffi/corpus/CONTRACT.md`).** Named as a work unit
-   rather than a chore, because it is one: the contract's rule 0 is "generate
-   your codec from `generated/corpus.proto`", and this generator has no .proto
-   front end -- it drives off `ffi/schema/emit/shapes.py`. That is a second
-   front end plus C1 to C5 over 336 vectors with projections and re-encodes.
-   **It is worth it on the evidence**: the corpus found a decoder defect in this
-   slice that byte identity structurally cannot find, and 331 of its vectors are
-   still unrun here.
+7. ~~Corpus conformance.~~ **DONE** (`stage13-corpus-consumer.log`): all 336
+   vectors on all three arms, codec generated from `corpus.proto` under rule 0,
+   via a second generator front end. It found three more defects on top of the
+   group-skip hole -- tag zero accepted, no recursion limit, minus zero dropped
+   -- every one in code every other gate was passing. **What remains of it**: a
+   validating-decode arm (ABI v1 decision 3, one constructor argument, and the
+   31 open `T-dec-*` vectors are what would close); C5 for the corpus's own
+   roots, which needs builders this slice has no reason to write otherwise; and
+   the chunking class, which needs a core-ffi binding for a corpus-only root.
 8. **The old list, unchanged**: ABI v1 decision 13's borrowed spans (the
    decode side already hands the host `ak_span` offsets into its own buffer,
    so the ABI is ready and the facade's `string` is what is not); a rejecting
@@ -1102,6 +1184,7 @@ another container's. R13's one calibration run stands and is not to be tuned.
 | `ffi/logs/csharp/stage10-crossing-reconciliation.log` | the counting core (`--features count`), `ak_enc_counters` read from the host, at two chunk sizes | **R5's cross-slice reconciliation, resolved.** The conventions never differed; the Rust host chunks at 150 and this one did not. At `AK_CHUNK=150` this slice reproduces the Rust slice's 2/8/3 forward and 1/1/1 reverse exactly. Also prices the difference: nothing measurable, 0.7 percent |
 | `ffi/logs/csharp/stage9-shared-core.log` | the ONE core at `ffi/poc/codec`, default features so no `rpc`; loaded path confirmed with `LD_DEBUG=libs`; three arms gated, three timing processes, plus a pre-move control | **The W10 re-gate.** 152 checks 0 failures on all three arms; the core-ffi arm green on M1; **nothing moved** (worst 0.035 against a 0.026 floor on arms the core cannot touch). Records that arm c cannot carry the core-ffi arm and why, and that a stale binary reported a pass before the timestamp was checked |
 | `ffi/logs/csharp/stage8-core-ffi.log` | the arm through `libak_core.so`, shared-library linkage, generated binding, staged strings; correctness plus three timing processes | **The `core-ffi` arm, M1.** Byte identity and value identity on P1.1/P1.2/P1.3; layout agreement on 8 structs; crossings constant in the element count in both directions; the interface cost against the no-boundary control, including the two findings that point opposite ways -- the C ABI beating the managed codec on P1.2 decode, and the absent path collapsing on the total group fill |
+| `ffi/logs/csharp/stage13-corpus-consumer.log` | all 336 vectors of `ffi/corpus`, codec generated from `generated/corpus.proto` under rule 0 via a second generator front end, over the same `Enc`/`Dec`/`W` the measured arms use; three arms | **Corpus conformance, and four defects byte identity structurally could not reach.** Tag zero accepted; no recursion limit (ABI v1 decision 7, which the design says no slice exercises); minus zero dropped because the omit-when-zero rule compared value and not bits, where `Google.Protobuf` has the same hole and upb does not; plus stage 12's group skip. Prices the depth limit at nothing measurable. **And it settles the decode comparison**: `Google.Protobuf` does NOT validate UTF-8 either, so the managed decode margin is not bought by skipping validation. Wires the incumbent in as an independent oracle: accept/reject agrees on all 169 vectors where both have the type |
 | `ffi/logs/csharp/stage12-group-skip-and-d7-regate.log` | the core rebuilt with `poc/codec/gen/build.sh` after the D7 fix, loaded path and sha256 confirmed from `LD_DEBUG=libs`; all three arms re-gated | **The GROUP-skip defect, seen failing and then fixed.** `Dec.Skip` rejected three corpus vectors `Google.Protobuf` accepts, because it had no case for the deprecated group form. Carries the reverted-fix run (7 failures) as the proof the guard works, the field-number-match and depth-bound reasoning, and the statement that this slice is NOT a corpus consumer and what it would cost to become one. The D7 core itself moved nothing: 152 checks 0 failures on each arm |
 | `ffi/logs/csharp/stage11-core-ffi-m2.log` | the ONE core rebuilt after the branch merge (86 `ak_` exports, 800 KB, still no `rpc`); a second `--features count` build for the crossing table; correctness, three interleaved processes over M1 and M2 together, and four BenchmarkDotNet runs | **The `core-ffi` arm on M2, and two corrections.** All five M2 payloads gated first run; crossings 10.00 and 7.00 per task against the rust slice's 10.02 and 7.004, with R5 now CHECKED against the core's own counters rather than asserted. **The published ".NET's composed arm beats its own managed codec on decode" does not survive a non-leaf element**: 0.97 to 1.14, both harnesses straddling 1.0. **And the encode cost is the group fill, not the crossings**: a `core-ffi fill` arm puts the host-side half at 40 to 57 percent of the whole encode on every payload of both shapes, which also corrects stage 8's reading of P1.3 as an absent-path effect. Adds the R14 baseline arms to the BDN harness, which did not have them |
 | `ffi/logs/csharp/stage7-benchmarkdotnet.log` + `bdn-results/*.csv`, `*-github.md` | **BenchmarkDotNet 0.15.8**, defaults, each benchmark in its own process, 144 benchmarks (16 payloads x 6 encode arms + 16 x 3 decode) | **The harness the CONTROLLED RERUN should use, and the cross-check that makes the hand-rolled one trustworthy.** It subtracts its own overhead, iterates warmup to a convergence criterion, reports a 99.9% CI, removes outliers and adds Gen0/1/2 counts. What it does not do is interleave, which is the whole point of the hand-rolled harness on a noisy shared container; on a controlled machine that noise is gone and the isolation is the better choice |

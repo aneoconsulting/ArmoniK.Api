@@ -36,8 +36,13 @@ public static class W
     /// different things in one repository is a trap worth naming once.
     public const int ErrTruncated = -3, ErrMalformed = -4, ErrTranscode = -6;
 
-    /// The unknown-group recursion limit, hit before the stack is.
+    /// The recursion limit, hit before the stack is. Two callers: the
+    /// unknown-group skipper, and the generated decoder's nested-message
+    /// descent (ABI v1 open decision 7).
     public const int ErrDepth = -8;
+
+    /// protobuf's own default, and what every implementation rejects past.
+    public const int MaxDepth = 100;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ulong Key(int tag, int wire) => ((ulong)(uint)tag << 3) | (uint)wire;
@@ -173,6 +178,28 @@ public struct Enc
         b[p + 3] = (byte)(bits >> 24); b[p + 4] = (byte)(bits >> 32); b[p + 5] = (byte)(bits >> 40);
         b[p + 6] = (byte)(bits >> 48); b[p + 7] = (byte)(bits >> 56);
         Pos = p + 8;
+    }
+
+    /// **`fixed32` exists here for `ffi/corpus` and for nothing in
+    /// `ffi/schema`.** The payload set has no fixed-width 32-bit field, so this
+    /// is never called by any arm that produces a number; `WireZoo.v_fixed32`
+    /// is. It is in the shared runtime rather than in a corpus-only one on
+    /// purpose: a corpus that tests a second encoder tests the second encoder.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Fixed32Field(int tag, uint v)
+    {
+        Varint(W.Key(tag, W.WireI32));
+        Fixed32(v);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Fixed32(uint v)
+    {
+        Need(4);
+        var b = Buf;
+        int p = Pos;
+        b[p] = (byte)v; b[p + 1] = (byte)(v >> 8); b[p + 2] = (byte)(v >> 16); b[p + 3] = (byte)(v >> 24);
+        Pos = p + 4;
     }
 
     /// A length-delimited field whose length is known before the body is
@@ -324,6 +351,10 @@ public struct Dec
     public int Pos;
     public int End;
     public int Err;
+    /// Nested-message depth. One increment and one compare per message decoded,
+    /// which is the price of not turning a 300-deep payload into 300 managed
+    /// frames. See `W.MaxDepth`.
+    public int Depth;
 
     public static Dec Over(byte[] b) => new Dec { Buf = b, Pos = 0, End = b.Length, Err = 0 };
 
@@ -356,6 +387,17 @@ public struct Dec
                   | ((long)b[p + 7] << 56);
         Pos = p + 8;
         return BitConverter.Int64BitsToDouble(bits);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public uint Fixed32()
+    {
+        if (Pos + 4 > End) { Err = W.ErrTruncated; return 0; }
+        var b = Buf;
+        int p = Pos;
+        uint v = (uint)(b[p] | (b[p + 1] << 8) | (b[p + 2] << 16) | (b[p + 3] << 24));
+        Pos = p + 4;
+        return v;
     }
 
     /// The end offset of a length-delimited body, having consumed its prefix.

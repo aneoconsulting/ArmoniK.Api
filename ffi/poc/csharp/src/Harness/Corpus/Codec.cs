@@ -7,8 +7,9 @@
 using System;
 using System.Collections.Generic;
 
+using Armonik.Ffi.Facade;
 
-namespace Armonik.Ffi.Facade;
+namespace Armonik.Ffi.Corpus;
 
 public static class Codec
 {
@@ -377,6 +378,153 @@ public static class Codec
         }
     }
 
+    public static void WriteChunkLeaf(ref Enc e, ChunkLeaf m)
+    {
+        if (m.K.Length != 0) e.StringField(1, m.K, 72);
+        if (m.V != 0) e.VarintField(2, (ulong)(long)(m.V));
+    }
+
+    public static void WriteChunkInner(ref Enc e, ChunkInner m)
+    {
+        if (m.Marks.Count != 0)
+        {
+            var mk = e.Begin(1, 73);
+            for (int i = 0; i < m.Marks.Count; i++) e.Varint((ulong)(m.Marks[i]));
+            e.End(mk);
+        }
+        for (int i = 0; i < m.Leaves.Count; i++)
+        {
+            var mk = e.Begin(2, 74);
+            WriteChunkLeaf(ref e, m.Leaves[i]);
+            e.End(mk);
+        }
+    }
+
+    public static void WriteChunkElement(ref Enc e, ChunkElement m)
+    {
+        for (int i = 0; i < m.Labels.Count; i++) e.StringField(1, m.Labels[i], 75);
+        {
+            int n = m.Attrs.Count;
+            for (int i = 0; i < n; i++)
+            {
+                var kv = m.Attrs.At(i);
+                var mk = e.Begin(2, 76);
+                if (kv.Key.Length != 0) e.StringField(1, kv.Key, 77);
+                if (kv.Value.Length != 0) e.StringField(2, kv.Value, 78);
+                e.End(mk);
+            }
+        }
+        if (m.Id.Length != 0) e.StringField(3, m.Id, 79);
+        if (m.Inner != null)
+        {
+            var mk = e.Begin(4, 80);
+            WriteChunkInner(ref e, m.Inner);
+            e.End(mk);
+        }
+    }
+
+    public static void WriteChunkedResponse(ref Enc e, ChunkedResponse m)
+    {
+        for (int i = 0; i < m.Items.Count; i++)
+        {
+            var mk = e.Begin(7, 81);
+            WriteChunkElement(ref e, m.Items[i]);
+            e.End(mk);
+        }
+        if (m.Page != 0) e.VarintField(8, (ulong)(long)(m.Page));
+    }
+
+    public static void WriteChunkedResponseWide(ref Enc e, ChunkedResponseWide m)
+    {
+        for (int i = 0; i < m.Items.Count; i++)
+        {
+            var mk = e.Begin(70000, 82);
+            WriteChunkElement(ref e, m.Items[i]);
+            e.End(mk);
+        }
+    }
+
+    public static void WriteLeafElement(ref Enc e, LeafElement m)
+    {
+        if (m.Id.Length != 0) e.StringField(1, m.Id, 83);
+        if (m.N != 0) e.VarintField(2, (ulong)(m.N));
+        if (m.Stamp != null)
+        {
+            var mk = e.Begin(3, 84);
+            WriteTimestamp(ref e, m.Stamp);
+            e.End(mk);
+        }
+    }
+
+    public static void WriteLeafResponse(ref Enc e, LeafResponse m)
+    {
+        for (int i = 0; i < m.Items.Count; i++)
+        {
+            var mk = e.Begin(9, 85);
+            WriteLeafElement(ref e, m.Items[i]);
+            e.End(mk);
+        }
+    }
+
+    public static void WriteSurrogate(ref Enc e, Surrogate m)
+    {
+        if (m.Text.Length != 0) e.StringField(1, m.Text, 86);
+        if (m.Nested != null)
+        {
+            var mk = e.Begin(2, 87);
+            WriteSurrogateInner(ref e, m.Nested);
+            e.End(mk);
+        }
+        {
+            int n = m.Attrs.Count;
+            for (int i = 0; i < n; i++)
+            {
+                var kv = m.Attrs.At(i);
+                var mk = e.Begin(3, 88);
+                if (kv.Key.Length != 0) e.StringField(1, kv.Key, 89);
+                if (kv.Value.Length != 0) e.StringField(2, kv.Value, 90);
+                e.End(mk);
+            }
+        }
+        for (int i = 0; i < m.Texts.Count; i++) e.StringField(4, m.Texts[i], 91);
+        if (m.Raw.Length != 0) e.BlobField(5, m.Raw);
+    }
+
+    public static void WriteSurrogateInner(ref Enc e, SurrogateInner m)
+    {
+        if (m.Text.Length != 0) e.StringField(1, m.Text, 92);
+    }
+
+    public static void WriteNest(ref Enc e, Nest m)
+    {
+        if (m.Child != null)
+        {
+            var mk = e.Begin(1, 93);
+            WriteNest(ref e, m.Child);
+            e.End(mk);
+        }
+        if (m.Leaf.Length != 0) e.StringField(2, m.Leaf, 94);
+    }
+
+    public static void WriteWireZoo(ref Enc e, WireZoo m)
+    {
+        if (m.VInt32 != 0) e.VarintField(1, (ulong)(long)(m.VInt32));
+        if (m.VInt64 != 0) e.VarintField(2, (ulong)(m.VInt64));
+        if (m.VBool) e.VarintField(3, (m.VBool ? 1UL : 0UL));
+        if (BitConverter.DoubleToInt64Bits(m.VDouble) != 0L) e.F64Field(4, m.VDouble);
+        if (m.VFixed32 != 0u) e.Fixed32Field(5, m.VFixed32);
+        if (m.VString.Length != 0) e.StringField(6, m.VString, 95);
+        if (m.VBytes.Length != 0) e.BlobField(7, m.VBytes);
+        if (m.VEnum != 0) e.VarintField(8, (ulong)(long)(int)(m.VEnum));
+        if (m.VMsg != null)
+        {
+            var mk = e.Begin(9, 96);
+            WriteTimestamp(ref e, m.VMsg);
+            e.End(mk);
+        }
+        if (m.VBigTag != 0) e.VarintField(536870911, (ulong)(long)(m.VBigTag));
+    }
+
     public static int SizeOfTimestamp(Timestamp m)
     {
         int n = 0;
@@ -633,6 +781,130 @@ public static class Codec
         return n;
     }
 
+    public static int SizeOfChunkLeaf(ChunkLeaf m)
+    {
+        int n = 0;
+        if (m.K.Length != 0) { int L = Enc.Utf8Len(m.K); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)L) + L; }
+        if (m.V != 0) n += W.VarintLen(16UL) + W.VarintLen((ulong)(long)(m.V));
+        return n;
+    }
+
+    public static int SizeOfChunkInner(ChunkInner m)
+    {
+        int n = 0;
+        if (m.Marks.Count != 0)
+        {
+            int b = 0;
+            for (int i = 0; i < m.Marks.Count; i++) b += W.VarintLen((ulong)(m.Marks[i]));
+            n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)b) + b;
+        }
+        for (int i = 0; i < m.Leaves.Count; i++) { int b = SizeOfChunkLeaf(m.Leaves[i]); n += W.VarintLen(18UL) + W.VarintLen((ulong)(uint)b) + b; }
+        return n;
+    }
+
+    public static int SizeOfChunkElement(ChunkElement m)
+    {
+        int n = 0;
+        for (int i = 0; i < m.Labels.Count; i++) { int L = Enc.Utf8Len(m.Labels[i]); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)L) + L; }
+        {
+            int c = m.Attrs.Count;
+            for (int i = 0; i < c; i++)
+            {
+                var kv = m.Attrs.At(i);
+                int b = 0;
+                if (kv.Key.Length != 0) { int L = Enc.Utf8Len(kv.Key); b += 1 + W.VarintLen((ulong)(uint)L) + L; }
+                if (kv.Value.Length != 0) { int L = Enc.Utf8Len(kv.Value); b += 1 + W.VarintLen((ulong)(uint)L) + L; }
+                n += W.VarintLen(18UL) + W.VarintLen((ulong)(uint)b) + b;
+            }
+        }
+        if (m.Id.Length != 0) { int L = Enc.Utf8Len(m.Id); n += W.VarintLen(26UL) + W.VarintLen((ulong)(uint)L) + L; }
+        if (m.Inner != null) { int b = SizeOfChunkInner(m.Inner); n += W.VarintLen(34UL) + W.VarintLen((ulong)(uint)b) + b; }
+        return n;
+    }
+
+    public static int SizeOfChunkedResponse(ChunkedResponse m)
+    {
+        int n = 0;
+        for (int i = 0; i < m.Items.Count; i++) { int b = SizeOfChunkElement(m.Items[i]); n += W.VarintLen(58UL) + W.VarintLen((ulong)(uint)b) + b; }
+        if (m.Page != 0) n += W.VarintLen(64UL) + W.VarintLen((ulong)(long)(m.Page));
+        return n;
+    }
+
+    public static int SizeOfChunkedResponseWide(ChunkedResponseWide m)
+    {
+        int n = 0;
+        for (int i = 0; i < m.Items.Count; i++) { int b = SizeOfChunkElement(m.Items[i]); n += W.VarintLen(560002UL) + W.VarintLen((ulong)(uint)b) + b; }
+        return n;
+    }
+
+    public static int SizeOfLeafElement(LeafElement m)
+    {
+        int n = 0;
+        if (m.Id.Length != 0) { int L = Enc.Utf8Len(m.Id); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)L) + L; }
+        if (m.N != 0) n += W.VarintLen(16UL) + W.VarintLen((ulong)(m.N));
+        if (m.Stamp != null) { int b = SizeOfTimestamp(m.Stamp); n += W.VarintLen(26UL) + W.VarintLen((ulong)(uint)b) + b; }
+        return n;
+    }
+
+    public static int SizeOfLeafResponse(LeafResponse m)
+    {
+        int n = 0;
+        for (int i = 0; i < m.Items.Count; i++) { int b = SizeOfLeafElement(m.Items[i]); n += W.VarintLen(74UL) + W.VarintLen((ulong)(uint)b) + b; }
+        return n;
+    }
+
+    public static int SizeOfSurrogate(Surrogate m)
+    {
+        int n = 0;
+        if (m.Text.Length != 0) { int L = Enc.Utf8Len(m.Text); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)L) + L; }
+        if (m.Nested != null) { int b = SizeOfSurrogateInner(m.Nested); n += W.VarintLen(18UL) + W.VarintLen((ulong)(uint)b) + b; }
+        {
+            int c = m.Attrs.Count;
+            for (int i = 0; i < c; i++)
+            {
+                var kv = m.Attrs.At(i);
+                int b = 0;
+                if (kv.Key.Length != 0) { int L = Enc.Utf8Len(kv.Key); b += 1 + W.VarintLen((ulong)(uint)L) + L; }
+                if (kv.Value.Length != 0) { int L = Enc.Utf8Len(kv.Value); b += 1 + W.VarintLen((ulong)(uint)L) + L; }
+                n += W.VarintLen(26UL) + W.VarintLen((ulong)(uint)b) + b;
+            }
+        }
+        for (int i = 0; i < m.Texts.Count; i++) { int L = Enc.Utf8Len(m.Texts[i]); n += W.VarintLen(34UL) + W.VarintLen((ulong)(uint)L) + L; }
+        if (m.Raw.Length != 0) n += W.VarintLen(42UL) + W.VarintLen((ulong)(uint)m.Raw.Length) + m.Raw.Length;
+        return n;
+    }
+
+    public static int SizeOfSurrogateInner(SurrogateInner m)
+    {
+        int n = 0;
+        if (m.Text.Length != 0) { int L = Enc.Utf8Len(m.Text); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)L) + L; }
+        return n;
+    }
+
+    public static int SizeOfNest(Nest m)
+    {
+        int n = 0;
+        if (m.Child != null) { int b = SizeOfNest(m.Child); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)b) + b; }
+        if (m.Leaf.Length != 0) { int L = Enc.Utf8Len(m.Leaf); n += W.VarintLen(18UL) + W.VarintLen((ulong)(uint)L) + L; }
+        return n;
+    }
+
+    public static int SizeOfWireZoo(WireZoo m)
+    {
+        int n = 0;
+        if (m.VInt32 != 0) n += W.VarintLen(8UL) + W.VarintLen((ulong)(long)(m.VInt32));
+        if (m.VInt64 != 0) n += W.VarintLen(16UL) + W.VarintLen((ulong)(m.VInt64));
+        if (m.VBool) n += W.VarintLen(24UL) + W.VarintLen((m.VBool ? 1UL : 0UL));
+        if (BitConverter.DoubleToInt64Bits(m.VDouble) != 0L) n += W.VarintLen(33UL) + 8;
+        if (m.VFixed32 != 0u) n += W.VarintLen(45UL) + 4;
+        if (m.VString.Length != 0) { int L = Enc.Utf8Len(m.VString); n += W.VarintLen(50UL) + W.VarintLen((ulong)(uint)L) + L; }
+        if (m.VBytes.Length != 0) n += W.VarintLen(58UL) + W.VarintLen((ulong)(uint)m.VBytes.Length) + m.VBytes.Length;
+        if (m.VEnum != 0) n += W.VarintLen(64UL) + W.VarintLen((ulong)(long)(int)(m.VEnum));
+        if (m.VMsg != null) { int b = SizeOfTimestamp(m.VMsg); n += W.VarintLen(74UL) + W.VarintLen((ulong)(uint)b) + b; }
+        if (m.VBigTag != 0) n += W.VarintLen(4294967288UL) + W.VarintLen((ulong)(long)(m.VBigTag));
+        return n;
+    }
+
     public static void WriteSizedTimestamp(ref Enc e, Timestamp m)
     {
         if (m.Seconds != 0) e.VarintField(1, (ulong)(m.Seconds));
@@ -856,6 +1128,115 @@ public static class Codec
     {
         for (int i = 0; i < m.Left.Count; i++) { e.SizedHeader(1, SizeOfPair(m.Left[i])); WriteSizedPair(ref e, m.Left[i]); }
         for (int i = 0; i < m.Right.Count; i++) { e.SizedHeader(2, SizeOfPair(m.Right[i])); WriteSizedPair(ref e, m.Right[i]); }
+    }
+
+    public static void WriteSizedChunkLeaf(ref Enc e, ChunkLeaf m)
+    {
+        if (m.K.Length != 0) { int L = Enc.Utf8Len(m.K); e.SizedHeader(1, L); e.StringBodySized(m.K, L); }
+        if (m.V != 0) e.VarintField(2, (ulong)(long)(m.V));
+    }
+
+    public static void WriteSizedChunkInner(ref Enc e, ChunkInner m)
+    {
+        if (m.Marks.Count != 0)
+        {
+            int b = 0;
+            for (int i = 0; i < m.Marks.Count; i++) b += W.VarintLen((ulong)(m.Marks[i]));
+            e.SizedHeader(1, b);
+            for (int i = 0; i < m.Marks.Count; i++) e.Varint((ulong)(m.Marks[i]));
+        }
+        for (int i = 0; i < m.Leaves.Count; i++) { e.SizedHeader(2, SizeOfChunkLeaf(m.Leaves[i])); WriteSizedChunkLeaf(ref e, m.Leaves[i]); }
+    }
+
+    public static void WriteSizedChunkElement(ref Enc e, ChunkElement m)
+    {
+        for (int i = 0; i < m.Labels.Count; i++) { int L = Enc.Utf8Len(m.Labels[i]); e.SizedHeader(1, L); e.StringBodySized(m.Labels[i], L); }
+        {
+            int c = m.Attrs.Count;
+            for (int i = 0; i < c; i++)
+            {
+                var kv = m.Attrs.At(i);
+                int kL = kv.Key.Length != 0 ? Enc.Utf8Len(kv.Key) : -1;
+                int vL = kv.Value.Length != 0 ? Enc.Utf8Len(kv.Value) : -1;
+                int b = (kL >= 0 ? 1 + W.VarintLen((ulong)(uint)kL) + kL : 0)
+                      + (vL >= 0 ? 1 + W.VarintLen((ulong)(uint)vL) + vL : 0);
+                e.SizedHeader(2, b);
+                if (kL >= 0) { e.SizedHeader(1, kL); e.StringBodySized(kv.Key, kL); }
+                if (vL >= 0) { e.SizedHeader(2, vL); e.StringBodySized(kv.Value, vL); }
+            }
+        }
+        if (m.Id.Length != 0) { int L = Enc.Utf8Len(m.Id); e.SizedHeader(3, L); e.StringBodySized(m.Id, L); }
+        if (m.Inner != null) { e.SizedHeader(4, SizeOfChunkInner(m.Inner)); WriteSizedChunkInner(ref e, m.Inner); }
+    }
+
+    public static void WriteSizedChunkedResponse(ref Enc e, ChunkedResponse m)
+    {
+        for (int i = 0; i < m.Items.Count; i++) { e.SizedHeader(7, SizeOfChunkElement(m.Items[i])); WriteSizedChunkElement(ref e, m.Items[i]); }
+        if (m.Page != 0) e.VarintField(8, (ulong)(long)(m.Page));
+    }
+
+    public static void WriteSizedChunkedResponseWide(ref Enc e, ChunkedResponseWide m)
+    {
+        for (int i = 0; i < m.Items.Count; i++) { e.SizedHeader(70000, SizeOfChunkElement(m.Items[i])); WriteSizedChunkElement(ref e, m.Items[i]); }
+    }
+
+    public static void WriteSizedLeafElement(ref Enc e, LeafElement m)
+    {
+        if (m.Id.Length != 0) { int L = Enc.Utf8Len(m.Id); e.SizedHeader(1, L); e.StringBodySized(m.Id, L); }
+        if (m.N != 0) e.VarintField(2, (ulong)(m.N));
+        if (m.Stamp != null) { e.SizedHeader(3, SizeOfTimestamp(m.Stamp)); WriteSizedTimestamp(ref e, m.Stamp); }
+    }
+
+    public static void WriteSizedLeafResponse(ref Enc e, LeafResponse m)
+    {
+        for (int i = 0; i < m.Items.Count; i++) { e.SizedHeader(9, SizeOfLeafElement(m.Items[i])); WriteSizedLeafElement(ref e, m.Items[i]); }
+    }
+
+    public static void WriteSizedSurrogate(ref Enc e, Surrogate m)
+    {
+        if (m.Text.Length != 0) { int L = Enc.Utf8Len(m.Text); e.SizedHeader(1, L); e.StringBodySized(m.Text, L); }
+        if (m.Nested != null) { e.SizedHeader(2, SizeOfSurrogateInner(m.Nested)); WriteSizedSurrogateInner(ref e, m.Nested); }
+        {
+            int c = m.Attrs.Count;
+            for (int i = 0; i < c; i++)
+            {
+                var kv = m.Attrs.At(i);
+                int kL = kv.Key.Length != 0 ? Enc.Utf8Len(kv.Key) : -1;
+                int vL = kv.Value.Length != 0 ? Enc.Utf8Len(kv.Value) : -1;
+                int b = (kL >= 0 ? 1 + W.VarintLen((ulong)(uint)kL) + kL : 0)
+                      + (vL >= 0 ? 1 + W.VarintLen((ulong)(uint)vL) + vL : 0);
+                e.SizedHeader(3, b);
+                if (kL >= 0) { e.SizedHeader(1, kL); e.StringBodySized(kv.Key, kL); }
+                if (vL >= 0) { e.SizedHeader(2, vL); e.StringBodySized(kv.Value, vL); }
+            }
+        }
+        for (int i = 0; i < m.Texts.Count; i++) { int L = Enc.Utf8Len(m.Texts[i]); e.SizedHeader(4, L); e.StringBodySized(m.Texts[i], L); }
+        if (m.Raw.Length != 0) e.BlobField(5, m.Raw);
+    }
+
+    public static void WriteSizedSurrogateInner(ref Enc e, SurrogateInner m)
+    {
+        if (m.Text.Length != 0) { int L = Enc.Utf8Len(m.Text); e.SizedHeader(1, L); e.StringBodySized(m.Text, L); }
+    }
+
+    public static void WriteSizedNest(ref Enc e, Nest m)
+    {
+        if (m.Child != null) { e.SizedHeader(1, SizeOfNest(m.Child)); WriteSizedNest(ref e, m.Child); }
+        if (m.Leaf.Length != 0) { int L = Enc.Utf8Len(m.Leaf); e.SizedHeader(2, L); e.StringBodySized(m.Leaf, L); }
+    }
+
+    public static void WriteSizedWireZoo(ref Enc e, WireZoo m)
+    {
+        if (m.VInt32 != 0) e.VarintField(1, (ulong)(long)(m.VInt32));
+        if (m.VInt64 != 0) e.VarintField(2, (ulong)(m.VInt64));
+        if (m.VBool) e.VarintField(3, (m.VBool ? 1UL : 0UL));
+        if (BitConverter.DoubleToInt64Bits(m.VDouble) != 0L) e.F64Field(4, m.VDouble);
+        if (m.VFixed32 != 0u) e.Fixed32Field(5, m.VFixed32);
+        if (m.VString.Length != 0) { int L = Enc.Utf8Len(m.VString); e.SizedHeader(6, L); e.StringBodySized(m.VString, L); }
+        if (m.VBytes.Length != 0) e.BlobField(7, m.VBytes);
+        if (m.VEnum != 0) e.VarintField(8, (ulong)(long)(int)(m.VEnum));
+        if (m.VMsg != null) { e.SizedHeader(9, SizeOfTimestamp(m.VMsg)); WriteSizedTimestamp(ref e, m.VMsg); }
+        if (m.VBigTag != 0) e.VarintField(536870911, (ulong)(long)(m.VBigTag));
     }
 
     public static void ReadTimestamp(ref Dec d, Timestamp m, int end)
@@ -2133,8 +2514,587 @@ public static class Codec
         d.Depth--;
     }
 
+    public static void ReadChunkLeaf(ref Dec d, ChunkLeaf m, int end)
+    {
+        // ABI v1 open decision 7, and protobuf's own limit. Without it a
+        // message nested 300 deep is 300 managed frames and a successful
+        // parse, where every protobuf implementation rejects past 100.
+        // ffi/corpus X-depth-101 and X-depth-300.
+        if (++d.Depth > W.MaxDepth) { d.Err = W.ErrDepth; d.Depth--; return; }
+        while (d.Pos < end && d.Err == 0)
+        {
+            ulong k = d.Varint();
+            int wire = (int)(k & 7UL);
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            // Field number 0 is not a legal tag, and it is the value a reader
+            // gets from an empty buffer it forgot to bounds-check -- so
+            // accepting it turns a truncation into a silently empty message.
+            // ffi/corpus X-tag-zero.
+            if (tag == 0) { d.Err = W.ErrMalformed; break; }
+            switch (tag)
+            {
+                case 1:
+                {
+                    if (wire != 2) { d.Skip(1, wire); break; }
+                    m.K = d.Str();
+                    break;
+                }
+                case 2:
+                {
+                    if (wire != 0) { d.Skip(2, wire); break; }
+                    m.V = (int)(long)(d.Varint());
+                    break;
+                }
+                default: d.Skip(tag, wire); break;
+            }
+        }
+        if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
+        d.Depth--;
+    }
+
+    public static void ReadChunkInner(ref Dec d, ChunkInner m, int end)
+    {
+        // ABI v1 open decision 7, and protobuf's own limit. Without it a
+        // message nested 300 deep is 300 managed frames and a successful
+        // parse, where every protobuf implementation rejects past 100.
+        // ffi/corpus X-depth-101 and X-depth-300.
+        if (++d.Depth > W.MaxDepth) { d.Err = W.ErrDepth; d.Depth--; return; }
+        while (d.Pos < end && d.Err == 0)
+        {
+            ulong k = d.Varint();
+            int wire = (int)(k & 7UL);
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            // Field number 0 is not a legal tag, and it is the value a reader
+            // gets from an empty buffer it forgot to bounds-check -- so
+            // accepting it turns a truncation into a silently empty message.
+            // ffi/corpus X-tag-zero.
+            if (tag == 0) { d.Err = W.ErrMalformed; break; }
+            switch (tag)
+            {
+                case 1:
+                {
+                    if (wire == 2)
+                    {
+                        int e2 = d.LenEnd(); if (d.Err != 0) break;
+                        while (d.Pos < e2 && d.Err == 0) m.Marks.Add((long)(d.Varint()));
+                        d.Pos = e2;
+                    }
+                    else if (wire == 0) m.Marks.Add((long)(d.Varint()));
+                    else d.Skip(1, wire);
+                    break;
+                }
+                case 2:
+                {
+                    if (wire != 2) { d.Skip(2, wire); break; }
+                    int e2 = d.LenEnd(); if (d.Err != 0) break;
+                    var c = new ChunkLeaf();
+                    ReadChunkLeaf(ref d, c, e2);
+                    d.Pos = e2;
+                    m.Leaves.Add(c);
+                    break;
+                }
+                default: d.Skip(tag, wire); break;
+            }
+        }
+        if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
+        d.Depth--;
+    }
+
+    public static void ReadChunkElement(ref Dec d, ChunkElement m, int end)
+    {
+        // ABI v1 open decision 7, and protobuf's own limit. Without it a
+        // message nested 300 deep is 300 managed frames and a successful
+        // parse, where every protobuf implementation rejects past 100.
+        // ffi/corpus X-depth-101 and X-depth-300.
+        if (++d.Depth > W.MaxDepth) { d.Err = W.ErrDepth; d.Depth--; return; }
+        while (d.Pos < end && d.Err == 0)
+        {
+            ulong k = d.Varint();
+            int wire = (int)(k & 7UL);
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            // Field number 0 is not a legal tag, and it is the value a reader
+            // gets from an empty buffer it forgot to bounds-check -- so
+            // accepting it turns a truncation into a silently empty message.
+            // ffi/corpus X-tag-zero.
+            if (tag == 0) { d.Err = W.ErrMalformed; break; }
+            switch (tag)
+            {
+                case 1:
+                {
+                    if (wire != 2) { d.Skip(1, wire); break; }
+                    m.Labels.Add(d.Str());
+                    break;
+                }
+                case 2:
+                {
+                    if (wire != 2) { d.Skip(2, wire); break; }
+                    int e2 = d.LenEnd(); if (d.Err != 0) break;
+                    string mk = "", mv = "";
+                    while (d.Pos < e2 && d.Err == 0)
+                    {
+                        ulong k2 = d.Varint(); int w2 = (int)(k2 & 7UL);
+                        if ((k2 >> 3) == 1 && w2 == 2) mk = d.Str();
+                        else if ((k2 >> 3) == 2 && w2 == 2) mv = d.Str();
+                        else d.Skip((int)(k2 >> 3), w2);
+                    }
+                    d.Pos = e2;
+                    m.Attrs[mk] = mv;
+                    break;
+                }
+                case 3:
+                {
+                    if (wire != 2) { d.Skip(3, wire); break; }
+                    m.Id = d.Str();
+                    break;
+                }
+                case 4:
+                {
+                    if (wire != 2) { d.Skip(4, wire); break; }
+                    int e2 = d.LenEnd(); if (d.Err != 0) break;
+                    var c = m.Inner ?? new ChunkInner();
+                    ReadChunkInner(ref d, c, e2);
+                    d.Pos = e2;
+                    m.Inner = c;
+                    break;
+                }
+                default: d.Skip(tag, wire); break;
+            }
+        }
+        if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
+        d.Depth--;
+    }
+
+    public static void ReadChunkedResponse(ref Dec d, ChunkedResponse m, int end)
+    {
+        // ABI v1 open decision 7, and protobuf's own limit. Without it a
+        // message nested 300 deep is 300 managed frames and a successful
+        // parse, where every protobuf implementation rejects past 100.
+        // ffi/corpus X-depth-101 and X-depth-300.
+        if (++d.Depth > W.MaxDepth) { d.Err = W.ErrDepth; d.Depth--; return; }
+        while (d.Pos < end && d.Err == 0)
+        {
+            ulong k = d.Varint();
+            int wire = (int)(k & 7UL);
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            // Field number 0 is not a legal tag, and it is the value a reader
+            // gets from an empty buffer it forgot to bounds-check -- so
+            // accepting it turns a truncation into a silently empty message.
+            // ffi/corpus X-tag-zero.
+            if (tag == 0) { d.Err = W.ErrMalformed; break; }
+            switch (tag)
+            {
+                case 7:
+                {
+                    if (wire != 2) { d.Skip(7, wire); break; }
+                    int e2 = d.LenEnd(); if (d.Err != 0) break;
+                    var c = new ChunkElement();
+                    ReadChunkElement(ref d, c, e2);
+                    d.Pos = e2;
+                    m.Items.Add(c);
+                    break;
+                }
+                case 8:
+                {
+                    if (wire != 0) { d.Skip(8, wire); break; }
+                    m.Page = (int)(long)(d.Varint());
+                    break;
+                }
+                default: d.Skip(tag, wire); break;
+            }
+        }
+        if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
+        d.Depth--;
+    }
+
+    public static void ReadChunkedResponseWide(ref Dec d, ChunkedResponseWide m, int end)
+    {
+        // ABI v1 open decision 7, and protobuf's own limit. Without it a
+        // message nested 300 deep is 300 managed frames and a successful
+        // parse, where every protobuf implementation rejects past 100.
+        // ffi/corpus X-depth-101 and X-depth-300.
+        if (++d.Depth > W.MaxDepth) { d.Err = W.ErrDepth; d.Depth--; return; }
+        while (d.Pos < end && d.Err == 0)
+        {
+            ulong k = d.Varint();
+            int wire = (int)(k & 7UL);
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            // Field number 0 is not a legal tag, and it is the value a reader
+            // gets from an empty buffer it forgot to bounds-check -- so
+            // accepting it turns a truncation into a silently empty message.
+            // ffi/corpus X-tag-zero.
+            if (tag == 0) { d.Err = W.ErrMalformed; break; }
+            switch (tag)
+            {
+                case 70000:
+                {
+                    if (wire != 2) { d.Skip(70000, wire); break; }
+                    int e2 = d.LenEnd(); if (d.Err != 0) break;
+                    var c = new ChunkElement();
+                    ReadChunkElement(ref d, c, e2);
+                    d.Pos = e2;
+                    m.Items.Add(c);
+                    break;
+                }
+                default: d.Skip(tag, wire); break;
+            }
+        }
+        if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
+        d.Depth--;
+    }
+
+    public static void ReadLeafElement(ref Dec d, LeafElement m, int end)
+    {
+        // ABI v1 open decision 7, and protobuf's own limit. Without it a
+        // message nested 300 deep is 300 managed frames and a successful
+        // parse, where every protobuf implementation rejects past 100.
+        // ffi/corpus X-depth-101 and X-depth-300.
+        if (++d.Depth > W.MaxDepth) { d.Err = W.ErrDepth; d.Depth--; return; }
+        while (d.Pos < end && d.Err == 0)
+        {
+            ulong k = d.Varint();
+            int wire = (int)(k & 7UL);
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            // Field number 0 is not a legal tag, and it is the value a reader
+            // gets from an empty buffer it forgot to bounds-check -- so
+            // accepting it turns a truncation into a silently empty message.
+            // ffi/corpus X-tag-zero.
+            if (tag == 0) { d.Err = W.ErrMalformed; break; }
+            switch (tag)
+            {
+                case 1:
+                {
+                    if (wire != 2) { d.Skip(1, wire); break; }
+                    m.Id = d.Str();
+                    break;
+                }
+                case 2:
+                {
+                    if (wire != 0) { d.Skip(2, wire); break; }
+                    m.N = (long)(d.Varint());
+                    break;
+                }
+                case 3:
+                {
+                    if (wire != 2) { d.Skip(3, wire); break; }
+                    int e2 = d.LenEnd(); if (d.Err != 0) break;
+                    var c = m.Stamp ?? new Timestamp();
+                    ReadTimestamp(ref d, c, e2);
+                    d.Pos = e2;
+                    m.Stamp = c;
+                    break;
+                }
+                default: d.Skip(tag, wire); break;
+            }
+        }
+        if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
+        d.Depth--;
+    }
+
+    public static void ReadLeafResponse(ref Dec d, LeafResponse m, int end)
+    {
+        // ABI v1 open decision 7, and protobuf's own limit. Without it a
+        // message nested 300 deep is 300 managed frames and a successful
+        // parse, where every protobuf implementation rejects past 100.
+        // ffi/corpus X-depth-101 and X-depth-300.
+        if (++d.Depth > W.MaxDepth) { d.Err = W.ErrDepth; d.Depth--; return; }
+        while (d.Pos < end && d.Err == 0)
+        {
+            ulong k = d.Varint();
+            int wire = (int)(k & 7UL);
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            // Field number 0 is not a legal tag, and it is the value a reader
+            // gets from an empty buffer it forgot to bounds-check -- so
+            // accepting it turns a truncation into a silently empty message.
+            // ffi/corpus X-tag-zero.
+            if (tag == 0) { d.Err = W.ErrMalformed; break; }
+            switch (tag)
+            {
+                case 9:
+                {
+                    if (wire != 2) { d.Skip(9, wire); break; }
+                    int e2 = d.LenEnd(); if (d.Err != 0) break;
+                    var c = new LeafElement();
+                    ReadLeafElement(ref d, c, e2);
+                    d.Pos = e2;
+                    m.Items.Add(c);
+                    break;
+                }
+                default: d.Skip(tag, wire); break;
+            }
+        }
+        if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
+        d.Depth--;
+    }
+
+    public static void ReadSurrogate(ref Dec d, Surrogate m, int end)
+    {
+        // ABI v1 open decision 7, and protobuf's own limit. Without it a
+        // message nested 300 deep is 300 managed frames and a successful
+        // parse, where every protobuf implementation rejects past 100.
+        // ffi/corpus X-depth-101 and X-depth-300.
+        if (++d.Depth > W.MaxDepth) { d.Err = W.ErrDepth; d.Depth--; return; }
+        while (d.Pos < end && d.Err == 0)
+        {
+            ulong k = d.Varint();
+            int wire = (int)(k & 7UL);
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            // Field number 0 is not a legal tag, and it is the value a reader
+            // gets from an empty buffer it forgot to bounds-check -- so
+            // accepting it turns a truncation into a silently empty message.
+            // ffi/corpus X-tag-zero.
+            if (tag == 0) { d.Err = W.ErrMalformed; break; }
+            switch (tag)
+            {
+                case 1:
+                {
+                    if (wire != 2) { d.Skip(1, wire); break; }
+                    m.Text = d.Str();
+                    break;
+                }
+                case 2:
+                {
+                    if (wire != 2) { d.Skip(2, wire); break; }
+                    int e2 = d.LenEnd(); if (d.Err != 0) break;
+                    var c = m.Nested ?? new SurrogateInner();
+                    ReadSurrogateInner(ref d, c, e2);
+                    d.Pos = e2;
+                    m.Nested = c;
+                    break;
+                }
+                case 3:
+                {
+                    if (wire != 2) { d.Skip(3, wire); break; }
+                    int e2 = d.LenEnd(); if (d.Err != 0) break;
+                    string mk = "", mv = "";
+                    while (d.Pos < e2 && d.Err == 0)
+                    {
+                        ulong k2 = d.Varint(); int w2 = (int)(k2 & 7UL);
+                        if ((k2 >> 3) == 1 && w2 == 2) mk = d.Str();
+                        else if ((k2 >> 3) == 2 && w2 == 2) mv = d.Str();
+                        else d.Skip((int)(k2 >> 3), w2);
+                    }
+                    d.Pos = e2;
+                    m.Attrs[mk] = mv;
+                    break;
+                }
+                case 4:
+                {
+                    if (wire != 2) { d.Skip(4, wire); break; }
+                    m.Texts.Add(d.Str());
+                    break;
+                }
+                case 5:
+                {
+                    if (wire != 2) { d.Skip(5, wire); break; }
+                    m.Raw = d.Bytes();
+                    break;
+                }
+                default: d.Skip(tag, wire); break;
+            }
+        }
+        if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
+        d.Depth--;
+    }
+
+    public static void ReadSurrogateInner(ref Dec d, SurrogateInner m, int end)
+    {
+        // ABI v1 open decision 7, and protobuf's own limit. Without it a
+        // message nested 300 deep is 300 managed frames and a successful
+        // parse, where every protobuf implementation rejects past 100.
+        // ffi/corpus X-depth-101 and X-depth-300.
+        if (++d.Depth > W.MaxDepth) { d.Err = W.ErrDepth; d.Depth--; return; }
+        while (d.Pos < end && d.Err == 0)
+        {
+            ulong k = d.Varint();
+            int wire = (int)(k & 7UL);
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            // Field number 0 is not a legal tag, and it is the value a reader
+            // gets from an empty buffer it forgot to bounds-check -- so
+            // accepting it turns a truncation into a silently empty message.
+            // ffi/corpus X-tag-zero.
+            if (tag == 0) { d.Err = W.ErrMalformed; break; }
+            switch (tag)
+            {
+                case 1:
+                {
+                    if (wire != 2) { d.Skip(1, wire); break; }
+                    m.Text = d.Str();
+                    break;
+                }
+                default: d.Skip(tag, wire); break;
+            }
+        }
+        if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
+        d.Depth--;
+    }
+
+    public static void ReadNest(ref Dec d, Nest m, int end)
+    {
+        // ABI v1 open decision 7, and protobuf's own limit. Without it a
+        // message nested 300 deep is 300 managed frames and a successful
+        // parse, where every protobuf implementation rejects past 100.
+        // ffi/corpus X-depth-101 and X-depth-300.
+        if (++d.Depth > W.MaxDepth) { d.Err = W.ErrDepth; d.Depth--; return; }
+        while (d.Pos < end && d.Err == 0)
+        {
+            ulong k = d.Varint();
+            int wire = (int)(k & 7UL);
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            // Field number 0 is not a legal tag, and it is the value a reader
+            // gets from an empty buffer it forgot to bounds-check -- so
+            // accepting it turns a truncation into a silently empty message.
+            // ffi/corpus X-tag-zero.
+            if (tag == 0) { d.Err = W.ErrMalformed; break; }
+            switch (tag)
+            {
+                case 1:
+                {
+                    if (wire != 2) { d.Skip(1, wire); break; }
+                    int e2 = d.LenEnd(); if (d.Err != 0) break;
+                    var c = m.Child ?? new Nest();
+                    ReadNest(ref d, c, e2);
+                    d.Pos = e2;
+                    m.Child = c;
+                    break;
+                }
+                case 2:
+                {
+                    if (wire != 2) { d.Skip(2, wire); break; }
+                    m.Leaf = d.Str();
+                    break;
+                }
+                default: d.Skip(tag, wire); break;
+            }
+        }
+        if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
+        d.Depth--;
+    }
+
+    public static void ReadWireZoo(ref Dec d, WireZoo m, int end)
+    {
+        // ABI v1 open decision 7, and protobuf's own limit. Without it a
+        // message nested 300 deep is 300 managed frames and a successful
+        // parse, where every protobuf implementation rejects past 100.
+        // ffi/corpus X-depth-101 and X-depth-300.
+        if (++d.Depth > W.MaxDepth) { d.Err = W.ErrDepth; d.Depth--; return; }
+        while (d.Pos < end && d.Err == 0)
+        {
+            ulong k = d.Varint();
+            int wire = (int)(k & 7UL);
+            // The TAG travels with the wire type into Skip, because the
+            // deprecated GROUP form carries no length and its end is an
+            // END_GROUP whose field number must MATCH. See Wire.cs.
+            int tag = (int)(k >> 3);
+            // Field number 0 is not a legal tag, and it is the value a reader
+            // gets from an empty buffer it forgot to bounds-check -- so
+            // accepting it turns a truncation into a silently empty message.
+            // ffi/corpus X-tag-zero.
+            if (tag == 0) { d.Err = W.ErrMalformed; break; }
+            switch (tag)
+            {
+                case 1:
+                {
+                    if (wire != 0) { d.Skip(1, wire); break; }
+                    m.VInt32 = (int)(long)(d.Varint());
+                    break;
+                }
+                case 2:
+                {
+                    if (wire != 0) { d.Skip(2, wire); break; }
+                    m.VInt64 = (long)(d.Varint());
+                    break;
+                }
+                case 3:
+                {
+                    if (wire != 0) { d.Skip(3, wire); break; }
+                    m.VBool = (d.Varint()) != 0UL;
+                    break;
+                }
+                case 4:
+                {
+                    if (wire != 1) { d.Skip(4, wire); break; }
+                    m.VDouble = d.F64();
+                    break;
+                }
+                case 5:
+                {
+                    if (wire != 5) { d.Skip(5, wire); break; }
+                    m.VFixed32 = d.Fixed32();
+                    break;
+                }
+                case 6:
+                {
+                    if (wire != 2) { d.Skip(6, wire); break; }
+                    m.VString = d.Str();
+                    break;
+                }
+                case 7:
+                {
+                    if (wire != 2) { d.Skip(7, wire); break; }
+                    m.VBytes = d.Bytes();
+                    break;
+                }
+                case 8:
+                {
+                    if (wire != 0) { d.Skip(8, wire); break; }
+                    m.VEnum = (ResultStatus)(int)(long)(d.Varint());
+                    break;
+                }
+                case 9:
+                {
+                    if (wire != 2) { d.Skip(9, wire); break; }
+                    int e2 = d.LenEnd(); if (d.Err != 0) break;
+                    var c = m.VMsg ?? new Timestamp();
+                    ReadTimestamp(ref d, c, e2);
+                    d.Pos = e2;
+                    m.VMsg = c;
+                    break;
+                }
+                case 536870911:
+                {
+                    if (wire != 0) { d.Skip(536870911, wire); break; }
+                    m.VBigTag = (int)(long)(d.Varint());
+                    break;
+                }
+                default: d.Skip(tag, wire); break;
+            }
+        }
+        if (d.Pos != end && d.Err == 0) d.Err = W.ErrMalformed;
+        d.Depth--;
+    }
+
     /// One learned width per length-prefix site (ABI v1 section 6).
-    public const int Sites = 72;
+    public const int Sites = 97;
 
     /// Which site is which, so a prefix-miss count can name the field
     /// rather than the message. ABI v1 open decision 5 asks what the
@@ -2214,5 +3174,30 @@ public static class Codec
         "UploadResultDataMessage.upload (message)",
         "DualResponse.left (repeated message)",
         "DualResponse.right (repeated message)",
+        "ChunkLeaf.k (string)",
+        "ChunkInner.marks (packed run)",
+        "ChunkInner.leaves (repeated message)",
+        "ChunkElement.labels (repeated string)",
+        "ChunkElement.attrs (map entry)",
+        "ChunkElement.attrs (map key)",
+        "ChunkElement.attrs (map value)",
+        "ChunkElement.id (string)",
+        "ChunkElement.inner (message)",
+        "ChunkedResponse.items (repeated message)",
+        "ChunkedResponseWide.items (repeated message)",
+        "LeafElement.id (string)",
+        "LeafElement.stamp (message)",
+        "LeafResponse.items (repeated message)",
+        "Surrogate.text (string)",
+        "Surrogate.nested (message)",
+        "Surrogate.attrs (map entry)",
+        "Surrogate.attrs (map key)",
+        "Surrogate.attrs (map value)",
+        "Surrogate.texts (repeated string)",
+        "SurrogateInner.text (string)",
+        "Nest.child (message)",
+        "Nest.leaf (string)",
+        "WireZoo.v_string (string)",
+        "WireZoo.v_msg (message)",
     };
 }

@@ -676,3 +676,93 @@ I had also decided to leave `MapForms.Skip` alone with a comment, on the grounds
 that it is a harness rewriter that only ever walks bytes this slice emitted,
 where proto3 cannot produce a group. That is true. It is also precisely what was
 believed about the facade's skipper. Fixed.
+
+### 26. Becoming a corpus consumer, and the four defects it found in an hour
+
+Rule 0 of `ffi/corpus/CONTRACT.md` is "generate your codec from
+`generated/corpus.proto`", and this generator had no `.proto` front end at all;
+it reads a JSON description through `ffi/schema/emit/shapes.py`. So conformance
+was a second front end, `gen/protoparse.py`, producing the same schema dict.
+After that every backend already written emitted the reader view untouched --
+the facade types, the comparer and the codec each took a namespace argument and
+nothing else changed. That is the payoff of the backends having been written
+against an IR rather than against a file.
+
+The parser is cross-checked against the other front end at generation time:
+nineteen messages and three enums overlap, every attribute the backends read is
+compared, and a disagreement fails the generator. It found none. That check is
+the only reason to believe a hand-rolled proto parser.
+
+**Four defects, all in code that every gate this slice owns was passing.**
+
+`X-tag-zero`: field number 0 went to the unknown-field skip, which skipped it.
+Zero is what a reader gets from a buffer it forgot to bounds-check.
+
+`X-depth-101` and `X-depth-300`: no recursion limit. 300 levels of nesting was
+300 managed frames and a successful parse. This is ABI v1 open decision 7, which
+the design document says no slice exercises. It does now.
+
+`S-double-minus-zero`: the omit-when-zero rule was `!= 0.0`, and IEEE says
+`-0.0 == 0.0`, so a set field disappeared. The vector's own note says it must
+compare bits. **`Google.Protobuf`'s generated C# writes `if (Field != 0D)` and
+has the same hole, and upb does not** -- so this is a real divergence between
+two implementations, and `ffi/schema` could never have surfaced it because it
+has exactly one `double` and it is packed.
+
+Plus the group skip from entry 24.
+
+**Why none of it was reachable.** Byte identity is against a manifest generated
+from the same description the decoder is generated from. No payload in
+`ffi/schema` can carry an unknown field, proto3 cannot express a group, the
+value rules never emit a minus zero, and nothing is nested past depth 4. The
+corpus is the only oracle in the branch not generated from the thing it tests,
+and that sentence is the whole argument for it.
+
+### 27. The measurement the corpus rescued, which I did not see coming
+
+The 31 `T-dec-*` vectors say a conformant parser must reject malformed UTF-8 in
+a string field. This codec accepts all 31, deliberately: `Encoding.UTF8`
+substitutes U+FFFD, STATE.md has called that the lossy policy since stage 1, and
+I was ready to write it up as a labelled divergence and move on.
+
+Then the implication landed. **If the INCUMBENT rejects and the managed control
+does not, then the managed decode column -- the single most valuable number in
+this slice -- is a validating parser timed against a non-validating one, and
+some part of that 0.72 to 0.82 is validation the control simply does not do.**
+R14 makes that a defect in the comparison, not a property of the design.
+
+So I measured it instead of assuming either way. `harness utf8` runs the 15
+root-site vectors through `Google.Protobuf` and through the managed codec.
+**The incumbent accepts every one**, with the same character counts. The arms
+are like for like and the decode figures stand.
+
+Two things worth keeping from that. The first is that a correctness artifact
+found a hazard in a *performance* claim, which is not what I expected it to be
+for. The second is that "we both do the lossy thing" is a cross-language finding
+the corpus does not currently carry: ABI v1 decision 3's rejecting policy is a
+behaviour CHANGE for C#, and `new UTF8Encoding(false, throwOnInvalidBytes: true)`
+rejects all 15, so the validating arm is one constructor argument away and
+pricing it is now a named next step rather than a note.
+
+### 28. Where the corpus is wrong, or at least outnumbered
+
+`U-map-entry` is the one vector this slice fails on C2 for a reason that is not
+a policy. Its `why` is exactly right -- a map entry is a message on the wire, so
+it has an unknown-field skip of its own, and a decoder that hand-rolls entries
+usually does not. This decoder does skip it and keeps the entry.
+
+The committed projection puts all four whole entries under `options._unknown`
+and omits the map entirely. Before reporting that as a defect in the vector I
+pointed the incumbent at the same bytes, which is possible here because
+`ListTasksDetailedResponse` exists in `shapes.proto` too. `Google.Protobuf`
+keeps the map: `"options": { "options": { "k00": "alpha800", ... } }`.
+
+So two implementations against the projection, one of them the library R14
+names. That is a request to the aggregating session and not a fix here, and the
+runner now prints the incumbent's own reading beside any projection mismatch on
+a shared root, so the next one does not need this done by hand.
+
+The same mechanism turned out worth having generally: the runner points
+`Google.Protobuf` at every vector whose root `ffi/schema` also has, by
+descriptor name rather than by a switch over nineteen names. **Accept and
+reject agree on all 169 of them.**
