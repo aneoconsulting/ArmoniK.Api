@@ -38,6 +38,32 @@ public final class FfiArms {
     }
   }
 
+  /** ABI v1 7.1's PULL family: the same switch, the other delivery. The
+   *  arm that uses it replays through the same per-slot host code the push
+   *  vtable reaches, so a difference between the two is a difference between
+   *  two deliveries of one traversal and not between two bindings. */
+  public static Object parse(Binding b, String id, byte[] w, int off, int len) {
+    switch (id) {
+      case "P1.1": return b.parseListResultsResponse(w, off, len);
+      case "P1.2": return b.parseListResultsResponse(w, off, len);
+      case "P1.3": return b.parseListResultsResponse(w, off, len);
+      case "P2.1": return b.parseListTasksDetailedResponse(w, off, len);
+      case "P2.2": return b.parseListTasksDetailedResponse(w, off, len);
+      case "P2.3": return b.parseListTasksDetailedResponse(w, off, len);
+      case "P2.4": return b.parseListTasksDetailedResponse(w, off, len);
+      case "P2.5": return b.parseListTasksDetailedResponse(w, off, len);
+      case "P3.1": return b.parseListProbeResponse(w, off, len);
+      case "P4.1": return b.parseListTaskSummaryResponse(w, off, len);
+      case "P5.1": return b.parseUploadResultDataMessage(w, off, len);
+      case "P5.2": return b.parseUploadResultDataMessage(w, off, len);
+      case "P5.3": return b.parseUploadResultDataMessage(w, off, len);
+      case "P5.4": return b.parseUploadResultDataMessage(w, off, len);
+      case "P6.1": return b.parseListMetricsResponse(w, off, len);
+      case "P7.1": return b.parseDualResponse(w, off, len);
+      default: throw new IllegalArgumentException(id);
+    }
+  }
+
   public static Object decode(Binding b, String id, byte[] w, int off, int len) {
     switch (id) {
       case "P1.1": return b.decodeListResultsResponse(w, off, len);
