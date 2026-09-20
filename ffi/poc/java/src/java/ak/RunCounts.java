@@ -62,6 +62,54 @@ public final class RunCounts {
       }
     }
 
+    // ---- ABI v1 7.1's pull family: the claim is that it removes the upcalls rather
+    // than reducing them, and a count is the only thing that can say which. The drain
+    // arm's forward crossings are the HOST's, so the shim reports them through
+    // `ak_bdr_count_forward` rather than the core inferring them (R5: count, do not
+    // infer). `footprint` is what the family materialises, which is the cost the
+    // crossing count does not show.
+    log.append("\n== the pull family (ABI v1 7.1) ==\n");
+    log.append("\npush.rev is the same column as dec.rev above, for the comparison the\n");
+    log.append("family exists to make. chunk is 32 KB + one header, the ABI's minimum.\n\n");
+    log.append(String.format("%-6s %-10s %9s %9s %9s %9s %12s %10s%n",
+        "id", "delivery", "elements", "fwd", "rev", "push.rev", "footprint", "bytes/elem"));
+    for (String id : Arms.IDS) {
+      Payloads.Row row = Payloads.row(id);
+      byte[] wire = Payloads.vector(id);
+      if (wire == null) {
+        Binding w = new Binding();
+        Object o = Arms.build(id, Values.ASCII);
+        if (!FfiArms.encodable(id)) { w.close(); continue; }
+        FfiArms.encode(w, id, o);
+        wire = w.take();
+        w.close();
+      }
+      long pushRev;
+      {
+        Binding b = new Binding();
+        long[] d = new long[6];
+        Native.decCountersReset(b.decCtx);
+        FfiArms.decode(b, id, wire, 0, wire.length);
+        Native.decCounters(b.decCtx, d);
+        pushRev = d[1];
+        b.close();
+      }
+      for (int w = 0; w < 2; w++) {
+        Binding b = new Binding();
+        b.pullWalk = w == 1;
+        long[] d = new long[6];
+        Native.decCountersReset(b.decCtx);
+        FfiArms.parse(b, id, wire, 0, wire.length);
+        Native.decCounters(b.decCtx, d);
+        long fp = b.bdrFootprint();
+        int n = Math.max(row.elements, 1);
+        log.append(String.format("%-6s %-10s %9d %9d %9d %9d %12d %10.1f%n",
+            id, w == 1 ? "pull-walk" : "pull-drain", row.elements, d[0], d[1], pushRev,
+            fp, fp / (double) n));
+        b.close();
+      }
+    }
+
     // The length-prefix mechanism of ABI v1 section 6 and open decision 5, which the rust
     // slice answered and which a second host either reproduces or contradicts.
     log.append("\n== the learned length-placeholder width (open decision 5) ==\n");

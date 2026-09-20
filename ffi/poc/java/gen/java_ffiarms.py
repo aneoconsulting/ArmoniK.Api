@@ -35,6 +35,19 @@ def emit(ir, ns=N.PKG, binding="Binding", facade=None):
     o.append("    }")
     o.append("  }")
     o.append("")
+    o.append("  /** ABI v1 7.1's PULL family: the same switch, the other delivery. The")
+    o.append("   *  arm that uses it replays through the same per-slot host code the push")
+    o.append("   *  vtable reaches, so a difference between the two is a difference between")
+    o.append("   *  two deliveries of one traversal and not between two bindings. */")
+    o.append("  public static Object parse(%s b, String id, byte[] w, int off, int len) {"
+             % binding)
+    o.append("    switch (id) {")
+    for pid, spec in rows:
+        o.append('      case "%s": return b.parse%s(w, off, len);' % (pid, spec["root"]))
+    o.append('      default: throw new IllegalArgumentException(id);')
+    o.append("    }")
+    o.append("  }")
+    o.append("")
     o.append("  public static Object decode(%s b, String id, byte[] w, int off, int len) {"
              % binding)
     o.append("    switch (id) {")

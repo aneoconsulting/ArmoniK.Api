@@ -135,6 +135,8 @@ public final class Bench {
     Binding bFfi = new Binding();
     Binding bNoBatch = new Binding(); bNoBatch.batch = false;
     Binding bZeroed = new Binding(); bZeroed.zeroed = true;
+    Binding bPull = new Binding();
+    Binding bPullWalk = new Binding(); bPullWalk.pullWalk = true;
     ak.borrow.Binding bBorrow = new ak.borrow.Binding();
     PbArm pb = new PbArm();
     Enc enc = new Enc(Codec.SITES);
@@ -288,6 +290,31 @@ public final class Bench {
         long s = 0;
         for (int i = 0; i < n; i++)
           s += FfiArms.decode(bFfi, id, wire, 0, wire.length) == null ? 0 : 1;
+        return s;
+      }
+    });
+    // ABI v1 7.1's PULL family. Zero reverse calls on every payload (logs/java/counts.log),
+    // which is the whole reason it exists on this runtime: the push arm's decode regression
+    // decomposes into 7.004 upcalls per element at about 80 ns. Two deliveries, differing
+    // by exactly the drain copy, so the family's cost splits into "materialise the records"
+    // and "copy them to the host" instead of arriving as one number.
+    decArms.add(new Arm("ffi-pull", "7.1 pull, drained into host memory in 32 KB chunks:"
+        + " one forward crossing per chunk, no reverse call, wire never copied") {
+      long run(String id, int n) {
+        long s = 0;
+        bPull.pullWalk = false;
+        for (int i = 0; i < n; i++)
+          s += FfiArms.parse(bPull, id, wire, 0, wire.length) == null ? 0 : 1;
+        return s;
+      }
+    });
+    decArms.add(new Arm("ffi-pull-walk", "the same, read in place through ak_bdr_ptr:"
+        + " two forward crossings for the whole response and no intermediate") {
+      long run(String id, int n) {
+        long s = 0;
+        bPullWalk.pullWalk = true;
+        for (int i = 0; i < n; i++)
+          s += FfiArms.parse(bPullWalk, id, wire, 0, wire.length) == null ? 0 : 1;
         return s;
       }
     });
