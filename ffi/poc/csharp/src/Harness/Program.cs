@@ -21,7 +21,16 @@ public static class Program
             case "content":
                 return ContentSets.Run(argv.Skip(1).ToArray());
             case "coreffi":
+#if NET8_0_OR_GREATER
                 return CoreFfiGate.Run(argv.Skip(1).ToArray());
+#else
+                // Arm c: .NET Framework 4.8 has no LibraryImport and no
+                // UnmanagedCallersOnly, so the core-ffi binding does not exist
+                // in this build. Saying so beats a stale binary reporting a pass.
+                Console.Error.WriteLine("core-ffi is not built on the floor runtime: "
+                    + "net48 has no LibraryImport and no UnmanagedCallersOnly.");
+                return 2;
+#endif
             case "mapforms":
                 return MapForms.Run(argv.Skip(1).ToArray());
             case "counts":

@@ -106,6 +106,7 @@ public static unsafe class Bench
 
             // The core-ffi arm, M1 only: ResultRaw is the only element type whose
             // binding is built. Widening it is the next piece, not a measurement.
+#if NET8_0_OR_GREATER
             CoreFfiM1 core = null;
             ListResultsResponse coreSrc = null;
             if (a.Root == "ListResultsResponse")
@@ -133,6 +134,7 @@ public static unsafe class Bench
                     });
                 }
             }
+#endif
 
             var e = Enc.New(Codec.Sites, cap);
             cases.Add(new Case

@@ -2,9 +2,12 @@
 
 **The C# slice binds to the SAME core the Rust slice built.** One native core
 with N bindings is the proposal under test, so a slice that grows its own core
-is not testing it. `ffi/poc/rust/crates/ak-core` is a cdylib exporting 68 `ak_`
-symbols implementing ABI v1 over exactly these shapes; this emits the managed
-half.
+is not testing it. The core lives once, at `ffi/poc/codec/` (R0), and every slice
+depends on it by path. Built with its default features it is a cdylib
+exporting **66** `ak_` symbols implementing ABI v1 over exactly these shapes --
+66 and not 68 because ABI v1 section 9's RPC half is behind an `rpc` feature
+this slice does not turn on, so the object carries no tonic and no tokio. This
+emits the managed half.
 
 Two things make the C# binding different from every other slice's, and both
 are emitted here rather than written by hand.

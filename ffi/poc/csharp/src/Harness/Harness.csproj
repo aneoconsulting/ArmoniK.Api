@@ -53,16 +53,17 @@
   <!-- THE shared libak_core.so (README R0). Not a copy of its sources and not a
        second core. One native core with N bindings is the proposal, so the C# arm
        loads the artifact every other arm loads. This slice needed no copy even
-       before R0 -- it already linked the Rust slice's build -- so all that changed
+       before R0, having already linked the Rust slice's build, so all that changed
        is the path: the core now lives in its own workspace rather than inside one
-       slice's. Built by `ffi/poc/codec/gen/build.sh`, i.e.
-       cargo build --release -p ak-core, in ffi/poc/codec.
+       slice's. Built by `ffi/poc/codec/gen/build.sh`, i.e. a release build of
+       -p ak-core in ffi/poc/codec.
 
        One thing for this slice's own session to note: the shared crate builds
        WITHOUT the `rpc` feature by default, where the Rust slice's build had ABI v1
        section 9 compiled in unconditionally. The codec entry points this arm calls
        are identical; the shared object is smaller and carries no tonic. The C# arm
-       was not re-gated for W10 because dotnet is not installed in that container. -->
+       was not re-gated for W10 in the aggregating session's container, which has no
+       dotnet. It IS re-gated here: see ffi/logs/csharp/stage9-shared-core.log. -->
   <ItemGroup>
     <None Include="../../../codec/target/release/libak_core.so"
           Condition="Exists('../../../codec/target/release/libak_core.so')"

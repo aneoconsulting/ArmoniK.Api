@@ -155,7 +155,7 @@ approach.
 | `memcpy floor` | `Buffer.BlockCopy` of the payload's own bytes: R2's bound | yes |
 | `gp-parse` | `Parser.ParseFrom(ReadOnlySpan<byte>)` | yes |
 | `managed-parse` | `Codec.Read` into a fresh facade graph | yes |
-| **`core-ffi`** | **the amended ABI, over the SAME `libak_core.so` the Rust slice builds** | **YES for M1, encode and decode.** Not a second core: one native core with N bindings is the proposal. M2 to M7 NOT built |
+| **`core-ffi`** | **the amended ABI, over the ONE core at `ffi/poc/codec` (R0)** | **YES for M1, encode and decode, on arms a and b. NOT on arm c**, see below. M2 to M7 NOT built |
 
 ## What exists
 
@@ -340,6 +340,26 @@ guard, and the by-value group declared at the offsets the Rust build reports.
 **Gated first**: byte identity on P1.1, P1.2 and P1.3 including the absent
 path, decode re-encoded to the same bytes, and the decoded graph compared
 field by field against the one the builder made.
+
+**Re-gated on the shared core (W10, `stage9-shared-core.log`).** That core is a
+different artifact and not just a different path: default features exclude
+`rpc`, so it is 618 KB with 66 `ak_` exports against the Rust slice's 3,070 KB
+and 68. **Nothing moved** -- worst move 0.035 against 0.026 on arms the core
+cannot touch, no consistent sign, so run-to-run drift.
+
+**The loaded artifact is confirmed from the dynamic linker, not the build
+log**, and that was needed twice: once a failed build left a stale core in the
+output directory, and once **arm c failed to build with 172 errors while Mono
+ran a three-hour-old binary and reported a pass**. A build log would have shown
+neither.
+
+**Arm c cannot carry this arm at all, and that is a floor finding.** .NET
+Framework 4.8 has no `LibraryImport` (.NET 7+) and no `UnmanagedCallersOnly`
+(.NET 5+), so the binding as generated does not compile there. A floor binding
+would be `DllImport` plus delegate pointers, and **the delegates must be rooted
+for the lifetime of the vtable or the collector reclaims a thunk the codec
+still holds** -- a crash, not a slowdown. The project excludes it explicitly so
+arm c states what it covers.
 
 **Crossings are constant in the element count, in both directions.**
 
@@ -838,6 +858,7 @@ another container's. R13's one calibration run stands and is not to be tuned.
 | `ffi/logs/csharp/stage4-floor-arm-c.log` | **Mono 6.8.0.105**, net48, floor sources linked from the same tree, six payloads, two runs | **README 5.2 arm c, standalone.** Passes the same 136 checks on the floor runtime; the design's advantage survives it and is larger on decode. Mono absolutes, quoted as absolutes and never as a ratio against arm a |
 | `ffi/logs/csharp/stage5-content-sets.log` | arm a, .NET 8.0.31, all three content sets in ONE process, P1.2 and P2.2 | **The string path, which is 174 of 413 fields.** Wire widths matching the Rust slice (1.70/1.75 and 2.39/2.50), and the encode advantage narrowing from 0.31-0.43 to 0.45-0.61 while decode barely moves. Carries the set-definition defect and its correction |
 | `ffi/logs/csharp/stage5-content-sets-floor.log` | arm b, otherwise as above | The sharp version of arm b: b/a is 0.947 to 1.062 where the transcoder actually has work |
+| `ffi/logs/csharp/stage9-shared-core.log` | the ONE core at `ffi/poc/codec`, default features so no `rpc`; loaded path confirmed with `LD_DEBUG=libs`; three arms gated, three timing processes, plus a pre-move control | **The W10 re-gate.** 152 checks 0 failures on all three arms; the core-ffi arm green on M1; **nothing moved** (worst 0.035 against a 0.026 floor on arms the core cannot touch). Records that arm c cannot carry the core-ffi arm and why, and that a stale binary reported a pass before the timestamp was checked |
 | `ffi/logs/csharp/stage8-core-ffi.log` | the arm through `libak_core.so`, shared-library linkage, generated binding, staged strings; correctness plus three timing processes | **The `core-ffi` arm, M1.** Byte identity and value identity on P1.1/P1.2/P1.3; layout agreement on 8 structs; crossings constant in the element count in both directions; the interface cost against the no-boundary control, including the two findings that point opposite ways -- the C ABI beating the managed codec on P1.2 decode, and the absent path collapsing on the total group fill |
 | `ffi/logs/csharp/stage7-benchmarkdotnet.log` + `bdn-results/*.csv`, `*-github.md` | **BenchmarkDotNet 0.15.8**, defaults, each benchmark in its own process, 144 benchmarks (16 payloads x 6 encode arms + 16 x 3 decode) | **The harness the CONTROLLED RERUN should use, and the cross-check that makes the hand-rolled one trustworthy.** It subtracts its own overhead, iterates warmup to a convergence criterion, reports a 99.9% CI, removes outliers and adds Gen0/1/2 counts. What it does not do is interleave, which is the whole point of the hand-rolled harness on a noisy shared container; on a controlled machine that noise is gone and the isolation is the better choice |
 | `ffi/logs/csharp/stage6-tiering-sensitivity.log` | arm a, three processes differing ONLY in `DOTNET_TieredPGO` and `DOTNET_TieredCompilation`, P1.2 / P2.2 / P3.1 | **R9's JIT hazard, measured rather than argued.** Tiering off or PGO off slows the INCUMBENT by 5 to 20 percent, in the direction R9 names. **No arm crosses 1.0 under any configuration**, so no verdict in this slice is JIT-configuration dependent, and the default used everywhere else is the one least favourable to the managed arms |

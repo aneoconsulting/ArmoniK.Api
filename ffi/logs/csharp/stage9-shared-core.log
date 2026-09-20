@@ -1,0 +1,418 @@
+Stage 9: re-gated on the ONE core at ffi/poc/codec (README R0, W10).
+
+commit:    629774b36f6d2fc82859d0b791ac47bee8241ad1 (+ this slice)
+core:      ffi/poc/codec, default features, so NO rpc: 618 KB and 66 ak_ exports,
+           against 3,070 KB and 68 for the Rust slice's build that had ABI v1
+           section 9 compiled in unconditionally. A DIFFERENT artifact, which is
+           why this is a re-gate and not a path change.
+core sha:  190ed052eb6e7f06
+loaded:    confirmed with LD_DEBUG=libs, not from the build log:
+           calling init: .../src/Harness/bin/Release/net8.0/libak_core.so
+           whose sha matches the shared core above.
+
+# harness: coreffi
+# utc:                 2026-09-19T20:31:01Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+Layout agreement (ABI v1 obligation 12.3, as far as it goes here):
+  ok: 8 structs match the Rust build; core ak_abi_version()=1
+
+M1 through the C ABI, against the validated manifest. Encode is byte
+identity; decode is a re-encode to the same bytes AND a field-by-field
+comparison against the graph the builder made, because a re-encode alone
+passes a decoder that drops a field the encoder also omits.
+
+payload  elements    bytes  encode  decode  value  fwd  rev  note
+------------------------------------------------------------------------------------
+P1.1            4      858  ok      ok      ok       5    4  
+P1.2         1000   218121  ok      ok      ok       5    4  
+P1.3          300      605  ok      ok      ok       5    4  the absent path
+
+Reading the crossing columns.
+  fwd/rev are counted by the HOST, which is the half R5 asks a host for.
+  They are CONSTANT in the element count, in BOTH directions, whether the
+  payload carries 4 elements or 1,000. The 5 and 4 cover an encode, a decode
+  and a re-encode:
+    encode     2 forward (ak_encode_*, ak_elem_*)  1 reverse (loop_results)
+    decode     1 forward (ak_decode_*)             2 reverse (apply, add_results)
+  ResultRaw is a LEAF, so encode hands the whole run over in one ak_elem_*
+  call and decode gets it back in one add_results. That is ABI v1's batching
+  predicate doing the thing it exists for, on .NET.
+
+0 failure(s)
+
+############## byte identity, all three of README 5.2's arms ##############
+=== arm a, target sources, .NET 8 ===
+
+152 checks, 0 failure(s)
+=== arm b, FLOOR sources, .NET 8 ===
+
+152 checks, 0 failure(s)
+=== arm c, floor sources, Mono 6.8 ===
+
+152 checks, 0 failure(s)
+
+ARM C DOES NOT CARRY THE CORE-FFI ARM, and that is a floor finding rather than
+a build convenience. net48 has no LibraryImport (.NET 7+) and no
+UnmanagedCallersOnly (.NET 5+), so the binding as generated cannot compile there
+at all. A floor binding would be DllImport plus delegate pointers, and the
+delegates would have to be rooted for the lifetime of the vtable or the collector
+reclaims a thunk the codec still holds: a crash, not a slowdown. The project now
+excludes it explicitly, because the first attempt at this re-gate had arm c
+FAILING TO BUILD while mono ran a three-hour-old binary and reported a pass.
+
+############## timings, three processes ##############
+---------- process 1 ----------
+# harness: bench
+# utc:                 2026-09-19T20:31:08Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+# 42 cases, 7 rounds, interleaved: every case runs once before any runs twice
+# warmup budget 40 ms per case, twice, with a sleep between so the tiering
+#   background thread can promote. R9: tiering and PGO stay ON.
+
+payload  dir     arm              reps      min ns      med ns      max ns   ns/elem   alloc B/op   /gp-writeto  /gp-tba
+------------------------------------------------------------------------------------------------------------------------------------
+P1.1     encode  gp-tobytearray   19716      1898.3      1920.7      1966.2    480.17          952   1.198        1.000
+P1.1     encode  gp-writeto       23335      1625.2      1648.0      1678.0    412.00            0   1.028        0.858
+P1.1     encode  gp-bufferwriter  54071      1246.8      1252.7      1274.5    313.17            0   0.781        0.652
+P1.1     encode  gp-marshaller    24180      1591.2      1603.4      1616.4    400.84            0   1.000        0.835
+P1.1     encode  core-ffi         72171       989.3       997.7      1119.7    249.42            0   0.622        0.519
+P1.1     encode  managed          74899       728.3       733.0       798.4    183.24            0   0.457        0.382
+P1.1     encode  managed-2pass    57633      1440.8      1467.0      1488.0    366.74            0   0.915        0.764
+P1.1     encode  memcpy floor    1619948        24.1        24.4        25.2      6.09            0   0.015        0.013
+
+P1.1     decode  core-ffi         38399      1889.1      2017.7      2089.4    504.43         2624   0.748        0.748
+P1.1     decode  gp-parse-seq     14507      2670.1      2696.2      2876.2    674.05         2888   1.000        1.000
+P1.1     decode  gp-parse-seg     15538      2501.9      2594.8      2741.0    648.70         2888   0.962        0.962
+P1.1     decode  gp-parse         16122      2519.5      2592.1      2634.1    648.04         2888   0.961        0.961
+P1.1     decode  managed-parse    42847      1810.1      1930.3      2025.2    482.59         2624   0.716        0.716
+P1.1     decode  memcpy floor    1624780        24.2        24.4        25.6      6.11            0   0.009        0.009
+
+P1.2     encode  gp-tobytearray     103    537197.1    556892.2    686703.9    556.89       218611   1.169        1.000
+P1.2     encode  gp-writeto         147    473103.4    485435.4    649558.5    485.44            0   1.019        0.872
+P1.2     encode  gp-bufferwriter    147    375529.9    379833.3    390138.1    379.83            0   0.797        0.682
+P1.2     encode  gp-marshaller      147    472970.1    476295.2    479293.9    476.30            0   1.000        0.855
+P1.2     encode  core-ffi           162    246019.8    249738.9    289452.5    249.74            0   0.524        0.448
+P1.2     encode  managed            195    206635.9    207725.6    214436.4    207.73            0   0.436        0.373
+P1.2     encode  managed-2pass      147    448244.2    454821.1    460506.1    454.82            0   0.955        0.817
+P1.2     encode  memcpy floor      7879      8690.8      9170.1      9885.4      9.17            0   0.019        0.016
+
+P1.2     decode  core-ffi           127    464044.9    474982.7    511168.5    474.98       641976   0.627        0.627
+P1.2     decode  gp-parse-seq        59    708125.4    757379.7    794944.1    757.38       697928   1.000        1.000
+P1.2     decode  gp-parse-seg        63    682439.7    711436.5    742714.3    711.44       697928   0.939        0.939
+P1.2     decode  gp-parse           107    679454.2    706112.1    724871.0    706.11       697928   0.932        0.932
+P1.2     decode  managed-parse      131    515751.9    536386.3    556411.5    536.39       641976   0.708        0.708
+P1.2     decode  memcpy floor      8105      8750.5      9422.6      9572.4      9.42            0   0.012        0.012
+
+P1.3     encode  gp-tobytearray    6559     12199.1     12316.5     12862.4     41.06          696   1.017        1.000
+P1.3     encode  gp-writeto        6507     12006.1     12035.2     12234.1     40.12            0   0.994        0.977
+P1.3     encode  gp-bufferwriter   4543      8743.1      8831.4      8877.9     29.44            0   0.729        0.717
+P1.3     encode  gp-marshaller     4421     12016.3     12107.5     13794.8     40.36            0   1.000        0.983
+P1.3     encode  core-ffi          9363      7402.9      7457.6      7704.8     24.86            0   0.616        0.605
+P1.3     encode  managed          21089      3077.8      3110.0      3249.1     10.37            0   0.257        0.253
+P1.3     encode  managed-2pass     9363      3916.1      3921.2      3964.8     13.07            0   0.324        0.318
+P1.3     encode  memcpy floor    3795141        20.5        20.7        24.3      0.07            0   0.002        0.002
+
+P1.3     decode  core-ffi          3089     23788.1     24521.5     26634.2     81.74        37216   1.084        1.084
+P1.3     decode  gp-parse-seq      3259     21350.8     22614.0     24740.4     75.38        39568   1.000        1.000
+P1.3     decode  gp-parse-seg      1736     19679.3     22088.7     22648.4     73.63        39568   0.977        0.977
+P1.3     decode  gp-parse          3271     20384.9     21423.9     23139.7     71.41        39568   0.947        0.947
+P1.3     decode  managed-parse     6659     11021.7     11648.8     12406.1     38.83        37216   0.515        0.515
+P1.3     decode  memcpy floor    3776245        20.6        20.7        21.1      0.07            0   0.001        0.001
+
+Reading this table.
+  THE BASELINE COLUMN IS THE PATH ARMONIK RUNS (R14). On encode that is
+    gp-marshaller: CalculateSize then WriteTo(IBufferWriter), which is the exact
+    sequence Grpc.Tools emits into the stub. On decode it is gp-parse-seq:
+    ParseFrom(ReadOnlySequence), which is what the marshaller hands the parser.
+    gp-writeto and gp-parse are the span forms, kept as second rows.
+  gp-bufferwriter is WriteTo(IBufferWriter) with NO top-level size pass, over a
+    reused BufWriter that resets rather than clearing. It is NOT a baseline an
+    ArmoniK client could use: Grpc.Tools' generated marshaller calls
+    SetPayloadLength(CalculateSize()) and THEN WriteTo(bufferWriter), because
+    gRPC needs the payload length before the frame header. What this arm prices
+    is therefore the SIZE PASS IN ISOLATION, not a faster incumbent.
+  /gp-tba is Google.Protobuf's ToByteArray, which is the call application code
+    actually writes. The two differ by one allocation of the output, and the gap
+    between the two columns is that allocation with nothing else in it.
+  managed against managed-2pass is a WITHIN-ARM delta in the same rounds (R4): one
+    pass with a learned length width against two passes with exact prefixes, which
+    is the shape Google.Protobuf uses. It prices the single pass ALONE.
+  memcpy floor is R2's bound: no encoder produces N bytes for less than one copy of
+    N bytes. On DECODE it is a weak floor except on the M5 bulk rows, where a
+    decode is a copy; elsewhere read it as a scale and not as a bound.
+  ns/elem divides by the element count, which for P1.1 (4 elements) is a per-MESSAGE
+    cost divided by four and is NOT comparable with P1.2's.
+  There are no crossing counts here: every arm in this table is in-process managed
+    code and crosses nothing. The counts R5 asks for belong to the core-ffi arm,
+    which is not built.
+
+---------- process 2 ----------
+# harness: bench
+# utc:                 2026-09-19T20:31:37Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+# 42 cases, 7 rounds, interleaved: every case runs once before any runs twice
+# warmup budget 40 ms per case, twice, with a sleep between so the tiering
+#   background thread can promote. R9: tiering and PGO stay ON.
+
+payload  dir     arm              reps      min ns      med ns      max ns   ns/elem   alloc B/op   /gp-writeto  /gp-tba
+------------------------------------------------------------------------------------------------------------------------------------
+P1.1     encode  gp-tobytearray   21454      1867.8      1874.5      1949.0    468.62          952   1.233        1.000
+P1.1     encode  gp-writeto       24864      1572.3      1581.3      1649.6    395.34            0   1.040        0.844
+P1.1     encode  gp-bufferwriter  55285      1196.8      1207.4      1256.0    301.86            0   0.794        0.644
+P1.1     encode  gp-marshaller    25541      1507.7      1520.2      1537.6    380.05            0   1.000        0.811
+P1.1     encode  core-ffi         64359       991.5      1000.6      1034.9    250.16            0   0.658        0.534
+P1.1     encode  managed          74899       736.8       741.2       758.5    185.30            0   0.488        0.395
+P1.1     encode  managed-2pass    28347      1456.0      1469.3      1629.1    367.33            0   0.967        0.784
+P1.1     encode  memcpy floor    3296671        24.2        24.4        25.8      6.09            0   0.016        0.013
+
+P1.1     decode  core-ffi         37597      1977.4      2035.0      2187.5    508.76         2624   0.757        0.757
+P1.1     decode  gp-parse-seq     15181      2565.2      2686.7      2881.9    671.67         2888   1.000        1.000
+P1.1     decode  gp-parse-seg     15942      2503.9      2547.4      2972.6    636.85         2888   0.948        0.948
+P1.1     decode  gp-parse         16157      2445.5      2644.8      2881.9    661.19         2888   0.984        0.984
+P1.1     decode  managed-parse    20060      1978.6      2073.9      2201.1    518.48         2624   0.772        0.772
+P1.1     decode  memcpy floor    3280023        24.1        24.6        26.0      6.15            0   0.009        0.009
+
+P1.2     encode  gp-tobytearray     111    521527.0    542280.2    561757.7    542.28       218655   1.165        1.000
+P1.2     encode  gp-writeto         147    459583.7    463082.3    471811.6    463.08            0   0.995        0.854
+P1.2     encode  gp-bufferwriter    147    363696.6    367363.9    394241.5    367.36            0   0.789        0.677
+P1.2     encode  gp-marshaller      147    460052.4    465606.1    481957.1    465.61            0   1.000        0.859
+P1.2     encode  core-ffi           158    251243.7    252737.3    254992.4    252.74            0   0.543        0.466
+P1.2     encode  managed            194    205295.9    207256.7    210074.2    207.26            0   0.445        0.382
+P1.2     encode  managed-2pass      147    447251.0    448738.1    473427.9    448.74            0   0.964        0.828
+P1.2     encode  memcpy floor      8173      7866.2      9526.3      9740.4      9.53            0   0.020        0.018
+
+P1.2     decode  core-ffi           147    479649.0    490017.7    542731.3    490.02       641976   0.648        0.648
+P1.2     decode  gp-parse-seq        60    726300.0    756148.3    801028.3    756.15       697928   1.000        1.000
+P1.2     decode  gp-parse-seg        85    660658.8    709431.8    850587.1    709.43       697928   0.938        0.938
+P1.2     decode  gp-parse            66    706809.1    727787.9    817593.9    727.79       697928   0.962        0.962
+P1.2     decode  managed-parse      147    532782.3    607504.8    621337.4    607.50       641976   0.803        0.803
+P1.2     decode  memcpy floor      8173      7843.6      9350.9      9594.0      9.35            0   0.012        0.012
+
+P1.3     encode  gp-tobytearray    3230     12220.6     12318.8     13431.4     41.06          696   1.014        1.000
+P1.3     encode  gp-writeto        5581     12002.5     12025.8     12570.5     40.09            0   0.990        0.976
+P1.3     encode  gp-bufferwriter   8875      8859.4      8921.3      9272.2     29.74            0   0.734        0.724
+P1.3     encode  gp-marshaller     3313     11991.9     12150.2     14228.0     40.50            0   1.000        0.986
+P1.3     encode  core-ffi          9363      7433.3      7482.3      7796.0     24.94            0   0.616        0.607
+P1.3     encode  managed          12892      3080.9      3138.4      3343.8     10.46            0   0.258        0.255
+P1.3     encode  managed-2pass    20093      3946.6      3963.6      4111.3     13.21            0   0.326        0.322
+P1.3     encode  memcpy floor    3741815        20.6        20.7        22.0      0.07            0   0.002        0.002
+
+P1.3     decode  core-ffi          2831     24638.1     25322.3     26951.3     84.41        37216   1.005        1.005
+P1.3     decode  gp-parse-seq      2905     23389.0     25193.8     27505.3     83.98        39568   1.000        1.000
+P1.3     decode  gp-parse-seg      3505     21237.3     22517.8     25463.0     75.06        39568   0.894        0.894
+P1.3     decode  gp-parse          3535     20830.8     21934.5     24692.0     73.11        39568   0.871        0.871
+P1.3     decode  managed-parse     6931     11595.1     12997.7     14788.2     43.33        37216   0.516        0.516
+P1.3     decode  memcpy floor    3882437        20.5        20.7        21.0      0.07            0   0.001        0.001
+
+Reading this table.
+  THE BASELINE COLUMN IS THE PATH ARMONIK RUNS (R14). On encode that is
+    gp-marshaller: CalculateSize then WriteTo(IBufferWriter), which is the exact
+    sequence Grpc.Tools emits into the stub. On decode it is gp-parse-seq:
+    ParseFrom(ReadOnlySequence), which is what the marshaller hands the parser.
+    gp-writeto and gp-parse are the span forms, kept as second rows.
+  gp-bufferwriter is WriteTo(IBufferWriter) with NO top-level size pass, over a
+    reused BufWriter that resets rather than clearing. It is NOT a baseline an
+    ArmoniK client could use: Grpc.Tools' generated marshaller calls
+    SetPayloadLength(CalculateSize()) and THEN WriteTo(bufferWriter), because
+    gRPC needs the payload length before the frame header. What this arm prices
+    is therefore the SIZE PASS IN ISOLATION, not a faster incumbent.
+  /gp-tba is Google.Protobuf's ToByteArray, which is the call application code
+    actually writes. The two differ by one allocation of the output, and the gap
+    between the two columns is that allocation with nothing else in it.
+  managed against managed-2pass is a WITHIN-ARM delta in the same rounds (R4): one
+    pass with a learned length width against two passes with exact prefixes, which
+    is the shape Google.Protobuf uses. It prices the single pass ALONE.
+  memcpy floor is R2's bound: no encoder produces N bytes for less than one copy of
+    N bytes. On DECODE it is a weak floor except on the M5 bulk rows, where a
+    decode is a copy; elsewhere read it as a scale and not as a bound.
+  ns/elem divides by the element count, which for P1.1 (4 elements) is a per-MESSAGE
+    cost divided by four and is NOT comparable with P1.2's.
+  There are no crossing counts here: every arm in this table is in-process managed
+    code and crosses nothing. The counts R5 asks for belong to the core-ffi arm,
+    which is not built.
+
+---------- process 3 ----------
+# harness: bench
+# utc:                 2026-09-19T20:32:06Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# R13 calibration on THIS machine: the Rust slice's crossing benchmark
+#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here
+#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute
+#   below is also quotable as a multiple of that 1.8 ns.
+#
+# 42 cases, 7 rounds, interleaved: every case runs once before any runs twice
+# warmup budget 40 ms per case, twice, with a sleep between so the tiering
+#   background thread can promote. R9: tiering and PGO stay ON.
+
+payload  dir     arm              reps      min ns      med ns      max ns   ns/elem   alloc B/op   /gp-writeto  /gp-tba
+------------------------------------------------------------------------------------------------------------------------------------
+P1.1     encode  gp-tobytearray   22057      1845.1      1875.1      2031.9    468.78          952   1.214        1.000
+P1.1     encode  gp-writeto       24854      1555.6      1571.0      1589.0    392.75            0   1.017        0.838
+P1.1     encode  gp-bufferwriter  53347      1227.8      1229.6      1235.9    307.41            0   0.796        0.656
+P1.1     encode  gp-marshaller    24991      1533.9      1544.7      1555.5    386.16            0   1.000        0.824
+P1.1     encode  core-ffi         73413      1009.6      1014.2      1015.9    253.54            0   0.657        0.541
+P1.1     encode  managed          74899       757.5       759.9       766.4    189.97            0   0.492        0.405
+P1.1     encode  managed-2pass    54623      1410.7      1422.5      1429.6    355.63            0   0.921        0.759
+P1.1     encode  memcpy floor    2731427        24.0        24.4        24.6      6.09            0   0.016        0.013
+
+P1.1     decode  core-ffi         18762      1978.6      2043.6      2177.4    510.91         2624   0.755        0.755
+P1.1     decode  gp-parse-seq     14247      2667.4      2707.1      2838.6    676.78         2888   1.000        1.000
+P1.1     decode  gp-parse-seg     15081      2493.2      2689.6      2822.5    672.41         2888   0.994        0.994
+P1.1     decode  gp-parse         14871      2421.7      2566.1      2762.4    641.53         2888   0.948        0.948
+P1.1     decode  managed-parse    39425      1767.4      1926.0      2123.7    481.50         2624   0.711        0.711
+P1.1     decode  memcpy floor    3249561        24.1        24.5        25.1      6.13            0   0.009        0.009
+
+P1.2     encode  gp-tobytearray     147    525390.5    532939.5    540940.1    532.94       218657   1.149        1.000
+P1.2     encode  gp-writeto         147    460668.0    462901.4    465689.8    462.90            0   0.998        0.869
+P1.2     encode  gp-bufferwriter    147    370272.8    371166.0    374583.0    371.17            0   0.800        0.696
+P1.2     encode  gp-marshaller      147    461175.5    463997.3    472098.0    464.00            0   1.000        0.871
+P1.2     encode  core-ffi           160    249771.9    250586.9    265735.0    250.59            0   0.540        0.470
+P1.2     encode  managed            187    212257.2    213519.3    235339.0    213.52            0   0.460        0.401
+P1.2     encode  managed-2pass      147    454247.6    455639.5    471127.2    455.64            0   0.982        0.855
+P1.2     encode  memcpy floor      8013      8920.5      9655.0      9950.2      9.66            0   0.021        0.018
+
+P1.2     decode  core-ffi           147    454138.1    473025.2    500884.4    473.03       641976   0.636        0.636
+P1.2     decode  gp-parse-seq        58    740858.6    743453.4    840124.1    743.45       697928   1.000        1.000
+P1.2     decode  gp-parse-seg        59    700422.0    763832.2    778479.7    763.83       697928   1.027        1.027
+P1.2     decode  gp-parse            87    694756.3    735892.0    764316.1    735.89       697928   0.990        0.990
+P1.2     decode  managed-parse       73    541932.9    551609.6    596311.0    551.61       641976   0.742        0.742
+P1.2     decode  memcpy floor      7957      8678.9      9564.8      9882.3      9.56            0   0.013        0.013
+
+P1.3     encode  gp-tobytearray    6095     12956.8     13022.4     13267.4     43.41          696   1.019        1.000
+P1.3     encode  gp-writeto        3121     12728.0     12764.5     12862.6     42.55            0   0.998        0.980
+P1.3     encode  gp-bufferwriter   8639      9238.5      9312.4      9362.3     31.04            0   0.728        0.715
+P1.3     encode  gp-marshaller     6225     12753.8     12785.2     13210.0     42.62            0   1.000        0.982
+P1.3     encode  core-ffi          9363      7406.8      7426.8      7539.8     24.76            0   0.581        0.570
+P1.3     encode  managed          24855      3173.3      3181.3      3583.9     10.60            0   0.249        0.244
+P1.3     encode  managed-2pass    10162      3911.9      3925.8      4987.4     13.09            0   0.307        0.301
+P1.3     encode  memcpy floor    3853475        20.4        20.6        23.5      0.07            0   0.002        0.002
+
+P1.3     decode  core-ffi          2875     23949.6     24270.7     24718.9     80.90        37216   1.063        1.063
+P1.3     decode  gp-parse-seq      3195     21402.1     22832.7     25181.7     76.11        39568   1.000        1.000
+P1.3     decode  gp-parse-seg      2027     19056.8     21771.0     24781.5     72.57        39568   0.953        0.953
+P1.3     decode  gp-parse          2061     19317.1     20990.6     22450.4     69.97        39568   0.919        0.919
+P1.3     decode  managed-parse     3724     10794.2     11632.9     11974.8     38.78        37216   0.509        0.509
+P1.3     decode  memcpy floor    3840261        20.4        20.6        20.9      0.07            0   0.001        0.001
+
+Reading this table.
+  THE BASELINE COLUMN IS THE PATH ARMONIK RUNS (R14). On encode that is
+    gp-marshaller: CalculateSize then WriteTo(IBufferWriter), which is the exact
+    sequence Grpc.Tools emits into the stub. On decode it is gp-parse-seq:
+    ParseFrom(ReadOnlySequence), which is what the marshaller hands the parser.
+    gp-writeto and gp-parse are the span forms, kept as second rows.
+  gp-bufferwriter is WriteTo(IBufferWriter) with NO top-level size pass, over a
+    reused BufWriter that resets rather than clearing. It is NOT a baseline an
+    ArmoniK client could use: Grpc.Tools' generated marshaller calls
+    SetPayloadLength(CalculateSize()) and THEN WriteTo(bufferWriter), because
+    gRPC needs the payload length before the frame header. What this arm prices
+    is therefore the SIZE PASS IN ISOLATION, not a faster incumbent.
+  /gp-tba is Google.Protobuf's ToByteArray, which is the call application code
+    actually writes. The two differ by one allocation of the output, and the gap
+    between the two columns is that allocation with nothing else in it.
+  managed against managed-2pass is a WITHIN-ARM delta in the same rounds (R4): one
+    pass with a learned length width against two passes with exact prefixes, which
+    is the shape Google.Protobuf uses. It prices the single pass ALONE.
+  memcpy floor is R2's bound: no encoder produces N bytes for less than one copy of
+    N bytes. On DECODE it is a weak floor except on the M5 bulk rows, where a
+    decode is a copy; elsewhere read it as a scale and not as a bound.
+  ns/elem divides by the element count, which for P1.1 (4 elements) is a per-MESSAGE
+    cost divided by four and is NOT comparable with P1.2's.
+  There are no crossing counts here: every arm in this table is in-process managed
+    code and crosses nothing. The counts R5 asks for belong to the core-ffi arm,
+    which is not built.
+
+
+############## did the consolidation move anything? ##############
+
+A pre-move control was taken BEFORE the merge, on the old core (sha
+7116b677b9a72eb8, rpc compiled in), same binary, same machine, three processes,
+and run about two minutes before the post-move set below. Medians compared.
+
+  worst move overall                       0.035  (core-ffi, P1.1 encode)
+  worst move, core-ffi rows                0.035
+  worst move, arms the core CANNOT touch   0.026  (gp-parse, P1.2 decode)
+
+The arms that cannot possibly be affected by the core -- Google.Protobuf, the
+managed codec, the memcpy floor -- moved by up to 0.026, and the core-ffi rows
+moved by up to 0.035. Those are the same size. Per-payload: core-ffi moved
++0.035, +0.026, -0.024, +0.023, +0.013, +0.008 across the six rows, with no
+consistent sign.
+
+CONCLUSION: run-to-run drift, not a consolidation shift. The pre-move and
+post-move cores are equivalent for the codec entry points, which is what the
+feature split predicts -- `rpc` adds tonic and tokio and touches no codec code.
+
+Reported rather than assumed, because a consolidation that shifted a number
+would mean the copies were not equivalent, and that is a more interesting
+result than the tidy-up.
