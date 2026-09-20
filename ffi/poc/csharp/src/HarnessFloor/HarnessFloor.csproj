@@ -48,8 +48,17 @@
   <ItemGroup>
     <Compile Include="../Facade/**/*.cs" LinkBase="Facade"
              Exclude="../Facade/obj/**;../Facade/bin/**;../Facade/obj-floor/**;../Facade/bin-floor/**" />
+    <!-- The core-ffi arm is EXCLUDED from arm c, and that is a floor finding
+         rather than a build convenience. .NET Framework 4.8 has no
+         LibraryImport (.NET 7+) and no UnmanagedCallersOnly (.NET 5+), so the
+         binding as generated cannot compile here at all. A floor binding would
+         have to be DllImport plus delegate pointers, and the delegates would
+         have to be rooted for the lifetime of the vtable or the collector
+         reclaims a thunk the codec still holds: a crash, not a slowdown.
+         Excluding it keeps arm c honest about what it covers instead of
+         letting a stale binary report a pass. -->
     <Compile Include="../Harness/**/*.cs" LinkBase="Harness"
-             Exclude="../Harness/obj/**;../Harness/bin/**;../Harness/obj-floor/**;../Harness/bin-floor/**" />
+             Exclude="../Harness/obj/**;../Harness/bin/**;../Harness/obj-floor/**;../Harness/bin-floor/**;../Harness/Generated/Abi.cs;../Harness/Generated/CoreFfi.cs;../Harness/CoreFfiGate.cs" />
   </ItemGroup>
 
 </Project>
