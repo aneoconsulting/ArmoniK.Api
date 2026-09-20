@@ -118,6 +118,8 @@ endfunction()
 set(CONF ${CMAKE_CURRENT_SOURCE_DIR}/src/conformance.cpp)
 set(BENCH ${CMAKE_CURRENT_SOURCE_DIR}/src/bench.cpp)
 set(COUNTS ${CMAKE_CURRENT_SOURCE_DIR}/src/counts.cpp)
+set(CONC ${CMAKE_CURRENT_SOURCE_DIR}/src/concurrency.cpp)
+set(U8 ${CMAKE_CURRENT_SOURCE_DIR}/src/utf8check.cpp)
 
 # Correctness gates. README 5.2's arms: a = target impl at the target level; b = FLOOR
 # impl at the target level; c = floor impl at the floor level.
@@ -144,6 +146,26 @@ target_compile_definitions(bench_a17_perturb PRIVATE AK_PERTURB=1)
 # verdict transfers to .NET, FFM and JNI instead of being a fact about 1.85 ns.
 ak_arm(bench_a17_tax      ${BENCH} 17 target on  shared reject ${CORE_OUT})
 target_compile_definitions(bench_a17_tax PRIVATE AK_CROSSING_TAX=1)
+
+# ABI v1 obligation 12.5: the concurrency suite, plus the three PLANTED builds that show
+# it can fail. The plants are the two designs section 6 refused (see include/ak/rt.h); they
+# are correctness fixtures, never timed, and `gen/concurrency.sh` inverts their exit code.
+ak_arm(conc_a17_shared ${CONC} 17 target on shared reject ${CORE_OUT})
+ak_arm(conc_c11_shared ${CONC} 11 floor  on shared reject ${CORE_OUT})
+ak_arm(conc_a17_static ${CONC} 17 target on static reject ${CORE_OUT})
+ak_arm(conc_a17_pad    ${CONC} 17 target on shared reject ${CORE_OUT})
+target_compile_definitions(conc_a17_pad PRIVATE AK_CONC_PAD=1)
+ak_arm(conc_a17_global ${CONC} 17 target on shared reject ${CORE_OUT})
+target_compile_definitions(conc_a17_global PRIVATE AK_CONC_GLOBAL=1)
+ak_arm(conc_a17_both   ${CONC} 17 target on shared reject ${CORE_OUT})
+target_compile_definitions(conc_a17_both PRIVATE AK_CONC_PAD=1 AK_CONC_GLOBAL=1)
+
+# ABI v1 open decision 3's validator, which is what the decode-side number was really
+# about. Correctness first: an exhaustive differential test against an independent oracle,
+# then the timing, both in one process. Also built at the floor, because the DFA is the one
+# a core would ship and a core ships to C++11 hosts too.
+ak_arm(utf8check_a17 ${U8} 17 target on shared reject ${CORE_OUT})
+ak_arm(utf8check_c11 ${U8} 11 floor  on shared reject ${CORE_OUT})
 
 # R5: the crossing counts come from a counting CORE, never from the timed binary.
 ak_arm(counts_a17_shared ${COUNTS} 17 target on shared reject ${CORE_COUNT_OUT})

@@ -10,6 +10,14 @@
 #ifndef AK_RT_H
 #define AK_RT_H
 
+// Which validator the decode path uses. The DFA is the default because it is the one a
+// core would ship; the others exist so the policy can be priced against all of them in
+// one process rather than across binaries separated by R4's 0.240 drift bar.
+#ifndef AK_UTF8
+#define AK_UTF8 1
+#endif
+
+
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -26,7 +34,45 @@
 #define AK_CXX17 0
 #endif
 
+// ---- the two designs ABI v1 section 6 REFUSED, buildable so the refusal has evidence --
+//
+// Both default to off and neither is in any timed or gated binary. They exist for
+// `src/concurrency.cpp` (ABI v1 obligation 12.5), because a concurrency suite that has
+// only ever passed has not been seen working, and because section 6's two refusals were
+// arguments rather than measurements:
+//
+//   AK_CONC_PAD     pad the length prefix to the LEARNED width instead of writing the
+//                   minimal one and moving. Section 6: "padding to the learned width makes
+//                   the encoder's output depend on its own history, which a byte-vector
+//                   corpus cannot express". Still per-Enc, so this is a SEQUENTIAL defect
+//                   and it needs TWO PAYLOAD SHAPES to be visible at all.
+//   AK_CONC_GLOBAL  put the learned-width table in a process-global instead of in the
+//                   context. Section 6: "a global table made two encoding threads slower
+//                   than one". On its own it is a data race and a throughput defect but
+//                   not a byte defect; with AK_CONC_PAD it is section 6's other sentence,
+//                   "lets two threads of one process emit two different legal encodings of
+//                   the same message", and then it needs CONCURRENCY to be visible.
+//
+// Two axes, two defects, one visible only in sequence and one only in parallel: which is
+// why obligation 12.5 asks for both axes and for more than one shape.
+#ifndef AK_CONC_PAD
+#define AK_CONC_PAD 0
+#endif
+#ifndef AK_CONC_GLOBAL
+#define AK_CONC_GLOBAL 0
+#endif
+
 namespace ak {
+
+#if AK_CONC_GLOBAL
+// Deliberately unsynchronised, which is the point: the refused design has no place to put
+// a lock that would not cost more than the table saves.
+inline std::vector<uint8_t> &conc_global_widths(std::size_t sites) {
+  static std::vector<uint8_t> w;
+  if (w.size() < sites) w.resize(sites, 1);
+  return w;
+}
+#endif
 
 const int32_t ERR_MALFORMED = -2;
 const int32_t ERR_TRUNCATED = -3;
@@ -80,6 +126,18 @@ class Enc {
   int32_t err;
 
   inline std::size_t size() const { return len_; }
+  // The learned widths, readable. `src/concurrency.cpp` needs them: whether a pair of
+  // payloads can exercise the history surface AT ALL is a property of the pair, and a
+  // history test run on a pair that moves no width is a test of nothing.
+  const std::vector<uint8_t> &widths() const { return widths_; }
+  // Test-only, and off the hot path by construction: it is a setter, not a probe.
+  // `src/concurrency.cpp` needs to know WHICH sites a payload writes, and there is no
+  // way to tell a site left at width 1 from a site never visited. Priming every width
+  // to a value nothing needs and seeing which come back reduced answers it exactly,
+  // without a `touched` store in `begin()` that every timed arm would pay for.
+  void prime_widths(uint8_t w) {
+    for (std::size_t i = 0; i < widths_.size(); ++i) widths_[i] = w;
+  }
   inline const uint8_t *data() const { return storage_.empty() ? NULL : &storage_[0]; }
 
   void reset() {
@@ -144,7 +202,7 @@ class Enc {
     key(tag, WIRE_LEN);
     Mark m;
     m.site = site;
-    m.w = widths_[site];
+    m.w = width(site);
     m.hdr = len_;
     ensure(m.w);
     std::memset(&storage_[0] + len_, 0, m.w);
@@ -155,6 +213,18 @@ class Enc {
   inline void end(const Mark &m) {
     std::size_t body = len_ - m.hdr - m.w;
     std::size_t need = varint_len((uint64_t)body);
+#if AK_CONC_PAD
+    // Section 6's refused form: keep the reserved width and write a NON-MINIMAL varint
+    // into it. Legal protobuf, a different byte string, and a function of what this
+    // encoder happened to encode before.
+    if (need < m.w) {
+      uint64_t pv = (uint64_t)body;
+      uint8_t *pd = &storage_[0] + m.hdr;
+      for (std::size_t i = 0; i + 1 < m.w; ++i) { *pd++ = (uint8_t)(pv) | 0x80; pv >>= 7; }
+      *pd = (uint8_t)pv;
+      return;
+    }
+#endif
     if (need != m.w) resize_prefix(m, body, need);
     uint64_t v = (uint64_t)body;
     uint8_t *d = &storage_[0] + m.hdr;
@@ -168,8 +238,15 @@ class Enc {
     if (n < want) n = want;
     storage_.resize(n);
   }
+  inline uint8_t &width(std::size_t site) {
+#if AK_CONC_GLOBAL
+    return conc_global_widths(widths_.size())[site];
+#else
+    return widths_[site];
+#endif
+  }
   void resize_prefix(const Mark &m, std::size_t body, std::size_t need) {
-    widths_[m.site] = (uint8_t)need;
+    width(m.site) = (uint8_t)need;
     if (need > m.w) { ensure(need - m.w); len_ += need - m.w; }
     std::memmove(&storage_[0] + m.hdr + need, &storage_[0] + m.hdr + m.w, body);
     if (need < m.w) len_ -= (m.w - need);
@@ -235,6 +312,43 @@ class Dec {
 // choice, never a per-site one. Default here is REJECT, which is what the specification
 // settled on and what protobuf C++ itself does (it reports a parse failure on a bad
 // `string`). `AK_DEC_LOSSY` builds the other policy so the two can be priced.
+// ---- the decode policy's UTF-8 validator ------------------------------------------
+//
+// Three implementations of one predicate, because the slice's largest single measured
+// effect -- 4.5x to 20x on the string path for "check" against "raw" -- turned out to be a
+// figure about THIS VALIDATOR rather than about the policy ABI v1 open decision 3 settles.
+// 38 ns to validate a 36-byte ASCII string is about 1 ns per byte, and a decision should
+// not be priced against the slowest reasonable implementation of the thing being decided.
+//
+//   utf8_valid_scalar  the original: decode each code point, then range-check it. One
+//                      unpredictable branch per byte, and the arithmetic is wasted because
+//                      validation never needs the code point's value.
+//   utf8_valid_dfa     a 9-state, 12-class table. One table lookup and one add per byte
+//                      and no data-dependent branch -- but the state is a SERIAL
+//                      DEPENDENCY, one dependent load per byte, and on non-ASCII that
+//                      costs more than the branches it removes. Measured, kept, and not
+//                      the default: see gen/utf8.sh.
+//   utf8_valid_table   the one that wins. Three 256-entry tables indexed by the LEAD byte
+//                      give the sequence length and the legal range of the second byte, so
+//                      a whole code point is consumed per iteration with no state carried
+//                      and no code point computed. C++11, portable, no intrinsics: it is
+//                      what a core could actually ship to every host.
+//   utf8_valid_protobuf  the CEILING, and it costs nothing to have: protobuf C++'s own
+//                      `IsStructurallyValidUTF8`, already linked into every arm of this
+//                      slice. R14 says the comparison is against what production runs, and
+//                      this is literally the code the incumbent runs on every `string`
+//                      field it parses. No fetch, no vendoring, no third-party build.
+//
+// `utf8_valid` is the one the decode path calls. AK_UTF8 picks which, so the policy can be
+// priced against each without two binaries: 0 = scalar, 1 = dfa (default), 2 = range.
+bool utf8_valid_scalar(const uint8_t *p, std::size_t n);
+bool utf8_valid_dfa(const uint8_t *p, std::size_t n);
+bool utf8_valid_table(const uint8_t *p, std::size_t n);
+// The INCUMBENT's own validator, which is the one R14 says to compare against: it is
+// what protobuf C++ runs on every `string` field it parses, in this very process.
+// Declared here so `ak/rt.h` stays the one place the predicate is spelled; defined in
+// rt.cpp, which is the only translation unit in the runtime that includes protobuf.
+bool utf8_valid_protobuf(const uint8_t *p, std::size_t n);
 bool utf8_valid(const uint8_t *p, std::size_t n);
 
 // Both policies exist as named functions so a benchmark can carry BOTH IN ONE BINARY and
@@ -243,6 +357,16 @@ bool utf8_valid(const uint8_t *p, std::size_t n);
 // would be a cost of its own.
 inline int32_t decode_str_checked(const uint8_t *p, std::size_t n, std::string *out) {
   if (!utf8_valid(p, n)) return ERR_TRANSCODE;
+  out->assign((const char *)p, n);
+  return 0;
+}
+
+// The same, with the validator named rather than selected, so the string-path table can
+// carry one column per implementation IN ONE PROCESS. Pricing a policy against three
+// binaries would put R4's 0.240 across-build bar on top of the effect being measured.
+inline int32_t decode_str_with(bool (*valid)(const uint8_t *, std::size_t), const uint8_t *p,
+                               std::size_t n, std::string *out) {
+  if (!valid(p, n)) return ERR_TRANSCODE;
   out->assign((const char *)p, n);
   return 0;
 }

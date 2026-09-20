@@ -1,0 +1,207 @@
+# ABI v1 open decision 3's validator: four implementations, one predicate
+#   date            2026-09-20T08:41:41Z
+#   machine         Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
+#   compiler        g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, -O2 -g -DNDEBUG
+#   ceiling         protobuf C++ 3.21.12's own IsStructurallyValidUTF8 -- the validator
+#                   the incumbent runs on every `string` field it parses (R14). Already
+#                   linked into every arm here, so no fetch and no vendoring
+#   default         AK_UTF8=1, the lead-byte table. The codec calls it now
+#   commit          b6479775 + the working tree this log was taken from
+
+Why this exists. This slice published 4.5x to 20x for "check" against "raw" on the
+string path and called it the largest single effect it measures. It is a figure about
+THIS SLICE'S VALIDATOR, not about the policy decision 3 settles: 38 ns to validate a
+36-byte ASCII string is about 1 ns per byte, and a decision should not be priced
+against the slowest reasonable implementation of the thing being decided.
+
+================================================================================
+PART 1: correctness, which is the whole job
+================================================================================
+
+Byte identity cannot see a validator defect. A manifest is made of things that
+ENCODE, so it carries no malformed input at all, and a fast validator that accepts a
+surrogate would pass every gate this slice has. So the check is an exhaustive
+differential test against an oracle written to be obviously right -- RFC 3629 table
+3-7, one range per line -- and the oracle is not one of the implementations under
+test, so agreement is evidence rather than a tautology.
+
+=========== utf8check_a17 ===========
+== the decode policy's UTF-8 validator: three implementations ==
+-std=201703  AK_UTF8=1 (table)  linkage=shared
+ceiling: protobuf C++ 3021012's own IsStructurallyValidUTF8, the validator the
+         incumbent runs on every `string` field it parses (R14)
+implementations under test: scalar dfa table protobuf
+
+-- every string of 1, 2 and 3 bytes, against the oracle --
+   16843008 strings, every implementation agreed with the oracle on all of them
+
+-- four bytes: every lead, boundary tails --
+   864000 strings, all agreed
+
+-- the classes a naive decoder gets wrong, named one by one --
+   32 named vectors x 4 implementations
+
+-- the payloads' own strings --
+   5000 strings
+
+-- the payloads' own strings --
+   5000 strings
+
+-- the payloads' own strings --
+   5000 strings
+
+17782168 checks, 0 failures
+
+-- what each costs, one process, per string and per byte --
+  set      impl      ns/string    ns/byte  vs scalar      bytes
+  ascii    scalar        23.41      0.770      1.00x     151989
+  ascii    dfa           10.39      0.342      2.25x     151989
+  ascii    table          9.52      0.313      2.46x     151989
+  ascii    protobuf      10.92      0.359      2.14x     151989
+  latin1   scalar       113.32      1.864      1.00x     303978
+  latin1   dfa          110.38      1.816      1.03x     303978
+  latin1   table        109.48      1.801      1.04x     303978
+  latin1   protobuf     132.13      2.173      0.86x     303978
+  wide     scalar       135.23      1.483      1.00x     455967
+  wide     dfa          172.63      1.893      0.78x     455967
+  wide     table        108.77      1.193      1.24x     455967
+  wide     protobuf     204.42      2.242      0.66x     455967
+
+=========== utf8check_c11 ===========
+== the decode policy's UTF-8 validator: three implementations ==
+-std=201103  AK_UTF8=1 (table)  linkage=shared
+ceiling: protobuf C++ 3021012's own IsStructurallyValidUTF8, the validator the
+         incumbent runs on every `string` field it parses (R14)
+implementations under test: scalar dfa table protobuf
+
+-- every string of 1, 2 and 3 bytes, against the oracle --
+   16843008 strings, every implementation agreed with the oracle on all of them
+
+-- four bytes: every lead, boundary tails --
+   864000 strings, all agreed
+
+-- the classes a naive decoder gets wrong, named one by one --
+   32 named vectors x 4 implementations
+
+-- the payloads' own strings --
+   5000 strings
+
+-- the payloads' own strings --
+   5000 strings
+
+-- the payloads' own strings --
+   5000 strings
+
+17782168 checks, 0 failures
+
+-- what each costs, one process, per string and per byte --
+  set      impl      ns/string    ns/byte  vs scalar      bytes
+  ascii    scalar        23.17      0.762      1.00x     151989
+  ascii    dfa           12.50      0.411      1.85x     151989
+  ascii    table          9.97      0.328      2.32x     151989
+  ascii    protobuf      11.00      0.362      2.11x     151989
+  latin1   scalar       111.29      1.831      1.00x     303978
+  latin1   dfa          110.53      1.818      1.01x     303978
+  latin1   table        105.57      1.737      1.05x     303978
+  latin1   protobuf     131.57      2.164      0.85x     303978
+  wide     scalar       166.51      1.826      1.00x     455967
+  wide     dfa          172.62      1.893      0.96x     455967
+  wide     table        112.49      1.234      1.48x     455967
+  wide     protobuf     204.09      2.238      0.82x     455967
+
+utf8: 0 build(s) failed
+
+================================================================================
+PART 2: decision 3 re-priced, in the place it lives
+================================================================================
+
+From bench_a17_shared's string-path table, taken in ONE process so the three
+validators are separated by interleaved rounds and not by three binaries and R4's
+0.240 across-build bar. 5,000 strings of P1.2 per content set.
+
+set           bytes validator raw ns/str chk ns/str     delta    chk/raw
+ascii        151989 scalar         6.378     28.119   +21.741 4.393-4.419
+ascii        151989 table          6.378     14.494    +8.116 2.265-2.281
+ascii        151989 protobuf       6.378     16.356    +9.977 2.560-2.592
+latin1       303978 scalar         6.990    117.306  +110.317 16.684-16.991
+latin1       303978 table          6.990    112.389  +105.399 15.914-16.155
+latin1       303978 protobuf       6.990    138.696  +131.707 19.633-19.998
+wide         455967 scalar         6.092    139.930  +133.838 22.827-23.163
+wide         455967 table          6.092    119.954  +113.861 19.578-19.709
+wide         455967 protobuf       6.092    210.589  +204.497 34.437-34.676
+
+The published row was 4.47-4.54 on ascii, 15.08-15.28 on latin1, 19.87-20.05 on wide.
+Two things changed and both are corrections rather than tuning:
+
+  * C20. The set was SIX fields and should have been five. `ResultRaw.opaque_id` is a
+    `bytes` field: proto3 puts no UTF-8 requirement on it, the generated codec reaches
+    it through ak_tc_bytes and decode_str_raw, and no validator ever sees it. In the
+    ascii set its 1,000 values are arbitrary bytes that the check arm REJECTED on the
+    first bad byte, so it did less work than a validation and the ascii row understated
+    the cost. Found by src/utf8check.cpp asserting that every string it validates is
+    valid, which the table itself never did. One definition now, in harness.h, so the
+    table and the validator gate cannot drift apart again.
+  * The validator. The codec now calls the lead-byte table.
+
+THE HEADLINE: on ascii -- which is what the manifest pins and what a real payload
+mostly is -- the decode-side UTF-8 check costs 2.27x a raw copy, not 4.4x, and
++8.1 ns per string rather than +21.7.
+
+AND: the core's validator is cheaper than the INCUMBENT'S OWN on all three sets.
+2.27 against 2.56 on ascii, 15.9 against 19.6 on latin1, 19.6 against 34.4 on wide.
+R14 says the comparison is against what production runs, and on the decode side of a
+`string` field what production runs is protobuf's IsStructurallyValidUTF8. So
+decision 3's check is not a cost the core imposes on a host that did not have one --
+it is cheaper than the check the host is already paying for.
+
+Read the latin1 and wide multipliers with their denominator in view: `raw` is 6 to 7
+ns for a whole string, so a 16x is +105 ns and not a catastrophe of scale. The ratio
+is large because copying 60 bytes is nearly free, not because validating them is slow.
+
+================================================================================
+PART 3: why the table beats the DFA, which was the first thing tried
+================================================================================
+
+The DFA is the textbook answer: 9 states, 12 byte classes, one table lookup and one
+add per byte, no data-dependent branch. It measured 2.25x on ascii and WORSE THAN THE
+SCALAR VERSION on wide (0.78x). The state is a serial dependency -- each byte's lookup
+address depends on the previous byte's result -- and on uniform non-ASCII content the
+branches it removes were being predicted correctly anyway, so it traded free branches
+for a dependent load chain.
+
+The lead-byte table keeps the scalar version's shape, consuming a whole sequence per
+iteration, and removes what is actually wasted in it: the code-point arithmetic.
+Validation never needs the value, only the ranges, and every range constraint in UTF-8
+is a function of the lead byte alone -- overlong forms, surrogates and everything above
+U+10FFFF are each exactly a constraint on the SECOND byte given the first. One packed
+u32 per lead byte carries the length and that range, so it is one load per code point.
+Three parallel byte arrays were three loads and measured 1.07x on latin1 against 1.05x
+to 1.08x packed.
+
+Both are kept and both are in the differential test. The DFA is not dead code: it is
+the evidence for the sentence above, and a slice that deletes the thing it rejected
+leaves the next reader to re-derive it.
+
+WHAT IS NOT MEASURED
+
+  * The effect on a WHOLE-PAYLOAD decode ratio. It is below this slice's across-build
+    resolution: the string-path delta is 13.6 ns/string on ascii, P1.2 has 5 strings
+    per element against a 384 ns/element decode, so the arithmetic says about 18% of
+    the ffi decode -- which is 0.10 on a ratio of 0.55, inside R4's 0.240 bar. Two
+    binaries cannot resolve it and one process cannot hold both, because the validator
+    is a build-time choice in the generated binding. The string-path number is the
+    measurement; the whole-payload number is arithmetic and is labelled as such. This
+    is the same reasoning that withdrew the earlier "22 to 28 percent of a decode".
+  * A SIMD validator. utf8_range is not in this tree -- STATE.md said it was and that
+    was wrong, it was in a scratch directory from the upb arm that does not survive.
+    protobuf's own validator is the ceiling instead, which is a better one for R14's
+    purposes and costs nothing to have. What a real SIMD validator would add on top is
+    open; the honest expectation is another 3x to 5x on ascii.
+  * The encode side, and this is a correction to what I first wrote here. `ffi-valtc`
+    reaches `ak_tc_utf8()` -- the CORE's validating transcoder, written in Rust in
+    ffi/poc/codec/crates/ak-rt -- so nothing in this work unit touched it and its column
+    has not moved. Only the DECODE path calls ak::utf8_valid, through `s_of` in the
+    generated binding. Whether the core's own encode-side validator has the same 2x
+    available to it is an open question and it is not a slice's to answer: R0 makes a
+    change to existing behaviour in the shared core the aggregating session's.
+

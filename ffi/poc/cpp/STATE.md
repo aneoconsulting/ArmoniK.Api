@@ -6,7 +6,7 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | **complete, re-measured after an adversarial review of 28 findings, and re-gated after W10 moved the core.** Full codec plus the RPC arm plus a upb ceiling arm. Every message and payload of `design/SHAPES.md`, five encoders byte-identical, at C++11, C++14 and C++17, floor and target implementations, shared and static linkage |
+| **Status** | **complete, re-measured after an adversarial review of 28 findings, re-gated after W10 moved the core, and closed out with a concurrency suite and a new validator.** Full codec plus the RPC arm plus a upb ceiling arm. Every message and payload of `design/SHAPES.md`, five encoders byte-identical, at C++11, C++14 and C++17, floor and target implementations, shared and static linkage |
 | **Core** | **the shared one at `ffi/poc/codec/crates/ak-core` (README R0), not a copy.** This slice no longer has a `core/` directory; `core-build/` is only its three `CARGO_TARGET_DIR`s. See `logs/cpp/w10-one-core.log` |
 | **Blocked on** | nothing |
 | **Floor** | **C++11, demonstrated not declared.** C++14 also builds and passes (README open question 3) |
@@ -381,21 +381,40 @@ call on a thread the host owns and C++ has no carrier thread to pin.
 Priced **on the string path alone, in one process, over all three content sets**, which is
 how the rust slice priced it. 6,000 strings of P1.2:
 
-| set | bytes | raw ns/string | check ns/string | delta | check/raw |
-|---|---|---|---|---|---|
-| ascii | 167,989 | 8.54 | 38.13 | +29.6 | 4.47-4.54 |
-| latin1 | 335,978 | 9.93 | 150.48 | +140.6 | 15.08-15.28 |
-| wide | 503,967 | 9.12 | 181.27 | +172.1 | 19.87-20.05 |
+**Re-priced.** 5,000 strings of P1.2 per set -- the FIVE `string` fields, not six -- with
+three validators in one process (`utf8.log`, `bench_a17_shared.log`):
 
-**This prices THIS SLICE'S SCALAR VALIDATOR and nothing else.** 38 ns to validate a
-36-byte ASCII string is about 1 ns per byte, which is an order of magnitude off a
-table-driven or SIMD validator; upb's `utf8_range` is in this tree and unused. The earlier
-"22 to 28 percent of a decode" figure is **withdrawn**: it was a difference of two ratios
-taken in two binaries, across a drift bar of 0.24, on ASCII only.
+| set | bytes | raw ns/str | scalar | **table** | protobuf | scalar/raw | **table/raw** | protobuf/raw |
+|---|---|---|---|---|---|---|---|---|
+| ascii | 151,989 | 6.38 | 28.12 | **14.49** | 16.36 | 4.39-4.42 | **2.27-2.28** | 2.56-2.59 |
+| latin1 | 303,978 | 6.99 | 117.31 | **112.39** | 138.70 | 16.68-16.99 | **15.91-16.16** | 19.63-20.00 |
+| wide | 455,967 | 6.09 | 139.93 | **119.95** | 210.59 | 22.83-23.16 | **19.58-19.71** | 34.44-34.68 |
 
-The same caveat applies to the `ffi-valtc` column above: it prices this validator, not
-protobuf's, so it is an upper bound on what encode-side validation costs and not a
-like-for-like row after all.
+**On ASCII the check costs 2.27x a raw copy, not 4.4x**, and **the core's validator is
+cheaper than the incumbent's own on all three sets** -- `protobuf` is protobuf C++'s
+`IsStructurallyValidUTF8`, the validator it runs on every `string` field it parses, which
+is the comparison R14 asks for. So decision 3's check is not a cost the core imposes on a
+host that did not have one: it is cheaper than the check the host already pays.
+
+Two corrections got it there. **C20**: the set was six fields and `ResultRaw.opaque_id` is
+`bytes`, which no validator ever sees -- and in the ASCII set its 1,000 values are
+arbitrary bytes the check arm rejected on the first byte, so the old row *understated* the
+cost. **The validator**: a lead-byte table replaced the decode-then-range-check scalar.
+A textbook DFA was tried first and is slower than the scalar version on wide content,
+because its state is a serial dependency; it is kept, and in the differential test, as the
+evidence for that sentence.
+
+Read the latin1 and wide multipliers with their denominator in view: `raw` is 6-7 ns for a
+whole string, so 16x is +105 ns. The ratio is large because copying 60 bytes is nearly
+free, not because validating them is slow.
+
+The earlier "22 to 28 percent of a decode" figure stays **withdrawn**, and the same
+reasoning now applies to this change: the whole-payload effect is arithmetic (about 18% of
+an ffi decode) and is inside R4's 0.240 across-build bar, so it is not claimed as measured.
+
+`ffi-valtc` is **not** affected: it reaches `ak_tc_utf8()`, the core's Rust transcoder.
+Whether the core's encode-side validator has the same 2x available is open, and R0 makes
+it the aggregating session's rather than a slice's.
 
 ### The guard, the linkages, and the crossing
 
@@ -413,6 +432,49 @@ like-for-like row after all.
   `native` arm, which makes zero crossings, moves between the two binaries too, so the
   difference is the build and not the boundary. The earlier causal sentence is withdrawn.
 
+### ABI v1 obligation 12.5: the concurrency suite — `logs/cpp/concurrency.log`
+
+No slice in the branch had one. Four payload shapes across two message types, threads in
+sequence and threads together, every encode memcmp'd against a reference that protobuf
+produces (so no plant can corrupt the oracle), at C++17, at the C++11 floor, on both
+linkages, and with four times more threads than the machine has cores. **Zero wrong bytes
+on every axis**, and no error leaks between contexts.
+
+**The suite is shown to work rather than assumed to.** Three builds carry the two designs
+ABI v1 section 6 refused, and `gen/concurrency.sh` requires each to do what section 6 says
+it does:
+
+| build | bytes wrong | two threads disagree | scaling, contended |
+|---|---|---|---|
+| shipped | 0 | 0 | 3.63-3.96x |
+| `AK_CONC_PAD` (pad the prefix to the learned width) | 46 of 96 | 16 of 16 | — |
+| `AK_CONC_GLOBAL` (the width table process-global) | **0** | 0 | 2.80-2.87x |
+| both | 46 of 96 | **0** | — |
+
+Four things this settles:
+
+1. **12.5's own claim, measured.** "A suite with one shape reports zero wrong bytes with a
+   per-thread-state defect present and absent alike." On the pad build: one shape 0 of 24,
+   two shapes **44 of 48**. It holds — and the mechanism is narrower than the sentence. It
+   is not two shapes that matters but two shapes that want **different widths at a shared
+   length-prefix site**. P1.1 (858 B) and P1.2 (218 KB) learn the *same* table, and two
+   different message types touch disjoint sites. The pair that works is P1.1 and P1.3.
+   **This slice's first suite used P1.1/P1.2/P2.1/P2.2 and passed on all three plants.**
+   T0 exists because of that: it asks the encoder which ordered pairs have a history
+   surface at all and prints the answer even when it is empty.
+2. **Section 6's two refusals are independent and only the combination corrupts.** A
+   global width table is a data race and a throughput defect but **not** a byte defect,
+   because an unpadded prefix is rewritten to the width the body needs whatever the guess
+   was. So `conc_a17_global` is in the must-**pass** list, and that is the finding.
+3. **Both together is the case a naive suite would miss**: the threads *agree* (0
+   disagreements) because they share the polluted table, and are both wrong. Only the
+   independent reference catches it.
+4. **Section 6's throughput claim, reproduced from C++ and refined.** Under contention the
+   global table is **1.83-2.05x** slower in aggregate — inside the java slice's measured
+   1.32-2.23x, from another language and machine. But uncontended it is 1.13-1.23x and its
+   *scaling does not degrade at all*. The cost is a function of how often the table is
+   **written**, not of sharing.
+
 ## Next step
 
 Nothing is outstanding. W10 moved the core to `ffi/poc/codec` and re-gated; nothing was
@@ -420,16 +482,22 @@ re-taken, because nothing moved (`logs/cpp/w10-one-core.log`). In the order I wo
 
 1. **Borrowed spans as a real facade option**, now that the arm says what they are worth
    (−24 to −50 % of a protobuf decode, and the core level with upb). The lifetime contract
-   is the hard part and it is a design question, not a measurement one.
-2. **A table-driven or SIMD UTF-8 validator** on the decode path. The 4.5x to 20x above is
-   a validator figure and it is the largest single effect this slice measures; `utf8_range`
-   is already in the tree from the upb arm.
+   is the hard part and it is a design question, not a measurement one. **Decision 13, and
+   the coordinator has said it is not this slice's.**
+2. ~~A table-driven or SIMD UTF-8 validator~~ **done**, `logs/cpp/utf8.log`. What remains
+   is a true SIMD one: `utf8_range` is **not** in this tree (STATE.md said it was and that
+   was wrong — it was in a scratch directory from the upb arm that does not survive).
+   protobuf's own validator is the ceiling instead, which is a better one for R14 and costs
+   nothing. Honest expectation for SIMD on top: another 3x to 5x on ASCII.
 3. **A core fast path for `tc == ak_tc_bytes`**, worth +4.49 ns per string. This is now
    a *change to existing behaviour* in the shared core, which R0 says is the
    aggregating session's to make rather than a slice's -- it moves every slice's gate
    at once. A slice may still ADD to `poc/codec`; this is not an addition.
 4. **The content sets on whole payloads**, now that `recode` is reachable.
-5. **A concurrency suite** (ABI v1 obligation 12.5).
+5. ~~A concurrency suite (ABI v1 obligation 12.5)~~ **done**, `logs/cpp/concurrency.log`.
+   What remains is a TSan run (the core is a Rust cdylib built without it, so a TSan host
+   would report the core's internals as uninstrumented) and the RPC half — the rust slice's
+   shared-mutable-client defect is what motivated 12.5 and this suite covers the codec.
 6. **Explain the P1.2 decode outlier round**, which appears in every log.
 7. **A `protoc-gen-upb` build**, if the ceiling ever needs to include the fast decoder.
    That needs Bazel and is the one thing this slice stopped short of.
@@ -456,10 +524,25 @@ re-taken, because nothing moved (`logs/cpp/w10-one-core.log`). In the order I wo
 | C16 | this slice | a systematic outlier round on P1.2 decode, about 34 percent high, in every log | **open**, printed per round rather than hidden in a range |
 | C17 | `../rust/crates/harness/build.rs` | the rust harness searched `<profile>` before `<profile>/deps` for `libak_core.so`. Cargo only uplifts a workspace MEMBER's cdylib, so after R0 moved `ak-core` out of that workspace the harness would have linked the STALE pre-move copy still sitting in `<profile>` -- a change measuring the same because it is not in the build | **fixed** in W10: order flipped, stale copy deleted, and `ldd` shows the arm loading `deps/libak_core.so` |
 | C18 | `gen/boundary.sh` | half two's `-flto` positive control stopped firing after the move. It fires when a control function is smaller than the largest timing closure in the image; that closure went from 1433 B to 911 B, so the 1155 B control now sits above the line. Half ONE -- the checks that say the entry points are called and not inlined away -- still passes, including under `-flto` | **open.** The script reports the pass as UNPROVEN rather than as a pass, which is the behaviour wanted; making the control fire again needs a smaller control or a larger closure, not a change to what is checked |
+| C20 | `src/bench.cpp`, the string-path table | the set of strings the decode-side UTF-8 policy was priced over included `ResultRaw.opaque_id`, a **`bytes`** field that no validator ever sees. In the ASCII set its 1,000 values are arbitrary bytes the check arm rejected on the first byte, so the row **understated** the cost | **fixed**: five fields, one definition in `harness.h` shared with the validator gate. Found by `src/utf8check.cpp` asserting that every string it validates IS valid, which the table never did |
+| C21 | `src/concurrency.cpp`, the first version | the suite used P1.1, P1.2, P2.1 and P2.2 and **passed on all three planted builds**: two shapes of one message type can learn the same width table, and two message types touch disjoint sites, so no site ever over-reserved | **fixed**: the pair with a history surface is P1.1 and P1.3, and T0 now asks the encoder which ordered pairs have one and prints the answer even when it is empty |
+| C22 | `src/concurrency.cpp`, the reference | the oracle was built by re-encoding with `ak::Enc`, which is where the plants live, so on the pad+global build the reference itself was wrong and every arm was compared against a corrupted oracle | **fixed**: the oracle is protobuf's encoder, which no plant can reach. The sha anchor caught it, which is what an anchor is for |
 | C19 | `../csharp/gen/cs_abi.py` | its docstring still says "`ffi/poc/rust/crates/ak-core` is a cdylib exporting 68 `ak_` functions". The path no longer exists and the count is now 66 without `rpc` | **open, and deliberately not fixed here**: it is another slice's source, not a build file. For the csharp session |
 
 ## What is not measured
 
+- **A thread sanitizer run.** The core is a Rust cdylib built without TSan, so a TSan
+  host would report its internals as uninstrumented and the result would be noise. The
+  `AK_CONC_GLOBAL` race is argued from the code and its throughput, not from a detector.
+- **A shared `ak_enc_ctx`.** ABI v1 makes the context host-owned and every thread in the
+  suite owns its own; passing one context to two threads is not a supported use and is
+  not tested as though it were.
+- **The RPC half under concurrency.** The rust slice's shared-mutable-client defect is
+  what motivated 12.5, and this suite covers the codec.
+- **A true SIMD UTF-8 validator.** protobuf's own is the ceiling; what SIMD would add on
+  top is open.
+- **The validator's effect on a whole-payload decode ratio.** About 18% of an ffi decode
+  by arithmetic, which is inside R4's 0.240 across-build bar, so it is not claimed.
 - **The java and csharp slices' own gates after W10.** Only JDK 21 is installed here and
   java's build needs JDK 17 and JDK 8; dotnet is not installed at all. What was verified
   is that both builds RESOLVE the shared core -- java's core and JNI shim link against it,
@@ -494,13 +577,15 @@ re-taken, because nothing moved (`logs/cpp/w10-one-core.log`). In the order I wo
 
 | Log | Configuration | What it establishes |
 |---|---|---|
-| `generator.log` | — | R1 as a gate: `--check` green on 17 files, 16 must-fail guards refused, the tracked-file audit green |
+| `generator.log` | — | R1 as a gate: `--check` green on 21 files, 16 must-fail guards refused, the tracked-file audit green |
+| `concurrency.log` | 4 shapes x 2 message types, threads in sequence and together, C++17 + C++11 floor + both linkages, plus THREE PLANTED builds | **ABI v1 obligation 12.5, which no slice had.** Zero wrong bytes on every axis. 12.5's own claim measured: 0 wrong on one shape, 44 of 48 on two. Section 6's two refusals are independent — a global table is byte-clean and costs 1.83-2.05x under contention; padding is the byte defect |
+| `utf8.log` | four validators, 17.78 M differential checks against an independent oracle, then timed in one process | **Decision 3's decode-side check re-priced: 2.27x a raw copy on ASCII, not 4.4x**, and the core's validator is cheaper than the INCUMBENT'S OWN on all three sets (R14). C20: the old set validated a `bytes` field |
 | `conformance.log` | six builds | R2. 443 checks, 0 failures, five times; 441 once and why. P2.5's two valid forms; protobuf C++ rejects malformed UTF-8 |
 | `boundary.log` | the built artifacts | R5 both halves and both directions, 13 checks, plus a `-flto` positive control that FIRES |
 | `odr.log` | a C++11 TU and a C++17 TU, linked | README 5.1's hard stop: 144 facts, 0 moved; 49 under the positive control |
 | `calibration-r13.log` | the rust slice's own bench, here | R13: this machine's rust crossing is 1.5 ns |
 | `counts.log` | the counting core, both linkages | R5. 9/6 for 1,000 M1 rows; 10.024/7.004 per M2 element; the host transcoder's +34.3 reverse crossings per element, COUNTED; the batching decomposition |
-| `bench_a17_shared.log` | **arm a**, C++17, shared, guard on, reject, ASCII, 9 rounds | **the C++ column**, decision 1's four mechanisms, the group fill, the two-pass blob write, the string path's three content sets, arm b inside one process, protobuf's determinism cost |
+| `bench_a17_shared.log` | **arm a**, C++17, shared, guard on, reject, ASCII, 9 rounds. **Re-taken in W11**: the decode path now calls the table validator, and the string-path table carries three validators | **the C++ column**, decision 1's four mechanisms, the group fill, the two-pass blob write, the string path's three content sets, arm b inside one process, protobuf's determinism cost |
 | `bench_a17_static.log` | arm a, **static linkage** | the second column. Crossing 1.219-1.221 ns against 1.822-1.824 |
 | `bench_b17_shared.log`, `bench_c11_shared.log`, `bench_c14_shared.log` | floor implementation at C++17, C++11, C++14 | a consistency check inside the 0.24 drift bar, not a measurement |
 | `bench_a17_noguard.log` | the guard off | nothing larger than the drift bar |
