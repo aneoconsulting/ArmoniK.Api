@@ -52,7 +52,7 @@ def _key(tag, wire, out):
 '''
 
 
-def emit_encode(schema, scope, root):
+def emit_encode(schema, scope, root, roots):
     L = [PY_PRELUDE]
     for name in scope:
         L.append("")
@@ -60,7 +60,33 @@ def emit_encode(schema, scope, root):
         body = []
         for f, k, c in walk(schema, name):
             tag, nm = f["tag"], f["name"]
-            if c == "repeated":
+            if c == "map":
+                # ABI v1 section 11: a map has no case of its own on the wire, it is a
+                # repeated field of a pair message. The canonical form sorts entries by
+                # key and omits an empty value, which is the implicit-presence rule
+                # applied to the pair's second field.
+                body += [
+                    "    for _mk in sorted(o.%s):" % nm,
+                    "        _mv = o.%s[_mk]" % nm,
+                    "        _sub = bytearray()",
+                    "        _kb = _mk.encode('utf-8')",
+                    "        _key(1, 2, _sub); _varint(len(_kb), _sub); _sub += _kb",
+                    "        if _mv:",
+                    "            _vb = _mv.encode('utf-8')",
+                    "            _key(2, 2, _sub); _varint(len(_vb), _sub); _sub += _vb",
+                    "        _key(%d, 2, out)" % tag,
+                    "        _varint(len(_sub), out)",
+                    "        out += _sub",
+                ]
+            elif c == "repeated" and k == "string":
+                body += [
+                    "    for e in o.%s:" % nm,
+                    "        _b = e.encode('utf-8')",
+                    "        _key(%d, 2, out)" % tag,
+                    "        _varint(len(_b), out)",
+                    "        out += _b",
+                ]
+            elif c == "repeated":
                 body += [
                     "    for e in o.%s:" % nm,
                     "        _key(%d, 2, out)" % tag,
@@ -113,14 +139,17 @@ def emit_encode(schema, scope, root):
                 raise Unsupported("%s.%s" % (name, nm))
         L += body or ["    pass"]
         L.append("")
-    L += [
-        "",
-        "def encode_root(o):",
-        "    out = bytearray()",
-        "    encode_%s(o, out)" % root,
-        "    return bytes(out)",
-        "",
-    ]
+    L.append("")
+    for r in roots:
+        L += [
+            "",
+            "def encode_root_%s(o):" % r,
+            "    out = bytearray()",
+            "    encode_%s(o, out)" % r,
+            "    return bytes(out)",
+        ]
+    L += ["", "", "encode_root = encode_root_%s   # M1, the work unit 1 and 2 entry point"
+          % root, ""]
     return "\n".join(L)
 
 
@@ -211,15 +240,43 @@ def _len(b, i, end):
 '''
 
 
-def emit_decode(schema, scope, root):
-    L = [DEC_PRELUDE]
+PAIR = '''
+
+def _pair(b, i, end):
+    """One map entry, as the pair message ABI v1 section 11 says it is.
+
+    Both fields are implicit presence, so an absent one is the empty string: a map entry
+    with no value field is `key -> ""`, which is a different thing from no entry at all
+    and is what design/SHAPES.md's P2.5 is built to reach.
+    """
+    k = v = ""
+    while i < end:
+        t, i = _rd_varint(b, i)
+        if (t >> 3) == 1 and (t & 7) == 2:
+            n, i = _len(b, i, end)
+            k = b[i:i + n].decode("utf-8")
+            i += n
+        elif (t >> 3) == 2 and (t & 7) == 2:
+            n, i = _len(b, i, end)
+            v = b[i:i + n].decode("utf-8")
+            i += n
+        else:
+            i = _skip(b, i, end, t & 7, t >> 3)
+    return k, v, i
+'''
+
+
+def emit_decode(schema, scope, root, roots):
+    L = [DEC_PRELUDE, PAIR]
     for name in scope:
         flds = list(walk(schema, name))
         L.append("")
         L.append("def decode_%s(b, i, end, C):" % name)
         L.append("    o = C[%r]()" % name)
         for f, k, c in flds:
-            if c == "repeated":
+            if c == "map":
+                L.append("    _m_%s = {}" % f["name"])
+            elif c == "repeated":
                 L.append("    _r_%s = []" % f["name"])
         L.append("    while i < end:")
         L.append("        _k, i = _rd_varint(b, i)")
@@ -230,7 +287,15 @@ def emit_decode(schema, scope, root):
             kw = "if" if first else "elif"
             first = False
             L.append("        %s _t == %d:" % (kw, tag))
-            if c == "repeated":
+            if c == "map":
+                L.append("            _n, i = _len(b, i, end)")
+                L.append("            _mk, _mv, i = _pair(b, i, i + _n)")
+                L.append("            _m_%s[_mk] = _mv" % nm)
+            elif c == "repeated" and k == "string":
+                L.append("            _n, i = _len(b, i, end)")
+                L.append("            _r_%s.append(b[i:i + _n].decode('utf-8'))" % nm)
+                L.append("            i += _n")
+            elif c == "repeated":
                 L.append("            _n, i = _len(b, i, end)")
                 L.append("            _r_%s.append(decode_%s(b, i, i + _n, C))"
                          % (nm, f["of"]))
@@ -261,18 +326,19 @@ def emit_decode(schema, scope, root):
         L.append("        else:")
         L.append("            i = _skip(b, i, end, _k & 7, _t)")
         for f, k, c in flds:
-            if c == "repeated":
+            if c == "map":
+                L.append("    o.%s = _m_%s" % (f["name"], f["name"]))
+            elif c == "repeated":
                 L.append("    o.%s = _r_%s" % (f["name"], f["name"]))
         L.append("    return o")
-    L += [
-        "",
-        "",
-        "def decode_root(b, C):",
-        "    return decode_%s(b, 0, len(b), C)" % root,
-        "",
-    ]
+    L.append("")
+    for r in roots:
+        L += ["", "def decode_root_%s(b, C):" % r,
+              "    return decode_%s(b, 0, len(b), C)" % r]
+    L += ["", "", "decode_root = decode_root_%s" % root, ""]
     return "\n".join(L)
 
 
-def emit(schema, scope, root):
-    return emit_encode(schema, scope, root) + emit_decode(schema, scope, root)
+def emit(schema, scope, root, roots):
+    return (emit_encode(schema, scope, root, roots)
+            + emit_decode(schema, scope, root, roots))

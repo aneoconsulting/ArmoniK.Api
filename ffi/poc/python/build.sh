@@ -74,4 +74,4 @@ for PY in "$@"; do
 done
 
 echo
-echo "the composed arm is built. `conformance.py` gates it before anything is timed."
+echo 'the composed arm is built. conformance.py gates it before anything is timed.'

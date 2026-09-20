@@ -79,10 +79,10 @@ def outputs():
     header, _layout_h, _names_h = cpp_header.emit(ir)
     return {
         "facade.py": py_facade.emit(schema, scope),
-        "pycodec.py": py_codec.emit(schema, scope, root),
+        "pycodec.py": py_codec.emit(schema, scope, root, W.ROOTS),
         "payload_values.py": py_values.emit(schema, scope, root),
-        "_akcodec_gen.c": py_shim.emit(schema, scope, root),
-        "binding.c": py_binding.emit(ir, scope, root),
+        "_akcodec_gen.c": py_shim.emit(schema, W.SCOPE_M1, root),
+        "binding.c": py_binding.emit(ir, scope, W.ROOTS),
         "ak_abi.h": header,
     }
 
