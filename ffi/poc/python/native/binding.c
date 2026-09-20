@@ -169,6 +169,221 @@ static PyObject *py_types(PyObject *m, PyObject *unused) {
   return t;
 }
 
+/* ---------------------------------------------------------------------------------
+ * ABI v1 section 9: the core's own RPC surface, bound to Python.
+ *
+ * This is what makes the RPC arm a GRID rather than a pair. `bench.py` moves the codec
+ * with the transport held still; cell B below moves the transport with the CODEC held
+ * still, by putting `SerializeToString` in front of the core's call. The core's transport
+ * never sees a message type -- it moves opaque bytes -- so there is nothing schema-shaped
+ * in here and it lives in this file rather than in the generated one.
+ *
+ * Three deliveries, and the GIL is the whole reason they are not interchangeable here:
+ *
+ *   blocking   -- `ak_call_unary`, with the GIL RELEASED across it. One host thread per
+ *                 call in flight.
+ *   queue      -- `ak_call_unary_q` posts and returns; a Python drainer blocks in
+ *                 `ak_queue_next` with the GIL released and re-acquires it to hand the
+ *                 bytes back. **No upcall at all**, and the drainer is a thread CPython
+ *                 already knows.
+ *   callback   -- `ak_call_unary_cb`, where the completion arrives on a tokio worker: a
+ *                 thread CPython has never seen, which must `PyGILState_Ensure` before it
+ *                 can touch a Python object and release it after. That acquisition is the
+ *                 cost the queue mode does not pay, and measuring it is the point.
+ * --------------------------------------------------------------------------------- */
+
+typedef struct { uint64_t tag; int32_t status; struct { const uint8_t *ptr; size_t len;
+                 void *owner; } bytes; } ak_completion_t;
+typedef void (*ak_cb_t)(void *user, ak_completion_t *comp);
+
+extern void *ak_runtime_new(uint32_t worker_threads);
+extern void ak_runtime_destroy(void *rt);
+extern void *ak_client_new(void *rt, const uint8_t *uri, size_t uri_len);
+extern void ak_client_destroy(void *c);
+extern int32_t ak_call_unary(void *c, const uint8_t *path, size_t path_len,
+                             const uint8_t *req, size_t req_len, void *out);
+extern void ak_bytes_free(void *b);
+extern void *ak_queue_new(void);
+extern void ak_queue_shutdown(void *q);
+extern void ak_queue_destroy(void *q);
+extern int32_t ak_queue_next(void *q, ak_completion_t *out, uint64_t timeout_ms);
+extern void *ak_call_unary_q(void *c, const uint8_t *path, size_t path_len,
+                             const uint8_t *req, size_t req_len, void *q, uint64_t tag);
+extern void *ak_call_unary_cb(void *c, const uint8_t *path, size_t path_len,
+                              const uint8_t *req, size_t req_len, ak_cb_t cb,
+                              void *user_data, uint64_t tag);
+extern void ak_call_destroy(void *h);
+
+static void cap_rt_free(PyObject *c) { ak_runtime_destroy(PyCapsule_GetPointer(c, "ak_rt")); }
+static void cap_cl_free(PyObject *c) { ak_client_destroy(PyCapsule_GetPointer(c, "ak_cl")); }
+static void cap_q_free(PyObject *c) { ak_queue_destroy(PyCapsule_GetPointer(c, "ak_q")); }
+
+static PyObject *py_rt_new(PyObject *m, PyObject *args) {
+  (void)m;
+  unsigned threads = 0;
+  if (!PyArg_ParseTuple(args, "|I", &threads)) return NULL;
+  void *rt = ak_runtime_new(threads);
+  if (!rt) { PyErr_SetString(PyExc_RuntimeError, "ak_runtime_new"); return NULL; }
+  return PyCapsule_New(rt, "ak_rt", cap_rt_free);
+}
+
+static PyObject *py_client_new(PyObject *m, PyObject *args) {
+  (void)m;
+  PyObject *rtc;
+  const char *uri; Py_ssize_t ulen;
+  if (!PyArg_ParseTuple(args, "Os#", &rtc, &uri, &ulen)) return NULL;
+  void *rt = PyCapsule_GetPointer(rtc, "ak_rt");
+  if (!rt) return NULL;
+  void *cl;
+  /* Connecting blocks on the tokio runtime; holding the GIL across it would stall every
+   * other Python thread, and on a UDS the handshake is short but not free. */
+  Py_BEGIN_ALLOW_THREADS
+  cl = ak_client_new(rt, (const uint8_t *)uri, (size_t)ulen);
+  Py_END_ALLOW_THREADS
+  if (!cl) { PyErr_Format(PyExc_RuntimeError, "ak_client_new(%s)", uri); return NULL; }
+  return PyCapsule_New(cl, "ak_cl", cap_cl_free);
+}
+
+/* The response bytes, copied into a PyBytes and the core's buffer released. The copy is
+ * real and is counted: ABI v1 decision 13's borrowed span would remove it, and this arm
+ * does not take it, so the RPC table prices the copying transport. */
+static PyObject *take_bytes(void *outp) {
+  struct { const uint8_t *ptr; size_t len; void *owner; } *b = outp;
+  PyObject *r = PyBytes_FromStringAndSize((const char *)b->ptr, (Py_ssize_t)b->len);
+  ak_bytes_free(outp);
+  return r;
+}
+
+static PyObject *py_call_unary(PyObject *m, PyObject *args) {
+  (void)m;
+  PyObject *clc;
+  const char *path; Py_ssize_t plen;
+  const char *req; Py_ssize_t rlen;
+  if (!PyArg_ParseTuple(args, "Os#y#", &clc, &path, &plen, &req, &rlen)) return NULL;
+  void *cl = PyCapsule_GetPointer(clc, "ak_cl");
+  if (!cl) return NULL;
+  struct { const uint8_t *ptr; size_t len; void *owner; } out = {NULL, 0, NULL};
+  int32_t rc;
+  Py_BEGIN_ALLOW_THREADS
+  rc = ak_call_unary(cl, (const uint8_t *)path, (size_t)plen,
+                     (const uint8_t *)req, (size_t)rlen, &out);
+  Py_END_ALLOW_THREADS
+  if (rc != 0) { PyErr_Format(PyExc_RuntimeError, "ak_call_unary -> %d", (int)rc); return NULL; }
+  return take_bytes(&out);
+}
+
+static PyObject *py_queue_new(PyObject *m, PyObject *unused) {
+  (void)m; (void)unused;
+  void *q = ak_queue_new();
+  if (!q) { PyErr_SetString(PyExc_RuntimeError, "ak_queue_new"); return NULL; }
+  return PyCapsule_New(q, "ak_q", cap_q_free);
+}
+
+static PyObject *py_queue_shutdown(PyObject *m, PyObject *qc) {
+  (void)m;
+  void *q = PyCapsule_GetPointer(qc, "ak_q");
+  if (!q) return NULL;
+  ak_queue_shutdown(q);
+  Py_RETURN_NONE;
+}
+
+static PyObject *py_queue_next(PyObject *m, PyObject *args) {
+  (void)m;
+  PyObject *qc;
+  unsigned long long timeout = ~0ULL;
+  if (!PyArg_ParseTuple(args, "O|K", &qc, &timeout)) return NULL;
+  void *q = PyCapsule_GetPointer(qc, "ak_q");
+  if (!q) return NULL;
+  ak_completion_t c;
+  memset(&c, 0, sizeof c);
+  int32_t rc;
+  /* THE point of this mode: the drainer is a Python thread that lets the GIL go while it
+   * waits and takes it back when there is something to hand over. No thread the core owns
+   * ever touches a PyObject. */
+  Py_BEGIN_ALLOW_THREADS
+  rc = ak_queue_next(q, &c, (uint64_t)timeout);
+  Py_END_ALLOW_THREADS
+  if (rc == 1) Py_RETURN_NONE;                       /* AK_QUEUE_TIMEOUT */
+  if (rc == 2) return Py_BuildValue("(KiO)", (unsigned long long)0, -1, Py_None);
+  if (rc != 0) { PyErr_Format(PyExc_RuntimeError, "ak_queue_next -> %d", (int)rc); return NULL; }
+  PyObject *b = take_bytes(&c.bytes);
+  if (!b) return NULL;
+  return Py_BuildValue("(KiN)", (unsigned long long)c.tag, (int)c.status, b);
+}
+
+static PyObject *py_call_unary_q(PyObject *m, PyObject *args) {
+  (void)m;
+  PyObject *clc, *qc;
+  const char *path; Py_ssize_t plen;
+  const char *req; Py_ssize_t rlen;
+  unsigned long long tag = 0;
+  if (!PyArg_ParseTuple(args, "Os#y#OK", &clc, &path, &plen, &req, &rlen, &qc, &tag))
+    return NULL;
+  void *cl = PyCapsule_GetPointer(clc, "ak_cl");
+  void *q = PyCapsule_GetPointer(qc, "ak_q");
+  if (!cl || !q) return NULL;
+  void *h = ak_call_unary_q(cl, (const uint8_t *)path, (size_t)plen,
+                            (const uint8_t *)req, (size_t)rlen, q, (uint64_t)tag);
+  if (!h) { PyErr_SetString(PyExc_RuntimeError, "ak_call_unary_q"); return NULL; }
+  /* The handle is only for cancellation, which this arm does not exercise. Destroying it
+   * immediately is safe -- it drops an abort handle, not the task -- and keeps the arm
+   * from measuring a handle table the design does not require. */
+  ak_call_destroy(h);
+  Py_RETURN_NONE;
+}
+
+/* The callback trampoline. It runs on a TOKIO WORKER, a thread CPython has never seen, so
+ * it has to acquire the GIL before it can do anything at all. That acquisition is what
+ * this mode costs over the queue, and on this host it is the reason to expect the queue to
+ * win -- the prediction the arm exists to check. */
+typedef struct { PyObject *fn; } cb_ctx;
+
+static void ak_py_trampoline(void *user, ak_completion_t *comp) {
+  cb_ctx *ctx = user;
+  PyGILState_STATE g = PyGILState_Ensure();
+  PyObject *b = take_bytes(&comp->bytes);
+  if (b) {
+    PyObject *r = PyObject_CallFunction(ctx->fn, "KiO", (unsigned long long)comp->tag,
+                                        (int)comp->status, b);
+    Py_XDECREF(r);
+    Py_DECREF(b);
+  }
+  if (PyErr_Occurred()) PyErr_WriteUnraisable(ctx->fn);
+  Py_DECREF(ctx->fn);
+  PyMem_Free(ctx);
+  PyGILState_Release(g);
+}
+
+static PyObject *py_call_unary_cb(PyObject *m, PyObject *args) {
+  (void)m;
+  PyObject *clc, *fn;
+  const char *path; Py_ssize_t plen;
+  const char *req; Py_ssize_t rlen;
+  unsigned long long tag = 0;
+  if (!PyArg_ParseTuple(args, "Os#y#OK", &clc, &path, &plen, &req, &rlen, &fn, &tag))
+    return NULL;
+  void *cl = PyCapsule_GetPointer(clc, "ak_cl");
+  if (!cl) return NULL;
+  if (!PyCallable_Check(fn)) {
+    PyErr_SetString(PyExc_TypeError, "callback must be callable");
+    return NULL;
+  }
+  cb_ctx *ctx = PyMem_Malloc(sizeof *ctx);
+  if (!ctx) return PyErr_NoMemory();
+  ctx->fn = Py_NewRef(fn);
+  void *h = ak_call_unary_cb(cl, (const uint8_t *)path, (size_t)plen,
+                             (const uint8_t *)req, (size_t)rlen,
+                             ak_py_trampoline, ctx, (uint64_t)tag);
+  if (!h) {
+    Py_DECREF(ctx->fn);
+    PyMem_Free(ctx);
+    PyErr_SetString(PyExc_RuntimeError, "ak_call_unary_cb");
+    return NULL;
+  }
+  ak_call_destroy(h);
+  Py_RETURN_NONE;
+}
+
 static PyMethodDef methods[] = {
     {"encode", py_encode, METH_VARARGS,
      "encode(backend, rootname, obj[, accessors]) -> bytes, through the shared core"},
@@ -184,6 +399,19 @@ static PyMethodDef methods[] = {
     {"abi_version", py_abi_version, METH_NOARGS, "ak_abi_version() from the core"},
     {"crossing", py_crossing, METH_VARARGS,
      "crossing(n[, 'forward'|'reverse']) -- the boundary, in this process"},
+    {"rt_new", py_rt_new, METH_VARARGS, "ak_runtime_new(worker_threads) -> capsule"},
+    {"client_new", py_client_new, METH_VARARGS, "ak_client_new(rt, uri) -> capsule"},
+    {"call_unary", py_call_unary, METH_VARARGS,
+     "call_unary(client, path, req) -> bytes. Blocking, GIL released across the call"},
+    {"queue_new", py_queue_new, METH_NOARGS, "ak_queue_new() -> capsule"},
+    {"queue_shutdown", py_queue_shutdown, METH_O, "ak_queue_shutdown(queue)"},
+    {"queue_next", py_queue_next, METH_VARARGS,
+     "queue_next(queue[, timeout_ms]) -> (tag, status, bytes) | None. GIL released"},
+    {"call_unary_q", py_call_unary_q, METH_VARARGS,
+     "call_unary_q(client, path, req, queue, tag). Posts and returns; NO upcall"},
+    {"call_unary_cb", py_call_unary_cb, METH_VARARGS,
+     "call_unary_cb(client, path, req, fn, tag). Completes on a tokio worker, which must"
+     " PyGILState_Ensure first"},
     {NULL, NULL, 0, NULL}};
 
 static int mod_exec(PyObject *m) {
