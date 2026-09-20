@@ -51,6 +51,85 @@ class PlainTimestamp:
         return type(o) is type(self) and (self.seconds, self.nanos) == (o.seconds, o.nanos)
 
 
+class PlainListTasksDetailedResponse:
+    def __init__(self, tasks=None, page=0, total=0):
+        self.tasks = [] if tasks is None else tasks
+        self.page = page
+        self.total = total
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.tasks, self.page, self.total) == (o.tasks, o.page, o.total)
+
+
+class PlainTaskDetailed:
+    def __init__(self, id="", session_id="", owner_pod_id="", parent_task_ids=None, data_dependencies=None, expected_output_ids=None, retry_of_ids=None, status=0, status_message="", options=None, created_at=None, submitted_at=None, started_at=None, ended_at=None, pod_ttl=None, output=None, pod_hostname="", received_at=None, acquired_at=None, creation_to_end_duration=None, processing_to_end_duration=None, initial_task_id="", received_to_end_duration=None, processed_at=None, fetched_at=None, payload_id="", created_by=""):
+        self.id = id
+        self.session_id = session_id
+        self.owner_pod_id = owner_pod_id
+        self.parent_task_ids = [] if parent_task_ids is None else parent_task_ids
+        self.data_dependencies = [] if data_dependencies is None else data_dependencies
+        self.expected_output_ids = [] if expected_output_ids is None else expected_output_ids
+        self.retry_of_ids = [] if retry_of_ids is None else retry_of_ids
+        self.status = status
+        self.status_message = status_message
+        self.options = options
+        self.created_at = created_at
+        self.submitted_at = submitted_at
+        self.started_at = started_at
+        self.ended_at = ended_at
+        self.pod_ttl = pod_ttl
+        self.output = output
+        self.pod_hostname = pod_hostname
+        self.received_at = received_at
+        self.acquired_at = acquired_at
+        self.creation_to_end_duration = creation_to_end_duration
+        self.processing_to_end_duration = processing_to_end_duration
+        self.initial_task_id = initial_task_id
+        self.received_to_end_duration = received_to_end_duration
+        self.processed_at = processed_at
+        self.fetched_at = fetched_at
+        self.payload_id = payload_id
+        self.created_by = created_by
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.id, self.session_id, self.owner_pod_id, self.parent_task_ids, self.data_dependencies, self.expected_output_ids, self.retry_of_ids, self.status, self.status_message, self.options, self.created_at, self.submitted_at, self.started_at, self.ended_at, self.pod_ttl, self.output, self.pod_hostname, self.received_at, self.acquired_at, self.creation_to_end_duration, self.processing_to_end_duration, self.initial_task_id, self.received_to_end_duration, self.processed_at, self.fetched_at, self.payload_id, self.created_by) == (o.id, o.session_id, o.owner_pod_id, o.parent_task_ids, o.data_dependencies, o.expected_output_ids, o.retry_of_ids, o.status, o.status_message, o.options, o.created_at, o.submitted_at, o.started_at, o.ended_at, o.pod_ttl, o.output, o.pod_hostname, o.received_at, o.acquired_at, o.creation_to_end_duration, o.processing_to_end_duration, o.initial_task_id, o.received_to_end_duration, o.processed_at, o.fetched_at, o.payload_id, o.created_by)
+
+
+class PlainTaskOptions:
+    def __init__(self, options=None, max_duration=None, max_retries=0, priority=0, partition_id="", application_name="", application_version="", application_namespace="", application_service="", engine_type=""):
+        self.options = {} if options is None else options
+        self.max_duration = max_duration
+        self.max_retries = max_retries
+        self.priority = priority
+        self.partition_id = partition_id
+        self.application_name = application_name
+        self.application_version = application_version
+        self.application_namespace = application_namespace
+        self.application_service = application_service
+        self.engine_type = engine_type
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.options, self.max_duration, self.max_retries, self.priority, self.partition_id, self.application_name, self.application_version, self.application_namespace, self.application_service, self.engine_type) == (o.options, o.max_duration, o.max_retries, o.priority, o.partition_id, o.application_name, o.application_version, o.application_namespace, o.application_service, o.engine_type)
+
+
+class PlainDuration:
+    def __init__(self, seconds=0, nanos=0):
+        self.seconds = seconds
+        self.nanos = nanos
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.seconds, self.nanos) == (o.seconds, o.nanos)
+
+
+class PlainTaskOutput:
+    def __init__(self, success=False, error=""):
+        self.success = success
+        self.error = error
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.success, self.error) == (o.success, o.error)
+
+
 class SlotsListResultsResponse:
     __slots__ = ("results", "page", "total", )
     def __init__(self, results=None, page=0, total=0):
@@ -89,4 +168,88 @@ class SlotsTimestamp:
 
     def __eq__(self, o):
         return type(o) is type(self) and (self.seconds, self.nanos) == (o.seconds, o.nanos)
+
+
+class SlotsListTasksDetailedResponse:
+    __slots__ = ("tasks", "page", "total", )
+    def __init__(self, tasks=None, page=0, total=0):
+        self.tasks = [] if tasks is None else tasks
+        self.page = page
+        self.total = total
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.tasks, self.page, self.total) == (o.tasks, o.page, o.total)
+
+
+class SlotsTaskDetailed:
+    __slots__ = ("id", "session_id", "owner_pod_id", "parent_task_ids", "data_dependencies", "expected_output_ids", "retry_of_ids", "status", "status_message", "options", "created_at", "submitted_at", "started_at", "ended_at", "pod_ttl", "output", "pod_hostname", "received_at", "acquired_at", "creation_to_end_duration", "processing_to_end_duration", "initial_task_id", "received_to_end_duration", "processed_at", "fetched_at", "payload_id", "created_by", )
+    def __init__(self, id="", session_id="", owner_pod_id="", parent_task_ids=None, data_dependencies=None, expected_output_ids=None, retry_of_ids=None, status=0, status_message="", options=None, created_at=None, submitted_at=None, started_at=None, ended_at=None, pod_ttl=None, output=None, pod_hostname="", received_at=None, acquired_at=None, creation_to_end_duration=None, processing_to_end_duration=None, initial_task_id="", received_to_end_duration=None, processed_at=None, fetched_at=None, payload_id="", created_by=""):
+        self.id = id
+        self.session_id = session_id
+        self.owner_pod_id = owner_pod_id
+        self.parent_task_ids = [] if parent_task_ids is None else parent_task_ids
+        self.data_dependencies = [] if data_dependencies is None else data_dependencies
+        self.expected_output_ids = [] if expected_output_ids is None else expected_output_ids
+        self.retry_of_ids = [] if retry_of_ids is None else retry_of_ids
+        self.status = status
+        self.status_message = status_message
+        self.options = options
+        self.created_at = created_at
+        self.submitted_at = submitted_at
+        self.started_at = started_at
+        self.ended_at = ended_at
+        self.pod_ttl = pod_ttl
+        self.output = output
+        self.pod_hostname = pod_hostname
+        self.received_at = received_at
+        self.acquired_at = acquired_at
+        self.creation_to_end_duration = creation_to_end_duration
+        self.processing_to_end_duration = processing_to_end_duration
+        self.initial_task_id = initial_task_id
+        self.received_to_end_duration = received_to_end_duration
+        self.processed_at = processed_at
+        self.fetched_at = fetched_at
+        self.payload_id = payload_id
+        self.created_by = created_by
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.id, self.session_id, self.owner_pod_id, self.parent_task_ids, self.data_dependencies, self.expected_output_ids, self.retry_of_ids, self.status, self.status_message, self.options, self.created_at, self.submitted_at, self.started_at, self.ended_at, self.pod_ttl, self.output, self.pod_hostname, self.received_at, self.acquired_at, self.creation_to_end_duration, self.processing_to_end_duration, self.initial_task_id, self.received_to_end_duration, self.processed_at, self.fetched_at, self.payload_id, self.created_by) == (o.id, o.session_id, o.owner_pod_id, o.parent_task_ids, o.data_dependencies, o.expected_output_ids, o.retry_of_ids, o.status, o.status_message, o.options, o.created_at, o.submitted_at, o.started_at, o.ended_at, o.pod_ttl, o.output, o.pod_hostname, o.received_at, o.acquired_at, o.creation_to_end_duration, o.processing_to_end_duration, o.initial_task_id, o.received_to_end_duration, o.processed_at, o.fetched_at, o.payload_id, o.created_by)
+
+
+class SlotsTaskOptions:
+    __slots__ = ("options", "max_duration", "max_retries", "priority", "partition_id", "application_name", "application_version", "application_namespace", "application_service", "engine_type", )
+    def __init__(self, options=None, max_duration=None, max_retries=0, priority=0, partition_id="", application_name="", application_version="", application_namespace="", application_service="", engine_type=""):
+        self.options = {} if options is None else options
+        self.max_duration = max_duration
+        self.max_retries = max_retries
+        self.priority = priority
+        self.partition_id = partition_id
+        self.application_name = application_name
+        self.application_version = application_version
+        self.application_namespace = application_namespace
+        self.application_service = application_service
+        self.engine_type = engine_type
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.options, self.max_duration, self.max_retries, self.priority, self.partition_id, self.application_name, self.application_version, self.application_namespace, self.application_service, self.engine_type) == (o.options, o.max_duration, o.max_retries, o.priority, o.partition_id, o.application_name, o.application_version, o.application_namespace, o.application_service, o.engine_type)
+
+
+class SlotsDuration:
+    __slots__ = ("seconds", "nanos", )
+    def __init__(self, seconds=0, nanos=0):
+        self.seconds = seconds
+        self.nanos = nanos
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.seconds, self.nanos) == (o.seconds, o.nanos)
+
+
+class SlotsTaskOutput:
+    __slots__ = ("success", "error", )
+    def __init__(self, success=False, error=""):
+        self.success = success
+        self.error = error
+
+    def __eq__(self, o):
+        return type(o) is type(self) and (self.success, self.error) == (o.success, o.error)
 

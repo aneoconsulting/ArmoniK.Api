@@ -42,33 +42,82 @@ def first_diff(a, b):
     return "identical for %d bytes, then lengths %d vs %d" % (n, len(a), len(b))
 
 
-def fieldwise(obj, pb):
+def fieldwise(obj, pb, pid):
     """Every field of every element, the facade against the incumbent."""
     bad = []
-    if len(obj.results) != len(pb.results):
-        return ["element count %d vs %d" % (len(obj.results), len(pb.results))]
-    for i, (a, b) in enumerate(zip(obj.results, pb.results)):
-        for n in ("session_id", "name", "owner_task_id", "result_id", "created_by",
-                  "opaque_id", "size", "manual_deletion"):
-            if getattr(a, n) != getattr(b, n):
-                bad.append("elem %d .%s: %r vs %r" % (i, n, getattr(a, n), getattr(b, n)))
-        if int(a.status) != int(b.status):
-            bad.append("elem %d .status: %r vs %r" % (i, a.status, b.status))
-        for n in ("created_at", "completed_at"):
-            av, present = getattr(a, n), b.HasField(n)
-            if (av is not None) != present:
-                bad.append("elem %d .%s presence: %s vs %s"
-                           % (i, n, av is not None, present))
-            elif av is not None:
-                bv = getattr(b, n)
-                if (av.seconds, av.nanos) != (bv.seconds, bv.nanos):
-                    bad.append("elem %d .%s: (%d,%d) vs (%d,%d)"
-                               % (i, n, av.seconds, av.nanos, bv.seconds, bv.nanos))
+    ef = arms.elem_field(pid)
+    oa, ob_ = getattr(obj, ef), getattr(pb, ef)
+    if len(oa) != len(ob_):
+        return ["element count %d vs %d" % (len(oa), len(ob_))]
+    for i, (a, b) in enumerate(zip(oa, ob_)):
+        bad += _cmp_msg(a, b, "elem %d" % i)
         if len(bad) > 6:
             return bad[:6] + ["..."]
     for n in ("page", "total"):
         if int(getattr(obj, n)) != int(getattr(pb, n)):
             bad.append(".%s: %r vs %r" % (n, getattr(obj, n), getattr(pb, n)))
+    return bad
+
+
+def _why_alt(got, want):
+    """Name the difference between two legal encodings rather than only its offset."""
+    if len(got) > len(want):
+        return ("%d bytes longer: upb writes an empty map value as a present zero-length "
+                "field and the canonical form omits it (an implicit-presence leaf holding "
+                "the proto zero). CONTRACT.md C3 lists both." % (len(got) - len(want)))
+    if len(got) == len(want):
+        return ("same length, different order: SerializeToString does not sort map "
+                "entries and the canonical form does. `deterministic=True` is the row "
+                "that matches.")
+    return "%d bytes shorter" % (len(want) - len(got))
+
+
+def _cmp_msg(a, b, where):
+    """One facade object against one protobuf message, field by field.
+
+    Driven from the incumbent's own descriptor rather than from a list, so a field this
+    slice forgot is a failure here rather than an omission nobody sees. That is the same
+    rule as R1's walker, one level up: the oracle enumerates, the slice does not.
+    """
+    bad = []
+    for fd in b.DESCRIPTOR.fields:
+        n = fd.name
+        bv = getattr(b, n)
+        try:
+            av = getattr(a, n)
+        except AttributeError:
+            bad.append("%s .%s: the facade has no such field" % (where, n))
+            continue
+        if fd.is_repeated:
+            if fd.message_type is not None and fd.message_type.GetOptions().map_entry:
+                if dict(av) != dict(bv):
+                    bad.append("%s .%s: map %r vs %r"
+                               % (where, n, dict(av), dict(bv)))
+            elif fd.message_type is not None:
+                if len(av) != len(bv):
+                    bad.append("%s .%s: %d vs %d elements" % (where, n, len(av), len(bv)))
+                else:
+                    for j, (x, y) in enumerate(zip(av, bv)):
+                        bad += _cmp_msg(x, y, "%s .%s[%d]" % (where, n, j))
+            elif list(av) != list(bv):
+                bad.append("%s .%s: %r vs %r" % (where, n, list(av), list(bv)))
+        elif fd.message_type is not None:
+            present = b.HasField(n)
+            if (av is not None) != present:
+                bad.append("%s .%s presence: %s vs %s" % (where, n, av is not None,
+                                                          present))
+            elif av is not None:
+                bad += _cmp_msg(av, bv, "%s .%s" % (where, n))
+        elif fd.type == fd.TYPE_BOOL:
+            if bool(av) != bool(bv):
+                bad.append("%s .%s: %r vs %r" % (where, n, av, bv))
+        elif fd.type in (fd.TYPE_STRING, fd.TYPE_BYTES):
+            if av != bv:
+                bad.append("%s .%s: %r vs %r" % (where, n, av, bv))
+        elif int(av) != int(bv):
+            bad.append("%s .%s: %r vs %r" % (where, n, av, bv))
+        if len(bad) > 6:
+            return bad[:6] + ["..."]
     return bad
 
 
@@ -152,6 +201,17 @@ def main():
             got = fn()
             if got == want:
                 print("        ok    %s" % name)
+                continue
+            # `ffi/corpus/CONTRACT.md` C3: a vector may have more than one accepted
+            # encoding and that is not a weakness in the vector. The manifest carries the
+            # canonical form; the incumbent may legally write another. So a difference in
+            # the INCUMBENT's bytes is only a failure if the two do not parse to the same
+            # message -- checked, not assumed. A difference in one of THIS SLICE's arms is
+            # always a failure: they are the ones claiming to produce canonical bytes.
+            alt = arms.same_message(pid, got, want) if name.startswith("upb") else None
+            if alt:
+                print("        ok*   %-32s legal alternative form: %s"
+                      % (name, _why_alt(got, want)))
             else:
                 print("        FAIL  %-32s %s" % (name, first_diff(got, want)))
                 fails += 1
@@ -160,20 +220,24 @@ def main():
     for pid in arms.PAYLOADS:
         want = arms.reference(pid)
         print("   %-5s" % pid)
-        pb = arms.build_upb(pid)
-        pbd = arms._pb2.ListResultsResponse.FromString(want) if arms._pb2 else None
+        pbd = arms.build_upb(pid)
         for name, fn in arms.decode_arms(pid):
             obj = fn()
-            back = arms.reencode(name, obj)
+            back = arms.reencode(name, obj, pid)
             ok = back == want
+            alt = ""
+            if not ok and name.startswith("upb") and arms.same_message(pid, back, want):
+                # Same allowance as the encode section: the incumbent may legally write
+                # another accepted form. This slice's own arms get no such allowance.
+                ok, alt = True, "  (legal alternative form: %s)" % _why_alt(back, want)
             extra = ""
             if pbd is not None and not name.startswith("upb"):
-                bad = fieldwise(obj, pbd)
+                bad = fieldwise(obj, pbd, pid)
                 if bad:
                     ok = False
                     extra = "; fields: " + "; ".join(bad[:3])
             if ok:
-                print("        ok    %s" % name)
+                print("        %s %s%s" % ("ok   " if not alt else "ok*  ", name, alt))
             else:
                 print("        FAIL  %-32s %s%s"
                       % (name, "" if back == want else first_diff(back, want), extra))

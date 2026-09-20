@@ -43,9 +43,14 @@ def emit(schema, scope):
                              for f, k, c in flds)
             L.append("    def __init__(self, %s):" % args)
             for f, k, c in flds:
-                if c == "repeated":
-                    L.append("        self.%s = [] if %s is None else %s"
-                             % (f["name"], f["name"], f["name"]))
+                if c in ("repeated", "map"):
+                    # A map is a `dict` on the facade, which is what a Python user
+                    # expects, and a repeated field of a pair message on the wire (ABI v1
+                    # section 11). The canonical form sorts map entries by key, so the
+                    # shim sorts on encode; the facade does not pretend to be ordered.
+                    empty = "{}" if c == "map" else "[]"
+                    L.append("        self.%s = %s if %s is None else %s"
+                             % (f["name"], empty, f["name"], f["name"]))
                 else:
                     L.append("        self.%s = %s" % (f["name"], f["name"]))
             L.append("")

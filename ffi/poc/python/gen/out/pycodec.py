@@ -127,10 +127,297 @@ def encode_Timestamp(o, out):
         _varint(_v, out)
 
 
-def encode_root(o):
+def encode_ListTasksDetailedResponse(o, out):
+    for e in o.tasks:
+        _key(1, 2, out)
+        _sub = bytearray()
+        encode_TaskDetailed(e, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.page
+    if _v:
+        _key(2, 0, out)
+        _varint(_v, out)
+    _v = o.total
+    if _v:
+        _key(3, 0, out)
+        _varint(_v, out)
+
+
+def encode_TaskDetailed(o, out):
+    _v = o.id
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(1, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.session_id
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(2, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.owner_pod_id
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(3, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    for e in o.parent_task_ids:
+        _b = e.encode('utf-8')
+        _key(4, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    for e in o.data_dependencies:
+        _b = e.encode('utf-8')
+        _key(5, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    for e in o.expected_output_ids:
+        _b = e.encode('utf-8')
+        _key(6, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    for e in o.retry_of_ids:
+        _b = e.encode('utf-8')
+        _key(7, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.status
+    if _v:
+        _key(8, 0, out)
+        _varint(_v, out)
+    _v = o.status_message
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(9, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.options
+    if _v is not None:
+        _key(10, 2, out)
+        _sub = bytearray()
+        encode_TaskOptions(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.created_at
+    if _v is not None:
+        _key(11, 2, out)
+        _sub = bytearray()
+        encode_Timestamp(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.submitted_at
+    if _v is not None:
+        _key(12, 2, out)
+        _sub = bytearray()
+        encode_Timestamp(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.started_at
+    if _v is not None:
+        _key(13, 2, out)
+        _sub = bytearray()
+        encode_Timestamp(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.ended_at
+    if _v is not None:
+        _key(14, 2, out)
+        _sub = bytearray()
+        encode_Timestamp(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.pod_ttl
+    if _v is not None:
+        _key(15, 2, out)
+        _sub = bytearray()
+        encode_Timestamp(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.output
+    if _v is not None:
+        _key(16, 2, out)
+        _sub = bytearray()
+        encode_TaskOutput(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.pod_hostname
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(17, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.received_at
+    if _v is not None:
+        _key(18, 2, out)
+        _sub = bytearray()
+        encode_Timestamp(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.acquired_at
+    if _v is not None:
+        _key(19, 2, out)
+        _sub = bytearray()
+        encode_Timestamp(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.creation_to_end_duration
+    if _v is not None:
+        _key(20, 2, out)
+        _sub = bytearray()
+        encode_Duration(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.processing_to_end_duration
+    if _v is not None:
+        _key(21, 2, out)
+        _sub = bytearray()
+        encode_Duration(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.initial_task_id
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(22, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.received_to_end_duration
+    if _v is not None:
+        _key(23, 2, out)
+        _sub = bytearray()
+        encode_Duration(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.processed_at
+    if _v is not None:
+        _key(24, 2, out)
+        _sub = bytearray()
+        encode_Timestamp(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.fetched_at
+    if _v is not None:
+        _key(25, 2, out)
+        _sub = bytearray()
+        encode_Timestamp(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.payload_id
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(26, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.created_by
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(27, 2, out)
+        _varint(len(_b), out)
+        out += _b
+
+
+def encode_TaskOptions(o, out):
+    for _mk in sorted(o.options):
+        _mv = o.options[_mk]
+        _sub = bytearray()
+        _kb = _mk.encode('utf-8')
+        _key(1, 2, _sub); _varint(len(_kb), _sub); _sub += _kb
+        if _mv:
+            _vb = _mv.encode('utf-8')
+            _key(2, 2, _sub); _varint(len(_vb), _sub); _sub += _vb
+        _key(1, 2, out)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.max_duration
+    if _v is not None:
+        _key(2, 2, out)
+        _sub = bytearray()
+        encode_Duration(_v, _sub)
+        _varint(len(_sub), out)
+        out += _sub
+    _v = o.max_retries
+    if _v:
+        _key(3, 0, out)
+        _varint(_v, out)
+    _v = o.priority
+    if _v:
+        _key(4, 0, out)
+        _varint(_v, out)
+    _v = o.partition_id
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(5, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.application_name
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(6, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.application_version
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(7, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.application_namespace
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(8, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.application_service
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(9, 2, out)
+        _varint(len(_b), out)
+        out += _b
+    _v = o.engine_type
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(10, 2, out)
+        _varint(len(_b), out)
+        out += _b
+
+
+def encode_Duration(o, out):
+    _v = o.seconds
+    if _v:
+        _key(1, 0, out)
+        _varint(_v, out)
+    _v = o.nanos
+    if _v:
+        _key(2, 0, out)
+        _varint(_v, out)
+
+
+def encode_TaskOutput(o, out):
+    if o.success:
+        _key(1, 0, out)
+        out.append(1)
+    _v = o.error
+    if _v:
+        _b = _v.encode('utf-8')
+        _key(2, 2, out)
+        _varint(len(_b), out)
+        out += _b
+
+
+
+def encode_root_ListResultsResponse(o):
     out = bytearray()
     encode_ListResultsResponse(o, out)
     return bytes(out)
+
+def encode_root_ListTasksDetailedResponse(o):
+    out = bytearray()
+    encode_ListTasksDetailedResponse(o, out)
+    return bytes(out)
+
+
+encode_root = encode_root_ListResultsResponse   # M1, the work unit 1 and 2 entry point
 
 
 def _rd_varint(b, i):
@@ -203,6 +490,30 @@ def _len(b, i, end):
         raise ValueError("length %d at %d overruns the enclosing message (ends %d)"
                          % (n, i, end))
     return n, i
+
+
+
+def _pair(b, i, end):
+    """One map entry, as the pair message ABI v1 section 11 says it is.
+
+    Both fields are implicit presence, so an absent one is the empty string: a map entry
+    with no value field is `key -> ""`, which is a different thing from no entry at all
+    and is what design/SHAPES.md's P2.5 is built to reach.
+    """
+    k = v = ""
+    while i < end:
+        t, i = _rd_varint(b, i)
+        if (t >> 3) == 1 and (t & 7) == 2:
+            n, i = _len(b, i, end)
+            k = b[i:i + n].decode("utf-8")
+            i += n
+        elif (t >> 3) == 2 and (t & 7) == 2:
+            n, i = _len(b, i, end)
+            v = b[i:i + n].decode("utf-8")
+            i += n
+        else:
+            i = _skip(b, i, end, t & 7, t >> 3)
+    return k, v, i
 
 
 def decode_ListResultsResponse(b, i, end, C):
@@ -291,6 +602,237 @@ def decode_Timestamp(b, i, end, C):
             i = _skip(b, i, end, _k & 7, _t)
     return o
 
+def decode_ListTasksDetailedResponse(b, i, end, C):
+    o = C['ListTasksDetailedResponse']()
+    _r_tasks = []
+    while i < end:
+        _k, i = _rd_varint(b, i)
+        _t = _k >> 3
+        if _t == 1:
+            _n, i = _len(b, i, end)
+            _r_tasks.append(decode_TaskDetailed(b, i, i + _n, C))
+            i += _n
+        elif _t == 2:
+            _v, i = _rd_varint(b, i)
+            o.page = _v
+        elif _t == 3:
+            _v, i = _rd_varint(b, i)
+            o.total = _v
+        else:
+            i = _skip(b, i, end, _k & 7, _t)
+    o.tasks = _r_tasks
+    return o
 
-def decode_root(b, C):
+def decode_TaskDetailed(b, i, end, C):
+    o = C['TaskDetailed']()
+    _r_parent_task_ids = []
+    _r_data_dependencies = []
+    _r_expected_output_ids = []
+    _r_retry_of_ids = []
+    while i < end:
+        _k, i = _rd_varint(b, i)
+        _t = _k >> 3
+        if _t == 1:
+            _n, i = _len(b, i, end)
+            o.id = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 2:
+            _n, i = _len(b, i, end)
+            o.session_id = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 3:
+            _n, i = _len(b, i, end)
+            o.owner_pod_id = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 4:
+            _n, i = _len(b, i, end)
+            _r_parent_task_ids.append(b[i:i + _n].decode('utf-8'))
+            i += _n
+        elif _t == 5:
+            _n, i = _len(b, i, end)
+            _r_data_dependencies.append(b[i:i + _n].decode('utf-8'))
+            i += _n
+        elif _t == 6:
+            _n, i = _len(b, i, end)
+            _r_expected_output_ids.append(b[i:i + _n].decode('utf-8'))
+            i += _n
+        elif _t == 7:
+            _n, i = _len(b, i, end)
+            _r_retry_of_ids.append(b[i:i + _n].decode('utf-8'))
+            i += _n
+        elif _t == 8:
+            _v, i = _rd_varint(b, i)
+            o.status = _v
+        elif _t == 9:
+            _n, i = _len(b, i, end)
+            o.status_message = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 10:
+            _n, i = _len(b, i, end)
+            o.options = decode_TaskOptions(b, i, i + _n, C)
+            i += _n
+        elif _t == 11:
+            _n, i = _len(b, i, end)
+            o.created_at = decode_Timestamp(b, i, i + _n, C)
+            i += _n
+        elif _t == 12:
+            _n, i = _len(b, i, end)
+            o.submitted_at = decode_Timestamp(b, i, i + _n, C)
+            i += _n
+        elif _t == 13:
+            _n, i = _len(b, i, end)
+            o.started_at = decode_Timestamp(b, i, i + _n, C)
+            i += _n
+        elif _t == 14:
+            _n, i = _len(b, i, end)
+            o.ended_at = decode_Timestamp(b, i, i + _n, C)
+            i += _n
+        elif _t == 15:
+            _n, i = _len(b, i, end)
+            o.pod_ttl = decode_Timestamp(b, i, i + _n, C)
+            i += _n
+        elif _t == 16:
+            _n, i = _len(b, i, end)
+            o.output = decode_TaskOutput(b, i, i + _n, C)
+            i += _n
+        elif _t == 17:
+            _n, i = _len(b, i, end)
+            o.pod_hostname = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 18:
+            _n, i = _len(b, i, end)
+            o.received_at = decode_Timestamp(b, i, i + _n, C)
+            i += _n
+        elif _t == 19:
+            _n, i = _len(b, i, end)
+            o.acquired_at = decode_Timestamp(b, i, i + _n, C)
+            i += _n
+        elif _t == 20:
+            _n, i = _len(b, i, end)
+            o.creation_to_end_duration = decode_Duration(b, i, i + _n, C)
+            i += _n
+        elif _t == 21:
+            _n, i = _len(b, i, end)
+            o.processing_to_end_duration = decode_Duration(b, i, i + _n, C)
+            i += _n
+        elif _t == 22:
+            _n, i = _len(b, i, end)
+            o.initial_task_id = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 23:
+            _n, i = _len(b, i, end)
+            o.received_to_end_duration = decode_Duration(b, i, i + _n, C)
+            i += _n
+        elif _t == 24:
+            _n, i = _len(b, i, end)
+            o.processed_at = decode_Timestamp(b, i, i + _n, C)
+            i += _n
+        elif _t == 25:
+            _n, i = _len(b, i, end)
+            o.fetched_at = decode_Timestamp(b, i, i + _n, C)
+            i += _n
+        elif _t == 26:
+            _n, i = _len(b, i, end)
+            o.payload_id = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 27:
+            _n, i = _len(b, i, end)
+            o.created_by = b[i:i + _n].decode('utf-8')
+            i += _n
+        else:
+            i = _skip(b, i, end, _k & 7, _t)
+    o.parent_task_ids = _r_parent_task_ids
+    o.data_dependencies = _r_data_dependencies
+    o.expected_output_ids = _r_expected_output_ids
+    o.retry_of_ids = _r_retry_of_ids
+    return o
+
+def decode_TaskOptions(b, i, end, C):
+    o = C['TaskOptions']()
+    _m_options = {}
+    while i < end:
+        _k, i = _rd_varint(b, i)
+        _t = _k >> 3
+        if _t == 1:
+            _n, i = _len(b, i, end)
+            _mk, _mv, i = _pair(b, i, i + _n)
+            _m_options[_mk] = _mv
+        elif _t == 2:
+            _n, i = _len(b, i, end)
+            o.max_duration = decode_Duration(b, i, i + _n, C)
+            i += _n
+        elif _t == 3:
+            _v, i = _rd_varint(b, i)
+            o.max_retries = _v
+        elif _t == 4:
+            _v, i = _rd_varint(b, i)
+            o.priority = _v
+        elif _t == 5:
+            _n, i = _len(b, i, end)
+            o.partition_id = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 6:
+            _n, i = _len(b, i, end)
+            o.application_name = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 7:
+            _n, i = _len(b, i, end)
+            o.application_version = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 8:
+            _n, i = _len(b, i, end)
+            o.application_namespace = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 9:
+            _n, i = _len(b, i, end)
+            o.application_service = b[i:i + _n].decode('utf-8')
+            i += _n
+        elif _t == 10:
+            _n, i = _len(b, i, end)
+            o.engine_type = b[i:i + _n].decode('utf-8')
+            i += _n
+        else:
+            i = _skip(b, i, end, _k & 7, _t)
+    o.options = _m_options
+    return o
+
+def decode_Duration(b, i, end, C):
+    o = C['Duration']()
+    while i < end:
+        _k, i = _rd_varint(b, i)
+        _t = _k >> 3
+        if _t == 1:
+            _v, i = _rd_varint(b, i)
+            o.seconds = _v
+        elif _t == 2:
+            _v, i = _rd_varint(b, i)
+            o.nanos = _v
+        else:
+            i = _skip(b, i, end, _k & 7, _t)
+    return o
+
+def decode_TaskOutput(b, i, end, C):
+    o = C['TaskOutput']()
+    while i < end:
+        _k, i = _rd_varint(b, i)
+        _t = _k >> 3
+        if _t == 1:
+            _v, i = _rd_varint(b, i)
+            o.success = bool(_v)
+        elif _t == 2:
+            _n, i = _len(b, i, end)
+            o.error = b[i:i + _n].decode('utf-8')
+            i += _n
+        else:
+            i = _skip(b, i, end, _k & 7, _t)
+    return o
+
+
+def decode_root_ListResultsResponse(b, C):
     return decode_ListResultsResponse(b, 0, len(b), C)
+
+def decode_root_ListTasksDetailedResponse(b, C):
+    return decode_ListTasksDetailedResponse(b, 0, len(b), C)
+
+
+decode_root = decode_root_ListResultsResponse

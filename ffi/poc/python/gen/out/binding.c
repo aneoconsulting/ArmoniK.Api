@@ -6,8 +6,8 @@
 #include "ak_abi.h"
 
 /* README R5, counting build: what the SHIM does to CPython. The core counts its own
- * crossings and exports them through ak_enc_counters / ak_dec_counters, so the two halves
- * of the design are counted by the half that can see them. */
+ * crossings through ak_enc_counters / ak_dec_counters, so each half is counted by the
+ * half that can see it. */
 #ifdef AK_COUNT
 static uint64_t CNT[4];
 #define C_ATTR   0
@@ -15,25 +15,21 @@ static uint64_t CNT[4];
 #define C_ITEM   2
 #define C_PYCALL 3
 #define BUMP(i) (CNT[i]++)
-#else
-#define BUMP(i) ((void)0)
-#endif
-
-/* Resolved once at module init rather than per call: ak_tc_utf8() is a function CALL
- * across the boundary and a generated shim would not make it per string. */
-static ak_transcode_fn TC_UTF8, TC_BYTES;
-
-#ifdef AK_COUNT
-/* The CORE's own counters, accumulated per call before its context is freed. The core
- * counts what the core can see -- forward entries, reverse upcalls, transcodes, prefix
- * moves -- and the shim counts what it does to CPython. Neither half can count the
- * other's, which is why both are here rather than one being inferred. */
 static struct AkCounters CORE_ENC, CORE_DEC;
 #define CORE_ADD(dst, src) do { \
   (dst).forward += (src).forward; (dst).reverse += (src).reverse; \
   (dst).transcode += (src).transcode; (dst).prefix_moves += (src).prefix_moves; \
   (dst).prefix_bytes += (src).prefix_bytes; (dst).grows += (src).grows; } while (0)
+#else
+#define BUMP(i) ((void)0)
 #endif
+
+/* Resolved once at module init: ak_tc_utf8() is a call across the boundary and a
+ * generated shim would not make it per string. */
+static ak_transcode_fn TC_UTF8, TC_BYTES;
+
+/* A run of strings chunks by count rather than by group size. */
+#define CHUNK_BLOB ((int32_t)(32768 / sizeof(struct ak_str)))
 
 
 typedef struct {
@@ -64,6 +60,76 @@ typedef struct {
   long nanos;
 } CTimestamp;
 
+typedef struct {
+  PyObject_HEAD
+  PyObject *tasks;
+  long page;
+  long total;
+} CListTasksDetailedResponse;
+
+typedef struct {
+  PyObject_HEAD
+  PyObject *id;
+  PyObject *session_id;
+  PyObject *owner_pod_id;
+  PyObject *parent_task_ids;
+  PyObject *data_dependencies;
+  PyObject *expected_output_ids;
+  PyObject *retry_of_ids;
+  long status;
+  PyObject *status_message;
+  PyObject *options;
+  PyObject *created_at;
+  PyObject *submitted_at;
+  PyObject *started_at;
+  PyObject *ended_at;
+  PyObject *pod_ttl;
+  PyObject *output;
+  PyObject *pod_hostname;
+  PyObject *received_at;
+  PyObject *acquired_at;
+  PyObject *creation_to_end_duration;
+  PyObject *processing_to_end_duration;
+  PyObject *initial_task_id;
+  PyObject *received_to_end_duration;
+  PyObject *processed_at;
+  PyObject *fetched_at;
+  PyObject *payload_id;
+  PyObject *created_by;
+} CTaskDetailed;
+
+typedef struct {
+  PyObject_HEAD
+  PyObject *options;
+  PyObject *max_duration;
+  long max_retries;
+  long priority;
+  PyObject *partition_id;
+  PyObject *application_name;
+  PyObject *application_version;
+  PyObject *application_namespace;
+  PyObject *application_service;
+  PyObject *engine_type;
+} CTaskOptions;
+
+typedef struct {
+  PyObject_HEAD
+  long long seconds;
+  long nanos;
+} CDuration;
+
+typedef struct {
+  PyObject_HEAD
+  int success;
+  PyObject *error;
+} CTaskOutput;
+
+typedef struct {
+  PyObject_HEAD
+  PyObject *key;
+  PyObject *value;
+} CTaskOptionsOptionsEntry;
+
 static PyMemberDef mem_ListResultsResponse[] = {
   {"results", T_OBJECT_EX, offsetof(CListResultsResponse, results), 0, NULL},
   {"page", T_LONG, offsetof(CListResultsResponse, page), 0, NULL},
@@ -76,7 +142,7 @@ static int init_ListResultsResponse(PyObject *self, PyObject *a, PyObject *kw) {
   long v_page = 0;
   long v_total = 0;
   if (!PyArg_ParseTupleAndKeywords(a, kw, "|Oll", kwl, &v_results, &v_page, &v_total)) return -1;
-  { PyObject *v = v_results ? v_results : Py_None; Py_INCREF(v); Py_XSETREF(o->results, v); }
+  { PyObject *v = v_results ? Py_NewRef(v_results) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->results, v); }
   o->page = v_page;
   o->total = v_total;
   return 0;
@@ -217,34 +283,477 @@ static PyType_Slot slots_Timestamp[] = {
 static PyType_Spec spec_Timestamp = {"_akffi.CTimestamp", sizeof(CTimestamp), 0,
   Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC, slots_Timestamp};
 
+static PyMemberDef mem_ListTasksDetailedResponse[] = {
+  {"tasks", T_OBJECT_EX, offsetof(CListTasksDetailedResponse, tasks), 0, NULL},
+  {"page", T_LONG, offsetof(CListTasksDetailedResponse, page), 0, NULL},
+  {"total", T_LONG, offsetof(CListTasksDetailedResponse, total), 0, NULL},
+  {NULL}};
+static int init_ListTasksDetailedResponse(PyObject *self, PyObject *a, PyObject *kw) {
+  static char *kwl[] = {"tasks", "page", "total",  NULL};
+  CListTasksDetailedResponse *o = (CListTasksDetailedResponse *)self;
+  PyObject *v_tasks = NULL;
+  long v_page = 0;
+  long v_total = 0;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|Oll", kwl, &v_tasks, &v_page, &v_total)) return -1;
+  { PyObject *v = v_tasks ? Py_NewRef(v_tasks) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->tasks, v); }
+  o->page = v_page;
+  o->total = v_total;
+  return 0;
+}
+static int trav_ListTasksDetailedResponse(PyObject *s, visitproc visit, void *arg) {
+  CListTasksDetailedResponse *o = (CListTasksDetailedResponse *)s;
+  Py_VISIT(o->tasks);
+  return 0;
+}
+static int clear_ListTasksDetailedResponse(PyObject *s) {
+  CListTasksDetailedResponse *o = (CListTasksDetailedResponse *)s;
+  Py_CLEAR(o->tasks);
+  return 0;
+}
+static void dealloc_ListTasksDetailedResponse(PyObject *s) {
+  PyTypeObject *t = Py_TYPE(s);
+  PyObject_GC_UnTrack(s); clear_ListTasksDetailedResponse(s);
+  ((freefunc)PyType_GetSlot(t, Py_tp_free))(s); Py_DECREF(t);
+}
+static PyType_Slot slots_ListTasksDetailedResponse[] = {
+  {Py_tp_init, (void *)init_ListTasksDetailedResponse}, {Py_tp_members, (void *)mem_ListTasksDetailedResponse},
+  {Py_tp_new, (void *)PyType_GenericNew}, {Py_tp_dealloc, (void *)dealloc_ListTasksDetailedResponse},
+  {Py_tp_traverse, (void *)trav_ListTasksDetailedResponse}, {Py_tp_clear, (void *)clear_ListTasksDetailedResponse},
+  {0, NULL}};
+static PyType_Spec spec_ListTasksDetailedResponse = {"_akffi.CListTasksDetailedResponse", sizeof(CListTasksDetailedResponse), 0,
+  Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC, slots_ListTasksDetailedResponse};
+
+static PyMemberDef mem_TaskDetailed[] = {
+  {"id", T_OBJECT_EX, offsetof(CTaskDetailed, id), 0, NULL},
+  {"session_id", T_OBJECT_EX, offsetof(CTaskDetailed, session_id), 0, NULL},
+  {"owner_pod_id", T_OBJECT_EX, offsetof(CTaskDetailed, owner_pod_id), 0, NULL},
+  {"parent_task_ids", T_OBJECT_EX, offsetof(CTaskDetailed, parent_task_ids), 0, NULL},
+  {"data_dependencies", T_OBJECT_EX, offsetof(CTaskDetailed, data_dependencies), 0, NULL},
+  {"expected_output_ids", T_OBJECT_EX, offsetof(CTaskDetailed, expected_output_ids), 0, NULL},
+  {"retry_of_ids", T_OBJECT_EX, offsetof(CTaskDetailed, retry_of_ids), 0, NULL},
+  {"status", T_LONG, offsetof(CTaskDetailed, status), 0, NULL},
+  {"status_message", T_OBJECT_EX, offsetof(CTaskDetailed, status_message), 0, NULL},
+  {"options", T_OBJECT_EX, offsetof(CTaskDetailed, options), 0, NULL},
+  {"created_at", T_OBJECT_EX, offsetof(CTaskDetailed, created_at), 0, NULL},
+  {"submitted_at", T_OBJECT_EX, offsetof(CTaskDetailed, submitted_at), 0, NULL},
+  {"started_at", T_OBJECT_EX, offsetof(CTaskDetailed, started_at), 0, NULL},
+  {"ended_at", T_OBJECT_EX, offsetof(CTaskDetailed, ended_at), 0, NULL},
+  {"pod_ttl", T_OBJECT_EX, offsetof(CTaskDetailed, pod_ttl), 0, NULL},
+  {"output", T_OBJECT_EX, offsetof(CTaskDetailed, output), 0, NULL},
+  {"pod_hostname", T_OBJECT_EX, offsetof(CTaskDetailed, pod_hostname), 0, NULL},
+  {"received_at", T_OBJECT_EX, offsetof(CTaskDetailed, received_at), 0, NULL},
+  {"acquired_at", T_OBJECT_EX, offsetof(CTaskDetailed, acquired_at), 0, NULL},
+  {"creation_to_end_duration", T_OBJECT_EX, offsetof(CTaskDetailed, creation_to_end_duration), 0, NULL},
+  {"processing_to_end_duration", T_OBJECT_EX, offsetof(CTaskDetailed, processing_to_end_duration), 0, NULL},
+  {"initial_task_id", T_OBJECT_EX, offsetof(CTaskDetailed, initial_task_id), 0, NULL},
+  {"received_to_end_duration", T_OBJECT_EX, offsetof(CTaskDetailed, received_to_end_duration), 0, NULL},
+  {"processed_at", T_OBJECT_EX, offsetof(CTaskDetailed, processed_at), 0, NULL},
+  {"fetched_at", T_OBJECT_EX, offsetof(CTaskDetailed, fetched_at), 0, NULL},
+  {"payload_id", T_OBJECT_EX, offsetof(CTaskDetailed, payload_id), 0, NULL},
+  {"created_by", T_OBJECT_EX, offsetof(CTaskDetailed, created_by), 0, NULL},
+  {NULL}};
+static int init_TaskDetailed(PyObject *self, PyObject *a, PyObject *kw) {
+  static char *kwl[] = {"id", "session_id", "owner_pod_id", "parent_task_ids", "data_dependencies", "expected_output_ids", "retry_of_ids", "status", "status_message", "options", "created_at", "submitted_at", "started_at", "ended_at", "pod_ttl", "output", "pod_hostname", "received_at", "acquired_at", "creation_to_end_duration", "processing_to_end_duration", "initial_task_id", "received_to_end_duration", "processed_at", "fetched_at", "payload_id", "created_by",  NULL};
+  CTaskDetailed *o = (CTaskDetailed *)self;
+  PyObject *v_id = NULL;
+  PyObject *v_session_id = NULL;
+  PyObject *v_owner_pod_id = NULL;
+  PyObject *v_parent_task_ids = NULL;
+  PyObject *v_data_dependencies = NULL;
+  PyObject *v_expected_output_ids = NULL;
+  PyObject *v_retry_of_ids = NULL;
+  long v_status = 0;
+  PyObject *v_status_message = NULL;
+  PyObject *v_options = NULL;
+  PyObject *v_created_at = NULL;
+  PyObject *v_submitted_at = NULL;
+  PyObject *v_started_at = NULL;
+  PyObject *v_ended_at = NULL;
+  PyObject *v_pod_ttl = NULL;
+  PyObject *v_output = NULL;
+  PyObject *v_pod_hostname = NULL;
+  PyObject *v_received_at = NULL;
+  PyObject *v_acquired_at = NULL;
+  PyObject *v_creation_to_end_duration = NULL;
+  PyObject *v_processing_to_end_duration = NULL;
+  PyObject *v_initial_task_id = NULL;
+  PyObject *v_received_to_end_duration = NULL;
+  PyObject *v_processed_at = NULL;
+  PyObject *v_fetched_at = NULL;
+  PyObject *v_payload_id = NULL;
+  PyObject *v_created_by = NULL;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOOOOOOlOOOOOOOOOOOOOOOOOOO", kwl, &v_id, &v_session_id, &v_owner_pod_id, &v_parent_task_ids, &v_data_dependencies, &v_expected_output_ids, &v_retry_of_ids, &v_status, &v_status_message, &v_options, &v_created_at, &v_submitted_at, &v_started_at, &v_ended_at, &v_pod_ttl, &v_output, &v_pod_hostname, &v_received_at, &v_acquired_at, &v_creation_to_end_duration, &v_processing_to_end_duration, &v_initial_task_id, &v_received_to_end_duration, &v_processed_at, &v_fetched_at, &v_payload_id, &v_created_by)) return -1;
+  { PyObject *v = v_id ? v_id : Py_None; Py_INCREF(v); Py_XSETREF(o->id, v); }
+  { PyObject *v = v_session_id ? v_session_id : Py_None; Py_INCREF(v); Py_XSETREF(o->session_id, v); }
+  { PyObject *v = v_owner_pod_id ? v_owner_pod_id : Py_None; Py_INCREF(v); Py_XSETREF(o->owner_pod_id, v); }
+  { PyObject *v = v_parent_task_ids ? Py_NewRef(v_parent_task_ids) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->parent_task_ids, v); }
+  { PyObject *v = v_data_dependencies ? Py_NewRef(v_data_dependencies) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->data_dependencies, v); }
+  { PyObject *v = v_expected_output_ids ? Py_NewRef(v_expected_output_ids) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->expected_output_ids, v); }
+  { PyObject *v = v_retry_of_ids ? Py_NewRef(v_retry_of_ids) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->retry_of_ids, v); }
+  o->status = v_status;
+  { PyObject *v = v_status_message ? v_status_message : Py_None; Py_INCREF(v); Py_XSETREF(o->status_message, v); }
+  { PyObject *v = v_options ? v_options : Py_None; Py_INCREF(v); Py_XSETREF(o->options, v); }
+  { PyObject *v = v_created_at ? v_created_at : Py_None; Py_INCREF(v); Py_XSETREF(o->created_at, v); }
+  { PyObject *v = v_submitted_at ? v_submitted_at : Py_None; Py_INCREF(v); Py_XSETREF(o->submitted_at, v); }
+  { PyObject *v = v_started_at ? v_started_at : Py_None; Py_INCREF(v); Py_XSETREF(o->started_at, v); }
+  { PyObject *v = v_ended_at ? v_ended_at : Py_None; Py_INCREF(v); Py_XSETREF(o->ended_at, v); }
+  { PyObject *v = v_pod_ttl ? v_pod_ttl : Py_None; Py_INCREF(v); Py_XSETREF(o->pod_ttl, v); }
+  { PyObject *v = v_output ? v_output : Py_None; Py_INCREF(v); Py_XSETREF(o->output, v); }
+  { PyObject *v = v_pod_hostname ? v_pod_hostname : Py_None; Py_INCREF(v); Py_XSETREF(o->pod_hostname, v); }
+  { PyObject *v = v_received_at ? v_received_at : Py_None; Py_INCREF(v); Py_XSETREF(o->received_at, v); }
+  { PyObject *v = v_acquired_at ? v_acquired_at : Py_None; Py_INCREF(v); Py_XSETREF(o->acquired_at, v); }
+  { PyObject *v = v_creation_to_end_duration ? v_creation_to_end_duration : Py_None; Py_INCREF(v); Py_XSETREF(o->creation_to_end_duration, v); }
+  { PyObject *v = v_processing_to_end_duration ? v_processing_to_end_duration : Py_None; Py_INCREF(v); Py_XSETREF(o->processing_to_end_duration, v); }
+  { PyObject *v = v_initial_task_id ? v_initial_task_id : Py_None; Py_INCREF(v); Py_XSETREF(o->initial_task_id, v); }
+  { PyObject *v = v_received_to_end_duration ? v_received_to_end_duration : Py_None; Py_INCREF(v); Py_XSETREF(o->received_to_end_duration, v); }
+  { PyObject *v = v_processed_at ? v_processed_at : Py_None; Py_INCREF(v); Py_XSETREF(o->processed_at, v); }
+  { PyObject *v = v_fetched_at ? v_fetched_at : Py_None; Py_INCREF(v); Py_XSETREF(o->fetched_at, v); }
+  { PyObject *v = v_payload_id ? v_payload_id : Py_None; Py_INCREF(v); Py_XSETREF(o->payload_id, v); }
+  { PyObject *v = v_created_by ? v_created_by : Py_None; Py_INCREF(v); Py_XSETREF(o->created_by, v); }
+  return 0;
+}
+static int trav_TaskDetailed(PyObject *s, visitproc visit, void *arg) {
+  CTaskDetailed *o = (CTaskDetailed *)s;
+  Py_VISIT(o->id);
+  Py_VISIT(o->session_id);
+  Py_VISIT(o->owner_pod_id);
+  Py_VISIT(o->parent_task_ids);
+  Py_VISIT(o->data_dependencies);
+  Py_VISIT(o->expected_output_ids);
+  Py_VISIT(o->retry_of_ids);
+  Py_VISIT(o->status_message);
+  Py_VISIT(o->options);
+  Py_VISIT(o->created_at);
+  Py_VISIT(o->submitted_at);
+  Py_VISIT(o->started_at);
+  Py_VISIT(o->ended_at);
+  Py_VISIT(o->pod_ttl);
+  Py_VISIT(o->output);
+  Py_VISIT(o->pod_hostname);
+  Py_VISIT(o->received_at);
+  Py_VISIT(o->acquired_at);
+  Py_VISIT(o->creation_to_end_duration);
+  Py_VISIT(o->processing_to_end_duration);
+  Py_VISIT(o->initial_task_id);
+  Py_VISIT(o->received_to_end_duration);
+  Py_VISIT(o->processed_at);
+  Py_VISIT(o->fetched_at);
+  Py_VISIT(o->payload_id);
+  Py_VISIT(o->created_by);
+  return 0;
+}
+static int clear_TaskDetailed(PyObject *s) {
+  CTaskDetailed *o = (CTaskDetailed *)s;
+  Py_CLEAR(o->id);
+  Py_CLEAR(o->session_id);
+  Py_CLEAR(o->owner_pod_id);
+  Py_CLEAR(o->parent_task_ids);
+  Py_CLEAR(o->data_dependencies);
+  Py_CLEAR(o->expected_output_ids);
+  Py_CLEAR(o->retry_of_ids);
+  Py_CLEAR(o->status_message);
+  Py_CLEAR(o->options);
+  Py_CLEAR(o->created_at);
+  Py_CLEAR(o->submitted_at);
+  Py_CLEAR(o->started_at);
+  Py_CLEAR(o->ended_at);
+  Py_CLEAR(o->pod_ttl);
+  Py_CLEAR(o->output);
+  Py_CLEAR(o->pod_hostname);
+  Py_CLEAR(o->received_at);
+  Py_CLEAR(o->acquired_at);
+  Py_CLEAR(o->creation_to_end_duration);
+  Py_CLEAR(o->processing_to_end_duration);
+  Py_CLEAR(o->initial_task_id);
+  Py_CLEAR(o->received_to_end_duration);
+  Py_CLEAR(o->processed_at);
+  Py_CLEAR(o->fetched_at);
+  Py_CLEAR(o->payload_id);
+  Py_CLEAR(o->created_by);
+  return 0;
+}
+static void dealloc_TaskDetailed(PyObject *s) {
+  PyTypeObject *t = Py_TYPE(s);
+  PyObject_GC_UnTrack(s); clear_TaskDetailed(s);
+  ((freefunc)PyType_GetSlot(t, Py_tp_free))(s); Py_DECREF(t);
+}
+static PyType_Slot slots_TaskDetailed[] = {
+  {Py_tp_init, (void *)init_TaskDetailed}, {Py_tp_members, (void *)mem_TaskDetailed},
+  {Py_tp_new, (void *)PyType_GenericNew}, {Py_tp_dealloc, (void *)dealloc_TaskDetailed},
+  {Py_tp_traverse, (void *)trav_TaskDetailed}, {Py_tp_clear, (void *)clear_TaskDetailed},
+  {0, NULL}};
+static PyType_Spec spec_TaskDetailed = {"_akffi.CTaskDetailed", sizeof(CTaskDetailed), 0,
+  Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC, slots_TaskDetailed};
+
+static PyMemberDef mem_TaskOptions[] = {
+  {"options", T_OBJECT_EX, offsetof(CTaskOptions, options), 0, NULL},
+  {"max_duration", T_OBJECT_EX, offsetof(CTaskOptions, max_duration), 0, NULL},
+  {"max_retries", T_LONG, offsetof(CTaskOptions, max_retries), 0, NULL},
+  {"priority", T_LONG, offsetof(CTaskOptions, priority), 0, NULL},
+  {"partition_id", T_OBJECT_EX, offsetof(CTaskOptions, partition_id), 0, NULL},
+  {"application_name", T_OBJECT_EX, offsetof(CTaskOptions, application_name), 0, NULL},
+  {"application_version", T_OBJECT_EX, offsetof(CTaskOptions, application_version), 0, NULL},
+  {"application_namespace", T_OBJECT_EX, offsetof(CTaskOptions, application_namespace), 0, NULL},
+  {"application_service", T_OBJECT_EX, offsetof(CTaskOptions, application_service), 0, NULL},
+  {"engine_type", T_OBJECT_EX, offsetof(CTaskOptions, engine_type), 0, NULL},
+  {NULL}};
+static int init_TaskOptions(PyObject *self, PyObject *a, PyObject *kw) {
+  static char *kwl[] = {"options", "max_duration", "max_retries", "priority", "partition_id", "application_name", "application_version", "application_namespace", "application_service", "engine_type",  NULL};
+  CTaskOptions *o = (CTaskOptions *)self;
+  PyObject *v_options = NULL;
+  PyObject *v_max_duration = NULL;
+  long v_max_retries = 0;
+  long v_priority = 0;
+  PyObject *v_partition_id = NULL;
+  PyObject *v_application_name = NULL;
+  PyObject *v_application_version = NULL;
+  PyObject *v_application_namespace = NULL;
+  PyObject *v_application_service = NULL;
+  PyObject *v_engine_type = NULL;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOllOOOOOO", kwl, &v_options, &v_max_duration, &v_max_retries, &v_priority, &v_partition_id, &v_application_name, &v_application_version, &v_application_namespace, &v_application_service, &v_engine_type)) return -1;
+  { PyObject *v = v_options ? Py_NewRef(v_options) : PyDict_New(); if (!v) return -1; Py_XSETREF(o->options, v); }
+  { PyObject *v = v_max_duration ? v_max_duration : Py_None; Py_INCREF(v); Py_XSETREF(o->max_duration, v); }
+  o->max_retries = v_max_retries;
+  o->priority = v_priority;
+  { PyObject *v = v_partition_id ? v_partition_id : Py_None; Py_INCREF(v); Py_XSETREF(o->partition_id, v); }
+  { PyObject *v = v_application_name ? v_application_name : Py_None; Py_INCREF(v); Py_XSETREF(o->application_name, v); }
+  { PyObject *v = v_application_version ? v_application_version : Py_None; Py_INCREF(v); Py_XSETREF(o->application_version, v); }
+  { PyObject *v = v_application_namespace ? v_application_namespace : Py_None; Py_INCREF(v); Py_XSETREF(o->application_namespace, v); }
+  { PyObject *v = v_application_service ? v_application_service : Py_None; Py_INCREF(v); Py_XSETREF(o->application_service, v); }
+  { PyObject *v = v_engine_type ? v_engine_type : Py_None; Py_INCREF(v); Py_XSETREF(o->engine_type, v); }
+  return 0;
+}
+static int trav_TaskOptions(PyObject *s, visitproc visit, void *arg) {
+  CTaskOptions *o = (CTaskOptions *)s;
+  Py_VISIT(o->options);
+  Py_VISIT(o->max_duration);
+  Py_VISIT(o->partition_id);
+  Py_VISIT(o->application_name);
+  Py_VISIT(o->application_version);
+  Py_VISIT(o->application_namespace);
+  Py_VISIT(o->application_service);
+  Py_VISIT(o->engine_type);
+  return 0;
+}
+static int clear_TaskOptions(PyObject *s) {
+  CTaskOptions *o = (CTaskOptions *)s;
+  Py_CLEAR(o->options);
+  Py_CLEAR(o->max_duration);
+  Py_CLEAR(o->partition_id);
+  Py_CLEAR(o->application_name);
+  Py_CLEAR(o->application_version);
+  Py_CLEAR(o->application_namespace);
+  Py_CLEAR(o->application_service);
+  Py_CLEAR(o->engine_type);
+  return 0;
+}
+static void dealloc_TaskOptions(PyObject *s) {
+  PyTypeObject *t = Py_TYPE(s);
+  PyObject_GC_UnTrack(s); clear_TaskOptions(s);
+  ((freefunc)PyType_GetSlot(t, Py_tp_free))(s); Py_DECREF(t);
+}
+static PyType_Slot slots_TaskOptions[] = {
+  {Py_tp_init, (void *)init_TaskOptions}, {Py_tp_members, (void *)mem_TaskOptions},
+  {Py_tp_new, (void *)PyType_GenericNew}, {Py_tp_dealloc, (void *)dealloc_TaskOptions},
+  {Py_tp_traverse, (void *)trav_TaskOptions}, {Py_tp_clear, (void *)clear_TaskOptions},
+  {0, NULL}};
+static PyType_Spec spec_TaskOptions = {"_akffi.CTaskOptions", sizeof(CTaskOptions), 0,
+  Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC, slots_TaskOptions};
+
+static PyMemberDef mem_Duration[] = {
+  {"seconds", T_LONGLONG, offsetof(CDuration, seconds), 0, NULL},
+  {"nanos", T_LONG, offsetof(CDuration, nanos), 0, NULL},
+  {NULL}};
+static int init_Duration(PyObject *self, PyObject *a, PyObject *kw) {
+  static char *kwl[] = {"seconds", "nanos",  NULL};
+  CDuration *o = (CDuration *)self;
+  long long v_seconds = 0;
+  long v_nanos = 0;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|Ll", kwl, &v_seconds, &v_nanos)) return -1;
+  o->seconds = v_seconds;
+  o->nanos = v_nanos;
+  return 0;
+}
+static int trav_Duration(PyObject *s, visitproc visit, void *arg) {
+  (void)s; (void)visit; (void)arg;
+  return 0;
+}
+static int clear_Duration(PyObject *s) {
+  (void)s;
+  return 0;
+}
+static void dealloc_Duration(PyObject *s) {
+  PyTypeObject *t = Py_TYPE(s);
+  PyObject_GC_UnTrack(s); clear_Duration(s);
+  ((freefunc)PyType_GetSlot(t, Py_tp_free))(s); Py_DECREF(t);
+}
+static PyType_Slot slots_Duration[] = {
+  {Py_tp_init, (void *)init_Duration}, {Py_tp_members, (void *)mem_Duration},
+  {Py_tp_new, (void *)PyType_GenericNew}, {Py_tp_dealloc, (void *)dealloc_Duration},
+  {Py_tp_traverse, (void *)trav_Duration}, {Py_tp_clear, (void *)clear_Duration},
+  {0, NULL}};
+static PyType_Spec spec_Duration = {"_akffi.CDuration", sizeof(CDuration), 0,
+  Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC, slots_Duration};
+
+static PyMemberDef mem_TaskOutput[] = {
+  {"success", T_BOOL, offsetof(CTaskOutput, success), 0, NULL},
+  {"error", T_OBJECT_EX, offsetof(CTaskOutput, error), 0, NULL},
+  {NULL}};
+static int init_TaskOutput(PyObject *self, PyObject *a, PyObject *kw) {
+  static char *kwl[] = {"success", "error",  NULL};
+  CTaskOutput *o = (CTaskOutput *)self;
+  int v_success = 0;
+  PyObject *v_error = NULL;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|pO", kwl, &v_success, &v_error)) return -1;
+  o->success = v_success;
+  { PyObject *v = v_error ? v_error : Py_None; Py_INCREF(v); Py_XSETREF(o->error, v); }
+  return 0;
+}
+static int trav_TaskOutput(PyObject *s, visitproc visit, void *arg) {
+  CTaskOutput *o = (CTaskOutput *)s;
+  Py_VISIT(o->error);
+  return 0;
+}
+static int clear_TaskOutput(PyObject *s) {
+  CTaskOutput *o = (CTaskOutput *)s;
+  Py_CLEAR(o->error);
+  return 0;
+}
+static void dealloc_TaskOutput(PyObject *s) {
+  PyTypeObject *t = Py_TYPE(s);
+  PyObject_GC_UnTrack(s); clear_TaskOutput(s);
+  ((freefunc)PyType_GetSlot(t, Py_tp_free))(s); Py_DECREF(t);
+}
+static PyType_Slot slots_TaskOutput[] = {
+  {Py_tp_init, (void *)init_TaskOutput}, {Py_tp_members, (void *)mem_TaskOutput},
+  {Py_tp_new, (void *)PyType_GenericNew}, {Py_tp_dealloc, (void *)dealloc_TaskOutput},
+  {Py_tp_traverse, (void *)trav_TaskOutput}, {Py_tp_clear, (void *)clear_TaskOutput},
+  {0, NULL}};
+static PyType_Spec spec_TaskOutput = {"_akffi.CTaskOutput", sizeof(CTaskOutput), 0,
+  Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC, slots_TaskOutput};
+
+static PyMemberDef mem_TaskOptionsOptionsEntry[] = {
+  {"key", T_OBJECT_EX, offsetof(CTaskOptionsOptionsEntry, key), 0, NULL},
+  {"value", T_OBJECT_EX, offsetof(CTaskOptionsOptionsEntry, value), 0, NULL},
+  {NULL}};
+static int init_TaskOptionsOptionsEntry(PyObject *self, PyObject *a, PyObject *kw) {
+  static char *kwl[] = {"key", "value",  NULL};
+  CTaskOptionsOptionsEntry *o = (CTaskOptionsOptionsEntry *)self;
+  PyObject *v_key = NULL;
+  PyObject *v_value = NULL;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OO", kwl, &v_key, &v_value)) return -1;
+  { PyObject *v = v_key ? v_key : Py_None; Py_INCREF(v); Py_XSETREF(o->key, v); }
+  { PyObject *v = v_value ? v_value : Py_None; Py_INCREF(v); Py_XSETREF(o->value, v); }
+  return 0;
+}
+static int trav_TaskOptionsOptionsEntry(PyObject *s, visitproc visit, void *arg) {
+  CTaskOptionsOptionsEntry *o = (CTaskOptionsOptionsEntry *)s;
+  Py_VISIT(o->key);
+  Py_VISIT(o->value);
+  return 0;
+}
+static int clear_TaskOptionsOptionsEntry(PyObject *s) {
+  CTaskOptionsOptionsEntry *o = (CTaskOptionsOptionsEntry *)s;
+  Py_CLEAR(o->key);
+  Py_CLEAR(o->value);
+  return 0;
+}
+static void dealloc_TaskOptionsOptionsEntry(PyObject *s) {
+  PyTypeObject *t = Py_TYPE(s);
+  PyObject_GC_UnTrack(s); clear_TaskOptionsOptionsEntry(s);
+  ((freefunc)PyType_GetSlot(t, Py_tp_free))(s); Py_DECREF(t);
+}
+static PyType_Slot slots_TaskOptionsOptionsEntry[] = {
+  {Py_tp_init, (void *)init_TaskOptionsOptionsEntry}, {Py_tp_members, (void *)mem_TaskOptionsOptionsEntry},
+  {Py_tp_new, (void *)PyType_GenericNew}, {Py_tp_dealloc, (void *)dealloc_TaskOptionsOptionsEntry},
+  {Py_tp_traverse, (void *)trav_TaskOptionsOptionsEntry}, {Py_tp_clear, (void *)clear_TaskOptionsOptionsEntry},
+  {0, NULL}};
+static PyType_Spec spec_TaskOptionsOptionsEntry = {"_akffi.CTaskOptionsOptionsEntry", sizeof(CTaskOptionsOptionsEntry), 0,
+  Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC, slots_TaskOptionsOptionsEntry};
+
 #define CHUNK_LISTRESULTSRESPONSE ((int32_t)(32768 / sizeof(struct ak_efix_ListResultsResponse)) > 0 ? \
                   (int32_t)(32768 / sizeof(struct ak_efix_ListResultsResponse)) : 1)
 #define CHUNK_RESULTRAW ((int32_t)(32768 / sizeof(struct ak_efix_ResultRaw)) > 0 ? \
                   (int32_t)(32768 / sizeof(struct ak_efix_ResultRaw)) : 1)
 #define CHUNK_TIMESTAMP ((int32_t)(32768 / sizeof(struct ak_efix_Timestamp)) > 0 ? \
                   (int32_t)(32768 / sizeof(struct ak_efix_Timestamp)) : 1)
+#define CHUNK_LISTTASKSDETAILEDRESPONSE ((int32_t)(32768 / sizeof(struct ak_efix_ListTasksDetailedResponse)) > 0 ? \
+                  (int32_t)(32768 / sizeof(struct ak_efix_ListTasksDetailedResponse)) : 1)
+#define CHUNK_TASKDETAILED ((int32_t)(32768 / sizeof(struct ak_efix_TaskDetailed)) > 0 ? \
+                  (int32_t)(32768 / sizeof(struct ak_efix_TaskDetailed)) : 1)
+#define CHUNK_TASKOPTIONS ((int32_t)(32768 / sizeof(struct ak_efix_TaskOptions)) > 0 ? \
+                  (int32_t)(32768 / sizeof(struct ak_efix_TaskOptions)) : 1)
+#define CHUNK_DURATION ((int32_t)(32768 / sizeof(struct ak_efix_Duration)) > 0 ? \
+                  (int32_t)(32768 / sizeof(struct ak_efix_Duration)) : 1)
+#define CHUNK_TASKOUTPUT ((int32_t)(32768 / sizeof(struct ak_efix_TaskOutput)) > 0 ? \
+                  (int32_t)(32768 / sizeof(struct ak_efix_TaskOutput)) : 1)
+#define CHUNK_TASKOPTIONSOPTIONSENTRY ((int32_t)(32768 / sizeof(struct ak_efix_TaskOptionsOptionsEntry)) > 0 ? \
+                  (int32_t)(32768 / sizeof(struct ak_efix_TaskOptionsOptionsEntry)) : 1)
 
+static PyObject *K_acquired_at;
+static PyObject *K_application_name;
+static PyObject *K_application_namespace;
+static PyObject *K_application_service;
+static PyObject *K_application_version;
 static PyObject *K_completed_at;
 static PyObject *K_created_at;
 static PyObject *K_created_by;
+static PyObject *K_creation_to_end_duration;
+static PyObject *K_data_dependencies;
+static PyObject *K_ended_at;
+static PyObject *K_engine_type;
+static PyObject *K_error;
+static PyObject *K_expected_output_ids;
+static PyObject *K_fetched_at;
+static PyObject *K_id;
+static PyObject *K_initial_task_id;
+static PyObject *K_key;
 static PyObject *K_manual_deletion;
+static PyObject *K_max_duration;
+static PyObject *K_max_retries;
 static PyObject *K_name;
 static PyObject *K_nanos;
 static PyObject *K_opaque_id;
+static PyObject *K_options;
+static PyObject *K_output;
+static PyObject *K_owner_pod_id;
 static PyObject *K_owner_task_id;
 static PyObject *K_page;
+static PyObject *K_parent_task_ids;
+static PyObject *K_partition_id;
+static PyObject *K_payload_id;
+static PyObject *K_pod_hostname;
+static PyObject *K_pod_ttl;
+static PyObject *K_priority;
+static PyObject *K_processed_at;
+static PyObject *K_processing_to_end_duration;
+static PyObject *K_received_at;
+static PyObject *K_received_to_end_duration;
 static PyObject *K_result_id;
 static PyObject *K_results;
+static PyObject *K_retry_of_ids;
 static PyObject *K_seconds;
 static PyObject *K_session_id;
 static PyObject *K_size;
+static PyObject *K_started_at;
 static PyObject *K_status;
+static PyObject *K_status_message;
+static PyObject *K_submitted_at;
+static PyObject *K_success;
+static PyObject *K_tasks;
 static PyObject *K_total;
+static PyObject *K_value;
 
 typedef struct {
   PyObject *ty_ListResultsResponse;
   PyObject *ty_ResultRaw;
   PyObject *ty_Timestamp;
+  PyObject *ty_ListTasksDetailedResponse;
+  PyObject *ty_TaskDetailed;
+  PyObject *ty_TaskOptions;
+  PyObject *ty_Duration;
+  PyObject *ty_TaskOutput;
+  PyObject *ty_TaskOptionsOptionsEntry;
 } HostTypes;
 
 typedef struct {
@@ -252,61 +761,270 @@ typedef struct {
   const uint8_t *base; /* decode: ABI v1 7.4, spans are offsets into this */
   PyObject *acc;       /* pyacc backend: the accessor table */
   PyObject *list;      /* decode: the run being appended to */
+  PyObject *cur[1];   /* encode: the element list, per nesting level */
   int failed;
   PyObject *ty_ListResultsResponse;
   PyObject *ty_ResultRaw;
   PyObject *ty_Timestamp;
+  PyObject *ty_ListTasksDetailedResponse;
+  PyObject *ty_TaskDetailed;
+  PyObject *ty_TaskOptions;
+  PyObject *ty_Duration;
+  PyObject *ty_TaskOutput;
+  PyObject *ty_TaskOptionsOptionsEntry;
 } HostCtx;
 
 static int intern_keys(void) {
+  K_acquired_at = PyUnicode_InternFromString("acquired_at"); if (!K_acquired_at) return -1;
+  K_application_name = PyUnicode_InternFromString("application_name"); if (!K_application_name) return -1;
+  K_application_namespace = PyUnicode_InternFromString("application_namespace"); if (!K_application_namespace) return -1;
+  K_application_service = PyUnicode_InternFromString("application_service"); if (!K_application_service) return -1;
+  K_application_version = PyUnicode_InternFromString("application_version"); if (!K_application_version) return -1;
   K_completed_at = PyUnicode_InternFromString("completed_at"); if (!K_completed_at) return -1;
   K_created_at = PyUnicode_InternFromString("created_at"); if (!K_created_at) return -1;
   K_created_by = PyUnicode_InternFromString("created_by"); if (!K_created_by) return -1;
+  K_creation_to_end_duration = PyUnicode_InternFromString("creation_to_end_duration"); if (!K_creation_to_end_duration) return -1;
+  K_data_dependencies = PyUnicode_InternFromString("data_dependencies"); if (!K_data_dependencies) return -1;
+  K_ended_at = PyUnicode_InternFromString("ended_at"); if (!K_ended_at) return -1;
+  K_engine_type = PyUnicode_InternFromString("engine_type"); if (!K_engine_type) return -1;
+  K_error = PyUnicode_InternFromString("error"); if (!K_error) return -1;
+  K_expected_output_ids = PyUnicode_InternFromString("expected_output_ids"); if (!K_expected_output_ids) return -1;
+  K_fetched_at = PyUnicode_InternFromString("fetched_at"); if (!K_fetched_at) return -1;
+  K_id = PyUnicode_InternFromString("id"); if (!K_id) return -1;
+  K_initial_task_id = PyUnicode_InternFromString("initial_task_id"); if (!K_initial_task_id) return -1;
+  K_key = PyUnicode_InternFromString("key"); if (!K_key) return -1;
   K_manual_deletion = PyUnicode_InternFromString("manual_deletion"); if (!K_manual_deletion) return -1;
+  K_max_duration = PyUnicode_InternFromString("max_duration"); if (!K_max_duration) return -1;
+  K_max_retries = PyUnicode_InternFromString("max_retries"); if (!K_max_retries) return -1;
   K_name = PyUnicode_InternFromString("name"); if (!K_name) return -1;
   K_nanos = PyUnicode_InternFromString("nanos"); if (!K_nanos) return -1;
   K_opaque_id = PyUnicode_InternFromString("opaque_id"); if (!K_opaque_id) return -1;
+  K_options = PyUnicode_InternFromString("options"); if (!K_options) return -1;
+  K_output = PyUnicode_InternFromString("output"); if (!K_output) return -1;
+  K_owner_pod_id = PyUnicode_InternFromString("owner_pod_id"); if (!K_owner_pod_id) return -1;
   K_owner_task_id = PyUnicode_InternFromString("owner_task_id"); if (!K_owner_task_id) return -1;
   K_page = PyUnicode_InternFromString("page"); if (!K_page) return -1;
+  K_parent_task_ids = PyUnicode_InternFromString("parent_task_ids"); if (!K_parent_task_ids) return -1;
+  K_partition_id = PyUnicode_InternFromString("partition_id"); if (!K_partition_id) return -1;
+  K_payload_id = PyUnicode_InternFromString("payload_id"); if (!K_payload_id) return -1;
+  K_pod_hostname = PyUnicode_InternFromString("pod_hostname"); if (!K_pod_hostname) return -1;
+  K_pod_ttl = PyUnicode_InternFromString("pod_ttl"); if (!K_pod_ttl) return -1;
+  K_priority = PyUnicode_InternFromString("priority"); if (!K_priority) return -1;
+  K_processed_at = PyUnicode_InternFromString("processed_at"); if (!K_processed_at) return -1;
+  K_processing_to_end_duration = PyUnicode_InternFromString("processing_to_end_duration"); if (!K_processing_to_end_duration) return -1;
+  K_received_at = PyUnicode_InternFromString("received_at"); if (!K_received_at) return -1;
+  K_received_to_end_duration = PyUnicode_InternFromString("received_to_end_duration"); if (!K_received_to_end_duration) return -1;
   K_result_id = PyUnicode_InternFromString("result_id"); if (!K_result_id) return -1;
   K_results = PyUnicode_InternFromString("results"); if (!K_results) return -1;
+  K_retry_of_ids = PyUnicode_InternFromString("retry_of_ids"); if (!K_retry_of_ids) return -1;
   K_seconds = PyUnicode_InternFromString("seconds"); if (!K_seconds) return -1;
   K_session_id = PyUnicode_InternFromString("session_id"); if (!K_session_id) return -1;
   K_size = PyUnicode_InternFromString("size"); if (!K_size) return -1;
+  K_started_at = PyUnicode_InternFromString("started_at"); if (!K_started_at) return -1;
   K_status = PyUnicode_InternFromString("status"); if (!K_status) return -1;
+  K_status_message = PyUnicode_InternFromString("status_message"); if (!K_status_message) return -1;
+  K_submitted_at = PyUnicode_InternFromString("submitted_at"); if (!K_submitted_at) return -1;
+  K_success = PyUnicode_InternFromString("success"); if (!K_success) return -1;
+  K_tasks = PyUnicode_InternFromString("tasks"); if (!K_tasks) return -1;
   K_total = PyUnicode_InternFromString("total"); if (!K_total) return -1;
+  K_value = PyUnicode_InternFromString("value"); if (!K_value) return -1;
   TC_UTF8 = ak_tc_utf8(); TC_BYTES = ak_tc_bytes();
   return 0;
 }
 
 /* ===================== backend: attr ===================== */
-static int fill_attr_Timestamp_into(struct ak_efix_Timestamp *e, PyObject *ob, HostCtx *h) {
+static int into_attr_Timestamp(struct ak_efix_Timestamp *, PyObject *, HostCtx *);
+static int into_attr_TaskOptions(struct ak_efix_TaskOptions *, PyObject *, HostCtx *);
+static int into_attr_Duration(struct ak_efix_Duration *, PyObject *, HostCtx *);
+static int into_attr_TaskOutput(struct ak_efix_TaskOutput *, PyObject *, HostCtx *);
+static int setgroup_attr_ListResultsResponse(HostCtx *, PyObject *, const struct ak_dfix_ListResultsResponse *);
+static int setgroup_attr_ResultRaw(HostCtx *, PyObject *, const struct ak_dfix_ResultRaw *);
+static int setgroup_attr_Timestamp(HostCtx *, PyObject *, const struct ak_dfix_Timestamp *);
+static int setgroup_attr_ListTasksDetailedResponse(HostCtx *, PyObject *, const struct ak_dfix_ListTasksDetailedResponse *);
+static int setgroup_attr_TaskDetailed(HostCtx *, PyObject *, const struct ak_dfix_TaskDetailed *);
+static int setgroup_attr_TaskOptions(HostCtx *, PyObject *, const struct ak_dfix_TaskOptions *);
+static int setgroup_attr_Duration(HostCtx *, PyObject *, const struct ak_dfix_Duration *);
+static int setgroup_attr_TaskOutput(HostCtx *, PyObject *, const struct ak_dfix_TaskOutput *);
+static int setlist_attr_ListResultsResponse(PyObject *, PyObject *, HostCtx *);
+static int setlist_attr_ListTasksDetailedResponse(PyObject *, PyObject *, HostCtx *);
+
+static int into_attr_Timestamp(struct ak_efix_Timestamp *e, PyObject *ob, HostCtx *h) {
   (void)h; (void)e; (void)ob;
-  {
+  { /* seconds, tag 1, int64 */
     BUMP(C_ATTR);
-    PyObject *py_sv_seconds = PyObject_GetAttr(ob, K_seconds); const int own_py_sv_seconds = 1;
-    if (!py_sv_seconds) return -1;
+    PyObject *py_sv = PyObject_GetAttr(ob, K_seconds); const int own_py_sv = 1;
+    if (!py_sv) return -1;
     BUMP(C_READ);
-    long long sv_seconds = (long long)PyLong_AsLongLong(py_sv_seconds);
-    if (sv_seconds == (long long)-1 && PyErr_Occurred()) { if (own_py_sv_seconds) Py_DECREF(py_sv_seconds); return -1; }
-    if (own_py_sv_seconds) Py_DECREF(py_sv_seconds);
-    if (sv_seconds) e->seconds = (int64_t)sv_seconds;
+    long long sv = (long long)PyLong_AsLongLong(py_sv);
+    if (sv == (long long)-1 && PyErr_Occurred()) { if (own_py_sv) Py_DECREF(py_sv); return -1; }
+    if (own_py_sv) Py_DECREF(py_sv);
+    if (sv) e->seconds = (int64_t)sv;
   }
-  {
+  { /* nanos, tag 2, int32 */
     BUMP(C_ATTR);
-    PyObject *py_sv_nanos = PyObject_GetAttr(ob, K_nanos); const int own_py_sv_nanos = 1;
-    if (!py_sv_nanos) return -1;
+    PyObject *py_sv = PyObject_GetAttr(ob, K_nanos); const int own_py_sv = 1;
+    if (!py_sv) return -1;
     BUMP(C_READ);
-    long sv_nanos = (long)PyLong_AsLongLong(py_sv_nanos);
-    if (sv_nanos == (long)-1 && PyErr_Occurred()) { if (own_py_sv_nanos) Py_DECREF(py_sv_nanos); return -1; }
-    if (own_py_sv_nanos) Py_DECREF(py_sv_nanos);
-    if (sv_nanos) e->nanos = (int32_t)sv_nanos;
+    long sv = (long)PyLong_AsLongLong(py_sv);
+    if (sv == (long)-1 && PyErr_Occurred()) { if (own_py_sv) Py_DECREF(py_sv); return -1; }
+    if (own_py_sv) Py_DECREF(py_sv);
+    if (sv) e->nanos = (int32_t)sv;
+  }
+  return 0;
+}
+static int into_attr_TaskOptions(struct ak_efix_TaskOptions *e, PyObject *ob, HostCtx *h) {
+  (void)h; (void)e; (void)ob;
+  /* options: a loop slot, reached through the vtable */
+  { /* max_duration, tag 2, message */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_max_duration); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKOPTIONS_PRESENT_MAX_DURATION;
+      if (into_attr_Duration(&e->max_duration, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* max_retries, tag 3, int32 */
+    BUMP(C_ATTR);
+    PyObject *py_sv = PyObject_GetAttr(ob, K_max_retries); const int own_py_sv = 1;
+    if (!py_sv) return -1;
+    BUMP(C_READ);
+    long sv = (long)PyLong_AsLongLong(py_sv);
+    if (sv == (long)-1 && PyErr_Occurred()) { if (own_py_sv) Py_DECREF(py_sv); return -1; }
+    if (own_py_sv) Py_DECREF(py_sv);
+    if (sv) e->max_retries = (int32_t)sv;
+  }
+  { /* priority, tag 4, int32 */
+    BUMP(C_ATTR);
+    PyObject *py_sv = PyObject_GetAttr(ob, K_priority); const int own_py_sv = 1;
+    if (!py_sv) return -1;
+    BUMP(C_READ);
+    long sv = (long)PyLong_AsLongLong(py_sv);
+    if (sv == (long)-1 && PyErr_Occurred()) { if (own_py_sv) Py_DECREF(py_sv); return -1; }
+    if (own_py_sv) Py_DECREF(py_sv);
+    if (sv) e->priority = (int32_t)sv;
+  }
+  { /* partition_id, tag 5, string */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_partition_id); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->partition_id.data = sp; e->partition_id.len = (size_t)sl; e->partition_id.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* application_name, tag 6, string */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_application_name); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->application_name.data = sp; e->application_name.len = (size_t)sl; e->application_name.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* application_version, tag 7, string */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_application_version); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->application_version.data = sp; e->application_version.len = (size_t)sl; e->application_version.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* application_namespace, tag 8, string */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_application_namespace); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->application_namespace.data = sp; e->application_namespace.len = (size_t)sl; e->application_namespace.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* application_service, tag 9, string */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_application_service); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->application_service.data = sp; e->application_service.len = (size_t)sl; e->application_service.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* engine_type, tag 10, string */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_engine_type); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->engine_type.data = sp; e->engine_type.len = (size_t)sl; e->engine_type.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  return 0;
+}
+static int into_attr_Duration(struct ak_efix_Duration *e, PyObject *ob, HostCtx *h) {
+  (void)h; (void)e; (void)ob;
+  { /* seconds, tag 1, int64 */
+    BUMP(C_ATTR);
+    PyObject *py_sv = PyObject_GetAttr(ob, K_seconds); const int own_py_sv = 1;
+    if (!py_sv) return -1;
+    BUMP(C_READ);
+    long long sv = (long long)PyLong_AsLongLong(py_sv);
+    if (sv == (long long)-1 && PyErr_Occurred()) { if (own_py_sv) Py_DECREF(py_sv); return -1; }
+    if (own_py_sv) Py_DECREF(py_sv);
+    if (sv) e->seconds = (int64_t)sv;
+  }
+  { /* nanos, tag 2, int32 */
+    BUMP(C_ATTR);
+    PyObject *py_sv = PyObject_GetAttr(ob, K_nanos); const int own_py_sv = 1;
+    if (!py_sv) return -1;
+    BUMP(C_READ);
+    long sv = (long)PyLong_AsLongLong(py_sv);
+    if (sv == (long)-1 && PyErr_Occurred()) { if (own_py_sv) Py_DECREF(py_sv); return -1; }
+    if (own_py_sv) Py_DECREF(py_sv);
+    if (sv) e->nanos = (int32_t)sv;
+  }
+  return 0;
+}
+static int into_attr_TaskOutput(struct ak_efix_TaskOutput *e, PyObject *ob, HostCtx *h) {
+  (void)h; (void)e; (void)ob;
+  { /* success, tag 1, bool */
+    BUMP(C_ATTR);
+    PyObject *py_sv = PyObject_GetAttr(ob, K_success); const int own_py_sv = 1;
+    if (!py_sv) return -1;
+    BUMP(C_READ);
+    int sv = PyObject_IsTrue(py_sv);
+    if (sv < 0) { if (own_py_sv) Py_DECREF(py_sv); return -1; }
+    if (own_py_sv) Py_DECREF(py_sv);
+    if (sv) e->success = (uint8_t)sv;
+  }
+  { /* error, tag 2, string */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_error); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->error.data = sp; e->error.len = (size_t)sl; e->error.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
   }
   return 0;
 }
 static int fill_attr_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostCtx *h) {
-  (void)h;
-  { /* session_id, tag 1, singular string */
+  (void)h; (void)e; (void)ob;
+  { /* session_id, tag 1, string */
     BUMP(C_ATTR);
     PyObject *v = PyObject_GetAttr(ob, K_session_id); const int own_v = 1;
     if (!v) return -1;
@@ -317,7 +1035,7 @@ static int fill_attr_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostCt
     if (sl) { e->session_id.data = sp; e->session_id.len = (size_t)sl; e->session_id.tc = TC_UTF8; }
     if (own_v) Py_DECREF(v);
   }
-  { /* name, tag 2, singular string */
+  { /* name, tag 2, string */
     BUMP(C_ATTR);
     PyObject *v = PyObject_GetAttr(ob, K_name); const int own_v = 1;
     if (!v) return -1;
@@ -328,7 +1046,7 @@ static int fill_attr_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostCt
     if (sl) { e->name.data = sp; e->name.len = (size_t)sl; e->name.tc = TC_UTF8; }
     if (own_v) Py_DECREF(v);
   }
-  { /* owner_task_id, tag 3, singular string */
+  { /* owner_task_id, tag 3, string */
     BUMP(C_ATTR);
     PyObject *v = PyObject_GetAttr(ob, K_owner_task_id); const int own_v = 1;
     if (!v) return -1;
@@ -339,7 +1057,7 @@ static int fill_attr_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostCt
     if (sl) { e->owner_task_id.data = sp; e->owner_task_id.len = (size_t)sl; e->owner_task_id.tc = TC_UTF8; }
     if (own_v) Py_DECREF(v);
   }
-  { /* status, tag 4, singular enum */
+  { /* status, tag 4, enum */
     BUMP(C_ATTR);
     PyObject *py_sv = PyObject_GetAttr(ob, K_status); const int own_py_sv = 1;
     if (!py_sv) return -1;
@@ -349,27 +1067,27 @@ static int fill_attr_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostCt
     if (own_py_sv) Py_DECREF(py_sv);
     if (sv) e->status = (int32_t)sv;
   }
-  { /* created_at, tag 5, singular message */
+  { /* created_at, tag 5, message */
     BUMP(C_ATTR);
     PyObject *v = PyObject_GetAttr(ob, K_created_at); const int own_v = 1;
     if (!v) return -1;
     if (v != Py_None) {
       e->presence |= AK_EFIX_RESULTRAW_PRESENT_CREATED_AT;
-      if (fill_attr_Timestamp_into(&e->created_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+      if (into_attr_Timestamp(&e->created_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
     }
     if (own_v) Py_DECREF(v);
   }
-  { /* completed_at, tag 6, singular message */
+  { /* completed_at, tag 6, message */
     BUMP(C_ATTR);
     PyObject *v = PyObject_GetAttr(ob, K_completed_at); const int own_v = 1;
     if (!v) return -1;
     if (v != Py_None) {
       e->presence |= AK_EFIX_RESULTRAW_PRESENT_COMPLETED_AT;
-      if (fill_attr_Timestamp_into(&e->completed_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+      if (into_attr_Timestamp(&e->completed_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
     }
     if (own_v) Py_DECREF(v);
   }
-  { /* result_id, tag 8, singular string */
+  { /* result_id, tag 8, string */
     BUMP(C_ATTR);
     PyObject *v = PyObject_GetAttr(ob, K_result_id); const int own_v = 1;
     if (!v) return -1;
@@ -380,7 +1098,7 @@ static int fill_attr_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostCt
     if (sl) { e->result_id.data = sp; e->result_id.len = (size_t)sl; e->result_id.tc = TC_UTF8; }
     if (own_v) Py_DECREF(v);
   }
-  { /* size, tag 9, singular int64 */
+  { /* size, tag 9, int64 */
     BUMP(C_ATTR);
     PyObject *py_sv = PyObject_GetAttr(ob, K_size); const int own_py_sv = 1;
     if (!py_sv) return -1;
@@ -390,7 +1108,7 @@ static int fill_attr_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostCt
     if (own_py_sv) Py_DECREF(py_sv);
     if (sv) e->size = (int64_t)sv;
   }
-  { /* created_by, tag 10, singular string */
+  { /* created_by, tag 10, string */
     BUMP(C_ATTR);
     PyObject *v = PyObject_GetAttr(ob, K_created_by); const int own_v = 1;
     if (!v) return -1;
@@ -401,7 +1119,7 @@ static int fill_attr_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostCt
     if (sl) { e->created_by.data = sp; e->created_by.len = (size_t)sl; e->created_by.tc = TC_UTF8; }
     if (own_v) Py_DECREF(v);
   }
-  { /* opaque_id, tag 11, singular bytes */
+  { /* opaque_id, tag 11, bytes */
     BUMP(C_ATTR);
     PyObject *v = PyObject_GetAttr(ob, K_opaque_id); const int own_v = 1;
     if (!v) return -1;
@@ -411,7 +1129,7 @@ static int fill_attr_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostCt
     if (sl) { e->opaque_id.data = sp; e->opaque_id.len = (size_t)sl; e->opaque_id.tc = TC_BYTES; }
     if (own_v) Py_DECREF(v);
   }
-  { /* manual_deletion, tag 12, singular bool */
+  { /* manual_deletion, tag 12, bool */
     BUMP(C_ATTR);
     PyObject *py_sv = PyObject_GetAttr(ob, K_manual_deletion); const int own_py_sv = 1;
     if (!py_sv) return -1;
@@ -423,7 +1141,253 @@ static int fill_attr_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostCt
   }
   return 0;
 }
-static int32_t loop_attr_results(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+static int fill_attr_TaskDetailed(struct ak_efix_TaskDetailed *e, PyObject *ob, HostCtx *h) {
+  (void)h; (void)e; (void)ob;
+  { /* id, tag 1, string */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_id); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->id.data = sp; e->id.len = (size_t)sl; e->id.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* session_id, tag 2, string */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_session_id); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->session_id.data = sp; e->session_id.len = (size_t)sl; e->session_id.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* owner_pod_id, tag 3, string */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_owner_pod_id); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->owner_pod_id.data = sp; e->owner_pod_id.len = (size_t)sl; e->owner_pod_id.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  /* parent_task_ids: a loop slot, reached through the vtable */
+  /* data_dependencies: a loop slot, reached through the vtable */
+  /* expected_output_ids: a loop slot, reached through the vtable */
+  /* retry_of_ids: a loop slot, reached through the vtable */
+  { /* status, tag 8, enum */
+    BUMP(C_ATTR);
+    PyObject *py_sv = PyObject_GetAttr(ob, K_status); const int own_py_sv = 1;
+    if (!py_sv) return -1;
+    BUMP(C_READ);
+    long sv = (long)PyLong_AsLongLong(py_sv);
+    if (sv == (long)-1 && PyErr_Occurred()) { if (own_py_sv) Py_DECREF(py_sv); return -1; }
+    if (own_py_sv) Py_DECREF(py_sv);
+    if (sv) e->status = (int32_t)sv;
+  }
+  { /* status_message, tag 9, string */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_status_message); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->status_message.data = sp; e->status_message.len = (size_t)sl; e->status_message.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* options, tag 10, message */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_options); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_OPTIONS;
+      if (into_attr_TaskOptions(&e->options, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* created_at, tag 11, message */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_created_at); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_CREATED_AT;
+      if (into_attr_Timestamp(&e->created_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* submitted_at, tag 12, message */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_submitted_at); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_SUBMITTED_AT;
+      if (into_attr_Timestamp(&e->submitted_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* started_at, tag 13, message */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_started_at); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_STARTED_AT;
+      if (into_attr_Timestamp(&e->started_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* ended_at, tag 14, message */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_ended_at); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_ENDED_AT;
+      if (into_attr_Timestamp(&e->ended_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* pod_ttl, tag 15, message */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_pod_ttl); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_POD_TTL;
+      if (into_attr_Timestamp(&e->pod_ttl, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* output, tag 16, message */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_output); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_OUTPUT;
+      if (into_attr_TaskOutput(&e->output, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* pod_hostname, tag 17, string */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_pod_hostname); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->pod_hostname.data = sp; e->pod_hostname.len = (size_t)sl; e->pod_hostname.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* received_at, tag 18, message */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_received_at); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_RECEIVED_AT;
+      if (into_attr_Timestamp(&e->received_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* acquired_at, tag 19, message */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_acquired_at); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_ACQUIRED_AT;
+      if (into_attr_Timestamp(&e->acquired_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* creation_to_end_duration, tag 20, message */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_creation_to_end_duration); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_CREATION_TO_END_DURATION;
+      if (into_attr_Duration(&e->creation_to_end_duration, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* processing_to_end_duration, tag 21, message */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_processing_to_end_duration); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_PROCESSING_TO_END_DURATION;
+      if (into_attr_Duration(&e->processing_to_end_duration, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* initial_task_id, tag 22, string */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_initial_task_id); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->initial_task_id.data = sp; e->initial_task_id.len = (size_t)sl; e->initial_task_id.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* received_to_end_duration, tag 23, message */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_received_to_end_duration); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION;
+      if (into_attr_Duration(&e->received_to_end_duration, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* processed_at, tag 24, message */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_processed_at); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_PROCESSED_AT;
+      if (into_attr_Timestamp(&e->processed_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* fetched_at, tag 25, message */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_fetched_at); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_FETCHED_AT;
+      if (into_attr_Timestamp(&e->fetched_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* payload_id, tag 26, string */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_payload_id); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->payload_id.data = sp; e->payload_id.len = (size_t)sl; e->payload_id.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* created_by, tag 27, string */
+    BUMP(C_ATTR);
+    PyObject *v = PyObject_GetAttr(ob, K_created_by); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->created_by.data = sp; e->created_by.len = (size_t)sl; e->created_by.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  return 0;
+}
+static int32_t loop_attr_ListResultsResponse_results(ak_enc_ctx *ctx, const void *obj, int64_t token) {
   (void)token;
   HostCtx *h = (HostCtx *)obj;
   PyObject *ob = h->root;
@@ -432,7 +1396,14 @@ static int32_t loop_attr_results(ak_enc_ctx *ctx, const void *obj, int64_t token
   if (!lst) return -1;
   Py_ssize_t n = PyList_Size(lst);
   if (n < 0) { if (own_lst) Py_DECREF(lst); return -1; }
+  /* The element list, so an inner loop slot can index it by token without
+     re-reading the attribute. The core only calls an inner loop from inside
+     this one, so one slot per nesting level is enough -- and the emitter
+     raises above if the schema ever nests deeper than the stack. */
+  PyObject *saved = h->cur[0]; h->cur[0] = lst;
   struct ak_efix_ResultRaw chunk[CHUNK_RESULTRAW];
+  int64_t done = 0;
+  int32_t rc = 0;
   for (Py_ssize_t i = 0; i < n; i += CHUNK_RESULTRAW) {
     int32_t k = (int32_t)((n - i < CHUNK_RESULTRAW) ? (n - i) : CHUNK_RESULTRAW);
     /* ABI v1 decision 9: bulk clear once, then assign only what differs. */
@@ -440,14 +1411,15 @@ static int32_t loop_attr_results(ak_enc_ctx *ctx, const void *obj, int64_t token
     for (int32_t j = 0; j < k; j++) {
       BUMP(C_ITEM);
       PyObject *e = PyList_GetItem(lst, i + j);
-      if (!e || fill_attr_ResultRaw(&chunk[j], e, h))
-        { if (own_lst) Py_DECREF(lst); return -1; }
+      if (!e || fill_attr_ResultRaw(&chunk[j], e, h)) { rc = -1; goto out; }
     }
-    if (ak_elem_ResultRaw(ctx, chunk, k))
-      { if (own_lst) Py_DECREF(lst); return -1; }
+    if (ak_elem_ResultRaw(ctx, chunk, k)) { rc = -1; goto out; }
+    done += k;
   }
+out:
+  h->cur[0] = saved;
   if (own_lst) Py_DECREF(lst);
-  return 0;
+  return rc;
 }
 static int fix_attr_ListResultsResponse(struct ak_efix_ListResultsResponse *fix, PyObject *ob, HostCtx *h) {
   (void)h; (void)ob;
@@ -480,7 +1452,9 @@ static PyObject *encode_attr_ListResultsResponse(PyObject *rootobj, PyObject *ac
   HostCtx *h = &hs;
   struct ak_efix_ListResultsResponse fix;
   if (fix_attr_ListResultsResponse(&fix, rootobj, h)) return NULL;
-  static const struct ak_evt_ListResultsResponse VT = {loop_attr_results};
+  static const struct ak_evt_ListResultsResponse VT = {
+    .loop_results = loop_attr_ListResultsResponse_results,
+  };
   ak_enc_ctx *ctx = ak_enc_ctx_new();
   if (!ctx) return PyErr_NoMemory();
   intptr_t rc = ak_encode_ListResultsResponse(h, ctx, &VT, &fix);
@@ -499,7 +1473,878 @@ static PyObject *encode_attr_ListResultsResponse(PyObject *rootobj, PyObject *ac
   ak_enc_ctx_free(ctx);
   return out;
 }
-static int setlist_attr_results(PyObject *ob, PyObject *lst, HostCtx *h) {
+static int32_t loop_attr_ListTasksDetailedResponse_tasks(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  (void)token;
+  HostCtx *h = (HostCtx *)obj;
+  PyObject *ob = h->root;
+  BUMP(C_ATTR);
+  PyObject *lst = PyObject_GetAttr(ob, K_tasks); const int own_lst = 1;
+  if (!lst) return -1;
+  Py_ssize_t n = PyList_Size(lst);
+  if (n < 0) { if (own_lst) Py_DECREF(lst); return -1; }
+  /* The element list, so an inner loop slot can index it by token without
+     re-reading the attribute. The core only calls an inner loop from inside
+     this one, so one slot per nesting level is enough -- and the emitter
+     raises above if the schema ever nests deeper than the stack. */
+  PyObject *saved = h->cur[0]; h->cur[0] = lst;
+  struct ak_efix_TaskDetailed chunk[CHUNK_TASKDETAILED];
+  int64_t done = 0;
+  int32_t rc = 0;
+  for (Py_ssize_t i = 0; i < n; i += CHUNK_TASKDETAILED) {
+    int32_t k = (int32_t)((n - i < CHUNK_TASKDETAILED) ? (n - i) : CHUNK_TASKDETAILED);
+    /* ABI v1 decision 9: bulk clear once, then assign only what differs. */
+    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);
+    for (int32_t j = 0; j < k; j++) {
+      BUMP(C_ITEM);
+      PyObject *e = PyList_GetItem(lst, i + j);
+      if (!e || fill_attr_TaskDetailed(&chunk[j], e, h)) { rc = -1; goto out; }
+    }
+    /* NOT a leaf: the batching predicate refuses it, so the element
+       run carries a token range and each of the element's own
+       containers is a reverse call per element (ABI v1 section 6). */
+    if (ak_elemu_TaskDetailed(ctx, chunk, k, done)) { rc = -1; goto out; }
+    done += k;
+  }
+out:
+  h->cur[0] = saved;
+  if (own_lst) Py_DECREF(lst);
+  return rc;
+}
+static int32_t loop_attr_TaskDetailed_parent_task_ids(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  HostCtx *h = (HostCtx *)obj;
+  PyObject *el = PyList_GetItem(h->cur[0], (Py_ssize_t)token);
+  if (!el) return -1;
+  PyObject *cur = Py_NewRef(el);
+  BUMP(C_ATTR);
+  PyObject *lst = PyObject_GetAttr(cur, K_parent_task_ids); const int own_lst = 1;
+  if (!lst) return -1;
+  Py_ssize_t n = PyList_Size(lst);
+  if (n < 0) { if (own_lst) Py_DECREF(lst); return -1; }
+  struct ak_str chunk[CHUNK_BLOB];
+  int32_t rc = 0;
+  for (Py_ssize_t i = 0; i < n; i += CHUNK_BLOB) {
+    int32_t k = (int32_t)((n - i < CHUNK_BLOB) ? (n - i) : CHUNK_BLOB);
+    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);
+    for (int32_t j = 0; j < k; j++) {
+      BUMP(C_ITEM); BUMP(C_READ);
+      PyObject *s = PyList_GetItem(lst, i + j);
+      if (!s) { rc = -1; goto out; }
+      Py_ssize_t sl = 0;
+      const char *sp = PyUnicode_AsUTF8AndSize(s, &sl);
+      if (!sp) { rc = -1; goto out; }
+      chunk[j].data = sp; chunk[j].len = (size_t)sl; chunk[j].tc = TC_UTF8;
+    }
+    if (ak_blob_run(ctx, chunk, k)) { rc = -1; goto out; }
+  }
+out:
+  if (own_lst) Py_DECREF(lst);
+  return rc;
+}
+static int32_t loop_attr_TaskDetailed_data_dependencies(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  HostCtx *h = (HostCtx *)obj;
+  PyObject *el = PyList_GetItem(h->cur[0], (Py_ssize_t)token);
+  if (!el) return -1;
+  PyObject *cur = Py_NewRef(el);
+  BUMP(C_ATTR);
+  PyObject *lst = PyObject_GetAttr(cur, K_data_dependencies); const int own_lst = 1;
+  if (!lst) return -1;
+  Py_ssize_t n = PyList_Size(lst);
+  if (n < 0) { if (own_lst) Py_DECREF(lst); return -1; }
+  struct ak_str chunk[CHUNK_BLOB];
+  int32_t rc = 0;
+  for (Py_ssize_t i = 0; i < n; i += CHUNK_BLOB) {
+    int32_t k = (int32_t)((n - i < CHUNK_BLOB) ? (n - i) : CHUNK_BLOB);
+    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);
+    for (int32_t j = 0; j < k; j++) {
+      BUMP(C_ITEM); BUMP(C_READ);
+      PyObject *s = PyList_GetItem(lst, i + j);
+      if (!s) { rc = -1; goto out; }
+      Py_ssize_t sl = 0;
+      const char *sp = PyUnicode_AsUTF8AndSize(s, &sl);
+      if (!sp) { rc = -1; goto out; }
+      chunk[j].data = sp; chunk[j].len = (size_t)sl; chunk[j].tc = TC_UTF8;
+    }
+    if (ak_blob_run(ctx, chunk, k)) { rc = -1; goto out; }
+  }
+out:
+  if (own_lst) Py_DECREF(lst);
+  return rc;
+}
+static int32_t loop_attr_TaskDetailed_expected_output_ids(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  HostCtx *h = (HostCtx *)obj;
+  PyObject *el = PyList_GetItem(h->cur[0], (Py_ssize_t)token);
+  if (!el) return -1;
+  PyObject *cur = Py_NewRef(el);
+  BUMP(C_ATTR);
+  PyObject *lst = PyObject_GetAttr(cur, K_expected_output_ids); const int own_lst = 1;
+  if (!lst) return -1;
+  Py_ssize_t n = PyList_Size(lst);
+  if (n < 0) { if (own_lst) Py_DECREF(lst); return -1; }
+  struct ak_str chunk[CHUNK_BLOB];
+  int32_t rc = 0;
+  for (Py_ssize_t i = 0; i < n; i += CHUNK_BLOB) {
+    int32_t k = (int32_t)((n - i < CHUNK_BLOB) ? (n - i) : CHUNK_BLOB);
+    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);
+    for (int32_t j = 0; j < k; j++) {
+      BUMP(C_ITEM); BUMP(C_READ);
+      PyObject *s = PyList_GetItem(lst, i + j);
+      if (!s) { rc = -1; goto out; }
+      Py_ssize_t sl = 0;
+      const char *sp = PyUnicode_AsUTF8AndSize(s, &sl);
+      if (!sp) { rc = -1; goto out; }
+      chunk[j].data = sp; chunk[j].len = (size_t)sl; chunk[j].tc = TC_UTF8;
+    }
+    if (ak_blob_run(ctx, chunk, k)) { rc = -1; goto out; }
+  }
+out:
+  if (own_lst) Py_DECREF(lst);
+  return rc;
+}
+static int32_t loop_attr_TaskDetailed_retry_of_ids(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  HostCtx *h = (HostCtx *)obj;
+  PyObject *el = PyList_GetItem(h->cur[0], (Py_ssize_t)token);
+  if (!el) return -1;
+  PyObject *cur = Py_NewRef(el);
+  BUMP(C_ATTR);
+  PyObject *lst = PyObject_GetAttr(cur, K_retry_of_ids); const int own_lst = 1;
+  if (!lst) return -1;
+  Py_ssize_t n = PyList_Size(lst);
+  if (n < 0) { if (own_lst) Py_DECREF(lst); return -1; }
+  struct ak_str chunk[CHUNK_BLOB];
+  int32_t rc = 0;
+  for (Py_ssize_t i = 0; i < n; i += CHUNK_BLOB) {
+    int32_t k = (int32_t)((n - i < CHUNK_BLOB) ? (n - i) : CHUNK_BLOB);
+    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);
+    for (int32_t j = 0; j < k; j++) {
+      BUMP(C_ITEM); BUMP(C_READ);
+      PyObject *s = PyList_GetItem(lst, i + j);
+      if (!s) { rc = -1; goto out; }
+      Py_ssize_t sl = 0;
+      const char *sp = PyUnicode_AsUTF8AndSize(s, &sl);
+      if (!sp) { rc = -1; goto out; }
+      chunk[j].data = sp; chunk[j].len = (size_t)sl; chunk[j].tc = TC_UTF8;
+    }
+    if (ak_blob_run(ctx, chunk, k)) { rc = -1; goto out; }
+  }
+out:
+  if (own_lst) Py_DECREF(lst);
+  return rc;
+}
+static int32_t loop_attr_TaskDetailed_options_options(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  HostCtx *h = (HostCtx *)obj;
+  PyObject *el = PyList_GetItem(h->cur[0], (Py_ssize_t)token);
+  if (!el) return -1;
+  BUMP(C_ATTR);
+  PyObject *p0 = PyObject_GetAttr(el, K_options); const int own_p0 = 1;
+  if (!p0) return -1;
+  (void)own_p0;
+  PyObject *cur = p0;
+  if (cur == Py_None) { Py_DECREF(cur); return 0; }
+  BUMP(C_ATTR);
+  PyObject *d = PyObject_GetAttr(cur, K_options); const int own_d = 1;
+  if (!d) return -1;
+  PyObject *keys = PyDict_Keys(d);
+  if (!keys) { if (own_d) Py_DECREF(d); return -1; }
+  if (PyList_Sort(keys) < 0) { Py_DECREF(keys); if (own_d) Py_DECREF(d); return -1; }
+  Py_ssize_t n = PyList_Size(keys);
+  struct ak_efix_TaskOptionsOptionsEntry chunk[CHUNK_TASKOPTIONSOPTIONSENTRY];
+  int32_t rc = 0;
+  for (Py_ssize_t i = 0; i < n; i += CHUNK_TASKOPTIONSOPTIONSENTRY) {
+    int32_t k = (int32_t)((n - i < CHUNK_TASKOPTIONSOPTIONSENTRY) ? (n - i) : CHUNK_TASKOPTIONSOPTIONSENTRY);
+    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);
+    for (int32_t j = 0; j < k; j++) {
+      BUMP(C_ITEM);
+      PyObject *kk = PyList_GetItem(keys, i + j);
+      PyObject *vv = kk ? PyDict_GetItem(d, kk) : NULL;
+      if (!kk || !vv) { rc = -1; goto out; }
+      BUMP(C_READ); BUMP(C_READ);
+      Py_ssize_t kl = 0, vl = 0;
+      const char *kp = PyUnicode_AsUTF8AndSize(kk, &kl);
+      const char *vp = PyUnicode_AsUTF8AndSize(vv, &vl);
+      if (!kp || !vp) { rc = -1; goto out; }
+      chunk[j].key.data = kp; chunk[j].key.len = (size_t)kl; chunk[j].key.tc = TC_UTF8;
+      /* An empty value is an implicit-presence leaf holding the proto zero, so
+         it is left absent by the memset. P2.5 is the payload that reaches it. */
+      if (vl) { chunk[j].value.data = vp; chunk[j].value.len = (size_t)vl; chunk[j].value.tc = TC_UTF8; }
+    }
+    if (ak_elem_TaskOptionsOptionsEntry(ctx, chunk, k)) { rc = -1; goto out; }
+  }
+out:
+  Py_DECREF(keys);
+  if (own_d) Py_DECREF(d);
+  Py_DECREF(cur);
+  return rc;
+}
+static int fix_attr_ListTasksDetailedResponse(struct ak_efix_ListTasksDetailedResponse *fix, PyObject *ob, HostCtx *h) {
+  (void)h; (void)ob;
+  memset(fix, 0, sizeof *fix);
+  {
+    BUMP(C_ATTR);
+    PyObject *py_sv_page = PyObject_GetAttr(ob, K_page); const int own_py_sv_page = 1;
+    if (!py_sv_page) return -1;
+    BUMP(C_READ);
+    long sv_page = (long)PyLong_AsLongLong(py_sv_page);
+    if (sv_page == (long)-1 && PyErr_Occurred()) { if (own_py_sv_page) Py_DECREF(py_sv_page); return -1; }
+    if (own_py_sv_page) Py_DECREF(py_sv_page);
+    if (sv_page) fix->page = (int32_t)sv_page;
+  }
+  {
+    BUMP(C_ATTR);
+    PyObject *py_sv_total = PyObject_GetAttr(ob, K_total); const int own_py_sv_total = 1;
+    if (!py_sv_total) return -1;
+    BUMP(C_READ);
+    long sv_total = (long)PyLong_AsLongLong(py_sv_total);
+    if (sv_total == (long)-1 && PyErr_Occurred()) { if (own_py_sv_total) Py_DECREF(py_sv_total); return -1; }
+    if (own_py_sv_total) Py_DECREF(py_sv_total);
+    if (sv_total) fix->total = (int32_t)sv_total;
+  }
+  return 0;
+}
+static PyObject *encode_attr_ListTasksDetailedResponse(PyObject *rootobj, PyObject *acc) {
+  HostCtx hs; memset(&hs, 0, sizeof hs);
+  hs.root = rootobj; hs.acc = acc;
+  HostCtx *h = &hs;
+  struct ak_efix_ListTasksDetailedResponse fix;
+  if (fix_attr_ListTasksDetailedResponse(&fix, rootobj, h)) return NULL;
+  static const struct ak_evt_TaskDetailed EVT_tasks = {
+    .loop_parent_task_ids = loop_attr_TaskDetailed_parent_task_ids,
+    .loop_data_dependencies = loop_attr_TaskDetailed_data_dependencies,
+    .loop_expected_output_ids = loop_attr_TaskDetailed_expected_output_ids,
+    .loop_retry_of_ids = loop_attr_TaskDetailed_retry_of_ids,
+    .loop_options_options = loop_attr_TaskDetailed_options_options,
+  };
+  static const struct ak_evt_ListTasksDetailedResponse VT = {
+    .loop_tasks = loop_attr_ListTasksDetailedResponse_tasks,
+    .elem_tasks = &EVT_tasks,
+  };
+  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  if (!ctx) return PyErr_NoMemory();
+  intptr_t rc = ak_encode_ListTasksDetailedResponse(h, ctx, &VT, &fix);
+  if (rc < 0) {
+    ak_enc_ctx_free(ctx);
+    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListTasksDetailedResponse returned %ld", (long)rc);
+    return NULL;
+  }
+#ifdef AK_COUNT
+  { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
+#endif
+  const uint8_t *p = NULL; size_t len = 0;
+  if (ak_enc_take(ctx, &p, &len)) { ak_enc_ctx_free(ctx);
+    PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
+  PyObject *out = PyBytes_FromStringAndSize((const char *)p, (Py_ssize_t)len);
+  ak_enc_ctx_free(ctx);
+  return out;
+}
+static int setgroup_attr_ListResultsResponse(HostCtx *h, PyObject *ob, const struct ak_dfix_ListResultsResponse *e) {
+  (void)h; (void)ob; (void)e;
+  { /* page */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->page)); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_page, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* total */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->total)); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_total, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  return 0;
+}
+static int setgroup_attr_ResultRaw(HostCtx *h, PyObject *ob, const struct ak_dfix_ResultRaw *e) {
+  (void)h; (void)ob; (void)e;
+  { /* session_id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->session_id.off, (Py_ssize_t)e->session_id.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_session_id, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* name */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->name.off, (Py_ssize_t)e->name.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_name, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* owner_task_id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->owner_task_id.off, (Py_ssize_t)e->owner_task_id.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_owner_task_id, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* status */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->status)); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_status, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* created_at */
+    if (e->presence & AK_DFIX_RESULTRAW_PRESENT_CREATED_AT) {
+      BUMP(C_ATTR);
+      PyObject *c0 = PyObject_GetAttr(ob, K_created_at); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_ATTR);
+          if (PyObject_SetAttr(ob, K_created_at, v_) < 0) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_attr_Timestamp(h, cur, &e->created_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* completed_at */
+    if (e->presence & AK_DFIX_RESULTRAW_PRESENT_COMPLETED_AT) {
+      BUMP(C_ATTR);
+      PyObject *c0 = PyObject_GetAttr(ob, K_completed_at); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_ATTR);
+          if (PyObject_SetAttr(ob, K_completed_at, v_) < 0) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_attr_Timestamp(h, cur, &e->completed_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* result_id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->result_id.off, (Py_ssize_t)e->result_id.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_result_id, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* size */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->size)); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_size, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* created_by */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->created_by.off, (Py_ssize_t)e->created_by.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_created_by, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* opaque_id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyBytes_FromStringAndSize((const char *)h->base + e->opaque_id.off, (Py_ssize_t)e->opaque_id.len); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_opaque_id, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* manual_deletion */
+    { PyObject *v_ = PyBool_FromLong((long)(e->manual_deletion)); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_manual_deletion, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  return 0;
+}
+static int setgroup_attr_Timestamp(HostCtx *h, PyObject *ob, const struct ak_dfix_Timestamp *e) {
+  (void)h; (void)ob; (void)e;
+  { /* seconds */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->seconds)); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_seconds, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* nanos */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->nanos)); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_nanos, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  return 0;
+}
+static int setgroup_attr_ListTasksDetailedResponse(HostCtx *h, PyObject *ob, const struct ak_dfix_ListTasksDetailedResponse *e) {
+  (void)h; (void)ob; (void)e;
+  { /* page */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->page)); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_page, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* total */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->total)); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_total, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  return 0;
+}
+static int setgroup_attr_TaskDetailed(HostCtx *h, PyObject *ob, const struct ak_dfix_TaskDetailed *e) {
+  (void)h; (void)ob; (void)e;
+  { /* id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->id.off, (Py_ssize_t)e->id.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_id, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* session_id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->session_id.off, (Py_ssize_t)e->session_id.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_session_id, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* owner_pod_id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->owner_pod_id.off, (Py_ssize_t)e->owner_pod_id.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_owner_pod_id, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* status */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->status)); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_status, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* status_message */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->status_message.off, (Py_ssize_t)e->status_message.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_status_message, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* options */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_OPTIONS) {
+      BUMP(C_ATTR);
+      PyObject *c0 = PyObject_GetAttr(ob, K_options); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_TaskOptions);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_ATTR);
+          if (PyObject_SetAttr(ob, K_options, v_) < 0) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_attr_TaskOptions(h, cur, &e->options)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* created_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_CREATED_AT) {
+      BUMP(C_ATTR);
+      PyObject *c0 = PyObject_GetAttr(ob, K_created_at); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_ATTR);
+          if (PyObject_SetAttr(ob, K_created_at, v_) < 0) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_attr_Timestamp(h, cur, &e->created_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* submitted_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_SUBMITTED_AT) {
+      BUMP(C_ATTR);
+      PyObject *c0 = PyObject_GetAttr(ob, K_submitted_at); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_ATTR);
+          if (PyObject_SetAttr(ob, K_submitted_at, v_) < 0) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_attr_Timestamp(h, cur, &e->submitted_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* started_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_STARTED_AT) {
+      BUMP(C_ATTR);
+      PyObject *c0 = PyObject_GetAttr(ob, K_started_at); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_ATTR);
+          if (PyObject_SetAttr(ob, K_started_at, v_) < 0) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_attr_Timestamp(h, cur, &e->started_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* ended_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_ENDED_AT) {
+      BUMP(C_ATTR);
+      PyObject *c0 = PyObject_GetAttr(ob, K_ended_at); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_ATTR);
+          if (PyObject_SetAttr(ob, K_ended_at, v_) < 0) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_attr_Timestamp(h, cur, &e->ended_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* pod_ttl */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_POD_TTL) {
+      BUMP(C_ATTR);
+      PyObject *c0 = PyObject_GetAttr(ob, K_pod_ttl); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_ATTR);
+          if (PyObject_SetAttr(ob, K_pod_ttl, v_) < 0) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_attr_Timestamp(h, cur, &e->pod_ttl)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* output */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_OUTPUT) {
+      BUMP(C_ATTR);
+      PyObject *c0 = PyObject_GetAttr(ob, K_output); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_TaskOutput);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_ATTR);
+          if (PyObject_SetAttr(ob, K_output, v_) < 0) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_attr_TaskOutput(h, cur, &e->output)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* pod_hostname */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->pod_hostname.off, (Py_ssize_t)e->pod_hostname.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_pod_hostname, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* received_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_AT) {
+      BUMP(C_ATTR);
+      PyObject *c0 = PyObject_GetAttr(ob, K_received_at); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_ATTR);
+          if (PyObject_SetAttr(ob, K_received_at, v_) < 0) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_attr_Timestamp(h, cur, &e->received_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* acquired_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_ACQUIRED_AT) {
+      BUMP(C_ATTR);
+      PyObject *c0 = PyObject_GetAttr(ob, K_acquired_at); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_ATTR);
+          if (PyObject_SetAttr(ob, K_acquired_at, v_) < 0) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_attr_Timestamp(h, cur, &e->acquired_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* creation_to_end_duration */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_CREATION_TO_END_DURATION) {
+      BUMP(C_ATTR);
+      PyObject *c0 = PyObject_GetAttr(ob, K_creation_to_end_duration); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Duration);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_ATTR);
+          if (PyObject_SetAttr(ob, K_creation_to_end_duration, v_) < 0) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_attr_Duration(h, cur, &e->creation_to_end_duration)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* processing_to_end_duration */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_PROCESSING_TO_END_DURATION) {
+      BUMP(C_ATTR);
+      PyObject *c0 = PyObject_GetAttr(ob, K_processing_to_end_duration); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Duration);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_ATTR);
+          if (PyObject_SetAttr(ob, K_processing_to_end_duration, v_) < 0) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_attr_Duration(h, cur, &e->processing_to_end_duration)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* initial_task_id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->initial_task_id.off, (Py_ssize_t)e->initial_task_id.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_initial_task_id, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* received_to_end_duration */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION) {
+      BUMP(C_ATTR);
+      PyObject *c0 = PyObject_GetAttr(ob, K_received_to_end_duration); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Duration);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_ATTR);
+          if (PyObject_SetAttr(ob, K_received_to_end_duration, v_) < 0) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_attr_Duration(h, cur, &e->received_to_end_duration)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* processed_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_PROCESSED_AT) {
+      BUMP(C_ATTR);
+      PyObject *c0 = PyObject_GetAttr(ob, K_processed_at); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_ATTR);
+          if (PyObject_SetAttr(ob, K_processed_at, v_) < 0) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_attr_Timestamp(h, cur, &e->processed_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* fetched_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_FETCHED_AT) {
+      BUMP(C_ATTR);
+      PyObject *c0 = PyObject_GetAttr(ob, K_fetched_at); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_ATTR);
+          if (PyObject_SetAttr(ob, K_fetched_at, v_) < 0) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_attr_Timestamp(h, cur, &e->fetched_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* payload_id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->payload_id.off, (Py_ssize_t)e->payload_id.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_payload_id, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* created_by */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->created_by.off, (Py_ssize_t)e->created_by.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_created_by, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  return 0;
+}
+static int setgroup_attr_TaskOptions(HostCtx *h, PyObject *ob, const struct ak_dfix_TaskOptions *e) {
+  (void)h; (void)ob; (void)e;
+  { /* max_duration */
+    if (e->presence & AK_DFIX_TASKOPTIONS_PRESENT_MAX_DURATION) {
+      BUMP(C_ATTR);
+      PyObject *c0 = PyObject_GetAttr(ob, K_max_duration); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Duration);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_ATTR);
+          if (PyObject_SetAttr(ob, K_max_duration, v_) < 0) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_attr_Duration(h, cur, &e->max_duration)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* max_retries */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->max_retries)); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_max_retries, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* priority */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->priority)); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_priority, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* partition_id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->partition_id.off, (Py_ssize_t)e->partition_id.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_partition_id, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* application_name */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->application_name.off, (Py_ssize_t)e->application_name.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_application_name, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* application_version */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->application_version.off, (Py_ssize_t)e->application_version.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_application_version, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* application_namespace */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->application_namespace.off, (Py_ssize_t)e->application_namespace.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_application_namespace, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* application_service */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->application_service.off, (Py_ssize_t)e->application_service.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_application_service, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* engine_type */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->engine_type.off, (Py_ssize_t)e->engine_type.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_engine_type, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  return 0;
+}
+static int setgroup_attr_Duration(HostCtx *h, PyObject *ob, const struct ak_dfix_Duration *e) {
+  (void)h; (void)ob; (void)e;
+  { /* seconds */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->seconds)); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_seconds, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* nanos */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->nanos)); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_nanos, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  return 0;
+}
+static int setgroup_attr_TaskOutput(HostCtx *h, PyObject *ob, const struct ak_dfix_TaskOutput *e) {
+  (void)h; (void)ob; (void)e;
+  { /* success */
+    { PyObject *v_ = PyBool_FromLong((long)(e->success)); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_success, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  { /* error */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->error.off, (Py_ssize_t)e->error.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_error, v_) < 0) { Py_DECREF(v_); return -1; }
+      Py_DECREF(v_); }
+  }
+  return 0;
+}
+static int setlist_attr_ListResultsResponse(PyObject *ob, PyObject *lst, HostCtx *h) {
   (void)h; (void)ob; (void)lst;
   { PyObject *v_ = Py_NewRef(lst); if (!v_) { return -1; }
     BUMP(C_ATTR);
@@ -513,21 +2358,10 @@ static void apply_attr_ListResultsResponse(ak_dec_ctx *ctx, void *obj,
   HostCtx *h = (HostCtx *)obj;
   if (h->failed) return;
   PyObject *ob = h->root;
-  {
-    { PyObject *v_ = PyLong_FromLongLong((long long)(fx->page)); if (!v_) { h->failed = 1; return; }
-      BUMP(C_ATTR);
-      if (PyObject_SetAttr(ob, K_page, v_) < 0) { Py_DECREF(v_); h->failed = 1; return; }
-      Py_DECREF(v_); }
-  }
-  {
-    { PyObject *v_ = PyLong_FromLongLong((long long)(fx->total)); if (!v_) { h->failed = 1; return; }
-      BUMP(C_ATTR);
-      if (PyObject_SetAttr(ob, K_total, v_) < 0) { Py_DECREF(v_); h->failed = 1; return; }
-      Py_DECREF(v_); }
-  }
+  if (setgroup_attr_ListResultsResponse(h, ob, fx)) h->failed = 1;
 }
-static void add_attr_results(ak_dec_ctx *ctx, void *obj, int64_t tok,
-                       const struct ak_dfix_ResultRaw *elems, int32_t n) {
+static void add_attr_ListResultsResponse_results(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_dfix_ResultRaw *elems, int32_t n) {
   (void)ctx; (void)tok;
   HostCtx *h = (HostCtx *)obj;
   if (h->failed) return;
@@ -536,116 +2370,7 @@ static void add_attr_results(ak_dec_ctx *ctx, void *obj, int64_t tok,
     PyObject *ob = PyObject_CallNoArgs(h->ty_ResultRaw);
     if (!ob) { h->failed = 1; return; }
     const struct ak_dfix_ResultRaw *e = &elems[i];
-    { /* session_id */
-      BUMP(C_READ);
-      { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->session_id.off, (Py_ssize_t)e->session_id.len, "strict"); if (!v_) { h->failed = 1; return; }
-        BUMP(C_ATTR);
-        if (PyObject_SetAttr(ob, K_session_id, v_) < 0) { Py_DECREF(v_); h->failed = 1; return; }
-        Py_DECREF(v_); }
-    }
-    { /* name */
-      BUMP(C_READ);
-      { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->name.off, (Py_ssize_t)e->name.len, "strict"); if (!v_) { h->failed = 1; return; }
-        BUMP(C_ATTR);
-        if (PyObject_SetAttr(ob, K_name, v_) < 0) { Py_DECREF(v_); h->failed = 1; return; }
-        Py_DECREF(v_); }
-    }
-    { /* owner_task_id */
-      BUMP(C_READ);
-      { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->owner_task_id.off, (Py_ssize_t)e->owner_task_id.len, "strict"); if (!v_) { h->failed = 1; return; }
-        BUMP(C_ATTR);
-        if (PyObject_SetAttr(ob, K_owner_task_id, v_) < 0) { Py_DECREF(v_); h->failed = 1; return; }
-        Py_DECREF(v_); }
-    }
-    { /* status */
-      { PyObject *v_ = PyLong_FromLongLong((long long)(e->status)); if (!v_) { h->failed = 1; return; }
-        BUMP(C_ATTR);
-        if (PyObject_SetAttr(ob, K_status, v_) < 0) { Py_DECREF(v_); h->failed = 1; return; }
-        Py_DECREF(v_); }
-    }
-    { /* created_at */
-      if (e->presence & AK_DFIX_RESULTRAW_PRESENT_CREATED_AT) {
-        PyObject *child = PyObject_CallNoArgs(h->ty_Timestamp);
-        if (!child) { h->failed = 1; return; }
-        { PyObject *ob = child;
-          { PyObject *v_ = PyLong_FromLongLong((long long)(e->created_at.seconds)); if (!v_) { h->failed = 1; return; }
-            BUMP(C_ATTR);
-            if (PyObject_SetAttr(ob, K_seconds, v_) < 0) { Py_DECREF(v_); h->failed = 1; return; }
-            Py_DECREF(v_); }
-          { PyObject *v_ = PyLong_FromLongLong((long long)(e->created_at.nanos)); if (!v_) { h->failed = 1; return; }
-            BUMP(C_ATTR);
-            if (PyObject_SetAttr(ob, K_nanos, v_) < 0) { Py_DECREF(v_); h->failed = 1; return; }
-            Py_DECREF(v_); }
-        }
-        { PyObject *v_ = child; if (!v_) { h->failed = 1; return; }
-          BUMP(C_ATTR);
-          if (PyObject_SetAttr(ob, K_created_at, v_) < 0) { Py_DECREF(v_); h->failed = 1; return; }
-          Py_DECREF(v_); }
-      } else {
-        { PyObject *v_ = Py_NewRef(Py_None); if (!v_) { h->failed = 1; return; }
-          BUMP(C_ATTR);
-          if (PyObject_SetAttr(ob, K_created_at, v_) < 0) { Py_DECREF(v_); h->failed = 1; return; }
-          Py_DECREF(v_); }
-      }
-    }
-    { /* completed_at */
-      if (e->presence & AK_DFIX_RESULTRAW_PRESENT_COMPLETED_AT) {
-        PyObject *child = PyObject_CallNoArgs(h->ty_Timestamp);
-        if (!child) { h->failed = 1; return; }
-        { PyObject *ob = child;
-          { PyObject *v_ = PyLong_FromLongLong((long long)(e->completed_at.seconds)); if (!v_) { h->failed = 1; return; }
-            BUMP(C_ATTR);
-            if (PyObject_SetAttr(ob, K_seconds, v_) < 0) { Py_DECREF(v_); h->failed = 1; return; }
-            Py_DECREF(v_); }
-          { PyObject *v_ = PyLong_FromLongLong((long long)(e->completed_at.nanos)); if (!v_) { h->failed = 1; return; }
-            BUMP(C_ATTR);
-            if (PyObject_SetAttr(ob, K_nanos, v_) < 0) { Py_DECREF(v_); h->failed = 1; return; }
-            Py_DECREF(v_); }
-        }
-        { PyObject *v_ = child; if (!v_) { h->failed = 1; return; }
-          BUMP(C_ATTR);
-          if (PyObject_SetAttr(ob, K_completed_at, v_) < 0) { Py_DECREF(v_); h->failed = 1; return; }
-          Py_DECREF(v_); }
-      } else {
-        { PyObject *v_ = Py_NewRef(Py_None); if (!v_) { h->failed = 1; return; }
-          BUMP(C_ATTR);
-          if (PyObject_SetAttr(ob, K_completed_at, v_) < 0) { Py_DECREF(v_); h->failed = 1; return; }
-          Py_DECREF(v_); }
-      }
-    }
-    { /* result_id */
-      BUMP(C_READ);
-      { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->result_id.off, (Py_ssize_t)e->result_id.len, "strict"); if (!v_) { h->failed = 1; return; }
-        BUMP(C_ATTR);
-        if (PyObject_SetAttr(ob, K_result_id, v_) < 0) { Py_DECREF(v_); h->failed = 1; return; }
-        Py_DECREF(v_); }
-    }
-    { /* size */
-      { PyObject *v_ = PyLong_FromLongLong((long long)(e->size)); if (!v_) { h->failed = 1; return; }
-        BUMP(C_ATTR);
-        if (PyObject_SetAttr(ob, K_size, v_) < 0) { Py_DECREF(v_); h->failed = 1; return; }
-        Py_DECREF(v_); }
-    }
-    { /* created_by */
-      BUMP(C_READ);
-      { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->created_by.off, (Py_ssize_t)e->created_by.len, "strict"); if (!v_) { h->failed = 1; return; }
-        BUMP(C_ATTR);
-        if (PyObject_SetAttr(ob, K_created_by, v_) < 0) { Py_DECREF(v_); h->failed = 1; return; }
-        Py_DECREF(v_); }
-    }
-    { /* opaque_id */
-      BUMP(C_READ);
-      { PyObject *v_ = PyBytes_FromStringAndSize((const char *)h->base + e->opaque_id.off, (Py_ssize_t)e->opaque_id.len); if (!v_) { h->failed = 1; return; }
-        BUMP(C_ATTR);
-        if (PyObject_SetAttr(ob, K_opaque_id, v_) < 0) { Py_DECREF(v_); h->failed = 1; return; }
-        Py_DECREF(v_); }
-    }
-    { /* manual_deletion */
-      { PyObject *v_ = PyBool_FromLong((long)(e->manual_deletion)); if (!v_) { h->failed = 1; return; }
-        BUMP(C_ATTR);
-        if (PyObject_SetAttr(ob, K_manual_deletion, v_) < 0) { Py_DECREF(v_); h->failed = 1; return; }
-        Py_DECREF(v_); }
-    }
+    if (setgroup_attr_ResultRaw(h, ob, e)) { h->failed = 1; Py_DECREF(ob); return; }
     BUMP(C_ITEM);
     if (PyList_Append(h->list, ob) < 0) h->failed = 1;
     Py_DECREF(ob);
@@ -663,9 +2388,18 @@ static PyObject *decode_attr_ListResultsResponse(PyObject *buf, PyObject *acc, H
   h.ty_ListResultsResponse = T->ty_ListResultsResponse;
   h.ty_ResultRaw = T->ty_ResultRaw;
   h.ty_Timestamp = T->ty_Timestamp;
+  h.ty_ListTasksDetailedResponse = T->ty_ListTasksDetailedResponse;
+  h.ty_TaskDetailed = T->ty_TaskDetailed;
+  h.ty_TaskOptions = T->ty_TaskOptions;
+  h.ty_Duration = T->ty_Duration;
+  h.ty_TaskOutput = T->ty_TaskOutput;
+  h.ty_TaskOptionsOptionsEntry = T->ty_TaskOptionsOptionsEntry;
   h.list = PyList_New(0);
   if (!h.list) { Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_ListResultsResponse VT = {apply_attr_ListResultsResponse, NULL, NULL, add_attr_results};
+  static const struct ak_dvt_ListResultsResponse VT = {
+    .apply = apply_attr_ListResultsResponse,
+    .add_results = add_attr_ListResultsResponse_results,
+  };
   ak_dec_ctx *ctx = ak_dec_ctx_new();
   if (!ctx) { Py_DECREF(h.list); Py_DECREF(rootobj); return PyErr_NoMemory(); }
   int32_t rc = ak_decode_ListResultsResponse(ctx, &h, (const uint8_t *)p, (size_t)blen, &VT);
@@ -678,18 +2412,351 @@ static PyObject *decode_attr_ListResultsResponse(PyObject *buf, PyObject *acc, H
     if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ListResultsResponse returned %d", (int)rc);
     return NULL;
   }
-  if (setlist_attr_results(rootobj, h.list, &h))
+  if (setlist_attr_ListResultsResponse(rootobj, h.list, &h))
+    { Py_DECREF(h.list); Py_DECREF(rootobj); return NULL; }
+  Py_DECREF(h.list);
+  return rootobj;
+}
+static int setlist_attr_ListTasksDetailedResponse(PyObject *ob, PyObject *lst, HostCtx *h) {
+  (void)h; (void)ob; (void)lst;
+  { PyObject *v_ = Py_NewRef(lst); if (!v_) { return -1; }
+    BUMP(C_ATTR);
+    if (PyObject_SetAttr(ob, K_tasks, v_) < 0) { Py_DECREF(v_); return -1; }
+    Py_DECREF(v_); }
+  return 0;
+}
+static void apply_attr_ListTasksDetailedResponse(ak_dec_ctx *ctx, void *obj,
+                         const struct ak_dfix_ListTasksDetailedResponse *fx) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = h->root;
+  if (setgroup_attr_ListTasksDetailedResponse(h, ob, fx)) h->failed = 1;
+}
+static int64_t new_attr_ListTasksDetailedResponse_tasks(ak_dec_ctx *ctx, void *obj) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return 0;
+  PyObject *ob = PyObject_CallNoArgs(h->ty_TaskDetailed);
+  if (!ob) { h->failed = 1; return 0; }
+  BUMP(C_ITEM);
+  Py_ssize_t idx = PyList_Size(h->list);
+  if (PyList_Append(h->list, ob) < 0) h->failed = 1;
+  Py_DECREF(ob);
+  return (int64_t)idx;
+}
+static void apply_attr_ListTasksDetailedResponse_tasks(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_dfix_TaskDetailed *e) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);
+  if (!ob) { h->failed = 1; return; }
+  if (setgroup_attr_TaskDetailed(h, ob, e)) h->failed = 1;
+}
+static void add_attr_ListTasksDetailedResponse_tasks_parent_task_ids(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_span *elems, int32_t n) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);
+  if (!ob) { h->failed = 1; return; }
+  PyObject *cur = Py_NewRef(ob);
+  BUMP(C_ATTR);
+  PyObject *lst = PyObject_GetAttr(cur, K_parent_task_ids); const int own_lst = 1;
+  if (!lst) return ;
+  for (int32_t i = 0; i < n; i++) {
+    BUMP(C_READ); BUMP(C_ITEM);
+    PyObject *s = PyUnicode_DecodeUTF8((const char *)h->base + elems[i].off, (Py_ssize_t)elems[i].len, "strict");
+    if (!s) { h->failed = 1; break; }
+    if (PyList_Append(lst, s) < 0) { h->failed = 1; Py_DECREF(s); break; }
+    Py_DECREF(s);
+  }
+  if (own_lst) Py_DECREF(lst);
+  Py_DECREF(cur);
+}
+static void add_attr_ListTasksDetailedResponse_tasks_data_dependencies(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_span *elems, int32_t n) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);
+  if (!ob) { h->failed = 1; return; }
+  PyObject *cur = Py_NewRef(ob);
+  BUMP(C_ATTR);
+  PyObject *lst = PyObject_GetAttr(cur, K_data_dependencies); const int own_lst = 1;
+  if (!lst) return ;
+  for (int32_t i = 0; i < n; i++) {
+    BUMP(C_READ); BUMP(C_ITEM);
+    PyObject *s = PyUnicode_DecodeUTF8((const char *)h->base + elems[i].off, (Py_ssize_t)elems[i].len, "strict");
+    if (!s) { h->failed = 1; break; }
+    if (PyList_Append(lst, s) < 0) { h->failed = 1; Py_DECREF(s); break; }
+    Py_DECREF(s);
+  }
+  if (own_lst) Py_DECREF(lst);
+  Py_DECREF(cur);
+}
+static void add_attr_ListTasksDetailedResponse_tasks_expected_output_ids(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_span *elems, int32_t n) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);
+  if (!ob) { h->failed = 1; return; }
+  PyObject *cur = Py_NewRef(ob);
+  BUMP(C_ATTR);
+  PyObject *lst = PyObject_GetAttr(cur, K_expected_output_ids); const int own_lst = 1;
+  if (!lst) return ;
+  for (int32_t i = 0; i < n; i++) {
+    BUMP(C_READ); BUMP(C_ITEM);
+    PyObject *s = PyUnicode_DecodeUTF8((const char *)h->base + elems[i].off, (Py_ssize_t)elems[i].len, "strict");
+    if (!s) { h->failed = 1; break; }
+    if (PyList_Append(lst, s) < 0) { h->failed = 1; Py_DECREF(s); break; }
+    Py_DECREF(s);
+  }
+  if (own_lst) Py_DECREF(lst);
+  Py_DECREF(cur);
+}
+static void add_attr_ListTasksDetailedResponse_tasks_retry_of_ids(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_span *elems, int32_t n) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);
+  if (!ob) { h->failed = 1; return; }
+  PyObject *cur = Py_NewRef(ob);
+  BUMP(C_ATTR);
+  PyObject *lst = PyObject_GetAttr(cur, K_retry_of_ids); const int own_lst = 1;
+  if (!lst) return ;
+  for (int32_t i = 0; i < n; i++) {
+    BUMP(C_READ); BUMP(C_ITEM);
+    PyObject *s = PyUnicode_DecodeUTF8((const char *)h->base + elems[i].off, (Py_ssize_t)elems[i].len, "strict");
+    if (!s) { h->failed = 1; break; }
+    if (PyList_Append(lst, s) < 0) { h->failed = 1; Py_DECREF(s); break; }
+    Py_DECREF(s);
+  }
+  if (own_lst) Py_DECREF(lst);
+  Py_DECREF(cur);
+}
+static void add_attr_ListTasksDetailedResponse_tasks_options_options(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_dfix_TaskOptionsOptionsEntry *elems, int32_t n) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);
+  if (!ob) { h->failed = 1; return; }
+  BUMP(C_ATTR);
+  PyObject *c0 = PyObject_GetAttr(ob, K_options); const int own_c0 = 1;
+  if (!c0) return ;
+  (void)own_c0;
+  if (c0 == Py_None) {
+    PyObject *nw = PyObject_CallNoArgs(h->ty_TaskOptions);
+    if (!nw) { Py_DECREF(c0); h->failed = 1; return; }
+    { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); h->failed = 1; return; }
+      BUMP(C_ATTR);
+      if (PyObject_SetAttr(ob, K_options, v_) < 0) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); h->failed = 1; return; }
+      Py_DECREF(v_); }
+    Py_DECREF(c0); c0 = nw;
+  }
+  PyObject *cur = c0;
+  BUMP(C_ATTR);
+  PyObject *d = PyObject_GetAttr(cur, K_options); const int own_d = 1;
+  if (!d) return ;
+  for (int32_t i = 0; i < n; i++) {
+    BUMP(C_READ); BUMP(C_READ); BUMP(C_ITEM);
+    PyObject *k = PyUnicode_DecodeUTF8((const char *)h->base + elems[i].key.off, (Py_ssize_t)elems[i].key.len, "strict");
+    PyObject *v = k ? PyUnicode_DecodeUTF8((const char *)h->base + elems[i].value.off, (Py_ssize_t)elems[i].value.len, "strict") : NULL;
+    if (!k || !v) { h->failed = 1; Py_XDECREF(k); Py_XDECREF(v); break; }
+    if (PyDict_SetItem(d, k, v) < 0) h->failed = 1;
+    Py_DECREF(k); Py_DECREF(v);
+    if (h->failed) break;
+  }
+  if (own_d) Py_DECREF(d);
+  Py_DECREF(cur);
+}
+static PyObject *decode_attr_ListTasksDetailedResponse(PyObject *buf, PyObject *acc, HostTypes *T) {
+  char *p = NULL; Py_ssize_t blen = 0;
+  if (PyBytes_AsStringAndSize(buf, &p, &blen)) return NULL;
+  PyObject *rootobj = PyObject_CallNoArgs(T->ty_ListTasksDetailedResponse);
+  if (!rootobj) return NULL;
+  HostCtx h;
+  memset(&h, 0, sizeof h);
+  h.root = rootobj; h.base = (const uint8_t *)p; h.acc = acc;
+  h.ty_ListResultsResponse = T->ty_ListResultsResponse;
+  h.ty_ResultRaw = T->ty_ResultRaw;
+  h.ty_Timestamp = T->ty_Timestamp;
+  h.ty_ListTasksDetailedResponse = T->ty_ListTasksDetailedResponse;
+  h.ty_TaskDetailed = T->ty_TaskDetailed;
+  h.ty_TaskOptions = T->ty_TaskOptions;
+  h.ty_Duration = T->ty_Duration;
+  h.ty_TaskOutput = T->ty_TaskOutput;
+  h.ty_TaskOptionsOptionsEntry = T->ty_TaskOptionsOptionsEntry;
+  h.list = PyList_New(0);
+  if (!h.list) { Py_DECREF(rootobj); return NULL; }
+  static const struct ak_dvt_ListTasksDetailedResponse VT = {
+    .apply = apply_attr_ListTasksDetailedResponse,
+    .new_tasks = new_attr_ListTasksDetailedResponse_tasks,
+    .apply_tasks = apply_attr_ListTasksDetailedResponse_tasks,
+    .add_tasks_parent_task_ids = add_attr_ListTasksDetailedResponse_tasks_parent_task_ids,
+    .add_tasks_data_dependencies = add_attr_ListTasksDetailedResponse_tasks_data_dependencies,
+    .add_tasks_expected_output_ids = add_attr_ListTasksDetailedResponse_tasks_expected_output_ids,
+    .add_tasks_retry_of_ids = add_attr_ListTasksDetailedResponse_tasks_retry_of_ids,
+    .add_tasks_options_options = add_attr_ListTasksDetailedResponse_tasks_options_options,
+  };
+  ak_dec_ctx *ctx = ak_dec_ctx_new();
+  if (!ctx) { Py_DECREF(h.list); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+  int32_t rc = ak_decode_ListTasksDetailedResponse(ctx, &h, (const uint8_t *)p, (size_t)blen, &VT);
+#ifdef AK_COUNT
+  { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
+#endif
+  ak_dec_ctx_free(ctx);
+  if (rc || h.failed) {
+    Py_DECREF(h.list); Py_DECREF(rootobj);
+    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ListTasksDetailedResponse returned %d", (int)rc);
+    return NULL;
+  }
+  if (setlist_attr_ListTasksDetailedResponse(rootobj, h.list, &h))
     { Py_DECREF(h.list); Py_DECREF(rootobj); return NULL; }
   Py_DECREF(h.list);
   return rootobj;
 }
 
 /* ===================== backend: cext ===================== */
+static int into_cext_Timestamp(struct ak_efix_Timestamp *, PyObject *, HostCtx *);
+static int into_cext_TaskOptions(struct ak_efix_TaskOptions *, PyObject *, HostCtx *);
+static int into_cext_Duration(struct ak_efix_Duration *, PyObject *, HostCtx *);
+static int into_cext_TaskOutput(struct ak_efix_TaskOutput *, PyObject *, HostCtx *);
+static int setgroup_cext_ListResultsResponse(HostCtx *, PyObject *, const struct ak_dfix_ListResultsResponse *);
+static int setgroup_cext_ResultRaw(HostCtx *, PyObject *, const struct ak_dfix_ResultRaw *);
+static int setgroup_cext_Timestamp(HostCtx *, PyObject *, const struct ak_dfix_Timestamp *);
+static int setgroup_cext_ListTasksDetailedResponse(HostCtx *, PyObject *, const struct ak_dfix_ListTasksDetailedResponse *);
+static int setgroup_cext_TaskDetailed(HostCtx *, PyObject *, const struct ak_dfix_TaskDetailed *);
+static int setgroup_cext_TaskOptions(HostCtx *, PyObject *, const struct ak_dfix_TaskOptions *);
+static int setgroup_cext_Duration(HostCtx *, PyObject *, const struct ak_dfix_Duration *);
+static int setgroup_cext_TaskOutput(HostCtx *, PyObject *, const struct ak_dfix_TaskOutput *);
+static int setlist_cext_ListResultsResponse(PyObject *, PyObject *, HostCtx *);
+static int setlist_cext_ListTasksDetailedResponse(PyObject *, PyObject *, HostCtx *);
+
+static int into_cext_Timestamp(struct ak_efix_Timestamp *e, PyObject *ob, HostCtx *h) {
+  (void)h; (void)e; (void)ob;
+  { /* seconds, tag 1, int64 */
+    long long sv = ((CTimestamp *)ob)->seconds;
+    if (sv) e->seconds = (int64_t)sv;
+  }
+  { /* nanos, tag 2, int32 */
+    long sv = ((CTimestamp *)ob)->nanos;
+    if (sv) e->nanos = (int32_t)sv;
+  }
+  return 0;
+}
+static int into_cext_TaskOptions(struct ak_efix_TaskOptions *e, PyObject *ob, HostCtx *h) {
+  (void)h; (void)e; (void)ob;
+  /* options: a loop slot, reached through the vtable */
+  { /* max_duration, tag 2, message */
+    PyObject *v = ((CTaskOptions *)ob)->max_duration; const int own_v = 0;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKOPTIONS_PRESENT_MAX_DURATION;
+      if (into_cext_Duration(&e->max_duration, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* max_retries, tag 3, int32 */
+    long sv = ((CTaskOptions *)ob)->max_retries;
+    if (sv) e->max_retries = (int32_t)sv;
+  }
+  { /* priority, tag 4, int32 */
+    long sv = ((CTaskOptions *)ob)->priority;
+    if (sv) e->priority = (int32_t)sv;
+  }
+  { /* partition_id, tag 5, string */
+    PyObject *v = ((CTaskOptions *)ob)->partition_id; const int own_v = 0;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->partition_id.data = sp; e->partition_id.len = (size_t)sl; e->partition_id.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* application_name, tag 6, string */
+    PyObject *v = ((CTaskOptions *)ob)->application_name; const int own_v = 0;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->application_name.data = sp; e->application_name.len = (size_t)sl; e->application_name.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* application_version, tag 7, string */
+    PyObject *v = ((CTaskOptions *)ob)->application_version; const int own_v = 0;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->application_version.data = sp; e->application_version.len = (size_t)sl; e->application_version.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* application_namespace, tag 8, string */
+    PyObject *v = ((CTaskOptions *)ob)->application_namespace; const int own_v = 0;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->application_namespace.data = sp; e->application_namespace.len = (size_t)sl; e->application_namespace.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* application_service, tag 9, string */
+    PyObject *v = ((CTaskOptions *)ob)->application_service; const int own_v = 0;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->application_service.data = sp; e->application_service.len = (size_t)sl; e->application_service.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* engine_type, tag 10, string */
+    PyObject *v = ((CTaskOptions *)ob)->engine_type; const int own_v = 0;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->engine_type.data = sp; e->engine_type.len = (size_t)sl; e->engine_type.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  return 0;
+}
+static int into_cext_Duration(struct ak_efix_Duration *e, PyObject *ob, HostCtx *h) {
+  (void)h; (void)e; (void)ob;
+  { /* seconds, tag 1, int64 */
+    long long sv = ((CDuration *)ob)->seconds;
+    if (sv) e->seconds = (int64_t)sv;
+  }
+  { /* nanos, tag 2, int32 */
+    long sv = ((CDuration *)ob)->nanos;
+    if (sv) e->nanos = (int32_t)sv;
+  }
+  return 0;
+}
+static int into_cext_TaskOutput(struct ak_efix_TaskOutput *e, PyObject *ob, HostCtx *h) {
+  (void)h; (void)e; (void)ob;
+  { /* success, tag 1, bool */
+    int sv = ((CTaskOutput *)ob)->success;
+    if (sv) e->success = (uint8_t)sv;
+  }
+  { /* error, tag 2, string */
+    PyObject *v = ((CTaskOutput *)ob)->error; const int own_v = 0;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->error.data = sp; e->error.len = (size_t)sl; e->error.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  return 0;
+}
 static int fill_cext_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostCtx *h) {
-  (void)h;
-  CResultRaw *o = (CResultRaw *)ob;
-  { /* session_id, tag 1, singular string */
-    PyObject *v = o->session_id; const int own_v = 0;
+  (void)h; (void)e; (void)ob;
+  { /* session_id, tag 1, string */
+    PyObject *v = ((CResultRaw *)ob)->session_id; const int own_v = 0;
     BUMP(C_READ);
     Py_ssize_t sl = 0;
     const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
@@ -697,8 +2764,8 @@ static int fill_cext_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostCt
     if (sl) { e->session_id.data = sp; e->session_id.len = (size_t)sl; e->session_id.tc = TC_UTF8; }
     if (own_v) Py_DECREF(v);
   }
-  { /* name, tag 2, singular string */
-    PyObject *v = o->name; const int own_v = 0;
+  { /* name, tag 2, string */
+    PyObject *v = ((CResultRaw *)ob)->name; const int own_v = 0;
     BUMP(C_READ);
     Py_ssize_t sl = 0;
     const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
@@ -706,8 +2773,8 @@ static int fill_cext_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostCt
     if (sl) { e->name.data = sp; e->name.len = (size_t)sl; e->name.tc = TC_UTF8; }
     if (own_v) Py_DECREF(v);
   }
-  { /* owner_task_id, tag 3, singular string */
-    PyObject *v = o->owner_task_id; const int own_v = 0;
+  { /* owner_task_id, tag 3, string */
+    PyObject *v = ((CResultRaw *)ob)->owner_task_id; const int own_v = 0;
     BUMP(C_READ);
     Py_ssize_t sl = 0;
     const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
@@ -715,32 +2782,28 @@ static int fill_cext_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostCt
     if (sl) { e->owner_task_id.data = sp; e->owner_task_id.len = (size_t)sl; e->owner_task_id.tc = TC_UTF8; }
     if (own_v) Py_DECREF(v);
   }
-  { /* status, tag 4, singular enum */
-    long sv = o->status;
+  { /* status, tag 4, enum */
+    long sv = ((CResultRaw *)ob)->status;
     if (sv) e->status = (int32_t)sv;
   }
-  { /* created_at, tag 5, singular message */
-    PyObject *v = o->created_at; const int own_v = 0;
+  { /* created_at, tag 5, message */
+    PyObject *v = ((CResultRaw *)ob)->created_at; const int own_v = 0;
     if (v != Py_None) {
       e->presence |= AK_EFIX_RESULTRAW_PRESENT_CREATED_AT;
-      CTimestamp *c = (CTimestamp *)v;
-      e->created_at.seconds = (long long)c->seconds;
-      e->created_at.nanos = (long)c->nanos;
+      if (into_cext_Timestamp(&e->created_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
     }
     if (own_v) Py_DECREF(v);
   }
-  { /* completed_at, tag 6, singular message */
-    PyObject *v = o->completed_at; const int own_v = 0;
+  { /* completed_at, tag 6, message */
+    PyObject *v = ((CResultRaw *)ob)->completed_at; const int own_v = 0;
     if (v != Py_None) {
       e->presence |= AK_EFIX_RESULTRAW_PRESENT_COMPLETED_AT;
-      CTimestamp *c = (CTimestamp *)v;
-      e->completed_at.seconds = (long long)c->seconds;
-      e->completed_at.nanos = (long)c->nanos;
+      if (into_cext_Timestamp(&e->completed_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
     }
     if (own_v) Py_DECREF(v);
   }
-  { /* result_id, tag 8, singular string */
-    PyObject *v = o->result_id; const int own_v = 0;
+  { /* result_id, tag 8, string */
+    PyObject *v = ((CResultRaw *)ob)->result_id; const int own_v = 0;
     BUMP(C_READ);
     Py_ssize_t sl = 0;
     const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
@@ -748,12 +2811,12 @@ static int fill_cext_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostCt
     if (sl) { e->result_id.data = sp; e->result_id.len = (size_t)sl; e->result_id.tc = TC_UTF8; }
     if (own_v) Py_DECREF(v);
   }
-  { /* size, tag 9, singular int64 */
-    long long sv = o->size;
+  { /* size, tag 9, int64 */
+    long long sv = ((CResultRaw *)ob)->size;
     if (sv) e->size = (int64_t)sv;
   }
-  { /* created_by, tag 10, singular string */
-    PyObject *v = o->created_by; const int own_v = 0;
+  { /* created_by, tag 10, string */
+    PyObject *v = ((CResultRaw *)ob)->created_by; const int own_v = 0;
     BUMP(C_READ);
     Py_ssize_t sl = 0;
     const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
@@ -761,29 +2824,231 @@ static int fill_cext_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostCt
     if (sl) { e->created_by.data = sp; e->created_by.len = (size_t)sl; e->created_by.tc = TC_UTF8; }
     if (own_v) Py_DECREF(v);
   }
-  { /* opaque_id, tag 11, singular bytes */
-    PyObject *v = o->opaque_id; const int own_v = 0;
+  { /* opaque_id, tag 11, bytes */
+    PyObject *v = ((CResultRaw *)ob)->opaque_id; const int own_v = 0;
     BUMP(C_READ);
     char *sp = NULL; Py_ssize_t sl = 0;
     if (PyBytes_AsStringAndSize(v, &sp, &sl)) { if (own_v) Py_DECREF(v); return -1; }
     if (sl) { e->opaque_id.data = sp; e->opaque_id.len = (size_t)sl; e->opaque_id.tc = TC_BYTES; }
     if (own_v) Py_DECREF(v);
   }
-  { /* manual_deletion, tag 12, singular bool */
-    int sv = o->manual_deletion;
+  { /* manual_deletion, tag 12, bool */
+    int sv = ((CResultRaw *)ob)->manual_deletion;
     if (sv) e->manual_deletion = (uint8_t)sv;
   }
   return 0;
 }
-static int32_t loop_cext_results(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+static int fill_cext_TaskDetailed(struct ak_efix_TaskDetailed *e, PyObject *ob, HostCtx *h) {
+  (void)h; (void)e; (void)ob;
+  { /* id, tag 1, string */
+    PyObject *v = ((CTaskDetailed *)ob)->id; const int own_v = 0;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->id.data = sp; e->id.len = (size_t)sl; e->id.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* session_id, tag 2, string */
+    PyObject *v = ((CTaskDetailed *)ob)->session_id; const int own_v = 0;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->session_id.data = sp; e->session_id.len = (size_t)sl; e->session_id.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* owner_pod_id, tag 3, string */
+    PyObject *v = ((CTaskDetailed *)ob)->owner_pod_id; const int own_v = 0;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->owner_pod_id.data = sp; e->owner_pod_id.len = (size_t)sl; e->owner_pod_id.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  /* parent_task_ids: a loop slot, reached through the vtable */
+  /* data_dependencies: a loop slot, reached through the vtable */
+  /* expected_output_ids: a loop slot, reached through the vtable */
+  /* retry_of_ids: a loop slot, reached through the vtable */
+  { /* status, tag 8, enum */
+    long sv = ((CTaskDetailed *)ob)->status;
+    if (sv) e->status = (int32_t)sv;
+  }
+  { /* status_message, tag 9, string */
+    PyObject *v = ((CTaskDetailed *)ob)->status_message; const int own_v = 0;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->status_message.data = sp; e->status_message.len = (size_t)sl; e->status_message.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* options, tag 10, message */
+    PyObject *v = ((CTaskDetailed *)ob)->options; const int own_v = 0;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_OPTIONS;
+      if (into_cext_TaskOptions(&e->options, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* created_at, tag 11, message */
+    PyObject *v = ((CTaskDetailed *)ob)->created_at; const int own_v = 0;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_CREATED_AT;
+      if (into_cext_Timestamp(&e->created_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* submitted_at, tag 12, message */
+    PyObject *v = ((CTaskDetailed *)ob)->submitted_at; const int own_v = 0;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_SUBMITTED_AT;
+      if (into_cext_Timestamp(&e->submitted_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* started_at, tag 13, message */
+    PyObject *v = ((CTaskDetailed *)ob)->started_at; const int own_v = 0;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_STARTED_AT;
+      if (into_cext_Timestamp(&e->started_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* ended_at, tag 14, message */
+    PyObject *v = ((CTaskDetailed *)ob)->ended_at; const int own_v = 0;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_ENDED_AT;
+      if (into_cext_Timestamp(&e->ended_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* pod_ttl, tag 15, message */
+    PyObject *v = ((CTaskDetailed *)ob)->pod_ttl; const int own_v = 0;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_POD_TTL;
+      if (into_cext_Timestamp(&e->pod_ttl, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* output, tag 16, message */
+    PyObject *v = ((CTaskDetailed *)ob)->output; const int own_v = 0;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_OUTPUT;
+      if (into_cext_TaskOutput(&e->output, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* pod_hostname, tag 17, string */
+    PyObject *v = ((CTaskDetailed *)ob)->pod_hostname; const int own_v = 0;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->pod_hostname.data = sp; e->pod_hostname.len = (size_t)sl; e->pod_hostname.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* received_at, tag 18, message */
+    PyObject *v = ((CTaskDetailed *)ob)->received_at; const int own_v = 0;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_RECEIVED_AT;
+      if (into_cext_Timestamp(&e->received_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* acquired_at, tag 19, message */
+    PyObject *v = ((CTaskDetailed *)ob)->acquired_at; const int own_v = 0;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_ACQUIRED_AT;
+      if (into_cext_Timestamp(&e->acquired_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* creation_to_end_duration, tag 20, message */
+    PyObject *v = ((CTaskDetailed *)ob)->creation_to_end_duration; const int own_v = 0;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_CREATION_TO_END_DURATION;
+      if (into_cext_Duration(&e->creation_to_end_duration, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* processing_to_end_duration, tag 21, message */
+    PyObject *v = ((CTaskDetailed *)ob)->processing_to_end_duration; const int own_v = 0;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_PROCESSING_TO_END_DURATION;
+      if (into_cext_Duration(&e->processing_to_end_duration, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* initial_task_id, tag 22, string */
+    PyObject *v = ((CTaskDetailed *)ob)->initial_task_id; const int own_v = 0;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->initial_task_id.data = sp; e->initial_task_id.len = (size_t)sl; e->initial_task_id.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* received_to_end_duration, tag 23, message */
+    PyObject *v = ((CTaskDetailed *)ob)->received_to_end_duration; const int own_v = 0;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION;
+      if (into_cext_Duration(&e->received_to_end_duration, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* processed_at, tag 24, message */
+    PyObject *v = ((CTaskDetailed *)ob)->processed_at; const int own_v = 0;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_PROCESSED_AT;
+      if (into_cext_Timestamp(&e->processed_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* fetched_at, tag 25, message */
+    PyObject *v = ((CTaskDetailed *)ob)->fetched_at; const int own_v = 0;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_FETCHED_AT;
+      if (into_cext_Timestamp(&e->fetched_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* payload_id, tag 26, string */
+    PyObject *v = ((CTaskDetailed *)ob)->payload_id; const int own_v = 0;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->payload_id.data = sp; e->payload_id.len = (size_t)sl; e->payload_id.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* created_by, tag 27, string */
+    PyObject *v = ((CTaskDetailed *)ob)->created_by; const int own_v = 0;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->created_by.data = sp; e->created_by.len = (size_t)sl; e->created_by.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  return 0;
+}
+static int32_t loop_cext_ListResultsResponse_results(ak_enc_ctx *ctx, const void *obj, int64_t token) {
   (void)token;
   HostCtx *h = (HostCtx *)obj;
   PyObject *ob = h->root;
-  CListResultsResponse *o = (CListResultsResponse *)ob;
-  PyObject *lst = o->results; const int own_lst = 0;
+  PyObject *lst = ((CListResultsResponse *)ob)->results; const int own_lst = 0;
   Py_ssize_t n = PyList_Size(lst);
   if (n < 0) { if (own_lst) Py_DECREF(lst); return -1; }
+  /* The element list, so an inner loop slot can index it by token without
+     re-reading the attribute. The core only calls an inner loop from inside
+     this one, so one slot per nesting level is enough -- and the emitter
+     raises above if the schema ever nests deeper than the stack. */
+  PyObject *saved = h->cur[0]; h->cur[0] = lst;
   struct ak_efix_ResultRaw chunk[CHUNK_RESULTRAW];
+  int64_t done = 0;
+  int32_t rc = 0;
   for (Py_ssize_t i = 0; i < n; i += CHUNK_RESULTRAW) {
     int32_t k = (int32_t)((n - i < CHUNK_RESULTRAW) ? (n - i) : CHUNK_RESULTRAW);
     /* ABI v1 decision 9: bulk clear once, then assign only what differs. */
@@ -791,25 +3056,25 @@ static int32_t loop_cext_results(ak_enc_ctx *ctx, const void *obj, int64_t token
     for (int32_t j = 0; j < k; j++) {
       BUMP(C_ITEM);
       PyObject *e = PyList_GetItem(lst, i + j);
-      if (!e || fill_cext_ResultRaw(&chunk[j], e, h))
-        { if (own_lst) Py_DECREF(lst); return -1; }
+      if (!e || fill_cext_ResultRaw(&chunk[j], e, h)) { rc = -1; goto out; }
     }
-    if (ak_elem_ResultRaw(ctx, chunk, k))
-      { if (own_lst) Py_DECREF(lst); return -1; }
+    if (ak_elem_ResultRaw(ctx, chunk, k)) { rc = -1; goto out; }
+    done += k;
   }
+out:
+  h->cur[0] = saved;
   if (own_lst) Py_DECREF(lst);
-  return 0;
+  return rc;
 }
 static int fix_cext_ListResultsResponse(struct ak_efix_ListResultsResponse *fix, PyObject *ob, HostCtx *h) {
   (void)h; (void)ob;
-  CListResultsResponse *o = (CListResultsResponse *)ob;
   memset(fix, 0, sizeof *fix);
   {
-    long sv_page = o->page;
+    long sv_page = ((CListResultsResponse *)ob)->page;
     if (sv_page) fix->page = (int32_t)sv_page;
   }
   {
-    long sv_total = o->total;
+    long sv_total = ((CListResultsResponse *)ob)->total;
     if (sv_total) fix->total = (int32_t)sv_total;
   }
   return 0;
@@ -820,7 +3085,9 @@ static PyObject *encode_cext_ListResultsResponse(PyObject *rootobj, PyObject *ac
   HostCtx *h = &hs;
   struct ak_efix_ListResultsResponse fix;
   if (fix_cext_ListResultsResponse(&fix, rootobj, h)) return NULL;
-  static const struct ak_evt_ListResultsResponse VT = {loop_cext_results};
+  static const struct ak_evt_ListResultsResponse VT = {
+    .loop_results = loop_cext_ListResultsResponse_results,
+  };
   ak_enc_ctx *ctx = ak_enc_ctx_new();
   if (!ctx) return PyErr_NoMemory();
   intptr_t rc = ak_encode_ListResultsResponse(h, ctx, &VT, &fix);
@@ -839,10 +3106,678 @@ static PyObject *encode_cext_ListResultsResponse(PyObject *rootobj, PyObject *ac
   ak_enc_ctx_free(ctx);
   return out;
 }
-static int setlist_cext_results(PyObject *ob, PyObject *lst, HostCtx *h) {
+static int32_t loop_cext_ListTasksDetailedResponse_tasks(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  (void)token;
+  HostCtx *h = (HostCtx *)obj;
+  PyObject *ob = h->root;
+  PyObject *lst = ((CListTasksDetailedResponse *)ob)->tasks; const int own_lst = 0;
+  Py_ssize_t n = PyList_Size(lst);
+  if (n < 0) { if (own_lst) Py_DECREF(lst); return -1; }
+  /* The element list, so an inner loop slot can index it by token without
+     re-reading the attribute. The core only calls an inner loop from inside
+     this one, so one slot per nesting level is enough -- and the emitter
+     raises above if the schema ever nests deeper than the stack. */
+  PyObject *saved = h->cur[0]; h->cur[0] = lst;
+  struct ak_efix_TaskDetailed chunk[CHUNK_TASKDETAILED];
+  int64_t done = 0;
+  int32_t rc = 0;
+  for (Py_ssize_t i = 0; i < n; i += CHUNK_TASKDETAILED) {
+    int32_t k = (int32_t)((n - i < CHUNK_TASKDETAILED) ? (n - i) : CHUNK_TASKDETAILED);
+    /* ABI v1 decision 9: bulk clear once, then assign only what differs. */
+    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);
+    for (int32_t j = 0; j < k; j++) {
+      BUMP(C_ITEM);
+      PyObject *e = PyList_GetItem(lst, i + j);
+      if (!e || fill_cext_TaskDetailed(&chunk[j], e, h)) { rc = -1; goto out; }
+    }
+    /* NOT a leaf: the batching predicate refuses it, so the element
+       run carries a token range and each of the element's own
+       containers is a reverse call per element (ABI v1 section 6). */
+    if (ak_elemu_TaskDetailed(ctx, chunk, k, done)) { rc = -1; goto out; }
+    done += k;
+  }
+out:
+  h->cur[0] = saved;
+  if (own_lst) Py_DECREF(lst);
+  return rc;
+}
+static int32_t loop_cext_TaskDetailed_parent_task_ids(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  HostCtx *h = (HostCtx *)obj;
+  PyObject *el = PyList_GetItem(h->cur[0], (Py_ssize_t)token);
+  if (!el) return -1;
+  PyObject *cur = el;
+  PyObject *lst = ((CTaskDetailed *)cur)->parent_task_ids; const int own_lst = 0;
+  Py_ssize_t n = PyList_Size(lst);
+  if (n < 0) { if (own_lst) Py_DECREF(lst); return -1; }
+  struct ak_str chunk[CHUNK_BLOB];
+  int32_t rc = 0;
+  for (Py_ssize_t i = 0; i < n; i += CHUNK_BLOB) {
+    int32_t k = (int32_t)((n - i < CHUNK_BLOB) ? (n - i) : CHUNK_BLOB);
+    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);
+    for (int32_t j = 0; j < k; j++) {
+      BUMP(C_ITEM); BUMP(C_READ);
+      PyObject *s = PyList_GetItem(lst, i + j);
+      if (!s) { rc = -1; goto out; }
+      Py_ssize_t sl = 0;
+      const char *sp = PyUnicode_AsUTF8AndSize(s, &sl);
+      if (!sp) { rc = -1; goto out; }
+      chunk[j].data = sp; chunk[j].len = (size_t)sl; chunk[j].tc = TC_UTF8;
+    }
+    if (ak_blob_run(ctx, chunk, k)) { rc = -1; goto out; }
+  }
+out:
+  if (own_lst) Py_DECREF(lst);
+  return rc;
+}
+static int32_t loop_cext_TaskDetailed_data_dependencies(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  HostCtx *h = (HostCtx *)obj;
+  PyObject *el = PyList_GetItem(h->cur[0], (Py_ssize_t)token);
+  if (!el) return -1;
+  PyObject *cur = el;
+  PyObject *lst = ((CTaskDetailed *)cur)->data_dependencies; const int own_lst = 0;
+  Py_ssize_t n = PyList_Size(lst);
+  if (n < 0) { if (own_lst) Py_DECREF(lst); return -1; }
+  struct ak_str chunk[CHUNK_BLOB];
+  int32_t rc = 0;
+  for (Py_ssize_t i = 0; i < n; i += CHUNK_BLOB) {
+    int32_t k = (int32_t)((n - i < CHUNK_BLOB) ? (n - i) : CHUNK_BLOB);
+    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);
+    for (int32_t j = 0; j < k; j++) {
+      BUMP(C_ITEM); BUMP(C_READ);
+      PyObject *s = PyList_GetItem(lst, i + j);
+      if (!s) { rc = -1; goto out; }
+      Py_ssize_t sl = 0;
+      const char *sp = PyUnicode_AsUTF8AndSize(s, &sl);
+      if (!sp) { rc = -1; goto out; }
+      chunk[j].data = sp; chunk[j].len = (size_t)sl; chunk[j].tc = TC_UTF8;
+    }
+    if (ak_blob_run(ctx, chunk, k)) { rc = -1; goto out; }
+  }
+out:
+  if (own_lst) Py_DECREF(lst);
+  return rc;
+}
+static int32_t loop_cext_TaskDetailed_expected_output_ids(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  HostCtx *h = (HostCtx *)obj;
+  PyObject *el = PyList_GetItem(h->cur[0], (Py_ssize_t)token);
+  if (!el) return -1;
+  PyObject *cur = el;
+  PyObject *lst = ((CTaskDetailed *)cur)->expected_output_ids; const int own_lst = 0;
+  Py_ssize_t n = PyList_Size(lst);
+  if (n < 0) { if (own_lst) Py_DECREF(lst); return -1; }
+  struct ak_str chunk[CHUNK_BLOB];
+  int32_t rc = 0;
+  for (Py_ssize_t i = 0; i < n; i += CHUNK_BLOB) {
+    int32_t k = (int32_t)((n - i < CHUNK_BLOB) ? (n - i) : CHUNK_BLOB);
+    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);
+    for (int32_t j = 0; j < k; j++) {
+      BUMP(C_ITEM); BUMP(C_READ);
+      PyObject *s = PyList_GetItem(lst, i + j);
+      if (!s) { rc = -1; goto out; }
+      Py_ssize_t sl = 0;
+      const char *sp = PyUnicode_AsUTF8AndSize(s, &sl);
+      if (!sp) { rc = -1; goto out; }
+      chunk[j].data = sp; chunk[j].len = (size_t)sl; chunk[j].tc = TC_UTF8;
+    }
+    if (ak_blob_run(ctx, chunk, k)) { rc = -1; goto out; }
+  }
+out:
+  if (own_lst) Py_DECREF(lst);
+  return rc;
+}
+static int32_t loop_cext_TaskDetailed_retry_of_ids(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  HostCtx *h = (HostCtx *)obj;
+  PyObject *el = PyList_GetItem(h->cur[0], (Py_ssize_t)token);
+  if (!el) return -1;
+  PyObject *cur = el;
+  PyObject *lst = ((CTaskDetailed *)cur)->retry_of_ids; const int own_lst = 0;
+  Py_ssize_t n = PyList_Size(lst);
+  if (n < 0) { if (own_lst) Py_DECREF(lst); return -1; }
+  struct ak_str chunk[CHUNK_BLOB];
+  int32_t rc = 0;
+  for (Py_ssize_t i = 0; i < n; i += CHUNK_BLOB) {
+    int32_t k = (int32_t)((n - i < CHUNK_BLOB) ? (n - i) : CHUNK_BLOB);
+    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);
+    for (int32_t j = 0; j < k; j++) {
+      BUMP(C_ITEM); BUMP(C_READ);
+      PyObject *s = PyList_GetItem(lst, i + j);
+      if (!s) { rc = -1; goto out; }
+      Py_ssize_t sl = 0;
+      const char *sp = PyUnicode_AsUTF8AndSize(s, &sl);
+      if (!sp) { rc = -1; goto out; }
+      chunk[j].data = sp; chunk[j].len = (size_t)sl; chunk[j].tc = TC_UTF8;
+    }
+    if (ak_blob_run(ctx, chunk, k)) { rc = -1; goto out; }
+  }
+out:
+  if (own_lst) Py_DECREF(lst);
+  return rc;
+}
+static int32_t loop_cext_TaskDetailed_options_options(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  HostCtx *h = (HostCtx *)obj;
+  PyObject *el = PyList_GetItem(h->cur[0], (Py_ssize_t)token);
+  if (!el) return -1;
+  PyObject *p0 = ((CTaskDetailed *)el)->options; const int own_p0 = 0;
+  (void)own_p0;
+  Py_INCREF(p0);
+  PyObject *cur = p0;
+  if (cur == Py_None) {  return 0; }
+  PyObject *d = ((CTaskOptions *)cur)->options; const int own_d = 0;
+  PyObject *keys = PyDict_Keys(d);
+  if (!keys) { if (own_d) Py_DECREF(d); return -1; }
+  if (PyList_Sort(keys) < 0) { Py_DECREF(keys); if (own_d) Py_DECREF(d); return -1; }
+  Py_ssize_t n = PyList_Size(keys);
+  struct ak_efix_TaskOptionsOptionsEntry chunk[CHUNK_TASKOPTIONSOPTIONSENTRY];
+  int32_t rc = 0;
+  for (Py_ssize_t i = 0; i < n; i += CHUNK_TASKOPTIONSOPTIONSENTRY) {
+    int32_t k = (int32_t)((n - i < CHUNK_TASKOPTIONSOPTIONSENTRY) ? (n - i) : CHUNK_TASKOPTIONSOPTIONSENTRY);
+    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);
+    for (int32_t j = 0; j < k; j++) {
+      BUMP(C_ITEM);
+      PyObject *kk = PyList_GetItem(keys, i + j);
+      PyObject *vv = kk ? PyDict_GetItem(d, kk) : NULL;
+      if (!kk || !vv) { rc = -1; goto out; }
+      BUMP(C_READ); BUMP(C_READ);
+      Py_ssize_t kl = 0, vl = 0;
+      const char *kp = PyUnicode_AsUTF8AndSize(kk, &kl);
+      const char *vp = PyUnicode_AsUTF8AndSize(vv, &vl);
+      if (!kp || !vp) { rc = -1; goto out; }
+      chunk[j].key.data = kp; chunk[j].key.len = (size_t)kl; chunk[j].key.tc = TC_UTF8;
+      /* An empty value is an implicit-presence leaf holding the proto zero, so
+         it is left absent by the memset. P2.5 is the payload that reaches it. */
+      if (vl) { chunk[j].value.data = vp; chunk[j].value.len = (size_t)vl; chunk[j].value.tc = TC_UTF8; }
+    }
+    if (ak_elem_TaskOptionsOptionsEntry(ctx, chunk, k)) { rc = -1; goto out; }
+  }
+out:
+  Py_DECREF(keys);
+  if (own_d) Py_DECREF(d);
+  return rc;
+}
+static int fix_cext_ListTasksDetailedResponse(struct ak_efix_ListTasksDetailedResponse *fix, PyObject *ob, HostCtx *h) {
+  (void)h; (void)ob;
+  memset(fix, 0, sizeof *fix);
+  {
+    long sv_page = ((CListTasksDetailedResponse *)ob)->page;
+    if (sv_page) fix->page = (int32_t)sv_page;
+  }
+  {
+    long sv_total = ((CListTasksDetailedResponse *)ob)->total;
+    if (sv_total) fix->total = (int32_t)sv_total;
+  }
+  return 0;
+}
+static PyObject *encode_cext_ListTasksDetailedResponse(PyObject *rootobj, PyObject *acc) {
+  HostCtx hs; memset(&hs, 0, sizeof hs);
+  hs.root = rootobj; hs.acc = acc;
+  HostCtx *h = &hs;
+  struct ak_efix_ListTasksDetailedResponse fix;
+  if (fix_cext_ListTasksDetailedResponse(&fix, rootobj, h)) return NULL;
+  static const struct ak_evt_TaskDetailed EVT_tasks = {
+    .loop_parent_task_ids = loop_cext_TaskDetailed_parent_task_ids,
+    .loop_data_dependencies = loop_cext_TaskDetailed_data_dependencies,
+    .loop_expected_output_ids = loop_cext_TaskDetailed_expected_output_ids,
+    .loop_retry_of_ids = loop_cext_TaskDetailed_retry_of_ids,
+    .loop_options_options = loop_cext_TaskDetailed_options_options,
+  };
+  static const struct ak_evt_ListTasksDetailedResponse VT = {
+    .loop_tasks = loop_cext_ListTasksDetailedResponse_tasks,
+    .elem_tasks = &EVT_tasks,
+  };
+  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  if (!ctx) return PyErr_NoMemory();
+  intptr_t rc = ak_encode_ListTasksDetailedResponse(h, ctx, &VT, &fix);
+  if (rc < 0) {
+    ak_enc_ctx_free(ctx);
+    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListTasksDetailedResponse returned %ld", (long)rc);
+    return NULL;
+  }
+#ifdef AK_COUNT
+  { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
+#endif
+  const uint8_t *p = NULL; size_t len = 0;
+  if (ak_enc_take(ctx, &p, &len)) { ak_enc_ctx_free(ctx);
+    PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
+  PyObject *out = PyBytes_FromStringAndSize((const char *)p, (Py_ssize_t)len);
+  ak_enc_ctx_free(ctx);
+  return out;
+}
+static int setgroup_cext_ListResultsResponse(HostCtx *h, PyObject *ob, const struct ak_dfix_ListResultsResponse *e) {
+  (void)h; (void)ob; (void)e;
+  { /* page */
+    ((CListResultsResponse *)ob)->page = (long)(e->page);
+  }
+  { /* total */
+    ((CListResultsResponse *)ob)->total = (long)(e->total);
+  }
+  return 0;
+}
+static int setgroup_cext_ResultRaw(HostCtx *h, PyObject *ob, const struct ak_dfix_ResultRaw *e) {
+  (void)h; (void)ob; (void)e;
+  { /* session_id */
+    BUMP(C_READ);
+    Py_XSETREF(((CResultRaw *)ob)->session_id, PyUnicode_DecodeUTF8((const char *)h->base + e->session_id.off, (Py_ssize_t)e->session_id.len, "strict"));
+  }
+  { /* name */
+    BUMP(C_READ);
+    Py_XSETREF(((CResultRaw *)ob)->name, PyUnicode_DecodeUTF8((const char *)h->base + e->name.off, (Py_ssize_t)e->name.len, "strict"));
+  }
+  { /* owner_task_id */
+    BUMP(C_READ);
+    Py_XSETREF(((CResultRaw *)ob)->owner_task_id, PyUnicode_DecodeUTF8((const char *)h->base + e->owner_task_id.off, (Py_ssize_t)e->owner_task_id.len, "strict"));
+  }
+  { /* status */
+    ((CResultRaw *)ob)->status = (long)(e->status);
+  }
+  { /* created_at */
+    if (e->presence & AK_DFIX_RESULTRAW_PRESENT_CREATED_AT) {
+      PyObject *c0 = ((CResultRaw *)ob)->created_at; const int own_c0 = 0;
+      (void)own_c0;
+      Py_INCREF(c0);
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        Py_XSETREF(((CResultRaw *)ob)->created_at, Py_NewRef(nw));
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_cext_Timestamp(h, cur, &e->created_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* completed_at */
+    if (e->presence & AK_DFIX_RESULTRAW_PRESENT_COMPLETED_AT) {
+      PyObject *c0 = ((CResultRaw *)ob)->completed_at; const int own_c0 = 0;
+      (void)own_c0;
+      Py_INCREF(c0);
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        Py_XSETREF(((CResultRaw *)ob)->completed_at, Py_NewRef(nw));
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_cext_Timestamp(h, cur, &e->completed_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* result_id */
+    BUMP(C_READ);
+    Py_XSETREF(((CResultRaw *)ob)->result_id, PyUnicode_DecodeUTF8((const char *)h->base + e->result_id.off, (Py_ssize_t)e->result_id.len, "strict"));
+  }
+  { /* size */
+    ((CResultRaw *)ob)->size = (long long)(e->size);
+  }
+  { /* created_by */
+    BUMP(C_READ);
+    Py_XSETREF(((CResultRaw *)ob)->created_by, PyUnicode_DecodeUTF8((const char *)h->base + e->created_by.off, (Py_ssize_t)e->created_by.len, "strict"));
+  }
+  { /* opaque_id */
+    BUMP(C_READ);
+    Py_XSETREF(((CResultRaw *)ob)->opaque_id, PyBytes_FromStringAndSize((const char *)h->base + e->opaque_id.off, (Py_ssize_t)e->opaque_id.len));
+  }
+  { /* manual_deletion */
+    ((CResultRaw *)ob)->manual_deletion = (int)(e->manual_deletion);
+  }
+  return 0;
+}
+static int setgroup_cext_Timestamp(HostCtx *h, PyObject *ob, const struct ak_dfix_Timestamp *e) {
+  (void)h; (void)ob; (void)e;
+  { /* seconds */
+    ((CTimestamp *)ob)->seconds = (long long)(e->seconds);
+  }
+  { /* nanos */
+    ((CTimestamp *)ob)->nanos = (long)(e->nanos);
+  }
+  return 0;
+}
+static int setgroup_cext_ListTasksDetailedResponse(HostCtx *h, PyObject *ob, const struct ak_dfix_ListTasksDetailedResponse *e) {
+  (void)h; (void)ob; (void)e;
+  { /* page */
+    ((CListTasksDetailedResponse *)ob)->page = (long)(e->page);
+  }
+  { /* total */
+    ((CListTasksDetailedResponse *)ob)->total = (long)(e->total);
+  }
+  return 0;
+}
+static int setgroup_cext_TaskDetailed(HostCtx *h, PyObject *ob, const struct ak_dfix_TaskDetailed *e) {
+  (void)h; (void)ob; (void)e;
+  { /* id */
+    BUMP(C_READ);
+    Py_XSETREF(((CTaskDetailed *)ob)->id, PyUnicode_DecodeUTF8((const char *)h->base + e->id.off, (Py_ssize_t)e->id.len, "strict"));
+  }
+  { /* session_id */
+    BUMP(C_READ);
+    Py_XSETREF(((CTaskDetailed *)ob)->session_id, PyUnicode_DecodeUTF8((const char *)h->base + e->session_id.off, (Py_ssize_t)e->session_id.len, "strict"));
+  }
+  { /* owner_pod_id */
+    BUMP(C_READ);
+    Py_XSETREF(((CTaskDetailed *)ob)->owner_pod_id, PyUnicode_DecodeUTF8((const char *)h->base + e->owner_pod_id.off, (Py_ssize_t)e->owner_pod_id.len, "strict"));
+  }
+  { /* status */
+    ((CTaskDetailed *)ob)->status = (long)(e->status);
+  }
+  { /* status_message */
+    BUMP(C_READ);
+    Py_XSETREF(((CTaskDetailed *)ob)->status_message, PyUnicode_DecodeUTF8((const char *)h->base + e->status_message.off, (Py_ssize_t)e->status_message.len, "strict"));
+  }
+  { /* options */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_OPTIONS) {
+      PyObject *c0 = ((CTaskDetailed *)ob)->options; const int own_c0 = 0;
+      (void)own_c0;
+      Py_INCREF(c0);
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_TaskOptions);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        Py_XSETREF(((CTaskDetailed *)ob)->options, Py_NewRef(nw));
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_cext_TaskOptions(h, cur, &e->options)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* created_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_CREATED_AT) {
+      PyObject *c0 = ((CTaskDetailed *)ob)->created_at; const int own_c0 = 0;
+      (void)own_c0;
+      Py_INCREF(c0);
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        Py_XSETREF(((CTaskDetailed *)ob)->created_at, Py_NewRef(nw));
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_cext_Timestamp(h, cur, &e->created_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* submitted_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_SUBMITTED_AT) {
+      PyObject *c0 = ((CTaskDetailed *)ob)->submitted_at; const int own_c0 = 0;
+      (void)own_c0;
+      Py_INCREF(c0);
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        Py_XSETREF(((CTaskDetailed *)ob)->submitted_at, Py_NewRef(nw));
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_cext_Timestamp(h, cur, &e->submitted_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* started_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_STARTED_AT) {
+      PyObject *c0 = ((CTaskDetailed *)ob)->started_at; const int own_c0 = 0;
+      (void)own_c0;
+      Py_INCREF(c0);
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        Py_XSETREF(((CTaskDetailed *)ob)->started_at, Py_NewRef(nw));
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_cext_Timestamp(h, cur, &e->started_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* ended_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_ENDED_AT) {
+      PyObject *c0 = ((CTaskDetailed *)ob)->ended_at; const int own_c0 = 0;
+      (void)own_c0;
+      Py_INCREF(c0);
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        Py_XSETREF(((CTaskDetailed *)ob)->ended_at, Py_NewRef(nw));
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_cext_Timestamp(h, cur, &e->ended_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* pod_ttl */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_POD_TTL) {
+      PyObject *c0 = ((CTaskDetailed *)ob)->pod_ttl; const int own_c0 = 0;
+      (void)own_c0;
+      Py_INCREF(c0);
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        Py_XSETREF(((CTaskDetailed *)ob)->pod_ttl, Py_NewRef(nw));
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_cext_Timestamp(h, cur, &e->pod_ttl)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* output */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_OUTPUT) {
+      PyObject *c0 = ((CTaskDetailed *)ob)->output; const int own_c0 = 0;
+      (void)own_c0;
+      Py_INCREF(c0);
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_TaskOutput);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        Py_XSETREF(((CTaskDetailed *)ob)->output, Py_NewRef(nw));
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_cext_TaskOutput(h, cur, &e->output)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* pod_hostname */
+    BUMP(C_READ);
+    Py_XSETREF(((CTaskDetailed *)ob)->pod_hostname, PyUnicode_DecodeUTF8((const char *)h->base + e->pod_hostname.off, (Py_ssize_t)e->pod_hostname.len, "strict"));
+  }
+  { /* received_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_AT) {
+      PyObject *c0 = ((CTaskDetailed *)ob)->received_at; const int own_c0 = 0;
+      (void)own_c0;
+      Py_INCREF(c0);
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        Py_XSETREF(((CTaskDetailed *)ob)->received_at, Py_NewRef(nw));
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_cext_Timestamp(h, cur, &e->received_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* acquired_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_ACQUIRED_AT) {
+      PyObject *c0 = ((CTaskDetailed *)ob)->acquired_at; const int own_c0 = 0;
+      (void)own_c0;
+      Py_INCREF(c0);
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        Py_XSETREF(((CTaskDetailed *)ob)->acquired_at, Py_NewRef(nw));
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_cext_Timestamp(h, cur, &e->acquired_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* creation_to_end_duration */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_CREATION_TO_END_DURATION) {
+      PyObject *c0 = ((CTaskDetailed *)ob)->creation_to_end_duration; const int own_c0 = 0;
+      (void)own_c0;
+      Py_INCREF(c0);
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Duration);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        Py_XSETREF(((CTaskDetailed *)ob)->creation_to_end_duration, Py_NewRef(nw));
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_cext_Duration(h, cur, &e->creation_to_end_duration)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* processing_to_end_duration */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_PROCESSING_TO_END_DURATION) {
+      PyObject *c0 = ((CTaskDetailed *)ob)->processing_to_end_duration; const int own_c0 = 0;
+      (void)own_c0;
+      Py_INCREF(c0);
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Duration);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        Py_XSETREF(((CTaskDetailed *)ob)->processing_to_end_duration, Py_NewRef(nw));
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_cext_Duration(h, cur, &e->processing_to_end_duration)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* initial_task_id */
+    BUMP(C_READ);
+    Py_XSETREF(((CTaskDetailed *)ob)->initial_task_id, PyUnicode_DecodeUTF8((const char *)h->base + e->initial_task_id.off, (Py_ssize_t)e->initial_task_id.len, "strict"));
+  }
+  { /* received_to_end_duration */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION) {
+      PyObject *c0 = ((CTaskDetailed *)ob)->received_to_end_duration; const int own_c0 = 0;
+      (void)own_c0;
+      Py_INCREF(c0);
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Duration);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        Py_XSETREF(((CTaskDetailed *)ob)->received_to_end_duration, Py_NewRef(nw));
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_cext_Duration(h, cur, &e->received_to_end_duration)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* processed_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_PROCESSED_AT) {
+      PyObject *c0 = ((CTaskDetailed *)ob)->processed_at; const int own_c0 = 0;
+      (void)own_c0;
+      Py_INCREF(c0);
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        Py_XSETREF(((CTaskDetailed *)ob)->processed_at, Py_NewRef(nw));
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_cext_Timestamp(h, cur, &e->processed_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* fetched_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_FETCHED_AT) {
+      PyObject *c0 = ((CTaskDetailed *)ob)->fetched_at; const int own_c0 = 0;
+      (void)own_c0;
+      Py_INCREF(c0);
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        Py_XSETREF(((CTaskDetailed *)ob)->fetched_at, Py_NewRef(nw));
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_cext_Timestamp(h, cur, &e->fetched_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* payload_id */
+    BUMP(C_READ);
+    Py_XSETREF(((CTaskDetailed *)ob)->payload_id, PyUnicode_DecodeUTF8((const char *)h->base + e->payload_id.off, (Py_ssize_t)e->payload_id.len, "strict"));
+  }
+  { /* created_by */
+    BUMP(C_READ);
+    Py_XSETREF(((CTaskDetailed *)ob)->created_by, PyUnicode_DecodeUTF8((const char *)h->base + e->created_by.off, (Py_ssize_t)e->created_by.len, "strict"));
+  }
+  return 0;
+}
+static int setgroup_cext_TaskOptions(HostCtx *h, PyObject *ob, const struct ak_dfix_TaskOptions *e) {
+  (void)h; (void)ob; (void)e;
+  { /* max_duration */
+    if (e->presence & AK_DFIX_TASKOPTIONS_PRESENT_MAX_DURATION) {
+      PyObject *c0 = ((CTaskOptions *)ob)->max_duration; const int own_c0 = 0;
+      (void)own_c0;
+      Py_INCREF(c0);
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Duration);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        Py_XSETREF(((CTaskOptions *)ob)->max_duration, Py_NewRef(nw));
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_cext_Duration(h, cur, &e->max_duration)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* max_retries */
+    ((CTaskOptions *)ob)->max_retries = (long)(e->max_retries);
+  }
+  { /* priority */
+    ((CTaskOptions *)ob)->priority = (long)(e->priority);
+  }
+  { /* partition_id */
+    BUMP(C_READ);
+    Py_XSETREF(((CTaskOptions *)ob)->partition_id, PyUnicode_DecodeUTF8((const char *)h->base + e->partition_id.off, (Py_ssize_t)e->partition_id.len, "strict"));
+  }
+  { /* application_name */
+    BUMP(C_READ);
+    Py_XSETREF(((CTaskOptions *)ob)->application_name, PyUnicode_DecodeUTF8((const char *)h->base + e->application_name.off, (Py_ssize_t)e->application_name.len, "strict"));
+  }
+  { /* application_version */
+    BUMP(C_READ);
+    Py_XSETREF(((CTaskOptions *)ob)->application_version, PyUnicode_DecodeUTF8((const char *)h->base + e->application_version.off, (Py_ssize_t)e->application_version.len, "strict"));
+  }
+  { /* application_namespace */
+    BUMP(C_READ);
+    Py_XSETREF(((CTaskOptions *)ob)->application_namespace, PyUnicode_DecodeUTF8((const char *)h->base + e->application_namespace.off, (Py_ssize_t)e->application_namespace.len, "strict"));
+  }
+  { /* application_service */
+    BUMP(C_READ);
+    Py_XSETREF(((CTaskOptions *)ob)->application_service, PyUnicode_DecodeUTF8((const char *)h->base + e->application_service.off, (Py_ssize_t)e->application_service.len, "strict"));
+  }
+  { /* engine_type */
+    BUMP(C_READ);
+    Py_XSETREF(((CTaskOptions *)ob)->engine_type, PyUnicode_DecodeUTF8((const char *)h->base + e->engine_type.off, (Py_ssize_t)e->engine_type.len, "strict"));
+  }
+  return 0;
+}
+static int setgroup_cext_Duration(HostCtx *h, PyObject *ob, const struct ak_dfix_Duration *e) {
+  (void)h; (void)ob; (void)e;
+  { /* seconds */
+    ((CDuration *)ob)->seconds = (long long)(e->seconds);
+  }
+  { /* nanos */
+    ((CDuration *)ob)->nanos = (long)(e->nanos);
+  }
+  return 0;
+}
+static int setgroup_cext_TaskOutput(HostCtx *h, PyObject *ob, const struct ak_dfix_TaskOutput *e) {
+  (void)h; (void)ob; (void)e;
+  { /* success */
+    ((CTaskOutput *)ob)->success = (int)(e->success);
+  }
+  { /* error */
+    BUMP(C_READ);
+    Py_XSETREF(((CTaskOutput *)ob)->error, PyUnicode_DecodeUTF8((const char *)h->base + e->error.off, (Py_ssize_t)e->error.len, "strict"));
+  }
+  return 0;
+}
+static int setlist_cext_ListResultsResponse(PyObject *ob, PyObject *lst, HostCtx *h) {
   (void)h; (void)ob; (void)lst;
-  CListResultsResponse *o = (CListResultsResponse *)ob;
-  Py_XSETREF(o->results, Py_NewRef(lst));
+  Py_XSETREF(((CListResultsResponse *)ob)->results, Py_NewRef(lst));
   return 0;
 }
 static void apply_cext_ListResultsResponse(ak_dec_ctx *ctx, void *obj,
@@ -851,16 +3786,10 @@ static void apply_cext_ListResultsResponse(ak_dec_ctx *ctx, void *obj,
   HostCtx *h = (HostCtx *)obj;
   if (h->failed) return;
   PyObject *ob = h->root;
-  CListResultsResponse *o = (CListResultsResponse *)ob;
-  {
-    o->page = (long)(fx->page);
-  }
-  {
-    o->total = (long)(fx->total);
-  }
+  if (setgroup_cext_ListResultsResponse(h, ob, fx)) h->failed = 1;
 }
-static void add_cext_results(ak_dec_ctx *ctx, void *obj, int64_t tok,
-                       const struct ak_dfix_ResultRaw *elems, int32_t n) {
+static void add_cext_ListResultsResponse_results(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_dfix_ResultRaw *elems, int32_t n) {
   (void)ctx; (void)tok;
   HostCtx *h = (HostCtx *)obj;
   if (h->failed) return;
@@ -869,68 +3798,7 @@ static void add_cext_results(ak_dec_ctx *ctx, void *obj, int64_t tok,
     PyObject *ob = PyObject_CallNoArgs(h->ty_ResultRaw);
     if (!ob) { h->failed = 1; return; }
     const struct ak_dfix_ResultRaw *e = &elems[i];
-    CResultRaw *o = (CResultRaw *)ob;
-    { /* session_id */
-      BUMP(C_READ);
-      Py_XSETREF(o->session_id, PyUnicode_DecodeUTF8((const char *)h->base + e->session_id.off, (Py_ssize_t)e->session_id.len, "strict"));
-    }
-    { /* name */
-      BUMP(C_READ);
-      Py_XSETREF(o->name, PyUnicode_DecodeUTF8((const char *)h->base + e->name.off, (Py_ssize_t)e->name.len, "strict"));
-    }
-    { /* owner_task_id */
-      BUMP(C_READ);
-      Py_XSETREF(o->owner_task_id, PyUnicode_DecodeUTF8((const char *)h->base + e->owner_task_id.off, (Py_ssize_t)e->owner_task_id.len, "strict"));
-    }
-    { /* status */
-      o->status = (long)(e->status);
-    }
-    { /* created_at */
-      if (e->presence & AK_DFIX_RESULTRAW_PRESENT_CREATED_AT) {
-        PyObject *child = PyObject_CallNoArgs(h->ty_Timestamp);
-        if (!child) { h->failed = 1; return; }
-        { PyObject *ob = child;
-          CTimestamp *o = (CTimestamp *)ob; (void)o;
-          o->seconds = (long long)(e->created_at.seconds);
-          o->nanos = (long)(e->created_at.nanos);
-        }
-        Py_XSETREF(o->created_at, child);
-      } else {
-        Py_XSETREF(o->created_at, Py_NewRef(Py_None));
-      }
-    }
-    { /* completed_at */
-      if (e->presence & AK_DFIX_RESULTRAW_PRESENT_COMPLETED_AT) {
-        PyObject *child = PyObject_CallNoArgs(h->ty_Timestamp);
-        if (!child) { h->failed = 1; return; }
-        { PyObject *ob = child;
-          CTimestamp *o = (CTimestamp *)ob; (void)o;
-          o->seconds = (long long)(e->completed_at.seconds);
-          o->nanos = (long)(e->completed_at.nanos);
-        }
-        Py_XSETREF(o->completed_at, child);
-      } else {
-        Py_XSETREF(o->completed_at, Py_NewRef(Py_None));
-      }
-    }
-    { /* result_id */
-      BUMP(C_READ);
-      Py_XSETREF(o->result_id, PyUnicode_DecodeUTF8((const char *)h->base + e->result_id.off, (Py_ssize_t)e->result_id.len, "strict"));
-    }
-    { /* size */
-      o->size = (long long)(e->size);
-    }
-    { /* created_by */
-      BUMP(C_READ);
-      Py_XSETREF(o->created_by, PyUnicode_DecodeUTF8((const char *)h->base + e->created_by.off, (Py_ssize_t)e->created_by.len, "strict"));
-    }
-    { /* opaque_id */
-      BUMP(C_READ);
-      Py_XSETREF(o->opaque_id, PyBytes_FromStringAndSize((const char *)h->base + e->opaque_id.off, (Py_ssize_t)e->opaque_id.len));
-    }
-    { /* manual_deletion */
-      o->manual_deletion = (int)(e->manual_deletion);
-    }
+    if (setgroup_cext_ResultRaw(h, ob, e)) { h->failed = 1; Py_DECREF(ob); return; }
     BUMP(C_ITEM);
     if (PyList_Append(h->list, ob) < 0) h->failed = 1;
     Py_DECREF(ob);
@@ -948,9 +3816,18 @@ static PyObject *decode_cext_ListResultsResponse(PyObject *buf, PyObject *acc, H
   h.ty_ListResultsResponse = T->ty_ListResultsResponse;
   h.ty_ResultRaw = T->ty_ResultRaw;
   h.ty_Timestamp = T->ty_Timestamp;
+  h.ty_ListTasksDetailedResponse = T->ty_ListTasksDetailedResponse;
+  h.ty_TaskDetailed = T->ty_TaskDetailed;
+  h.ty_TaskOptions = T->ty_TaskOptions;
+  h.ty_Duration = T->ty_Duration;
+  h.ty_TaskOutput = T->ty_TaskOutput;
+  h.ty_TaskOptionsOptionsEntry = T->ty_TaskOptionsOptionsEntry;
   h.list = PyList_New(0);
   if (!h.list) { Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_ListResultsResponse VT = {apply_cext_ListResultsResponse, NULL, NULL, add_cext_results};
+  static const struct ak_dvt_ListResultsResponse VT = {
+    .apply = apply_cext_ListResultsResponse,
+    .add_results = add_cext_ListResultsResponse_results,
+  };
   ak_dec_ctx *ctx = ak_dec_ctx_new();
   if (!ctx) { Py_DECREF(h.list); Py_DECREF(rootobj); return PyErr_NoMemory(); }
   int32_t rc = ak_decode_ListResultsResponse(ctx, &h, (const uint8_t *)p, (size_t)blen, &VT);
@@ -963,44 +3840,421 @@ static PyObject *decode_cext_ListResultsResponse(PyObject *buf, PyObject *acc, H
     if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ListResultsResponse returned %d", (int)rc);
     return NULL;
   }
-  if (setlist_cext_results(rootobj, h.list, &h))
+  if (setlist_cext_ListResultsResponse(rootobj, h.list, &h))
+    { Py_DECREF(h.list); Py_DECREF(rootobj); return NULL; }
+  Py_DECREF(h.list);
+  return rootobj;
+}
+static int setlist_cext_ListTasksDetailedResponse(PyObject *ob, PyObject *lst, HostCtx *h) {
+  (void)h; (void)ob; (void)lst;
+  Py_XSETREF(((CListTasksDetailedResponse *)ob)->tasks, Py_NewRef(lst));
+  return 0;
+}
+static void apply_cext_ListTasksDetailedResponse(ak_dec_ctx *ctx, void *obj,
+                         const struct ak_dfix_ListTasksDetailedResponse *fx) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = h->root;
+  if (setgroup_cext_ListTasksDetailedResponse(h, ob, fx)) h->failed = 1;
+}
+static int64_t new_cext_ListTasksDetailedResponse_tasks(ak_dec_ctx *ctx, void *obj) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return 0;
+  PyObject *ob = PyObject_CallNoArgs(h->ty_TaskDetailed);
+  if (!ob) { h->failed = 1; return 0; }
+  BUMP(C_ITEM);
+  Py_ssize_t idx = PyList_Size(h->list);
+  if (PyList_Append(h->list, ob) < 0) h->failed = 1;
+  Py_DECREF(ob);
+  return (int64_t)idx;
+}
+static void apply_cext_ListTasksDetailedResponse_tasks(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_dfix_TaskDetailed *e) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);
+  if (!ob) { h->failed = 1; return; }
+  if (setgroup_cext_TaskDetailed(h, ob, e)) h->failed = 1;
+}
+static void add_cext_ListTasksDetailedResponse_tasks_parent_task_ids(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_span *elems, int32_t n) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);
+  if (!ob) { h->failed = 1; return; }
+  PyObject *cur = Py_NewRef(ob);
+  PyObject *lst = ((CTaskDetailed *)cur)->parent_task_ids; const int own_lst = 0;
+  for (int32_t i = 0; i < n; i++) {
+    BUMP(C_READ); BUMP(C_ITEM);
+    PyObject *s = PyUnicode_DecodeUTF8((const char *)h->base + elems[i].off, (Py_ssize_t)elems[i].len, "strict");
+    if (!s) { h->failed = 1; break; }
+    if (PyList_Append(lst, s) < 0) { h->failed = 1; Py_DECREF(s); break; }
+    Py_DECREF(s);
+  }
+  if (own_lst) Py_DECREF(lst);
+  Py_DECREF(cur);
+}
+static void add_cext_ListTasksDetailedResponse_tasks_data_dependencies(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_span *elems, int32_t n) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);
+  if (!ob) { h->failed = 1; return; }
+  PyObject *cur = Py_NewRef(ob);
+  PyObject *lst = ((CTaskDetailed *)cur)->data_dependencies; const int own_lst = 0;
+  for (int32_t i = 0; i < n; i++) {
+    BUMP(C_READ); BUMP(C_ITEM);
+    PyObject *s = PyUnicode_DecodeUTF8((const char *)h->base + elems[i].off, (Py_ssize_t)elems[i].len, "strict");
+    if (!s) { h->failed = 1; break; }
+    if (PyList_Append(lst, s) < 0) { h->failed = 1; Py_DECREF(s); break; }
+    Py_DECREF(s);
+  }
+  if (own_lst) Py_DECREF(lst);
+  Py_DECREF(cur);
+}
+static void add_cext_ListTasksDetailedResponse_tasks_expected_output_ids(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_span *elems, int32_t n) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);
+  if (!ob) { h->failed = 1; return; }
+  PyObject *cur = Py_NewRef(ob);
+  PyObject *lst = ((CTaskDetailed *)cur)->expected_output_ids; const int own_lst = 0;
+  for (int32_t i = 0; i < n; i++) {
+    BUMP(C_READ); BUMP(C_ITEM);
+    PyObject *s = PyUnicode_DecodeUTF8((const char *)h->base + elems[i].off, (Py_ssize_t)elems[i].len, "strict");
+    if (!s) { h->failed = 1; break; }
+    if (PyList_Append(lst, s) < 0) { h->failed = 1; Py_DECREF(s); break; }
+    Py_DECREF(s);
+  }
+  if (own_lst) Py_DECREF(lst);
+  Py_DECREF(cur);
+}
+static void add_cext_ListTasksDetailedResponse_tasks_retry_of_ids(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_span *elems, int32_t n) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);
+  if (!ob) { h->failed = 1; return; }
+  PyObject *cur = Py_NewRef(ob);
+  PyObject *lst = ((CTaskDetailed *)cur)->retry_of_ids; const int own_lst = 0;
+  for (int32_t i = 0; i < n; i++) {
+    BUMP(C_READ); BUMP(C_ITEM);
+    PyObject *s = PyUnicode_DecodeUTF8((const char *)h->base + elems[i].off, (Py_ssize_t)elems[i].len, "strict");
+    if (!s) { h->failed = 1; break; }
+    if (PyList_Append(lst, s) < 0) { h->failed = 1; Py_DECREF(s); break; }
+    Py_DECREF(s);
+  }
+  if (own_lst) Py_DECREF(lst);
+  Py_DECREF(cur);
+}
+static void add_cext_ListTasksDetailedResponse_tasks_options_options(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_dfix_TaskOptionsOptionsEntry *elems, int32_t n) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);
+  if (!ob) { h->failed = 1; return; }
+  PyObject *c0 = ((CTaskDetailed *)ob)->options; const int own_c0 = 0;
+  (void)own_c0;
+  Py_INCREF(c0);
+  if (c0 == Py_None) {
+    PyObject *nw = PyObject_CallNoArgs(h->ty_TaskOptions);
+    if (!nw) { Py_DECREF(c0); h->failed = 1; return; }
+    Py_XSETREF(((CTaskDetailed *)ob)->options, Py_NewRef(nw));
+    Py_DECREF(c0); c0 = nw;
+  }
+  PyObject *cur = c0;
+  PyObject *d = ((CTaskOptions *)cur)->options; const int own_d = 0;
+  for (int32_t i = 0; i < n; i++) {
+    BUMP(C_READ); BUMP(C_READ); BUMP(C_ITEM);
+    PyObject *k = PyUnicode_DecodeUTF8((const char *)h->base + elems[i].key.off, (Py_ssize_t)elems[i].key.len, "strict");
+    PyObject *v = k ? PyUnicode_DecodeUTF8((const char *)h->base + elems[i].value.off, (Py_ssize_t)elems[i].value.len, "strict") : NULL;
+    if (!k || !v) { h->failed = 1; Py_XDECREF(k); Py_XDECREF(v); break; }
+    if (PyDict_SetItem(d, k, v) < 0) h->failed = 1;
+    Py_DECREF(k); Py_DECREF(v);
+    if (h->failed) break;
+  }
+  if (own_d) Py_DECREF(d);
+  Py_DECREF(cur);
+}
+static PyObject *decode_cext_ListTasksDetailedResponse(PyObject *buf, PyObject *acc, HostTypes *T) {
+  char *p = NULL; Py_ssize_t blen = 0;
+  if (PyBytes_AsStringAndSize(buf, &p, &blen)) return NULL;
+  PyObject *rootobj = PyObject_CallNoArgs(T->ty_ListTasksDetailedResponse);
+  if (!rootobj) return NULL;
+  HostCtx h;
+  memset(&h, 0, sizeof h);
+  h.root = rootobj; h.base = (const uint8_t *)p; h.acc = acc;
+  h.ty_ListResultsResponse = T->ty_ListResultsResponse;
+  h.ty_ResultRaw = T->ty_ResultRaw;
+  h.ty_Timestamp = T->ty_Timestamp;
+  h.ty_ListTasksDetailedResponse = T->ty_ListTasksDetailedResponse;
+  h.ty_TaskDetailed = T->ty_TaskDetailed;
+  h.ty_TaskOptions = T->ty_TaskOptions;
+  h.ty_Duration = T->ty_Duration;
+  h.ty_TaskOutput = T->ty_TaskOutput;
+  h.ty_TaskOptionsOptionsEntry = T->ty_TaskOptionsOptionsEntry;
+  h.list = PyList_New(0);
+  if (!h.list) { Py_DECREF(rootobj); return NULL; }
+  static const struct ak_dvt_ListTasksDetailedResponse VT = {
+    .apply = apply_cext_ListTasksDetailedResponse,
+    .new_tasks = new_cext_ListTasksDetailedResponse_tasks,
+    .apply_tasks = apply_cext_ListTasksDetailedResponse_tasks,
+    .add_tasks_parent_task_ids = add_cext_ListTasksDetailedResponse_tasks_parent_task_ids,
+    .add_tasks_data_dependencies = add_cext_ListTasksDetailedResponse_tasks_data_dependencies,
+    .add_tasks_expected_output_ids = add_cext_ListTasksDetailedResponse_tasks_expected_output_ids,
+    .add_tasks_retry_of_ids = add_cext_ListTasksDetailedResponse_tasks_retry_of_ids,
+    .add_tasks_options_options = add_cext_ListTasksDetailedResponse_tasks_options_options,
+  };
+  ak_dec_ctx *ctx = ak_dec_ctx_new();
+  if (!ctx) { Py_DECREF(h.list); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+  int32_t rc = ak_decode_ListTasksDetailedResponse(ctx, &h, (const uint8_t *)p, (size_t)blen, &VT);
+#ifdef AK_COUNT
+  { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
+#endif
+  ak_dec_ctx_free(ctx);
+  if (rc || h.failed) {
+    Py_DECREF(h.list); Py_DECREF(rootobj);
+    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ListTasksDetailedResponse returned %d", (int)rc);
+    return NULL;
+  }
+  if (setlist_cext_ListTasksDetailedResponse(rootobj, h.list, &h))
     { Py_DECREF(h.list); Py_DECREF(rootobj); return NULL; }
   Py_DECREF(h.list);
   return rootobj;
 }
 
 /* ===================== backend: pyacc ===================== */
-static int fill_pyacc_Timestamp_into(struct ak_efix_Timestamp *e, PyObject *ob, HostCtx *h) {
+static int into_pyacc_Timestamp(struct ak_efix_Timestamp *, PyObject *, HostCtx *);
+static int into_pyacc_TaskOptions(struct ak_efix_TaskOptions *, PyObject *, HostCtx *);
+static int into_pyacc_Duration(struct ak_efix_Duration *, PyObject *, HostCtx *);
+static int into_pyacc_TaskOutput(struct ak_efix_TaskOutput *, PyObject *, HostCtx *);
+static int setgroup_pyacc_ListResultsResponse(HostCtx *, PyObject *, const struct ak_dfix_ListResultsResponse *);
+static int setgroup_pyacc_ResultRaw(HostCtx *, PyObject *, const struct ak_dfix_ResultRaw *);
+static int setgroup_pyacc_Timestamp(HostCtx *, PyObject *, const struct ak_dfix_Timestamp *);
+static int setgroup_pyacc_ListTasksDetailedResponse(HostCtx *, PyObject *, const struct ak_dfix_ListTasksDetailedResponse *);
+static int setgroup_pyacc_TaskDetailed(HostCtx *, PyObject *, const struct ak_dfix_TaskDetailed *);
+static int setgroup_pyacc_TaskOptions(HostCtx *, PyObject *, const struct ak_dfix_TaskOptions *);
+static int setgroup_pyacc_Duration(HostCtx *, PyObject *, const struct ak_dfix_Duration *);
+static int setgroup_pyacc_TaskOutput(HostCtx *, PyObject *, const struct ak_dfix_TaskOutput *);
+static int setlist_pyacc_ListResultsResponse(PyObject *, PyObject *, HostCtx *);
+static int setlist_pyacc_ListTasksDetailedResponse(PyObject *, PyObject *, HostCtx *);
+
+static int into_pyacc_Timestamp(struct ak_efix_Timestamp *e, PyObject *ob, HostCtx *h) {
   (void)h; (void)e; (void)ob;
-  {
+  { /* seconds, tag 1, int64 */
     BUMP(C_PYCALL);
-    PyObject *g_py_sv_seconds = PyDict_GetItemString(h->acc, "get_seconds");
-    if (!g_py_sv_seconds) { PyErr_SetString(PyExc_KeyError, "get_seconds"); return -1; }
-    PyObject *py_sv_seconds = PyObject_CallOneArg(g_py_sv_seconds, ob); const int own_py_sv_seconds = 1;
-    if (!py_sv_seconds) return -1;
+    PyObject *g_py_sv = PyDict_GetItemString(h->acc, "get_seconds");
+    if (!g_py_sv) { PyErr_SetString(PyExc_KeyError, "get_seconds"); return -1; }
+    PyObject *py_sv = PyObject_CallOneArg(g_py_sv, ob); const int own_py_sv = 1;
+    if (!py_sv) return -1;
     BUMP(C_READ);
-    long long sv_seconds = (long long)PyLong_AsLongLong(py_sv_seconds);
-    if (sv_seconds == (long long)-1 && PyErr_Occurred()) { if (own_py_sv_seconds) Py_DECREF(py_sv_seconds); return -1; }
-    if (own_py_sv_seconds) Py_DECREF(py_sv_seconds);
-    if (sv_seconds) e->seconds = (int64_t)sv_seconds;
+    long long sv = (long long)PyLong_AsLongLong(py_sv);
+    if (sv == (long long)-1 && PyErr_Occurred()) { if (own_py_sv) Py_DECREF(py_sv); return -1; }
+    if (own_py_sv) Py_DECREF(py_sv);
+    if (sv) e->seconds = (int64_t)sv;
   }
-  {
+  { /* nanos, tag 2, int32 */
     BUMP(C_PYCALL);
-    PyObject *g_py_sv_nanos = PyDict_GetItemString(h->acc, "get_nanos");
-    if (!g_py_sv_nanos) { PyErr_SetString(PyExc_KeyError, "get_nanos"); return -1; }
-    PyObject *py_sv_nanos = PyObject_CallOneArg(g_py_sv_nanos, ob); const int own_py_sv_nanos = 1;
-    if (!py_sv_nanos) return -1;
+    PyObject *g_py_sv = PyDict_GetItemString(h->acc, "get_nanos");
+    if (!g_py_sv) { PyErr_SetString(PyExc_KeyError, "get_nanos"); return -1; }
+    PyObject *py_sv = PyObject_CallOneArg(g_py_sv, ob); const int own_py_sv = 1;
+    if (!py_sv) return -1;
     BUMP(C_READ);
-    long sv_nanos = (long)PyLong_AsLongLong(py_sv_nanos);
-    if (sv_nanos == (long)-1 && PyErr_Occurred()) { if (own_py_sv_nanos) Py_DECREF(py_sv_nanos); return -1; }
-    if (own_py_sv_nanos) Py_DECREF(py_sv_nanos);
-    if (sv_nanos) e->nanos = (int32_t)sv_nanos;
+    long sv = (long)PyLong_AsLongLong(py_sv);
+    if (sv == (long)-1 && PyErr_Occurred()) { if (own_py_sv) Py_DECREF(py_sv); return -1; }
+    if (own_py_sv) Py_DECREF(py_sv);
+    if (sv) e->nanos = (int32_t)sv;
+  }
+  return 0;
+}
+static int into_pyacc_TaskOptions(struct ak_efix_TaskOptions *e, PyObject *ob, HostCtx *h) {
+  (void)h; (void)e; (void)ob;
+  /* options: a loop slot, reached through the vtable */
+  { /* max_duration, tag 2, message */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_max_duration");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_max_duration"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKOPTIONS_PRESENT_MAX_DURATION;
+      if (into_pyacc_Duration(&e->max_duration, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* max_retries, tag 3, int32 */
+    BUMP(C_PYCALL);
+    PyObject *g_py_sv = PyDict_GetItemString(h->acc, "get_max_retries");
+    if (!g_py_sv) { PyErr_SetString(PyExc_KeyError, "get_max_retries"); return -1; }
+    PyObject *py_sv = PyObject_CallOneArg(g_py_sv, ob); const int own_py_sv = 1;
+    if (!py_sv) return -1;
+    BUMP(C_READ);
+    long sv = (long)PyLong_AsLongLong(py_sv);
+    if (sv == (long)-1 && PyErr_Occurred()) { if (own_py_sv) Py_DECREF(py_sv); return -1; }
+    if (own_py_sv) Py_DECREF(py_sv);
+    if (sv) e->max_retries = (int32_t)sv;
+  }
+  { /* priority, tag 4, int32 */
+    BUMP(C_PYCALL);
+    PyObject *g_py_sv = PyDict_GetItemString(h->acc, "get_priority");
+    if (!g_py_sv) { PyErr_SetString(PyExc_KeyError, "get_priority"); return -1; }
+    PyObject *py_sv = PyObject_CallOneArg(g_py_sv, ob); const int own_py_sv = 1;
+    if (!py_sv) return -1;
+    BUMP(C_READ);
+    long sv = (long)PyLong_AsLongLong(py_sv);
+    if (sv == (long)-1 && PyErr_Occurred()) { if (own_py_sv) Py_DECREF(py_sv); return -1; }
+    if (own_py_sv) Py_DECREF(py_sv);
+    if (sv) e->priority = (int32_t)sv;
+  }
+  { /* partition_id, tag 5, string */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_partition_id");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_partition_id"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->partition_id.data = sp; e->partition_id.len = (size_t)sl; e->partition_id.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* application_name, tag 6, string */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_application_name");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_application_name"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->application_name.data = sp; e->application_name.len = (size_t)sl; e->application_name.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* application_version, tag 7, string */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_application_version");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_application_version"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->application_version.data = sp; e->application_version.len = (size_t)sl; e->application_version.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* application_namespace, tag 8, string */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_application_namespace");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_application_namespace"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->application_namespace.data = sp; e->application_namespace.len = (size_t)sl; e->application_namespace.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* application_service, tag 9, string */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_application_service");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_application_service"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->application_service.data = sp; e->application_service.len = (size_t)sl; e->application_service.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* engine_type, tag 10, string */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_engine_type");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_engine_type"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->engine_type.data = sp; e->engine_type.len = (size_t)sl; e->engine_type.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  return 0;
+}
+static int into_pyacc_Duration(struct ak_efix_Duration *e, PyObject *ob, HostCtx *h) {
+  (void)h; (void)e; (void)ob;
+  { /* seconds, tag 1, int64 */
+    BUMP(C_PYCALL);
+    PyObject *g_py_sv = PyDict_GetItemString(h->acc, "get_seconds");
+    if (!g_py_sv) { PyErr_SetString(PyExc_KeyError, "get_seconds"); return -1; }
+    PyObject *py_sv = PyObject_CallOneArg(g_py_sv, ob); const int own_py_sv = 1;
+    if (!py_sv) return -1;
+    BUMP(C_READ);
+    long long sv = (long long)PyLong_AsLongLong(py_sv);
+    if (sv == (long long)-1 && PyErr_Occurred()) { if (own_py_sv) Py_DECREF(py_sv); return -1; }
+    if (own_py_sv) Py_DECREF(py_sv);
+    if (sv) e->seconds = (int64_t)sv;
+  }
+  { /* nanos, tag 2, int32 */
+    BUMP(C_PYCALL);
+    PyObject *g_py_sv = PyDict_GetItemString(h->acc, "get_nanos");
+    if (!g_py_sv) { PyErr_SetString(PyExc_KeyError, "get_nanos"); return -1; }
+    PyObject *py_sv = PyObject_CallOneArg(g_py_sv, ob); const int own_py_sv = 1;
+    if (!py_sv) return -1;
+    BUMP(C_READ);
+    long sv = (long)PyLong_AsLongLong(py_sv);
+    if (sv == (long)-1 && PyErr_Occurred()) { if (own_py_sv) Py_DECREF(py_sv); return -1; }
+    if (own_py_sv) Py_DECREF(py_sv);
+    if (sv) e->nanos = (int32_t)sv;
+  }
+  return 0;
+}
+static int into_pyacc_TaskOutput(struct ak_efix_TaskOutput *e, PyObject *ob, HostCtx *h) {
+  (void)h; (void)e; (void)ob;
+  { /* success, tag 1, bool */
+    BUMP(C_PYCALL);
+    PyObject *g_py_sv = PyDict_GetItemString(h->acc, "get_success");
+    if (!g_py_sv) { PyErr_SetString(PyExc_KeyError, "get_success"); return -1; }
+    PyObject *py_sv = PyObject_CallOneArg(g_py_sv, ob); const int own_py_sv = 1;
+    if (!py_sv) return -1;
+    BUMP(C_READ);
+    int sv = PyObject_IsTrue(py_sv);
+    if (sv < 0) { if (own_py_sv) Py_DECREF(py_sv); return -1; }
+    if (own_py_sv) Py_DECREF(py_sv);
+    if (sv) e->success = (uint8_t)sv;
+  }
+  { /* error, tag 2, string */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_error");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_error"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->error.data = sp; e->error.len = (size_t)sl; e->error.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
   }
   return 0;
 }
 static int fill_pyacc_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostCtx *h) {
-  (void)h;
-  { /* session_id, tag 1, singular string */
+  (void)h; (void)e; (void)ob;
+  { /* session_id, tag 1, string */
     BUMP(C_PYCALL);
     PyObject *g_v = PyDict_GetItemString(h->acc, "get_session_id");
     if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_session_id"); return -1; }
@@ -1013,7 +4267,7 @@ static int fill_pyacc_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostC
     if (sl) { e->session_id.data = sp; e->session_id.len = (size_t)sl; e->session_id.tc = TC_UTF8; }
     if (own_v) Py_DECREF(v);
   }
-  { /* name, tag 2, singular string */
+  { /* name, tag 2, string */
     BUMP(C_PYCALL);
     PyObject *g_v = PyDict_GetItemString(h->acc, "get_name");
     if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_name"); return -1; }
@@ -1026,7 +4280,7 @@ static int fill_pyacc_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostC
     if (sl) { e->name.data = sp; e->name.len = (size_t)sl; e->name.tc = TC_UTF8; }
     if (own_v) Py_DECREF(v);
   }
-  { /* owner_task_id, tag 3, singular string */
+  { /* owner_task_id, tag 3, string */
     BUMP(C_PYCALL);
     PyObject *g_v = PyDict_GetItemString(h->acc, "get_owner_task_id");
     if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_owner_task_id"); return -1; }
@@ -1039,7 +4293,7 @@ static int fill_pyacc_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostC
     if (sl) { e->owner_task_id.data = sp; e->owner_task_id.len = (size_t)sl; e->owner_task_id.tc = TC_UTF8; }
     if (own_v) Py_DECREF(v);
   }
-  { /* status, tag 4, singular enum */
+  { /* status, tag 4, enum */
     BUMP(C_PYCALL);
     PyObject *g_py_sv = PyDict_GetItemString(h->acc, "get_status");
     if (!g_py_sv) { PyErr_SetString(PyExc_KeyError, "get_status"); return -1; }
@@ -1051,7 +4305,7 @@ static int fill_pyacc_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostC
     if (own_py_sv) Py_DECREF(py_sv);
     if (sv) e->status = (int32_t)sv;
   }
-  { /* created_at, tag 5, singular message */
+  { /* created_at, tag 5, message */
     BUMP(C_PYCALL);
     PyObject *g_v = PyDict_GetItemString(h->acc, "get_created_at");
     if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_created_at"); return -1; }
@@ -1059,11 +4313,11 @@ static int fill_pyacc_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostC
     if (!v) return -1;
     if (v != Py_None) {
       e->presence |= AK_EFIX_RESULTRAW_PRESENT_CREATED_AT;
-      if (fill_pyacc_Timestamp_into(&e->created_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+      if (into_pyacc_Timestamp(&e->created_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
     }
     if (own_v) Py_DECREF(v);
   }
-  { /* completed_at, tag 6, singular message */
+  { /* completed_at, tag 6, message */
     BUMP(C_PYCALL);
     PyObject *g_v = PyDict_GetItemString(h->acc, "get_completed_at");
     if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_completed_at"); return -1; }
@@ -1071,11 +4325,11 @@ static int fill_pyacc_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostC
     if (!v) return -1;
     if (v != Py_None) {
       e->presence |= AK_EFIX_RESULTRAW_PRESENT_COMPLETED_AT;
-      if (fill_pyacc_Timestamp_into(&e->completed_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+      if (into_pyacc_Timestamp(&e->completed_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
     }
     if (own_v) Py_DECREF(v);
   }
-  { /* result_id, tag 8, singular string */
+  { /* result_id, tag 8, string */
     BUMP(C_PYCALL);
     PyObject *g_v = PyDict_GetItemString(h->acc, "get_result_id");
     if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_result_id"); return -1; }
@@ -1088,7 +4342,7 @@ static int fill_pyacc_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostC
     if (sl) { e->result_id.data = sp; e->result_id.len = (size_t)sl; e->result_id.tc = TC_UTF8; }
     if (own_v) Py_DECREF(v);
   }
-  { /* size, tag 9, singular int64 */
+  { /* size, tag 9, int64 */
     BUMP(C_PYCALL);
     PyObject *g_py_sv = PyDict_GetItemString(h->acc, "get_size");
     if (!g_py_sv) { PyErr_SetString(PyExc_KeyError, "get_size"); return -1; }
@@ -1100,7 +4354,7 @@ static int fill_pyacc_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostC
     if (own_py_sv) Py_DECREF(py_sv);
     if (sv) e->size = (int64_t)sv;
   }
-  { /* created_by, tag 10, singular string */
+  { /* created_by, tag 10, string */
     BUMP(C_PYCALL);
     PyObject *g_v = PyDict_GetItemString(h->acc, "get_created_by");
     if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_created_by"); return -1; }
@@ -1113,7 +4367,7 @@ static int fill_pyacc_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostC
     if (sl) { e->created_by.data = sp; e->created_by.len = (size_t)sl; e->created_by.tc = TC_UTF8; }
     if (own_v) Py_DECREF(v);
   }
-  { /* opaque_id, tag 11, singular bytes */
+  { /* opaque_id, tag 11, bytes */
     BUMP(C_PYCALL);
     PyObject *g_v = PyDict_GetItemString(h->acc, "get_opaque_id");
     if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_opaque_id"); return -1; }
@@ -1125,7 +4379,7 @@ static int fill_pyacc_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostC
     if (sl) { e->opaque_id.data = sp; e->opaque_id.len = (size_t)sl; e->opaque_id.tc = TC_BYTES; }
     if (own_v) Py_DECREF(v);
   }
-  { /* manual_deletion, tag 12, singular bool */
+  { /* manual_deletion, tag 12, bool */
     BUMP(C_PYCALL);
     PyObject *g_py_sv = PyDict_GetItemString(h->acc, "get_manual_deletion");
     if (!g_py_sv) { PyErr_SetString(PyExc_KeyError, "get_manual_deletion"); return -1; }
@@ -1139,7 +4393,299 @@ static int fill_pyacc_ResultRaw(struct ak_efix_ResultRaw *e, PyObject *ob, HostC
   }
   return 0;
 }
-static int32_t loop_pyacc_results(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+static int fill_pyacc_TaskDetailed(struct ak_efix_TaskDetailed *e, PyObject *ob, HostCtx *h) {
+  (void)h; (void)e; (void)ob;
+  { /* id, tag 1, string */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_id");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_id"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->id.data = sp; e->id.len = (size_t)sl; e->id.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* session_id, tag 2, string */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_session_id");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_session_id"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->session_id.data = sp; e->session_id.len = (size_t)sl; e->session_id.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* owner_pod_id, tag 3, string */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_owner_pod_id");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_owner_pod_id"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->owner_pod_id.data = sp; e->owner_pod_id.len = (size_t)sl; e->owner_pod_id.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  /* parent_task_ids: a loop slot, reached through the vtable */
+  /* data_dependencies: a loop slot, reached through the vtable */
+  /* expected_output_ids: a loop slot, reached through the vtable */
+  /* retry_of_ids: a loop slot, reached through the vtable */
+  { /* status, tag 8, enum */
+    BUMP(C_PYCALL);
+    PyObject *g_py_sv = PyDict_GetItemString(h->acc, "get_status");
+    if (!g_py_sv) { PyErr_SetString(PyExc_KeyError, "get_status"); return -1; }
+    PyObject *py_sv = PyObject_CallOneArg(g_py_sv, ob); const int own_py_sv = 1;
+    if (!py_sv) return -1;
+    BUMP(C_READ);
+    long sv = (long)PyLong_AsLongLong(py_sv);
+    if (sv == (long)-1 && PyErr_Occurred()) { if (own_py_sv) Py_DECREF(py_sv); return -1; }
+    if (own_py_sv) Py_DECREF(py_sv);
+    if (sv) e->status = (int32_t)sv;
+  }
+  { /* status_message, tag 9, string */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_status_message");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_status_message"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->status_message.data = sp; e->status_message.len = (size_t)sl; e->status_message.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* options, tag 10, message */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_options");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_options"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_OPTIONS;
+      if (into_pyacc_TaskOptions(&e->options, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* created_at, tag 11, message */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_created_at");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_created_at"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_CREATED_AT;
+      if (into_pyacc_Timestamp(&e->created_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* submitted_at, tag 12, message */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_submitted_at");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_submitted_at"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_SUBMITTED_AT;
+      if (into_pyacc_Timestamp(&e->submitted_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* started_at, tag 13, message */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_started_at");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_started_at"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_STARTED_AT;
+      if (into_pyacc_Timestamp(&e->started_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* ended_at, tag 14, message */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_ended_at");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_ended_at"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_ENDED_AT;
+      if (into_pyacc_Timestamp(&e->ended_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* pod_ttl, tag 15, message */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_pod_ttl");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_pod_ttl"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_POD_TTL;
+      if (into_pyacc_Timestamp(&e->pod_ttl, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* output, tag 16, message */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_output");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_output"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_OUTPUT;
+      if (into_pyacc_TaskOutput(&e->output, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* pod_hostname, tag 17, string */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_pod_hostname");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_pod_hostname"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->pod_hostname.data = sp; e->pod_hostname.len = (size_t)sl; e->pod_hostname.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* received_at, tag 18, message */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_received_at");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_received_at"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_RECEIVED_AT;
+      if (into_pyacc_Timestamp(&e->received_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* acquired_at, tag 19, message */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_acquired_at");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_acquired_at"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_ACQUIRED_AT;
+      if (into_pyacc_Timestamp(&e->acquired_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* creation_to_end_duration, tag 20, message */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_creation_to_end_duration");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_creation_to_end_duration"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_CREATION_TO_END_DURATION;
+      if (into_pyacc_Duration(&e->creation_to_end_duration, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* processing_to_end_duration, tag 21, message */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_processing_to_end_duration");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_processing_to_end_duration"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_PROCESSING_TO_END_DURATION;
+      if (into_pyacc_Duration(&e->processing_to_end_duration, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* initial_task_id, tag 22, string */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_initial_task_id");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_initial_task_id"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->initial_task_id.data = sp; e->initial_task_id.len = (size_t)sl; e->initial_task_id.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* received_to_end_duration, tag 23, message */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_received_to_end_duration");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_received_to_end_duration"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION;
+      if (into_pyacc_Duration(&e->received_to_end_duration, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* processed_at, tag 24, message */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_processed_at");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_processed_at"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_PROCESSED_AT;
+      if (into_pyacc_Timestamp(&e->processed_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* fetched_at, tag 25, message */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_fetched_at");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_fetched_at"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    if (v != Py_None) {
+      e->presence |= AK_EFIX_TASKDETAILED_PRESENT_FETCHED_AT;
+      if (into_pyacc_Timestamp(&e->fetched_at, v, h)) { if (own_v) Py_DECREF(v); return -1; }
+    }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* payload_id, tag 26, string */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_payload_id");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_payload_id"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->payload_id.data = sp; e->payload_id.len = (size_t)sl; e->payload_id.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  { /* created_by, tag 27, string */
+    BUMP(C_PYCALL);
+    PyObject *g_v = PyDict_GetItemString(h->acc, "get_created_by");
+    if (!g_v) { PyErr_SetString(PyExc_KeyError, "get_created_by"); return -1; }
+    PyObject *v = PyObject_CallOneArg(g_v, ob); const int own_v = 1;
+    if (!v) return -1;
+    BUMP(C_READ);
+    Py_ssize_t sl = 0;
+    const char *sp = PyUnicode_AsUTF8AndSize(v, &sl);
+    if (!sp) { if (own_v) Py_DECREF(v); return -1; }
+    if (sl) { e->created_by.data = sp; e->created_by.len = (size_t)sl; e->created_by.tc = TC_UTF8; }
+    if (own_v) Py_DECREF(v);
+  }
+  return 0;
+}
+static int32_t loop_pyacc_ListResultsResponse_results(ak_enc_ctx *ctx, const void *obj, int64_t token) {
   (void)token;
   HostCtx *h = (HostCtx *)obj;
   PyObject *ob = h->root;
@@ -1150,7 +4696,14 @@ static int32_t loop_pyacc_results(ak_enc_ctx *ctx, const void *obj, int64_t toke
   if (!lst) return -1;
   Py_ssize_t n = PyList_Size(lst);
   if (n < 0) { if (own_lst) Py_DECREF(lst); return -1; }
+  /* The element list, so an inner loop slot can index it by token without
+     re-reading the attribute. The core only calls an inner loop from inside
+     this one, so one slot per nesting level is enough -- and the emitter
+     raises above if the schema ever nests deeper than the stack. */
+  PyObject *saved = h->cur[0]; h->cur[0] = lst;
   struct ak_efix_ResultRaw chunk[CHUNK_RESULTRAW];
+  int64_t done = 0;
+  int32_t rc = 0;
   for (Py_ssize_t i = 0; i < n; i += CHUNK_RESULTRAW) {
     int32_t k = (int32_t)((n - i < CHUNK_RESULTRAW) ? (n - i) : CHUNK_RESULTRAW);
     /* ABI v1 decision 9: bulk clear once, then assign only what differs. */
@@ -1158,14 +4711,15 @@ static int32_t loop_pyacc_results(ak_enc_ctx *ctx, const void *obj, int64_t toke
     for (int32_t j = 0; j < k; j++) {
       BUMP(C_ITEM);
       PyObject *e = PyList_GetItem(lst, i + j);
-      if (!e || fill_pyacc_ResultRaw(&chunk[j], e, h))
-        { if (own_lst) Py_DECREF(lst); return -1; }
+      if (!e || fill_pyacc_ResultRaw(&chunk[j], e, h)) { rc = -1; goto out; }
     }
-    if (ak_elem_ResultRaw(ctx, chunk, k))
-      { if (own_lst) Py_DECREF(lst); return -1; }
+    if (ak_elem_ResultRaw(ctx, chunk, k)) { rc = -1; goto out; }
+    done += k;
   }
+out:
+  h->cur[0] = saved;
   if (own_lst) Py_DECREF(lst);
-  return 0;
+  return rc;
 }
 static int fix_pyacc_ListResultsResponse(struct ak_efix_ListResultsResponse *fix, PyObject *ob, HostCtx *h) {
   (void)h; (void)ob;
@@ -1202,7 +4756,9 @@ static PyObject *encode_pyacc_ListResultsResponse(PyObject *rootobj, PyObject *a
   HostCtx *h = &hs;
   struct ak_efix_ListResultsResponse fix;
   if (fix_pyacc_ListResultsResponse(&fix, rootobj, h)) return NULL;
-  static const struct ak_evt_ListResultsResponse VT = {loop_pyacc_results};
+  static const struct ak_evt_ListResultsResponse VT = {
+    .loop_results = loop_pyacc_ListResultsResponse_results,
+  };
   ak_enc_ctx *ctx = ak_enc_ctx_new();
   if (!ctx) return PyErr_NoMemory();
   intptr_t rc = ak_encode_ListResultsResponse(h, ctx, &VT, &fix);
@@ -1221,7 +4777,1036 @@ static PyObject *encode_pyacc_ListResultsResponse(PyObject *rootobj, PyObject *a
   ak_enc_ctx_free(ctx);
   return out;
 }
-static int setlist_pyacc_results(PyObject *ob, PyObject *lst, HostCtx *h) {
+static int32_t loop_pyacc_ListTasksDetailedResponse_tasks(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  (void)token;
+  HostCtx *h = (HostCtx *)obj;
+  PyObject *ob = h->root;
+  BUMP(C_PYCALL);
+  PyObject *g_lst = PyDict_GetItemString(h->acc, "get_tasks");
+  if (!g_lst) { PyErr_SetString(PyExc_KeyError, "get_tasks"); return -1; }
+  PyObject *lst = PyObject_CallOneArg(g_lst, ob); const int own_lst = 1;
+  if (!lst) return -1;
+  Py_ssize_t n = PyList_Size(lst);
+  if (n < 0) { if (own_lst) Py_DECREF(lst); return -1; }
+  /* The element list, so an inner loop slot can index it by token without
+     re-reading the attribute. The core only calls an inner loop from inside
+     this one, so one slot per nesting level is enough -- and the emitter
+     raises above if the schema ever nests deeper than the stack. */
+  PyObject *saved = h->cur[0]; h->cur[0] = lst;
+  struct ak_efix_TaskDetailed chunk[CHUNK_TASKDETAILED];
+  int64_t done = 0;
+  int32_t rc = 0;
+  for (Py_ssize_t i = 0; i < n; i += CHUNK_TASKDETAILED) {
+    int32_t k = (int32_t)((n - i < CHUNK_TASKDETAILED) ? (n - i) : CHUNK_TASKDETAILED);
+    /* ABI v1 decision 9: bulk clear once, then assign only what differs. */
+    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);
+    for (int32_t j = 0; j < k; j++) {
+      BUMP(C_ITEM);
+      PyObject *e = PyList_GetItem(lst, i + j);
+      if (!e || fill_pyacc_TaskDetailed(&chunk[j], e, h)) { rc = -1; goto out; }
+    }
+    /* NOT a leaf: the batching predicate refuses it, so the element
+       run carries a token range and each of the element's own
+       containers is a reverse call per element (ABI v1 section 6). */
+    if (ak_elemu_TaskDetailed(ctx, chunk, k, done)) { rc = -1; goto out; }
+    done += k;
+  }
+out:
+  h->cur[0] = saved;
+  if (own_lst) Py_DECREF(lst);
+  return rc;
+}
+static int32_t loop_pyacc_TaskDetailed_parent_task_ids(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  HostCtx *h = (HostCtx *)obj;
+  PyObject *el = PyList_GetItem(h->cur[0], (Py_ssize_t)token);
+  if (!el) return -1;
+  PyObject *cur = Py_NewRef(el);
+  BUMP(C_PYCALL);
+  PyObject *g_lst = PyDict_GetItemString(h->acc, "get_parent_task_ids");
+  if (!g_lst) { PyErr_SetString(PyExc_KeyError, "get_parent_task_ids"); return -1; }
+  PyObject *lst = PyObject_CallOneArg(g_lst, cur); const int own_lst = 1;
+  if (!lst) return -1;
+  Py_ssize_t n = PyList_Size(lst);
+  if (n < 0) { if (own_lst) Py_DECREF(lst); return -1; }
+  struct ak_str chunk[CHUNK_BLOB];
+  int32_t rc = 0;
+  for (Py_ssize_t i = 0; i < n; i += CHUNK_BLOB) {
+    int32_t k = (int32_t)((n - i < CHUNK_BLOB) ? (n - i) : CHUNK_BLOB);
+    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);
+    for (int32_t j = 0; j < k; j++) {
+      BUMP(C_ITEM); BUMP(C_READ);
+      PyObject *s = PyList_GetItem(lst, i + j);
+      if (!s) { rc = -1; goto out; }
+      Py_ssize_t sl = 0;
+      const char *sp = PyUnicode_AsUTF8AndSize(s, &sl);
+      if (!sp) { rc = -1; goto out; }
+      chunk[j].data = sp; chunk[j].len = (size_t)sl; chunk[j].tc = TC_UTF8;
+    }
+    if (ak_blob_run(ctx, chunk, k)) { rc = -1; goto out; }
+  }
+out:
+  if (own_lst) Py_DECREF(lst);
+  return rc;
+}
+static int32_t loop_pyacc_TaskDetailed_data_dependencies(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  HostCtx *h = (HostCtx *)obj;
+  PyObject *el = PyList_GetItem(h->cur[0], (Py_ssize_t)token);
+  if (!el) return -1;
+  PyObject *cur = Py_NewRef(el);
+  BUMP(C_PYCALL);
+  PyObject *g_lst = PyDict_GetItemString(h->acc, "get_data_dependencies");
+  if (!g_lst) { PyErr_SetString(PyExc_KeyError, "get_data_dependencies"); return -1; }
+  PyObject *lst = PyObject_CallOneArg(g_lst, cur); const int own_lst = 1;
+  if (!lst) return -1;
+  Py_ssize_t n = PyList_Size(lst);
+  if (n < 0) { if (own_lst) Py_DECREF(lst); return -1; }
+  struct ak_str chunk[CHUNK_BLOB];
+  int32_t rc = 0;
+  for (Py_ssize_t i = 0; i < n; i += CHUNK_BLOB) {
+    int32_t k = (int32_t)((n - i < CHUNK_BLOB) ? (n - i) : CHUNK_BLOB);
+    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);
+    for (int32_t j = 0; j < k; j++) {
+      BUMP(C_ITEM); BUMP(C_READ);
+      PyObject *s = PyList_GetItem(lst, i + j);
+      if (!s) { rc = -1; goto out; }
+      Py_ssize_t sl = 0;
+      const char *sp = PyUnicode_AsUTF8AndSize(s, &sl);
+      if (!sp) { rc = -1; goto out; }
+      chunk[j].data = sp; chunk[j].len = (size_t)sl; chunk[j].tc = TC_UTF8;
+    }
+    if (ak_blob_run(ctx, chunk, k)) { rc = -1; goto out; }
+  }
+out:
+  if (own_lst) Py_DECREF(lst);
+  return rc;
+}
+static int32_t loop_pyacc_TaskDetailed_expected_output_ids(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  HostCtx *h = (HostCtx *)obj;
+  PyObject *el = PyList_GetItem(h->cur[0], (Py_ssize_t)token);
+  if (!el) return -1;
+  PyObject *cur = Py_NewRef(el);
+  BUMP(C_PYCALL);
+  PyObject *g_lst = PyDict_GetItemString(h->acc, "get_expected_output_ids");
+  if (!g_lst) { PyErr_SetString(PyExc_KeyError, "get_expected_output_ids"); return -1; }
+  PyObject *lst = PyObject_CallOneArg(g_lst, cur); const int own_lst = 1;
+  if (!lst) return -1;
+  Py_ssize_t n = PyList_Size(lst);
+  if (n < 0) { if (own_lst) Py_DECREF(lst); return -1; }
+  struct ak_str chunk[CHUNK_BLOB];
+  int32_t rc = 0;
+  for (Py_ssize_t i = 0; i < n; i += CHUNK_BLOB) {
+    int32_t k = (int32_t)((n - i < CHUNK_BLOB) ? (n - i) : CHUNK_BLOB);
+    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);
+    for (int32_t j = 0; j < k; j++) {
+      BUMP(C_ITEM); BUMP(C_READ);
+      PyObject *s = PyList_GetItem(lst, i + j);
+      if (!s) { rc = -1; goto out; }
+      Py_ssize_t sl = 0;
+      const char *sp = PyUnicode_AsUTF8AndSize(s, &sl);
+      if (!sp) { rc = -1; goto out; }
+      chunk[j].data = sp; chunk[j].len = (size_t)sl; chunk[j].tc = TC_UTF8;
+    }
+    if (ak_blob_run(ctx, chunk, k)) { rc = -1; goto out; }
+  }
+out:
+  if (own_lst) Py_DECREF(lst);
+  return rc;
+}
+static int32_t loop_pyacc_TaskDetailed_retry_of_ids(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  HostCtx *h = (HostCtx *)obj;
+  PyObject *el = PyList_GetItem(h->cur[0], (Py_ssize_t)token);
+  if (!el) return -1;
+  PyObject *cur = Py_NewRef(el);
+  BUMP(C_PYCALL);
+  PyObject *g_lst = PyDict_GetItemString(h->acc, "get_retry_of_ids");
+  if (!g_lst) { PyErr_SetString(PyExc_KeyError, "get_retry_of_ids"); return -1; }
+  PyObject *lst = PyObject_CallOneArg(g_lst, cur); const int own_lst = 1;
+  if (!lst) return -1;
+  Py_ssize_t n = PyList_Size(lst);
+  if (n < 0) { if (own_lst) Py_DECREF(lst); return -1; }
+  struct ak_str chunk[CHUNK_BLOB];
+  int32_t rc = 0;
+  for (Py_ssize_t i = 0; i < n; i += CHUNK_BLOB) {
+    int32_t k = (int32_t)((n - i < CHUNK_BLOB) ? (n - i) : CHUNK_BLOB);
+    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);
+    for (int32_t j = 0; j < k; j++) {
+      BUMP(C_ITEM); BUMP(C_READ);
+      PyObject *s = PyList_GetItem(lst, i + j);
+      if (!s) { rc = -1; goto out; }
+      Py_ssize_t sl = 0;
+      const char *sp = PyUnicode_AsUTF8AndSize(s, &sl);
+      if (!sp) { rc = -1; goto out; }
+      chunk[j].data = sp; chunk[j].len = (size_t)sl; chunk[j].tc = TC_UTF8;
+    }
+    if (ak_blob_run(ctx, chunk, k)) { rc = -1; goto out; }
+  }
+out:
+  if (own_lst) Py_DECREF(lst);
+  return rc;
+}
+static int32_t loop_pyacc_TaskDetailed_options_options(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  HostCtx *h = (HostCtx *)obj;
+  PyObject *el = PyList_GetItem(h->cur[0], (Py_ssize_t)token);
+  if (!el) return -1;
+  BUMP(C_PYCALL);
+  PyObject *g_p0 = PyDict_GetItemString(h->acc, "get_options");
+  if (!g_p0) { PyErr_SetString(PyExc_KeyError, "get_options"); return -1; }
+  PyObject *p0 = PyObject_CallOneArg(g_p0, el); const int own_p0 = 1;
+  if (!p0) return -1;
+  (void)own_p0;
+  PyObject *cur = p0;
+  if (cur == Py_None) { Py_DECREF(cur); return 0; }
+  BUMP(C_PYCALL);
+  PyObject *g_d = PyDict_GetItemString(h->acc, "get_options");
+  if (!g_d) { PyErr_SetString(PyExc_KeyError, "get_options"); return -1; }
+  PyObject *d = PyObject_CallOneArg(g_d, cur); const int own_d = 1;
+  if (!d) return -1;
+  PyObject *keys = PyDict_Keys(d);
+  if (!keys) { if (own_d) Py_DECREF(d); return -1; }
+  if (PyList_Sort(keys) < 0) { Py_DECREF(keys); if (own_d) Py_DECREF(d); return -1; }
+  Py_ssize_t n = PyList_Size(keys);
+  struct ak_efix_TaskOptionsOptionsEntry chunk[CHUNK_TASKOPTIONSOPTIONSENTRY];
+  int32_t rc = 0;
+  for (Py_ssize_t i = 0; i < n; i += CHUNK_TASKOPTIONSOPTIONSENTRY) {
+    int32_t k = (int32_t)((n - i < CHUNK_TASKOPTIONSOPTIONSENTRY) ? (n - i) : CHUNK_TASKOPTIONSOPTIONSENTRY);
+    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);
+    for (int32_t j = 0; j < k; j++) {
+      BUMP(C_ITEM);
+      PyObject *kk = PyList_GetItem(keys, i + j);
+      PyObject *vv = kk ? PyDict_GetItem(d, kk) : NULL;
+      if (!kk || !vv) { rc = -1; goto out; }
+      BUMP(C_READ); BUMP(C_READ);
+      Py_ssize_t kl = 0, vl = 0;
+      const char *kp = PyUnicode_AsUTF8AndSize(kk, &kl);
+      const char *vp = PyUnicode_AsUTF8AndSize(vv, &vl);
+      if (!kp || !vp) { rc = -1; goto out; }
+      chunk[j].key.data = kp; chunk[j].key.len = (size_t)kl; chunk[j].key.tc = TC_UTF8;
+      /* An empty value is an implicit-presence leaf holding the proto zero, so
+         it is left absent by the memset. P2.5 is the payload that reaches it. */
+      if (vl) { chunk[j].value.data = vp; chunk[j].value.len = (size_t)vl; chunk[j].value.tc = TC_UTF8; }
+    }
+    if (ak_elem_TaskOptionsOptionsEntry(ctx, chunk, k)) { rc = -1; goto out; }
+  }
+out:
+  Py_DECREF(keys);
+  if (own_d) Py_DECREF(d);
+  Py_DECREF(cur);
+  return rc;
+}
+static int fix_pyacc_ListTasksDetailedResponse(struct ak_efix_ListTasksDetailedResponse *fix, PyObject *ob, HostCtx *h) {
+  (void)h; (void)ob;
+  memset(fix, 0, sizeof *fix);
+  {
+    BUMP(C_PYCALL);
+    PyObject *g_py_sv_page = PyDict_GetItemString(h->acc, "get_page");
+    if (!g_py_sv_page) { PyErr_SetString(PyExc_KeyError, "get_page"); return -1; }
+    PyObject *py_sv_page = PyObject_CallOneArg(g_py_sv_page, ob); const int own_py_sv_page = 1;
+    if (!py_sv_page) return -1;
+    BUMP(C_READ);
+    long sv_page = (long)PyLong_AsLongLong(py_sv_page);
+    if (sv_page == (long)-1 && PyErr_Occurred()) { if (own_py_sv_page) Py_DECREF(py_sv_page); return -1; }
+    if (own_py_sv_page) Py_DECREF(py_sv_page);
+    if (sv_page) fix->page = (int32_t)sv_page;
+  }
+  {
+    BUMP(C_PYCALL);
+    PyObject *g_py_sv_total = PyDict_GetItemString(h->acc, "get_total");
+    if (!g_py_sv_total) { PyErr_SetString(PyExc_KeyError, "get_total"); return -1; }
+    PyObject *py_sv_total = PyObject_CallOneArg(g_py_sv_total, ob); const int own_py_sv_total = 1;
+    if (!py_sv_total) return -1;
+    BUMP(C_READ);
+    long sv_total = (long)PyLong_AsLongLong(py_sv_total);
+    if (sv_total == (long)-1 && PyErr_Occurred()) { if (own_py_sv_total) Py_DECREF(py_sv_total); return -1; }
+    if (own_py_sv_total) Py_DECREF(py_sv_total);
+    if (sv_total) fix->total = (int32_t)sv_total;
+  }
+  return 0;
+}
+static PyObject *encode_pyacc_ListTasksDetailedResponse(PyObject *rootobj, PyObject *acc) {
+  HostCtx hs; memset(&hs, 0, sizeof hs);
+  hs.root = rootobj; hs.acc = acc;
+  HostCtx *h = &hs;
+  struct ak_efix_ListTasksDetailedResponse fix;
+  if (fix_pyacc_ListTasksDetailedResponse(&fix, rootobj, h)) return NULL;
+  static const struct ak_evt_TaskDetailed EVT_tasks = {
+    .loop_parent_task_ids = loop_pyacc_TaskDetailed_parent_task_ids,
+    .loop_data_dependencies = loop_pyacc_TaskDetailed_data_dependencies,
+    .loop_expected_output_ids = loop_pyacc_TaskDetailed_expected_output_ids,
+    .loop_retry_of_ids = loop_pyacc_TaskDetailed_retry_of_ids,
+    .loop_options_options = loop_pyacc_TaskDetailed_options_options,
+  };
+  static const struct ak_evt_ListTasksDetailedResponse VT = {
+    .loop_tasks = loop_pyacc_ListTasksDetailedResponse_tasks,
+    .elem_tasks = &EVT_tasks,
+  };
+  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  if (!ctx) return PyErr_NoMemory();
+  intptr_t rc = ak_encode_ListTasksDetailedResponse(h, ctx, &VT, &fix);
+  if (rc < 0) {
+    ak_enc_ctx_free(ctx);
+    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListTasksDetailedResponse returned %ld", (long)rc);
+    return NULL;
+  }
+#ifdef AK_COUNT
+  { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
+#endif
+  const uint8_t *p = NULL; size_t len = 0;
+  if (ak_enc_take(ctx, &p, &len)) { ak_enc_ctx_free(ctx);
+    PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
+  PyObject *out = PyBytes_FromStringAndSize((const char *)p, (Py_ssize_t)len);
+  ak_enc_ctx_free(ctx);
+  return out;
+}
+static int setgroup_pyacc_ListResultsResponse(HostCtx *h, PyObject *ob, const struct ak_dfix_ListResultsResponse *e) {
+  (void)h; (void)ob; (void)e;
+  { /* page */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->page)); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_page");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* total */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->total)); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_total");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  return 0;
+}
+static int setgroup_pyacc_ResultRaw(HostCtx *h, PyObject *ob, const struct ak_dfix_ResultRaw *e) {
+  (void)h; (void)ob; (void)e;
+  { /* session_id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->session_id.off, (Py_ssize_t)e->session_id.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_session_id");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* name */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->name.off, (Py_ssize_t)e->name.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_name");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* owner_task_id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->owner_task_id.off, (Py_ssize_t)e->owner_task_id.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_owner_task_id");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* status */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->status)); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_status");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* created_at */
+    if (e->presence & AK_DFIX_RESULTRAW_PRESENT_CREATED_AT) {
+      BUMP(C_PYCALL);
+      PyObject *g_c0 = PyDict_GetItemString(h->acc, "get_created_at");
+      if (!g_c0) { PyErr_SetString(PyExc_KeyError, "get_created_at"); return -1; }
+      PyObject *c0 = PyObject_CallOneArg(g_c0, ob); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_PYCALL);
+          PyObject *s_ = PyDict_GetItemString(h->acc, "set_created_at");
+          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+          if (!r_) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; } else Py_DECREF(r_);
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_pyacc_Timestamp(h, cur, &e->created_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* completed_at */
+    if (e->presence & AK_DFIX_RESULTRAW_PRESENT_COMPLETED_AT) {
+      BUMP(C_PYCALL);
+      PyObject *g_c0 = PyDict_GetItemString(h->acc, "get_completed_at");
+      if (!g_c0) { PyErr_SetString(PyExc_KeyError, "get_completed_at"); return -1; }
+      PyObject *c0 = PyObject_CallOneArg(g_c0, ob); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_PYCALL);
+          PyObject *s_ = PyDict_GetItemString(h->acc, "set_completed_at");
+          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+          if (!r_) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; } else Py_DECREF(r_);
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_pyacc_Timestamp(h, cur, &e->completed_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* result_id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->result_id.off, (Py_ssize_t)e->result_id.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_result_id");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* size */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->size)); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_size");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* created_by */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->created_by.off, (Py_ssize_t)e->created_by.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_created_by");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* opaque_id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyBytes_FromStringAndSize((const char *)h->base + e->opaque_id.off, (Py_ssize_t)e->opaque_id.len); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_opaque_id");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* manual_deletion */
+    { PyObject *v_ = PyBool_FromLong((long)(e->manual_deletion)); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_manual_deletion");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  return 0;
+}
+static int setgroup_pyacc_Timestamp(HostCtx *h, PyObject *ob, const struct ak_dfix_Timestamp *e) {
+  (void)h; (void)ob; (void)e;
+  { /* seconds */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->seconds)); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_seconds");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* nanos */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->nanos)); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_nanos");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  return 0;
+}
+static int setgroup_pyacc_ListTasksDetailedResponse(HostCtx *h, PyObject *ob, const struct ak_dfix_ListTasksDetailedResponse *e) {
+  (void)h; (void)ob; (void)e;
+  { /* page */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->page)); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_page");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* total */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->total)); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_total");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  return 0;
+}
+static int setgroup_pyacc_TaskDetailed(HostCtx *h, PyObject *ob, const struct ak_dfix_TaskDetailed *e) {
+  (void)h; (void)ob; (void)e;
+  { /* id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->id.off, (Py_ssize_t)e->id.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_id");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* session_id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->session_id.off, (Py_ssize_t)e->session_id.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_session_id");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* owner_pod_id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->owner_pod_id.off, (Py_ssize_t)e->owner_pod_id.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_owner_pod_id");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* status */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->status)); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_status");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* status_message */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->status_message.off, (Py_ssize_t)e->status_message.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_status_message");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* options */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_OPTIONS) {
+      BUMP(C_PYCALL);
+      PyObject *g_c0 = PyDict_GetItemString(h->acc, "get_options");
+      if (!g_c0) { PyErr_SetString(PyExc_KeyError, "get_options"); return -1; }
+      PyObject *c0 = PyObject_CallOneArg(g_c0, ob); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_TaskOptions);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_PYCALL);
+          PyObject *s_ = PyDict_GetItemString(h->acc, "set_options");
+          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+          if (!r_) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; } else Py_DECREF(r_);
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_pyacc_TaskOptions(h, cur, &e->options)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* created_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_CREATED_AT) {
+      BUMP(C_PYCALL);
+      PyObject *g_c0 = PyDict_GetItemString(h->acc, "get_created_at");
+      if (!g_c0) { PyErr_SetString(PyExc_KeyError, "get_created_at"); return -1; }
+      PyObject *c0 = PyObject_CallOneArg(g_c0, ob); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_PYCALL);
+          PyObject *s_ = PyDict_GetItemString(h->acc, "set_created_at");
+          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+          if (!r_) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; } else Py_DECREF(r_);
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_pyacc_Timestamp(h, cur, &e->created_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* submitted_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_SUBMITTED_AT) {
+      BUMP(C_PYCALL);
+      PyObject *g_c0 = PyDict_GetItemString(h->acc, "get_submitted_at");
+      if (!g_c0) { PyErr_SetString(PyExc_KeyError, "get_submitted_at"); return -1; }
+      PyObject *c0 = PyObject_CallOneArg(g_c0, ob); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_PYCALL);
+          PyObject *s_ = PyDict_GetItemString(h->acc, "set_submitted_at");
+          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+          if (!r_) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; } else Py_DECREF(r_);
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_pyacc_Timestamp(h, cur, &e->submitted_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* started_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_STARTED_AT) {
+      BUMP(C_PYCALL);
+      PyObject *g_c0 = PyDict_GetItemString(h->acc, "get_started_at");
+      if (!g_c0) { PyErr_SetString(PyExc_KeyError, "get_started_at"); return -1; }
+      PyObject *c0 = PyObject_CallOneArg(g_c0, ob); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_PYCALL);
+          PyObject *s_ = PyDict_GetItemString(h->acc, "set_started_at");
+          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+          if (!r_) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; } else Py_DECREF(r_);
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_pyacc_Timestamp(h, cur, &e->started_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* ended_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_ENDED_AT) {
+      BUMP(C_PYCALL);
+      PyObject *g_c0 = PyDict_GetItemString(h->acc, "get_ended_at");
+      if (!g_c0) { PyErr_SetString(PyExc_KeyError, "get_ended_at"); return -1; }
+      PyObject *c0 = PyObject_CallOneArg(g_c0, ob); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_PYCALL);
+          PyObject *s_ = PyDict_GetItemString(h->acc, "set_ended_at");
+          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+          if (!r_) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; } else Py_DECREF(r_);
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_pyacc_Timestamp(h, cur, &e->ended_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* pod_ttl */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_POD_TTL) {
+      BUMP(C_PYCALL);
+      PyObject *g_c0 = PyDict_GetItemString(h->acc, "get_pod_ttl");
+      if (!g_c0) { PyErr_SetString(PyExc_KeyError, "get_pod_ttl"); return -1; }
+      PyObject *c0 = PyObject_CallOneArg(g_c0, ob); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_PYCALL);
+          PyObject *s_ = PyDict_GetItemString(h->acc, "set_pod_ttl");
+          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+          if (!r_) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; } else Py_DECREF(r_);
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_pyacc_Timestamp(h, cur, &e->pod_ttl)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* output */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_OUTPUT) {
+      BUMP(C_PYCALL);
+      PyObject *g_c0 = PyDict_GetItemString(h->acc, "get_output");
+      if (!g_c0) { PyErr_SetString(PyExc_KeyError, "get_output"); return -1; }
+      PyObject *c0 = PyObject_CallOneArg(g_c0, ob); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_TaskOutput);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_PYCALL);
+          PyObject *s_ = PyDict_GetItemString(h->acc, "set_output");
+          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+          if (!r_) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; } else Py_DECREF(r_);
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_pyacc_TaskOutput(h, cur, &e->output)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* pod_hostname */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->pod_hostname.off, (Py_ssize_t)e->pod_hostname.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_pod_hostname");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* received_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_AT) {
+      BUMP(C_PYCALL);
+      PyObject *g_c0 = PyDict_GetItemString(h->acc, "get_received_at");
+      if (!g_c0) { PyErr_SetString(PyExc_KeyError, "get_received_at"); return -1; }
+      PyObject *c0 = PyObject_CallOneArg(g_c0, ob); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_PYCALL);
+          PyObject *s_ = PyDict_GetItemString(h->acc, "set_received_at");
+          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+          if (!r_) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; } else Py_DECREF(r_);
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_pyacc_Timestamp(h, cur, &e->received_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* acquired_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_ACQUIRED_AT) {
+      BUMP(C_PYCALL);
+      PyObject *g_c0 = PyDict_GetItemString(h->acc, "get_acquired_at");
+      if (!g_c0) { PyErr_SetString(PyExc_KeyError, "get_acquired_at"); return -1; }
+      PyObject *c0 = PyObject_CallOneArg(g_c0, ob); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_PYCALL);
+          PyObject *s_ = PyDict_GetItemString(h->acc, "set_acquired_at");
+          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+          if (!r_) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; } else Py_DECREF(r_);
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_pyacc_Timestamp(h, cur, &e->acquired_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* creation_to_end_duration */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_CREATION_TO_END_DURATION) {
+      BUMP(C_PYCALL);
+      PyObject *g_c0 = PyDict_GetItemString(h->acc, "get_creation_to_end_duration");
+      if (!g_c0) { PyErr_SetString(PyExc_KeyError, "get_creation_to_end_duration"); return -1; }
+      PyObject *c0 = PyObject_CallOneArg(g_c0, ob); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Duration);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_PYCALL);
+          PyObject *s_ = PyDict_GetItemString(h->acc, "set_creation_to_end_duration");
+          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+          if (!r_) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; } else Py_DECREF(r_);
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_pyacc_Duration(h, cur, &e->creation_to_end_duration)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* processing_to_end_duration */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_PROCESSING_TO_END_DURATION) {
+      BUMP(C_PYCALL);
+      PyObject *g_c0 = PyDict_GetItemString(h->acc, "get_processing_to_end_duration");
+      if (!g_c0) { PyErr_SetString(PyExc_KeyError, "get_processing_to_end_duration"); return -1; }
+      PyObject *c0 = PyObject_CallOneArg(g_c0, ob); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Duration);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_PYCALL);
+          PyObject *s_ = PyDict_GetItemString(h->acc, "set_processing_to_end_duration");
+          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+          if (!r_) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; } else Py_DECREF(r_);
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_pyacc_Duration(h, cur, &e->processing_to_end_duration)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* initial_task_id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->initial_task_id.off, (Py_ssize_t)e->initial_task_id.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_initial_task_id");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* received_to_end_duration */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION) {
+      BUMP(C_PYCALL);
+      PyObject *g_c0 = PyDict_GetItemString(h->acc, "get_received_to_end_duration");
+      if (!g_c0) { PyErr_SetString(PyExc_KeyError, "get_received_to_end_duration"); return -1; }
+      PyObject *c0 = PyObject_CallOneArg(g_c0, ob); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Duration);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_PYCALL);
+          PyObject *s_ = PyDict_GetItemString(h->acc, "set_received_to_end_duration");
+          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+          if (!r_) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; } else Py_DECREF(r_);
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_pyacc_Duration(h, cur, &e->received_to_end_duration)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* processed_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_PROCESSED_AT) {
+      BUMP(C_PYCALL);
+      PyObject *g_c0 = PyDict_GetItemString(h->acc, "get_processed_at");
+      if (!g_c0) { PyErr_SetString(PyExc_KeyError, "get_processed_at"); return -1; }
+      PyObject *c0 = PyObject_CallOneArg(g_c0, ob); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_PYCALL);
+          PyObject *s_ = PyDict_GetItemString(h->acc, "set_processed_at");
+          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+          if (!r_) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; } else Py_DECREF(r_);
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_pyacc_Timestamp(h, cur, &e->processed_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* fetched_at */
+    if (e->presence & AK_DFIX_TASKDETAILED_PRESENT_FETCHED_AT) {
+      BUMP(C_PYCALL);
+      PyObject *g_c0 = PyDict_GetItemString(h->acc, "get_fetched_at");
+      if (!g_c0) { PyErr_SetString(PyExc_KeyError, "get_fetched_at"); return -1; }
+      PyObject *c0 = PyObject_CallOneArg(g_c0, ob); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Timestamp);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_PYCALL);
+          PyObject *s_ = PyDict_GetItemString(h->acc, "set_fetched_at");
+          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+          if (!r_) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; } else Py_DECREF(r_);
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_pyacc_Timestamp(h, cur, &e->fetched_at)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* payload_id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->payload_id.off, (Py_ssize_t)e->payload_id.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_payload_id");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* created_by */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->created_by.off, (Py_ssize_t)e->created_by.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_created_by");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  return 0;
+}
+static int setgroup_pyacc_TaskOptions(HostCtx *h, PyObject *ob, const struct ak_dfix_TaskOptions *e) {
+  (void)h; (void)ob; (void)e;
+  { /* max_duration */
+    if (e->presence & AK_DFIX_TASKOPTIONS_PRESENT_MAX_DURATION) {
+      BUMP(C_PYCALL);
+      PyObject *g_c0 = PyDict_GetItemString(h->acc, "get_max_duration");
+      if (!g_c0) { PyErr_SetString(PyExc_KeyError, "get_max_duration"); return -1; }
+      PyObject *c0 = PyObject_CallOneArg(g_c0, ob); const int own_c0 = 1;
+      if (!c0) return -1;
+      (void)own_c0;
+      if (c0 == Py_None) {
+        PyObject *nw = PyObject_CallNoArgs(h->ty_Duration);
+        if (!nw) { Py_DECREF(c0); return -1; }
+        { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); return -1; }
+          BUMP(C_PYCALL);
+          PyObject *s_ = PyDict_GetItemString(h->acc, "set_max_duration");
+          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+          if (!r_) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); return -1; } else Py_DECREF(r_);
+          Py_DECREF(v_); }
+        Py_DECREF(c0); c0 = nw;
+      }
+      PyObject *cur = c0;
+      if (setgroup_pyacc_Duration(h, cur, &e->max_duration)) { Py_DECREF(cur); return -1; }
+      Py_DECREF(cur);
+    }
+  }
+  { /* max_retries */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->max_retries)); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_max_retries");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* priority */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->priority)); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_priority");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* partition_id */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->partition_id.off, (Py_ssize_t)e->partition_id.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_partition_id");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* application_name */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->application_name.off, (Py_ssize_t)e->application_name.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_application_name");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* application_version */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->application_version.off, (Py_ssize_t)e->application_version.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_application_version");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* application_namespace */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->application_namespace.off, (Py_ssize_t)e->application_namespace.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_application_namespace");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* application_service */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->application_service.off, (Py_ssize_t)e->application_service.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_application_service");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* engine_type */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->engine_type.off, (Py_ssize_t)e->engine_type.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_engine_type");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  return 0;
+}
+static int setgroup_pyacc_Duration(HostCtx *h, PyObject *ob, const struct ak_dfix_Duration *e) {
+  (void)h; (void)ob; (void)e;
+  { /* seconds */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->seconds)); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_seconds");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* nanos */
+    { PyObject *v_ = PyLong_FromLongLong((long long)(e->nanos)); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_nanos");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  return 0;
+}
+static int setgroup_pyacc_TaskOutput(HostCtx *h, PyObject *ob, const struct ak_dfix_TaskOutput *e) {
+  (void)h; (void)ob; (void)e;
+  { /* success */
+    { PyObject *v_ = PyBool_FromLong((long)(e->success)); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_success");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  { /* error */
+    BUMP(C_READ);
+    { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->error.off, (Py_ssize_t)e->error.len, "strict"); if (!v_) { return -1; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_error");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+  }
+  return 0;
+}
+static int setlist_pyacc_ListResultsResponse(PyObject *ob, PyObject *lst, HostCtx *h) {
   (void)h; (void)ob; (void)lst;
   { PyObject *v_ = Py_NewRef(lst); if (!v_) { return -1; }
     BUMP(C_PYCALL);
@@ -1237,25 +5822,10 @@ static void apply_pyacc_ListResultsResponse(ak_dec_ctx *ctx, void *obj,
   HostCtx *h = (HostCtx *)obj;
   if (h->failed) return;
   PyObject *ob = h->root;
-  {
-    { PyObject *v_ = PyLong_FromLongLong((long long)(fx->page)); if (!v_) { h->failed = 1; return; }
-      BUMP(C_PYCALL);
-      PyObject *s_ = PyDict_GetItemString(h->acc, "set_page");
-      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
-      if (!r_) { Py_DECREF(v_); h->failed = 1; return; } else Py_DECREF(r_);
-      Py_DECREF(v_); }
-  }
-  {
-    { PyObject *v_ = PyLong_FromLongLong((long long)(fx->total)); if (!v_) { h->failed = 1; return; }
-      BUMP(C_PYCALL);
-      PyObject *s_ = PyDict_GetItemString(h->acc, "set_total");
-      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
-      if (!r_) { Py_DECREF(v_); h->failed = 1; return; } else Py_DECREF(r_);
-      Py_DECREF(v_); }
-  }
+  if (setgroup_pyacc_ListResultsResponse(h, ob, fx)) h->failed = 1;
 }
-static void add_pyacc_results(ak_dec_ctx *ctx, void *obj, int64_t tok,
-                       const struct ak_dfix_ResultRaw *elems, int32_t n) {
+static void add_pyacc_ListResultsResponse_results(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_dfix_ResultRaw *elems, int32_t n) {
   (void)ctx; (void)tok;
   HostCtx *h = (HostCtx *)obj;
   if (h->failed) return;
@@ -1264,150 +5834,7 @@ static void add_pyacc_results(ak_dec_ctx *ctx, void *obj, int64_t tok,
     PyObject *ob = PyObject_CallNoArgs(h->ty_ResultRaw);
     if (!ob) { h->failed = 1; return; }
     const struct ak_dfix_ResultRaw *e = &elems[i];
-    { /* session_id */
-      BUMP(C_READ);
-      { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->session_id.off, (Py_ssize_t)e->session_id.len, "strict"); if (!v_) { h->failed = 1; return; }
-        BUMP(C_PYCALL);
-        PyObject *s_ = PyDict_GetItemString(h->acc, "set_session_id");
-        PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
-        if (!r_) { Py_DECREF(v_); h->failed = 1; return; } else Py_DECREF(r_);
-        Py_DECREF(v_); }
-    }
-    { /* name */
-      BUMP(C_READ);
-      { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->name.off, (Py_ssize_t)e->name.len, "strict"); if (!v_) { h->failed = 1; return; }
-        BUMP(C_PYCALL);
-        PyObject *s_ = PyDict_GetItemString(h->acc, "set_name");
-        PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
-        if (!r_) { Py_DECREF(v_); h->failed = 1; return; } else Py_DECREF(r_);
-        Py_DECREF(v_); }
-    }
-    { /* owner_task_id */
-      BUMP(C_READ);
-      { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->owner_task_id.off, (Py_ssize_t)e->owner_task_id.len, "strict"); if (!v_) { h->failed = 1; return; }
-        BUMP(C_PYCALL);
-        PyObject *s_ = PyDict_GetItemString(h->acc, "set_owner_task_id");
-        PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
-        if (!r_) { Py_DECREF(v_); h->failed = 1; return; } else Py_DECREF(r_);
-        Py_DECREF(v_); }
-    }
-    { /* status */
-      { PyObject *v_ = PyLong_FromLongLong((long long)(e->status)); if (!v_) { h->failed = 1; return; }
-        BUMP(C_PYCALL);
-        PyObject *s_ = PyDict_GetItemString(h->acc, "set_status");
-        PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
-        if (!r_) { Py_DECREF(v_); h->failed = 1; return; } else Py_DECREF(r_);
-        Py_DECREF(v_); }
-    }
-    { /* created_at */
-      if (e->presence & AK_DFIX_RESULTRAW_PRESENT_CREATED_AT) {
-        PyObject *child = PyObject_CallNoArgs(h->ty_Timestamp);
-        if (!child) { h->failed = 1; return; }
-        { PyObject *ob = child;
-          { PyObject *v_ = PyLong_FromLongLong((long long)(e->created_at.seconds)); if (!v_) { h->failed = 1; return; }
-            BUMP(C_PYCALL);
-            PyObject *s_ = PyDict_GetItemString(h->acc, "set_seconds");
-            PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
-            if (!r_) { Py_DECREF(v_); h->failed = 1; return; } else Py_DECREF(r_);
-            Py_DECREF(v_); }
-          { PyObject *v_ = PyLong_FromLongLong((long long)(e->created_at.nanos)); if (!v_) { h->failed = 1; return; }
-            BUMP(C_PYCALL);
-            PyObject *s_ = PyDict_GetItemString(h->acc, "set_nanos");
-            PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
-            if (!r_) { Py_DECREF(v_); h->failed = 1; return; } else Py_DECREF(r_);
-            Py_DECREF(v_); }
-        }
-        { PyObject *v_ = child; if (!v_) { h->failed = 1; return; }
-          BUMP(C_PYCALL);
-          PyObject *s_ = PyDict_GetItemString(h->acc, "set_created_at");
-          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
-          if (!r_) { Py_DECREF(v_); h->failed = 1; return; } else Py_DECREF(r_);
-          Py_DECREF(v_); }
-      } else {
-        { PyObject *v_ = Py_NewRef(Py_None); if (!v_) { h->failed = 1; return; }
-          BUMP(C_PYCALL);
-          PyObject *s_ = PyDict_GetItemString(h->acc, "set_created_at");
-          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
-          if (!r_) { Py_DECREF(v_); h->failed = 1; return; } else Py_DECREF(r_);
-          Py_DECREF(v_); }
-      }
-    }
-    { /* completed_at */
-      if (e->presence & AK_DFIX_RESULTRAW_PRESENT_COMPLETED_AT) {
-        PyObject *child = PyObject_CallNoArgs(h->ty_Timestamp);
-        if (!child) { h->failed = 1; return; }
-        { PyObject *ob = child;
-          { PyObject *v_ = PyLong_FromLongLong((long long)(e->completed_at.seconds)); if (!v_) { h->failed = 1; return; }
-            BUMP(C_PYCALL);
-            PyObject *s_ = PyDict_GetItemString(h->acc, "set_seconds");
-            PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
-            if (!r_) { Py_DECREF(v_); h->failed = 1; return; } else Py_DECREF(r_);
-            Py_DECREF(v_); }
-          { PyObject *v_ = PyLong_FromLongLong((long long)(e->completed_at.nanos)); if (!v_) { h->failed = 1; return; }
-            BUMP(C_PYCALL);
-            PyObject *s_ = PyDict_GetItemString(h->acc, "set_nanos");
-            PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
-            if (!r_) { Py_DECREF(v_); h->failed = 1; return; } else Py_DECREF(r_);
-            Py_DECREF(v_); }
-        }
-        { PyObject *v_ = child; if (!v_) { h->failed = 1; return; }
-          BUMP(C_PYCALL);
-          PyObject *s_ = PyDict_GetItemString(h->acc, "set_completed_at");
-          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
-          if (!r_) { Py_DECREF(v_); h->failed = 1; return; } else Py_DECREF(r_);
-          Py_DECREF(v_); }
-      } else {
-        { PyObject *v_ = Py_NewRef(Py_None); if (!v_) { h->failed = 1; return; }
-          BUMP(C_PYCALL);
-          PyObject *s_ = PyDict_GetItemString(h->acc, "set_completed_at");
-          PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
-          if (!r_) { Py_DECREF(v_); h->failed = 1; return; } else Py_DECREF(r_);
-          Py_DECREF(v_); }
-      }
-    }
-    { /* result_id */
-      BUMP(C_READ);
-      { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->result_id.off, (Py_ssize_t)e->result_id.len, "strict"); if (!v_) { h->failed = 1; return; }
-        BUMP(C_PYCALL);
-        PyObject *s_ = PyDict_GetItemString(h->acc, "set_result_id");
-        PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
-        if (!r_) { Py_DECREF(v_); h->failed = 1; return; } else Py_DECREF(r_);
-        Py_DECREF(v_); }
-    }
-    { /* size */
-      { PyObject *v_ = PyLong_FromLongLong((long long)(e->size)); if (!v_) { h->failed = 1; return; }
-        BUMP(C_PYCALL);
-        PyObject *s_ = PyDict_GetItemString(h->acc, "set_size");
-        PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
-        if (!r_) { Py_DECREF(v_); h->failed = 1; return; } else Py_DECREF(r_);
-        Py_DECREF(v_); }
-    }
-    { /* created_by */
-      BUMP(C_READ);
-      { PyObject *v_ = PyUnicode_DecodeUTF8((const char *)h->base + e->created_by.off, (Py_ssize_t)e->created_by.len, "strict"); if (!v_) { h->failed = 1; return; }
-        BUMP(C_PYCALL);
-        PyObject *s_ = PyDict_GetItemString(h->acc, "set_created_by");
-        PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
-        if (!r_) { Py_DECREF(v_); h->failed = 1; return; } else Py_DECREF(r_);
-        Py_DECREF(v_); }
-    }
-    { /* opaque_id */
-      BUMP(C_READ);
-      { PyObject *v_ = PyBytes_FromStringAndSize((const char *)h->base + e->opaque_id.off, (Py_ssize_t)e->opaque_id.len); if (!v_) { h->failed = 1; return; }
-        BUMP(C_PYCALL);
-        PyObject *s_ = PyDict_GetItemString(h->acc, "set_opaque_id");
-        PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
-        if (!r_) { Py_DECREF(v_); h->failed = 1; return; } else Py_DECREF(r_);
-        Py_DECREF(v_); }
-    }
-    { /* manual_deletion */
-      { PyObject *v_ = PyBool_FromLong((long)(e->manual_deletion)); if (!v_) { h->failed = 1; return; }
-        BUMP(C_PYCALL);
-        PyObject *s_ = PyDict_GetItemString(h->acc, "set_manual_deletion");
-        PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
-        if (!r_) { Py_DECREF(v_); h->failed = 1; return; } else Py_DECREF(r_);
-        Py_DECREF(v_); }
-    }
+    if (setgroup_pyacc_ResultRaw(h, ob, e)) { h->failed = 1; Py_DECREF(ob); return; }
     BUMP(C_ITEM);
     if (PyList_Append(h->list, ob) < 0) h->failed = 1;
     Py_DECREF(ob);
@@ -1425,9 +5852,18 @@ static PyObject *decode_pyacc_ListResultsResponse(PyObject *buf, PyObject *acc, 
   h.ty_ListResultsResponse = T->ty_ListResultsResponse;
   h.ty_ResultRaw = T->ty_ResultRaw;
   h.ty_Timestamp = T->ty_Timestamp;
+  h.ty_ListTasksDetailedResponse = T->ty_ListTasksDetailedResponse;
+  h.ty_TaskDetailed = T->ty_TaskDetailed;
+  h.ty_TaskOptions = T->ty_TaskOptions;
+  h.ty_Duration = T->ty_Duration;
+  h.ty_TaskOutput = T->ty_TaskOutput;
+  h.ty_TaskOptionsOptionsEntry = T->ty_TaskOptionsOptionsEntry;
   h.list = PyList_New(0);
   if (!h.list) { Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_ListResultsResponse VT = {apply_pyacc_ListResultsResponse, NULL, NULL, add_pyacc_results};
+  static const struct ak_dvt_ListResultsResponse VT = {
+    .apply = apply_pyacc_ListResultsResponse,
+    .add_results = add_pyacc_ListResultsResponse_results,
+  };
   ak_dec_ctx *ctx = ak_dec_ctx_new();
   if (!ctx) { Py_DECREF(h.list); Py_DECREF(rootobj); return PyErr_NoMemory(); }
   int32_t rc = ak_decode_ListResultsResponse(ctx, &h, (const uint8_t *)p, (size_t)blen, &VT);
@@ -1440,16 +5876,235 @@ static PyObject *decode_pyacc_ListResultsResponse(PyObject *buf, PyObject *acc, 
     if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ListResultsResponse returned %d", (int)rc);
     return NULL;
   }
-  if (setlist_pyacc_results(rootobj, h.list, &h))
+  if (setlist_pyacc_ListResultsResponse(rootobj, h.list, &h))
+    { Py_DECREF(h.list); Py_DECREF(rootobj); return NULL; }
+  Py_DECREF(h.list);
+  return rootobj;
+}
+static int setlist_pyacc_ListTasksDetailedResponse(PyObject *ob, PyObject *lst, HostCtx *h) {
+  (void)h; (void)ob; (void)lst;
+  { PyObject *v_ = Py_NewRef(lst); if (!v_) { return -1; }
+    BUMP(C_PYCALL);
+    PyObject *s_ = PyDict_GetItemString(h->acc, "set_tasks");
+    PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+    if (!r_) { Py_DECREF(v_); return -1; } else Py_DECREF(r_);
+    Py_DECREF(v_); }
+  return 0;
+}
+static void apply_pyacc_ListTasksDetailedResponse(ak_dec_ctx *ctx, void *obj,
+                         const struct ak_dfix_ListTasksDetailedResponse *fx) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = h->root;
+  if (setgroup_pyacc_ListTasksDetailedResponse(h, ob, fx)) h->failed = 1;
+}
+static int64_t new_pyacc_ListTasksDetailedResponse_tasks(ak_dec_ctx *ctx, void *obj) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return 0;
+  PyObject *ob = PyObject_CallNoArgs(h->ty_TaskDetailed);
+  if (!ob) { h->failed = 1; return 0; }
+  BUMP(C_ITEM);
+  Py_ssize_t idx = PyList_Size(h->list);
+  if (PyList_Append(h->list, ob) < 0) h->failed = 1;
+  Py_DECREF(ob);
+  return (int64_t)idx;
+}
+static void apply_pyacc_ListTasksDetailedResponse_tasks(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_dfix_TaskDetailed *e) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);
+  if (!ob) { h->failed = 1; return; }
+  if (setgroup_pyacc_TaskDetailed(h, ob, e)) h->failed = 1;
+}
+static void add_pyacc_ListTasksDetailedResponse_tasks_parent_task_ids(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_span *elems, int32_t n) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);
+  if (!ob) { h->failed = 1; return; }
+  PyObject *cur = Py_NewRef(ob);
+  BUMP(C_PYCALL);
+  PyObject *g_lst = PyDict_GetItemString(h->acc, "get_parent_task_ids");
+  if (!g_lst) { PyErr_SetString(PyExc_KeyError, "get_parent_task_ids"); return ; }
+  PyObject *lst = PyObject_CallOneArg(g_lst, cur); const int own_lst = 1;
+  if (!lst) return ;
+  for (int32_t i = 0; i < n; i++) {
+    BUMP(C_READ); BUMP(C_ITEM);
+    PyObject *s = PyUnicode_DecodeUTF8((const char *)h->base + elems[i].off, (Py_ssize_t)elems[i].len, "strict");
+    if (!s) { h->failed = 1; break; }
+    if (PyList_Append(lst, s) < 0) { h->failed = 1; Py_DECREF(s); break; }
+    Py_DECREF(s);
+  }
+  if (own_lst) Py_DECREF(lst);
+  Py_DECREF(cur);
+}
+static void add_pyacc_ListTasksDetailedResponse_tasks_data_dependencies(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_span *elems, int32_t n) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);
+  if (!ob) { h->failed = 1; return; }
+  PyObject *cur = Py_NewRef(ob);
+  BUMP(C_PYCALL);
+  PyObject *g_lst = PyDict_GetItemString(h->acc, "get_data_dependencies");
+  if (!g_lst) { PyErr_SetString(PyExc_KeyError, "get_data_dependencies"); return ; }
+  PyObject *lst = PyObject_CallOneArg(g_lst, cur); const int own_lst = 1;
+  if (!lst) return ;
+  for (int32_t i = 0; i < n; i++) {
+    BUMP(C_READ); BUMP(C_ITEM);
+    PyObject *s = PyUnicode_DecodeUTF8((const char *)h->base + elems[i].off, (Py_ssize_t)elems[i].len, "strict");
+    if (!s) { h->failed = 1; break; }
+    if (PyList_Append(lst, s) < 0) { h->failed = 1; Py_DECREF(s); break; }
+    Py_DECREF(s);
+  }
+  if (own_lst) Py_DECREF(lst);
+  Py_DECREF(cur);
+}
+static void add_pyacc_ListTasksDetailedResponse_tasks_expected_output_ids(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_span *elems, int32_t n) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);
+  if (!ob) { h->failed = 1; return; }
+  PyObject *cur = Py_NewRef(ob);
+  BUMP(C_PYCALL);
+  PyObject *g_lst = PyDict_GetItemString(h->acc, "get_expected_output_ids");
+  if (!g_lst) { PyErr_SetString(PyExc_KeyError, "get_expected_output_ids"); return ; }
+  PyObject *lst = PyObject_CallOneArg(g_lst, cur); const int own_lst = 1;
+  if (!lst) return ;
+  for (int32_t i = 0; i < n; i++) {
+    BUMP(C_READ); BUMP(C_ITEM);
+    PyObject *s = PyUnicode_DecodeUTF8((const char *)h->base + elems[i].off, (Py_ssize_t)elems[i].len, "strict");
+    if (!s) { h->failed = 1; break; }
+    if (PyList_Append(lst, s) < 0) { h->failed = 1; Py_DECREF(s); break; }
+    Py_DECREF(s);
+  }
+  if (own_lst) Py_DECREF(lst);
+  Py_DECREF(cur);
+}
+static void add_pyacc_ListTasksDetailedResponse_tasks_retry_of_ids(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_span *elems, int32_t n) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);
+  if (!ob) { h->failed = 1; return; }
+  PyObject *cur = Py_NewRef(ob);
+  BUMP(C_PYCALL);
+  PyObject *g_lst = PyDict_GetItemString(h->acc, "get_retry_of_ids");
+  if (!g_lst) { PyErr_SetString(PyExc_KeyError, "get_retry_of_ids"); return ; }
+  PyObject *lst = PyObject_CallOneArg(g_lst, cur); const int own_lst = 1;
+  if (!lst) return ;
+  for (int32_t i = 0; i < n; i++) {
+    BUMP(C_READ); BUMP(C_ITEM);
+    PyObject *s = PyUnicode_DecodeUTF8((const char *)h->base + elems[i].off, (Py_ssize_t)elems[i].len, "strict");
+    if (!s) { h->failed = 1; break; }
+    if (PyList_Append(lst, s) < 0) { h->failed = 1; Py_DECREF(s); break; }
+    Py_DECREF(s);
+  }
+  if (own_lst) Py_DECREF(lst);
+  Py_DECREF(cur);
+}
+static void add_pyacc_ListTasksDetailedResponse_tasks_options_options(ak_dec_ctx *ctx, void *obj, int64_t tok,
+        const struct ak_dfix_TaskOptionsOptionsEntry *elems, int32_t n) {
+  (void)ctx;
+  HostCtx *h = (HostCtx *)obj;
+  if (h->failed) return;
+  PyObject *ob = PyList_GetItem(h->list, (Py_ssize_t)tok);
+  if (!ob) { h->failed = 1; return; }
+  BUMP(C_PYCALL);
+  PyObject *g_c0 = PyDict_GetItemString(h->acc, "get_options");
+  if (!g_c0) { PyErr_SetString(PyExc_KeyError, "get_options"); return ; }
+  PyObject *c0 = PyObject_CallOneArg(g_c0, ob); const int own_c0 = 1;
+  if (!c0) return ;
+  (void)own_c0;
+  if (c0 == Py_None) {
+    PyObject *nw = PyObject_CallNoArgs(h->ty_TaskOptions);
+    if (!nw) { Py_DECREF(c0); h->failed = 1; return; }
+    { PyObject *v_ = Py_NewRef(nw); if (!v_) { Py_DECREF(nw); Py_DECREF(c0); h->failed = 1; return; }
+      BUMP(C_PYCALL);
+      PyObject *s_ = PyDict_GetItemString(h->acc, "set_options");
+      PyObject *r_ = s_ ? PyObject_CallFunctionObjArgs(s_, ob, v_, NULL) : NULL;
+      if (!r_) { Py_DECREF(v_); Py_DECREF(nw); Py_DECREF(c0); h->failed = 1; return; } else Py_DECREF(r_);
+      Py_DECREF(v_); }
+    Py_DECREF(c0); c0 = nw;
+  }
+  PyObject *cur = c0;
+  BUMP(C_PYCALL);
+  PyObject *g_d = PyDict_GetItemString(h->acc, "get_options");
+  if (!g_d) { PyErr_SetString(PyExc_KeyError, "get_options"); return ; }
+  PyObject *d = PyObject_CallOneArg(g_d, cur); const int own_d = 1;
+  if (!d) return ;
+  for (int32_t i = 0; i < n; i++) {
+    BUMP(C_READ); BUMP(C_READ); BUMP(C_ITEM);
+    PyObject *k = PyUnicode_DecodeUTF8((const char *)h->base + elems[i].key.off, (Py_ssize_t)elems[i].key.len, "strict");
+    PyObject *v = k ? PyUnicode_DecodeUTF8((const char *)h->base + elems[i].value.off, (Py_ssize_t)elems[i].value.len, "strict") : NULL;
+    if (!k || !v) { h->failed = 1; Py_XDECREF(k); Py_XDECREF(v); break; }
+    if (PyDict_SetItem(d, k, v) < 0) h->failed = 1;
+    Py_DECREF(k); Py_DECREF(v);
+    if (h->failed) break;
+  }
+  if (own_d) Py_DECREF(d);
+  Py_DECREF(cur);
+}
+static PyObject *decode_pyacc_ListTasksDetailedResponse(PyObject *buf, PyObject *acc, HostTypes *T) {
+  char *p = NULL; Py_ssize_t blen = 0;
+  if (PyBytes_AsStringAndSize(buf, &p, &blen)) return NULL;
+  PyObject *rootobj = PyObject_CallNoArgs(T->ty_ListTasksDetailedResponse);
+  if (!rootobj) return NULL;
+  HostCtx h;
+  memset(&h, 0, sizeof h);
+  h.root = rootobj; h.base = (const uint8_t *)p; h.acc = acc;
+  h.ty_ListResultsResponse = T->ty_ListResultsResponse;
+  h.ty_ResultRaw = T->ty_ResultRaw;
+  h.ty_Timestamp = T->ty_Timestamp;
+  h.ty_ListTasksDetailedResponse = T->ty_ListTasksDetailedResponse;
+  h.ty_TaskDetailed = T->ty_TaskDetailed;
+  h.ty_TaskOptions = T->ty_TaskOptions;
+  h.ty_Duration = T->ty_Duration;
+  h.ty_TaskOutput = T->ty_TaskOutput;
+  h.ty_TaskOptionsOptionsEntry = T->ty_TaskOptionsOptionsEntry;
+  h.list = PyList_New(0);
+  if (!h.list) { Py_DECREF(rootobj); return NULL; }
+  static const struct ak_dvt_ListTasksDetailedResponse VT = {
+    .apply = apply_pyacc_ListTasksDetailedResponse,
+    .new_tasks = new_pyacc_ListTasksDetailedResponse_tasks,
+    .apply_tasks = apply_pyacc_ListTasksDetailedResponse_tasks,
+    .add_tasks_parent_task_ids = add_pyacc_ListTasksDetailedResponse_tasks_parent_task_ids,
+    .add_tasks_data_dependencies = add_pyacc_ListTasksDetailedResponse_tasks_data_dependencies,
+    .add_tasks_expected_output_ids = add_pyacc_ListTasksDetailedResponse_tasks_expected_output_ids,
+    .add_tasks_retry_of_ids = add_pyacc_ListTasksDetailedResponse_tasks_retry_of_ids,
+    .add_tasks_options_options = add_pyacc_ListTasksDetailedResponse_tasks_options_options,
+  };
+  ak_dec_ctx *ctx = ak_dec_ctx_new();
+  if (!ctx) { Py_DECREF(h.list); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+  int32_t rc = ak_decode_ListTasksDetailedResponse(ctx, &h, (const uint8_t *)p, (size_t)blen, &VT);
+#ifdef AK_COUNT
+  { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
+#endif
+  ak_dec_ctx_free(ctx);
+  if (rc || h.failed) {
+    Py_DECREF(h.list); Py_DECREF(rootobj);
+    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ListTasksDetailedResponse returned %d", (int)rc);
+    return NULL;
+  }
+  if (setlist_pyacc_ListTasksDetailedResponse(rootobj, h.list, &h))
     { Py_DECREF(h.list); Py_DECREF(rootobj); return NULL; }
   Py_DECREF(h.list);
   return rootobj;
 }
 
 /* ---- dispatch, so native/binding.c names no message and no field ---- */
-#define AK_NTYPES 3
-static const char *AK_TYPE_NAMES[AK_NTYPES] = {"CListResultsResponse", "CResultRaw", "CTimestamp"};
-static PyType_Spec *AK_TYPE_SPECS[AK_NTYPES] = {&spec_ListResultsResponse, &spec_ResultRaw, &spec_Timestamp};
+#define AK_NTYPES 9
+static const char *AK_TYPE_NAMES[AK_NTYPES] = {"CListResultsResponse", "CResultRaw", "CTimestamp", "CListTasksDetailedResponse", "CTaskDetailed", "CTaskOptions", "CDuration", "CTaskOutput", "CTaskOptionsOptionsEntry"};
+static PyType_Spec *AK_TYPE_SPECS[AK_NTYPES] = {&spec_ListResultsResponse, &spec_ResultRaw, &spec_Timestamp, &spec_ListTasksDetailedResponse, &spec_TaskDetailed, &spec_TaskOptions, &spec_Duration, &spec_TaskOutput, &spec_TaskOptionsOptionsEntry};
 
 static int types_from_seq(HostTypes *T, PyObject *seq) {
   if (!PySequence_Check(seq) || PySequence_Size(seq) != AK_NTYPES) {
@@ -1469,5 +6124,21 @@ static int types_from_seq(HostTypes *T, PyObject *seq) {
 typedef PyObject *(*ak_enc_f)(PyObject *, PyObject *);
 typedef PyObject *(*ak_dec_f)(PyObject *, PyObject *, HostTypes *);
 static const char *AK_BACKENDS[3] = {"attr", "cext", "pyacc"};
-static ak_enc_f AK_ENC[3] = {encode_attr_ListResultsResponse, encode_cext_ListResultsResponse, encode_pyacc_ListResultsResponse};
-static ak_dec_f AK_DEC[3] = {decode_attr_ListResultsResponse, decode_cext_ListResultsResponse, decode_pyacc_ListResultsResponse};
+#define AK_NROOTS 2
+static const char *AK_ROOTS[AK_NROOTS] = {"ListResultsResponse", "ListTasksDetailedResponse"};
+static int root_index(const char *name) {
+  for (int i = 0; i < AK_NROOTS; i++)
+    if (strcmp(AK_ROOTS[i], name) == 0) return i;
+  PyErr_Format(PyExc_ValueError, "unknown root %s", name);
+  return -1;
+}
+static ak_enc_f AK_ENC[3][AK_NROOTS] = {
+  {encode_attr_ListResultsResponse, encode_attr_ListTasksDetailedResponse},
+  {encode_cext_ListResultsResponse, encode_cext_ListTasksDetailedResponse},
+  {encode_pyacc_ListResultsResponse, encode_pyacc_ListTasksDetailedResponse},
+};
+static ak_dec_f AK_DEC[3][AK_NROOTS] = {
+  {decode_attr_ListResultsResponse, decode_attr_ListTasksDetailedResponse},
+  {decode_cext_ListResultsResponse, decode_cext_ListTasksDetailedResponse},
+  {decode_pyacc_ListResultsResponse, decode_pyacc_ListTasksDetailedResponse},
+};
