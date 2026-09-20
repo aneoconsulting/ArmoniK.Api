@@ -375,9 +375,33 @@ call whose completion depends on another Java thread** -- a binding-author rule 
 generalises past RPC. Fixing it also moved the figures by 5 to 7 percent, so the first
 published table was contaminated as well as unsafe.
 
+**The grid says which half pays, which the single comparison could not.** Four cells over
+a UDS -- A protobuf-java/grpc-java, B protobuf-java/core (outcome 2), C core/core, D
+core/grpc-java -- three runs each. The spread is 17 to 23 percent because each cell is a
+separate JVM, so the signs are the claim and the medians are not:
+
+| delta | consistent over 3 runs | reading |
+|---|---|---|
+| transport `B - A` | **6 of 6 positive** | the core's transport costs MORE than grpc-java's |
+| codec `C - B` | **6 of 6 negative** | the core's codec is cheaper, under the core's transport |
+| codec `D - A` | mixed at 8, near zero at 16 | not resolved at this precision |
+
+**The core's transport costing more cuts against the "adopt the RPC layer, generate the
+codec" fallback rather than for it**, and it is the one claim here with a clean sign at
+both concurrency levels.
+
+**On additivity there is no evidence against it**, and the evidence that there was came
+from a defect of mine: an earlier grid had `C - B` at -703 and `D - A` at +399, opposite
+signs, which would have meant the two halves cannot be added. Cell D's marshaller was
+allocating a fresh 540 KB array per call where cell A materialises none and cells B and C
+reuse one. With that removed the sign flip is gone.
+
+**The instrument is blunt and the fix is known**: four cells in four processes cannot be
+paired, so this inherits the drift `Bench` avoids by forming every ratio inside one round
+in one process. Deltas below roughly 500 us are not measurable by this arm today.
+
 **Still not established**: the ratios are floors, because client and server share one
-process and one CPU counter; there is no Unix domain socket, because the core's RPC half
-has no Unix-domain connector; the callback mode is unbuilt here and unmeasured anywhere;
+process and one CPU counter; the callback mode is unbuilt here and unmeasured anywhere;
 and streaming, metadata, deadlines, TLS and status codes are absent from the core's RPC
 half. `ak_call_cancel` now exists, so the blocking form's cancellation handle is the only
 part of that amendment still missing.
