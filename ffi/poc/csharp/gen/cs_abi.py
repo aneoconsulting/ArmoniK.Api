@@ -1,37 +1,38 @@
-"""Backend: the C ABI surface of ABI v1, declared for C#.
+"""Backend: the C ABI of ABI v1, declared for C#, at the Rust build's offsets.
 
 **The C# slice binds to the SAME core the Rust slice built.** One native core
 with N bindings is the proposal under test, so a slice that grows its own core
-is not testing it. The core lives once, at `ffi/poc/codec/` (R0), and every slice
-depends on it by path. Built with its default features it is a cdylib
-exporting **66** `ak_` symbols implementing ABI v1 over exactly these shapes --
-66 and not 68 because ABI v1 section 9's RPC half is behind an `rpc` feature
-this slice does not turn on, so the object carries no tonic and no tokio. This
-emits the managed half.
+is not testing it. The core lives once, at `ffi/poc/codec/` (R0), and every
+slice depends on it by path. This emits the managed half.
 
-Two things make the C# binding different from every other slice's, and both
-are emitted here rather than written by hand.
+Two things make the C# binding different from every other slice's, and both are
+emitted rather than written by hand.
 
-**The layout is declared twice and only agreement makes it work.** Rust owns
-the first declaration; a `[StructLayout]` struct is the second. `abi/` prints
-the real sizes and offsets and `gen/abi-layout.json` carries them, so the
-structs below are emitted with EXPLICIT offsets taken from the Rust build
-rather than from C#'s packing rules happening to match. ABI v1 obligation 12.3.
+**The layout is declared twice and only agreement makes it work.** Rust owns the
+first declaration; a `[StructLayout]` struct is the second. `abi/` prints the
+real sizes and offsets and `gen/abi-layout.json` carries them, so the structs
+below are emitted with EXPLICIT offsets taken from the Rust build rather than
+from C#'s packing rules happening to match. ABI v1 obligation 12.3.
+
+**And the field LISTS are now derived, not transcribed.** They used to be a
+hand-written `FIELDS` dict here and a second hand-written list in
+`abi/src/main.rs`. Two transcriptions of a generated Rust file produced two
+defects in one work unit: a vtable slot invented by analogy with a sibling, and
+a presence bit inferred from a field's position. `gen/abi_ir.py` derives both
+from the description, following the Rust generator's own rules, so a struct
+cannot be in one declaration and not the other.
 
 **A managed exception inside `[UnmanagedCallersOnly]` does not propagate: it
 aborts the process.** Every reverse callback is emitted wrapped, and the guard
-returns an error code the codec understands. The published C# margins were
-measured without it, so it is also an arm to price.
+returns an error code the codec understands.
 """
 import json
 import os
 
+import abi_ir as A
 from cs_facade import Head
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-
-# The C# spelling of each Rust ABI scalar.
-CS = {"i32": "int", "i64": "long", "u32": "uint", "u8": "byte", "usize": "nuint"}
 
 
 def load_layout():
@@ -39,49 +40,18 @@ def load_layout():
         return json.load(f)
 
 
-# Field type by (struct, field), for the structs M1 needs. Driven by the Rust
-# declarations in ak-abi; the probe supplies the offsets and this supplies the
-# widths, and a disagreement between them shows up as a size mismatch in the
-# emitted assert rather than as a wrong payload.
-FIELDS = {
-    "ak_str": [("data", "IntPtr"), ("len", "nuint"), ("tc", "IntPtr")],
-    "ak_span": [("off", "uint"), ("len", "uint"), ("coder", "uint")],
-    "ak_efix_Timestamp": [("seconds", "long"), ("nanos", "int"), ("presence", "uint")],
-    "ak_efix_ResultRaw": [
-        ("session_id", "ak_str"), ("name", "ak_str"), ("owner_task_id", "ak_str"),
-        ("status", "int"), ("created_at", "ak_efix_Timestamp"),
-        ("completed_at", "ak_efix_Timestamp"), ("result_id", "ak_str"),
-        ("size", "long"), ("created_by", "ak_str"), ("opaque_id", "ak_str"),
-        ("manual_deletion", "byte"), ("presence", "uint"),
-    ],
-    "ak_efix_ListResultsResponse": [("page", "int"), ("total", "int"), ("presence", "uint")],
-    "ak_dfix_Timestamp": [("seconds", "long"), ("nanos", "int"), ("presence", "uint")],
-    "ak_dfix_ResultRaw": [
-        ("session_id", "ak_span"), ("name", "ak_span"), ("owner_task_id", "ak_span"),
-        ("status", "int"), ("created_at", "ak_dfix_Timestamp"),
-        ("completed_at", "ak_dfix_Timestamp"), ("result_id", "ak_span"),
-        ("size", "long"), ("created_by", "ak_span"), ("opaque_id", "ak_span"),
-        ("manual_deletion", "byte"), ("presence", "uint"),
-    ],
-    "ak_dfix_ListResultsResponse": [("page", "int"), ("total", "int"), ("presence", "uint")],
-    "ak_efix_Duration": [("seconds", "long"), ("nanos", "int"), ("presence", "uint")],
-    "ak_efix_TaskOptionsOptionsEntry": [("key", "ak_str"), ("value", "ak_str"), ("presence", "uint")],
-    "ak_efix_TaskOptions": [("max_duration", "ak_efix_Duration"), ("max_retries", "int"), ("priority", "int"), ("partition_id", "ak_str"), ("application_name", "ak_str"), ("application_version", "ak_str"), ("application_namespace", "ak_str"), ("application_service", "ak_str"), ("engine_type", "ak_str"), ("presence", "uint")],
-    "ak_efix_TaskOutput": [("success", "byte"), ("error", "ak_str"), ("presence", "uint")],
-    "ak_efix_TaskDetailed": [("id", "ak_str"), ("session_id", "ak_str"), ("owner_pod_id", "ak_str"), ("status", "int"), ("status_message", "ak_str"), ("options", "ak_efix_TaskOptions"), ("created_at", "ak_efix_Timestamp"), ("submitted_at", "ak_efix_Timestamp"), ("started_at", "ak_efix_Timestamp"), ("ended_at", "ak_efix_Timestamp"), ("pod_ttl", "ak_efix_Timestamp"), ("output", "ak_efix_TaskOutput"), ("pod_hostname", "ak_str"), ("received_at", "ak_efix_Timestamp"), ("acquired_at", "ak_efix_Timestamp"), ("creation_to_end_duration", "ak_efix_Duration"), ("processing_to_end_duration", "ak_efix_Duration"), ("initial_task_id", "ak_str"), ("received_to_end_duration", "ak_efix_Duration"), ("processed_at", "ak_efix_Timestamp"), ("fetched_at", "ak_efix_Timestamp"), ("payload_id", "ak_str"), ("created_by", "ak_str"), ("presence", "uint")],
-    "ak_efix_ListTasksDetailedResponse": [("page", "int"), ("total", "int"), ("presence", "uint")],
-    "ak_dfix_Duration": [("seconds", "long"), ("nanos", "int"), ("presence", "uint")],
-    "ak_dfix_TaskOptionsOptionsEntry": [("key", "ak_span"), ("value", "ak_span"), ("presence", "uint")],
-    "ak_dfix_TaskOptions": [("max_duration", "ak_dfix_Duration"), ("max_retries", "int"), ("priority", "int"), ("partition_id", "ak_span"), ("application_name", "ak_span"), ("application_version", "ak_span"), ("application_namespace", "ak_span"), ("application_service", "ak_span"), ("engine_type", "ak_span"), ("presence", "uint")],
-    "ak_dfix_TaskOutput": [("success", "byte"), ("error", "ak_span"), ("presence", "uint")],
-    "ak_dfix_TaskDetailed": [("id", "ak_span"), ("session_id", "ak_span"), ("owner_pod_id", "ak_span"), ("status", "int"), ("status_message", "ak_span"), ("options", "ak_dfix_TaskOptions"), ("created_at", "ak_dfix_Timestamp"), ("submitted_at", "ak_dfix_Timestamp"), ("started_at", "ak_dfix_Timestamp"), ("ended_at", "ak_dfix_Timestamp"), ("pod_ttl", "ak_dfix_Timestamp"), ("output", "ak_dfix_TaskOutput"), ("pod_hostname", "ak_span"), ("received_at", "ak_dfix_Timestamp"), ("acquired_at", "ak_dfix_Timestamp"), ("creation_to_end_duration", "ak_dfix_Duration"), ("processing_to_end_duration", "ak_dfix_Duration"), ("initial_task_id", "ak_span"), ("received_to_end_duration", "ak_dfix_Duration"), ("processed_at", "ak_dfix_Timestamp"), ("fetched_at", "ak_dfix_Timestamp"), ("payload_id", "ak_span"), ("created_by", "ak_span"), ("presence", "uint")],
-    "ak_dfix_ListTasksDetailedResponse": [("page", "int"), ("total", "int"), ("presence", "uint")],
-}
+def cs_type(rust):
+    if rust in A.CS:
+        return A.CS[rust]
+    if rust.startswith(("ak_efix_", "ak_dfix_")):
+        return rust
+    raise KeyError("no C# spelling for %r" % rust)
 
 
 def emit(ir):
     lay = load_layout()
-    st = lay["structs"]
+    st, pres, vts = lay["structs"], lay["presence"], lay["vtables"]
+    roots = ir.roots
     o = Head("The C ABI of ABI v1, declared for C#, at the offsets the Rust build reports.")
     o += "using System;"
     o += "using System.Runtime.CompilerServices;"
@@ -91,7 +61,19 @@ def emit(ir):
     o += ""
 
     # ---- the structs, at explicit offsets ---------------------------
-    for name, fields in FIELDS.items():
+    decls = [("ak_str", [("data", "IntPtr"), ("len", "nuint"), ("tc", "IntPtr")]),
+             ("ak_span", [("off", "uint"), ("len", "uint"), ("coder", "uint")])]
+    for enc in (True, False):
+        pre = "ak_efix_" if enc else "ak_dfix_"
+        for name in A.structs_for(ir, roots):
+            decls.append((pre + name,
+                          [(f, cs_type(t)) for f, t in A.group_fields(ir.msg(name), enc)]))
+        for ename, f in A.map_entries(ir, roots):
+            blob = "ak_str" if enc else "ak_span"
+            decls.append((pre + ename,
+                          [("key", blob), ("value", blob), ("presence", "uint")]))
+
+    for name, fields in decls:
         if name not in st:
             raise KeyError("%s is not in abi-layout.json; re-run abi/ and regenerate" % name)
         info = st[name]
@@ -107,22 +89,28 @@ def emit(ir):
         o += "}"
         o += ""
 
-    o.doc("The core's own counters. **This is the convention the cross-language "
-          "table uses** (R5): `forward` is every `extern \"C\"` entry point the host "
-          "called, `reverse` is every function pointer the core invoked INCLUDING "
-          "transcoders. A host-side tally is not the same quantity and the two must not "
-          "be compared -- which is exactly the discrepancy this slice reported against "
-          "the Rust slice, and reading the core's counters is how it is resolved rather "
-          "than negotiated.")
+    o.doc("The core's own counters. **This is the convention the cross-language table "
+          "uses** (R5): `forward` is every `extern \"C\"` entry point the host called, "
+          "`reverse` is every function pointer the core invoked INCLUDING transcoders. "
+          "The host's own tally is the same quantity minus transcoders, and this slice "
+          "stages its strings so it invokes none -- the gate asserts they are equal.")
     o += "[StructLayout(LayoutKind.Sequential)]"
     o += "public struct AkCounters"
     o += "{"
-    o += "    public ulong forward;"
-    o += "    public ulong reverse;"
-    o += "    public ulong transcode;"
-    o += "    public ulong prefix_moves;"
-    o += "    public ulong prefix_bytes;"
-    o += "    public ulong grows;"
+    for f in ("forward", "reverse", "transcode", "prefix_moves", "prefix_bytes", "grows"):
+        o += "    public ulong %s;" % f
+    o += "}"
+    o += ""
+
+    # ---- the presence constants -------------------------------------
+    o.doc("The presence bits, as the Rust build reports them. A bit is NOT inferred "
+          "from a field's position among the singular message children: that rule is "
+          "right today and is still a guess, and the same class of guess invented a "
+          "vtable slot once already.")
+    o += "public static class AkPresent"
+    o += "{"
+    for k in sorted(pres):
+        o += "    public const uint %s = %d;" % (k, pres[k])
     o += "}"
     o += ""
 
@@ -139,7 +127,7 @@ def emit(ir):
     o += "    /// sticky, first error wins."
     o += "    public const int AK_ERR_HOST = -9;"
     o += ""
-    for decl in [
+    imports = [
         ("uint", "ak_abi_version", ""),
         ("IntPtr", "ak_enc_ctx_new", ""),
         ("void", "ak_enc_ctx_free", "IntPtr ctx"),
@@ -148,37 +136,56 @@ def emit(ir):
         ("int", "ak_enc_err", "IntPtr ctx"),
         ("IntPtr", "ak_tc_bytes", ""),
         ("IntPtr", "ak_tc_utf8_trusted", ""),
-        ("int", "ak_elem_ResultRaw", "IntPtr ctx, ak_efix_ResultRaw* elems, int n"),
-        ("nint", "ak_encode_ListResultsResponse",
-         "void* obj, IntPtr ctx, ak_evt_ListResultsResponse* vt, ak_efix_ListResultsResponse* fix"),
+        # ABI v1 section 4's OTHER string form: a transcoder that reads the host's
+        # own UTF-16 in place. It is a pointer INTO the core, so it crosses
+        # nothing -- which makes the "host transcoder costs a reverse crossing
+        # per string" prediction wrong, and makes the staging copy optional.
+        ("IntPtr", "ak_tc_utf16", ""),
+        ("IntPtr", "ak_tc_latin1", ""),
         ("IntPtr", "ak_dec_ctx_new", ""),
         ("void", "ak_dec_ctx_free", "IntPtr ctx"),
         ("int", "ak_dec_err", "IntPtr ctx"),
         ("void", "ak_dec_err_reset", "IntPtr ctx"),
         ("void", "ak_fail", "IntPtr ctx, int code, byte* msg, uint msgLen"),
-        ("int", "ak_decode_ListResultsResponse",
-         "IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListResultsResponse* vt"),
-        # M2. TaskDetailed is NOT a leaf, so its element entry is `elemu` and the
-        # codec calls back per element; `ak_blob_run` carries a repeated string
-        # field's whole run, and the map entry type IS a leaf so it batches.
-        ("int", "ak_elemu_TaskDetailed",
-         "IntPtr ctx, ak_efix_TaskDetailed* elems, int n, long tok0"),
+        # The packed-scalar runs. One per wire family, because the tag and the
+        # site come from the context and bool and enum ride in i32.
+        ("int", "ak_run_i32", "IntPtr ctx, int* p, nuint n"),
+        ("int", "ak_run_i64", "IntPtr ctx, long* p, nuint n"),
+        ("int", "ak_run_f64", "IntPtr ctx, double* p, nuint n"),
+        ("int", "ak_run_u8", "IntPtr ctx, byte* p, nuint n"),
         ("int", "ak_blob_run", "IntPtr ctx, ak_str* elems, int n"),
-        ("int", "ak_elem_TaskOptionsOptionsEntry",
-         "IntPtr ctx, ak_efix_TaskOptionsOptionsEntry* elems, int n"),
-        ("nint", "ak_encode_ListTasksDetailedResponse",
-         "void* obj, IntPtr ctx, ak_evt_ListTasksDetailedResponse* vt, ak_efix_ListTasksDetailedResponse* fix"),
-        ("int", "ak_decode_ListTasksDetailedResponse",
-         "IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListTasksDetailedResponse* vt"),
-        # R5, in the CORE's own convention. Counting build only (--features count);
-        # in a non-counting core these return zeroes, which is why the harness
-        # reports the build it read them from.
+        # R5, in the CORE's own convention. Counting build only; a non-counting
+        # core returns zeroes, which is why the harness reports which it read.
         ("void", "ak_enc_counters", "IntPtr ctx, AkCounters* outp"),
         ("void", "ak_enc_counters_reset", "IntPtr ctx"),
         ("void", "ak_dec_counters", "IntPtr ctx, AkCounters* outp"),
         ("void", "ak_dec_counters_reset", "IntPtr ctx"),
-    ]:
-        ret, name, args = decl
+        # ABI v1 7.1's PULL family: the codec writes a record stream and the host
+        # replays it, so a decode makes no reverse calls at all.
+        ("void", "ak_bdr_reset", "IntPtr ctx"),
+        ("IntPtr", "ak_bdr_ptr", "IntPtr ctx, nuint* len"),
+        ("int", "ak_bdr_reserve", "IntPtr ctx, nuint bytes"),
+        ("nuint", "ak_bdr_footprint", "IntPtr ctx"),
+        ("ulong", "ak_bdr_count_forward", "IntPtr ctx"),
+    ]
+    # Every element entry point, derived: a LEAF element batches and gets
+    # `ak_elem_*`; a non-leaf cannot (ABI v1 7.2) and gets `ak_elemu_*`, which
+    # takes the first token of the run so the element's own loop callbacks can
+    # name themselves.
+    for ename, f in A.elem_types(ir, roots):
+        if A.is_leaf(ir, ename):
+            imports.append(("int", "ak_elem_%s" % ename,
+                            "IntPtr ctx, ak_efix_%s* elems, int n" % ename))
+        else:
+            imports.append(("int", "ak_elemu_%s" % ename,
+                            "IntPtr ctx, ak_efix_%s* elems, int n, long tok0" % ename))
+    for r in roots:
+        imports.append(("nint", "ak_encode_%s" % r,
+                        "void* obj, IntPtr ctx, ak_evt_%s* vt, ak_efix_%s* fix" % (r, r)))
+        imports.append(("int", "ak_decode_%s" % r,
+                        "IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_%s* vt" % r))
+        imports.append(("int", "ak_parse_%s" % r, "IntPtr ctx, byte* buf, nuint len"))
+    for ret, name, args in imports:
         o += '    [LibraryImport(Lib)]'
         o += '    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]'
         o += "    internal static partial %s %s(%s);" % (ret, name, args)
@@ -186,103 +193,67 @@ def emit(ir):
     o += "}"
     o += ""
 
-    # ---- the encode vtable ------------------------------------------
-    o.doc("The encode vtable for `ListResultsResponse`: one reverse call, the loop over "
-          "`results`. `ResultRaw` is a LEAF, so its own encode vtable is empty and an "
-          "element costs no reverse call at all -- which is the property ABI v1's batching "
-          "predicate exists to create.")
-    o += "[StructLayout(LayoutKind.Sequential)]"
-    o += "public unsafe struct ak_evt_ListResultsResponse"
-    o += "{"
-    o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, int> loop_results;"
-    o += "}"
-    o += ""
-
-    o.doc("M2's encode vtables. `TaskDetailed` has FIVE loop slots -- the four "
-          "repeated string fields and the map -- so unlike `ResultRaw` the codec calls "
-          "back into the host once per slot PER ELEMENT, and the crossing count stops "
-          "being constant in the element count. The root carries a pointer to the "
-          "element's vtable because the codec has to reach those slots.")
-    o += "[StructLayout(LayoutKind.Sequential)]"
-    o += "public unsafe struct ak_evt_TaskDetailed"
-    o += "{"
-    for f in ("loop_parent_task_ids","loop_data_dependencies","loop_expected_output_ids",
-              "loop_retry_of_ids","loop_options_options"):
-        o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, int> %s;" % f
-    o += "}"
-    o += ""
-    o += "[StructLayout(LayoutKind.Sequential)]"
-    o += "public unsafe struct ak_evt_ListTasksDetailedResponse"
-    o += "{"
-    o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, int> loop_tasks;"
-    o += "    public ak_evt_TaskDetailed* elem_tasks;"
-    o += "}"
-    o += ""
-    o.doc("M2's decode vtable, and ABI v1 section 7.2's refusal in the interface. "
-          "`TaskDetailed` carries repeated and map fields of its own, so the root's "
-          "slot is **NOT batchable**: `new_tasks` then `apply_tasks` per element, plus "
-          "one run per inner field that occurred. Two reverse calls per element before "
-          "any content, against one for the whole run on a leaf.")
-    o += "[StructLayout(LayoutKind.Sequential)]"
-    o += "public unsafe struct ak_dvt_ListTasksDetailedResponse"
-    o += "{"
-    o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_ListTasksDetailedResponse*, void> apply;"
-    o += "    public IntPtr unknown;"
-    o += "    public IntPtr unk_tasks;"
-    o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long> new_tasks;"
-    o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_dfix_TaskDetailed*, void> apply_tasks;"
-    for f in ("parent_task_ids","data_dependencies","expected_output_ids","retry_of_ids"):
-        o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_span*, int, void> add_tasks_%s;" % f
-    o += "    // NOTE: there is NO unk_tasks_options_options here. The ELEMENT"
-    o += "    // vtable ak_dvt_TaskDetailed has an unk_options_options slot and the"
-    o += "    // root does not, and inferring one by analogy shifted every later"
-    o += "    // slot by a pointer. VtableSlots below asserts the count."
-    o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_dfix_TaskOptionsOptionsEntry*, int, void> add_tasks_options_options;"
-    o += "}"
-    o += ""
-
-    o.doc("The DECODE vtable for `ListResultsResponse`. `add_results` is handed a whole "
-          "RUN of elements per call, so a thousand-element response costs one reverse "
-          "call and not a thousand -- the same batching property as the encode side, in "
-          "the other direction. Its elements arrive as `ak_dfix_ResultRaw`, whose strings "
-          "are `ak_span` OFFSETS into the buffer the host handed in.")
-    o += "[StructLayout(LayoutKind.Sequential)]"
-    o += "public unsafe struct ak_dvt_ListResultsResponse"
-    o += "{"
-    o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_ListResultsResponse*, void> apply;"
-    o += "    public IntPtr unknown;          // decision 11: null is today's behaviour"
-    o += "    public IntPtr unk_results;      // decision 11"
-    o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_dfix_ResultRaw*, int, void> add_results;"
-    o += "}"
-    o += ""
+    # ---- the vtables -------------------------------------------------
+    o.doc("The vtables, derived. An ENCODE vtable has one slot per loop slot, plus a "
+          "pointer to the element's vtable for every slot whose element has slots of "
+          "its own. A DECODE vtable is `apply`, `unknown`, then per slot either an "
+          "`add_` run (the element is a LEAF, so the whole run crosses once) or "
+          "`new_`/`apply_` per element plus a run per inner field (it is not, and ABI "
+          "v1 7.2 refuses to batch it). Slot COUNTS are asserted below.")
+    LOOP = "delegate* unmanaged[Cdecl]<IntPtr, void*, long, int>"
+    for name in A.vtable_messages(ir, roots):
+        slots = A.loop_slots(ir, name) if name in ir.messages else []
+        o += "[StructLayout(LayoutKind.Sequential)]"
+        o += "public unsafe struct ak_evt_%s" % name
+        o += "{"
+        if not slots:
+            o += "    /// Reserved. An empty struct has no defined size in C, so a vtable"
+            o += "    /// for a message that needs no call still carries one slot."
+            o += "    public IntPtr _reserved;"
+        for path, f in slots:
+            o += "    public %s loop_%s;" % (LOOP, A.slot_name(path))
+        for path, f in slots:
+            et = A.entry_type(f) if f.card == "map" else (f.of if f.kind == "message" else None)
+            if et and et in ir.messages and A.loop_slots(ir, et):
+                o += "    /// The element type has loop slots of its own, so the codec"
+                o += "    /// needs its vtable to reach them (ABI v1 section 6)."
+                o += "    public ak_evt_%s* elem_%s;" % (et, A.slot_name(path))
+        o += "}"
+        o += ""
+        o += "[StructLayout(LayoutKind.Sequential)]"
+        o += "public unsafe struct ak_dvt_%s" % name
+        o += "{"
+        o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_%s*, void> apply;" % name
+        o += "    public IntPtr unknown;          // decision 11: null is today's behaviour"
+        for path, f in slots:
+            sn = A.slot_name(path)
+            et = A.entry_type(f) if f.card == "map" else (f.of if f.kind == "message" else None)
+            # `unk_<slot>` exists only where the run's elements are MESSAGES: a run
+            # of strings or of packed scalars has nowhere to carry an unknown field.
+            if et:
+                o += "    public IntPtr unk_%s;      // decision 11" % sn
+            if not et or A.is_leaf(ir, et):
+                o += "    /// Batchable: the element type is a leaf, so a run crosses once per"
+                o += "    /// chunk. Append; never size to the count you were handed."
+                o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, %s*, int, void> add_%s;" % (
+                    cs_type(A.slot_elem(f, False)), sn)
+            else:
+                o += "    // NOT batchable: %s carries repeated or map fields of its own," % et
+                o += "    // so there would be nothing to attach the inner elements to"
+                o += "    // (ABI v1 7.2). `new` then `apply` per element, plus one run"
+                o += "    // per inner field that occurred."
+                o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long> new_%s;" % sn
+                o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_dfix_%s*, void> apply_%s;" % (et, sn)
+                for ipath, iff in A.loop_slots(ir, et):
+                    o += "    public delegate* unmanaged[Cdecl]<IntPtr, void*, long, %s*, int, void> add_%s_%s;" % (
+                        cs_type(A.slot_elem(iff, False)), sn, A.slot_name(ipath))
+        o += "}"
+        o += ""
 
     # ---- the layout assert -------------------------------------------
     o.doc("ABI v1 obligation 12.3, as far as it can be taken here.")
     o += "public static class AbiLayout"
     o += "{"
-    o += "    /// What the Rust build reported when `gen/abi-layout.json` was written."
-    o += "    public static readonly (string Name, int Size, (string F, int Off)[] Fields)[] Expected ="
-    o += "    {"
-    for name, fields in FIELDS.items():
-        info = st[name]
-        fs = ", ".join('("%s", %d)' % (f, info["fields"][f]) for f, _ in fields)
-        o += '        ("%s", %d, new (string, int)[] { %s }),' % (name, info["size"], fs)
-    o += "    };"
-    o += ""
-    o.doc("Vtable SLOT COUNTS, from the Rust source. Every slot is pointer sized, so "
-          "a wrong count is a wrong size and nothing else is needed to catch it. This "
-          "exists because a slot WAS invented by analogy -- the element vtable has an "
-          "`unk_options_options` and the root does not -- which would have shifted every "
-          "later slot by eight bytes and called a garbage address.", "    ")
-    o += "    public static readonly (string Name, int Slots)[] Vtables ="
-    o += "    {"
-    o += '        ("ak_evt_ListResultsResponse", 1),'
-    o += '        ("ak_dvt_ListResultsResponse", 4),'
-    o += '        ("ak_evt_TaskDetailed", 5),'
-    o += '        ("ak_evt_ListTasksDetailedResponse", 2),'
-    o += '        ("ak_dvt_ListTasksDetailedResponse", 10),'
-    o += "    };"
-    o += ""
     o += "    /// Checks the MANAGED declaration against the Rust build, and the loaded"
     o += "    /// core's ABI version."
     o += "    ///"
@@ -290,27 +261,31 @@ def emit(ir):
     o += "    /// this slice**: the core exports `ak_abi_version` but no LAYOUT. So this"
     o += "    /// verifies C# against the Rust SOURCE at generator time, not against the"
     o += "    /// `.so` actually loaded. A core rebuilt with a changed group layout and an"
-    op = "    /// unchanged version number would pass here and fail as a wrong payload."
-    o += op
-    o += "    /// Obligation 12.3 asks the CORE for a layout export; there isn't one."
+    o += "    /// unchanged version number would pass here and fail as a wrong payload."
     o += "    public static string Check()"
     o += "    {"
     o += "        var bad = new System.Collections.Generic.List<string>();"
-    for name, fields in FIELDS.items():
+    nstruct = 0
+    for name, fields in decls:
         info = st[name]
+        nstruct += 1
         o += "        if (Unsafe.SizeOf<%s>() != %d) bad.Add($\"%s size {Unsafe.SizeOf<%s>()} != %d\");" % (
             name, info["size"], name, name, info["size"])
         for f, _ in fields:
             o += "        if ((int)Marshal.OffsetOf<%s>(\"%s\") != %d) bad.Add($\"%s.%s offset {(int)Marshal.OffsetOf<%s>(\"%s\")} != %d\");" % (
                 name, f, info["fields"][f], name, f, name, f, info["fields"][f])
-    for nm, slots in (("ak_evt_ListResultsResponse",1),("ak_dvt_ListResultsResponse",4),
-                      ("ak_evt_TaskDetailed",5),("ak_evt_ListTasksDetailedResponse",2),
-                      ("ak_dvt_ListTasksDetailedResponse",10)):
-        o += "        if (Unsafe.SizeOf<%s>() != %d * IntPtr.Size) bad.Add($\"%s has {Unsafe.SizeOf<%s>() / IntPtr.Size} slots, expected %d\");" % (
-            nm, slots, nm, nm, slots)
+    nvt = 0
+    for name in A.vtable_messages(ir, roots):
+        for pre in ("ak_evt_", "ak_dvt_"):
+            t = pre + name
+            if t not in vts:
+                raise KeyError("%s is not in the layout probe's vtable output" % t)
+            nvt += 1
+            o += "        if (Unsafe.SizeOf<%s>() != %d) bad.Add($\"%s has {Unsafe.SizeOf<%s>() / IntPtr.Size} slots, expected %d\");" % (
+                t, vts[t]["size"], t, t, vts[t]["slots"])
     o += "        uint v = Abi.ak_abi_version();"
     o += "        return bad.Count == 0"
-    o += "            ? $\"ok: {Expected.Length} structs and {Vtables.Length} vtables match the Rust build; core ak_abi_version()={v}\""
+    o += "            ? $\"ok: %d structs and %d vtables match the Rust build; core ak_abi_version()={v}\"" % (nstruct, nvt)
     o += "            : string.Join(\"; \", bad);"
     o += "    }"
     o += "}"
