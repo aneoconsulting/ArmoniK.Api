@@ -6,7 +6,7 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | **Every shape in `design/SHAPES.md` is in scope** -- M1 through M7, all sixteen payloads, three backends, both directions, gated and counted. **The concurrency suite (ABI v1 obligation 12.5) exists and passes.** Not started: **the RPC arm** |
+| **Status** | **Complete.** Every shape in `design/SHAPES.md` is in scope -- M1 through M7, all sixteen payloads, three backends, both directions, gated and counted. **The concurrency suite (ABI v1 obligation 12.5) exists and passes.** The concurrency suite and **the RPC arm, as a three-cell grid**, both exist and pass |
 | **Blocked on** | nothing |
 | **Floor** | still README open question 4. Not demonstrated: no python3.7 here (apt lists 3.7.17-1+noble2). Facts in `logs/python/01-environment.log` |
 | **Target** | 3.11. Every arm builds and passes on 3.10, 3.12 and 3.13, and the verdict's shape holds on all four |
@@ -382,7 +382,10 @@ the reverse call re-enters an interpreter.
 - **Concurrency**, so README section 9's actual question -- can it survive the
   GIL -- is still unanswered, and ABI v1 obligation 12.5 has no python row.
   `Py_BEGIN_ALLOW_THREADS` at 34.2-34.7 ns is the only input to it.
-- **The RPC arm.** Nothing. `grpcio` is installed and unused.
+- **The server side of an RPC**, and an encode-side RPC arm. Both cells decode at
+  the client; making the server decode is a different experiment.
+- **Streaming, TLS, a real network, failure injection.** `design/SHAPES.md` lists
+  these as out of the RPC arm and they are.
 - **Allocation per operation**, in any arm. Only time, and now the allocator's
   effect on time.
 - **The corpus beyond this slice's roots**: 210 of 336 rows, including every
@@ -399,6 +402,134 @@ the reverse call re-enters an interpreter.
   would cost a string compare. A facade holding the member's NAME is more
   idiomatic and is not priced.
 - **The pull decode family** (above).
+
+## The RPC arm, as a grid (`logs/python/80-rpc-grid.log`)
+
+"The host's stack against the core's" moves the codec and the transport at once,
+so the arm is three cells against **one** grpcio server that returns
+pre-serialised bytes and never encodes. The server is therefore in no difference,
+and the only thing that changes between A and B is which client sends the call.
+
+| cell | codec | transport | what it is |
+|---|---|---|---|
+| **A** | upb | grpcio | the incumbent, end to end |
+| **B** | upb | **the core** | **B - A is the TRANSPORT difference** |
+| **C** | the core | the core | **C - B is the CODEC difference** |
+
+Both arms decode at the client, which is stated rather than hidden: an
+encode-side RPC arm would need the server to decode and is a different
+experiment.
+
+**Three builds of one core now exist in this slice** -- plain, counting, and the
+`rpc`-feature one that pulls tonic and tokio in -- and the first of them loaded in
+a process satisfies the others' `NEEDED` entry by soname. `AK_FFI_MODULE` chooses
+which, before `arms` is imported, because importing `arms` is what loads a shim.
+The first draft of `rpc.py` got this wrong in the direction that fails loudly: a
+shim whose section 9 symbols resolved to a core that has none, refused at import.
+
+### What the transport costs, and what the codec costs
+
+CPU per RPC is the headline; wall clock is beside it because R9's hazard moves
+wall clock and not CPU. P2.2, 540,422 bytes, over a Unix domain socket, at the
+**shipped** configuration.
+
+CPU per RPC, P2.2 (540,422 B), **shipped** configuration, blocking delivery, in
+microseconds. Every row is the same server and the same bytes.
+
+| transport | in flight | A upb+grpcio | B upb+core | C core+core | **B - A** | **C - B** |
+|---|---|---|---|---|---|---|
+| UDS | 1 | 2,788 | 2,653 | 5,849 | **-135** | +3,195 |
+| UDS | 8 | 3,284 | 3,017 | 6,166 | **-267** | +3,149 |
+| UDS | 16 | 3,528 | 2,999 | 6,207 | **-529** | +3,208 |
+| TCP | 1 | 2,917 | 2,494 | 5,869 | **-422** | +3,375 |
+| TCP | 8 | 3,430 | 3,320 | 6,877 | **-110** | +3,557 |
+| TCP | 16 | 3,523 | 3,302 | 6,547 | **-221** | +3,245 |
+
+**B - A is negative in all six: the core's transport is 3 to 15 percent cheaper in
+CPU per RPC than grpcio's, with the codec held still.** That is README section
+13's outcome 2 priced on its **transport** half, and it is the opposite sign to
+its codec half, which this slice already settled -- a pure-Python codec loses to
+upb by 34x to 60x. **Outcome 2 is off the table for Python's codec and on it for
+Python's transport.**
+
+**C - B is +3.1 to +3.6 ms and dominates.** The transport saving is real and about
+a tenth the size of what the facade's decode costs on this payload. A report that
+quoted only "the core's stack against the host's" would have netted a small win
+against a large loss and called the result a wash; the grid is what separates them.
+
+The no-decode floor is 1.69 to 2.35 ms of the 2.8 to 3.5 ms that cell A costs, so
+**the transport is roughly two thirds of the incumbent's cost per call**. An
+in-process codec ratio overstates what an RPC caller feels, which is the same
+shape the C# slice reported (10 percent of CPU per call against 25 percent
+in-process).
+
+**Loopback TCP is not slower than the Unix socket here** -- the two are within each
+other's spread on every row, and TCP is cheaper on three of six. On this container
+`SHAPES.md`'s reason for preferring a UDS, that it removes the TCP/IP stack from
+both arms, does not show up as a cost worth removing.
+
+### The three deliveries, and why Python's is the queue
+
+ABI v1 section 9 offers blocking, a completion queue and a callback, and on this
+host they are not interchangeable for a reason that is CPython's rather than
+borrowed from the JVM:
+
+- the **queue**'s drainer is a Python thread that drops the GIL while it waits in
+  `ak_queue_next` and takes it back to hand the bytes over. **No thread the core
+  owns ever touches a `PyObject`;**
+- the **callback** arrives on a tokio worker, a thread CPython has never seen,
+  which must `PyGILState_Ensure` before it can do anything and release after.
+
+**And the callback's GIL acquisition is not measurable here.** Across 24
+comparisons -- two cells, two transports, two configurations, three thread counts
+-- the callback/queue ratio runs from **0.855 to 1.130** with a median near 1.03,
+and it straddles 1.0 in five of them. There is a weak tendency for the callback to
+cost a few percent more and it is not stable across configurations.
+
+**I reported 19 percent at 16 in flight from a single run and it does not
+reproduce.** That figure came from a run that aborted before finishing, and the
+complete run puts the same comparison at 1.3 percent. Withdrawn.
+
+The result is better than the one I withdrew, because it says something the JVM's
+number would not have predicted: `PyGILState_Ensure` from a foreign thread costs
+a few hundred nanoseconds, and an RPC carrying 540 KB costs three to six
+milliseconds, so the acquisition is four orders of magnitude below the signal and
+**the choice between queue and callback is not a performance question in Python**.
+The queue is still the right default here, for reasons that are not speed: the
+drainer is a thread CPython already knows, nothing the core owns touches a
+`PyObject`, and there is no attach step to get wrong. On the JVM, where an
+uncached upcall is near 300 ns against much cheaper calls, the same choice is a
+performance question. **That is the finding: the mode matters where the call is
+cheap, and this host's calls are not.**
+
+### Flow control, established rather than relayed
+
+Five configurations, each run with the core's own `flowctl` and `bdp_estimator`
+tracing, reading what the CORE printed rather than what was passed to it. Neither
+the grpc-java answer (a set window disables auto-tuning) nor the .NET one (a floor
+that doubles to a 16 MiB cap, connection window hardcoded at 64 MiB) transfers.
+
+1. **The static default stream window is 65,535.** The 4 MiB grpcio reaches by
+   default is BDP auto-tuning, not a large default.
+2. **`grpc.http2.lookahead_bytes` is a FLOOR, not a cap.** Asking for 65,535 still
+   yields 4 MiB while probing is on, so a slice that pinned a window and called it
+   pinned would be reporting the value it passed rather than the one in force.
+3. **Setting a window does NOT turn BDP probing off**, which is the opposite of
+   grpc-java. Pinning takes both arguments.
+4. **There is no channel argument for the CONNECTION window at all.** The
+   separate-knob trap cannot be reached from Python: a caller cannot set it.
+
+**And the 4 MiB window is what ArmoniK INTENDS, not what it ships.**
+`packages/rust/armonik-transport`'s `ClientConfig` carries timeouts, a rate limit,
+keepalive, the HTTP/2 ping settings and a max header list size, and nothing for
+either window; `packages/csharp` cannot set one at all. So the stack-default rows
+are the shipped configuration and the pinned rows are the intended one.
+
+**Nagle does not reach a Python caller.** The rust slice found a 40 ms delayed-ACK
+artifact in tonic's own test server; the test that identifies it is that a SMALL
+response costs MORE than a large one. On grpcio it does not: monotone in size on
+both transports, nothing near 40 ms. The C core sets `TCP_NODELAY` itself, and
+there is no `grpc.tcp_nodelay` in this build for a caller to have got wrong.
 
 ## Log index
 
@@ -418,6 +549,8 @@ the reverse call re-enters an interpreter.
 | `60-composed-py3.11.log`, `61-composed-all.log` | work unit 2, M1 only | **SUPERSEDED** by 62 and 63, and their P1.2 ENCODE rows are wrong for the reason in JOURNAL J26: the allocator was cold. The M1 decode rows stand |
 | `62-all-shapes-py3.11.log` | 3.11, 3 processes, allocator pinned | **The measurement**: encode, decode, decode+read, re-read and the in-process boundary, on all 16 payloads |
 | `63-all-shapes-every-interpreter.log` | 3.10 - 3.13, 1 process each | The same: the verdict's shape holds across interpreters |
+| `57-gc-bias.log` | 3.11, GC off against GC on | **D11**: the collector discounts the FACADE's decode by 1.09 to 1.26 and nothing else. Why `bench.py` keeps it off and prices it here |
+| `80-rpc-grid.log` | 3.11, cells A/B/C, 2 transports, 3 configurations | **The RPC arm**: the transport difference, the codec difference, the three deliveries, the flow-control table and the Nagle probe |
 | `70-corpus-subset.log` | 3.11, 126 of 336 vectors | **W8**: C1 to C4, the accepted forms written, decision 11 answered, D7 re-gated, and the upb map-entry defect |
 
 ## Slice-specific notes
@@ -433,24 +566,19 @@ the reverse call re-enters an interpreter.
 
 ## Next step
 
-1. **The RPC arm**, and it is the only thing left on the list. `grpcio` over a
-   `unix:` target as the primary with loopback TCP as a labelled second row,
-   carrying P2.2, **CPU per RPC as the headline** and wall clock beside it or not
-   at all. Two things the aggregating session has pinned and that a first draft
-   will get wrong:
-   - **Pin ArmoniK's transport, not grpcio's default**: 2 MiB chunking and a
-     **4 MiB stream window**, with the stack default as a labelled second row.
-     That is R14 applied to the transport rather than to the codec.
-   - **The connection window is a separate channel argument from the stream
-     window.** Raise only the stream window and the connection stays at 65,535 and
-     nothing changes. Set both, and **record what the gRPC C core actually does
-     with an explicit window and whether it turns BDP probing off** -- nobody in
-     the branch has established it and this is the slice that would.
+Every work item on this slice's list is done. What is left is optional and each
+item says what it would answer.
 
-   This is also where `ctypes` and `cffi` come back into the running (README 9.1):
-   two crossings per call rather than one per field is the regime where their
-   165-to-170x callback cost stops mattering.
-2. **Decision 13's borrowed-span facade**, if the aggregating session wants the
-   option priced rather than only noted. The premise is now corrected in the
-   document; what a borrowed Python string *is* still has no draft.
-3. **Decode under threads**, which the concurrency suite does not cover.
+1. **Decision 13's borrowed-span facade**, if the aggregating session wants the
+   option priced rather than only noted. This slice has the strongest case for it
+   of any host measured: P5.4's re-read is a factor of **330**, because upb
+   re-materialises four megabytes on every read and a borrowed span would not.
+   The premise is corrected in the document; what a borrowed Python string *is*
+   still has no draft, and that is the blocker rather than the measurement.
+2. **`ctypes` and `cffi` in the RPC regime** (README 9.1). Two crossings per call
+   rather than one per field is where their 165-to-170x callback cost should stop
+   mattering, and the grid now has the harness to test it: cell B's client is
+   already schema-free, so swapping the binding mechanism under it changes one
+   thing.
+3. **Decode under threads**, which the concurrency suite does not cover, and an
+   encode-side RPC arm, which needs the server to decode.

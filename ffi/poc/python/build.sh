@@ -36,6 +36,15 @@ echo "   exported ak_* entry points: $(nm -D --defined-only "$CORELIB/libak_core
 (cd "$CORE" && CARGO_TARGET_DIR="$CORE/target-count" cargo build --release -q -p ak-core --features count)
 COUNTLIB="$CORE/target-count/release"
 
+# The RPC core, into a THIRD target directory. ABI v1 section 9 lives behind the `rpc`
+# feature and pulls tonic and tokio in, so building it into the core the codec arms link
+# against would change the library every timing in `bench.py` is taken over. Separate
+# build, separate shim, separate process -- the same rule the counting build follows, and
+# for the same reason.
+(cd "$CORE" && CARGO_TARGET_DIR="$CORE/target-rpc" cargo build --release -q -p ak-core --features rpc)
+RPCLIB="$CORE/target-rpc/release"
+echo "   the rpc core: $(nm -D --defined-only "$RPCLIB/libak_core.so" | grep -cE ' T ak_(call|queue|client|runtime)') section 9 entry points"
+
 OUT=build
 mkdir -p "$OUT"
 CFLAGS_COMMON="-O2 -fPIC -Wall -Wextra -Werror -Wno-unused-parameter -fvisibility=hidden"
@@ -58,6 +67,12 @@ for PY in "$@"; do
      -DAK_MODNAME_STR='"_akffi_count"' -DAK_INITFUNC=PyInit__akffi_count \
      -o "$D/_akffi_count$SOABI" native/binding.c \
      -L"$COUNTLIB" -lak_core -Wl,-rpath,"$COUNTLIB"
+
+  # The RPC shim, against the rpc-feature core. Only `rpc.py` imports it.
+  cc $CFLAGS_COMMON -shared -I"$INC" -Igen/out -DAK_RPC \
+     -DAK_MODNAME_STR='"_akffi_rpc"' -DAK_INITFUNC=PyInit__akffi_rpc \
+     -o "$D/_akffi_rpc$SOABI" native/binding.c \
+     -L"$RPCLIB" -lak_core -Wl,-rpath,"$RPCLIB"
 
   echo "   built $D/_akffi$SOABI and the counting build beside it"
 

@@ -738,3 +738,53 @@ the scope reached messages the superset does not extend. The obligation is that 
 scoped message matches `corpus.proto` and that at least one is extended, so the
 unknown-field skip is executed somewhere. A check that only holds for the scope it was
 written against is not a check.
+
+### J28. D11, and a first fix that was worse than the defect
+
+The RPC arm's in-process control disagreed with `bench.py` on the same payload in the same
+interpreter. The only thing between them was `gc.disable()`, which work unit 1's harness
+does for the measured rounds -- right for a microbenchmark of a C-API primitive, and not
+obviously right for a codec arm, because a facade decode of P2.2 builds on the order of
+ten thousand GC-tracked objects and `FromString` builds an arena and one wrapper. The
+collector's work is the facade's work.
+
+**Measured in isolation, the discount is real and bounded** (`logs/python/57-gc-bias.log`,
+GC off against GC on, same process, interleaved per arm):
+
+| | on/off |
+|---|---|
+| every encode row, both arms, every payload | 0.99 - 1.02 |
+| upb's decode, every payload | 0.97 - 1.02 |
+| **the facade's decode** | **1.09 - 1.26**, P2.2 worst |
+
+Four rows flagged, all of them the facade's decode. So the collector was subtracting from
+one arm of one column and from nothing else.
+
+**Then I enabled it in the bench, and that was wrong.** P2.2's decode came out at
+**7.3x** the incumbent, against 1.26x for the identical call measured on its own. A
+factor of six had to come from somewhere, and the obvious suspect -- the harness holding
+all sixteen payloads' fixtures alive, so every collection walks a huge heap -- is
+refuted: holding all sixteen alive on purpose makes the isolated figure slightly *faster*,
+2.64 ms against 3.04 ms.
+
+What is left is attribution. With the collector on, an interleaved run of about five
+hundred cases fires it wherever the allocation threshold happens to trip, and the cost
+lands on whichever case was running. **That is a figure that depends on what else is in
+the run**, which is exactly the defect `allocator.py` exists for, one layer up, and this
+bench already refuses that class.
+
+So the collector stays OFF where a ratio is formed, and `gcbias.py` prices it where it can
+be attributed: one payload, one direction, one process, nothing interleaved. The honest
+sentence needs both halves measured:
+
+> the ratios exclude the collector, which adds 1.09 to 1.26 to the facade's decode and
+> nothing to any other row
+
+**What this cost and what it is worth.** I published "this invalidates the decode columns"
+and it did not: the GC-off tables were right all along, and the correction was to add a
+number beside them rather than to replace them. The logs restored here are the ones taken
+before the wrong fix, from the same tree and the same core. The reason to write this down
+is that the sequence -- a control contradicts the bench, the bench is changed to match the
+control, the change is worse than the thing it fixed -- is a plausible way to make a slice
+worse while believing it is being made honest. The control was right about the cost and
+wrong about where to charge it.
