@@ -10,7 +10,8 @@ session, which makes it the most expensive defect in this directory.
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88 declared. **Not verified: no 1.88 toolchain exists in this container, only 1.94.1** |
 | **Target** (where the clock runs) | the same, one configuration (README section 5) |
-| **Incumbent** (the baseline every ratio is against) | prost 0.14.4, plus tonic 0.14 for stage 4 |
+| **Incumbent** (the baseline every ratio is against) | prost 0.14.4, plus tonic 0.14 for stage 4. **R14, checked rather than assumed**: tonic-prost 0.14.6's `src/codec.rs` calls `Message::decode(buf)` (line 131) and `item.encode(buf)` (line 98), and prost's `Message::encode` computes `encoded_len()` before `encode_raw` — so for Rust the production path and the library's entry point are the SAME call in both directions and there is no second labelled row. Rust is the one slice where R14's check comes back empty |
+| **Outstanding** | one measurement: what section 3's `AK_ERR_UNINITIALIZED` guard costs (`gen/guardprice.sh`). Everything it needs is built; the run needs the box to itself |
 
 ## The question this slice answers
 
