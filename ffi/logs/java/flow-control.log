@@ -1,0 +1,72 @@
+== what grpc-java 1.74.0 actually does with the flow-control window ==
+
+Read from the bytecode of the artifact on this slice's classpath,
+/root/.m2/repository/io/grpc/grpc-netty-shaded/1.74.0/grpc-netty-shaded-1.74.0.jar,
+with `javap -p -c`. Not from documentation and not from memory: the branch has been
+wrong about this twice and the question decides whether an RPC arm's configuration is
+a no-op.
+
+== 1. The shipped default is 1 MiB, on both sides ==
+
+  NettyServerBuilder.DEFAULT_FLOW_CONTROL_WINDOW  = 1048576
+  NettyChannelBuilder.DEFAULT_FLOW_CONTROL_WINDOW = 1048576
+
+`javap -p -constants`. So P2.2's 540 KB response fits inside the default window on an
+unconfigured stack, and the "64 KB stall" belongs to HTTP/2's INITIAL_WINDOW_SIZE
+default of 65,535, which is the value a peer uses before any SETTINGS frame arrives --
+not to what this stack runs with.
+
+== 2. One call sets BOTH windows, and the premise that it does not is wrong ==
+
+The concern was that `flowControlWindow` reaches `Http2Settings.initialWindowSize`,
+which is per stream, and that nothing raises the CONNECTION-level window, so pinning
+the stream window alone would leave the stall in place.
+
+That is not what the code does. In `NettyServerHandler`:
+
+    settings.initialWindowSize(flowControlWindow)     // the per-stream window, via SETTINGS
+
+and in the base class `AbstractNettyHandler`'s constructor, the SAME settings object is
+read back:
+
+    this.initialConnectionWindow = initialSettings.initialWindowSize().intValue()
+
+which `sendInitialConnectionWindow()` -- called from `handlerAdded` and `channelActive`
+-- then applies to the CONNECTION stream:
+
+    Http2Stream connectionStream = connection().connectionStream();          // stream 0
+    int current = connection().local().flowController().windowSize(connectionStream);
+    decoder().flowController().incrementWindowSize(connectionStream, initialConnectionWindow - current);
+    initialWindowSent = true;
+    ctx.flush();
+
+`connectionStream()` is stream 0, and `incrementWindowSize` on it emits a WINDOW_UPDATE
+for the connection. **So one `flowControlWindow(n)` sets the per-stream initial window
+through SETTINGS and raises the connection window to the same n through a stream-0
+WINDOW_UPDATE.** A host does not have to find a second setter, because there is not one.
+
+== 3. Pinning the window DOES turn BDP auto-tuning off ==
+
+    NettyServerBuilder.flowControlWindow(int):         flowControlWindow = n; autoFlowControl = false
+    NettyServerBuilder.initialFlowControlWindow(int):  flowControlWindow = n; autoFlowControl = true
+
+Both write the same field. `autoFlowControl` is the `boolean` the handler stores as
+`autoTuneFlowControlOn` and the BDP `FlowControlPinger` consults.
+
+So the pinned arm and the default arm are two measurements rather than one with a knob,
+which is what the aggregating session said, and this confirms it from the bytecode.
+
+**And the two setters are order-dependent in a way that is easy to get wrong.** Calling
+`flowControlWindow(a)` and then `initialFlowControlWindow(b)` leaves the window at b with
+auto-tuning ON: the second call overwrites both fields the first one wrote, and the first
+call is dead code. `packages/java`'s `GrpcWorkerServer` does exactly that with a=65535 and
+b=1024, so that server starts from a 1 KB window with tuning enabled -- which is ArmoniK's
+configuration rather than grpc-java's, and is the row to quote if an RPC baseline is meant
+to be what ArmoniK runs. This slice changes nothing under `packages/`.
+
+== What this does NOT establish ==
+
+No timing. This is a reading of what the stack does with a configuration, not a
+measurement of what the configuration costs. The RPC arm measures that, with CPU per
+RPC as the headline and wall clock beside it, over a Unix domain socket so the TCP/IP
+stack is out of both arms equally.
