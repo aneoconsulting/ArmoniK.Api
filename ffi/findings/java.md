@@ -339,3 +339,35 @@ specification had not drawn because nobody had hit the other side of it.
 
 Fixing it moved the core's CPU by 5 to 7 percent at concurrency, so the withdrawn figures
 were contaminated as well as unsafe.
+
+## 10. The grid, and the slice withdrawing its own headline
+
+**The best thing this slice did all day was overturn its own result.** Its in-process
+grid had "the core's transport costs more than grpc-java's" at roughly +350 µs, six
+runs from six. Moving the server into a second process withdraws it:
+
+| delta | in-process | two-process, client CPU only |
+|---|---|---|
+| transport `B − A` | 6 of 6 positive, ~+350 | **flips sign**: −528 / −100 / +127 |
+| codec `C − B` | 6 of 6 negative, ~−290 | negative: −189 / −113 / −276 |
+| whole stack `C − A` | −283 / +101 / +56 | **negative**: −717 / −213 / −149 |
+
+So the codec half survives both modes and the transport half does not exist as a
+resolved sign. Client-side the whole core stack is **cheaper by 149 to 717 µs** where
+in process it read as break-even.
+
+**And the reasoning behind the caveat was wrong, which is the part that generalises.**
+Every slice, and this document, has called an in-process figure a *floor* because the
+CPU counter carries the server's work as well as the client's. **True of a ratio, false
+of a difference**: `(client_C + server) − (client_A + server)` cancels the server
+exactly. So a sign flip between modes **cannot** be dilution; what it can be is client
+and server contending for CPU and one heap inside a single runtime, which is a property
+of the harness and of neither stack. **Every in-process delta in this branch is
+therefore suspect rather than conservative** — C++, C# and Python all ran their servers
+in-process — and "floor" was a word that made a defect sound like caution.
+
+**One more thing that is a recommendation rather than a number.** The queue is cheaper
+per call and **slower per second**: 1,464 µs of wall clock against 898 at 8 in flight,
+because one drainer bounds throughput. Both true at once, pointing opposite ways —
+right under a CPU quota, wrong under a latency SLO. A report quoting only CPU per RPC
+recommends the queue unconditionally and should not.

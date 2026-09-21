@@ -1156,16 +1156,33 @@ Four hosts have now run it.
 
 | host | `B − A`, the transport half | `C − B`, the codec half |
 |---|---|---|
-| **Java** | **+368 µs at 8 in flight — the core's transport COSTS**, 6 runs of 6 | **−250 to −330 µs — the core's codec SAVES**, 6 of 6 |
+| **Java**, server in a second process | **sign is not resolved**: −528 / −100 / +127 µs | **−113 to −276 µs — the core's codec SAVES** |
+| **Java**, server in the same process | *(withdrawn: +368 µs, 6 of 6)* | *(−250 to −330 µs, 6 of 6)* |
 | **C++** | separates in only **1 of 12** rows (+1.4 % to +13.8 %) | **−38.4 % to −8.5 %, saves**, 12 of 12 |
 | **Python** | **3 to 15 % CHEAPER than grpcio**, 6 of 6 | **+3.1 to +3.6 ms — a large loss** |
 | **C#** | the transport is **3 to 10 times** the codec's cost | (the four codec arms do not separate end to end) |
 
-**The first result is that the total hides its own components.** On Java, C against
-A — the whole core stack against the whole host stack — is **+101 µs on a 2,453 µs
-call, about 4 percent**, which reads as "no difference". It is **+368 and −268**. A
-report quoting only A against C would have hidden a transport that costs and a codec
-that saves, and would have been wrong in both directions at once.
+**The first result is that the total hides its own components**, and the second is
+that an in-process grid can invent a component that is not there.
+
+**"The core's transport costs more than grpc-java's" is WITHDRAWN.** It held six runs
+from six with client and server in one JVM, and it does not survive moving the server
+out: the transport delta flips sign (−528, −100, +127) and the whole-stack delta goes
+from break-even to **cheaper by 149 to 717 µs**. What survives both modes is the codec
+half, negative at every level in both.
+
+**The reason the in-process figure misled is worth more than the figure**, and the
+java slice corrected its own caveat to get it. Every slice here, this document
+included, has called an in-process measurement a *floor* on the grounds that the CPU
+counter carries the server's work too. **That is true of a ratio and false of a
+difference**: `(client_C + server) − (client_A + server)` cancels the server exactly,
+so a sign flip between modes cannot be dilution. What it can be is client and server
+contending for CPU and for one heap inside a single runtime — **a property of the
+harness and of neither stack**. So **every in-process delta in this branch is suspect
+rather than merely conservative**, and the C++, C# and Python grids all ran their
+servers in-process. Their codec halves agree in direction with Java's, which survived
+the move; their transport halves are the ones to distrust until someone repeats them
+across two processes.
 
 **The second is that outcome 2 is not one recommendation, because both of its halves
 change sign by host.** Outcome 2 adopts the RPC layer and generates the codec:
@@ -1189,6 +1206,13 @@ the other, and the two halves may not simply add. An earlier Java grid appeared 
 prove they could not (opposite signs, `C − B` at −703 against `D − A` at +399); that
 was cell D's marshaller allocating a fresh 540 KB array per call, and **the exciting
 result was the harness**.
+
+**A fourth result, and it is a recommendation rather than a measurement.** The queue
+delivery is **cheaper per call and slower per second**: 1,464 µs of wall clock against
+898 at 8 in flight, because one drainer bounds throughput. Both are true at once, and
+they point opposite ways — the queue is right under a CPU quota and wrong under a
+latency SLO. A report that quotes only CPU per RPC recommends it unconditionally, and
+should not.
 
 **And the transport is most of an RPC.** Python's no-decode floor is 1.69 to 2.35 ms
 of a 2.8 to 3.5 ms call, so **the transport is roughly two thirds of what a call
