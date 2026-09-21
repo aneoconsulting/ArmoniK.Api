@@ -162,3 +162,55 @@ cells B and C reuse one. The exciting result was the harness.
 forms every ratio inside one round in one process and resolves a 40 ns delta. Here the
 quiet runs resolve about 250 us and the noisy ones nothing below 500. Putting all four
 cells in one process and interleaving them is the fix, and it is not built.
+
+
+== 6. The server moved to its own process, and it overturns section 5's headline ==
+
+Every figure above is process CPU with client and server in ONE JVM. With
+`-Dak.rpc.serve=<path>` the server is its own process and `-Dak.rpc.connect=<path>` measures
+a counter containing only the client. Four cells, two runs, same UDS, same pinning.
+
+CLIENT-ONLY CPU us/RPC, median [wall in brackets]:
+
+  cell            1                  8                 16
+  A    2663 [2778]        2194 [ 898]        2055 [ 854]
+  B    2135 [2563]        2094 [1612]        2182 [1694]
+  C    1946 [2315]        1981 [1464]        1906 [1406]
+  D    2131 [2368]        2024 [ 817]        2015 [ 872]
+
+  delta                    1       8      16      in-process was
+  transport   B-A       -528    -100    +127      +122  +368  +357
+  codec       C-B       -189    -113    -276      -405  -267  -301
+  codec       D-A       -532    -170     -40      -277   +92  -149
+  whole stack C-A       -717    -213    -149      -283  +101   +56
+
+**1. SECTION 5's TRANSPORT CLAIM IS WITHDRAWN.** "The core's transport costs more than
+grpc-java's" was six runs from six in-process and flips sign with the server moved out.
+It is not established, in either direction, by this arm.
+
+**2. My reason for the in-process caveat was also wrong, and the error is instructive.**
+This file has said since the arm existed that in-process figures are "floors" because the
+CPU counter carries both halves. That is true of a RATIO -- a common server term pushes
+numerator and denominator toward each other -- and FALSE of a DIFFERENCE, where
+`(client_C + server) - (client_A + server)` cancels the server exactly. So a sign flip
+between the two modes cannot be dilution. What it can be is client and server threads
+contending for CPU and for one heap inside a single JVM, which is a property of the
+harness and of neither stack. **Any in-process DELTA in this file is suspect for that
+reason, not merely conservative.**
+
+**3. What survives both modes: the core's codec is cheaper than protobuf-java's under the
+core's transport.** C-B is negative at every concurrency level in both measurement modes.
+It is the most robust result this arm produced, and it is consistent in direction with the
+pull family's decode result measured separately by a much better instrument.
+
+**4. Client-side, the whole core stack is cheaper**, by 149 to 717 us per RPC, where
+in-process it read as roughly break-even. Read with 5 below.
+
+**5. And it is SLOWER in wall clock at concurrency**: cell C is 1,464 us against cell A's
+898 at 8 in flight. One drainer bounds throughput where grpc-java's event loop does not.
+**Cheaper per call and slower per second are both true**, and a reader who takes only one
+of them gets the wrong answer. A host choosing the queue is trading wall-clock throughput
+for CPU, which is the right trade under a CPU quota and the wrong one under a latency SLO.
+
+Two runs only, so the magnitudes are indicative; the signs of C-B and C-A are consistent
+across both runs and all three levels, and B-A's is not consistent across modes at all.

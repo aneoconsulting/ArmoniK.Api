@@ -380,17 +380,31 @@ with 4 MiB pinned on BOTH sides (the earlier grid pinned only its grpc-java half
 runs each, spread 1 to 6 percent. CPU us/RPC at 8 in flight: A 2,453, B 2,821, C 2,554,
 D 2,545.
 
-| delta | per-run signs | reading |
+| delta | in process | server in ITS OWN process (client CPU only) |
 |---|---|---|
-| transport `B - A` | **6 of 6 positive**, ~330-370 us | the core's transport costs MORE |
-| codec `C - B` | **6 of 6 negative**, ~250-330 us | the core's codec is cheaper, under the core's transport |
-| codec `D - A` | mixed | not resolved under grpc-java's transport |
+| transport `B - A` | 6 of 6 positive, ~350 us | **flips sign** (-528 / -100 / +127) |
+| codec `C - B` | 6 of 6 negative, ~290 us | **negative at every level** (-189 / -113 / -276) |
+| codec `D - A` | mixed | negative (-532 / -170 / -40) |
+| whole stack `C - A` | -283 / +101 / +56 | **negative at every level** (-717 / -213 / -149) |
 
-**The two nearly cancel: C against A is +101 us on a 2,453 us call, about 4 percent.** So
-the whole core stack is roughly break-even against the whole host stack, and **a report
-quoting only that total would hide a transport that costs and a codec that saves.** The
-transport result cuts against the "adopt the RPC layer, generate the codec" fallback rather
-than for it.
+**The transport claim is WITHDRAWN.** "The core's transport costs more than grpc-java's"
+held six runs from six in process and flips with the server moved out. Not established in
+either direction.
+
+**And the reason given for the in-process caveat was wrong.** This slice said those figures
+were "floors" because the counter carries both halves. True of a RATIO, false of a
+DIFFERENCE: a server term common to both arms cancels exactly. A sign flip therefore cannot
+be dilution -- it is client and server contending for CPU and one heap inside a single JVM.
+**Every in-process delta here is suspect for that reason, not merely conservative.**
+
+**What survives both modes**: the core's codec is cheaper than protobuf-java's under the
+core's transport, at every level in both. And client-side the whole core stack is cheaper
+by 149 to 717 us, where in process it read as break-even.
+
+**But it is slower in wall clock at concurrency**: 1,464 us against 898 at 8 in flight,
+because one drainer bounds throughput. Cheaper per call and slower per second are both
+true; a host choosing the queue trades throughput for CPU, right under a quota and wrong
+under a latency SLO.
 
 **The 4 MiB row is ArmoniK's INTENDED configuration, not its shipped one**:
 `packages/rust/armonik-transport` carries timeouts, rate limit, keepalive, HTTP/2 pings and
