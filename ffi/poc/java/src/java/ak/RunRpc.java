@@ -97,7 +97,43 @@ public final class RunRpc {
     }
   }
 
+  /** The dilution caveat, lifted. Client and server in ONE process means the CPU counter
+   *  carries both halves, so every ratio here is a floor: the difference between arms is
+   *  entirely client-side but is divided by a total containing a common server. With
+   *  `-Dak.rpc.serve=<path>` this process is ONLY the server, and a second process with
+   *  `-Dak.rpc.connect=<path>` measures a CPU counter that contains only the client. */
+  static Server serveOnly(String path, boolean pinned, byte[] body) throws Exception {
+    MethodDescriptor<byte[], byte[]> md = MethodDescriptor.<byte[], byte[]>newBuilder()
+        .setType(MethodDescriptor.MethodType.UNARY)
+        .setFullMethodName(PATH.substring(1))
+        .setRequestMarshaller(BYTES).setResponseMarshaller(BYTES).build();
+    ServerServiceDefinition svc = ServerServiceDefinition.builder("ak.Bench")
+        .addMethod(md, ServerCalls.asyncUnaryCall((req, obs) -> {
+          obs.onNext(body);
+          obs.onCompleted();
+        })).build();
+    java.io.File f = new java.io.File(path);
+    f.delete();
+    NettyServerBuilder sb = NettyServerBuilder.forAddress(
+            new io.grpc.netty.shaded.io.netty.channel.unix.DomainSocketAddress(f))
+        .channelType(io.grpc.netty.shaded.io.netty.channel.epoll.EpollServerDomainSocketChannel.class)
+        .bossEventLoopGroup(new io.grpc.netty.shaded.io.netty.channel.epoll.EpollEventLoopGroup(1))
+        .workerEventLoopGroup(new io.grpc.netty.shaded.io.netty.channel.epoll.EpollEventLoopGroup())
+        .addService(svc).maxInboundMessageSize(ARMONIK_MAX_MESSAGE);
+    if (pinned) sb.flowControlWindow(ARMONIK_WINDOW);
+    return sb.build().start();
+  }
+
   public static void main(String[] args) throws Exception {
+    String serve = System.getProperty("ak.rpc.serve");
+    if (serve != null) {
+      Server sv = serveOnly(serve, !"0".equals(System.getProperty("ak.rpc.pinned", "1")),
+          ((Message) PbArms.build(ID, Values.ASCII)).toByteArray());
+      System.out.println("SERVING " + serve);
+      System.out.flush();
+      sv.awaitTermination();
+      return;
+    }
     // The grid. B minus A is the TRANSPORT difference and C minus B the CODEC difference;
     // neither is recoverable from A against C, which moves both at once. Cell B is not a
     // contrivance: it is README section 13's outcome 2, the fallback the original Java
@@ -135,10 +171,19 @@ public final class RunRpc {
     // netty's epoll domain-socket channel, and the core through tonic's `unix:` target,
     // which `Endpoint::from_shared` strips and turns into a UnixStream connector
     // (tonic 0.14.6, transport/channel/endpoint.rs:175 and new_uds at :111).
-    java.io.File sock = new java.io.File(System.getProperty("java.io.tmpdir"),
-        "ak-rpc-" + ProcessHandle.current().pid() + ".sock");
-    sock.deleteOnExit();
+    // With `-Dak.rpc.connect=<path>` the server is somebody else's process, so the CPU
+    // counter this arm reads contains ONLY the client. That is the row that turns every
+    // ratio here from a floor into a ratio.
+    String connect = System.getProperty("ak.rpc.connect");
+    java.io.File sock = connect != null ? new java.io.File(connect)
+        : new java.io.File(System.getProperty("java.io.tmpdir"),
+            "ak-rpc-" + ProcessHandle.current().pid() + ".sock");
+    if (connect == null) sock.deleteOnExit();
     io.grpc.netty.shaded.io.netty.channel.epoll.EpollEventLoopGroup boss = null, work = null;
+    Server server = null;
+    if (connect != null) {
+      work = new io.grpc.netty.shaded.io.netty.channel.epoll.EpollEventLoopGroup();
+    } else {
     NettyServerBuilder sb;
     if (uds) {
       boss = new io.grpc.netty.shaded.io.netty.channel.epoll.EpollEventLoopGroup(1);
@@ -152,8 +197,9 @@ public final class RunRpc {
     }
     sb.addService(svc).maxInboundMessageSize(ARMONIK_MAX_MESSAGE);
     if (pinned) sb.flowControlWindow(ARMONIK_WINDOW);
-    Server server = sb.build().start();
-    final int port = uds ? -1 : server.getPort();
+    server = sb.build().start();
+    }
+    final int port = (uds || connect != null) ? -1 : server.getPort();
 
     String coreTarget = uds ? "unix:" + sock.getAbsolutePath() : "http://127.0.0.1:" + port;
 
@@ -184,7 +230,7 @@ public final class RunRpc {
     }
 
     runner.close();
-    server.shutdownNow();
+    if (server != null) server.shutdownNow();
     if (boss != null) boss.shutdownGracefully(0, 0, java.util.concurrent.TimeUnit.SECONDS);
     if (work != null) work.shutdownGracefully(0, 0, java.util.concurrent.TimeUnit.SECONDS);
 
@@ -195,6 +241,8 @@ public final class RunRpc {
        .append("  transport=").append(coreTransport ? "core (tonic)" : "grpc-java")
        .append(coreTransport ? "/" + delivery : "")
        .append("  socket=").append(uds ? "unix domain" : "loopback TCP")
+       .append(connect != null ? "  server=SEPARATE PROCESS (CPU is client only)"
+                               : "  server=same process (CPU carries both halves)")
        .append("  config=").append(pinned
            ? "ArmoniK: flowControlWindow=" + ARMONIK_WINDOW + " (BDP OFF)"
            : "grpc-java default: 1048576, BDP ON")
