@@ -52,7 +52,7 @@ def cs_member(t):
 
 
 _HANDLES = set(["ak_enc_ctx", "ak_dec_ctx"])
-_STRUCT_NAMES = set(n for n, _d, _m in FIXED.structs) | {"ak_bytes", "ak_completion",
+_STRUCT_NAMES = set(n for n, _d, _m in FIXED.structs) | {"ak_bytes", "ak_completion", "ak_rpc_counters",
                                                         "ak_client_opts"}
 
 
@@ -385,10 +385,12 @@ def emit_rpc(x, ns, lib="ak_core"):
     err_members = fixed["ak_err"][1]
     _struct(o, oname, init_members, fixed[oname][0])
     _struct(o, "ak_err", err_members, fixed["ak_err"][0])
-    # plan.FIXED.rpc_counting is NOT rendered here yet: poc/csharp/src/Rpc/CoreTransport.cs
-    # declares the same four members on this partial class by hand (as `AkRpcCounters`), so
-    # rendering them would be a duplicate definition. Reported; remove the hand block and
-    # render these when the csharp slice re-points (FIX-PLAN WP5 step 6).
+    # plan.FIXED's RPC counting surface (README R5 for section 9), rendered like the rest
+    # (D40): the struct, and the three imports below with both language levels.
+    cname_, cdoc_, cmembers_ = FIXED.rpc_counters_struct
+    counters = [(mn, N.ABI[mt]) for mn, mt in cmembers_]
+    structs.append((cname_, counters))
+    _struct(o, cname_, counters, cdoc_)
     o += "public static unsafe partial class AkRpc"
     o += "{"
     o += '    public const string Lib = "%s";' % lib
@@ -405,6 +407,12 @@ def emit_rpc(x, ns, lib="ak_core"):
     o += ""
     emit_import(o, "int", lc.init[0], "%s* opts, ak_err* err" % oname)
     for fname, params, ret, doc in r.functions:
+        if doc:
+            o += "    /// %s" % doc
+        rt = "void" if ret is None else cs_param(ret)
+        args = ", ".join("%s %s" % (cs_param(t), _pname(pn)) for pn, t in params)
+        emit_import(o, rt, fname, args)
+    for _g, fname, params, ret, doc in FIXED.rpc_counting:
         if doc:
             o += "    /// %s" % doc
         rt = "void" if ret is None else cs_param(ret)

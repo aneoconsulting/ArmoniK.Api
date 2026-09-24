@@ -405,7 +405,7 @@ class Codec:
     # ======================================================== DECODE
     def _capture(self):
         """The unknown-field arm of the dispatch, per Options.unknown."""
-        skip = "d.Skip((int)tag, wire, %d);" % GROUP_DEPTH_LIMIT
+        skip = "d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);"
         grab = "if (d.Err == 0) m.%s = W.Append(m.%s, d.Buf, s0, d.Pos - s0);" % (BAG, BAG)
         if self.retain == "drop":
             return ["// plan (drop): an unknown field -- including a known number at a wire type",
@@ -517,7 +517,7 @@ class Codec:
                 o += "%s        case %dUL: %s = %s; break;" % (b, (etag << 3) | ewire, x, self._str(ef))
             o += "%s        // A facade map entry has no bag: an unknown field inside an entry" % b
             o += "%s        // is skipped in every mode." % b
-            o += "%s        default: d.Skip((int)t2, w2, %d); break;" % (b, GROUP_DEPTH_LIMIT)
+            o += "%s        default: d.Skip((int)t2, w2, GroupDepthLimit, MaxFieldNumber); break;" % b
             o += "%s    }" % b
             o += "%s}" % b
             o += "%sd.End = save;" % b
@@ -560,6 +560,9 @@ def emit(x, ns, extra_using=()):
     o += "    public const string Utf8Policy = \"%s\";" % p.options.utf8
     o += "    public const string UnknownMode = \"%s\";" % p.options.unknown
     o += "    public const int Limit = %d;" % p.options.recursion_limit
+    o += "    /// plan.GROUP_DEPTH_LIMIT and plan.MAX_FIELD_NUMBER, handed to the runtime's skipper."
+    o += "    public const int GroupDepthLimit = %d;" % GROUP_DEPTH_LIMIT
+    o += "    public const ulong MaxFieldNumber = %dUL;" % MAX_FIELD_NUMBER
     o += ""
     for ln in CS_MAP_ORDER.strip("\n").split("\n"):
         o += ln
