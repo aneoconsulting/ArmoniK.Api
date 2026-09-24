@@ -1,6 +1,6 @@
 # Fix plan after the 2026-09-24 adversarial review
 
-Status: **WP1, WP2, WP4 done except item 5 (Python floor, in WP5); WP5 step 1 done** (2026-09-24, 77f91ee). WP5 steps 2 to 5 done (f9ed1d0, 2889d87, 5d4c30d, e7728e4). WP5 step 6 consolidation done (57b6180, 3cee365, 41eb485). Next: WP5 tail (D38 to D40, corpus rows), then WP3. Written for whoever implements it, which is
+Status: **WP1, WP2, WP4, WP5 done** (2026-09-24). Every slice renders from `poc/codec/gen/plan.py`; `generate.py --check` covers all of them; every slice passes the 702-row corpus. Next: WP3 (campaign specification and harness conformance), then WP6. Open owner decisions: R-G11, R-G12.
 assumed to be neither the author nor anyone with the review session's context.
 Everything needed is in this file or in the paths it names.
 
@@ -617,6 +617,7 @@ Disposition column is filled in as work lands.
 | R-G14 | The C header is rendered by two backends (`cpp_abi.py` and `java_abi.py`); Python and C# reuse or bypass it. `generate.py`'s guard list names none of the new backends and does not regenerate the slices' outputs; `rust_core.py` and `poc/cpp/gen/cpp_header.py` survive as adapters; `one_core.sh --selftest` fails before planting since WP5 step 1 (scratch copy lacks `ffi/corpus`); `poc/python/mech/` keeps its own generator with wire rules | cpp, java, python slices | 57b6180/3cee365: c_abi.py is the one C header backend; guard over 26 backend modules; one command regenerates every slice (--check exit 0); rust_core.py, cpp_header.py, java_abi.py deleted; one_core.sh selftest fixed; mech generator retired |
 | R-G15 | `ak_err` differed between ABI-v1 (`{code, msg_len, msg}`) and `ak-abi` (`{code, detail}`) | cpp slice | settled by the aggregating session: ABI-v1 now matches the implementation |
 | R-G16 | Port defects found by the corpus: Java's bulk direct path never ran, zeroed fill dropped -0.0, `Utf8View` refused ASCII after a multi-byte character; Python split packed runs over 4096 values into several records, and 3.7/3.8 shims exported no `PyInit_`; C# lacked the direct-argument parameters of `ak_encode_UploadResultDataMessage` and misdeclared `ak_bdr_count_forward` | java, python, csharp slices | fixed 2889d87/287deca, e7728e4/92a74da, 5d4c30d/7aad2c2 |
+| R-G17 | Hand-written runtimes' group skip accepted field numbers above 2^29-1 (C++ `rt.h`, Java `Dec.java`, C# `Wire.cs`); two gate scripts could run on stale builds (Java core target dir reused over a `git archive` snapshot, C++ gate did not rebuild); C# declared RPC counting by hand (rust D38, D39, D40) | rust slice, WP5 step 6 | fixed: C++ 563b330/fd3ec1a, Java bb98e8f/271fdd5, C# 8dbb4b1/81ba451; limits rendered from plan constants; stale builds refused (logs/cpp/d39-stale-refusal.log, logs/java/wp5s6-d39-keys.log) |
 
 ### F. STATE hygiene (WP6)
 
