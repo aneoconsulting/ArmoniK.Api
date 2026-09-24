@@ -54,8 +54,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(|file| format!("{PROTO_ROOT}/{file}"))
         .collect::<Vec<_>>();
 
-    // With nothing declared, cargo watches the whole crate directory, so editing a test re-runs `protoc`
-    // over all forty protos. Declaring them replaces that fallback rather than adding to it, which is why
+    // With nothing declared, cargo watches the whole crate directory, so editing a test re-compiles all
+    // forty protos. Declaring them replaces that fallback rather than adding to it, which is why
     // this list now decides rebuilds as well as what gets compiled.
     for file in &proto_files {
         println!("cargo:rerun-if-changed={file}");
@@ -64,11 +64,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-changed=protos");
     println!("cargo:rerun-if-changed=build.rs");
 
+    // Parsed in-process by `protox` rather than by `protoc`, so building the crate needs no system
+    // protobuf compiler. `protox` also bundles the well-known types the protos import.
+    let file_descriptors = protox::compile(&proto_files, [PROTO_ROOT])?;
+
     tonic_prost_build::configure()
         .use_arc_self(true)
         .build_client(cfg!(feature = "_gen-client"))
         .build_server(cfg!(feature = "_gen-server"))
-        // Both slices have to hold the same type, and `proto_files` is `Vec<String>`.
-        .compile_protos(&proto_files, &[String::from(PROTO_ROOT)])?;
+        .compile_fds(file_descriptors)?;
     Ok(())
 }

@@ -59,6 +59,7 @@ tokio = { workspace = true, features = [
 tokio-util.workspace = true
 
 [build-dependencies]
+protox.workspace = true
 tonic-prost-build.workspace = true
 
 [[test]]
