@@ -6,8 +6,8 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | **2026-09-24 (second work unit), FIX-PLAN WP4 items 6 (C++ half, R-D5) and 8 (R-D7) done, correctness only, no timing taken.** R-D5: `ffi-valtc` is in `conformance.cpp` `run_case` (rc + sha on all 15 payloads, plus a malformed-UTF-8 ENCODE that `ffi` accepts and `ffi-valtc` refuses with -6) and in `contentsets.cpp`'s gate (all 3 sets); `bench.cpp` gates every timed codec arm before calibration and refuses to time one that fails, exiting 1 (`conformance.log`, `rd5-gate.log`, `rd5-before.log`). R-D7: every planted concurrency build links the matching PLANTED core (`--features pad-widths` / `global-widths` / both), a fourth build plants the core alone, and a planted run now shows the ffi arm failing: pad 23 of 96 distinct wrong encodes on EACH of native, ffi and ffi-hosttc; core-only pad 0 native, 23 ffi, 23 hosttc; global byte-clean on both encoders (`concurrency.log`, `rd7-before.log`). **The old reading double-counted**: "44 of 48" was 22 distinct wrong encodes, "46 of 96" was 23. **Gated against a snapshot of `ffi/poc/codec` at `817174f`** (the codec tree last changed in `6ede244`), built out of tree, because the rust agent is changing the shared core concurrently. The earlier work unit of the same day (R-D1 C++ half, R-D2) is kept below. Timing tables further down are container instrumentation (README section 1.1) |
-| **Core** | **the shared one at `ffi/poc/codec/crates/ak-core` (README R0), not a copy.** This slice no longer has a `core/` directory; `core-build/` is only its `CARGO_TARGET_DIR`s (timed, counting, rpc, and since R-D7 the three planted builds `target-pad`, `target-global`, `target-both`). `-DAK_CORE_ROOT=<a codec workspace>` and `-DAK_CORE_TGT=<dir>` point the build at a snapshot instead (default: the shared tree and `core-build/`). See `logs/cpp/w10-one-core.log` |
+| **Status** | **2026-09-24 (third work unit), FIX-PLAN WP5 step 2 done: the C++ backend renders the shared plan. Correctness only, no timing taken.** The native control, the binding, the facade and the ABI header are rendered by new modules in `poc/codec/gen/` (`cpp_abi.py`, `cpp_native.py`, `cpp_binding.py`, `cpp_facade.py`, `cpp_names.py`) that import `plan` only; `gen/` keeps glue. `cpp_core.py`'s own wire rules and the `rust_core` import are gone. The ABI header, `ak_client_opts`, `ak_bytes`, `ak_completion` and every RPC prototype come from the plan (R-G5; `src/rpc_common.h` declares none of them); the binding renders `ak_init` from `plan.lifecycle` and calls it in every entry point (R-G7); every C ABI core this slice links is built WITH `init-guard`. Gate (`gen/wp5_gate.sh`, logs `wp5-*.log`): payload set byte-identical at C++17/C++17-floor/C++14/C++11/static (476 checks x5, 0 failures); the FULL corpus (691 rows) through four arms at C++17/14/11/static, 0 failures, outcomes identical across the four builds (2764 of 2764); the corpus core's 542 layout facts match; four planted controls fail as required; 0 byte changes on the 213 rows the old harness could root. `poc/codec/gen/rust_core.py` is NOT deleted: three shared files still name it (see "Plan and shared-tree gaps") |
+| **Core** | **the shared one at `ffi/poc/codec/crates/ak-core` (README R0), not a copy**, built by CMake with `--features init-guard` in every configuration (timed, counting, the three planted cores) and once more with `--features corpus,init-guard` into `core-build/target-corpus` for the corpus harness (its own ABI and header, `corpus/include/ak_abi.h`). `-DAK_CORE_ROOT`/`-DAK_CORE_TGT` still point the build at a snapshot. This work unit ran against the shared tree at `882112c` (HEAD when gated) |
 | **Blocked on** | nothing |
 | **Floor** | **C++11, demonstrated not declared.** C++14 also builds and passes (README open question 3) |
 | **Target** | C++17 |
@@ -16,7 +16,128 @@ session, which makes it the most expensive defect in this directory.
 | **Machine** | **TWO of them, and that is a fact about the logs rather than a footnote.** Everything except `rpc.log` and `rpcflow.log`: 4 vCPU Intel Xeon @ **2.80 GHz**. Those two: 4 vCPU Intel Xeon @ **2.10 GHz**, same kernel (Linux 6.18.44), same g++ 13.3.0 `-O2 -g -DNDEBUG`, same rustc 1.94.1. **No absolute crosses between them** (R13, R4) |
 | **R13 calibration** | the 2.80 GHz machine's rust-slice crossing is **1.5 ns** forward (`calibration-r13.log`), against 1.8 ns in the rust slice's own container. **On the 2.10 GHz machine it could not be re-taken: the rust slice does not build on this branch (C27).** What was re-taken there is this slice's OWN crossing, by the unchanged bench: **forward 0.59-0.65 ns, reverse 0.27-0.31 ns**, against 1.822-1.824 / 0.6 published from the 2.80 GHz box. A factor of about three, on a nominally slower clock. That is the whole reason R13 exists |
 
-## This work unit (2026-09-24, second): R-D5 (C++ half) and R-D7
+## This work unit (2026-09-24, third): FIX-PLAN WP5 step 2, the C++ backend on the plan
+
+Machine: 4 vCPU Intel Xeon @ 2.10 GHz container, g++ 13.3.0, rustc 1.94.1, protobuf
+3.21.12 and grpc++ 1.51.1 (apt). **No timing was taken**: every bench and content-set
+binary ran gate-only, the concurrency suite without T7, and nothing below is a figure.
+Gated at `882112c` (commit + the gate script itself, which is in the log commit).
+
+### What exists now
+
+```
+poc/codec/gen/  (the SHARED generator; these five import `plan` and nothing from the IR)
+  cpp_abi.py      include/ak_abi.h and the layout tables: groups from plan.group_fields /
+                  ugroup_fields / presence_bits, vtables from loop_slots / slot_elem /
+                  vtable_messages, entry points from direct_fields / element_types; the
+                  layout facts from cpp_layout.facts; section 9 from plan.rpc (handles,
+                  ak_bytes, ak_completion, ak_client_opts, AK_QUEUE_*, every prototype);
+                  section 3 from plan.lifecycle (ak_init, ak_init_opts)
+  cpp_native.py   core-native-cpp: MessagePlan.encode rendered step by step, MessagePlan
+                  .decode as a `switch` on the (number << 3 | wire) key; drop and retain are
+                  two outputs of one renderer; depth limit, UTF-8 policy (reject), tag 0,
+                  merge of a repeated singular / same-member oneof message, packed_one at
+                  the kind's own wire type only -- all the plan's. utf8="lossy" RAISES
+  cpp_binding.py  core-ffi (moved from gen/): group fills and span materialisers over the
+                  plan's layout functions; ak_init_once() from plan.lifecycle, called by
+                  every encode_into_* / decode_with_*; optional retain family
+                  (encode_into_*_unk over ak_ufix / ak_uencode / ak_uelem*, decode_with_*_unk
+                  with the unknown-capture callbacks), rendered for the corpus
+  cpp_facade.py   the facade (moved from gen/); every struct carries `unknown_fields`;
+                  a recursive field (`FieldPlan.recursive`, the corpus's Nest) is ak::Box
+  cpp_names.py    spellings (moved from gen/cppnames.py); C_OF maps the plan's abi types
+
+poc/cpp/gen/  (glue only)
+  generate.py     renders shapes/ and corpus/ from plans; --check = drift + the import guard
+                  over the five shared modules and this directory's glue (+ a planted miss)
+  cpp_build.py, cpp_pbbuild.py, cpp_cases.py, cpp_project.py   payload builders, arm table,
+                  CONTRACT.md section 3 projection -- read FieldPlans, no IR
+  corpus_all.py   the full corpus: one child per row under a timeout, four arms, C1-C4,
+                  forms, disputes, retention gaps, --record/--compare across builds, plants
+  wp5_bytes.py    before/after byte audit; wp5_gate.sh the gate; refusal_test.py on plans
+  cpp_header.py   a forwarding name only (the python slice's COMMITTED generator imports it)
+poc/cpp/corpus/   generated facade, native (drop, retain), binding, header, projection and
+                  dispatch for the corpus reader schema; corpus_main.cpp / corpus_harness.h
+                  (hand-written glue: run an arm, print JSON)
+```
+
+Retired: `gen/cpp_core.py` (its own decode/encode rules), `gen/cppnames.py`,
+`gen/cpp_facade.py`, `gen/cpp_binding.py` (moved), `gen/corpus.py` + `src/corpus.cpp` (the
+213-row subset harness), `gen/lenwrap_rows.sh` (its rows run per process in the full
+corpus now), the `conformance_a17_lossy` / `bench_a17_lossy` targets (the UTF-8 policy is a
+plan option rendered into the core and the native codec, not a host build switch).
+`include/ak/rt.h` gained `fixed32` read/write, `f64_raw`, `f64_bits` (the plan's bit test);
+`include/ak/vocab.h` gained `ak::Box` (a new type; no existing type's layout changed).
+
+### What was checked (each with its log)
+
+| gate | result | log |
+|---|---|---|
+| `gen/generate.py --check` | every target current; guard: 5 shared C++ modules import plans only, glue imports no IR, planted import caught | `wp5-generator.log` |
+| `poc/codec/gen/generate.py --check` | green (the shared core this slice gates) | `wp5-generator.log` |
+| `refusal_test.py` | 17 of 17 refused / emitted as required, incl. `cpp_native` on `utf8="lossy"` (must raise) | `wp5-generator.log` |
+| `rd2_guard.sh` | header at C++11/14/17, four RPC sources compile; plant A (field dropped) and plant B (a seventh field added to `plan.rpc`) refused | `wp5-generator.log` |
+| payload set, byte identity vs `manifest.json` | **476 checks, 0 failures** at C++17 target, C++17 floor, C++14, C++11, static (core with init-guard) | `wp5-conformance.log` |
+| planted: binding skips ak_init | `conformance_a17_noinit` **fails** (205 of 476 checks: every ffi arm), so init-guard is in the core and the binding's call is what passes | `wp5-conformance.log` |
+| full corpus, 691 rows, 4 arms | ffi-drop and ffi-retain **672 pass, 0 fail**, 3 disputed, 16 not in the C ABI (Nest); native-drop and native-retain **688 pass, 0 fail**, 3 disputed; at C++17, C++14, C++11 and static; 0 hangs or crashes | `wp5-corpus.log` |
+| across builds | 2764 (row, arm) outcomes, C++17 vs C++14 vs C++11 vs static: **0 differ** (the `--compare` control, a planted re-encode, differs) | `wp5-corpus.log` |
+| controls, each must fail | on a 96-row subset (`S-Probe`, `U-root`, `X-lenwrap-lrr`, `E-map`, `T-dec-root`, `U-wire-MetricsBatch`): `proj` 156, `reenc` 156, `accept` 228 arm-row failures; `noinit` 78 ffi arm-row failures (-10), 0 native | `wp5-corpus.log` |
+| byte audit, before vs after | the retired harness at `aba944a` against the new arms, one process per row: **native and ffi identical outcome, refusal code and bytes on 213 of 213 rows**; 0 changes | `wp5-bytes.log` |
+| boundary | `boundary.sh` 23 checks 0 failed; corpus core's **542 layout facts** = the corpus header's, shared and static | `wp5-boundary.log` |
+| other gates | groupskip 0 wrong builds; concurrency all expectations met (planted cores fail); ODR ok; bench gate-only 0 arms failed x5 and the gate plant refuses (exit 1); content sets 95 checks 0 failures; crossing counts identical to `counts.log` line for line; RPC counts 2/0, 3/1, 4/0 with the binding's ak_init | `wp5-gates.log` |
+
+**The corpus's four arms match the rust slice's WP5 run row for row**: the same pass counts
+per class, the same forms written, the same three disputed rows, and ffi-retain writes the
+unknown-DROPPED form on the same 17 rows (`U-deep-*`, `U-leaf-*`, `U-map-entry`: an inlined
+child's unknowns, D34, and map entries), native-retain on `U-map-entry` only.
+
+**Byte changes**: none on the payload set and none on the 213 rows the old harness reached.
+The rule fixes the port brings -- a packed field's unpacked form at a foreign wire type is
+now an unknown field (R-E2, was read as the kind; C35), a repeated singular message and a
+repeated same-member oneof message now MERGE (R-E4, were replaced), `-0.0` is written by
+bit test (R-E3), a tag 0 inside a map entry is refused, a message depth limit (100) exists,
+`fixed32` exists -- change no byte on any row the old harness could root. The rows that
+exercise them (`U-wire-MetricsBatch-*`, `U-wire-ChunkInner-*`, the Nest depth rows, WireZoo)
+root at messages the old C++ codec was never generated for, so they have no "before"; they
+pass now. That is an absence of evidence about the old rules on those rows, not evidence
+the old rules were right.
+
+### Plan and shared-tree gaps (for the aggregating session; not decided here)
+
+1. **`plan.lifecycle` names but does not define** `ak_err` (the core has `{i32 code; u32
+   detail}`, ABI-v1.md section 5 has `{int32 code; uint32 msg_len; const char *msg}`), the
+   `ak_log_fn` signature, and the numeric values of `AK_INIT_*`. `cpp_abi.py` states them
+   as fixed text matching `ak-abi/src/lib.rs`, pinned by `sizeof` asserts. The ABI-v1 vs
+   ak-abi `ak_err` difference is a fact for the owner.
+2. **`plan.rpc` lacks the counting build's RPC counters** (`ak_rpc_counting`,
+   `ak_rpc_counters`, `ak_rpc_counters_reset`, `struct ak_rpc_counters`), so
+   `src/rpc_common.h` still hand-declares those four (and nothing else).
+3. **Section 4/5 fixed vocabulary and exports** (`ak_str`, `ak_span`, `ak_blob`, `ak_uspan`,
+   callback types, context lifetime, transcoders, counters, `ak_noop`) and the packed-run
+   symbol list (`ak_run_i32/i64/f64/u8`) are not in the plan; both `rust_abi.py` and
+   `cpp_abi.py` state them as text.
+4. **Field numbers above 2^29 - 1** (a key whose `k >> 3` exceeds 32 bits) are not ruled by
+   the DECODE RULES. `cpp_native.py` truncates to `uint32_t` as `rust_native.py` does, so
+   the two agree; neither refuses as protobuf does.
+5. **`utf8="lossy"`** has no C++ native rendering (U+FFFD substitution into `std::string`);
+   the backend raises. The binding's `s_of` still re-validates a span through
+   `ak::decode_str` after the core already did (defence in depth, never fires under reject),
+   as `rust_binding.py`'s does.
+6. **`rust_core.py` could not be deleted** without editing files this slice may not:
+   `poc/codec/gen/generate.py` lists it in `BACKENDS` (its guard `open()`s it: `--check`
+   would raise), `poc/codec/gen/one_core.sh` lists it, and `poc/rust/gen/corpus_before.py`
+   imports it. Nothing generates through it any more.
+7. **The five shared C++ modules are not in `generate.py`'s `BACKENDS`**; this slice's
+   `--check` runs the same guard over them until they are added.
+8. **`one_core.sh --selftest` fails before planting anything**, independent of this work:
+   its scratch copy holds `ffi/poc` and `ffi/schema` only, and since WP5 step 1 the shared
+   `generate.py --check` also loads `ffi/corpus`. A scratch copy that includes `ffi/corpus`
+   passes (`wp5-generator.log`).
+9. `refusal_test.py`'s B2/B3 (unpacked repeated enum, repeated double) now raise in
+   `plan.lower` ("no plan for ..."), before any backend sees them, so the per-backend rows
+   for those two shapes test the plan, not the backend.
+
+## Previous work unit (2026-09-24, second): R-D5 (C++ half) and R-D7
 
 Machine: 4 vCPU Intel Xeon @ 2.10 GHz container, g++ 13.3.0, protobuf 3.21.12 (apt, already
 present). **No timing was taken or reported**: the bench and content-set gates were run
@@ -1002,23 +1123,18 @@ Four things this settles:
 
 ## Next step
 
-WP4 items 1 (C++ half), 3, 6 (C++ half) and 8 are done. What remains from FIX-PLAN for
-this slice: WP5 (port the C++ backend onto the shared plan, which is where C33's
-left-behind-object rule -- now ruled as R-G6: after a decode error the output object is
-unspecified and only error codes are compared -- C34 and C35 belong) and WP3/WP6. When the
-rust agent's core work lands, re-gate against it: point `AK_CORE_ROOT` at the shared tree
-(the default) and re-run the gates below.
+WP5 step 2 is done for this slice. What remains from FIX-PLAN: the aggregating session's
+side of the gaps listed in this work unit (add the five `cpp_*.py` modules to
+`generate.py`'s `BACKENDS`, drop `rust_core.py` there and in `one_core.sh`, fix
+`one_core.sh --selftest`'s scratch copy, and decide items 1 to 4 of "Plan and shared-tree
+gaps"); then WP3 (the campaign harness contract) and WP6. When the python slice commits its
+own port, `gen/cpp_header.py` (a forwarding name) can be deleted.
 
-To re-run this work unit's gates (in-tree, default core; or out of tree with
-`-DAK_CORE_ROOT`/`-DAK_CORE_TGT` and `B=<dir>`): `cmake --build build`; the six
-conformance builds; `AK_CS_GATE_ONLY=1 build/contentsets_a17 0`;
-`AK_BENCH_GATE_ONLY=1 build/bench_a17_{shared,static}` and `bench_c11_shared`;
-`AK_BENCH_GATE_ONLY=1 build/bench_a17_gateplant` (must exit 1); `gen/concurrency.sh`.
-The earlier work unit's: `python3 gen/corpus.py build/corpus_{a17,c11}_shared`,
-`FFI=1 gen/lenwrap_rows.sh` (`ASAN=1` for the sanitizer pass), `gen/boundary.sh`,
-`gen/rd2_guard.sh`. **Not re-run in this work unit** (no source they build changed):
-corpus, lenwrap, boundary, rd2_guard, groupskip; `generate.py --check` and
-`audit_tracked.sh` were re-run and are green.
+To re-run this work unit's gate: `cmake -S . -B build -DAK_RPC=ON && cmake --build build
+-j4`, then `gen/wp5_gate.sh build` (about 10 minutes; it rebuilds the "before" tree for
+the byte audit out of tree unless `OLD_CORPUS_BIN` names one). Nothing in it is timed.
+`gen/run_all.sh` is the TIMING run and must not be used as a gate: it takes container
+instrumentation.
 
 ### The queue from before 2026-09-24
 
@@ -1107,12 +1223,27 @@ corpus). C30 is this slice's own and is fixed. In the order I would do it:
 | C33 | `src/corpus.cpp`, the between-arms agreement | on a row both arms REFUSE it compared the facade left in the output object after the error, which neither ABI v1 nor CONTRACT.md specifies. It began to differ on 46 rows when the core stopped flushing groups after an error (the rust agent's R-D1 work) while the native codec keeps what it built before the error | **fixed**: on a refusal the arms agree when the error CODE agrees (it does, 52 of 52); the left-behind object is printed as a separate fact ("L" lines, 46 of 52 differ), for the aggregating session to decide whether it becomes a rule in the shared plan |
 | R-D1 | `include/ak/rt.h` `len_body` | `pos + k > len` wraps on a length near 2^64: 9 corpus rows hang, 4 read out of bounds (ASan) | **fixed**: checked comparison against the remaining length; `rd1-lenwrap.log` 0 of 55 after, plain and ASan |
 | R-D2 | `src/rpc_common.h` | hand-declared a 3-field `ak_client_opts` against the core's 6 | **fixed**: rendered into `include/ak_abi.h` from ak-abi, size/offset/field-count guards, all six fields set; `rd2-guard.log`. `rpc.log`/`rpcflow.log` predate the 6-field struct (`rd2-history.log`) |
-| C34 | `poc/codec/crates/ak-abi/src/lib.rs` vs `ak-core/src/rpc.rs` | **observed, not this slice's**: ak-abi declares `ak_queue_next(..., timeout_ms: i32)` while the core exports `timeout_ms: u64` (this slice's hand prototype matches the core); and `ak_bytes`/`ak_completion` exist twice in Rust with no layout assert tying them, unlike `ak_client_opts`. The remaining RPC prototypes and those two structs are still hand-declared in `rpc_common.h` | **open**, for the aggregating session (WP5: the ABI layout rendered once) |
+| C34 | `poc/codec/crates/ak-abi/src/lib.rs` vs `ak-core/src/rpc.rs` | **observed, not this slice's**: ak-abi declares `ak_queue_next(..., timeout_ms: i32)` while the core exports `timeout_ms: u64` (this slice's hand prototype matches the core); and `ak_bytes`/`ak_completion` exist twice in Rust with no layout assert tying them, unlike `ak_client_opts`. The remaining RPC prototypes and those two structs are still hand-declared in `rpc_common.h` | **fixed** (WP5 step 2, `882112c`): the header renders `plan.rpc` (`ak_queue_next` with `uint64_t`, `ak_bytes`, `ak_completion`, every prototype) and `rpc_common.h` declares none of them; the counting build's four RPC counter declarations remain, not being in the plan |
 | C36 | `src/concurrency.cpp`, `CMakeLists.txt` (R-D7) | the planted builds planted `ak::Enc` and linked the unplanted core, so the ffi arm was never seen failing; `roundtrip` re-encoded with `ak::Enc`, so each wrong native encode was counted twice ("44 of 48" = 22); the T6 labels were typed and named the wrong windows after T0 reordered the table | **fixed**: planted cores linked, a core-only plant added, `roundtrip` is a decode check, labels built from the table, `gen/concurrency.sh` requires per-encoder counts (`concurrency.log`) |
 | C37 | `src/bench.cpp`, `src/conformance.cpp`, `src/contentsets.cpp` (R-D5) | `ffi-valtc` was timed in two binaries and gated in none; the bench sank every return code, so a refused encode would have been timed as fast (it was, under a plant: `rd5-before.log`) | **fixed**: gated in conformance and contentsets; every bench arm has a gate run before calibration, a failing arm is not timed and the bench exits 1; `bench_a17_gateplant` shows it (`rd5-gate.log`) |
-| C35 | `gen/cpp_core.py` `packed` | **observed while reading for R-D1, not fixed**: the non-wire-2 arm of a packed field reads the value with the field's own reader whatever wire type arrived (a packed int field at wire type 1 or 5 is read as a varint, a double at wire type 0 as 8 bytes) instead of skipping a known field at the wrong wire type. This is R-E2, which WP5 moves into the shared plan. **From reading the emitter, not from a run**: the in-scope `U-wire-*` rows pass on native, and whether any of them puts a packed field at a wrong wire type was not checked | **open**, WP5 |
+| C35 | `gen/cpp_core.py` `packed` | **observed while reading for R-D1, not fixed**: the non-wire-2 arm of a packed field reads the value with the field's own reader whatever wire type arrived (a packed int field at wire type 1 or 5 is read as a varint, a double at wire type 0 as 8 bytes) instead of skipping a known field at the wrong wire type. This is R-E2, which WP5 moves into the shared plan. **From reading the emitter, not from a run**: the in-scope `U-wire-*` rows pass on native, and whether any of them puts a packed field at a wrong wire type was not checked | **fixed** (WP5 step 2): the native decoder renders the plan's decode table, so a packed field's unpacked form is accepted at the kind's own wire type only; the `U-wire-MetricsBatch-*` / `U-wire-ChunkInner-*` rows pass on native-drop and native-retain (`wp5-corpus.log`). The old emitter never ran on those roots, so the defect itself was never observed in a C++ run |
+
+| C38 | `poc/codec/gen/one_core.sh` (shared) | `--selftest` fails before planting: its scratch copy lacks `ffi/corpus`, which the shared `generate.py --check` loads since WP5 step 1, so the R0 positive controls have not run since | **open, not this slice's file**: reported. A scratch copy with `ffi/corpus` passes (`wp5-generator.log`) |
+| C39 | `poc/codec/gen/generate.py`, `one_core.sh`, `poc/rust/gen/corpus_before.py` | still name `rust_core.py`, which no generator uses any more; deleting it would make the shared `--check` raise | **open, not this slice's files**: reported |
+| C40 | `design/ABI-v1.md` section 5 vs `ak-abi/src/lib.rs` | `ak_err` is `{code, msg_len, msg}` in the specification and `{code, detail}` in the core; `plan.lifecycle` defines neither. The C header follows the core | **open**, for the aggregating session |
+| R-G7 | this slice's binding | never called `ak_init`; every gate passed because the core was built without `init-guard` | **fixed** (WP5 step 2): rendered from `plan.lifecycle`, called by every binding entry point and by the RPC binaries; every core built with `init-guard`; two planted builds (`conformance_a17_noinit`, `corpus_all_noinit`) fail as required |
 
 ## What is not measured
+
+- **The C++ ffi arm's retain mode on the shapes payload set**: the retain family is
+  rendered for the corpus binding only (`cpp_binding.emit(..., retain=True)`); the shapes
+  binding the benches link is drop-only, as before.
+- **A lossy (U+FFFD) decode policy in the C++ native codec**: not rendered; the backend
+  raises. The two lossy build targets are retired.
+- **Timings of anything built in this work unit.** The facade grew a `std::string
+  unknown_fields` per struct and every binding entry point checks a function-local static
+  for `ak_init`, against a core that now checks `init-guard` too: every committed timing
+  log predates all three and none was re-taken (owner position 2).
 
 - **Exactly when glibc's mmap threshold adapts**, which is C16's residual. The *cause* of
   the outlier is demonstrated by removal; what a different allocation history does to its
@@ -1210,15 +1341,21 @@ corpus). C30 is this slice's own and is fixed. In the order I would do it:
 
 | Log | Configuration | What it establishes |
 |---|---|---|
+| `wp5-generator.log` | `generate.py --check` (+ guard), the shared `--check`, `refusal_test.py`, `rd2_guard.sh`, audit, `one_core.sh` | **WP5 step 2's generator gates**: every target current, the five shared C++ modules import plans only, 17 of 17 refusals, both RD2 plants refused (plant B now in `plan.rpc`), audit green; the `one_core.sh --selftest` defect (C38) shown and reproduced |
+| `wp5-conformance.log` | five conformance builds against the init-guard core, plus the planted `conformance_a17_noinit` | **payload set byte identity after the port**: 476 checks 0 failures x5; the planted build fails (205 checks) |
+| `wp5-corpus.log` | the FULL corpus (691 rows), four arms, one child per row, 10 s timeout, C++17/14/11/static; `--compare`; controls proj/reenc/accept/noinit | **WP5 item 6.1 for C++**: ffi 672/0, native 688/0, 3 disputed, 16 not in the C ABI; identical outcomes across four builds; every control fails |
+| `wp5-bytes.log` | the retired harness built at `aba944a` out of tree against `corpus_all_a17`, one process per row | **0 byte changes** on the 213 rows the old harness could root, native and ffi |
+| `wp5-boundary.log` | `boundary.sh`; `corpus_all_* --layout` | 23 checks 0 failed; 542 corpus layout facts agree, shared and static |
+| `wp5-gates.log` | groupskip, concurrency (no T7), ODR, five benches gate-only + the gate plant, content sets gate-only, counts (shared, static), `rpccounts` | every expectation met; counts identical to `counts.log` |
 | `rd1-lenwrap.log` | the corpus's 55 `X-lenwrap-*` rows, one process per row, `timeout 5`, native arm (walker for WireZoo rows), unfixed `rt.h` (scratch build) against the tree, plain and under ASan, plus the ffi arm into core `6ede244` | **R-D1.** Native before: 9 hangs, plus 4 out-of-bounds reads under ASan. Native after: 0 of 55, plain and ASan. ffi: 0 of 55. `X-lenwrap-lrr-unknown-zero` is the reviewer's 11 bytes |
 | `rd2-history.log` | git only (`gen/rd2_history.sh`) | **R-D2.** `rpc.log` and `rpcflow.log` were taken (17:43, 18:33) and committed (`af2b100`, 18:38) when the core had the host's 3 fields; 5 fields at `908dc24` 18:47, 6 at `ef8fea9` 18:55. The TCP rows are not invalidated by R-D2 |
 | `rd2-guard.log` | `gen/rd2_guard.sh`: `ak_abi.h` at C++11/14/17, the four RPC sources, two plants | **R-D2's guard** compiles, and refuses a header missing a field and a Rust declaration with a seventh |
 | `rd2-rpccounts.log` | `rpccounts`, counting core, all six options set | the six-field options dial; counts 2/0, 3/1, 4/0 as in `rpc.log`. Counts, not a timing |
 | `rd-generator.log` | `generate.py --check`, `refusal_test.py`, `audit_tracked.sh` after the change | 23 of 23 ok, 16 of 16 refused, audit green once the new scripts are tracked |
-| `corpus-native.log` | the corpus, native + pb only (`--no-ffi`), C++17 and C++11 | 213 in-scope rows of 691, 0 failures; the native arm alone, 0 failures; the form of the gate to use whenever the core is in flux |
+| `corpus-native.log` | **superseded by `wp5-corpus.log`.** The corpus, native + pb only (`--no-ffi`), C++17 and C++11 | 213 in-scope rows of 691, 0 failures; the native arm alone, 0 failures; the form of the gate to use whenever the core is in flux |
 | `generator.log` | — | R1 as a gate: `--check` green on **23** files, 16 must-fail guards refused, the tracked-file audit green |
 | `groupskip.log` | `ak::Dec::skip` alone, at C++17 target, C++17 floor, C++14 floor and C++11 floor, plus TWO PLANTED builds | **C24.** 11 checks x 4 configurations, 0 failures; the depth-counting plant fails the two mismatched-end cases and the dropped-`case 5:` plant fails the two that carry a `fixed32`. The decode path a schema-generated manifest can never reach |
-| `corpus.log` | **re-taken 2026-09-24 against core `6ede244`**: 213 of 691 rows, 0 failures, 0 disputed, 0 permuted, C1 161/161, C2 158/158, C3 161/161, C4 52/52 on all three arms, walker 103/103; the old description follows. 128 of 336 corpus rows, three arms (`native`, `ffi`, and protobuf C++ as an ORACLE), at C++17 and at the C++11 floor, plus the 62 `WireZoo` rows through the unknown-field walker | **W8.** 0 failures; C1 126/126, C2 123/124, C3 125/126, C4 2/2 on both arms; 128/128 arm agreement; walker 62/62. Two rows named rather than counted (C25 `U-map-entry`, where protobuf C++ and pure-Python side with this slice against upb and the corpus; C26 `B-P7_1`, a permutation). Decision 11 answered: this slice DROPS |
+| `corpus.log` | **SUPERSEDED by `wp5-corpus.log`** (the subset harness is retired). **Re-taken 2026-09-24 against core `6ede244`**: 213 of 691 rows, 0 failures, 0 disputed, 0 permuted, C1 161/161, C2 158/158, C3 161/161, C4 52/52 on all three arms, walker 103/103; the old description follows. 128 of 336 corpus rows, three arms (`native`, `ffi`, and protobuf C++ as an ORACLE), at C++17 and at the C++11 floor, plus the 62 `WireZoo` rows through the unknown-field walker | **W8.** 0 failures; C1 126/126, C2 123/124, C3 125/126, C4 2/2 on both arms; 128/128 arm agreement; walker 62/62. Two rows named rather than counted (C25 `U-map-entry`, where protobuf C++ and pure-Python side with this slice against upb and the corpus; C26 `B-P7_1`, a permutation). Decision 11 answered: this slice DROPS |
 | `c24-timing.log` | a fresh `bench_a17_shared` against the published one | **C24 moved nothing.** 225 ratio rows, worst move 0.164, median 0.009, 0 over R4's 0.240 across-build bar. The published tables stand |
 | `concurrency.log` | **re-taken 2026-09-24 for R-D7, core snapshot `817174f`, T7 skipped.** 4 shapes x 2 message types, threads in sequence and together, C++17 + C++11 floor + both linkages, plus FOUR PLANTED builds, each linking the matching planted core | **ABI v1 obligation 12.5.** Zero wrong operations on every shipped axis. Planted: pad 23 of 96 distinct wrong encodes on each of native, ffi, hosttc; core-only pad 0/23/23; global byte-clean on both encoders; decoder 0 everywhere. 12.5's claim: 0 on one shape, 22 of 48 per encoder on two (the earlier "44" double-counted). The 1.83-2.05x global-table scaling cost is T7 from this file's version at `4af8d2b`, instrumentation |
 | `rd7-before.log` | the HEAD (`817174f`) tree built unchanged in scratch, `conc_a17_pad` and `conc_a17_both` | **R-D7 before**: both link the unplanted core; ffi 0 and hosttc 0 in every row; native N = roundtrip N (the double count); the T6 labels name the wrong windows |
@@ -1236,7 +1373,7 @@ corpus). C30 is this slice's own and is fixed. In the order I would do it:
 | `bench_a17_static.log` | arm a, **static linkage** | the second column. Crossing 1.219-1.221 ns against 1.822-1.824 |
 | `bench_b17_shared.log`, `bench_c11_shared.log`, `bench_c14_shared.log` | floor implementation at C++17, C++11, C++14 | a consistency check inside the 0.24 drift bar, not a measurement |
 | `bench_a17_noguard.log` | the guard off | nothing larger than the drift bar |
-| `bench_a17_lossy.log` | the decode UTF-8 check off | superseded by the in-process string-path table; kept because it is what the whole-payload claim came from |
+| `bench_a17_lossy.log` | the decode UTF-8 check off. **The target is retired (WP5 step 2)**; the log is history | superseded by the in-process string-path table; kept because it is what the whole-payload claim came from |
 | `drift.log` | the same source, a neutral layout perturbation | **R4's across-build control: worst ratio drift 0.240.** Any cross-binary claim carries this bar |
 | `tax.log` | the crossing priced up | **the batching crossover: 2 to 4 ns**, with the 8 ns outlier re-run |
 | `opt.log` | `-O2 -DNDEBUG` against `-O3 -DNDEBUG` | the control's decode gap is not a function of the optimisation level |
