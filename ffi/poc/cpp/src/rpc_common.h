@@ -19,66 +19,46 @@
 
 #include <atomic>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
 
 #include "ak_abi.h"
+#include "generated/binding.h"
 #include "shapes_svc.grpc.pb.h"
 
 namespace svcns = armonik::ffi::shapes::v1;
 
-// ---- the C ABI, as a host declares it -----------------------------------------------
+// ---- the C ABI ----------------------------------------------------------------------
+// Every RPC struct, handle, constant and prototype of ABI v1 section 9 comes from the
+// generated `ak_abi.h`, rendered from `plan.rpc` by the shared C++ backend (R-G5, FIX-PLAN
+// WP5 step 2). They used to be hand-declared here: `ak_client_opts` with 3 fields while the
+// core read 6 (R-D2), and `ak_bytes`, `ak_completion`, `ak_queue_next` and the rest as a
+// third copy of declarations the core had twice.
+//
+// What remains below is NOT in plan.rpc and is therefore still declared by hand: the
+// counting build's RPC crossing counters, exported by the core only with `--features
+// rpc,count`. Reported to the aggregating session as missing from the plan.
 extern "C" {
-typedef struct ak_runtime ak_runtime;
-typedef struct ak_client ak_client;
-typedef struct ak_call ak_call;
-typedef struct ak_queue ak_queue;
-
-struct ak_bytes { const uint8_t *ptr; size_t len; void *owner; };
-struct ak_completion { uint64_t tag; int32_t status; struct ak_bytes bytes; };
-typedef void (*ak_completion_cb)(void *user_data, struct ak_completion *comp);
-
-// design/SHAPES.md: every cell of the grid pins the SAME transport and states it.
-// `struct ak_client_opts` is NOT declared here any more. It was, with 3 fields, while the
-// core read 6: `max_recv_message` and `max_send_message` came from past the end of the
-// host's object and `tcp_nagle` from stack garbage (R-D2). It now comes from the generated
-// `ak_abi.h`, rendered from the core's own Rust declaration, which static_asserts its size
-// and every offset.
 struct ak_rpc_counters { uint64_t forward; uint64_t reverse; };
-
-ak_runtime *ak_runtime_new(uint32_t worker_threads);
-void ak_runtime_destroy(ak_runtime *);
-ak_client *ak_client_new(ak_runtime *, const uint8_t *uri, size_t uri_len);
-ak_client *ak_client_new_opts(ak_runtime *, const uint8_t *uri, size_t uri_len,
-                              const struct ak_client_opts *);
-void ak_client_destroy(ak_client *);
-
-int32_t ak_call_unary(ak_client *, const uint8_t *path, size_t path_len,
-                      const uint8_t *req, size_t req_len, struct ak_bytes *out);
-ak_call *ak_call_unary_cb(ak_client *, const uint8_t *path, size_t path_len,
-                          const uint8_t *req, size_t req_len,
-                          ak_completion_cb cb, void *user_data, uint64_t tag);
-ak_call *ak_call_unary_q(ak_client *, const uint8_t *path, size_t path_len,
-                         const uint8_t *req, size_t req_len, ak_queue *, uint64_t tag);
-ak_queue *ak_queue_new(void);
-int32_t ak_queue_next(ak_queue *, struct ak_completion *out, uint64_t timeout_ms);
-void ak_queue_shutdown(ak_queue *);
-void ak_queue_destroy(ak_queue *);
-void ak_call_cancel(ak_call *);
-void ak_call_destroy(ak_call *);
-void ak_bytes_free(struct ak_bytes *);
-
 int32_t ak_rpc_counting(void);
 void ak_rpc_counters(struct ak_rpc_counters *out);
 void ak_rpc_counters_reset(void);
 }
 
-#define AK_QUEUE_OK 0
-#define AK_QUEUE_TIMEOUT 1
-#define AK_QUEUE_SHUTDOWN 2
-
 namespace akrpc {
+
+// R-G7: ABI v1 section 3's `ak_init`, rendered from plan.lifecycle into the binding
+// (`shapes::ffi::ak_init_once`), called by every RPC binary before its first RPC call.
+inline int init_core_or_die() {
+  int32_t rc = shapes::ffi::ak_init_once();
+  if (rc != AK_OK) {
+    std::fprintf(stderr, "ak_init refused: %d\n", rc);
+    std::exit(2);
+  }
+  return 0;
+}
 
 static const char *const kFetchPath = "/armonik.ffi.shapes.v1.Shapes/Fetch";
 static const char *const kPingPath = "/armonik.ffi.shapes.v1.Shapes/Ping";

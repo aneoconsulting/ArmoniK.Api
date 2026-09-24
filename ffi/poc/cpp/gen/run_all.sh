@@ -73,7 +73,7 @@ hdr() {
 {
   hdr "cpp slice: correctness (R2), every level and both linkages"
   for b in conformance_a17_shared conformance_b17_shared conformance_c14_shared \
-           conformance_c11_shared conformance_a17_static conformance_a17_lossy; do
+           conformance_c11_shared conformance_a17_static; do
     echo "===== $b ====="
     (cd ../../schema/generated && "$OLDPWD/build/$b" payloads 2>&1 | grep -v 'libprotobuf ERROR')
     echo
@@ -89,17 +89,13 @@ hdr() {
   echo "groupskip.sh exit $?"
 } > "$L/groupskip.log" 2>&1
 
-# W8: the conformance corpus. The oracle byte identity against a schema-generated manifest
-# cannot be. Target level and the C++11 floor, because the floor is a correctness gate.
+# W8 / FIX-PLAN WP5 item 6.1: the FULL conformance corpus, four arms (ffi and core-native,
+# unknown fields dropped and retained), each row in its own process. gen/wp5_gate.sh runs
+# it at every level with its controls; this is the target-level run.
 {
-  hdr "cpp slice: the conformance corpus (W8)"
-  echo "===== C++17 target, shared ====="
-  python3 gen/corpus.py build/corpus_a17_shared
-  echo "corpus.py (a17) exit $?"
-  echo
-  echo "===== C++11 floor, shared ====="
-  python3 gen/corpus.py build/corpus_c11_shared
-  echo "corpus.py (c11) exit $?"
+  hdr "cpp slice: the conformance corpus (W8, WP5 item 6.1)"
+  python3 gen/corpus_all.py build/corpus_all_a17
+  echo "corpus_all.py (a17) exit $?"
 } > "$L/corpus.log" 2>&1
 
 ./gen/boundary.sh   > "$L/boundary.log" 2>&1
@@ -109,7 +105,7 @@ hdr() {
   echo; echo "===== static ====="; ./build/counts_a17_static; } > "$L/counts.log" 2>&1
 
 for b in bench_a17_shared bench_a17_static bench_b17_shared bench_c11_shared \
-         bench_c14_shared bench_a17_noguard bench_a17_lossy; do
+         bench_c14_shared bench_a17_noguard; do
   { hdr "timings: $b"; ./build/$b "$ROUNDS"; } > "$L/$b.log" 2>&1
 done
 

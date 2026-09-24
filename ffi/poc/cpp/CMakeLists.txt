@@ -68,15 +68,21 @@ set(CORE_TGT "${AK_CORE_TGT}")
 set(CORE_OUT "${CORE_TGT}/target/release")
 set(CORE_COUNT_OUT "${CORE_TGT}/target-count/release")
 
+# R-G7 / FIX-PLAN WP5 step 2: every C ABI core this slice links is built WITH `init-guard`
+# (ABI v1 section 3 as specified), so a binding that skipped `ak_init` would get
+# AK_ERR_UNINITIALIZED on its first codec call instead of passing silently. The binding is
+# rendered from plan.lifecycle and calls it; gen/corpus_all.sh's `noinit` control shows the
+# guard is in the build.
+set(AK_CORE_FEATURES "init-guard")
 add_custom_target(core ALL
   COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target
-          cargo build --release --manifest-path ${CORE_DIR}/Cargo.toml
+          cargo build --release --features ${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
   BYPRODUCTS ${CORE_OUT}/libak_core.so ${CORE_OUT}/libak_core.a
   COMMENT "cargo build the shared ak-core (cdylib + staticlib)")
 
 add_custom_target(core_count ALL
   COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-count
-          cargo build --release --features count --manifest-path ${CORE_DIR}/Cargo.toml
+          cargo build --release --features count,${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
   BYPRODUCTS ${CORE_COUNT_OUT}/libak_core.so
   COMMENT "cargo build the shared ak-core --features count")
 
@@ -90,17 +96,17 @@ set(CORE_GLOBAL_OUT "${CORE_TGT}/target-global/release")
 set(CORE_BOTH_OUT   "${CORE_TGT}/target-both/release")
 add_custom_target(core_pad ALL
   COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-pad
-          cargo build --release --features pad-widths --manifest-path ${CORE_DIR}/Cargo.toml
+          cargo build --release --features pad-widths,${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
   BYPRODUCTS ${CORE_PAD_OUT}/libak_core.so
   COMMENT "cargo build the shared ak-core --features pad-widths (a planted core)")
 add_custom_target(core_global ALL
   COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-global
-          cargo build --release --features global-widths --manifest-path ${CORE_DIR}/Cargo.toml
+          cargo build --release --features global-widths,${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
   BYPRODUCTS ${CORE_GLOBAL_OUT}/libak_core.so
   COMMENT "cargo build the shared ak-core --features global-widths (a planted core)")
 add_custom_target(core_both ALL
   COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-both
-          cargo build --release --features pad-widths,global-widths
+          cargo build --release --features pad-widths,global-widths,${AK_CORE_FEATURES}
           --manifest-path ${CORE_DIR}/Cargo.toml
   BYPRODUCTS ${CORE_BOTH_OUT}/libak_core.so
   COMMENT "cargo build the shared ak-core --features pad-widths,global-widths (a planted core)")
@@ -195,7 +201,14 @@ ak_arm(conformance_c11_shared ${CONF} 11 floor  on shared reject ${CORE_OUT})
 ak_arm(conformance_c14_shared ${CONF} 14 floor  on shared reject ${CORE_OUT})
 ak_arm(conformance_b17_shared ${CONF} 17 floor  on shared reject ${CORE_OUT})
 ak_arm(conformance_a17_static ${CONF} 17 target on static reject ${CORE_OUT})
-ak_arm(conformance_a17_lossy  ${CONF} 17 target on shared lossy  ${CORE_OUT})
+# R-G7's planted control on the shapes core: the binding skips ak_init (rendered from
+# plan.lifecycle). The core is built with init-guard, so every ffi check must FAIL.
+ak_arm(conformance_a17_noinit ${CONF} 17 target on shared reject ${CORE_OUT})
+target_compile_definitions(conformance_a17_noinit PRIVATE AK_BINDING_SKIP_INIT=1)
+# `conformance_a17_lossy` and `bench_a17_lossy` are RETIRED (FIX-PLAN WP5 step 2): the
+# decode UTF-8 policy is a generator option (plan.Options.utf8), rendered by the shared
+# backends into the native codec AND into the core, not a host build switch. A lossy build
+# needs a lossy-lowered plan and a lossy core; the C++ native backend raises on it today.
 
 # Timing. Only arm a produces ratios for the report; b and c are the floor's price.
 ak_arm(bench_a17_shared   ${BENCH} 17 target on  shared reject ${CORE_OUT})
@@ -204,7 +217,6 @@ ak_arm(bench_b17_shared   ${BENCH} 17 floor  on  shared reject ${CORE_OUT})
 ak_arm(bench_c11_shared   ${BENCH} 11 floor  on  shared reject ${CORE_OUT})
 ak_arm(bench_c14_shared   ${BENCH} 14 floor  on  shared reject ${CORE_OUT})
 ak_arm(bench_a17_noguard  ${BENCH} 17 target off shared reject ${CORE_OUT})
-ak_arm(bench_a17_lossy    ${BENCH} 17 target on  shared lossy  ${CORE_OUT})
 # C16: the P1.2 decode outlier, which appeared in rounds 1 and 2 of the `ffi` arm in every
 # log this slice took and vanished when the validator changed. Same source, one define, so
 # the question "is the outlier the validator?" is answered by a build rather than argued.
@@ -252,17 +264,59 @@ target_compile_definitions(bench_a17_gateplant PRIVATE AK_GATE_PLANT=1)
 # a core would ship and a core ships to C++11 hosts too.
 ak_arm(contentsets_a17 ${CS} 17 target on shared reject ${CORE_OUT})
 
-# W8: this slice as a consumer of ffi/corpus. The oracle byte identity against a
-# schema-generated manifest cannot be, because the manifest and the codec come from the
-# same description. Built at the target level and at the C++11 FLOOR, because the floor is
-# a correctness gate and this is correctness.
-# The projector is added to THESE TWO TARGETS ONLY, never to `ak_arm`'s common source
-# list: linking a file nothing calls into every timed binary perturbs its layout, and R4's
-# own drift control says a neutral layout perturbation is worth up to 0.240 of a ratio.
-ak_arm(corpus_a17_shared ${CMAKE_CURRENT_SOURCE_DIR}/src/corpus.cpp 17 target on shared reject ${CORE_OUT})
-ak_arm(corpus_c11_shared ${CMAKE_CURRENT_SOURCE_DIR}/src/corpus.cpp 11 floor  on shared reject ${CORE_OUT})
-target_sources(corpus_a17_shared PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/project.cpp)
-target_sources(corpus_c11_shared PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/project.cpp)
+# W8 / FIX-PLAN WP5 item 6.1: the FULL conformance corpus, through the C ABI (the core
+# generated for the corpus's READER schema, `--features corpus,init-guard`, its own ABI and
+# its own header in corpus/include) and core-native, unknown fields dropped and retained.
+# Everything but corpus_main.cpp / corpus_harness.h is rendered from the corpus plan by the
+# shared C++ backend (gen/generate.py writes corpus/**). A different ABI from the shapes
+# core, so it is never linked with a shapes facade. gen/corpus_all.py takes the verdict,
+# one child process per row under a timeout. The previous subset harness (src/corpus.cpp,
+# gen/corpus.py: 213 in-scope rows of the shapes roots, native + ffi + pb) is retired.
+set(CORE_CORPUS_OUT "${CORE_TGT}/target-corpus/release")
+add_custom_target(core_corpus ALL
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-corpus
+          cargo build --release --features corpus,${AK_CORE_FEATURES}
+          --manifest-path ${CORE_DIR}/Cargo.toml
+  BYPRODUCTS ${CORE_CORPUS_OUT}/libak_core.so ${CORE_CORPUS_OUT}/libak_core.a
+  COMMENT "cargo build the shared ak-core --features corpus,init-guard (corpus reader ABI)")
+set(CORPUS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/corpus)
+# ak_corpus(<name> <std> <impl> <linkage>)
+function(ak_corpus name std impl linkage)
+  add_executable(${name}
+    ${CORPUS_DIR}/src/corpus_main.cpp
+    ${CORPUS_DIR}/src/generated/dispatch.cpp
+    ${CORPUS_DIR}/src/generated/types.cpp
+    ${CORPUS_DIR}/src/generated/core_native.cpp
+    ${CORPUS_DIR}/src/generated/core_native_retain.cpp
+    ${CORPUS_DIR}/src/generated/binding.cpp
+    ${CORPUS_DIR}/src/generated/project.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rt.cpp)
+  add_dependencies(${name} core_corpus)
+  # ORDER MATTERS: corpus/include first, so "ak_abi.h" and "generated/ak_layout.h" are the
+  # corpus ABI's and never the shapes one in include/.
+  target_include_directories(${name} PRIVATE ${CORPUS_DIR}/include ${CORPUS_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/include ${Protobuf_INCLUDE_DIRS})
+  target_link_libraries(${name} PRIVATE ${Protobuf_LIBRARIES} Threads::Threads)
+  set_property(TARGET ${name} PROPERTY CXX_STANDARD ${std})
+  set_property(TARGET ${name} PROPERTY CXX_STANDARD_REQUIRED ON)
+  if(impl STREQUAL "floor")
+    target_compile_definitions(${name} PRIVATE AK_FLOOR_IMPL=1)
+  endif()
+  if(linkage STREQUAL "static")
+    target_link_libraries(${name} PRIVATE ${CORE_CORPUS_OUT}/libak_core.a ${CMAKE_DL_LIBS} m)
+  else()
+    target_link_libraries(${name} PRIVATE ${CORE_CORPUS_OUT}/libak_core.so)
+    set_property(TARGET ${name} APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-rpath,${CORE_CORPUS_OUT}")
+  endif()
+endfunction()
+ak_corpus(corpus_all_a17 17 target shared)
+ak_corpus(corpus_all_c11 11 floor  shared)
+ak_corpus(corpus_all_c14 14 floor  shared)
+ak_corpus(corpus_all_a17_static 17 target static)
+# The planted control: the binding skips ak_init. Against the init-guard core every ffi
+# arm must fail (gen/corpus_all.py --expect-fail noinit).
+ak_corpus(corpus_all_noinit 17 target shared)
+target_compile_definitions(corpus_all_noinit PRIVATE AK_BINDING_SKIP_INIT=1)
 
 ak_arm(utf8check_a17 ${U8} 17 target on shared reject ${CORE_OUT})
 ak_arm(utf8check_c11 ${U8} 11 floor  on shared reject ${CORE_OUT})

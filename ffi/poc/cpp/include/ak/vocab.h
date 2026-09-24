@@ -74,6 +74,46 @@ class Optional {
 #endif
 };
 
+// A singular message field that can contain its own owner (the corpus's `Nest`), which
+// `Optional<T>` cannot hold because it needs a complete `T`. Owning, deep-copying, one
+// pointer at every standard level. Not in any shapes.json facade (no message there is
+// recursive), so it changes no existing type's layout. FIX-PLAN WP5 step 2.
+template <class T>
+class Box {
+ public:
+  Box() : p_(NULL) {}
+  Box(const Box &o) : p_(o.p_ ? new T(*o.p_) : NULL) {}
+  Box(Box &&o) noexcept : p_(o.p_) { o.p_ = NULL; }
+  Box &operator=(const Box &o) {
+    if (this != &o) { T *n = o.p_ ? new T(*o.p_) : NULL; delete p_; p_ = n; }
+    return *this;
+  }
+  Box &operator=(Box &&o) noexcept {
+    if (this != &o) { delete p_; p_ = o.p_; o.p_ = NULL; }
+    return *this;
+  }
+  ~Box() { delete p_; }
+  bool has_value() const { return p_ != NULL; }
+  explicit operator bool() const { return p_ != NULL; }
+  const T &operator*() const { return *p_; }
+  T &operator*() { return *p_; }
+  const T *operator->() const { return p_; }
+  T *operator->() { return p_; }
+  T &get_or_insert() {
+    if (!p_) p_ = new T();
+    return *p_;
+  }
+  T &emplace() { delete p_; p_ = new T(); return *p_; }
+  void reset() { delete p_; p_ = NULL; }
+  bool operator==(const Box &o) const {
+    return (p_ == NULL) == (o.p_ == NULL) && (!p_ || *p_ == *o.p_);
+  }
+  bool operator!=(const Box &o) const { return !(*this == o); }
+
+ private:
+  T *p_;
+};
+
 // `string_view` (C++17). Only the part this slice uses.
 class StringView {
  public:

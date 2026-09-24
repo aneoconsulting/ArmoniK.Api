@@ -116,6 +116,14 @@ constexpr std::size_t arena_n(std::size_t group_size) {
   return ARENA_BYTES / group_size == 0 ? 1 : ARENA_BYTES / group_size;
 }
 
+// The plan's implicit-presence test for a double compares BIT PATTERNS (R-E3), so -0.0
+// is written and +0.0 is not.
+inline uint64_t f64_bits(double v) {
+  uint64_t b;
+  std::memcpy(&b, &v, 8);
+  return b;
+}
+
 inline std::size_t varint_len(uint64_t v) {
   std::size_t n = 1;
   while (v >= 0x80) { v >>= 7; ++n; }
@@ -198,6 +206,26 @@ class Enc {
     uint64_t bits;
     std::memcpy(&bits, &v, 8);
     std::memcpy(&storage_[0] + len_, &bits, 8);
+    len_ += 8;
+  }
+  // fixed32 (plan value codec `fixed32_u32`): 4 bytes little-endian.
+  inline void fixed32_field(uint32_t tag, uint32_t v) {
+    key(tag, 5);
+    u32_raw(v);
+  }
+  inline void u32_raw(uint32_t v) {
+    ensure(4);
+    uint8_t *d = &storage_[0] + len_;
+    d[0] = (uint8_t)v; d[1] = (uint8_t)(v >> 8); d[2] = (uint8_t)(v >> 16); d[3] = (uint8_t)(v >> 24);
+    len_ += 4;
+  }
+  // One element of a packed double run: the IEEE-754 bits, little-endian.
+  inline void f64_raw(double v) {
+    uint64_t bits;
+    std::memcpy(&bits, &v, 8);
+    ensure(8);
+    uint8_t *d = &storage_[0] + len_;
+    for (int i = 0; i < 8; ++i) d[i] = (uint8_t)(bits >> (8 * i));
     len_ += 8;
   }
   inline void blob_field(uint32_t tag, const char *p, std::size_t n) {
@@ -308,6 +336,13 @@ class Dec {
     pos += 8;
     double v;
     std::memcpy(&v, &bits, 8);
+    return v;
+  }
+  inline uint32_t fixed32() {
+    if (pos > len || len - pos < 4) { err = ERR_TRUNCATED; return 0; }
+    uint32_t v = (uint32_t)buf[pos] | ((uint32_t)buf[pos + 1] << 8) |
+                 ((uint32_t)buf[pos + 2] << 16) | ((uint32_t)buf[pos + 3] << 24);
+    pos += 4;
     return v;
   }
   // (offset, length) into the ONE buffer the host handed in: what `ak_span` is.

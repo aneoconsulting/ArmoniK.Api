@@ -125,6 +125,7 @@ static Counted run_queue(ak_client *cl, const char *path, int n) {
 }
 
 int main(int argc, char **argv) {
+  akrpc::init_core_or_die();
   int n = argc > 1 ? atoi(argv[1]) : 20;
 
   if (!ak_rpc_counting()) {

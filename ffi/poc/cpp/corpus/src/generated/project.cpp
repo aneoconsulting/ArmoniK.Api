@@ -12,7 +12,7 @@
 #include "ak/projjson.h"
 #include "ak/rt.h"
 
-namespace shapes {
+namespace corpus {
 namespace project {
 
 static void proj_timestamp(const Timestamp &o, std::string *out);
@@ -34,6 +34,17 @@ static void proj_list_probe_response(const ListProbeResponse &o, std::string *ou
 static void proj_list_metrics_response(const ListMetricsResponse &o, std::string *out);
 static void proj_upload_result_data_message(const UploadResultDataMessage &o, std::string *out);
 static void proj_dual_response(const DualResponse &o, std::string *out);
+static void proj_chunk_leaf(const ChunkLeaf &o, std::string *out);
+static void proj_chunk_inner(const ChunkInner &o, std::string *out);
+static void proj_chunk_element(const ChunkElement &o, std::string *out);
+static void proj_chunked_response(const ChunkedResponse &o, std::string *out);
+static void proj_chunked_response_wide(const ChunkedResponseWide &o, std::string *out);
+static void proj_leaf_element(const LeafElement &o, std::string *out);
+static void proj_leaf_response(const LeafResponse &o, std::string *out);
+static void proj_surrogate(const Surrogate &o, std::string *out);
+static void proj_surrogate_inner(const SurrogateInner &o, std::string *out);
+static void proj_nest(const Nest &o, std::string *out);
+static void proj_wire_zoo(const WireZoo &o, std::string *out);
 
 static void proj_timestamp(const Timestamp &o, std::string *out) {
   (void)o;
@@ -660,6 +671,351 @@ static void proj_dual_response(const DualResponse &o, std::string *out) {
   out->push_back('}');
 }
 
+static void proj_chunk_leaf(const ChunkLeaf &o, std::string *out) {
+  (void)o;
+  out->push_back('{');
+  bool first = true;
+  (void)first;
+  if (!o.k.empty()) {
+    ak::proj::key("k", &first, out);
+    ak::proj::str(o.k, out);
+  }
+  if (o.v != 0) {
+    ak::proj::key("v", &first, out);
+    ak::proj::i64((long long)o.v, out);
+  }
+  out->push_back('}');
+}
+
+static void proj_chunk_inner(const ChunkInner &o, std::string *out) {
+  (void)o;
+  out->push_back('{');
+  bool first = true;
+  (void)first;
+  if (!o.marks.empty()) {
+    ak::proj::key("marks", &first, out);
+    out->push_back('[');
+    for (size_t i = 0; i < o.marks.size(); ++i) {
+      if (i) out->push_back(',');
+      ak::proj::i64((long long)o.marks[i], out);
+    }
+    out->push_back(']');
+  }
+  if (!o.leaves.empty()) {
+    ak::proj::key("leaves", &first, out);
+    out->push_back('[');
+    for (size_t i = 0; i < o.leaves.size(); ++i) {
+      if (i) out->push_back(',');
+      proj_chunk_leaf(o.leaves[i], out);
+    }
+    out->push_back(']');
+  }
+  out->push_back('}');
+}
+
+static void proj_chunk_element(const ChunkElement &o, std::string *out) {
+  (void)o;
+  out->push_back('{');
+  bool first = true;
+  (void)first;
+  if (!o.labels.empty()) {
+    ak::proj::key("labels", &first, out);
+    out->push_back('[');
+    for (size_t i = 0; i < o.labels.size(); ++i) {
+      if (i) out->push_back(',');
+      ak::proj::str(o.labels[i], out);
+    }
+    out->push_back(']');
+  }
+  if (!o.attrs.empty()) {
+    ak::proj::key("attrs", &first, out);
+    out->push_back('{');
+    bool mf = true;
+    for (std::map<AkStrT, AkStrT>::const_iterator it = o.attrs.begin();
+         it != o.attrs.end(); ++it) {
+      ak::proj::sep(&mf, out);
+      ak::proj::str(it->first, out);
+      out->push_back(':');
+      ak::proj::str(it->second, out);
+    }
+    out->push_back('}');
+  }
+  if (!o.id.empty()) {
+    ak::proj::key("id", &first, out);
+    ak::proj::str(o.id, out);
+  }
+  if (o.inner.has_value()) {
+    ak::proj::key("inner", &first, out);
+    proj_chunk_inner(*o.inner, out);
+  }
+  out->push_back('}');
+}
+
+static void proj_chunked_response(const ChunkedResponse &o, std::string *out) {
+  (void)o;
+  out->push_back('{');
+  bool first = true;
+  (void)first;
+  if (!o.items.empty()) {
+    ak::proj::key("items", &first, out);
+    out->push_back('[');
+    for (size_t i = 0; i < o.items.size(); ++i) {
+      if (i) out->push_back(',');
+      proj_chunk_element(o.items[i], out);
+    }
+    out->push_back(']');
+  }
+  if (o.page != 0) {
+    ak::proj::key("page", &first, out);
+    ak::proj::i64((long long)o.page, out);
+  }
+  out->push_back('}');
+}
+
+static void proj_chunked_response_wide(const ChunkedResponseWide &o, std::string *out) {
+  (void)o;
+  out->push_back('{');
+  bool first = true;
+  (void)first;
+  if (!o.items.empty()) {
+    ak::proj::key("items", &first, out);
+    out->push_back('[');
+    for (size_t i = 0; i < o.items.size(); ++i) {
+      if (i) out->push_back(',');
+      proj_chunk_element(o.items[i], out);
+    }
+    out->push_back(']');
+  }
+  out->push_back('}');
+}
+
+static void proj_leaf_element(const LeafElement &o, std::string *out) {
+  (void)o;
+  out->push_back('{');
+  bool first = true;
+  (void)first;
+  if (!o.id.empty()) {
+    ak::proj::key("id", &first, out);
+    ak::proj::str(o.id, out);
+  }
+  if (o.n != 0) {
+    ak::proj::key("n", &first, out);
+    ak::proj::i64((long long)o.n, out);
+  }
+  if (o.stamp.has_value()) {
+    ak::proj::key("stamp", &first, out);
+    proj_timestamp(*o.stamp, out);
+  }
+  out->push_back('}');
+}
+
+static void proj_leaf_response(const LeafResponse &o, std::string *out) {
+  (void)o;
+  out->push_back('{');
+  bool first = true;
+  (void)first;
+  if (!o.items.empty()) {
+    ak::proj::key("items", &first, out);
+    out->push_back('[');
+    for (size_t i = 0; i < o.items.size(); ++i) {
+      if (i) out->push_back(',');
+      proj_leaf_element(o.items[i], out);
+    }
+    out->push_back(']');
+  }
+  out->push_back('}');
+}
+
+static void proj_surrogate(const Surrogate &o, std::string *out) {
+  (void)o;
+  out->push_back('{');
+  bool first = true;
+  (void)first;
+  if (!o.text.empty()) {
+    ak::proj::key("text", &first, out);
+    ak::proj::str(o.text, out);
+  }
+  if (o.nested.has_value()) {
+    ak::proj::key("nested", &first, out);
+    proj_surrogate_inner(*o.nested, out);
+  }
+  if (!o.attrs.empty()) {
+    ak::proj::key("attrs", &first, out);
+    out->push_back('{');
+    bool mf = true;
+    for (std::map<AkStrT, AkStrT>::const_iterator it = o.attrs.begin();
+         it != o.attrs.end(); ++it) {
+      ak::proj::sep(&mf, out);
+      ak::proj::str(it->first, out);
+      out->push_back(':');
+      ak::proj::str(it->second, out);
+    }
+    out->push_back('}');
+  }
+  if (!o.texts.empty()) {
+    ak::proj::key("texts", &first, out);
+    out->push_back('[');
+    for (size_t i = 0; i < o.texts.size(); ++i) {
+      if (i) out->push_back(',');
+      ak::proj::str(o.texts[i], out);
+    }
+    out->push_back(']');
+  }
+  if (!o.raw.empty()) {
+    ak::proj::key("raw", &first, out);
+    ak::proj::hex(o.raw, out);
+  }
+  out->push_back('}');
+}
+
+static void proj_surrogate_inner(const SurrogateInner &o, std::string *out) {
+  (void)o;
+  out->push_back('{');
+  bool first = true;
+  (void)first;
+  if (!o.text.empty()) {
+    ak::proj::key("text", &first, out);
+    ak::proj::str(o.text, out);
+  }
+  out->push_back('}');
+}
+
+static void proj_nest(const Nest &o, std::string *out) {
+  (void)o;
+  out->push_back('{');
+  bool first = true;
+  (void)first;
+  if (o.child.has_value()) {
+    ak::proj::key("child", &first, out);
+    proj_nest(*o.child, out);
+  }
+  if (!o.leaf.empty()) {
+    ak::proj::key("leaf", &first, out);
+    ak::proj::str(o.leaf, out);
+  }
+  out->push_back('}');
+}
+
+static void proj_wire_zoo(const WireZoo &o, std::string *out) {
+  (void)o;
+  out->push_back('{');
+  bool first = true;
+  (void)first;
+  if (o.v_int32 != 0) {
+    ak::proj::key("v_int32", &first, out);
+    ak::proj::i64((long long)o.v_int32, out);
+  }
+  if (o.v_int64 != 0) {
+    ak::proj::key("v_int64", &first, out);
+    ak::proj::i64((long long)o.v_int64, out);
+  }
+  if (o.v_bool) {
+    ak::proj::key("v_bool", &first, out);
+    ak::proj::boolean(o.v_bool, out);
+  }
+  if (ak::f64_bits(o.v_double) != 0) {
+    ak::proj::key("v_double", &first, out);
+    ak::proj::f64(o.v_double, out);
+  }
+  if (o.v_fixed32 != 0) {
+    ak::proj::key("v_fixed32", &first, out);
+    ak::proj::i64((long long)o.v_fixed32, out);
+  }
+  if (!o.v_string.empty()) {
+    ak::proj::key("v_string", &first, out);
+    ak::proj::str(o.v_string, out);
+  }
+  if (!o.v_bytes.empty()) {
+    ak::proj::key("v_bytes", &first, out);
+    ak::proj::hex(o.v_bytes, out);
+  }
+  if (o.v_enum.v != 0) {
+    ak::proj::key("v_enum", &first, out);
+    ak::proj::i64((long long)(o.v_enum).v, out);
+  }
+  if (o.v_msg.has_value()) {
+    ak::proj::key("v_msg", &first, out);
+    proj_timestamp(*o.v_msg, out);
+  }
+  if (o.v_big_tag != 0) {
+    ak::proj::key("v_big_tag", &first, out);
+    ak::proj::i64((long long)o.v_big_tag, out);
+  }
+  out->push_back('}');
+}
+
+std::string project_timestamp(const Timestamp &o) {
+  std::string out;
+  proj_timestamp(o, &out);
+  return out;
+}
+
+std::string project_duration(const Duration &o) {
+  std::string out;
+  proj_duration(o, &out);
+  return out;
+}
+
+std::string project_result_raw(const ResultRaw &o) {
+  std::string out;
+  proj_result_raw(o, &out);
+  return out;
+}
+
+std::string project_task_options(const TaskOptions &o) {
+  std::string out;
+  proj_task_options(o, &out);
+  return out;
+}
+
+std::string project_task_output(const TaskOutput &o) {
+  std::string out;
+  proj_task_output(o, &out);
+  return out;
+}
+
+std::string project_task_detailed(const TaskDetailed &o) {
+  std::string out;
+  proj_task_detailed(o, &out);
+  return out;
+}
+
+std::string project_task_summary(const TaskSummary &o) {
+  std::string out;
+  proj_task_summary(o, &out);
+  return out;
+}
+
+std::string project_probe(const Probe &o) {
+  std::string out;
+  proj_probe(o, &out);
+  return out;
+}
+
+std::string project_empty(const Empty &o) {
+  std::string out;
+  proj_empty(o, &out);
+  return out;
+}
+
+std::string project_upload_result_data(const UploadResultData &o) {
+  std::string out;
+  proj_upload_result_data(o, &out);
+  return out;
+}
+
+std::string project_metrics_batch(const MetricsBatch &o) {
+  std::string out;
+  proj_metrics_batch(o, &out);
+  return out;
+}
+
+std::string project_pair(const Pair &o) {
+  std::string out;
+  proj_pair(o, &out);
+  return out;
+}
+
 std::string project_list_results_response(const ListResultsResponse &o) {
   std::string out;
   proj_list_results_response(o, &out);
@@ -672,21 +1028,15 @@ std::string project_list_tasks_detailed_response(const ListTasksDetailedResponse
   return out;
 }
 
-std::string project_list_probe_response(const ListProbeResponse &o) {
-  std::string out;
-  proj_list_probe_response(o, &out);
-  return out;
-}
-
 std::string project_list_task_summary_response(const ListTaskSummaryResponse &o) {
   std::string out;
   proj_list_task_summary_response(o, &out);
   return out;
 }
 
-std::string project_upload_result_data_message(const UploadResultDataMessage &o) {
+std::string project_list_probe_response(const ListProbeResponse &o) {
   std::string out;
-  proj_upload_result_data_message(o, &out);
+  proj_list_probe_response(o, &out);
   return out;
 }
 
@@ -696,11 +1046,83 @@ std::string project_list_metrics_response(const ListMetricsResponse &o) {
   return out;
 }
 
+std::string project_upload_result_data_message(const UploadResultDataMessage &o) {
+  std::string out;
+  proj_upload_result_data_message(o, &out);
+  return out;
+}
+
 std::string project_dual_response(const DualResponse &o) {
   std::string out;
   proj_dual_response(o, &out);
   return out;
 }
 
+std::string project_chunk_leaf(const ChunkLeaf &o) {
+  std::string out;
+  proj_chunk_leaf(o, &out);
+  return out;
+}
+
+std::string project_chunk_inner(const ChunkInner &o) {
+  std::string out;
+  proj_chunk_inner(o, &out);
+  return out;
+}
+
+std::string project_chunk_element(const ChunkElement &o) {
+  std::string out;
+  proj_chunk_element(o, &out);
+  return out;
+}
+
+std::string project_chunked_response(const ChunkedResponse &o) {
+  std::string out;
+  proj_chunked_response(o, &out);
+  return out;
+}
+
+std::string project_chunked_response_wide(const ChunkedResponseWide &o) {
+  std::string out;
+  proj_chunked_response_wide(o, &out);
+  return out;
+}
+
+std::string project_leaf_element(const LeafElement &o) {
+  std::string out;
+  proj_leaf_element(o, &out);
+  return out;
+}
+
+std::string project_leaf_response(const LeafResponse &o) {
+  std::string out;
+  proj_leaf_response(o, &out);
+  return out;
+}
+
+std::string project_surrogate(const Surrogate &o) {
+  std::string out;
+  proj_surrogate(o, &out);
+  return out;
+}
+
+std::string project_surrogate_inner(const SurrogateInner &o) {
+  std::string out;
+  proj_surrogate_inner(o, &out);
+  return out;
+}
+
+std::string project_nest(const Nest &o) {
+  std::string out;
+  proj_nest(o, &out);
+  return out;
+}
+
+std::string project_wire_zoo(const WireZoo &o) {
+  std::string out;
+  proj_wire_zoo(o, &out);
+  return out;
+}
+
 }  // namespace project
-}  // namespace shapes
+}  // namespace corpus
