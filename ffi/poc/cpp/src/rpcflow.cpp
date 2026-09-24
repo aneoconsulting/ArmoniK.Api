@@ -83,10 +83,8 @@ static int child_main(int cfg, int port) {
   const int kInFlight = 8, kPer = 8;
   if (c.core_client) {
     ak_runtime *rt = ak_runtime_new(2);
-    ak_client_opts o;
-    o.stream_window = (uint32_t)c.win;
-    o.connection_window = (uint32_t)c.conn;
-    o.adaptive_window = c.bdp;
+    // All six fields, through the one helper (R-D2).
+    ak_client_opts o = core_opts((uint32_t)c.win, (uint32_t)c.conn, c.bdp);
     ak_client *cl = ak_client_new_opts(rt, (const uint8_t *)tr.core_uri.data(),
                                        tr.core_uri.size(), &o);
     if (!cl) { std::fprintf(stderr, "AKFLOW core client failed\n"); return 1; }

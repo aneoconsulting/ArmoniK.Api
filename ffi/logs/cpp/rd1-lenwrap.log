@@ -1,0 +1,149 @@
+# R-D1: the corpus's X-lenwrap rows, one per process, timeout 5. Native arm before (unfixed rt.h, scratch build) and after; ffi arm through the C ABI into the landed shared core
+#   date      2026-09-24T09:06:33Z
+#   compiler  g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+#   corpus    ca03d6d 2026-09-24 09:05:47 +0000 (the X-lenwrap rows are WP4 item 2's, written by the corpus agent)
+#   commit    ca03d6d + this slice's uncommitted fix
+#   core      poc/codec at 6ede244 (the core's R-D1 fix), working tree identical, cargo Fresh
+#   the three R-D1 cases: unknown field = X-lenwrap-lrr-unknown-* (-zero is byte for byte the reviewer's 7A F5 FF FF FF FF FF FF FF FF 01);
+#   string length = X-lenwrap-lrr-nested-string-*; nested-message length = X-lenwrap-lrr-results-* and -nested-msg-*
+
+=============== plain build ===============
+# before: include/ak/rt.h at 135a421
+#   315:    if (pos + k > len) { err = ERR_TRUNCATED; *off = pos; *n = 0; return; }
+# after:  include/ak/rt.h as in the tree
+#   321:    if (pos > len || k64 > (uint64_t)(len - pos)) {
+# built build/lenwrap-before/corpus_before
+
+row                                        native before    native after     ffi (core)       pb (oracle)
+X-lenwrap-lrr-nested-msg-abs-one           refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-msg-abs-start         refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-msg-abs-under         refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-msg-abs-zero          refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-msg-rel-max           refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-msg-rel-one           refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-msg-rel-under         refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-msg-rel-zero          refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-string-abs-one        refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-string-abs-start      refused -6       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-string-abs-under      refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-string-abs-zero       refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-string-rel-max        refused -6       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-string-rel-one        refused -6       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-string-rel-under      refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-string-rel-zero       refused -6       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-unknown-abs-one       refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-unknown-abs-start     HANG             refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-unknown-abs-under     refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-unknown-abs-zero      refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-unknown-rel-max       refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-unknown-rel-one       refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-unknown-rel-under     refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-unknown-rel-zero      HANG             refused -3       refused -3       reject -2
+X-lenwrap-lrr-results-max                  refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-results-one                  refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-results-second-max           refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-results-second-one           refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-results-second-start         refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-results-second-under         refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-results-second-zero          refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-results-under                refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-results-zero                 refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-unknown-after-max            refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-unknown-after-one            refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-unknown-after-start          HANG             refused -3       refused -3       reject -2
+X-lenwrap-lrr-unknown-after-under          refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-unknown-after-zero           HANG             refused -3       refused -3       reject -2
+X-lenwrap-lrr-unknown-max                  refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-unknown-one                  refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-unknown-under                refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-unknown-zero                 HANG             refused -3       refused -3       reject -2
+X-lenwrap-zoo-msg-max                      refused -2       refused -3       -                
+X-lenwrap-zoo-msg-one                      refused -2       refused -3       -                
+X-lenwrap-zoo-msg-under                    refused -3       refused -3       -                
+X-lenwrap-zoo-msg-zero                     HANG             refused -3       -                
+X-lenwrap-zoo-string-after-max             refused -2       refused -3       -                
+X-lenwrap-zoo-string-after-one             refused -2       refused -3       -                
+X-lenwrap-zoo-string-after-start           HANG             refused -3       -                
+X-lenwrap-zoo-string-after-under           refused -3       refused -3       -                
+X-lenwrap-zoo-string-after-zero            HANG             refused -3       -                
+X-lenwrap-zoo-string-max                   refused -2       refused -3       -                
+X-lenwrap-zoo-string-one                   refused -2       refused -3       -                
+X-lenwrap-zoo-string-under                 refused -3       refused -3       -                
+X-lenwrap-zoo-string-zero                  HANG             refused -3       -                
+
+rows: 55
+before: 9 of 55 NOT refused promptly (hang, crash, accept or no result)
+after:  0 of 55 NOT refused promptly
+ffi:    0 of 55 NOT refused promptly (walker rows have no ffi arm)
+lenwrap_rows.sh exit 0
+
+=============== ASAN=1: both native builds under AddressSanitizer (the core .so is not instrumented) ===============
+# before: include/ak/rt.h at 135a421
+#   315:    if (pos + k > len) { err = ERR_TRUNCATED; *off = pos; *n = 0; return; }
+# after:  include/ak/rt.h as in the tree
+#   321:    if (pos > len || k64 > (uint64_t)(len - pos)) {
+# built build/lenwrap-before-asan/corpus_before (-fsanitize=address -fno-omit-frame-pointer)
+# built build/lenwrap-before-asan/corpus_after (-fsanitize=address -fno-omit-frame-pointer)
+
+row                                        native before    native after     ffi (core)       pb (oracle)
+X-lenwrap-lrr-nested-msg-abs-one           refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-msg-abs-start         refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-msg-abs-under         refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-msg-abs-zero          refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-msg-rel-max           refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-msg-rel-one           refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-msg-rel-under         refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-msg-rel-zero          refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-string-abs-one        refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-string-abs-start      ASAN unknown-crash refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-string-abs-under      refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-string-abs-zero       refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-string-rel-max        ASAN unknown-crash refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-string-rel-one        ASAN unknown-crash refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-string-rel-under      refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-string-rel-zero       ASAN unknown-crash refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-unknown-abs-one       refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-unknown-abs-start     HANG             refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-unknown-abs-under     refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-unknown-abs-zero      refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-unknown-rel-max       refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-unknown-rel-one       refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-unknown-rel-under     refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-nested-unknown-rel-zero      HANG             refused -3       refused -3       reject -2
+X-lenwrap-lrr-results-max                  refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-results-one                  refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-results-second-max           refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-results-second-one           refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-results-second-start         refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-results-second-under         refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-results-second-zero          refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-results-under                refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-results-zero                 refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-unknown-after-max            refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-unknown-after-one            refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-unknown-after-start          HANG             refused -3       refused -3       reject -2
+X-lenwrap-lrr-unknown-after-under          refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-unknown-after-zero           HANG             refused -3       refused -3       reject -2
+X-lenwrap-lrr-unknown-max                  refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-unknown-one                  refused -2       refused -3       refused -3       reject -2
+X-lenwrap-lrr-unknown-under                refused -3       refused -3       refused -3       reject -2
+X-lenwrap-lrr-unknown-zero                 HANG             refused -3       refused -3       reject -2
+X-lenwrap-zoo-msg-max                      refused -2       refused -3       -                
+X-lenwrap-zoo-msg-one                      refused -2       refused -3       -                
+X-lenwrap-zoo-msg-under                    refused -3       refused -3       -                
+X-lenwrap-zoo-msg-zero                     HANG             refused -3       -                
+X-lenwrap-zoo-string-after-max             refused -2       refused -3       -                
+X-lenwrap-zoo-string-after-one             refused -2       refused -3       -                
+X-lenwrap-zoo-string-after-start           HANG             refused -3       -                
+X-lenwrap-zoo-string-after-under           refused -3       refused -3       -                
+X-lenwrap-zoo-string-after-zero            HANG             refused -3       -                
+X-lenwrap-zoo-string-max                   refused -2       refused -3       -                
+X-lenwrap-zoo-string-one                   refused -2       refused -3       -                
+X-lenwrap-zoo-string-under                 refused -3       refused -3       -                
+X-lenwrap-zoo-string-zero                  HANG             refused -3       -                
+
+rows: 55
+before: 13 of 55 NOT refused promptly (hang, crash, accept or no result)
+after:  0 of 55 NOT refused promptly
+ffi:    0 of 55 NOT refused promptly (walker rows have no ffi arm)
+lenwrap_rows.sh (ASAN) exit 0

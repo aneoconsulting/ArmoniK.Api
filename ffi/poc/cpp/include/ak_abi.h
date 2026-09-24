@@ -992,6 +992,27 @@ uint64_t ak_noop_reverse(uint64_t (*f)(uint64_t), uint64_t x);
 #define AK_SASSERT(c, m) typedef char ak_sa_##__LINE__[(c) ? 1 : -1]
 #endif
 
+/* ---- section 9: the RPC half's client options -------------------------------
+ * Rendered from `ak_client_opts` in poc/codec/crates/ak-abi/src/lib.rs, which the
+ * core asserts field by field against the struct it reads (ak-core/src/rpc.rs).
+ * Never hand-declare it in a host: R-D2 was a 3-field copy of a 6-field struct. */
+struct ak_client_opts {
+  uint32_t stream_window;
+  uint32_t connection_window;
+  int32_t adaptive_window;
+  uint32_t max_recv_message;
+  uint32_t max_send_message;
+  int32_t tcp_nagle;
+};
+#define AK_CLIENT_OPTS_FIELDS 6
+AK_SASSERT(sizeof(struct ak_client_opts) == 24, "sizeof ak_client_opts");
+AK_SASSERT(offsetof(struct ak_client_opts, stream_window) == 0, "ak_client_opts.stream_window");
+AK_SASSERT(offsetof(struct ak_client_opts, connection_window) == 4, "ak_client_opts.connection_window");
+AK_SASSERT(offsetof(struct ak_client_opts, adaptive_window) == 8, "ak_client_opts.adaptive_window");
+AK_SASSERT(offsetof(struct ak_client_opts, max_recv_message) == 12, "ak_client_opts.max_recv_message");
+AK_SASSERT(offsetof(struct ak_client_opts, max_send_message) == 16, "ak_client_opts.max_send_message");
+AK_SASSERT(offsetof(struct ak_client_opts, tcp_nagle) == 20, "ak_client_opts.tcp_nagle");
+
 /* Number of (struct, member) layout facts this header pins. */
 #define AK_LAYOUT_FACTS 380
 

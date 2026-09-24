@@ -27,6 +27,7 @@
 // projects nothing; it answers accept or reject and no more.
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -202,6 +203,11 @@ static void proj_pb(const google::protobuf::Message &m, std::string *out) {
 
 // One row, one root type. Instantiated once per root by AK_ROOTS below, so the set of
 // roots this binary can run is the set the codec was generated for and cannot drift.
+static bool no_ffi() {
+  const char *e = std::getenv("AK_CORPUS_NO_FFI");
+  return e != NULL && e[0] == '1';
+}
+
 template <class F, class P>
 struct Run {
   typedef int32_t (*NatDec)(const uint8_t *, size_t, F *);
@@ -230,6 +236,16 @@ struct Run {
     }
 
     // ---- ffi ---------------------------------------------------------------------
+    // AK_CORPUS_NO_FFI=1 leaves the ffi arm out. It exists because the rows run in ONE
+    // process, so a panic in the shared core (which aborts: it cannot unwind through
+    // `extern "C"`) took every later row of every arm with it, native included, and
+    // those rows read as "no result". With the switch the native arm is gated on its own
+    // while the core is broken; the driver names the skip on every line it affects.
+    if (no_ffi()) {
+      std::printf("A\t%s\tskipped\n", id.c_str());
+      goto pb_arm;
+    }
+    {
     F ff;
     ak_dec_ctx *dctx = ak_dec_ctx_new();
     int32_t rc2 = fd(dctx, p, buf.size(), &ff);
@@ -263,6 +279,22 @@ struct Run {
       out_hex(id, "ffi", ffi_bytes);
     }
 
+    // CONTRACT.md 5 item 5: identity between this slice's own arms. On an ACCEPTED
+    // vector that is the decoded facade. On a REFUSED one the output is the error, so the
+    // arms agree when both refuse with the same code; what each leaves in the output
+    // object after refusing is not specified by ABI v1 or the contract. It used to be
+    // compared anyway, and it started to differ when the core stopped flushing groups
+    // after an error (FIX-PLAN WP4 item 1) while the native codec keeps what it built
+    // before the error. So it is reported as its own line ("L"), a fact and not a verdict.
+    if (rc != 0 && rc2 != 0) {
+      std::printf("A\t%s\t%s\n", id.c_str(), rc == rc2 ? "agree" : "DISAGREE");
+      std::printf("L\t%s\t%s\n", id.c_str(), fn == ff ? "same" : "differs");
+    } else {
+      std::printf("A\t%s\t%s\n", id.c_str(),
+                  (rc == rc2 && fn == ff) ? "agree" : "DISAGREE");
+    }
+    }
+  pb_arm:
     // ---- pb: the incumbent, same bytes, same obligations -------------------------
     P pb;
     bool pok = pb.ParseFromString(buf);
@@ -287,12 +319,6 @@ struct Run {
       std::printf("P\t%s\tpb\t%s\n", id.c_str(), pj.c_str());
       out_hex(id, "pb", pbb);
     }
-
-    // CONTRACT.md section 5 item 5: byte identity BETWEEN THIS SLICE'S OWN ARMS, on every
-    // vector. Reported as its own line so the driver counts it rather than inferring it
-    // from two hashes that happened to match the manifest.
-    std::printf("A\t%s\t%s\n", id.c_str(),
-                (rc == rc2 && fn == ff) ? "agree" : "DISAGREE");
   }
 };
 
@@ -323,6 +349,8 @@ int main(int argc, char **argv) {
   std::printf("#   linkage        %s\n", AK_LINKAGE);
   std::printf("#   arms           native (no boundary) and ffi (the C ABI over the shared core)\n");
   std::printf("#   walker         ak::Dec::skip over a buffer with no schema at all\n");
+  if (no_ffi())
+    std::printf("#   ffi arm        SKIPPED (AK_CORPUS_NO_FFI=1): native and pb only\n");
   std::fflush(stdout);
 
   std::ifstream tf(argv[1]);

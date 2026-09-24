@@ -1,0 +1,40 @@
+# R-D2 history check: rpc.log / rpcflow.log against the core's ak_client_opts
+#   date   2026-09-24T08:46:59Z
+#   HEAD   8864e4d
+
+===== git log -S tcp_nagle -- poc/codec =====
+e0b708b 2026-09-20 19:07:36 +0000 poc(rust): the CPU column moved too, and ak_client_opts disagreed with itself
+ef8fea9 2026-09-20 18:55:15 +0000 docs(ffi): armonik-transport is the reference, and it settles two things I had guessed at
+
+===== every commit that touched ak_client_opts (core or this slice), oldest first =====
+adfc1ad 2026-09-20 18:27:52 +0000 Claude  poc(rust): section 9's deliveries at the floor, and there is no TCP penalty
+    core fields (4): stream_window connection_window max_recv_message max_send_message 
+    cpp host decl:   <none in tree>
+af2b100 2026-09-20 18:38:46 +0000 Claude  poc(cpp): the RPC arm as a grid, in all three deliveries, and the transport was never the thing being measured
+    core fields (3): stream_window connection_window adaptive_window 
+    cpp host decl:   struct ak_client_opts { uint32_t stream_window; uint32_t connection_window; int32_t adaptive_window; }
+908dc24 2026-09-20 18:47:27 +0000 Claude  core(rpc): it was Nagle, not flow control; and two slices added the same entry point at once
+    core fields (5): stream_window connection_window adaptive_window max_recv_message max_send_message 
+    cpp host decl:   struct ak_client_opts { uint32_t stream_window; uint32_t connection_window; int32_t adaptive_window; }
+e0b708b 2026-09-20 19:07:36 +0000 Claude  poc(rust): the CPU column moved too, and ak_client_opts disagreed with itself
+    core fields (6): stream_window connection_window adaptive_window max_recv_message max_send_message tcp_nagle 
+    cpp host decl:   struct ak_client_opts { uint32_t stream_window; uint32_t connection_window; int32_t adaptive_window; }
+
+===== the two logs: when they were taken, on what, and when committed =====
+-- logs/cpp/rpc.log
+#   date       2026-09-20T18:33:12Z
+#   commit     bccff35
+   committed in af2b100 2026-09-20 18:38:46 +0000 poc(cpp): the RPC arm as a grid, in all three deliveries, and the transport was never the thing being measured
+-- logs/cpp/rpcflow.log
+#   date     2026-09-20T17:43:53Z
+#   commit   bccff35
+   committed in af2b100 2026-09-20 18:38:46 +0000 poc(cpp): the RPC arm as a grid, in all three deliveries, and the transport was never the thing being measured
+
+===== ancestry =====
+bccff35 IS an ancestor of af2b100 (the commit that added both logs)
+adfc1ad is NOT an ancestor of af2b100 (the commit that added both logs)
+908dc24 is NOT an ancestor of af2b100 (the commit that added both logs)
+ef8fea9 is NOT an ancestor of af2b100 (the commit that added both logs)
+
+===== RPC logs committed by this slice after the 5/6-field struct landed =====
+(end; empty means none)
