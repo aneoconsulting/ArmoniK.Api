@@ -154,7 +154,7 @@ unsafe fn enc_task_detailed_group(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if let Some(lp) = (*vt).loop_data_dependencies {
         (*cx).open_tag = 5;
@@ -163,7 +163,7 @@ unsafe fn enc_task_detailed_group(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if let Some(lp) = (*vt).loop_expected_output_ids {
         (*cx).open_tag = 6;
@@ -172,7 +172,7 @@ unsafe fn enc_task_detailed_group(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if let Some(lp) = (*vt).loop_retry_of_ids {
         (*cx).open_tag = 7;
@@ -181,7 +181,7 @@ unsafe fn enc_task_detailed_group(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if g.status != 0 { (*cx).e.varint_field(8, g.status as i64 as u64); }
     if g.status_message.tc.is_some() && g.status_message.len != 0 {
@@ -196,7 +196,7 @@ unsafe fn enc_task_detailed_group(
             ak_rt::bump!((*cx).e.c, reverse);
             let rc = lp(cx as *mut ak_enc_ctx, obj, token);
             if rc < 0 { (*cx).e.fail(rc); return false; }
-            if (*cx).e.err != 0 { return false; }
+            if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
         }
         if g.options.presence & AK_EFIX_TASKOPTIONS_PRESENT_MAX_DURATION != 0 {
             let mk = (*cx).e.begin(2, 20);
@@ -345,7 +345,7 @@ unsafe fn enc_task_detailed_ugroup(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if let Some(lp) = (*vt).loop_data_dependencies {
         (*cx).open_tag = 5;
@@ -354,7 +354,7 @@ unsafe fn enc_task_detailed_ugroup(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if let Some(lp) = (*vt).loop_expected_output_ids {
         (*cx).open_tag = 6;
@@ -363,7 +363,7 @@ unsafe fn enc_task_detailed_ugroup(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if let Some(lp) = (*vt).loop_retry_of_ids {
         (*cx).open_tag = 7;
@@ -372,7 +372,7 @@ unsafe fn enc_task_detailed_ugroup(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if g.status != 0 { (*cx).e.varint_field(8, g.status as i64 as u64); }
     if g.status_message.tc.is_some() && g.status_message.len != 0 {
@@ -387,7 +387,7 @@ unsafe fn enc_task_detailed_ugroup(
             ak_rt::bump!((*cx).e.c, reverse);
             let rc = lp(cx as *mut ak_enc_ctx, obj, token);
             if rc < 0 { (*cx).e.fail(rc); return false; }
-            if (*cx).e.err != 0 { return false; }
+            if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
         }
         if g.options.presence & AK_UFIX_TASKOPTIONS_PRESENT_MAX_DURATION != 0 {
             let mk = (*cx).e.begin(2, 20);
@@ -551,7 +551,7 @@ unsafe fn enc_task_summary_group(
             ak_rt::bump!((*cx).e.c, reverse);
             let rc = lp(cx as *mut ak_enc_ctx, obj, token);
             if rc < 0 { (*cx).e.fail(rc); return false; }
-            if (*cx).e.err != 0 { return false; }
+            if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
         }
         if g.options.presence & AK_EFIX_TASKOPTIONS_PRESENT_MAX_DURATION != 0 {
             let mk = (*cx).e.begin(2, 49);
@@ -621,7 +621,7 @@ unsafe fn enc_task_summary_ugroup(
             ak_rt::bump!((*cx).e.c, reverse);
             let rc = lp(cx as *mut ak_enc_ctx, obj, token);
             if rc < 0 { (*cx).e.fail(rc); return false; }
-            if (*cx).e.err != 0 { return false; }
+            if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
         }
         if g.options.presence & AK_UFIX_TASKOPTIONS_PRESENT_MAX_DURATION != 0 {
             let mk = (*cx).e.begin(2, 49);
@@ -780,7 +780,7 @@ unsafe fn enc_metrics_batch_group(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if let Some(lp) = (*vt).loop_values {
         (*cx).open_tag = 3;
@@ -789,7 +789,7 @@ unsafe fn enc_metrics_batch_group(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if let Some(lp) = (*vt).loop_codes {
         (*cx).open_tag = 4;
@@ -798,7 +798,7 @@ unsafe fn enc_metrics_batch_group(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if let Some(lp) = (*vt).loop_flags {
         (*cx).open_tag = 5;
@@ -807,7 +807,7 @@ unsafe fn enc_metrics_batch_group(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if let Some(lp) = (*vt).loop_statuses {
         (*cx).open_tag = 6;
@@ -816,7 +816,7 @@ unsafe fn enc_metrics_batch_group(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     true
 }
@@ -839,7 +839,7 @@ unsafe fn enc_metrics_batch_ugroup(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if let Some(lp) = (*vt).loop_values {
         (*cx).open_tag = 3;
@@ -848,7 +848,7 @@ unsafe fn enc_metrics_batch_ugroup(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if let Some(lp) = (*vt).loop_codes {
         (*cx).open_tag = 4;
@@ -857,7 +857,7 @@ unsafe fn enc_metrics_batch_ugroup(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if let Some(lp) = (*vt).loop_flags {
         (*cx).open_tag = 5;
@@ -866,7 +866,7 @@ unsafe fn enc_metrics_batch_ugroup(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if let Some(lp) = (*vt).loop_statuses {
         (*cx).open_tag = 6;
@@ -875,7 +875,7 @@ unsafe fn enc_metrics_batch_ugroup(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if !enc_raw(cx, &g.unknown) { return false; }
     true
@@ -915,7 +915,7 @@ unsafe fn enc_list_results_response_group(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if g.page != 0 { (*cx).e.varint_field(2, g.page as i64 as u64); }
     if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
@@ -937,7 +937,7 @@ unsafe fn enc_list_results_response_ugroup(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if g.page != 0 { (*cx).e.varint_field(2, g.page as i64 as u64); }
     if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
@@ -961,7 +961,7 @@ unsafe fn enc_list_tasks_detailed_response_group(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if g.page != 0 { (*cx).e.varint_field(2, g.page as i64 as u64); }
     if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
@@ -984,7 +984,7 @@ unsafe fn enc_list_tasks_detailed_response_ugroup(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if g.page != 0 { (*cx).e.varint_field(2, g.page as i64 as u64); }
     if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
@@ -1008,7 +1008,7 @@ unsafe fn enc_list_task_summary_response_group(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     true
 }
@@ -1029,7 +1029,7 @@ unsafe fn enc_list_task_summary_response_ugroup(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if !enc_raw(cx, &g.unknown) { return false; }
     true
@@ -1050,7 +1050,7 @@ unsafe fn enc_list_probe_response_group(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     true
 }
@@ -1070,7 +1070,7 @@ unsafe fn enc_list_probe_response_ugroup(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if !enc_raw(cx, &g.unknown) { return false; }
     true
@@ -1092,7 +1092,7 @@ unsafe fn enc_list_metrics_response_group(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     true
 }
@@ -1113,7 +1113,7 @@ unsafe fn enc_list_metrics_response_ugroup(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if !enc_raw(cx, &g.unknown) { return false; }
     true
@@ -1172,7 +1172,7 @@ unsafe fn enc_dual_response_group(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if let Some(lp) = (*vt).loop_right {
         (*cx).open_tag = 2;
@@ -1181,7 +1181,7 @@ unsafe fn enc_dual_response_group(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     true
 }
@@ -1201,7 +1201,7 @@ unsafe fn enc_dual_response_ugroup(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if let Some(lp) = (*vt).loop_right {
         (*cx).open_tag = 2;
@@ -1210,7 +1210,7 @@ unsafe fn enc_dual_response_ugroup(
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
         if rc < 0 { (*cx).e.fail(rc); return false; }
-        if (*cx).e.err != 0 { return false; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return false; }
     }
     if !enc_raw(cx, &g.unknown) { return false; }
     true
@@ -1239,6 +1239,9 @@ pub unsafe extern "C" fn ak_elemu_MetricsBatch(
     // under the inner field's tag. It did not corrupt this payload set only because
     // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
     let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    // R-D6: a host that already failed this operation and calls in anyway gets the
+    // sticky code back and nothing is written.
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     // Read the open state into locals BEFORE the run: encoding an
     // element makes reverse calls that open fields of their own.
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
@@ -1247,7 +1250,7 @@ pub unsafe extern "C" fn ak_elemu_MetricsBatch(
     for i in 0..n as usize {
         let mk = (*cx).e.begin(tag, site);
         if !enc_metrics_batch_group(&*elems.add(i), cx, vt, obj, tok0 + i as i64) {
-            return (*cx).e.err;
+            return crate::enc_status(cx);
         }
         (*cx).e.end(mk);
     }
@@ -1283,13 +1286,16 @@ pub unsafe extern "C" fn ak_uelemu_MetricsBatch(
     // under the inner field's tag. It did not corrupt this payload set only because
     // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
     let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    // R-D6: a host that already failed this operation and calls in anyway gets the
+    // sticky code back and nothing is written.
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
     let vt = (*cx).open_vt as *const ak_evt_MetricsBatch;
     let obj = (*cx).open_obj;
     for i in 0..n as usize {
         let mk = (*cx).e.begin(tag, site);
         if !enc_metrics_batch_ugroup(&*elems.add(i), cx, vt, obj, tok0 + i as i64) {
-            return (*cx).e.err;
+            return crate::enc_status(cx);
         }
         (*cx).e.end(mk);
     }
@@ -1323,10 +1329,13 @@ pub unsafe extern "C" fn ak_elem_Pair(
     // under the inner field's tag. It did not corrupt this payload set only because
     // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
     let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    // R-D6: a host that already failed this operation and calls in anyway gets the
+    // sticky code back and nothing is written.
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
     for i in 0..n as usize {
         let mk = (*cx).e.begin(tag, site);
-        if !enc_pair_group(&*elems.add(i), cx) { return (*cx).e.err; }
+        if !enc_pair_group(&*elems.add(i), cx) { return crate::enc_status(cx); }
         (*cx).e.end(mk);
     }
     (*cx).open_tag = saved.0;
@@ -1360,10 +1369,13 @@ pub unsafe extern "C" fn ak_uelem_Pair(
     // under the inner field's tag. It did not corrupt this payload set only because
     // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
     let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    // R-D6: a host that already failed this operation and calls in anyway gets the
+    // sticky code back and nothing is written.
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
     for i in 0..n as usize {
         let mk = (*cx).e.begin(tag, site);
-        if !enc_pair_ugroup(&*elems.add(i), cx) { return (*cx).e.err; }
+        if !enc_pair_ugroup(&*elems.add(i), cx) { return crate::enc_status(cx); }
         (*cx).e.end(mk);
     }
     (*cx).open_tag = saved.0;
@@ -1396,10 +1408,13 @@ pub unsafe extern "C" fn ak_elem_Probe(
     // under the inner field's tag. It did not corrupt this payload set only because
     // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
     let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    // R-D6: a host that already failed this operation and calls in anyway gets the
+    // sticky code back and nothing is written.
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
     for i in 0..n as usize {
         let mk = (*cx).e.begin(tag, site);
-        if !enc_probe_group(&*elems.add(i), cx) { return (*cx).e.err; }
+        if !enc_probe_group(&*elems.add(i), cx) { return crate::enc_status(cx); }
         (*cx).e.end(mk);
     }
     (*cx).open_tag = saved.0;
@@ -1433,10 +1448,13 @@ pub unsafe extern "C" fn ak_uelem_Probe(
     // under the inner field's tag. It did not corrupt this payload set only because
     // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
     let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    // R-D6: a host that already failed this operation and calls in anyway gets the
+    // sticky code back and nothing is written.
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
     for i in 0..n as usize {
         let mk = (*cx).e.begin(tag, site);
-        if !enc_probe_ugroup(&*elems.add(i), cx) { return (*cx).e.err; }
+        if !enc_probe_ugroup(&*elems.add(i), cx) { return crate::enc_status(cx); }
         (*cx).e.end(mk);
     }
     (*cx).open_tag = saved.0;
@@ -1469,10 +1487,13 @@ pub unsafe extern "C" fn ak_elem_ResultRaw(
     // under the inner field's tag. It did not corrupt this payload set only because
     // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
     let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    // R-D6: a host that already failed this operation and calls in anyway gets the
+    // sticky code back and nothing is written.
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
     for i in 0..n as usize {
         let mk = (*cx).e.begin(tag, site);
-        if !enc_result_raw_group(&*elems.add(i), cx) { return (*cx).e.err; }
+        if !enc_result_raw_group(&*elems.add(i), cx) { return crate::enc_status(cx); }
         (*cx).e.end(mk);
     }
     (*cx).open_tag = saved.0;
@@ -1506,10 +1527,13 @@ pub unsafe extern "C" fn ak_uelem_ResultRaw(
     // under the inner field's tag. It did not corrupt this payload set only because
     // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
     let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    // R-D6: a host that already failed this operation and calls in anyway gets the
+    // sticky code back and nothing is written.
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
     for i in 0..n as usize {
         let mk = (*cx).e.begin(tag, site);
-        if !enc_result_raw_ugroup(&*elems.add(i), cx) { return (*cx).e.err; }
+        if !enc_result_raw_ugroup(&*elems.add(i), cx) { return crate::enc_status(cx); }
         (*cx).e.end(mk);
     }
     (*cx).open_tag = saved.0;
@@ -1543,6 +1567,9 @@ pub unsafe extern "C" fn ak_elemu_TaskDetailed(
     // under the inner field's tag. It did not corrupt this payload set only because
     // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
     let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    // R-D6: a host that already failed this operation and calls in anyway gets the
+    // sticky code back and nothing is written.
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     // Read the open state into locals BEFORE the run: encoding an
     // element makes reverse calls that open fields of their own.
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
@@ -1551,7 +1578,7 @@ pub unsafe extern "C" fn ak_elemu_TaskDetailed(
     for i in 0..n as usize {
         let mk = (*cx).e.begin(tag, site);
         if !enc_task_detailed_group(&*elems.add(i), cx, vt, obj, tok0 + i as i64) {
-            return (*cx).e.err;
+            return crate::enc_status(cx);
         }
         (*cx).e.end(mk);
     }
@@ -1587,13 +1614,16 @@ pub unsafe extern "C" fn ak_uelemu_TaskDetailed(
     // under the inner field's tag. It did not corrupt this payload set only because
     // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
     let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    // R-D6: a host that already failed this operation and calls in anyway gets the
+    // sticky code back and nothing is written.
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
     let vt = (*cx).open_vt as *const ak_evt_TaskDetailed;
     let obj = (*cx).open_obj;
     for i in 0..n as usize {
         let mk = (*cx).e.begin(tag, site);
         if !enc_task_detailed_ugroup(&*elems.add(i), cx, vt, obj, tok0 + i as i64) {
-            return (*cx).e.err;
+            return crate::enc_status(cx);
         }
         (*cx).e.end(mk);
     }
@@ -1627,10 +1657,13 @@ pub unsafe extern "C" fn ak_elem_TaskOptionsOptionsEntry(
     // under the inner field's tag. It did not corrupt this payload set only because
     // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
     let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    // R-D6: a host that already failed this operation and calls in anyway gets the
+    // sticky code back and nothing is written.
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
     for i in 0..n as usize {
         let mk = (*cx).e.begin(tag, site);
-        if !enc_task_options_options_entry_group(&*elems.add(i), cx) { return (*cx).e.err; }
+        if !enc_task_options_options_entry_group(&*elems.add(i), cx) { return crate::enc_status(cx); }
         (*cx).e.end(mk);
     }
     (*cx).open_tag = saved.0;
@@ -1664,10 +1697,13 @@ pub unsafe extern "C" fn ak_uelem_TaskOptionsOptionsEntry(
     // under the inner field's tag. It did not corrupt this payload set only because
     // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
     let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    // R-D6: a host that already failed this operation and calls in anyway gets the
+    // sticky code back and nothing is written.
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
     for i in 0..n as usize {
         let mk = (*cx).e.begin(tag, site);
-        if !enc_task_options_options_entry_ugroup(&*elems.add(i), cx) { return (*cx).e.err; }
+        if !enc_task_options_options_entry_ugroup(&*elems.add(i), cx) { return crate::enc_status(cx); }
         (*cx).e.end(mk);
     }
     (*cx).open_tag = saved.0;
@@ -1701,6 +1737,9 @@ pub unsafe extern "C" fn ak_elemu_TaskSummary(
     // under the inner field's tag. It did not corrupt this payload set only because
     // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
     let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    // R-D6: a host that already failed this operation and calls in anyway gets the
+    // sticky code back and nothing is written.
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     // Read the open state into locals BEFORE the run: encoding an
     // element makes reverse calls that open fields of their own.
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
@@ -1709,7 +1748,7 @@ pub unsafe extern "C" fn ak_elemu_TaskSummary(
     for i in 0..n as usize {
         let mk = (*cx).e.begin(tag, site);
         if !enc_task_summary_group(&*elems.add(i), cx, vt, obj, tok0 + i as i64) {
-            return (*cx).e.err;
+            return crate::enc_status(cx);
         }
         (*cx).e.end(mk);
     }
@@ -1745,13 +1784,16 @@ pub unsafe extern "C" fn ak_uelemu_TaskSummary(
     // under the inner field's tag. It did not corrupt this payload set only because
     // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
     let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    // R-D6: a host that already failed this operation and calls in anyway gets the
+    // sticky code back and nothing is written.
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
     let vt = (*cx).open_vt as *const ak_evt_TaskSummary;
     let obj = (*cx).open_obj;
     for i in 0..n as usize {
         let mk = (*cx).e.begin(tag, site);
         if !enc_task_summary_ugroup(&*elems.add(i), cx, vt, obj, tok0 + i as i64) {
-            return (*cx).e.err;
+            return crate::enc_status(cx);
         }
         (*cx).e.end(mk);
     }
@@ -1787,12 +1829,13 @@ pub unsafe extern "C" fn ak_encode_ListResultsResponse(
         (*cx).open_kind = 0;
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
-        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
-        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+        if rc < 0 { (*cx).e.fail(rc); return crate::enc_status(cx) as isize; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return crate::enc_status(cx) as isize; }
     }
     if g.page != 0 { (*cx).e.varint_field(2, g.page as i64 as u64); }
     if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
-    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    let st = crate::enc_status(cx);
+    if st != AK_OK { return st as isize; }
     (*cx).e.buf.len() as isize
 }
 
@@ -1820,13 +1863,14 @@ pub unsafe extern "C" fn ak_uencode_ListResultsResponse(
         (*cx).open_kind = 0;
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
-        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
-        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+        if rc < 0 { (*cx).e.fail(rc); return crate::enc_status(cx) as isize; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return crate::enc_status(cx) as isize; }
     }
     if g.page != 0 { (*cx).e.varint_field(2, g.page as i64 as u64); }
     if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
-    if !enc_raw(cx, &g.unknown) { return (*cx).e.err as isize; }
-    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    if !enc_raw(cx, &g.unknown) { return crate::enc_status(cx) as isize; }
+    let st = crate::enc_status(cx);
+    if st != AK_OK { return st as isize; }
     (*cx).e.buf.len() as isize
 }
 
@@ -1855,12 +1899,13 @@ pub unsafe extern "C" fn ak_encode_ListTasksDetailedResponse(
         (*cx).open_vt = (*vt).elem_tasks as *const c_void;
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
-        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
-        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+        if rc < 0 { (*cx).e.fail(rc); return crate::enc_status(cx) as isize; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return crate::enc_status(cx) as isize; }
     }
     if g.page != 0 { (*cx).e.varint_field(2, g.page as i64 as u64); }
     if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
-    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    let st = crate::enc_status(cx);
+    if st != AK_OK { return st as isize; }
     (*cx).e.buf.len() as isize
 }
 
@@ -1889,13 +1934,14 @@ pub unsafe extern "C" fn ak_uencode_ListTasksDetailedResponse(
         (*cx).open_vt = (*vt).elem_tasks as *const c_void;
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
-        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
-        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+        if rc < 0 { (*cx).e.fail(rc); return crate::enc_status(cx) as isize; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return crate::enc_status(cx) as isize; }
     }
     if g.page != 0 { (*cx).e.varint_field(2, g.page as i64 as u64); }
     if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
-    if !enc_raw(cx, &g.unknown) { return (*cx).e.err as isize; }
-    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    if !enc_raw(cx, &g.unknown) { return crate::enc_status(cx) as isize; }
+    let st = crate::enc_status(cx);
+    if st != AK_OK { return st as isize; }
     (*cx).e.buf.len() as isize
 }
 
@@ -1923,10 +1969,11 @@ pub unsafe extern "C" fn ak_encode_ListProbeResponse(
         (*cx).open_kind = 0;
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
-        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
-        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+        if rc < 0 { (*cx).e.fail(rc); return crate::enc_status(cx) as isize; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return crate::enc_status(cx) as isize; }
     }
-    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    let st = crate::enc_status(cx);
+    if st != AK_OK { return st as isize; }
     (*cx).e.buf.len() as isize
 }
 
@@ -1954,11 +2001,12 @@ pub unsafe extern "C" fn ak_uencode_ListProbeResponse(
         (*cx).open_kind = 0;
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
-        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
-        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+        if rc < 0 { (*cx).e.fail(rc); return crate::enc_status(cx) as isize; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return crate::enc_status(cx) as isize; }
     }
-    if !enc_raw(cx, &g.unknown) { return (*cx).e.err as isize; }
-    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    if !enc_raw(cx, &g.unknown) { return crate::enc_status(cx) as isize; }
+    let st = crate::enc_status(cx);
+    if st != AK_OK { return st as isize; }
     (*cx).e.buf.len() as isize
 }
 
@@ -1987,10 +2035,11 @@ pub unsafe extern "C" fn ak_encode_ListTaskSummaryResponse(
         (*cx).open_vt = (*vt).elem_tasks as *const c_void;
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
-        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
-        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+        if rc < 0 { (*cx).e.fail(rc); return crate::enc_status(cx) as isize; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return crate::enc_status(cx) as isize; }
     }
-    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    let st = crate::enc_status(cx);
+    if st != AK_OK { return st as isize; }
     (*cx).e.buf.len() as isize
 }
 
@@ -2019,11 +2068,12 @@ pub unsafe extern "C" fn ak_uencode_ListTaskSummaryResponse(
         (*cx).open_vt = (*vt).elem_tasks as *const c_void;
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
-        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
-        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+        if rc < 0 { (*cx).e.fail(rc); return crate::enc_status(cx) as isize; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return crate::enc_status(cx) as isize; }
     }
-    if !enc_raw(cx, &g.unknown) { return (*cx).e.err as isize; }
-    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    if !enc_raw(cx, &g.unknown) { return crate::enc_status(cx) as isize; }
+    let st = crate::enc_status(cx);
+    if st != AK_OK { return st as isize; }
     (*cx).e.buf.len() as isize
 }
 
@@ -2052,17 +2102,18 @@ pub unsafe extern "C" fn ak_encode_UploadResultDataMessage(
     if g.presence & AK_EFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD != 0 {
         let mk = (*cx).e.begin(1, 76);
         if g.upload.session_id.tc.is_some() && g.upload.session_id.len != 0 {
-            if !enc_blob(cx, 1, 77, &g.upload.session_id) { return (*cx).e.err as isize; }
+            if !enc_blob(cx, 1, 77, &g.upload.session_id) { return crate::enc_status(cx) as isize; }
         }
         if g.upload.result_id.tc.is_some() && g.upload.result_id.len != 0 {
-            if !enc_blob(cx, 2, 78, &g.upload.result_id) { return (*cx).e.err as isize; }
+            if !enc_blob(cx, 2, 78, &g.upload.result_id) { return crate::enc_status(cx) as isize; }
         }
         if g.upload.data_chunk.len != 0 {
-            if !enc_blob(cx, 3, 79, &g.upload.data_chunk) { return (*cx).e.err as isize; }
+            if !enc_blob(cx, 3, 79, &g.upload.data_chunk) { return crate::enc_status(cx) as isize; }
         }
         (*cx).e.end(mk);
     }
-    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    let st = crate::enc_status(cx);
+    if st != AK_OK { return st as isize; }
     (*cx).e.buf.len() as isize
 }
 
@@ -2091,19 +2142,20 @@ pub unsafe extern "C" fn ak_uencode_UploadResultDataMessage(
     if g.presence & AK_UFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD != 0 {
         let mk = (*cx).e.begin(1, 76);
         if g.upload.session_id.tc.is_some() && g.upload.session_id.len != 0 {
-            if !enc_blob(cx, 1, 77, &g.upload.session_id) { return (*cx).e.err as isize; }
+            if !enc_blob(cx, 1, 77, &g.upload.session_id) { return crate::enc_status(cx) as isize; }
         }
         if g.upload.result_id.tc.is_some() && g.upload.result_id.len != 0 {
-            if !enc_blob(cx, 2, 78, &g.upload.result_id) { return (*cx).e.err as isize; }
+            if !enc_blob(cx, 2, 78, &g.upload.result_id) { return crate::enc_status(cx) as isize; }
         }
         if g.upload.data_chunk.len != 0 {
-            if !enc_blob(cx, 3, 79, &g.upload.data_chunk) { return (*cx).e.err as isize; }
+            if !enc_blob(cx, 3, 79, &g.upload.data_chunk) { return crate::enc_status(cx) as isize; }
         }
-        if !enc_raw(cx, &g.upload.unknown) { return (*cx).e.err as isize; }
+        if !enc_raw(cx, &g.upload.unknown) { return crate::enc_status(cx) as isize; }
         (*cx).e.end(mk);
     }
-    if !enc_raw(cx, &g.unknown) { return (*cx).e.err as isize; }
-    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    if !enc_raw(cx, &g.unknown) { return crate::enc_status(cx) as isize; }
+    let st = crate::enc_status(cx);
+    if st != AK_OK { return st as isize; }
     (*cx).e.buf.len() as isize
 }
 
@@ -2132,10 +2184,11 @@ pub unsafe extern "C" fn ak_encode_ListMetricsResponse(
         (*cx).open_vt = (*vt).elem_batches as *const c_void;
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
-        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
-        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+        if rc < 0 { (*cx).e.fail(rc); return crate::enc_status(cx) as isize; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return crate::enc_status(cx) as isize; }
     }
-    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    let st = crate::enc_status(cx);
+    if st != AK_OK { return st as isize; }
     (*cx).e.buf.len() as isize
 }
 
@@ -2164,11 +2217,12 @@ pub unsafe extern "C" fn ak_uencode_ListMetricsResponse(
         (*cx).open_vt = (*vt).elem_batches as *const c_void;
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
-        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
-        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+        if rc < 0 { (*cx).e.fail(rc); return crate::enc_status(cx) as isize; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return crate::enc_status(cx) as isize; }
     }
-    if !enc_raw(cx, &g.unknown) { return (*cx).e.err as isize; }
-    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    if !enc_raw(cx, &g.unknown) { return crate::enc_status(cx) as isize; }
+    let st = crate::enc_status(cx);
+    if st != AK_OK { return st as isize; }
     (*cx).e.buf.len() as isize
 }
 
@@ -2196,8 +2250,8 @@ pub unsafe extern "C" fn ak_encode_DualResponse(
         (*cx).open_kind = 0;
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
-        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
-        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+        if rc < 0 { (*cx).e.fail(rc); return crate::enc_status(cx) as isize; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return crate::enc_status(cx) as isize; }
     }
     if let Some(lp) = (*vt).loop_right {
         (*cx).open_tag = 2;
@@ -2205,10 +2259,11 @@ pub unsafe extern "C" fn ak_encode_DualResponse(
         (*cx).open_kind = 0;
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
-        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
-        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+        if rc < 0 { (*cx).e.fail(rc); return crate::enc_status(cx) as isize; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return crate::enc_status(cx) as isize; }
     }
-    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    let st = crate::enc_status(cx);
+    if st != AK_OK { return st as isize; }
     (*cx).e.buf.len() as isize
 }
 
@@ -2236,8 +2291,8 @@ pub unsafe extern "C" fn ak_uencode_DualResponse(
         (*cx).open_kind = 0;
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
-        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
-        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+        if rc < 0 { (*cx).e.fail(rc); return crate::enc_status(cx) as isize; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return crate::enc_status(cx) as isize; }
     }
     if let Some(lp) = (*vt).loop_right {
         (*cx).open_tag = 2;
@@ -2245,11 +2300,12 @@ pub unsafe extern "C" fn ak_uencode_DualResponse(
         (*cx).open_kind = 0;
         ak_rt::bump!((*cx).e.c, reverse);
         let rc = lp(cx as *mut ak_enc_ctx, obj, token);
-        if rc < 0 { (*cx).e.fail(rc); return (*cx).e.err as isize; }
-        if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+        if rc < 0 { (*cx).e.fail(rc); return crate::enc_status(cx) as isize; }
+        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return crate::enc_status(cx) as isize; }
     }
-    if !enc_raw(cx, &g.unknown) { return (*cx).e.err as isize; }
-    if (*cx).e.err != 0 { return (*cx).e.err as isize; }
+    if !enc_raw(cx, &g.unknown) { return crate::enc_status(cx) as isize; }
+    let st = crate::enc_status(cx);
+    if st != AK_OK { return st as isize; }
     (*cx).e.buf.len() as isize
 }
 
@@ -2266,9 +2322,10 @@ pub unsafe extern "C" fn ak_blob_run(
     }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
     for i in 0..n as usize {
-        if !enc_blob(cx, tag, site, &*elems.add(i)) { return (*cx).e.err; }
+        if !enc_blob(cx, tag, site, &*elems.add(i)) { return crate::enc_status(cx); }
     }
     AK_OK
 }
@@ -2282,6 +2339,7 @@ pub unsafe extern "C" fn ak_run_i32(ctx: *mut ak_enc_ctx, p: *const i32, n: usiz
     }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     if n == 0 { return AK_OK; }
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
     let mk = (*cx).e.begin(tag, site);
@@ -2304,6 +2362,7 @@ pub unsafe extern "C" fn ak_run_i64(ctx: *mut ak_enc_ctx, p: *const i64, n: usiz
     }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     if n == 0 { return AK_OK; }
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
     let mk = (*cx).e.begin(tag, site);
@@ -2326,6 +2385,7 @@ pub unsafe extern "C" fn ak_run_f64(ctx: *mut ak_enc_ctx, p: *const f64, n: usiz
     }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     if n == 0 { return AK_OK; }
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
     let mk = (*cx).e.begin(tag, site);
@@ -2348,6 +2408,7 @@ pub unsafe extern "C" fn ak_run_u8(ctx: *mut ak_enc_ctx, p: *const u8, n: usize)
     }
     let cx = ctx as *mut EncCtxImpl;
     ak_rt::bump!((*cx).e.c, forward);
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     if n == 0 { return AK_OK; }
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
     let mk = (*cx).e.begin(tag, site);
@@ -2377,7 +2438,15 @@ unsafe fn dec_empty_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_E
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
         if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
-            _ => { d.skip(tag, wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
+            _ => {
+                d.skip(tag, wire);
+                if !unk.is_null() {
+                    (*unk).push(base0 + s0, d.pos - s0);
+                    // R-D6: the push may have delivered a chunk; stop if the host failed.
+                    let he = (*unk).host_err();
+                    if he != AK_OK && d.err == 0 { d.err = he; }
+                }
+            }
         }
     }
     out
@@ -2408,7 +2477,15 @@ unsafe fn dec_pair_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Pa
                 if cur != 0 { flush!(); cur = 0; }
                 out.value = d.varint() as i32;
             }
-            _ => { d.skip(tag, wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
+            _ => {
+                d.skip(tag, wire);
+                if !unk.is_null() {
+                    (*unk).push(base0 + s0, d.pos - s0);
+                    // R-D6: the push may have delivered a chunk; stop if the host failed.
+                    let he = (*unk).host_err();
+                    if he != AK_OK && d.err == 0 { d.err = he; }
+                }
+            }
         }
     }
     out
@@ -2489,7 +2566,15 @@ unsafe fn dec_probe_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_P
                 // Last one wins: a later member replaces the case.
                 out.body_case = 14;
             }
-            _ => { d.skip(tag, wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
+            _ => {
+                d.skip(tag, wire);
+                if !unk.is_null() {
+                    (*unk).push(base0 + s0, d.pos - s0);
+                    // R-D6: the push may have delivered a chunk; stop if the host failed.
+                    let he = (*unk).host_err();
+                    if he != AK_OK && d.err == 0 { d.err = he; }
+                }
+            }
         }
     }
     out
@@ -2603,7 +2688,15 @@ unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_d
                 if cur != 0 { flush!(); cur = 0; }
                 out.manual_deletion = (d.varint() != 0) as u8;
             }
-            _ => { d.skip(tag, wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
+            _ => {
+                d.skip(tag, wire);
+                if !unk.is_null() {
+                    (*unk).push(base0 + s0, d.pos - s0);
+                    // R-D6: the push may have delivered a chunk; stop if the host failed.
+                    let he = (*unk).host_err();
+                    if he != AK_OK && d.err == 0 { d.err = he; }
+                }
+            }
         }
     }
     out
@@ -2635,7 +2728,15 @@ unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, unk: *mut
                 let (off, n) = d.len_body();
                 out.value = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
-            _ => { d.skip(tag, wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
+            _ => {
+                d.skip(tag, wire);
+                if !unk.is_null() {
+                    (*unk).push(base0 + s0, d.pos - s0);
+                    // R-D6: the push may have delivered a chunk; stop if the host failed.
+                    let he = (*unk).host_err();
+                    if he != AK_OK && d.err == 0 { d.err = he; }
+                }
+            }
         }
     }
     out
@@ -2665,7 +2766,15 @@ unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_df
                 if cur != 0 { flush!(); cur = 0; }
                 out.nanos = d.varint() as i32;
             }
-            _ => { d.skip(tag, wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }
+            _ => {
+                d.skip(tag, wire);
+                if !unk.is_null() {
+                    (*unk).push(base0 + s0, d.pos - s0);
+                    // R-D6: the push may have delivered a chunk; stop if the host failed.
+                    let he = (*unk).host_err();
+                    if he != AK_OK && d.err == 0 { d.err = he; }
+                }
+            }
         }
     }
     out
@@ -2690,9 +2799,8 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
         }
         None => return,
     };
-    if tok < 0 || (*dcx).hdr.err != AK_OK {
-        return;
-    }
+    if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; return; }
+    if tok < 0 { crate::ak_fail(ctx as *mut c_void, AK_ERR_HOST, ::core::ptr::null(), 0); d.err = AK_ERR_HOST; return; }
     let mut out = ak_dfix_TaskDetailed::ZERO;
     #[allow(unused_variables)]
     let buf0 = d.buf;
@@ -2756,12 +2864,15 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
         () => {
             if n_parent_task_ids > 0 {
                 if let Some(add) = (*vt).add_tasks_parent_task_ids {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    add(ctx, obj, tok, a_parent_task_ids.as_ptr() as *const ak_span, n_parent_task_ids as i32);
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_parent_task_ids.as_ptr() as *const ak_span, n_parent_task_ids as i32);
+                    }
                 }
                 done_parent_task_ids += n_parent_task_ids;
                 n_parent_task_ids = 0;
                 if !uk_parent_task_ids.is_null() { (*uk_parent_task_ids).flush(); }
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
     }
@@ -2769,12 +2880,15 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
         () => {
             if n_data_dependencies > 0 {
                 if let Some(add) = (*vt).add_tasks_data_dependencies {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    add(ctx, obj, tok, a_data_dependencies.as_ptr() as *const ak_span, n_data_dependencies as i32);
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_data_dependencies.as_ptr() as *const ak_span, n_data_dependencies as i32);
+                    }
                 }
                 done_data_dependencies += n_data_dependencies;
                 n_data_dependencies = 0;
                 if !uk_data_dependencies.is_null() { (*uk_data_dependencies).flush(); }
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
     }
@@ -2782,12 +2896,15 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
         () => {
             if n_expected_output_ids > 0 {
                 if let Some(add) = (*vt).add_tasks_expected_output_ids {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    add(ctx, obj, tok, a_expected_output_ids.as_ptr() as *const ak_span, n_expected_output_ids as i32);
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_expected_output_ids.as_ptr() as *const ak_span, n_expected_output_ids as i32);
+                    }
                 }
                 done_expected_output_ids += n_expected_output_ids;
                 n_expected_output_ids = 0;
                 if !uk_expected_output_ids.is_null() { (*uk_expected_output_ids).flush(); }
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
     }
@@ -2795,12 +2912,15 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
         () => {
             if n_retry_of_ids > 0 {
                 if let Some(add) = (*vt).add_tasks_retry_of_ids {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    add(ctx, obj, tok, a_retry_of_ids.as_ptr() as *const ak_span, n_retry_of_ids as i32);
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_retry_of_ids.as_ptr() as *const ak_span, n_retry_of_ids as i32);
+                    }
                 }
                 done_retry_of_ids += n_retry_of_ids;
                 n_retry_of_ids = 0;
                 if !uk_retry_of_ids.is_null() { (*uk_retry_of_ids).flush(); }
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
     }
@@ -2808,12 +2928,15 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
         () => {
             if n_options_options > 0 {
                 if let Some(add) = (*vt).add_tasks_options_options {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    add(ctx, obj, tok, a_options_options.as_ptr() as *const ak_dfix_TaskOptionsOptionsEntry, n_options_options as i32);
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_options_options.as_ptr() as *const ak_dfix_TaskOptionsOptionsEntry, n_options_options as i32);
+                    }
                 }
                 done_options_options += n_options_options;
                 n_options_options = 0;
                 if !uk_options_options.is_null() { (*uk_options_options).flush(); }
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
     }
@@ -3325,9 +3448,12 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
     }
     if d.err == 0 {
         flush!();
+    }
+    if d.err == 0 {
         if let Some(ap) = (*vt).apply_tasks {
             ak_rt::bump!((*dcx).c, reverse);
             ap(ctx, obj, tok, &out);
+            if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
         }
     }
 }
@@ -3351,9 +3477,8 @@ unsafe fn dec_list_task_summary_response_tasks_element(
         }
         None => return,
     };
-    if tok < 0 || (*dcx).hdr.err != AK_OK {
-        return;
-    }
+    if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; return; }
+    if tok < 0 { crate::ak_fail(ctx as *mut c_void, AK_ERR_HOST, ::core::ptr::null(), 0); d.err = AK_ERR_HOST; return; }
     let mut out = ak_dfix_TaskSummary::ZERO;
     #[allow(unused_variables)]
     let buf0 = d.buf;
@@ -3373,12 +3498,15 @@ unsafe fn dec_list_task_summary_response_tasks_element(
         () => {
             if n_options_options > 0 {
                 if let Some(add) = (*vt).add_tasks_options_options {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    add(ctx, obj, tok, a_options_options.as_ptr() as *const ak_dfix_TaskOptionsOptionsEntry, n_options_options as i32);
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_options_options.as_ptr() as *const ak_dfix_TaskOptionsOptionsEntry, n_options_options as i32);
+                    }
                 }
                 done_options_options += n_options_options;
                 n_options_options = 0;
                 if !uk_options_options.is_null() { (*uk_options_options).flush(); }
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
     }
@@ -3541,9 +3669,12 @@ unsafe fn dec_list_task_summary_response_tasks_element(
     }
     if d.err == 0 {
         flush!();
+    }
+    if d.err == 0 {
         if let Some(ap) = (*vt).apply_tasks {
             ak_rt::bump!((*dcx).c, reverse);
             ap(ctx, obj, tok, &out);
+            if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
         }
     }
 }
@@ -3567,9 +3698,8 @@ unsafe fn dec_list_metrics_response_batches_element(
         }
         None => return,
     };
-    if tok < 0 || (*dcx).hdr.err != AK_OK {
-        return;
-    }
+    if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; return; }
+    if tok < 0 { crate::ak_fail(ctx as *mut c_void, AK_ERR_HOST, ::core::ptr::null(), 0); d.err = AK_ERR_HOST; return; }
     let mut out = ak_dfix_MetricsBatch::ZERO;
     #[allow(unused_variables)]
     let buf0 = d.buf;
@@ -3633,12 +3763,15 @@ unsafe fn dec_list_metrics_response_batches_element(
         () => {
             if n_ticks > 0 {
                 if let Some(add) = (*vt).add_batches_ticks {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    add(ctx, obj, tok, a_ticks.as_ptr() as *const i64, n_ticks as i32);
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_ticks.as_ptr() as *const i64, n_ticks as i32);
+                    }
                 }
                 done_ticks += n_ticks;
                 n_ticks = 0;
                 if !uk_ticks.is_null() { (*uk_ticks).flush(); }
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
     }
@@ -3646,12 +3779,15 @@ unsafe fn dec_list_metrics_response_batches_element(
         () => {
             if n_values > 0 {
                 if let Some(add) = (*vt).add_batches_values {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    add(ctx, obj, tok, a_values.as_ptr() as *const f64, n_values as i32);
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_values.as_ptr() as *const f64, n_values as i32);
+                    }
                 }
                 done_values += n_values;
                 n_values = 0;
                 if !uk_values.is_null() { (*uk_values).flush(); }
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
     }
@@ -3659,12 +3795,15 @@ unsafe fn dec_list_metrics_response_batches_element(
         () => {
             if n_codes > 0 {
                 if let Some(add) = (*vt).add_batches_codes {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    add(ctx, obj, tok, a_codes.as_ptr() as *const i32, n_codes as i32);
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_codes.as_ptr() as *const i32, n_codes as i32);
+                    }
                 }
                 done_codes += n_codes;
                 n_codes = 0;
                 if !uk_codes.is_null() { (*uk_codes).flush(); }
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
     }
@@ -3672,12 +3811,15 @@ unsafe fn dec_list_metrics_response_batches_element(
         () => {
             if n_flags > 0 {
                 if let Some(add) = (*vt).add_batches_flags {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    add(ctx, obj, tok, a_flags.as_ptr() as *const u8, n_flags as i32);
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_flags.as_ptr() as *const u8, n_flags as i32);
+                    }
                 }
                 done_flags += n_flags;
                 n_flags = 0;
                 if !uk_flags.is_null() { (*uk_flags).flush(); }
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
     }
@@ -3685,12 +3827,15 @@ unsafe fn dec_list_metrics_response_batches_element(
         () => {
             if n_statuses > 0 {
                 if let Some(add) = (*vt).add_batches_statuses {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    add(ctx, obj, tok, a_statuses.as_ptr() as *const i32, n_statuses as i32);
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_statuses.as_ptr() as *const i32, n_statuses as i32);
+                    }
                 }
                 done_statuses += n_statuses;
                 n_statuses = 0;
                 if !uk_statuses.is_null() { (*uk_statuses).flush(); }
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
     }
@@ -3804,9 +3949,12 @@ unsafe fn dec_list_metrics_response_batches_element(
     }
     if d.err == 0 {
         flush!();
+    }
+    if d.err == 0 {
         if let Some(ap) = (*vt).apply_batches {
             ak_rt::bump!((*dcx).c, reverse);
             ap(ctx, obj, tok, &out);
+            if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
         }
     }
 }
@@ -3859,12 +4007,15 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
         () => {
             if n_results > 0 {
                 if let Some(add) = (*vt).add_results {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    add(ctx, obj, AK_TOKEN_ROOT, a_results.as_ptr() as *const ak_dfix_ResultRaw, n_results as i32);
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_results.as_ptr() as *const ak_dfix_ResultRaw, n_results as i32);
+                    }
                 }
                 done_results += n_results;
                 n_results = 0;
                 if !uk_results.is_null() { (*uk_results).flush(); }
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
     }
@@ -3901,12 +4052,25 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 out.total = d.varint() as i32;
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
+            _ => {
+                if cur != 0 { flush!(); cur = 0; }
+                d.skip(tag, wire);
+                if !uk_root.is_null() {
+                    (*uk_root).push(base0 + s0, d.pos - s0);
+                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
+                }
+            }
         }
     }
     if d.err == 0 {
         flush!();
-        if !uk_root.is_null() { (*uk_root).flush(); }
+    }
+    if d.err == 0 && !uk_root.is_null() {
+        (*uk_root).flush();
+        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
+    }
+    // R-D6: `apply` only if nothing -- the reader or the host -- failed.
+    if d.err == 0 && (*dcx).hdr.err == AK_OK {
         if let Some(apply) = (*vt).apply {
             ak_rt::bump!((*dcx).c, reverse);
             apply(ctx, obj, &out);
@@ -3978,12 +4142,25 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 out.total = d.varint() as i32;
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
+            _ => {
+                if cur != 0 { flush!(); cur = 0; }
+                d.skip(tag, wire);
+                if !uk_root.is_null() {
+                    (*uk_root).push(base0 + s0, d.pos - s0);
+                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
+                }
+            }
         }
     }
     if d.err == 0 {
         flush!();
-        if !uk_root.is_null() { (*uk_root).flush(); }
+    }
+    if d.err == 0 && !uk_root.is_null() {
+        (*uk_root).flush();
+        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
+    }
+    // R-D6: `apply` only if nothing -- the reader or the host -- failed.
+    if d.err == 0 && (*dcx).hdr.err == AK_OK {
         if let Some(apply) = (*vt).apply {
             ak_rt::bump!((*dcx).c, reverse);
             apply(ctx, obj, &out);
@@ -4042,12 +4219,15 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
         () => {
             if n_probes > 0 {
                 if let Some(add) = (*vt).add_probes {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    add(ctx, obj, AK_TOKEN_ROOT, a_probes.as_ptr() as *const ak_dfix_Probe, n_probes as i32);
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_probes.as_ptr() as *const ak_dfix_Probe, n_probes as i32);
+                    }
                 }
                 done_probes += n_probes;
                 n_probes = 0;
                 if !uk_probes.is_null() { (*uk_probes).flush(); }
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
     }
@@ -4076,12 +4256,25 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
                 if es.err != 0 { d.err = es.err; }
                 n_probes += 1;
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
+            _ => {
+                if cur != 0 { flush!(); cur = 0; }
+                d.skip(tag, wire);
+                if !uk_root.is_null() {
+                    (*uk_root).push(base0 + s0, d.pos - s0);
+                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
+                }
+            }
         }
     }
     if d.err == 0 {
         flush!();
-        if !uk_root.is_null() { (*uk_root).flush(); }
+    }
+    if d.err == 0 && !uk_root.is_null() {
+        (*uk_root).flush();
+        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
+    }
+    // R-D6: `apply` only if nothing -- the reader or the host -- failed.
+    if d.err == 0 && (*dcx).hdr.err == AK_OK {
         if let Some(apply) = (*vt).apply {
             ak_rt::bump!((*dcx).c, reverse);
             apply(ctx, obj, &out);
@@ -4145,12 +4338,25 @@ pub unsafe extern "C" fn ak_decode_ListTaskSummaryResponse(
                 dec_list_task_summary_response_tasks_element(ctx, dcx, obj, vt, &mut sub, base0 + off);
                 if sub.err != 0 { d.err = sub.err; }
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
+            _ => {
+                if cur != 0 { flush!(); cur = 0; }
+                d.skip(tag, wire);
+                if !uk_root.is_null() {
+                    (*uk_root).push(base0 + s0, d.pos - s0);
+                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
+                }
+            }
         }
     }
     if d.err == 0 {
         flush!();
-        if !uk_root.is_null() { (*uk_root).flush(); }
+    }
+    if d.err == 0 && !uk_root.is_null() {
+        (*uk_root).flush();
+        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
+    }
+    // R-D6: `apply` only if nothing -- the reader or the host -- failed.
+    if d.err == 0 && (*dcx).hdr.err == AK_OK {
         if let Some(apply) = (*vt).apply {
             ak_rt::bump!((*dcx).c, reverse);
             apply(ctx, obj, &out);
@@ -4239,12 +4445,25 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
                 }
                 if cd.err != 0 { d.err = cd.err; }
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
+            _ => {
+                if cur != 0 { flush!(); cur = 0; }
+                d.skip(tag, wire);
+                if !uk_root.is_null() {
+                    (*uk_root).push(base0 + s0, d.pos - s0);
+                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
+                }
+            }
         }
     }
     if d.err == 0 {
         flush!();
-        if !uk_root.is_null() { (*uk_root).flush(); }
+    }
+    if d.err == 0 && !uk_root.is_null() {
+        (*uk_root).flush();
+        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
+    }
+    // R-D6: `apply` only if nothing -- the reader or the host -- failed.
+    if d.err == 0 && (*dcx).hdr.err == AK_OK {
         if let Some(apply) = (*vt).apply {
             ak_rt::bump!((*dcx).c, reverse);
             apply(ctx, obj, &out);
@@ -4308,12 +4527,25 @@ pub unsafe extern "C" fn ak_decode_ListMetricsResponse(
                 dec_list_metrics_response_batches_element(ctx, dcx, obj, vt, &mut sub, base0 + off);
                 if sub.err != 0 { d.err = sub.err; }
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
+            _ => {
+                if cur != 0 { flush!(); cur = 0; }
+                d.skip(tag, wire);
+                if !uk_root.is_null() {
+                    (*uk_root).push(base0 + s0, d.pos - s0);
+                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
+                }
+            }
         }
     }
     if d.err == 0 {
         flush!();
-        if !uk_root.is_null() { (*uk_root).flush(); }
+    }
+    if d.err == 0 && !uk_root.is_null() {
+        (*uk_root).flush();
+        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
+    }
+    // R-D6: `apply` only if nothing -- the reader or the host -- failed.
+    if d.err == 0 && (*dcx).hdr.err == AK_OK {
         if let Some(apply) = (*vt).apply {
             ak_rt::bump!((*dcx).c, reverse);
             apply(ctx, obj, &out);
@@ -4384,12 +4616,15 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
         () => {
             if n_left > 0 {
                 if let Some(add) = (*vt).add_left {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    add(ctx, obj, AK_TOKEN_ROOT, a_left.as_ptr() as *const ak_dfix_Pair, n_left as i32);
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_left.as_ptr() as *const ak_dfix_Pair, n_left as i32);
+                    }
                 }
                 done_left += n_left;
                 n_left = 0;
                 if !uk_left.is_null() { (*uk_left).flush(); }
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
     }
@@ -4397,12 +4632,15 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
         () => {
             if n_right > 0 {
                 if let Some(add) = (*vt).add_right {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    add(ctx, obj, AK_TOKEN_ROOT, a_right.as_ptr() as *const ak_dfix_Pair, n_right as i32);
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_right.as_ptr() as *const ak_dfix_Pair, n_right as i32);
+                    }
                 }
                 done_right += n_right;
                 n_right = 0;
                 if !uk_right.is_null() { (*uk_right).flush(); }
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
     }
@@ -4442,12 +4680,25 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
                 if es.err != 0 { d.err = es.err; }
                 n_right += 1;
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
+            _ => {
+                if cur != 0 { flush!(); cur = 0; }
+                d.skip(tag, wire);
+                if !uk_root.is_null() {
+                    (*uk_root).push(base0 + s0, d.pos - s0);
+                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
+                }
+            }
         }
     }
     if d.err == 0 {
         flush!();
-        if !uk_root.is_null() { (*uk_root).flush(); }
+    }
+    if d.err == 0 && !uk_root.is_null() {
+        (*uk_root).flush();
+        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
+    }
+    // R-D6: `apply` only if nothing -- the reader or the host -- failed.
+    if d.err == 0 && (*dcx).hdr.err == AK_OK {
         if let Some(apply) = (*vt).apply {
             ak_rt::bump!((*dcx).c, reverse);
             apply(ctx, obj, &out);
