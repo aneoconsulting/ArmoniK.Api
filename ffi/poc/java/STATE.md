@@ -11,10 +11,10 @@ crossing counts, floor builds, corpus passes, feasibility and defects found.
 
 | | |
 |---|---|
-| **Status** | FIX-PLAN WP5 step 3 done (2026-09-24, 2889d87 + 287deca): every generated Java codec, binding, layout, header and shim is rendered by the Java backend in `poc/codec/gen/` from `plan.py`. Payload gate (arms a, b, c): 1,389 checks per arm-set, 0 failures. Full corpus (691 rows) on six arms, target and floor: 0 failing arm-rows. The 19 rows re4 had failing: all pass. |
+| **Status** | FIX-PLAN WP5 step 3 done (2889d87, 287deca); WP5 tail D38 and D39 fixed (bb98e8f, 271fdd5) and re-gated from a clean core build at 271fdd5: payload gate 1,389 checks per arm-set, 0 failures (`wp5s6-gate.log`); full corpus (702 rows) on six arms, target and floor, 0 failing arm-rows (`wp5s6-corpus.log`); the rust slice's probe manifest, 0 failing (`wp5s6-probe.log`). |
 | **Levels** (owner decision D3) | **floor Java 8** (correctness gate only): `openjdk 1.8.0_504`, JDK 8 `javac`. **target JDK 17**: `openjdk 17.0.20.1`. JDK 21 only for the two secondary probes (virtual threads, FFM preview). |
 | **Incumbent** | protobuf-java **3.25.5** (resolved from `packages/java`'s pins), protoc 3.19.0 (copied from `~/.m2` when present). R14's baseline path is `io.grpc.protobuf.lite.ProtoLiteUtils`' marshaller (`RunR14`). |
-| **Core** | the shared crate `poc/codec/crates/ak-core` (R0), no copy here. `gen/build.sh` builds it from a `git archive` SNAPSHOT of the committed `ffi/poc/codec` (`AK_CORE_REV`, default HEAD; `AK_CODEC=<dir>` for another tree), because other slices regenerate the core in the same working tree; the snapshot commit goes to `build/core-rev.txt` and into every gate log. **Every codec build carries `init-guard`** (R-G7); the corpus build is `corpus,init-guard`. |
+| **Core** | the shared crate `poc/codec/crates/ak-core` (R0), no copy here. `gen/build.sh` builds it from a `git archive` SNAPSHOT of the committed `ffi/poc/codec` (`AK_CORE_REV`, default HEAD; `AK_CODEC=<dir>` for another tree), because other slices regenerate the core in the same working tree; it builds into `core-build/<key>/`, key = the git tree hash of `ffi/poc/codec` at that revision, `core-build/current` -> the key built, and every shim is checked to link that key's core (D39: a reused target dir once kept a stale core). The snapshot commit and key go to `build/core-rev.txt` and into every gate log. **Every codec build carries `init-guard`** (R-G7); the corpus build is `corpus,init-guard`. |
 | **Generator** | `gen/generate.py` is glue: it calls `poc/codec/gen/java_backend.emit` for two descriptions (shapes.json, 7 roots; the corpus reader schema) and renders the slice's harness glue (payload builders, arm dispatchers, the corpus projection), all from the plan's descriptor view. It writes under `poc/java/` only. `--check`: every generated file current, `poc/codec/gen/generate.py --check` exit 0, and that file's import guard applied to the nine Java backend modules and the glue, planted violation caught. |
 | **Blocked on** | nothing for correctness. |
 
@@ -24,7 +24,7 @@ crossing counts, floor builds, corpus passes, feasibility and defects found.
 |---|---|
 | `poc/codec/gen/java_*.py` | **the Java backend** (commit 2889d87): `java_backend` (entry), `java_rcodec` (arm R, drop and retain), `java_layout` (offsets), `java_abi` (the C header and the slot tables), `java_jni` (shim, NativeEntry, `ak_init`), `java_binding` + `java_pull` (the Java half, per level), `java_facade`, `java_names`. Each imports `plan`, never the IR |
 | `gen/` | glue: `generate.py`, `java_build.py`, `java_pbbuild.py`, `java_arms.py`, `pbarms.py`, `java_ffiarms.py`, `java_corpus.py` (corpus dispatch + projection); `build.sh`, `gate.sh` (payload gate, arms a/b/c), `corpus.py` + `corpus.sh` (corpus gate), `layout_break.sh`, `boundary.sh`, older measurement scripts |
-| `src/java/ak/` | hand-written runtime (`Enc`, `Dec` -- primitives only, `Utf8`, `Utf8View`, `Str17`, `Mem`, `Native`, ...) and harnesses: `RunConformance`, `RunUnknown`, `RunCounts`, `RunCorpus`, `RunRuleGaps`, `Bench`, `RunDelta`, `RunR14`, `RunRpc` |
+| `src/java/ak/` | hand-written runtime (`Enc`, `Dec` -- primitives only, its skip takes the plan's `MAX_FIELD_NUMBER` / `GROUP_DEPTH_LIMIT` from the generated codec (D38), `Utf8`, `Utf8View`, `Str17`, `Mem`, `Native`, ...) and harnesses: `RunConformance`, `RunUnknown`, `RunCounts`, `RunCorpus`, `RunRuleGaps`, `Bench`, `RunDelta`, `RunR14`, `RunRpc` |
 | `src/generated/{java17,java8}/`, `native/generated/` | the shapes description: `ak.shapes` (facade, `Codec`, `CodecRetain`, `Layout`, `Binding`, glue), `ak.floor` (arm b), `ak.borrow` (decision 13); `ak_abi.h` + `shim.c` |
 | `src/generated_corpus/{java17,java8}/`, `native/generated_corpus/` | the corpus description: `ak.corpus` (+ `Dispatch`, `Project`), `ak.corpus.borrow`; its own header and shim, linked against the `corpus` core |
 | `src/generated{,_corpus}/shared/` | `ak.NativeEntry`, `ak.corpus.NativeEntry`: the per-message natives and `ensureInit()` |
@@ -44,6 +44,17 @@ crossing counts, floor builds, corpus passes, feasibility and defects found.
 | RPC arm (`RunRpc`, `native/rpc.c`) | section 9 end to end | built, **not run in this unit**, not in either gate | -- |
 
 ## Correctness (results)
+
+**WP5 tail re-gate** (supersedes the wp5-* results below; same structure): clean build
+(`wp5s6-build.log`, core snapshot 271fdd5, tree key in the log). `wp5s6-gate.log`: arms a,
+b, c 1,389 checks each, 0 failures; unknown 66/0; pull reverse 0. `wp5s6-corpus.log`: 702
+rows; R and R-retain pass 696 (555 / 141), the four ffi arms pass 680 (542 / 138) with 16
+`Nest` rows outside the C ABI; 0 failing, 6 disputed (`U-map-entry`, `X-tag-zero-Empty`,
+`X-tag-zero-nested-Empty`, `X-field-over-max`, `X-field-2p32-plus-2`,
+`X-field-over-max-in-group`: every arm refuses the last five, "field number 0 or above
+2^29-1"); controls proj 156, reenc 156, accept 570, noinit 104 failing arm-rows.
+`wp5s6-probe.log` (the rust slice's probe manifest, 11 rows, 6 arms, 8 and 17): 0 failing;
+`P-field-maxplus1-in-group` refused by arm R and by the core (D38).
 
 **Payload gate: `logs/java/wp5-gate.log`** (tree 287deca, core snapshot 287deca = the Rust
 sources of aba944a, `init-guard`), verbose per-arm logs `wp5-conformance-arm-{a,b,c}.log`.
@@ -179,6 +190,8 @@ not), `contentsets.log`, `deopt.log`, `r9-mechanism.log`, `crossing.log`,
 | G2 | plan gap: `plan.lifecycle` names `AK_INIT_*` but not their values; `ak_err`, the error codes and `ak_bdr_rec` are fixed text in `ak-abi` restated in `java_abi` (the record header is static-asserted) | reported |
 | G3 | the ffi arms have no retain mode: decision 11's slots stay NULL and there is no `ak_uencode_*` path in the binding (R-G11 would also bound it) | open, not built |
 | G4 | a `lossy` UTF-8 plan option raises in `java_rcodec` (the runtime renders `reject` only) | by design until the option is used |
+| D38 | `Dec`'s group skip accepted a field number above 2^29-1 inside a group; limits were runtime constants | **fixed** (bb98e8f, 271fdd5), wp5s6-probe.log |
+| D39 | `gen/build.sh` reused a cargo target dir over a git-archive snapshot and once kept a stale core | **fixed**: target dir keyed on the snapshot tree, shims checked (wp5s6-d39-keys.log) |
 | D1-D7 | earlier slice defects | fixed; see JOURNAL J2-J16 |
 
 ## What is not measured or not run
@@ -231,6 +244,10 @@ not), `contentsets.log`, `deopt.log`, `r9-mechanism.log`, `crossing.log`,
 
 | Log | What it establishes |
 |---|---|
+| `wp5s6-gate.log`, `wp5s6-conformance-arm-{a,b,c}.log` | WP5 tail: the payload gate from a clean core build at 271fdd5, 0 failures |
+| `wp5s6-corpus.log` | WP5 tail: 702 corpus rows, six arms, 8 and 17, 0 failing; controls; rule gaps |
+| `wp5s6-probe.log` | the rust slice's probe manifest on six arms, 8 and 17, 0 failing (D38) |
+| `wp5s6-d39-keys.log`, `wp5s6-build.log` | D39: the keyed core target dir, every shim on this key's core; the clean build |
 | `wp5-gate.log` | WP5 step 3: the payload gate on arms a, b, c, every arm listed, 1,389 checks each, 0 failures; unknown vectors 66/0; pull reverse crossings 0; core with `init-guard` |
 | `wp5-conformance-arm-{a,b,c}.log` | the verbose per-row gate output behind it |
 | `wp5-corpus.log` | the full corpus on six arms, target and floor, 0 failing arm-rows; generate --check; controls seen failing (proj, reenc, accept, noinit); the rule gaps on arm R and ffi with protobuf C++'s reading |

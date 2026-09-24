@@ -1,0 +1,25 @@
+== generate
+Error processing line 1 of /usr/lib/python3/dist-packages/distutils-precedence.pth:
+  Traceback (most recent call last):
+  ModuleNotFoundError: No module named '_distutils_hack'
+Remainder of file ignored
+   core snapshot: ffi/poc/codec at 271fdd5, tree key tree-2bbcff450b771fb0
+== core (timed, init-guard)
+== core (counting, init-guard)
+== core (corpus schema, init-guard)
+== shim
+== core (rpc feature) and its shim
+== protoc
+== classes: arm a (java17 on JDK 17)
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+4 warnings
+== classes: arms b and c (java8 source tree, JDK 8 javac)
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+4 warnings
+== secondary probes (JDK 21)
+Note: probe/FfmProbe.java uses preview features of Java SE 21.
+Note: Recompile with -Xlint:preview for details.
+== done
+exit 0

@@ -1,0 +1,13 @@
+# D39: the core target dir is keyed on the snapshot's tree (gen/build.sh). tree de21106
+   core snapshot: ffi/poc/codec at 271fdd5, tree key tree-2bbcff450b771fb0
+core-build/: current tree-2bbcff450b771fb0   current -> tree-2bbcff450b771fb0
+key for ffi/poc/codec at 41eb485: tree-926ba617d118dcd1
+key for ffi/poc/codec at bb98e8f: tree-2bbcff450b771fb0
+key for ffi/poc/codec at HEAD: tree-2bbcff450b771fb0
+# every shim resolves to this key's core (build.sh refuses otherwise):
+  jni -> /home/user/ArmoniK.Api/ffi/poc/java/core-build/tree-2bbcff450b771fb0/target/release/libak_core.so
+  jnicnt -> /home/user/ArmoniK.Api/ffi/poc/java/core-build/tree-2bbcff450b771fb0/target-count/release/libak_core.so
+  jnong -> /home/user/ArmoniK.Api/ffi/poc/java/core-build/tree-2bbcff450b771fb0/target/release/libak_core.so
+  jnitax -> /home/user/ArmoniK.Api/ffi/poc/java/core-build/tree-2bbcff450b771fb0/target/release/libak_core.so
+  jnicorpus -> /home/user/ArmoniK.Api/ffi/poc/java/core-build/tree-2bbcff450b771fb0/target-corpus/release/libak_core.so
+  jnirpc -> /home/user/ArmoniK.Api/ffi/poc/java/core-build/tree-2bbcff450b771fb0/target-rpc/release/libak_core.so
