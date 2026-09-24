@@ -1,0 +1,17 @@
+== ABI v1 section 10: the layout guard, seen failing ==
+# perturb ONE offset in the host's hand-computed table and rebuild that class only
+#   HOST[0] 56 -> 57
+# now load the binding: the comparison against the core's own export must fire
+Exception in thread "main" java.lang.ExceptionInInitializerError
+Caused by: java.lang.IllegalStateException: ABI v1 section 10: group layout disagreement
+  sizeof ak_efix_TaskOptionsOptionsEntry: core 56, host 57
+  (1 of 380 facts disagree)
+# exit status 1 (non-zero is the guard working)
+
+== the same offsets, checked at COMPILE time: the header static-asserts every one
+# perturb ONE of the Java layout engine's numbers in a copy of the header; the shim
+# must then fail to compile, naming the fact
+#   ak_efix_ResultRaw.created_at 80 -> 88
+build/hdrbreak/ak_abi.h:36:26: error: static assertion failed: "ak_efix_ResultRaw.created_at"
+# gcc exit status 1 (non-zero is the compile-time guard working)
+# and the unperturbed header compiles (exit 0)

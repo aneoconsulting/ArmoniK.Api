@@ -1,0 +1,725 @@
+== java slice corpus gate; tree 287deca
+      core snapshot: ffi/poc/codec at 287deca
+   corpus core built with: ,"features":"["corpus", "default", "init-guard"] 
+   shim /home/user/ArmoniK.Api/ffi/poc/java/build/jnicorpus/libakjni.so -> /home/user/ArmoniK.Api/ffi/poc/java/core-build/target-corpus/release/libak_core.so
+   the loaded core is the corpus-schema build: 1 ak_decode_WireZoo export(s)
+   per-row timeout 5000 ms
+
+===== 1. generators current =====
+guard 9 Java backend modules and the slice glue import plans only; a planted IR import is caught
+core  poc/codec/gen/generate.py --check: exit 0
+checked 258 generated files, 0 problem(s)
+
+===== 2. the corpus, target (/usr/lib/jvm/java-17-openjdk-amd64, build/cls17), arms R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow =====
+# java slice: ffi/corpus against R, R-retain, ffi, ffi-pull, ffi-pull-walk, ffi-borrow  (FIX-PLAN WP5 step 3)
+# corpus 1, 691 of 691 vectors
+# classes build/cls17   shim /home/user/ArmoniK.Api/ffi/poc/java/build/jnicorpus/libakjni.so
+# java.version=17.0.20.1  timeout_ms=5000  arms=R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow  plant=none  ak.lib=/home/user/ArmoniK.Api/ffi/poc/java/build/jnicorpus/libakjni.so  skipInit=0
+# codec LIMIT=100 utf8=reject  C ABI roots 29 of 30 messages
+# harness exit 0, 4146 result lines
+
+################ arm R
+   rows 691: pass 688 (accept 547, refused 141), FAIL 0, disputed (excluded) 3, not in the C ABI 0, timeouts 0
+   C3 forms written: as committed=189, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-dropped=45, unknown-dropped/unknown-dropped, map values always written=24, unknown-dropped: the known field as it was, the foreign-typed one gone=162, unknown-dropped: the known field as it was, the foreign-typed one gone/unknown-dropped, map values always written=81
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (Malformed:field number 0)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (Malformed:field number 0)
+   FAILING rows: 0
+   refusals (error per refused row):
+      T-dec-map-key-above-10ffff               Malformed:out of range 4-byte sequence
+      T-dec-map-key-lone-continuation          Malformed:continuation or overlong lead byte
+      T-dec-map-key-overlong-nul               Malformed:continuation or overlong lead byte
+      T-dec-map-key-surrogate-d800             Malformed:encoded surrogate
+      T-dec-map-value-above-10ffff             Malformed:out of range 4-byte sequence
+      T-dec-map-value-lone-continuation        Malformed:continuation or overlong lead byte
+      T-dec-map-value-overlong-nul             Malformed:continuation or overlong lead byte
+      T-dec-map-value-surrogate-d800           Malformed:encoded surrogate
+      T-dec-nested-above-10ffff                Malformed:out of range 4-byte sequence
+      T-dec-nested-lone-continuation           Malformed:continuation or overlong lead byte
+      T-dec-nested-overlong-nul                Malformed:continuation or overlong lead byte
+      T-dec-nested-surrogate-d800              Malformed:encoded surrogate
+      T-dec-repeated-above-10ffff              Malformed:out of range 4-byte sequence
+      T-dec-repeated-lone-continuation         Malformed:continuation or overlong lead byte
+      T-dec-repeated-overlong-nul              Malformed:continuation or overlong lead byte
+      T-dec-repeated-surrogate-d800            Malformed:encoded surrogate
+      T-dec-root-above-10ffff                  Malformed:out of range 4-byte sequence
+      T-dec-root-cesu8-pair                    Malformed:encoded surrogate
+      T-dec-root-f5-lead                       Malformed:lead byte above F4
+      T-dec-root-fe-ff                         Malformed:lead byte above F4
+      T-dec-root-five-byte                     Malformed:lead byte above F4
+      T-dec-root-lead-no-continuation          Malformed:truncated 2-byte sequence
+      T-dec-root-lone-continuation             Malformed:continuation or overlong lead byte
+      T-dec-root-overlong-2                    Malformed:continuation or overlong lead byte
+      T-dec-root-overlong-3                    Malformed:overlong 3-byte sequence
+      T-dec-root-overlong-4                    Malformed:out of range 4-byte sequence
+      T-dec-root-overlong-nul                  Malformed:continuation or overlong lead byte
+      T-dec-root-surrogate-d800                Malformed:encoded surrogate
+      T-dec-root-surrogate-dfff                Malformed:encoded surrogate
+      T-dec-root-truncated-3                   Malformed:truncated 3-byte sequence
+      T-dec-root-truncated-4                   Malformed:truncated 4-byte sequence
+      X-depth-101                              Malformed:nesting past 100
+      X-depth-300                              Malformed:nesting past 100
+      X-fixed32-truncated                      Malformed:truncated fixed32
+      X-fixed64-truncated                      Malformed:truncated fixed64
+      X-group-mismatched-end                   Malformed:mismatched end group
+      X-group-unterminated                     Malformed:unterminated group
+      X-len-huge                               Malformed:length past end of buffer
+      X-len-prefix-truncated                   Malformed:truncated varint
+      X-len-truncated                          Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-msg-abs-one         Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-msg-abs-start       Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-msg-abs-under       Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-msg-abs-zero        Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-msg-rel-max         Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-msg-rel-one         Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-msg-rel-under       Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-msg-rel-zero        Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-string-abs-one      Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-string-abs-start    Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-string-abs-under    Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-string-abs-zero     Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-string-rel-max      Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-string-rel-one      Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-string-rel-under    Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-string-rel-zero     Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-unknown-abs-one     Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-unknown-abs-start   Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-unknown-abs-under   Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-unknown-abs-zero    Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-unknown-rel-max     Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-unknown-rel-one     Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-unknown-rel-under   Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-unknown-rel-zero    Malformed:length past end of buffer
+      X-lenwrap-lrr-results-max                Malformed:length past end of buffer
+      X-lenwrap-lrr-results-one                Malformed:length past end of buffer
+      X-lenwrap-lrr-results-second-max         Malformed:length past end of buffer
+      X-lenwrap-lrr-results-second-one         Malformed:length past end of buffer
+      X-lenwrap-lrr-results-second-start       Malformed:length past end of buffer
+      X-lenwrap-lrr-results-second-under       Malformed:length past end of buffer
+      X-lenwrap-lrr-results-second-zero        Malformed:length past end of buffer
+      X-lenwrap-lrr-results-under              Malformed:length past end of buffer
+      X-lenwrap-lrr-results-zero               Malformed:length past end of buffer
+      X-lenwrap-lrr-unknown-after-max          Malformed:length past end of buffer
+      X-lenwrap-lrr-unknown-after-one          Malformed:length past end of buffer
+      X-lenwrap-lrr-unknown-after-start        Malformed:length past end of buffer
+      X-lenwrap-lrr-unknown-after-under        Malformed:length past end of buffer
+      X-lenwrap-lrr-unknown-after-zero         Malformed:length past end of buffer
+      X-lenwrap-lrr-unknown-max                Malformed:length past end of buffer
+      X-lenwrap-lrr-unknown-one                Malformed:length past end of buffer
+      X-lenwrap-lrr-unknown-under              Malformed:length past end of buffer
+      X-lenwrap-lrr-unknown-zero               Malformed:length past end of buffer
+      X-lenwrap-sur-string-max                 Malformed:length past end of buffer
+      X-lenwrap-sur-string-one                 Malformed:length past end of buffer
+      X-lenwrap-sur-string-under               Malformed:length past end of buffer
+      X-lenwrap-sur-string-zero                Malformed:length past end of buffer
+      X-lenwrap-wide-items-max                 Malformed:length past end of buffer
+      X-lenwrap-wide-items-one                 Malformed:length past end of buffer
+      X-lenwrap-wide-items-under               Malformed:length past end of buffer
+      X-lenwrap-wide-items-zero                Malformed:length past end of buffer
+      X-lenwrap-zoo-msg-max                    Malformed:length past end of buffer
+      X-lenwrap-zoo-msg-one                    Malformed:length past end of buffer
+      X-lenwrap-zoo-msg-under                  Malformed:length past end of buffer
+      X-lenwrap-zoo-msg-zero                   Malformed:length past end of buffer
+      X-lenwrap-zoo-string-after-max           Malformed:length past end of buffer
+      X-lenwrap-zoo-string-after-one           Malformed:length past end of buffer
+      X-lenwrap-zoo-string-after-start         Malformed:length past end of buffer
+      X-lenwrap-zoo-string-after-under         Malformed:length past end of buffer
+      X-lenwrap-zoo-string-after-zero          Malformed:length past end of buffer
+      X-lenwrap-zoo-string-max                 Malformed:length past end of buffer
+      X-lenwrap-zoo-string-one                 Malformed:length past end of buffer
+      X-lenwrap-zoo-string-under               Malformed:length past end of buffer
+      X-lenwrap-zoo-string-zero                Malformed:length past end of buffer
+      X-nested-len-overrun                     Malformed:length past end of buffer
+      X-packed-truncated                       Malformed:truncated varint
+      X-tag-zero                               Malformed:field number 0
+      X-tag-zero-ChunkElement                  Malformed:field number 0
+      X-tag-zero-ChunkInner                    Malformed:field number 0
+      X-tag-zero-ChunkLeaf                     Malformed:field number 0
+      X-tag-zero-ChunkedResponse               Malformed:field number 0
+      X-tag-zero-ChunkedResponseWide           Malformed:field number 0
+      X-tag-zero-DualResponse                  Malformed:field number 0
+      X-tag-zero-Duration                      Malformed:field number 0
+      X-tag-zero-LeafElement                   Malformed:field number 0
+      X-tag-zero-LeafResponse                  Malformed:field number 0
+      X-tag-zero-ListMetricsResponse           Malformed:field number 0
+      X-tag-zero-ListProbeResponse             Malformed:field number 0
+      X-tag-zero-ListResultsResponse           Malformed:field number 0
+      X-tag-zero-ListTaskSummaryResponse       Malformed:field number 0
+      X-tag-zero-ListTasksDetailedResponse     Malformed:field number 0
+      X-tag-zero-MetricsBatch                  Malformed:field number 0
+      X-tag-zero-Nest                          Malformed:field number 0
+      X-tag-zero-Pair                          Malformed:field number 0
+      X-tag-zero-Probe                         Malformed:field number 0
+      X-tag-zero-ResultRaw                     Malformed:field number 0
+      X-tag-zero-Surrogate                     Malformed:field number 0
+      X-tag-zero-SurrogateInner                Malformed:field number 0
+      X-tag-zero-TaskDetailed                  Malformed:field number 0
+      X-tag-zero-TaskOptions                   Malformed:field number 0
+      X-tag-zero-TaskOutput                    Malformed:field number 0
+      X-tag-zero-TaskSummary                   Malformed:field number 0
+      X-tag-zero-Timestamp                     Malformed:field number 0
+      X-tag-zero-UploadResultData              Malformed:field number 0
+      X-tag-zero-UploadResultDataMessage       Malformed:field number 0
+      X-tag-zero-WireZoo                       Malformed:field number 0
+      X-trailing-byte                          Malformed:field number 0
+      X-varint-11-bytes                        Malformed:varint longer than 10 bytes
+      X-varint-key-truncated                   Malformed:truncated varint
+      X-varint-value-truncated                 Malformed:truncated varint
+      X-wire-type-6                            Malformed:wire type 6
+      X-wire-type-7                            Malformed:wire type 7
+
+################ arm R-retain
+   rows 691: pass 688 (accept 547, refused 141), FAIL 0, disputed (excluded) 3, not in the C ABI 0, timeouts 0
+   C3 forms written: as committed=389, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as committed/unknown-retained, map values always written=105, as upb writes it: the same message in a different field ORDER=1, as upb writes it: the same message, encoded differently=1, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-retained, appended in tag order=6
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (Malformed:field number 0)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (Malformed:field number 0)
+   FAILING rows: 0
+
+################ arm ffi
+   rows 691: pass 672 (accept 534, refused 138), FAIL 0, disputed (excluded) 3, not in the C ABI 16, timeouts 0
+   C3 forms written: as committed=182, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-dropped=45, unknown-dropped/unknown-dropped, map values always written=24, unknown-dropped: the known field as it was, the foreign-typed one gone=156, unknown-dropped: the known field as it was, the foreign-typed one gone/unknown-dropped, map values always written=81
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (IllegalStateException:core returned -2)
+   FAILING rows: 0
+   refusals (error per refused row):
+      T-dec-map-key-above-10ffff               IllegalStateException:core returned -6
+      T-dec-map-key-lone-continuation          IllegalStateException:core returned -6
+      T-dec-map-key-overlong-nul               IllegalStateException:core returned -6
+      T-dec-map-key-surrogate-d800             IllegalStateException:core returned -6
+      T-dec-map-value-above-10ffff             IllegalStateException:core returned -6
+      T-dec-map-value-lone-continuation        IllegalStateException:core returned -6
+      T-dec-map-value-overlong-nul             IllegalStateException:core returned -6
+      T-dec-map-value-surrogate-d800           IllegalStateException:core returned -6
+      T-dec-nested-above-10ffff                IllegalStateException:core returned -6
+      T-dec-nested-lone-continuation           IllegalStateException:core returned -6
+      T-dec-nested-overlong-nul                IllegalStateException:core returned -6
+      T-dec-nested-surrogate-d800              IllegalStateException:core returned -6
+      T-dec-repeated-above-10ffff              IllegalStateException:core returned -6
+      T-dec-repeated-lone-continuation         IllegalStateException:core returned -6
+      T-dec-repeated-overlong-nul              IllegalStateException:core returned -6
+      T-dec-repeated-surrogate-d800            IllegalStateException:core returned -6
+      T-dec-root-above-10ffff                  IllegalStateException:core returned -6
+      T-dec-root-cesu8-pair                    IllegalStateException:core returned -6
+      T-dec-root-f5-lead                       IllegalStateException:core returned -6
+      T-dec-root-fe-ff                         IllegalStateException:core returned -6
+      T-dec-root-five-byte                     IllegalStateException:core returned -6
+      T-dec-root-lead-no-continuation          IllegalStateException:core returned -6
+      T-dec-root-lone-continuation             IllegalStateException:core returned -6
+      T-dec-root-overlong-2                    IllegalStateException:core returned -6
+      T-dec-root-overlong-3                    IllegalStateException:core returned -6
+      T-dec-root-overlong-4                    IllegalStateException:core returned -6
+      T-dec-root-overlong-nul                  IllegalStateException:core returned -6
+      T-dec-root-surrogate-d800                IllegalStateException:core returned -6
+      T-dec-root-surrogate-dfff                IllegalStateException:core returned -6
+      T-dec-root-truncated-3                   IllegalStateException:core returned -6
+      T-dec-root-truncated-4                   IllegalStateException:core returned -6
+      X-fixed32-truncated                      IllegalStateException:core returned -3
+      X-fixed64-truncated                      IllegalStateException:core returned -3
+      X-group-mismatched-end                   IllegalStateException:core returned -2
+      X-group-unterminated                     IllegalStateException:core returned -3
+      X-len-huge                               IllegalStateException:core returned -3
+      X-len-prefix-truncated                   IllegalStateException:core returned -3
+      X-len-truncated                          IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-msg-abs-one         IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-msg-abs-start       IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-msg-abs-under       IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-msg-abs-zero        IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-msg-rel-max         IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-msg-rel-one         IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-msg-rel-under       IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-msg-rel-zero        IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-string-abs-one      IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-string-abs-start    IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-string-abs-under    IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-string-abs-zero     IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-string-rel-max      IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-string-rel-one      IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-string-rel-under    IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-string-rel-zero     IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-unknown-abs-one     IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-unknown-abs-start   IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-unknown-abs-under   IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-unknown-abs-zero    IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-unknown-rel-max     IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-unknown-rel-one     IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-unknown-rel-under   IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-unknown-rel-zero    IllegalStateException:core returned -3
+      X-lenwrap-lrr-results-max                IllegalStateException:core returned -3
+      X-lenwrap-lrr-results-one                IllegalStateException:core returned -3
+      X-lenwrap-lrr-results-second-max         IllegalStateException:core returned -3
+      X-lenwrap-lrr-results-second-one         IllegalStateException:core returned -3
+      X-lenwrap-lrr-results-second-start       IllegalStateException:core returned -3
+      X-lenwrap-lrr-results-second-under       IllegalStateException:core returned -3
+      X-lenwrap-lrr-results-second-zero        IllegalStateException:core returned -3
+      X-lenwrap-lrr-results-under              IllegalStateException:core returned -3
+      X-lenwrap-lrr-results-zero               IllegalStateException:core returned -3
+      X-lenwrap-lrr-unknown-after-max          IllegalStateException:core returned -3
+      X-lenwrap-lrr-unknown-after-one          IllegalStateException:core returned -3
+      X-lenwrap-lrr-unknown-after-start        IllegalStateException:core returned -3
+      X-lenwrap-lrr-unknown-after-under        IllegalStateException:core returned -3
+      X-lenwrap-lrr-unknown-after-zero         IllegalStateException:core returned -3
+      X-lenwrap-lrr-unknown-max                IllegalStateException:core returned -3
+      X-lenwrap-lrr-unknown-one                IllegalStateException:core returned -3
+      X-lenwrap-lrr-unknown-under              IllegalStateException:core returned -3
+      X-lenwrap-lrr-unknown-zero               IllegalStateException:core returned -3
+      X-lenwrap-sur-string-max                 IllegalStateException:core returned -3
+      X-lenwrap-sur-string-one                 IllegalStateException:core returned -3
+      X-lenwrap-sur-string-under               IllegalStateException:core returned -3
+      X-lenwrap-sur-string-zero                IllegalStateException:core returned -3
+      X-lenwrap-wide-items-max                 IllegalStateException:core returned -3
+      X-lenwrap-wide-items-one                 IllegalStateException:core returned -3
+      X-lenwrap-wide-items-under               IllegalStateException:core returned -3
+      X-lenwrap-wide-items-zero                IllegalStateException:core returned -3
+      X-lenwrap-zoo-msg-max                    IllegalStateException:core returned -3
+      X-lenwrap-zoo-msg-one                    IllegalStateException:core returned -3
+      X-lenwrap-zoo-msg-under                  IllegalStateException:core returned -3
+      X-lenwrap-zoo-msg-zero                   IllegalStateException:core returned -3
+      X-lenwrap-zoo-string-after-max           IllegalStateException:core returned -3
+      X-lenwrap-zoo-string-after-one           IllegalStateException:core returned -3
+      X-lenwrap-zoo-string-after-start         IllegalStateException:core returned -3
+      X-lenwrap-zoo-string-after-under         IllegalStateException:core returned -3
+      X-lenwrap-zoo-string-after-zero          IllegalStateException:core returned -3
+      X-lenwrap-zoo-string-max                 IllegalStateException:core returned -3
+      X-lenwrap-zoo-string-one                 IllegalStateException:core returned -3
+      X-lenwrap-zoo-string-under               IllegalStateException:core returned -3
+      X-lenwrap-zoo-string-zero                IllegalStateException:core returned -3
+      X-nested-len-overrun                     IllegalStateException:core returned -3
+      X-packed-truncated                       IllegalStateException:core returned -3
+      X-tag-zero                               IllegalStateException:core returned -2
+      X-tag-zero-ChunkElement                  IllegalStateException:core returned -2
+      X-tag-zero-ChunkInner                    IllegalStateException:core returned -2
+      X-tag-zero-ChunkLeaf                     IllegalStateException:core returned -2
+      X-tag-zero-ChunkedResponse               IllegalStateException:core returned -2
+      X-tag-zero-ChunkedResponseWide           IllegalStateException:core returned -2
+      X-tag-zero-DualResponse                  IllegalStateException:core returned -2
+      X-tag-zero-Duration                      IllegalStateException:core returned -2
+      X-tag-zero-LeafElement                   IllegalStateException:core returned -2
+      X-tag-zero-LeafResponse                  IllegalStateException:core returned -2
+      X-tag-zero-ListMetricsResponse           IllegalStateException:core returned -2
+      X-tag-zero-ListProbeResponse             IllegalStateException:core returned -2
+      X-tag-zero-ListResultsResponse           IllegalStateException:core returned -2
+      X-tag-zero-ListTaskSummaryResponse       IllegalStateException:core returned -2
+      X-tag-zero-ListTasksDetailedResponse     IllegalStateException:core returned -2
+      X-tag-zero-MetricsBatch                  IllegalStateException:core returned -2
+      X-tag-zero-Pair                          IllegalStateException:core returned -2
+      X-tag-zero-Probe                         IllegalStateException:core returned -2
+      X-tag-zero-ResultRaw                     IllegalStateException:core returned -2
+      X-tag-zero-Surrogate                     IllegalStateException:core returned -2
+      X-tag-zero-SurrogateInner                IllegalStateException:core returned -2
+      X-tag-zero-TaskDetailed                  IllegalStateException:core returned -2
+      X-tag-zero-TaskOptions                   IllegalStateException:core returned -2
+      X-tag-zero-TaskOutput                    IllegalStateException:core returned -2
+      X-tag-zero-TaskSummary                   IllegalStateException:core returned -2
+      X-tag-zero-Timestamp                     IllegalStateException:core returned -2
+      X-tag-zero-UploadResultData              IllegalStateException:core returned -2
+      X-tag-zero-UploadResultDataMessage       IllegalStateException:core returned -2
+      X-tag-zero-WireZoo                       IllegalStateException:core returned -2
+      X-trailing-byte                          IllegalStateException:core returned -2
+      X-varint-11-bytes                        IllegalStateException:core returned -2
+      X-varint-key-truncated                   IllegalStateException:core returned -3
+      X-varint-value-truncated                 IllegalStateException:core returned -3
+      X-wire-type-6                            IllegalStateException:core returned -2
+      X-wire-type-7                            IllegalStateException:core returned -2
+
+################ arm ffi-pull
+   rows 691: pass 672 (accept 534, refused 138), FAIL 0, disputed (excluded) 3, not in the C ABI 16, timeouts 0
+   C3 forms written: as committed=182, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-dropped=45, unknown-dropped/unknown-dropped, map values always written=24, unknown-dropped: the known field as it was, the foreign-typed one gone=156, unknown-dropped: the known field as it was, the foreign-typed one gone/unknown-dropped, map values always written=81
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (IllegalStateException:core returned -2)
+   FAILING rows: 0
+
+################ arm ffi-pull-walk
+   rows 691: pass 672 (accept 534, refused 138), FAIL 0, disputed (excluded) 3, not in the C ABI 16, timeouts 0
+   C3 forms written: as committed=182, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-dropped=45, unknown-dropped/unknown-dropped, map values always written=24, unknown-dropped: the known field as it was, the foreign-typed one gone=156, unknown-dropped: the known field as it was, the foreign-typed one gone/unknown-dropped, map values always written=81
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (IllegalStateException:core returned -2)
+   FAILING rows: 0
+
+################ arm ffi-borrow
+   rows 691: pass 672 (accept 534, refused 138), FAIL 0, disputed (excluded) 3, not in the C ABI 16, timeouts 0
+   C3 forms written: as committed=182, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-dropped=45, unknown-dropped/unknown-dropped, map values always written=24, unknown-dropped: the known field as it was, the foreign-typed one gone=156, unknown-dropped: the known field as it was, the foreign-typed one gone/unknown-dropped, map values always written=81
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (IllegalStateException:core returned -2)
+   FAILING rows: 0
+
+RESULT: 0 failing arm-rows over 6 arms x 691 rows
+
+===== 2. the corpus, floor (/usr/lib/jvm/java-8-openjdk-amd64, build/cls8), arms R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow =====
+# java slice: ffi/corpus against R, R-retain, ffi, ffi-pull, ffi-pull-walk, ffi-borrow  (FIX-PLAN WP5 step 3)
+# corpus 1, 691 of 691 vectors
+# classes build/cls8   shim /home/user/ArmoniK.Api/ffi/poc/java/build/jnicorpus/libakjni.so
+# java.version=1.8.0_504  timeout_ms=5000  arms=R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow  plant=none  ak.lib=/home/user/ArmoniK.Api/ffi/poc/java/build/jnicorpus/libakjni.so  skipInit=0
+# codec LIMIT=100 utf8=reject  C ABI roots 29 of 30 messages
+# harness exit 0, 4146 result lines
+
+################ arm R
+   rows 691: pass 688 (accept 547, refused 141), FAIL 0, disputed (excluded) 3, not in the C ABI 0, timeouts 0
+   C3 forms written: as committed=189, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-dropped=45, unknown-dropped/unknown-dropped, map values always written=24, unknown-dropped: the known field as it was, the foreign-typed one gone=162, unknown-dropped: the known field as it was, the foreign-typed one gone/unknown-dropped, map values always written=81
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (Malformed:field number 0)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (Malformed:field number 0)
+   FAILING rows: 0
+   refusals (error per refused row):
+      T-dec-map-key-above-10ffff               Malformed:out of range 4-byte sequence
+      T-dec-map-key-lone-continuation          Malformed:continuation or overlong lead byte
+      T-dec-map-key-overlong-nul               Malformed:continuation or overlong lead byte
+      T-dec-map-key-surrogate-d800             Malformed:encoded surrogate
+      T-dec-map-value-above-10ffff             Malformed:out of range 4-byte sequence
+      T-dec-map-value-lone-continuation        Malformed:continuation or overlong lead byte
+      T-dec-map-value-overlong-nul             Malformed:continuation or overlong lead byte
+      T-dec-map-value-surrogate-d800           Malformed:encoded surrogate
+      T-dec-nested-above-10ffff                Malformed:out of range 4-byte sequence
+      T-dec-nested-lone-continuation           Malformed:continuation or overlong lead byte
+      T-dec-nested-overlong-nul                Malformed:continuation or overlong lead byte
+      T-dec-nested-surrogate-d800              Malformed:encoded surrogate
+      T-dec-repeated-above-10ffff              Malformed:out of range 4-byte sequence
+      T-dec-repeated-lone-continuation         Malformed:continuation or overlong lead byte
+      T-dec-repeated-overlong-nul              Malformed:continuation or overlong lead byte
+      T-dec-repeated-surrogate-d800            Malformed:encoded surrogate
+      T-dec-root-above-10ffff                  Malformed:out of range 4-byte sequence
+      T-dec-root-cesu8-pair                    Malformed:encoded surrogate
+      T-dec-root-f5-lead                       Malformed:lead byte above F4
+      T-dec-root-fe-ff                         Malformed:lead byte above F4
+      T-dec-root-five-byte                     Malformed:lead byte above F4
+      T-dec-root-lead-no-continuation          Malformed:truncated 2-byte sequence
+      T-dec-root-lone-continuation             Malformed:continuation or overlong lead byte
+      T-dec-root-overlong-2                    Malformed:continuation or overlong lead byte
+      T-dec-root-overlong-3                    Malformed:overlong 3-byte sequence
+      T-dec-root-overlong-4                    Malformed:out of range 4-byte sequence
+      T-dec-root-overlong-nul                  Malformed:continuation or overlong lead byte
+      T-dec-root-surrogate-d800                Malformed:encoded surrogate
+      T-dec-root-surrogate-dfff                Malformed:encoded surrogate
+      T-dec-root-truncated-3                   Malformed:truncated 3-byte sequence
+      T-dec-root-truncated-4                   Malformed:truncated 4-byte sequence
+      X-depth-101                              Malformed:nesting past 100
+      X-depth-300                              Malformed:nesting past 100
+      X-fixed32-truncated                      Malformed:truncated fixed32
+      X-fixed64-truncated                      Malformed:truncated fixed64
+      X-group-mismatched-end                   Malformed:mismatched end group
+      X-group-unterminated                     Malformed:unterminated group
+      X-len-huge                               Malformed:length past end of buffer
+      X-len-prefix-truncated                   Malformed:truncated varint
+      X-len-truncated                          Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-msg-abs-one         Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-msg-abs-start       Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-msg-abs-under       Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-msg-abs-zero        Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-msg-rel-max         Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-msg-rel-one         Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-msg-rel-under       Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-msg-rel-zero        Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-string-abs-one      Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-string-abs-start    Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-string-abs-under    Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-string-abs-zero     Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-string-rel-max      Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-string-rel-one      Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-string-rel-under    Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-string-rel-zero     Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-unknown-abs-one     Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-unknown-abs-start   Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-unknown-abs-under   Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-unknown-abs-zero    Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-unknown-rel-max     Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-unknown-rel-one     Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-unknown-rel-under   Malformed:length past end of buffer
+      X-lenwrap-lrr-nested-unknown-rel-zero    Malformed:length past end of buffer
+      X-lenwrap-lrr-results-max                Malformed:length past end of buffer
+      X-lenwrap-lrr-results-one                Malformed:length past end of buffer
+      X-lenwrap-lrr-results-second-max         Malformed:length past end of buffer
+      X-lenwrap-lrr-results-second-one         Malformed:length past end of buffer
+      X-lenwrap-lrr-results-second-start       Malformed:length past end of buffer
+      X-lenwrap-lrr-results-second-under       Malformed:length past end of buffer
+      X-lenwrap-lrr-results-second-zero        Malformed:length past end of buffer
+      X-lenwrap-lrr-results-under              Malformed:length past end of buffer
+      X-lenwrap-lrr-results-zero               Malformed:length past end of buffer
+      X-lenwrap-lrr-unknown-after-max          Malformed:length past end of buffer
+      X-lenwrap-lrr-unknown-after-one          Malformed:length past end of buffer
+      X-lenwrap-lrr-unknown-after-start        Malformed:length past end of buffer
+      X-lenwrap-lrr-unknown-after-under        Malformed:length past end of buffer
+      X-lenwrap-lrr-unknown-after-zero         Malformed:length past end of buffer
+      X-lenwrap-lrr-unknown-max                Malformed:length past end of buffer
+      X-lenwrap-lrr-unknown-one                Malformed:length past end of buffer
+      X-lenwrap-lrr-unknown-under              Malformed:length past end of buffer
+      X-lenwrap-lrr-unknown-zero               Malformed:length past end of buffer
+      X-lenwrap-sur-string-max                 Malformed:length past end of buffer
+      X-lenwrap-sur-string-one                 Malformed:length past end of buffer
+      X-lenwrap-sur-string-under               Malformed:length past end of buffer
+      X-lenwrap-sur-string-zero                Malformed:length past end of buffer
+      X-lenwrap-wide-items-max                 Malformed:length past end of buffer
+      X-lenwrap-wide-items-one                 Malformed:length past end of buffer
+      X-lenwrap-wide-items-under               Malformed:length past end of buffer
+      X-lenwrap-wide-items-zero                Malformed:length past end of buffer
+      X-lenwrap-zoo-msg-max                    Malformed:length past end of buffer
+      X-lenwrap-zoo-msg-one                    Malformed:length past end of buffer
+      X-lenwrap-zoo-msg-under                  Malformed:length past end of buffer
+      X-lenwrap-zoo-msg-zero                   Malformed:length past end of buffer
+      X-lenwrap-zoo-string-after-max           Malformed:length past end of buffer
+      X-lenwrap-zoo-string-after-one           Malformed:length past end of buffer
+      X-lenwrap-zoo-string-after-start         Malformed:length past end of buffer
+      X-lenwrap-zoo-string-after-under         Malformed:length past end of buffer
+      X-lenwrap-zoo-string-after-zero          Malformed:length past end of buffer
+      X-lenwrap-zoo-string-max                 Malformed:length past end of buffer
+      X-lenwrap-zoo-string-one                 Malformed:length past end of buffer
+      X-lenwrap-zoo-string-under               Malformed:length past end of buffer
+      X-lenwrap-zoo-string-zero                Malformed:length past end of buffer
+      X-nested-len-overrun                     Malformed:length past end of buffer
+      X-packed-truncated                       Malformed:truncated varint
+      X-tag-zero                               Malformed:field number 0
+      X-tag-zero-ChunkElement                  Malformed:field number 0
+      X-tag-zero-ChunkInner                    Malformed:field number 0
+      X-tag-zero-ChunkLeaf                     Malformed:field number 0
+      X-tag-zero-ChunkedResponse               Malformed:field number 0
+      X-tag-zero-ChunkedResponseWide           Malformed:field number 0
+      X-tag-zero-DualResponse                  Malformed:field number 0
+      X-tag-zero-Duration                      Malformed:field number 0
+      X-tag-zero-LeafElement                   Malformed:field number 0
+      X-tag-zero-LeafResponse                  Malformed:field number 0
+      X-tag-zero-ListMetricsResponse           Malformed:field number 0
+      X-tag-zero-ListProbeResponse             Malformed:field number 0
+      X-tag-zero-ListResultsResponse           Malformed:field number 0
+      X-tag-zero-ListTaskSummaryResponse       Malformed:field number 0
+      X-tag-zero-ListTasksDetailedResponse     Malformed:field number 0
+      X-tag-zero-MetricsBatch                  Malformed:field number 0
+      X-tag-zero-Nest                          Malformed:field number 0
+      X-tag-zero-Pair                          Malformed:field number 0
+      X-tag-zero-Probe                         Malformed:field number 0
+      X-tag-zero-ResultRaw                     Malformed:field number 0
+      X-tag-zero-Surrogate                     Malformed:field number 0
+      X-tag-zero-SurrogateInner                Malformed:field number 0
+      X-tag-zero-TaskDetailed                  Malformed:field number 0
+      X-tag-zero-TaskOptions                   Malformed:field number 0
+      X-tag-zero-TaskOutput                    Malformed:field number 0
+      X-tag-zero-TaskSummary                   Malformed:field number 0
+      X-tag-zero-Timestamp                     Malformed:field number 0
+      X-tag-zero-UploadResultData              Malformed:field number 0
+      X-tag-zero-UploadResultDataMessage       Malformed:field number 0
+      X-tag-zero-WireZoo                       Malformed:field number 0
+      X-trailing-byte                          Malformed:field number 0
+      X-varint-11-bytes                        Malformed:varint longer than 10 bytes
+      X-varint-key-truncated                   Malformed:truncated varint
+      X-varint-value-truncated                 Malformed:truncated varint
+      X-wire-type-6                            Malformed:wire type 6
+      X-wire-type-7                            Malformed:wire type 7
+
+################ arm R-retain
+   rows 691: pass 688 (accept 547, refused 141), FAIL 0, disputed (excluded) 3, not in the C ABI 0, timeouts 0
+   C3 forms written: as committed=389, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as committed/unknown-retained, map values always written=105, as upb writes it: the same message in a different field ORDER=1, as upb writes it: the same message, encoded differently=1, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-retained, appended in tag order=6
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (Malformed:field number 0)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (Malformed:field number 0)
+   FAILING rows: 0
+
+################ arm ffi
+   rows 691: pass 672 (accept 534, refused 138), FAIL 0, disputed (excluded) 3, not in the C ABI 16, timeouts 0
+   C3 forms written: as committed=182, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-dropped=45, unknown-dropped/unknown-dropped, map values always written=24, unknown-dropped: the known field as it was, the foreign-typed one gone=156, unknown-dropped: the known field as it was, the foreign-typed one gone/unknown-dropped, map values always written=81
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (IllegalStateException:core returned -2)
+   FAILING rows: 0
+   refusals (error per refused row):
+      T-dec-map-key-above-10ffff               IllegalStateException:core returned -6
+      T-dec-map-key-lone-continuation          IllegalStateException:core returned -6
+      T-dec-map-key-overlong-nul               IllegalStateException:core returned -6
+      T-dec-map-key-surrogate-d800             IllegalStateException:core returned -6
+      T-dec-map-value-above-10ffff             IllegalStateException:core returned -6
+      T-dec-map-value-lone-continuation        IllegalStateException:core returned -6
+      T-dec-map-value-overlong-nul             IllegalStateException:core returned -6
+      T-dec-map-value-surrogate-d800           IllegalStateException:core returned -6
+      T-dec-nested-above-10ffff                IllegalStateException:core returned -6
+      T-dec-nested-lone-continuation           IllegalStateException:core returned -6
+      T-dec-nested-overlong-nul                IllegalStateException:core returned -6
+      T-dec-nested-surrogate-d800              IllegalStateException:core returned -6
+      T-dec-repeated-above-10ffff              IllegalStateException:core returned -6
+      T-dec-repeated-lone-continuation         IllegalStateException:core returned -6
+      T-dec-repeated-overlong-nul              IllegalStateException:core returned -6
+      T-dec-repeated-surrogate-d800            IllegalStateException:core returned -6
+      T-dec-root-above-10ffff                  IllegalStateException:core returned -6
+      T-dec-root-cesu8-pair                    IllegalStateException:core returned -6
+      T-dec-root-f5-lead                       IllegalStateException:core returned -6
+      T-dec-root-fe-ff                         IllegalStateException:core returned -6
+      T-dec-root-five-byte                     IllegalStateException:core returned -6
+      T-dec-root-lead-no-continuation          IllegalStateException:core returned -6
+      T-dec-root-lone-continuation             IllegalStateException:core returned -6
+      T-dec-root-overlong-2                    IllegalStateException:core returned -6
+      T-dec-root-overlong-3                    IllegalStateException:core returned -6
+      T-dec-root-overlong-4                    IllegalStateException:core returned -6
+      T-dec-root-overlong-nul                  IllegalStateException:core returned -6
+      T-dec-root-surrogate-d800                IllegalStateException:core returned -6
+      T-dec-root-surrogate-dfff                IllegalStateException:core returned -6
+      T-dec-root-truncated-3                   IllegalStateException:core returned -6
+      T-dec-root-truncated-4                   IllegalStateException:core returned -6
+      X-fixed32-truncated                      IllegalStateException:core returned -3
+      X-fixed64-truncated                      IllegalStateException:core returned -3
+      X-group-mismatched-end                   IllegalStateException:core returned -2
+      X-group-unterminated                     IllegalStateException:core returned -3
+      X-len-huge                               IllegalStateException:core returned -3
+      X-len-prefix-truncated                   IllegalStateException:core returned -3
+      X-len-truncated                          IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-msg-abs-one         IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-msg-abs-start       IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-msg-abs-under       IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-msg-abs-zero        IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-msg-rel-max         IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-msg-rel-one         IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-msg-rel-under       IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-msg-rel-zero        IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-string-abs-one      IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-string-abs-start    IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-string-abs-under    IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-string-abs-zero     IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-string-rel-max      IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-string-rel-one      IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-string-rel-under    IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-string-rel-zero     IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-unknown-abs-one     IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-unknown-abs-start   IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-unknown-abs-under   IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-unknown-abs-zero    IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-unknown-rel-max     IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-unknown-rel-one     IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-unknown-rel-under   IllegalStateException:core returned -3
+      X-lenwrap-lrr-nested-unknown-rel-zero    IllegalStateException:core returned -3
+      X-lenwrap-lrr-results-max                IllegalStateException:core returned -3
+      X-lenwrap-lrr-results-one                IllegalStateException:core returned -3
+      X-lenwrap-lrr-results-second-max         IllegalStateException:core returned -3
+      X-lenwrap-lrr-results-second-one         IllegalStateException:core returned -3
+      X-lenwrap-lrr-results-second-start       IllegalStateException:core returned -3
+      X-lenwrap-lrr-results-second-under       IllegalStateException:core returned -3
+      X-lenwrap-lrr-results-second-zero        IllegalStateException:core returned -3
+      X-lenwrap-lrr-results-under              IllegalStateException:core returned -3
+      X-lenwrap-lrr-results-zero               IllegalStateException:core returned -3
+      X-lenwrap-lrr-unknown-after-max          IllegalStateException:core returned -3
+      X-lenwrap-lrr-unknown-after-one          IllegalStateException:core returned -3
+      X-lenwrap-lrr-unknown-after-start        IllegalStateException:core returned -3
+      X-lenwrap-lrr-unknown-after-under        IllegalStateException:core returned -3
+      X-lenwrap-lrr-unknown-after-zero         IllegalStateException:core returned -3
+      X-lenwrap-lrr-unknown-max                IllegalStateException:core returned -3
+      X-lenwrap-lrr-unknown-one                IllegalStateException:core returned -3
+      X-lenwrap-lrr-unknown-under              IllegalStateException:core returned -3
+      X-lenwrap-lrr-unknown-zero               IllegalStateException:core returned -3
+      X-lenwrap-sur-string-max                 IllegalStateException:core returned -3
+      X-lenwrap-sur-string-one                 IllegalStateException:core returned -3
+      X-lenwrap-sur-string-under               IllegalStateException:core returned -3
+      X-lenwrap-sur-string-zero                IllegalStateException:core returned -3
+      X-lenwrap-wide-items-max                 IllegalStateException:core returned -3
+      X-lenwrap-wide-items-one                 IllegalStateException:core returned -3
+      X-lenwrap-wide-items-under               IllegalStateException:core returned -3
+      X-lenwrap-wide-items-zero                IllegalStateException:core returned -3
+      X-lenwrap-zoo-msg-max                    IllegalStateException:core returned -3
+      X-lenwrap-zoo-msg-one                    IllegalStateException:core returned -3
+      X-lenwrap-zoo-msg-under                  IllegalStateException:core returned -3
+      X-lenwrap-zoo-msg-zero                   IllegalStateException:core returned -3
+      X-lenwrap-zoo-string-after-max           IllegalStateException:core returned -3
+      X-lenwrap-zoo-string-after-one           IllegalStateException:core returned -3
+      X-lenwrap-zoo-string-after-start         IllegalStateException:core returned -3
+      X-lenwrap-zoo-string-after-under         IllegalStateException:core returned -3
+      X-lenwrap-zoo-string-after-zero          IllegalStateException:core returned -3
+      X-lenwrap-zoo-string-max                 IllegalStateException:core returned -3
+      X-lenwrap-zoo-string-one                 IllegalStateException:core returned -3
+      X-lenwrap-zoo-string-under               IllegalStateException:core returned -3
+      X-lenwrap-zoo-string-zero                IllegalStateException:core returned -3
+      X-nested-len-overrun                     IllegalStateException:core returned -3
+      X-packed-truncated                       IllegalStateException:core returned -3
+      X-tag-zero                               IllegalStateException:core returned -2
+      X-tag-zero-ChunkElement                  IllegalStateException:core returned -2
+      X-tag-zero-ChunkInner                    IllegalStateException:core returned -2
+      X-tag-zero-ChunkLeaf                     IllegalStateException:core returned -2
+      X-tag-zero-ChunkedResponse               IllegalStateException:core returned -2
+      X-tag-zero-ChunkedResponseWide           IllegalStateException:core returned -2
+      X-tag-zero-DualResponse                  IllegalStateException:core returned -2
+      X-tag-zero-Duration                      IllegalStateException:core returned -2
+      X-tag-zero-LeafElement                   IllegalStateException:core returned -2
+      X-tag-zero-LeafResponse                  IllegalStateException:core returned -2
+      X-tag-zero-ListMetricsResponse           IllegalStateException:core returned -2
+      X-tag-zero-ListProbeResponse             IllegalStateException:core returned -2
+      X-tag-zero-ListResultsResponse           IllegalStateException:core returned -2
+      X-tag-zero-ListTaskSummaryResponse       IllegalStateException:core returned -2
+      X-tag-zero-ListTasksDetailedResponse     IllegalStateException:core returned -2
+      X-tag-zero-MetricsBatch                  IllegalStateException:core returned -2
+      X-tag-zero-Pair                          IllegalStateException:core returned -2
+      X-tag-zero-Probe                         IllegalStateException:core returned -2
+      X-tag-zero-ResultRaw                     IllegalStateException:core returned -2
+      X-tag-zero-Surrogate                     IllegalStateException:core returned -2
+      X-tag-zero-SurrogateInner                IllegalStateException:core returned -2
+      X-tag-zero-TaskDetailed                  IllegalStateException:core returned -2
+      X-tag-zero-TaskOptions                   IllegalStateException:core returned -2
+      X-tag-zero-TaskOutput                    IllegalStateException:core returned -2
+      X-tag-zero-TaskSummary                   IllegalStateException:core returned -2
+      X-tag-zero-Timestamp                     IllegalStateException:core returned -2
+      X-tag-zero-UploadResultData              IllegalStateException:core returned -2
+      X-tag-zero-UploadResultDataMessage       IllegalStateException:core returned -2
+      X-tag-zero-WireZoo                       IllegalStateException:core returned -2
+      X-trailing-byte                          IllegalStateException:core returned -2
+      X-varint-11-bytes                        IllegalStateException:core returned -2
+      X-varint-key-truncated                   IllegalStateException:core returned -3
+      X-varint-value-truncated                 IllegalStateException:core returned -3
+      X-wire-type-6                            IllegalStateException:core returned -2
+      X-wire-type-7                            IllegalStateException:core returned -2
+
+################ arm ffi-pull
+   rows 691: pass 672 (accept 534, refused 138), FAIL 0, disputed (excluded) 3, not in the C ABI 16, timeouts 0
+   C3 forms written: as committed=182, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-dropped=45, unknown-dropped/unknown-dropped, map values always written=24, unknown-dropped: the known field as it was, the foreign-typed one gone=156, unknown-dropped: the known field as it was, the foreign-typed one gone/unknown-dropped, map values always written=81
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (IllegalStateException:core returned -2)
+   FAILING rows: 0
+
+################ arm ffi-pull-walk
+   rows 691: pass 672 (accept 534, refused 138), FAIL 0, disputed (excluded) 3, not in the C ABI 16, timeouts 0
+   C3 forms written: as committed=182, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-dropped=45, unknown-dropped/unknown-dropped, map values always written=24, unknown-dropped: the known field as it was, the foreign-typed one gone=156, unknown-dropped: the known field as it was, the foreign-typed one gone/unknown-dropped, map values always written=81
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (IllegalStateException:core returned -2)
+   FAILING rows: 0
+
+################ arm ffi-borrow
+   rows 691: pass 672 (accept 534, refused 138), FAIL 0, disputed (excluded) 3, not in the C ABI 16, timeouts 0
+   C3 forms written: as committed=182, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-dropped=45, unknown-dropped/unknown-dropped, map values always written=24, unknown-dropped: the known field as it was, the foreign-typed one gone=156, unknown-dropped: the known field as it was, the foreign-typed one gone/unknown-dropped, map values always written=81
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (IllegalStateException:core returned -2)
+   FAILING rows: 0
+
+RESULT: 0 failing arm-rows over 6 arms x 691 rows
+
+===== 3. controls (target), each MUST FAIL =====
+  control proj: failed as required: RESULT: 156 failing arm-rows over 6 arms x 121 rows
+  control reenc: failed as required: RESULT: 156 failing arm-rows over 6 arms x 121 rows
+  control accept: failed as required: RESULT: 570 failing arm-rows over 6 arms x 121 rows
+  control noinit: failed as required: RESULT: 104 failing arm-rows over 4 arms x 121 rows
+          C1   E-map-dup-key                            reject IllegalStateException:core returned -10
+          C1   E-map-empty-value-written                reject IllegalStateException:core returned -10
+          C1   E-map-dup-key                            reject IllegalStateException:core returned -10
+          C1   E-map-empty-value-written                reject IllegalStateException:core returned -10
+          C1   E-map-entry-empty                        reject IllegalStateException:core returned -10
+
+===== 4. rule gaps the corpus does not reach directly (target) =====
+merge-singular  R  wire=2a0208012a021002  read={"created_at":{"seconds":"1","nanos":"2"}}   (protobuf: seconds 1 AND nanos 2)
+merge-oneof     R  wire=6a0208016a021002  read={"as_stamp":{"seconds":"1","nanos":"2"}}   (protobuf: seconds 1 AND nanos 2)
+unknown-case    R  body_case=99  refused: ak.Enc$Refused: Probe.body: undeclared oneof case 99
+minus-zero      R  v_double=-0.0 wrote 210000000000000080   +0.0 wrote ''   (plan: -0.0 is 210000000000000080, +0.0 nothing)
+int-lenwrap     R  wire=0affffffff07  refused: ak.Dec$Malformed: length past end of buffer   (R-G8: refused as past the end, at the length)
+merge-singular  ffi  wire=2a0208012a021002  read={"created_at":{"seconds":"1","nanos":"2"}}   (protobuf: seconds 1 AND nanos 2)
+merge-oneof     ffi  wire=6a0208016a021002  read={"as_stamp":{"seconds":"1","nanos":"2"}}   (protobuf: seconds 1 AND nanos 2)
+unknown-case    ffi  body_case=99  refused: java.lang.IllegalStateException: core returned -11
+minus-zero      ffi  v_double=-0.0 wrote 210000000000000080   +0.0 wrote ''   (plan: -0.0 is 210000000000000080, +0.0 nothing)
+int-lenwrap     ffi  wire=0affffffff07  refused: java.lang.IllegalStateException: core returned -3   (R-G8: refused as past the end, at the length)
+-- protobuf C++ (libprotoc 3.19.0) reading the two merge vectors, corpus.proto:
+merge-singular (ResultRaw):
+   created_at {
+     seconds: 1
+     nanos: 2
+   }
+merge-oneof (Probe):
+   as_stamp {
+     seconds: 1
+     nanos: 2
+   }
+
+CORPUS GATE PASSED

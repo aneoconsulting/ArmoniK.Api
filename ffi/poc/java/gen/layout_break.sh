@@ -14,11 +14,11 @@ cd "$(dirname "$0")/.."
 J17=${J17:-/usr/lib/jvm/java-17-openjdk-amd64}
 unset JAVA_TOOL_OPTIONS || true
 CP=$(cat deps/cp.txt)
-trap 'python3 gen/generate.py >/dev/null; rm -rf build/clsbreak' EXIT
+trap 'python3 -S gen/generate.py >/dev/null; rm -rf build/clsbreak' EXIT
 
 echo "== ABI v1 section 10: the layout guard, seen failing =="
 echo "# perturb ONE offset in the host's hand-computed table and rebuild that class only"
-python3 - <<'PY'
+python3 -S - <<'PY'
 p = "src/generated/java17/ak/shapes/Layout.java"
 s = open(p).read()
 # The first non-zero entry of the flat HOST table. One fact, moved by one byte.
@@ -50,7 +50,7 @@ echo "# perturb ONE of the Java layout engine's numbers in a copy of the header;
 echo "# must then fail to compile, naming the fact"
 J17=${J17:-/usr/lib/jvm/java-17-openjdk-amd64}
 mkdir -p build/hdrbreak
-python3 - <<'PY'
+python3 -S - <<'PY'
 import re
 s = open("native/generated/ak_abi.h").read()
 m = re.search(r'AK_SASSERT\(offsetof\(struct (ak_efix_ResultRaw), (created_at)\) == (\d+),', s)

@@ -1,0 +1,22 @@
+# R-E4 closure: the 19 rows re4-corpus-armR.log lists as FAILING, looked up in wp5-corpus.log (arm R, target)
+# tree 287deca; E-map-entry-empty is an accept row: absent from arm R's FAILING list means C1-C3 passed
+E-map-entry-empty  now passes (accept row)
+X-tag-zero-DualResponse  now REFUSED:Malformed:field number 0
+X-tag-zero-Duration  now REFUSED:Malformed:field number 0
+X-tag-zero-ListMetricsResponse  now REFUSED:Malformed:field number 0
+X-tag-zero-ListProbeResponse  now REFUSED:Malformed:field number 0
+X-tag-zero-ListResultsResponse  now REFUSED:Malformed:field number 0
+X-tag-zero-ListTaskSummaryResponse  now REFUSED:Malformed:field number 0
+X-tag-zero-ListTasksDetailedResponse  now REFUSED:Malformed:field number 0
+X-tag-zero-MetricsBatch  now REFUSED:Malformed:field number 0
+X-tag-zero-Pair  now REFUSED:Malformed:field number 0
+X-tag-zero-Probe  now REFUSED:Malformed:field number 0
+X-tag-zero-ResultRaw  now REFUSED:Malformed:field number 0
+X-tag-zero-TaskDetailed  now REFUSED:Malformed:field number 0
+X-tag-zero-TaskOptions  now REFUSED:Malformed:field number 0
+X-tag-zero-TaskOutput  now REFUSED:Malformed:field number 0
+X-tag-zero-TaskSummary  now REFUSED:Malformed:field number 0
+X-tag-zero-Timestamp  now REFUSED:Malformed:field number 0
+X-tag-zero-UploadResultData  now REFUSED:Malformed:field number 0
+X-tag-zero-UploadResultDataMessage  now REFUSED:Malformed:field number 0
+# E-map-entry-empty re-encoded by arm R: 6 B (accepted: 6 B canonical, 10 B both written; pre-WP5 arm R wrote 8 B)

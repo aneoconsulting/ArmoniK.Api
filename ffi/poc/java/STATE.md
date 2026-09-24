@@ -11,104 +11,85 @@ crossing counts, floor builds, corpus passes, feasibility and defects found.
 
 | | |
 |---|---|
-| **Status** | All arms built and gated on README 5.2's three arms (rd5-gate, 2026-09-24): 9 arms, 1,389 checks per arm-set, 0 failures. Arm R run against `ffi/corpus` for the first time (R-E4): 19 failing of 392 counted rows, listed below. FIX-PLAN WP4 items 6 (R-D5) and 10 (R-D9, Java part) done here; WP5 (Java backend onto the shared generator) not started. |
-| **Levels** (owner decision D3) | **floor Java 8** (correctness gate only): `openjdk 1.8.0_504`, JDK 8 `javac`. **target JDK 17** (where the campaign's clock runs): `openjdk 17.0.20.1`. JDK 21 exists in the container for the two secondary probes only (virtual threads, FFM preview). |
-| **Incumbent** | protobuf-java **3.25.5**, which is what `packages/java`'s pins resolve to (the pom declares 3.19.0, grpc-java 1.74.0 brings 3.25.5); protoc 3.19.0 generates the classes. R14's baseline path is `io.grpc.protobuf.lite.ProtoLiteUtils`' marshaller (`RunR14`). |
-| **Core** | the shared crate `poc/codec/crates/ak-core` (R0), no copy here. The 2026-09-24 gate built it from `git archive 817174f ffi/poc/codec` in a scratch directory, unmodified, because the core was being changed concurrently; `gen/build.sh` builds it in place from `../codec`. |
-| **Generator** | `gen/generate.py` still imports the shared `ir.py`, `rust_abi.py`, `cpp_layout.py` and the cpp slice's `cpp_header.py`, and **writes the core's `codec.rs` and `layout.rs` into `poc/codec`**. That is the pre-WP5 arrangement; running it in the live tree while another agent changes the core is unsafe, which is why the gate ran from a snapshot. `java_codec.py` (arm R) holds its own wire rules: an R-E9 defect WP5 removes. |
-| **Blocked on** | nothing for correctness. WP5's shared plan layer for the Java port. |
+| **Status** | FIX-PLAN WP5 step 3 done (2026-09-24, 2889d87 + 287deca): every generated Java codec, binding, layout, header and shim is rendered by the Java backend in `poc/codec/gen/` from `plan.py`. Payload gate (arms a, b, c): 1,389 checks per arm-set, 0 failures. Full corpus (691 rows) on six arms, target and floor: 0 failing arm-rows. The 19 rows re4 had failing: all pass. |
+| **Levels** (owner decision D3) | **floor Java 8** (correctness gate only): `openjdk 1.8.0_504`, JDK 8 `javac`. **target JDK 17**: `openjdk 17.0.20.1`. JDK 21 only for the two secondary probes (virtual threads, FFM preview). |
+| **Incumbent** | protobuf-java **3.25.5** (resolved from `packages/java`'s pins), protoc 3.19.0 (copied from `~/.m2` when present). R14's baseline path is `io.grpc.protobuf.lite.ProtoLiteUtils`' marshaller (`RunR14`). |
+| **Core** | the shared crate `poc/codec/crates/ak-core` (R0), no copy here. `gen/build.sh` builds it from a `git archive` SNAPSHOT of the committed `ffi/poc/codec` (`AK_CORE_REV`, default HEAD; `AK_CODEC=<dir>` for another tree), because other slices regenerate the core in the same working tree; the snapshot commit goes to `build/core-rev.txt` and into every gate log. **Every codec build carries `init-guard`** (R-G7); the corpus build is `corpus,init-guard`. |
+| **Generator** | `gen/generate.py` is glue: it calls `poc/codec/gen/java_backend.emit` for two descriptions (shapes.json, 7 roots; the corpus reader schema) and renders the slice's harness glue (payload builders, arm dispatchers, the corpus projection), all from the plan's descriptor view. It writes under `poc/java/` only. `--check`: every generated file current, `poc/codec/gen/generate.py --check` exit 0, and that file's import guard applied to the nine Java backend modules and the glue, planted violation caught. |
+| **Blocked on** | nothing for correctness. |
 
 ## What exists
 
 | | |
 |---|---|
-| `gen/` | the Java backends over the shared IR (facade, arm R codec, binding, JNI shim, pull binding, protobuf-java arms), `build.sh`, `gate.sh` (the correctness gate on arms a, b, c), `corpus_r.py` + `corpus_r.sh` (arm R against the corpus), and the older measurement scripts |
-| `src/java/ak/` | hand-written runtime (`Enc`, `Dec`, `Utf8`, `Str17`, `Mem`, `Native`, ...) and harnesses: `RunConformance`, `RunUnknown`, `RunCounts`, `RunCorpusR`, `RunRuleGaps`, `Bench`, `RunDelta`, `RunR14`, `RunRpc` |
-| `src/generated/java17/`, `src/generated/java8/` | two emitted trees, one per level, from one generator (README 5.1; Java has no preprocessor). `ak.floor` carries the Java 8 binding inside the target build, so arm b can be paired in one process |
-| `native/generated/shim.c` | the JNI half: per-message encode and decode entry points, loop trampolines, the pull-family parse entries, the section 5 exception guard |
-| `native/rpc.c` | ABI v1 section 9 from the JVM: blocking call, completion-queue delivery, client options |
-| `native/test/nullpin.*` | R-D9 fault injection (fake `JNIEnv`, `-Wl,--wrap` on the core entry) |
-| `probe/` | crossing-price, FFM and JNI-accessor probes |
+| `poc/codec/gen/java_*.py` | **the Java backend** (commit 2889d87): `java_backend` (entry), `java_rcodec` (arm R, drop and retain), `java_layout` (offsets), `java_abi` (the C header and the slot tables), `java_jni` (shim, NativeEntry, `ak_init`), `java_binding` + `java_pull` (the Java half, per level), `java_facade`, `java_names`. Each imports `plan`, never the IR |
+| `gen/` | glue: `generate.py`, `java_build.py`, `java_pbbuild.py`, `java_arms.py`, `pbarms.py`, `java_ffiarms.py`, `java_corpus.py` (corpus dispatch + projection); `build.sh`, `gate.sh` (payload gate, arms a/b/c), `corpus.py` + `corpus.sh` (corpus gate), `layout_break.sh`, `boundary.sh`, older measurement scripts |
+| `src/java/ak/` | hand-written runtime (`Enc`, `Dec` -- primitives only, `Utf8`, `Utf8View`, `Str17`, `Mem`, `Native`, ...) and harnesses: `RunConformance`, `RunUnknown`, `RunCounts`, `RunCorpus`, `RunRuleGaps`, `Bench`, `RunDelta`, `RunR14`, `RunRpc` |
+| `src/generated/{java17,java8}/`, `native/generated/` | the shapes description: `ak.shapes` (facade, `Codec`, `CodecRetain`, `Layout`, `Binding`, glue), `ak.floor` (arm b), `ak.borrow` (decision 13); `ak_abi.h` + `shim.c` |
+| `src/generated_corpus/{java17,java8}/`, `native/generated_corpus/` | the corpus description: `ak.corpus` (+ `Dispatch`, `Project`), `ak.corpus.borrow`; its own header and shim, linked against the `corpus` core |
+| `src/generated{,_corpus}/shared/` | `ak.NativeEntry`, `ak.corpus.NativeEntry`: the per-message natives and `ensureInit()` |
+| `native/rpc.c` | ABI v1 section 9 from the JVM; every struct and prototype from the generated header (plan.rpc) |
+| `native/test/nullpin.*`, `probe/` | R-D9 fault injection; crossing-price, FFM and JNI-accessor probes |
 
-### Arms (every one is in the gate log `rd5-gate.log`)
+### Arms
 
-| arm | what it is |
-|---|---|
-| `R` | the generated pure-Java codec (README R3's no-boundary control) |
-| `ffi`, `ffi-nobatch`, `ffi-zeroed`, `ffi-nobatch-zeroed` | the C ABI through JNI, push family, batching and decision 9's fill as separate registrations |
-| `ffi-pull`, `ffi-pull-walk` | ABI v1 7.1's pull family, drained and walked. Decode only |
-| `ffi-borrow` | decision 13's borrowed facade. Decode only |
-| `pbj` | protobuf-java |
-| RPC arm (`RunRpc`, `native/rpc.c`) | section 9 end to end: grpc-java, core blocking, core completion queue, and a four-cell codec x transport grid. **Built and run; not in the correctness gate**, which covers the codec only |
+| arm | what it is | payload gate | corpus gate |
+|---|---|---|---|
+| `R` | arm R, unknown fields dropped (`Codec`) | yes | yes |
+| `R-retain` | arm R, unknown fields retained (`CodecRetain`) | no (RunUnknown is drop-mode) | yes |
+| `ffi`, `ffi-nobatch`, `ffi-zeroed`, `ffi-nobatch-zeroed` | the C ABI through JNI, push family; batching and decision 9's fill as registrations | yes (all four) | `ffi` |
+| `ffi-pull`, `ffi-pull-walk` | ABI v1 7.1's pull family, drained and walked; re-encoded with the push encode | yes | yes |
+| `ffi-borrow` | decision 13's borrowed facade | yes | yes |
+| `pbj` | protobuf-java | yes | no (not generated; the incumbent) |
+| RPC arm (`RunRpc`, `native/rpc.c`) | section 9 end to end | built, **not run in this unit**, not in either gate | -- |
 
 ## Correctness (results)
 
-**The gate: `logs/java/rd5-gate.log`**, verbose per-arm logs `rd5-conformance-arm-{a,b,c}.log`.
+**Payload gate: `logs/java/wp5-gate.log`** (tree 287deca, core snapshot 287deca = the Rust
+sources of aba944a, `init-guard`), verbose per-arm logs `wp5-conformance-arm-{a,b,c}.log`.
 
-- **Arms a (java17 on JDK 17), b (java8 on JDK 17), c (java8 on JDK 8): 1,389 checks each,
-  0 failures.** All 16 payloads, all three content sets (ASCII against the manifest, Latin-1
-  and above-U+00FF by cross-arm agreement and round trip). The log lists every arm with its
-  row count, so an arm absent from a run is visible: the five encode-capable arms take part
-  in 319 rows each, the three decode-only arms (`ffi-pull`, `ffi-pull-walk`, `ffi-borrow`)
-  in 94, and every arm has 46 round trips ok.
-- **P2.5's two encodings**: the facade arms write the canonical 19,632 B, protobuf-java the
-  both-fields-written 19,712 B; the gate checks the cross product (each arm parses the
-  other's bytes and re-encodes to its own form).
-- **P7.1** is validated by permutation of (tag, wire type, body) triples, per SHAPES.md.
-- **Unknown-field vectors** (`RunUnknown`): 22 vectors, 66 checks, 0 failures, in the same
-  gate run. protobuf-java retains and re-emits unknown fields; the core and arm R drop them.
-- **The pull family is running, not falling back**: the counting core in the same gate run
-  shows 0 reverse crossings for both deliveries on every payload (push makes 3,501 on P2.2).
-- **Layout guard** (`layout-guard.log`): ABI v1 section 10's comparison seen failing and
-  naming the fact when a layout fact is perturbed. **Boundary** (`boundary.log`): every
-  entry point an undefined import of the shim, resolved by the core.
+- **Arms a, b, c: 1,389 checks each, 0 failures**, every registered arm listed with its row
+  count (encode-capable arms 319 rows, decode-only arms 94, 46 round trips each). Same
+  structure as `rd5-gate.log`; the generated text changed, the bytes did not.
+- **Unknown-field vectors** (`RunUnknown`): 66 checks, 0 failures.
+- **The pull family is running**: 0 reverse crossings for both deliveries on every payload,
+  counting core, same run.
+- **Layout guard** (`wp5-layout-guard.log`): the run-time comparison fires and names the
+  perturbed fact; NEW, the header's static assertion of every Java offset fails the shim's
+  compile when one number is perturbed, naming the member. **Boundary** (`wp5-boundary.log`):
+  every entry point an undefined import of the shim; no codec symbol in the shim.
 
-**The corpus against arm R: `logs/java/re4-corpus-armR.log`** (R-E4, confirmation only;
-WP5 fixes). Scope: the 19 messages arm R's codec has, each declared identically in
-`corpus.proto` (rule 0, checked per root); 395 of 691 rows. Same result on the target and on
-the floor.
+**Corpus gate: `logs/java/wp5-corpus.log`** (`gen/corpus.sh`), every row of `ffi/corpus`
+(691), each (arm, row) on its own thread under a 5 s timeout, against the core built with
+`corpus,init-guard` (the log shows the features and that the loaded core exports
+`ak_decode_WireZoo`).
 
-| | count |
-|---|---|
-| accept rows | 330: C1 parsed 330, C2 projected equal 328 of 328 with a projection, C3 accepted form 329 |
-| reject rows | 62: refused 44, each with its error in the log |
-| disputed, excluded | 3: `U-map-entry` (arm R produces the pure-python reading), `X-tag-zero-Empty` and `X-tag-zero-nested-Empty` (arm R accepts, as upb does) |
-| timeouts (5 s per row) | 0; every `X-lenwrap-*` row in scope is refused with `length past end of buffer` |
-| **failing** | **19** |
+| arm | pass (accept / refused) | fail | disputed | not in the C ABI | timeouts |
+|---|---|---|---|---|---|
+| R | 688 (547 / 141) | 0 | 3 | 0 | 0 |
+| R-retain | 688 (547 / 141) | 0 | 3 | 0 | 0 |
+| ffi, ffi-pull, ffi-pull-walk, ffi-borrow | 672 (534 / 138) each | 0 | 3 | 16 (`Nest`) | 0 |
 
-The failing rows:
+Identical on the target (java17, JDK 17) and the floor (java8, JDK 8). Disputed rows, as
+read: `U-map-entry` accepted, matching the pure-python reading; `X-tag-zero-Empty` and
+`X-tag-zero-nested-Empty` refused (field number 0). R-retain writes the retained form on
+every `unknown` row (no retention gap). **Controls, each seen failing** (same log):
+`proj` 156, `reenc` 156, `accept` 570 failing arm-rows on a 121-row subset; `noinit`
+(`ak_init` skipped) fails every accept row of every ffi arm with AK_ERR_UNINITIALIZED.
 
-- **`X-tag-zero-<Root>`, 18 rows** (every in-scope root): arm R accepts field number 0.
-  `Dec.readTag` returns 0 at end of buffer and the decode loop's `default:` skips a 0 key
-  instead of refusing it.
-- **`E-map-entry-empty`, C3**: a map entry with key `""` and value `""`. Arm R writes the
-  key and omits the empty value (8 B), which is neither accepted form (both written, 10 B;
-  entry body empty, 6 B).
+**R-E4 closed** (`wp5-re4-closure.log`): the 18 `X-tag-zero-<Root>` rows are refused
+("field number 0") and `E-map-entry-empty` re-encodes to the 6 B canonical form (pre-WP5:
+8 B, key written and empty value omitted). **Rule gaps outside the corpus** (same log,
+section 4, arm R and ffi): a repeated singular message and a repeated oneof message member
+MERGE (`{seconds:1, nanos:2}`, as protobuf C++ reads the same bytes); `body_case = 99` is
+refused (arm R `Enc.Refused`, ffi AK_ERR_ABI); `WireZoo.v_double = -0.0` is written as
+`21 0000000000000080` and +0.0 is not; `0a ffffffff07` is refused at the length (R-G8; arm
+R "length past end of buffer", ffi AK_ERR_TRUNCATED).
 
-The review's other three R-E4 gaps are **not reachable by any corpus row in arm R's
-scope**, so they were checked outside it (`RunRuleGaps`, same log, protobuf C++ asked the
-same question):
+## Crossing counts (results) -- `logs/java/wp5-counts.log`
 
-- **merge semantics, confirmed by running**: `ResultRaw.created_at` twice
-  (`{seconds:1}` then `{nanos:2}`): arm R keeps `{nanos:2}`, protobuf C++ reads
-  `{seconds:1, nanos:2}`. Same on a oneof message member (`Probe.as_stamp`).
-- **unknown oneof case, confirmed by running**: `Probe` with `body_case = 99` encodes
-  without a refusal and writes only the other fields (`0a0178`).
-- **the int length check (E6), run**: `0a ffffffff07` on `ListResultsResponse` passes
-  `readLen`'s wrapping check and is refused later (`submessage body not fully consumed`).
-- **`-0.0`, confirmed by reading only**: `java_codec.py` emits `x != 0.0` as the presence
-  test of a singular implicit-presence double, which drops `-0.0`. `shapes.proto` has no such
-  field (its one double is repeated, and the `S-mzero-*` rows on it pass), so no generated arm
-  R code contains the defect today and no in-scope row can reach it.
-
-Arm R has not been run on the 296 out-of-scope rows (WireZoo, Surrogate, the chunking and
-nesting roots): its generator has no such messages. **The ffi arm has not been run against
-the corpus at all** (see next step).
-
-## Crossing counts (results) -- `logs/java/rd5-counts.log`
-
-Re-run on the counting core from the 817174f snapshot; every row is identical to the older
-`counts.log`.
+Every row identical to `rd5-counts.log` except the transcoder column of P5.1 to P5.4
+(3 -> 2): ABI v1 section 8's direct path now runs (see defects).
 
 | payload | encode fwd / rev | per element | decode (push) fwd / rev | per element |
 |---|---|---|---|---|
@@ -120,11 +101,21 @@ Re-run on the counting core from the 817174f snapshot; every row is identical to
 Unbatched, P2.2, P2.3 and P2.4 encode at 22.0, 130.0 and 316.0 crossings per element. The
 pull family: reverse 0 on every payload; forward 2 for the walk delivery at any size, 1 plus
 one per 32 KB chunk for the drain. Decision 5's learned width: 0 prefix moves on every
-uniform payload, 80 on P2.4 (one per element, by construction), 0 grow callbacks anywhere.
-RPC (`rpc.log`, counted): blocking call 2 forward / 0 reverse, queue delivery 3 forward / 0
-reverse, per call, none per field.
+uniform payload, 80 on P2.4, 0 grow callbacks. RPC (`rpc.log`, counted, pre-WP5): blocking
+call 2 forward / 0 reverse, queue delivery 3 forward / 0 reverse, per call.
 
 ## Feasibility findings and defects found
+
+- **WP5 step 3, found by the port** (JOURNAL J21), each fixed where the rule is rendered:
+  (1) **section 8's direct path never ran**: the fill staged the bulk bytes with the
+  passthrough transcoder, and the core reads the direct argument only when the slot is
+  `AK_STR_DIRECT`; now the slot carries the sentinel (P5.x transcodes 3 -> 2, counted);
+  (2) the **zeroed fill dropped -0.0** (`x != 0.0`, E5's defect in the binding; latent,
+  no singular double in shapes.json); (3) **`Utf8View` refused ASCII after a multi-byte
+  character** (corpus T-enc-lone-*, ffi-borrow): the payload gate's non-ASCII content sets
+  recode every character, so no gated string had that shape.
+- **R-G7's Java instance**: the binding never called `ak_init`, and no core build carried
+  `init-guard`, so nothing noticed. Both fixed; the `noinit` control shows the check live.
 
 - **The Java 8 floor build was broken from 5241ced to this work unit.** `RunRpc.java` used
   `ProcessHandle` (Java 9) and is in the floor's compilation, so `gen/build.sh` stopped at
@@ -133,13 +124,13 @@ reverse, per call, none per field.
   `w10-regate.log` predate 5241ced.
 - **R-D9, Java part, fixed**: the bulk-bytes encode entry did not NULL-check
   `GetPrimitiveArrayCritical`; the parse entries did. Fixed in the emitter
-  (`gen/java_jni.py`), regenerated. Swept: the two `uri` pins in `native/rpc.c` were also
+  (now `poc/codec/gen/java_jni.py`), regenerated. Swept: the two `uri` pins in `native/rpc.c` were also
   unchecked and are fixed. `rd9-jni-null.log` shows the old shim entering the core with
   `(NULL, 65536)` under fault injection and the new one returning `AK_ERR_HOST` without
   entering it, frame stack balanced over 17 calls.
-- **R-D2 swept into `native/rpc.c`**: it hand-declared `ak_client_opts` (6 fields, correct);
-  it now includes the generated `ak_abi.h`, whose regeneration picked up the rendered struct
-  with its size and offset asserts, and compiles against it.
+- **R-D2 / R-G5 in `native/rpc.c`**: it hand-declared `ak_client_opts`, `ak_bytes`,
+  `ak_completion` and every RPC prototype (handles as `void *`); all now come from the
+  generated header, rendered from `plan.rpc` with size and offset asserts.
 - **Packaging (README 5.1.3)**: the floor and the target are different code because the
   target reads `String.coder`/`String.value`, which Java 8 lacks; `ak.Str17` shows runtime
   dispatch working in one tree. Both levels use `sun.misc.Unsafe`, which is terminally
@@ -177,68 +168,62 @@ not), `contentsets.log`, `deopt.log`, `r9-mechanism.log`, `crossing.log`,
 `calibration-r13.log`, `baseline.log`, `ffm.log`, `shim-probe.log`, `pinning.log`,
 `rpc.log`, `r14.log`, `r14-summary.md`, `w10-regate.log` (correctness plus a drift check).
 
-## Open defects
+## Open defects and gaps
 
 | # | what | status |
 |---|---|---|
-| E1 | arm R accepts field number 0 (18 corpus rows) | open, WP5 (Java backend on the shared plan) |
-| E2 | arm R's empty map entry form is not an accepted encoding (`E-map-entry-empty`) | open, WP5 |
-| E3 | arm R replaces a repeated singular / oneof message field instead of merging | open, WP5 |
-| E4 | arm R encodes an undeclared oneof case without refusing | open, WP5 |
-| E5 | `java_codec.py`'s implicit-double presence test drops `-0.0` (latent: no such field in shapes) | open, WP5 |
-| E6 | `Dec.readLen` checks `pos + n > limit` in `int`, the wrapping form R-D1 names. The corpus's `X-lenwrap-*` rows are refused by `n < 0` before it matters; a length of 2^31 - 1 does wrap the check and is refused only later, by the submessage-consumed check (`RunRuleGaps`, `re4-corpus-armR.log`). No out-of-bounds read is possible on the JVM | open, WP5 |
-| E7 | `RunConformance`'s comment says `ak.BorrowArm` is absent from the floor build; it is present and gated on arms b and c | cosmetic, open |
-| E8 | `gen/generate.py` writes into `poc/codec` | open, WP5 removes it |
-| D1-D7 | earlier slice defects (`Dec.skip`, decode `apply` order, three baseline handicaps, warmup, redundant crossings) | fixed; see JOURNAL J2-J16 |
+| E1-E6 | arm R's five R-E4 gaps and the `int` length check (R-G8) | **closed** by WP5 step 3 (wp5-corpus.log, wp5-re4-closure.log) |
+| E7 | `RunConformance`'s comment on `ak.BorrowArm` and the floor | fixed (comment) |
+| E8 | `gen/generate.py` wrote into `poc/codec` | **closed**: writes under `poc/java` only |
+| G1 | plan gap: the vtable structs' member order and shape, and the pull record slot numbering, are rendered by `rust_abi` (a backend), not stated by the plan; `java_abi` restates them from the same plan facts. No layout guard covers a vtable | reported to the aggregating session |
+| G2 | plan gap: `plan.lifecycle` names `AK_INIT_*` but not their values; `ak_err`, the error codes and `ak_bdr_rec` are fixed text in `ak-abi` restated in `java_abi` (the record header is static-asserted) | reported |
+| G3 | the ffi arms have no retain mode: decision 11's slots stay NULL and there is no `ak_uencode_*` path in the binding (R-G11 would also bound it) | open, not built |
+| G4 | a `lossy` UTF-8 plan option raises in `java_rcodec` (the runtime renders `reject` only) | by design until the option is used |
+| D1-D7 | earlier slice defects | fixed; see JOURNAL J2-J16 |
 
 ## What is not measured or not run
 
-- **The corpus against the ffi arm** (the core through JNI), the pull arms and the borrowed
-  arm. Only arm R has run it.
-- **Corpus C5 (produce)** and the **chunking class**, which needs the ffi arm at more than
-  one chunk; the transcode encode half (`T-enc-*`, `produce` names java) is not run, so
-  `ak.Utf8`'s U+FFFD against protobuf-java's `?` is written down and not exercised.
-- **The RPC arm under the correctness gate**: no committed log gates its response bytes
-  against the codec gate's.
+- **ffi retain** (G3); **corpus C5 (produce)**, so the transcode encode half (`T-enc-*`,
+  `produce` names java) is consumed but not produced: `ak.Utf8`'s U+FFFD against
+  protobuf-java's `?` is written down and not exercised; **the chunking class** (`C-*`)
+  passes on the ffi arms, but how many chunks each row crossed in this binding was not
+  counted.
+- **pbj against the corpus** (the incumbent is not generated; only its payload bytes are
+  gated).
+- **The RPC arm**: rebuilt against the plan-rendered header (compiles, links), not re-run
+  in this unit, and never under a correctness gate.
 - **Concurrency** (ABI v1 obligation 12.5): one thread everywhere; the shim's thread-local
   frame stack is argued, not tested.
-- **Allocation and footprint**, **depth past four levels**, **the decode recursion limit**
-  (the corpus's `X-depth-*` rows are out of arm R's scope), **message size limits**,
-  **`ak_init` and the lifecycle**, **the codec's rollback of a half-written field**.
-- **FFM as a binding**: only a downcall probe exists, on JDK 21 preview; FFM is a JDK 22 API,
-  above the target, and a secondary arm per README 5.
-- **The C-shim arm of README 9.1**: not built; only its JNI accessor prices were probed.
+- **Allocation and footprint**, **message size limits**, **the codec's rollback of a
+  half-written field**.
+- **FFM as a binding**, **the C-shim arm of README 9.1**: not built (probes only).
 - **Rust MSRV 1.88** for the core: not verified here (rustc 1.94.1).
+- The timed core now carries `init-guard`; no timing was taken in this unit, and any old
+  timing log predates it.
 
 ## Next step
 
-In FIX-PLAN order, as far as this slice is concerned:
-
-1. **WP5 step 3, the Java backend**, once the shared plan layer exists: port arm R and the
-   JNI binding to render plans, retire `java_codec.py`'s own rules and `generate.py`'s writes
-   into `poc/codec`, then re-run `gen/gate.sh` and `gen/corpus_r.sh` (E1 to E6 should close).
-2. **Run the corpus against the ffi, pull and borrow arms** with a driver shaped like
-   `corpus_r.py` (the ffi arm's roots are the seven with public entry points), including the
-   chunking class at more than one chunk.
-3. **WP3**: conform `Bench`, `RunR14` and `RunRpc` to `design/CAMPAIGN.md` and commit raw
-   runner output for the RPC harness.
+1. **ffi retain** (G3), if the owner wants both unknown-field modes on the C ABI arms:
+   wire `unknown` / `unk_<slot>` trampolines and the `ak_uencode_*` / `ak_uelem*` path with
+   `ufix` fills; R-G11 bounds what it can retain.
+2. **WP3**: conform `Bench`, `RunR14` and `RunRpc` to `design/CAMPAIGN.md`; re-run the RPC
+   arm and gate its response bytes.
+3. When the plan states the vtable layout and record numbering (G1), switch `java_abi` to it.
 
 ## Requests to the aggregating session
 
-Facts for the documents; this slice writes none of them.
-
-1. The shared C header (`ak_abi.h`, rendered by `cpp_header.py`) declares no pull-family
-   entry points (`ak_parse_*`, `ak_bdr_*`); `shim.c` declares them locally, transcribed from
-   `ak-abi/src/lib.rs`. Nor does it declare section 9 beyond `ak_client_opts`; `rpc.c`
-   declares the rest by hand (R-G5's Java instance).
-2. `ak_bdr_count_forward`'s doc comment tells a host to call it after a drain, but
-   `ak_bdr_drain` is itself an entry point that bumps `forward`, so a host following the
-   comment counts every chunk twice.
+1. **Plan gaps G1 and G2** above: the vtable member order and shape, the pull record slot
+   numbering, the lifecycle flag values and `ak_err` are not in the plan contract; the
+   Java backend restates the Rust backend's rendering. The shared `generate.py`'s
+   `BACKENDS` guard list does not name the `java_*.py` modules (this slice's `--check`
+   applies the same guard to them).
+2. The C header is now rendered twice from the plan (the cpp slice's and `java_abi`'s);
+   a shared C-header backend would make it once.
 3. The corpus has no vector for a repeated singular message field or a repeated oneof
-   message member (merge semantics), and none for an implicit-presence double outside
-   `WireZoo`; E3 and E5 were found outside it.
-4. The floor build break (5241ced) went unnoticed because nothing ran the floor after an RPC
-   harness change; `gen/gate.sh` now builds and runs all three arms in one command.
+   message member (merge), and the payload gate's content sets never mix ASCII with
+   multi-byte characters in one string (how the `Utf8View` defect stayed hidden).
+4. `ak_bdr_count_forward`'s doc comment tells a host to call it after a drain, but
+   `ak_bdr_drain` is itself an entry point that bumps `forward` (still true).
 
 ## Log index
 
@@ -246,16 +231,18 @@ Facts for the documents; this slice writes none of them.
 
 | Log | What it establishes |
 |---|---|
-| `rd5-gate.log` | the gate on arms a, b, c with every arm listed (pull arms included), 1,389 checks each, 0 failures; unknown-field vectors 66/0; pull reverse crossings 0. Before/after for R-D5 in its header |
-| `rd5-conformance-arm-{a,b,c}.log` | the verbose per-row gate output behind it |
-| `rd5-counts.log` | crossing counts on the 817174f core, identical to `counts.log` |
-| `rd9-jni-null.log` | R-D9: emitter sweep, generated diff, fault injection before (core entered with NULL) and after (refused) |
-| `re4-corpus-armR.log` | R-E4: arm R against the corpus on target and floor, 19 failing rows by id, every refusal's error, the three rule gaps outside the corpus's reach |
-| `counts.log` | the earlier count run (same figures) |
-| `unknown.log` | 22 unknown-field vectors, earlier run |
-| `conformance.log` | the earlier gate (437 checks, seven arms, before the pull arms existed); superseded by `rd5-gate.log` |
-| `boundary.log`, `layout-guard.log` | R5's boundary check; section 10's guard seen failing |
-| `flow-control.log` | grpc-java 1.74.0's window settings read with `javap` |
+| `wp5-gate.log` | WP5 step 3: the payload gate on arms a, b, c, every arm listed, 1,389 checks each, 0 failures; unknown vectors 66/0; pull reverse crossings 0; core with `init-guard` |
+| `wp5-conformance-arm-{a,b,c}.log` | the verbose per-row gate output behind it |
+| `wp5-corpus.log` | the full corpus on six arms, target and floor, 0 failing arm-rows; generate --check; controls seen failing (proj, reenc, accept, noinit); the rule gaps on arm R and ffi with protobuf C++'s reading |
+| `wp5-re4-closure.log` | the 19 rows of re4-corpus-armR.log, each looked up: 18 refused, E-map-entry-empty 6 B |
+| `wp5-counts.log` | crossing counts, identical to rd5-counts.log except P5.x transcodes 3 -> 2 (direct path) |
+| `wp5-layout-guard.log` | section 10's guard failing at load AND the header's static assertion failing the compile |
+| `wp5-boundary.log` | R5's boundary check on the WP5 build |
+| `wp5-build.log` | the build, filtered of compiler warnings: core snapshot commit, features, every step |
+| `rd5-gate.log`, `rd5-conformance-arm-{a,b,c}.log`, `rd5-counts.log` | the pre-WP5 gate and counts (superseded) |
+| `re4-corpus-armR.log` | the pre-WP5 arm R corpus run: 19 failing of 392 (superseded) |
+| `rd9-jni-null.log` | R-D9 fault injection |
+| `counts.log`, `unknown.log`, `conformance.log`, `boundary.log`, `layout-guard.log`, `flow-control.log` | earlier runs |
 
 **Instrumentation** (container timings; see the section above): `encode.log`,
 `encode-take-fix.log`, `decode.log`, `decode-pull.log`, `delta.log`, `drift.log`,
