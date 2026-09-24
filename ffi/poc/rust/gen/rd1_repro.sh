@@ -28,13 +28,14 @@ decode_exit() {
 }
 
 bad=0
-for c in a-ffi a-native b-err-ffi b-err-native b-span-ffi b-span-native c-ffi c-native u32-ffi; do
+for c in a-ffi a-native b-err-ffi b-err-native b-span-ffi b-span-native c-ffi c-native u32-ffi nested2-ffi nested2-native; do
     echo "## case $c"
     out=$(timeout 5 "$BIN" "$c" 2>&1); rc=$?
     # keep only the first two lines of any panic backtrace, they carry the message
     echo "$out" | grep -E '^\[|panicked at|slice index|cannot unwind|non-unwinding' | head -4 | sed 's/^/    /'
     echo "    -> exit=$rc ($(decode_exit $rc))"
     [ "$rc" -eq 0 ] || bad=$((bad+1))
+    case "$c" in nested2-*) echo "$out" | grep -q "Err(" || { echo "    !! decoded as a SUCCESS"; bad=$((bad+1)); };; esac
     echo
 done
 echo "# cases that did not return promptly: $bad"

@@ -1,0 +1,10 @@
+# D28 (found while writing WP5 step 1): a decode error two levels below a group root, on the OLD core
+#   core and binding at c10e934 (worktree), rdrepro.rs from this session (case nested2-*): tasks[0].options.max_duration
+#   with a varint key and no value (truncated). The old emitter's depth-2 propagation line was
+#   'if cd.err != 0 { cd.err = cd.err; }' (rustc: useless assignment), so the C ABI decode SUCCEEDED.
+#   After: logs/rust/wp5-gate.log step 9, both arms Err(-3).
+
+[nested2] ffi   Ok(()) (must be Err)
+exit 0
+[nested2] native Err(-3) (must be Err)
+exit 0

@@ -1,0 +1,90 @@
+# WP5 step 1: the concurrency suite under ThreadSanitizer on the plan-rendered core
+#   base 24dce7d + WP5 changes (uncommitted at run time; committed with this log)
+# rustc rustc 1.100.0-nightly (6eeff9a52 2026-09-23)
+# binary  /home/user/ArmoniK.Api/ffi/poc/rust/target-tsan/x86_64-unknown-linux-gnu/release/concur
+# loads   libak_core.so => /home/user/ArmoniK.Api/ffi/poc/rust/target-tsan/x86_64-unknown-linux-gnu/release/build/ak-core/65d161abcc3e1fc6/out/libak_core.so
+# core instrumented: 43 __tsan_ references in libak_core.so
+
+===== the suite (sections 1-3) under TSan: must report NO race =====
+# ABI v1 obligation 12.5: the concurrency suite
+#   width table: per context, prefix moved on a miss -- ABI v1 section 6 as SHIPPED
+#   guard:       on
+#   shapes:      P1.2 and P2.2 (M1 leaf, M2 non-leaf), plus P1.3 and P2.5
+#   vCPUs:       4
+
+## 1. the reference: prost, the INCUMBENT's encoder
+
+shape         bytes
+P1.2         218121
+P2.2         540422
+P1.3            605
+P2.5          19632
+
+# NOT a re-encode with the code under test. Section 6: only the COMBINATION of
+# its two refusals corrupts, and it corrupts so that the threads agree with each
+# other -- so a suite comparing two threads, or comparing against a reference
+# taken with the same polluted encoder, finds nothing. It takes an independent
+# encoder, and prost is one: different codec, different object graph, itself
+# checked against the validated manifest by gen/stage2.sh.
+
+## 1b. what each oracle sees
+
+encodes from a context with history                   8
+wrong against PROST (the oracle now)                  0
+wrong against a fresh core-ffi context (the old oracle)          0
+
+# Nothing to find on this build, and both oracles agree that there is
+# nothing -- which is what the change to the oracle has to cost: zero.
+
+## 2. SEQUENCE: two shapes alternating on ONE context, one thread
+
+  encodes 40, wrong 0
+  decodes 40, wrong 0
+
+# The one-shape control, which is the comparison obligation 12.5 asks for:
+  one shape (P1.2) on one context, 40 encodes, wrong 0
+# A per-shape-state defect is invisible to that row by construction and
+# visible to the rotation above. That is why the obligation says two shapes.
+
+## 3. TOGETHER: N threads, one context each, all four shapes (P1.2, P2.2, P1.3, P2.5) rotated per round
+
+threads         encodes      wrong decodes wrong
+2                   400          0            0
+4                   800          0            0
+8                  1600          0            0
+
+# 8 threads on 4 vCPUs is deliberate: oversubscription puts a preemption
+# between a `begin` and its `end`, which is where a state defect that needs a
+# window to open would show. R9 is the caveat on the other side -- a
+# concurrency figure from a small container is a lower bound on contention,
+# and section 5 below is the figure, not this section.
+
+## 4 and 5 skipped: AK_CONCUR_NO_TIMING (the ThreadSanitizer run).
+
+
+# RESULT: every encode matched prost byte for byte, every decode matched
+# by value. 0 wrong.
+# This build MUST PASS.
+# suite exit 0; TSan warnings in the suite: 0
+
+===== positive control: the planted shared-context race (concur --control) =====
+# Four threads on ONE encode context, a contract violation (ABI v1 section 3). TSan
+# must SEE it, or the run above says nothing. The process then aborts, as in stage 5.
+# TSan warnings in the control: 315
+    WARNING: ThreadSanitizer: data race (pid=2589)
+      Write of size 8 at 0x722800000018 by thread T2:
+        #0 ak_enc_reset <null> (libak_core.so+0x1b28e6) (BuildId: a2ecec2fa23ed640c9a07f18ce11209c0b9c7c2f)
+        #1 harness::generated::binding::encode_into_list_tasks_detailed_response <null> (concur+0x12893b) (BuildId: d3360283ed9233ad5da82abcc90886d816a06b2d)
+        #2 std::sys::backtrace::__rust_begin_short_backtrace::<concur::run_control::{closure#0}::{closure#0}, ()> concur.bb73c65baaf3fdb2-cgu.2 (concur+0x118417) (BuildId: d3360283ed9233ad5da82abcc90886d816a06b2d)
+    --
+    WARNING: ThreadSanitizer: data race (pid=2589)
+      Write of size 4 at 0x722800000060 by thread T2:
+        #0 ak_enc_reset <null> (libak_core.so+0x1b28f7) (BuildId: a2ecec2fa23ed640c9a07f18ce11209c0b9c7c2f)
+        #1 harness::generated::binding::encode_into_list_tasks_detailed_response <null> (concur+0x12893b) (BuildId: d3360283ed9233ad5da82abcc90886d816a06b2d)
+        #2 std::sys::backtrace::__rust_begin_short_backtrace::<concur::run_control::{closure#0}::{closure#0}, ()> concur.bb73c65baaf3fdb2-cgu.2 (concur+0x118417) (BuildId: d3360283ed9233ad5da82abcc90886d816a06b2d)
+    --
+    WARNING: ThreadSanitizer: data race (pid=2589)
+      Write of size 4 at 0x722800000004 by thread T2:
+        #0 ak_enc_reset <null> (libak_core.so+0x1b2907) (BuildId: a2ecec2fa23ed640c9a07f18ce11209c0b9c7c2f)
+        #1 harness::generated::binding::encode_into_list_tasks_detailed_response <null> (concur+0x12893b) (BuildId: d3360283ed9233ad5da82abcc90886d816a06b2d)
+        #2 std::sys::backtrace::__rust_begin_short_backtrace::<concur::run_control::{closure#0}::{closure#0}, ()> concur.bb73c65baaf3fdb2-cgu.2 (concur+0x118417) (BuildId: d3360283ed9233ad5da82abcc90886d816a06b2d)

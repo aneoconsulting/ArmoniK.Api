@@ -2051,3 +2051,76 @@ GATE PASSED.
 The decode emitter names every nested reader `cd`, so at depth two the propagation line
 reads `if cd.err != 0 { cd.err = cd.err; }` (rustc warns "useless assignment", four sites):
 an error inside a message nested two levels below its group root is dropped at that level.
+
+## 2026-09-24 (later still) -- FIX-PLAN WP5 step 1, the one generator (Part B)
+
+Authorized by the aggregating session to change `poc/codec/**` for this.
+
+### What was built
+
+`poc/codec/gen/plan.py`, the rule layer: IR -> MessagePlan with an ENCODE PLAN (EncStep list
+in tag order, a oneof as one guarded step per member at its own tag) and a DECODE PLAN
+(`{(field number, wire type): DecAction}`), plus the ABI layout functions (moved here from
+`rust_abi.py` and `ir.py`; `ir.py` keeps forwarding names for the unported generators), the
+RPC ABI (R-G5) and the lifecycle (R-G7). Options: unknown drop/retain/both, utf8
+reject/lossy, recursion limit. The contract is the module docstring, written for the
+cpp/java/csharp/python agents: what a plan contains, the encode and decode rules stated
+once (with R-G8's 64-bit remaining-bytes length rule), what a backend may and may not decide.
+
+Backends: `rust_abi.py` (the core) and `rust_native.py` (core-native, new; one module per
+unknown mode) render the same plans; `rust_binding.py` (the host binding, moved out of
+`rust_abi.py`); `cpp_layout.py`. `rust_core.py` is retired as an emitter and kept as a
+plan-ordered legacy adapter only because `poc/cpp/gen/cpp_core.py` imports its walkers.
+`generate.py --check` now also fails if a backend imports the IR/schema, and self-tests that
+guard with a planted import. The ir.py front end loads the corpus reader view through the
+corpus's own merge (`spec.load()`), so `fixed32` and the corpus-only messages exist (R-E3).
+
+### How it was gated, in order
+
+1. Rewrite the encode walker over EncSteps and the decode walker over the table; regenerate
+   the shapes core. `abi.rs` and `layout.rs` came out BYTE-IDENTICAL (same layout, same site
+   order: the oneof's message site is allocated when the oneof is first met, as before);
+   `codec.rs` changed as source. Conformance 16/16 and shapes: unchanged.
+2. `rust_native.py`: core-native from the same plans. Conformance 16/16 again (the prost
+   arm is the independent check; core-native and core-ffi share the plan by design).
+3. The corpus core: every corpus message the ABI can carry as a root (all but `Nest`,
+   refused by name), generated into `generated_corpus/` behind a test-only `corpus` feature,
+   built in `poc/rust/corpus/` (its own workspace). The corpus-harness binding exposed two
+   binding defects on the first build (D30: a root whose loop slot lives on an inlined child;
+   D29 on the first run: an `.unwrap()` on an absent parent of the direct argument, which
+   panicked on `S-UploadResultDataMessage-min`) and one harness defect (the parent polled
+   the child without draining its pipes, so large rows read as timeouts).
+4. First full run after those: all four arms pass. Not trusted until controls failed:
+   planted projection key (C2), planted byte (C3), refusals turned into acceptances (C4),
+   `ak_init` skipped on an init-guard core (R-G7) -- all four turn rows red.
+5. Which form did retain write? 33 ffi rows wrote the DROPPED form. Looked: non-leaf
+   elements (`U-element-*`, `U-chunkelem-*`) were never captured by the core even though the
+   ABI has the `unk_` slot for them -- fixed (D33), 17 remain: `U-leaf-*`/`U-deep-*` (an
+   unknown inside an inlined child: the ABI has nowhere to put it, D34) and `U-map-entry`.
+6. The BEFORE: the pre-WP5 generator (c10e934) over the same corpus (WireZoo and Nest
+   excluded, since it cannot express them), with the new binding generator over the old core
+   because the old binding generator hit D30 (the layout is identical). 31 `T-dec-*`
+   (invalid UTF-8 accepted) and 6/12 `U-wire-*` (packed at a foreign wire type read as a
+   value) fail in every arm (`logs/rust/wp5-corpus-before.log`). These are the rule fixes;
+   neither changes a byte on the payload set.
+
+### Refuted / not done
+
+- "Map key always written" (FIX-PLAN WP5 item 2) as a rule: refuted by the corpus
+  (`E-map-entry-empty` accepts neither "key always, empty value omitted" nor anything but
+  the canonical form or both-always), and it would move P2.5's manifest hash. The plan states
+  the canonical form and says why; the question goes back.
+- A retain-mode C ABI path for unknowns inside an inlined child: not built, because it needs
+  an ABI slot that does not exist (D34). Not a backend's decision.
+- The old binding generator could not be used for the before-run; stated in the log.
+
+### Also found
+
+- D28: the depth-2 reader-naming defect (found in Part A by a rustc warning) is real: on the
+  old core a truncated `tasks[0].options.max_duration` decodes as a SUCCESS through the C ABI
+  (`logs/rust/wp5-nested2-before.log`); `rdrepro nested2-*` is now in `rd1_repro.sh`.
+- `gen/check_direct.py` could not run since R0 (imported `ir` from this directory); now asks
+  `plan.py`.
+- `gen/concur.sh`'s `| head` under `pipefail` made the counting run exit 101 on one gate run.
+- The python generator reports `ak_abi.h` STALE at the base commit already (the cpp slice's
+  header changed under it); not caused by this work.

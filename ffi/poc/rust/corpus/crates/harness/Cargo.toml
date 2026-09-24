@@ -1,0 +1,25 @@
+[package]
+name = "corpus-harness"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[features]
+# ON: ABI v1 section 3 as specified, so a binding that skipped ak_init would fail here
+# rather than pass silently (R-G7). `corpus` is what selects the corpus-schema core.
+default = ["init-guard"]
+init-guard = ["ak-core/init-guard"]
+
+[dependencies]
+ak-core = { path = "../../../../codec/crates/ak-core", features = ["corpus"] }
+ak-abi = { path = "../../../../codec/crates/ak-abi", features = ["corpus"] }
+ak-rt = { path = "../../../../codec/crates/ak-rt" }
+facade = { package = "corpus-facade", path = "../facade" }
+serde_json = "1"
+sha2 = "0.10"
+bytes = "1"
+
+[[bin]]
+name = "corpus"
+path = "src/main.rs"

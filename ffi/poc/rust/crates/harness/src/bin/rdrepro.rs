@@ -203,6 +203,35 @@ fn main() {
         "b-span-native" => drive_native("b-span", &input_b_bad_span()),
         "c-ffi" => drive_ffi("c", &input_c()),
         "c-native" => drive_native("c", &input_c()),
+        // FIX-PLAN WP5 step 1: a decode error TWO levels below a group root. The old
+        // emitter named every nested reader `cd`, so at depth two the propagation line was
+        // `if cd.err != 0 { cd.err = cd.err; }` and the error vanished: the truncated
+        // Duration below (tasks[0].options.max_duration.seconds: a varint key with no
+        // value) decoded as a success. Must be an error in both arms.
+        "nested2-ffi" | "nested2-native" => {
+            let mut dur = Vec::new();
+            dur.extend(tag(1, 0)); // Duration.seconds, varint -- and then nothing: truncated
+            let mut opts = Vec::new();
+            opts.extend(tag(2, 2)); // TaskOptions.max_duration
+            opts.extend(varint(dur.len() as u64));
+            opts.extend(&dur);
+            let mut task = Vec::new();
+            task.extend(tag(10, 2)); // TaskDetailed.options
+            task.extend(varint(opts.len() as u64));
+            task.extend(&opts);
+            let mut buf = Vec::new();
+            buf.extend(tag(1, 2)); // ListTasksDetailedResponse.tasks
+            buf.extend(varint(task.len() as u64));
+            buf.extend(&task);
+            if case == "nested2-ffi" {
+                let ctx = Ctx::new();
+                let r = harness::generated::binding::decode_with_list_tasks_detailed_response(ctx.dec, &buf);
+                println!("[nested2] ffi   {:?} (must be Err)", r.as_ref().map(|_| ()).map_err(|e| *e));
+            } else {
+                let r = facade::generated::core_native::decode_list_tasks_detailed_response(&buf);
+                println!("[nested2] native {:?} (must be Err)", r.as_ref().map(|_| ()).map_err(|e| *e));
+            }
+        }
         "u32-ffi" => {
             // R-D9: a buffer longer than u32::MAX. We pass a small REAL buffer but claim a
             // length above u32::MAX. On unfixed code there is no entry guard, so the reader

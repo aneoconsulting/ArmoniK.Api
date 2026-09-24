@@ -56,7 +56,7 @@ echo
 echo "===== 1b. the shared-site pair really does flip a width (counting build) ====="
 echo "# A contention arm that never contends measures nothing, so the flipping is counted."
 CARGO_TARGET_DIR=target-count cargo run --release -q -p harness --features count --bin concur 2>/dev/null \
-  | sed -n '/does the shared-site/,/^# visible to/p' | head -14
+  | sed -n '/does the shared-site/,/^# visible to/p' | awk 'NR<=14'
 
 # Each build knows what IT is required to do -- the binary reads its own feature flags and
 # exits 0 when it behaved as required, which for a planted build means "the suite caught

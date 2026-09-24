@@ -198,6 +198,24 @@ pub(crate) fn tcs() -> (ak_transcode_fn, ak_transcode_fn) {
 }
 
 
+/// ABI v1 section 3, rendered from `plan.lifecycle` (R-G7): every binding calls
+/// `ak_init` before its first codec or RPC call. Idempotent under identical options
+/// (`AK_ALREADY_INITIALIZED` is a success), so a host library may call it defensively.
+/// Returns AK_OK, or the refusal.
+pub fn ak_init_once() -> i32 {
+    unsafe {
+        let o = ak_init_opts {
+            abi_version: AK_ABI_VERSION,
+            flags: AK_INIT_NO_CRYPTO | AK_INIT_NO_PANIC_HOOK,
+            log: None,
+            log_ctx: ::core::ptr::null_mut(),
+        };
+        let mut e = ak_err::default();
+        let rc = ak_init(&o, &mut e);
+        if rc == AK_OK || rc == AK_ALREADY_INITIALIZED { AK_OK } else { rc }
+    }
+}
+
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
 pub(crate) fn make_timestamp(o: &Timestamp, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Timestamp {
@@ -2364,7 +2382,7 @@ pub fn encode_into_upload_result_data_message(ctx: *mut ak_enc_ctx, o: &UploadRe
             _reserved: ::core::ptr::null(),
         };
         let fix = make_upload_result_data_message(o, (t.utf8, t.bytes));
-        let d = &o.upload.as_ref().map(|x| x).unwrap().data_chunk;
+        let d: &[u8] = Some(o).and_then(|x| x.upload.as_ref()).map(|x| &x.data_chunk[..]).unwrap_or(&[]);
         let rc = ak_encode_UploadResultDataMessage(o as *const _ as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());
         if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
     }
@@ -2378,7 +2396,7 @@ pub fn encode_into_upload_result_data_message_unk_zeroed(ctx: *mut ak_enc_ctx, o
             _reserved: ::core::ptr::null(),
         };
         let fix = make_upload_result_data_message_unk(o, (t.utf8, t.bytes));
-        let d = &o.upload.as_ref().map(|x| x).unwrap().data_chunk;
+        let d: &[u8] = Some(o).and_then(|x| x.upload.as_ref()).map(|x| &x.data_chunk[..]).unwrap_or(&[]);
         let rc = ak_uencode_UploadResultDataMessage(o as *const _ as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());
         if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
     }
@@ -2392,7 +2410,7 @@ pub fn encode_into_upload_result_data_message_unk(ctx: *mut ak_enc_ctx, o: &Uplo
             _reserved: ::core::ptr::null(),
         };
         let fix = make_upload_result_data_message_unk(o, (t.utf8, t.bytes));
-        let d = &o.upload.as_ref().map(|x| x).unwrap().data_chunk;
+        let d: &[u8] = Some(o).and_then(|x| x.upload.as_ref()).map(|x| &x.data_chunk[..]).unwrap_or(&[]);
         let rc = ak_uencode_UploadResultDataMessage(o as *const _ as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());
         if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
     }
@@ -2406,7 +2424,7 @@ pub fn encode_into_upload_result_data_message_zeroed(ctx: *mut ak_enc_ctx, o: &U
             _reserved: ::core::ptr::null(),
         };
         let fix = make_upload_result_data_message(o, (t.utf8, t.bytes));
-        let d = &o.upload.as_ref().map(|x| x).unwrap().data_chunk;
+        let d: &[u8] = Some(o).and_then(|x| x.upload.as_ref()).map(|x| &x.data_chunk[..]).unwrap_or(&[]);
         let rc = ak_encode_UploadResultDataMessage(o as *const _ as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());
         if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }
     }
