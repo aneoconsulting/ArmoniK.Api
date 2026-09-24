@@ -1,0 +1,25 @@
+# 2026-09-24T08:50:49Z python3 emit/build.py against the 2026-09-20 seal: it must refuse ONLY additions
+the committed vector bytes have moved, and consumers have pinned them:
+  added, not in the seal: S-mzero-ListMetricsResponse-values.bin
+  added, not in the seal: S-mzero-MetricsBatch-values-mixed.bin
+  added, not in the seal: S-mzero-MetricsBatch-values-unpacked.bin
+  added, not in the seal: S-mzero-MetricsBatch-values.bin
+  added, not in the seal: S-neg-ChunkedResponse.bin
+  added, not in the seal: S-neg-DualResponse.bin
+  added, not in the seal: S-neg-Duration.bin
+  added, not in the seal: S-neg-LeafResponse.bin
+  added, not in the seal: S-neg-ListMetricsResponse-packed.bin
+  added, not in the seal: S-neg-ListProbeResponse.bin
+  added, not in the seal: S-neg-ListResultsResponse.bin
+  added, not in the seal: S-neg-ListTaskSummaryResponse.bin
+  added, not in the seal: S-neg-ListTasksDetailedResponse.bin
+  added, not in the seal: S-neg-Timestamp-min.bin
+  added, not in the seal: S-neg-Timestamp.bin
+  added, not in the seal: S-neg-i32-five-byte-ListResultsResponse.bin
+  added, not in the seal: S-neg-i32-five-byte-Timestamp.bin
+  added, not in the seal: S-neg-i32-truncated-Pair.bin
+  added, not in the seal: U-wire-ChunkElement-attrs-as-wt0.bin
+  added, not in the seal: U-wire-ChunkElement-attrs-as-wt1.bin
+  ... and 335 more
+If the change is intended, re-seal deliberately: emit/build.py --reseal
+exit=1
