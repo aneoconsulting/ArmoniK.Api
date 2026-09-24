@@ -43,17 +43,18 @@ name: Publish Packages
 # the detail. Rust skips `prerelease` and `pr`: crates.io versions can be
 # yanked but never deleted, so publishing every merge would bury the releases.
 #
-# The version above is the one C#, Java and npm publish, and Rust outside
-# `release`. A Rust release publishes packages/rust/Cargo.toml as committed:
-# the tag plus a `-beta-N` suffix, checked by `verify-versions`. Python and C++
-# derive their own from the repository (setuptools_scm on the git history, and
-# packages/cpp/CMakeLists.txt), so a manual run does not rename their artefacts.
+# The version above is the one C#, Java and npm publish. Python, C++ and Rust
+# derive their own from the repository (setuptools_scm on the git history,
+# packages/cpp/CMakeLists.txt and packages/rust/Cargo.toml), so a manual run
+# does not rename their artefacts. The Rust version is the tag plus a `-beta-N`
+# suffix, checked by `verify-versions`; a new beta is a commit on `main`.
 #
 # `manual` is the "pre pre-release" path, and it is a dry run unless the
 # dispatcher unticks `dry_run`. It can only ever publish a pre-release: it
-# refuses anything but a SemVer pre-release version, so a manual run can never
-# take over `latest`, and it publishes nothing unless a package is ticked. A dry
-# run may be dispatched from any branch, a real one only from `main`.
+# refuses anything but a SemVer pre-release version (Rust relies on its
+# committed `-beta-N` suffix instead), so a manual run can never take over
+# `latest`, and it publishes nothing unless a package is ticked. A dry run may
+# be dispatched from any branch, a real one only from `main`.
 # Restrict who may use it with an Actions ruleset actor rule (Settings >
 # Actions > Policies) limiting workflow_dispatch to Admin, and keep the
 # `npm-publish` and `crates-io-publish` environments restricted to `main` plus
@@ -420,8 +421,7 @@ jobs:
           NPM_TAG: ${{ steps.resolve.outputs.npm_tag }}
           PACKAGES: ${{ steps.resolve.outputs.packages }}
           DRY_RUN: ${{ steps.resolve.outputs.dry_run }}
-          OWN_VERSION: ${{ steps.resolve.outputs.python == 'true' || steps.resolve.outputs.cpp == 'true' }}
-          RUST_RELEASE: ${{ steps.resolve.outputs.rust == 'true' && steps.resolve.outputs.channel == 'release' }}
+          OWN_VERSION: ${{ steps.resolve.outputs.python == 'true' || steps.resolve.outputs.cpp == 'true' || steps.resolve.outputs.rust == 'true' }}
         run: |
           {
             echo "| | |"
@@ -436,12 +436,8 @@ jobs:
               echo "Dry run: every package is built and its version checked, nothing is pushed."
             fi
             if [ "$OWN_VERSION" = true ]; then
-              echo "Python and C++ derive their own version from the repository, so the"
+              echo "Python, C++ and Rust derive their own version from the repository, so the"
               echo "version above applies to C#, Java and npm only."
-            fi
-            if [ "$RUST_RELEASE" = true ]; then
-              echo "The Rust crates publish the version committed in packages/rust/Cargo.toml,"
-              echo "which is the version above with \`-beta-0\` appended."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -793,42 +789,21 @@ jobs:
         with:
           toolchain: stable
 
-      # The version lives in `[workspace.package]` and in the `armonik-transport`
-      # dependency. `cargo update --workspace` refreshes only the members' lock
-      # entries, which `--locked` would otherwise reject. `context` validated
-      # VERSION, so it is safe inside the sed expressions.
-      - name: Set the version
-        if: needs.context.outputs.channel != 'release'
-        env:
-          VERSION: ${{ needs.context.outputs.version }}
-        run: |
-          sed -i -E \
-            -e 's/^version = "[^"]*"$/version = "'"$VERSION"'"/' \
-            -e 's/^(armonik-transport = \{ path = "armonik-transport", version = ")[^"]*"/\1'"$VERSION"'"/' \
-            Cargo.toml
-          cargo update --workspace
-          found=$(cargo metadata --no-deps --format-version 1 --locked | jq -r '.packages[].version' | sort -u)
-          if [ "$found" != "$VERSION" ]; then
-            echo "::error::Expected every crate at $VERSION, found: $found"
-            exit 1
-          fi
-
       # Real publishes only. The action's post step revokes the token.
       - name: Authenticate with crates.io
         id: auth
         if: needs.context.outputs.dry_run != 'true'
         uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
 
-      # `armonik-transport` first, then `armonik`. Not atomic: if `armonik` fails,
-      # the `armonik-transport` version is burnt and the fix needs a new version.
-      # `--allow-dirty` covers the rewrite done by "Set the version".
+      # Publishes packages/rust/Cargo.toml as committed, `armonik-transport` first,
+      # then `armonik`. Not atomic: if `armonik` fails, the `armonik-transport`
+      # version is burnt and the fix needs a new version.
       - name: Publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-          # Unquoted below so they vanish when empty. Literals only, never caller input.
-          DIRTY_FLAG: ${{ needs.context.outputs.channel != 'release' && '--allow-dirty' || '' }}
+          # Unquoted below so it vanishes when empty. A literal, never caller input.
           DRY_RUN_FLAG: ${{ needs.context.outputs.dry_run == 'true' && '--dry-run' || '' }}
-        run: cargo publish --workspace --locked $DIRTY_FLAG $DRY_RUN_FLAG
+        run: cargo publish --workspace --locked $DRY_RUN_FLAG
 
   changelog:
     name: Update Changelog
