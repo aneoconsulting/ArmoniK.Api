@@ -134,8 +134,8 @@ public static class UnknownFields
                      + "cannot tell it from any other unknown field" },
         };
 
-        Console.WriteLine("vector                     bytes  gp-dec  man-dec  known-values-agree  gp-retains  man-retains");
-        Console.WriteLine(new string('-', 108));
+        Console.WriteLine("vector                     bytes  gp-dec  man-dec  known-values-agree  gp-retains  man-retains  man-retain-mode = gp");
+        Console.WriteLine(new string('-', 130));
 
         foreach (var v in vectors)
         {
@@ -166,14 +166,14 @@ public static class UnknownFields
                 if (isProbe)
                 {
                     var m = new ListProbeResponse();
-                    Codec.ReadListProbeResponse(ref d, m, v.Bytes.Length);
+                    Codec.ReadListProbeResponse(ref d, m, 0);
                     if (d.Err != 0) throw new InvalidOperationException("err " + d.Err);
                     Codec.WriteListProbeResponse(ref e, m);
                 }
                 else
                 {
                     var m = new ListResultsResponse();
-                    Codec.ReadListResultsResponse(ref d, m, v.Bytes.Length);
+                    Codec.ReadListResultsResponse(ref d, m, 0);
                     if (d.Err != 0) throw new InvalidOperationException("err " + d.Err);
                     Codec.WriteListResultsResponse(ref e, m);
                 }
@@ -181,6 +181,35 @@ public static class UnknownFields
                 manDec = "ok";
             }
             catch (Exception ex) { manDec = "FAIL " + ex.GetType().Name; bad++; }
+
+            // RETAIN mode (the plan's Options.unknown = "both", host picks per call): the
+            // captured runs are written back after the known fields, as Google.Protobuf
+            // writes its UnknownFieldSet. Byte identity with the incumbent's re-encode is
+            // the retain-mode gate (FIX-PLAN WP3 item 21).
+            string retMode;
+            try
+            {
+                var d = new Dec { Buf = v.Bytes, Pos = 0, End = v.Bytes.Length, Err = 0, Retain = true };
+                var e = Enc.New(Codec.Sites, v.Bytes.Length + 4096);
+                if (isProbe)
+                {
+                    var m = new ListProbeResponse();
+                    Codec.ReadListProbeResponse(ref d, m, 0);
+                    if (d.Err != 0) throw new InvalidOperationException("err " + d.Err);
+                    Codec.WriteListProbeResponse(ref e, m);
+                }
+                else
+                {
+                    var m = new ListResultsResponse();
+                    Codec.ReadListResultsResponse(ref d, m, 0);
+                    if (d.Err != 0) throw new InvalidOperationException("err " + d.Err);
+                    Codec.WriteListResultsResponse(ref e, m);
+                }
+                var r = e.ToArray();
+                retMode = gpOut != null && Same(r, gpOut) ? "ok (identical)" : "DIFFERS (" + r.Length + " B)";
+            }
+            catch (Exception ex) { retMode = "FAIL " + ex.GetType().Name; }
+            if (!retMode.StartsWith("ok", StringComparison.Ordinal)) bad++;
 
             // Do the two arms agree on the KNOWN values? Compare each one's
             // re-encode against the ORIGINAL payload with the unknown field
@@ -195,8 +224,8 @@ public static class UnknownFields
                 bad++;
             }
 
-            Console.WriteLine("{0,-25} {1,6}  {2,-6}  {3,-7}  {4,-18}  {5,-10}  {6}",
-                v.Name, v.Bytes.Length, gpDec, manDec, agree, gpRet, manRet);
+            Console.WriteLine("{0,-25} {1,6}  {2,-6}  {3,-7}  {4,-18}  {5,-10}  {6,-11}  {7}",
+                v.Name, v.Bytes.Length, gpDec, manDec, agree, gpRet, manRet, retMode);
         }
 
         Console.WriteLine();
@@ -209,7 +238,8 @@ public static class UnknownFields
         Console.WriteLine();
         Console.WriteLine("  Google.Protobuf keeps an UnknownFieldSet per message and writes it back, so a");
         Console.WriteLine("  message round-tripped through .NET today preserves a field this build has never");
-        Console.WriteLine("  heard of. The managed codec as generated has no bag and drops it. Both accept");
+        Console.WriteLine("  heard of. The managed codec's DEFAULT reader drops it; with Dec.Retain set it keeps");
+        Console.WriteLine("  it and writes it back (last column: required byte-identical to Google.Protobuf). Both accept");
         Console.WriteLine("  the input and neither loses a KNOWN value, so this is not a correctness gate;");
         Console.WriteLine("  it is ABI v1 open decision 11 with a cost attached, and on .NET the cost is a");
         Console.WriteLine("  guarantee that exists today and would be removed. prost drops unknown fields");

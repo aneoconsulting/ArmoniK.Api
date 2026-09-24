@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The conformance corpus (ffi/corpus/CONTRACT.md) through this slice's two codecs,
+       each in both unknown-field modes: the managed codec and core-ffi (the core
+       generated for the corpus READER schema, ak-core with features corpus and init-guard,
+       a different ABI from the shapes core, hence its own project and its own
+       libak_core.so). Every codec and binding here is rendered by poc/codec/gen from
+       plan.py; this project is harness glue. FIX-PLAN WP5 step 4. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net8.0;net6.0</TargetFrameworks>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>corpus</AssemblyName>
+    <RootNamespace>Armonik.Ffi.Corpus</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The incumbent, as an independent accept/reject oracle for the roots
+         ffi/schema also has (R14). Same .proto the harness uses. -->
+    <PackageReference Include="Google.Protobuf" Version="3.28.3" />
+    <PackageReference Include="Grpc.Tools" Version="2.66.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="../../../../schema/generated/shapes.proto"
+              ProtoRoot="../../../../schema/generated"
+              GrpcServices="None" Access="Public" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Facade/Facade.csproj" />
+    <Compile Include="../Harness/Json.cs" Link="Linked/Json.cs" />
+    <Compile Include="../Harness/Manifest.cs" Link="Linked/Manifest.cs" />
+    <Compile Include="../Harness/Triples.cs" Link="Linked/Triples.cs" />
+    <Compile Include="../Harness/LayoutCompare.cs" Link="Linked/LayoutCompare.cs" />
+  </ItemGroup>
+
+  <!-- The corpus-schema core: built by gen/gate.sh into target-core-corpus. -->
+  <ItemGroup>
+    <None Include="../../target-core-corpus/release/libak_core.so"
+          Condition="Exists('../../target-core-corpus/release/libak_core.so')"
+          CopyToOutputDirectory="PreserveNewest" Link="libak_core.so" />
+  </ItemGroup>
+
+</Project>

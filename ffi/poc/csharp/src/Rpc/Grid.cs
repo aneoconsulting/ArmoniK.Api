@@ -50,28 +50,27 @@ public static class Grid
 
     [ThreadStatic] private static byte[] _flat;
 
-    private static unsafe byte[] Flatten(AkBytes b)
+    private static unsafe byte[] Flatten(ak_bytes b)
     {
-        int len = (int)b.Len;
+        int len = (int)b.len;
         if (_flat == null || _flat.Length < len) _flat = new byte[Math.Max(len, 1 << 20)];
-        new ReadOnlySpan<byte>((void*)b.Ptr, len).CopyTo(_flat);
+        new ReadOnlySpan<byte>((void*)b.ptr, len).CopyTo(_flat);
         return _flat;
     }
 
     [ThreadStatic] private static CoreFfi_ListTasksDetailedResponse _dec;
 
     /// Cell C's codec: mirrors cell D, which flattens because `Dec` is over `byte[]`.
-    private static object DecodeCore(AkBytes b)
+    private static object DecodeCore(ak_bytes b)
     {
-        var c = _dec ??= new CoreFfi_ListTasksDetailedResponse(
-            new CoreFfi_ListTasksDetailedResponse.Caps());
-        return c.Decode(Flatten(b), (int)b.Len);
+        var c = _dec ??= new CoreFfi_ListTasksDetailedResponse();
+        return c.Decode(Flatten(b), (int)b.len);
     }
 
     /// Cell B's codec: mirrors cell A, which parses the sequence in place.
-    private static unsafe object DecodeGp(AkBytes b) =>
+    private static unsafe object DecodeGp(ak_bytes b) =>
         Gp.ListTasksDetailedResponse.Parser.ParseFrom(
-            new ReadOnlySpan<byte>((void*)b.Ptr, (int)b.Len));
+            new ReadOnlySpan<byte>((void*)b.ptr, (int)b.len));
 
     // ---- the four cells, as one delegate each --------------------------------
 
@@ -91,7 +90,7 @@ public static class Grid
         }
     }
 
-    private static async Task CoreCellCb(CoreChannel ch, Func<AkBytes, object> dec, int n)
+    private static async Task CoreCellCb(CoreChannel ch, Func<ak_bytes, object> dec, int n)
     {
         for (int i = 0; i < n; i++)
         {
@@ -101,7 +100,7 @@ public static class Grid
         }
     }
 
-    private static async Task CoreCellQ(CoreChannel ch, Func<AkBytes, object> dec, int n)
+    private static async Task CoreCellQ(CoreChannel ch, Func<ak_bytes, object> dec, int n)
     {
         for (int i = 0; i < n; i++)
         {
@@ -115,7 +114,7 @@ public static class Grid
     /// call, so `inflight` of these is `inflight` thread-pool threads in a native
     /// frame. `Task.Run` is how that shape is expressed on .NET and it is the
     /// shape, not a harness artefact.
-    private static Task CoreCellBlocking(CoreChannel ch, Func<AkBytes, object> dec, int n) =>
+    private static Task CoreCellBlocking(CoreChannel ch, Func<ak_bytes, object> dec, int n) =>
         Task.Run(() =>
         {
             for (int i = 0; i < n; i++)

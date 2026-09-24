@@ -19,6 +19,7 @@
 // built and run.
 
 using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using Armonik.Ffi.Facade;
@@ -140,7 +141,8 @@ public static class MapForms
                 o.AddRange(src.Skip(start).Take(p - start));
                 continue;
             }
-            int len = (int)ReadVarint(src, ref p);
+            // D8 / R-G8: the 64-bit prefix against the bytes LEFT, never narrowed first.
+            int len = Len(src, ref p);
             var body = new byte[len];
             Buffer.BlockCopy(src, p, body, 0, len);
             p += len;
@@ -195,6 +197,16 @@ public static class MapForms
     /// tree. It is here anyway because "this one cannot be reached" is exactly
     /// what was believed about the facade's skipper, and because a helper that
     /// silently mis-parses is worse than one that is simply correct.
+    /// A length prefix, read as the full 64-bit varint and compared with the bytes
+    /// left (R-G8, this slice's D8): the harness rewriter used to cast it to `int`
+    /// first, the class `Dec.LenEnd` was fixed for.
+    private static int Len(byte[] b, ref int p)
+    {
+        ulong n = ReadVarint(b, ref p);
+        if (n > (ulong)(b.Length - p)) throw new InvalidDataException("length prefix " + n + " exceeds the " + (b.Length - p) + " bytes left");
+        return (int)n;
+    }
+
     private static void Skip(byte[] b, ref int p, int tag, int wire)
     {
         switch (wire)
@@ -210,7 +222,7 @@ public static class MapForms
             // parsed as wire type 4 two fields later, which is how it was
             // found. The generated decoder is unaffected: it spells this
             // `Pos = LenEnd()`.
-            case 2: { int n = (int)ReadVarint(b, ref p); p += n; break; }
+            case 2: { int n = Len(b, ref p); p += n; break; }
             // 4 is END_GROUP with nothing open; 6 and 7 do not exist.
             default: throw new InvalidOperationException("wire type " + wire);
         }

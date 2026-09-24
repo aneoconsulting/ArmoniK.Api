@@ -101,6 +101,16 @@ public static class Program
         // ABORTS rather than returning an error, and an abort takes the whole
         // harness with it. Run it as a child and read the exit status.
         if (argv.Contains("--shared-ctx")) return SharedCtx(argv);
+        // FIX-PLAN WP5 step 4: the RPC structs (generated from plan.rpc) against the
+        // Rust declaration, by name both ways, with the harness's comparison.
+        int li = Array.IndexOf(argv, "--layout");
+        if (li >= 0)
+        {
+            var probe = Armonik.Ffi.Harness.Json.Parse(System.IO.File.ReadAllText(argv[li + 1]));
+            RpcInit.Ensure();
+            Console.WriteLine("# akrpc --layout: plan.rpc's structs (Generated/RpcAbi.cs) against the Rust declaration; ak_init() = {0}", RpcInit.Code);
+            return Armonik.Ffi.Harness.LayoutCompare.Compare(probe, RpcLayout.Table(), argv[li + 1], null, 0, null);
+        }
 
         // **Three transport configurations, and only one of them ships.**
         // `packages/rust/armonik-transport`'s `ClientConfig` has connect and
@@ -304,7 +314,7 @@ public static class Program
                 AkRpc.ak_rpc_counters_reset();
                 for (int i = 0; i < n; i++)
                 {
-                    AkBytes got;
+                    ak_bytes got;
                     if (d == "callback") got = await cc.CallCbAsync(path, Array.Empty<byte>());
                     else if (d == "queue") got = await cc.CallQAsync(path, Array.Empty<byte>());
                     else got = cc.CallBlocking(path, Array.Empty<byte>());
@@ -460,14 +470,14 @@ public static class Program
             // a 64 MiB connection window (which `Http2Connection` hardcodes and
             // this slice established from the runtime source), 64 MiB message
             // limits, and Nagle off, which is what `armonik-transport` ships.
-            var pin = new AkClientOpts
+            var pin = new ak_client_opts
             {
-                StreamWindow = StreamWindow,
-                ConnectionWindow = 64u << 20,
-                AdaptiveWindow = 0,
-                MaxRecvMessage = 64u << 20,
-                MaxSendMessage = 64u << 20,
-                TcpNagle = 0,
+                stream_window = StreamWindow,
+                connection_window = 64u << 20,
+                adaptive_window = 0,
+                max_recv_message = 64u << 20,
+                max_send_message = 64u << 20,
+                tcp_nagle = 0,
             };
             using var core = new CoreChannel("unix:" + sock, Arg(argv, "--core-workers", 2), pin);
             core.StartQueue();
@@ -532,7 +542,7 @@ public static class Program
             {
                 try
                 {
-                    AkBytes got;
+                    ak_bytes got;
                     if (d == "callback") got = await cc.CallCbAsync(path, Array.Empty<byte>());
                     else if (d == "queue") got = await cc.CallQAsync(path, Array.Empty<byte>());
                     else got = cc.CallBlocking(path, Array.Empty<byte>());
@@ -695,16 +705,14 @@ public static class Program
             + "reach the last line");
         Console.Out.Flush();
 
-        var one = new CoreFfi_UploadResultDataMessage(
-            CoreFfi_UploadResultDataMessage.CapsFor(src));
+        var one = new CoreFfi_UploadResultDataMessage();
         long wrong = 0, done = 0, threw = 0;
         var ts = new Thread[threads];
         for (int t = 0; t < threads; t++)
         {
             ts[t] = new Thread(() =>
             {
-                var c = shared ? one : new CoreFfi_UploadResultDataMessage(
-                    CoreFfi_UploadResultDataMessage.CapsFor(src));
+                var c = shared ? one : new CoreFfi_UploadResultDataMessage();
                 for (int i = 0; i < iters; i++)
                 {
                     try

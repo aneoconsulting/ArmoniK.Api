@@ -24,14 +24,15 @@ and every integer and every enum is a DECIMAL STRING, because an enum value the
 descriptor does not declare has no name to use and `"999"` is the point of
 several vectors.
 """
-from cs_facade import Head, oneof_case_type
-import csnames as N
+from glue import Head
+import cs_names as N
+from cs_types import facade_messages
 
 NS = "Armonik.Ffi.Corpus"
 
 
 def emit(ir):
-    o = Head("The corpus projection (CONTRACT.md C2 and section 3), from the same walker as the codec.")
+    o = Head("The corpus projection (CONTRACT.md C2 and section 3), from the same plan as the codec.", "cs_proj", ir.source)
     o += "using System;"
     o += "using System.Collections.Generic;"
     o += "using System.Globalization;"
@@ -70,15 +71,15 @@ def emit(ir):
     o += "        return d.ToString(\"G17\", CultureInfo.InvariantCulture);"
     o += "    }"
     o += ""
-    for m in ir.messages.values():
+    for m in facade_messages(ir):
         emit_one(o, ir, m)
     o.doc("Project a message by ROOT NAME, which is how the manifest names it.", "    ")
     o += "    public static object ByRoot(string root, object msg)"
     o += "    {"
     o += "        switch (root)"
     o += "        {"
-    for m in ir.messages.values():
-        o += "            case \"%s\": return Of%s((%s)msg);" % (m.cs, m.cs, m.cs)
+    for m in facade_messages(ir):
+        o += "            case \"%s\": return Of%s((%s)msg);" % (m.name, m.name, m.name)
     o += "            default: throw new ArgumentException(\"no projector for root \" + root);"
     o += "        }"
     o += "    }"
@@ -91,24 +92,24 @@ def emit(ir):
     o += "public static class Roots"
     o += "{"
     o += "    public static readonly string[] All = { %s };" % ", ".join(
-        '"%s"' % m.cs for m in ir.messages.values())
+        '"%s"' % m.name for m in facade_messages(ir))
     o += ""
     o += "    public static object New(string root)"
     o += "    {"
     o += "        switch (root)"
     o += "        {"
-    for m in ir.messages.values():
-        o += "            case \"%s\": return new %s();" % (m.cs, m.cs)
+    for m in facade_messages(ir):
+        o += "            case \"%s\": return new %s();" % (m.name, m.name)
     o += "            default: throw new ArgumentException(\"unknown root \" + root);"
     o += "        }"
     o += "    }"
     o += ""
-    o += "    public static void Read(string root, ref Dec d, object m, int end)"
+    o += "    public static void Read(string root, ref Dec d, object m)"
     o += "    {"
     o += "        switch (root)"
     o += "        {"
-    for m in ir.messages.values():
-        o += "            case \"%s\": Codec.Read%s(ref d, (%s)m, end); break;" % (m.cs, m.cs, m.cs)
+    for m in facade_messages(ir):
+        o += "            case \"%s\": Codec.Read%s(ref d, (%s)m, 0); break;" % (m.name, m.name, m.name)
     o += "            default: throw new ArgumentException(\"unknown root \" + root);"
     o += "        }"
     o += "    }"
@@ -117,8 +118,8 @@ def emit(ir):
     o += "    {"
     o += "        switch (root)"
     o += "        {"
-    for m in ir.messages.values():
-        o += "            case \"%s\": Codec.Write%s(ref e, (%s)m); break;" % (m.cs, m.cs, m.cs)
+    for m in facade_messages(ir):
+        o += "            case \"%s\": Codec.Write%s(ref e, (%s)m); break;" % (m.name, m.name, m.name)
     o += "            default: throw new ArgumentException(\"unknown root \" + root);"
     o += "        }"
     o += "    }"
@@ -129,8 +130,8 @@ def emit(ir):
     o += "    {"
     o += "        switch (root)"
     o += "        {"
-    for m in ir.messages.values():
-        o += "            case \"%s\": Codec.WriteSized%s(ref e, (%s)m); break;" % (m.cs, m.cs, m.cs)
+    for m in facade_messages(ir):
+        o += "            case \"%s\": Codec.WriteSized%s(ref e, (%s)m); break;" % (m.name, m.name, m.name)
     o += "            default: throw new ArgumentException(\"unknown root \" + root);"
     o += "        }"
     o += "    }"
@@ -177,14 +178,14 @@ def zero_test(f, acc):
 
 def emit_one(o, ir, m):
     p = "        "
-    o += "    public static SortedDictionary<string, object> Of%s(%s m)" % (m.cs, m.cs)
+    o += "    public static SortedDictionary<string, object> Of%s(%s m)" % (m.name, m.name)
     o += "    {"
     o += "        var o = new SortedDictionary<string, object>(StringComparer.Ordinal);"
     o += "        if (m == null) return o;"
-    for f in m.walk():
+    for f in m.fields:
         if f.oneof:
             continue
-        acc = "m." + f.cs
+        acc = "m." + N.field(f.name)
         if f.card == "map":
             o += "%sif (%s.Count != 0)" % (p, acc)
             o += "%s{" % p
@@ -207,7 +208,7 @@ def emit_one(o, ir, m):
             # Present or absent, never "empty means absent": an empty submessage
             # is a set field and `E-*` turns on exactly that.
             o += "%sif (%s != null) o[\"%s\"] = Of%s(%s);" % (p, acc, f.name, f.of, acc)
-        elif f.presence == "explicit":
+        elif f.explicit:
             # A nullable value type for a scalar, a nullable reference for a
             # string or bytes -- the facade's own spelling, which the codec's
             # explicit-presence branch already follows.
@@ -219,11 +220,11 @@ def emit_one(o, ir, m):
         else:
             o += "%sif (%s) o[\"%s\"] = %s;" % (p, zero_test(f, acc), f.name, scalar(f, acc))
     for oname, members in m.oneofs.items():
-        ct = oneof_case_type(m, oname)
+        ct = N.oneof_case_type(m.name, oname)
         o += "%sswitch (m.%sCase)" % (p, N.pascal(oname))
         o += "%s{" % p
         for f in members:
-            acc = "m." + f.cs
+            acc = "m." + N.field(f.name)
             o += "%s    case %s.%s:" % (p, ct, N.pascal(f.name))
             if f.kind == "message":
                 o += "%s        o[\"%s\"] = Of%s(%s); break;" % (p, f.name, f.of, acc)

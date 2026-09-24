@@ -1,0 +1,223 @@
+# csharp slice, FIX-PLAN WP5 step 4: the managed codec BEFORE (retired gen/cs_managed.py, its last build
+# src/Harness/bin-floor/Release/net8.0/harness.dll from stage21, 'harness corpus -v') and AFTER (poc/codec/gen/cs_managed.py,
+# managed-drop arm of src/Corpus). Same corpus (c1c97ff, 691 rows). Correctness only.
+
+######## BEFORE: C3 forms and C4 codes (old runner output)
+C3: which accepted form this slice's encoder produced.
+    189  as committed
+    162  unknown-dropped: the known field as it was, the foreign-typed one gone
+     81  unknown-dropped: the known field as it was, the foreign-typed one gone+unknown-dropped, map values always written
+     45  unknown-dropped
+     24  unknown-dropped+unknown-dropped, map values always written
+     18  as committed+map values always written (protobuf C++, upb, protobuf-java)
+      7  as committed in ffi/schema/generated
+      5  as committed+map values always written
+      3  canonical: omitted
+      3  canonical: ten-byte sign-extended
+      2  canonical: packed
+      1  as upb writes it: the same message in a different field ORDER
+      1  canonical: the zero leaves omitted
+      1  canonical: one entry, the last value
+      1  canonical: the empty value omitted
+      1  canonical: ascending by tag+key and value always written
+      1  canonical: one member
+      1  canonical: one run
+      1  canonical: each repeated field contiguous
+
+C4: the error this decoder actually returned, per reject vector.
+   72x Err -3 (truncated)
+   36x Err -4 (malformed)
+   31x (none)
+    2x Err -8 (depth)
+
+ABI v1 open decision 11, answered for C#: this slice's generated codec
+
+######## AFTER: managed-drop, C3 forms and C4 codes (wp5-step4-gate.log, net8.0)
+## managed-drop
+   pass 688  fail 0  disputed (excluded) 3  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  316  fail   0
+   forms written (C3):
+      189  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       45  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       73  managed -3 (truncated)
+       35  managed -4 (malformed)
+       31  managed -6 (transcode)
+        2  managed -8 (depth)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-tag-zero-Empty: refused (managed -4 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -4 (malformed))
+
+
+######## truncated (-3) rows: before-only / after-only
+before-only:
+after-only:
+X-varint-key-truncated
+
+######## per reject row, the code each arm returned (after): arm err | ... | id
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-root-lone-continuation
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-root-lead-no-continuation
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-root-truncated-3
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-root-truncated-4
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-root-overlong-nul
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-root-overlong-2
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-root-overlong-3
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-root-overlong-4
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-root-surrogate-d800
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-root-surrogate-dfff
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-root-cesu8-pair
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-root-above-10ffff
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-root-f5-lead
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-root-five-byte
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-root-fe-ff
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-nested-lone-continuation
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-nested-surrogate-d800
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-nested-overlong-nul
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-nested-above-10ffff
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-map-key-lone-continuation
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-map-key-surrogate-d800
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-map-key-overlong-nul
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-map-key-above-10ffff
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-map-value-lone-continuation
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-map-value-surrogate-d800
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-map-value-overlong-nul
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-map-value-above-10ffff
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-repeated-lone-continuation
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-repeated-surrogate-d800
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-repeated-overlong-nul
+managed-drop managed -6 (transcode)|managed-retain managed -6 (transcode)|ffi-drop core -6 (transcode)|ffi-retain core -6 (transcode)| T-dec-repeated-above-10ffff
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-wire-type-6
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-wire-type-7
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-varint-key-truncated
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-varint-value-truncated
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-varint-11-bytes
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-len-truncated
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-len-prefix-truncated
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-len-huge
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-nested-len-overrun
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-fixed64-truncated
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-fixed32-truncated
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-packed-truncated
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-group-unterminated
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-group-mismatched-end
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-trailing-byte
+managed-drop managed -8 (depth)|managed-retain managed -8 (depth)|ffi-drop |ffi-retain | X-depth-101
+managed-drop managed -8 (depth)|managed-retain managed -8 (depth)|ffi-drop |ffi-retain | X-depth-300
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-unknown-under
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-unknown-zero
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-unknown-one
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-unknown-max
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-unknown-after-under
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-unknown-after-zero
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-unknown-after-one
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-unknown-after-max
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-unknown-after-start
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-results-under
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-results-zero
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-results-one
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-results-max
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-results-second-under
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-results-second-zero
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-results-second-one
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-results-second-max
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-results-second-start
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-zoo-string-under
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-zoo-string-zero
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-zoo-string-one
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-zoo-string-max
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-zoo-string-after-under
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-zoo-string-after-zero
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-zoo-string-after-one
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-zoo-string-after-max
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-zoo-string-after-start
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-zoo-msg-under
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-zoo-msg-zero
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-zoo-msg-one
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-zoo-msg-max
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-sur-string-under
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-sur-string-zero
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-sur-string-one
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-sur-string-max
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-wide-items-under
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-wide-items-zero
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-wide-items-one
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-wide-items-max
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-string-rel-under
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-string-rel-zero
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-string-rel-one
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-string-rel-max
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-string-abs-under
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-string-abs-zero
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-string-abs-one
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-string-abs-start
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-msg-rel-under
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-msg-rel-zero
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-msg-rel-one
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-msg-rel-max
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-msg-abs-under
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-msg-abs-zero
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-msg-abs-one
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-msg-abs-start
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-unknown-rel-under
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-unknown-rel-zero
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-unknown-rel-one
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-unknown-rel-max
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-unknown-abs-under
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-unknown-abs-zero
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-unknown-abs-one
+managed-drop managed -3 (truncated)|managed-retain managed -3 (truncated)|ffi-drop core -3 (truncated)|ffi-retain core -3 (truncated)| X-lenwrap-lrr-nested-unknown-abs-start
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-ChunkElement
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-ChunkInner
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-ChunkLeaf
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-ChunkedResponse
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-ChunkedResponseWide
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-DualResponse
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-Duration
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-Empty
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-LeafElement
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-LeafResponse
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-ListMetricsResponse
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-ListProbeResponse
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-ListResultsResponse
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-ListTaskSummaryResponse
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-ListTasksDetailedResponse
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-MetricsBatch
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop |ffi-retain | X-tag-zero-Nest
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-Pair
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-Probe
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-ResultRaw
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-Surrogate
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-SurrogateInner
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-TaskDetailed
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-TaskOptions
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-TaskOutput
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-TaskSummary
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-Timestamp
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-UploadResultData
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-UploadResultDataMessage
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-WireZoo
+managed-drop managed -4 (malformed)|managed-retain managed -4 (malformed)|ffi-drop core -2 (malformed)|ffi-retain core -2 (malformed)| X-tag-zero-nested-Empty

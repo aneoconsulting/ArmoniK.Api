@@ -38,11 +38,28 @@ public static class W
 
     /// The recursion limit, hit before the stack is. Two callers: the
     /// unknown-group skipper, and the generated decoder's nested-message
-    /// descent (ABI v1 open decision 7).
+    /// descent. The LIMIT itself is the plan's (`Options.recursion_limit`),
+    /// rendered into the generated codec as `Codec.Limit` and passed to `Skip`
+    /// by it; this runtime carries no depth constant of its own (FIX-PLAN WP5).
     public const int ErrDepth = -8;
 
-    /// protobuf's own default, and what every implementation rejects past.
-    public const int MaxDepth = 100;
+    /// plan.oneof_checks: an encode refused because a oneof case is neither
+    /// zero nor a member tag (a host generated against a newer descriptor).
+    public const int ErrAbi = -11;
+
+    public static readonly byte[] EmptyBytes = new byte[0];
+
+    /// Append `n` bytes of `src` from `off` to a bag that may be null. The
+    /// retain-mode capture: unknown runs are rare, so a copy per run is fine.
+    public static byte[] Append(byte[] bag, byte[] src, int off, int n)
+    {
+        if (n == 0) return bag;
+        int have = bag == null ? 0 : bag.Length;
+        var o = new byte[have + n];
+        if (have != 0) Buffer.BlockCopy(bag, 0, o, 0, have);
+        Buffer.BlockCopy(src, off, o, have, n);
+        return o;
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ulong Key(int tag, int wire) => ((ulong)(uint)tag << 3) | (uint)wire;
@@ -215,6 +232,15 @@ public struct Enc
         Pos += v.Length;
     }
 
+    /// Raw bytes, verbatim: the retain-mode unknown-field bag, written after
+    /// every known field (plan: unknown_tail).
+    public void Raw(byte[] v)
+    {
+        Need(v.Length);
+        Buffer.BlockCopy(v, 0, Buf, Pos, v.Length);
+        Pos += v.Length;
+    }
+
     /// Open a length-delimited field whose body length is not yet known.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Mark Begin(int tag, int site)
@@ -351,10 +377,9 @@ public struct Dec
     public int Pos;
     public int End;
     public int Err;
-    /// Nested-message depth. One increment and one compare per message decoded,
-    /// which is the price of not turning a 300-deep payload into 300 managed
-    /// frames. See `W.MaxDepth`.
-    public int Depth;
+    /// Unknown fields: captured into the facade's `UnknownFields` when set, by a
+    /// codec generated with Options.unknown = "both" (the host picks per call).
+    public bool Retain;
 
     public static Dec Over(byte[] b) => new Dec { Buf = b, Pos = 0, End = b.Length, Err = 0 };
 
@@ -379,7 +404,8 @@ public struct Dec
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public double F64()
     {
-        if (Pos + 8 > End) { Err = W.ErrTruncated; return 0.0; }
+        // The bytes LEFT against the width, never `Pos + 8 > End` (R-G8).
+        if (End - Pos < 8) { Err = W.ErrTruncated; return 0.0; }
         var b = Buf;
         int p = Pos;
         long bits = b[p] | ((long)b[p + 1] << 8) | ((long)b[p + 2] << 16) | ((long)b[p + 3] << 24)
@@ -392,7 +418,7 @@ public struct Dec
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public uint Fixed32()
     {
-        if (Pos + 4 > End) { Err = W.ErrTruncated; return 0; }
+        if (End - Pos < 4) { Err = W.ErrTruncated; return 0; }
         var b = Buf;
         int p = Pos;
         uint v = (uint)(b[p] | (b[p + 1] << 8) | (b[p + 2] << 16) | (b[p + 3] << 24));
@@ -418,38 +444,32 @@ public struct Dec
         return Pos + (int)n;
     }
 
-#if AK_STRICT
-    /// ABI v1 open decision 3's REJECTING policy, as a separate build.
-    ///
-    /// A field or a flag would put a branch on the hot path of both arms and
-    /// block the JIT from devirtualising `Encoding.UTF8`, which would charge the
-    /// lossy arm for the strict one's existence. So this is `/p:AkStrict=true`,
-    /// the same shape as the floor arm: a second build, run in the same sitting,
-    /// each carrying the incumbent as its in-process control.
+    /// The UTF-8 policy is the PLAN's (Options.utf8, R-E7): the generated codec
+    /// calls `StrReject` under "reject" (the default, proto3's rule) and
+    /// `StrLossy` under "lossy". The runtime offers both and chooses neither.
     private static readonly UTF8Encoding Strict = new UTF8Encoding(false, true);
-#endif
 
-    public string Str()
+    /// Options.utf8 = "reject": malformed UTF-8 is ErrTranscode.
+    public string StrReject()
     {
         int e = LenEnd();
         if (Err != 0) return "";
         int off = Pos;
         Pos = e;
         if (e == off) return "";
-#if AK_STRICT
-        // `ffi/corpus`'s transcode class: 31 T-dec-* vectors carry malformed
-        // UTF-8 in a string field and CONTRACT.md says a conformant parser must
-        // refuse it. `Google.Protobuf` does not, and neither does the default
-        // build; this one does.
         try { return Strict.GetString(Buf, off, e - off); }
         catch (DecoderFallbackException) { Err = W.ErrTranscode; return ""; }
-#else
-        // `Encoding.UTF8` substitutes U+FFFD rather than throwing, which is the
-        // LOSSY policy. Google.Protobuf reads strings through the same
-        // encoding object, so the two arms are like for like; ABI v1 open
-        // decision 3's rejecting policy is NOT what either of them runs.
+    }
+
+    /// Options.utf8 = "lossy": U+FFFD substituted (what Google.Protobuf does).
+    public string StrLossy()
+    {
+        int e = LenEnd();
+        if (Err != 0) return "";
+        int off = Pos;
+        Pos = e;
+        if (e == off) return "";
         return Encoding.UTF8.GetString(Buf, off, e - off);
-#endif
     }
 
     public byte[] Bytes()
@@ -476,29 +496,26 @@ public struct Dec
     /// `ErrMalformed` for everything else, so it rejected three corpus vectors
     /// that `Google.Protobuf` accepts. The shared core had the identical hole
     /// (D7) and the C++ slice still does.
-    public void Skip(int tag, int wire)
+    public void Skip(int tag, int wire, int limit)
     {
         switch (wire)
         {
             case W.WireVarint: Varint(); break;
-            case W.WireI64: Pos += 8; break;
+            case W.WireI64: if (End - Pos < 8) { Err = W.ErrTruncated; return; } Pos += 8; break;
             case W.WireLen: Pos = LenEnd(); break;
-            case W.WireGroup: SkipGroup(tag, 0); break;
-            case W.WireI32: Pos += 4; break;
+            case W.WireGroup: SkipGroup(tag, 0, limit); break;
+            case W.WireI32: if (End - Pos < 4) { Err = W.ErrTruncated; return; } Pos += 4; break;
             // 4 is END_GROUP with nothing open; 6 and 7 do not exist.
             default: Err = W.ErrMalformed; return;
         }
-        if (Pos > End) Err = W.ErrTruncated;
     }
-
-    /// protobuf's own default recursion limit, applied to nested unknown groups.
-    private const int MaxGroupDepth = 100;
 
     /// Recursive, because groups nest; bounded, because a payload of nothing but
     /// start tags would otherwise be a stack overflow rather than an error.
-    private void SkipGroup(int tag, int depth)
+    private void SkipGroup(int tag, int depth, int limit)
     {
-        if (depth >= MaxGroupDepth) { Err = W.ErrDepth; return; }
+        // The plan's limit, as the core's own skipper applies it to groups.
+        if (depth >= limit) { Err = W.ErrDepth; return; }
         while (true)
         {
             if (Err != 0) return;
@@ -507,15 +524,16 @@ public struct Dec
             if (Pos >= End) { Err = W.ErrTruncated; return; }
             ulong k = Varint();
             if (Err != 0) return;
-            int t = (int)(k >> 3), w = (int)(k & 7);
+            // Truncated to 32 bits, as the core's skipper does ((k >> 3) as u32).
+            int t = (int)(uint)(k >> 3), w = (int)(k & 7);
             if (t == 0) { Err = W.ErrMalformed; return; }
             if (w == W.WireEndGroup)
             {
                 if (t != tag) Err = W.ErrMalformed;   // `X-group-mismatched-end`
                 return;
             }
-            if (w == W.WireGroup) { SkipGroup(t, depth + 1); continue; }
-            Skip(t, w);
+            if (w == W.WireGroup) { SkipGroup(t, depth + 1, limit); continue; }
+            Skip(t, w, limit);
         }
     }
 }

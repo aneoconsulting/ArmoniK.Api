@@ -111,9 +111,9 @@ public static class GroupVectors
             {
                 var d = new Dec { Buf = b, Pos = 0, End = b.Length, Err = 0 };
                 if (v.Root == "ListProbeResponse")
-                    Codec.ReadListProbeResponse(ref d, new ListProbeResponse(), b.Length);
+                    Codec.ReadListProbeResponse(ref d, new ListProbeResponse(), 0);
                 else
-                    Codec.ReadListResultsResponse(ref d, new ListResultsResponse(), b.Length);
+                    Codec.ReadListResultsResponse(ref d, new ListResultsResponse(), 0);
                 manOk = d.Err == 0;
             }
             catch { manOk = false; }
@@ -145,7 +145,7 @@ public static class GroupVectors
             for (int i = 0; i < depth; i++) { nest[2 * i] = 0xc3; nest[2 * i + 1] = 0x07; }
             var d = new Dec { Buf = nest, Pos = 0, End = nest.Length, Err = 0 };
             bool threw = false;
-            try { Codec.ReadListResultsResponse(ref d, new ListResultsResponse(), nest.Length); }
+            try { Codec.ReadListResultsResponse(ref d, new ListResultsResponse(), 0); }
             catch (Exception ex) { threw = true; Console.WriteLine("  THREW {0}", ex.GetType().Name); bad++; }
             if (!threw)
             {
@@ -173,7 +173,7 @@ public static class GroupVectors
             var deep = new byte[400000];
             for (int i = 0; i < 200000; i++) { deep[2 * i] = 0xc3; deep[2 * i + 1] = 0x07; }
             var d = new Dec { Buf = deep, Pos = 0, End = deep.Length, Err = 0 };
-            Codec.ReadListResultsResponse(ref d, new ListResultsResponse(), deep.Length);
+            Codec.ReadListResultsResponse(ref d, new ListResultsResponse(), 0);
             Console.WriteLine("  err = {0}, {1}", d.Err,
                 d.Err == W.ErrDepth ? "ErrDepth, and the process is still here" : "EXPECTED ErrDepth");
             if (d.Err != W.ErrDepth) bad++;

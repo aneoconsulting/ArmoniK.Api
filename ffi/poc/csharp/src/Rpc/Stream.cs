@@ -103,10 +103,11 @@ public static class ChunkCodecs
         var c = _enc;
         if (c == null)
         {
-            var caps = CoreFfi_UploadResultDataMessage.CapsFor(m);
             System.Threading.Interlocked.Increment(ref EncContexts);
-            System.Threading.Interlocked.Add(ref StagingBytes, caps.Bytes);
-            c = _enc = new CoreFfi_UploadResultDataMessage(caps);
+            // The staging is a block list now (cs_host.Stage): one 64 KiB block to
+            // start, more only while an encode needs them.
+            System.Threading.Interlocked.Add(ref StagingBytes, 1 << 16);
+            c = _enc = new CoreFfi_UploadResultDataMessage();
         }
         c.Encode(m, out byte* p, out int len);
         ctx.SetPayloadLength(len);
@@ -140,7 +141,7 @@ public static class ChunkCodecs
         {
             var d = new Dec { Buf = buf, Pos = 0, End = len, Err = 0 };
             var m = new UploadResultDataMessage();
-            Codec.ReadUploadResultDataMessage(ref d, m, len);
+            Codec.ReadUploadResultDataMessage(ref d, m, 0);
             if (d.Err != 0) throw new InvalidOperationException("managed decode err " + d.Err);
             return m;
         }
@@ -148,8 +149,7 @@ public static class ChunkCodecs
         if (c == null)
         {
             System.Threading.Interlocked.Increment(ref DecContexts);
-            c = _dec = new CoreFfi_UploadResultDataMessage(
-                new CoreFfi_UploadResultDataMessage.Caps());
+            c = _dec = new CoreFfi_UploadResultDataMessage();
         }
         return pull ? c.Pull(buf, len) : c.Decode(buf, len);
     }
