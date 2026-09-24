@@ -16,6 +16,9 @@ public static class Codec
     public const string Utf8Policy = "reject";
     public const string UnknownMode = "both";
     public const int Limit = 100;
+    /// plan.GROUP_DEPTH_LIMIT and plan.MAX_FIELD_NUMBER, handed to the runtime's skipper.
+    public const int GroupDepthLimit = 100;
+    public const ulong MaxFieldNumber = 536870911UL;
 
     /// plan ENCODE RULES (WP5 step 6): map entries in ascending order of the key's UTF-8
     /// bytes, which is code-point order. `OrderedMap` keeps INSERTION order, so the
@@ -1341,7 +1344,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -1380,7 +1383,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -1485,7 +1488,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -1525,7 +1528,7 @@ public static class Codec
                             case 18UL: mv = d.StrReject(); break;
                             // A facade map entry has no bag: an unknown field inside an entry
                             // is skipped in every mode.
-                            default: d.Skip((int)t2, w2, 100); break;
+                            default: d.Skip((int)t2, w2, GroupDepthLimit, MaxFieldNumber); break;
                         }
                     }
                     d.End = save;
@@ -1598,7 +1601,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -1637,7 +1640,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -1910,7 +1913,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -1997,7 +2000,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -2090,7 +2093,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -2117,7 +2120,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -2162,7 +2165,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -2275,7 +2278,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -2314,7 +2317,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -2364,7 +2367,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -2414,7 +2417,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -2452,7 +2455,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -2490,7 +2493,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -2528,7 +2531,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -2567,7 +2570,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -2616,7 +2619,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -2655,7 +2658,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -2709,7 +2712,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -2755,7 +2758,7 @@ public static class Codec
                             case 18UL: mv = d.StrReject(); break;
                             // A facade map entry has no bag: an unknown field inside an entry
                             // is skipped in every mode.
-                            default: d.Skip((int)t2, w2, 100); break;
+                            default: d.Skip((int)t2, w2, GroupDepthLimit, MaxFieldNumber); break;
                         }
                     }
                     d.End = save;
@@ -2786,7 +2789,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -2830,7 +2833,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -2868,7 +2871,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -2919,7 +2922,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -2957,7 +2960,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -3015,7 +3018,7 @@ public static class Codec
                             case 18UL: mv = d.StrReject(); break;
                             // A facade map entry has no bag: an unknown field inside an entry
                             // is skipped in every mode.
-                            default: d.Skip((int)t2, w2, 100); break;
+                            default: d.Skip((int)t2, w2, GroupDepthLimit, MaxFieldNumber); break;
                         }
                     }
                     d.End = save;
@@ -3040,7 +3043,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -3073,7 +3076,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -3118,7 +3121,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }
@@ -3211,7 +3214,7 @@ public static class Codec
                 {
                     // plan (both): skipped, and captured verbatim (key included) when the host
                     // asked for retention on this reader (Dec.Retain).
-                    d.Skip((int)tag, wire, 100);
+                    d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
                     if (d.Retain) { if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0); }
                     break;
                 }

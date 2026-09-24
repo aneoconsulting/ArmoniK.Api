@@ -320,9 +320,9 @@ public static class Program
                     else got = cc.CallBlocking(path, Array.Empty<byte>());
                     CoreChannel.Release(ref got);
                 }
-                AkRpcCounters k;
+                ak_rpc_counters k;
                 unsafe { AkRpc.ak_rpc_counters(&k); }
-                Console.WriteLine("{0,-12} {1,12:F2} {2,14:F2}", d, (double)k.Forward / n, (double)k.Reverse / n);
+                Console.WriteLine("{0,-12} {1,12:F2} {2,14:F2}", d, (double)k.forward / n, (double)k.reverse / n);
             }
             Console.WriteLine();
             Console.WriteLine("ABI v1 section 9 says two crossings per call and none per field. A number");
@@ -553,9 +553,9 @@ public static class Program
             double fwd = double.NaN, rev = double.NaN;
             if (counting)
             {
-                AkRpcCounters k;
+                ak_rpc_counters k;
                 unsafe { AkRpc.ak_rpc_counters(&k); }
-                fwd = (double)k.Forward / n; rev = (double)k.Reverse / n;
+                fwd = (double)k.forward / n; rev = (double)k.reverse / n;
             }
             bool okThrow = label == "ok" ? threw == 0 : threw == n;
             bool okFwd = !counting || Math.Floor(fwd + 1e-9) == expect[d];

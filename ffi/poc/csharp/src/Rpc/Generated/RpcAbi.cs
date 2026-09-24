@@ -61,6 +61,14 @@ public struct ak_err
     public uint detail;
 }
 
+/// RPC boundary-call counts (counting build).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_rpc_counters
+{
+    public ulong forward;
+    public ulong reverse;
+}
+
 public static unsafe partial class AkRpc
 {
     public const string Lib = "ak_core";
@@ -211,6 +219,31 @@ public static unsafe partial class AkRpc
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern void ak_call_destroy(IntPtr h);
 #endif
+    /// 1 if this core counts RPC crossings.
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_rpc_counting();
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_rpc_counting();
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void ak_rpc_counters(ak_rpc_counters* @out);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void ak_rpc_counters(ak_rpc_counters* @out);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void ak_rpc_counters_reset();
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void ak_rpc_counters_reset();
+#endif
 }
 
 public static unsafe class RpcInit
@@ -259,6 +292,12 @@ public static unsafe class RpcLayout
             f.Add(("max_send_message", (int)((byte*)&z->max_send_message - (byte*)z), Fsz(&z->max_send_message)));
             f.Add(("tcp_nagle", (int)((byte*)&z->tcp_nagle - (byte*)z), Fsz(&z->tcp_nagle)));
             all.Add(("ak_client_opts", sizeof(ak_client_opts), typeof(ak_client_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length, f));
+        }
+        {
+            var v = default(ak_rpc_counters); ak_rpc_counters* z = &v; var f = new List<(string, int, int)>();
+            f.Add(("forward", (int)((byte*)&z->forward - (byte*)z), Fsz(&z->forward)));
+            f.Add(("reverse", (int)((byte*)&z->reverse - (byte*)z), Fsz(&z->reverse)));
+            all.Add(("ak_rpc_counters", sizeof(ak_rpc_counters), typeof(ak_rpc_counters).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length, f));
         }
         {
             var v = default(ak_init_opts); ak_init_opts* z = &v; var f = new List<(string, int, int)>();

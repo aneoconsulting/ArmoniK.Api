@@ -41,8 +41,13 @@ public static class Program
 {
     private static readonly string[] Arms = { "managed-drop", "managed-retain", "ffi-drop", "ffi-retain" };
 
+    /// `--manifest PATH`: a manifest in the corpus's format elsewhere (e.g. the oracle probe
+    /// rows of poc/rust/gen/probe_corpus.py); children get the same.
+    private static string ManifestArg;
+
     private static string Dir()
     {
+        if (ManifestArg != null) return Path.GetDirectoryName(Path.GetFullPath(ManifestArg));
         var d = AppContext.BaseDirectory;
         for (int i = 0; i < 12 && d != null; i++)
         {
@@ -61,6 +66,7 @@ public static class Program
         {
             if (argv[i] == "--row") row = argv[++i];
             else if (argv[i] == "--only") only = argv[++i];
+            else if (argv[i] == "--manifest") ManifestArg = argv[++i];
             else if (argv[i] == "--timeout-ms") timeout = int.Parse(argv[++i], CultureInfo.InvariantCulture);
             else if (argv[i] == "--layout")
             {
@@ -392,6 +398,7 @@ public static class Program
         var psi = new ProcessStartInfo { FileName = exe, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
         // `dotnet corpus.dll`: the host is dotnet, so hand it the assembly again.
         if (Path.GetFileNameWithoutExtension(exe) == "dotnet") psi.ArgumentList.Add(typeof(Program).Assembly.Location);
+        if (ManifestArg != null) { psi.ArgumentList.Add("--manifest"); psi.ArgumentList.Add(Path.GetFullPath(ManifestArg)); }
         psi.ArgumentList.Add("--row");
         psi.ArgumentList.Add(id);
         var res = new Dictionary<string, string[]>();

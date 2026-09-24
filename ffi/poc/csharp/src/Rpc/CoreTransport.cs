@@ -42,38 +42,11 @@ using System.Threading.Tasks;
 namespace Armonik.Ffi.Rpc;
 
 // The transport's structs and prototypes (`ak_bytes`, `ak_completion`,
-// `ak_client_opts`, every `ak_*` RPC entry point, and ak_init) are GENERATED from
-// plan.rpc into Generated/RpcAbi.cs (FIX-PLAN WP5 step 4, R-G5; this slice's D3),
-// with LibraryImport under NET7_0_OR_GREATER and DllImport otherwise. What stays
-// here by hand is the counting surface, which plan.rpc does not state (reported):
-// `ak_rpc_counting`, `ak_rpc_counters`, `ak_rpc_counters_reset` and their struct.
-
-[StructLayout(LayoutKind.Sequential)]
-public struct AkRpcCounters
-{
-    public ulong Forward, Reverse;
-}
-
-public static unsafe partial class AkRpc
-{
-    /// 1 if this core counts transport crossings (R5: a harness reading zeroes out
-    /// of a non-counting build has reported that the boundary is free).
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    public static partial int ak_rpc_counting();
-    [LibraryImport(Lib)]
-    public static partial void ak_rpc_counters(AkRpcCounters* outc);
-    [LibraryImport(Lib)]
-    public static partial void ak_rpc_counters_reset();
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    public static extern int ak_rpc_counting();
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    public static extern void ak_rpc_counters(AkRpcCounters* outc);
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    public static extern void ak_rpc_counters_reset();
-#endif
-}
+// `ak_client_opts`, every `ak_*` RPC entry point, the counting surface
+// `ak_rpc_counting`/`ak_rpc_counters`/`ak_rpc_counters_reset` with `ak_rpc_counters`,
+// and ak_init) are GENERATED from plan.rpc and plan.FIXED into Generated/RpcAbi.cs
+// (FIX-PLAN WP5, R-G5, D40), LibraryImport under NET7_0_OR_GREATER and DllImport
+// otherwise. Nothing of the ABI is declared by hand here.
 
 /// What one in-flight call is waiting on. Pinned by a `GCHandle` for as long as
 /// the core can complete it, and freed by whichever side finishes it.

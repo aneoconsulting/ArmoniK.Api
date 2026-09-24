@@ -496,14 +496,17 @@ public struct Dec
     /// `ErrMalformed` for everything else, so it rejected three corpus vectors
     /// that `Google.Protobuf` accepts. The shared core had the identical hole
     /// (D7) and the C++ slice still does.
-    public void Skip(int tag, int wire, int limit)
+    /// `limit` and `maxField` are the PLAN's (GROUP_DEPTH_LIMIT, MAX_FIELD_NUMBER),
+    /// rendered by the generated codec as `Codec.GroupDepthLimit` and
+    /// `Codec.MaxFieldNumber` and passed here; this runtime states neither (D38).
+    public void Skip(int tag, int wire, int limit, ulong maxField)
     {
         switch (wire)
         {
             case W.WireVarint: Varint(); break;
             case W.WireI64: if (End - Pos < 8) { Err = W.ErrTruncated; return; } Pos += 8; break;
             case W.WireLen: Pos = LenEnd(); break;
-            case W.WireGroup: SkipGroup(tag, 0, limit); break;
+            case W.WireGroup: SkipGroup(tag, 0, limit, maxField); break;
             case W.WireI32: if (End - Pos < 4) { Err = W.ErrTruncated; return; } Pos += 4; break;
             // 4 is END_GROUP with nothing open; 6 and 7 do not exist.
             default: Err = W.ErrMalformed; return;
@@ -512,7 +515,7 @@ public struct Dec
 
     /// Recursive, because groups nest; bounded, because a payload of nothing but
     /// start tags would otherwise be a stack overflow rather than an error.
-    private void SkipGroup(int tag, int depth, int limit)
+    private void SkipGroup(int tag, int depth, int limit, ulong maxField)
     {
         // The plan's limit, as the core's own skipper applies it to groups.
         if (depth >= limit) { Err = W.ErrDepth; return; }
@@ -524,16 +527,20 @@ public struct Dec
             if (Pos >= End) { Err = W.ErrTruncated; return; }
             ulong k = Varint();
             if (Err != 0) return;
-            // Truncated to 32 bits, as the core's skipper does ((k >> 3) as u32).
-            int t = (int)(uint)(k >> 3), w = (int)(k & 7);
-            if (t == 0) { Err = W.ErrMalformed; return; }
+            // plan: a field number of 0 or above MAX_FIELD_NUMBER is malformed inside
+            // a group too, checked on the full 64-bit value before any narrowing (the
+            // core's skip_group; the old 32-bit truncation aliased 2^32 + n to n, D38).
+            ulong fn = k >> 3;
+            int w = (int)(k & 7);
+            if (fn == 0 || fn > maxField) { Err = W.ErrMalformed; return; }
+            int t = (int)fn;
             if (w == W.WireEndGroup)
             {
                 if (t != tag) Err = W.ErrMalformed;   // `X-group-mismatched-end`
                 return;
             }
-            if (w == W.WireGroup) { SkipGroup(t, depth + 1, limit); continue; }
-            Skip(t, w, limit);
+            if (w == W.WireGroup) { SkipGroup(t, depth + 1, limit, maxField); continue; }
+            Skip(t, w, limit, maxField);
         }
     }
 }
