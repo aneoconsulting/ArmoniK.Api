@@ -1,6 +1,6 @@
 # Fix plan after the 2026-09-24 adversarial review
 
-Status: **WP1 done, WP2 in progress** (2026-09-24). Written for whoever implements it, which is
+Status: **WP1 and WP2 done** (2026-09-24). Next: WP4 items 1 to 3, then WP5. Written for whoever implements it, which is
 assumed to be neither the author nor anyone with the review session's context.
 Everything needed is in this file or in the paths it names.
 
@@ -524,11 +524,11 @@ Disposition column is filled in as work lands.
 
 | ID | Finding | Source | Goes to | Disposition |
 |---|---|---|---|---|
-| R-A1 | Maintenance case never measured; no work item, no REPORT question | P | WP1 (W12) | |
-| R-A2 | Outcome criteria undefined ("materially", aggregation, which decode column) | P | WP1 (decision rule removed) | |
-| R-A3 | Option "protoc codecs + core RPC" (cell B) missing | P | WP1 | |
+| R-A1 | Maintenance case never measured; no work item, no REPORT question | P | WP1 (W12) || WP1: W12 added; REPORT question 5 |
+| R-A2 | Outcome criteria undefined ("materially", aggregation, which decode column) | P | WP1 (decision rule removed) || WP1: decision rule removed; the decision is the owner's |
+| R-A3 | Option "protoc codecs + core RPC" (cell B) missing | P | WP1 || WP1: option 3 in README section 13 |
 | R-A4 | Core transport lacks TLS, retry, metadata, deadlines, status | P | none | closed by owner position 3 |
-| R-A5 | REPORT Q2 decomposition subtracts cross-machine absolutes | P, X | WP1 (moved to campaign) | |
+| R-A5 | REPORT Q2 decomposition subtracts cross-machine absolutes | P, X | WP1 (moved to campaign) || WP1: moved to the campaign (README 4.1, REPORT question 2) |
 | R-A6 | ABI decision 11 marked "Blocks: nothing" but changes behaviour in four languages | P | WP2, WP3 item 21, WP5 | |
 | R-A7 | Floors incomplete: net48 only on Mono; net6.0 not built; Python 3.7 undemonstrated; Rust MSRV unverified | P, X | WP3 items 17, 19, WP4 item 5, WP5 | |
 | R-A8 | Payload representativeness asserted, not established | P | none | closed by owner position 7: no statistics exist, report says unweighted |
@@ -538,12 +538,12 @@ Disposition column is filled in as work lands.
 
 | ID | Finding | Source | Disposition |
 |---|---|---|---|
-| R-B1 | Java outcome-2 bullet uses withdrawn +368 and an unsourced -268 (*verified*, `README.md:1190`) | P, MM | |
-| R-B2 | C++ empty-call sign reversed: log says the core costs 44-89 % more (*verified*, `logs/cpp/rpc.log:694`) | MN | |
-| R-B3 | Python encode "0.700-0.719 of upb" is from a log the slice superseded (J26); W7 and `findings/python.md` still carry it | P, X, MM | |
-| R-B4 | "34x to 60x" is the pure-Python control's encode, not the core; "19.4-20.3x" from superseded log 40 | P, MM, X | |
-| R-B5 | Crossing table mixes forward and reverse, and different metrics across containers; C# 7.5-12 ns never measured by the slice | MN, X | |
-| R-B6 | README section 3 stale; corpus count 328 vs 336 | P, X | |
+| R-B1 | Java outcome-2 bullet uses withdrawn +368 and an unsourced -268 (*verified*, `README.md:1190`) | P, MM || removed with the figure (WP2) |
+| R-B2 | C++ empty-call sign reversed: log says the core costs 44-89 % more (*verified*, `logs/cpp/rpc.log:694`) | MN || removed with the figure (WP2) |
+| R-B3 | Python encode "0.700-0.719 of upb" is from a log the slice superseded (J26); W7 and `findings/python.md` still carry it | P, X, MM || removed with the figure (WP2) |
+| R-B4 | "34x to 60x" is the pure-Python control's encode, not the core; "19.4-20.3x" from superseded log 40 | P, MM, X || removed with the figure (WP2) |
+| R-B5 | Crossing table mixes forward and reverse, and different metrics across containers; C# 7.5-12 ns never measured by the slice | MN, X || removed with the figure (WP2) |
+| R-B6 | README section 3 stale; corpus count 328 vs 336 | P, X || fixed in WP1/WP2 (section 3 rewritten; 336 in the manifest, 328 sealed, 8 baseline rows unsealed) |
 
 ### C. Harness defects (closed by WP3 conformance plus deleting the affected figures)
 
