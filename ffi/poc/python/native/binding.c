@@ -10,15 +10,33 @@
  * at `poc/codec/` does the wire, this shim speaks the CPython API, and the facade is
  * Python.  Work unit 1's `mech/` arms have no core in them and price one edge; this one
  * is the design.
+ *
+ * FIX-PLAN WP5 step 5: the generated file is rendered by poc/codec/gen/py_capi.py from the
+ * plan; the RPC structs and prototypes below come from the generated `ak_abi.h`, rendered
+ * from `plan.rpc` (R-G4: nothing here restates `ak_client_opts` or a section 9 prototype);
+ * `ak_init` is rendered once, from `plan.lifecycle`, and called first in `mod_exec` (R-G7);
+ * and the two C-API calls newer than the 3.7 floor are under `PY_VERSION_HEX` (R-D4).
+ *
+ * AK_GEN_DIR selects which generated shim this build wraps (`gen/out` for the payload set,
+ * `gen/out/corpus` for the corpus-schema core); the build passes -I for the same directory.
  */
+#ifdef AK_RPC
+/* This build uses the RPC half, so it does not decline the crypto provider (the plan's
+ * default flags are what a CODEC binding passes). */
+#define AK_INIT_FLAGS (AK_INIT_NO_PANIC_HOOK)
+#endif
+#ifdef AK_CORPUS
+#include "../gen/out/corpus/binding.c"
+#else
 #include "../gen/out/binding.c"
+#endif
 
 typedef struct {
   PyObject *t[AK_NTYPES];
 } mod_state;
 
 static int backend_index(const char *name) {
-  for (int i = 0; i < 3; i++)
+  for (int i = 0; i < AK_NBACKENDS; i++)
     if (strcmp(AK_BACKENDS[i], name) == 0) return i;
   PyErr_Format(PyExc_ValueError, "unknown backend %s", name);
   return -1;
@@ -169,6 +187,35 @@ static PyObject *py_types(PyObject *m, PyObject *unused) {
   return t;
 }
 
+/* The roots this shim's core carries, in dispatch order. */
+static PyObject *py_roots(PyObject *m, PyObject *unused) {
+  (void)m;
+  (void)unused;
+  PyObject *t = PyTuple_New(AK_NROOTS);
+  if (!t) return NULL;
+  for (int i = 0; i < AK_NROOTS; i++) {
+    PyObject *s = PyUnicode_FromString(AK_ROOTS[i]);
+    if (!s) { Py_DECREF(t); return NULL; }
+    PyTuple_SET_ITEM(t, i, s);
+  }
+  return t;
+}
+
+/* The host's own layout facts, named: [(name, value)], what the import check compared. A
+ * harness reads group sizes from here (chunk arithmetic) rather than restating them. */
+static PyObject *py_layout_host(PyObject *m, PyObject *unused) {
+  (void)m;
+  (void)unused;
+  PyObject *out = PyList_New(AK_LAYOUT_FACTS);
+  if (!out) return NULL;
+  for (int i = 0; i < AK_LAYOUT_FACTS; i++) {
+    PyObject *t = Py_BuildValue("(sk)", AK_LAYOUT_NAMES[i], (unsigned long)AK_LAYOUT_HOST[i]);
+    if (!t) { Py_DECREF(out); return NULL; }
+    PyList_SET_ITEM(out, i, t);
+  }
+  return out;
+}
+
 #ifdef AK_RPC
 /* ---------------------------------------------------------------------------------
  * ABI v1 section 9: the core's own RPC surface, bound to Python.
@@ -193,40 +240,8 @@ static PyObject *py_types(PyObject *m, PyObject *unused) {
  *                 cost the queue mode does not pay, and measuring it is the point.
  * --------------------------------------------------------------------------------- */
 
-typedef struct { uint64_t tag; int32_t status; struct { const uint8_t *ptr; size_t len;
-                 void *owner; } bytes; } ak_completion_t;
-typedef void (*ak_cb_t)(void *user, ak_completion_t *comp);
-
-extern void *ak_runtime_new(uint32_t worker_threads);
-extern void ak_runtime_destroy(void *rt);
-extern void *ak_client_new(void *rt, const uint8_t *uri, size_t uri_len);
-/* ABI v1 section 9's pinned dial. The struct is `ak_client_opts` and the field order is
- * the core's; a host that gets it wrong pins the wrong thing silently, which is why the
- * layout is restated here rather than assumed from a comment. */
-typedef struct {
-  uint32_t stream_window;
-  uint32_t connection_window;
-  int32_t adaptive_window;
-  uint32_t max_recv_message;
-  uint32_t max_send_message;
-  int32_t tcp_nagle;
-} ak_client_opts_t;
-extern void *ak_client_new_opts(void *rt, const uint8_t *uri, size_t uri_len,
-                                const ak_client_opts_t *opts);
-extern void ak_client_destroy(void *c);
-extern int32_t ak_call_unary(void *c, const uint8_t *path, size_t path_len,
-                             const uint8_t *req, size_t req_len, void *out);
-extern void ak_bytes_free(void *b);
-extern void *ak_queue_new(void);
-extern void ak_queue_shutdown(void *q);
-extern void ak_queue_destroy(void *q);
-extern int32_t ak_queue_next(void *q, ak_completion_t *out, uint64_t timeout_ms);
-extern void *ak_call_unary_q(void *c, const uint8_t *path, size_t path_len,
-                             const uint8_t *req, size_t req_len, void *q, uint64_t tag);
-extern void *ak_call_unary_cb(void *c, const uint8_t *path, size_t path_len,
-                              const uint8_t *req, size_t req_len, ak_cb_t cb,
-                              void *user_data, uint64_t tag);
-extern void ak_call_destroy(void *h);
+/* Every type and prototype used below is in the generated ak_abi.h, from plan.rpc. */
+typedef struct ak_completion ak_completion_t;
 
 static void cap_rt_free(PyObject *c) { ak_runtime_destroy(PyCapsule_GetPointer(c, "ak_rt")); }
 static void cap_cl_free(PyObject *c) { ak_client_destroy(PyCapsule_GetPointer(c, "ak_cl")); }
@@ -261,10 +276,9 @@ static PyObject *py_client_new(PyObject *m, PyObject *args) {
 /* The response bytes, copied into a PyBytes and the core's buffer released. The copy is
  * real and is counted: ABI v1 decision 13's borrowed span would remove it, and this arm
  * does not take it, so the RPC table prices the copying transport. */
-static PyObject *take_bytes(void *outp) {
-  struct { const uint8_t *ptr; size_t len; void *owner; } *b = outp;
+static PyObject *take_bytes(struct ak_bytes *b) {
   PyObject *r = PyBytes_FromStringAndSize((const char *)b->ptr, (Py_ssize_t)b->len);
-  ak_bytes_free(outp);
+  ak_bytes_free(b);
   return r;
 }
 
@@ -276,7 +290,7 @@ static PyObject *take_bytes(void *outp) {
  * of nothing, and `rpc.py` did forget it on two of its three deliveries. None cannot be
  * decoded by anything, so a missed status check now fails loudly instead of timing a
  * failure as a cheap success. The bytes are still released on the failure path. */
-static PyObject *completion_body(int32_t status, void *bytesp) {
+static PyObject *completion_body(int32_t status, struct ak_bytes *bytesp) {
   if (status != 0) {
     ak_bytes_free(bytesp);
     Py_RETURN_NONE;
@@ -292,7 +306,7 @@ static PyObject *py_call_unary(PyObject *m, PyObject *args) {
   if (!PyArg_ParseTuple(args, "Os#y#", &clc, &path, &plen, &req, &rlen)) return NULL;
   void *cl = PyCapsule_GetPointer(clc, "ak_cl");
   if (!cl) return NULL;
-  struct { const uint8_t *ptr; size_t len; void *owner; } out = {NULL, 0, NULL};
+  struct ak_bytes out = {NULL, 0, NULL};
   int32_t rc;
   Py_BEGIN_ALLOW_THREADS
   rc = ak_call_unary(cl, (const uint8_t *)path, (size_t)plen,
@@ -306,7 +320,7 @@ static PyObject *py_client_new_opts(PyObject *m, PyObject *args) {
   (void)m;
   PyObject *rtc;
   const char *uri; Py_ssize_t ulen;
-  ak_client_opts_t o;
+  struct ak_client_opts o;
   memset(&o, 0, sizeof o);
   unsigned sw = 0, cw = 0, mr = 0, ms = 0;
   int aw = -1, nagle = -1;
@@ -356,8 +370,8 @@ static PyObject *py_queue_next(PyObject *m, PyObject *args) {
   Py_BEGIN_ALLOW_THREADS
   rc = ak_queue_next(q, &c, (uint64_t)timeout);
   Py_END_ALLOW_THREADS
-  if (rc == 1) Py_RETURN_NONE;                       /* AK_QUEUE_TIMEOUT */
-  if (rc == 2) return Py_BuildValue("(KiO)", (unsigned long long)0, -1, Py_None);
+  if (rc == AK_QUEUE_TIMEOUT) Py_RETURN_NONE;
+  if (rc == AK_QUEUE_SHUTDOWN) return Py_BuildValue("(KiO)", (unsigned long long)0, -1, Py_None);
   if (rc != 0) { PyErr_Format(PyExc_RuntimeError, "ak_queue_next -> %d", (int)rc); return NULL; }
   PyObject *b = completion_body(c.status, &c.bytes);
   if (!b) return NULL;
@@ -391,7 +405,7 @@ static PyObject *py_call_unary_q(PyObject *m, PyObject *args) {
  * win -- the prediction the arm exists to check. */
 typedef struct { PyObject *fn; } cb_ctx;
 
-static void ak_py_trampoline(void *user, ak_completion_t *comp) {
+static void ak_py_trampoline(void *user, struct ak_completion *comp) {
   cb_ctx *ctx = user;
   PyGILState_STATE g = PyGILState_Ensure();
   PyObject *b = completion_body(comp->status, &comp->bytes);
@@ -423,7 +437,7 @@ static PyObject *py_call_unary_cb(PyObject *m, PyObject *args) {
   }
   cb_ctx *ctx = PyMem_Malloc(sizeof *ctx);
   if (!ctx) return PyErr_NoMemory();
-  ctx->fn = Py_NewRef(fn);
+  ctx->fn = AK_NEWREF(fn);
   void *h = ak_call_unary_cb(cl, (const uint8_t *)path, (size_t)plen,
                              (const uint8_t *)req, (size_t)rlen,
                              ak_py_trampoline, ctx, (uint64_t)tag);
@@ -445,6 +459,9 @@ static PyMethodDef methods[] = {
     {"decode", py_decode, METH_VARARGS,
      "decode(backend, rootname, buf, types[, accessors]) -> facade"},
     {"types", py_types, METH_NOARGS, "the facade type names, in HostTypes order"},
+    {"roots", py_roots, METH_NOARGS, "the roots this shim's core carries"},
+    {"layout_host", py_layout_host, METH_NOARGS,
+     "the shim's own layout facts, named, as compared with the core's at import"},
     {"layout_facts", py_layout_check, METH_NOARGS,
      "the core's own view of every group layout (ABI v1 section 10)"},
     {"core_counters", py_core_counters, METH_VARARGS, "reserved"},
@@ -476,6 +493,8 @@ static PyMethodDef methods[] = {
     {NULL, NULL, 0, NULL}};
 
 static int mod_exec(PyObject *m) {
+  /* ABI v1 section 3 (R-G7): ak_init before any other call into the core. */
+  if (ak_py_init()) return -1;
   if (intern_keys()) return -1;
   if (ak_abi_version() != AK_ABI_VERSION) {
     PyErr_Format(PyExc_ImportError,
@@ -483,11 +502,19 @@ static int mod_exec(PyObject *m) {
                  "against %u", (unsigned)ak_abi_version(), (unsigned)AK_ABI_VERSION);
     return -1;
   }
+  /* ABI v1 section 10: the host's layout facts against the core's, at import. */
+  if (ak_py_layout_check()) return -1;
   mod_state *st = (mod_state *)PyModule_GetState(m);
   for (int i = 0; i < AK_NTYPES; i++) {
     st->t[i] = PyType_FromSpec(AK_TYPE_SPECS[i]);
     if (!st->t[i]) return -1;
+#if PY_VERSION_HEX >= 0x030A0000
     if (PyModule_AddObjectRef(m, AK_TYPE_NAMES[i], st->t[i]) < 0) return -1;
+#else
+    /* 3.7 to 3.9: PyModule_AddObject steals a reference only on success. */
+    Py_INCREF(st->t[i]);
+    if (PyModule_AddObject(m, AK_TYPE_NAMES[i], st->t[i]) < 0) { Py_DECREF(st->t[i]); return -1; }
+#endif
   }
   return 0;
 }
@@ -511,4 +538,11 @@ static struct PyModuleDef moduledef = {
     "the composed arm: the shared core behind a generated CPython shim",
     sizeof(mod_state), methods, mod_slots, mod_traverse, mod_clear, NULL};
 
+/* R-D4 at the floor: PyMODINIT_FUNC carries default visibility only from 3.9
+ * (Py_EXPORTED_SYMBOL). Before that it is a bare `PyObject *`, so under this build's
+ * -fvisibility=hidden a 3.7 shim exported no PyInit_* and could not be imported at all --
+ * found by the first build against real 3.7 headers, not visible on 3.9+. */
+#if PY_VERSION_HEX < 0x03090000 && defined(__GNUC__)
+__attribute__((visibility("default")))
+#endif
 PyMODINIT_FUNC AK_INITFUNC(void) { return PyModuleDef_Init(&moduledef); }

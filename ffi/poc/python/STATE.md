@@ -1,187 +1,168 @@
 # python slice: state
 
-**Read this first. Rewrite it at the end of every work unit.** It is the only thing
-that survives the end of a session. It says what exists and what was checked; it
-does not say what a binding should choose (`CLAUDE.md`, roles).
+**Read this first. Rewrite it at the end of every work unit.** It says what exists and what
+was checked; it does not say what a binding should choose (`CLAUDE.md`, roles).
 
-**Phase** (README 1.1): setup and design. A container timing is instrumentation. This
-file carries **no timing figure**. Timing logs exist and are listed at the foot as
-instrumentation; the numbers in them are for proving a harness runs, not for quoting.
+**Phase** (README 1.1): setup and design. This file carries **no timing figure**. Timing logs
+are listed at the foot as instrumentation.
 
 | | |
 |---|---|
-| **Status** | Work unit 4 (the 2026-09-24 review) done for this slice: **R-D3 fixed** (the RPC arm is gated), **R-D4 confirmed, not fixed** (waits for WP5), **R-F2 and R-F3 fixed** in this file. **Re-gated against the shared core at 6ede244** (R-D1 fixed): both shims pass conformance, the RPC gate holds, the 11-byte wrap input now errors where it used to hang, and both core-ffi arms pass the grown corpus. The pure-Python control fails 42 corpus rows, all in R-E5's three classes (WP5) |
-| **Blocked on** | WP5, the one generator: the 3.7 floor (R-D4) and the pure-Python control's decode rules (R-E5) |
-| **Floor** (owner D1: 3.7) | **Does not build.** The generated shim uses 3.9/3.10 C-API calls with no `PY_VERSION_HEX` conditionals (R-D4, `82-floor-3.7.log`). **Not obtainable here either**: the apt index lists 3.7.17-1+noble2 but the egress proxy refuses the deadsnakes PPA, python.org and github (403) |
-| **Target** (owner D1: CPython 3.12) | Built and gated on **3.12.3** this session (`85`, `87`). Earlier gates on 3.10, 3.11, 3.12, 3.13 (`53`, older commit). grpcio 1.84.0, protobuf 7.36.2 on upb |
-| **Incumbent** (R14) | protobuf on **upb**, through gRPC's generated marshaller path: `Message.SerializeToString` / `Message.FromString`. Derived from `Protos/V1/results_service.proto` by `verify_r14.py` (`52-r14-baseline.log`) |
-| **Core** | `poc/codec`, the one core (R0), never copied. Current gate: **6ede244**, built from a `git archive` extraction through `AK_UPSTREAM`, because the rust and cpp agents were editing `poc/codec` and `poc/cpp/gen` at the same time (see "Building" below). The R-D3 work was first gated at 8864e4d |
+| **Status** | Work unit 5 done: **FIX-PLAN WP5 step 5**, the Python backend on the shared plan. Every generated file of this slice is rendered by `poc/codec/gen` from a plan; `poc/python/gen/` holds build glue only. **R-D4 fixed** (and one more floor defect, D14, found by building on real 3.7), **R-E5 fixed** (pycodec's 42 corpus failures are 0), **R-G4 fixed**, **R-G7 fixed** (every core built WITH `init-guard`), **R-G8 holds** in the pure-Python codec. D13 found and fixed |
+| **Floor** (owner D1: 3.7) | **Builds and passes every gate on CPython 3.7.5** (Ubuntu 18.04's packages from archive.ubuntu.com, `fetch_py37.sh`): logs 90-97 |
+| **Target** (owner D1: 3.12) | Built and gated on **3.12.3**: logs 90-96, 98. grpcio 1.84.0, protobuf 7.36.2 (upb) |
+| **Incumbent** (R14) | protobuf on **upb** through gRPC's generated marshaller path (`SerializeToString` / `FromString`), `verify_r14.py` (log 52). On the 3.7 floor: protobuf 4.24.4 (upb), for the conformance gate only |
+| **Core** | `poc/codec`, the one core (R0), this checkout (commit in each log header; the `AK_UPSTREAM` snapshot mechanism is retired). Four builds, all `init-guard`: plain, `count`, `rpc`, `corpus` |
 
 ## What exists
 
 ```
-gen/generate.py     the slice's generator front end. Imports poc/codec/gen/ir.py and the cpp
-                    slice's cpp_header.py READ-ONLY (from AK_UPSTREAM when set). Writes gen/out
-gen/walk.py         the field walker; a shape outside SCOPE raises
-gen/py_facade.py    the facade (plain, __slots__), with <oneof>_case
-gen/py_codec.py     the pure-Python codec (R3's no-boundary control)
-gen/py_binding.py   the composed arm's CPython shim: 3 facade backends x 2 directions
-gen/py_shim.py      work unit 1's no-core C encoder
-gen/py_values.py    facade objects carrying the manifest's values
-gen/out/            emitted and committed, ak_abi.h included
-native/binding.c    the module wrapper, and ABI v1 section 9 (RPC) behind -DAK_RPC
-build.sh            R0 check, R1 check, three core builds, three shims, the R5 boundary proof
-run.sh              the whole slice end to end (mech/build.sh for shapes_pb2 first)
-conformance.py      R2 byte identity both directions, layout facts, crossing counts (both halves)
-corpus.py           W8, the rows this scope can root
-concurrency.py      ABI v1 obligation 12.5 (encode under threads, byte-checked)
-rpc.py              the RPC grid harness (cells A, B, C; three deliveries); GATED since R-D3
-rpc_gate.py         R-D3: what every RPC cell does when the RPC fails. Prints no timings
-rd1_lenwrap.py      R-D1: wrapped length varints through the shim's decode, each in a subprocess
-                    under a timeout (a hang or an abort is a row, not a crash)
-u1_map_unknown.py   U1: one map entry with an unknown field, four readers. Prints no timings
-allocator.py, gcbias.py, bench.py, arms.py, verify_r14.py, mech/   harnesses (timings: instrumentation)
+poc/codec/gen/py_pure.py   (shared backend) facade.py + pycodec.py (drop) + pycodec_retain.py
+poc/codec/gen/py_capi.py   (shared backend) binding.c: the CPython shim, 3 accessor backends,
+                           both directions, ak_init (plan.lifecycle), the section 10 table
+                           (cpp_layout.facts), PY_VERSION_HEX conditionals (R-D4)
+poc/codec/gen/cpp_abi.py   (the C++ backend's, used as is) ak_abi.h, plain C99, from the plan;
+                           byte-identical to poc/cpp's own headers (log 98)
+gen/generate.py            glue: two plans -> gen/out/ (shapes.json, 7 roots) and
+                           gen/out/corpus/ (the corpus READER plan); --check runs the shared
+                           one-generator guard over the python backends, planted violation incl.
+gen/out/                   emitted and committed: facade.py, pycodec.py, pycodec_retain.py,
+                           binding.c, ak_abi.h, and the same five under corpus/
+native/binding.c           the module wrapper (hand-written, names no message or field): RPC
+                           types and prototypes from the generated header (R-G4), ak_init
+                           first in mod_exec, layout check at import, 3.7-compatible branches
+build.sh                   R0, R1, four cores (init-guard), six shims per interpreter
+                           (_akffi, _akffi_count, _akffi_rpc, _akffi_corpus,
+                           _akffi_corpus_chunk, ctl/_akffi_corpus_noinit), R5, controls
+gate.sh                    the correctness gate at the target and the floor -> logs 90-98
+fetch_py37.sh              CPython 3.7.5 + its incumbent into build/py37 (sha256-pinned debs)
+floor_check.sh             the 3.7-header source check with its pre-port control (log 97)
+facts.py                   the facade's MESSAGES table re-shaped for the harnesses (walk.py's
+                           replacement; states no rule)
+payload_values.py          the payload builder (harness glue; moved out of gen/out, it was
+                           never generated from anything)
+conformance.py             R2 both directions, layout, crossing counts (both halves)
+corpus.py                  the WHOLE corpus, 5 arms, worker processes under a timeout, C1-C5,
+                           disputed readings, between-arm identity, 4 planted controls,
+                           --dump/--compare for cross-level byte identity
+rpc_gate.py, rd1_lenwrap.py, u1_map_unknown.py, concurrency.py   gates and suites
+rpc.py, bench.py, allocator.py, gcbias.py, arms.py, verify_r14.py, mech/   harnesses (timings:
+                           instrumentation)
+run.sh                     mech/build.sh (shapes_pb2), gate.sh, R14, then the timing harnesses
+                           (never on the floor)
 ```
-
-Three builds of one `libak_core.so`, three shims, and a process loads exactly one:
-`_akffi` (plain core), `_akffi_count` (counting core, `AK_USE_COUNT=1`), `_akffi_rpc`
-(rpc-feature core, `AK_FFI_MODULE=_akffi_rpc`). The first core loaded satisfies the others
-by soname, which is why the choice is an environment variable read before `arms` imports
-and why `conformance.py` now prints the core the process actually mapped.
-
-### Building
-
-`AK_UPSTREAM=<ffi tree> ./build.sh <python>...`. `AK_UPSTREAM` is where the shared inputs
-are read from (core source, IR, header renderer, schema emitter); default is this
-checkout. Point it at `git archive <commit> ffi/poc/codec ffi/poc/cpp/gen ffi/schema`
-extracted somewhere, with the commit written to `<extraction>/COMMIT`, to build against a
-named commit while others edit. Cargo targets go to `poc/python/build/cargo/{plain,count,rpc}`
-(git-ignored); nothing in this slice writes under `poc/codec`. `mech/build.sh <python>`
-writes `mech/build/pb2/shapes_pb2.py`, which the incumbent arm needs; `run.sh` runs it.
 
 ## What was checked, and the log that carries it
 
+Logs 90-98 exist for both `py3.12` and `py3.7` where the name says so.
+
 | check | result | log |
 |---|---|---|
-| R2 encode, byte identity against `schema/generated/manifest.json`, 16 payloads, every arm | pass (P7.1 as a permutation, as `design/SHAPES.md` allows; upb's map order checked as a legal alternative form) | `85` (3.12, both `_akffi` and `_akffi_rpc`, core 6ede244), `53` (3.10-3.13, older commit) |
-| R2 decode, re-encode identity and field identity against upb's descriptor, 16 payloads | pass, absent paths P1.3 and P2.5 included | `85`, `53` |
-| layout facts and ABI version at import (ABI v1 section 10) | pass | `85`, `53` |
-| **`_akffi_rpc` through the same gate** (R-D3) | pass, and passed before the binding change too: the rpc shim's codec was right and unchecked | `84` (before, core 8864e4d), `85` (core 6ede244) |
-| **R-D1 through the shim**: the finding's 11 bytes `7A F5 FF FF FF FF FF FF FF FF 01`, a root length of 2^64-1, a nested string length of 2^64-1; ListResultsResponse decode, both facade backends, both shims | core 8864e4d: **hang** (finding, both backends), **abort** on a Rust panic (root), **SIGSEGV** in the Python process (nested). Core 6ede244: every one returns `AK_ERR_TRUNCATED` (-3) as a `ValueError`, promptly; the P1.2 control still decodes | `89` |
-| R5 boundary proof from the artifact, **all three shims** (R-D3 added `_akffi_rpc`) | pass; `_akffi_rpc` imports all 6 section 9 entry points it binds and resolves to the rpc core; must-fail control refused | `87` (core 6ede244) |
-| **RPC arm under injected failure** (R-D3) | before: 68 of 80 failure rows produced a figure. After: 80 of 80 aborted, 20 of 20 healthy rows gated, at 8864e4d and again at 6ede244 | `81` (before), `83` (after, core 6ede244) |
-| `rpc.py` executes end to end with the gate | exit 0, 52 gate lines, 0 aborted; every timing row deleted from the log | `86` |
-| concurrency, ABI v1 obligation 12.5: encode under 1/2/4 threads, per-thread and shared facades, P1.2 and P2.2, every encode compared to the arm's own reference | 0 wrong bytes in every row | `56` |
-| W8 corpus, **213 of 691** rows (the rows this scope roots; the corpus grew with WP4 item 2 at ca03d6d) | **both core-ffi arms: C1 161/161, C2 158/158, C3 161/161, C4 52/52**, the 42 length-wrap vectors in scope included. **pycodec (the pure-Python control): C1 134/161, C2 124/158, C3 134/161, C4 44/52, 42 failures**: 27 `U-wire-*` (known field at a foreign wire type), 7 `S-neg-*` (negative int32/int64 projected as unsigned), 8 `X-tag-zero-*` (tag 0 accepted). R-E5's three classes; not fixed here (WP5) | `70` (core 6ede244, corpus ca03d6d) |
-| R0 one core | pass | `87` |
+| R0 one core; R1 generated tree current; one-generator guard over `py_pure`, `py_capi` with its planted IR import caught | pass | `90` |
+| every core exports `ak_init`; every shim imports it and exports exactly one `PyInit_`; the noinit control imports no `ak_init`; a planted layout mismatch refuses to import naming the fact; a shim without `AK_RPC` imports 0 of 6 section 9 entry points | pass, both levels | `90` |
+| R2 encode, byte identity against `schema/generated/manifest.json`, 16 payloads, every arm (`pycodec-retain` added) | pass (P7.1 as a permutation, upb's map order as a legal alternative) | `91`, `92` (3.12 and 3.7) |
+| R2 decode, re-encode identity and field identity against upb, 16 payloads | pass | `91`, `92` |
+| section 10: 380 layout facts compared with the core's AT IMPORT (was: "the build would have failed") | pass | `91`, `90` (control) |
+| **crossing counts**, counting build, both halves | **identical row for row (160 rows) to log 85's pre-port shim**, on 3.12 and 3.7 | `98` |
+| **the WHOLE corpus (691 rows)**, 5 arms, every row in a worker process, timeout 20 s | **ffi-cext, ffi-attr, ffi-chunk256: 672 pass, 0 fail, 3 disputed (excluded), 16 not in the C ABI (`Nest`, refused by name). py-drop, py-retain: 688 pass, 0 fail, 3 disputed.** 0 hung, 0 crashed. Between-arm identity: 534 rows, 0 differ. Obligations met: ffi arms C1 534, C2 529, C3 534, C4 138, C5 197; pure-Python arms C1 547, C2 542, C3 547, C4 141, C5 204; plus 5 large `produce` rows with no projection, checked by C3 only | `93` (3.12 and 3.7) |
+| pycodec's 42 failures from log 70 (27 `U-wire-*`, 7 `S-neg-*`, 8 `X-tag-zero-*`) | **0**: fixed by rendering the plan's decode rules (JOURNAL J34) | `93` |
+| cross-level byte identity: 3.7 re-encodes every (arm, row) to the 3.12 bytes | 2696 compared, 0 differ | `93` (py3.7, `--compare`) |
+| corpus controls: `proj`, `reenc`, `accept` on 5 arms, `noinit` on the 2 ffi arms | each fails on every arm it applies to | `93` |
+| chunking (CONTRACT 4): default build puts `C-elemu-512` in 1 chunk of 32-byte groups; the `ffi-chunk256` arm puts it in 64 and `C-leaf-2048` in 512 | pass | `93` |
+| disputed rows: `U-map-entry` reads as protobuf's pure-python backend (entry kept), all arms; `X-tag-zero-Empty`, `X-tag-zero-nested-Empty` refused (-2), all arms | reported, excluded | `93` |
+| RPC gate (R-D3) through the rendered header | 80 of 80 failure rows aborted, 20 of 20 healthy rows gated, both levels | `94` |
+| R-D1 wrapped lengths through the shim | every input `AK_ERR_TRUNCATED`, control decodes, both levels | `95` |
+| U1 | unchanged: upb drops the entry, every other reader keeps it | `96` |
+| **3.7 source check**: all five translation units against real 3.7.5 headers, `-Werror`; and against 3.9.5, 3.10, 3.11, 3.12, 3.13 headers | pass; the pre-port tree fails on `Py_NewRef`, `PyObject_CallNoArgs`, `PyObject_CallOneArg`, `PyModule_AddObjectRef` | `97` |
+| rendered C header vs the cpp slice's | byte-identical (payload set and corpus) | `98` |
+| concurrency suite (obligation 12.5) | run once on 3.12 after the port: 0 wrong bytes; not in the gate, log not committed (its scaling columns are timings) | none |
 
-Not re-run this session: `53` on 3.10/3.11/3.13 (no protobuf/grpcio installed on those
-interpreters in this container), the concurrency suite.
+## Crossing counts (R5), per element
 
-## Crossing counts (R5), per element, and which edge each number is
-
-From the counting build, `logs/python/85-conformance-rpc-shim.log` (3.12, core 6ede244),
-identical row for row to the same log at 8864e4d and to the 3.11 block of
-`53-conformance-all-shapes.log`: the R-D1 fix moved no count. "Per element"
-divides by the manifest's element count (P2.x: 500 `TaskDetailed`; P5.x: 1, the message).
-
-Three edges, counted by two parties, and **they must never be added together**:
-
-- **shim -> CPython**: calls the generated shim makes into the CPython C-API (value reads,
-  list element access, `PyObject_GetAttr/SetAttr`, calls into Python). Counted by the shim.
-- **core fwd**: host -> core calls across the ABI. Counted by the core.
-- **core rev**: core -> host callbacks across the ABI. Counted by the core.
+Unchanged by the port: log 98 diffs every row of log 91 against the pre-port log 85 and finds
+none different. The table below is log 91's (3.12; 3.7 identical). Three edges, never added:
+shim -> CPython (counted by the shim), core fwd and core rev (counted by the core).
 
 | payload | shim -> CPython, C ext type (enc / dec) | shim -> CPython, plain and `__slots__` (enc / dec) | core fwd (enc / dec) | core rev (enc / dec) |
 |---|---|---|---|---|
 | P1.2 M1 | 7.00 / 7.00 | 29.00 / 24.00 | 0.01 / 0.00 | 0.00 / 0.01 |
-| **P2.2 M2** | **51.67 / 51.67** | **146.68 / 131.35** | 5.02 / 0.00 | 5.00 / 7.00 |
+| P2.2 M2 | 51.67 / 51.67 | 146.68 / 131.35 | 5.02 / 0.00 | 5.00 / 7.00 |
 | P3.1 M3 | 5.40 / 3.15 | 13.40 / 9.96 | 0.01 / 0.01 | 0.01 / 0.01 |
 | P4.1 M4 | 23.00 / 23.00 | 54.01 / 49.01 | 1.01 / 0.01 | 1.00 / 3.00 |
-| P5.1-P5.4 M5 (36 B to 4 MB) | 3.00 / 3.00 | 7.00 / 8.00 | 1.00 / 1.00 | 0.00 / 1.00 |
+| P5.1-P5.4 M5 | 3.00 / 3.00 | 7.00 / 8.00 | 1.00 / 1.00 | 0.00 / 1.00 |
 | P6.1 M6 | 302.00 / 152.00 | 308.00 / 158.00 | 5.01 / 0.01 | 5.00 / 7.00 |
 | P7.1 M7 | 2.00 / 2.00 | 5.33 / 4.33 | 0.50 / 0.17 | 0.33 / 1.17 |
 
-Every payload, every backend (P1.1, P1.3, P2.1, P2.3 to P2.5 and the two `pyacc`
-backends included) is in the log.
+## What the plan does not carry (reported, not decided here)
 
-**R-F3, reconciled.** The previous version of this file gave P2.2 as "10.02 / 7.00" in the
-shim -> CPython column and "32" for the Python storages. **10.02 and 7.00 are core
-crossings, not shim crossings**: 10.02 = core fwd 5.02 + core rev 5.00 on encode, and 7.00 =
-core rev on decode (fwd 0.00), per `TaskDetailed` -- the figure JOURNAL J22 matched against
-the rust slice. They had been written into the wrong column. The shim -> CPython figures
-for the same payload are 51.67 / 51.67 (C ext type) and 146.68 / 131.35 (plain and
-`__slots__`), which is what the log says. **"32" has no log behind it** and is deleted.
-
-Facts these counts carry, independent of any machine:
-
-- A packed run (P6.1) crosses the ABI once per field (`ak_run_*`) and the shim then reads
-  every Python int individually: 5.01 core calls against 302 shim calls per element.
-- M5 is constant in the payload size: 3 shim calls and 1 core call per message from 36 B to
-  4 MB, because section 8's direct argument hands the bytes over beside the group.
-- A oneof (P3.1) costs a discriminant read plus one member: fewer shim calls than M1.
-- The C extension facade removes every `GetAttr/SetAttr`; the two Python storages count
-  identically.
-
-## Facts that are not timings
-
-- **U1, an incumbent defect**: protobuf 7.36.2 on upb drops an entire map entry that carries
-  an unknown field; the same version's pure-Python backend keeps it, and so do this slice's
-  core and its pure-Python control. One entry, one unknown varint inside it, against a
-  control without it (`88-u1-map-unknown.log`, `u1_map_unknown.py`; until this session the
-  isolation had no committed log). Found through the corpus's `U-map-entry` (`70`).
-- **ABI v1 decision 11 in this slice: unknown fields are dropped.** The shim passes NULL for
-  every `ak_unk_f` slot; the drop is the binding's choice, not a limit of the ABI. The
-  retain mode (owner D4) is not built here.
-- **M3 to M7 needed no ABI extension**: `<oneof>_case`, the presence word, `ak_run_*` and
-  section 8's direct argument were already there (JOURNAL J27).
-- **grpcio 1.84.0's flow control, read from the C core's own tracing** (`80-rpc-grid.log`,
-  the flow-control section): static stream window 65,535; `grpc.http2.lookahead_bytes` is a
-  floor, not a cap, while BDP probing is on; setting it does not turn probing off; there is
-  no channel argument for the connection window.
-- **Section 9's three deliveries all work from Python**: the queue's drainer is a Python
-  thread that drops the GIL in `ak_queue_next`; the callback arrives on a tokio worker and
-  takes the GIL with `PyGILState_Ensure`. Both now fail loudly on a failed call (`83`).
+1. **ABI v1 sections 3-5's fixed vocabulary**: error codes, `ak_str` / `ak_span` / `ak_blob` /
+   `ak_uspan`, `AK_STR_DIRECT`, `AK_TOKEN_ROOT`, the context and callback types, the fixed
+   exports, the counters. Every C header renderer restates them as fixed text (`cpp_abi`'s is
+   the one used).
+2. **`plan.lifecycle` names but does not define** the `AK_INIT_*` values, `ak_err`'s layout,
+   `ak_log_fn`'s signature; `opts_struct`'s `log` type is prose ("ak_log_fn (nullable)").
+3. **Map entry ORDER** on encode: the plan states each entry's own plan, not the order of the
+   entries. This backend sorts by key (code point = UTF-8 byte order), the manifest's
+   canonical form and what the Rust facade gets from `BTreeMap`.
+4. **`presence == "direct"`** has no ENCODE RULE: on the wire it is an implicit-presence
+   bytes field (the core tests `len != 0`); the pure-Python codec treats it so.
+5. **The 10th varint byte**: the plan refuses an 11th byte but does not say what becomes of
+   bits past 64 in the 10th; the core drops them and the pure-Python codec does the same.
+6. **Group depth**: the plan says nested groups are limited "likewise" (by
+   `recursion_limit`, message depth); the core bounds groups at 100 per skip, independent of
+   the message depth. The pure-Python codec follows the core.
+7. **Field numbers above 2^29-1**: not stated. The core reads `(key >> 3) as u32` (a number
+   >= 2^32 truncates); the pure-Python codec does not truncate. No corpus row reaches it.
+8. **Unknown fields inside a map entry** have no bag in any facade; both pure-Python modes drop
+   them (`U-map-entry`), as the Rust core-native control does. Retain-mode rows are otherwise
+   retained (the retained form is what `py-retain` writes on the `unknown` class).
 
 ## Open defects
 
 | # | where | what |
 |---|---|---|
-| **R-D4** | `gen/py_binding.py` -> `gen/out/binding.c`; `native/binding.c`; `mech/pyo3` | 3.7 floor does not compile: `Py_NewRef` x164, `PyObject_CallNoArgs` x114, `PyObject_CallOneArg` x133 in the generated shim; `Py_NewRef` x1 and `PyModule_AddObjectRef` x1 in the **hand-written** `native/binding.c` (not generated, so WP5 will not fix it); PyO3 arm is `abi3-py310`. Waits for WP5 |
-| R-D2 follow-up | `native/binding.c` | restates `ak_client_opts` by hand (6 fields, currently matching the core). When the cpp agent's generated `ak_client_opts` lands in `ak_abi.h`, switch to it |
-| U1 | the incumbent | upb drops a map entry carrying an unknown field (above, `88`) |
-| **R-E5** | `gen/py_codec.py` (the pure-Python control) | confirmed by the grown corpus: no wire-type check, negative int32/int64 decoded as unsigned, tag 0 accepted; 42 rows (`70`). Waits for WP5, which moves decode rules into the shared generator |
-| D12 | `corpus.py` | **fixed**: commit 7e0404a deleted the `UPSTREAM` table and kept three reads of it, so the first C1 failure crashed the script with a `NameError` instead of being reported. Found by the first corpus that made a row fail. Failures were also truncated to eight per arm; all are printed now |
-| D1-D10 | this slice | all fixed (JOURNAL) |
-| `57-gc-bias.log` closing line | log text | it says `bench.py` "no longer" disables GC; `bench.py` does disable it for its rounds (JOURNAL J28). The line was printed by `gcbias.py` during the withdrawn first fix; `gcbias.py`'s text is corrected, the committed log is left as it was produced |
+| U1 | the incumbent | upb drops a map entry carrying an unknown field (log 96) |
+| mech/ | `mech/gen/generate.py`, `mech/pyo3` | **work unit 1's frozen M1 microbenchmark still has its own generator with wire rules** (a pure-Python encoder and the no-core `_akcodec.c`) and a PyO3 arm built `abi3-py310`. Not ported and not in any gate; its figures were container instrumentation. A slice `gen/` with wire rules is a defect by CLAUDE.md; retiring `mech/`'s codec arms is the owner's/aggregator's call |
+| noinit C4 | `corpus.py` | under the `noinit` control a reject row is "refused" with -10 and counts as refused; only accept rows show the control. Same as the rust harness |
+| D1-D12 | this slice | fixed (JOURNAL) |
+| **D13** | shim (was `py_binding.py`, now `py_capi.py`) | **fixed**: a packed run longer than 4096 values crossed as several `ak_run_*` calls, each its own LEN record (legal, not canonical, not ABI v1 section 6). Found by the `ffi-chunk256` arm (log 99); now one call per field |
+| **D14** | `native/binding.c` | **fixed**: on 3.7/3.8 `PyMODINIT_FUNC` has no default visibility, so under `-fvisibility=hidden` no shim exported `PyInit_*`. Found by the first real 3.7 import |
 
 ## What is not measured, or not built
 
-- **The floor (3.7)**: not buildable (R-D4) and not installable here.
-- **Free-threaded CPython**: not installable in this container.
-- **Decode under threads**. The concurrency suite covers encode only, at 1, 2 and 4 threads.
-- **Unknown-field retention** (owner D4): the core has `ak_ufix_*` groups and `ak_unk_f`
-  slots; this shim passes NULL, so only the drop mode exists here.
-- **An encode-side RPC arm and the server side**: every RPC cell decodes at the client
-  against a server that returns pre-serialised bytes (FIX-PLAN R-A9, R-C8).
-- **Streaming, TLS, deadlines, metadata** in the RPC arm (owner position 3: not required).
-- **Allocation per operation**, in any arm.
-- **The corpus beyond this slice's roots**: 478 of 691 rows (WireZoo, Surrogate and the
-  non-root messages).
-- **abi3 on the composed arm**; the shim is built full-API only.
-- **Decision 13's borrowed span** and **the pull decode family**: not built.
-- **Every performance question.** Deferred to the campaign (`design/CAMPAIGN.md`). The RPC
-  grid's known harness defects (R-C2 to R-C5, R-C9, R-C13) are not fixed here; R-D3 only
-  makes a failed call impossible to time.
+- **Unknown-field retention through the C ABI**: the shim passes NULL for every `ak_unk_f`
+  slot and uses the `ak_encode_*` family, so there is no ffi-retain arm. Retain exists in the
+  pure-Python codec only.
+- **3.8 to 3.11 and 3.13** were not re-gated after the port (no protobuf/grpcio on those
+  interpreters here; they were gated on an older commit, log 53). The conditionals switch at
+  3.9 and 3.10: 3.12 takes every `>=` branch and 3.7 every `#else` branch. The mixed case
+  (3.9: `PyObject_CallNoArgs` but no `Py_NewRef`) is COMPILED against focal's 3.9.5 headers,
+  as are 3.10, 3.11 and 3.13 (log 97, all five variants, `-Werror`), but not run.
+- **3.7 floor limits**: bionic's interpreter without libssl1.1 (no `ssl`); protobuf 4.24.4 as
+  the incumbent there (7.x has no 3.7 build). The floor runs the correctness gate only.
+- **Free-threaded CPython**, **decode under threads**, **allocation per operation**,
+  **abi3**, **decision 13's borrowed span**, **the pull decode family**, **an encode-side RPC
+  arm and the server side**, **streaming, TLS, deadlines, metadata**: not built (as before).
+- **C5 for the five large rows** without a projection (`B-P2_5`, `B-P4_1`, `C-elemu-512`,
+  `C-leaf-2048`, `C-mixed-100`): checked by C3 re-encode only, named in log 93.
+- **Every performance question**, deferred to the campaign (`design/CAMPAIGN.md`). The RPC
+  grid's known harness defects (R-C2 to R-C5, R-C9, R-C13) are not fixed here.
 
-## GC in the harnesses (R-F2, made consistent with the code)
+## GC in the harnesses (R-F2)
 
-- `bench.py` runs its rounds through `mech/harness.run`, whose default is
-  `gc_enabled=False`: **the collector is off** while a bench ratio is formed.
-- `gcbias.py` measures the same arms with the collector off and on, one payload and one
-  direction at a time; that is where the collector's cost is shown (`57`, instrumentation).
-- `concurrency.py`, `rpc.py`, `rpc_gate.py` and `allocator.py` do not touch the collector.
-- `57-gc-bias.log`'s last line contradicts the first bullet; see open defects.
+Unchanged: `bench.py` runs its rounds with the collector off (`mech/harness.run`);
+`gcbias.py` measures off and on; the gates do not touch it. `57-gc-bias.log`'s closing line is
+stale text (JOURNAL J28).
+
+## Next step
+
+1. When the aggregating session rules on the plan gaps above, re-render (`gen/generate.py`)
+   and re-run `./gate.sh python3.12 build/py37/python3.7`.
+2. Whenever the shared core, `plan.py`, `cpp_abi.py` or `cpp_layout.py` change: `./gate.sh`
+   (the build's `--check` reports a stale tree first).
+3. Retention through the C ABI (`ak_uencode_*`, `ak_unk_f`), if the owner's D4 needs a Python
+   ffi-retain column.
+4. WP3: conform `rpc.py`, `bench.py`, `concurrency.py` to `design/CAMPAIGN.md`.
 
 ## Log index
 
@@ -189,41 +170,22 @@ Facts these counts carry, independent of any machine:
 
 | Log | What it establishes |
 |---|---|
-| `01-environment.log` | interpreters present, no free-threaded build, 3.7 apt-listed, which incumbent versions 3.7 could reach |
+| `90-wp5-build.log` | build at 3.12.3 and 3.7.5: R0, R1 + guard, init-guard cores, six shims each, R5, the controls |
+| `91-wp5-conformance-py3.12.log`, `-py3.7.log` | R2 both directions, layout at import, crossing counts, `_akffi` |
+| `92-wp5-conformance-rpc-shim-py3.12.log`, `-py3.7.log` | the same on `_akffi_rpc` |
+| `93-wp5-corpus-py3.12.log`, `-py3.7.log` | the whole corpus, five arms, controls, chunk counts, refusal codes per vector; 3.7 compared byte for byte with 3.12 |
+| `94-wp5-rpc-gate-py3.12.log`, `-py3.7.log` | R-D3 through the plan-rendered header |
+| `95-wp5-rd1-lenwrap-py3.12.log`, `-py3.7.log` | R-D1 through the shim |
+| `96-wp5-u1-py3.12.log`, `-py3.7.log` | U1 |
+| `97-wp5-floor-source.log` | 3.7.5 headers, five variants, and the pre-port control |
+| `98-wp5-counts-vs-85.log` | crossing counts unchanged by the port; the header is the cpp slice's |
+| `99-wp5-corpus-chunk256-before-D13.log` | D13 before the fix (71 rows, all packed) |
 | `52-r14-baseline.log` | R14 derived from `Protos/V1` |
-| `53-conformance-all-shapes.log` | R2 both directions, 16 payloads, 3.10-3.13, older commit; R5 counts, both halves |
-| `54-build-all-shapes.log` | build for 3.10-3.13, older commit; R0; R5 for two of the three shims |
-| `56-concurrency.log` | obligation 12.5: 0 wrong bytes (its scaling columns are instrumentation) |
-| `70-corpus-subset.log` | W8 at core 6ede244 / corpus ca03d6d: 213 of 691 in scope, core-ffi arms pass everything, pycodec's 42 R-E5 failures listed. (The previous version, 126 of 336 at an older commit, is in git history; it carried D7's re-gate and the `U-map-entry` row that led to U1) |
-| `81-rpc-gate-before.log` | **R-D3 before**: failed RPCs timed as successes, 68 of 80 rows |
-| `82-floor-3.7.log` | **R-D4**: the post-3.7 C-API calls, per file; 3.7 not fetchable here |
-| `83-rpc-gate.log` | **R-D3 after** (re-run at core 6ede244): 80 of 80 failure rows aborted, 20 of 20 healthy rows gated; binding returns None on failure |
-| `84-conformance-rpc-shim-before.log` | `_akffi_rpc` gated for the first time, pre-fix binary: pass |
-| `85-conformance-rpc-shim.log` | 3.12, core 6ede244, `_akffi_rpc` and `_akffi`, both pass; the crossing table above |
-| `86-rpc-smoke-gated.log` | `rpc.py` runs gated end to end; timing rows deleted |
-| `87-build-py3.12.log` | 3.12 build at core 6ede244; R5 over all three shims with the must-fail control |
-| `89-rd1-lenwrap.log` | **R-D1 through the shim**, before (8864e4d: hang, abort, SIGSEGV) and after (6ede244: `AK_ERR_TRUNCATED` on every input, both shims, both backends) |
-| `88-u1-map-unknown.log` | **U1**: upb returns `{}` for a map entry carrying an unknown field; protobuf's python backend, this slice's core and its pure-Python control return `{'k': 'v'}` |
+| `85-conformance-rpc-shim.log` | the pre-port shim's crossing counts (the reference for 98) |
+| `70-corpus-subset.log` | pre-port: 213 rows, pycodec's 42 R-E5 failures (superseded by 93) |
+| `83-rpc-gate.log`, `81-rpc-gate-before.log`, `84`, `86`, `87`, `89`, `88`, `82` | work unit 4 (R-D3, R-D1, U1, R-D4 confirmation); superseded where 9x covers them |
+| `53-conformance-all-shapes.log`, `54-build-all-shapes.log`, `56-concurrency.log`, `01-environment.log` | older commits and interpreters (3.10-3.13) |
 
-**Instrumentation** (container timings; not quoted, re-measured in the campaign):
-`00-r13-rust-crossing.log`, `10-build.log`, `20-conformance.log`, `30`/`31` (mechanism),
-`40`/`41` (codec, work unit 1), `50`/`51`/`60`/`61` (superseded), `55-allocator.log`,
-`57-gc-bias.log` (closing line stale, above), `62`/`63` (all-shapes bench),
-`80-rpc-grid.log` (predates the R-D3 gate: its core-transport rows were taken by a harness
-that could not tell a failed call from a successful one; no failure is known to have
-occurred in it, but nothing in that harness would have shown one).
-
-## Next step
-
-1. Re-gate whenever the shared core changes behaviour: `git archive <commit>
-   ffi/poc/codec ffi/poc/cpp/gen ffi/schema` into a scratch directory with `COMMIT`
-   beside it, `AK_UPSTREAM=<it>/ffi ./build.sh python3.12`, then `conformance.py` on both
-   shims, `rpc_gate.py`, `corpus.py`, `rd1_lenwrap.py`.
-2. When WP5 lands the shared shim generator: port this backend, emit the `PY_VERSION_HEX`
-   conditionals, hand-fix `native/binding.c`'s two 3.10 calls, and build on 3.7 wherever a
-   3.7 can be obtained (not this container). The pure-Python control's decode must then
-   pass the 42 R-E5 corpus rows.
-3. When the cpp agent's generated `ak_client_opts` lands in `ak_abi.h`: use it in
-   `native/binding.c` instead of the hand restatement.
-4. WP3: conform `rpc.py`, `bench.py` and `concurrency.py` to `design/CAMPAIGN.md` once it
-   exists.
+**Instrumentation** (container timings; not quoted): `00-r13-rust-crossing.log`, `10`, `20`,
+`30`/`31`, `40`/`41`, `50`/`51`/`60`/`61`, `55-allocator.log`, `57-gc-bias.log`, `62`/`63`,
+`80-rpc-grid.log` (predates the R-D3 gate). Log 93's `wall` line is instrumentation too.

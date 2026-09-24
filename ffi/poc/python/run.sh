@@ -3,11 +3,11 @@
 #
 #   ./run.sh <target-python> [<other pythons>...]
 #
-# The target is CPython 3.12 (FIX-PLAN section 6, D1). AK_UPSTREAM and
-# AK_CARGO_TARGET_BASE are passed through to build.sh (see there).
+# The target is CPython 3.12 (FIX-PLAN section 6, D1); the floor is 3.7 (./fetch_py37.sh).
+# AK_CARGO_TARGET_BASE is passed through to build.sh (see there).
 #
 # PHASE (README 1.1): steps 5 to 9 print container TIMINGS, which are instrumentation. Run
-# them to prove a harness executes; do not quote them. Steps 1 to 4 and 3b are the ones
+# them to prove a harness executes; do not quote them. Steps 1 to 4 (gate.sh) are the ones
 # whose output is a result now (builds, byte identity, crossing counts, corpus, gates).
 #
 # Logs land in ffi/logs/python/.  Absolutes are instrumentation (README section 8, after
@@ -39,54 +39,19 @@ hdr() {
   echo
 }
 
-echo "===== 1. build ====="
+echo "===== 1-4. build and the correctness gate (gate.sh: logs 90-98) ====="
 # The incumbent's shapes_pb2.py is emitted by mech/build.sh (grpcio-tools carries protoc).
 # From a clean clone nothing else writes it, and conformance would report upb ABSENT.
-mech/build.sh "$@" > /dev/null 2>&1 || { echo "   mech/build.sh failed"; exit 1; }
-./build.sh "$@" 2>&1 | tee "$LOGS/54-build-all-shapes.log" | tail -3
+mech/build.sh "$TARGET" > /dev/null 2>&1 || { echo "   mech/build.sh failed"; exit 1; }
+# gate.sh builds (every core WITH init-guard) and runs conformance on both shims, the whole
+# corpus with its controls, the RPC gate, R-D1, U1 and the 3.7 source check, per interpreter.
+# The floor interpreter comes from ./fetch_py37.sh: `./run.sh python3.12 build/py37/python3.7`.
+./gate.sh "$@"
 
 echo "===== 2. R14: derive the baseline from Protos/V1 ====="
 { hdr "python slice: R14, the baseline is the path ArmoniK runs"; "$TARGET" verify_r14.py; } \
   > "$LOGS/52-r14-baseline.log" 2>&1
 tail -4 "$LOGS/52-r14-baseline.log"
-
-echo "===== 3. conformance and crossing counts, every interpreter (R2, R5) ====="
-{
-  hdr "python slice: conformance and crossing counts, M1 through M7"
-  for PY in "$@"; do
-    echo "########## $("$PY" -c 'import sys;print(sys.version.split()[0])') ##########"
-    "$PY" conformance.py
-    echo
-  done
-} > "$LOGS/53-conformance-all-shapes.log" 2>&1
-grep -c "ALL CHECKS PASS" "$LOGS/53-conformance-all-shapes.log" | sed 's/^/   interpreters passing: /'
-
-echo "===== 3b. R-D3: the RPC shim through the same gate, and the RPC arm under injected failure ====="
-# `_akffi_rpc` carries the codec too (cell C of the RPC grid decodes through it), so it is
-# gated exactly like `_akffi`. Nothing ran this before FIX-PLAN R-D3.
-{
-  hdr "python slice: conformance on the RPC shim (_akffi_rpc)"
-  for PY in "$@"; do
-    echo "########## $("$PY" -c 'import sys;print(sys.version.split()[0])') ##########"
-    AK_FFI_MODULE=_akffi_rpc "$PY" conformance.py
-    echo
-  done
-} > "$LOGS/85-conformance-rpc-shim.log" 2>&1
-grep -c "ALL CHECKS PASS" "$LOGS/85-conformance-rpc-shim.log" | sed 's/^/   interpreters passing on _akffi_rpc: /'
-# What every RPC cell reports when the RPC fails: status, empty body, short body, closed
-# socket. No timings in it. Target interpreter only (it needs grpcio).
-{
-  hdr "python slice: the RPC arm's gate under injected failure (R-D3)"
-  "$TARGET" rpc_gate.py
-} > "$LOGS/83-rpc-gate.log" 2>&1
-echo "   rows aborted under injection: $(grep -c 'ABORTED, no figure' "$LOGS/83-rpc-gate.log"); rows timed under injection: $(grep -c 'FIGURE PRODUCED' "$LOGS/83-rpc-gate.log")"
-
-echo "===== 4. the conformance corpus (W8), every row this scope can root ====="
-{
-  hdr "python slice: the conformance corpus, as far as walk.ROOTS reaches"
-  "$TARGET" corpus.py
-} > "$LOGS/70-corpus-subset.log" 2>&1
-grep -m1 "rows root at" "$LOGS/70-corpus-subset.log" | sed 's/^ */   /'
 
 echo "===== 5. the allocator control: why an encode above 128 KiB has two answers ====="
 {
@@ -124,6 +89,8 @@ echo "===== 9. the composed arm, every interpreter, 1 process ====="
 {
   hdr "python slice, work unit 3: the composed arm across every interpreter here"
   for PY in "$@"; do
+    # The floor is a correctness gate only (CLAUDE.md): no timing is taken on it.
+    [ "$("$PY" -c 'import sys;print(sys.version_info[:2] < (3, 12))')" = True ] && continue
     echo "########## $("$PY" -c 'import sys;print(sys.version.split()[0])') ##########"
     "$PY" bench.py
     echo
