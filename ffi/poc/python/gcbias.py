@@ -92,8 +92,11 @@ def main():
     print("# Every flagged row is the FACADE's DECODE and nothing else: an encode writes", file=out)
     print("# one buffer and allocates no graph, and upb's decode allocates an arena the", file=out)
     print("# collector never walks. Worst row: %s at %.2f." % (worst[1], worst[0]), file=out)
-    print("# So `gc.disable()` was not neutral tuning -- it was a discount applied to one", file=out)
-    print("# arm of one column, and `bench.py` no longer takes it.", file=out)
+    print("# So `gc.disable()` is not neutral tuning: it removes the collector's work from", file=out)
+    print("# one arm of one column. `bench.py` KEEPS the collector off for its interleaved", file=out)
+    print("# rounds (enabling it there mis-attributes each collection to whichever case", file=out)
+    print("# trips the threshold; JOURNAL J28), so this script is where that cost is shown,", file=out)
+    print("# one payload and one direction at a time, nothing interleaved.", file=out)
     return 0
 
 

@@ -1,0 +1,17 @@
+# python slice: U1 reproduced and committed (it had no raw log until now)
+# date: 2026-09-24T08:58:11Z; code c55a11a; core 8864e4d via AK_UPSTREAM; shim _akffi
+
+# U1: a map entry carrying an unknown field, four readers (no timings)
+# interpreter: 3.12.3
+# protobuf:    7.36.2
+# input:       0a0c520a0a080a016b1201761807
+# control:     0a0a52080a060a016b120176
+
+   upb      control, no unknown field      -> options = {'k': 'v'}
+   upb      entry WITH an unknown field    -> options = {}
+   python   control, no unknown field      -> options = {'k': 'v'}
+   python   entry WITH an unknown field    -> options = {'k': 'v'}
+   core-ffi control, no unknown field      -> options = {'k': 'v'}
+   pycodec  control, no unknown field      -> options = {'k': 'v'}
+   core-ffi entry WITH an unknown field    -> options = {'k': 'v'}
+   pycodec  entry WITH an unknown field    -> options = {'k': 'v'}
