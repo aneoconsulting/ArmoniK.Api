@@ -1,0 +1,47 @@
+== generate
+Error processing line 1 of /usr/lib/python3/dist-packages/distutils-precedence.pth:
+  Traceback (most recent call last):
+    File "<frozen site>", line 201, in addpackage
+    File "<string>", line 1, in <module>
+  ModuleNotFoundError: No module named '_distutils_hack'
+Remainder of file ignored
+   core snapshot: ffi/poc/codec at 287deca
+== core (timed, init-guard)
+    Finished `release` profile [optimized] target(s) in 12.15s
+== core (counting, init-guard)
+    Finished `release` profile [optimized] target(s) in 12.56s
+== core (corpus schema, init-guard)
+    Finished `release` profile [optimized] target(s) in 30.69s
+== shim
+== core (rpc feature) and its shim
+    Finished `release` profile [optimized] target(s) in 20.74s
+== protoc
+== classes: arm a (java17 on JDK 17)
+src/java/ak/Mem.java:28: warning: Unsafe is internal proprietary API and may be removed in a future release
+  public static final sun.misc.Unsafe U = unsafe();
+src/java/ak/Mem.java:37: warning: Unsafe is internal proprietary API and may be removed in a future release
+  private static sun.misc.Unsafe unsafe() {
+src/java/ak/Mem.java:39: warning: Unsafe is internal proprietary API and may be removed in a future release
+      Field f = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
+src/java/ak/Mem.java:41: warning: Unsafe is internal proprietary API and may be removed in a future release
+      return (sun.misc.Unsafe) f.get(null);
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+4 warnings
+== classes: arms b and c (java8 source tree, JDK 8 javac)
+src/java/ak/Mem.java:28: warning: Unsafe is internal proprietary API and may be removed in a future release
+  public static final sun.misc.Unsafe U = unsafe();
+src/java/ak/Mem.java:37: warning: Unsafe is internal proprietary API and may be removed in a future release
+  private static sun.misc.Unsafe unsafe() {
+src/java/ak/Mem.java:39: warning: Unsafe is internal proprietary API and may be removed in a future release
+      Field f = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
+src/java/ak/Mem.java:41: warning: Unsafe is internal proprietary API and may be removed in a future release
+      return (sun.misc.Unsafe) f.get(null);
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+4 warnings
+== secondary probes (JDK 21)
+Note: probe/FfmProbe.java uses preview features of Java SE 21.
+Note: Recompile with -Xlint:preview for details.
+== done
+exit 0

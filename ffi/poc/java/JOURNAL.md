@@ -483,3 +483,66 @@ recommendation ("a JVM binding should choose pull") and quoted container timings
 findings throughout. The rewrite quotes no timing, lists every timing log as
 instrumentation with the harness defects the campaign must not repeat, and states the
 levels as the owner fixed them: floor Java 8, target 17.
+
+### J21. FIX-PLAN WP5 step 3: the Java backend on the shared plan (2026-09-24)
+
+**What moved.** The Java backend now lives in `poc/codec/gen/java_*.py` (commit 2889d87)
+and imports `plan` only; `poc/java/gen/` keeps build and harness glue. Retired from the
+slice: `java_codec.py` (arm R's own wire rules), `java_layout.py` (its own member-list
+derivation), `java_binding.py`, `java_jni.py`, `java_pull.py`, `java_slots.py`,
+`java_facade.py`, `javanames.py`, and the imports of `ir.py`, `rust_abi.py`,
+`cpp_layout.py` and the cpp slice's `cpp_header.py`. `gen/generate.py` no longer writes
+`codec.rs` / `layout.rs` into `poc/codec` (E8); its `--check` runs
+`poc/codec/gen/generate.py --check` as is and applies that file's import guard to the nine
+Java modules and the slice glue, with the planted violation seen caught.
+
+**Arm R renders the plan and E1 to E6 close by construction.** Encode walks
+`MessagePlan.encode` (tag order, the plan's presence test per step, the map entry's own
+plan so an empty key or value is omitted, a oneof member written whatever its value) after
+`oneof_checks` (undeclared case -> `Enc.Refused`, ERR_ABI). Decode is `MessagePlan.decode`
+grouped by field number into a `switch`, with anything not in the table skipped (drop) or
+captured verbatim (retain), tag 0 refused on every message, merge for `merge_child` and a
+same-member `oneof_set`, the depth limit, and the reject UTF-8 policy (lossy raises: not
+rendered). `Dec` keeps primitives only, each written as `ak-rt/src/dec.rs` writes it, and
+`readLen` is now 64-bit against the remaining bytes (R-G8). The corpus confirms: the 19 rows
+re4 listed as failing all pass (`wp5-re4-closure.log`), and the three rule gaps run outside
+the corpus now read as protobuf C++ reads them (merge) or as the plan states (refusal, -0.0
+written, the 2^31 - 1 length refused at the length) on arm R and on the ffi arm.
+
+**A second description, so the corpus is in scope everywhere.** The old run covered 392 of
+691 rows (19 messages shared by shapes.proto and corpus.proto). The backend now renders the
+corpus reader schema too (`ak.corpus`): arm R over all 30 messages, the binding over the 29
+`plan.expressible_roots` allows (`Nest` refused, 16 rows reported as not in the C ABI),
+linked against the core built with `corpus,init-guard` (its own shim,
+`build/jnicorpus`). Six arms x 691 rows x two levels: 0 failing arm-rows. Arm R retain
+writes the retained form on every unknown row (no retention gap: its facade has a bag per
+message, so R-G11's C ABI limit does not apply to it).
+
+**ak_init.** The pre-WP5 Java binding never called it and every gate passed, because no
+core build carried `init-guard` (R-G7's Java instance). Now every codec core build does;
+`NativeEntry.ensureInit()` is rendered from `plan.lifecycle` and every generated `Binding`
+calls it in its static initialiser. The `noinit` control (`-Dak.skipInit=1`) makes every
+accept row of every ffi arm fail with AK_ERR_UNINITIALIZED (-10).
+
+**Three defects the port found, each fixed where the rule is rendered:**
+- *Section 8's direct path never ran.* The fill staged the bulk `byte[]` with the
+  passthrough transcoder and also passed it as the direct argument; the core takes the
+  argument only when the slot carries `AK_STR_DIRECT`, so it ignored it and copied the
+  staged bytes. Seen in the counts: P5.1 to P5.4 transcodes 3 -> 2 (`rd5-counts.log` vs
+  `wp5-counts.log`, every other row identical). "When a change does not do what it should,
+  the first hypothesis is that it is not running": here nothing had checked it ran.
+- *The zeroed fill dropped -0.0*: `x != 0.0` as the "differs from the cleared slot" test,
+  E5's defect in the binding. Latent (shapes.json has no singular double); now the bit test.
+- *`Utf8View.valid` refused any ASCII byte after a multi-byte character*, so the borrowed
+  arm refused `"A�B"` (corpus T-enc-lone-high, -low, two-highs). The payload gate's
+  Latin-1 and above-U+00FF content sets recode EVERY character, so no gated string ever had
+  that shape. Hand-written runtime, fixed in place.
+
+**What the port had to restate from a Rust backend (plan gaps).** The vtable structs'
+member order and shape and the pull family's record slot numbering are rendered by
+`rust_abi`, not stated in the plan; `java_abi` derives them from the same plan facts. The
+lifecycle flag values, `ak_err` and the record header are fixed text in `ak-abi`, named but
+not valued by `plan.lifecycle`. Reported, not resolved.
+
+**Not built: ffi retain.** The binding leaves decision 11's slots NULL and has no
+`ak_uencode_*` path, so the ffi arms run in drop mode only.
