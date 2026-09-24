@@ -1,12 +1,12 @@
-# cpp slice: the conformance corpus (W8), all three arms -- re-gate against the landed R-D1 core
-#   date        2026-09-24T09:06:21Z
+# cpp slice: the conformance corpus (W8), native + pb only (--no-ffi)
+#   date        2026-09-24T09:06:22Z
 #   machine     Linux 6.18.44-fc-v40 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
 #   compiler    g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
 #   incumbent   protobuf C++ 3.21.12; python3-protobuf 4.21.12
 #   commit      ca03d6d + this slice's uncommitted R-D1/R-D2 fix
 #   core        THE shared core at poc/codec 6ede244 (poc(codec): fix length-varint wrap on decode (FIX-PLAN WP4 item 1, R-D1)); working tree identical, cargo reports ak-core Fresh
 
-===== corpus_a17_shared  =====
+===== corpus_a17_shared --no-ffi =====
 
 
 # cpp slice: the conformance corpus (W8), as far as this scope reaches
@@ -58,74 +58,23 @@
 #   linkage        shared
 #   arms           native (no boundary) and ffi (the C ABI over the shared core)
 #   walker         ak::Dec::skip over a buffer with no schema at all
+#   ffi arm        SKIPPED (AK_CORPUS_NO_FFI=1): native and pb only
 
 ## C1 parse, C2 project, C3 re-encode, C4 refuse
-   binary   exit 0
+   binary   exit 0   ffi arm SKIPPED (--no-ffi): not gated here
    native   C1 161/161  C2 158/158  C3 161/161  C4 52/52
-   ffi      C1 161/161  C2 158/158  C3 161/161  C4 52/52
    pb       C1 161/161  C2 158/158  C3 161/161  C4 52/52   (the INCUMBENT: an oracle here, not a claimant)
 
 ## R2 / CONTRACT.md 5.5: the two arms agree on the decoded value
-   213 of 213 rows: the native and ffi arms agree (the facade on accepted rows, the error code on refused ones)
-   On the 52 rows both arms REFUSE, agreement is the error code (above). What
-   each arm leaves in the output object after refusing is unspecified; it
-   differs on 46 of them, a FACT for the aggregating session, not a verdict:
-        note X-lenwrap-lrr-nested-msg-abs-one: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-msg-abs-start: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-msg-abs-under: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-msg-abs-zero: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-msg-rel-max: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-msg-rel-one: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-msg-rel-under: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-msg-rel-zero: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-string-abs-one: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-string-abs-start: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-string-abs-under: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-string-abs-zero: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-string-rel-max: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-string-rel-one: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-string-rel-under: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-string-rel-zero: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-unknown-abs-one: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-unknown-abs-start: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-unknown-abs-under: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-unknown-abs-zero: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-unknown-rel-max: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-unknown-rel-one: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-unknown-rel-under: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-unknown-rel-zero: the object left after the refusal differs
-        note X-lenwrap-lrr-results-max: the object left after the refusal differs
-        note X-lenwrap-lrr-results-one: the object left after the refusal differs
-        note X-lenwrap-lrr-results-second-max: the object left after the refusal differs
-        note X-lenwrap-lrr-results-second-one: the object left after the refusal differs
-        note X-lenwrap-lrr-results-second-start: the object left after the refusal differs
-        note X-lenwrap-lrr-results-second-under: the object left after the refusal differs
-        note X-lenwrap-lrr-results-second-zero: the object left after the refusal differs
-        note X-lenwrap-lrr-results-under: the object left after the refusal differs
-        note X-lenwrap-lrr-results-zero: the object left after the refusal differs
-        note X-lenwrap-lrr-unknown-after-max: the object left after the refusal differs
-        note X-lenwrap-lrr-unknown-after-one: the object left after the refusal differs
-        note X-lenwrap-lrr-unknown-after-start: the object left after the refusal differs
-        note X-lenwrap-lrr-unknown-after-under: the object left after the refusal differs
-        note X-lenwrap-lrr-unknown-after-zero: the object left after the refusal differs
-        note X-nested-len-overrun: the object left after the refusal differs
-        note X-packed-truncated: the object left after the refusal differs
-        note X-tag-zero-DualResponse: the object left after the refusal differs
-        note X-tag-zero-ListProbeResponse: the object left after the refusal differs
-        note X-tag-zero-ListResultsResponse: the object left after the refusal differs
-        note X-tag-zero-ListTasksDetailedResponse: the object left after the refusal differs
-        note X-tag-zero-UploadResultDataMessage: the object left after the refusal differs
-        note X-tag-zero-nested-Empty: the object left after the refusal differs
+   SKIPPED: the ffi arm was not run (--no-ffi), so there is nothing to agree with
 
 ## C3: which accepted form this slice writes
 #  CONTRACT.md C3: a vector may have more than one accepted form, and which one
 #  a slice writes is a fact about it rather than a verdict.
-   ffi      as committed=52, as committed in ffi/schema/generated=7, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: ten-byte sign-extended=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=26, unknown-dropped: the known field as it was, the foreign-typed one gone=27
    native   as committed=52, as committed in ffi/schema/generated=7, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: ten-byte sign-extended=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=26, unknown-dropped: the known field as it was, the foreign-typed one gone=27
    pb       as committed=130, as committed in ffi/schema/generated=6, as upb writes it: the same message in a different field ORDER=1, as upb writes it: the same message, encoded differently=2, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: ten-byte sign-extended=1, canonical: the zero leaves omitted=1, key and value always written=2, key and value always written (protobuf C++, upb, protobuf-java)=2, map values always written (protobuf C++, upb, protobuf-java)=5, unknown-dropped=1, unknown-dropped, map values always written=1, unknown-retained, appended in tag order=6, unknown-retained, map values always written=25
 
 ## ABI v1 open decision 11, answered for this slice
-   ffi      as committed=4, unknown-dropped=62, unknown-dropped, map values always written=26, unknown-dropped: the known field as it was, the foreign-typed one gone=27  (of 93 unknown-class rows)
    native   as committed=4, unknown-dropped=62, unknown-dropped, map values always written=26, unknown-dropped: the known field as it was, the foreign-typed one gone=27  (of 93 unknown-class rows)
    pb       as committed=85, as upb writes it: the same message, encoded differently=1, unknown-dropped=1, unknown-dropped, map values always written=1, unknown-retained, appended in tag order=6, unknown-retained, map values always written=25  (of 93 unknown-class rows)
    **This slice DROPS unknown fields**, in both arms. protobuf C++, the
@@ -188,58 +137,6 @@
    native   X-tag-zero-ListTasksDetailedResponse -2 AK_ERR_MALFORMED
    native   X-tag-zero-UploadResultDataMessage -2 AK_ERR_MALFORMED
    native   X-tag-zero-nested-Empty    -2 AK_ERR_MALFORMED
-   ffi      X-lenwrap-lrr-nested-msg-abs-one -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-msg-abs-start -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-msg-abs-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-msg-abs-zero -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-msg-rel-max -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-msg-rel-one -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-msg-rel-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-msg-rel-zero -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-string-abs-one -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-string-abs-start -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-string-abs-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-string-abs-zero -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-string-rel-max -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-string-rel-one -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-string-rel-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-string-rel-zero -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-unknown-abs-one -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-unknown-abs-start -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-unknown-abs-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-unknown-abs-zero -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-unknown-rel-max -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-unknown-rel-one -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-unknown-rel-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-unknown-rel-zero -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-results-max  -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-results-one  -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-results-second-max -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-results-second-one -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-results-second-start -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-results-second-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-results-second-zero -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-results-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-results-zero -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-unknown-after-max -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-unknown-after-one -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-unknown-after-start -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-unknown-after-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-unknown-after-zero -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-unknown-max  -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-unknown-one  -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-unknown-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-unknown-zero -3 AK_ERR_TRUNCATED
-   ffi      X-nested-len-overrun       -3 AK_ERR_TRUNCATED
-   ffi      X-packed-truncated         -3 AK_ERR_TRUNCATED
-   ffi      X-tag-zero-DualResponse    -2 AK_ERR_MALFORMED
-   ffi      X-tag-zero-ListMetricsResponse -2 AK_ERR_MALFORMED
-   ffi      X-tag-zero-ListProbeResponse -2 AK_ERR_MALFORMED
-   ffi      X-tag-zero-ListResultsResponse -2 AK_ERR_MALFORMED
-   ffi      X-tag-zero-ListTaskSummaryResponse -2 AK_ERR_MALFORMED
-   ffi      X-tag-zero-ListTasksDetailedResponse -2 AK_ERR_MALFORMED
-   ffi      X-tag-zero-UploadResultDataMessage -2 AK_ERR_MALFORMED
-   ffi      X-tag-zero-nested-Empty    -2 AK_ERR_MALFORMED
    pb       X-lenwrap-lrr-nested-msg-abs-one -2 AK_ERR_MALFORMED
    pb       X-lenwrap-lrr-nested-msg-abs-start -2 AK_ERR_MALFORMED
    pb       X-lenwrap-lrr-nested-msg-abs-under -2 AK_ERR_MALFORMED
@@ -425,9 +322,9 @@
       encodings, and they are not this slice's failures.
 
 CORPUS SUBSET PASSES, with 0 disputed and 0 permuted row(s) named
-corpus.py (a17 ) exit 0
+corpus.py (a17 --no-ffi) exit 0
 
-===== corpus_c11_shared  =====
+===== corpus_c11_shared --no-ffi =====
 
 
 # cpp slice: the conformance corpus (W8), as far as this scope reaches
@@ -479,74 +376,23 @@ corpus.py (a17 ) exit 0
 #   linkage        shared
 #   arms           native (no boundary) and ffi (the C ABI over the shared core)
 #   walker         ak::Dec::skip over a buffer with no schema at all
+#   ffi arm        SKIPPED (AK_CORPUS_NO_FFI=1): native and pb only
 
 ## C1 parse, C2 project, C3 re-encode, C4 refuse
-   binary   exit 0
+   binary   exit 0   ffi arm SKIPPED (--no-ffi): not gated here
    native   C1 161/161  C2 158/158  C3 161/161  C4 52/52
-   ffi      C1 161/161  C2 158/158  C3 161/161  C4 52/52
    pb       C1 161/161  C2 158/158  C3 161/161  C4 52/52   (the INCUMBENT: an oracle here, not a claimant)
 
 ## R2 / CONTRACT.md 5.5: the two arms agree on the decoded value
-   213 of 213 rows: the native and ffi arms agree (the facade on accepted rows, the error code on refused ones)
-   On the 52 rows both arms REFUSE, agreement is the error code (above). What
-   each arm leaves in the output object after refusing is unspecified; it
-   differs on 46 of them, a FACT for the aggregating session, not a verdict:
-        note X-lenwrap-lrr-nested-msg-abs-one: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-msg-abs-start: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-msg-abs-under: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-msg-abs-zero: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-msg-rel-max: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-msg-rel-one: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-msg-rel-under: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-msg-rel-zero: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-string-abs-one: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-string-abs-start: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-string-abs-under: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-string-abs-zero: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-string-rel-max: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-string-rel-one: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-string-rel-under: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-string-rel-zero: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-unknown-abs-one: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-unknown-abs-start: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-unknown-abs-under: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-unknown-abs-zero: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-unknown-rel-max: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-unknown-rel-one: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-unknown-rel-under: the object left after the refusal differs
-        note X-lenwrap-lrr-nested-unknown-rel-zero: the object left after the refusal differs
-        note X-lenwrap-lrr-results-max: the object left after the refusal differs
-        note X-lenwrap-lrr-results-one: the object left after the refusal differs
-        note X-lenwrap-lrr-results-second-max: the object left after the refusal differs
-        note X-lenwrap-lrr-results-second-one: the object left after the refusal differs
-        note X-lenwrap-lrr-results-second-start: the object left after the refusal differs
-        note X-lenwrap-lrr-results-second-under: the object left after the refusal differs
-        note X-lenwrap-lrr-results-second-zero: the object left after the refusal differs
-        note X-lenwrap-lrr-results-under: the object left after the refusal differs
-        note X-lenwrap-lrr-results-zero: the object left after the refusal differs
-        note X-lenwrap-lrr-unknown-after-max: the object left after the refusal differs
-        note X-lenwrap-lrr-unknown-after-one: the object left after the refusal differs
-        note X-lenwrap-lrr-unknown-after-start: the object left after the refusal differs
-        note X-lenwrap-lrr-unknown-after-under: the object left after the refusal differs
-        note X-lenwrap-lrr-unknown-after-zero: the object left after the refusal differs
-        note X-nested-len-overrun: the object left after the refusal differs
-        note X-packed-truncated: the object left after the refusal differs
-        note X-tag-zero-DualResponse: the object left after the refusal differs
-        note X-tag-zero-ListProbeResponse: the object left after the refusal differs
-        note X-tag-zero-ListResultsResponse: the object left after the refusal differs
-        note X-tag-zero-ListTasksDetailedResponse: the object left after the refusal differs
-        note X-tag-zero-UploadResultDataMessage: the object left after the refusal differs
-        note X-tag-zero-nested-Empty: the object left after the refusal differs
+   SKIPPED: the ffi arm was not run (--no-ffi), so there is nothing to agree with
 
 ## C3: which accepted form this slice writes
 #  CONTRACT.md C3: a vector may have more than one accepted form, and which one
 #  a slice writes is a fact about it rather than a verdict.
-   ffi      as committed=52, as committed in ffi/schema/generated=7, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: ten-byte sign-extended=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=26, unknown-dropped: the known field as it was, the foreign-typed one gone=27
    native   as committed=52, as committed in ffi/schema/generated=7, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: ten-byte sign-extended=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=26, unknown-dropped: the known field as it was, the foreign-typed one gone=27
    pb       as committed=130, as committed in ffi/schema/generated=6, as upb writes it: the same message in a different field ORDER=1, as upb writes it: the same message, encoded differently=2, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: ten-byte sign-extended=1, canonical: the zero leaves omitted=1, key and value always written=2, key and value always written (protobuf C++, upb, protobuf-java)=2, map values always written (protobuf C++, upb, protobuf-java)=5, unknown-dropped=1, unknown-dropped, map values always written=1, unknown-retained, appended in tag order=6, unknown-retained, map values always written=25
 
 ## ABI v1 open decision 11, answered for this slice
-   ffi      as committed=4, unknown-dropped=62, unknown-dropped, map values always written=26, unknown-dropped: the known field as it was, the foreign-typed one gone=27  (of 93 unknown-class rows)
    native   as committed=4, unknown-dropped=62, unknown-dropped, map values always written=26, unknown-dropped: the known field as it was, the foreign-typed one gone=27  (of 93 unknown-class rows)
    pb       as committed=85, as upb writes it: the same message, encoded differently=1, unknown-dropped=1, unknown-dropped, map values always written=1, unknown-retained, appended in tag order=6, unknown-retained, map values always written=25  (of 93 unknown-class rows)
    **This slice DROPS unknown fields**, in both arms. protobuf C++, the
@@ -609,58 +455,6 @@ corpus.py (a17 ) exit 0
    native   X-tag-zero-ListTasksDetailedResponse -2 AK_ERR_MALFORMED
    native   X-tag-zero-UploadResultDataMessage -2 AK_ERR_MALFORMED
    native   X-tag-zero-nested-Empty    -2 AK_ERR_MALFORMED
-   ffi      X-lenwrap-lrr-nested-msg-abs-one -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-msg-abs-start -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-msg-abs-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-msg-abs-zero -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-msg-rel-max -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-msg-rel-one -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-msg-rel-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-msg-rel-zero -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-string-abs-one -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-string-abs-start -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-string-abs-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-string-abs-zero -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-string-rel-max -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-string-rel-one -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-string-rel-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-string-rel-zero -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-unknown-abs-one -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-unknown-abs-start -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-unknown-abs-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-unknown-abs-zero -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-unknown-rel-max -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-unknown-rel-one -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-unknown-rel-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-nested-unknown-rel-zero -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-results-max  -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-results-one  -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-results-second-max -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-results-second-one -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-results-second-start -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-results-second-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-results-second-zero -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-results-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-results-zero -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-unknown-after-max -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-unknown-after-one -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-unknown-after-start -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-unknown-after-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-unknown-after-zero -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-unknown-max  -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-unknown-one  -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-unknown-under -3 AK_ERR_TRUNCATED
-   ffi      X-lenwrap-lrr-unknown-zero -3 AK_ERR_TRUNCATED
-   ffi      X-nested-len-overrun       -3 AK_ERR_TRUNCATED
-   ffi      X-packed-truncated         -3 AK_ERR_TRUNCATED
-   ffi      X-tag-zero-DualResponse    -2 AK_ERR_MALFORMED
-   ffi      X-tag-zero-ListMetricsResponse -2 AK_ERR_MALFORMED
-   ffi      X-tag-zero-ListProbeResponse -2 AK_ERR_MALFORMED
-   ffi      X-tag-zero-ListResultsResponse -2 AK_ERR_MALFORMED
-   ffi      X-tag-zero-ListTaskSummaryResponse -2 AK_ERR_MALFORMED
-   ffi      X-tag-zero-ListTasksDetailedResponse -2 AK_ERR_MALFORMED
-   ffi      X-tag-zero-UploadResultDataMessage -2 AK_ERR_MALFORMED
-   ffi      X-tag-zero-nested-Empty    -2 AK_ERR_MALFORMED
    pb       X-lenwrap-lrr-nested-msg-abs-one -2 AK_ERR_MALFORMED
    pb       X-lenwrap-lrr-nested-msg-abs-start -2 AK_ERR_MALFORMED
    pb       X-lenwrap-lrr-nested-msg-abs-under -2 AK_ERR_MALFORMED
@@ -846,5 +640,5 @@ corpus.py (a17 ) exit 0
       encodings, and they are not this slice's failures.
 
 CORPUS SUBSET PASSES, with 0 disputed and 0 permuted row(s) named
-corpus.py (c11 ) exit 0
+corpus.py (c11 --no-ffi) exit 0
 

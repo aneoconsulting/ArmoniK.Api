@@ -1,0 +1,33 @@
+# R-D2 smoke: rpccounts (crossing COUNTS, no timing) with all six ak_client_opts fields set
+#   date    2026-09-24T09:11:04Z
+#   commit  c1c97ff + this slice's fix
+#   core    core-build/target-rpc-count built 2026-09-24T09:05:41 from poc/codec at 6ede244 --features rpc,count
+
+counting core: ak_rpc_counting() = 1
+configuration: grpc++ 1.51.1 server, UDS, transport pinned, 20 RPCs per cell
+
+delivery   method                   resp bytes   fwd/RPC   rev/RPC   ABI v1 section 9 says
+blocking   Fetch (~4,500 fields)        540422     2.000     0.000   2 fwd / 0 rev
+callback   Fetch (~4,500 fields)        540422     3.000     1.000   2 fwd / 1 rev
+queue      Fetch (~4,500 fields)        540422     4.000     0.000   3 fwd / 0 rev
+blocking   Ping  (0 fields)                  0     2.000     0.000   2 fwd / 0 rev
+callback   Ping  (0 fields)                  0     3.000     1.000   2 fwd / 1 rev
+queue      Ping  (0 fields)                  0     4.000     0.000   3 fwd / 0 rev
+
+What the two methods settle: the counts are identical on a 540 KB response
+with about 4,500 fields and on an empty one with none, so the crossing count
+per RPC is not a function of field count. That is section 9's claim, COUNTED.
+
+What the table gets wrong, and it is not rounding. The callback and the
+queue both return an `ak_call*` the host must release, and section 9's table
+does not count `ak_call_destroy`. A host that does not call it leaks a handle
+per RPC. Counted with the handle released as the ABI requires:
+  blocking  2 fwd / 0 rev   (the table's 2/0, and this one is right --
+                                   the blocking form takes no handle here)
+  callback  3 fwd / 1 rev   (the table says 2/1)
+  queue     4 fwd / 0 rev   (the table says 3/0)
+
+Still the point section 9 is making: three, four crossings against a call of
+about a millisecond of CPU. At this slice's measured 1.82 ns per forward
+crossing through a shared library, the whole boundary is under 8 ns.
+rpccounts exit 0

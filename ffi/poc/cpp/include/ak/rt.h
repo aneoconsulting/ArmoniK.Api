@@ -301,7 +301,8 @@ class Dec {
     }
   }
   inline double f64() {
-    if (pos + 8 > len) { err = ERR_TRUNCATED; return 0.0; }
+    // Checked form (R-D1): never add to `pos` before comparing.
+    if (pos > len || len - pos < 8) { err = ERR_TRUNCATED; return 0.0; }
     uint64_t bits = 0;
     for (int i = 0; i < 8; ++i) bits |= (uint64_t)buf[pos + i] << (8 * i);
     pos += 8;
@@ -311,8 +312,16 @@ class Dec {
   }
   // (offset, length) into the ONE buffer the host handed in: what `ak_span` is.
   inline void len_body(std::size_t *off, std::size_t *n) {
-    std::size_t k = (std::size_t)varint();
-    if (pos + k > len) { err = ERR_TRUNCATED; *off = pos; *n = 0; return; }
+    // R-D1: `k` comes off the wire, so `pos + k` can wrap past SIZE_MAX and pass the
+    // comparison. Compare against the REMAINING length instead, which cannot wrap:
+    // `pos <= len` holds here because `varint()` never reads past `len`. The value is
+    // also checked before narrowing to size_t, for a 32-bit host.
+    uint64_t k64 = varint();
+    if (err != 0) { *off = pos; *n = 0; return; }
+    if (pos > len || k64 > (uint64_t)(len - pos)) {
+      err = ERR_TRUNCATED; *off = pos; *n = 0; return;
+    }
+    std::size_t k = (std::size_t)k64;
     *off = pos;
     *n = k;
     pos += k;

@@ -1,0 +1,60 @@
+# cpp slice: R1 generator gate after the R-D1/R-D2 change, against the landed core
+#   date    2026-09-24T09:11:03Z
+#   commit  c1c97ff + this slice's fix (new scripts staged)
+#   core    poc/codec at 6ede244, working tree clean
+
+===== generate.py --check =====
+
+
+ok    include/ak_abi.h
+ok    include/generated/ak_layout.h
+ok    include/generated/ak_layout_names.h
+ok    src/generated/types.h
+ok    src/generated/types.cpp
+ok    src/generated/odr.h
+ok    src/generated/build.h
+ok    src/generated/build.cpp
+ok    src/generated/pb_build.h
+ok    src/generated/pb_build.cpp
+ok    src/generated/core_native.h
+ok    src/generated/core_native.cpp
+ok    src/generated/binding.h
+ok    src/generated/binding.cpp
+ok    src/generated/types_borrow.h
+ok    src/generated/types_borrow.cpp
+ok    src/generated/binding_borrow.h
+ok    src/generated/binding_borrow.cpp
+ok    src/generated/cases.h
+ok    src/generated/project.h
+ok    src/generated/project.cpp
+ok    ../codec/crates/ak-core/src/generated/codec.rs
+ok    ../codec/crates/ak-core/src/generated/layout.rs
+generate.py --check exit 0
+
+===== refusal_test.py =====
+
+
+== guards run against input that MUST be rejected ==
+  [ok]   positive control: the real schema emits              emitted
+  [ok]   A1 direct field on a tree that makes a reverse call  REFUSED: ListTasksDetailedResponse declares a direct-argument field (tasks_bulk_blob) and also needs a reverse call for tasks, parent_task_ids, data_d
+  [ok]   A2 two direct fields in one tree                     REFUSED: UploadResultDataMessage declares 2 direct-argument fields (upload_data_chunk, upload_second_chunk). ABI v1 section 8 builds the path for ONE 
+  [ok]   B1 repeated bytes                                    REFUSED: the facade payload builder has no case for ResultRaw.extra_blobs (card=repeated kind=bytes)
+  [ok]   B2 UNPACKED repeated enum                            slot repeated enum
+  [ok]   B3 repeated double                                   slot repeated double
+  [ok]   C1 map<string, int32>                                REFUSED: a map half of kind 'int32' is not a blob
+  [ok]   B1 repeated bytes, cpp_build alone (must raise)      REFUSED: the facade payload builder has no case for ResultRaw.extra_blobs (card=repeated kind=bytes)
+  [ok]   B1 repeated bytes, cpp_pbbuild alone (must raise)    REFUSED: the protobuf payload builder has no case for ResultRaw.extra_blobs (card=repeated kind=bytes)
+  [ok]   B1 repeated bytes, cpp_binding alone (must emit)     emitted
+  [ok]   B2 UNPACKED repeated enum, cpp_build alone (must raise) REFUSED: the facade payload builder has no case for ResultRaw.extra_statuses (card=repeated kind=enum)
+  [ok]   B2 UNPACKED repeated enum, cpp_pbbuild alone (must raise) REFUSED: the protobuf payload builder has no case for ResultRaw.extra_statuses (card=repeated kind=enum)
+  [ok]   B2 UNPACKED repeated enum, cpp_binding alone (must raise) REFUSED: the encode loop has no case for ListResultsResponse.extra_statuses (card=repeated kind=enum explicit=False oneof=None). A backend that cannot
+  [ok]   B3 repeated double, cpp_build alone (must raise)     REFUSED: the facade payload builder has no case for ResultRaw.extra_values (card=repeated kind=double)
+  [ok]   B3 repeated double, cpp_pbbuild alone (must raise)   REFUSED: the protobuf payload builder has no case for ResultRaw.extra_values (card=repeated kind=double)
+  [ok]   B3 repeated double, cpp_binding alone (must raise)   REFUSED: the encode loop has no case for ListResultsResponse.extra_values (card=repeated kind=double explicit=False oneof=None). A backend that cannot
+
+refusal_test: 16 passed, 0 failed
+refusal_test.py exit 0
+
+===== audit_tracked.sh =====
+audit: 0 untracked, ignored or missing files that a figure could depend on
+audit_tracked.sh exit 0

@@ -13,6 +13,8 @@ emits a `static_assert` on `sizeof` and on `offsetof` of every group member, so 
 disagreement is a compile error on the host rather than a wrong byte on the wire, and
 `ak_layout_check()` in the core re-asserts the same numbers at run time from the Rust side.
 """
+import os
+import re
 import sys
 
 from ir import loop_slots, slot_name, direct_fields
@@ -253,6 +255,8 @@ uint64_t ak_noop_reverse(uint64_t (*f)(uint64_t), uint64_t x);
     o.append("#define AK_SASSERT(c, m) typedef char ak_sa_##__LINE__[(c) ? 1 : -1]")
     o.append("#endif")
     o.append("")
+    # ---- section 9: the RPC half's client options (R-D2) ----------------------------
+    o.extend(_rpc_client_opts())
     o.append("/* Number of (struct, member) layout facts this header pins. */")
     n = sum(1 + len(ms) for _, ms in layout_asserts)
     o.append("#define AK_LAYOUT_FACTS %d" % n)
@@ -291,3 +295,59 @@ uint64_t ak_noop_reverse(uint64_t (*f)(uint64_t), uint64_t x);
     names.append("#endif")
     names.append("")
     return "\n".join(o), "\n".join(tbl), "\n".join(names)
+
+
+# ---- R-D2: `ak_client_opts`, rendered from the Rust declaration rather than restated ----
+#
+# `src/rpc_common.h` used to hand-declare this struct with 3 fields while the core read 6,
+# so `max_send_message` and `tcp_nagle` were read past the end of the host's 12-byte
+# object. The declaration is now taken from `poc/codec/crates/ak-abi/src/lib.rs`, the
+# crate whose `ak_client_opts` the core asserts field by field against its own
+# (`ak-core/src/rpc.rs`, the `const _` block), so a field added there makes `--check`
+# report `include/ak_abi.h` STALE instead of leaving a host reading garbage.
+#
+# The offsets asserted below follow from repr(C) over fields that are all 4-byte scalars;
+# anything else is REFUSED rather than laid out here, because a layout rule belongs in
+# the shared generator (design/FIX-PLAN.md WP5), not in a slice.
+AK_ABI_RS = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                         "..", "..", "codec", "crates", "ak-abi", "src",
+                                         "lib.rs"))
+_RPC_SCALAR = {"u32": "uint32_t", "i32": "int32_t"}
+
+
+def rust_struct_fields(src, name):
+    m = re.search(r"pub struct %s \{(.*?)\n\}" % re.escape(name), src, re.S)
+    if not m:
+        raise NotImplementedError("REFUSED: no `pub struct %s` in %s" % (name, AK_ABI_RS))
+    fields = []
+    for line in m.group(1).splitlines():
+        line = line.strip()
+        if not line or line.startswith("//"):
+            continue
+        f = re.match(r"pub (\w+): (\w+),$", line)
+        if not f:
+            raise NotImplementedError("REFUSED: cannot render %r of %s" % (line, name))
+        fields.append((f.group(1), f.group(2)))
+    return fields
+
+
+def _rpc_client_opts():
+    fields = rust_struct_fields(open(AK_ABI_RS).read(), "ak_client_opts")
+    o = ["/* ---- section 9: the RPC half's client options -------------------------------",
+         " * Rendered from `ak_client_opts` in poc/codec/crates/ak-abi/src/lib.rs, which the",
+         " * core asserts field by field against the struct it reads (ak-core/src/rpc.rs).",
+         " * Never hand-declare it in a host: R-D2 was a 3-field copy of a 6-field struct. */",
+         "struct ak_client_opts {"]
+    for fname, fty in fields:
+        if fty not in _RPC_SCALAR:
+            raise NotImplementedError("REFUSED: ak_client_opts.%s has type %r" % (fname, fty))
+        o.append("  %s %s;" % (_RPC_SCALAR[fty], fname))
+    o.append("};")
+    o.append("#define AK_CLIENT_OPTS_FIELDS %d" % len(fields))
+    o.append("AK_SASSERT(sizeof(struct ak_client_opts) == %d, \"sizeof ak_client_opts\");"
+             % (4 * len(fields)))
+    for i, (fname, _) in enumerate(fields):
+        o.append("AK_SASSERT(offsetof(struct ak_client_opts, %s) == %d,"
+                 " \"ak_client_opts.%s\");" % (fname, 4 * i, fname))
+    o.append("")
+    return o

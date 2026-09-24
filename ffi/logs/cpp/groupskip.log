@@ -1,13 +1,10 @@
-# cpp slice: ak::Dec::skip over the deprecated GROUP form (C24)
-#   date            2026-09-20T14:44:14Z
-#   machine         Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
-#   compiler        g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
-#   incumbent       protobuf C++ 3.21.12 (libprotobuf-dev, apt)
-#                   packages/cpp pins no protobuf version and sets CXX_STANDARD 14
-#   core            THE shared ak-core at ffi/poc/codec (R0), cdylib + staticlib;
-#                   codec emitted by ffi/poc/codec/gen/rust_abi.py (R1)
-#   rustc           rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit          a12ae492
+# cpp slice: ak::Dec::skip over the deprecated GROUP form (C24) -- re-gate
+#   date        2026-09-24T09:06:21Z
+#   machine     Linux 6.18.44-fc-v40 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
+#   compiler    g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+#   incumbent   protobuf C++ 3.21.12; python3-protobuf 4.21.12
+#   commit      ca03d6d + this slice's uncommitted R-D1/R-D2 fix
+#   core        THE shared core at poc/codec 6ede244 (poc(codec): fix length-varint wrap on decode (FIX-PLAN WP4 item 1, R-D1)); working tree identical, cargo reports ak-core Fresh
 
 == C24: the GROUP skip, every standard level and both implementations ==
 

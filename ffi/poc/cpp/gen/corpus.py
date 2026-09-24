@@ -257,8 +257,14 @@ def main():
         print(json.dumps(oracle_project(oracle_pool(), sys.argv[2],
                                         open(sys.argv[3], "rb").read())))
         return 0
-    binary = sys.argv[1] if len(sys.argv) > 1 else os.path.join(SLICE, "build",
-                                                                "corpus_a17_shared")
+    # --no-ffi: gate the native arm (and the pb oracle) with the ffi arm left out. The
+    # rows run in ONE process, and a panic in the shared core aborts it, which turned
+    # every later row of every arm into "no result". The ffi arm is then NOT gated, and
+    # the report says so on the line where it would have been counted.
+    no_ffi = "--no-ffi" in sys.argv
+    args = [a for a in sys.argv[1:] if a != "--no-ffi"]
+    binary = args[0] if args else os.path.join(SLICE, "build", "corpus_a17_shared")
+    arms = ("native", "pb") if no_ffi else ("native", "ffi", "pb")
     roots = roots_from_cases()
     rows = MAN["vectors"]
 
@@ -310,8 +316,21 @@ def main():
     tfile = os.path.join(SLICE, "build", "corpus_tasks.tsv")
     open(tfile, "w").write("\n".join(tasks) + "\n")
 
-    p = subprocess.run([binary, tfile], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    env = dict(os.environ)
+    if no_ffi:
+        env["AK_CORPUS_NO_FFI"] = "1"
+    p = subprocess.run([binary, tfile], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                       env=env)
+    # The binary's own exit status, which nothing read before: a crash in one row showed
+    # up only as "no result" on every row after it.
+    if p.returncode < 0:
+        binary_status = "KILLED by signal %d" % -p.returncode
+    elif p.returncode == 134:
+        binary_status = "exit 134 (SIGABRT: a panic that cannot unwind through extern \"C\")"
+    else:
+        binary_status = "exit %d" % p.returncode
     res, proj, agree, walked, unhandled, hexes = {}, {}, {}, {}, [], {}
+    leftover = {}
     head = []
     for line in p.stdout.decode("utf-8", "replace").splitlines():
         if line.startswith("#"):
@@ -326,6 +345,8 @@ def main():
             hexes[(f[1], f[2])] = f[3]
         elif f[0] == "A" and len(f) >= 3:
             agree[f[1]] = f[2]
+        elif f[0] == "L" and len(f) >= 3:
+            leftover[f[1]] = f[2]
         elif f[0] == "W" and len(f) >= 6:
             walked[f[1]] = (f[2], int(f[3]), int(f[4]), int(f[5]))
         elif f[0] == "U":
@@ -349,7 +370,16 @@ def main():
     n_rej = len(inscope) - n_acc
     n_proj = sum(1 for r in inscope.values()
                  if r["expect"] == "accept" and r.get("projection"))
-    for arm in ("native", "ffi", "pb"):
+    print("   binary   %s%s" % (binary_status,
+                                  "   ffi arm SKIPPED (--no-ffi): not gated here"
+                                  if no_ffi else ""))
+    if p.returncode != 0:
+        fails.append("the corpus binary did not finish: %s" % binary_status)
+        print("        FAIL the corpus binary did not finish: %s" % binary_status)
+        for line in p.stdout.decode("utf-8", "replace").splitlines():
+            if "panicked at" in line or line.startswith(("slice index", "index out")):
+                print("        %s" % line.strip())
+    for arm in arms:
         c1 = c2 = c3 = c4 = 0
         bad = []
         for vid, r in sorted(inscope.items()):
@@ -476,13 +506,25 @@ def main():
                 print("   %-22s %-8s %s %d B: same triples, different order"
                       % (vid, arm, sha, n))
 
-    dis = [k for k, v in agree.items() if v != "agree"]
+    dis = [k for k, v in agree.items() if v not in ("agree", "skipped")]
     print("\n## R2 / CONTRACT.md 5.5: the two arms agree on the decoded value")
-    print("   %d of %d rows: the native arm and the ffi arm decode to the same facade"
-          % (len(agree) - len(dis), len(agree)))
+    if no_ffi:
+        print("   SKIPPED: the ffi arm was not run (--no-ffi), so there is nothing to agree with")
+    else:
+        print("   %d of %d rows: the native and ffi arms agree (the facade on accepted rows, the error code on refused ones)"
+              % (len(agree) - len(dis), len(agree)))
     for k in dis:
         print("        FAIL %s: the arms DISAGREE" % k)
     fails.extend(dis)
+    if leftover:
+        diff = sorted(k for k, v in leftover.items() if v != "same")
+        print("   On the %d rows both arms REFUSE, agreement is the error code (above). What"
+              % len(leftover))
+        print("   each arm leaves in the output object after refusing is unspecified; it")
+        print("   differs on %d of them, a FACT for the aggregating session, not a verdict:"
+              % len(diff))
+        for k in diff:
+            print("        note %s: the object left after the refusal differs" % k)
 
     print("\n## C3: which accepted form this slice writes")
     print("#  CONTRACT.md C3: a vector may have more than one accepted form, and which one")

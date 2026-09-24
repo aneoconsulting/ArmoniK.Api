@@ -1,0 +1,32 @@
+# R-D2 layout guard: compiles, and fires on two plants (compile-only; no core involved)
+#   date   2026-09-24T09:11:39Z
+#   HEAD   519d0c1 + this slice's fix
+#   g++    g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+
+===== pass: ak_abi.h alone, at C++11, C++14, C++17 =====
+  >>> ok: c++11 compiles, sizeof(ak_client_opts) == 24 at run time
+  >>> ok: c++14 compiles, sizeof(ak_client_opts) == 24 at run time
+  >>> ok: c++17 compiles, sizeof(ak_client_opts) == 24 at run time
+
+===== pass: every RPC source against the generated header (C++17) =====
+  >>> ok: src/rpc_common.cpp
+  >>> ok: src/rpcbench.cpp
+  >>> ok: src/rpcflow.cpp
+  >>> ok: src/rpccounts.cpp
+
+===== plant A: the struct loses tcp_nagle (host smaller than core) -- must NOT compile =====
+    /tmp/tmp.HJFaWuiICT/a/ak_abi.h:1007:42: error: static assertion failed: sizeof ak_client_opts
+      990 | #define AK_SASSERT(c, m) static_assert(c, m)
+  >>> ok: plant A refused
+
+===== plant B: the Rust declaration gains a seventh field =====
+
+
+  generate.py --check would say: STALE include/ak_abi.h
+  >>> ok: the renderer picked up the new field
+    src/rpc_common.h:125:38: error: static assertion failed: ak_client_opts is 24 bytes (6 x 4)
+    src/rpc_common.h:126:37: error: static assertion failed: ak_client_opts gained a field: set it explicitly in core_opts() below
+  >>> ok: plant B refused by rpc_common.h
+
+rd2_guard: 0 check(s) did not do what they must
+rd2_guard.sh exit 0

@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+#include "ak_abi.h"
 #include "shapes_svc.grpc.pb.h"
 
 namespace svcns = armonik::ffi::shapes::v1;
@@ -38,10 +39,12 @@ struct ak_bytes { const uint8_t *ptr; size_t len; void *owner; };
 struct ak_completion { uint64_t tag; int32_t status; struct ak_bytes bytes; };
 typedef void (*ak_completion_cb)(void *user_data, struct ak_completion *comp);
 
-// design/SHAPES.md: every cell of the grid pins the SAME transport and states it. Added to
-// the shared core by this slice, because the core could not be pinned at all before it --
-// `ak_client_new` is now this with NULL options.
-struct ak_client_opts { uint32_t stream_window; uint32_t connection_window; int32_t adaptive_window; };
+// design/SHAPES.md: every cell of the grid pins the SAME transport and states it.
+// `struct ak_client_opts` is NOT declared here any more. It was, with 3 fields, while the
+// core read 6: `max_recv_message` and `max_send_message` came from past the end of the
+// host's object and `tcp_nagle` from stack garbage (R-D2). It now comes from the generated
+// `ak_abi.h`, rendered from the core's own Rust declaration, which static_asserts its size
+// and every offset.
 struct ak_rpc_counters { uint64_t forward; uint64_t reverse; };
 
 ak_runtime *ak_runtime_new(uint32_t worker_threads);
@@ -116,12 +119,33 @@ inline void pin_server(grpc::ServerBuilder *b, bool pin) {
   }
 }
 
-inline ak_client_opts pinned_core_opts(bool pin) {
+// R-D2's layout guard, on the host side of every RPC binary. The header asserts the
+// layout; this asserts that the code BELOW sets every field it has, so a seventh field
+// added to the core fails here rather than arriving uninitialised.
+static_assert(sizeof(ak_client_opts) == 24, "ak_client_opts is 24 bytes (6 x 4)");
+static_assert(AK_CLIENT_OPTS_FIELDS == 6,
+              "ak_client_opts gained a field: set it explicitly in core_opts() below");
+
+// Every field set explicitly, at every call site (R-D2). `max_*_message` match what the
+// grpc++ cells set in both pinned and unpinned configurations (kMaxMessage), and Nagle is
+// OFF, stated rather than defaulted: ArmoniK ships `tcp_nagle_algorithm = false`, and
+// grpc++ sets TCP_NODELAY by default, so both transports agree.
+inline ak_client_opts core_opts(uint32_t stream_window, uint32_t connection_window,
+                                int32_t adaptive_window) {
   ak_client_opts o;
-  o.stream_window = pin ? (uint32_t)kStreamWindow : 0u;
-  o.connection_window = pin ? (uint32_t)kConnWindow : 0u;
-  o.adaptive_window = pin ? 0 : -1;
+  std::memset(&o, 0, sizeof o);
+  o.stream_window = stream_window;
+  o.connection_window = connection_window;
+  o.adaptive_window = adaptive_window;
+  o.max_recv_message = (uint32_t)kMaxMessage;
+  o.max_send_message = (uint32_t)kMaxMessage;
+  o.tcp_nagle = 0;
   return o;
+}
+
+inline ak_client_opts pinned_core_opts(bool pin) {
+  return core_opts(pin ? (uint32_t)kStreamWindow : 0u, pin ? (uint32_t)kConnWindow : 0u,
+                   pin ? 0 : -1);
 }
 
 // ---- clocks ---------------------------------------------------------------------------

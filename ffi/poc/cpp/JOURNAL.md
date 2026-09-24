@@ -1111,3 +1111,76 @@ per RPC (SHAPES.md asks for it beside CPU and a page-fault proxy dressed as a co
 worse than the gap), cells B and D on a small payload, and re-taking the codec tables on this
 machine -- which is now the largest outstanding item in `STATE.md`, because the slice
 publishes two machines' absolutes in one file.
+
+## 2026-09-24: FIX-PLAN WP4 items 1 (C++ half) and 3 -- R-D1 and R-D2
+
+Correctness only; no timing taken. Container: 4 vCPU Xeon @ 2.10 GHz, fresh, so protobuf,
+grpc++ and python3-protobuf were reinstalled from apt (same versions as before).
+
+### R-D1: the length wrap in `ak::Dec::len_body`
+
+Reading `rt.h` confirmed the reviewer's arithmetic: `pos + k > len` with `k` off the wire
+wraps, and `pos += k` then moves the cursor backwards. The 11 generated emission sites
+and the three in `conformance.cpp` all go through `len_body`, and `skip`'s fixed-width
+arms add constants and are post-checked, so the fix is one function: compare `k` as
+`uint64_t` against `len - pos` (with `pos <= len` checked) before narrowing, plus the
+same checked form in `f64()`. No generated file changed.
+
+A first attempt at a hand-written repro harness was abandoned before it was run; it is
+not in the tree. The repro that IS in the tree uses the corpus agent's WP4 item 2
+vectors, which had already landed: 55 `X-lenwrap-*` rows, one of them
+(`X-lenwrap-lrr-unknown-zero`) byte for byte the reviewer's input. `gen/lenwrap_rows.sh`
+builds the corpus binary a second time in a scratch directory with the UNFIXED `rt.h`
+first on the include path, and runs every row in its own process under `timeout 5`.
+Before: 9 hangs. Under ASan, 4 more: the nested-string rows that the plain build
+"refused" with -6 read past the buffer until the UTF-8 validator met an invalid byte, so
+a plain run's clean-looking refusal was an out-of-bounds read. After: 0 of 55, plain and
+ASan.
+
+Two harness defects surfaced, and neither was the thing being fixed. The first corpus run
+reported "no result" for every row from `U-wire-UploadResultDataMessage-upload-as-wt1`
+onward, for all three arms. The cause: the shared core (then mid-edit by the rust agent)
+panicked on that row, the panic aborted the ONE process that runs every row, and
+`gen/corpus.py` never read the exit status (C32). A failure in the ffi arm was hiding the
+native arm's results. Fixed: the exit status is printed and fails the run, and `--no-ffi`
+gates native alone. The second: once the core stopped flushing groups after an error, 46
+refused rows DISAGREED between arms. Both arms returned the same code on all 52 refused
+rows; the difference was the facade left behind after the refusal, which nothing
+specifies. The agreement is now the error code on refused rows, and the leftover object
+is printed as its own fact (C33). That is a harness rule changing so that a gate passes,
+so the fact stays visible and goes to the aggregating session to settle.
+
+### R-D2: `ak_client_opts`
+
+Confirmed: 3 fields declared, 6 read. `include/ak_abi.h` already existed as a generated C
+header (from `gen/cpp_header.py`) with no RPC section. The struct is now rendered into it
+from ak-abi's Rust declaration, the one the core asserts against its own field by field,
+with size and offset asserts; the renderer refuses any field type that is not a 4-byte
+scalar rather than laying it out. `rpc_common.h` asserts size 24 and a field count of 6,
+and one `core_opts()` sets all six fields. Two plants are refused at compile time
+(`rd2-guard.log`).
+
+The history question has a clean answer, and it is not the one the finding feared. Both
+RPC logs were taken on 2026-09-20 (17:43 and 18:33) and committed in `af2b100`, whose core
+struct had exactly the host's 3 fields. The union to 5 fields (`908dc24`) and to 6
+(`ef8fea9`) came 9 and 17 minutes after that commit, on another lineage. So host and
+core agreed when those logs were taken, and the TCP rows are not invalidated. The defect
+was latent for any RPC run after 18:47 on 2026-09-20, and this slice made none.
+
+Observed and not fixed, for the aggregating session: ak-abi's `ak_queue_next` takes an
+`i32` timeout where the core exports `u64`; `ak_bytes`/`ak_completion` are declared twice
+in Rust with no assert tying them (C34); the packed decode arm ignores the arriving wire
+type (C35, from reading only).
+
+### Re-gate against the landed core (`6ede244`)
+
+The aggregating session landed the core's half of R-D1 at `6ede244`. The core `.so` had not
+been rebuilt since 08:53, so before trusting it I checked two things: the `poc/codec`
+working tree is identical to `6ede244`, and `cargo build -v` in both of this slice's target
+dirs reports `ak-core` Fresh. Only then did the gates run. Conformance was unchanged (443
+x5, 441 lossy). Corpus: three arms at C++17 and C++11, 213 of 691 in scope, 0 failures, arm
+agreement 213/213, walker 103/103. `FFI=1 gen/lenwrap_rows.sh`: the ffi arm refuses all
+42 root rows with -3, the same code as native, and the 13 WireZoo rows have no ffi arm.
+Boundary 21/21. rpccounts still counts 2/0, 3/1 and 4/0 with the six-field options. The 46
+refused rows where the object left behind differs between arms (C33) are still there, as
+the core's no-flush-after-error behaviour predicts.

@@ -6,7 +6,7 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | **complete, and the RPC arm RE-TAKEN as design/SHAPES.md's four-cell grid in each of ABI v1 section 9's three deliveries, over a Unix domain socket and loopback TCP, pinned and unpinned.** Everything before that stands as described below, with one caveat that applies to all of it: **the container this work unit ran in is a DIFFERENT MACHINE** (see the Machine row), so `logs/cpp/rpc.log` and `logs/cpp/rpcflow.log` do not share a machine with any other log here. Full codec plus the RPC grid plus a upb ceiling arm. Every message and payload of `design/SHAPES.md`, five encoders byte-identical, at C++11, C++14 and C++17, floor and target implementations, shared and static linkage |
+| **Status** | **2026-09-24, FIX-PLAN WP4 items 1 (C++ half) and 3 done, correctness only, no timing taken.** R-D1: `ak::Dec::len_body` wrapped `pos + k` and is now a checked comparison; the corpus's 55 `X-lenwrap-*` rows go from 9 hangs (and 4 out-of-bounds reads under ASan) to 0 failures on the native arm, and 0 on the ffi arm through the landed core, one process per row under `timeout 5` (`rd1-lenwrap.log`). R-D2: `ak_client_opts` is rendered into the generated `include/ak_abi.h` from ak-abi's Rust declaration with a size and offset guard, every call site sets all six fields, and `rpc.log`/`rpcflow.log` PREDATE the 6-field struct (`rd2-history.log`). **Re-gated against the shared core's R-D1 fix as landed (`6ede244`)**: conformance C++11/14/17 and static, corpus (three arms, C++17 and C++11), boundary check, generator gate, all green. Everything below this section is as it was, and its timing tables are container instrumentation (README section 1.1) that FIX-PLAN WP2/WP6 deal with, not this work unit |
 | **Core** | **the shared one at `ffi/poc/codec/crates/ak-core` (README R0), not a copy.** This slice no longer has a `core/` directory; `core-build/` is only its three `CARGO_TARGET_DIR`s. See `logs/cpp/w10-one-core.log` |
 | **Blocked on** | nothing |
 | **Floor** | **C++11, demonstrated not declared.** C++14 also builds and passes (README open question 3) |
@@ -15,6 +15,87 @@ session, which makes it the most expensive defect in this directory.
 | **Ceiling** | upb from protobuf v25.3, built from source, **`UPB_FASTTABLE=0`, gcc 13.3.0**. A bound, never a candidate |
 | **Machine** | **TWO of them, and that is a fact about the logs rather than a footnote.** Everything except `rpc.log` and `rpcflow.log`: 4 vCPU Intel Xeon @ **2.80 GHz**. Those two: 4 vCPU Intel Xeon @ **2.10 GHz**, same kernel (Linux 6.18.44), same g++ 13.3.0 `-O2 -g -DNDEBUG`, same rustc 1.94.1. **No absolute crosses between them** (R13, R4) |
 | **R13 calibration** | the 2.80 GHz machine's rust-slice crossing is **1.5 ns** forward (`calibration-r13.log`), against 1.8 ns in the rust slice's own container. **On the 2.10 GHz machine it could not be re-taken: the rust slice does not build on this branch (C27).** What was re-taken there is this slice's OWN crossing, by the unchanged bench: **forward 0.59-0.65 ns, reverse 0.27-0.31 ns**, against 1.822-1.824 / 0.6 published from the 2.80 GHz box. A factor of about three, on a nominally slower clock. That is the whole reason R13 exists |
+
+## This work unit (2026-09-24): R-D1 (C++ half) and R-D2
+
+Machine: 4 vCPU Intel Xeon @ 2.10 GHz container, g++ 13.3.0, protobuf 3.21.12 and grpc++
+1.51.1 from apt, python3-protobuf 4.21.12 (apt, for `gen/corpus.py`'s oracle). **No timing
+was taken or re-taken.** The final gates run against the shared core at `6ede244` (the core's
+own R-D1 fix, landed by the aggregating session), working tree identical and cargo
+reporting `ak-core` Fresh; every log says so in its header. An earlier pass ran against the
+rust agent's uncommitted core work; its logs were overwritten by the re-gate.
+
+### R-D1: the length-varint wrap, C++ half. Confirmed and fixed
+
+`include/ak/rt.h` `len_body` compared `pos + k > len` with `k` straight off the wire. A
+length near 2^64 wraps the sum, the check passes, and `pos += k` moves the cursor
+backwards. **Reproduced with the corpus's own vectors** (WP4 item 2, written by the corpus
+agent; `X-lenwrap-lrr-unknown-zero` is byte for byte the reviewer's
+`7A F5 FF FF FF FF FF FF FF FF 01`), one row per process, `timeout 5`, native arm, the
+UNFIXED `rt.h` built in a scratch directory (`gen/lenwrap_rows.sh`, `logs/cpp/rd1-lenwrap.log`):
+
+| build | rows not refused promptly, of 55 | what they were |
+|---|---|---|
+| before, plain | **9** | all HANG: the unknown-field skip (root, after a known field, nested, and the schema-free walker) and the zoo string/msg rows where the wrapped cursor lands at or before its start |
+| before, ASan | **13** | the 9 hangs plus **4 out-of-bounds reads** (`nested-string-{abs-start,rel-max,rel-one,rel-zero}`): the plain build "refused" them with -6 only because the UTF-8 validator eventually met an invalid byte PAST THE BUFFER |
+| after, plain | **0** | every row refused with `AK_ERR_TRUNCATED` (-3) |
+| after, ASan | **0** | no out-of-bounds access on any row |
+| ffi arm, core `6ede244` | **0** | every root row refused with -3, the same code as native; the 13 WireZoo rows have no ffi arm (walker only) |
+
+protobuf C++ refuses every `lrr` row with a parse failure (reported as -2). The reviewer's
+three cases map onto the corpus as: unknown field = `X-lenwrap-lrr-unknown-*` (and
+`-after-*`, `-nested-unknown-*`); string length = `X-lenwrap-lrr-nested-string-*`;
+nested-message length = `X-lenwrap-lrr-results-*` and `-nested-msg-*`.
+
+The fix: `k` is read as `uint64_t` and compared against the REMAINING length,
+`k64 > (uint64_t)(len - pos)`, with `pos <= len` checked, before any narrowing to
+`size_t`; `f64()` got the same checked form. **The sweep**: every length the generated
+native codec takes from the wire goes through `len_body` -- 11 emission sites in
+`gen/cpp_core.py` (child, repeated message, blob, repeated blob, packed, oneof string and
+message, map entry and both map halves) and three in `src/conformance.cpp` -- and `skip`'s
+fixed-width arms add constants and are post-checked. So the one function is the whole fix
+and no generated file changed (`generate.py --check` 23 of 23 ok, `rd-generator.log`).
+
+Gates after the fix, against core `6ede244`: `conformance.log` 443 checks 0 failures x5
+(C++17 target, C++17 floor, C++14, C++11, static), 441 x1 (the lossy build), exactly as
+before; `groupskip.log` 0 builds wrong; `corpus.log` (all three arms) and
+`corpus-native.log` (native + the pb oracle), C++17 and the C++11 floor, **213 in-scope rows
+of 691, 0 failures, 0 disputed, 0 permuted**: C1 161/161, C2 158/158, C3 161/161, C4 52/52
+on every arm, 213/213 arm agreement, walker 103/103; `boundary.log` 21 checks 0 failed;
+`rd-generator.log` `--check` 23/23, refusal 16/16, audit green.
+
+**Two harness defects found on the way, both fixed** (C32, C33 below): the corpus
+binary runs every row in ONE process and nobody read its exit status, so a panic in the
+shared core (`U-wire-UploadResultDataMessage-upload-as-wt1`, `codec.rs:2537`, "slice index
+starts at 11 but ends at 0", which aborts because it cannot unwind through `extern "C"`)
+silently turned every later row of EVERY arm into "no result". And the between-arms
+agreement compared the facade left behind after a REFUSAL, which nothing specifies.
+
+### R-D2: `ak_client_opts`. Confirmed and fixed; the RPC logs predate it
+
+Confirmed from source: `src/rpc_common.h` declared 3 fields, the core reads 6. Fix:
+`gen/cpp_header.py` renders `struct ak_client_opts` into the generated `include/ak_abi.h`
+FROM `poc/codec/crates/ak-abi/src/lib.rs` (the declaration the core asserts field by field
+against its own), with `AK_SASSERT` on `sizeof == 24` and on every offset; a field added in
+Rust makes `--check` call `ak_abi.h` STALE. `rpc_common.h` includes it, declares nothing,
+asserts `sizeof == 24` and `AK_CLIENT_OPTS_FIELDS == 6`, and sets all six fields through
+one `core_opts()` helper used by `rpcbench`, `rpccounts` and `rpcflow` (max messages =
+the grpc++ cells' 2 MiB, `tcp_nagle = 0`, stated). `logs/cpp/rd2-guard.log`: compiles at
+C++11/14/17 and in all four RPC sources; **plant A** (a field dropped from the header) and
+**plant B** (a seventh field added to the Rust declaration) are both refused at compile
+time. `rd2-rpccounts.log`: the counting binary dials with the six-field options and counts
+2/0, 3/1, 4/0 as before.
+
+**The history** (`gen/rd2_history.sh`, `logs/cpp/rd2-history.log`): `rpcflow.log` was
+taken 2026-09-20T17:43:53Z and `rpc.log` 18:33:12Z, both at `bccff35` plus this slice's
+uncommitted work, and committed in `af2b100` (18:38:46), whose tree's core struct has
+exactly the host's 3 fields. The union grew to 5 fields in `908dc24` (18:47:27) and to 6
+with `tcp_nagle` in `ef8fea9` (18:55:15, `git log -S tcp_nagle` also lists `e0b708b`
+19:07:36); none of them is an ancestor of `af2b100`, and no RPC log of this slice was
+committed after `908dc24`. **So both logs were taken when host and core agreed, and their
+loopback-TCP rows are NOT invalidated by R-D2.** What the history cannot show is the
+uncommitted working tree at 17:43; the only core versions of the struct in this slice's
+lineage are the 3-field one.
 
 **Absolutes here are instrumentation** (README section 8, after `4aec4e8`): the
 cross-language comparison is re-taken on a controlled physical machine. What this slice
@@ -375,6 +456,9 @@ REGENERATED; `generate.py --check` is green on all 23 files, the shared core's t
 included.
 
 ### W8: the conformance corpus -- `logs/cpp/corpus.log`
+
+**Superseded by the 2026-09-24 section at the top**: the corpus is now 691 rows, 213 in
+scope, 0 disputed, 0 permuted. The text below describes the 336-row corpus.
 
 The oracle byte identity cannot be. **128 of the corpus's 336 rows** root at a message
 this slice's codec covers; the scope is read out of `AK_ROOTS` in the generated
@@ -819,6 +903,17 @@ Four things this settles:
 
 ## Next step
 
+WP4 items 1 (C++ half) and 3 are done and re-gated against the landed core. What remains
+from FIX-PLAN for this slice: WP4 item 6 (`ffi-valtc` into `conformance.cpp` `run_case`),
+item 8 (the concurrency must-fail control reaching the core), then WP5 (port the C++
+backend onto the shared plan, which is where C33's left-behind-object rule, C34 and C35
+belong) and WP3/WP6. To re-run this work unit's gates: `cmake --build build`, the six
+conformance builds, `python3 gen/corpus.py build/corpus_{a17,c11}_shared`,
+`FFI=1 gen/lenwrap_rows.sh` (add `ASAN=1` for the sanitizer pass), `gen/boundary.sh`,
+`gen/rd2_guard.sh`. Everything below is the queue from before this work unit.
+
+### The queue from before 2026-09-24
+
 **Read the Machine row first.** This work unit ran on a 2.10 GHz container and every other
 figure in this file came from a 2.80 GHz one, where the same unchanged bench measures a
 forward crossing of 1.822 ns against 0.63 ns here. **Nothing in the codec tables above was
@@ -900,6 +995,12 @@ corpus). C30 is this slice's own and is fixed. In the order I would do it:
 | C29 | `design/ABI-v1.md` section 9, the delivery table | "2 fwd / 1 rev" for `ak_call_unary_cb` and "3 fwd / 0 rev" for `ak_call_unary_q`. **Counted from a `--features rpc,count` core: 3 / 1 and 4 / 0.** Both return an `ak_call*` the host must release and the table does not count `ak_call_destroy`; a host that matches the table leaks a handle per RPC | **open, not fixed here**: `design/**` is the aggregating session's. `logs/cpp/rpc.log` prints counted against claimed, side by side, on two methods |
 | C30 | this slice's own `logs/cpp/rpc.log`, the version before this work unit | it asserted "540 KB per response against a 64 KB default stream window means a single call in flight spends most of its wall clock waiting for WINDOW_UPDATE". **Neither stack was at 64 KB** -- grpc++ announces ~4 MiB and tonic 2 MiB -- and the probe sees no stall at all in any DEFAULT configuration. The sentence was inherited from SHAPES.md's table (C28) and repeated without checking | **fixed**: withdrawn, and the log now establishes both stacks' behaviour from their own traces rather than from a table |
 | C31 | `design/SHAPES.md`'s pinning instruction, against grpc++ | "every arm pins the same configuration ... a 4 MiB stream window", with the pinned arm as the headline. **On grpc++ that configuration is not reachable**: grpc-core exposes no connection-window argument, so pinning the stream window and switching BDP off leaves the connection window un-tuned and produces hundreds of stalls the DEFAULT configuration does not have. Making it the headline would handicap the incumbent from its own harness -- an R14 defect pointed the wrong way | **handled, not fixed**: `logs/cpp/rpc.log` publishes pinned AND unpinned in full and the grid's verdict is the same in both. Flagged for the aggregating session because SHAPES.md already anticipates the shape of this ("where pinning configures something the shipped client cannot ... the arm says so") and does not anticipate it landing on the INCUMBENT |
+| C32 | `src/corpus.cpp`, `gen/corpus.py` | every corpus row runs in ONE process and the driver never read the binary's exit status, so a panic in the shared core on one row (an abort: it cannot unwind through `extern "C"`) turned every later row of every arm, native included, into "no result". Found when the WP4 item 2 vectors landed | **fixed**: the driver prints and fails on a nonzero exit, names the panic line, and `--no-ffi` (`AK_CORPUS_NO_FFI=1`) gates native and the pb oracle with the ffi arm left out, saying so on the line it would have been counted. `gen/lenwrap_rows.sh` runs one row per process |
+| C33 | `src/corpus.cpp`, the between-arms agreement | on a row both arms REFUSE it compared the facade left in the output object after the error, which neither ABI v1 nor CONTRACT.md specifies. It began to differ on 46 rows when the core stopped flushing groups after an error (the rust agent's R-D1 work) while the native codec keeps what it built before the error | **fixed**: on a refusal the arms agree when the error CODE agrees (it does, 52 of 52); the left-behind object is printed as a separate fact ("L" lines, 46 of 52 differ), for the aggregating session to decide whether it becomes a rule in the shared plan |
+| R-D1 | `include/ak/rt.h` `len_body` | `pos + k > len` wraps on a length near 2^64: 9 corpus rows hang, 4 read out of bounds (ASan) | **fixed**: checked comparison against the remaining length; `rd1-lenwrap.log` 0 of 55 after, plain and ASan |
+| R-D2 | `src/rpc_common.h` | hand-declared a 3-field `ak_client_opts` against the core's 6 | **fixed**: rendered into `include/ak_abi.h` from ak-abi, size/offset/field-count guards, all six fields set; `rd2-guard.log`. `rpc.log`/`rpcflow.log` predate the 6-field struct (`rd2-history.log`) |
+| C34 | `poc/codec/crates/ak-abi/src/lib.rs` vs `ak-core/src/rpc.rs` | **observed, not this slice's**: ak-abi declares `ak_queue_next(..., timeout_ms: i32)` while the core exports `timeout_ms: u64` (this slice's hand prototype matches the core); and `ak_bytes`/`ak_completion` exist twice in Rust with no layout assert tying them, unlike `ak_client_opts`. The remaining RPC prototypes and those two structs are still hand-declared in `rpc_common.h` | **open**, for the aggregating session (WP5: the ABI layout rendered once) |
+| C35 | `gen/cpp_core.py` `packed` | **observed while reading for R-D1, not fixed**: the non-wire-2 arm of a packed field reads the value with the field's own reader whatever wire type arrived (a packed int field at wire type 1 or 5 is read as a varint, a double at wire type 0 as 8 bytes) instead of skipping a known field at the wrong wire type. This is R-E2, which WP5 moves into the shared plan. **From reading the emitter, not from a run**: the in-scope `U-wire-*` rows pass on native, and whether any of them puts a packed field at a wrong wire type was not checked | **open**, WP5 |
 
 ## What is not measured
 
@@ -996,16 +1097,22 @@ corpus). C30 is this slice's own and is fixed. In the order I would do it:
 
 | Log | Configuration | What it establishes |
 |---|---|---|
+| `rd1-lenwrap.log` | the corpus's 55 `X-lenwrap-*` rows, one process per row, `timeout 5`, native arm (walker for WireZoo rows), unfixed `rt.h` (scratch build) against the tree, plain and under ASan, plus the ffi arm into core `6ede244` | **R-D1.** Native before: 9 hangs, plus 4 out-of-bounds reads under ASan. Native after: 0 of 55, plain and ASan. ffi: 0 of 55. `X-lenwrap-lrr-unknown-zero` is the reviewer's 11 bytes |
+| `rd2-history.log` | git only (`gen/rd2_history.sh`) | **R-D2.** `rpc.log` and `rpcflow.log` were taken (17:43, 18:33) and committed (`af2b100`, 18:38) when the core had the host's 3 fields; 5 fields at `908dc24` 18:47, 6 at `ef8fea9` 18:55. The TCP rows are not invalidated by R-D2 |
+| `rd2-guard.log` | `gen/rd2_guard.sh`: `ak_abi.h` at C++11/14/17, the four RPC sources, two plants | **R-D2's guard** compiles, and refuses a header missing a field and a Rust declaration with a seventh |
+| `rd2-rpccounts.log` | `rpccounts`, counting core, all six options set | the six-field options dial; counts 2/0, 3/1, 4/0 as in `rpc.log`. Counts, not a timing |
+| `rd-generator.log` | `generate.py --check`, `refusal_test.py`, `audit_tracked.sh` after the change | 23 of 23 ok, 16 of 16 refused, audit green once the new scripts are tracked |
+| `corpus-native.log` | the corpus, native + pb only (`--no-ffi`), C++17 and C++11 | 213 in-scope rows of 691, 0 failures; the native arm alone, 0 failures; the form of the gate to use whenever the core is in flux |
 | `generator.log` | — | R1 as a gate: `--check` green on **23** files, 16 must-fail guards refused, the tracked-file audit green |
 | `groupskip.log` | `ak::Dec::skip` alone, at C++17 target, C++17 floor, C++14 floor and C++11 floor, plus TWO PLANTED builds | **C24.** 11 checks x 4 configurations, 0 failures; the depth-counting plant fails the two mismatched-end cases and the dropped-`case 5:` plant fails the two that carry a `fixed32`. The decode path a schema-generated manifest can never reach |
-| `corpus.log` | 128 of 336 corpus rows, three arms (`native`, `ffi`, and protobuf C++ as an ORACLE), at C++17 and at the C++11 floor, plus the 62 `WireZoo` rows through the unknown-field walker | **W8.** 0 failures; C1 126/126, C2 123/124, C3 125/126, C4 2/2 on both arms; 128/128 arm agreement; walker 62/62. Two rows named rather than counted (C25 `U-map-entry`, where protobuf C++ and pure-Python side with this slice against upb and the corpus; C26 `B-P7_1`, a permutation). Decision 11 answered: this slice DROPS |
+| `corpus.log` | **re-taken 2026-09-24 against core `6ede244`**: 213 of 691 rows, 0 failures, 0 disputed, 0 permuted, C1 161/161, C2 158/158, C3 161/161, C4 52/52 on all three arms, walker 103/103; the old description follows. 128 of 336 corpus rows, three arms (`native`, `ffi`, and protobuf C++ as an ORACLE), at C++17 and at the C++11 floor, plus the 62 `WireZoo` rows through the unknown-field walker | **W8.** 0 failures; C1 126/126, C2 123/124, C3 125/126, C4 2/2 on both arms; 128/128 arm agreement; walker 62/62. Two rows named rather than counted (C25 `U-map-entry`, where protobuf C++ and pure-Python side with this slice against upb and the corpus; C26 `B-P7_1`, a permutation). Decision 11 answered: this slice DROPS |
 | `c24-timing.log` | a fresh `bench_a17_shared` against the published one | **C24 moved nothing.** 225 ratio rows, worst move 0.164, median 0.009, 0 over R4's 0.240 across-build bar. The published tables stand |
 | `concurrency.log` | 4 shapes x 2 message types, threads in sequence and together, C++17 + C++11 floor + both linkages, plus THREE PLANTED builds | **ABI v1 obligation 12.5, which no slice had.** Zero wrong bytes on every axis. 12.5's own claim measured: 0 wrong on one shape, 44 of 48 on two. Section 6's two refusals are independent — a global table is byte-clean and costs 1.83-2.05x under contention; padding is the byte defect |
 | `utf8.log` | four validators, 17.78 M differential checks against an independent oracle, then timed in one process | **Decision 3's decode-side check re-priced: 2.27x a raw copy on ASCII, not 4.4x**, and the core's validator is cheaper than the INCUMBENT'S OWN on all three sets (R14). C20: the old set validated a `bytes` field |
 | `c16.log` | one payload, one arm, six conditions incl. two `MALLOC_` tunings and a page-fault count | **C16 characterised.** The outlier is glibc's mmap page-fault cost, removed by pinning two thresholds; 13x more minor faults by default. Machine load refuted. One residual named |
 | `contentsets.log` | 5 payloads x 3 content sets, one process, oracle = the incumbent per set | **SHAPES.md's sentence answered, and differently for the two directions.** The encode ratio is almost entirely a fact about the content set (0.988 → 0.114 on P1.2); the decode ratio is not (moves ≤ 0.15). Most of the encode column is protobuf validating UTF-8 on serialize, so `ffi-valtc` is the like-for-like row |
-| `conformance.log` | six builds | R2. 443 checks, 0 failures, five times; 441 once and why. P2.5's two valid forms; protobuf C++ rejects malformed UTF-8 |
-| `boundary.log` | the built artifacts, plus `fusion_probe` | R5 both halves and both directions, **21 checks after C24** (two symbols are now inlined inside the control TU, which the checker reports and does not fail). Half two rebuilt after C18: it tests call sites and out-of-line bodies rather than a size relation, and its control is a fixture that cannot stop firing |
+| `conformance.log` | six builds, **re-run 2026-09-24 after R-D1/R-D2 against core `6ede244`, unchanged** | R2. 443 checks, 0 failures, five times; 441 once and why. P2.5's two valid forms; protobuf C++ rejects malformed UTF-8 |
+| `boundary.log` | the built artifacts, plus `fusion_probe`; **re-run 2026-09-24 against core `6ede244`: 21 checks, 0 failed** | R5 both halves and both directions, **21 checks after C24** (two symbols are now inlined inside the control TU, which the checker reports and does not fail). Half two rebuilt after C18: it tests call sites and out-of-line bodies rather than a size relation, and its control is a fixture that cannot stop firing |
 | `odr.log` | a C++11 TU and a C++17 TU, linked | README 5.1's hard stop: 144 facts, 0 moved; 49 under the positive control |
 | `calibration-r13.log` | the rust slice's own bench, here | R13: this machine's rust crossing is 1.5 ns |
 | `counts.log` | the counting core, both linkages | R5. 9/6 for 1,000 M1 rows; 10.024/7.004 per M2 element; the host transcoder's +34.3 reverse crossings per element, COUNTED; the batching decomposition |
@@ -1018,7 +1125,7 @@ corpus). C30 is this slice's own and is fixed. In the order I would do it:
 | `tax.log` | the crossing priced up | **the batching crossover: 2 to 4 ns**, with the 8 ns outlier re-run |
 | `opt.log` | `-O2 -DNDEBUG` against `-O3 -DNDEBUG` | the control's decode gap is not a function of the optimisation level |
 | `w10-one-core.log` | the pre-move commit built in a worktree and run minutes apart, same machine | **W10 / R0: folding three copies of the core into one moved no number.** Worst ratio move 0.023 against a 0.240 drift bar, and the arms the core cannot touch move by the same amount. Every gate green; the `-flto` positive control no longer fires and is recorded as unproven |
-| `rpc.log` | **the 2.10 GHz machine.** grpc++ 1.51.1, tonic 0.14 / hyper 1.11, the four-cell grid x 3 deliveries + a control, UDS and loopback TCP, pinned and unpinned, 3 in-flight levels, 9 rounds, 80 RPCs a round. Plus R5's crossing counts from a `--features rpc,count` core in a separate binary | **the transport is a wash (B−A separates in 2 of 12 and the two disagree in sign) and the codec is the whole of the difference (C−B and D−A, 12 of 12).** The halves add up (0 of 12 against). Every delivery indistinguishable from every other, callback against queue 0 of 12, with a thread-shape control. Section 9's crossing table is one forward crossing light on both non-blocking deliveries |
-| `rpcflow.log` | **the 2.10 GHz machine.** nine client configurations, each a child process under `GRPC_TRACE=http,flowctl,bdp_estimator` | **what the two stacks actually do.** grpc++ announces ~4 MiB with BDP on and no connection-window argument exists; turning BDP off SHRINKS the window to 64 KiB; tonic/hyper is 2 MiB stream / 5 MiB connection, adaptive off. SHAPES.md's table and this slice's own previous rpc.log were both wrong about it |
+| `rpc.log` | **Taken BEFORE the 6-field `ak_client_opts` existed (`rd2-history.log`), so R-D2 does not touch it; container instrumentation.** **the 2.10 GHz machine.** grpc++ 1.51.1, tonic 0.14 / hyper 1.11, the four-cell grid x 3 deliveries + a control, UDS and loopback TCP, pinned and unpinned, 3 in-flight levels, 9 rounds, 80 RPCs a round. Plus R5's crossing counts from a `--features rpc,count` core in a separate binary | **the transport is a wash (B−A separates in 2 of 12 and the two disagree in sign) and the codec is the whole of the difference (C−B and D−A, 12 of 12).** The halves add up (0 of 12 against). Every delivery indistinguishable from every other, callback against queue 0 of 12, with a thread-shape control. Section 9's crossing table is one forward crossing light on both non-blocking deliveries |
+| `rpcflow.log` | **Taken BEFORE the 6-field `ak_client_opts` existed (`rd2-history.log`).** **the 2.10 GHz machine.** nine client configurations, each a child process under `GRPC_TRACE=http,flowctl,bdp_estimator` | **what the two stacks actually do.** grpc++ announces ~4 MiB with BDP on and no connection-window argument exists; turning BDP off SHRINKS the window to 64 KiB; tonic/hyper is 2 MiB stream / 5 MiB connection, adaptive off. SHAPES.md's table and this slice's own previous rpc.log were both wrong about it |
 | `upb.log` | upb v25.3 from source, reflection minitables, **`UPB_FASTTABLE=0`, gcc** | **the ceiling: upb decode is 0.22 to 0.58 of protobuf C++.** The encode column is not a ceiling and says so |
 | `upb-fasttable.log` | three builds of identical upb sources: gcc/FT=0, clang/FT=0, clang/FT=1 | **the fast decoder is unreachable from a reflection minitable** (`table_mask = −1`, proved at run time and from the archive), so none of upb's advantage is `UPB_MUSTTAIL`. clang is worth 6-23 %; `FT=1` is 3-19 % slower |

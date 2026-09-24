@@ -1,3 +1,5 @@
+# re-gate 2026-09-24T09:10:53Z against the landed R-D1 core: poc/codec at 6ede244, commit c1c97ff + this slice's uncommitted fix
+
 == half one: does the FFI arm cross? ==
   shared: 38 ak_* symbols are UNDEFINED dynamic imports; the per-message ones are:
                     U ak_decode_DualResponse
@@ -26,7 +28,7 @@
   static: 86 ak_* symbols are DEFINED in the image (that is what static linkage is)
     ak_encode_ListResultsResponse             482 B entry point, 6 call sites
   [ok]   static arm: ak_encode_ListResultsResponse is CALLED, not inlined away
-    ak_decode_ListResultsResponse            3543 B entry point, 2 call sites
+    ak_decode_ListResultsResponse            3721 B entry point, 2 call sites
   [ok]   static arm: ak_decode_ListResultsResponse is CALLED, not inlined away
     ak_elem_ResultRaw                        3094 B entry point, 10 call sites
   [ok]   static arm: ak_elem_ResultRaw is CALLED, not inlined away
@@ -68,13 +70,13 @@
 
   bench_a17_shared:
   [ok]   bench_a17_shared: all 10 timing closures still call out
-  [ok]   bench_a17_shared: shapes::native::encode_into_list_results_response has an out-of-line body (2343 B)
+  [ok]   bench_a17_shared: shapes::native::encode_into_list_results_response has an out-of-line body (2327 B)
   [ok]   bench_a17_shared: shapes::native::enc_task_detailed has an out-of-line body (2903 B)
       shapes::native::dec_list_results_response: ABSENT -- inlined into its caller WITHIN the control TU, which is
         fine; the question is whether the benchmark loop carries it, and the
         loop is in another TU
   [ok]   bench_a17_shared: shapes::native::dec_list_tasks_detailed_response has an out-of-line body (4097 B)
-  [ok]   bench_a17_shared: shapes::native::decode_list_metrics_response has an out-of-line body (3872 B)
+  [ok]   bench_a17_shared: shapes::native::decode_list_metrics_response has an out-of-line body (3820 B)
   bench_a17_shared_lto:
   [ok]   bench_a17_shared_lto: all 7 timing closures still call out
   [ok]   bench_a17_shared_lto: shapes::native::encode_into_list_results_response has an out-of-line body (1214 B)
@@ -82,11 +84,12 @@
       shapes::native::dec_list_results_response: ABSENT -- inlined into its caller WITHIN the control TU, which is
         fine; the question is whether the benchmark loop carries it, and the
         loop is in another TU
-  [ok]   bench_a17_shared_lto: shapes::native::dec_list_tasks_detailed_response has an out-of-line body (5132 B)
-  [ok]   bench_a17_shared_lto: shapes::native::decode_list_metrics_response has an out-of-line body (2130 B)
+  [ok]   bench_a17_shared_lto: shapes::native::dec_list_tasks_detailed_response has an out-of-line body (5172 B)
+  [ok]   bench_a17_shared_lto: shapes::native::decode_list_metrics_response has an out-of-line body (2145 B)
   The control is reached through a FUNCTION POINTER passed to the case runner, so its
   address is taken and an out-of-line body must exist. Both properties above are the
   question itself rather than a proxy for it, and the fixture says the checker can
   report either answer.
 
 boundary: 21 checks passed, 0 failed
+boundary.sh exit 0
