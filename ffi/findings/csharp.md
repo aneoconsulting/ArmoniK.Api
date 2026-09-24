@@ -1,270 +1,243 @@
 # Reading the csharp slice
 
-The aggregating session's reading of `poc/csharp`. What is here is what its
-results mean for the branch.
+Phase note: this file records facts only; container timings were removed on 2026-09-24 (design/FIX-PLAN.md WP2). The raw logs remain in logs/csharp/.
 
-**W5's named gap is closed and the `core-ffi` arm now exists for M1.** The slice
-was scoped to its ABI-independent half while decision 1 was open; that half is
-complete on all 16 payloads and all 7 shapes, gated on three runtimes. The held
-arm was then built and gated for M1 in both directions, and re-gated on the
-shared core after W10. **M2 to M7 are not built**, so C# has an ABI beachhead
-rather than an ABI column — and section 4b below is the most consequential thing
-in this document.
+The aggregating session's reading of `poc/csharp`. Sources: `poc/csharp/STATE.md`
+and `logs/csharp/`. Every finding below that came from the 2026-09-24 review is
+unconfirmed until the slice answers it.
 
-**Configuration** (R7): `Google.Protobuf` 3.28.3, codegen by `Grpc.Tools` 2.66.0,
-target .NET 8.0.31, floor netstandard2.0 and .NET Framework 4.8 on Mono 6.8.0.105
-(both build and pass; Mono is timed as arm c). R13: **this container reproduces
-the rust slice's own 1.8 ns to the digit**.
+## 1. Configuration and levels
 
-**That calibration is doing real work rather than ceremony.** Because this
-container agrees with the rust slice's and the C++ slice's does not (1.5 ns there,
-and it cannot reproduce the published 0.25 ns C++ row at all), **a C# absolute
-from this slice is comparable with a Rust absolute and is not comparable with a
-C++ one.** That is a measured statement, and it is the clearest vindication R13
-has had.
+- Measured configuration: .NET 8.0.31 (SDK 8.0.131), `Google.Protobuf` 3.28.3,
+  codegen by `Grpc.Tools` 2.66.0 (`src/Harness/Harness.csproj`,
+  `src/HarnessFloor/HarnessFloor.csproj`).
+- ArmoniK ships `Google.Protobuf` 3.32.0, `Grpc.Net.Client` 2.71.0 and
+  `Grpc.Tools` 2.72.0 (`packages/csharp`, per `design/FIX-PLAN.md` section 4).
+  The slice therefore measured an older incumbent than the one ArmoniK ships.
+- The owner's levels (README section 5): floors **net6.0** and **.NET Framework
+  4.8**, target **net8.0**. `LibraryImport` needs .NET 7 or later, so both floors
+  use `DllImport`, in the same generated file under `#if NET7_0_OR_GREATER`.
+- Floor status:
+  - netstandard2.0: built, passes the gate (arm b, run on .NET 8).
+  - net48 build run on **Mono 6.8.0.105**: built, passes the gate (arm c). Mono is
+    **not .NET Framework 4.8**; .NET Framework runs only on Windows and no Windows
+    gate exists.
+  - **net6.0: not built and not run.** The C# worker ships net6.0.
+  - The `core-ffi` binding is not built on arms b or c. As generated it uses
+    `LibraryImport` and `UnmanagedCallersOnly`, which net48 lacks. `Core_*.cs`,
+    `CoreArms.cs` and `CoreGate.cs` are excluded from arm c explicitly. A floor
+    binding would be `DllImport` plus delegate pointers, and the delegates must be
+    rooted for the lifetime of the vtable or the collector reclaims a thunk the
+    codec still holds (a crash).
 
-## 1. The question is answered: C# does not look like Java on decode
+## 2. What was built
 
-The Java report named this as the single measurement that would change its own
-recommendation — if C# looked like Java on decode, the conclusion would be "the
-codec half of the C ABI does not suit managed runtimes" and the ABI's scope would
-narrow to C++ and Python. It does not.
+- **A generator** (`gen/`) driven by `ffi/schema/emit/shapes.py`, with a second
+  front end (`gen/protoparse.py`) over `corpus.proto`, cross-checked against
+  `shapes.json` at generation time on the nineteen messages and three enums they
+  share. `gen/abi_ir.py` derives the by-value group, presence bits, loop slots and
+  vtables; `gen/rs_probe.py`, `gen/cs_abi.py` and `gen/cs_core.py` emit the layout
+  probe, the managed declaration and the host binding from it. One hand-written
+  runtime file, `src/Facade/Wire.cs`.
+- **The managed control codec** (a generated pure-C# codec over the facade),
+  encode and decode, one-pass and two-pass, on all 16 payloads and all 7 shapes.
+- **`core-ffi` over the one core at `ffi/poc/codec`**, on every shape and all 16
+  payloads, arm a only: encode, push decode, **pull decode** (`ak_parse_*`), the
+  UTF-16 string form (`ak_tc_utf16`), a host-fill-only arm, and a no-string decode
+  arm (a ceiling for ABI decision 13, not an implementation of it).
+  (`stage8`, `stage11`, `stage14`, `stage16`.)
+- **A strict decode build** (`/p:AkStrict=true`) implementing ABI decision 3's
+  rejecting UTF-8 policy (`stage16`).
+- **A corpus consumer**: all 336 vectors of `ffi/corpus`, on arms a, b and c, codec
+  generated from `generated/corpus.proto` (`stage13`).
+- **An RPC arm**: a grpc-dotnet client against a grpc-dotnet server over a Unix
+  domain socket, server marshaller a `byte[]` passthrough, four codecs
+  (`gp-marshaller`, `managed`, `core-ffi`, `core-ffi pull`), ArmoniK's transport
+  pinned, stack default and loopback TCP as labelled rows, 1/8/16 in flight, P2.2
+  (`stage15`).
+- **The RPC grid**: cells A, B, C, D in one process, against the core's transport
+  (`rpc` feature) with the blocking, callback and queue deliveries (`stage18`,
+  re-run with the core client pinned via `ak_client_new_opts` in `stage19`).
+- **Streaming over its own transport**: grpc-dotnet both ends over a UDS, both
+  directions, five arms including a no-codec arm, P2.2 and P5.3, 1/8/16 streams
+  (`stage17`). Added by the slice beyond its brief; the owner has said it is not
+  pursued further.
+- **A BenchmarkDotNet harness** (`src/BenchDotNet`, `stage7`) beside the
+  hand-rolled one.
 
-**A generated pure-C# codec decodes at 0.72 to 0.82 of `Google.Protobuf` on every
-shape the real schema actually has**, and 0.85 to 0.89 on the hardest content set.
+## 3. Correctness and byte identity
 
-**But the win is not uniform, and the earlier column hid that:**
+- **136 checks, 0 failures, on each of arms a, b and c** (`stage1`): byte identity
+  against `ffi/schema/generated/manifest.json` for all five encode arms on all 16
+  payloads; decode checked by re-encode and by a generated field-by-field
+  comparer. P7.1 is checked as a permutation of (tag, wire type, body) triples.
+  The absent-path payloads P1.3 and P2.5 are in the gate. Re-gated at 152 checks
+  on the shared core after W10 (`stage9`).
+- **`core-ffi`**: byte identity, round trip and value identity on all 16 payloads,
+  push and pull gated against each other on the same bytes and comparer
+  (`stage14`). Layout agreement: 42 structs and 28 vtables match the Rust build,
+  `ak_abi_version()=1`.
+- **Corpus** (`stage13`): 336 vectors run on three arms with identical output.
+  `Google.Protobuf` wired in as an independent oracle agrees on accept/reject on
+  all 169 vectors where it has the type.
+  - 31 `T-dec-*` vectors (malformed UTF-8) are accepted by the default lossy
+    build, as `Google.Protobuf` also accepts them. The strict build rejects all 31
+    (`stage16`).
+  - `U-map-entry` is open: this decoder and `Google.Protobuf` both keep the map;
+    the corpus projection leaves it absent. Raised as a question about the vector.
+- **ABI decision 5** (`stage2`, counting build): zero warm prefix-width misses on
+  every payload except P2.4, which misses once per element (80 of 80), site
+  `ListTasksDetailedResponse.tasks`. Cold misses 0 to 3 per payload.
+- **ABI decision 11** (`stage1`, seven hand-built vectors): all decode in both arms
+  without losing a known value. `Google.Protobuf` **retains** unknown fields and
+  writes them back; the generated codec drops them. Adopting the core's codec on
+  .NET removes a behaviour that exists today.
+- **Concurrency contract** (`stage17`): one decode/encode context per thread gives
+  0 wrong of 200,000; one shared context aborts the process (SIGABRT) and the
+  `catch (Exception)` around it does not see it. The thread pool created 7 or 8
+  contexts per direction.
+- **Unpaired surrogates**: `Google.Protobuf` and `Encoding.UTF8` both substitute
+  U+FFFD, so both arms lose the surrogate identically.
+- gRPC delivered a segmented body on every instrumented call (3,960 of 3,960) at
+  P2.2's size, so the single-segment path is not taken there (`stage16`).
 
-| shape class | payloads | managed / incumbent |
-|---|---|---|
-| the real schema's own shapes | P1.1, P1.2, P2.1, P2.2, P2.5, P3.1, P4.1 | **0.72 - 0.82** |
-| the absent path | P1.3 | 0.54 - 0.56 |
-| container-dense variants of M2 | P2.3, P2.4 | 0.87 - 0.96 |
-| packed scalars (a control) | P6.1 | **1.02 - 1.03, a loss** |
-| bulk | P5.2 - P5.4 | **ambiguous**, marked as such |
+## 4. Crossing counts
 
-So the defensible claim is narrower than "never at parity": **the managed codec
-wins by roughly a fifth on every shape ArmoniK sends, and that win erodes to
-nothing as an element's containers come to dominate.** This is the rust slice's
-convergence finding reproduced on a managed runtime — and here **it actually
-crosses 1.0** rather than merely tending towards it.
+Counted by the host at every callback, and checked against the core's own
+counters (`ak_enc_counters`, a `--features count` build). Whole run per element
+entry call (`stage14-all-shapes-and-pull.log`):
 
-**The allocation column is what makes that reading safe.** On every row but P6.1
-the managed arm allocates 0.91 to 1.00 of what the incumbent allocates, so the two
-are building object graphs of the same size and the win is not "it built less". On
-P6.1 it allocates 1.31× — five `List<T>` growths per element against
-`RepeatedField` — and it is the only loss. Those two facts belong together, and no
-other slice has an allocation column at all.
+| payload | enc fwd | enc rev | push dec fwd | push dec rev | pull dec fwd | pull dec rev |
+|---|---|---|---|---|---|---|
+| P1.1 | 2 | 1 | 1 | 2 | 2 | 0 |
+| P1.2 | 2 | 1 | 1 | 5 | 2 | 0 |
+| P1.3 | 2 | 1 | 1 | 3 | 2 | 0 |
+| P2.1 | 7 | 6 | 1 | 8 | 2 | 0 |
+| P2.2 | 2502 | 2501 | 1 | 3501 | 2 | 0 |
+| P2.3 | 627 | 626 | 1 | 876 | 2 | 0 |
+| P2.4 | 402 | 401 | 1 | 561 | 2 | 0 |
+| P2.5 | 102 | 101 | 1 | 141 | 2 | 0 |
+| P3.1 | 2 | 1 | 1 | 2 | 2 | 0 |
+| P4.1 | 202 | 201 | 1 | 601 | 2 | 0 |
+| P5.1 to P5.4 | 1 | 0 | 1 | 1 | 2 | 0 |
+| P6.1 | 1002 | 1001 | 1 | 1401 | 2 | 0 |
+| P7.1 | 3 | 2 | 1 | 3 | 2 | 0 |
 
-## 2. It found its own handicapped incumbents, before a review did
+- A leaf element batches, so encode is constant in the element count. A non-leaf
+  cannot (ABI section 7.2), so counts become linear in it: on P2.2, 10.00 per task
+  on encode and 7.00 per task on decode (`stage11`).
+- Push decode is not constant even for a leaf: the codec flushes a run when its
+  element arena fills (ABI 7.3), so `add_results` is called `ceil(n / arena) + 1`
+  times. The stage 8 statement "1 forward, 2 reverse, constant" was wrong and is
+  corrected in `stage14`.
+- Pull decode makes no reverse call on any shape.
+- Chunk size is a host choice: this host hands the whole run over in one call; the
+  Rust host chunks at 150. With `AK_CHUNK=150` this slice reproduces the Rust
+  slice's counts exactly (`stage10`).
+- Transport crossings per call, P2.2, independent of payload (`stage19`):
+  blocking 2 forward, 0 reverse; callback 3 forward, 1 reverse; queue 4 forward,
+  0 reverse.
+- Managed arms cross nothing (zero, a property of the arm).
 
-This is the behaviour the branch wants and the first time it happened without a
-review. Told that an adversarial review had found the C++ slice's incumbent
-handicapped three ways, the slice went looking for that defect class in its own
-harness and found two:
+## 5. Defects found
 
-- **The encode baseline** was `CalculateSize()` + `WriteTo(Span)`, where the size
-  pass exists only to size the span. `Google.Protobuf` offers
-  `WriteTo(IBufferWriter<byte>)` in the same official API family, which sizes
-  nothing at the top level, and it measures **0.708 to 0.806** of what the slice
-  had been quoting against. It also avoided the trap C++ fell into: it *resets* the
-  reused `ArrayBufferWriter` rather than calling `Clear()`, because `Clear()` zeroes
-  the written span, which is exactly the per-iteration wipe that handicapped C++.
-- **The decode baseline did a full extra traversal**, and it landed on the number
-  the slice exists for. The generated parse ended with `return m.CalculateSize()` to
-  stop the decoded graph being optimised away — and that walks the whole decoded
-  tree, where the managed arm returned a free position value. Both arms now park the
-  graph in a static sink and return an O(1) value.
+In the slice's own code, all fixed and logged:
 
-**Corrected decode is 0.59 to 0.84 where it had been 0.45 to 0.83** — a larger
-correction than the eight points the C++ review moved. The slice's own summary is
-the right one: *the verdict survives and the margin does not.*
+- Group skip: `Dec.Skip` rejected wire type 3, which `Google.Protobuf` accepts.
+  Fixed by matching the END_GROUP field number with a depth bound of 100
+  (`stage12`). Three wrong fixes were each seen failing, and no single gate
+  (conformance, groups, unknown) catches all three. Without the bound, 200,000
+  nests abort the process with a stack overflow .NET cannot catch.
+- From the corpus (`stage13`): field number 0 accepted; no recursion limit
+  (ABI decision 7); `-0.0` dropped because the omit rule compared `!= 0.0` rather
+  than bits (`Google.Protobuf` has the same hole).
+- M3 explicit-presence string took the implicit path, so present-but-empty was
+  indistinguishable from absent (`stage14`, found by the general emitter).
+- Harness and build: `AkFloor` define lost from the facade (C1); a `const bool`
+  inlined into reading assemblies (C2); a diff-based miss tally that missed an
+  oscillating site (C3); a `wide` content set of mostly two-byte characters (C4);
+  floor and target outputs globbed into each other's compile items (C5); the
+  decode baseline did an extra full traversal to defeat dead-code elimination
+  (C6); a reporting error about `gp-writeto` (C7).
+- Stale artifacts: once a failed build left a stale core in the output directory,
+  and once arm c failed to build (172 errors) while Mono ran an older binary and
+  reported a pass. The loaded artifact is now confirmed with `LD_DEBUG=libs`.
+- RPC grid: stage 18's cells B and C took tonic's defaults while A and D pinned
+  ArmoniK's transport; `ak_client_new_opts` pinned them in stage 19.
+- Stage 20: neither transport row the RPC arm carried is what production runs
+  (see section 6).
 
-The general rule worth carrying to every remaining arm in the branch: **whatever
-stops a result being optimised away must cost the same in every arm.** C++ met the
-same class of defect from the other direction, with a control that was not doing
-work its arm did.
+Gaps outside the slice: the core exports `ak_abi_version` and no layout, so a
+core rebuilt with a changed layout and unchanged version passes the load check
+(ABI obligation 12.3).
 
-## 3. The JIT configuration was checked rather than assumed
+## 6. Harness and runtime facts
 
-R9 names tiering and PGO as things that move a verdict rather than a decimal, so
-the slice measured all three configurations. **No arm crosses 1.0 under any of
-them**, and turning tiering or PGO off slows the *incumbent* — exactly the handicap
-R9 warns of. The default used everywhere else, tiering and PGO on, is therefore the
-configuration **least** favourable to the managed arms, which is the right way round
-for a claim that the managed codec wins.
+- CPU per call in `src/Rpc/Program.cs`, `Grid.cs` and `StreamRun.cs` is read from
+  `Process.TotalProcessorTime`, which advances in 10 ms steps on Linux.
+- The RPC grid runs client and server in one process; the grid reports min of 9
+  rounds; blocks are not interleaved (R-C4, R-C6).
+- Arm order moves results in the streaming harness, so a reversed-order control is
+  required there. Two arms that no change touched moved between sittings on the
+  same container, so numbers from different stages are not comparable.
+- Whatever stops a result being optimised away must cost the same in every arm
+  (defect C6).
+- `Grpc.Tools`' marshaller calls `SetPayloadLength(CalculateSize())` then
+  `WriteTo(bufferWriter)`, so a gRPC client pays the size pass; `gp-writeto` is
+  that path. `ArrayBufferWriter<T>` is .NET Core 3.0+ and its `Clear()` zeroes the
+  written span; the harness's `BufWriter` resets without zeroing.
+- JIT: every figure is a warmed tier-1 figure with tiering and PGO on;
+  `stage6` ran three JIT configurations. Cold start and R2R are not measured.
+- .NET HTTP/2 window behaviour, read from the runtime source:
+  - `Http2Connection` hardcodes a 64 MiB connection window, so the "stream window
+    raised, connection window left at 65,535" hazard is not reachable on .NET.
+  - A configured stream window is a starting point: `Http2StreamWindowManager`
+    grows it up to 16 MiB unless the `DisableDynamicWindowSizing` AppContext
+    switch is set.
+  - `packages/csharp` sets no window. Its client uses an `HttpClientHandler` where
+    `InitialHttp2StreamWindowSize` is not reachable. On the UDS path
+    `GrpcChannelProvider` sets `DisableDynamicWindowSizing` (workaround for
+    grpc-dotnet#2361). Production is therefore .NET's 64 KB default with
+    auto-tuning off, which neither the pinned nor the stack-default row is.
+  - `GrpcChannel` defaults to a Unix socket at `/tmp/armonik.sock` and the worker
+    calls `ListenUnixSocket`.
+- Both ends of the RPC arm are grpc-dotnet, which sets `TCP_NODELAY` by default.
+- In the blocking delivery, a pool thread parked in a native frame must be
+  replaced by the .NET thread pool, which injects threads slowly; CPU and wall
+  clock diverge there.
 
-## 4. What this contributes to the outcome space
+## 7. Not measured or not established
 
-The managed control is now measured in three languages, and it is the same arm in
-each: a generated pure-host-language codec over the same facade, from the same
-description.
+- Any performance result: every timing in `logs/csharp/` is container
+  instrumentation.
+- net6.0 and .NET Framework 4.8 (on Windows); `core-ffi` on any floor.
+- `core-ffi` with Google.Protobuf 3.32.0; `packages/csharp`'s own object model.
+- Decision 9's sparse fill (not in the ABI); decision 13 as an implementation;
+  a zero-copy string form (pinned `GCHandle` per string); the abort guard removed;
+  ABI decisions 4, 6, 8, 10 and 12.
+- Unknown-field retention in the generated codec (it has no bag).
+- Malformed-wire paths (`ErrTruncated`, `ErrMalformed`) beyond the corpus.
+- Nesting past depth 3 in the payload set.
+- The upstream RPC direction, more than one queue drainer, cancellation and
+  deadlines, streaming over the core's transport, bidirectional streaming.
+- Concurrency outside the streaming contract check; GC pauses and working set.
+- Content sets on payloads other than P1.2 and P2.2; arm c on six payloads only.
 
-| slice | the generated host-language codec |
-|---|---|
-| C# | **0.72 - 0.82** of `Google.Protobuf` on the real schema's shapes |
-| Java | **0.39 - 1.05**, and it beats the C ABI on all five M2 payloads |
-| Python | **19.4 - 20.3 times upb** |
+## 8. Open review findings (design/FIX-PLAN.md section 7, unconfirmed)
 
-**What the three jointly establish is that the answer is a property of the host
-runtime's incumbent, not of the approach.** The .NET result is not evidence about
-Python and the Python result is not evidence about .NET. README section 13's
-outcome 2 is a managed-runtime recommendation, and the C# column is what stops it
-being read as a general one.
-
-## 4b. The `core-ffi` arm: C# and Java now disagree, and that is the finding
-
-The held arm is built and gated for M1, encode and decode, on arms a and b. **M2
-to M7 are not built**, so this is a beachhead rather than a column — read every
-figure below as "on the flat message", not "on the shape set".
-
-**Crossings are constant in the element count, in both directions**: 2 forward
-and 1 reverse on encode, 1 forward and 2 reverse on decode, whether the payload
-carries four elements or a thousand. `ResultRaw` is a leaf, so the batching
-predicate admits it, and at .NET's 7.5 to 12 ns crossing — far above the C++
-slice's 2 to 4 ns crossover — batching is not a close call.
-
-**The interface cost**, against the no-boundary managed control:
-
-| payload | encode | decode |
-|---|---|---|
-| P1.1, 4 elements | 1.330 | 1.062 |
-| P1.2, 1000 elements | 1.148 | **0.899** |
-| P1.3, the absent path | **2.361** | **1.981** |
-
-**On P1.2 decode, crossing the C ABI is faster than the pure managed codec** —
-0.899 of it, and 0.651 to 0.659 of `Google.Protobuf`. A Rust parser plus three
-crossings beats a C# parser doing the same work.
-
-**That is the opposite of Java**, where the generated pure-Java codec beat the C
-ABI on all five M2 payloads and the case had to rest on maintenance alone. So the
-two managed runtimes do not agree, and the branch can no longer speak of "managed
-hosts" as one thing. At .NET's crossing price the interface does not eat the
-core's advantage; at JNI's it does. That is the crossover argument again, arriving
-from a third direction and deciding an architecture rather than a mechanism.
-
-**The absent path collapses, and the cause is a decision that is specified and not
-built here.** P1.3 is 300 elements that each encode to nothing, and the host fills
-300 by-value groups of 200 bytes apiece: 60 KB of stores to describe 605 bytes of
-output. **Decision 9's sparse fill is now the specified path and this arm does not
-implement it**, so 2.361 is what the unfixed form costs on .NET and the distance
-to roughly 1.15 is what the fix is worth there. The Rust slice measured the same
-effect from the other side. This is not a finding against the ABI; it is the
-strongest case yet for the decision the ABI already took.
-
-**The floor cannot carry this arm at all, and that is a real constraint rather
-than a gap.** .NET Framework 4.8 has no `LibraryImport` and no
-`UnmanagedCallersOnly`, so the binding as generated does not compile on arm c. A
-floor binding would be `DllImport` plus delegate pointers, **and the delegates
-must be rooted for the lifetime of the vtable or the collector reclaims a thunk
-the codec still holds** — a crash, not a slowdown. The slice excludes arm c
-explicitly rather than quietly.
-
-**One process note worth more than a number.** The loaded artifact is confirmed
-from the dynamic linker rather than the build log, and it had to be twice: once a
-failed build left a stale core in the output directory, and once **arm c failed to
-build with 172 errors while Mono ran a three-hour-old binary and reported a
-pass**. A build log would have shown neither.
-
-## 5. What is not established
-
-- **The `core-ffi` arm does not exist**, by instruction. So this slice says nothing
-  about what the C ABI costs on .NET, which is half of W5. Every ratio here is
-  managed-against-incumbent.
-- **Therefore the two field shapes W5 named are only half closed.** Oneofs and
-  explicit presence are covered in the facade and the managed codec; whether the
-  by-value group reaches a oneof, and whether it can distinguish absent from empty,
-  is still unmeasured on .NET and is still an ABI question.
-- **The bulk rows are ambiguous and say so.** P5.4 spans 0.558 to 1.096 across three
-  processes in one log. That is R2's lesson one direction over: the rust slice needed
-  a floor arm before it could report a 0.08, and here a 1.1 needs one just as much.
-- **No crossing counts, because there are no crossings**: zero in every arm here,
-  which is itself the property that makes them managed-control arms.
-- **Mono is timed as arm c and stands alone**, never as a ratio against the target.
-
-## 6. One defect in the handoff itself
-
-`STATE.md` contains a duplicated paragraph whose second copy contradicts the first:
-it says of P6.1 that "the managed arm allocates MORE (1.31) and is still faster",
-where the table and the preceding paragraph both correctly report P6.1 as the one
-**loss** at 1.019 to 1.031. The table is right. Flagged to the slice rather than
-edited here, but a reader of the handoff should not be able to find both sentences.
-
-## The group-skip defect, carried here and not yet fixed
-
-`Facade/Wire.cs`'s `Skip(int wire)` has cases for the four wire types the schema
-produces and sends everything else to `ErrMalformed`, so an unknown field of the
-deprecated GROUP form is rejected where `Google.Protobuf` accepts it. The shared
-core had the identical hole — found by the python slice's corpus run, fixed there —
-and the C++ slice's `rt.h` still has it; the java slice's `Dec.skip` is the only
-host-side one that was already right, field-number match included.
-
-The fix is not "add case 3": a group carries no length, so the skipper recurses to
-an `END_GROUP` whose field number matches the one that opened it, with a depth bound.
-Counting depth instead accepts `X-group-mismatched-end` and mis-nests everything
-after it. `MapForms.Skip` in the harness has the same hole and matters less, being a
-harness helper rather than the facade's decoder.
-
-Byte identity against the manifest cannot find this, because proto3 cannot express a
-group. Becoming a corpus consumer is what would have.
-
-## 7. The RPC arm exists, and it is the most deflating number in the branch
-
-A real grpc-dotnet client against a real grpc-dotnet server over a **Unix domain
-socket**, the server's marshaller a `byte[]` passthrough so only the client's codec
-varies, four codecs, ArmoniK's transport pinned with the stack default and loopback TCP
-as labelled rows, at 1, 8 and 16 in flight, carrying P2.2.
-
-**The codec is worth about 10 percent of CPU per call end to end, where the in-process
-column says 25.** So sizing this whole change from the codec column overestimates it by
-about two and a half times — and every headline ratio in this branch is a codec ratio.
-That belongs in the report's first paragraph, not in a caveat at the end.
-
-**The three codec arms are indistinguishable from each other at the RPC level.**
-`gp-marshaller`, `managed`, `core-ffi` and `core-ffi pull` do not separate once a real
-transport is underneath them. **What survives the noise is allocation**: every facade arm
-is **8.6 percent below the incumbent on every configuration**. On a managed runtime that
-is a GC-pressure argument rather than a throughput one, and it is the only thing the RPC
-arm establishes about the codec choice.
-
-**Read it beside the C++ slice's**, which measured 0.856 to 0.870 of grpc++ CPU at the
-same three concurrencies with most of the ratio attributable to the codec. Two hosts,
-same shape of experiment, opposite reading of how much the codec matters end to end —
-because C++'s incumbent transport is cheaper relative to its codec than .NET's is.
-
-### And it settled the transport configuration from the runtime source
-
-Two things I had stated as general are per stack, and this slice checked rather than
-relayed them.
-
-- **The connection window is not a separate knob on .NET.** `Http2Connection` hardcodes
-  `ConnectionWindowSize = 64 MiB` and raises it by `WINDOW_UPDATE` at setup, so the
-  "raise only the stream window and the connection stays at 65,535" hazard is real for
-  tonic/hyper and grpc-java and **not reachable here**.
-- **Setting the window does not disable dynamic sizing on .NET.**
-  `Http2StreamWindowManager` treats the configured size as a starting point and doubles
-  to a 16 MiB cap; `WindowScalingEnabled` is a separate switch defaulting on. **So a pin
-  is a floor, not a cap**, and 4 MiB needs the property *and* the
-  `DisableDynamicWindowSizing` AppContext switch or the arm may end the run at 8 or 16.
-
-**And one divergence from R14 that is worth a line in the report.** `packages/csharp`
-sets no window on either side, and the client reaches gRPC through an `HttpClientHandler`
-where `InitialHttp2StreamWindowSize` is not reachable at all — so the pinned arm
-configures something **the shipped C# client cannot**. UDS is the opposite: `GrpcChannel`
-already defaults to a Unix socket at `/tmp/armonik.sock` and the worker already calls
-`ListenUnixSocket`, so the primary transport row is what production runs.
-
-## 8. What else closed since section 5 was written
-
-Section 5's gaps are largely gone: `core-ffi` is built **on every shape**, encode, push
-decode **and pull decode**, with R5 checked against the core's own counters on every row;
-the slice is a **`ffi/corpus` consumer** (336 vectors, three arms); and the crossings
-agree with the rust slice to the digit (10.00 and 7.00 per task against 10.02 and 7.004).
-
-**Two of its own published claims came out**, both found by looking rather than by a
-review. The M1 result that **".NET's composed arm beats its own managed codec on decode"
-does not survive a non-leaf element**: on M2 it is 0.97 to 1.14, with both harnesses
-straddling 1.0. And **the encode cost is the group fill, not the crossings** — a
-`core-ffi fill` arm puts the host-side half at **40 to 57 percent of the whole encode**
-on every payload of both shapes, which also corrects the earlier reading of P1.3 as an
-absent-path effect.
+- R-A7: floors incomplete: net48 only on Mono; net6.0 not built.
+- R-B5: the cross-slice crossing table quoted a C# per-crossing figure the slice
+  never measured (removed here).
+- R-C4: the C# grid is in-process.
+- R-C6: C# CPU quantised at 10 ms; min-of-9 selection; blocks not interleaved.
+- R-C9: C# stages 18-19 built against a core not on the branch.
+- R-C11: measured on .NET 8 and Google.Protobuf 3.28.3; ArmoniK ships a net6.0
+  worker and 3.32.0.
+- R-C13: grid cells B/C stay pinned under `--shipped`; the grid uses the pinned
+  rather than the shipped transport.
+- R-D9: `ak_bytes_free` not called on non-OK status (`src/Rpc/CoreTransport.cs`).
+- R-E6: the C# generator re-derives the ABI layout, and the probe shares the field
+  list it checks.
+- R-E7: UTF-8 decode policy differs per runtime (C# default build is lossy).
+- R-F1: C# `STATE.md` contradicts itself on what exists (for example, "The RPC
+  arm does not exist" under "Measurement coverage").
