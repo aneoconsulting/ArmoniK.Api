@@ -105,11 +105,10 @@ fn rev() {
 /// Forward and reverse crossings since the last reset. Zero in a build without
 /// `--features count`, and the host is told which build it is holding by
 /// `ak_rpc_counting()` rather than by reading zeroes and guessing.
-#[repr(C)]
-pub struct ak_rpc_counters {
-    pub forward: u64,
-    pub reverse: u64,
-}
+// `ak_rpc_counters` (the struct) is `ak_abi`'s, rendered from plan.FIXED (WP5 step 6). An
+// alias, not a `use`: a `use` would also import ak_abi's declaration of the FUNCTION of the
+// same name, which this module defines.
+pub type ak_rpc_counters = ak_abi::ak_rpc_counters;
 
 /// 1 if this core counts RPC crossings, 0 if it does not. R5's hazard in one call: a
 /// harness that reads zeroes out of a non-counting build and publishes them has reported

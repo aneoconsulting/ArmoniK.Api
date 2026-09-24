@@ -21,101 +21,100 @@ layout with the core's, and neither is derived from the list it checks:
     whose struct and field list is parsed out of the RUST declaration text
     (`cs_layout_probe.py`), not out of any plan -- by NAME, both ways.
 
-What the plan does not state and this module therefore declares by hand (reported to the
-aggregating session, FIX-PLAN WP5 "if the plan lacks something"): the vocabulary structs'
-layouts (`ak_str`, `ak_span`, `ak_blob`, `ak_uspan`, `ak_err`, `AkCounters`, `ak_bdr_rec`),
-the fixed codec entry points (contexts, transcoders, runs, counters, the pull family,
-`ak_layout_facts`) and the numeric values of the named constants (read from `ak-abi`'s
-source at generation time, as `AK_ABI_VERSION` always was). The probe checks the structs.
+The fixed ABI -- the vocabulary structs, the fixed entry points, the codes, the version, the
+lifecycle flag values and the RPC counting surface -- is `plan.FIXED` (WP5 step 6, R-G13),
+rendered here into C#; nothing is read out of `ak-abi`'s Rust source any more. The probe
+(`cs_layout_probe`, which parses the RUST text) still checks the structs, independently.
 """
 import os
 import re
 
-from plan import (as_plan, abi_order_topo, direct_fields, element_types, elem_type,
+from plan import (FIXED, as_plan, abi_order_topo, direct_fields, element_types, elem_type,
                   group_fields, loop_slots, presence_bits, slot_elem, slot_name,
                   ugroup_fields, vtable_messages)
 import cs_names as N
-
-HERE = os.path.dirname(os.path.abspath(__file__))
-ABI_LIB = os.path.join(HERE, "..", "crates", "ak-abi", "src", "lib.rs")
 
 LOOP_FN = "delegate* unmanaged[Cdecl]<IntPtr, void*, long, int>"
 UNK_FN = "delegate* unmanaged[Cdecl]<IntPtr, void*, ak_uspan*, int, void>"
 
 
-def abi_constants(names):
-    """{name: value} for `pub const NAME: T = V;` in ak-abi's hand-written lib.rs. The plan
-    names these (lifecycle flags, success codes); their values live in the Rust header."""
-    out = {}
-    with open(ABI_LIB) as f:
-        src = f.read()
-    for n in names:
-        mt = re.search(r"pub const %s: (u32|i32) = ([^;]+);" % re.escape(n), src)
-        if not mt:
-            raise KeyError("%s not found in %s" % (n, ABI_LIB))
-        expr = mt.group(2).strip()
-        m2 = re.fullmatch(r"1 << (\d+)", expr)
-        out[n] = (1 << int(m2.group(1))) if m2 else int(expr)
+def cs_member(t):
+    """The C# spelling of a fixed/RPC STRUCT member type of the plan's vocabulary."""
+    t = t.strip()
+    if t in N.ABI:
+        return N.ABI[t]
+    if t.startswith("*") or t.endswith("?") or t.endswith("_fn") or t.endswith("_f") \
+            or t.endswith("_cb"):
+        return "IntPtr"             # a pointer or a function pointer, as a word
+    if t.startswith("ak_"):
+        return t                    # a nested struct
+    raise KeyError("no C# spelling for member type %r" % t)
+
+
+_HANDLES = set(["ak_enc_ctx", "ak_dec_ctx"])
+_STRUCT_NAMES = set(n for n, _d, _m in FIXED.structs) | {"ak_bytes", "ak_completion",
+                                                        "ak_client_opts"}
+
+
+def cs_param(t):
+    """The C# spelling of an import PARAMETER or RETURN type of the plan's vocabulary."""
+    t = t.strip()
+    if t in N.ABI:
+        return N.ABI[t]
+    if t == "isize":
+        return "nint"
+    if t == "fn(u64)->u64":
+        return "delegate* unmanaged[Cdecl]<ulong, ulong>"
+    if t == "ak_completion_cb":
+        return "delegate* unmanaged[Cdecl]<IntPtr, ak_completion*, void>"
+    if t.endswith("_fn"):
+        return "IntPtr"             # a transcoder handed back to the core, opaque here
+    if t in ("*mut void", "*const void", "*const char"):
+        return "IntPtr"
+    if t == "*mut *const u8":
+        return "byte**"
+    mt = re.fullmatch(r"\*(?:const|mut) (\w+)", t)
+    if mt:
+        inner = mt.group(1)
+        if inner in _HANDLES:
+            return "IntPtr"
+        if inner in _STRUCT_NAMES:
+            return inner + "*"
+        return cs_param(inner) + "*"
+    raise KeyError("no C# spelling for parameter type %r" % t)
+
+
+def _pname(n):
+    return "@" + n if n in N.KEYWORDS else n
+
+
+def _fixed_structs():
+    """plan.FIXED's vocabulary structs as (name, doc, [(member, C# type)])."""
+    return [(n, d, [(mn, cs_member(mt)) for mn, mt in ms]) for n, d, ms in FIXED.structs]
+
+
+def _fixed_imports():
+    """(C# return, name, C# args) for every fixed entry point of plan.FIXED."""
+    out = []
+    for _g, name, params, ret, _doc in FIXED.all_functions():
+        if name == FIXED.functions[0][1]:
+            continue                # ak_init is emitted from plan.lifecycle, first
+        rt = "void" if ret is None else cs_param(ret)
+        out.append((rt, name, ", ".join("%s %s" % (cs_param(t), _pname(pn)) for pn, t in params)))
     return out
 
 
-# The C# spelling of the vocabulary structs plan.py names but does not lay out. The probe
-# (the Rust declaration) is the check.
-VOCAB_STRUCTS = [
-    ("ak_str", "ABI v1 section 4: an encode blob. `tc == null` is absent; `len` counts source code units.",
-     [("data", "IntPtr"), ("len", "nuint"), ("tc", "IntPtr")]),
-    ("ak_span", "ABI v1 section 4: a decode blob, an offset into the buffer the host handed in.",
-     [("off", "uint"), ("len", "uint"), ("coder", "uint")]),
-    ("ak_blob", "The unknown-field bag's slot: raw tag-and-value runs, two words.",
-     [("data", "IntPtr"), ("len", "nuint")]),
-    ("ak_uspan", "One captured unknown run, by element token.",
-     [("token", "long"), ("off", "uint"), ("len", "uint")]),
-    ("ak_err", "ak_init's out-parameter.",
-     [("code", "int"), ("detail", "uint")]),
-    ("AkCounters", "R5, in the CORE's own convention (counting build; zeroes otherwise).",
-     [("forward", "ulong"), ("reverse", "ulong"), ("transcode", "ulong"),
-      ("prefix_moves", "ulong"), ("prefix_bytes", "ulong"), ("grows", "ulong")]),
-    ("ak_bdr_rec", "ABI v1 7.1: one pull record header, 24 bytes; the payload follows padded to 8.",
-     [("op", "uint"), ("slot", "uint"), ("token", "long"), ("n", "uint"), ("bytes", "uint")]),
-]
+def _consts():
+    """(C# type, name, literal) for the codes, the version and the lifecycle flags."""
+    out = [("uint", "AK_ABI_VERSION", "%du" % FIXED.abi_version)]
+    out += [("int", n, str(v)) for n, v, _d in FIXED.codes]
+    out += [("uint", n, "%du" % v) for n, v in LIFECYCLE_FLAGS()]
+    return out
 
-# The codec's fixed entry points (ak-abi's lib.rs and abi.rs), which plan.py does not list.
-FIXED_IMPORTS = [
-    ("uint", "ak_abi_version", ""),
-    ("IntPtr", "ak_enc_ctx_new", ""),
-    ("void", "ak_enc_ctx_free", "IntPtr ctx"),
-    ("void", "ak_enc_reset", "IntPtr ctx"),
-    ("int", "ak_enc_take", "IntPtr ctx, byte** ptr, nuint* len"),
-    ("int", "ak_enc_err", "IntPtr ctx"),
-    ("IntPtr", "ak_dec_ctx_new", ""),
-    ("void", "ak_dec_ctx_free", "IntPtr ctx"),
-    ("int", "ak_dec_err", "IntPtr ctx"),
-    ("void", "ak_dec_err_reset", "IntPtr ctx"),
-    ("void", "ak_fail", "IntPtr ctx, int code, byte* msg, uint msgLen"),
-    ("IntPtr", "ak_tc_bytes", ""),
-    ("IntPtr", "ak_tc_utf8_trusted", ""),
-    ("IntPtr", "ak_tc_utf16", ""),
-    ("IntPtr", "ak_tc_latin1", ""),
-    ("int", "ak_run_i32", "IntPtr ctx, int* p, nuint n"),
-    ("int", "ak_run_i64", "IntPtr ctx, long* p, nuint n"),
-    ("int", "ak_run_f64", "IntPtr ctx, double* p, nuint n"),
-    ("int", "ak_run_u8", "IntPtr ctx, byte* p, nuint n"),
-    ("int", "ak_blob_run", "IntPtr ctx, ak_str* elems, int n"),
-    ("void", "ak_enc_counters", "IntPtr ctx, AkCounters* outp"),
-    ("void", "ak_enc_counters_reset", "IntPtr ctx"),
-    ("void", "ak_dec_counters", "IntPtr ctx, AkCounters* outp"),
-    ("void", "ak_dec_counters_reset", "IntPtr ctx"),
-    ("void", "ak_bdr_reset", "IntPtr ctx"),
-    ("int", "ak_bdr_ptr", "IntPtr ctx, byte** ptr, nuint* len"),
-    ("int", "ak_bdr_reserve", "IntPtr ctx, nuint bytes"),
-    ("nuint", "ak_bdr_footprint", "IntPtr ctx"),
-    ("nuint", "ak_layout_facts", "uint* outp, nuint cap"),
-]
 
-CONSTS = ["AK_ABI_VERSION", "AK_OK", "AK_ALREADY_INITIALIZED", "AK_ERR_HOST", "AK_ERR_MALFORMED",
-          "AK_ERR_TRUNCATED", "AK_ERR_DEPTH", "AK_ERR_LIMIT", "AK_ERR_TRANSCODE",
-          "AK_ERR_CAPACITY", "AK_ERR_INVALID_STATE", "AK_ERR_PANIC", "AK_ERR_UNINITIALIZED",
-          "AK_ERR_ABI", "AK_INIT_OWN_LOGGING", "AK_INIT_NO_PANIC_HOOK", "AK_INIT_NO_CRYPTO"]
+def LIFECYCLE_FLAGS():
+    from plan import LIFECYCLE
+    return LIFECYCLE.flag_values
 
 
 def emit_import(o, ret, name, args, lib="Lib", indent="    "):
@@ -220,7 +219,6 @@ def root_imports(p):
 def emit_abi(x, ns, lib="ak_core"):
     p = as_plan(x)
     lc = p.lifecycle
-    consts = abi_constants(CONSTS)
     o = N.Head("The C ABI of ABI v1 for this message set, declared for C#.", p.source, "cs_binding")
     o += "using System;"
     o += "using System.Collections.Generic;"
@@ -229,16 +227,10 @@ def emit_abi(x, ns, lib="ak_core"):
     o += ""
     o += "namespace %s;" % ns
     o += ""
-    # ---- vocabulary structs (hand-declared: the plan names them, the probe checks them)
-    for name, doc, fields in VOCAB_STRUCTS:
+    # ---- vocabulary structs, ak_init_opts among them (plan.FIXED.structs)
+    oname = lc.opts_struct[0]
+    for name, doc, fields in _fixed_structs():
         _struct(o, name, fields, doc)
-    # ak_init_opts from plan.lifecycle's member list.
-    oname, members = lc.opts_struct
-    cs_members = []
-    for mn, mt in members:
-        cs_members.append((mn, {"u32": "uint", "*mut void": "IntPtr"}.get(mt, "IntPtr")))
-    _struct(o, oname, cs_members, "ABI v1 section 3, members from plan.lifecycle. `log` null: "
-            "this host installs no log bridge.")
 
     # ---- groups
     groups = group_decls(p)
@@ -272,16 +264,14 @@ def emit_abi(x, ns, lib="ak_core"):
     o += "    /// before the first call to ANY of them, so no path reaches the core uninitialised."
     o += "    static Abi() { AbiInit.Run(); }"
     o += ""
-    for n in CONSTS:
-        o += "    public const %s %s = %s;" % ("uint" if n.startswith(("AK_INIT_", "AK_ABI")) else "int",
-                                              n, "%du" % consts[n] if n.startswith(("AK_INIT_", "AK_ABI"))
-                                              else str(consts[n]))
+    for cty, n, lit in _consts():
+        o += "    public const %s %s = %s;" % (cty, n, lit)
     o += "    public const long AK_TOKEN_ROOT = -1;"
     o += "    /// ABI v1 section 8's direct-argument sentinel (`AK_STR_DIRECT`)."
     o += "    public static readonly IntPtr AK_STR_DIRECT = (IntPtr)1;"
     o += ""
     emit_import(o, "int", lc.init[0], "%s* opts, ak_err* err" % oname)
-    for ret, name, args in FIXED_IMPORTS + root_imports(p):
+    for ret, name, args in _fixed_imports() + root_imports(p):
         emit_import(o, ret, name, args)
     o += "}"
     o += ""
@@ -327,8 +317,7 @@ def emit_abi(x, ns, lib="ak_core"):
     o += "    public static List<S> Table()"
     o += "    {"
     o += "        var all = new List<S>();"
-    allstructs = ([(n, [(fn, ft) for fn, ft in fs]) for n, _, fs in VOCAB_STRUCTS]
-                  + [(oname, cs_members)] + groups + vts)
+    allstructs = ([(n, fs) for n, _, fs in _fixed_structs()] + groups + vts)
     for sname, fields in allstructs:
         o += "        {"
         o += "            var s = new S { Name = \"%s\", Size = sizeof(%s), Fields = typeof(%s).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };" % (sname, sname, sname)
@@ -369,48 +358,14 @@ def emit_abi(x, ns, lib="ak_core"):
 
 # ============================================================== the RPC half (plan.rpc)
 
-def _rpc_param(t):
-    if t in ("u32", "u64", "i32", "usize"):
-        return N.ABI[t]
-    if t in ("*const u8", "*mut u8"):
-        return "byte*"
-    if t == "*mut void":
-        return "IntPtr"
-    if t == "ak_completion_cb":
-        return "delegate* unmanaged[Cdecl]<IntPtr, ak_completion*, void>"
-    mt = re.fullmatch(r"\*(?:const|mut) (ak_\w+)", t)
-    if mt:
-        h = mt.group(1)
-        return "IntPtr" if h in as_plan_rpc_handles() else h + "*"
-    raise KeyError("no C# spelling for RPC type %r" % t)
-
-
-_HANDLES = []
-
-
-def as_plan_rpc_handles():
-    return _HANDLES
-
-
-def _rpc_member(t):
-    if t in ("u32", "u64", "i32", "usize"):
-        return N.ABI[t]
-    if t in ("*const u8", "*mut void"):
-        return "IntPtr"
-    if t.startswith("ak_"):
-        return t
-    raise KeyError("no C# spelling for RPC member type %r" % t)
-
-
 def emit_rpc(x, ns, lib="ak_core"):
     """The RPC half's structs and prototypes from plan.rpc (R-G5), both language levels.
     `ak_init` is rendered here too, from plan.lifecycle: this binding is a binding (R-G7)."""
     p = as_plan(x)
     r = p.rpc
     lc = p.lifecycle
-    _HANDLES[:] = list(r.handles)
-    consts = abi_constants(["AK_ABI_VERSION", "AK_OK", "AK_ALREADY_INITIALIZED",
-                            "AK_INIT_NO_PANIC_HOOK", "AK_INIT_NO_CRYPTO"])
+    _HANDLES.update(r.handles)
+    consts = {n: v for _t, n, v in _consts()}
     o = N.Head("ABI v1 section 9, the RPC half, declared for C# from plan.rpc.", p.source, "cs_binding")
     o += "using System;"
     o += "using System.Collections.Generic;"
@@ -421,13 +376,19 @@ def emit_rpc(x, ns, lib="ak_core"):
     o += ""
     structs = []
     for name, doc, members in r.structs:
-        fields = [(mn, _rpc_member(mt)) for mn, mt, _ in members]
+        fields = [(mn, cs_member(mt)) for mn, mt, _ in members]
         structs.append((name, fields))
         _struct(o, name, fields, doc)
-    oname, members = lc.opts_struct
-    init_members = [(mn, {"u32": "uint"}.get(mt, "IntPtr")) for mn, mt in members]
-    _struct(o, oname, init_members, "ABI v1 section 3 (plan.lifecycle).")
-    _struct(o, "ak_err", [("code", "int"), ("detail", "uint")], "ak_init's out-parameter.")
+    oname = lc.opts_struct[0]
+    fixed = {n: (d, fs) for n, d, fs in _fixed_structs()}
+    init_members = fixed[oname][1]
+    err_members = fixed["ak_err"][1]
+    _struct(o, oname, init_members, fixed[oname][0])
+    _struct(o, "ak_err", err_members, fixed["ak_err"][0])
+    # plan.FIXED.rpc_counting is NOT rendered here yet: poc/csharp/src/Rpc/CoreTransport.cs
+    # declares the same four members on this partial class by hand (as `AkRpcCounters`), so
+    # rendering them would be a duplicate definition. Reported; remove the hand block and
+    # render these when the csharp slice re-points (FIX-PLAN WP5 step 6).
     o += "public static unsafe partial class AkRpc"
     o += "{"
     o += '    public const string Lib = "%s";' % lib
@@ -438,17 +399,18 @@ def emit_rpc(x, ns, lib="ak_core"):
             o += "    /// %s" % cdoc
         o += "    public const %s %s = %d;" % (N.ABI[ctype], cname, cval)
     for n in ("AK_ABI_VERSION", "AK_INIT_NO_PANIC_HOOK", "AK_INIT_NO_CRYPTO"):
-        o += "    public const uint %s = %du;" % (n, consts[n])
+        o += "    public const uint %s = %s;" % (n, consts[n])
     for n in ("AK_OK", "AK_ALREADY_INITIALIZED"):
-        o += "    public const int %s = %d;" % (n, consts[n])
+        o += "    public const int %s = %s;" % (n, consts[n])
     o += ""
     emit_import(o, "int", lc.init[0], "%s* opts, ak_err* err" % oname)
     for fname, params, ret, doc in r.functions:
         if doc:
             o += "    /// %s" % doc
-        rt = "void" if ret is None else _rpc_param(ret)
-        args = ", ".join("%s %s" % (_rpc_param(t), "@" + pn if pn in N.KEYWORDS else pn) for pn, t in params)
+        rt = "void" if ret is None else cs_param(ret)
+        args = ", ".join("%s %s" % (cs_param(t), _pname(pn)) for pn, t in params)
         emit_import(o, rt, fname, args)
+
     o += "}"
     o += ""
     flags = " | ".join("AkRpc.%s" % fl for fl in lc.default_flags)
@@ -475,7 +437,7 @@ def emit_rpc(x, ns, lib="ak_core"):
     o += "    public static List<(string Name, int Size, int Fields, List<(string Name, int Off, int Size)> F)> Table()"
     o += "    {"
     o += "        var all = new List<(string, int, int, List<(string, int, int)>)>();"
-    for sname, fields in structs + [(oname, init_members), ("ak_err", [("code", "int"), ("detail", "uint")])]:
+    for sname, fields in structs + [(oname, init_members), ("ak_err", err_members)]:
         o += "        {"
         o += "            var v = default(%s); %s* z = &v; var f = new List<(string, int, int)>();" % (sname, sname)
         for fn, ft in fields:

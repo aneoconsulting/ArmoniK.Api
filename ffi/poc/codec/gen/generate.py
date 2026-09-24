@@ -17,8 +17,8 @@ be run through the C ABI (WP5 item 6.1), behind the `corpus` feature of ak-abi /
   crates/ak-core/src/generated_corpus/codec.rs
   crates/ak-core/src/generated_corpus/layout.rs
 
-  gen/generate.py            write them
-  gen/generate.py --check    fail if what is committed is not what this would write, OR if
+  gen/generate.py            write them, then run every slice's generator (one command)
+  gen/generate.py --check    the same, checking: fail if what is committed is not what this would write, OR if
                              a backend module imports the IR or the schema instead of plans
                              (WP5 item 7), OR if that guard cannot see a planted violation
 
@@ -54,9 +54,21 @@ ROOTS = [
 #
 # WP5 item 7. A BACKEND renders plans; it does not read the description. These modules are
 # backends, and none of them may import the IR or anything that loads a description.
-BACKENDS = ["rust_abi.py", "rust_native.py", "rust_binding.py", "cpp_layout.py",
-            "rust_core.py", "rustnames.py"]
+#
+# WP5 step 6: EVERY module of this directory except the rule layer (plan.py), the front end
+# (ir.py) and this driver is a backend -- rust_*, c_abi, cpp_*, java_*, cs_*, py_* -- and the
+# list is computed, so a backend added later is guarded by existing.
+NOT_BACKENDS = {"plan.py", "ir.py", "generate.py"}
+BACKENDS = sorted(f for f in os.listdir(HERE)
+                  if f.endswith(".py") and f not in NOT_BACKENDS)
 FORBIDDEN = {"ir", "shapes", "spec", "values", "payloads", "encode", "walk", "json"}
+
+# One command regenerates every generated file of every slice (WP5 done-when): after the
+# core's own files, each slice's generator is run in turn, with `--check` passed through.
+# The slices' generators call this one back for the core (`--check`); the environment
+# variable below makes that nested call do the core only, so there is no recursion.
+SLICES = ["rust", "cpp", "java", "csharp", "python"]
+CORE_ONLY = "AK_GEN_CORE_ONLY"
 
 
 def imports_of(source):
@@ -110,6 +122,7 @@ def targets():
         "crates/ak-core/src/generated/codec.rs": codec,
         "crates/ak-core/src/generated/layout.rs": cpp_layout.emit(p),
         "crates/ak-core/src/generated/rpc_check.rs": rust_abi.emit_rpc_check(p),
+        "crates/ak-core/src/generated/abi_check.rs": rust_abi.emit_abi_check(p),
     }
     roots, _refused = corpus_roots()
     cp = P.load_corpus(roots)
@@ -123,9 +136,38 @@ def targets():
     })
     # The RPC half's region of ak-abi's hand-written lib.rs (see rust_abi.emit_rpc_abi).
     lib = os.path.join(ROOT, "crates/ak-abi/src/lib.rs")
-    out["crates/ak-abi/src/lib.rs"] = rust_abi.splice_region(open(lib).read(),
-                                                             rust_abi.emit_rpc_abi(p))
+    text = rust_abi.splice_region(open(lib).read(), rust_abi.emit_rpc_abi(p))
+    # ... and its FIXED region (plan.FIXED, WP5 step 6).
+    text = rust_abi.splice(text, rust_abi.FIXED_BEGIN, rust_abi.FIXED_END,
+                           rust_abi.emit_fixed_abi(p))
+    out["crates/ak-abi/src/lib.rs"] = text
     return out
+
+
+def run_slices(check):
+    """Run every slice's generator; return the number that failed."""
+    import subprocess
+    env = dict(os.environ, **{CORE_ONLY: "1"})
+    failed = 0
+    for s in SLICES:
+        path = os.path.join(ROOT, "..", s, "gen", "generate.py")
+        r = subprocess.run([sys.executable, path] + (["--check"] if check else []),
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
+        lines = [ln for ln in r.stdout.decode().splitlines()
+                 if ln and not ln.startswith((" ", "Error processing", "Remainder",
+                                              "Traceback (most recent call last):"))
+                 and "_distutils_hack" not in ln]
+        changed = [ln for ln in lines if ln.startswith(("STALE", "wrote", "GUARD"))
+                   or "problem" in ln or "Error" in ln or "rror:" in ln]
+        print("slice %-7s %s: exit %d%s" % (s, "--check" if check else "write", r.returncode,
+                                           "" if not changed else ""))
+        for ln in changed:
+            print("   %s" % ln)
+        if r.returncode:
+            failed += 1
+            for ln in lines[-5:]:
+                print("   | %s" % ln)
+    return failed
 
 
 def main(argv):
@@ -143,6 +185,7 @@ def main(argv):
         if not violations and caught:
             print("guard %d backend modules import plans only; a planted IR import is caught"
                   % len(BACKENDS))
+            print("      %s" % " ".join(BACKENDS))
     for rel, text in targets().items():
         path = os.path.join(ROOT, rel)
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -159,6 +202,8 @@ def main(argv):
                 print("wrote %s  (%d lines)" % (rel, text.count("\n") + 1))
             else:
                 print("same  %s" % rel)
+    if not os.environ.get(CORE_ONLY) and "--core-only" not in argv:
+        bad += run_slices(check)
     return 1 if bad else 0
 
 

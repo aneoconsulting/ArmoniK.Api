@@ -3,7 +3,7 @@ rendered from a plan (FIX-PLAN WP5 step 3).
 
 Moved from `poc/java/gen/java_jni.py`, which read the IR and compiled against another
 slice's header while declaring the pull family and the UTF-16 transcoders by hand. Now the
-shim includes the header `java_abi.emit_header` renders from the same plan, the direct-
+shim includes the header `c_abi.emit` renders from the same plan, the direct-
 argument entry points come from `plan.direct_fields` for every root that has one (the
 pre-WP5 shim hand-wrote the one for `UploadResultDataMessage`), and `ak_init` is rendered
 from `plan.lifecycle` (R-G7): `NativeEntry.ensureInit()` calls it with the plan's default
@@ -21,7 +21,7 @@ shapes description, `ak.corpus.NativeEntry` for the corpus's), which is also the
 prefix; the fixed natives are `ak.Native`'s in every build.
 """
 from plan import direct_fields, element_types, slot_name
-import java_abi as A
+import plan as A
 import java_names as N
 
 WHO = "java_jni.py"

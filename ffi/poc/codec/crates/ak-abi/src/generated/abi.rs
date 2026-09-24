@@ -3,62 +3,10 @@
 //! The per-message part of the C ABI: section 6's groups and vtables, section 7's
 //! decode fixes. Both the core and the host binding compile against this file.
 #![allow(non_camel_case_types, non_upper_case_globals)]
-use super::super::{ak_dec_ctx, ak_enc_ctx, ak_span, ak_str};
+// The fixed vocabulary (ak_str, ak_span, ak_blob, ak_uspan, ak_loop_f, ak_unk_f,
+// AK_TOKEN_ROOT) is plan.FIXED's, rendered into ak-abi's lib.rs (WP5 step 6).
+use super::super::{ak_blob, ak_dec_ctx, ak_enc_ctx, ak_loop_f, ak_span, ak_str, ak_unk_f};
 use core::ffi::c_void;
-
-/// A host-driven loop over one repeated, packed or map field. The context is the
-/// first argument of every host-facing callback (ABI v1 section 5), so a failure
-/// always has somewhere to go. `token` names which element of the enclosing run the
-/// field belongs to; `AK_TOKEN_ROOT` means the root object itself. A token is an
-/// INDEX, never an address, and the codec never dereferences one (section 10).
-pub type ak_loop_f = unsafe extern "C" fn(
-    ctx: *mut ak_enc_ctx,
-    obj: *const c_void,
-    token: i64,
-) -> i32;
-
-/// ABI v1 open decision 11 candidate: unknown fields, delivered as a RUN.
-///
-/// Each span covers one whole tag-and-value run in the buffer the host handed in,
-/// so the core copies nothing and stays allocation-free; the host materialises them
-/// if it intends to re-encode, because that buffer may be recycled. Batched like any
-/// other run, so the cost is crossings per chunk and not per field.
-///
-/// It is a SIDE run keyed by token, not a slot in the element group, which is why
-/// the group stays a fixed-size POD and ABI v1 7.2's batching predicate does not
-/// even see it (`gen/unknown_predicate.py`).
-/// The unknown-field bag's slot: TWO words, not three.
-///
-/// Every other blob slot carries a transcoder pointer because the host's
-/// representation may not be the wire's. The bag's is, by construction: it is the
-/// raw tag-and-value runs a decoder captured, so there is nothing to convert and
-/// the third word would be dead weight on every group of every message. Emptiness
-/// is `len == 0`, which is the same test ABI v1 section 8's direct-argument path
-/// already uses, so this is not a new convention.
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct ak_blob {
-    pub data: *const c_void,
-    pub len: usize,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct ak_uspan {
-    /// Which element of the enclosing run this run belongs to, or AK_TOKEN_ROOT.
-    pub token: i64,
-    pub off: u32,
-    pub len: u32,
-}
-
-pub type ak_unk_f = unsafe extern "C" fn(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    spans: *const ak_uspan,
-    n: i32,
-);
-
-pub const AK_TOKEN_ROOT: i64 = -1;
 
 /// Encode group for `TaskOptionsOptionsEntry`.
 #[repr(C)]
@@ -1369,7 +1317,7 @@ impl ak_ufix_DualResponse {
     };
 }
 
-/// Encode vtable for `ListResultsResponse`. One slot per field that could not ride in the group.
+/// Encode vtable for `ListResultsResponse`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_evt_ListResultsResponse {
@@ -1383,26 +1331,20 @@ pub struct ak_dvt_ListResultsResponse {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListResultsResponse),
     >,
-    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
-    /// skipped and dropped. Set, and they are delivered as spans.
+    /// Unknown fields of the root: `None` drops them, set captures them.
     pub unknown: Option<ak_unk_f>,
-    /// Decision 11 candidate: the unknown fields of THIS slot's elements,
-    /// delivered after the run that carries them, so the host can index.
     pub unk_results: Option<ak_unk_f>,
-    /// Batchable: the element type is a leaf, so a run crosses once
-    /// per chunk. Append; never size to the count you were handed.
     pub add_results: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_ResultRaw, i32),
     >,
 }
 
-/// Encode vtable for `ListTasksDetailedResponse`. One slot per field that could not ride in the group.
+/// Encode vtable for `ListTasksDetailedResponse`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_evt_ListTasksDetailedResponse {
     pub loop_tasks: Option<ak_loop_f>,
-    /// The element type has loop slots of its own, so the codec
-    /// needs its vtable to reach them (ABI v1 section 6).
+    /// The element type has loop slots of its own (ABI v1 section 6).
     pub elem_tasks: *const ak_evt_TaskDetailed,
 }
 
@@ -1413,16 +1355,9 @@ pub struct ak_dvt_ListTasksDetailedResponse {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListTasksDetailedResponse),
     >,
-    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
-    /// skipped and dropped. Set, and they are delivered as spans.
+    /// Unknown fields of the root: `None` drops them, set captures them.
     pub unknown: Option<ak_unk_f>,
-    /// Decision 11 candidate: the unknown fields of THIS slot's elements,
-    /// delivered after the run that carries them, so the host can index.
     pub unk_tasks: Option<ak_unk_f>,
-    /// NOT batchable: `TaskDetailed` carries repeated or map fields of its own,
-    /// so there would be nothing to attach the inner elements to
-    /// (ABI v1 section 7.2). Two calls per element, `new` then
-    /// `apply`, plus one run per inner field that occurred.
     pub new_tasks: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void) -> i64,
     >,
@@ -1446,7 +1381,7 @@ pub struct ak_dvt_ListTasksDetailedResponse {
     >,
 }
 
-/// Encode vtable for `ListProbeResponse`. One slot per field that could not ride in the group.
+/// Encode vtable for `ListProbeResponse`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_evt_ListProbeResponse {
@@ -1460,26 +1395,20 @@ pub struct ak_dvt_ListProbeResponse {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListProbeResponse),
     >,
-    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
-    /// skipped and dropped. Set, and they are delivered as spans.
+    /// Unknown fields of the root: `None` drops them, set captures them.
     pub unknown: Option<ak_unk_f>,
-    /// Decision 11 candidate: the unknown fields of THIS slot's elements,
-    /// delivered after the run that carries them, so the host can index.
     pub unk_probes: Option<ak_unk_f>,
-    /// Batchable: the element type is a leaf, so a run crosses once
-    /// per chunk. Append; never size to the count you were handed.
     pub add_probes: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_Probe, i32),
     >,
 }
 
-/// Encode vtable for `ListTaskSummaryResponse`. One slot per field that could not ride in the group.
+/// Encode vtable for `ListTaskSummaryResponse`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_evt_ListTaskSummaryResponse {
     pub loop_tasks: Option<ak_loop_f>,
-    /// The element type has loop slots of its own, so the codec
-    /// needs its vtable to reach them (ABI v1 section 6).
+    /// The element type has loop slots of its own (ABI v1 section 6).
     pub elem_tasks: *const ak_evt_TaskSummary,
 }
 
@@ -1490,16 +1419,9 @@ pub struct ak_dvt_ListTaskSummaryResponse {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListTaskSummaryResponse),
     >,
-    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
-    /// skipped and dropped. Set, and they are delivered as spans.
+    /// Unknown fields of the root: `None` drops them, set captures them.
     pub unknown: Option<ak_unk_f>,
-    /// Decision 11 candidate: the unknown fields of THIS slot's elements,
-    /// delivered after the run that carries them, so the host can index.
     pub unk_tasks: Option<ak_unk_f>,
-    /// NOT batchable: `TaskSummary` carries repeated or map fields of its own,
-    /// so there would be nothing to attach the inner elements to
-    /// (ABI v1 section 7.2). Two calls per element, `new` then
-    /// `apply`, plus one run per inner field that occurred.
     pub new_tasks: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void) -> i64,
     >,
@@ -1511,12 +1433,11 @@ pub struct ak_dvt_ListTaskSummaryResponse {
     >,
 }
 
-/// Encode vtable for `UploadResultDataMessage`. Empty: nothing in this message needs a call.
+/// Encode vtable for `UploadResultDataMessage`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_evt_UploadResultDataMessage {
-    /// Reserved. An empty struct has no defined size in C, so a vtable
-    /// for a message that needs no call still carries one slot.
+    /// Reserved: an empty struct has no defined size in C.
     pub _reserved: *const c_void,
 }
 
@@ -1527,18 +1448,16 @@ pub struct ak_dvt_UploadResultDataMessage {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_UploadResultDataMessage),
     >,
-    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
-    /// skipped and dropped. Set, and they are delivered as spans.
+    /// Unknown fields of the root: `None` drops them, set captures them.
     pub unknown: Option<ak_unk_f>,
 }
 
-/// Encode vtable for `ListMetricsResponse`. One slot per field that could not ride in the group.
+/// Encode vtable for `ListMetricsResponse`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_evt_ListMetricsResponse {
     pub loop_batches: Option<ak_loop_f>,
-    /// The element type has loop slots of its own, so the codec
-    /// needs its vtable to reach them (ABI v1 section 6).
+    /// The element type has loop slots of its own (ABI v1 section 6).
     pub elem_batches: *const ak_evt_MetricsBatch,
 }
 
@@ -1549,16 +1468,9 @@ pub struct ak_dvt_ListMetricsResponse {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListMetricsResponse),
     >,
-    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
-    /// skipped and dropped. Set, and they are delivered as spans.
+    /// Unknown fields of the root: `None` drops them, set captures them.
     pub unknown: Option<ak_unk_f>,
-    /// Decision 11 candidate: the unknown fields of THIS slot's elements,
-    /// delivered after the run that carries them, so the host can index.
     pub unk_batches: Option<ak_unk_f>,
-    /// NOT batchable: `MetricsBatch` carries repeated or map fields of its own,
-    /// so there would be nothing to attach the inner elements to
-    /// (ABI v1 section 7.2). Two calls per element, `new` then
-    /// `apply`, plus one run per inner field that occurred.
     pub new_batches: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void) -> i64,
     >,
@@ -1582,7 +1494,7 @@ pub struct ak_dvt_ListMetricsResponse {
     >,
 }
 
-/// Encode vtable for `DualResponse`. One slot per field that could not ride in the group.
+/// Encode vtable for `DualResponse`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_evt_DualResponse {
@@ -1597,33 +1509,23 @@ pub struct ak_dvt_DualResponse {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_DualResponse),
     >,
-    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
-    /// skipped and dropped. Set, and they are delivered as spans.
+    /// Unknown fields of the root: `None` drops them, set captures them.
     pub unknown: Option<ak_unk_f>,
-    /// Decision 11 candidate: the unknown fields of THIS slot's elements,
-    /// delivered after the run that carries them, so the host can index.
     pub unk_left: Option<ak_unk_f>,
-    /// Batchable: the element type is a leaf, so a run crosses once
-    /// per chunk. Append; never size to the count you were handed.
     pub add_left: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_Pair, i32),
     >,
-    /// Decision 11 candidate: the unknown fields of THIS slot's elements,
-    /// delivered after the run that carries them, so the host can index.
     pub unk_right: Option<ak_unk_f>,
-    /// Batchable: the element type is a leaf, so a run crosses once
-    /// per chunk. Append; never size to the count you were handed.
     pub add_right: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_Pair, i32),
     >,
 }
 
-/// Encode vtable for `TaskOptionsOptionsEntry`. Empty: nothing in this message needs a call.
+/// Encode vtable for `TaskOptionsOptionsEntry`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_evt_TaskOptionsOptionsEntry {
-    /// Reserved. An empty struct has no defined size in C, so a vtable
-    /// for a message that needs no call still carries one slot.
+    /// Reserved: an empty struct has no defined size in C.
     pub _reserved: *const c_void,
 }
 
@@ -1634,17 +1536,15 @@ pub struct ak_dvt_TaskOptionsOptionsEntry {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_TaskOptionsOptionsEntry),
     >,
-    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
-    /// skipped and dropped. Set, and they are delivered as spans.
+    /// Unknown fields of the root: `None` drops them, set captures them.
     pub unknown: Option<ak_unk_f>,
 }
 
-/// Encode vtable for `ResultRaw`. Empty: nothing in this message needs a call.
+/// Encode vtable for `ResultRaw`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_evt_ResultRaw {
-    /// Reserved. An empty struct has no defined size in C, so a vtable
-    /// for a message that needs no call still carries one slot.
+    /// Reserved: an empty struct has no defined size in C.
     pub _reserved: *const c_void,
 }
 
@@ -1655,12 +1555,11 @@ pub struct ak_dvt_ResultRaw {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ResultRaw),
     >,
-    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
-    /// skipped and dropped. Set, and they are delivered as spans.
+    /// Unknown fields of the root: `None` drops them, set captures them.
     pub unknown: Option<ak_unk_f>,
 }
 
-/// Encode vtable for `TaskDetailed`. One slot per field that could not ride in the group.
+/// Encode vtable for `TaskDetailed`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_evt_TaskDetailed {
@@ -1678,40 +1577,27 @@ pub struct ak_dvt_TaskDetailed {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_TaskDetailed),
     >,
-    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
-    /// skipped and dropped. Set, and they are delivered as spans.
+    /// Unknown fields of the root: `None` drops them, set captures them.
     pub unknown: Option<ak_unk_f>,
-    /// Batchable: the element type is a leaf, so a run crosses once
-    /// per chunk. Append; never size to the count you were handed.
     pub add_parent_task_ids: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_span, i32),
     >,
-    /// Batchable: the element type is a leaf, so a run crosses once
-    /// per chunk. Append; never size to the count you were handed.
     pub add_data_dependencies: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_span, i32),
     >,
-    /// Batchable: the element type is a leaf, so a run crosses once
-    /// per chunk. Append; never size to the count you were handed.
     pub add_expected_output_ids: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_span, i32),
     >,
-    /// Batchable: the element type is a leaf, so a run crosses once
-    /// per chunk. Append; never size to the count you were handed.
     pub add_retry_of_ids: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_span, i32),
     >,
-    /// Decision 11 candidate: the unknown fields of THIS slot's elements,
-    /// delivered after the run that carries them, so the host can index.
     pub unk_options_options: Option<ak_unk_f>,
-    /// Batchable: the element type is a leaf, so a run crosses once
-    /// per chunk. Append; never size to the count you were handed.
     pub add_options_options: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_TaskOptionsOptionsEntry, i32),
     >,
 }
 
-/// Encode vtable for `TaskSummary`. One slot per field that could not ride in the group.
+/// Encode vtable for `TaskSummary`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_evt_TaskSummary {
@@ -1725,25 +1611,19 @@ pub struct ak_dvt_TaskSummary {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_TaskSummary),
     >,
-    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
-    /// skipped and dropped. Set, and they are delivered as spans.
+    /// Unknown fields of the root: `None` drops them, set captures them.
     pub unknown: Option<ak_unk_f>,
-    /// Decision 11 candidate: the unknown fields of THIS slot's elements,
-    /// delivered after the run that carries them, so the host can index.
     pub unk_options_options: Option<ak_unk_f>,
-    /// Batchable: the element type is a leaf, so a run crosses once
-    /// per chunk. Append; never size to the count you were handed.
     pub add_options_options: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_TaskOptionsOptionsEntry, i32),
     >,
 }
 
-/// Encode vtable for `Probe`. Empty: nothing in this message needs a call.
+/// Encode vtable for `Probe`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_evt_Probe {
-    /// Reserved. An empty struct has no defined size in C, so a vtable
-    /// for a message that needs no call still carries one slot.
+    /// Reserved: an empty struct has no defined size in C.
     pub _reserved: *const c_void,
 }
 
@@ -1754,12 +1634,11 @@ pub struct ak_dvt_Probe {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_Probe),
     >,
-    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
-    /// skipped and dropped. Set, and they are delivered as spans.
+    /// Unknown fields of the root: `None` drops them, set captures them.
     pub unknown: Option<ak_unk_f>,
 }
 
-/// Encode vtable for `MetricsBatch`. One slot per field that could not ride in the group.
+/// Encode vtable for `MetricsBatch`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_evt_MetricsBatch {
@@ -1777,42 +1656,30 @@ pub struct ak_dvt_MetricsBatch {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_MetricsBatch),
     >,
-    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
-    /// skipped and dropped. Set, and they are delivered as spans.
+    /// Unknown fields of the root: `None` drops them, set captures them.
     pub unknown: Option<ak_unk_f>,
-    /// Batchable: the element type is a leaf, so a run crosses once
-    /// per chunk. Append; never size to the count you were handed.
     pub add_ticks: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const i64, i32),
     >,
-    /// Batchable: the element type is a leaf, so a run crosses once
-    /// per chunk. Append; never size to the count you were handed.
     pub add_values: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const f64, i32),
     >,
-    /// Batchable: the element type is a leaf, so a run crosses once
-    /// per chunk. Append; never size to the count you were handed.
     pub add_codes: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const i32, i32),
     >,
-    /// Batchable: the element type is a leaf, so a run crosses once
-    /// per chunk. Append; never size to the count you were handed.
     pub add_flags: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const u8, i32),
     >,
-    /// Batchable: the element type is a leaf, so a run crosses once
-    /// per chunk. Append; never size to the count you were handed.
     pub add_statuses: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const i32, i32),
     >,
 }
 
-/// Encode vtable for `Pair`. Empty: nothing in this message needs a call.
+/// Encode vtable for `Pair`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_evt_Pair {
-    /// Reserved. An empty struct has no defined size in C, so a vtable
-    /// for a message that needs no call still carries one slot.
+    /// Reserved: an empty struct has no defined size in C.
     pub _reserved: *const c_void,
 }
 
@@ -1823,8 +1690,7 @@ pub struct ak_dvt_Pair {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_Pair),
     >,
-    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are
-    /// skipped and dropped. Set, and they are delivered as spans.
+    /// Unknown fields of the root: `None` drops them, set captures them.
     pub unknown: Option<ak_unk_f>,
 }
 
@@ -2101,14 +1967,14 @@ unsafe extern "C" {
         tok0: i64,
     ) -> i32;
     /// A run of strings or bytes under the repeated field the codec has open.
-    /// `n == 1` is the unbatched call, exactly as for elements.
     pub fn ak_blob_run(ctx: *mut ak_enc_ctx, elems: *const ak_str, n: i32) -> i32;
-    /// A packed repeated scalar is the host's own array, handed over whole: one
-    /// symbol per host layout, and the wire encoding comes from the schema and
-    /// lives in the context, so bool and enum need no cases (ABI v1 section 6).
+    /// A packed repeated scalar: the host's own array, handed over whole.
     pub fn ak_run_i32(ctx: *mut ak_enc_ctx, p: *const i32, n: usize) -> i32;
+    /// A packed repeated scalar: the host's own array, handed over whole.
     pub fn ak_run_i64(ctx: *mut ak_enc_ctx, p: *const i64, n: usize) -> i32;
+    /// A packed repeated scalar: the host's own array, handed over whole.
     pub fn ak_run_f64(ctx: *mut ak_enc_ctx, p: *const f64, n: usize) -> i32;
+    /// A packed repeated scalar: the host's own array, handed over whole.
     pub fn ak_run_u8(ctx: *mut ak_enc_ctx, p: *const u8, n: usize) -> i32;
 }
 

@@ -17,7 +17,7 @@ for the same reason.
 
 **The slot numbering is computed from the plan, not copied.** `(outer << 16) | inner`
 with the root's loop slots 1-based and, for a non-leaf element, its own loop slots 1-based;
-a root-level batchable run is the bare index (`java_abi.pull_records`, from
+a root-level batchable run is the bare index (`plan.pull_records`, from
 `plan.loop_slots`; the numbering itself is rendered by `rust_abi`, a plan gap noted there).
 
 **Parse runs under a critical section and the wire is never copied.** A push entry point
@@ -27,15 +27,15 @@ construction, so the pull arm hands the core the host's own array and spans reso
 that array directly (7.4). That copy is one of the two things the family is supposed to
 save, and it is saved here rather than argued for.
 """
-import java_abi as A
+import plan as A
 
-AK_BDR_APPLY = A.AK_BDR_APPLY
-AK_BDR_ADD = A.AK_BDR_ADD
-AK_BDR_NEW = A.AK_BDR_NEW
-AK_BDR_APPLY_ELEM = A.AK_BDR_APPLY_ELEM
+AK_BDR_APPLY = A.BDR["AK_BDR_APPLY"]
+AK_BDR_ADD = A.BDR["AK_BDR_ADD"]
+AK_BDR_NEW = A.BDR["AK_BDR_NEW"]
+AK_BDR_APPLY_ELEM = A.BDR["AK_BDR_APPLY_ELEM"]
 
 # 24 bytes: u32 op, u32 slot, i64 token, u32 n, u32 bytes. The header static-asserts it
-# (`java_abi.FIXED_EXPORTS`).
+# (`plan.FIXED`).
 REC_BYTES = 24
 
 
@@ -44,7 +44,8 @@ def emit(ir, dec_ix, o, entry="ak.NativeEntry"):
     o.append("  // ---- ABI v1 7.1, the pull family ---------------------------------------")
     o.append(STATE)
     for root in ir.roots:
-        recs = A.pull_records(ir, root, dec_ix)
+        recs = [(op, slot, dec_ix[(root, kind, sn)], kind)
+                for op, slot, kind, sn in A.pull_records(ir, root)]
         o.append("")
         o.append("  /** Parse into the context making ZERO upcalls, then replay the records.")
         o.append("   *  The wire is handed to the core under a critical section rather than")

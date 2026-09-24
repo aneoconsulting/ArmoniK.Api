@@ -11,8 +11,8 @@ using System.Runtime.InteropServices;
 
 namespace Armonik.Ffi.Corpus;
 
-/// ABI v1 section 4: an encode blob. `tc == null` is absent; `len` counts source code
-/// units.
+/// ABI v1 section 4, encode: a blob as DATA in the group. `len` counts SOURCE code
+/// units; `tc == NULL` means the field is ABSENT.
 [StructLayout(LayoutKind.Sequential)]
 public struct ak_str
 {
@@ -21,7 +21,7 @@ public struct ak_str
     public IntPtr tc;
 }
 
-/// ABI v1 section 4: a decode blob, an offset into the buffer the host handed in.
+/// ABI v1 section 4, decode: an OFFSET into the buffer the host handed in.
 [StructLayout(LayoutKind.Sequential)]
 public struct ak_span
 {
@@ -30,7 +30,7 @@ public struct ak_span
     public uint coder;
 }
 
-/// The unknown-field bag's slot: raw tag-and-value runs, two words.
+/// Decision 11's unknown-field bag: two words, raw tag-and-value runs.
 [StructLayout(LayoutKind.Sequential)]
 public struct ak_blob
 {
@@ -38,7 +38,7 @@ public struct ak_blob
     public nuint len;
 }
 
-/// One captured unknown run, by element token.
+/// One captured unknown run: which object (a token) and where in the input.
 [StructLayout(LayoutKind.Sequential)]
 public struct ak_uspan
 {
@@ -47,7 +47,7 @@ public struct ak_uspan
     public uint len;
 }
 
-/// ak_init's out-parameter.
+/// ak_init's out-parameter (ABI v1 section 3/5): a code and a detail.
 [StructLayout(LayoutKind.Sequential)]
 public struct ak_err
 {
@@ -55,7 +55,18 @@ public struct ak_err
     public uint detail;
 }
 
-/// R5, in the CORE's own convention (counting build; zeroes otherwise).
+/// ak_init's options (ABI v1 section 3).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_init_opts
+{
+    public uint abi_version;
+    public uint flags;
+    public IntPtr log;
+    public IntPtr log_ctx;
+}
+
+/// README R5: boundary-call counts, counted in the CORE (zero unless the core is a
+/// counting build).
 [StructLayout(LayoutKind.Sequential)]
 public struct AkCounters
 {
@@ -67,7 +78,8 @@ public struct AkCounters
     public ulong grows;
 }
 
-/// ABI v1 7.1: one pull record header, 24 bytes; the payload follows padded to 8.
+/// ABI v1 section 7.1: one pull record header, 24 bytes; the payload follows, padded to
+/// 8.
 [StructLayout(LayoutKind.Sequential)]
 public struct ak_bdr_rec
 {
@@ -76,17 +88,6 @@ public struct ak_bdr_rec
     public long token;
     public uint n;
     public uint bytes;
-}
-
-/// ABI v1 section 3, members from plan.lifecycle. `log` null: this host installs no log
-/// bridge.
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_init_opts
-{
-    public uint abi_version;
-    public uint flags;
-    public IntPtr log;
-    public IntPtr log_ctx;
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -1596,6 +1597,38 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_initialized();
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_initialized();
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_build_id();
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_build_id();
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_log_test(uint level, byte* msg, nuint len);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_log_test(uint level, byte* msg, nuint len);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void ak_panic_test();
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void ak_panic_test();
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial uint ak_abi_version();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -1636,14 +1669,6 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_enc_err(IntPtr ctx);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_enc_err(IntPtr ctx);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial IntPtr ak_dec_ctx_new();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -1656,6 +1681,22 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern void ak_dec_ctx_free(IntPtr ctx);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void ak_fail(IntPtr ctx, int code, byte* msg, uint msg_len);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void ak_fail(IntPtr ctx, int code, byte* msg, uint msg_len);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_enc_err(IntPtr ctx);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_enc_err(IntPtr ctx);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -1676,18 +1717,10 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial void ak_fail(IntPtr ctx, int code, byte* msg, uint msgLen);
+    internal static partial IntPtr ak_tc_utf8();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern void ak_fail(IntPtr ctx, int code, byte* msg, uint msgLen);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_tc_bytes();
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_tc_bytes();
+    internal static extern IntPtr ak_tc_utf8();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -1696,6 +1729,22 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern IntPtr ak_tc_utf8_trusted();
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_tc_utf8_simd();
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_tc_utf8_simd();
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_tc_bytes();
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_tc_bytes();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -1712,6 +1761,150 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern IntPtr ak_tc_latin1();
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void ak_enc_counters(IntPtr ctx, AkCounters* @out);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void ak_enc_counters(IntPtr ctx, AkCounters* @out);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void ak_enc_count_reverse(IntPtr ctx);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void ak_enc_count_reverse(IntPtr ctx);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void ak_enc_counters_reset(IntPtr ctx);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void ak_enc_counters_reset(IntPtr ctx);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void ak_dec_counters(IntPtr ctx, AkCounters* @out);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void ak_dec_counters(IntPtr ctx, AkCounters* @out);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void ak_dec_counters_reset(IntPtr ctx);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void ak_dec_counters_reset(IntPtr ctx);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial nuint ak_enc_site_moves(IntPtr ctx, uint* @out, nuint cap);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern nuint ak_enc_site_moves(IntPtr ctx, uint* @out, nuint cap);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial ulong ak_noop(ulong x);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern ulong ak_noop(ulong x);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial ulong ak_noop2(ulong x);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern ulong ak_noop2(ulong x);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial ulong ak_noop_guarded(ulong x);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern ulong ak_noop_guarded(ulong x);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial ulong ak_noop_reverse(delegate* unmanaged[Cdecl]<ulong, ulong> f, ulong x);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern ulong ak_noop_reverse(delegate* unmanaged[Cdecl]<ulong, ulong> f, ulong x);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_bdr_reserve(IntPtr ctx, nuint bytes);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_bdr_reserve(IntPtr ctx, nuint bytes);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial nuint ak_bdr_footprint(IntPtr ctx);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern nuint ak_bdr_footprint(IntPtr ctx);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial nint ak_bdr_drain(IntPtr ctx, byte* dst, nuint cap, nuint* cursor);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern nint ak_bdr_drain(IntPtr ctx, byte* dst, nuint cap, nuint* cursor);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_bdr_ptr(IntPtr ctx, byte** ptr, nuint* len);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_bdr_ptr(IntPtr ctx, byte** ptr, nuint* len);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void ak_bdr_reset(IntPtr ctx);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void ak_bdr_reset(IntPtr ctx);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void ak_bdr_count_forward(IntPtr ctx, uint n);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void ak_bdr_count_forward(IntPtr ctx, uint n);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial nuint ak_layout_facts(uint* @out, nuint cap);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern nuint ak_layout_facts(uint* @out, nuint cap);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_blob_run(IntPtr ctx, ak_str* elems, int n);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_blob_run(IntPtr ctx, ak_str* elems, int n);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -1744,86 +1937,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_run_u8(IntPtr ctx, byte* p, nuint n);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_blob_run(IntPtr ctx, ak_str* elems, int n);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_blob_run(IntPtr ctx, ak_str* elems, int n);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial void ak_enc_counters(IntPtr ctx, AkCounters* outp);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern void ak_enc_counters(IntPtr ctx, AkCounters* outp);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial void ak_enc_counters_reset(IntPtr ctx);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern void ak_enc_counters_reset(IntPtr ctx);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial void ak_dec_counters(IntPtr ctx, AkCounters* outp);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern void ak_dec_counters(IntPtr ctx, AkCounters* outp);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial void ak_dec_counters_reset(IntPtr ctx);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern void ak_dec_counters_reset(IntPtr ctx);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial void ak_bdr_reset(IntPtr ctx);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern void ak_bdr_reset(IntPtr ctx);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_bdr_ptr(IntPtr ctx, byte** ptr, nuint* len);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_bdr_ptr(IntPtr ctx, byte** ptr, nuint* len);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_bdr_reserve(IntPtr ctx, nuint bytes);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_bdr_reserve(IntPtr ctx, nuint bytes);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nuint ak_bdr_footprint(IntPtr ctx);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nuint ak_bdr_footprint(IntPtr ctx);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nuint ak_layout_facts(uint* outp, nuint cap);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nuint ak_layout_facts(uint* outp, nuint cap);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -3023,6 +3136,15 @@ public static unsafe class AbiLayout
             all.Add(s);
         }
         {
+            var s = new S { Name = "ak_init_opts", Size = sizeof(ak_init_opts), Fields = typeof(ak_init_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_init_opts); ak_init_opts* z = &v;
+            s.F.Add(("abi_version", (int)((byte*)&z->abi_version - (byte*)z), Fsz(&z->abi_version)));
+            s.F.Add(("flags", (int)((byte*)&z->flags - (byte*)z), Fsz(&z->flags)));
+            s.F.Add(("log", (int)((byte*)&z->log - (byte*)z), Fsz(&z->log)));
+            s.F.Add(("log_ctx", (int)((byte*)&z->log_ctx - (byte*)z), Fsz(&z->log_ctx)));
+            all.Add(s);
+        }
+        {
             var s = new S { Name = "AkCounters", Size = sizeof(AkCounters), Fields = typeof(AkCounters).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(AkCounters); AkCounters* z = &v;
             s.F.Add(("forward", (int)((byte*)&z->forward - (byte*)z), Fsz(&z->forward)));
@@ -3041,15 +3163,6 @@ public static unsafe class AbiLayout
             s.F.Add(("token", (int)((byte*)&z->token - (byte*)z), Fsz(&z->token)));
             s.F.Add(("n", (int)((byte*)&z->n - (byte*)z), Fsz(&z->n)));
             s.F.Add(("bytes", (int)((byte*)&z->bytes - (byte*)z), Fsz(&z->bytes)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_init_opts", Size = sizeof(ak_init_opts), Fields = typeof(ak_init_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_init_opts); ak_init_opts* z = &v;
-            s.F.Add(("abi_version", (int)((byte*)&z->abi_version - (byte*)z), Fsz(&z->abi_version)));
-            s.F.Add(("flags", (int)((byte*)&z->flags - (byte*)z), Fsz(&z->flags)));
-            s.F.Add(("log", (int)((byte*)&z->log - (byte*)z), Fsz(&z->log)));
-            s.F.Add(("log_ctx", (int)((byte*)&z->log_ctx - (byte*)z), Fsz(&z->log_ctx)));
             all.Add(s);
         }
         {

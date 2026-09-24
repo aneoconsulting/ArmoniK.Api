@@ -68,9 +68,9 @@ def emit_all(p):
     """Every shapes target the slice's generator writes, for plan `p`."""
     for root in p.roots:
         P.check_direct(p, root)
-    import rust_abi, cpp_abi, cpp_facade, cpp_native, cpp_binding, cpp_build, cpp_pbbuild
+    import rust_abi, c_abi, cpp_facade, cpp_native, cpp_binding, cpp_build, cpp_pbbuild
     rust_abi.emit_codec(p)
-    cpp_abi.emit(p)
+    c_abi.emit(p)
     cpp_facade.emit_types(p)
     cpp_native.emit(p, "drop")
     cpp_native.emit(p, "retain")

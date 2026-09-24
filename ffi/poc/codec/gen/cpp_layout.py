@@ -19,7 +19,7 @@ HEAD = HEAD_FMT % "ffi/schema/shapes.json"
 def facts(ir):
     """The ONE enumeration of the layout facts, in order.
 
-    Both the host's compile-time table (`cpp_header`) and the core's run-time export are
+    Both the host's compile-time table (`c_abi`'s ak_layout.h) and the core's run-time export are
     built from this list, so a permutation at constant count -- which is what defect C5
     was, and which a count check cannot see -- is impossible by construction rather than by
     two backends agreeing. Before this each side rebuilt the enumeration separately.

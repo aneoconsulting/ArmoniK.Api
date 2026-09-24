@@ -30,17 +30,18 @@ macro_rules! lay {
 
 #[cfg(not(feature = "corpus"))]
 fn all(out: &mut Vec<String>) {
-    lay!(out, ak_init_opts, [abi_version, flags, log, log_ctx]);
-    lay!(out, ak_err, [code, detail]);
     lay!(out, ak_str, [data, len, tc]);
     lay!(out, ak_span, [off, len, coder]);
+    lay!(out, ak_blob, [data, len]);
+    lay!(out, ak_uspan, [token, off, len]);
+    lay!(out, ak_err, [code, detail]);
+    lay!(out, ak_init_opts, [abi_version, flags, log, log_ctx]);
+    lay!(out, AkCounters, [forward, reverse, transcode, prefix_moves, prefix_bytes, grows]);
     lay!(out, ak_bdr_rec, [op, slot, token, n, bytes]);
     lay!(out, ak_bytes, [ptr, len, owner]);
     lay!(out, ak_completion, [tag, status, bytes]);
     lay!(out, ak_client_opts, [stream_window, connection_window, adaptive_window, max_recv_message, max_send_message, tcp_nagle]);
-    lay!(out, AkCounters, [forward, reverse, transcode, prefix_moves, prefix_bytes, grows]);
-    lay!(out, ak_blob, [data, len]);
-    lay!(out, ak_uspan, [token, off, len]);
+    lay!(out, ak_rpc_counters, [forward, reverse]);
     lay!(out, ak_efix_TaskOptionsOptionsEntry, [key, value, presence]);
     lay!(out, ak_dfix_TaskOptionsOptionsEntry, [key, value, presence]);
     lay!(out, ak_ufix_TaskOptionsOptionsEntry, [key, value, unknown, presence]);
@@ -133,17 +134,18 @@ fn all(out: &mut Vec<String>) {
 
 #[cfg(feature = "corpus")]
 fn all(out: &mut Vec<String>) {
-    lay!(out, ak_init_opts, [abi_version, flags, log, log_ctx]);
-    lay!(out, ak_err, [code, detail]);
     lay!(out, ak_str, [data, len, tc]);
     lay!(out, ak_span, [off, len, coder]);
+    lay!(out, ak_blob, [data, len]);
+    lay!(out, ak_uspan, [token, off, len]);
+    lay!(out, ak_err, [code, detail]);
+    lay!(out, ak_init_opts, [abi_version, flags, log, log_ctx]);
+    lay!(out, AkCounters, [forward, reverse, transcode, prefix_moves, prefix_bytes, grows]);
     lay!(out, ak_bdr_rec, [op, slot, token, n, bytes]);
     lay!(out, ak_bytes, [ptr, len, owner]);
     lay!(out, ak_completion, [tag, status, bytes]);
     lay!(out, ak_client_opts, [stream_window, connection_window, adaptive_window, max_recv_message, max_send_message, tcp_nagle]);
-    lay!(out, AkCounters, [forward, reverse, transcode, prefix_moves, prefix_bytes, grows]);
-    lay!(out, ak_blob, [data, len]);
-    lay!(out, ak_uspan, [token, off, len]);
+    lay!(out, ak_rpc_counters, [forward, reverse]);
     lay!(out, ak_efix_TaskOptionsOptionsEntry, [key, value, presence]);
     lay!(out, ak_dfix_TaskOptionsOptionsEntry, [key, value, presence]);
     lay!(out, ak_ufix_TaskOptionsOptionsEntry, [key, value, unknown, presence]);

@@ -6,7 +6,7 @@ FIX-PLAN WP5 step 2. The pipeline is the shared one -- description -> IR -> PLAN
 C++ file that carries a wire rule, a layout or a binding is rendered by the SHARED C++
 backend in `poc/codec/gen/`, which imports `plan` only:
 
-  cpp_abi.py       include/ak_abi.h, include/generated/ak_layout{,_names}.h
+  c_abi.py         include/ak_abi.h, include/generated/ak_layout{,_names}.h
   cpp_facade.py    src/generated/types.{h,cpp}, odr.h (and the borrowed facade)
   cpp_native.py    src/generated/core_native.{h,cpp}   arm `core-native-cpp` (R3)
   cpp_binding.py   src/generated/binding.{h,cpp}       arm `core-ffi` (renders ak_init)
@@ -43,7 +43,7 @@ sys.path.insert(0, HERE)
 import plan as P             # noqa: E402  (shared rule layer)
 import rust_abi              # noqa: E402  (shared Rust backend: the core it measures)
 import cpp_layout            # noqa: E402  (shared)
-import cpp_abi               # noqa: E402  (shared C++ backend)
+import c_abi                 # noqa: E402  (the ONE C header backend)
 import cpp_facade            # noqa: E402  (shared C++ backend)
 import cpp_native            # noqa: E402  (shared C++ backend)
 import cpp_binding           # noqa: E402  (shared C++ backend)
@@ -69,12 +69,12 @@ ROOTS = [
 # The shared C++ backend: the modules that must import plans and nothing else (WP5 item 7).
 # `poc/codec/gen/generate.py`'s BACKENDS list is the aggregating session's; until these are
 # added there, this slice runs the SAME guard function over them.
-CPP_BACKENDS = ["cpp_abi.py", "cpp_facade.py", "cpp_native.py", "cpp_binding.py",
+CPP_BACKENDS = ["c_abi.py", "cpp_facade.py", "cpp_native.py", "cpp_binding.py",
                 "cpp_names.py"]
 FORBIDDEN = {"ir", "shapes", "spec", "values", "payloads", "encode", "walk", "json"}
 # This slice's glue must not reach for the IR either.
 GLUE = ["generate.py", "cpp_build.py", "cpp_pbbuild.py", "cpp_cases.py", "cpp_project.py",
-        "cpp_header.py", "corpus_all.py", "refusal_test.py"]
+        "corpus_all.py", "refusal_test.py"]
 GLUE_FORBIDDEN = {"ir", "shapes", "spec", "rust_core", "cppnames", "cpp_core"}
 
 
@@ -124,7 +124,7 @@ def corpus_plans():
 
 def corpus_targets():
     full, abi, refused = corpus_plans()
-    hdr, lay, names = cpp_abi.emit(abi)
+    hdr, lay, names = c_abi.emit(abi)
     nd_h, nd_c = cpp_native.emit(full, "drop", ns="corpus", stem="core_native")
     nr_h, nr_c = cpp_native.emit(full, "retain", ns="corpus", stem="core_native_retain")
     return {
@@ -205,7 +205,7 @@ def targets():
         P.check_direct(p, root)
     # The core's codec is emitted FIRST because it allocates the length-prefix sites.
     codec = rust_abi.emit_codec(p)
-    header, layout_h, layout_names_h = cpp_abi.emit(p)
+    header, layout_h, layout_names_h = c_abi.emit(p)
     nat_h, nat_c = cpp_native.emit(p, "drop")
     out = {
         "include/ak_abi.h": header,

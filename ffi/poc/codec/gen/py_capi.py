@@ -11,7 +11,7 @@ how a facade value reaches a group and back, and every group member, presence bi
 slot, element type and batching choice it uses comes from `plan`'s ABI LAYOUT functions
 (`group_fields`, `presence_bits`, `loop_slots`, `slot_elem`, `elem_type`, `vtable_messages`,
 `MessagePlan.leaf`), the same ones the core's ABI is rendered from. The C header it
-compiles against is the C++ backend's `cpp_abi.emit` (plain C99, rendered from the same
+compiles against is the C++ backend's `c_abi.emit` (plain C99, rendered from the same
 plan): one C header renderer for both C-consuming hosts.
 
 | backend | how a field is reached |

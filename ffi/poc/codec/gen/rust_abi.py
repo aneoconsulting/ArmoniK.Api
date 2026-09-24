@@ -20,7 +20,8 @@ repeated or map field keeps a loop slot (including one on an inlined child), a m
 repeated field of its pair message, and a repeated field is a batched run on decode iff
 its element type is a leaf.
 """
-from plan import (ABI_SCALAR, CSCALAR, LEN, as_plan, check_expressible,  # noqa: F401
+from plan import (FIXED, dec_vtable, enc_vtable, pull_slot,  # noqa: F401
+                  ABI_SCALAR, CSCALAR, LEN, as_plan, check_expressible,
                   direct_fields, elem_type, element_types, group_fields, loop_slots,
                   oneof_message_members, presence_bits, slot_elem, slot_name, ugroup_fields,
                   vtable_messages)
@@ -38,6 +39,25 @@ def head_of(p):
 
 
 ZERO = {"i32": "0", "i64": "0", "u8": "0", "f64": "0.0", "u32": "0"}
+
+
+def _rty(t):
+    """A type of the plan's vocabulary in Rust (fixed ABI and RPC)."""
+    t = t.strip()
+    if t.endswith("?"):
+        return "Option<%s>" % _rty(t[:-1])
+    if t == "fn(u64)->u64":
+        return "unsafe extern \"C\" fn(u64) -> u64"
+    if t.startswith("*const "):
+        return "*const %s" % _rty(t[len("*const "):])
+    if t.startswith("*mut "):
+        return "*mut %s" % _rty(t[len("*mut "):])
+    return {"void": "c_void", "char": "core::ffi::c_char"}.get(t, t)
+
+
+def _rsig(name, params, ret):
+    return "%s(%s)%s" % (name, ", ".join("%s: %s" % (a, _rty(t)) for a, t in params),
+                         " -> %s" % _rty(ret) if ret else "")
 
 
 def _camel(snake_name):
@@ -76,62 +96,10 @@ def emit_abi(ir):
          "//! The per-message part of the C ABI: section 6's groups and vtables, section 7's",
          "//! decode fixes. Both the core and the host binding compile against this file.",
          "#![allow(non_camel_case_types, non_upper_case_globals)]",
-         "use super::super::{ak_dec_ctx, ak_enc_ctx, ak_span, ak_str};",
+         "// The fixed vocabulary (ak_str, ak_span, ak_blob, ak_uspan, ak_loop_f, ak_unk_f,",
+         "// AK_TOKEN_ROOT) is plan.FIXED's, rendered into ak-abi's lib.rs (WP5 step 6).",
+         "use super::super::{ak_blob, ak_dec_ctx, ak_enc_ctx, ak_loop_f, ak_span, ak_str, ak_unk_f};",
          "use core::ffi::c_void;",
-         "",
-         "/// A host-driven loop over one repeated, packed or map field. The context is the",
-         "/// first argument of every host-facing callback (ABI v1 section 5), so a failure",
-         "/// always has somewhere to go. `token` names which element of the enclosing run the",
-         "/// field belongs to; `AK_TOKEN_ROOT` means the root object itself. A token is an",
-         "/// INDEX, never an address, and the codec never dereferences one (section 10).",
-         "pub type ak_loop_f = unsafe extern \"C\" fn(",
-         "    ctx: *mut ak_enc_ctx,",
-         "    obj: *const c_void,",
-         "    token: i64,",
-         ") -> i32;",
-         "",
-         "/// ABI v1 open decision 11 candidate: unknown fields, delivered as a RUN.",
-         "///",
-         "/// Each span covers one whole tag-and-value run in the buffer the host handed in,",
-         "/// so the core copies nothing and stays allocation-free; the host materialises them",
-         "/// if it intends to re-encode, because that buffer may be recycled. Batched like any",
-         "/// other run, so the cost is crossings per chunk and not per field.",
-         "///",
-         "/// It is a SIDE run keyed by token, not a slot in the element group, which is why",
-         "/// the group stays a fixed-size POD and ABI v1 7.2's batching predicate does not",
-         "/// even see it (`gen/unknown_predicate.py`).",
-         "/// The unknown-field bag's slot: TWO words, not three.",
-         "///",
-         "/// Every other blob slot carries a transcoder pointer because the host's",
-         "/// representation may not be the wire's. The bag's is, by construction: it is the",
-         "/// raw tag-and-value runs a decoder captured, so there is nothing to convert and",
-         "/// the third word would be dead weight on every group of every message. Emptiness",
-         "/// is `len == 0`, which is the same test ABI v1 section 8's direct-argument path",
-         "/// already uses, so this is not a new convention.",
-         "#[repr(C)]",
-         "#[derive(Clone, Copy)]",
-         "pub struct ak_blob {",
-         "    pub data: *const c_void,",
-         "    pub len: usize,",
-         "}",
-         "",
-         "#[repr(C)]",
-         "#[derive(Clone, Copy)]",
-         "pub struct ak_uspan {",
-         "    /// Which element of the enclosing run this run belongs to, or AK_TOKEN_ROOT.",
-         "    pub token: i64,",
-         "    pub off: u32,",
-         "    pub len: u32,",
-         "}",
-         "",
-         "pub type ak_unk_f = unsafe extern \"C\" fn(",
-         "    ctx: *mut ak_dec_ctx,",
-         "    obj: *mut c_void,",
-         "    spans: *const ak_uspan,",
-         "    n: i32,",
-         ");",
-         "",
-         "pub const AK_TOKEN_ROOT: i64 = -1;",
          ""]
 
     for name in ir.abi_order:
@@ -170,74 +138,55 @@ def emit_abi(ir):
             o.append("")
 
     for name in vtable_messages(ir):
-        slots = loop_slots(ir, name)
-        o.append("/// Encode vtable for `%s`. %s" %
-                 (name, "Empty: nothing in this message needs a call."
-                  if not slots else "One slot per field that could not ride in the group."))
+        # The plan's member order and shape (plan.enc_vtable / dec_vtable, WP5 step 6).
+        slots = {slot_name(path): f for path, f in loop_slots(ir, name)}
+        o.append("/// Encode vtable for `%s`." % name)
         o.append("#[repr(C)]")
         o.append("#[derive(Clone, Copy)]")
         o.append("pub struct ak_evt_%s {" % name)
-        if not slots:
-            o.append("    /// Reserved. An empty struct has no defined size in C, so a vtable")
-            o.append("    /// for a message that needs no call still carries one slot.")
-            o.append("    pub _reserved: *const c_void,")
-        for path, f in slots:
-            o.append("    pub loop_%s: Option<ak_loop_f>," % slot_name(path))
-            et = elem_type(f)
-            if et and loop_slots(ir, et):
-                o.append("    /// The element type has loop slots of its own, so the codec")
-                o.append("    /// needs its vtable to reach them (ABI v1 section 6).")
-                o.append("    pub elem_%s: *const ak_evt_%s," % (slot_name(path), et))
+        for kind, sn, et in enc_vtable(ir, name):
+            if kind == "reserved":
+                o.append("    /// Reserved: an empty struct has no defined size in C.")
+                o.append("    pub _reserved: *const c_void,")
+            elif kind == "loop":
+                o.append("    pub loop_%s: Option<ak_loop_f>," % sn)
+            else:
+                o.append("    /// The element type has loop slots of its own (ABI v1 section 6).")
+                o.append("    pub elem_%s: *const ak_evt_%s," % (sn, et))
         o.append("}")
         o.append("")
-
         o.append("/// Decode vtable for `%s` (the push family, ABI v1 section 7.1)." % name)
         o.append("#[repr(C)]")
         o.append("#[derive(Clone, Copy)]")
         o.append("pub struct ak_dvt_%s {" % name)
-        o.append("    pub apply: Option<")
-        o.append("        unsafe extern \"C\" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_%s)," % name)
-        o.append("    >,")
-        o.append("    /// Decision 11 candidate. `None` is today's behaviour: unknown fields are")
-        o.append("    /// skipped and dropped. Set, and they are delivered as spans.")
-        o.append("    pub unknown: Option<ak_unk_f>,")
-        for path, f in slots:
-            sn = slot_name(path)
-            dty, _ = slot_elem_rust(f)
-            et = elem_type(f)
-            batchable = not (et and not ir.msg(et).leaf)
-            if et:
-                o.append("    /// Decision 11 candidate: the unknown fields of THIS slot's elements,")
-                o.append("    /// delivered after the run that carries them, so the host can index.")
+        for kind, sn, x in dec_vtable(ir, name):
+            if kind == "apply":
+                o.append("    pub apply: Option<")
+                o.append("        unsafe extern \"C\" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_%s)," % name)
+                o.append("    >,")
+            elif kind == "unknown":
+                o.append("    /// Unknown fields of the root: `None` drops them, set captures them.")
+                o.append("    pub unknown: Option<ak_unk_f>,")
+            elif kind == "unk":
                 o.append("    pub unk_%s: Option<ak_unk_f>," % sn)
-            if batchable:
-                o.append("    /// Batchable: the element type is a leaf, so a run crosses once")
-                o.append("    /// per chunk. Append; never size to the count you were handed.")
+            elif kind == "add":
+                dty, _ = slot_elem(slots[sn])
                 o.append("    pub add_%s: Option<" % sn)
                 o.append("        unsafe extern \"C\" fn(*mut ak_dec_ctx, *mut c_void, i64, *const %s, i32)," % dty)
                 o.append("    >,")
-            else:
-                o.append("    /// NOT batchable: `%s` carries repeated or map fields of its own," % et)
-                o.append("    /// so there would be nothing to attach the inner elements to")
-                o.append("    /// (ABI v1 section 7.2). Two calls per element, `new` then")
-                o.append("    /// `apply`, plus one run per inner field that occurred.")
+            elif kind == "new":
                 o.append("    pub new_%s: Option<" % sn)
                 o.append("        unsafe extern \"C\" fn(*mut ak_dec_ctx, *mut c_void) -> i64,")
                 o.append("    >,")
+            elif kind == "applyelem":
                 o.append("    pub apply_%s: Option<" % sn)
-                o.append("        unsafe extern \"C\" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_%s)," % et)
+                o.append("        unsafe extern \"C\" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_%s)," % x)
                 o.append("    >,")
-                for ipath, iff in loop_slots(ir, et):
-                    idty, _ = slot_elem_rust(iff)
-                    iet = elem_type(iff)
-                    if iet and not ir.msg(iet).leaf:
-                        raise NotImplementedError(
-                            "a non-leaf element inside a non-leaf element (%s.%s): the "
-                            "schema has no instance, so this is refused rather than "
-                            "emitted untested" % (et, slot_name(ipath)))
-                    o.append("    pub add_%s_%s: Option<" % (sn, slot_name(ipath)))
-                    o.append("        unsafe extern \"C\" fn(*mut ak_dec_ctx, *mut c_void, i64, *const %s, i32)," % idty)
-                    o.append("    >,")
+            else:
+                idty, _ = slot_elem(x)
+                o.append("    pub add_%s: Option<" % sn)
+                o.append("        unsafe extern \"C\" fn(*mut ak_dec_ctx, *mut c_void, i64, *const %s, i32)," % idty)
+                o.append("    >,")
         o.append("}")
         o.append("")
 
@@ -306,14 +255,10 @@ def emit_abi(ir):
             o.append("        n: i32,")
             o.append("        tok0: i64,")
             o.append("    ) -> i32;")
-    o.append("    /// A run of strings or bytes under the repeated field the codec has open.")
-    o.append("    /// `n == 1` is the unbatched call, exactly as for elements.")
-    o.append("    pub fn ak_blob_run(ctx: *mut ak_enc_ctx, elems: *const ak_str, n: i32) -> i32;")
-    o.append("    /// A packed repeated scalar is the host's own array, handed over whole: one")
-    o.append("    /// symbol per host layout, and the wire encoding comes from the schema and")
-    o.append("    /// lives in the context, so bool and enum need no cases (ABI v1 section 6).")
-    for ty in ("i32", "i64", "f64", "u8"):
-        o.append("    pub fn ak_run_%s(ctx: *mut ak_enc_ctx, p: *const %s, n: usize) -> i32;" % (ty, ty))
+    # The run symbols: fixed names, from plan.FIXED.run_functions (WP5 step 6).
+    for _g, fname, params, ret, doc in FIXED.run_functions():
+        o.append("    /// %s" % doc)
+        o.append("    pub fn %s;" % _rsig(fname, params, ret))
     o.append("}")
     o.append("")
     o.append("/// What each length-prefix site of the core is, in site order, so a miss count")
@@ -777,7 +722,7 @@ def emit_codec(ir):
     body.append("    AK_OK")
     body.append("}")
     body.append("")
-    for ty in ("i32", "i64", "f64", "u8"):
+    for ty in FIXED.run_types:
         body.append("#[no_mangle]")
         body.append("pub unsafe extern \"C\" fn ak_run_%s(ctx: *mut ak_enc_ctx, p: *const %s, n: usize) -> i32 {"
                     % (ty, ty))
@@ -1368,7 +1313,7 @@ def _emit_decode(ir, sites):
             out.append("    // on both sides without either holding an address.")
             out.append("    let tok = (*dcx).bdr.mint();")
             out.append("    (*dcx).bdr.push(ak_rt::bdr::OP_NEW, %d, tok, 0, ::core::ptr::null(), 0);"
-                       % ((j + 1) << 16))
+                       % pull_slot(j, -1))
             out.append("    let mut out = ak_dfix_%s::ZERO;" % et)
             out.append("    #[allow(unused_variables)]")
             out.append("    let buf0 = d.buf;")
@@ -1378,7 +1323,7 @@ def _emit_decode(ir, sites):
                 isn = slot_name(ipath)
                 idty, _ = slot_elem_rust(iff)
                 arena_decl(isn, idty, out)
-                slots.append((isn, idty, ((j + 1) << 16) | (k + 1)))
+                slots.append((isn, idty, pull_slot(j, k)))
             flush_macros(slots, "tok", out, family="pull")
             out.append("    let mut cur = 0u32;")
             out.append("    while !d.at_end() {")
@@ -1398,7 +1343,7 @@ def _emit_decode(ir, sites):
             out.append("        flush!();")
             out.append("        (*dcx).bdr.push(")
             out.append("            ak_rt::bdr::OP_APPLY_ELEM,")
-            out.append("            %d," % ((j + 1) << 16))
+            out.append("            %d," % pull_slot(j, -1))
             out.append("            tok,")
             out.append("            1,")
             out.append("            &out as *const _ as *const u8,")
@@ -1485,9 +1430,6 @@ def _emit_decode(ir, sites):
 
 # ============================================================== the RPC half (R-G5)
 
-def _rty(t):
-    """The plan's RPC type vocabulary, spelled in Rust."""
-    return t.replace("*mut void", "*mut c_void").replace("*const void", "*const c_void")
 
 
 REGION_BEGIN = "// @generated-begin plan.rpc"
@@ -1543,6 +1485,16 @@ def emit_rpc_abi(p):
         o.append("/// %s" % doc)
         o.append("pub const %s: %s = %d;" % (name, ty, val))
     o.append("")
+    # The RPC counting surface (plan.FIXED.rpc_counting, WP5 step 6).
+    cname, cdoc, cmembers = FIXED.rpc_counters_struct
+    o.append("/// %s" % cdoc)
+    o.append("#[repr(C)]")
+    o.append("#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]")
+    o.append("pub struct %s {" % cname)
+    for mn, mt in cmembers:
+        o.append("    pub %s: %s," % (mn, _rty(mt)))
+    o.append("}")
+    o.append("")
     o.append("unsafe extern \"C\" {")
     for name, params, ret, doc in r.functions:
         if doc:
@@ -1550,6 +1502,10 @@ def emit_rpc_abi(p):
         o.append("    pub fn %s(%s)%s;" % (
             name, ", ".join("%s: %s" % (a, _rty(t)) for a, t in params),
             " -> %s" % _rty(ret) if ret else ""))
+    for _g, name, params, ret, doc in FIXED.rpc_counting:
+        if doc:
+            o.append("    /// %s" % doc)
+        o.append("    pub fn %s;" % _rsig(name, params, ret))
     o.append("}")
     o.append(REGION_END)
     return "\n".join(o)
@@ -1593,5 +1549,121 @@ def emit_rpc_check(p):
         o.append("const _%s: unsafe extern \"C\" fn(%s)%s = crate::rpc::%s;" % (
             name, ", ".join(_rty(t) for _, t in params),
             " -> %s" % _rty(ret) if ret else "", name))
+    for _g, name, params, ret, _doc in FIXED.rpc_counting:
+        o.append("const _%s: unsafe extern \"C\" fn(%s)%s = crate::rpc::%s;" % (
+            name, ", ".join(_rty(t) for _, t in params),
+            " -> %s" % _rty(ret) if ret else "", name))
     o.append("")
     return "\n".join(o)
+
+
+
+# ============================================================== the fixed ABI (R-G13)
+
+FIXED_BEGIN = "// @generated-begin plan.fixed"
+FIXED_END = "// @generated-end plan.fixed"
+_SCALARS = {"i32", "u32", "i64", "u64", "u8", "usize", "isize"}
+
+
+def _rconst(ty, v):
+    if ty == "*const void":
+        return "pub const %%s: *const c_void = %dusize as *const c_void;" % v
+    return "pub const %%s: %s = %s;" % (_rty(ty), v)
+
+
+def emit_fixed_abi(p):
+    """The marked `plan.fixed` region of ak-abi's lib.rs, from `plan.FIXED` and
+    `plan.lifecycle.flag_values`: codes, details, version, flags, handles, function types,
+    vocabulary structs, constants and the fixed entry points (WP5 step 6, R-G13)."""
+    p = as_plan(p)
+    F = FIXED
+    o = [FIXED_BEGIN,
+         "// Rendered by poc/codec/gen/generate.py from plan.py (FIXED). Do not edit by hand.",
+         ""]
+    for n, v, doc in F.codes:
+        o.append("/// %s" % doc)
+        o.append("pub const %s: i32 = %d;" % (n, v))
+    for n, v in F.details:
+        o.append("pub const %s: u32 = %d;" % (n, v))
+    o.append("pub const AK_ABI_VERSION: u32 = %d;" % F.abi_version)
+    for n, v in p.lifecycle.flag_values:
+        o.append("pub const %s: u32 = %d;" % (n, v))
+    o.append("")
+    for h in F.handles:
+        o.append("/// An opaque context; the host holds a pointer and never looks inside.")
+        o.append("pub enum %s {}" % h)
+    o.append("")
+    for name, params, ret, doc in F.fn_types:
+        o.append("/// %s" % doc)
+        o.append("pub type %s = unsafe extern \"C\" fn(%s)%s;" % (
+            name, ", ".join("%s: %s" % (a, _rty(t)) for a, t in params),
+            " -> %s" % _rty(ret) if ret else ""))
+    o.append("")
+    for name, doc, members in F.structs:
+        plain = all(t in _SCALARS for _m, t in members)
+        o.append("/// %s" % doc)
+        o.append("#[repr(C)]")
+        o.append("#[derive(Clone, Copy%s)]" % (", Default, Debug, PartialEq, Eq" if plain else ""))
+        o.append("pub struct %s {" % name)
+        for mn, mt in members:
+            o.append("    pub %s: %s," % (mn, _rty(mt)))
+        o.append("}")
+        if not plain:
+            o.append("impl Default for %s {" % name)
+            o.append("    fn default() -> Self {")
+            o.append("        %s {" % name)
+            for mn, mt in members:
+                o.append("            %s: %s," % (mn, "None" if mt.endswith("?") else _rdefault(mt)))
+            o.append("        }")
+            o.append("    }")
+            o.append("}")
+        o.append("")
+    for n, ty, v, doc in F.constants:
+        o.append("/// %s" % doc)
+        o.append(_rconst(ty, v) % n)
+    o.append("")
+    o.append("unsafe extern \"C\" {")
+    for _g, name, params, ret, doc in F.functions:
+        if doc:
+            o.append("    /// %s" % doc)
+        o.append("    pub fn %s;" % _rsig(name, params, ret))
+    o.append("}")
+    o.append(FIXED_END)
+    return "\n".join(o)
+
+
+def splice(text, begin, end, region):
+    """`text` with the region between `begin` and `end` replaced by `region` (which
+    carries both markers)."""
+    i = text.index(begin)
+    j = text.index(end, i) + len(end)
+    return text[:i] + region + text[j:]
+
+
+def emit_abi_check(p):
+    """Compile-time proof, inside the core, that every fixed entry point it defines has
+    exactly the signature `plan.FIXED` declares (the RPC half has `rpc_check.rs`)."""
+    p = as_plan(p)
+    o = [HEAD_FMT % "poc/codec/gen/plan.py (FIXED)",
+         "//! WP5 step 6 (R-G13): every fixed entry point the core defines, checked against the",
+         "//! ONE declaration (`plan.FIXED`, rendered into `ak-abi`). A drift is a compile error.",
+         "#![allow(non_upper_case_globals, dead_code)]",
+         "use ak_abi::*;",
+         "use core::ffi::c_void;",
+         ""]
+    for _g, name, params, ret, _doc in FIXED.all_functions():
+        o.append("const _%s: unsafe extern \"C\" fn(%s)%s = crate::%s;" % (
+            name, ", ".join(_rty(t) for _, t in params),
+            " -> %s" % _rty(ret) if ret else "", _crate_path(name)))
+    o.append("")
+    return "\n".join(o)
+
+
+def _crate_path(name):
+    """Where the core defines a fixed entry point: the emitted codec or the hand-written
+    runtime (lib.rs) or the layout export."""
+    if name.startswith("ak_run_") or name == "ak_blob_run":
+        return "generated::codec::" + name
+    if name == "ak_layout_facts":
+        return "generated::layout::" + name
+    return name

@@ -43,7 +43,7 @@ public struct ak_client_opts
     public int tcp_nagle;
 }
 
-/// ABI v1 section 3 (plan.lifecycle).
+/// ak_init's options (ABI v1 section 3).
 [StructLayout(LayoutKind.Sequential)]
 public struct ak_init_opts
 {
@@ -53,7 +53,7 @@ public struct ak_init_opts
     public IntPtr log_ctx;
 }
 
-/// ak_init's out-parameter.
+/// ak_init's out-parameter (ABI v1 section 3/5): a code and a detail.
 [StructLayout(LayoutKind.Sequential)]
 public struct ak_err
 {

@@ -14,7 +14,7 @@
 #   94  rpc_gate.py (R-D3), 95 rd1_lenwrap.py (R-D1), 96 u1_map_unknown.py
 #   97  the 3.7 source check: the pre-port tree fails against real 3.7 headers, this one does not
 #   98  crossing counts against logs/python/85 (the pre-port shim), row for row; and the
-#       rendered C header against the cpp slice's (one renderer, cpp_abi)
+#       rendered C header against the cpp slice's (one renderer, c_abi)
 # A floor interpreter from ./fetch_py37.sh is `build/py37/python3.7`.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -78,7 +78,7 @@ echo "===== 98. crossing counts against the pre-port shim (logs/python/85) =====
     fi
   done
   echo
-  echo "## the C header: one renderer (cpp_abi) for both C-consuming slices"
+  echo "## the C header: one renderer (c_abi) for both C-consuming slices"
   for pair in "gen/out/ak_abi.h ../cpp/include/ak_abi.h" "gen/out/corpus/ak_abi.h ../cpp/corpus/include/ak_abi.h"; do
     set -- $pair
     if cmp -s "$1" "$2"; then echo "   $1 is byte-identical to poc/${2#../}"; else echo "   $1 DIFFERS from poc/${2#../} (the cpp slice's may be at another commit)"; fi
