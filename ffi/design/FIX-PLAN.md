@@ -34,7 +34,7 @@ turns into rules:
    the binding. Findings that attack the transport for missing features are
    closed by this, not fixed.
 4. **Language levels are fixed** (section 6 records them): Python floor 3.7,
-   target the CPython of Ubuntu 26.04; C# floors net6.0 and .NET Framework 4.8,
+   target CPython 3.12 (Ubuntu 24.04); C# floors net6.0 and .NET Framework 4.8,
    target net8.0; Java floor 8, target 17.
 5. **There is one generator implementation.** Every generated codec and binding,
    in every language, comes out of the same generator with the wire rules
@@ -138,7 +138,7 @@ Files: `README.md`, `CLAUDE.md`, `REPORT.md`, `.claude/agents/ffi-slice.md`,
    - **W13. Campaign run**: executes W11 on the physical machine. Owner-driven.
 7. **Close the section 15 open questions that are answered**: 1 (moot, nothing to
    import), 3 (C++11 and C++14 both viable per `findings/cpp.md`); record 4 as
-   "floor 3.7, target the CPython of Ubuntu 26.04". Record 6 (Java packaging)
+   "floor 3.7, target CPython 3.12 (Ubuntu 24.04)". Record 6 (Java packaging)
    as still open. Record the owner's levels (section 6) in README section 5.
 8. **Correct `README.md` section 7 cells that contradict the slices**: W5 says the
    C# core-ffi arm is not built (it is, stage 14); W7 says Python M3 to M7, RPC and
@@ -263,11 +263,11 @@ all of them and a smoke run on its container shows it executes.
       `#else`, not two renderings (WP5 item 3, conditional compilation).
 18. Java: floor **8** (correctness), target **17** (JNI, as the slice already
     uses). grpc-java 1.74.0 as in `packages/java/pom.xml`.
-19. Python: floor **3.7** (correctness), target **the CPython of Ubuntu 26.04
-    LTS, which is 3.14.3** (section 4). protobuf and grpcio at versions inside
-    `packages/python/pyproject.toml`'s ranges that publish wheels for 3.14,
+19. Python: floor **3.7** (correctness), target **CPython 3.12, the version Ubuntu
+    24.04 LTS ships** (section 4). protobuf and grpcio at versions inside
+    `packages/python/pyproject.toml`'s ranges that publish wheels for 3.12,
     stated in the log. The 3.7 gate runs on an interpreter installed for the
-    purpose (Ubuntu 26.04 does not package 3.7), with the newest protobuf and
+    purpose (Ubuntu 24.04 does not package it), with the newest protobuf and
     grpcio releases that still support 3.7, stated.
 20. C++: floor C++11, target C++17. grpc++ at the version ArmoniK builds
     (`v1.54.0` in `packages/cpp/tools/Dockerfile.worker`) and at a current one,
@@ -465,12 +465,13 @@ External facts:
   2028-11-14. Source: Microsoft, ".NET and .NET Core Support Policy",
   https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core
   (retrieved 2026-09-24).
-- Ubuntu 26.04 LTS ("resolute") ships `python3` 3.14.3 (package
-  `3.14.3-0ubuntu2`). Source: https://packages.ubuntu.com/resolute/python3
-  (retrieved 2026-09-24). It does not package 3.7.
-- grpcio 1.84.0, the latest release on PyPI on 2026-09-24, declares Python 3.14
-  support in its classifiers (https://pypi.org/pypi/grpcio/json). Whether wheels
-  exist for every pair of versions used must be checked when pinning.
+- Ubuntu 24.04 LTS ("noble") ships `python3` 3.12.3 (package
+  `3.12.3-0ubuntu2.1`). Source: https://packages.ubuntu.com/noble/python3
+  (retrieved 2026-09-24). The owner first chose Ubuntu 26.04's CPython (3.14.3,
+  https://packages.ubuntu.com/resolute/python3) and moved to 3.12 for
+  compatibility with Ubuntu 24.04.
+- The Python slice's existing container runs used 3.11, so its harness needs a
+  3.12 build before the campaign.
 - CPython end-of-life dates could not be retrieved from this environment
   (python.org and peps.python.org are blocked by the network policy); they are
   not needed now that the target is fixed.
@@ -500,7 +501,7 @@ Facts that bear on the design constraints and are not in `README.md`:
 
 | # | Question | Decision |
 |---|---|---|
-| D1 | Python levels | floor 3.7 (correctness), target the CPython of Ubuntu 26.04 LTS (3.14.3) |
+| D1 | Python levels | floor 3.7 (correctness), target CPython 3.12, as shipped by Ubuntu 24.04 LTS |
 | D2 | C# levels | floors net6.0 and .NET Framework 4.8 (correctness), target net8.0 |
 | D3 | Java levels | floor 8 (correctness), target 17 |
 | D4 | Unknown-field retention | not decided; both behaviours built and measured (WP3 item 21, WP5) |
