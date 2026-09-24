@@ -483,10 +483,14 @@ static void run_absent_and_unknown() {
     check(rc == ak::ERR_TRANSCODE, "malformed UTF-8 rejected by the native decoder");
     ak_dec_ctx *dctx = ak_dec_ctx_new();
     shapes::ListResultsResponse ff;
-    shapes::ffi::decode_with_list_results_response(
+    int32_t frc = shapes::ffi::decode_with_list_results_response(
         dctx, (const uint8_t *)s.data(), s.size(), &ff);
-    check(ak_dec_err(dctx) == ak::ERR_TRANSCODE,
-          "malformed UTF-8 reported through ak_fail on the DECODE context");
+    // Since the plan layer (poc/codec/gen/plan.py, R-E7, 77f91ee) the CORE validates a
+    // `string` on decode under utf8="reject" and refuses with AK_ERR_TRANSCODE before
+    // delivering anything; the binding's own check (`s_of` -> ak_fail) is no longer the
+    // one that fires. Either path must report -6: the return code, or the sticky slot.
+    check(frc == ak::ERR_TRANSCODE || ak_dec_err(dctx) == ak::ERR_TRANSCODE,
+          "malformed UTF-8 refused on the ffi decode path (core rc or the sticky slot)");
     // The sticky slot must not poison the next decode (the rust slice's D17).
     ak_dec_err_reset(dctx);
     shapes::ListResultsResponse g2;

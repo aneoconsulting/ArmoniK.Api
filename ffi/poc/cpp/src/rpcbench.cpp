@@ -517,6 +517,7 @@ static int small_main(int calls, int rounds, bool pin) {
 }
 
 int main(int argc, char **argv) {
+  akrpc::init_core_or_die();
   int calls = argc > 1 ? atoi(argv[1]) : 40;
   int rounds = argc > 2 ? atoi(argv[2]) : 9;
   const char *which = argc > 3 ? argv[3] : "both";   // uds | tcp | both | small

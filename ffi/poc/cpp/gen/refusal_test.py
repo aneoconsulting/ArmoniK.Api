@@ -29,8 +29,7 @@ CODECGEN = os.path.abspath(os.path.join(HERE, "..", "..", "codec", "gen"))
 sys.path.insert(0, CODECGEN)
 sys.path.insert(0, HERE)
 
-import ir as IR                 # noqa: E402
-import shapes as S              # noqa: E402
+import plan as P                # noqa: E402  (the rule layer: no IR, no schema module)
 import generate                 # noqa: E402
 
 FAILS = []
@@ -58,15 +57,26 @@ def must_not_raise(name, fn):
 
 
 def ir_with(mutate):
-    schema = copy.deepcopy(S.load())
+    """A plan lowered from a MODIFIED copy of the description (plan.load_schema), so the
+    test plants a shape the real one lacks without touching the IR (FIX-PLAN WP5 step 2)."""
+    schema = copy.deepcopy(P.shapes_schema())
     mutate(schema)
-    return IR.Ir(schema, generate.ROOTS)
+    return P.load_schema(schema, generate.ROOTS, source="refusal_test (planted)")
 
 
-def emit_all(ir):
-    for root in ir.roots:
-        IR.check_direct(ir, root)
-    generate.targets(ir)
+def emit_all(p):
+    """Every shapes target the slice's generator writes, for plan `p`."""
+    for root in p.roots:
+        P.check_direct(p, root)
+    import rust_abi, cpp_abi, cpp_facade, cpp_native, cpp_binding, cpp_build, cpp_pbbuild
+    rust_abi.emit_codec(p)
+    cpp_abi.emit(p)
+    cpp_facade.emit_types(p)
+    cpp_native.emit(p, "drop")
+    cpp_native.emit(p, "retain")
+    cpp_binding.emit(p, retain=True)
+    cpp_build.emit(p)
+    cpp_pbbuild.emit(p)
 
 
 # ---- A: ABI v1 section 8's direct-argument refusal --------------------------------
@@ -111,7 +121,12 @@ def c_map_int_value(schema):
 
 
 def main():
-    must_not_raise("positive control: the real schema emits", lambda: emit_all(IR.load(generate.ROOTS)))
+    must_not_raise("positive control: the real schema emits", lambda: emit_all(P.load(generate.ROOTS)))
+    # The C++ native backend renders the plan's UTF-8 option or raises: utf8="lossy" has no
+    # rendering there yet, so it must raise rather than emit the reject policy renamed.
+    must_raise("D1 cpp_native, plan utf8=lossy (no rendering: must raise)",
+               lambda: __import__("cpp_native").emit(
+                   P.load(generate.ROOTS, P.Options(utf8="lossy")), "drop"))
 
     for name, mut in (
             ("A1 direct field on a tree that makes a reverse call", a_direct_plus_reverse_call),
@@ -128,7 +143,7 @@ def main():
     # walker at all, and they are the two that had the defect.
     import cpp_build
     import cpp_pbbuild
-    import cpp_binding
+    import cpp_binding     # the SHARED C++ backend (poc/codec/gen)
     # The expectation is per (shape, backend) and not uniform, because ABI v1's table DOES
     # cover "repeated string or bytes -- element call, batchable": the binding supports a
     # repeated `bytes` and must emit it. What had no case for it was the two payload

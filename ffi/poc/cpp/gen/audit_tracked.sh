@@ -26,8 +26,11 @@ done < <(find ffi/poc/cpp \
 # And the UPSTREAM inputs this slice's output is a function of. They are not this slice's
 # to write, but a figure here cannot be re-derived without them, so a missing one is the
 # same failure one level further out.
-for f in ffi/poc/codec/gen/ir.py ffi/poc/codec/gen/rust_abi.py ffi/poc/codec/gen/rust_core.py \
+for f in ffi/poc/codec/gen/ir.py ffi/poc/codec/gen/plan.py ffi/poc/codec/gen/rust_abi.py \
          ffi/poc/codec/gen/rustnames.py ffi/poc/codec/gen/cpp_layout.py \
+         ffi/poc/codec/gen/cpp_abi.py ffi/poc/codec/gen/cpp_facade.py \
+         ffi/poc/codec/gen/cpp_native.py ffi/poc/codec/gen/cpp_binding.py \
+         ffi/poc/codec/gen/cpp_names.py ffi/corpus/generated/manifest.json \
          ffi/poc/codec/gen/generate.py ffi/poc/codec/Cargo.toml \
          ffi/poc/codec/crates/ak-abi/src/lib.rs \
          ffi/poc/codec/crates/ak-abi/src/generated/abi.rs \

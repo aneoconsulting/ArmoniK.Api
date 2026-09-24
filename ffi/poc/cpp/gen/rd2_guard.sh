@@ -5,8 +5,8 @@
 #            and `ak_abi.h` alone compiles at C++11 and C++14 too.
 #   plant A  the header's struct loses a field (the R-D2 shape: host smaller than core).
 #            The header's own sizeof/offsetof asserts must refuse it.
-#   plant B  the Rust declaration gains a SEVENTH field. The renderer re-emits the header
-#            from a scratch copy of ak-abi's lib.rs; `generate.py --check` must call the
+#   plant B  plan.rpc's ak_client_opts gains a SEVENTH field. The shared renderer
+#            (cpp_abi.py) re-emits the header; `generate.py --check` must call the
 #            committed header STALE, and `rpc_common.h`'s field-count assert must refuse
 #            to compile, because `core_opts()` would leave the new field unset.
 set -u
@@ -36,7 +36,7 @@ done
 echo
 echo "===== plant A: the struct loses tcp_nagle (host smaller than core) -- must NOT compile ====="
 mkdir -p "$S/a"
-grep -v '^  int32_t tcp_nagle;$' include/ak_abi.h > "$S/a/ak_abi.h"
+grep -v '^  int32_t tcp_nagle;' include/ak_abi.h > "$S/a/ak_abi.h"
 if g++ -std=c++11 -I"$S/a" "$S/t.cpp" -o "$S/ta" 2> "$S/a.err"; then
   fail "plant A compiled: the header's asserts cannot see a missing field"
 else
@@ -44,26 +44,30 @@ else
   ok "plant A refused"
 fi
 echo
-echo "===== plant B: the Rust declaration gains a seventh field ====="
+echo "===== plant B: plan.rpc gains a seventh ak_client_opts field ====="
+# FIX-PLAN WP5 step 2: the header is rendered from `plan.rpc` by the shared C++ backend
+# (poc/codec/gen/cpp_abi.py), no longer parsed out of ak-abi's lib.rs. The plant adds the
+# field to the plan the renderer reads, in this process only.
 mkdir -p "$S/b"
-python3 - "$S/b" <<'EOF' 2>&1 | grep -v -i 'distutils\|traceback\|frozen site\|string>\|remainder'
-import os, re, sys
+python3 - "$S/b" <<'EOF2' 2>&1 | grep -v -i 'distutils\|traceback\|frozen site\|string>\|remainder'
+import copy, os, sys
 out = sys.argv[1]
 sys.path.insert(0, "gen")
 import generate as G
-import cpp_header
-src = open(cpp_header.AK_ABI_RS).read()
-src2 = src.replace("    pub tcp_nagle: i32,\n}", "    pub tcp_nagle: i32,\n    pub keepalive_ms: u32,\n}", 1)
-assert src2 != src, "anchor not found in ak-abi lib.rs"
-scratch = os.path.join(out, "lib.rs")
-open(scratch, "w").write(src2)
-cpp_header.AK_ABI_RS = scratch
-ir = G.IR.load(G.ROOTS)
-header, _, _ = cpp_header.emit(ir)
+import plan as P
+import cpp_abi
+p = P.load(G.ROOTS)
+rpc = copy.deepcopy(P.RPC)
+rpc.structs = list(rpc.structs)
+for i, (name, doc, fields) in enumerate(rpc.structs):
+    if name == "ak_client_opts":
+        rpc.structs[i] = (name, doc, fields + [("keepalive_ms", "u32", "PLANTED")])
+p.rpc = rpc
+header, _, _ = cpp_abi.emit(p)
 open(os.path.join(out, "ak_abi.h"), "w").write(header)
 committed = open("include/ak_abi.h").read()
 print("  generate.py --check would say:", "STALE include/ak_abi.h" if header != committed else "ok (WRONG)")
-EOF
+EOF2
 if grep -q 'keepalive_ms' "$S/b/ak_abi.h"; then ok "the renderer picked up the new field"; else fail "renderer"; fi
 if g++ -std=c++17 -fsyntax-only -I"$S/b" -Iinclude -Isrc -I"$GEN" $GRPC_CFLAGS src/rpc_common.cpp 2> "$S/b.err"; then
   fail "plant B compiled: core_opts() would leave the seventh field unset"

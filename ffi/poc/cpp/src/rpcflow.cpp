@@ -193,6 +193,7 @@ static Observed analyse(const std::string &out, int port) {
 }
 
 int main(int argc, char **argv) {
+  akrpc::init_core_or_die();
   if (argc > 2 && !strcmp(argv[1], "child")) return child_main(atoi(argv[2]), atoi(argv[3]));
 
   std::printf("grpc++ %s, protobuf C++ %d. Each row is a CHILD process with\n"
