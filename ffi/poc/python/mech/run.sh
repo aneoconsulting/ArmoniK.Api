@@ -35,16 +35,9 @@ hdr() {
 echo "===== 1. build ====="
 ./build.sh "$@" 2>&1 | tee "$LOGS/10-build.log" | tail -4
 
-echo "===== 2. conformance, every interpreter (README R2) ====="
-{
-  hdr "python slice, work unit 1: conformance and crossing counts"
-  for PY in "$@"; do
-    echo "########## $("$PY" -c 'import sys;print(sys.version.split()[0])') ##########"
-    "$PY" conformance.py
-    echo
-  done
-} > "$LOGS/20-conformance.log" 2>&1
-grep -c "ALL CHECKS PASS" "$LOGS/20-conformance.log" | sed 's/^/   interpreters passing: /'
+# Step 2 (conformance of the codec arms) and steps 5-6 (the codec arms' timings) are RETIRED
+# with those arms (FIX-PLAN WP5 step 6): they had their own generator with wire rules. The
+# logs they wrote (20-conformance.log, 40-codec-*.log, 41-codec-all.log) are kept as history.
 
 echo "===== 3. the mechanism microbenchmark, target interpreter, 3 processes ====="
 {
@@ -72,27 +65,5 @@ echo "===== 4. the mechanism microbenchmark, every interpreter, 1 process ====="
   done
 } > "$LOGS/31-mechanism-all.log" 2>&1
 echo "   $LOGS/31-mechanism-all.log"
-
-echo "===== 5. the codec arms, target interpreter, 3 processes ====="
-{
-  hdr "python slice, work unit 1: facade storage and the premise control, over M1"
-  for i in 1 2 3; do
-    echo "########## process $i ##########"
-    "$TARGET" bench_codec.py
-    echo
-  done
-} > "$LOGS/40-codec-py$TTAG.log" 2>&1
-echo "   $LOGS/40-codec-py$TTAG.log"
-
-echo "===== 6. the codec arms, every interpreter, 1 process ====="
-{
-  hdr "python slice, work unit 1: the codec arms across every interpreter here"
-  for PY in "$@"; do
-    echo "########## $("$PY" -c 'import sys;print(sys.version.split()[0])') ##########"
-    "$PY" bench_codec.py
-    echo
-  done
-} > "$LOGS/41-codec-all.log" 2>&1
-echo "   $LOGS/41-codec-all.log"
 
 echo "done."

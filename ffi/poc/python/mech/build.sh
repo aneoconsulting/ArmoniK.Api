@@ -74,18 +74,9 @@ for PY in "${PYS[@]}"; do
      -L"$OUT" -lakmech_cabi -Wl,-rpath,"\$ORIGIN/.."
   echo "   built $D/_akmech3.abi3.so"
 
-  # The generated codec module (work unit 1 part 2), built twice: measured, and
-  # a counting build (README R5). The counting build is a SEPARATE artifact so
-  # that a timing never comes from a binary carrying counters.
-  python3 gen/generate.py --check >/dev/null || { echo "   generated tree is stale"; exit 1; }
-  cc $CFLAGS_COMMON -shared -I"$INC" \
-     -DAK_MODNAME_STR='"_akcodec"' -DAK_INITFUNC=PyInit__akcodec \
-     -o "$D/_akcodec$SOABI" native/_akcodec.c
-  cc $CFLAGS_COMMON -shared -I"$INC" -DAK_COUNT \
-     -DAK_MODNAME_STR='"_akcodec_count"' -DAK_INITFUNC=PyInit__akcodec_count \
-     -o "$D/_akcodec_count$SOABI" native/_akcodec.c
-  echo "   built $D/_akcodec$SOABI and the counting build beside it"
-
+  # The generated codec module of work unit 1 part 2 (`_akcodec`, from `gen/generate.py`) is
+  # RETIRED (FIX-PLAN WP5 step 6): it had its own generator and wire rules, a one-generator
+  # defect. Its committed logs (20-conformance, 40-codec, 41-codec) stay, as history.
   # README R5, the half that applies here: prove the boundary into the plain C
   # library is a real dynamic-linker call in BOTH builds rather than something
   # the compiler folded away.
