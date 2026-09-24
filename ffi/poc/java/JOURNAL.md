@@ -546,3 +546,29 @@ not valued by `plan.lifecycle`. Reported, not resolved.
 
 **Not built: ffi retain.** The binding leaves decision 11's slots NULL and has no
 `ak_uencode_*` path, so the ffi arms run in drop mode only.
+
+### J22. WP5 tail: D38 and D39, re-gated from a clean core build (2026-09-24)
+
+**D38, confirmed and fixed.** `Dec.skipGroup` checked a key inside a group for field
+number 0 but not for a number above 2^29 - 1, and its depth limit was a constant of the
+hand-written runtime. The probe row `P-field-maxplus1-in-group` (poc/rust/gen/probe_corpus.py)
+was accepted by R and R-retain (logs/rust/wp5s6-probe-java-after.log). Now `java_rcodec`
+renders the plan's `MAX_FIELD_NUMBER` and `GROUP_DEPTH_LIMIT` into every codec class and
+passes them to `Dec.skip(tag, wire, maxField, groupDepth)`, which holds no limit of its
+own (bb98e8f, 271fdd5). Probe on 8 and 17: 6 arms x 11 rows, 0 failing; the in-group row is
+refused by arm R ("field number 0 or above 2^29-1 inside a group") as by the core (-2)
+(`wp5s6-probe.log`). The corpus's new `X-field-over-max-in-group` row, disputed, reads the
+same way.
+
+**D39, confirmed and fixed.** `git archive` gives every file the commit's timestamp, so a
+reused `CARGO_TARGET_DIR` could hold artifacts newer than the snapshot's sources and cargo
+kept them. `gen/build.sh` now builds into `core-build/<key>/` with key = the git tree hash
+of `ffi/poc/codec` at the snapshot revision (a source hash for `AK_CODEC`), points
+`core-build/current` at it, and refuses to finish if any shim links another key's core.
+`wp5s6-d39-keys.log` shows the key for 41eb485 differs from HEAD's and every shim resolving
+to HEAD's key. The other scripts read `core-build/current`.
+
+**Re-gated from `rm -rf core-build build`**, core snapshot 271fdd5 (`init-guard`): payload
+gate 1,389 x 3, 0 failures, unknown 66/0 (`wp5s6-gate.log`); the corpus, now 702 rows (the
+corpus agent added 11), six arms, target and floor, 0 failing arm-rows, 6 disputed, controls
+failing as required (`wp5s6-corpus.log`).
