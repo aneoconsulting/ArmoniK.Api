@@ -51,8 +51,8 @@ name: Publish Packages
 #
 # `manual` is the "pre pre-release" path, and it is a dry run unless the
 # dispatcher unticks `dry_run`. It can only ever publish a pre-release: it
-# refuses anything but a SemVer pre-release version (Rust relies on its
-# committed `-beta-N` suffix instead), so a manual run can never take over
+# refuses anything but a SemVer pre-release version (for Rust, the committed
+# version, checked by the job), so a manual run can never take over
 # `latest`, and it publishes nothing unless a package is ticked. A dry run may
 # be dispatched from any branch, a real one only from `main`.
 # Restrict who may use it with an Actions ruleset actor rule (Settings >
@@ -788,6 +788,18 @@ jobs:
         uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
         with:
           toolchain: stable
+
+      # Outside `release`, only a pre-release may go out. Build metadata is
+      # stripped first so a `-` in it does not count.
+      - name: Check for a pre-release
+        if: needs.context.outputs.channel != 'release'
+        run: |
+          for version in $(cargo metadata --no-deps --format-version 1 --locked | jq -r '.packages[].version'); do
+            case "${version%%+*}" in
+              *-*) ;;
+              *) echo "::error::Only a pre-release may be published outside a release, got $version"; exit 1 ;;
+            esac
+          done
 
       # Real publishes only. The action's post step revokes the token.
       - name: Authenticate with crates.io
