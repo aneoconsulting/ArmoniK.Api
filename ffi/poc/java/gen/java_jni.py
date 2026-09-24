@@ -543,6 +543,10 @@ JNIEXPORT jlong JNICALL Java_ak_NativeEntry_encodeDirectUploadResultDataMessage(
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   void *p = (*env)->GetPrimitiveArrayCritical(env, data, NULL);
+  /* R-D9: the parse entry points already refuse a NULL pin; this one did not, and handed
+   * the core a NULL span with a nonzero length. The JVM returns NULL here only after
+   * throwing OutOfMemoryError, so the frame is popped and the error returned. */
+  if (p == NULL) { ak_pop(); return (jlong) AK_ERR_HOST; }
   AK_TAX();
   intptr_t rc = ak_encode_UploadResultDataMessage(
       (const void *) (intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,

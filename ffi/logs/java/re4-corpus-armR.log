@@ -1,0 +1,280 @@
+== R-E4: arm R against ffi/corpus; tree commit 817174f (arm R's generated code and java_codec.py unchanged by this commit)
+   per-row timeout 5000 ms, whole run under timeout 1800 s
+
+################ target: /usr/lib/jvm/java-17-openjdk-amd64, build/cls17
+# java slice, arm R (generated pure-Java codec) against ffi/corpus -- R-E4
+# corpus:  1, 691 vectors
+# classes: build/cls17
+# arm R roots (from the compiled codec): DualResponse, Duration, Empty, ListMetricsResponse, ListProbeResponse, ListResultsResponse, ListTaskSummaryResponse, ListTasksDetailedResponse, MetricsBatch, Pair, Probe, ResultRaw, TaskDetailed, TaskOptions, TaskOutput, TaskSummary, Timestamp, UploadResultData, UploadResultDataMessage
+
+## CONTRACT.md rule 0: arm R's schema against corpus.proto, per root
+   [ok]  DualResponse: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  Duration: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  Empty: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  ListMetricsResponse: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  ListProbeResponse: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  ListResultsResponse: identical to corpus.proto; superset adds 7 field(s)
+   [ok]  ListTaskSummaryResponse: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  ListTasksDetailedResponse: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  MetricsBatch: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  Pair: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  Probe: identical to corpus.proto; superset adds 8 field(s)
+   [ok]  ResultRaw: identical to corpus.proto; superset adds 7 field(s)
+   [ok]  TaskDetailed: identical to corpus.proto; superset adds 7 field(s)
+   [ok]  TaskOptions: identical to corpus.proto; superset adds 7 field(s)
+   [ok]  TaskOutput: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  TaskSummary: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  Timestamp: identical to corpus.proto; superset adds 7 field(s)
+   [ok]  UploadResultData: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  UploadResultDataMessage: identical to corpus.proto; superset adds 0 field(s)
+
+## scope: 395 of 691 rows
+   out of scope, by root (messages arm R does not have):
+      WireZoo                      103
+      Surrogate                    76
+      ChunkedResponse              23
+      ChunkElement                 16
+      Nest                         16
+      ChunkedResponseWide          13
+      LeafElement                  13
+      ChunkLeaf                    10
+      LeafResponse                 10
+      ChunkInner                   9
+      SurrogateInner               7
+# java.version=17.0.20.1  codec=file:<scratch>/ffi/poc/java/build/cls17/  timeout_ms=5000
+# harness exit 0, 395 result lines
+
+## result
+   accept rows 330: C1 parsed 330, C2 projected equal 328 (of those with a projection; 2 have none), C3 accepted form 329 (0 as a permutation of the committed triples)
+   reject rows 62: C4 refused 44
+   disputed rows 3 (excluded)
+   timeouts: 0
+   C3 forms written: as committed=86, as committed in ffi/schema/generated=7, as committed/map values always written (protobuf C++, upb, protobuf-java)=10, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, unknown-dropped=45, unknown-dropped/unknown-dropped, map values always written=16, unknown-dropped: the known field as it was, the foreign-typed one gone=103, unknown-dropped: the known field as it was, the foreign-typed one gone/unknown-dropped, map values always written=45
+   C5 (produce): not run; arm R's facade is built from ffi/schema's payload builders, not the corpus's produce set
+
+## disputed rows, and the reading arm R produced
+   U-map-entry                        expect=accept armR=accept  - matches reading of protobuf 7.36.2 (pure-python backend)
+   X-tag-zero-Empty                   expect=reject armR=accept  - accepted, as protobuf 7.36.2 (upb backend)
+   X-tag-zero-nested-Empty            expect=reject armR=accept  - accepted, as protobuf 7.36.2 (upb backend)
+
+## FAILING rows: 19
+   -- C3: 1
+      E-map-entry-empty                        re-encode 8 B sha d9e7c843fbb1 matches no accepted form (10 B, 6 B)
+   -- C4: 18
+      X-tag-zero-DualResponse                  ACCEPTED a reject vector (accept)
+      X-tag-zero-Duration                      ACCEPTED a reject vector (accept)
+      X-tag-zero-ListMetricsResponse           ACCEPTED a reject vector (accept)
+      X-tag-zero-ListProbeResponse             ACCEPTED a reject vector (accept)
+      X-tag-zero-ListResultsResponse           ACCEPTED a reject vector (accept)
+      X-tag-zero-ListTaskSummaryResponse       ACCEPTED a reject vector (accept)
+      X-tag-zero-ListTasksDetailedResponse     ACCEPTED a reject vector (accept)
+      X-tag-zero-MetricsBatch                  ACCEPTED a reject vector (accept)
+      X-tag-zero-Pair                          ACCEPTED a reject vector (accept)
+      X-tag-zero-Probe                         ACCEPTED a reject vector (accept)
+      X-tag-zero-ResultRaw                     ACCEPTED a reject vector (accept)
+      X-tag-zero-TaskDetailed                  ACCEPTED a reject vector (accept)
+      X-tag-zero-TaskOptions                   ACCEPTED a reject vector (accept)
+      X-tag-zero-TaskOutput                    ACCEPTED a reject vector (accept)
+      X-tag-zero-TaskSummary                   ACCEPTED a reject vector (accept)
+      X-tag-zero-Timestamp                     ACCEPTED a reject vector (accept)
+      X-tag-zero-UploadResultData              ACCEPTED a reject vector (accept)
+      X-tag-zero-UploadResultDataMessage       ACCEPTED a reject vector (accept)
+
+## C4: the error arm R raised, per refused row
+   X-lenwrap-lrr-nested-msg-abs-one         Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-msg-abs-start       Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-msg-abs-under       Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-msg-abs-zero        Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-msg-rel-max         Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-msg-rel-one         Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-msg-rel-under       Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-msg-rel-zero        Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-string-abs-one      Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-string-abs-start    Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-string-abs-under    Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-string-abs-zero     Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-string-rel-max      Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-string-rel-one      Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-string-rel-under    Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-string-rel-zero     Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-unknown-abs-one     Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-unknown-abs-start   Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-unknown-abs-under   Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-unknown-abs-zero    Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-unknown-rel-max     Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-unknown-rel-one     Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-unknown-rel-under   Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-unknown-rel-zero    Malformed:length past end of buffer
+   X-lenwrap-lrr-results-max                Malformed:length past end of buffer
+   X-lenwrap-lrr-results-one                Malformed:length past end of buffer
+   X-lenwrap-lrr-results-second-max         Malformed:length past end of buffer
+   X-lenwrap-lrr-results-second-one         Malformed:length past end of buffer
+   X-lenwrap-lrr-results-second-start       Malformed:length past end of buffer
+   X-lenwrap-lrr-results-second-under       Malformed:length past end of buffer
+   X-lenwrap-lrr-results-second-zero        Malformed:length past end of buffer
+   X-lenwrap-lrr-results-under              Malformed:length past end of buffer
+   X-lenwrap-lrr-results-zero               Malformed:length past end of buffer
+   X-lenwrap-lrr-unknown-after-max          Malformed:length past end of buffer
+   X-lenwrap-lrr-unknown-after-one          Malformed:length past end of buffer
+   X-lenwrap-lrr-unknown-after-start        Malformed:length past end of buffer
+   X-lenwrap-lrr-unknown-after-under        Malformed:length past end of buffer
+   X-lenwrap-lrr-unknown-after-zero         Malformed:length past end of buffer
+   X-lenwrap-lrr-unknown-max                Malformed:length past end of buffer
+   X-lenwrap-lrr-unknown-one                Malformed:length past end of buffer
+   X-lenwrap-lrr-unknown-under              Malformed:length past end of buffer
+   X-lenwrap-lrr-unknown-zero               Malformed:length past end of buffer
+   X-nested-len-overrun                     Malformed:length past end of buffer
+   X-packed-truncated                       Malformed:truncated varint
+
+RESULT: 19 failing of 392 counted rows (3 disputed excluded)
+exit 1
+
+################ floor: /usr/lib/jvm/java-8-openjdk-amd64, build/cls8
+# java slice, arm R (generated pure-Java codec) against ffi/corpus -- R-E4
+# corpus:  1, 691 vectors
+# classes: build/cls8
+# arm R roots (from the compiled codec): DualResponse, Duration, Empty, ListMetricsResponse, ListProbeResponse, ListResultsResponse, ListTaskSummaryResponse, ListTasksDetailedResponse, MetricsBatch, Pair, Probe, ResultRaw, TaskDetailed, TaskOptions, TaskOutput, TaskSummary, Timestamp, UploadResultData, UploadResultDataMessage
+
+## CONTRACT.md rule 0: arm R's schema against corpus.proto, per root
+   [ok]  DualResponse: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  Duration: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  Empty: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  ListMetricsResponse: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  ListProbeResponse: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  ListResultsResponse: identical to corpus.proto; superset adds 7 field(s)
+   [ok]  ListTaskSummaryResponse: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  ListTasksDetailedResponse: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  MetricsBatch: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  Pair: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  Probe: identical to corpus.proto; superset adds 8 field(s)
+   [ok]  ResultRaw: identical to corpus.proto; superset adds 7 field(s)
+   [ok]  TaskDetailed: identical to corpus.proto; superset adds 7 field(s)
+   [ok]  TaskOptions: identical to corpus.proto; superset adds 7 field(s)
+   [ok]  TaskOutput: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  TaskSummary: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  Timestamp: identical to corpus.proto; superset adds 7 field(s)
+   [ok]  UploadResultData: identical to corpus.proto; superset adds 0 field(s)
+   [ok]  UploadResultDataMessage: identical to corpus.proto; superset adds 0 field(s)
+
+## scope: 395 of 691 rows
+   out of scope, by root (messages arm R does not have):
+      WireZoo                      103
+      Surrogate                    76
+      ChunkedResponse              23
+      ChunkElement                 16
+      Nest                         16
+      ChunkedResponseWide          13
+      LeafElement                  13
+      ChunkLeaf                    10
+      LeafResponse                 10
+      ChunkInner                   9
+      SurrogateInner               7
+# java.version=1.8.0_504  codec=file:<scratch>/ffi/poc/java/build/cls8/  timeout_ms=5000
+# harness exit 0, 395 result lines
+
+## result
+   accept rows 330: C1 parsed 330, C2 projected equal 328 (of those with a projection; 2 have none), C3 accepted form 329 (0 as a permutation of the committed triples)
+   reject rows 62: C4 refused 44
+   disputed rows 3 (excluded)
+   timeouts: 0
+   C3 forms written: as committed=86, as committed in ffi/schema/generated=7, as committed/map values always written (protobuf C++, upb, protobuf-java)=10, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, unknown-dropped=45, unknown-dropped/unknown-dropped, map values always written=16, unknown-dropped: the known field as it was, the foreign-typed one gone=103, unknown-dropped: the known field as it was, the foreign-typed one gone/unknown-dropped, map values always written=45
+   C5 (produce): not run; arm R's facade is built from ffi/schema's payload builders, not the corpus's produce set
+
+## disputed rows, and the reading arm R produced
+   U-map-entry                        expect=accept armR=accept  - matches reading of protobuf 7.36.2 (pure-python backend)
+   X-tag-zero-Empty                   expect=reject armR=accept  - accepted, as protobuf 7.36.2 (upb backend)
+   X-tag-zero-nested-Empty            expect=reject armR=accept  - accepted, as protobuf 7.36.2 (upb backend)
+
+## FAILING rows: 19
+   -- C3: 1
+      E-map-entry-empty                        re-encode 8 B sha d9e7c843fbb1 matches no accepted form (10 B, 6 B)
+   -- C4: 18
+      X-tag-zero-DualResponse                  ACCEPTED a reject vector (accept)
+      X-tag-zero-Duration                      ACCEPTED a reject vector (accept)
+      X-tag-zero-ListMetricsResponse           ACCEPTED a reject vector (accept)
+      X-tag-zero-ListProbeResponse             ACCEPTED a reject vector (accept)
+      X-tag-zero-ListResultsResponse           ACCEPTED a reject vector (accept)
+      X-tag-zero-ListTaskSummaryResponse       ACCEPTED a reject vector (accept)
+      X-tag-zero-ListTasksDetailedResponse     ACCEPTED a reject vector (accept)
+      X-tag-zero-MetricsBatch                  ACCEPTED a reject vector (accept)
+      X-tag-zero-Pair                          ACCEPTED a reject vector (accept)
+      X-tag-zero-Probe                         ACCEPTED a reject vector (accept)
+      X-tag-zero-ResultRaw                     ACCEPTED a reject vector (accept)
+      X-tag-zero-TaskDetailed                  ACCEPTED a reject vector (accept)
+      X-tag-zero-TaskOptions                   ACCEPTED a reject vector (accept)
+      X-tag-zero-TaskOutput                    ACCEPTED a reject vector (accept)
+      X-tag-zero-TaskSummary                   ACCEPTED a reject vector (accept)
+      X-tag-zero-Timestamp                     ACCEPTED a reject vector (accept)
+      X-tag-zero-UploadResultData              ACCEPTED a reject vector (accept)
+      X-tag-zero-UploadResultDataMessage       ACCEPTED a reject vector (accept)
+
+## C4: the error arm R raised, per refused row
+   X-lenwrap-lrr-nested-msg-abs-one         Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-msg-abs-start       Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-msg-abs-under       Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-msg-abs-zero        Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-msg-rel-max         Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-msg-rel-one         Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-msg-rel-under       Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-msg-rel-zero        Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-string-abs-one      Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-string-abs-start    Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-string-abs-under    Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-string-abs-zero     Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-string-rel-max      Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-string-rel-one      Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-string-rel-under    Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-string-rel-zero     Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-unknown-abs-one     Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-unknown-abs-start   Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-unknown-abs-under   Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-unknown-abs-zero    Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-unknown-rel-max     Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-unknown-rel-one     Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-unknown-rel-under   Malformed:length past end of buffer
+   X-lenwrap-lrr-nested-unknown-rel-zero    Malformed:length past end of buffer
+   X-lenwrap-lrr-results-max                Malformed:length past end of buffer
+   X-lenwrap-lrr-results-one                Malformed:length past end of buffer
+   X-lenwrap-lrr-results-second-max         Malformed:length past end of buffer
+   X-lenwrap-lrr-results-second-one         Malformed:length past end of buffer
+   X-lenwrap-lrr-results-second-start       Malformed:length past end of buffer
+   X-lenwrap-lrr-results-second-under       Malformed:length past end of buffer
+   X-lenwrap-lrr-results-second-zero        Malformed:length past end of buffer
+   X-lenwrap-lrr-results-under              Malformed:length past end of buffer
+   X-lenwrap-lrr-results-zero               Malformed:length past end of buffer
+   X-lenwrap-lrr-unknown-after-max          Malformed:length past end of buffer
+   X-lenwrap-lrr-unknown-after-one          Malformed:length past end of buffer
+   X-lenwrap-lrr-unknown-after-start        Malformed:length past end of buffer
+   X-lenwrap-lrr-unknown-after-under        Malformed:length past end of buffer
+   X-lenwrap-lrr-unknown-after-zero         Malformed:length past end of buffer
+   X-lenwrap-lrr-unknown-max                Malformed:length past end of buffer
+   X-lenwrap-lrr-unknown-one                Malformed:length past end of buffer
+   X-lenwrap-lrr-unknown-under              Malformed:length past end of buffer
+   X-lenwrap-lrr-unknown-zero               Malformed:length past end of buffer
+   X-nested-len-overrun                     Malformed:length past end of buffer
+   X-packed-truncated                       Malformed:truncated varint
+
+RESULT: 19 failing of 392 counted rows (3 disputed excluded)
+exit 1
+
+################ rule gaps outside the corpus's reach (target)
+merge-singular  wire=2a020801 2a021002  armR={"created_at":{"nanos":"2"}}
+merge-oneof     wire=6a020801 6a021002  armR={"as_stamp":{"nanos":"2"}}
+unknown-case    body_case=99  armR=no refusal; wrote 3 B 0a0178
+int-lenwrap     wire=0affffffff07 (ListResultsResponse)  armR=threw ak.Dec$Malformed: submessage body not fully consumed   (a conformant refusal is Dec.Malformed)
+-- protobuf C++ (libprotoc 3.19.0) reading the same two vectors, corpus.proto:
+merge-singular (ResultRaw):
+   created_at {
+     seconds: 1
+     nanos: 2
+   }
+merge-oneof (Probe):
+   as_stamp {
+     seconds: 1
+     nanos: 2
+   }
+-- implicit-presence double, -0.0: the encode test gen/java_codec.py emits for a
+   singular implicit double (read, not run: shapes.proto has no such field, so no
+   generated arm R code contains one):
+   gen/java_codec.py:146:        cond = ("o.has_%s" % f.name) if f.explicit else ("%s != %s" % (src, N.ZERO[f.kind]))
+   gen/javanames.py:17:ZERO = {"int32": "0", "int64": "0L", "bool": "false", "double": "0.0",

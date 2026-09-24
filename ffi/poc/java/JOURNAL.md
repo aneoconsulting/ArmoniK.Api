@@ -425,3 +425,61 @@ three exchanges. A pattern cannot exclude the process doing the matching when th
 is part of that process's arguments; the fix that works is to hold the child's PID
 (`echo $! > pidfile`, then `kill -0`), and that is what the last run used. Writing a trap
 down twice is still not not walking into it.
+
+### J20. FIX-PLAN WP4 items 6 and 10, R-E4 confirmed by running, and a floor that had stopped building
+
+2026-09-24, correctness only, no timing taken. The core was built from
+`git archive 817174f ffi/poc/codec` into a scratch directory, because the rust agent was
+changing it concurrently and `gen/generate.py` writes the core's generated files into
+`poc/codec`: running the generator in the live tree would have overwritten someone else's
+work. The whole slice was built and gated in that snapshot and only `poc/java` files were
+copied back. JDK 8 and 17 were installed with apt (the network policy allowed it).
+
+**The first build failed, and the failure was older than this session.** `RunRpc.java`
+used `ProcessHandle`, a Java 9 API, and it is in the Java 8 floor's compilation, so
+`gen/build.sh` has stopped at the JDK 8 `javac` step since 5241ced. Nothing noticed because
+nothing ran the floor after an RPC harness change; the last floor log predates it. Replaced
+with `ManagementFactory`, and `gen/gate.sh` now builds and runs arms a, b and c in one
+command.
+
+**R-D5.** Confirmed first: `decode-pull.log` times `ffi-pull` and `ffi-pull-walk`, and no
+gate log (`conformance.log`, `w10-regate.log`) names them. `gen/gate.sh` prints, per arm,
+how many rows it took part in, so a gate that passes with an arm absent is visible rather
+than inferred. All three arms: 1,389 checks, 0 failures, both pull arms in 94 rows with 46
+round trips each; the counting core in the same run shows 0 reverse crossings for both, so
+they are not passing by falling back to push.
+
+**R-D9.** Confirmed by fault injection rather than by reading alone: a fake `JNIEnv` whose
+`GetPrimitiveArrayCritical` returns NULL, and `-Wl,--wrap` on the core's entry to see what
+it receives. The committed shim enters the core with `(NULL, 65536)`. Fixed in the emitter
+(`java_jni.py`), regenerated; the new shim returns `AK_ERR_HOST`, does not enter the core,
+and keeps the frame stack balanced past its depth of 8. Swept: two `GetByteArrayElements`
+on the RPC `uri` in hand-written `native/rpc.c` were unchecked too. While there, `rpc.c`'s
+hand-declared `ak_client_opts` (R-D2's shape, correct here by transcription) was replaced by
+the generated declaration, which regeneration had just added to `ak_abi.h` with asserts.
+
+**R-E4, confirmed by running, not fixed** (WP5 ports arm R). A driver per CONTRACT.md:
+`RunCorpusR` decodes by reflection on the codec's package-private `dec<Root>`, so all 19
+messages arm R has are roots, projects by the facade's own conventions, re-encodes, 5 s per
+row on its own thread. 19 failing of 392: the 18 in-scope `X-tag-zero-*` rows accepted, and
+`E-map-entry-empty` re-encoded to a third form (key written, empty value omitted). Every
+`X-lenwrap-*` row is refused, none hangs. Identical on the floor. The projection comparison
+discriminates: on the disputed `U-map-entry` it matched the pure-python reading and not
+upb's.
+
+**Two of the review's five gaps are not reachable by the corpus in arm R's scope, and the
+third is not reachable at all.** No row repeats a singular message field, and no row
+reaches the encoder with an undeclared oneof case, so both were run outside it: arm R
+replaces where protobuf C++ (`protoc --decode`, same bytes) merges, and encodes case 99
+without refusing. `-0.0`: the emitted presence test `x != 0.0` drops it, but `shapes.proto`
+has no singular implicit double, so no generated code carries it; read, not run. And one
+the review did not list: `Dec.readLen`'s check `pos + n > limit` wraps in `int` for a
+length of 2^31 - 1; the value is refused later by the submessage check, and the JVM's
+bounds checks make it harmless, but it is R-D1's form.
+
+**STATE.md rewritten (R-F1, WP6).** The old one said in "what is not measured" that the RPC
+arm and the pull family were unbuilt while its own body measured both, carried a
+recommendation ("a JVM binding should choose pull") and quoted container timings as
+findings throughout. The rewrite quotes no timing, lists every timing log as
+instrumentation with the harness defects the campaign must not repeat, and states the
+levels as the owner fixed them: floor Java 8, target 17.

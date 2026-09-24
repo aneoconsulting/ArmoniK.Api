@@ -1,0 +1,42 @@
+== R-D9 (Java part): GetPrimitiveArrayCritical NULL check on the bulk-bytes encode entry
+   emitter: poc/java/gen/java_jni.py (the direct-upload entry is a literal block there)
+   sweep: every GetPrimitiveArrayCritical / Get*ArrayElements in gen/*.py and native/*.c:
+     poc/java/gen/java_jni.py:301:        o.append("  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);")
+     poc/java/gen/java_jni.py:545:  void *p = (*env)->GetPrimitiveArrayCritical(env, data, NULL);
+     poc/java/native/rpc.c:52:  jbyte *u = (*env)->GetByteArrayElements(env, uri, NULL);
+     poc/java/native/rpc.c:87:  jbyte *base = (*env)->GetByteArrayElements(env, req, NULL);
+     poc/java/native/rpc.c:165:  jbyte *base = (*env)->GetByteArrayElements(env, req, NULL);
+     poc/java/native/rpc.c:236:  jbyte *u = (*env)->GetByteArrayElements(env, uri, NULL);
+   (each is now followed by a NULL test; the two uri sites in native/rpc.c were also unchecked and are fixed)
+
+== generated diff, shim.c 817174f -> regenerated
+diff --git a/ffi/poc/java/native/generated/shim.c b/ffi/poc/java/native/generated/shim.c
+index 49ebc3f..f8e15a7 100644
+--- a/ffi/poc/java/native/generated/shim.c
++++ b/ffi/poc/java/native/generated/shim.c
+@@ -751,4 +751,8 @@ JNIEXPORT jlong JNICALL Java_ak_NativeEntry_encodeDirectUploadResultDataMessage(
+   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+   void *p = (*env)->GetPrimitiveArrayCritical(env, data, NULL);
++  /* R-D9: the parse entry points already refuse a NULL pin; this one did not, and handed
++   * the core a NULL span with a nonzero length. The JVM returns NULL here only after
++   * throwing OutOfMemoryError, so the frame is popped and the error returned. */
++  if (p == NULL) { ak_pop(); return (jlong) AK_ERR_HOST; }
+   AK_TAX();
+   intptr_t rc = ak_encode_UploadResultDataMessage(
+
+== fault injection: a fake JNIEnv whose GetPrimitiveArrayCritical returns NULL, the core's entry wrapped (-Wl,--wrap)
+== R-D9 before: shim.c at 817174f
+shim under test: <scratch>/shim-before.c (d62df709938c5dd2)
+call  0: rc=0 core_entered=1 core_span=((nil), 65536) release_calls=1
+call 16: rc=0 core_entered=1 core_span=((nil), 65536) release_calls=1
+RESULT: DEFECT (core entered with a NULL span, or frame stack leaked)
+exit=1
+
+== R-D9 after: regenerated shim.c
+shim under test: native/generated/shim.c (5a855e8707801d2d)
+call  0: rc=-1 core_entered=0 core_span=(0x1, 0) release_calls=0
+call 16: rc=-1 core_entered=0 core_span=(0x1, 0) release_calls=0
+RESULT: ok (NULL pin refused with AK_ERR_HOST, core not entered, 17 calls past the depth-8 frame stack)
+exit=0
+
+== and the full gate on the fixed shim: see rd5-gate.log (the shim sha256 7fed81c9d54ca741 there is built from the regenerated shim.c)
