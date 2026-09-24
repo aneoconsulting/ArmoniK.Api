@@ -447,6 +447,9 @@ SAVE_LINES = """    // ABI v1: an element entry point must leave the codec's ope
     // under the inner field's tag. It did not corrupt this payload set only because
     // `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1.
     let saved = ((*cx).open_tag, (*cx).open_site, (*cx).open_kind, (*cx).open_vt, (*cx).open_obj);
+    // R-D6: a host that already failed this operation and calls in anyway gets the
+    // sticky code back and nothing is written.
+    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
 """.rstrip("\n").split("\n")
 RESTORE_LINES = """    (*cx).open_tag = saved.0;
     (*cx).open_site = saved.1;
@@ -589,7 +592,10 @@ def emit_codec(ir):
                 o.append("        ak_rt::bump!((*cx).e.c, reverse);")
                 o.append("        let rc = lp(cx as *mut ak_enc_ctx, obj, token);")
                 o.append("        if rc < 0 { (*cx).e.fail(rc); return %s; }" % fail)
-                o.append("        if (*cx).e.err != 0 { return %s; }" % fail)
+                # R-D6 / ABI v1 section 5: the sticky slot is checked after EVERY upcall.
+                # A host that calls `ak_fail` and then returns AK_OK has still failed the
+                # operation; before this the codec read only its own `e.err` and went on.
+                o.append("        if (*cx).e.err != 0 || (*cx).hdr.err != AK_OK { return %s; }" % fail)
                 o.append("    }")
             else:
                 raise NotImplementedError("encode %s.%s (%s %s)" % (name, f.name, f.card, f.kind))
@@ -687,7 +693,7 @@ def emit_codec(ir):
             body.append("    let (tag, site) = ((*cx).open_tag, (*cx).open_site);")
             body.append("    for i in 0..n as usize {")
             body.append("        let mk = (*cx).e.begin(tag, site);")
-            body.append("        if !enc_%s_group(&*elems.add(i), cx) { return (*cx).e.err; }" % snake(et))
+            body.append("        if !enc_%s_group(&*elems.add(i), cx) { return crate::enc_status(cx); }" % snake(et))
             body.append("        (*cx).e.end(mk);")
             body.append("    }")
             body.extend(RESTORE_LINES)
@@ -707,7 +713,7 @@ def emit_codec(ir):
             body.append("    let (tag, site) = ((*cx).open_tag, (*cx).open_site);")
             body.append("    for i in 0..n as usize {")
             body.append("        let mk = (*cx).e.begin(tag, site);")
-            body.append("        if !enc_%s_ugroup(&*elems.add(i), cx) { return (*cx).e.err; }" % snake(et))
+            body.append("        if !enc_%s_ugroup(&*elems.add(i), cx) { return crate::enc_status(cx); }" % snake(et))
             body.append("        (*cx).e.end(mk);")
             body.append("    }")
             body.extend(RESTORE_LINES)
@@ -733,7 +739,7 @@ def emit_codec(ir):
             body.append("        let mk = (*cx).e.begin(tag, site);")
             body.append("        if !enc_%s_group(&*elems.add(i), cx, vt, obj, tok0 + i as i64) {"
                         % snake(et))
-            body.append("            return (*cx).e.err;")
+            body.append("            return crate::enc_status(cx);")
             body.append("        }")
             body.append("        (*cx).e.end(mk);")
             body.append("    }")
@@ -759,7 +765,7 @@ def emit_codec(ir):
             body.append("        let mk = (*cx).e.begin(tag, site);")
             body.append("        if !enc_%s_ugroup(&*elems.add(i), cx, vt, obj, tok0 + i as i64) {"
                         % snake(et))
-            body.append("            return (*cx).e.err;")
+            body.append("            return crate::enc_status(cx);")
             body.append("        }")
             body.append("        (*cx).e.end(mk);")
             body.append("    }")
@@ -789,9 +795,10 @@ def emit_codec(ir):
         body.append("    let token = AK_TOKEN_ROOT;")
         body.append("    let _ = token;")
         inner = []
-        enc_walk(root, root, "g", (), inner, fail="(*cx).e.err as isize")
+        enc_walk(root, root, "g", (), inner, fail="crate::enc_status(cx) as isize")
         body.extend(inner)
-        body.append("    if (*cx).e.err != 0 { return (*cx).e.err as isize; }")
+        body.append("    let st = crate::enc_status(cx);")
+        body.append("    if st != AK_OK { return st as isize; }")
         body.append("    (*cx).e.buf.len() as isize")
         body.append("}")
         body.append("")
@@ -816,9 +823,10 @@ def emit_codec(ir):
         body.append("    let token = AK_TOKEN_ROOT;")
         body.append("    let _ = token;")
         inner = []
-        enc_walk(root, root, "g", (), inner, fail="(*cx).e.err as isize", bag=True)
+        enc_walk(root, root, "g", (), inner, fail="crate::enc_status(cx) as isize", bag=True)
         body.extend(inner)
-        body.append("    if (*cx).e.err != 0 { return (*cx).e.err as isize; }")
+        body.append("    let st = crate::enc_status(cx);")
+        body.append("    if st != AK_OK { return st as isize; }")
         body.append("    (*cx).e.buf.len() as isize")
         body.append("}")
         body.append("")
@@ -831,9 +839,10 @@ def emit_codec(ir):
     body.append(") -> i32 {")
     body.append("    let cx = ctx as *mut EncCtxImpl;")
     body.append("    ak_rt::bump!((*cx).e.c, forward);")
+    body.append("    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }")
     body.append("    let (tag, site) = ((*cx).open_tag, (*cx).open_site);")
     body.append("    for i in 0..n as usize {")
-    body.append("        if !enc_blob(cx, tag, site, &*elems.add(i)) { return (*cx).e.err; }")
+    body.append("        if !enc_blob(cx, tag, site, &*elems.add(i)) { return crate::enc_status(cx); }")
     body.append("    }")
     body.append("    AK_OK")
     body.append("}")
@@ -844,6 +853,7 @@ def emit_codec(ir):
                     % (ty, ty))
         body.append("    let cx = ctx as *mut EncCtxImpl;")
         body.append("    ak_rt::bump!((*cx).e.c, forward);")
+        body.append("    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }")
         body.append("    if n == 0 { return AK_OK; }")
         body.append("    let (tag, site) = ((*cx).open_tag, (*cx).open_site);")
         body.append("    let mk = (*cx).e.begin(tag, site);")
@@ -1116,10 +1126,14 @@ def _emit_decode(ir, sites):
             o.append("        () => {")
             o.append("            if n_%s > 0 {" % sn)
             if family == "push":
+                # R-D6 / ABI v1 section 5: no upcall once the host has failed the
+                # operation, and the slot is read after every upcall so the reader stops.
                 o.append("                if let Some(add) = (*vt).%s {" % extra)
-                o.append("                    ak_rt::bump!((*dcx).c, reverse);")
-                o.append("                    add(ctx, obj, %s, a_%s.as_ptr() as *const %s, n_%s as i32);"
+                o.append("                    if (*dcx).hdr.err == AK_OK {")
+                o.append("                        ak_rt::bump!((*dcx).c, reverse);")
+                o.append("                        add(ctx, obj, %s, a_%s.as_ptr() as *const %s, n_%s as i32);"
                          % (tokarg, sn, dty, sn))
+                o.append("                    }")
                 o.append("                }")
             else:
                 o.append("                // No call: the run is copied into the record buffer and the")
@@ -1135,6 +1149,8 @@ def _emit_decode(ir, sites):
             o.append("                done_%s += n_%s;" % (sn, sn))
             o.append("                n_%s = 0;" % sn)
             o.append("                if !uk_%s.is_null() { (*uk_%s).flush(); }" % (sn, sn))
+            if family == "push":
+                o.append("                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }")
             o.append("            }")
             o.append("        };")
             o.append("    }")
@@ -1166,7 +1182,15 @@ def _emit_decode(ir, sites):
         out.append("        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }")
         out.append("        match tag {")
         dec_walk(name, name, "out", (), "buf0", "base0", 0, {}, out)
-        out.append("            _ => { d.skip(tag, wire); if !unk.is_null() { (*unk).push(base0 + s0, d.pos - s0); } }")
+        out.append("            _ => {")
+        out.append("                d.skip(tag, wire);")
+        out.append("                if !unk.is_null() {")
+        out.append("                    (*unk).push(base0 + s0, d.pos - s0);")
+        out.append("                    // R-D6: the push may have delivered a chunk; stop if the host failed.")
+        out.append("                    let he = (*unk).host_err();")
+        out.append("                    if he != AK_OK && d.err == 0 { d.err = he; }")
+        out.append("                }")
+        out.append("            }")
         out.append("        }")
         out.append("    }")
         out.append("    out")
@@ -1201,9 +1225,12 @@ def _emit_decode(ir, sites):
             out.append("        }")
             out.append("        None => return,")
             out.append("    };")
-            out.append("    if tok < 0 || (*dcx).hdr.err != AK_OK {")
-            out.append("        return;")
-            out.append("    }")
+            # R-D6: the host failed the operation (or could not make the element: a
+            # negative token is a refusal, not "skip this one"). Stop the reader, so the
+            # root loop makes no further upcall; before this the element was silently
+            # dropped and the next element called `new` again.
+            out.append("    if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; return; }")
+            out.append("    if tok < 0 { crate::ak_fail(ctx as *mut c_void, AK_ERR_HOST, ::core::ptr::null(), 0); d.err = AK_ERR_HOST; return; }")
             out.append("    let mut out = ak_dfix_%s::ZERO;" % et)
             out.append("    #[allow(unused_variables)]")
             out.append("    let buf0 = d.buf;")
@@ -1231,9 +1258,12 @@ def _emit_decode(ir, sites):
             # `d.err == 0`, so the output is byte-identical.
             out.append("    if d.err == 0 {")
             out.append("        flush!();")
+            out.append("    }")
+            out.append("    if d.err == 0 {")
             out.append("        if let Some(ap) = (*vt).apply_%s {" % sn)
             out.append("            ak_rt::bump!((*dcx).c, reverse);")
             out.append("            ap(ctx, obj, tok, &out);")
+            out.append("            if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }")
             out.append("        }")
             out.append("    }")
             out.append("}")
@@ -1291,7 +1321,14 @@ def _emit_decode(ir, sites):
         out.append("        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }")
         out.append("        match tag {")
         dec_walk(root, root, "out", (), "buf0", "base0", 0, sid, out)
-        out.append("            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }")
+        out.append("            _ => {")
+        out.append("                if cur != 0 { flush!(); cur = 0; }")
+        out.append("                d.skip(tag, wire);")
+        out.append("                if !uk_root.is_null() {")
+        out.append("                    (*uk_root).push(base0 + s0, d.pos - s0);")
+        out.append("                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }")
+        out.append("                }")
+        out.append("            }")
         out.append("        }")
         out.append("    }")
         # R-D1: on a decode error, deliver nothing. The trailing flush!()/apply after the
@@ -1299,7 +1336,13 @@ def _emit_decode(ir, sites):
         # input `d.err == 0`, so the delivered bytes are byte-identical.
         out.append("    if d.err == 0 {")
         out.append("        flush!();")
-        out.append("        if !uk_root.is_null() { (*uk_root).flush(); }")
+        out.append("    }")
+        out.append("    if d.err == 0 && !uk_root.is_null() {")
+        out.append("        (*uk_root).flush();")
+        out.append("        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }")
+        out.append("    }")
+        out.append("    // R-D6: `apply` only if nothing -- the reader or the host -- failed.")
+        out.append("    if d.err == 0 && (*dcx).hdr.err == AK_OK {")
         out.append("        if let Some(apply) = (*vt).apply {")
         out.append("            ak_rt::bump!((*dcx).c, reverse);")
         out.append("            apply(ctx, obj, &out);")

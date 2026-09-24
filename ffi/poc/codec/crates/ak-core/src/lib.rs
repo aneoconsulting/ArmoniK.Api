@@ -83,11 +83,15 @@ const INIT_RUNNING: u32 = 1;
 const INIT_DONE: u32 = 2;
 
 static INIT_STATE: AtomicU32 = AtomicU32::new(INIT_NONE);
-/// The options the first successful `ak_init` was given, folded into one word, so a second
-/// call with DIFFERENT options can be refused without storing a struct behind a lock. The
-/// log function pointer is part of it: two hosts asking for two different log sinks is
-/// exactly the disagreement the one-shot install cannot satisfy.
-static INIT_OPTS: AtomicU64 = AtomicU64::new(0);
+/// The options the first successful `ak_init` was given, so a second call with DIFFERENT
+/// options can be refused without storing a struct behind a lock. Three words, compared
+/// field by field: R-D9 found that the earlier single word (`log ^ log_ctx` in its low
+/// bits) made two different option sets compare equal whenever sink and context XOR-ed to
+/// the same value. They are written before `INIT_STATE` is released as DONE and read only
+/// after it is acquired as DONE, so three plain atomics are as consistent as one.
+static INIT_VF: AtomicU64 = AtomicU64::new(0);
+static INIT_LOG: AtomicU64 = AtomicU64::new(0);
+static INIT_LOGCTX: AtomicU64 = AtomicU64::new(0);
 
 /// The host's log sink, installed once. Read on every log line, which is why it is an
 /// atomic pair rather than a mutex: a log call must be safe from inside a reverse-call
@@ -103,11 +107,12 @@ static BUILD_ID: &[u8] = concat!(
     "ak-core ", env!("CARGO_PKG_VERSION"), " abi1 ", env!("CARGO_PKG_NAME"), "\0"
 ).as_bytes();
 
-fn opts_word(o: &ak_init_opts) -> u64 {
+/// The options as three words, one per field, so equality is equality of every field and
+/// cannot collide (R-D9). The version and the flags share a word without overlapping: 32
+/// bits each.
+fn opts_words(o: &ak_init_opts) -> (u64, u64, u64) {
     let log = o.log.map(|f| f as usize as u64).unwrap_or(0);
-    // The flags and the version in the high half, the sink's identity in the low. Two
-    // different sinks differ; two calls naming the same sink do not.
-    ((o.abi_version as u64) << 48) ^ ((o.flags as u64) << 32) ^ log ^ (o.log_ctx as u64)
+    (((o.abi_version as u64) << 32) | (o.flags as u64), log, o.log_ctx as u64)
 }
 
 #[no_mangle]
@@ -129,7 +134,7 @@ pub unsafe extern "C" fn ak_init(opts: *const ak_init_opts, err: *mut ak_err) ->
         return set(AK_ERR_ABI, AK_DETAIL_ABI_MISMATCH);
     }
 
-    let word = opts_word(&o);
+    let words = opts_words(&o);
     match INIT_STATE.compare_exchange(INIT_NONE, INIT_RUNNING, Ordering::AcqRel, Ordering::Acquire)
     {
         Ok(_) => {}
@@ -141,7 +146,12 @@ pub unsafe extern "C" fn ak_init(opts: *const ak_init_opts, err: *mut ak_err) ->
             while INIT_STATE.load(Ordering::Acquire) == INIT_RUNNING {
                 core::hint::spin_loop();
             }
-            return if INIT_OPTS.load(Ordering::Acquire) == word {
+            let seen = (
+                INIT_VF.load(Ordering::Acquire),
+                INIT_LOG.load(Ordering::Acquire),
+                INIT_LOGCTX.load(Ordering::Acquire),
+            );
+            return if seen == words {
                 set(AK_ALREADY_INITIALIZED, AK_DETAIL_NONE)
             } else {
                 // The one-shot installs cannot be redone, so this is a failure and not a
@@ -178,7 +188,9 @@ pub unsafe extern "C" fn ak_init(opts: *const ak_init_opts, err: *mut ak_err) ->
         }));
     }
 
-    INIT_OPTS.store(word, Ordering::Release);
+    INIT_VF.store(words.0, Ordering::Release);
+    INIT_LOG.store(words.1, Ordering::Release);
+    INIT_LOGCTX.store(words.2, Ordering::Release);
     INIT_STATE.store(INIT_DONE, Ordering::Release);
     set(AK_OK, AK_DETAIL_NONE)
 }
@@ -349,7 +361,20 @@ pub unsafe extern "C" fn ak_enc_take(
     let cx = &mut *(ctx as *mut EncCtxImpl);
     *ptr = cx.e.buf.as_ptr();
     *len = cx.e.buf.len();
-    cx.e.err
+    enc_status(cx)
+}
+
+/// The encode operation's status: the host's sticky report first (ABI v1 section 5,
+/// `ak_fail` from inside a reverse call), then the codec's own. R-D6: before this the
+/// encode entry points read only `e.err`, so a host that called `ak_fail` and returned
+/// AK_OK got a successful encode.
+#[inline(always)]
+pub(crate) unsafe fn enc_status(cx: *const EncCtxImpl) -> i32 {
+    if (*cx).hdr.err != AK_OK {
+        (*cx).hdr.err
+    } else {
+        (*cx).e.err
+    }
 }
 
 #[no_mangle]
@@ -627,6 +652,11 @@ unsafe extern "C" fn tc_utf8(
     grow: ak_grow_fn,
     sink: *mut c_void,
 ) -> i32 {
+    // R-D9: an empty host string may arrive as (NULL, 0), and `slice::from_raw_parts` /
+    // `copy_nonoverlapping` require a non-null pointer even for zero bytes.
+    if len == 0 {
+        return 0;
+    }
     let s = core::slice::from_raw_parts(src as *const u8, len);
     if core::str::from_utf8(s).is_err() {
         return AK_ERR_TRANSCODE;
@@ -656,6 +686,11 @@ unsafe extern "C" fn tc_utf8_trusted(
     grow: ak_grow_fn,
     sink: *mut c_void,
 ) -> i32 {
+    // R-D9: an empty host string may arrive as (NULL, 0), and `slice::from_raw_parts` /
+    // `copy_nonoverlapping` require a non-null pointer even for zero bytes.
+    if len == 0 {
+        return 0;
+    }
     if (len as i64) > cap as i64 {
         let rc = grow(sink, len as i32, &mut dst, &mut cap);
         if rc < 0 {
@@ -688,6 +723,11 @@ unsafe extern "C" fn tc_utf8_simd(
     grow: ak_grow_fn,
     sink: *mut c_void,
 ) -> i32 {
+    // R-D9: an empty host string may arrive as (NULL, 0), and `slice::from_raw_parts` /
+    // `copy_nonoverlapping` require a non-null pointer even for zero bytes.
+    if len == 0 {
+        return 0;
+    }
     let s = core::slice::from_raw_parts(src as *const u8, len);
     if simdutf8::basic::from_utf8(s).is_err() {
         return AK_ERR_TRANSCODE;
@@ -805,6 +845,11 @@ unsafe extern "C" fn tc_utf16(
     grow: ak_grow_fn,
     sink: *mut c_void,
 ) -> i32 {
+    // R-D9: an empty host string may arrive as (NULL, 0), and `slice::from_raw_parts` /
+    // `copy_nonoverlapping` require a non-null pointer even for zero bytes.
+    if len == 0 {
+        return 0;
+    }
     let p = src as *const u16;
     let need = utf16_utf8_len(p, len);
     if need as i64 > cap as i64 {
@@ -853,6 +898,11 @@ unsafe extern "C" fn tc_latin1(
     grow: ak_grow_fn,
     sink: *mut c_void,
 ) -> i32 {
+    // R-D9: an empty host string may arrive as (NULL, 0), and `slice::from_raw_parts` /
+    // `copy_nonoverlapping` require a non-null pointer even for zero bytes.
+    if len == 0 {
+        return 0;
+    }
     let s = core::slice::from_raw_parts(src as *const u8, len);
     let mut need = len;
     for &b in s {
@@ -909,7 +959,10 @@ pub(crate) unsafe fn enc_blob(cx: *mut EncCtxImpl, tag: u32, site: u32, s: &ak_s
         let e = &mut (*cx).e;
         e.key(tag, ak_rt::WIRE_LEN);
         e.varint(n as u64);
-        e.buf.extend_from_slice(core::slice::from_raw_parts(p, n));
+        // R-D9: a zero-length direct argument may be (NULL, 0).
+        if n != 0 {
+            e.buf.extend_from_slice(core::slice::from_raw_parts(p, n));
+        }
         let _ = site;
         return true;
     }
@@ -922,6 +975,11 @@ pub(crate) unsafe fn enc_blob(cx: *mut EncCtxImpl, tag: u32, site: u32, s: &ak_s
     let (dst, cap) = e.space();
     ak_rt::bump!(e.c, transcode);
     let n = tc(s.data, s.len, dst, cap, ak_grow, cx as *mut c_void);
+    // R-D6: a transcoder is the host's code when the host supplied it, so it is an upcall
+    // like any other and the sticky slot is read after it.
+    if (*cx).hdr.err != AK_OK {
+        return false;
+    }
     let e = &mut (*cx).e;
     if n < 0 {
         e.fail(n);
@@ -970,6 +1028,17 @@ impl UnkBuf {
         }
     }
 
+    /// R-D6: what the host reported through `ak_fail` during a delivery, so a decoder
+    /// holding only this buffer (a leaf fix decoder has no context of its own) can stop.
+    #[inline(always)]
+    pub unsafe fn host_err(&self) -> i32 {
+        if self.ctx.is_null() {
+            AK_OK
+        } else {
+            (*(self.ctx as *const DecCtxImpl)).hdr.err
+        }
+    }
+
     #[inline(always)]
     pub unsafe fn push(&mut self, off: usize, len: usize) {
         if self.cb.is_none() {
@@ -988,6 +1057,11 @@ impl UnkBuf {
             return;
         }
         if let Some(cb) = self.cb {
+            // R-D6: no delivery after the host failed the operation.
+            if self.host_err() != AK_OK {
+                self.n = 0;
+                return;
+            }
             ak_rt::bump!((*(self.ctx as *mut DecCtxImpl)).c, reverse);
             cb(self.ctx, self.obj, self.spans.as_ptr(), self.n as i32);
         }
@@ -1076,4 +1150,36 @@ pub extern "C" fn ak_noop_guarded(x: u64) -> u64 {
 #[no_mangle]
 pub unsafe extern "C" fn ak_noop_reverse(f: unsafe extern "C" fn(u64) -> u64, x: u64) -> u64 {
     f(x)
+}
+
+#[cfg(test)]
+mod tc_empty_tests {
+    //! FIX-PLAN WP4 item 10 / R-D9: an empty host string may legally arrive as
+    //! `(NULL, 0)`. `slice::from_raw_parts` requires a non-null pointer even for length 0,
+    //! so the transcoders must not build a slice (or copy) from it. Run in a DEBUG build,
+    //! where the standard library's precondition checks turn the UB into an abort.
+    use super::*;
+
+    unsafe extern "C" fn no_grow(_s: *mut c_void, _w: i32, _d: *mut *mut u8, _c: *mut i32) -> i32 {
+        AK_ERR_CAPACITY
+    }
+
+    #[test]
+    fn every_transcoder_accepts_null_and_zero() {
+        let mut dst = [0u8; 4];
+        let tcs: [(&str, ak_transcode_fn); 6] = [
+            ("utf8", tc_utf8),
+            ("utf8_trusted", tc_utf8_trusted),
+            ("utf8_simd", tc_utf8_simd),
+            ("latin1", tc_latin1),
+            ("utf16", tc_utf16),
+            ("bytes", ak_tc_bytes()),
+        ];
+        for (name, tc) in tcs {
+            let n = unsafe {
+                tc(core::ptr::null(), 0, dst.as_mut_ptr(), dst.len() as i32, no_grow, core::ptr::null_mut())
+            };
+            assert_eq!(n, 0, "{name}: an empty string transcodes to zero bytes");
+        }
+    }
 }
