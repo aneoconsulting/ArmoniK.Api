@@ -1255,3 +1255,73 @@ independent implementations of the same refused design.
 Not done: T5 (two threads, one message) and T7 still drive only the native encoder, so
 "both threads agree and are both wrong" under `both` is still a native-encoder reading.
 There is no TSan run.
+
+## 2026-09-24, third work unit: FIX-PLAN WP5 step 2, the C++ backend on the shared plan
+
+The task: move the C++ native control, the binding and the ABI header into
+`poc/codec/gen/` as backends that import `plan` only, keep only glue in `gen/`, retire
+`cpp_core.py`'s own rules and the `rust_core` import, render every struct and signature
+from the plan (R-G5), render `ak_init` (R-G7), and gate the result on the payload set,
+at every level, and on the FULL corpus in both unknown-field modes. No timing.
+
+What I built. Five shared modules. `cpp_abi.py` is the old `cpp_header.py` with its IR
+helpers replaced by the plan's layout functions. `ak_client_opts` is no longer
+regex-parsed out of `ak-abi/src/lib.rs`; it comes from `plan.rpc`, along with the rest of
+section 9 (the RPC structs, the handles, `AK_QUEUE_*`, every prototype) and `ak_init` from
+`plan.lifecycle`. The per-message part of the generated `ak_abi.h` came out identical to
+the old one line for line (only the banner changed), so this is a change of provenance,
+not of layout. `cpp_native.py` is new: it renders `MessagePlan.encode` step by step and
+`MessagePlan.decode` as a `switch` on the full key `(number << 3) | wire`, drop and retain
+from one renderer. `cpp_binding.py` and `cpp_facade.py` moved over with their IR imports
+replaced. The binding gained `ak_init_once()` (a C++11 function-local static, called by
+every entry point) and, for the corpus binding, the retain family, modelled on
+`rust_binding.py`. `cpp_names.py` is the old `cppnames.py` plus `C_OF` for the plan's abi
+type vocabulary, pointer forms included.
+
+First corpus run of the new harness: ffi-drop 672/0, native-drop and native-retain 688/0.
+It passed on the first try, so I did not believe it until the three planted harness
+controls failed (proj, reenc, accept: every accept row turned red) and the noinit build
+failed every ffi arm with -10. The native-retain forms table then matched the rust slice's
+`wp5-corpus.log` entry for entry. After the retain family was added, ffi-retain matched
+too, including the same 17 rows where retain writes the DROPPED form (D34's inlined-child
+unknowns, and map entries).
+
+Two binding defects surfaced only on the corpus schema, because shapes.json has no
+instance. (1) A root's loop slot inside an INLINED singular child (TaskDetailed.options
+.options, ChunkElement.inner.marks/leaves, where TaskDetailed and ChunkElement are
+themselves corpus roots) was addressed as `s->out->options.options` through an
+`ak::Optional`. It did not compile; it is now `get_or_insert()` along the path, the same
+rule the inner-slot code already had. (2) `fixed32` was in none of the binding's scalar
+tables; it has been added.
+
+One conformance check changed meaning, and no byte changed. "Malformed UTF-8 reported
+through ak_fail on the DECODE context" now fails because since 77f91ee the CORE validates
+strings on decode (R-E7) and returns -6 before delivering anything, so the binding's
+`s_of` -> `ak_fail` path never runs. The check now accepts the core's return code or the
+sticky slot. The lossy build is dead for the same reason (the policy is a plan option in
+the core too), so its two targets are retired, and the native backend raises on
+`utf8="lossy"` rather than render reject under another name. `refusal_test.py` asserts
+that raise.
+
+The byte audit. I built the retired harness at `aba944a` out of tree and ran it one row
+per process against the new arms on the 213 rows it could root. Native and ffi gave
+identical outcome, refusal code and bytes on 213 of 213. My first version compared hex,
+and the old harness prints no hex above a size cap. That produced three false "changed"
+rows (B-P2_5, B-P3_1, B-P4_1). The comparison is now by SHA-256 + length, which the old
+harness always prints. The rule fixes (R-E2 packed_one, R-E4 merges, R-E3 -0.0, a tag 0
+in a map entry, the depth limit, fixed32) change nothing on those rows. The rows that
+exercise them root at messages the old codec was never generated for, so they have no
+"before" to compare against.
+
+Refused or not done. `rust_core.py` is not deleted. The shared `generate.py`'s BACKENDS
+list opens it (so its `--check` would raise), `one_core.sh` lists it, and the rust slice's
+`corpus_before.py` imports it. All three are outside this slice. `gen/cpp_header.py`
+stays as a forwarding name because the python slice's COMMITTED generator still imports
+it. Java has already moved off it. `one_core.sh --selftest` fails before it plants
+anything, and not because of this work. Its scratch copy lacks `ffi/corpus`, which the
+shared `--check` has needed since WP5 step 1. Reproduced: a scratch copy that includes
+`ffi/corpus` passes. Reported (C38).
+
+Plan gaps, stated rather than filled: `ak_err`'s layout, the `ak_log_fn` signature and
+the `AK_INIT_*` values; the counting build's RPC counters; the section 4/5 fixed
+vocabulary; field numbers above 2^29-1. Each is in STATE.md.
