@@ -173,35 +173,101 @@ def core_client(target, pinned):
                                          CHUNK_BYTES * 4, CHUNK_BYTES * 4, -1)
 
 
+class RpcFailed(RuntimeError):
+    """An RPC the harness must not time: a non-zero status, a missing completion, or a
+    response that is not the payload the server was given (FIX-PLAN R-D3)."""
+
+
+# How long a queue or callback delivery may take before the harness calls it lost. The
+# core promises a completion for every call (an aborted one completes with AK_ERR_HOST),
+# so this only fires on a defect -- and a defect should fail the run, not hang it.
+COMPLETION_TIMEOUT_MS = 30000
+
+# Every gate failure and aborted measurement, so `main` can exit non-zero: a log that
+# carries an ABORTED row must not come from a run that reported success.
+FAILURES = []
+
+
+def _expect(body, status=0, want=None):
+    """The per-call gate: status 0 and exactly the payload's length, or raise.
+
+    Length and not content, per call, because the full byte comparison is the pre-timing
+    gate's job (`gate_cells`) and a 540 KB compare inside the timed loop would be charged
+    to every cell. Length is what catches the failure mode this exists for: a failed
+    delivery hands over EMPTY bytes, and `FromString(b"")` and the facade decode of b""
+    both succeed, so without it a failed RPC is timed as a very cheap success.
+    """
+    if status != 0:
+        raise RpcFailed("completion status %d" % status)
+    if body is None:
+        raise RpcFailed("no response body")
+    want = len(arms.reference(PID)) if want is None else want
+    if len(body) != want:
+        raise RpcFailed("response is %d bytes, the payload is %d" % (len(body), want))
+    return body
+
+
+def _checked(deser):
+    """A grpcio response_deserializer that gates the body before decoding it (cell A).
+
+    grpcio raises on a non-OK status by itself; what it does not do is notice an OK call
+    that carries the wrong body, which is the other half of the gate."""
+    want = len(arms.reference(PID))
+
+    def d(b, _deser=deser, _want=want):
+        return _deser(_expect(b, 0, _want))
+    d.raw = deser
+    return d
+
+
 def core_cells(target, pinned):
     """Cells B and C over the core's transport, in each of section 9's three deliveries.
 
     The GIL is why the three are not interchangeable here and it is a Python reason rather
     than a borrowed one: the queue's drainer is a thread CPython already knows, which drops
     the lock while it waits; the callback arrives on a tokio worker that must
-    `PyGILState_Ensure` before it can touch anything. The queue should win and the arm
-    checks it.
+    `PyGILState_Ensure` before it can touch anything.
+
+    **Every delivery gates every call** (FIX-PLAN R-D3): status 0 and the payload's exact
+    length, or `RpcFailed`. Before this the queue and callback deliveries ignored the
+    completion status, a failed call delivered empty bytes, and the decode of empty bytes
+    succeeded -- so a failing RPC was timed as a cheap success
+    (`logs/python/81-rpc-gate-before.log`). Each cell also exposes `fetch`, the delivery
+    without the decode, so `gate_cells` can compare the bytes themselves before timing.
     """
     if arms._ffi is None or not hasattr(arms._ffi, "call_unary"):
         return []
     root = arms.ROOT_OF[PID]
+    want = len(arms.reference(PID))
     rt, cl = core_client(target, pinned)
     R = getattr(arms._pb2, root) if arms._pb2 is not None else None
     out = []
 
     def blocking(deser):
+        def fetch():
+            # The binding raises on a non-zero ak_call_unary status itself.
+            return _expect(arms._ffi.call_unary(cl, METHOD, b""), 0, want)
+
         def go():
-            return deser(arms._ffi.call_unary(cl, METHOD, b""))
+            return deser(fetch())
+        go.fetch = fetch
         return go
 
     def queued(deser):
         q = arms._ffi.queue_new()
 
-        def go():
+        def fetch():
             arms._ffi.call_unary_q(cl, METHOD, b"", q, 1)
-            c = arms._ffi.queue_next(q)
-            return deser(c[2]) if c else None
+            c = arms._ffi.queue_next(q, COMPLETION_TIMEOUT_MS)
+            if c is None:
+                raise RpcFailed("no completion within %d ms" % COMPLETION_TIMEOUT_MS)
+            _tag, status, body = c
+            return _expect(body, status, want)
+
+        def go():
+            return deser(fetch())
         go.q = q
+        go.fetch = fetch
         return go
 
     def called_back(deser):
@@ -213,17 +279,23 @@ def core_cells(target, pinned):
         Event is the honest part of the comparison rather than overhead to subtract,
         because a caller who chose this mode has to synchronise somehow.
         """
-        def go():
+        def fetch():
             done = threading.Event()
             box = []
 
             def cb(tag, status, body):
-                box.append(body)
+                box.append((status, body))
                 done.set()
 
             arms._ffi.call_unary_cb(cl, METHOD, b"", cb, 1)
-            done.wait()
-            return deser(box[0]) if box else None
+            if not done.wait(COMPLETION_TIMEOUT_MS / 1000.0):
+                raise RpcFailed("no completion within %d ms" % COMPLETION_TIMEOUT_MS)
+            status, body = box[0]
+            return _expect(body, status, want)
+
+        def go():
+            return deser(fetch())
+        go.fetch = fetch
         return go
 
     if R is not None:
@@ -239,6 +311,46 @@ def core_cells(target, pinned):
     for _n, f in out:
         f._keep = (rt, cl)
     return out
+
+
+def gate_cells(channel, cells):
+    """R2 for the RPC arm, before anything is timed: every cell's response is P2.2's exact
+    bytes, and every cell's decode re-encodes to them.
+
+    Returns report lines and raises `RpcFailed` on the first cell that fails, so a caller
+    that times anything after calling this has, by construction, a gated arm.
+    """
+    body = arms.reference(PID)
+    lines = []
+    got = None
+    if channel is not None:
+        raw = channel.unary_unary(METHOD, request_serializer=lambda b: b,
+                                  response_deserializer=lambda b: b)
+        got = raw(b"")
+        if got != body:
+            raise RpcFailed("cell A (grpcio): the response is not P2.2's bytes")
+        lines.append("ok  A  grpcio transport: response == P2.2 (%d bytes)" % len(got))
+    for name, deser in (_deserializers() if channel is not None else []):
+        obj = _checked(deser)(got)
+        if obj is not got:
+            back = arms.reencode("upb" if name.startswith("upb") else "core-ffi / C ext type",
+                                 obj, PID)
+            if back != body and not (name.startswith("upb")
+                                     and arms.same_message(PID, back, body)):
+                raise RpcFailed("cell A %s: decode does not re-encode to P2.2" % name)
+        lines.append("ok  A  %s: decodes and re-encodes to P2.2" % name)
+    for name, fn in cells:
+        b = fn.fetch()
+        if b != body:
+            raise RpcFailed("%s: the response is not P2.2's bytes" % name)
+        obj = fn()
+        if obj is not None and not isinstance(obj, bytes):
+            kind = "upb" if name.startswith("B") else "core-ffi / C ext type"
+            back = arms.reencode(kind, obj, PID)
+            if back != body and not (kind == "upb" and arms.same_message(PID, back, body)):
+                raise RpcFailed("%s: decode does not re-encode to P2.2" % name)
+        lines.append("ok  %s: response == P2.2, decode re-encodes to it" % name)
+    return lines
 
 
 def _deserializers():
@@ -257,19 +369,29 @@ def _deserializers():
     return out
 
 
-def measure(channel, name, deser, calls, inflight):
-    call = channel.unary_unary(METHOD, request_serializer=lambda b: b,
-                               response_deserializer=deser)
-    call(b"")                                   # warm the channel and the HTTP/2 handshake
+class MeasurementAborted(RuntimeError):
+    """A timed loop in which any call failed. It has no figure: dividing the elapsed time
+    by the full call count when some threads stopped early -- which is what this harness
+    did before FIX-PLAN R-D3 -- reports a failure as a fast call."""
+
+
+def _run_threads(one_call, calls, inflight):
+    """`inflight` threads, `calls // inflight` gated calls each. The first exception in any
+    thread stops every thread and aborts the measurement; there is no error count, because
+    a loop with an error in it is not a measurement."""
     per_thread = max(1, calls // inflight)
-    errs = [0]
+    failed = []
+    stop = threading.Event()
 
     def work():
         try:
             for _ in range(per_thread):
-                call(b"")
-        except Exception:  # noqa: BLE001
-            errs[0] += 1
+                if stop.is_set():
+                    return
+                one_call()
+        except BaseException as e:  # noqa: BLE001
+            failed.append(e)
+            stop.set()
 
     c0, t0 = _cpu(), time.perf_counter_ns()
     ths = [threading.Thread(target=work) for _ in range(inflight)]
@@ -279,8 +401,21 @@ def measure(channel, name, deser, calls, inflight):
         t.join()
     dt = time.perf_counter_ns() - t0
     dc = _cpu() - c0
+    if failed:
+        e = failed[0]
+        raise MeasurementAborted("%d of %d threads failed; first: %s: %s"
+                                 % (len(failed), inflight, type(e).__name__,
+                                    (str(e).splitlines() or [""])[0][:120]))
     n = per_thread * inflight
-    return dc / n, dt / n, errs[0]
+    return dc / n, dt / n, 0
+
+
+def measure(channel, name, deser, calls, inflight):
+    """Cell A: grpcio's transport, with the response body gated before it is decoded."""
+    call = channel.unary_unary(METHOD, request_serializer=lambda b: b,
+                               response_deserializer=_checked(deser))
+    call(b"")                                   # warm the channel and the HTTP/2 handshake
+    return _run_threads(lambda: call(b""), calls, inflight)
 
 
 def in_process_control(out):
@@ -324,37 +459,33 @@ def run_core(out, label, target, pinned, argname):
                   file=out)
             return
         print("\n## %s, %s (%s) -- cells B and C" % (label, argname, real), file=out)
-        print("   %-46s %-9s %12s %12s %7s"
-              % ("arm", "in flight", "CPU ns/RPC", "wall ns/RPC", "errors"), file=out)
+        # R2 before timing: every delivery's bytes are P2.2's and decode back to them. A
+        # failure here refuses every row of this block rather than timing any of it.
+        try:
+            for line in gate_cells(None, cells):
+                print("   gate " + line, file=out)
+        except Exception as e:  # noqa: BLE001
+            print("   GATE FAILED, block not timed: %s: %s" % (type(e).__name__, e), file=out)
+            FAILURES.append("%s %s: gate: %s" % (label, argname, e))
+            return
+        print("   %-46s %-9s %12s %12s"
+              % ("arm", "in flight", "CPU ns/RPC", "wall ns/RPC"), file=out)
         for name, fn in cells:
-            fn()
             for k in INFLIGHT:
-                cpu, wall, err = measure_fn(fn, CALLS, k)
-                print("   %-46s %-9d %12.0f %12.0f %7d"
-                      % (name, k, cpu, wall, err), file=out)
+                try:
+                    cpu, wall, _ = measure_fn(fn, CALLS, k)
+                except MeasurementAborted as e:
+                    print("   %-46s %-9d ABORTED, no figure: %s" % (name, k, e), file=out)
+                    FAILURES.append("%s %s %s x%d: %s" % (label, argname, name, k, e))
+                    continue
+                print("   %-46s %-9d %12.0f %12.0f" % (name, k, cpu, wall), file=out)
     finally:
         server.stop(0).wait()
 
 
 def measure_fn(fn, calls, inflight):
-    per_thread = max(1, calls // inflight)
-    errs = [0]
-
-    def work():
-        try:
-            for _ in range(per_thread):
-                fn()
-        except Exception:  # noqa: BLE001
-            errs[0] += 1
-
-    c0, t0 = _cpu(), time.perf_counter_ns()
-    ths = [threading.Thread(target=work) for _ in range(inflight)]
-    for t in ths:
-        t.start()
-    for t in ths:
-        t.join()
-    n = per_thread * inflight
-    return (_cpu() - c0) / n, (time.perf_counter_ns() - t0) / n, errs[0]
+    """Cells B and C. `fn` gates every call itself (`core_cells`)."""
+    return _run_threads(fn, calls, inflight)
 
 
 def run_transport(out, label, target, args, argname):
@@ -369,13 +500,27 @@ def run_transport(out, label, target, args, argname):
     try:
         with grpc.insecure_channel(target, options=args) as ch:
             print("\n## %s, %s (%s)" % (label, argname, target), file=out)
-            print("   %-38s %-9s %12s %12s %7s"
-                  % ("arm", "in flight", "CPU ns/RPC", "wall ns/RPC", "errors"), file=out)
+            try:
+                for line in gate_cells(ch, []):
+                    print("   gate " + line, file=out)
+            except Exception as e:  # noqa: BLE001
+                print("   GATE FAILED, block not timed: %s: %s" % (type(e).__name__, e),
+                      file=out)
+                FAILURES.append("%s %s: gate: %s" % (label, argname, e))
+                return
+            print("   %-38s %-9s %12s %12s"
+                  % ("arm", "in flight", "CPU ns/RPC", "wall ns/RPC"), file=out)
             for name, deser in _deserializers():
                 for k in INFLIGHT:
-                    cpu, wall, err = measure(ch, name, deser, CALLS, k)
-                    print("   %-38s %-9d %12.0f %12.0f %7d"
-                          % (name, k, cpu, wall, err), file=out)
+                    try:
+                        cpu, wall, _ = measure(ch, name, deser, CALLS, k)
+                    except Exception as e:  # noqa: BLE001  (grpc.RpcError included)
+                        print("   %-38s %-9d ABORTED, no figure: %s: %s"
+                              % (name, k, type(e).__name__, (str(e).splitlines() or [""])[0][:100]),
+                              file=out)
+                        FAILURES.append("%s %s %s x%d: %s" % (label, argname, name, k, e))
+                        continue
+                    print("   %-38s %-9d %12.0f %12.0f" % (name, k, cpu, wall), file=out)
     finally:
         server.stop(0).wait()
 
@@ -595,6 +740,14 @@ def main():
     nagle_probe(out)
     in_process_control(out)
     report_flow_control(out)
+    if FAILURES:
+        print("\n%d GATE FAILURE(S) OR ABORTED MEASUREMENT(S); the figures above are not usable:"
+              % len(FAILURES), file=out)
+        for f in FAILURES:
+            print("   " + f, file=out)
+        return 1
+    print("\nevery cell gated: status 0 and P2.2's length on every call, bytes and decode "
+          "checked before timing", file=out)
     return 0
 
 

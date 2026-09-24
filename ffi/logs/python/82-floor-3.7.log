@@ -1,0 +1,62 @@
+# python slice: the 3.7 floor (FIX-PLAN R-D4), confirmed by reading; NOT fixed here
+#
+# date:      2026-09-24T08:47:53Z
+# commit:    8864e4d (the files below are unmodified by this session)
+# why not fixed: FIX-PLAN WP5 consolidates the shim generator into poc/codec/gen, which
+#            will emit the PY_VERSION_HEX conditionals; fixing gen/py_binding.py now
+#            would be done twice (task instruction).
+
+## C-API names newer than 3.7, occurrence counts per file
+#  Py_NewRef 3.10; PyModule_AddObjectRef 3.10; PyObject_CallNoArgs 3.9;
+#  PyObject_CallOneArg 3.9. (PyUnicode_AsUTF8AndSize is 3.3 in the full API, listed as a
+#  control: it is fine on the floor and only matters under Py_LIMITED_API < 3.10.)
+   gen/py_binding.py
+      Py_NewRef                      7
+      PyObject_CallNoArgs            4
+      PyObject_CallOneArg            1
+      PyUnicode_AsUTF8AndSize        7
+   gen/out/binding.c
+      Py_NewRef                    164
+      PyObject_CallNoArgs          114
+      PyObject_CallOneArg          133
+      PyUnicode_AsUTF8AndSize      117
+   gen/py_shim.py
+      PyObject_CallOneArg            1
+      PyUnicode_AsUTF8AndSize        1
+   gen/out/_akcodec_gen.c
+      PyObject_CallOneArg           16
+      PyUnicode_AsUTF8AndSize       15
+   native/binding.c
+      Py_NewRef                      1
+      PyModule_AddObjectRef          1
+
+## any version conditional in the emitted C?
+   PY_VERSION_HEX in gen/out/binding.c: 0
+   PY_VERSION_HEX in native/binding.c:  0
+   PY_VERSION_HEX in gen/py_binding.py: 0
+
+## the PyO3 arm (work unit 1's mechanism arm, mech/pyo3)
+   15:pyo3 = { version = "0.29", features = ["extension-module"] }
+   19:abi3 = ["pyo3/abi3-py310"]
+
+## can a CPython 3.7 be obtained in this container?
+   apt-cache policy python3.7:
+     Installed: (none)
+     Candidate: 3.7.17-1+noble2
+     Version table:
+        3.7.17-1+noble2 500
+           500 https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu noble/main amd64 Packages
+   apt-get install -y python3.7 python3.7-dev:
+   E: Failed to fetch https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/pool/main/p/python3.7/libpython3.7-minimal_3.7.17-1%2bnoble2_amd64.deb Invalid respons
+   E: Failed to fetch https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/pool/main/p/python3.7/python3.7-minimal_3.7.17-1%2bnoble2_amd64.deb Invalid response f
+   E: Failed to fetch https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/pool/main/p/python3.7/libpython3.7-stdlib_3.7.17-1%2bnoble2_amd64.deb Invalid response
+   E: Failed to fetch https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/pool/main/p/python3.7/libpython3.7_3.7.17-1%2bnoble2_amd64.deb Invalid response from p
+   E: Failed to fetch https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/pool/main/p/python3.7/libpython3.7-dev_3.7.17-1%2bnoble2_amd64.deb Invalid response fr
+   E: Failed to fetch https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/pool/main/p/python3.7/python3.7_3.7.17-1%2bnoble2_amd64.deb Invalid response from prox
+   E: Failed to fetch https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/pool/main/p/python3.7/python3.7-dev_3.7.17-1%2bnoble2_amd64.deb Invalid response from 
+   E: Unable to fetch some archives, maybe run apt-get update or try with --fix-missing?
+   curl https://www.python.org/ftp/python/3.7.17/Python-3.7.17.tgz: CONNECT tunnel failed, response 403
+   curl https://github.com/indygreg/python-build-standalone/releases: HTTP 403
+   uv python list 3.7: (no entry)
+   => not obtainable here: the egress proxy refuses the deadsnakes PPA, python.org and github.
+      The apt INDEX lists 3.7.17-1+noble2 (01-environment.log); the packages cannot be fetched.

@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
-# Work unit 3 (M1 and M2), end to end and reproducible.
+# The whole slice, end to end and reproducible.
 #
 #   ./run.sh <target-python> [<other pythons>...]
+#
+# The target is CPython 3.12 (FIX-PLAN section 6, D1). AK_UPSTREAM and
+# AK_CARGO_TARGET_BASE are passed through to build.sh (see there).
+#
+# PHASE (README 1.1): steps 5 to 9 print container TIMINGS, which are instrumentation. Run
+# them to prove a harness executes; do not quote them. Steps 1 to 4 and 3b are the ones
+# whose output is a result now (builds, byte identity, crossing counts, corpus, gates).
 #
 # Logs land in ffi/logs/python/.  Absolutes are instrumentation (README section 8, after
 # R13), so the target interpreter gets three processes and the others one each: what the
@@ -33,6 +40,9 @@ hdr() {
 }
 
 echo "===== 1. build ====="
+# The incumbent's shapes_pb2.py is emitted by mech/build.sh (grpcio-tools carries protoc).
+# From a clean clone nothing else writes it, and conformance would report upb ABSENT.
+mech/build.sh "$@" > /dev/null 2>&1 || { echo "   mech/build.sh failed"; exit 1; }
 ./build.sh "$@" 2>&1 | tee "$LOGS/54-build-all-shapes.log" | tail -3
 
 echo "===== 2. R14: derive the baseline from Protos/V1 ====="
@@ -50,6 +60,26 @@ echo "===== 3. conformance and crossing counts, every interpreter (R2, R5) =====
   done
 } > "$LOGS/53-conformance-all-shapes.log" 2>&1
 grep -c "ALL CHECKS PASS" "$LOGS/53-conformance-all-shapes.log" | sed 's/^/   interpreters passing: /'
+
+echo "===== 3b. R-D3: the RPC shim through the same gate, and the RPC arm under injected failure ====="
+# `_akffi_rpc` carries the codec too (cell C of the RPC grid decodes through it), so it is
+# gated exactly like `_akffi`. Nothing ran this before FIX-PLAN R-D3.
+{
+  hdr "python slice: conformance on the RPC shim (_akffi_rpc)"
+  for PY in "$@"; do
+    echo "########## $("$PY" -c 'import sys;print(sys.version.split()[0])') ##########"
+    AK_FFI_MODULE=_akffi_rpc "$PY" conformance.py
+    echo
+  done
+} > "$LOGS/85-conformance-rpc-shim.log" 2>&1
+grep -c "ALL CHECKS PASS" "$LOGS/85-conformance-rpc-shim.log" | sed 's/^/   interpreters passing on _akffi_rpc: /'
+# What every RPC cell reports when the RPC fails: status, empty body, short body, closed
+# socket. No timings in it. Target interpreter only (it needs grpcio).
+{
+  hdr "python slice: the RPC arm's gate under injected failure (R-D3)"
+  "$TARGET" rpc_gate.py
+} > "$LOGS/83-rpc-gate.log" 2>&1
+echo "   rows aborted under injection: $(grep -c 'ABORTED, no figure' "$LOGS/83-rpc-gate.log"); rows timed under injection: $(grep -c 'FIGURE PRODUCED' "$LOGS/83-rpc-gate.log")"
 
 echo "===== 4. the conformance corpus (W8), every row this scope can root ====="
 {

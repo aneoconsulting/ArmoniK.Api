@@ -160,14 +160,30 @@ def _cmp_msg(a, b, where):
     return bad
 
 
+def _loaded_core():
+    """The libak_core.so this process actually mapped, relative to ffi/ where possible."""
+    try:
+        paths = sorted({ln.split()[-1] for ln in open("/proc/self/maps")
+                        if ln.rstrip().endswith("libak_core.so")})
+    except OSError:
+        return "unknown (no /proc/self/maps)"
+    if not paths:
+        return "none mapped"
+    return ", ".join(os.path.relpath(p, FFI) if p.startswith(FFI) else p for p in paths)
+
+
 def counts_only():
     """The counting pass, in its own process (see arms.py)."""
     if arms._ffi is None or not arms._ffi.counting():
         print("## crossing counts: ABSENT, no counting build. R5 forbids inferring them.")
         return 1
     print("## crossing counts, counting build, BOTH halves (README R5)")
+    print("#  shim: %s; core loaded: %s" % (arms._ffi.__name__, _loaded_core()))
     print("#  The core counts its own crossings and the shim counts what it does to")
     print("#  CPython. Neither half can count the other's, which is why both are here.")
+    print("#  'shim' = calls the shim makes INTO CPython (value reads, list access, attribute")
+    print("#  get/set, calls into Python), per element. 'core fwd' = host->core ABI calls,")
+    print("#  'core rev' = core->host callbacks, per element. Different edges: never add them.")
     m = arms._ffi
     print("   %-5s %-7s %-22s %s" % ("", "dir", "backend", "per element"))
     for pid in arms.PAYLOADS:
@@ -198,6 +214,16 @@ def main():
     print("# interpreter: %s" % sys.version.split()[0])
     print("# baseline:    %s" % arms.BASELINE)
     print("# manifest:    validated against prost 0.14.4 and a second encoder (W2)")
+    # WHICH shim and WHICH core this process gated. There are three builds of one
+    # `libak_core.so` (plain, counting, rpc) and the first loaded satisfies the others by
+    # soname, so the module name alone does not say which core ran. /proc/self/maps does.
+    # FIX-PLAN R-D3: the rpc shim was never gated because nothing ever ran this line with
+    # AK_FFI_MODULE=_akffi_rpc, and nothing printed which module had been gated.
+    if arms._ffi is not None:
+        print("# shim:        %s (%s)" % (arms._ffi.__name__, os.path.basename(arms._ffi.__file__)))
+        print("# section 9:   %s" % ("present (call_unary, call_unary_q, call_unary_cb)"
+                                     if hasattr(arms._ffi, "call_unary") else "absent"))
+        print("# core loaded: %s" % _loaded_core())
     print()
 
     print("## R1: the generated tree is current with shapes.json")

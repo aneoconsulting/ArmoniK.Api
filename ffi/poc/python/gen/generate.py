@@ -34,9 +34,15 @@ HERE = os.path.dirname(os.path.abspath(__file__))       # .../poc/python/gen
 SLICE = os.path.dirname(HERE)                           # .../poc/python
 POC = os.path.dirname(SLICE)                            # .../poc
 FFI = os.path.dirname(POC)                              # .../ffi
-CODECGEN = os.path.join(POC, "codec", "gen")
-CPPGEN = os.path.join(POC, "cpp", "gen")
-SCHEMA_EMIT = os.path.join(FFI, "schema", "emit")
+# AK_UPSTREAM: an `ffi/` tree to read the SHARED inputs from (the core's IR, the header
+# renderer, the schema emitter). Default: this checkout. Set to a `git archive` of a named
+# commit when other agents are editing those inputs concurrently, so `--check` compares
+# against a commit rather than against someone's half-written working tree. Read-only
+# either way; OUT is always this slice's.
+UPSTREAM = os.environ.get("AK_UPSTREAM") or FFI
+CODECGEN = os.path.join(UPSTREAM, "poc", "codec", "gen")
+CPPGEN = os.path.join(UPSTREAM, "poc", "cpp", "gen")
+SCHEMA_EMIT = os.path.join(UPSTREAM, "schema", "emit")
 
 # THIS directory first.  Both of the other two contain a `generate.py`, and the cpp slice
 # records what happens when the order is wrong: an `import generate` anywhere resolves to

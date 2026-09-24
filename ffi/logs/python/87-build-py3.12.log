@@ -1,0 +1,33 @@
+# python slice: build for the target interpreter, R5 boundary proof now covering _akffi_rpc (R-D3)
+# date: 2026-09-24T08:55:23Z; AK_UPSTREAM=<git archive of 8864e4d>; gcc 13.3.0 -O2 -Werror; cargo 1.94.1 (29ea6fb6a 2026-03-24)
+# command: AK_UPSTREAM=$SNAP/ffi ./build.sh python3.12
+
+   core source: $SCRATCH/snap/ffi/poc/codec
+   core commit: 8864e4d
+   core tree:   5ac4151c05a98beb
+   targets:     /home/user/ArmoniK.Api/ffi/poc/python/build/cargo/{plain,count,rpc}
+== 1. R0: one core, at poc/codec, reached by path ==
+  [ok]   codec/gen/generate.py --check: 3 files ok
+
+one_core: 0 failure(s)
+
+== 2. R1: the generated tree is current with shapes.json ==
+generated tree is current with shapes.json (6 files)
+
+== 3. the shared core ==
+   cargo (plain): 18 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo/plain.stderr
+-rwxr-xr-x 2 root root 806680 Sep 24 08:42 /home/user/ArmoniK.Api/ffi/poc/python/build/cargo/plain/release/libak_core.so
+   exported ak_* entry points: 86
+   cargo (count --features count): 18 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo/count.stderr
+   cargo (rpc --features rpc): 18 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo/rpc.stderr
+   the rpc core: 14 section 9 entry points
+
+== python 3.12 ==
+   built build/py3.12/_akffi.cpython-312-x86_64-linux-gnu.so and the counting build beside it
+   _akffi.cpython-312-x86_64-linux-gnu.so: 37 undefined ak_* imports, libak_core.so NEEDED
+   _akffi_count.cpython-312-x86_64-linux-gnu.so: 39 undefined ak_* imports, libak_core.so NEEDED
+   _akffi_rpc.cpython-312-x86_64-linux-gnu.so: 51 undefined ak_* imports, libak_core.so NEEDED
+   _akffi_rpc.cpython-312-x86_64-linux-gnu.so: all 6 section 9 imports, libak_core.so resolves to the rpc build
+   must-fail control: a shim built WITHOUT -DAK_RPC imports 0 of 6 and is refused
+
+the composed arm is built. conformance.py gates it before anything is timed.

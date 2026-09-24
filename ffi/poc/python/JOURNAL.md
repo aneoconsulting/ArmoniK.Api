@@ -788,3 +788,84 @@ is that the sequence -- a control contradicts the bench, the bench is changed to
 control, the change is worse than the thing it fixed -- is a plausible way to make a slice
 worse while believing it is being made honest. The control was right about the cost and
 wrong about where to charge it.
+
+## Work unit 4: the 2026-09-24 review (FIX-PLAN WP4 and WP6)
+
+Phase change first, because it changes what a result is here: the branch is in its setup
+and design phase (README 1.1). A container timing is instrumentation. Nothing in this work
+unit was timed; every entry below is settled by a run that checks behaviour.
+
+**How this slice now builds while other agents edit the shared tree.** The rust agent is
+changing `poc/codec` and the cpp agent `poc/cpp/gen/cpp_header.py` (which `gen/generate.py`
+imports) at the same time. The first conformance run this session reported `R1: STALE,
+regenerate: ak_abi.h` -- not a defect here, but the cpp agent's uncommitted R-D2 edit
+showing through the read-only import. So `build.sh` and `gen/generate.py` take
+`AK_UPSTREAM`, an `ffi/` tree to read the shared inputs from, and this session pointed it at
+a `git archive 8864e4d ffi/poc/codec ffi/poc/cpp/gen ffi/schema` extraction. The core is
+still the one core (never a fork, nothing writes to it); the build names a commit instead
+of somebody's working tree. Cargo targets moved into `build/cargo/{plain,count,rpc}`, so
+this slice no longer writes into `poc/codec/target*` at all.
+
+### J29. R-D3: the RPC arm was ungated, and a failed RPC was timed as a cheap success
+
+Confirmed, every sub-claim, first by reading and then by making the RPC fail on purpose
+(`rpc_gate.py`, `logs/python/81-rpc-gate-before.log`):
+
+| sub-claim | confirmed by |
+|---|---|
+| queue delivery decodes `c[2]` without looking at `c[1]` | `status` injection: queue cells returned a message with **0 tasks** |
+| callback delivery appends `body` and drops `status` | same: callback cells returned 0 tasks |
+| a failed completion is `b""` via `take_bytes`, and `b""` decodes | the core completes failures with `empty_ak_bytes()` (rpc.rs); `FromString(b"")` and the facade decode of `b""` both succeed |
+| `measure_fn` stops a thread at its first exception and still divides by the full count | blocking cells: "errors counted 4" at 4 in flight, figure still produced |
+| `_akffi_rpc` absent from `build.sh`'s R5 loop | read; the loop named two of the three shims |
+| `conformance.py` never loads `_akffi_rpc` | read: `AK_FFI_MODULE` defaults to `_akffi` and `run.sh` never set it |
+
+Before the fix, **68 of the 80 failure-injected timed rows produced a figure**. Only the
+blocking delivery ever raised, and even there the harness counted the error and published
+a figure divided by calls that never happened. Two things the review did not name:
+
+- the `empty` and `short` injections (status OK, wrong body) fooled **every** cell,
+  grpcio's cell A included. Checking status alone would not have closed this; the length
+  check is what does;
+- cell A's timed loop "aborted" under `status` and `closed` only because its warm-up call
+  sat outside the `try`. A failure that began mid-run would have been counted and divided
+  like the others. That it looked gated was an accident.
+
+Fixed (`logs/python/83-rpc-gate.log`): every call in every cell checks status 0 and the
+payload's exact length and raises `RpcFailed` otherwise (cell A through a gated
+`response_deserializer`); the first exception in any thread aborts the measurement, which
+prints `ABORTED, no figure` and makes `rpc.py` exit non-zero; each block runs
+`gate_cells` before timing, which compares every delivery's bytes to P2.2 exactly and
+re-encodes every decode. The binding now hands a failed completion's body over as
+`None`, not `b""`, so a caller that forgets the status cannot decode a failure into an
+empty message. After: **80 of 80 failure-injected rows aborted, 20 of 20 healthy rows
+gated**, and the queue and callback deliveries return `status -1, body None` at the
+binding.
+
+`_akffi_rpc` is in the R5 loop, plus a check that it imports all six section 9 entry
+points it binds and that its `libak_core.so` resolves to the rpc build, with a must-fail
+control (the same source without `-DAK_RPC` imports 0 of 6 and is refused;
+`logs/python/87-build-py3.12.log`). Conformance runs against it: **ALL CHECKS PASS**,
+and it passed before the binding change too (`84-...-before.log`), so the rpc shim's codec
+was right and simply unchecked. `conformance.py` now prints which shim it gated and which
+`libak_core.so` the process mapped, because "passes" said nothing about which build had
+passed until now (`85-conformance-rpc-shim.log`).
+
+`rpc.py` smoke-ran end to end, gated, exit 0 (`86-rpc-smoke-gated.log`, every timing row
+deleted from the log on purpose).
+
+### J30. R-D4: the 3.7 floor, confirmed by reading and not fixed
+
+`logs/python/82-floor-3.7.log`. `gen/out/binding.c` calls `Py_NewRef` (3.10) 164 times,
+`PyObject_CallNoArgs` (3.9) 114 and `PyObject_CallOneArg` (3.9) 133, all emitted by
+`gen/py_binding.py`, with no `PY_VERSION_HEX` anywhere. `gen/out/_akcodec_gen.c` (work unit
+1's no-core shim) calls `PyObject_CallOneArg` 16 times. The PyO3 arm's abi3 feature is
+`abi3-py310`. **One more than the review found**: the hand-written `native/binding.c` uses
+`Py_NewRef` once and `PyModule_AddObjectRef` (3.10) once; it is not generated, so WP5's
+conditionals will not reach it and it needs its own edit.
+
+Not fixed, by instruction: WP5 moves the shim generator into `poc/codec/gen` and emits the
+version conditionals there. And 3.7 is not obtainable in this container: the apt index
+lists `3.7.17-1+noble2`, but the egress proxy refuses the deadsnakes PPA (403), python.org
+and github, so neither the package nor a source tarball nor a standalone build can be
+fetched.

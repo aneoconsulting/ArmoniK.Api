@@ -1,0 +1,72 @@
+# python slice: rpc.py SMOKE run after the R-D3 fix -- proves the harness executes gated end to end
+# date: 2026-09-24T08:53:43Z; python 3.12.3; rpc.py --calls 8 --inflight 1,4; core 8864e4d
+# Every timing row is DELETED from this log on purpose (phase rule: a container timing is not a result,
+# and 8 calls is not a measurement). Kept: the block headers, every gate line, the counts of timed rows,
+# and the exit status.
+
+## unix domain socket, the stack default (what ArmoniK SHIPS) (unix:/tmp/akrpclphl2j2q/s0)
+   gate ok  A  grpcio transport: response == P2.2 (540422 bytes)
+   gate ok  A  upb (incumbent): decodes and re-encodes to P2.2
+   gate ok  A  core-ffi / C ext type: decodes and re-encodes to P2.2
+   gate ok  A  -- floor: no decode, the bytes as they arrive: decodes and re-encodes to P2.2
+## loopback TCP, the stack default (what ArmoniK SHIPS) (127.0.0.1:43399)
+   gate ok  A  grpcio transport: response == P2.2 (540422 bytes)
+   gate ok  A  upb (incumbent): decodes and re-encodes to P2.2
+   gate ok  A  core-ffi / C ext type: decodes and re-encodes to P2.2
+   gate ok  A  -- floor: no decode, the bytes as they arrive: decodes and re-encodes to P2.2
+## unix domain socket, 4 MiB pinned, BDP left on (INTENDED) (unix:/tmp/akrpclphl2j2q/s1)
+   gate ok  A  grpcio transport: response == P2.2 (540422 bytes)
+   gate ok  A  upb (incumbent): decodes and re-encodes to P2.2
+   gate ok  A  core-ffi / C ext type: decodes and re-encodes to P2.2
+   gate ok  A  -- floor: no decode, the bytes as they arrive: decodes and re-encodes to P2.2
+## loopback TCP, 4 MiB pinned, BDP left on (INTENDED) (127.0.0.1:45093)
+   gate ok  A  grpcio transport: response == P2.2 (540422 bytes)
+   gate ok  A  upb (incumbent): decodes and re-encodes to P2.2
+   gate ok  A  core-ffi / C ext type: decodes and re-encodes to P2.2
+   gate ok  A  -- floor: no decode, the bytes as they arrive: decodes and re-encodes to P2.2
+## unix domain socket, 4 MiB pinned, BDP off (INTENDED, deterministic) (unix:/tmp/akrpclphl2j2q/s2)
+   gate ok  A  grpcio transport: response == P2.2 (540422 bytes)
+   gate ok  A  upb (incumbent): decodes and re-encodes to P2.2
+   gate ok  A  core-ffi / C ext type: decodes and re-encodes to P2.2
+   gate ok  A  -- floor: no decode, the bytes as they arrive: decodes and re-encodes to P2.2
+## loopback TCP, 4 MiB pinned, BDP off (INTENDED, deterministic) (127.0.0.1:39935)
+   gate ok  A  grpcio transport: response == P2.2 (540422 bytes)
+   gate ok  A  upb (incumbent): decodes and re-encodes to P2.2
+   gate ok  A  core-ffi / C ext type: decodes and re-encodes to P2.2
+   gate ok  A  -- floor: no decode, the bytes as they arrive: decodes and re-encodes to P2.2
+## unix domain socket, the stack default (what ArmoniK SHIPS) (unix:/tmp/akrpclphl2j2q/c0) -- cells B and C
+   gate ok  B  upb codec / core transport, blocking: response == P2.2, decode re-encodes to it
+   gate ok  B  upb codec / core transport, queue: response == P2.2, decode re-encodes to it
+   gate ok  B  upb codec / core transport, callback: response == P2.2, decode re-encodes to it
+   gate ok  C  core codec / core transport, blocking: response == P2.2, decode re-encodes to it
+   gate ok  C  core codec / core transport, queue: response == P2.2, decode re-encodes to it
+   gate ok  C  core codec / core transport, callback: response == P2.2, decode re-encodes to it
+   gate ok  -- floor: core transport, no decode: response == P2.2, decode re-encodes to it
+## loopback TCP, the stack default (what ArmoniK SHIPS) (127.0.0.1:45695) -- cells B and C
+   gate ok  B  upb codec / core transport, blocking: response == P2.2, decode re-encodes to it
+   gate ok  B  upb codec / core transport, queue: response == P2.2, decode re-encodes to it
+   gate ok  B  upb codec / core transport, callback: response == P2.2, decode re-encodes to it
+   gate ok  C  core codec / core transport, blocking: response == P2.2, decode re-encodes to it
+   gate ok  C  core codec / core transport, queue: response == P2.2, decode re-encodes to it
+   gate ok  C  core codec / core transport, callback: response == P2.2, decode re-encodes to it
+   gate ok  -- floor: core transport, no decode: response == P2.2, decode re-encodes to it
+## unix domain socket, 4 MiB pinned, BOTH windows, adaptive off (INTENDED) (unix:/tmp/akrpclphl2j2q/c1) -- cells B and C
+   gate ok  B  upb codec / core transport, blocking: response == P2.2, decode re-encodes to it
+   gate ok  B  upb codec / core transport, queue: response == P2.2, decode re-encodes to it
+   gate ok  B  upb codec / core transport, callback: response == P2.2, decode re-encodes to it
+   gate ok  C  core codec / core transport, blocking: response == P2.2, decode re-encodes to it
+   gate ok  C  core codec / core transport, queue: response == P2.2, decode re-encodes to it
+   gate ok  C  core codec / core transport, callback: response == P2.2, decode re-encodes to it
+   gate ok  -- floor: core transport, no decode: response == P2.2, decode re-encodes to it
+## loopback TCP, 4 MiB pinned, BOTH windows, adaptive off (INTENDED) (127.0.0.1:46381) -- cells B and C
+   gate ok  B  upb codec / core transport, blocking: response == P2.2, decode re-encodes to it
+   gate ok  B  upb codec / core transport, queue: response == P2.2, decode re-encodes to it
+   gate ok  B  upb codec / core transport, callback: response == P2.2, decode re-encodes to it
+   gate ok  C  core codec / core transport, blocking: response == P2.2, decode re-encodes to it
+   gate ok  C  core codec / core transport, queue: response == P2.2, decode re-encodes to it
+   gate ok  C  core codec / core transport, callback: response == P2.2, decode re-encodes to it
+   gate ok  -- floor: core transport, no decode: response == P2.2, decode re-encodes to it
+every cell gated: status 0 and P2.2's length on every call, bytes and decode checked before timing
+exit=0
+
+timed rows printed, numbers removed: 92 of 92 expected (A: 3 arms x 2 in-flight x 6 blocks = 36; B, C and the core floor: 7 x 2 x 4 blocks = 56); 0 ABORTED, 0 GATE FAILED
