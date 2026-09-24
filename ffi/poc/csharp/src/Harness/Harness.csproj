@@ -2,7 +2,11 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <!-- FIX-PLAN WP3 item 17: target net8.0, floor net6.0 (correctness only). One
+         source tree: the generated binding carries LibraryImport under
+         NET7_0_OR_GREATER and DllImport otherwise, so both levels build it. -->
+    <TargetFrameworks>net8.0;net6.0</TargetFrameworks>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -85,12 +89,10 @@
   </ItemGroup>
 
 
-  <!-- ABI v1 open decision 3's REJECTING decode policy, as a second build for
-       the same reason the floor is one: a runtime flag would put a branch on
-       both arms' hot path. Run in the same sitting, each with the incumbent as
-       its in-process control. -->
-  <PropertyGroup Condition="'$(AkStrict)' == 'true'">
-    <DefineConstants>$(DefineConstants);AK_STRICT</DefineConstants>
-  </PropertyGroup>
+
+  <!-- The corpus runner moved to ../Corpus (its own core build, the corpus feature). -->
+  <ItemGroup>
+    <Compile Remove="Corpus/**" />
+  </ItemGroup>
 
 </Project>

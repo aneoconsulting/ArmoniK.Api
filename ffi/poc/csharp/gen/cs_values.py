@@ -10,8 +10,8 @@ value tables below are EMITTED from `shapes.json`, so the one rule that depends
 on the description (`enum_value` cycles the declared values in declaration
 order, which is what makes `ResultStatus 127` reachable) cannot drift from it.
 """
-from cs_facade import Head
-import csnames as N
+from glue import Head
+import cs_names as N
 
 VOCAB = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel",
          "india", "juliet", "kilo", "lima", "mike", "november", "oscar", "papa"]
@@ -195,7 +195,7 @@ public static class Values
 
 
 def emit(ir):
-    o = Head("The deterministic value rules of ffi/schema/emit/values.py, in C#.")
+    o = Head("The deterministic value rules of ffi/schema/emit/values.py, in C#.", "cs_values")
     o += "using System;"
     o += "using System.Globalization;"
     o += "using System.Security.Cryptography;"
@@ -205,7 +205,8 @@ def emit(ir):
     o += ""
 
     enums = []
-    for ename, edef in ir.enums.items():
+    for ename in ir.enum_order:
+        edef = ir.enums[ename]
         vals = ", ".join("%s.%s" % (ename, N.enum_member(ename, v)) for v in edef["values"])
         enums.append("")
         enums.append("    private static readonly %s[] %sVals = { %s };" % (ename, ename, vals))

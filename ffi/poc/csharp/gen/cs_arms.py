@@ -53,14 +53,13 @@ exists to produce. Whatever keeps a result alive has to cost the same in
 every arm, and the cheapest thing that cannot be elided is a store.
   memcpy-parse     the same floor for decode
 """
-import csnames as N
-from cs_facade import Head
+from glue import Head
 
 GP = "Armonik.Ffi.Shapes.V1"
 
 
 def emit(ir):
-    o = Head("The per-payload arm table: one dispatch per payload, emitted.")
+    o = Head("The per-payload arm table: one dispatch per payload, emitted.", "cs_arms")
     o += "using System;"
     o += "using System.Buffers;"
     o += "using System.Collections.Generic;"
@@ -116,20 +115,20 @@ def emit(ir):
     o += ""
 
     names = []
-    for pid, spec in ir.schema["payloads"].items():
+    for pid, spec in ir.payloads.items():
         root = ir.msg(spec["root"])
         cls = "Arms_" + pid.replace(".", "_")
         names.append((pid, cls))
         shape = shape_of(ir, spec)
         o += "public sealed class %s : Arms" % cls
         o += "{"
-        o += "    private %s _fac;" % root.cs
-        o += "    private %s.%s _gp;" % (GP, root.cs)
+        o += "    private %s _fac;" % root.name
+        o += "    private %s.%s _gp;" % (GP, root.name)
         o += ""
         o += "    public %s()" % cls
         o += "    {"
         o += '        Id = "%s"; Shape = "%s"; Root = "%s"; Elements = %d;' % (
-            pid, shape, root.cs, elements_of(ir, spec))
+            pid, shape, root.name, elements_of(ir, spec))
         o += "    }"
         o += ""
         o += "    public override void Build()"
@@ -170,20 +169,20 @@ def emit(ir):
         o += "        return n | w.WrittenCount;"
         o += "    }"
         o += ""
-        o += "    public override void ManagedWrite(ref Enc e) => Codec.Write%s(ref e, _fac);" % root.cs
+        o += "    public override void ManagedWrite(ref Enc e) => Codec.Write%s(ref e, _fac);" % root.name
         o += ""
-        o += "    public override void ManagedWriteSized(ref Enc e) => Codec.WriteSized%s(ref e, _fac);" % root.cs
+        o += "    public override void ManagedWriteSized(ref Enc e) => Codec.WriteSized%s(ref e, _fac);" % root.name
         o += ""
         o += "    public override int GpParseSequence(System.Buffers.ReadOnlySequence<byte> seq)"
         o += "    {"
-        o += "        var m = %s.%s.Parser.ParseFrom(seq);" % (GP, root.cs)
+        o += "        var m = %s.%s.Parser.ParseFrom(seq);" % (GP, root.name)
         o += "        Sink = m;"
         o += "        return (int)seq.Length;"
         o += "    }"
         o += ""
         o += "    public override int GpParse(byte[] src, int len)"
         o += "    {"
-        o += "        var m = %s.%s.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));" % (GP, root.cs)
+        o += "        var m = %s.%s.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));" % (GP, root.name)
         o += "        Sink = m;"
         o += "        return len;"
         o += "    }"
@@ -191,8 +190,8 @@ def emit(ir):
         o += "    public override int ManagedParse(byte[] src, int len)"
         o += "    {"
         o += "        var d = new Dec { Buf = src, Pos = 0, End = len, Err = 0 };"
-        o += "        var m = new %s();" % root.cs
-        o += "        Codec.Read%s(ref d, m, len);" % root.cs
+        o += "        var m = new %s();" % root.name
+        o += "        Codec.Read%s(ref d, m, 0);" % root.name
         o += "        if (d.Err != 0) throw new InvalidOperationException(Id + \": managed decode failed, err \" + d.Err);"
         o += "        Sink = m;"
         o += "        return d.Pos;"
@@ -201,27 +200,27 @@ def emit(ir):
         o += "    public override byte[] ManagedRoundTrip(byte[] src, int len)"
         o += "    {"
         o += "        var d = new Dec { Buf = src, Pos = 0, End = len, Err = 0 };"
-        o += "        var m = new %s();" % root.cs
-        o += "        Codec.Read%s(ref d, m, len);" % root.cs
+        o += "        var m = new %s();" % root.name
+        o += "        Codec.Read%s(ref d, m, 0);" % root.name
         o += "        if (d.Err != 0) throw new InvalidOperationException(Id + \": managed decode failed, err \" + d.Err);"
         o += "        var e = Enc.New(Codec.Sites, Math.Max(4096, len + 64));"
-        o += "        Codec.Write%s(ref e, m);" % root.cs
+        o += "        Codec.Write%s(ref e, m);" % root.name
         o += "        return e.ToArray();"
         o += "    }"
         o += ""
         o += "    public override byte[] GpRoundTrip(byte[] src, int len)"
         o += "    {"
-        o += "        var m = %s.%s.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));" % (GP, root.cs)
+        o += "        var m = %s.%s.Parser.ParseFrom(new ReadOnlySpan<byte>(src, 0, len));" % (GP, root.name)
         o += "        return m.ToByteArray();"
         o += "    }"
         o += ""
         o += "    public override bool ManagedDecodesToBuiltValue(byte[] src, int len)"
         o += "    {"
         o += "        var d = new Dec { Buf = src, Pos = 0, End = len, Err = 0 };"
-        o += "        var m = new %s();" % root.cs
-        o += "        Codec.Read%s(ref d, m, len);" % root.cs
+        o += "        var m = new %s();" % root.name
+        o += "        Codec.Read%s(ref d, m, 0);" % root.name
         o += "        if (d.Err != 0) return false;"
-        o += "        return Eq.Same%s(m, _fac);" % root.cs
+        o += "        return Eq.Same%s(m, _fac);" % root.name
         o += "    }"
         o += "}"
         o += ""
@@ -239,7 +238,7 @@ def emit(ir):
 
 def shape_of(ir, spec):
     root = ir.msg(spec["root"])
-    for f in root.walk():
+    for f in root.fields:
         if f.kind == "message":
             sh = ir.msg(f.of).raw.get("shape")
             if sh:

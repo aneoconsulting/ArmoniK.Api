@@ -1364,3 +1364,74 @@ text is in git at 817174f.
 
 `BenchDotNet` does not build and has not since b59139a: recorded (D1), not
 fixed, since it is a timing harness and WP3 decides what the campaign runs.
+
+### 47. WP5 step 4: the backend onto the shared plan, and what the port found
+
+Task: FIX-PLAN WP5 step 4, authorized by the aggregating session. Port the C# backend
+onto `poc/codec/gen/plan.py`, retire the second IR, generate the binding with both import
+forms in one file, and gate on net8.0 and net6.0 with core-ffi on both.
+
+**What moved.** Five shared modules in `poc/codec/gen/` (`cs_names`, `cs_types`,
+`cs_managed`, `cs_binding`, `cs_host`) plus `cs_layout_probe`, each importing the plan
+only. `poc/csharp/gen/` kept the glue (values, builders, arm table, projection,
+registries) rewritten to the plan's descriptor view; `ir.py`, `abi_ir.py`, `protoparse.py`,
+the old emitters and `abi-layout.json` are gone. One trap on the way: with this
+directory first on `sys.path`, `plan.py`'s `import ir` resolved to the slice's own
+`ir.py`, which has no `enum_order`. Retiring the second IR was not optional even to run.
+
+**The managed codec from the plan.** The encode step list and the (number, wire) decode
+table render directly: a `switch` on the recombined key, with anything not in the table
+going to the unknown arm, which is R-E2 by construction. Two runtime changes came with
+it. A nested body is now read with `Dec.End` narrowed to it; the old reader bounded
+fixed-width reads by the whole buffer, so a packed double run whose length is not a
+multiple of 8 read into the next field (never hit by the corpus; the plan's sub-reader
+rule makes it impossible). And the key's field number is truncated to 32 bits the way the
+core does, so the two codecs disagree on nothing; that the truncation lets 2^32 + n alias
+n is reported as a plan question rather than fixed in one backend. First byte-identity
+run: 152/152 on the payload set. First corpus run: 688/0 on both managed arms.
+
+**The binding from the plan.** Sequential layout everywhere (no Rust offsets copied), each
+import as LibraryImport under `#if NET7_0_OR_GREATER` and DllImport under `#else`, `ak_init`
+from `plan.lifecycle` in the static constructor (flags now `NO_CRYPTO | NO_PANIC_HOOK` as
+the plan says; the old binding passed `NO_CRYPTO` only). Rendering from the plan found two
+defects the old hand-listed declaration carried: `ak_encode_UploadResultDataMessage` was
+declared WITHOUT the two direct-argument parameters the core exports (it worked because
+the host staged the bytes and the core ignored the garbage registers), and
+`ak_bdr_count_forward` was declared with the wrong signature (never called). M5 now crosses
+as a direct argument; its counts are unchanged (1/0/1/1).
+
+**The layout probe, R-E6.** The probe now parses the struct and member lists out of
+ak-abi's Rust source and prints what rustc computes; the harness compares that with the
+C# compiler's offsets by NAME both ways, plus section 10's `ak_layout_facts` against the
+loaded core. The first run of the table threw: `&z->f` on a null pointer is null-checked by
+the JIT, so the offset table takes addresses in a stack instance. The planted offset swap
+fails as it must.
+
+**Retain mode (D7).** Every facade class has an `UnknownFields` bag; the plan's default
+`unknown = "both"` renders the capture behind `Dec.Retain`, so the host picks per call as
+the core's two entry families do. On the seven hand-built vectors the retained re-encode is
+byte-identical to Google.Protobuf's. Through core-ffi, `ak_uencode_*` and the capture
+callbacks; on the corpus, ffi-retain writes the dropped form on the same 16 rows the rust
+slice reports (unknown inside an inlined child, no carrier).
+
+**net6.0.** Nothing special was needed once the imports carried both forms:
+`TargetFrameworks net8.0;net6.0`, a self-contained publish on the NuGet 6.0.36 runtime
+pack, and core-ffi passes 16/16 there with the DllImport branch (the net6 assembly
+references no `LibraryImportAttribute`; the net8 one does). The corpus passes four arms on
+net6.0 with the same numbers as net8.0. net48 compiles the same binding file (its host
+half compiled out); nothing runs it here.
+
+**The corpus runner** moved to `src/Corpus` (its own project because it loads the
+corpus-schema core, a different ABI), one child process per row under a timeout, the
+rust slice's four controls. 691 rows in about 90 s (net8.0) and 120 s (net6.0).
+
+**Against the previous generator** (its last build, same corpus): C3 form counts
+identical; the 31 T-dec rows move from accepted to refused (R-E7); one C4 code moves,
+`X-varint-key-truncated` from malformed to truncated, which is the core's class. The
+depth rule is now the plan's; the old codec was one level stricter; no row sits there.
+
+**Plan gaps reported, not worked around in the plan:** vocabulary struct layouts, the
+codec's fixed entry points, the values of the lifecycle's named flags, the RPC counting
+surface, the 32-bit field-number truncation. The cpp slice's step-2 commit reports the
+same list independently. And the shared `generate.py` does not know the C# backends
+(this slice may not edit it): its guard is applied by the slice driver instead (D10).

@@ -20,13 +20,9 @@ public static class BuildInfo
     public static readonly bool Floor = false;
 #endif
 
-    // ABI v1 open decision 3. Same rule and same reason: read it out of the
-    // facade, not out of whatever the harness was compiled with.
-#if AK_STRICT
-    public static readonly bool StrictUtf8 = true;
-#else
-    public static readonly bool StrictUtf8 = false;
-#endif
+    // ABI v1 open decision 3: the decode UTF-8 policy is no longer a build flag.
+    // It is the plan's option (FIX-PLAN WP5, R-E7), rendered into the generated
+    // codec; read it from there (`Codec.Utf8Policy`).
 
 #if NETSTANDARD2_0
     public static readonly string Tfm = "netstandard2.0";
@@ -34,6 +30,8 @@ public static class BuildInfo
     public static readonly string Tfm = "net48";
 #elif NET8_0_OR_GREATER
     public static readonly string Tfm = "net8.0";
+#elif NET6_0_OR_GREATER
+    public static readonly string Tfm = "net6.0";
 #else
     public static readonly string Tfm = "unknown";
 #endif
@@ -44,6 +42,6 @@ public static class BuildInfo
 #if AK_FLOOR
         "Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe";
 #else
-        "Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0";
+        "Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+";
 #endif
 }

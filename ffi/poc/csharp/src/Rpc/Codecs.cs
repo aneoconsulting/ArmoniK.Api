@@ -74,8 +74,7 @@ public static class Codecs
 
     private static unsafe void WriteCore(ListTasksDetailedResponse m, SerializationContext ctx)
     {
-        var c = _enc ??= new CoreFfi_ListTasksDetailedResponse(
-            CoreFfi_ListTasksDetailedResponse.CapsFor(m));
+        var c = _enc ??= new CoreFfi_ListTasksDetailedResponse();
         c.Encode(m, out byte* p, out int len);
         ctx.SetPayloadLength(len);
         ctx.GetBufferWriter().Write(new ReadOnlySpan<byte>(p, len));
@@ -126,12 +125,11 @@ public static class Codecs
         {
             var d = new Dec { Buf = buf, Pos = 0, End = len, Err = 0 };
             var m = new ListTasksDetailedResponse();
-            Codec.ReadListTasksDetailedResponse(ref d, m, len);
+            Codec.ReadListTasksDetailedResponse(ref d, m, 0);
             if (d.Err != 0) throw new InvalidOperationException("managed decode err " + d.Err);
             return m;
         }
-        var c = _dec ??= new CoreFfi_ListTasksDetailedResponse(
-            new CoreFfi_ListTasksDetailedResponse.Caps());
+        var c = _dec ??= new CoreFfi_ListTasksDetailedResponse();
         return pull ? c.Pull(buf, len) : c.Decode(buf, len);
     }
 }

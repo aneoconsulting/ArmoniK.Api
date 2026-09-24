@@ -41,42 +41,12 @@ using System.Threading.Tasks;
 
 namespace Armonik.Ffi.Rpc;
 
-[StructLayout(LayoutKind.Sequential)]
-public struct AkBytes
-{
-    public IntPtr Ptr;
-    public nuint Len;
-    /// The core's handle on the allocation. The host passes it back and never reads it.
-    public IntPtr Owner;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct AkCompletion
-{
-    public ulong Tag;
-    public int Status;
-    public AkBytes Bytes;
-}
-
-/// ABI v1's transport settings, added after stage 18 measured cells B and C
-/// against TONIC'S DEFAULTS while cells A and D pinned ArmoniK's -- an R7/R14
-/// asymmetry in that grid, and what this struct exists to remove. Zero means
-/// "leave the stack default" on every `uint` field; the two `int`s use -1.
-[StructLayout(LayoutKind.Sequential)]
-public struct AkClientOpts
-{
-    public uint StreamWindow;
-    public uint ConnectionWindow;
-    /// 1 on, 0 off, -1 leave the default. Adaptive sizing OVERRIDES the two
-    /// windows, so pinning a window and enabling this is a contradiction rather
-    /// than belt and braces.
-    public int AdaptiveWindow;
-    public uint MaxRecvMessage;
-    public uint MaxSendMessage;
-    /// 1 enables Nagle, 0 disables it, -1 leaves tonic's default. The sixth
-    /// field, which the hand-off listing omitted; ArmoniK ships Nagle OFF.
-    public int TcpNagle;
-}
+// The transport's structs and prototypes (`ak_bytes`, `ak_completion`,
+// `ak_client_opts`, every `ak_*` RPC entry point, and ak_init) are GENERATED from
+// plan.rpc into Generated/RpcAbi.cs (FIX-PLAN WP5 step 4, R-G5; this slice's D3),
+// with LibraryImport under NET7_0_OR_GREATER and DllImport otherwise. What stays
+// here by hand is the counting surface, which plan.rpc does not state (reported):
+// `ak_rpc_counting`, `ak_rpc_counters`, `ak_rpc_counters_reset` and their struct.
 
 [StructLayout(LayoutKind.Sequential)]
 public struct AkRpcCounters
@@ -86,64 +56,23 @@ public struct AkRpcCounters
 
 public static unsafe partial class AkRpc
 {
-    public const string Lib = "ak_core";
-
-    public const int AK_OK = 0;
-    public const int AK_QUEUE_OK = 0;
-    public const int AK_QUEUE_TIMEOUT = 1;
-    public const int AK_QUEUE_SHUTDOWN = 2;
-
-    [LibraryImport(Lib)]
-    public static partial IntPtr ak_runtime_new(uint workerThreads);
-    [LibraryImport(Lib)]
-    public static partial void ak_runtime_destroy(IntPtr r);
-
-    [LibraryImport(Lib)]
-    public static partial IntPtr ak_client_new(IntPtr r, byte* uri, nuint uriLen);
-    [LibraryImport(Lib)]
-    public static partial IntPtr ak_client_new_opts(IntPtr r, byte* uri, nuint uriLen,
-                                                    AkClientOpts* opts);
-    /// 1 if this core counts transport crossings. R5's hazard in one call: a
-    /// harness that reads zeroes out of a non-counting build has reported that
-    /// the boundary is free.
+    /// 1 if this core counts transport crossings (R5: a harness reading zeroes out
+    /// of a non-counting build has reported that the boundary is free).
+#if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     public static partial int ak_rpc_counting();
     [LibraryImport(Lib)]
     public static partial void ak_rpc_counters(AkRpcCounters* outc);
     [LibraryImport(Lib)]
     public static partial void ak_rpc_counters_reset();
-    [LibraryImport(Lib)]
-    public static partial void ak_client_destroy(IntPtr c);
-
-    [LibraryImport(Lib)]
-    public static partial int ak_call_unary(IntPtr c, byte* path, nuint pathLen,
-                                            byte* req, nuint reqLen, AkBytes* outBytes);
-
-    [LibraryImport(Lib)]
-    public static partial IntPtr ak_call_unary_cb(
-        IntPtr c, byte* path, nuint pathLen, byte* req, nuint reqLen,
-        delegate* unmanaged[Cdecl]<IntPtr, AkCompletion*, void> cb, IntPtr userData, ulong tag);
-
-    [LibraryImport(Lib)]
-    public static partial IntPtr ak_call_unary_q(
-        IntPtr c, byte* path, nuint pathLen, byte* req, nuint reqLen, IntPtr q, ulong tag);
-
-    [LibraryImport(Lib)]
-    public static partial void ak_call_cancel(IntPtr h);
-    [LibraryImport(Lib)]
-    public static partial void ak_call_destroy(IntPtr h);
-
-    [LibraryImport(Lib)]
-    public static partial IntPtr ak_queue_new();
-    [LibraryImport(Lib)]
-    public static partial int ak_queue_next(IntPtr q, AkCompletion* outComp, ulong timeoutMs);
-    [LibraryImport(Lib)]
-    public static partial void ak_queue_shutdown(IntPtr q);
-    [LibraryImport(Lib)]
-    public static partial void ak_queue_destroy(IntPtr q);
-
-    [LibraryImport(Lib)]
-    public static partial void ak_bytes_free(AkBytes* b);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    public static extern int ak_rpc_counting();
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    public static extern void ak_rpc_counters(AkRpcCounters* outc);
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    public static extern void ak_rpc_counters_reset();
+#endif
 }
 
 /// What one in-flight call is waiting on. Pinned by a `GCHandle` for as long as
@@ -156,7 +85,7 @@ internal sealed class CallState
     /// own I/O pool.
     public readonly TaskCompletionSource<bool> Tcs =
         new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-    public AkBytes Bytes;
+    public ak_bytes Bytes;
     public int Status;
 }
 
@@ -171,16 +100,17 @@ public sealed class CoreChannel : IDisposable
     private readonly ConcurrentDictionary<ulong, CallState> _pending = new();
     private long _tag;
 
-    public unsafe CoreChannel(string uri, int workerThreads, AkClientOpts? opts = null)
+    public unsafe CoreChannel(string uri, int workerThreads, ak_client_opts? opts = null)
     {
-        // ABI v1 section 3: ak_init before any other entry point. The codec
-        // binding does it in its static constructor; this is the same call,
-        // reached from the transport's own imports.
-        Armonik.Ffi.Harness.AbiInit.Ensure();
+        // ABI v1 section 3: ak_init before any other entry point. The generated
+        // RPC binding renders it (plan.lifecycle, R-G7) in AkRpc's static
+        // constructor; the codec binding does the same, and the second call
+        // returns AK_ALREADY_INITIALIZED, a success.
+        RpcInit.Ensure();
         _rt = AkRpc.ak_runtime_new((uint)workerThreads);
         if (_rt == IntPtr.Zero) throw new InvalidOperationException("ak_runtime_new");
         var u = Encoding.UTF8.GetBytes(uri);
-        if (opts is AkClientOpts o)
+        if (opts is ak_client_opts o)
             fixed (byte* p = u) _cl = AkRpc.ak_client_new_opts(_rt, p, (nuint)u.Length, &o);
         else
             fixed (byte* p = u) _cl = AkRpc.ak_client_new(_rt, p, (nuint)u.Length);
@@ -195,13 +125,13 @@ public sealed class CoreChannel : IDisposable
     // ---- the callback delivery, the headline on this host --------------------
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static unsafe void OnDone(IntPtr user, AkCompletion* comp)
+    private static unsafe void OnDone(IntPtr user, ak_completion* comp)
     {
         // Runs on a TOKIO WORKER THREAD. Three words and a set; nothing else.
         var h = GCHandle.FromIntPtr(user);
         var st = (CallState)h.Target;
-        st.Status = comp->Status;
-        st.Bytes = comp->Bytes;
+        st.Status = comp->status;
+        st.Bytes = comp->bytes;
         h.Free();
         st.Tcs.TrySetResult(true);
     }
@@ -218,7 +148,7 @@ public sealed class CoreChannel : IDisposable
                 r, (nuint)req.Length, &OnDone, user, tag);
     }
 
-    public async Task<AkBytes> CallCbAsync(byte[] path, byte[] req)
+    public async Task<ak_bytes> CallCbAsync(byte[] path, byte[] req)
     {
         var st = new CallState();
         var h = GCHandle.Alloc(st);
@@ -236,9 +166,9 @@ public sealed class CoreChannel : IDisposable
     /// host threads parked in a native frame, which is the shape section 9 says
     /// pins a virtual thread's carrier on the JVM. .NET has no carrier to pin,
     /// but a parked thread-pool thread is still a thread-pool thread.
-    public unsafe AkBytes CallBlocking(byte[] path, byte[] req)
+    public unsafe ak_bytes CallBlocking(byte[] path, byte[] req)
     {
-        AkBytes b = default;
+        ak_bytes b = default;
         int rc;
         fixed (byte* p = path)
         fixed (byte* r = req)
@@ -265,14 +195,14 @@ public sealed class CoreChannel : IDisposable
         {
             while (true)
             {
-                AkCompletion c;
+                ak_completion c;
                 int rc = AkRpc.ak_queue_next(_q, &c, 200);
                 if (rc == AkRpc.AK_QUEUE_SHUTDOWN) return;
                 if (rc != AkRpc.AK_QUEUE_OK) continue;
-                if (_pending.TryRemove(c.Tag, out var st))
+                if (_pending.TryRemove(c.tag, out var st))
                 {
-                    st.Status = c.Status;
-                    st.Bytes = c.Bytes;
+                    st.Status = c.status;
+                    st.Bytes = c.bytes;
                     st.Tcs.TrySetResult(true);
                 }
             }
@@ -287,7 +217,7 @@ public sealed class CoreChannel : IDisposable
             return AkRpc.ak_call_unary_q(_cl, p, (nuint)path.Length, r, (nuint)req.Length, _q, tag);
     }
 
-    public async Task<AkBytes> CallQAsync(byte[] path, byte[] req)
+    public async Task<ak_bytes> CallQAsync(byte[] path, byte[] req)
     {
         ulong tag = (ulong)Interlocked.Increment(ref _tag);
         var st = new CallState();
@@ -305,7 +235,7 @@ public sealed class CoreChannel : IDisposable
     /// but the binding must not depend on that: a core that attaches an error
     /// body would otherwise leak it on every failed call. Freed BEFORE the
     /// throw, so no exception path can skip it.
-    private static AkBytes TakeOrThrow(CallState st)
+    private static ak_bytes TakeOrThrow(CallState st)
     {
         if (st.Status == AkRpc.AK_OK) return st.Bytes;
         var b = st.Bytes;
@@ -315,9 +245,9 @@ public sealed class CoreChannel : IDisposable
     }
 
     /// The second crossing, and the only other one.
-    public static unsafe void Release(ref AkBytes b)
+    public static unsafe void Release(ref ak_bytes b)
     {
-        fixed (AkBytes* p = &b) AkRpc.ak_bytes_free(p);
+        fixed (ak_bytes* p = &b) AkRpc.ak_bytes_free(p);
     }
 
     public unsafe void Dispose()

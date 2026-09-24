@@ -1,21 +1,18 @@
-# The layout probe, and why the C# slice needs one when no earlier slice did.
+# The layout probe (FIX-PLAN WP5 step 4, R-E6).
 #
-# ABI v1 obligation 12.3 asks for a group layout export and an assert at load.
-# The Rust slice records it as untested, and says why: "Both sides compile
-# against one generated header here, so there is nothing to disagree -- which
-# means the insurance that matters to a hand-layout host (FFM) is untested."
+# C# declares every ABI struct a second time (a `[StructLayout(Sequential)]` struct whose
+# first declaration is Rust's), so only agreement of the two makes the by-value groups
+# work. This prints the RUST declaration's layout -- every repr(C) struct of ak-abi, every
+# member's name, offset and size, as the Rust compiler lays it out -- and the C# harness
+# (`harness layout`) compares it with the C# declaration by NAME, both ways.
 #
-# C# IS that hand-layout host. A `[StructLayout(LayoutKind.Sequential)]` struct
-# on the managed side is a SECOND declaration of a type whose first declaration
-# is in Rust, and nothing but agreement of the two makes the by-value group
-# work. Byte identity would catch a disagreement, eventually, as a wrong
-# payload -- but it would report it as a codec defect rather than as a layout
-# defect, which is a day of looking in the wrong place.
+# src/main.rs is emitted by ffi/poc/codec/gen/cs_layout_probe.py, which parses the struct
+# and member lists out of ak-abi's Rust SOURCE TEXT. It reads no plan: the earlier probe
+# was emitted from the same field list the C# structs were, so it could not see a member
+# missing from both, and it checked sizes only (R-E6).
 #
-# So this prints the size and every field offset of the structs the C# binding
-# declares, as JSON, and the generator emits asserts against it. It lives under
-# ffi/poc/csharp because that is what this slice owns; it changes nothing in
-# ffi/poc/rust and links ak-abi read-only.
+#   cargo run --release                      the shapes ABI
+#   cargo run --release --features corpus    the corpus-schema ABI
 [package]
 name = "ak-layout-probe"
 version = "0.1.0"
@@ -24,6 +21,9 @@ edition = "2021"
 [[bin]]
 name = "ak-layout-probe"
 path = "src/main.rs"
+
+[features]
+corpus = ["ak-abi/corpus"]
 
 [dependencies]
 ak-abi = { path = "../../codec/crates/ak-abi" }

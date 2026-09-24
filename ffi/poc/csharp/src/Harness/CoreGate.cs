@@ -28,6 +28,8 @@ using Armonik.Ffi.Facade;
 
 namespace Armonik.Ffi.Harness;
 
+#if NET5_0_OR_GREATER
+
 public static class CoreGate
 {
     public static int Run(params string[] argv)
@@ -35,12 +37,19 @@ public static class CoreGate
         var rows = Manifest.Load();
         int bad = 0;
 
-        Console.WriteLine("Layout agreement (ABI v1 obligation 12.3, as far as it goes here):");
-        string lay;
-        try { lay = AbiLayout.Check(); }
-        catch (Exception ex) { lay = "THREW " + ex.GetType().Name + ": " + ex.Message; }
-        Console.WriteLine("  {0}", lay);
-        if (!lay.StartsWith("ok", StringComparison.Ordinal))
+        // The layout first: by name both ways against the Rust declaration (when the
+        // probe's output is given), and ABI v1 section 10 against the loaded core.
+        var probe = Environment.GetEnvironmentVariable("AK_LAYOUT_PROBE");
+        int lay;
+        try
+        {
+            lay = !string.IsNullOrEmpty(probe) ? LayoutCheck.Run(probe) : AbiLayout.Facts().Count;
+            if (string.IsNullOrEmpty(probe))
+                Console.WriteLine("section 10 (ak_layout_facts): {0}; AK_LAYOUT_PROBE unset, the by-name check was not run",
+                    lay == 0 ? "agree" : lay + " disagreement(s)");
+        }
+        catch (Exception ex) { Console.WriteLine("  THREW " + ex.GetType().Name + ": " + ex.Message); lay = 1; }
+        if (lay != 0)
         {
             Console.WriteLine("\nlayout check failed; nothing below is meaningful");
             return 1;
@@ -60,8 +69,8 @@ public static class CoreGate
         Console.WriteLine();
         Console.WriteLine("                                                   encode crossings    decode crossings");
         Console.WriteLine("                                                   encode xings  push dec     pull dec");
-        Console.WriteLine("payload  root                          bytes  enc  dec  val  pull R5    fwd  rev   fwd  rev   fwd  rev   pull buf");
-        Console.WriteLine(new string('-', 108));
+        Console.WriteLine("payload  root                          bytes  enc  dec  val  pull ret  R5    fwd  rev   fwd  rev   fwd  rev   pull buf");
+        Console.WriteLine(new string('-', 113));
 
         bool coreCounts = false;
         var covered = new HashSet<string>(CoreArms.Ids, StringComparer.Ordinal);
@@ -70,7 +79,7 @@ public static class CoreGate
             var row = rows[id];
             if (!covered.Contains(id)) continue;
 
-            string enc = "-", dec = "-", val = "-", r5 = "-", pull = "-";
+            string enc = "-", dec = "-", val = "-", r5 = "-", pull = "-", uret = "-";
             long ef = 0, er = 0, df = 0, dr = 0, pf = 0, pr = 0, foot = 0;
             byte[] got = null;
             ICoreArm arm = null;
@@ -106,6 +115,19 @@ public static class CoreGate
                 catch (Exception ex) { dec = "THREW " + ex.GetType().Name; }
                 if (dec != "ok") bad++;
                 if (val != "ok") bad++;
+
+                // Retain mode through the C ABI: ak_uencode_* with the (empty) bags, and
+                // the push decode with the capture callbacks installed. Same bytes.
+                try
+                {
+                    var ue = arm.EncodeToArrayU();
+                    arm.DecodeU(ue, ue.Length);
+                    var ur = arm.EncodeToArrayU();
+                    uret = Manifest.Sha(ue, ue.Length) == Manifest.Sha(got, got.Length)
+                        && Manifest.Sha(ur, ur.Length) == Manifest.Sha(got, got.Length) && arm.SameAsSource() ? "ok" : "RT!";
+                }
+                catch (Exception ex) { uret = "THREW " + ex.GetType().Name; }
+                if (uret != "ok") bad++;
 
                 // Encode and decode counted on their own operations, so the
                 // per-direction figures are comparable with the other slices'.
@@ -150,8 +172,8 @@ public static class CoreGate
                     }
                 }
             }
-            Console.WriteLine("{0,-8} {1,-26} {2,7}  {3,-4} {4,-4} {5,-4} {6,-4} {7,-4} {8,4} {9,4} {10,5} {11,4} {12,5} {13,4} {14,9}",
-                id, row.Root, row.Bytes, enc, dec, val, pull, r5, ef, er, df, dr, pf, pr, foot);
+            Console.WriteLine("{0,-8} {1,-26} {2,7}  {3,-4} {4,-4} {5,-4} {6,-4} {15,-4} {7,-4} {8,4} {9,4} {10,5} {11,4} {12,5} {13,4} {14,9}",
+                id, row.Root, row.Bytes, enc, dec, val, pull, r5, ef, er, df, dr, pf, pr, foot, uret);
             arm?.Dispose();
         }
 
@@ -192,3 +214,4 @@ public static class CoreGate
         return bad;
     }
 }
+#endif

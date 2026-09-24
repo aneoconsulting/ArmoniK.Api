@@ -21,20 +21,24 @@ public static class Program
             case "groups":
                 return GroupVectors.Run(argv.Skip(1).ToArray());
             case "corpus":
-                return CorpusRun.Run(argv.Skip(1).ToArray());
+                Console.Error.WriteLine("the corpus runner is src/Corpus (managed + core-ffi, drop + retain, a child process per row)");
+                return 2;
+            case "layout":
+                return LayoutCheck.Run(argv.Skip(1).ToArray());
             case "utf8":
                 return Utf8Policy.Run(argv.Skip(1).ToArray());
             case "content":
                 return ContentSets.Run(argv.Skip(1).ToArray());
             case "coreffi":
-#if NET8_0_OR_GREATER
+#if NET5_0_OR_GREATER
+                // net8.0 and net6.0: the generated binding's LibraryImport (7+) or
+                // DllImport (6) branch, and the [UnmanagedCallersOnly] host half.
                 return CoreGate.Run(argv.Skip(1).ToArray());
 #else
-                // Arm c: .NET Framework 4.8 has no LibraryImport and no
-                // UnmanagedCallersOnly, so the core-ffi binding does not exist
-                // in this build. Saying so beats a stale binary reporting a pass.
-                Console.Error.WriteLine("core-ffi is not built on the floor runtime: "
-                    + "net48 has no LibraryImport and no UnmanagedCallersOnly.");
+                // net48: the P/Invoke binding compiles (its DllImport branch), but
+                // the host half needs [UnmanagedCallersOnly] (.NET 5+) and is
+                // compiled out. Saying so beats a stale binary reporting a pass.
+                Console.Error.WriteLine("core-ffi host half is not built on net48: no UnmanagedCallersOnly.");
                 return 2;
 #endif
             case "mapforms":
@@ -44,7 +48,7 @@ public static class Program
             case "bench":
                 return Bench.Run(argv.Skip(1).ToArray());
             default:
-                Console.Error.WriteLine("usage: harness [conformance|unknown|groups|corpus|utf8|counts|content|coreffi|mapforms|bench]");
+                Console.Error.WriteLine("usage: harness [conformance|unknown|groups|utf8|counts|content|coreffi|layout|mapforms|bench]");
                 return 2;
         }
     }
@@ -72,9 +76,8 @@ public static class Config
         Console.WriteLine("# tiered PGO:          {0}", Env("DOTNET_TieredPGO", "on (default)"));
         Console.WriteLine("# R2R:                 {0}", Env("DOTNET_ReadyToRun", "on (default)"));
         Console.WriteLine("# floor sources:       {0}", Facade.BuildInfo.Floor ? "YES (AK_FLOOR)" : "no");
-        Console.WriteLine("# decode UTF-8 policy: {0}", Facade.BuildInfo.StrictUtf8
-            ? "REJECTING (AK_STRICT) -- ABI v1 open decision 3"
-            : "lossy, U+FFFD substituted, which is what Google.Protobuf also does");
+        Console.WriteLine("# managed codec:       plan options utf8={0} unknown={1} recursion_limit={2} (rendered by poc/codec/gen/cs_managed.py)",
+            Armonik.Ffi.Facade.Codec.Utf8Policy, Armonik.Ffi.Facade.Codec.UnknownMode, Armonik.Ffi.Facade.Codec.Limit);
         Console.WriteLine("# facade TFM:          {0}", Facade.BuildInfo.Tfm);
         Console.WriteLine("# transcoder:          {0}", Facade.BuildInfo.Transcoder);
         Console.WriteLine("# length-prefix sites: {0}", Armonik.Ffi.Facade.Codec.Sites);

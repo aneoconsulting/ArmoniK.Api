@@ -47,18 +47,18 @@
 
   <ItemGroup>
     <Compile Include="../Facade/**/*.cs" LinkBase="Facade"
-             Exclude="../Facade/obj/**;../Facade/bin/**;../Facade/obj-floor/**;../Facade/bin-floor/**" />
-    <!-- The core-ffi arm is EXCLUDED from arm c, and that is a floor finding
-         rather than a build convenience. .NET Framework 4.8 has no
-         LibraryImport (.NET 7+) and no UnmanagedCallersOnly (.NET 5+), so the
-         binding as generated cannot compile here at all. A floor binding would
-         have to be DllImport plus delegate pointers, and the delegates would
-         have to be rooted for the lifetime of the vtable or the collector
-         reclaims a thunk the codec still holds: a crash, not a slowdown.
-         Excluding it keeps arm c honest about what it covers instead of
-         letting a stale binary report a pass. -->
+             Exclude="../Facade/obj/**;../Facade/bin/**;../Facade/obj-floor/**;../Facade/bin-floor/**;../Facade/obj-strict/**;../Facade/bin-strict/**" />
+    <!-- FIX-PLAN WP5 step 4: the generated P/Invoke binding (Generated/Abi.cs) IS
+         compiled here: its imports carry DllImport under the #else of
+         NET7_0_OR_GREATER, so net48 builds the same file net8.0 and net6.0 do.
+         The HOST half (Generated/CoreFfi.cs, CoreArms.cs, CoreGate.cs) is compiled
+         out by `#if NET5_0_OR_GREATER`: it needs [UnmanagedCallersOnly], which
+         .NET Framework does not have. A net48 host would need delegate thunks
+         rooted for the vtable's lifetime; not built. And this build is COMPILED
+         ONLY here: there is no .NET Framework (Windows) and no Mono in this
+         container, so nothing in it is run (FIX-PLAN WP3 item 17). -->
     <Compile Include="../Harness/**/*.cs" LinkBase="Harness"
-             Exclude="../Harness/obj/**;../Harness/bin/**;../Harness/obj-floor/**;../Harness/bin-floor/**;../Harness/Generated/Abi.cs;../Harness/Generated/Core_*.cs;../Harness/Generated/CoreArms.cs;../Harness/CoreGate.cs" />
+             Exclude="../Harness/obj/**;../Harness/bin/**;../Harness/obj-floor/**;../Harness/bin-floor/**;../Harness/obj-strict/**;../Harness/bin-strict/**" />
   </ItemGroup>
 
 </Project>

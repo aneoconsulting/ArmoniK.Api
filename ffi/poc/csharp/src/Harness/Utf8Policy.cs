@@ -77,11 +77,11 @@ public static class Utf8Policy
             {
                 var d = new Dec { Buf = b, Pos = 0, End = b.Length, Err = 0 };
                 var m = new ResultRaw();
-                Codec.ReadResultRaw(ref d, m, b.Length);
+                Codec.ReadResultRaw(ref d, m, 0);
                 man = d.Err != 0 ? "REJECTED err " + d.Err : "accepted, " + m.SessionId.Length + " chars";
                 if (d.Err != 0) manRejects++;
             }
-            catch (Exception ex) { man = "REJECTED " + ex.GetType().Name; manRejects++; }
+            catch (Exception ex) { man = "THREW " + ex.GetType().Name + " (an exception is not a refusal)"; }
 
             Console.WriteLine("{0,-35} {1,-29} {2}", Path.GetFileNameWithoutExtension(f), gp, man);
         }
@@ -100,10 +100,11 @@ public static class Utf8Policy
         }
         else
         {
-            Console.WriteLine("THE ARMS DISAGREE. R14 makes this a defect in the comparison: the");
-            Console.WriteLine("managed decode column is a non-validating parser timed against a");
-            Console.WriteLine("validating one, and some part of its margin is the validation it does");
-            Console.WriteLine("not do. The decode figures need a validating managed arm beside them.");
+            Console.WriteLine("THE ARMS DISAGREE, and by the plan's option, not by accident: the managed");
+            Console.WriteLine("codec renders plan.py's Options.utf8 (\"" + Codec.Utf8Policy + "\", R-E7) and refuses these");
+            Console.WriteLine("bodies; Google.Protobuf substitutes U+FFFD and accepts them. So a decode");
+            Console.WriteLine("comparison between the two is a validating parser against a non-validating");
+            Console.WriteLine("one; the campaign states which (README section 13, decision 3 is the owner's).");
         }
         Console.WriteLine();
         Console.WriteLine("For reference, what .NET's own strict decoder does with the same bodies:");
@@ -121,9 +122,12 @@ public static class Utf8Policy
                 catch { }
             }
             Console.WriteLine("  new UTF8Encoding(false, throwOnInvalidBytes: true) rejects {0} of {1}.", strict, tot);
-            Console.WriteLine("  So a validating managed arm is one constructor argument away, and");
-            Console.WriteLine("  pricing it is what ABI v1 decision 3 asks for on .NET.");
         }
-        return 0;
+        // The gate: the managed codec must do what the plan's option says.
+        int want = Codec.Utf8Policy == "reject" ? n : 0;
+        Console.WriteLine();
+        Console.WriteLine("plan Options.utf8 = {0}: the managed codec must refuse {1} of {2}; it refused {3}: {4}",
+            Codec.Utf8Policy, want, n, manRejects, manRejects == want ? "ok" : "FAIL");
+        return manRejects == want ? 0 : 1;
     }
 }
