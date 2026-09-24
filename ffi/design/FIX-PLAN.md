@@ -257,9 +257,10 @@ all of them and a smoke run on its container shows it executes.
     - .NET Framework 4.8 runs only on Windows, so the net48 gate needs a Windows
       machine or runner. Mono 6.8, which the slice used, is not .NET Framework
       and does not count as the gate.
-    - The generated `LibraryImport` binding needs .NET 7 or later, so the net6.0
-      floor needs a `DllImport` rendering from the same generator, selected by
-      target level (`CLAUDE.md` invariant: one generator with a target level).
+    - The generated `LibraryImport` binding needs .NET 7 or later, so both
+      floors (net6.0 and net48) use `DllImport`. The generator emits **one**
+      binding file with both forms under `#if NET7_0_OR_GREATER` /
+      `#else`, not two renderings (WP5 item 3, conditional compilation).
 18. Java: floor **8** (correctness), target **17** (JNI, as the slice already
     uses). grpc-java 1.74.0 as in `packages/java/pom.xml`.
 19. Python: floor **3.7** (correctness), target **the CPython of Ubuntu 26.04
@@ -304,7 +305,7 @@ In priority order. Items 1 to 3 may invalidate existing data or crash a host.
 | 2 | **Corpus vectors that would have caught 1 and the generator gaps**: a length wrapping 2^64 from several positions; a known tag at the wrong wire type (per root); tag 0 on every root; `-0.0`; negative int32/int64 decode projected (C2), not only hashed. | corpus agent | Vectors in `corpus.json`, gate selftest passes, every slice re-runs the corpus |
 | 3 | **C++ `ak_client_opts`** declares 3 fields, the core reads 6, so `tcp_nagle` is stack garbage (*verified*). Include a generated header instead of the hand declaration in `poc/cpp/src/rpc_common.h`, and add a `static_assert` on size. Then check with `git log -S tcp_nagle -- poc/codec` whether `logs/cpp/rpc.log` and `rpcflow.log` predate the 6-field struct; if not, mark their TCP rows invalid. [R-D2] | cpp | Layout guard compiles; log of the history check |
 | 4 | **Python RPC arm gate**: check status and length on every call (`poc/python/rpc.py`, `native/binding.c` `take_bytes`); run `conformance.py` with `AK_FFI_MODULE=_akffi_rpc`; add `_akffi_rpc` to `build.sh`'s R5 boundary loop. [R-D3] | python | Conformance log for `_akffi_rpc` |
-| 5 | **Python floor 3.7**: the generated shim uses `Py_NewRef` (3.10+) and `PyObject_CallNoArgs`/`PyObject_CallOneArg` (3.9+); the PyO3 arm is `abi3-py310`. Give the shim generator a floor level emitting 3.7-compatible calls, build on 3.7, run the corpus. [R-D4] | python | Corpus log on CPython 3.7 |
+| 5 | **Python floor 3.7**: the generated shim uses `Py_NewRef` (3.10+) and `PyObject_CallNoArgs`/`PyObject_CallOneArg` (3.9+); the PyO3 arm is `abi3-py310`. Emit the newer calls under `#if PY_VERSION_HEX >= ...` with a 3.7-compatible `#else` in the one generated shim, build on 3.7, run the corpus. [R-D4] | python | Corpus log on CPython 3.7 |
 | 6 | **Gate every timed arm**: C++ `ffi-valtc` (add to `conformance.cpp` `run_case`); Java `ffi-pull`/`ffi-pull-walk` (a committed conformance log naming them). [R-D5] | cpp, java | Conformance logs listing the arms |
 | 7 | **Sticky error slot on encode**: encode entry points ignore `hdr.err`, so a host that calls `ak_fail` and returns 0 gets a successful encode; decode checks it only at the end. Align with `design/ABI-v1.md` section 5. [R-D6] | aggregating session (core) | A test callback that calls `ak_fail` and returns `AK_OK` makes encode and decode fail |
 | 8 | **C++ concurrency must-fail control reaches the core**: build the planted variant of the shared core (`--features pad-widths` or equivalent) and link it, so `ffi > 0` is shown possible. Report 22 distinct wrong encodes, not 44. [R-D7] | cpp | Log with `ffi > 0` under the plant |
@@ -361,15 +362,26 @@ lists, payload dumpers), never a wire rule, an IR or a layout derivation.
    - Rust: the core's codec behind the C ABI **and** the core-native control,
      from the same plan, so their difference is the boundary only (R-E1);
    - C++: the native control, the binding and the ABI header;
-   - C#: the managed codec and the binding (`LibraryImport` at net8.0,
-     `DllImport` at net6.0 and net48, one backend with a target level);
+   - C#: the managed codec and the binding, one file per message set with
+     `LibraryImport` under `#if NET7_0_OR_GREATER` and `DllImport` otherwise
+     (net6.0 and net48);
    - Java: the managed codec (arm R) and the JNI binding, Java 8 and 17 trees
      from one backend with a level (as today);
-   - Python: the pure-Python codec and the C shim, with a 3.7 floor level
-     (R-D4) and the 3.14 target level.
+   - Python: the pure-Python codec and the C shim, one shim source whose
+     3.7-incompatible calls sit under `PY_VERSION_HEX` conditionals (R-D4).
    A backend may choose how to express a plan step idiomatically (a Java
    `switch`, a Rust `match`), and may choose buffer strategies native to its
    runtime, but it may not add, drop or reorder a wire decision.
+
+   **Language levels are conditional compilation inside one generated output,
+   wherever the language has it**: C# `#if NET7_0_OR_GREATER` (and
+   `NET8_0_OR_GREATER` where the target gains more), C++ `#if __cplusplus >=`,
+   the Python C shim `#if PY_VERSION_HEX >=`. The floor and the target build the
+   same generated file with different compiler settings, so one file is gated by
+   the corpus at every level. Java has no preprocessor, so its Java 8 and 17
+   trees remain two outputs of the one backend with a level parameter, as today;
+   Rust has one level. In C++ a conditional must not change the layout of an
+   installed header type (`CLAUDE.md` invariant).
 4. **Incumbent arms are not generated.** The incumbent is what ArmoniK ships
    (R14), built by that ecosystem's own tool (protoc, prost-build, Grpc.Tools).
    `poc/rust/gen/rust_facade.py`'s emitted prost impl is checked against
@@ -469,7 +481,7 @@ Facts that bear on the design constraints and are not in `README.md`:
   recorded.
 - **The C# worker targets net6.0, which is out of support**, and the slice
   measured .NET 8. The generated `LibraryImport` binding needs .NET 7 or later,
-  so the net6.0 floor needs a `DllImport` rendering (WP3 item 17).
+  so both C# floors need `DllImport`, under `#if` in the same file (WP3 item 17).
 - **.NET Framework 4.8 is Windows-only**; the slice's net48 evidence was taken on
   Mono 6.8.
 
