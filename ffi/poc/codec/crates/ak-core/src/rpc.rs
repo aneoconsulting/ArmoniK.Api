@@ -37,18 +37,15 @@ use crate::{AK_ERR_HOST, AK_ERR_INVALID_STATE, AK_OK};
 use bytes::Bytes;
 use core::ffi::c_void;
 
-pub enum ak_runtime {}
-pub enum ak_client {}
-
-/// A borrowed byte range the core owns until the host releases it.
-#[repr(C)]
-pub struct ak_bytes {
-    pub ptr: *const u8,
-    pub len: usize,
-    /// The core's handle on the allocation. The host passes it back and does not read it.
-    pub owner: *mut c_void,
-}
-
+// R-G5: the RPC structs, handles and callback type are `ak_abi`'s, rendered once from
+// `poc/codec/gen/plan.py`. The core used to define its own copies beside the declaration
+// every host compiles against, and those two copies drifted once (D21) and differed in a
+// prototype (`ak_queue_next`'s timeout). `generated/rpc_check.rs` asserts every function
+// below against the declared signature.
+pub use ak_abi::{
+    ak_bytes, ak_call, ak_client, ak_client_opts, ak_completion, ak_completion_cb, ak_queue,
+    ak_runtime, AK_QUEUE_OK, AK_QUEUE_SHUTDOWN, AK_QUEUE_TIMEOUT,
+};
 
 // ---- what the cpp slice added, and why -------------------------------------------------
 //
@@ -68,84 +65,12 @@ pub struct ak_bytes {
 // exist only under `--features rpc`, so the default artifact is untouched in both
 // dimensions.
 
-/// The transport knobs `design/SHAPES.md` asks each arm to pin and to state. A window of 0
-/// means "leave the stack's default", which is what NULL options give on every field.
-///
-/// hyper's client defaults, for the record the SHAPES.md table wants: **2 MiB initial
-/// stream window, 5 MiB initial connection window, adaptive window off**
-/// (`hyper/src/proto/h2/client.rs`, `DEFAULT_STREAM_WINDOW` / `DEFAULT_CONN_WINDOW`).
-///
-/// **This struct is the UNION of two independent additions and that is a finding in itself.**
-/// The rust and cpp slices each added an `ak_client_new_opts` on the same day, with different
-/// field sets, because each needed the core's transport pinned and neither could know the
-/// other was doing it. R0 stops a slice FORKING the core; it does not stop two slices adding
-/// the same thing at once, and nothing detected this until the merge failed to compile. The
-/// union is what both need, and the failure mode to note is that it could as easily have been
-/// two subtly different behaviours behind one name.
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct ak_client_opts {
-    /// `SETTINGS_INITIAL_WINDOW_SIZE`, per stream. 0 leaves hyper's 2 MiB. ArmoniK: 4 MiB.
-    pub stream_window: u32,
-    /// The connection-level window, which is a SEPARATE setting on hyper as it is on
-    /// grpc-java. 0 leaves hyper's 5 MiB. Raising only the stream window is the mistake this
-    /// entry point exists to make impossible to repeat.
-    pub connection_window: u32,
-    /// 1 on, 0 off, -1 leave the default (off). Adaptive sizing overrides the two windows
-    /// above, which is why pinning a window and enabling this is a contradiction rather
-    /// than a belt and braces.
-    pub adaptive_window: i32,
-    /// Largest message the client will accept, bytes. 0 leaves tonic's default. ArmoniK
-    /// chunks at 2 MiB, so a cell that pins chunking pins this too.
-    pub max_recv_message: u32,
-    /// Largest message the client will send, bytes. 0 leaves tonic's default.
-    pub max_send_message: u32,
-    /// **Nagle's algorithm, named the way ArmoniK names it**: 1 enables Nagle (clears
-    /// `TCP_NODELAY`), 0 disables it, -1 leaves tonic's default (which is nodelay ON).
-    ///
-    /// The spelling is `packages/rust/armonik-transport`'s: `tcp_nagle_algorithm: bool`,
-    /// "defaults to false", read from `GrpcClient__TcpNagleAlgorithm` and applied as
-    /// `http.set_nodelay(!config.tcp_nagle_algorithm)` (`src/connect.rs`). **So ArmoniK
-    /// ships with Nagle OFF**, tonic's client default agrees, and the branch's 40 ms
-    /// delayed-ACK artifact was only ever on the SERVER side of our own test harness.
-    /// Carried here so an arm states the setting rather than inheriting it (R7), and so
-    /// the non-default is reachable if anyone wants to price it.
-    pub tcp_nagle: i32,
-}
-
-// ABI v1 section 10, applied to the CLIENT OPTIONS -- and this one is here because its
-// absence was a live defect, not because the pattern looked tidy.
-//
-// `ak_client_opts` is declared twice: the core defines `rpc::ak_client_opts` and every host
-// compiles against `ak_abi::ak_client_opts`. Two slices added this entry point on the same
-// day with different field sets; the reconciliation into the union updated the core's
-// definition and not the ABI's declaration, leaving the host at four fields and the core at
-// six. Nothing failed. What a host would have got instead:
-//
-//   - its `max_recv_message` lands on the core's `adaptive_window`, and 2 MiB is `>= 0` and
-//     `!= 0`, so ADAPTIVE SIZING TURNS ON -- which overrides the very windows this entry
-//     point exists to pin;
-//   - its `max_send_message` lands on `max_recv_message`;
-//   - `max_send_message` and `tcp_nagle` are read PAST THE END of the host's 16-byte
-//     object, so `tcp_nodelay` is set from whatever was on the stack. A `1` there re-enables
-//     Nagle on the client and resurrects the 40 ms artifact, non-deterministically.
-//
-// Silent, wrong, and in the one setting that had just been corrected. So the agreement is
-// asserted field by field, at compile time, where both declarations are visible.
-const _: () = {
-    use core::mem::{align_of, offset_of, size_of};
-    use ak_abi::ak_client_opts as abi;
-    assert!(size_of::<ak_client_opts>() == size_of::<abi>());
-    assert!(align_of::<ak_client_opts>() == align_of::<abi>());
-    // Size and alignment agreeing is NOT enough: two structs with the same six 4-byte fields
-    // in different orders agree on both and disagree on every value. Offsets are the check.
-    assert!(offset_of!(ak_client_opts, stream_window) == offset_of!(abi, stream_window));
-    assert!(offset_of!(ak_client_opts, connection_window) == offset_of!(abi, connection_window));
-    assert!(offset_of!(ak_client_opts, adaptive_window) == offset_of!(abi, adaptive_window));
-    assert!(offset_of!(ak_client_opts, max_recv_message) == offset_of!(abi, max_recv_message));
-    assert!(offset_of!(ak_client_opts, max_send_message) == offset_of!(abi, max_send_message));
-    assert!(offset_of!(ak_client_opts, tcp_nagle) == offset_of!(abi, tcp_nagle));
-};
+// The transport knobs (`ak_client_opts`, above, from `ak_abi`) are the UNION of two
+// independent additions -- the rust and cpp slices each added `ak_client_new_opts` on the
+// same day -- and their field-by-field meaning is documented where they are declared now,
+// in `plan.py`'s `RpcAbi`. The compile-time offset check that used to sit here compared
+// this crate's copy with `ak_abi`'s; there is one struct now, so there is nothing left
+// to compare, which is the stronger form of the same guard.
 
 /// R5's counters for the RPC half. Process-global rather than per-context, because a call
 /// has no context to hang them on: `ak_queue_next` names a queue and `ak_bytes_free` names
@@ -449,23 +374,10 @@ pub unsafe extern "C" fn ak_bytes_free(b: *mut ak_bytes) {
 // virtual thread's carrier. That is a harness handicap of exactly the class R14 names,
 // pointing at the core's own arm instead of at the incumbent.
 
-/// What a completion carries. The bytes are released with `ak_bytes_free` exactly as the
-/// blocking mode's are, so a host has one release path whichever delivery it takes.
-#[repr(C)]
-pub struct ak_completion {
-    pub tag: u64,
-    pub status: i32,
-    pub bytes: ak_bytes,
-}
-
-/// The callback a host registers. Called ONCE per call, on a tokio worker thread -- a
-/// thread the host does not own, which is the property that makes this mode wrong for a
-/// runtime that must attach before it can run managed code, and right for one that can
-/// complete a future from anywhere.
-pub type ak_completion_cb = extern "C" fn(user_data: *mut c_void, comp: *mut ak_completion);
-
-pub enum ak_call {}
-pub enum ak_queue {}
+// `ak_completion` (what a completion carries) and `ak_completion_cb` (called ONCE per
+// call, on a tokio worker thread -- a thread the host does not own, which makes this
+// delivery wrong for a runtime that must attach before running managed code) are
+// `ak_abi`'s, rendered from `plan.rpc` (R-G5).
 
 struct CallImpl {
     abort: tokio::task::AbortHandle,
@@ -495,20 +407,18 @@ struct QueueImpl {
 }
 
 struct QueueState {
-    q: std::collections::VecDeque<ak_completion>,
+    q: std::collections::VecDeque<SendComp>,
     shutdown: bool,
 }
 
 // The queue holds `ak_completion`s, which carry raw pointers to core-owned bytes. They are
-// produced by the core and consumed by the host; nothing else touches them.
-unsafe impl Send for ak_completion {}
+// produced by the core and consumed by the host; nothing else touches them. The struct is
+// `ak_abi`'s now (R-G5), so the `Send` assertion rides on a local wrapper: a foreign type
+// cannot carry this crate's unsafe impl.
+struct SendComp(ak_completion);
+unsafe impl Send for SendComp {}
 
-/// `ak_queue_next` returned a completion.
-pub const AK_QUEUE_OK: i32 = 0;
-/// The timeout expired with no completion. Not an error: a drainer polls its own shutdown.
-pub const AK_QUEUE_TIMEOUT: i32 = 1;
-/// The queue is shutting down and is drained. Every drainer gets this, once the backlog is.
-pub const AK_QUEUE_SHUTDOWN: i32 = 2;
+// AK_QUEUE_OK / AK_QUEUE_TIMEOUT / AK_QUEUE_SHUTDOWN are `ak_abi`'s (plan.rpc).
 
 #[no_mangle]
 pub extern "C" fn ak_queue_new() -> *mut ak_queue {
@@ -567,7 +477,7 @@ pub unsafe extern "C" fn ak_queue_next(
     };
     loop {
         if let Some(c) = st.q.pop_front() {
-            *out = c;
+            *out = c.0;
             return AK_QUEUE_OK;
         }
         if st.shutdown {
@@ -711,7 +621,7 @@ pub unsafe extern "C" fn ak_call_unary_q(
         };
         let qi = unsafe { &*(qaddr as *const QueueImpl) };
         if let Ok(mut st) = qi.m.lock() {
-            st.q.push_back(comp);
+            st.q.push_back(SendComp(comp));
         }
         qi.cv.notify_one();
     });

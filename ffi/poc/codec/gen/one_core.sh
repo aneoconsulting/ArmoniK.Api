@@ -66,8 +66,13 @@ done
 # ---- 2. one copy of each generated core file ---------------------------------------
 echo
 echo "# the emitted core exists once"
+# `codec/crates/*/src/generated_corpus/` is not a second core: it is the SAME core rendered
+# by the same generator (`gen/generate.py`, one plan layer, one backend) for the corpus's
+# reader schema, behind the test-only `corpus` feature of ak-abi/ak-core (FIX-PLAN WP5
+# item 6.1). It lives inside codec/ and nowhere else, which is what this check guards;
+# a copy of it outside codec/ is still counted below.
 for f in codec.rs layout.rs abi.rs; do
-  hits=$(srcs "$f" | sort)
+  hits=$(srcs "$f" | grep -v '/poc/codec/crates/[a-z-]*/src/generated_corpus/' | sort)
   n=$(printf '%s\n' "$hits" | grep -c .)
   if [ "$n" != 1 ]; then
     fail "$f exists in $n places:"; printf '%s\n' "$hits" | sed 's/^/           /'
