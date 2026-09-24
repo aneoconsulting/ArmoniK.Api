@@ -1,0 +1,1573 @@
+# csharp slice, FIX-PLAN WP5 step 4 gate. CORRECTNESS ONLY: no timing is taken.
+# date:        2026-09-24T18:24:57Z
+# branch HEAD: 41eb485
+# dotnet:      SDK 8.0.131; runtimes: 8.0.31 + Microsoft.NETCore.App.Runtime.linux-x64 6.0.36 from NuGet (self-contained)
+# corpus:      ffi/corpus at c1c97ff, 691 vectors
+# machine:     container, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz, 6.18.44-fc-v37
+
+################ 1. generator
+$ python3 -S gen/generate.py --check
+guard 6 shared C# backends and 7 glue modules import no IR or description; a planted IR import is caught
+ok    abi/src/main.rs
+ok    src/Corpus/Generated/Abi.cs
+ok    src/Corpus/Generated/Codec.cs
+ok    src/Corpus/Generated/CoreFfi.cs
+ok    src/Corpus/Generated/Dispatch.cs
+ok    src/Corpus/Generated/Eq.cs
+ok    src/Corpus/Generated/Proj.cs
+ok    src/Corpus/Generated/Types.cs
+ok    src/Facade/Generated/Build.cs
+ok    src/Facade/Generated/Codec.cs
+ok    src/Facade/Generated/Eq.cs
+ok    src/Facade/Generated/Types.cs
+ok    src/Facade/Generated/Values.cs
+ok    src/Harness/Generated/Abi.cs
+ok    src/Harness/Generated/Arms.cs
+ok    src/Harness/Generated/BuildGp.cs
+ok    src/Harness/Generated/CoreArms.cs
+ok    src/Harness/Generated/CoreFfi.cs
+ok    src/Rpc/Generated/RpcAbi.cs
+exit status: 0
+
+################ 2. the core (every build with init-guard) and the layout probe
+$ gen/build_core.sh
+# core: git archive HEAD ffi/poc/codec (crates identical to the working tree); last core commit 41eb485
+# rustc 1.94.1, cargo 1.94.1
+#   target-core: --features rpc,init-guard -> 85685967fda90686 (104 ak_* exports)
+#   target-core-count: --features rpc,count,init-guard -> 0d24f0ff568965bc (104 ak_* exports)
+#   target-core-corpus: --features corpus,init-guard -> f383922e3be7e204 (184 ak_* exports)
+#   layout probe: 100 structs (shapes), 172 structs (corpus)
+exit status: 0
+
+################ 3. builds
+$ dotnet build src/Harness/Harness.csproj -c Release -f net8.0
+  Facade -> ffi/poc/csharp/src/Facade/bin/Release/net8.0/Facade.dll
+  Harness -> ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll
+Build succeeded.
+exit status: 0
+$ dotnet publish src/Harness/Harness.csproj -c Release -f net6.0 -r linux-x64 --self-contained -o /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6
+  Facade -> ffi/poc/csharp/src/Facade/bin/Release/net6.0/Facade.dll
+  Harness -> ffi/poc/csharp/src/Harness/bin/Release/net6.0/linux-x64/harness.dll
+  Harness -> ffi/poc/csharp/src/Harness/bin/publish-net6/
+exit status: 0
+$ dotnet build src/Corpus/Corpus.csproj -c Release -f net8.0
+  Facade -> ffi/poc/csharp/src/Facade/bin/Release/net8.0/Facade.dll
+  Corpus -> ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus.dll
+Build succeeded.
+exit status: 0
+$ dotnet publish src/Corpus/Corpus.csproj -c Release -f net6.0 -r linux-x64 --self-contained -o /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/publish-net6
+  Facade -> ffi/poc/csharp/src/Facade/bin/Release/net6.0/Facade.dll
+  Corpus -> ffi/poc/csharp/src/Corpus/bin/Release/net6.0/linux-x64/corpus.dll
+  Corpus -> ffi/poc/csharp/src/Corpus/bin/publish-net6/
+exit status: 0
+$ dotnet build src/Rpc/Rpc.csproj -c Release
+  Facade -> ffi/poc/csharp/src/Facade/bin/Release/net8.0/Facade.dll
+  Harness -> ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll
+  Rpc -> ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc.dll
+Build succeeded.
+exit status: 0
+$ dotnet build src/HarnessFloor/HarnessFloor.csproj -c Release
+  HarnessFloor -> ffi/poc/csharp/src/HarnessFloor/bin/Release/net48/harness48.exe
+Build succeeded.
+exit status: 0
+# which import form each level compiled (the one generated Abi.cs, #if NET7_0_OR_GREATER):
+#   src/Harness/bin/Release/net8.0/harness.dll: LibraryImportAttribute referenced 1 time(s)
+#   src/Harness/bin/publish-net6/harness.dll: LibraryImportAttribute referenced 0 time(s)
+#   src/HarnessFloor/bin/Release/net48/harness48.exe: LibraryImportAttribute referenced 0 time(s)
+# net48: COMPILED ONLY (the P/Invoke binding's DllImport branch included; the host half is
+#        #if NET5_0_OR_GREATER, no UnmanagedCallersOnly on .NET Framework). Nothing runs it here:
+#        .NET Framework needs Windows, and this container has no Mono either.
+
+################ 4. net8.0 harness
+# core in Release/net8.0: target-core (85685967fda90686)
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll conformance
+# harness: conformance
+# utc:                 2026-09-24T18:27:01Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# managed codec:       plan options utf8=reject unknown=both recursion_limit=100 (rendered by poc/codec/gen/cs_managed.py)
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+payload  shape  root                        bytes  gp-tba  gp-wto  gp-bw   gp-mar  managed  2pass  vector  mrt  grt  value
+--------------------------------------------------------------------------------------------------------------------------------------
+P1.1     M1     ListResultsResponse          858  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P1.2     M1     ListResultsResponse       218121  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P1.3     M1     ListResultsResponse          605  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.1     M2     ListTasksDetailedResponse    1037  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.2     M2     ListTasksDetailedResponse  540422  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.3     M2     ListTasksDetailedResponse  647024  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.4     M2     ListTasksDetailedResponse  979465  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.5     M2     ListTasksDetailedResponse   19632  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P3.1     M3     ListProbeResponse          12097  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P4.1     M4     ListTaskSummaryResponse    65321  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.1     M5     UploadResultDataMessage      116  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.2     M5     UploadResultDataMessage    65620  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.3     M5     UploadResultDataMessage  1048660  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.4     M5     UploadResultDataMessage  4194390  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P6.1     M6     ListMetricsResponse       123354  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P7.1     -      DualResponse                  98  perm    perm    perm    perm    perm     perm   perm    ok   ok   ok
+
+152 checks, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll unknown
+# harness: unknown
+# utc:                 2026-09-24T18:27:03Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# managed codec:       plan options utf8=reject unknown=both recursion_limit=100 (rendered by poc/codec/gen/cs_managed.py)
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+vector                     bytes  gp-dec  man-dec  known-values-agree  gp-retains  man-retains  man-retain-mode = gp
+----------------------------------------------------------------------------------------------------------------------------------
+root-varint-between          861  ok      ok       ok                  YES         no           ok (identical)
+root-len                     865  ok      ok       ok                  YES         no           ok (identical)
+elem-varint-interleaved      860  ok      ok       ok                  YES         no           ok (identical)
+elem-i64                     868  ok      ok       ok                  YES         no           ok (identical)
+elem-i32                     864  ok      ok       ok                  YES         no           ok (identical)
+elem-len-nested              867  ok      ok       ok                  YES         no           ok (identical)
+oneof-unrecognised-member  12099  ok      ok       ok                  YES         no           ok (identical)
+
+  root-varint-between       unknown varint at the ROOT, tag 4, above every known root tag (1..3)
+  root-len                  unknown length-delimited field at the root
+  elem-varint-interleaved   unknown varint INSIDE element 0, at tag 7 -- the gap ResultRaw leaves between `completed_at` (6) and `result_id` (8), so it sits numerically BETWEEN two known tags
+  elem-i64                  unknown fixed64 inside element 0
+  elem-i32                  unknown fixed32 inside element 0
+  elem-len-nested           unknown length-delimited field inside element 0 whose body is itself a message -- a decoder that recursed into it rather than skipping it would report the inner tags as unknown fields of the OUTER message
+  oneof-unrecognised-member an unrecognised ONEOF member: tag 15 sits one past `as_nothing` (14) in Probe.body. design/SHAPES.md's row says this CANNOT round trip in any arm, because the grouping lives only in the descriptor and a parser cannot tell it from any other unknown field
+
+Reading the two retention columns.
+  `YES` means the arm's re-encode differs from the payload with the unknown
+  field removed, which for these vectors means it wrote the unknown field back.
+
+  Google.Protobuf keeps an UnknownFieldSet per message and writes it back, so a
+  message round-tripped through .NET today preserves a field this build has never
+  heard of. The managed codec's DEFAULT reader drops it; with Dec.Retain set it keeps
+  it and writes it back (last column: required byte-identical to Google.Protobuf). Both accept
+  the input and neither loses a KNOWN value, so this is not a correctness gate;
+  it is ABI v1 open decision 11 with a cost attached, and on .NET the cost is a
+  guarantee that exists today and would be removed. prost drops unknown fields
+  too, which is why the Rust slice could not price this.
+
+  The oneof vector is the one design/SHAPES.md says cannot round trip in ANY arm.
+  Google.Protobuf retains the BYTES of tag 15 but the case stays at whatever
+  member the element already carried; the grouping is descriptor-only, so no
+  parser can recover the intent. Retention makes the bytes survive and does not
+  make the VALUE survive, and those are different claims.
+
+0 failure(s) -- a FAIL in a decode column, or a managed re-encode that is not
+the baseline (the managed codec is supposed to drop, so differing means a known
+value moved, which would be a real defect).
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll groups
+# harness: groups
+# utc:                 2026-09-24T18:27:03Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# managed codec:       plan options utf8=reject unknown=both recursion_limit=100 (rendered by poc/codec/gen/cs_managed.py)
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+The GROUP vectors from ffi/corpus. proto3 cannot express one, so this is
+the one class of unknown field the schema's own manifest cannot test.
+
+vector                   bytes  expect  incumbent  managed  agree  note
+----------------------------------------------------------------------------------------------------------------------
+U-root-group              461  accept  ok         ok       yes    a group at the top level of the message that crosses the wire
+U-nested-group            244  accept  ok         ok       yes    a group INSIDE an element of a repeated field
+U-oneof-group              95  accept  ok         ok       yes    a group on a message that actually has a oneof
+X-group-unterminated       10  reject  ok         ok       yes    a group that is never closed (corpus root WireZoo; read here under ListResultsResponse, where tag 120 is equally unknown)
+X-group-mismatched-end     12  reject  ok         ok       yes    END_GROUP with a field number that does not match the group that opened (same substitution)
+
+And the case no vector covers, because a corpus of malformed bytes has to
+stop somewhere: 200 nested start tags, past the 100 the skipper allows.
+AK_NEST sets the depth. At 200 the bound is what makes the rejection say
+ErrDepth rather than ErrTruncated -- an unbounded skipper still rejects
+this one, for the wrong reason. Deep enough and an unbounded skipper does
+not reject at all: it overflows the stack, which .NET cannot catch.
+  err = -8, ErrDepth, and the process is still here
+  Google.Protobuf: rejected, InvalidProtocolBufferException
+
+The same at 200,000, which is past where an unbounded skipper aborts:
+  err = -8, ErrDepth, and the process is still here
+
+0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll utf8
+# harness: utf8
+# utc:                 2026-09-24T18:27:03Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# managed codec:       plan options utf8=reject unknown=both recursion_limit=100 (rendered by poc/codec/gen/cs_managed.py)
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+Malformed UTF-8 in a string field: what each arm does with it.
+
+Root-site vectors only. The corpus reads these under `Surrogate`; this
+reads them as `ResultRaw`, whose field 1 is also a string, because the
+incumbent assembly is generated from ffi/schema and has no Surrogate. The
+nested, map-key, map-value and repeated sites are NOT covered here.
+
+vector                              incumbent                     managed control
+----------------------------------------------------------------------------------------------------
+T-dec-root-above-10ffff             accepted, 4 chars             REJECTED err -6
+T-dec-root-cesu8-pair               accepted, 6 chars             REJECTED err -6
+T-dec-root-f5-lead                  accepted, 4 chars             REJECTED err -6
+T-dec-root-fe-ff                    accepted, 2 chars             REJECTED err -6
+T-dec-root-five-byte                accepted, 5 chars             REJECTED err -6
+T-dec-root-lead-no-continuation     accepted, 1 chars             REJECTED err -6
+T-dec-root-lone-continuation        accepted, 1 chars             REJECTED err -6
+T-dec-root-overlong-2               accepted, 2 chars             REJECTED err -6
+T-dec-root-overlong-3               accepted, 3 chars             REJECTED err -6
+T-dec-root-overlong-4               accepted, 4 chars             REJECTED err -6
+T-dec-root-overlong-nul             accepted, 2 chars             REJECTED err -6
+T-dec-root-surrogate-d800           accepted, 3 chars             REJECTED err -6
+T-dec-root-surrogate-dfff           accepted, 3 chars             REJECTED err -6
+T-dec-root-truncated-3              accepted, 1 chars             REJECTED err -6
+T-dec-root-truncated-4              accepted, 1 chars             REJECTED err -6
+
+15 vectors: the incumbent rejected 0, the managed control rejected 15.
+
+THE ARMS DISAGREE, and by the plan's option, not by accident: the managed
+codec renders plan.py's Options.utf8 ("reject", R-E7) and refuses these
+bodies; Google.Protobuf substitutes U+FFFD and accepts them. So a decode
+comparison between the two is a validating parser against a non-validating
+one; the campaign states which (README section 13, decision 3 is the owner's).
+
+For reference, what .NET's own strict decoder does with the same bodies:
+  new UTF8Encoding(false, throwOnInvalidBytes: true) rejects 15 of 15.
+
+plan Options.utf8 = reject: the managed codec must refuse 15 of 15; it refused 15: ok
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll mapforms
+# harness: mapforms
+# utc:                 2026-09-24T18:27:03Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# managed codec:       plan options utf8=reject unknown=both recursion_limit=100 (rendered by poc/codec/gen/cs_managed.py)
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+Which form does each encoder produce on P2.5?
+
+  manifest (prost's rule, empty map value OMITTED) : 19632 B
+  Google.Protobuf ToByteArray                      : 19632 B  -> OMITS it, same as the manifest
+  the generated managed codec                      : 19632 B  -> OMITS it, same as the manifest
+
+  So on .NET both arms produce the manifest's form. protobuf C++ and upb
+  write the empty value and would produce 19712 B. That is a difference
+  between runtimes, not a defect in any of them.
+
+The +80 B form, built by rewriting the committed vector:
+  empty map values inserted : 40
+  bytes                     : 19712 (manifest 19632, delta 80)
+  expected                  : 19712 B and 40 insertions -- ok
+
+Does every decoder read BOTH forms, and agree on the value?
+
+decoder         form      result
+----------------------------------------------------------------
+managed         canonical ok, equals the built graph
+gp-parse        canonical ok, re-encodes to the canonical form
+managed         +80 B     ok, equals the built graph
+gp-parse        +80 B     ok, re-encodes to the canonical form
+
+Reading this.
+  Both decoders normalise the +80 B form back to the canonical one, because
+  an empty map value and an absent map value are the SAME facade value and
+  neither encoder writes it. So the two forms round-trip to one another's
+  values and this slice's byte-identity gate is unaffected.
+
+  A P2.5 TIMING row therefore carries the manifest's 19,632 B in every arm
+  of this slice, and is not comparable with a slice whose encoder writes
+  19,712 B: 80 bytes and 40 extra fields are not the same work.
+
+0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll layout /home/user/ArmoniK.Api/ffi/poc/csharp/target-core/layout.json
+# harness: layout
+# utc:                 2026-09-24T18:27:03Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# managed codec:       plan options utf8=reject unknown=both recursion_limit=100 (rendered by poc/codec/gen/cs_managed.py)
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+layout, by name both ways: 96 C# structs / 443 members against the Rust declaration probed in layout.json: all agree
+  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters)
+section 10, the loaded core's ak_layout_facts against this compiler: 380 facts, all agree
+ak_abi_version() = 1; ak_init() returned 0
+0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll layout /home/user/ArmoniK.Api/ffi/poc/csharp/target-core/layout.json --plant   # a CONTROL: must fail
+# PLANTED: offsets of ak_efix_TaskOptionsOptionsEntry.key and ak_efix_TaskOptionsOptionsEntry.value swapped in the C# table
+  FAIL ak_efix_TaskOptionsOptionsEntry.key: offset Rust 0, C# 24
+  FAIL ak_efix_TaskOptionsOptionsEntry.value: offset Rust 24, C# 0
+2 failure(s)
+exit status: 2
+control net8 layout plant: failed, as required
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll coreffi
+# harness: coreffi
+# utc:                 2026-09-24T18:27:03Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# managed codec:       plan options utf8=reject unknown=both recursion_limit=100 (rendered by poc/codec/gen/cs_managed.py)
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+layout, by name both ways: 96 C# structs / 443 members against the Rust declaration probed in layout.json: all agree
+  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters)
+section 10, the loaded core's ak_layout_facts against this compiler: 380 facts, all agree
+ak_abi_version() = 1; ak_init() returned 0
+0 failure(s)
+
+core-ffi through the C ABI, every shape. Strings are handed over as staged UTF-8 with ak_tc_bytes.
+  chunk = the whole run elements per element-entry call
+
+                                                   encode crossings    decode crossings
+                                                   encode xings  push dec     pull dec
+payload  root                          bytes  enc  dec  val  pull ret  R5    fwd  rev   fwd  rev   fwd  rev   pull buf
+-----------------------------------------------------------------------------------------------------------------
+P1.1     ListResultsResponse            858  ok   ok   ok   ok   ok   -       2    1     1    2     2    0       576
+P1.2     ListResultsResponse         218121  ok   ok   ok   ok   ok   -       2    1     1    5     2    0    128136
+P1.3     ListResultsResponse            605  ok   ok   ok   ok   ok   -       2    1     1    3     2    0     38488
+P2.1     ListTasksDetailedResponse     1037  ok   ok   ok   ok   ok   -       7    6     1    8     2    0       912
+P2.2     ListTasksDetailedResponse   540422  ok   ok   ok   ok   ok   -    2502 2501     1 3501     2    0    436040
+P2.3     ListTasksDetailedResponse   647024  ok   ok   ok   ok   ok   -     627  626     1  876     2    0    269040
+P2.4     ListTasksDetailedResponse   979465  ok   ok   ok   ok   ok   -     402  401     1  561     2    0    351400
+P2.5     ListTasksDetailedResponse    19632  ok   ok   ok   ok   ok   -     102  101     1  141     2    0     17480
+P3.1     ListProbeResponse            12097  ok   ok   ok   ok   ok   -       2    1     1    2     2    0     19256
+P4.1     ListTaskSummaryResponse      65321  ok   ok   ok   ok   ok   -     202  201     1  601     2    0     75232
+P5.1     UploadResultDataMessage        116  ok   ok   ok   ok   ok   -       1    0     1    1     2    0        72
+P5.2     UploadResultDataMessage      65620  ok   ok   ok   ok   ok   -       1    0     1    1     2    0        72
+P5.3     UploadResultDataMessage    1048660  ok   ok   ok   ok   ok   -       1    0     1    1     2    0        72
+P5.4     UploadResultDataMessage    4194390  ok   ok   ok   ok   ok   -       1    0     1    1     2    0        72
+P6.1     ListMetricsResponse         123354  ok   ok   ok   ok   ok   -    1002 1001     1 1401     2    0    187232
+P7.1     DualResponse                    98  perm ok   ok   ok   ok   -       3    2     1    3     2    0       208
+
+R5: the host's tally and the core's counters are not comparable here -- this core was not built with --features count.
+
+Reading the crossing columns. THEY ARE THE SAME QUANTITY as the core's own,
+and this slice said otherwise once. The only thing the core counts that a
+host tally cannot see is a TRANSCODER call, and both string forms this
+binding offers are pointers into the core, so it invokes none of its own.
+The gap once reported against the rust slice was a CHUNK SIZE: set
+AK_CHUNK=150 and the columns match to the digit. See JOURNAL.md 19.
+
+What the counts mean, and the whole reason the shapes differ:
+  THE PULL COLUMN IS THE POINT OF THE LAST TWO. `ak_parse_*` makes no
+  reverse call at all: it appends a record per deposit to a buffer in the
+  host-owned decode context, and the host replays it afterwards. So pull's
+  reverse count is ZERO on every shape, where push's is 2 to 3,501, and the
+  two forward calls are ak_parse_* and ak_bdr_ptr. design/ABI-v1.md decision
+  2 says four of five slices have only measured push; this is the managed
+  pull arm it asks for, gated against push on the same bytes and the same
+  comparer. `pull buf` is what it trades the upcalls FOR: the record
+  buffer's high-water mark in the decode context (ak_bdr_footprint), so
+  the trade reads in both directions and not only in time.
+
+  A LEAF element batches (ABI v1 section 6), so the run crosses once
+  whatever its length and the count is CONSTANT in the element count.
+  A non-leaf cannot: section 7.2 refuses it, and the count becomes
+  LINEAR -- a reverse call per loop slot per element on encode, and
+  new+apply per element plus a run per inner field on decode.
+
+0 failure(s)
+exit status: 0
+# core in Release/net8.0: target-core-count (0d24f0ff568965bc)
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll coreffi
+# harness: coreffi
+# utc:                 2026-09-24T18:27:04Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# managed codec:       plan options utf8=reject unknown=both recursion_limit=100 (rendered by poc/codec/gen/cs_managed.py)
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+section 10 (ak_layout_facts): agree; AK_LAYOUT_PROBE unset, the by-name check was not run
+
+core-ffi through the C ABI, every shape. Strings are handed over as staged UTF-8 with ak_tc_bytes.
+  chunk = the whole run elements per element-entry call
+
+                                                   encode crossings    decode crossings
+                                                   encode xings  push dec     pull dec
+payload  root                          bytes  enc  dec  val  pull ret  R5    fwd  rev   fwd  rev   fwd  rev   pull buf
+-----------------------------------------------------------------------------------------------------------------
+P1.1     ListResultsResponse            858  ok   ok   ok   ok   ok   ok      2    1     1    2     2    0       576
+P1.2     ListResultsResponse         218121  ok   ok   ok   ok   ok   ok      2    1     1    5     2    0    128136
+P1.3     ListResultsResponse            605  ok   ok   ok   ok   ok   ok      2    1     1    3     2    0     38488
+P2.1     ListTasksDetailedResponse     1037  ok   ok   ok   ok   ok   ok      7    6     1    8     2    0       912
+P2.2     ListTasksDetailedResponse   540422  ok   ok   ok   ok   ok   ok   2502 2501     1 3501     2    0    436040
+P2.3     ListTasksDetailedResponse   647024  ok   ok   ok   ok   ok   ok    627  626     1  876     2    0    269040
+P2.4     ListTasksDetailedResponse   979465  ok   ok   ok   ok   ok   ok    402  401     1  561     2    0    351400
+P2.5     ListTasksDetailedResponse    19632  ok   ok   ok   ok   ok   ok    102  101     1  141     2    0     17480
+P3.1     ListProbeResponse            12097  ok   ok   ok   ok   ok   ok      2    1     1    2     2    0     19256
+P4.1     ListTaskSummaryResponse      65321  ok   ok   ok   ok   ok   ok    202  201     1  601     2    0     75232
+P5.1     UploadResultDataMessage        116  ok   ok   ok   ok   ok   ok      1    0     1    1     2    0        72
+P5.2     UploadResultDataMessage      65620  ok   ok   ok   ok   ok   ok      1    0     1    1     2    0        72
+P5.3     UploadResultDataMessage    1048660  ok   ok   ok   ok   ok   ok      1    0     1    1     2    0        72
+P5.4     UploadResultDataMessage    4194390  ok   ok   ok   ok   ok   ok      1    0     1    1     2    0        72
+P6.1     ListMetricsResponse         123354  ok   ok   ok   ok   ok   ok   1002 1001     1 1401     2    0    187232
+P7.1     DualResponse                    98  perm ok   ok   ok   ok   ok      3    2     1    3     2    0       208
+
+R5: the host's tally and the core's counters are compared above and equal on every row.
+
+Reading the crossing columns. THEY ARE THE SAME QUANTITY as the core's own,
+and this slice said otherwise once. The only thing the core counts that a
+host tally cannot see is a TRANSCODER call, and both string forms this
+binding offers are pointers into the core, so it invokes none of its own.
+The gap once reported against the rust slice was a CHUNK SIZE: set
+AK_CHUNK=150 and the columns match to the digit. See JOURNAL.md 19.
+
+What the counts mean, and the whole reason the shapes differ:
+  THE PULL COLUMN IS THE POINT OF THE LAST TWO. `ak_parse_*` makes no
+  reverse call at all: it appends a record per deposit to a buffer in the
+  host-owned decode context, and the host replays it afterwards. So pull's
+  reverse count is ZERO on every shape, where push's is 2 to 3,501, and the
+  two forward calls are ak_parse_* and ak_bdr_ptr. design/ABI-v1.md decision
+  2 says four of five slices have only measured push; this is the managed
+  pull arm it asks for, gated against push on the same bytes and the same
+  comparer. `pull buf` is what it trades the upcalls FOR: the record
+  buffer's high-water mark in the decode context (ak_bdr_footprint), so
+  the trade reads in both directions and not only in time.
+
+  A LEAF element batches (ABI v1 section 6), so the run crosses once
+  whatever its length and the count is CONSTANT in the element count.
+  A non-leaf cannot: section 7.2 refuses it, and the count becomes
+  LINEAR -- a reverse call per loop slot per element on encode, and
+  new+apply per element plus a run per inner field on decode.
+
+0 failure(s)
+exit status: 0
+# core in Release/net8.0: target-core (85685967fda90686)
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll coreffi   # a CONTROL: must fail
+P1.1     ListResultsResponse            858  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P1.2     ListResultsResponse         218121  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P1.3     ListResultsResponse            605  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P2.1     ListTasksDetailedResponse     1037  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P2.2     ListTasksDetailedResponse   540422  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P2.3     ListTasksDetailedResponse   647024  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P2.4     ListTasksDetailedResponse   979465  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P2.5     ListTasksDetailedResponse    19632  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P3.1     ListProbeResponse            12097  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P4.1     ListTaskSummaryResponse      65321  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P5.1     UploadResultDataMessage        116  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P5.2     UploadResultDataMessage      65620  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P5.3     UploadResultDataMessage    1048660  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P5.4     UploadResultDataMessage    4194390  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P6.1     ListMetricsResponse         123354  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P7.1     DualResponse                    98  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+exit status: 16
+control net8 coreffi without ak_init (init-guard core): failed, as required
+
+################ 5. net6.0 harness
+# core in bin/publish-net6: target-core (85685967fda90686)
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness conformance
+# harness: conformance
+# utc:                 2026-09-24T18:27:06Z
+# runtime:             .NET 6.0.36
+# os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# managed codec:       plan options utf8=reject unknown=both recursion_limit=100 (rendered by poc/codec/gen/cs_managed.py)
+# facade TFM:          net6.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+payload  shape  root                        bytes  gp-tba  gp-wto  gp-bw   gp-mar  managed  2pass  vector  mrt  grt  value
+--------------------------------------------------------------------------------------------------------------------------------------
+P1.1     M1     ListResultsResponse          858  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P1.2     M1     ListResultsResponse       218121  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P1.3     M1     ListResultsResponse          605  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.1     M2     ListTasksDetailedResponse    1037  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.2     M2     ListTasksDetailedResponse  540422  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.3     M2     ListTasksDetailedResponse  647024  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.4     M2     ListTasksDetailedResponse  979465  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.5     M2     ListTasksDetailedResponse   19632  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P3.1     M3     ListProbeResponse          12097  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P4.1     M4     ListTaskSummaryResponse    65321  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.1     M5     UploadResultDataMessage      116  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.2     M5     UploadResultDataMessage    65620  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.3     M5     UploadResultDataMessage  1048660  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.4     M5     UploadResultDataMessage  4194390  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P6.1     M6     ListMetricsResponse       123354  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P7.1     -      DualResponse                  98  perm    perm    perm    perm    perm     perm   perm    ok   ok   ok
+
+152 checks, 0 failure(s)
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness unknown
+# harness: unknown
+# utc:                 2026-09-24T18:27:07Z
+# runtime:             .NET 6.0.36
+# os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# managed codec:       plan options utf8=reject unknown=both recursion_limit=100 (rendered by poc/codec/gen/cs_managed.py)
+# facade TFM:          net6.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+vector                     bytes  gp-dec  man-dec  known-values-agree  gp-retains  man-retains  man-retain-mode = gp
+----------------------------------------------------------------------------------------------------------------------------------
+root-varint-between          861  ok      ok       ok                  YES         no           ok (identical)
+root-len                     865  ok      ok       ok                  YES         no           ok (identical)
+elem-varint-interleaved      860  ok      ok       ok                  YES         no           ok (identical)
+elem-i64                     868  ok      ok       ok                  YES         no           ok (identical)
+elem-i32                     864  ok      ok       ok                  YES         no           ok (identical)
+elem-len-nested              867  ok      ok       ok                  YES         no           ok (identical)
+oneof-unrecognised-member  12099  ok      ok       ok                  YES         no           ok (identical)
+
+  root-varint-between       unknown varint at the ROOT, tag 4, above every known root tag (1..3)
+  root-len                  unknown length-delimited field at the root
+  elem-varint-interleaved   unknown varint INSIDE element 0, at tag 7 -- the gap ResultRaw leaves between `completed_at` (6) and `result_id` (8), so it sits numerically BETWEEN two known tags
+  elem-i64                  unknown fixed64 inside element 0
+  elem-i32                  unknown fixed32 inside element 0
+  elem-len-nested           unknown length-delimited field inside element 0 whose body is itself a message -- a decoder that recursed into it rather than skipping it would report the inner tags as unknown fields of the OUTER message
+  oneof-unrecognised-member an unrecognised ONEOF member: tag 15 sits one past `as_nothing` (14) in Probe.body. design/SHAPES.md's row says this CANNOT round trip in any arm, because the grouping lives only in the descriptor and a parser cannot tell it from any other unknown field
+
+Reading the two retention columns.
+  `YES` means the arm's re-encode differs from the payload with the unknown
+  field removed, which for these vectors means it wrote the unknown field back.
+
+  Google.Protobuf keeps an UnknownFieldSet per message and writes it back, so a
+  message round-tripped through .NET today preserves a field this build has never
+  heard of. The managed codec's DEFAULT reader drops it; with Dec.Retain set it keeps
+  it and writes it back (last column: required byte-identical to Google.Protobuf). Both accept
+  the input and neither loses a KNOWN value, so this is not a correctness gate;
+  it is ABI v1 open decision 11 with a cost attached, and on .NET the cost is a
+  guarantee that exists today and would be removed. prost drops unknown fields
+  too, which is why the Rust slice could not price this.
+
+  The oneof vector is the one design/SHAPES.md says cannot round trip in ANY arm.
+  Google.Protobuf retains the BYTES of tag 15 but the case stays at whatever
+  member the element already carried; the grouping is descriptor-only, so no
+  parser can recover the intent. Retention makes the bytes survive and does not
+  make the VALUE survive, and those are different claims.
+
+0 failure(s) -- a FAIL in a decode column, or a managed re-encode that is not
+the baseline (the managed codec is supposed to drop, so differing means a known
+value moved, which would be a real defect).
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness groups
+# harness: groups
+# utc:                 2026-09-24T18:27:07Z
+# runtime:             .NET 6.0.36
+# os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# managed codec:       plan options utf8=reject unknown=both recursion_limit=100 (rendered by poc/codec/gen/cs_managed.py)
+# facade TFM:          net6.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+The GROUP vectors from ffi/corpus. proto3 cannot express one, so this is
+the one class of unknown field the schema's own manifest cannot test.
+
+vector                   bytes  expect  incumbent  managed  agree  note
+----------------------------------------------------------------------------------------------------------------------
+U-root-group              461  accept  ok         ok       yes    a group at the top level of the message that crosses the wire
+U-nested-group            244  accept  ok         ok       yes    a group INSIDE an element of a repeated field
+U-oneof-group              95  accept  ok         ok       yes    a group on a message that actually has a oneof
+X-group-unterminated       10  reject  ok         ok       yes    a group that is never closed (corpus root WireZoo; read here under ListResultsResponse, where tag 120 is equally unknown)
+X-group-mismatched-end     12  reject  ok         ok       yes    END_GROUP with a field number that does not match the group that opened (same substitution)
+
+And the case no vector covers, because a corpus of malformed bytes has to
+stop somewhere: 200 nested start tags, past the 100 the skipper allows.
+AK_NEST sets the depth. At 200 the bound is what makes the rejection say
+ErrDepth rather than ErrTruncated -- an unbounded skipper still rejects
+this one, for the wrong reason. Deep enough and an unbounded skipper does
+not reject at all: it overflows the stack, which .NET cannot catch.
+  err = -8, ErrDepth, and the process is still here
+  Google.Protobuf: rejected, InvalidProtocolBufferException
+
+The same at 200,000, which is past where an unbounded skipper aborts:
+  err = -8, ErrDepth, and the process is still here
+
+0 failure(s)
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness utf8
+# harness: utf8
+# utc:                 2026-09-24T18:27:07Z
+# runtime:             .NET 6.0.36
+# os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# managed codec:       plan options utf8=reject unknown=both recursion_limit=100 (rendered by poc/codec/gen/cs_managed.py)
+# facade TFM:          net6.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+Malformed UTF-8 in a string field: what each arm does with it.
+
+Root-site vectors only. The corpus reads these under `Surrogate`; this
+reads them as `ResultRaw`, whose field 1 is also a string, because the
+incumbent assembly is generated from ffi/schema and has no Surrogate. The
+nested, map-key, map-value and repeated sites are NOT covered here.
+
+vector                              incumbent                     managed control
+----------------------------------------------------------------------------------------------------
+T-dec-root-above-10ffff             accepted, 4 chars             REJECTED err -6
+T-dec-root-cesu8-pair               accepted, 6 chars             REJECTED err -6
+T-dec-root-f5-lead                  accepted, 4 chars             REJECTED err -6
+T-dec-root-fe-ff                    accepted, 2 chars             REJECTED err -6
+T-dec-root-five-byte                accepted, 5 chars             REJECTED err -6
+T-dec-root-lead-no-continuation     accepted, 1 chars             REJECTED err -6
+T-dec-root-lone-continuation        accepted, 1 chars             REJECTED err -6
+T-dec-root-overlong-2               accepted, 2 chars             REJECTED err -6
+T-dec-root-overlong-3               accepted, 3 chars             REJECTED err -6
+T-dec-root-overlong-4               accepted, 4 chars             REJECTED err -6
+T-dec-root-overlong-nul             accepted, 2 chars             REJECTED err -6
+T-dec-root-surrogate-d800           accepted, 3 chars             REJECTED err -6
+T-dec-root-surrogate-dfff           accepted, 3 chars             REJECTED err -6
+T-dec-root-truncated-3              accepted, 1 chars             REJECTED err -6
+T-dec-root-truncated-4              accepted, 1 chars             REJECTED err -6
+
+15 vectors: the incumbent rejected 0, the managed control rejected 15.
+
+THE ARMS DISAGREE, and by the plan's option, not by accident: the managed
+codec renders plan.py's Options.utf8 ("reject", R-E7) and refuses these
+bodies; Google.Protobuf substitutes U+FFFD and accepts them. So a decode
+comparison between the two is a validating parser against a non-validating
+one; the campaign states which (README section 13, decision 3 is the owner's).
+
+For reference, what .NET's own strict decoder does with the same bodies:
+  new UTF8Encoding(false, throwOnInvalidBytes: true) rejects 15 of 15.
+
+plan Options.utf8 = reject: the managed codec must refuse 15 of 15; it refused 15: ok
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness mapforms
+# harness: mapforms
+# utc:                 2026-09-24T18:27:07Z
+# runtime:             .NET 6.0.36
+# os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# managed codec:       plan options utf8=reject unknown=both recursion_limit=100 (rendered by poc/codec/gen/cs_managed.py)
+# facade TFM:          net6.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+Which form does each encoder produce on P2.5?
+
+  manifest (prost's rule, empty map value OMITTED) : 19632 B
+  Google.Protobuf ToByteArray                      : 19632 B  -> OMITS it, same as the manifest
+  the generated managed codec                      : 19632 B  -> OMITS it, same as the manifest
+
+  So on .NET both arms produce the manifest's form. protobuf C++ and upb
+  write the empty value and would produce 19712 B. That is a difference
+  between runtimes, not a defect in any of them.
+
+The +80 B form, built by rewriting the committed vector:
+  empty map values inserted : 40
+  bytes                     : 19712 (manifest 19632, delta 80)
+  expected                  : 19712 B and 40 insertions -- ok
+
+Does every decoder read BOTH forms, and agree on the value?
+
+decoder         form      result
+----------------------------------------------------------------
+managed         canonical ok, equals the built graph
+gp-parse        canonical ok, re-encodes to the canonical form
+managed         +80 B     ok, equals the built graph
+gp-parse        +80 B     ok, re-encodes to the canonical form
+
+Reading this.
+  Both decoders normalise the +80 B form back to the canonical one, because
+  an empty map value and an absent map value are the SAME facade value and
+  neither encoder writes it. So the two forms round-trip to one another's
+  values and this slice's byte-identity gate is unaffected.
+
+  A P2.5 TIMING row therefore carries the manifest's 19,632 B in every arm
+  of this slice, and is not comparable with a slice whose encoder writes
+  19,712 B: 80 bytes and 40 extra fields are not the same work.
+
+0 failure(s)
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness layout /home/user/ArmoniK.Api/ffi/poc/csharp/target-core/layout.json
+# harness: layout
+# utc:                 2026-09-24T18:27:07Z
+# runtime:             .NET 6.0.36
+# os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# managed codec:       plan options utf8=reject unknown=both recursion_limit=100 (rendered by poc/codec/gen/cs_managed.py)
+# facade TFM:          net6.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+layout, by name both ways: 96 C# structs / 443 members against the Rust declaration probed in layout.json: all agree
+  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters)
+section 10, the loaded core's ak_layout_facts against this compiler: 380 facts, all agree
+ak_abi_version() = 1; ak_init() returned 0
+0 failure(s)
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness layout /home/user/ArmoniK.Api/ffi/poc/csharp/target-core/layout.json --plant   # a CONTROL: must fail
+# PLANTED: offsets of ak_efix_TaskOptionsOptionsEntry.key and ak_efix_TaskOptionsOptionsEntry.value swapped in the C# table
+  FAIL ak_efix_TaskOptionsOptionsEntry.key: offset Rust 0, C# 24
+  FAIL ak_efix_TaskOptionsOptionsEntry.value: offset Rust 24, C# 0
+2 failure(s)
+exit status: 2
+control net6 layout plant: failed, as required
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness coreffi
+# harness: coreffi
+# utc:                 2026-09-24T18:27:08Z
+# runtime:             .NET 6.0.36
+# os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# managed codec:       plan options utf8=reject unknown=both recursion_limit=100 (rendered by poc/codec/gen/cs_managed.py)
+# facade TFM:          net6.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+layout, by name both ways: 96 C# structs / 443 members against the Rust declaration probed in layout.json: all agree
+  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters)
+section 10, the loaded core's ak_layout_facts against this compiler: 380 facts, all agree
+ak_abi_version() = 1; ak_init() returned 0
+0 failure(s)
+
+core-ffi through the C ABI, every shape. Strings are handed over as staged UTF-8 with ak_tc_bytes.
+  chunk = the whole run elements per element-entry call
+
+                                                   encode crossings    decode crossings
+                                                   encode xings  push dec     pull dec
+payload  root                          bytes  enc  dec  val  pull ret  R5    fwd  rev   fwd  rev   fwd  rev   pull buf
+-----------------------------------------------------------------------------------------------------------------
+P1.1     ListResultsResponse            858  ok   ok   ok   ok   ok   -       2    1     1    2     2    0       576
+P1.2     ListResultsResponse         218121  ok   ok   ok   ok   ok   -       2    1     1    5     2    0    128136
+P1.3     ListResultsResponse            605  ok   ok   ok   ok   ok   -       2    1     1    3     2    0     38488
+P2.1     ListTasksDetailedResponse     1037  ok   ok   ok   ok   ok   -       7    6     1    8     2    0       912
+P2.2     ListTasksDetailedResponse   540422  ok   ok   ok   ok   ok   -    2502 2501     1 3501     2    0    436040
+P2.3     ListTasksDetailedResponse   647024  ok   ok   ok   ok   ok   -     627  626     1  876     2    0    269040
+P2.4     ListTasksDetailedResponse   979465  ok   ok   ok   ok   ok   -     402  401     1  561     2    0    351400
+P2.5     ListTasksDetailedResponse    19632  ok   ok   ok   ok   ok   -     102  101     1  141     2    0     17480
+P3.1     ListProbeResponse            12097  ok   ok   ok   ok   ok   -       2    1     1    2     2    0     19256
+P4.1     ListTaskSummaryResponse      65321  ok   ok   ok   ok   ok   -     202  201     1  601     2    0     75232
+P5.1     UploadResultDataMessage        116  ok   ok   ok   ok   ok   -       1    0     1    1     2    0        72
+P5.2     UploadResultDataMessage      65620  ok   ok   ok   ok   ok   -       1    0     1    1     2    0        72
+P5.3     UploadResultDataMessage    1048660  ok   ok   ok   ok   ok   -       1    0     1    1     2    0        72
+P5.4     UploadResultDataMessage    4194390  ok   ok   ok   ok   ok   -       1    0     1    1     2    0        72
+P6.1     ListMetricsResponse         123354  ok   ok   ok   ok   ok   -    1002 1001     1 1401     2    0    187232
+P7.1     DualResponse                    98  perm ok   ok   ok   ok   -       3    2     1    3     2    0       208
+
+R5: the host's tally and the core's counters are not comparable here -- this core was not built with --features count.
+
+Reading the crossing columns. THEY ARE THE SAME QUANTITY as the core's own,
+and this slice said otherwise once. The only thing the core counts that a
+host tally cannot see is a TRANSCODER call, and both string forms this
+binding offers are pointers into the core, so it invokes none of its own.
+The gap once reported against the rust slice was a CHUNK SIZE: set
+AK_CHUNK=150 and the columns match to the digit. See JOURNAL.md 19.
+
+What the counts mean, and the whole reason the shapes differ:
+  THE PULL COLUMN IS THE POINT OF THE LAST TWO. `ak_parse_*` makes no
+  reverse call at all: it appends a record per deposit to a buffer in the
+  host-owned decode context, and the host replays it afterwards. So pull's
+  reverse count is ZERO on every shape, where push's is 2 to 3,501, and the
+  two forward calls are ak_parse_* and ak_bdr_ptr. design/ABI-v1.md decision
+  2 says four of five slices have only measured push; this is the managed
+  pull arm it asks for, gated against push on the same bytes and the same
+  comparer. `pull buf` is what it trades the upcalls FOR: the record
+  buffer's high-water mark in the decode context (ak_bdr_footprint), so
+  the trade reads in both directions and not only in time.
+
+  A LEAF element batches (ABI v1 section 6), so the run crosses once
+  whatever its length and the count is CONSTANT in the element count.
+  A non-leaf cannot: section 7.2 refuses it, and the count becomes
+  LINEAR -- a reverse call per loop slot per element on encode, and
+  new+apply per element plus a run per inner field on decode.
+
+0 failure(s)
+exit status: 0
+# core in bin/publish-net6: target-core-count (0d24f0ff568965bc)
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness coreffi
+# harness: coreffi
+# utc:                 2026-09-24T18:27:08Z
+# runtime:             .NET 6.0.36
+# os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# managed codec:       plan options utf8=reject unknown=both recursion_limit=100 (rendered by poc/codec/gen/cs_managed.py)
+# facade TFM:          net6.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+section 10 (ak_layout_facts): agree; AK_LAYOUT_PROBE unset, the by-name check was not run
+
+core-ffi through the C ABI, every shape. Strings are handed over as staged UTF-8 with ak_tc_bytes.
+  chunk = the whole run elements per element-entry call
+
+                                                   encode crossings    decode crossings
+                                                   encode xings  push dec     pull dec
+payload  root                          bytes  enc  dec  val  pull ret  R5    fwd  rev   fwd  rev   fwd  rev   pull buf
+-----------------------------------------------------------------------------------------------------------------
+P1.1     ListResultsResponse            858  ok   ok   ok   ok   ok   ok      2    1     1    2     2    0       576
+P1.2     ListResultsResponse         218121  ok   ok   ok   ok   ok   ok      2    1     1    5     2    0    128136
+P1.3     ListResultsResponse            605  ok   ok   ok   ok   ok   ok      2    1     1    3     2    0     38488
+P2.1     ListTasksDetailedResponse     1037  ok   ok   ok   ok   ok   ok      7    6     1    8     2    0       912
+P2.2     ListTasksDetailedResponse   540422  ok   ok   ok   ok   ok   ok   2502 2501     1 3501     2    0    436040
+P2.3     ListTasksDetailedResponse   647024  ok   ok   ok   ok   ok   ok    627  626     1  876     2    0    269040
+P2.4     ListTasksDetailedResponse   979465  ok   ok   ok   ok   ok   ok    402  401     1  561     2    0    351400
+P2.5     ListTasksDetailedResponse    19632  ok   ok   ok   ok   ok   ok    102  101     1  141     2    0     17480
+P3.1     ListProbeResponse            12097  ok   ok   ok   ok   ok   ok      2    1     1    2     2    0     19256
+P4.1     ListTaskSummaryResponse      65321  ok   ok   ok   ok   ok   ok    202  201     1  601     2    0     75232
+P5.1     UploadResultDataMessage        116  ok   ok   ok   ok   ok   ok      1    0     1    1     2    0        72
+P5.2     UploadResultDataMessage      65620  ok   ok   ok   ok   ok   ok      1    0     1    1     2    0        72
+P5.3     UploadResultDataMessage    1048660  ok   ok   ok   ok   ok   ok      1    0     1    1     2    0        72
+P5.4     UploadResultDataMessage    4194390  ok   ok   ok   ok   ok   ok      1    0     1    1     2    0        72
+P6.1     ListMetricsResponse         123354  ok   ok   ok   ok   ok   ok   1002 1001     1 1401     2    0    187232
+P7.1     DualResponse                    98  perm ok   ok   ok   ok   ok      3    2     1    3     2    0       208
+
+R5: the host's tally and the core's counters are compared above and equal on every row.
+
+Reading the crossing columns. THEY ARE THE SAME QUANTITY as the core's own,
+and this slice said otherwise once. The only thing the core counts that a
+host tally cannot see is a TRANSCODER call, and both string forms this
+binding offers are pointers into the core, so it invokes none of its own.
+The gap once reported against the rust slice was a CHUNK SIZE: set
+AK_CHUNK=150 and the columns match to the digit. See JOURNAL.md 19.
+
+What the counts mean, and the whole reason the shapes differ:
+  THE PULL COLUMN IS THE POINT OF THE LAST TWO. `ak_parse_*` makes no
+  reverse call at all: it appends a record per deposit to a buffer in the
+  host-owned decode context, and the host replays it afterwards. So pull's
+  reverse count is ZERO on every shape, where push's is 2 to 3,501, and the
+  two forward calls are ak_parse_* and ak_bdr_ptr. design/ABI-v1.md decision
+  2 says four of five slices have only measured push; this is the managed
+  pull arm it asks for, gated against push on the same bytes and the same
+  comparer. `pull buf` is what it trades the upcalls FOR: the record
+  buffer's high-water mark in the decode context (ak_bdr_footprint), so
+  the trade reads in both directions and not only in time.
+
+  A LEAF element batches (ABI v1 section 6), so the run crosses once
+  whatever its length and the count is CONSTANT in the element count.
+  A non-leaf cannot: section 7.2 refuses it, and the count becomes
+  LINEAR -- a reverse call per loop slot per element on encode, and
+  new+apply per element plus a run per inner field on decode.
+
+0 failure(s)
+exit status: 0
+# core in bin/publish-net6: target-core (85685967fda90686)
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness coreffi   # a CONTROL: must fail
+P1.1     ListResultsResponse            858  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P1.2     ListResultsResponse         218121  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P1.3     ListResultsResponse            605  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P2.1     ListTasksDetailedResponse     1037  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P2.2     ListTasksDetailedResponse   540422  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P2.3     ListTasksDetailedResponse   647024  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P2.4     ListTasksDetailedResponse   979465  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P2.5     ListTasksDetailedResponse    19632  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P3.1     ListProbeResponse            12097  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P4.1     ListTaskSummaryResponse      65321  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P5.1     UploadResultDataMessage        116  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P5.2     UploadResultDataMessage      65620  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P5.3     UploadResultDataMessage    1048660  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P5.4     UploadResultDataMessage    4194390  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P6.1     ListMetricsResponse         123354  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+P7.1     DualResponse                    98  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
+exit status: 16
+control net6 coreffi without ak_init (init-guard core): failed, as required
+
+################ 6. akrpc (net8.0): the generated RPC binding
+# core in Release/net8.0: target-core-count (0d24f0ff568965bc)
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc.dll --layout /home/user/ArmoniK.Api/ffi/poc/csharp/target-core/layout.json
+# akrpc --layout: plan.rpc's structs (Generated/RpcAbi.cs) against the Rust declaration; ak_init() = 0
+layout, by name both ways: 5 C# structs / 18 members against the Rust declaration probed in layout.json: all agree
+  (declared in ak-abi, not bound by this binding: ak_str, ak_span, ak_blob, ak_uspan, AkCounters, ak_bdr_rec, ak_rpc_counters, ak_efix_TaskOptionsOptionsEntry, ... 87 more)
+0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc.dll --error-path
+# harness: rpc --error-path (R-D9: free on a non-OK status)
+# counting build: YES
+# calls:          50 per delivery per path
+
+path    delivery     threw/calls   forward/call   reverse/call   expected fwd
+----------------------------------------------------------------------------------
+ok      blocking         0/50              2.00           0.00              2  PASS
+error   blocking        50/50              2.00           0.00              2  PASS
+ok      callback         0/50              3.00           1.00              3  PASS
+error   callback        50/50              3.00           1.00              3  PASS
+ok      queue            0/50              4.02           0.00              4  PASS
+error   queue           50/50              4.00           0.00              4  PASS
+
+error-path: 0 failure(s)
+exit status: 0
+
+################ 7.8 the corpus, net8.0
+# core in Release/net8.0: target-core-corpus (f383922e3be7e204)
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus --layout /home/user/ArmoniK.Api/ffi/poc/csharp/target-core-corpus/layout.json
+layout, by name both ways: 168 C# structs / 660 members against the Rust declaration probed in layout.json: all agree
+  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters)
+section 10, the loaded core's ak_layout_facts against this compiler: 542 facts, all agree
+ak_abi_version() = 1; ak_init() returned 0
+0 failure(s)
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (691 rows run of 691)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=both limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+
+## managed-drop
+   pass 688  fail 0  disputed (excluded) 3  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  316  fail   0
+   forms written (C3):
+      189  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       45  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       73  managed -3 (truncated)
+       35  managed -4 (malformed)
+       31  managed -6 (transcode)
+        2  managed -8 (depth)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-tag-zero-Empty: refused (managed -4 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -4 (malformed))
+
+## managed-retain
+   pass 688  fail 0  disputed (excluded) 3  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  316  fail   0
+   forms written (C3):
+      389  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       73  managed -3 (truncated)
+       35  managed -4 (malformed)
+       31  managed -6 (transcode)
+        2  managed -8 (depth)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-tag-zero-Empty: refused (managed -4 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -4 (malformed))
+
+## ffi-drop
+   pass 672  fail 0  disputed (excluded) 3  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  156  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  310  fail   0
+   forms written (C3):
+      182  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       45  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+## ffi-retain
+   pass 672  fail 0  disputed (excluded) 3  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  156  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  310  fail   0
+   forms written (C3):
+      368  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+       97  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        8  unknown-dropped
+        8  unknown-dropped / unknown-dropped, map values always written
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+   retain mode wrote the DROPPED form on 16 unknown-class row(s) (accepted by the contract; a retention gap):
+     U-deep-all, U-deep-u-fixed32, U-deep-u-fixed64, U-deep-u-len, U-deep-u-msg, U-deep-u-packed, U-deep-u-repeated, U-deep-u-varint, U-leaf-all, U-leaf-u-fixed32, U-leaf-u-fixed64, U-leaf-u-len, U-leaf-u-msg, U-leaf-u-packed, U-leaf-u-repeated, U-leaf-u-varint
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 395, differs on 0, 296 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on all four arms
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus --only S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root   # a CONTROL: must fail
+#   PLANTED DEFECT: proj (a control: it MUST fail)
+## managed-drop
+   pass 57  fail 26  disputed (excluded) 0  not in the C ABI 0
+     empty      pass    0  fail   6
+     shape      pass    0  fail   8
+     unknown    pass    0  fail  12
+   FAIL E-map-dup-key: C2: projection differs: .__planted: extra
+   FAIL E-map-empty-value-written: C2: projection differs: .__planted: extra
+   FAIL E-map-entry-empty: C2: projection differs: .__planted: extra
+   FAIL E-map-entry-reversed: C2: projection differs: .__planted: extra
+   FAIL E-map-key-only: C2: projection differs: .__planted: extra
+   FAIL E-map-value-only: C2: projection differs: .__planted: extra
+   FAIL S-Probe-alt: C2: projection differs: .__planted: extra
+   FAIL S-Probe-full: C2: projection differs: .__planted: extra
+   FAIL S-Probe-min: C2: projection differs: .__planted: extra
+   FAIL S-Probe-oneof-as-blob: C2: projection differs: .__planted: extra
+exit status: 1
+control net8 corpus proj: failed, as required
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus --only S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root   # a CONTROL: must fail
+#   PLANTED DEFECT: reenc (a control: it MUST fail)
+## managed-drop
+   pass 57  fail 26  disputed (excluded) 0  not in the C ABI 0
+     empty      pass    0  fail   6
+     shape      pass    0  fail   8
+     unknown    pass    0  fail  12
+   FAIL E-map-dup-key: C3: re-encoding c4667e170e6b (16 B) is not an accepted form
+   FAIL E-map-empty-value-written: C3: re-encoding b51b08deecce (12 B) is not an accepted form
+   FAIL E-map-entry-empty: C3: re-encoding ae0d71dd4039 (7 B) is not an accepted form
+   FAIL E-map-entry-reversed: C3: re-encoding a966eadaf958 (13 B) is not an accepted form
+   FAIL E-map-key-only: C3: re-encoding b51b08deecce (12 B) is not an accepted form
+   FAIL E-map-value-only: C3: re-encoding 06c8b97f9228 (10 B) is not an accepted form
+   FAIL S-Probe-alt: C3: re-encoding 82979ddaab18 (61 B) is not an accepted form
+   FAIL S-Probe-full: C3: re-encoding ea8d93b2744a (60 B) is not an accepted form
+   FAIL S-Probe-min: C3: re-encoding 7ef1afc2d051 (8 B) is not an accepted form
+   FAIL S-Probe-oneof-as-blob: C3: re-encoding b717cd769c56 (71 B) is not an accepted form
+exit status: 1
+control net8 corpus reenc: failed, as required
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus --only S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root   # a CONTROL: must fail
+#   PLANTED DEFECT: accept (a control: it MUST fail)
+## managed-drop
+   pass 26  fail 57  disputed (excluded) 0  not in the C ABI 0
+     empty      pass    6  fail   0
+     shape      pass    8  fail   0
+     unknown    pass   12  fail   0
+   FAIL T-dec-root-above-10ffff: C4: PLANTED acceptance
+   FAIL T-dec-root-cesu8-pair: C4: PLANTED acceptance
+   FAIL T-dec-root-f5-lead: C4: PLANTED acceptance
+   FAIL T-dec-root-fe-ff: C4: PLANTED acceptance
+   FAIL T-dec-root-five-byte: C4: PLANTED acceptance
+   FAIL T-dec-root-lead-no-continuation: C4: PLANTED acceptance
+   FAIL T-dec-root-lone-continuation: C4: PLANTED acceptance
+   FAIL T-dec-root-overlong-2: C4: PLANTED acceptance
+   FAIL T-dec-root-overlong-3: C4: PLANTED acceptance
+   FAIL T-dec-root-overlong-4: C4: PLANTED acceptance
+exit status: 1
+control net8 corpus accept: failed, as required
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus --only S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root   # a CONTROL: must fail
+#   PLANTED DEFECT: ak_init skipped (a control: the ffi arms MUST fail)
+## managed-drop
+   pass 83  fail 0  disputed (excluded) 0  not in the C ABI 0
+     empty      pass    6  fail   0
+     shape      pass    8  fail   0
+     unknown    pass   12  fail   0
+## managed-retain
+   pass 83  fail 0  disputed (excluded) 0  not in the C ABI 0
+     empty      pass    6  fail   0
+     shape      pass    8  fail   0
+     unknown    pass   12  fail   0
+## ffi-drop
+   pass 57  fail 26  disputed (excluded) 0  not in the C ABI 0
+     empty      pass    0  fail   6
+     shape      pass    0  fail   8
+     unknown    pass    0  fail  12
+exit status: 1
+control net8 corpus noinit: failed, as required
+
+################ 7.6 the corpus, net6.0
+# core in bin/publish-net6: target-core-corpus (f383922e3be7e204)
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/publish-net6/corpus --layout /home/user/ArmoniK.Api/ffi/poc/csharp/target-core-corpus/layout.json
+layout, by name both ways: 168 C# structs / 660 members against the Rust declaration probed in layout.json: all agree
+  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters)
+section 10, the loaded core's ak_layout_facts against this compiler: 542 facts, all agree
+ak_abi_version() = 1; ak_init() returned 0
+0 failure(s)
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/publish-net6/corpus
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (691 rows run of 691)
+#   runtime    .NET 6.0.36
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=both limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+
+## managed-drop
+   pass 688  fail 0  disputed (excluded) 3  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  316  fail   0
+   forms written (C3):
+      189  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       45  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       73  managed -3 (truncated)
+       35  managed -4 (malformed)
+       31  managed -6 (transcode)
+        2  managed -8 (depth)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-tag-zero-Empty: refused (managed -4 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -4 (malformed))
+
+## managed-retain
+   pass 688  fail 0  disputed (excluded) 3  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  316  fail   0
+   forms written (C3):
+      389  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       73  managed -3 (truncated)
+       35  managed -4 (malformed)
+       31  managed -6 (transcode)
+        2  managed -8 (depth)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-tag-zero-Empty: refused (managed -4 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -4 (malformed))
+
+## ffi-drop
+   pass 672  fail 0  disputed (excluded) 3  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  156  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  310  fail   0
+   forms written (C3):
+      182  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       45  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+## ffi-retain
+   pass 672  fail 0  disputed (excluded) 3  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  156  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  310  fail   0
+   forms written (C3):
+      368  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+       97  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        8  unknown-dropped
+        8  unknown-dropped / unknown-dropped, map values always written
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+   retain mode wrote the DROPPED form on 16 unknown-class row(s) (accepted by the contract; a retention gap):
+     U-deep-all, U-deep-u-fixed32, U-deep-u-fixed64, U-deep-u-len, U-deep-u-msg, U-deep-u-packed, U-deep-u-repeated, U-deep-u-varint, U-leaf-all, U-leaf-u-fixed32, U-leaf-u-fixed64, U-leaf-u-len, U-leaf-u-msg, U-leaf-u-packed, U-leaf-u-repeated, U-leaf-u-varint
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 395, differs on 0, 296 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on all four arms
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/publish-net6/corpus --only S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root   # a CONTROL: must fail
+#   PLANTED DEFECT: proj (a control: it MUST fail)
+## managed-drop
+   pass 57  fail 26  disputed (excluded) 0  not in the C ABI 0
+     empty      pass    0  fail   6
+     shape      pass    0  fail   8
+     unknown    pass    0  fail  12
+   FAIL E-map-dup-key: C2: projection differs: .__planted: extra
+   FAIL E-map-empty-value-written: C2: projection differs: .__planted: extra
+   FAIL E-map-entry-empty: C2: projection differs: .__planted: extra
+   FAIL E-map-entry-reversed: C2: projection differs: .__planted: extra
+   FAIL E-map-key-only: C2: projection differs: .__planted: extra
+   FAIL E-map-value-only: C2: projection differs: .__planted: extra
+   FAIL S-Probe-alt: C2: projection differs: .__planted: extra
+   FAIL S-Probe-full: C2: projection differs: .__planted: extra
+   FAIL S-Probe-min: C2: projection differs: .__planted: extra
+   FAIL S-Probe-oneof-as-blob: C2: projection differs: .__planted: extra
+exit status: 1
+control net6 corpus proj: failed, as required
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/publish-net6/corpus --only S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root   # a CONTROL: must fail
+#   PLANTED DEFECT: reenc (a control: it MUST fail)
+## managed-drop
+   pass 57  fail 26  disputed (excluded) 0  not in the C ABI 0
+     empty      pass    0  fail   6
+     shape      pass    0  fail   8
+     unknown    pass    0  fail  12
+   FAIL E-map-dup-key: C3: re-encoding c4667e170e6b (16 B) is not an accepted form
+   FAIL E-map-empty-value-written: C3: re-encoding b51b08deecce (12 B) is not an accepted form
+   FAIL E-map-entry-empty: C3: re-encoding ae0d71dd4039 (7 B) is not an accepted form
+   FAIL E-map-entry-reversed: C3: re-encoding a966eadaf958 (13 B) is not an accepted form
+   FAIL E-map-key-only: C3: re-encoding b51b08deecce (12 B) is not an accepted form
+   FAIL E-map-value-only: C3: re-encoding 06c8b97f9228 (10 B) is not an accepted form
+   FAIL S-Probe-alt: C3: re-encoding 82979ddaab18 (61 B) is not an accepted form
+   FAIL S-Probe-full: C3: re-encoding ea8d93b2744a (60 B) is not an accepted form
+   FAIL S-Probe-min: C3: re-encoding 7ef1afc2d051 (8 B) is not an accepted form
+   FAIL S-Probe-oneof-as-blob: C3: re-encoding b717cd769c56 (71 B) is not an accepted form
+exit status: 1
+control net6 corpus reenc: failed, as required
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/publish-net6/corpus --only S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root   # a CONTROL: must fail
+#   PLANTED DEFECT: accept (a control: it MUST fail)
+## managed-drop
+   pass 26  fail 57  disputed (excluded) 0  not in the C ABI 0
+     empty      pass    6  fail   0
+     shape      pass    8  fail   0
+     unknown    pass   12  fail   0
+   FAIL T-dec-root-above-10ffff: C4: PLANTED acceptance
+   FAIL T-dec-root-cesu8-pair: C4: PLANTED acceptance
+   FAIL T-dec-root-f5-lead: C4: PLANTED acceptance
+   FAIL T-dec-root-fe-ff: C4: PLANTED acceptance
+   FAIL T-dec-root-five-byte: C4: PLANTED acceptance
+   FAIL T-dec-root-lead-no-continuation: C4: PLANTED acceptance
+   FAIL T-dec-root-lone-continuation: C4: PLANTED acceptance
+   FAIL T-dec-root-overlong-2: C4: PLANTED acceptance
+   FAIL T-dec-root-overlong-3: C4: PLANTED acceptance
+   FAIL T-dec-root-overlong-4: C4: PLANTED acceptance
+exit status: 1
+control net6 corpus accept: failed, as required
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/publish-net6/corpus --only S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root   # a CONTROL: must fail
+#   PLANTED DEFECT: ak_init skipped (a control: the ffi arms MUST fail)
+## managed-drop
+   pass 83  fail 0  disputed (excluded) 0  not in the C ABI 0
+     empty      pass    6  fail   0
+     shape      pass    8  fail   0
+     unknown    pass   12  fail   0
+## managed-retain
+   pass 83  fail 0  disputed (excluded) 0  not in the C ABI 0
+     empty      pass    6  fail   0
+     shape      pass    8  fail   0
+     unknown    pass   12  fail   0
+## ffi-drop
+   pass 57  fail 26  disputed (excluded) 0  not in the C ABI 0
+     empty      pass    0  fail   6
+     shape      pass    0  fail   8
+     unknown    pass    0  fail  12
+exit status: 1
+control net6 corpus noinit: failed, as required
+
+GATE PASSED
+exit 0

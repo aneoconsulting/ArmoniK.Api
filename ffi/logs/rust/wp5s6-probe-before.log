@@ -1,0 +1,73 @@
+# WP5 step 6: probe rows (gen/probe_corpus.py: majority oracle verdicts of logs/rust/wp5s6-oracles.log, plus the map-entry order rule), BEFORE the rules
+#   core and core-native at 57b6180 (fixed-ABI consolidation, no field-number check); driver poc/rust/corpus (--manifest)
+# the conformance corpus, C ABI and core-native, unknown fields dropped and retained
+#   core       ak-core --features corpus,init-guard: the core generated for the corpus's
+#              READER schema by poc/codec/gen (plan.py + rust_abi.py); CONTRACT rule 0
+#   native     core_native / core_native_retain, rendered from the same plans
+#   decode utf8 policy: reject; recursion limit 100
+#   each row in a child process, timeout 10000 ms
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+
+## ffi-drop
+   pass 8  fail 3  disputed (excluded) 0  not in the C ABI 0
+     probe      pass    8  fail   3
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+   FAIL P-field-2p32plus2 [ffi-drop]: C4: accepted a must-fail vector
+   FAIL P-field-maxplus1 [ffi-drop]: C4: accepted a must-fail vector
+   FAIL P-field-maxplus1-in-group [ffi-drop]: C4: accepted a must-fail vector
+
+## ffi-retain
+   pass 8  fail 3  disputed (excluded) 0  not in the C ABI 0
+     probe      pass    8  fail   3
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+   FAIL P-field-2p32plus2 [ffi-retain]: C4: accepted a must-fail vector
+   FAIL P-field-maxplus1 [ffi-retain]: C4: accepted a must-fail vector
+   FAIL P-field-maxplus1-in-group [ffi-retain]: C4: accepted a must-fail vector
+
+## native-drop
+   pass 8  fail 3  disputed (excluded) 0  not in the C ABI 0
+     probe      pass    8  fail   3
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+   FAIL P-field-2p32plus2 [native-drop]: C4: accepted a must-fail vector
+   FAIL P-field-maxplus1 [native-drop]: C4: accepted a must-fail vector
+   FAIL P-field-maxplus1-in-group [native-drop]: C4: accepted a must-fail vector
+
+## native-retain
+   pass 8  fail 3  disputed (excluded) 0  not in the C ABI 0
+     probe      pass    8  fail   3
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+   FAIL P-field-2p32plus2 [native-retain]: C4: accepted a must-fail vector
+   FAIL P-field-maxplus1 [native-retain]: C4: accepted a must-fail vector
+   FAIL P-field-maxplus1-in-group [native-retain]: C4: accepted a must-fail vector
+
+# rows that hung or crashed a child: 0
+CORPUS FAILS: 12 arm-row failure(s), 0 hang/crash row(s)
+## the python slice's generated pure-Python corpus codec (py-drop, py-retain), BEFORE (gen/probe_pycodec.py)
+pycodec        P-field-2p32plus2            expect reject got accept             WRONG
+pycodec        P-field-max                  expect accept got accept             ok
+pycodec        P-field-maxplus1             expect reject got accept             WRONG
+pycodec        P-field-maxplus1-in-group    expect reject got accept             WRONG
+pycodec        P-varint10-7f                expect accept got accept             ok
+pycodec        P-varint10-bit63             expect accept got accept             ok
+pycodec        P-varint10-bit64             expect accept got accept             ok
+pycodec        P-varint10-int32             expect accept got accept             ok
+pycodec        P-varint10-over-zero         expect accept got accept             ok
+pycodec: 3 wrong
+pycodec_retain P-field-2p32plus2            expect reject got accept             WRONG
+pycodec_retain P-field-max                  expect accept got accept             ok
+pycodec_retain P-field-maxplus1             expect reject got accept             WRONG
+pycodec_retain P-field-maxplus1-in-group    expect reject got accept             WRONG
+pycodec_retain P-varint10-7f                expect accept got accept             ok
+pycodec_retain P-varint10-bit63             expect accept got accept             ok
+pycodec_retain P-varint10-bit64             expect accept got accept             ok
+pycodec_retain P-varint10-int32             expect accept got accept             ok
+pycodec_retain P-varint10-over-zero         expect accept got accept             ok
+pycodec_retain: 3 wrong

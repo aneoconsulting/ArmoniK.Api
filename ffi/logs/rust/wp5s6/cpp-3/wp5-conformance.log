@@ -1,0 +1,181 @@
+# cpp slice, WP5 step 2: conformance on the payload set (byte identity against manifest.json)
+#   date       2026-09-24T18:40:32Z
+#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
+#   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
+#   commit     41eb485
+#   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
+#              for the corpus ABI); no timing is taken by anything in this log
+
+===== conformance_a17_shared =====
+ak_abi_version = 1, AK_ABI_VERSION = 1
+-std=201703  impl=target  guard=on  decode-policy=reject  linkage=shared
+
+-- group layout (ABI v1 section 10) --
+  380 layout facts, 0 disagreements
+
+-- byte identity against manifest.json, six arms (native, ffi, ffi-zeroed, ffi-nobatch, ffi-hosttc, ffi-valtc) --
+  P1.1       858 B  ok
+  P1.2    218121 B  ok
+  P1.3       605 B  ok
+  P2.1      1037 B  ok
+  P2.2    540422 B  ok
+  P2.3    647024 B  ok
+  P2.4    979465 B  ok
+  TWO VALID FORMS P2.5: this incumbent writes 19712 B, the manifest records 19632 B (delta +80). protobuf C++ writes a map entry's value unconditionally; the canonical form omits an implicit-presence leaf holding the proto zero.
+  P2.5     19712 B  ok
+  P3.1     12097 B  ok
+  P4.1     65321 B  ok
+  P5.1       116 B  ok
+  P5.2     65620 B  ok
+  P5.3   1048660 B  ok
+  P5.4   4194390 B  ok
+  P6.1    123354 B  ok
+  P7.1        98 B  ok (decode only)
+
+-- absent, unknown and malformed vectors --
+  ffi-valtc on malformed UTF-8: encode rc -6, take -6, err -6
+  protobuf C++ on malformed UTF-8: ParseFromString -> false (rejects)
+
+476 checks, 0 failures, 1 payloads with two valid encodings
+>>> ok: conformance_a17_shared
+
+===== conformance_b17_shared =====
+ak_abi_version = 1, AK_ABI_VERSION = 1
+-std=201703  impl=floor  guard=on  decode-policy=reject  linkage=shared
+
+-- group layout (ABI v1 section 10) --
+  380 layout facts, 0 disagreements
+
+-- byte identity against manifest.json, six arms (native, ffi, ffi-zeroed, ffi-nobatch, ffi-hosttc, ffi-valtc) --
+  P1.1       858 B  ok
+  P1.2    218121 B  ok
+  P1.3       605 B  ok
+  P2.1      1037 B  ok
+  P2.2    540422 B  ok
+  P2.3    647024 B  ok
+  P2.4    979465 B  ok
+  TWO VALID FORMS P2.5: this incumbent writes 19712 B, the manifest records 19632 B (delta +80). protobuf C++ writes a map entry's value unconditionally; the canonical form omits an implicit-presence leaf holding the proto zero.
+  P2.5     19712 B  ok
+  P3.1     12097 B  ok
+  P4.1     65321 B  ok
+  P5.1       116 B  ok
+  P5.2     65620 B  ok
+  P5.3   1048660 B  ok
+  P5.4   4194390 B  ok
+  P6.1    123354 B  ok
+  P7.1        98 B  ok (decode only)
+
+-- absent, unknown and malformed vectors --
+  ffi-valtc on malformed UTF-8: encode rc -6, take -6, err -6
+  protobuf C++ on malformed UTF-8: ParseFromString -> false (rejects)
+
+476 checks, 0 failures, 1 payloads with two valid encodings
+>>> ok: conformance_b17_shared
+
+===== conformance_c14_shared =====
+ak_abi_version = 1, AK_ABI_VERSION = 1
+-std=201402  impl=floor  guard=on  decode-policy=reject  linkage=shared
+
+-- group layout (ABI v1 section 10) --
+  380 layout facts, 0 disagreements
+
+-- byte identity against manifest.json, six arms (native, ffi, ffi-zeroed, ffi-nobatch, ffi-hosttc, ffi-valtc) --
+  P1.1       858 B  ok
+  P1.2    218121 B  ok
+  P1.3       605 B  ok
+  P2.1      1037 B  ok
+  P2.2    540422 B  ok
+  P2.3    647024 B  ok
+  P2.4    979465 B  ok
+  TWO VALID FORMS P2.5: this incumbent writes 19712 B, the manifest records 19632 B (delta +80). protobuf C++ writes a map entry's value unconditionally; the canonical form omits an implicit-presence leaf holding the proto zero.
+  P2.5     19712 B  ok
+  P3.1     12097 B  ok
+  P4.1     65321 B  ok
+  P5.1       116 B  ok
+  P5.2     65620 B  ok
+  P5.3   1048660 B  ok
+  P5.4   4194390 B  ok
+  P6.1    123354 B  ok
+  P7.1        98 B  ok (decode only)
+
+-- absent, unknown and malformed vectors --
+  ffi-valtc on malformed UTF-8: encode rc -6, take -6, err -6
+  protobuf C++ on malformed UTF-8: ParseFromString -> false (rejects)
+
+476 checks, 0 failures, 1 payloads with two valid encodings
+>>> ok: conformance_c14_shared
+
+===== conformance_c11_shared =====
+ak_abi_version = 1, AK_ABI_VERSION = 1
+-std=201103  impl=floor  guard=on  decode-policy=reject  linkage=shared
+
+-- group layout (ABI v1 section 10) --
+  380 layout facts, 0 disagreements
+
+-- byte identity against manifest.json, six arms (native, ffi, ffi-zeroed, ffi-nobatch, ffi-hosttc, ffi-valtc) --
+  P1.1       858 B  ok
+  P1.2    218121 B  ok
+  P1.3       605 B  ok
+  P2.1      1037 B  ok
+  P2.2    540422 B  ok
+  P2.3    647024 B  ok
+  P2.4    979465 B  ok
+  TWO VALID FORMS P2.5: this incumbent writes 19712 B, the manifest records 19632 B (delta +80). protobuf C++ writes a map entry's value unconditionally; the canonical form omits an implicit-presence leaf holding the proto zero.
+  P2.5     19712 B  ok
+  P3.1     12097 B  ok
+  P4.1     65321 B  ok
+  P5.1       116 B  ok
+  P5.2     65620 B  ok
+  P5.3   1048660 B  ok
+  P5.4   4194390 B  ok
+  P6.1    123354 B  ok
+  P7.1        98 B  ok (decode only)
+
+-- absent, unknown and malformed vectors --
+  ffi-valtc on malformed UTF-8: encode rc -6, take -6, err -6
+  protobuf C++ on malformed UTF-8: ParseFromString -> false (rejects)
+
+476 checks, 0 failures, 1 payloads with two valid encodings
+>>> ok: conformance_c11_shared
+
+===== conformance_a17_static =====
+ak_abi_version = 1, AK_ABI_VERSION = 1
+-std=201703  impl=target  guard=on  decode-policy=reject  linkage=static
+
+-- group layout (ABI v1 section 10) --
+  380 layout facts, 0 disagreements
+
+-- byte identity against manifest.json, six arms (native, ffi, ffi-zeroed, ffi-nobatch, ffi-hosttc, ffi-valtc) --
+  P1.1       858 B  ok
+  P1.2    218121 B  ok
+  P1.3       605 B  ok
+  P2.1      1037 B  ok
+  P2.2    540422 B  ok
+  P2.3    647024 B  ok
+  P2.4    979465 B  ok
+  TWO VALID FORMS P2.5: this incumbent writes 19712 B, the manifest records 19632 B (delta +80). protobuf C++ writes a map entry's value unconditionally; the canonical form omits an implicit-presence leaf holding the proto zero.
+  P2.5     19712 B  ok
+  P3.1     12097 B  ok
+  P4.1     65321 B  ok
+  P5.1       116 B  ok
+  P5.2     65620 B  ok
+  P5.3   1048660 B  ok
+  P5.4   4194390 B  ok
+  P6.1    123354 B  ok
+  P7.1        98 B  ok (decode only)
+
+-- absent, unknown and malformed vectors --
+  ffi-valtc on malformed UTF-8: encode rc -6, take -6, err -6
+  protobuf C++ on malformed UTF-8: ParseFromString -> false (rejects)
+
+476 checks, 0 failures, 1 payloads with two valid encodings
+>>> ok: conformance_a17_static
+
+===== conformance_a17_noinit: the binding skips ak_init (PLANTED) -- must FAIL =====
+  FAIL  P1.1 ffi encode rc
+  FAIL  P1.1 ffi-zeroed encode rc
+  FAIL  P1.1 ffi-nobatch encode rc
+  FAIL  P1.1 ffi-hosttc encode rc
+  FAIL  P1.1 ffi-valtc encode rc
+476 checks, 205 failures, 1 payloads with two valid encodings
+>>> ok: the planted build failed (exit 1): init-guard is in the core

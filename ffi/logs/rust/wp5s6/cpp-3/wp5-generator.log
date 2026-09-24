@@ -1,0 +1,278 @@
+# cpp slice, WP5 step 2: the generator
+#   date       2026-09-24T18:40:07Z
+#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
+#   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
+#   commit     41eb485
+#   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
+#              for the corpus ABI); no timing is taken by anything in this log
+
+===== gen/generate.py --check (drift, and the one-generator guard) =====
+guard 5 shared C++ backend modules import plans only; slice glue imports no IR; a planted IR import is caught
+ok    include/ak_abi.h
+ok    include/generated/ak_layout.h
+ok    include/generated/ak_layout_names.h
+ok    src/generated/types.h
+ok    src/generated/types.cpp
+ok    src/generated/odr.h
+ok    src/generated/build.h
+ok    src/generated/build.cpp
+ok    src/generated/pb_build.h
+ok    src/generated/pb_build.cpp
+ok    src/generated/core_native.h
+ok    src/generated/core_native.cpp
+ok    src/generated/binding.h
+ok    src/generated/binding.cpp
+ok    src/generated/types_borrow.h
+ok    src/generated/types_borrow.cpp
+ok    src/generated/binding_borrow.h
+ok    src/generated/binding_borrow.cpp
+ok    src/generated/cases.h
+ok    src/generated/project.h
+ok    src/generated/project.cpp
+ok    ../codec/crates/ak-core/src/generated/codec.rs
+ok    ../codec/crates/ak-core/src/generated/layout.rs
+ok    corpus/include/ak_abi.h
+ok    corpus/include/generated/ak_layout.h
+ok    corpus/include/generated/ak_layout_names.h
+ok    corpus/src/generated/types.h
+ok    corpus/src/generated/types.cpp
+ok    corpus/src/generated/core_native.h
+ok    corpus/src/generated/core_native.cpp
+ok    corpus/src/generated/core_native_retain.h
+ok    corpus/src/generated/core_native_retain.cpp
+ok    corpus/src/generated/binding.h
+ok    corpus/src/generated/binding.cpp
+ok    corpus/src/generated/project.h
+ok    corpus/src/generated/project.cpp
+ok    corpus/src/generated/dispatch.cpp
+>>> ok: generate.py --check (exit 0)
+
+===== poc/codec/gen/generate.py --check (the shared core this slice gates) =====
+guard 26 backend modules import plans only; a planted IR import is caught
+      c_abi.py cpp_binding.py cpp_facade.py cpp_layout.py cpp_names.py cpp_native.py cs_binding.py cs_host.py cs_layout_probe.py cs_managed.py cs_names.py cs_types.py java_backend.py java_binding.py java_facade.py java_jni.py java_layout.py java_names.py java_pull.py java_rcodec.py py_capi.py py_pure.py rust_abi.py rust_binding.py rust_native.py rustnames.py
+ok    crates/ak-abi/src/generated/abi.rs
+ok    crates/ak-core/src/generated/codec.rs
+ok    crates/ak-core/src/generated/layout.rs
+ok    crates/ak-core/src/generated/rpc_check.rs
+ok    crates/ak-core/src/generated/abi_check.rs
+ok    crates/ak-abi/src/generated_corpus/abi.rs
+ok    crates/ak-core/src/generated_corpus/codec.rs
+ok    crates/ak-core/src/generated_corpus/layout.rs
+ok    crates/ak-abi/src/lib.rs
+slice rust    --check: exit 0
+slice cpp     --check: exit 0
+slice java    --check: exit 0
+   checked 258 generated files, 0 problem(s)
+slice csharp  --check: exit 0
+slice python  --check: exit 0
+>>> ok: codec generate.py --check (exit 0)
+
+===== refusal_test.py =====
+== guards run against input that MUST be rejected ==
+  [ok]   positive control: the real schema emits              emitted
+  [ok]   D1 cpp_native, plan utf8=lossy (no rendering: must raise) REFUSED: the C++ native backend has no rendering of utf8='lossy' (a U+FFFD substituting decode into std::string); it raises rather than emitting the r
+  [ok]   A1 direct field on a tree that makes a reverse call  REFUSED: ListTasksDetailedResponse declares a direct-argument field (tasks_bulk_blob) and also needs a reverse call for tasks, parent_task_ids, data_d
+  [ok]   A2 two direct fields in one tree                     REFUSED: UploadResultDataMessage declares 2 direct-argument fields (upload_data_chunk, upload_second_chunk). ABI v1 section 8 builds the path for ONE 
+  [ok]   B1 repeated bytes                                    REFUSED: the facade payload builder has no case for ResultRaw.extra_blobs (card=repeated kind=bytes)
+  [ok]   B2 UNPACKED repeated enum                            no plan for ResultRaw.extra_statuses (repeated enum)
+  [ok]   B3 repeated double                                   no plan for ResultRaw.extra_values (repeated double)
+  [ok]   C1 map<string, int32>                                REFUSED: map TaskOptions.counters: a map half that is not an implicit blob (scalar int32)
+  [ok]   B1 repeated bytes, cpp_build alone (must raise)      REFUSED: the facade payload builder has no case for ResultRaw.extra_blobs (card=repeated kind=bytes)
+  [ok]   B1 repeated bytes, cpp_pbbuild alone (must raise)    REFUSED: the protobuf payload builder has no case for ResultRaw.extra_blobs (card=repeated kind=bytes)
+  [ok]   B1 repeated bytes, cpp_binding alone (must emit)     emitted
+  [ok]   B2 UNPACKED repeated enum, cpp_build alone (must raise) no plan for ResultRaw.extra_statuses (repeated enum)
+  [ok]   B2 UNPACKED repeated enum, cpp_pbbuild alone (must raise) no plan for ResultRaw.extra_statuses (repeated enum)
+  [ok]   B2 UNPACKED repeated enum, cpp_binding alone (must raise) no plan for ResultRaw.extra_statuses (repeated enum)
+  [ok]   B3 repeated double, cpp_build alone (must raise)     no plan for ResultRaw.extra_values (repeated double)
+  [ok]   B3 repeated double, cpp_pbbuild alone (must raise)   no plan for ResultRaw.extra_values (repeated double)
+  [ok]   B3 repeated double, cpp_binding alone (must raise)   no plan for ResultRaw.extra_values (repeated double)
+
+refusal_test: 17 passed, 0 failed
+>>> ok: refusal_test.py (exit 0)
+
+===== rd2_guard.sh (ak_client_opts rendered from plan.rpc; two plants refused) =====
+===== pass: ak_abi.h alone, at C++11, C++14, C++17 =====
+  >>> ok: c++11 compiles, sizeof(ak_client_opts) == 24 at run time
+  >>> ok: c++14 compiles, sizeof(ak_client_opts) == 24 at run time
+  >>> ok: c++17 compiles, sizeof(ak_client_opts) == 24 at run time
+
+===== pass: every RPC source against the generated header (C++17) =====
+  >>> ok: src/rpc_common.cpp
+  >>> ok: src/rpcbench.cpp
+  >>> ok: src/rpcflow.cpp
+  >>> ok: src/rpccounts.cpp
+
+===== plant A: the struct loses tcp_nagle (host smaller than core) -- must NOT compile =====
+    /tmp/tmp.JBhyJ6MCks/a/ak_abi.h:1175:42: error: static assertion failed: sizeof ak_client_opts
+     1156 | #define AK_SASSERT(c, m) static_assert(c, m)
+  >>> ok: plant A refused
+
+===== plant B: plan.rpc gains a seventh ak_client_opts field =====
+
+
+  generate.py --check would say: STALE include/ak_abi.h
+  >>> ok: the renderer picked up the new field
+    src/rpc_common.h:100:38: error: static assertion failed: ak_client_opts is 24 bytes (6 x 4)
+    src/rpc_common.h:101:37: error: static assertion failed: ak_client_opts gained a field: set it explicitly in core_opts() below
+  >>> ok: plant B refused by rpc_common.h
+
+rd2_guard: 0 check(s) did not do what they must
+>>> ok: rd2_guard.sh (exit 0)
+
+===== audit_tracked.sh =====
+audit: 0 untracked, ignored or missing files that a figure could depend on
+>>> ok: audit_tracked.sh (exit 0)
+
+===== one_core.sh (R0) =====
+== R0: one core, at poc/codec, reached by path ==
+
+# the ABI's entry points are defined once
+  [ok]   ak_enc_ctx_new: one definition, in codec/crates/ak-core/src/lib.rs
+  [ok]   ak_dec_ctx_new: one definition, in codec/crates/ak-core/src/lib.rs
+  [ok]   ak_tc_utf8: one definition, in codec/crates/ak-core/src/lib.rs
+  [ok]   ak_tc_utf16: one definition, in codec/crates/ak-core/src/lib.rs
+
+# the emitted core exists once
+  [ok]   codec.rs: one copy, at codec/crates/ak-core/src/generated/codec.rs
+  [ok]   layout.rs: one copy, at codec/crates/ak-core/src/generated/layout.rs
+  [ok]   abi.rs: one copy, at codec/crates/ak-abi/src/generated/abi.rs
+
+# one Cargo package per core crate
+  [ok]   ak-abi: one package, at codec/crates/ak-abi
+  [ok]   ak-rt: one package, at codec/crates/ak-rt
+  [ok]   ak-core: one package, at codec/crates/ak-core
+  [ok]   rpc: one package, at codec/crates/rpc
+
+# every path dependency on a core crate resolves to codec/crates/
+  [ok]   codec/crates/ak-core/Cargo.toml: ak-abi -> codec/crates/ak-abi
+  [ok]   codec/crates/ak-core/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   codec/crates/ak-core/Cargo.toml: rpc -> codec/crates/rpc
+  [ok]   csharp/abi/Cargo.toml: ak-abi -> codec/crates/ak-abi
+  [ok]   rust/corpus/crates/facade/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   rust/corpus/crates/harness/Cargo.toml: ak-core -> codec/crates/ak-core
+  [ok]   rust/corpus/crates/harness/Cargo.toml: ak-abi -> codec/crates/ak-abi
+  [ok]   rust/corpus/crates/harness/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   rust/crates/facade/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   rust/crates/harness/Cargo.toml: ak-core -> codec/crates/ak-core
+  [ok]   rust/crates/harness/Cargo.toml: ak-abi -> codec/crates/ak-abi
+  [ok]   rust/crates/harness/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   rust/crates/harness/Cargo.toml: rpc -> codec/crates/rpc
+
+# the emitters are shared too, which was the other half of the same defect
+  [ok]   c_abi.py: one copy, at codec/gen/c_abi.py
+  [ok]   cpp_binding.py: one copy, at codec/gen/cpp_binding.py
+  [ok]   cpp_facade.py: one copy, at codec/gen/cpp_facade.py
+  [ok]   cpp_layout.py: one copy, at codec/gen/cpp_layout.py
+  [ok]   cpp_names.py: one copy, at codec/gen/cpp_names.py
+  [ok]   cpp_native.py: one copy, at codec/gen/cpp_native.py
+  [ok]   cs_binding.py: one copy, at codec/gen/cs_binding.py
+  [ok]   cs_host.py: one copy, at codec/gen/cs_host.py
+  [ok]   cs_layout_probe.py: one copy, at codec/gen/cs_layout_probe.py
+  [ok]   cs_managed.py: one copy, at codec/gen/cs_managed.py
+  [ok]   cs_names.py: one copy, at codec/gen/cs_names.py
+  [ok]   cs_types.py: one copy, at codec/gen/cs_types.py
+  [ok]   ir.py: one copy, at codec/gen/ir.py
+  [ok]   java_backend.py: one copy, at codec/gen/java_backend.py
+  [ok]   java_binding.py: one copy, at codec/gen/java_binding.py
+  [ok]   java_facade.py: one copy, at codec/gen/java_facade.py
+  [ok]   java_jni.py: one copy, at codec/gen/java_jni.py
+  [ok]   java_layout.py: one copy, at codec/gen/java_layout.py
+  [ok]   java_names.py: one copy, at codec/gen/java_names.py
+  [ok]   java_pull.py: one copy, at codec/gen/java_pull.py
+  [ok]   java_rcodec.py: one copy, at codec/gen/java_rcodec.py
+  [ok]   plan.py: one copy, at codec/gen/plan.py
+  [ok]   py_capi.py: one copy, at codec/gen/py_capi.py
+  [ok]   py_pure.py: one copy, at codec/gen/py_pure.py
+  [ok]   rust_abi.py: one copy, at codec/gen/rust_abi.py
+  [ok]   rust_binding.py: one copy, at codec/gen/rust_binding.py
+  [ok]   rust_native.py: one copy, at codec/gen/rust_native.py
+  [ok]   rustnames.py: one copy, at codec/gen/rustnames.py
+
+# no build links a per-slice core library
+  [ok]   every build links libak_core, the shared one
+
+# and what is committed is what the shared emitter writes (R1)
+  [ok]   codec/gen/generate.py --check: 9 files ok
+
+one_core: 0 failure(s)
+>>> ok: one_core.sh (exit 0)
+
+===== one_core.sh --selftest: KNOWN DEFECT in the shared script, reported, not this slice's =====
+  [ok]   planted 'a build linking a per-slice core library' -> the check fails, as R0 says it must
+  [ok]   planted 'a stale shared core (the emitter and the committed file disagree)' -> the check fails, as R0 says it must
+
+one_core --selftest: 0 control(s) did not fire
+  (one_core.sh --selftest exit 0: not counted; reported to the aggregating session)
+== R0: one core, at poc/codec, reached by path ==
+
+# the ABI's entry points are defined once
+  [ok]   ak_enc_ctx_new: one definition, in codec/crates/ak-core/src/lib.rs
+  [ok]   ak_dec_ctx_new: one definition, in codec/crates/ak-core/src/lib.rs
+  [ok]   ak_tc_utf8: one definition, in codec/crates/ak-core/src/lib.rs
+  [ok]   ak_tc_utf16: one definition, in codec/crates/ak-core/src/lib.rs
+
+# the emitted core exists once
+  [ok]   codec.rs: one copy, at codec/crates/ak-core/src/generated/codec.rs
+  [ok]   layout.rs: one copy, at codec/crates/ak-core/src/generated/layout.rs
+  [ok]   abi.rs: one copy, at codec/crates/ak-abi/src/generated/abi.rs
+
+# one Cargo package per core crate
+  [ok]   ak-abi: one package, at codec/crates/ak-abi
+  [ok]   ak-rt: one package, at codec/crates/ak-rt
+  [ok]   ak-core: one package, at codec/crates/ak-core
+  [ok]   rpc: one package, at codec/crates/rpc
+
+# every path dependency on a core crate resolves to codec/crates/
+  [ok]   codec/crates/ak-core/Cargo.toml: ak-abi -> codec/crates/ak-abi
+  [ok]   codec/crates/ak-core/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   codec/crates/ak-core/Cargo.toml: rpc -> codec/crates/rpc
+  [ok]   csharp/abi/Cargo.toml: ak-abi -> codec/crates/ak-abi
+  [ok]   rust/corpus/crates/facade/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   rust/corpus/crates/harness/Cargo.toml: ak-core -> codec/crates/ak-core
+  [ok]   rust/corpus/crates/harness/Cargo.toml: ak-abi -> codec/crates/ak-abi
+  [ok]   rust/corpus/crates/harness/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   rust/crates/facade/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   rust/crates/harness/Cargo.toml: ak-core -> codec/crates/ak-core
+  [ok]   rust/crates/harness/Cargo.toml: ak-abi -> codec/crates/ak-abi
+  [ok]   rust/crates/harness/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   rust/crates/harness/Cargo.toml: rpc -> codec/crates/rpc
+
+# the emitters are shared too, which was the other half of the same defect
+  [ok]   c_abi.py: one copy, at codec/gen/c_abi.py
+  [ok]   cpp_binding.py: one copy, at codec/gen/cpp_binding.py
+  [ok]   cpp_facade.py: one copy, at codec/gen/cpp_facade.py
+  [ok]   cpp_layout.py: one copy, at codec/gen/cpp_layout.py
+  [ok]   cpp_names.py: one copy, at codec/gen/cpp_names.py
+  [ok]   cpp_native.py: one copy, at codec/gen/cpp_native.py
+  [ok]   cs_binding.py: one copy, at codec/gen/cs_binding.py
+  [ok]   cs_host.py: one copy, at codec/gen/cs_host.py
+  [ok]   cs_layout_probe.py: one copy, at codec/gen/cs_layout_probe.py
+  [ok]   cs_managed.py: one copy, at codec/gen/cs_managed.py
+  [ok]   cs_names.py: one copy, at codec/gen/cs_names.py
+  [ok]   cs_types.py: one copy, at codec/gen/cs_types.py
+  [ok]   ir.py: one copy, at codec/gen/ir.py
+  [ok]   java_backend.py: one copy, at codec/gen/java_backend.py
+  [ok]   java_binding.py: one copy, at codec/gen/java_binding.py
+  [ok]   java_facade.py: one copy, at codec/gen/java_facade.py
+  [ok]   java_jni.py: one copy, at codec/gen/java_jni.py
+  [ok]   java_layout.py: one copy, at codec/gen/java_layout.py
+  [ok]   java_names.py: one copy, at codec/gen/java_names.py
+  [ok]   java_pull.py: one copy, at codec/gen/java_pull.py
+  [ok]   java_rcodec.py: one copy, at codec/gen/java_rcodec.py
+  [ok]   plan.py: one copy, at codec/gen/plan.py
+  [ok]   py_capi.py: one copy, at codec/gen/py_capi.py
+  [ok]   py_pure.py: one copy, at codec/gen/py_pure.py
+  [ok]   rust_abi.py: one copy, at codec/gen/rust_abi.py
+  [ok]   rust_binding.py: one copy, at codec/gen/rust_binding.py
+  [ok]   rust_native.py: one copy, at codec/gen/rust_native.py
+  [ok]   rustnames.py: one copy, at codec/gen/rustnames.py
+
+# no build links a per-slice core library
+  [ok]   every build links libak_core, the shared one
+
+# and what is committed is what the shared emitter writes (R1)
+  [ok]   codec/gen/generate.py --check: 9 files ok
+
+one_core: 0 failure(s)
+>>> ok: one_core.sh --root <scratch copy of ffi/poc + ffi/schema + ffi/corpus> (exit 0)
+

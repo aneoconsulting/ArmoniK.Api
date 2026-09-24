@@ -1,0 +1,66 @@
+# WP5 step 6: the probe rows AFTER the rules (field number > 2^29-1 refused; map entries ascending UTF-8; 10th varint byte discards bits beyond 64, unchanged)
+#   core and core-native regenerated from the step-6 plan; driver poc/rust/corpus (--manifest)
+# the conformance corpus, C ABI and core-native, unknown fields dropped and retained
+#   core       ak-core --features corpus,init-guard: the core generated for the corpus's
+#              READER schema by poc/codec/gen (plan.py + rust_abi.py); CONTRACT rule 0
+#   native     core_native / core_native_retain, rendered from the same plans
+#   decode utf8 policy: reject; recursion limit 100
+#   each row in a child process, timeout 10000 ms
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+
+## ffi-drop
+   pass 11  fail 0  disputed (excluded) 0  not in the C ABI 0
+     probe      pass   11  fail   0
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+
+## ffi-retain
+   pass 11  fail 0  disputed (excluded) 0  not in the C ABI 0
+     probe      pass   11  fail   0
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+
+## native-drop
+   pass 11  fail 0  disputed (excluded) 0  not in the C ABI 0
+     probe      pass   11  fail   0
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+
+## native-retain
+   pass 11  fail 0  disputed (excluded) 0  not in the C ABI 0
+     probe      pass   11  fail   0
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on all four arms
+
+## the python slice's generated pure-Python corpus codec, AFTER (gen/probe_pycodec.py)
+pycodec        P-field-2p32plus2            expect reject got reject(-2)         ok
+pycodec        P-field-max                  expect accept got accept             ok
+pycodec        P-field-maxplus1             expect reject got reject(-2)         ok
+pycodec        P-field-maxplus1-in-group    expect reject got reject(-2)         ok
+pycodec        P-map-order-reversed         expect accept got accept             ok
+pycodec        P-map-order-sorted           expect accept got accept             ok
+pycodec        P-varint10-7f                expect accept got accept             ok
+pycodec        P-varint10-bit63             expect accept got accept             ok
+pycodec        P-varint10-bit64             expect accept got accept             ok
+pycodec        P-varint10-int32             expect accept got accept             ok
+pycodec        P-varint10-over-zero         expect accept got accept             ok
+pycodec: 0 wrong
+pycodec_retain P-field-2p32plus2            expect reject got reject(-2)         ok
+pycodec_retain P-field-max                  expect accept got accept             ok
+pycodec_retain P-field-maxplus1             expect reject got reject(-2)         ok
+pycodec_retain P-field-maxplus1-in-group    expect reject got reject(-2)         ok
+pycodec_retain P-map-order-reversed         expect accept got accept             ok
+pycodec_retain P-map-order-sorted           expect accept got accept             ok
+pycodec_retain P-varint10-7f                expect accept got accept             ok
+pycodec_retain P-varint10-bit63             expect accept got accept             ok
+pycodec_retain P-varint10-bit64             expect accept got accept             ok
+pycodec_retain P-varint10-int32             expect accept got accept             ok
+pycodec_retain P-varint10-over-zero         expect accept got accept             ok
+pycodec_retain: 0 wrong

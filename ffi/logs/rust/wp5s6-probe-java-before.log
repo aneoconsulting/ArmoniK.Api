@@ -1,0 +1,60 @@
+# java slice: ffi/corpus against R, R-retain, ffi, ffi-pull, ffi-pull-walk  (FIX-PLAN WP5 step 3)
+# corpus ?, 11 of 11 vectors
+# classes build/cls17   shim /home/user/ArmoniK.Api/ffi/poc/java/build/jnicorpus/libakjni.so
+# java.version=17.0.20.1  timeout_ms=5000  arms=R,R-retain,ffi,ffi-pull,ffi-pull-walk  plant=none  ak.lib=/home/user/ArmoniK.Api/ffi/poc/java/build/jnicorpus/libakjni.so  skipInit=0
+# codec LIMIT=100 utf8=reject  C ABI roots 29 of 30 messages
+# harness exit 0, 55 result lines
+
+################ arm R
+   rows 11: pass 6 (accept 6, refused 0), FAIL 5, disputed (excluded) 0, not in the C ABI 0, timeouts 0
+   C3 forms written: canonical (as upb re-encodes it)=6
+   FAILING rows: 5
+      C4   P-field-2p32plus2                        ACCEPTED a reject vector (accept)
+      C4   P-field-maxplus1                         ACCEPTED a reject vector (accept)
+      C4   P-field-maxplus1-in-group                ACCEPTED a reject vector (accept)
+      C3   P-map-order-reversed                     re-encode 21 B sha 387aa0941bf1 matches no accepted form (21 B)
+      C3   P-map-order-sorted                       re-encode 21 B sha 387aa0941bf1 matches no accepted form (21 B)
+   refusals (error per refused row):
+
+################ arm R-retain
+   rows 11: pass 6 (accept 6, refused 0), FAIL 5, disputed (excluded) 0, not in the C ABI 0, timeouts 0
+   C3 forms written: canonical (as upb re-encodes it)=6
+   FAILING rows: 5
+      C4   P-field-2p32plus2                        ACCEPTED a reject vector (accept)
+      C4   P-field-maxplus1                         ACCEPTED a reject vector (accept)
+      C4   P-field-maxplus1-in-group                ACCEPTED a reject vector (accept)
+      C3   P-map-order-reversed                     re-encode 21 B sha 387aa0941bf1 matches no accepted form (21 B)
+      C3   P-map-order-sorted                       re-encode 21 B sha 387aa0941bf1 matches no accepted form (21 B)
+
+################ arm ffi
+   rows 11: pass 6 (accept 6, refused 0), FAIL 5, disputed (excluded) 0, not in the C ABI 0, timeouts 0
+   C3 forms written: canonical (as upb re-encodes it)=6
+   FAILING rows: 5
+      C4   P-field-2p32plus2                        ACCEPTED a reject vector (accept)
+      C4   P-field-maxplus1                         ACCEPTED a reject vector (accept)
+      C4   P-field-maxplus1-in-group                ACCEPTED a reject vector (accept)
+      C3   P-map-order-reversed                     re-encode 21 B sha 387aa0941bf1 matches no accepted form (21 B)
+      C3   P-map-order-sorted                       re-encode 21 B sha 387aa0941bf1 matches no accepted form (21 B)
+   refusals (error per refused row):
+
+################ arm ffi-pull
+   rows 11: pass 6 (accept 6, refused 0), FAIL 5, disputed (excluded) 0, not in the C ABI 0, timeouts 0
+   C3 forms written: canonical (as upb re-encodes it)=6
+   FAILING rows: 5
+      C4   P-field-2p32plus2                        ACCEPTED a reject vector (accept)
+      C4   P-field-maxplus1                         ACCEPTED a reject vector (accept)
+      C4   P-field-maxplus1-in-group                ACCEPTED a reject vector (accept)
+      C3   P-map-order-reversed                     re-encode 21 B sha 387aa0941bf1 matches no accepted form (21 B)
+      C3   P-map-order-sorted                       re-encode 21 B sha 387aa0941bf1 matches no accepted form (21 B)
+
+################ arm ffi-pull-walk
+   rows 11: pass 6 (accept 6, refused 0), FAIL 5, disputed (excluded) 0, not in the C ABI 0, timeouts 0
+   C3 forms written: canonical (as upb re-encodes it)=6
+   FAILING rows: 5
+      C4   P-field-2p32plus2                        ACCEPTED a reject vector (accept)
+      C4   P-field-maxplus1                         ACCEPTED a reject vector (accept)
+      C4   P-field-maxplus1-in-group                ACCEPTED a reject vector (accept)
+      C3   P-map-order-reversed                     re-encode 21 B sha 387aa0941bf1 matches no accepted form (21 B)
+      C3   P-map-order-sorted                       re-encode 21 B sha 387aa0941bf1 matches no accepted form (21 B)
+
+RESULT: 25 failing arm-rows over 5 arms x 11 rows

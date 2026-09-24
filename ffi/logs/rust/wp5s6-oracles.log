@@ -1,0 +1,32 @@
+# FIX-PLAN WP5 step 6: the corpus oracles on the 10th-varint-byte and field-number-limit inputs (gen/oracle_probe.py)
+#   commit 21a1f7e; WireZoo of ffi/corpus/generated/corpus.proto
+# oracle: protobuf 7.36.2 (upb)
+varint10-bit63         10th byte 0x01: 2^63 set, legal              ACCEPT v_int64: -1
+varint10-bit64         10th byte 0x02: a bit beyond 64              ACCEPT v_int64: 9223372036854775807
+varint10-7f            10th byte 0x7f                               ACCEPT v_int64: -1
+varint10-over-zero     only bits beyond 64 set                      ACCEPT 
+varint10-int32         the same into an int32                       ACCEPT v_int32: -1
+field-max              field 2^29-1: the maximum, known here        ACCEPT v_big_tag: 1
+field-max+1            field 2^29                                   REFUSE DecodeError
+field-2^32+2           aliases field 2 if truncated to 32 bits      REFUSE DecodeError
+field-max+1-in-group   field 2^29 inside a skipped group            REFUSE DecodeError
+# oracle: protobuf 7.36.2 (python)
+varint10-bit63         10th byte 0x01: 2^63 set, legal              ACCEPT v_int64: -1
+varint10-bit64         10th byte 0x02: a bit beyond 64              ACCEPT v_int64: 9223372036854775807
+varint10-7f            10th byte 0x7f                               ACCEPT v_int64: -1
+varint10-over-zero     only bits beyond 64 set                      ACCEPT 
+varint10-int32         the same into an int32                       ACCEPT v_int32: -1
+field-max              field 2^29-1: the maximum, known here        ACCEPT v_big_tag: 1
+field-max+1            field 2^29                                   ACCEPT 
+field-2^32+2           aliases field 2 if truncated to 32 bits      ACCEPT 
+field-max+1-in-group   field 2^29 inside a skipped group            ACCEPT 
+# oracle: protobuf C++ (libprotoc 3.21.12, protoc --decode=armonik.ffi.corpus.v1.WireZoo)
+varint10-bit63         10th byte 0x01: 2^63 set, legal              ACCEPT v_int64: -1
+varint10-bit64         10th byte 0x02: a bit beyond 64              ACCEPT v_int64: 9223372036854775807
+varint10-7f            10th byte 0x7f                               ACCEPT v_int64: -1
+varint10-over-zero     only bits beyond 64 set                      ACCEPT 
+varint10-int32         the same into an int32                       ACCEPT v_int32: -1
+field-max              field 2^29-1: the maximum, known here        ACCEPT v_big_tag: 1
+field-max+1            field 2^29                                   REFUSE Failed to parse input.
+field-2^32+2           aliases field 2 if truncated to 32 bits      REFUSE Failed to parse input.
+field-max+1-in-group   field 2^29 inside a skipped group            REFUSE Failed to parse input.

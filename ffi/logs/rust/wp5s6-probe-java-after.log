@@ -1,0 +1,47 @@
+# java slice: ffi/corpus against R, R-retain, ffi, ffi-pull, ffi-pull-walk, ffi-borrow  (FIX-PLAN WP5 step 3)
+# corpus ?, 11 of 11 vectors
+# classes build/cls17   shim /home/user/ArmoniK.Api/ffi/poc/java/build/jnicorpus/libakjni.so
+# java.version=17.0.20.1  timeout_ms=5000  arms=R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow  plant=none  ak.lib=/home/user/ArmoniK.Api/ffi/poc/java/build/jnicorpus/libakjni.so  skipInit=0
+# codec LIMIT=100 utf8=reject  C ABI roots 29 of 30 messages
+# harness exit 0, 66 result lines
+
+################ arm R
+   rows 11: pass 10 (accept 8, refused 2), FAIL 1, disputed (excluded) 0, not in the C ABI 0, timeouts 0
+   C3 forms written: canonical (as upb re-encodes it)=6, canonical: entries ascending by UTF-8 key=2
+   FAILING rows: 1
+      C4   P-field-maxplus1-in-group                ACCEPTED a reject vector (accept)
+   refusals (error per refused row):
+      P-field-2p32plus2                        Malformed:field number 0 or above 2^29-1
+      P-field-maxplus1                         Malformed:field number 0 or above 2^29-1
+
+################ arm R-retain
+   rows 11: pass 10 (accept 8, refused 2), FAIL 1, disputed (excluded) 0, not in the C ABI 0, timeouts 0
+   C3 forms written: canonical (as upb re-encodes it)=6, canonical: entries ascending by UTF-8 key=2
+   FAILING rows: 1
+      C4   P-field-maxplus1-in-group                ACCEPTED a reject vector (accept)
+
+################ arm ffi
+   rows 11: pass 11 (accept 8, refused 3), FAIL 0, disputed (excluded) 0, not in the C ABI 0, timeouts 0
+   C3 forms written: canonical (as upb re-encodes it)=6, canonical: entries ascending by UTF-8 key=2
+   FAILING rows: 0
+   refusals (error per refused row):
+      P-field-2p32plus2                        IllegalStateException:core returned -2
+      P-field-maxplus1                         IllegalStateException:core returned -2
+      P-field-maxplus1-in-group                IllegalStateException:core returned -2
+
+################ arm ffi-pull
+   rows 11: pass 11 (accept 8, refused 3), FAIL 0, disputed (excluded) 0, not in the C ABI 0, timeouts 0
+   C3 forms written: canonical (as upb re-encodes it)=6, canonical: entries ascending by UTF-8 key=2
+   FAILING rows: 0
+
+################ arm ffi-pull-walk
+   rows 11: pass 11 (accept 8, refused 3), FAIL 0, disputed (excluded) 0, not in the C ABI 0, timeouts 0
+   C3 forms written: canonical (as upb re-encodes it)=6, canonical: entries ascending by UTF-8 key=2
+   FAILING rows: 0
+
+################ arm ffi-borrow
+   rows 11: pass 11 (accept 8, refused 3), FAIL 0, disputed (excluded) 0, not in the C ABI 0, timeouts 0
+   C3 forms written: canonical (as upb re-encodes it)=6, canonical: entries ascending by UTF-8 key=2
+   FAILING rows: 0
+
+RESULT: 2 failing arm-rows over 6 arms x 11 rows

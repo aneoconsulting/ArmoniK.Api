@@ -7,7 +7,7 @@ what a binding should choose (the decision is the owner's).
 
 | | |
 |---|---|
-| **Status** | **FIX-PLAN WP4 items 7, 9, 10 done (Part A) and WP5 step 1 done (Part B), 2026-09-24.** The shared core and the core-native control are now rendered by ONE rule layer (`poc/codec/gen/plan.py`) through Rust backends that render plans only; the full conformance corpus passes through the C ABI and core-native in both unknown-field modes. Stages 1 to 6 before that (four arms, every shape, RPC arm, pull family, concurrency suite, lifecycle) |
+| **Status** | **FIX-PLAN WP5 step 6 (consolidation) done, 2026-09-24**: the fixed ABI (codes, structs, entry points, vtable order, pull numbering, RPC counting) lives in `plan.FIXED` and every backend renders it; one C header backend (`c_abi.py`); the guard covers all 26 backend modules; `poc/codec/gen/generate.py [--check]` regenerates every slice; field-number and map-order rules stated and applied (commits 57b6180, 3cee365, 41eb485). Before that: **FIX-PLAN WP4 items 7, 9, 10 done (Part A) and WP5 step 1 done (Part B).** The shared core and the core-native control are now rendered by ONE rule layer (`poc/codec/gen/plan.py`) through Rust backends that render plans only; the full conformance corpus passes through the C ABI and core-native in both unknown-field modes. Stages 1 to 6 before that (four arms, every shape, RPC arm, pull family, concurrency suite, lifecycle) |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88 declared. **Not verified: no 1.88 toolchain in this container**, stable 1.94.1 only (plus a nightly 1.100, used for ThreadSanitizer and nothing else) |
 | **Target** | the same, one configuration (README section 5) |
@@ -35,12 +35,16 @@ rust_native.py   Rust backend: core-native, one module per unknown-field mode, f
 rust_binding.py  Rust backend: the rust slice's host binding (moved out of rust_abi.py);
                  renders ak_init from plan.lifecycle.
 cpp_layout.py    Rust backend: section 10's layout export, from plan layout functions.
-rust_core.py     RETIRED as an emitter; a legacy adapter (walk_encode/walk_decode/Sites,
-                 plan-ordered) kept only because poc/cpp/gen/cpp_core.py imports it.
-generate.py      ONE command writes everything the core owns, including the corpus-schema
-                 core (generated_corpus/, behind ak-abi/ak-core feature `corpus`).
-                 --check: drift + the one-generator GUARD (a backend importing ir/shapes/
-                 spec/... fails) + the guard's own planted-violation self-test.
+c_abi.py         the ONE C header backend (ak_abi.h, ak_layout.h, ak_layout_names.h) from
+                 plan.FIXED + plans; used by the C++, Java and Python slices. C# renders its
+                 own P/Invoke declarations from plan.FIXED (cs_binding.py).
+rust_core.py     DELETED (WP5 step 6); poc/cpp/gen/cpp_header.py and java_abi.py too.
+generate.py      ONE command writes everything the core owns (incl. the corpus-schema core
+                 and the `plan.fixed` region of ak-abi/src/lib.rs, abi_check.rs), then runs
+                 every slice's generator (rust, cpp, java, csharp, python) with the same
+                 --check flag. --check: drift + the GUARD over every *.py backend module
+                 (26; plan/ir/generate excluded) + its planted-violation self-test.
+                 --core-only skips the slices.
 one_core.sh      R0's mechanical check; allows codec/crates/*/src/generated_corpus/.
 ```
 
@@ -62,6 +66,11 @@ gen/tsan.sh            the concurrency suite under ThreadSanitizer (nightly), wi
                        race that TSan must see
 gen/corpus_before.py   reproduces the pre-WP5 corpus run (logs/rust/wp5-corpus-before.log)
 gen/check_direct.py    ABI v1 section 8's refusals, now asked of plan.py
+gen/oracle_probe.py    WP5 step 6: asks upb, pure-python protobuf and protobuf C++ about the
+                       10th varint byte and field numbers above 2^29-1
+gen/probe_corpus.py    writes those inputs (plus two map-order rows) as a scratch manifest in
+                       the corpus format -- PROPOSED corpus rows, not the corpus
+gen/probe_pycodec.py   runs that manifest against the python slice's generated pure codec
 gen/stage*.sh, pull.sh, concur.sh, lifecycle.sh, contentall.sh, rd1_repro.sh, ...
                        the stage harnesses; their timing sections are instrumentation
 corpus/                a workspace of its own (the core with `corpus`, a different ABI):
@@ -78,6 +87,33 @@ Arms: `prost`, `armonik` (facade + generated prost impl), `core-native` (drop) a
 `ffi-drop`, `ffi-retain`, `native-drop`, `native-retain`.
 
 ## What was checked (results; each with its log)
+
+WP5 step 6 (consolidation), on 41eb485 unless stated:
+
+- **One command** (`logs/rust/wp5s6-generate-check.log`): `poc/codec/gen/generate.py
+  --check` exit 0; guard over 26 backend modules, planted IR import caught; every slice's
+  --check exit 0 (java: 258 generated files, 0 problems).
+- **R0** (`logs/rust/wp5s6-one-core-selftest.log`): one_core 0 failures; the scratch copy now
+  includes ffi/corpus; all five planted controls fail as required.
+- **Oracles** (`logs/rust/wp5s6-oracles.log`): 10th varint byte with bits beyond 64 --
+  upb 7.36.2, pure-python and protobuf C++ 3.21.12 all ACCEPT (discard); the rule stays
+  "discard". Field number 2^29, 2^32+2 and 2^29 inside a group -- upb and C++ refuse,
+  pure-python accepts; the rule is "refuse" (ERR_MALFORMED).
+- **Probe rows, before/after** (not corpus rows; gen/probe_corpus.py): rust core + native
+  12 fails before, 0 after (`wp5s6-probe-before.log`, `wp5s6-probe-after.log`, which also
+  carries the python pure codec: 3 wrong per mode before, 0 after); java before 5 per arm
+  (3 field rows accepted, 2 map rows written in UTF-16 order, `wp5s6-probe-java-before.log`),
+  after: ffi arms 0, R arms 1 (`wp5s6-probe-java-after.log`); cpp after: ffi 0, native 1
+  (`wp5s6-probe-cpp-after.log`); C# after: ffi 0, managed 1 (`wp5s6-probe-csharp-after.log`).
+  The remaining 1 is `P-field-maxplus1-in-group` in a hand-written runtime (D38). No C#
+  before was captured.
+- **Rust gate** (`logs/rust/wp5s6-gate.log`): GATE PASSED, byte identity, corpus ffi 672/0,
+  native 688/0, controls fail.
+- **Other slices' gates** (logs under `logs/rust/wp5s6/`, each slice's own logs restored):
+  java gen/corpus.sh CORPUS GATE PASSED (0 failing arm-rows, target and floor, 4 controls
+  fail) and gen/gate.sh PASS on arms a, b, c; csharp gen/gate.sh GATE PASSED; python
+  ./gate.sh python3.12 build/py37/python3.7 exit 0; cpp gen/wp5_gate.sh 0 steps failed on a rebuilt `build/` at 41eb485 (`cpp-3`;
+  `cpp-2-stale-binaries` ran on binaries older than the C++ backend: D39).
 
 - **Byte identity**: every arm byte-identical to `ffi/schema/generated/manifest.json` on all
   16 payloads, after the plan-driven rewrite (`logs/rust/wp5-gate.log` step 3). The core's
@@ -126,6 +162,12 @@ Arms: `prost`, `armonik` (facade + generated prost impl), `core-native` (drop) a
    a singular -0.0 or a repeated singular message with differing content, so neither change
    is observed. A corpus gap, reported.
 3. **D34 and D35** below are ABI questions, not codec bugs.
+4. **10th varint byte**: the step-6 brief suggested refusing overflow; all three oracles
+   accept it, so the plan keeps "discard" and says so. Decision back to the session.
+5. **Proposed corpus rows**: `P-field-maxplus1`, `P-field-2p32plus2`,
+   `P-field-maxplus1-in-group`, `P-field-max`, `P-varint10-*`, `P-map-order-sorted/-reversed`
+   (gen/probe_corpus.py). The map-order rows are the only inputs found that move bytes
+   (Java, C#).
 
 ## Open defects
 
@@ -133,6 +175,9 @@ Arms: `prost`, `armonik` (facade + generated prost impl), `core-native` (drop) a
 |---|---|---|---|
 | D35 | ABI v1 section 6 | **A recursive message cannot cross the C ABI**: a group inlines its whole singular subtree, so `Nest` has no finite group. `plan.check_expressible` refuses it at generator time by name; the 16 `Nest` rows run on core-native only (depth limit 100, `X-depth-101/300` refused with -4). | open, an ABI decision |
 | D34 | ABI v1 decision 11 candidate | **Retain through the C ABI covers the root and every repeated element, not an inlined singular child, a oneof message member or a map entry**: the decode side has no slot to deliver their unknown runs to (`ak_uspan` carries a token, not a path). 16 corpus rows write the dropped form in `ffi-retain` (accepted by the contract). Core-native retains at every level except map entries. | open, needs an ABI shape |
+| D38 | hand runtimes outside this unit's allowance | the field-number limit inside a skipped group is not in `poc/cpp/include/ak/rt.h`, `poc/java/src/java/ak/Dec.java`, `poc/csharp/src/Facade/Wire.cs`: native/R/managed arms accept `P-field-maxplus1-in-group` | open, owner slices |
+| D39 | other slices' build scripts | a gate can run on stale artifacts: java gen/build.sh reused `core-build/` over a `git archive` snapshot and kept a core without the field check (fixed by `rm -rf core-build`); cpp gen/wp5_gate.sh does not build, and `build/` dated from before the C++ backend | open, owner slices |
+| D40 | poc/csharp CoreTransport.cs | hand-declared RPC counting; the plan's RPC counting surface is not rendered for C# until it is removed | open, csharp slice |
 | D2 | this container | no rustc 1.88, so the declared MSRV is unverified | open, cannot be fixed here |
 
 ### Fixed this session
@@ -175,9 +220,11 @@ log index and `JOURNAL.md`. D20's ABI hazard (an empty buffer's pointer can be s
   exercised on core-native (`Nest`) only.
 - **Group layout export**: both sides of this slice compile against one generated header, so
   section 10's load-time check is untested here.
-- **Other slices' backends**: WP5 steps 2 to 5 (C++, Java, C#, Python) are not ported; their
-  generators still carry their own wire rules. The python generator reports `ak_abi.h` STALE
-  at the base commit already (it renders the cpp slice's header), not caused by this work.
+- **Other slices' runtimes**: the hand-written runtimes (D38) are not generated, so a rule
+  in plan.py reaches them only through their owners. `cs_layout_probe` still parses the Rust
+  declaration's text (intentional, R-E6).
+- **The step-6 rules on the corpus**: no committed corpus row reaches the field-number or
+  map-order rule; the evidence is the probe manifest.
 
 ## Slice-specific notes
 
@@ -192,6 +239,13 @@ log index and `JOURNAL.md`. D20's ABI hazard (an empty buffer's pointer can be s
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/wp5s6-gate.log` | the rust gate on the step-6 final state |
+| `logs/rust/wp5s6-gate-a.log` | the rust gate after the fixed-ABI consolidation (57b6180) |
+| `logs/rust/wp5s6-generate-check.log` | one command, every slice, --check; the 26-module guard |
+| `logs/rust/wp5s6-one-core-selftest.log` | R0 and its planted controls |
+| `logs/rust/wp5s6-oracles.log` | three oracles on the 10th byte and field-number limit |
+| `logs/rust/wp5s6-probe-*.log` | probe rows before/after, rust, python, java, cpp, csharp |
+| `logs/rust/wp5s6/{cpp-1,cpp-2-stale-binaries,cpp-3,java,csharp,python}/` | other slices' gates run for step 6 |
 | `logs/rust/wp5-gate.log` | the full correctness gate after WP5 step 1 (all steps, corpus included) |
 | `logs/rust/wp5-corpus.log` | the corpus, four arms, and the four controls |
 | `logs/rust/wp5-corpus-before.log` | the corpus against the pre-WP5 generator: the rule fixes' before |

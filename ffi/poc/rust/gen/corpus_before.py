@@ -18,7 +18,11 @@ W = os.path.abspath(sys.argv[1])
 sys.path.insert(0, W + "/rust/gen")
 sys.path.insert(0, W + "/codec/gen")
 import ir as IR
+# `rust_core` is imported from the WORKTREE at c10e934 (W, first on sys.path), where it was
+# still the core-native emitter; this repository deleted it in WP5 step 6. The assertion
+# makes sure the old module, not some other one, is what runs.
 import rust_abi, rust_core, rust_facade, rust_project
+assert os.path.abspath(rust_core.__file__).startswith(W), "rust_core must come from the c10e934 worktree"
 schema = IR.corpus_schema()
 names = [n for n in schema["messages"] if n not in ("WireZoo", "Nest")]
 ir = IR.Ir(schema, names)

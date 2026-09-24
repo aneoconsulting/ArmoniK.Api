@@ -1,0 +1,1275 @@
+[  0%] cargo build the shared ak-core --features count
+[  0%] cargo build the shared ak-core --features pad-widths (a planted core)
+[  1%] Built target shapes_pb
+[  1%] cargo build the shared ak-core (cdylib + staticlib)
+   Compiling ak-abi v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-abi)
+    Blocking waiting for file lock on package cache
+   Compiling ak-rt v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-rt)
+[  1%] cargo build the shared ak-core --features global-widths (a planted core)
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling ak-rt v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-rt)
+   Compiling ak-abi v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-abi)
+    Blocking waiting for file lock on package cache
+   Compiling ak-rt v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-rt)
+   Compiling ak-abi v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-abi)
+   Compiling ak-rt v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-rt)
+   Compiling ak-abi v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-abi)
+warning: unused variable: `sites`
+  --> crates/ak-rt/src/enc.rs:61:16
+   |
+61 |     pub fn new(sites: usize) -> Self {
+   |                ^^^^^ help: if this is intentional, prefix it with an underscore: `_sites`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling ak-core v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core)
+   Compiling ak-core v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core)
+warning: `ak-rt` (lib) generated 1 warning (run `cargo fix --lib -p ak-rt` to apply 1 suggestion)
+   Compiling ak-core v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core)
+   Compiling ak-core v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core)
+warning: function `enc_list_results_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:903:11
+    |
+903 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:925:11
+    |
+925 | unsafe fn enc_list_results_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:948:11
+    |
+948 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:971:11
+    |
+971 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:995:11
+    |
+995 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1016:11
+     |
+1016 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1038:11
+     |
+1038 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1058:11
+     |
+1058 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1079:11
+     |
+1079 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1100:11
+     |
+1100 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1122:11
+     |
+1122 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1140:11
+     |
+1140 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1160:11
+     |
+1160 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1189:11
+     |
+1189 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2425:11
+     |
+2425 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2804:11
+     |
+2804 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_results_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:903:11
+    |
+903 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:925:11
+    |
+925 | unsafe fn enc_list_results_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:948:11
+    |
+948 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:971:11
+    |
+971 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:995:11
+    |
+995 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1016:11
+     |
+1016 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1038:11
+     |
+1038 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1058:11
+     |
+1058 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1079:11
+     |
+1079 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1100:11
+     |
+1100 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1122:11
+     |
+1122 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1140:11
+     |
+1140 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1160:11
+     |
+1160 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1189:11
+     |
+1189 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2425:11
+     |
+2425 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2804:11
+     |
+2804 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_results_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:903:11
+    |
+903 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:925:11
+    |
+925 | unsafe fn enc_list_results_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:948:11
+    |
+948 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:971:11
+    |
+971 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:995:11
+    |
+995 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1016:11
+     |
+1016 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1038:11
+     |
+1038 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1058:11
+     |
+1058 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1079:11
+     |
+1079 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1100:11
+     |
+1100 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1122:11
+     |
+1122 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1140:11
+     |
+1140 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1160:11
+     |
+1160 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1189:11
+     |
+1189 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2425:11
+     |
+2425 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2804:11
+     |
+2804 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_results_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:903:11
+    |
+903 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:925:11
+    |
+925 | unsafe fn enc_list_results_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:948:11
+    |
+948 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:971:11
+    |
+971 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:995:11
+    |
+995 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1016:11
+     |
+1016 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1038:11
+     |
+1038 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1058:11
+     |
+1058 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1079:11
+     |
+1079 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1100:11
+     |
+1100 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1122:11
+     |
+1122 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1140:11
+     |
+1140 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1160:11
+     |
+1160 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1189:11
+     |
+1189 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2425:11
+     |
+2425 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2804:11
+     |
+2804 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: `ak-core` (lib) generated 16 warnings
+    Finished `release` profile [optimized] target(s) in 10.34s
+[  1%] Built target core_count
+[  1%] cargo build the shared ak-core --features pad-widths,global-widths (a planted core)
+   Compiling ak-abi v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-abi)
+   Compiling ak-rt v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-rt)
+warning: unused variable: `sites`
+  --> crates/ak-rt/src/enc.rs:61:16
+   |
+61 |     pub fn new(sites: usize) -> Self {
+   |                ^^^^^ help: if this is intentional, prefix it with an underscore: `_sites`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ak-rt` (lib) generated 1 warning (run `cargo fix --lib -p ak-rt` to apply 1 suggestion)
+   Compiling ak-core v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core)
+warning: `ak-core` (lib) generated 16 warnings
+    Finished `release` profile [optimized] target(s) in 10.72s
+[  1%] Built target core_global
+warning: `ak-core` (lib) generated 16 warnings
+    Finished `release` profile [optimized] target(s) in 10.78s
+[  1%] Built target core_pad
+[  2%] Built target fusion_probe
+[  2%] Built target groupskip_a17
+[  3%] Built target groupskip_b17
+[  4%] Built target groupskip_c14
+[  4%] Built target groupskip_c11
+[  4%] Built target groupskip_plant_depth
+[  5%] Built target groupskip_plant_i32
+[  5%] cargo build the shared ak-core --features rpc
+[  6%] cargo build the shared ak-core --features corpus,init-guard (corpus reader ABI)
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling ak-rt v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-rt)
+   Compiling ak-abi v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-abi)
+   Compiling ak-abi v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-abi)
+   Compiling ak-rt v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-rt)
+warning: `ak-core` (lib) generated 16 warnings
+    Finished `release` profile [optimized] target(s) in 11.06s
+[  6%] Built target core
+   Compiling ak-core v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core)
+[  7%] cargo build the shared ak-core --features rpc,count
+   Compiling ak-core v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core)
+   Compiling ak-abi v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-abi)
+   Compiling ak-rt v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-rt)
+   Compiling ak-core v0.0.0 (/home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core)
+warning: function `enc_list_results_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:903:11
+    |
+903 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:925:11
+    |
+925 | unsafe fn enc_list_results_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:948:11
+    |
+948 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:971:11
+    |
+971 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:995:11
+    |
+995 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1016:11
+     |
+1016 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1038:11
+     |
+1038 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1058:11
+     |
+1058 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1079:11
+     |
+1079 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1100:11
+     |
+1100 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1122:11
+     |
+1122 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1140:11
+     |
+1140 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1160:11
+     |
+1160 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1189:11
+     |
+1189 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2425:11
+     |
+2425 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2804:11
+     |
+2804 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_results_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:903:11
+    |
+903 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:925:11
+    |
+925 | unsafe fn enc_list_results_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:948:11
+    |
+948 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:971:11
+    |
+971 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:995:11
+    |
+995 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1016:11
+     |
+1016 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1038:11
+     |
+1038 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1058:11
+     |
+1058 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1079:11
+     |
+1079 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1100:11
+     |
+1100 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1122:11
+     |
+1122 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1140:11
+     |
+1140 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1160:11
+     |
+1160 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1189:11
+     |
+1189 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2425:11
+     |
+2425 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2804:11
+     |
+2804 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_results_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:903:11
+    |
+903 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:925:11
+    |
+925 | unsafe fn enc_list_results_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:948:11
+    |
+948 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:971:11
+    |
+971 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:995:11
+    |
+995 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1016:11
+     |
+1016 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1038:11
+     |
+1038 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1058:11
+     |
+1058 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1079:11
+     |
+1079 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1100:11
+     |
+1100 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1122:11
+     |
+1122 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1140:11
+     |
+1140 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1160:11
+     |
+1160 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1189:11
+     |
+1189 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2425:11
+     |
+2425 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2804:11
+     |
+2804 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: function `enc_duration_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus/codec.rs:102:11
+    |
+102 | unsafe fn enc_duration_group(g: &ak_efix_Duration, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_duration_ugroup` is never used
+   --> crates/ak-core/src/generated/../generated_corpus/codec.rs:109:11
+    |
+109 | unsafe fn enc_duration_ugroup(g: &ak_ufix_Duration, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_task_options_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus/codec.rs:196:11
+    |
+196 | unsafe fn enc_task_options_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_task_options_ugroup` is never used
+   --> crates/ak-core/src/generated/../generated_corpus/codec.rs:242:11
+    |
+242 | unsafe fn enc_task_options_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_task_output_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus/codec.rs:290:11
+    |
+290 | unsafe fn enc_task_output_group(g: &ak_efix_TaskOutput, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_task_output_ugroup` is never used
+   --> crates/ak-core/src/generated/../generated_corpus/codec.rs:299:11
+    |
+299 | unsafe fn enc_task_output_ugroup(g: &ak_ufix_TaskOutput, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus/codec.rs:939:11
+    |
+939 | unsafe fn enc_upload_result_data_group(g: &ak_efix_UploadResultData, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_ugroup` is never used
+   --> crates/ak-core/src/generated/../generated_corpus/codec.rs:953:11
+    |
+953 | unsafe fn enc_upload_result_data_ugroup(g: &ak_ufix_UploadResultData, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_results_response_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1106:11
+     |
+1106 | unsafe fn enc_list_results_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_results_response_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1128:11
+     |
+1128 | unsafe fn enc_list_results_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1151:11
+     |
+1151 | unsafe fn enc_list_tasks_detailed_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1174:11
+     |
+1174 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1198:11
+     |
+1198 | unsafe fn enc_list_task_summary_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1219:11
+     |
+1219 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1241:11
+     |
+1241 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1261:11
+     |
+1261 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1282:11
+     |
+1282 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1303:11
+     |
+1303 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1325:11
+     |
+1325 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1343:11
+     |
+1343 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1363:11
+     |
+1363 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1392:11
+     |
+1392 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_chunk_inner_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1441:11
+     |
+1441 | unsafe fn enc_chunk_inner_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_chunk_inner_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1470:11
+     |
+1470 | unsafe fn enc_chunk_inner_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_chunked_response_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1610:11
+     |
+1610 | unsafe fn enc_chunked_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_chunked_response_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1632:11
+     |
+1632 | unsafe fn enc_chunked_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_chunked_response_wide_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1655:11
+     |
+1655 | unsafe fn enc_chunked_response_wide_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_chunked_response_wide_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1676:11
+     |
+1676 | unsafe fn enc_chunked_response_wide_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_leaf_response_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1730:11
+     |
+1730 | unsafe fn enc_leaf_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_leaf_response_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1750:11
+     |
+1750 | unsafe fn enc_leaf_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_surrogate_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1771:11
+     |
+1771 | unsafe fn enc_surrogate_group(
+     |           ^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_surrogate_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1813:11
+     |
+1813 | unsafe fn enc_surrogate_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_surrogate_inner_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1857:11
+     |
+1857 | unsafe fn enc_surrogate_inner_group(g: &ak_efix_SurrogateInner, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_surrogate_inner_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1865:11
+     |
+1865 | unsafe fn enc_surrogate_inner_ugroup(g: &ak_ufix_SurrogateInner, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_wire_zoo_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1874:11
+     |
+1874 | unsafe fn enc_wire_zoo_group(g: &ak_efix_WireZoo, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_wire_zoo_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1898:11
+     |
+1898 | unsafe fn enc_wire_zoo_ugroup(g: &ak_ufix_WireZoo, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:5836:11
+     |
+5836 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:6339:11
+     |
+6339 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: `ak-core` (lib) generated 16 warnings
+    Finished `release` profile [optimized] target(s) in 15.36s
+[  7%] Built target core_both
+warning: `ak-core` (lib) generated 16 warnings
+    Finished `release` profile [optimized] target(s) in 14.87s
+[  7%] Built target core_rpc
+[  8%] Built target odrcheck
+[  8%] Building CXX object CMakeFiles/conformance_a17_shared.dir/src/conformance.cpp.o
+[  9%] Building CXX object CMakeFiles/conformance_c11_shared.dir/src/conformance.cpp.o
+warning: `ak-core` (lib) generated 16 warnings
+    Finished `release` profile [optimized] target(s) in 15.36s
+[  9%] Built target core_rpc_count
+[  9%] Building CXX object CMakeFiles/conformance_a17_shared.dir/src/generated/core_native.cpp.o
+[  9%] Building CXX object CMakeFiles/conformance_c11_shared.dir/src/generated/core_native.cpp.o
+[  9%] Building CXX object CMakeFiles/conformance_c14_shared.dir/src/conformance.cpp.o
+[ 10%] Building CXX object CMakeFiles/conformance_a17_shared.dir/src/generated/binding.cpp.o
+[ 10%] Building CXX object CMakeFiles/conformance_c11_shared.dir/src/generated/binding.cpp.o
+[ 10%] Building CXX object CMakeFiles/conformance_c14_shared.dir/src/generated/core_native.cpp.o
+[ 10%] Building CXX object CMakeFiles/conformance_a17_shared.dir/src/generated/binding_borrow.cpp.o
+[ 10%] Linking CXX executable conformance_a17_shared
+[ 11%] Built target conformance_a17_shared
+[ 12%] Building CXX object CMakeFiles/conformance_c11_shared.dir/src/generated/binding_borrow.cpp.o
+[ 13%] Building CXX object CMakeFiles/conformance_c14_shared.dir/src/generated/binding.cpp.o
+[ 13%] Building CXX object CMakeFiles/conformance_b17_shared.dir/src/conformance.cpp.o
+warning: `ak-core` (lib) generated 38 warnings
+    Finished `release` profile [optimized] target(s) in 27.96s
+[ 13%] Built target core_corpus
+[ 14%] Building CXX object CMakeFiles/conformance_a17_static.dir/src/conformance.cpp.o
+[ 14%] Linking CXX executable conformance_c11_shared
+[ 15%] Built target conformance_c11_shared
+[ 15%] Building CXX object CMakeFiles/conformance_b17_shared.dir/src/generated/core_native.cpp.o
+[ 15%] Building CXX object CMakeFiles/conformance_c14_shared.dir/src/generated/binding_borrow.cpp.o
+[ 15%] Building CXX object CMakeFiles/conformance_a17_static.dir/src/generated/core_native.cpp.o
+[ 16%] Building CXX object CMakeFiles/conformance_a17_noinit.dir/src/conformance.cpp.o
+[ 17%] Building CXX object CMakeFiles/conformance_b17_shared.dir/src/generated/binding.cpp.o
+[ 17%] Linking CXX executable conformance_c14_shared
+[ 18%] Built target conformance_c14_shared
+[ 18%] Building CXX object CMakeFiles/conformance_a17_static.dir/src/generated/binding.cpp.o
+[ 18%] Building CXX object CMakeFiles/conformance_b17_shared.dir/src/generated/binding_borrow.cpp.o
+[ 18%] Building CXX object CMakeFiles/conformance_a17_noinit.dir/src/generated/core_native.cpp.o
+[ 19%] Building CXX object CMakeFiles/bench_a17_shared.dir/src/bench.cpp.o
+[ 20%] Building CXX object CMakeFiles/conformance_a17_static.dir/src/generated/binding_borrow.cpp.o
+[ 20%] Linking CXX executable conformance_b17_shared
+[ 21%] Built target conformance_b17_shared
+[ 21%] Building CXX object CMakeFiles/conformance_a17_noinit.dir/src/generated/binding.cpp.o
+[ 22%] Building CXX object CMakeFiles/bench_a17_static.dir/src/bench.cpp.o
+[ 22%] Linking CXX executable conformance_a17_static
+[ 23%] Built target conformance_a17_static
+[ 23%] Building CXX object CMakeFiles/bench_a17_shared.dir/src/generated/core_native.cpp.o
+[ 24%] Building CXX object CMakeFiles/conformance_a17_noinit.dir/src/generated/binding_borrow.cpp.o
+[ 24%] Building CXX object CMakeFiles/bench_a17_static.dir/src/generated/core_native.cpp.o
+[ 24%] Linking CXX executable conformance_a17_noinit
+[ 25%] Built target conformance_a17_noinit
+[ 25%] Building CXX object CMakeFiles/bench_a17_shared.dir/src/generated/binding.cpp.o
+[ 25%] Building CXX object CMakeFiles/bench_a17_static.dir/src/generated/binding.cpp.o
+[ 26%] Building CXX object CMakeFiles/bench_b17_shared.dir/src/bench.cpp.o
+[ 26%] Building CXX object CMakeFiles/bench_c11_shared.dir/src/bench.cpp.o
+[ 26%] Building CXX object CMakeFiles/bench_a17_shared.dir/src/generated/binding_borrow.cpp.o
+[ 26%] Building CXX object CMakeFiles/bench_a17_static.dir/src/generated/binding_borrow.cpp.o
+[ 26%] Linking CXX executable bench_a17_shared
+[ 28%] Built target bench_a17_shared
+[ 28%] Building CXX object CMakeFiles/bench_b17_shared.dir/src/generated/core_native.cpp.o
+[ 28%] Linking CXX executable bench_a17_static
+[ 30%] Built target bench_a17_static
+[ 31%] Building CXX object CMakeFiles/bench_c11_shared.dir/src/generated/core_native.cpp.o
+[ 31%] Building CXX object CMakeFiles/bench_c11_shared.dir/src/generated/binding.cpp.o
+[ 31%] Building CXX object CMakeFiles/bench_b17_shared.dir/src/generated/binding.cpp.o
+[ 32%] Building CXX object CMakeFiles/bench_c14_shared.dir/src/bench.cpp.o
+[ 33%] Building CXX object CMakeFiles/bench_b17_shared.dir/src/generated/binding_borrow.cpp.o
+[ 33%] Building CXX object CMakeFiles/bench_c11_shared.dir/src/generated/binding_borrow.cpp.o
+[ 33%] Building CXX object CMakeFiles/bench_a17_noguard.dir/src/bench.cpp.o
+[ 33%] Linking CXX executable bench_b17_shared
+[ 34%] Built target bench_b17_shared
+[ 34%] Building CXX object CMakeFiles/bench_c14_shared.dir/src/generated/core_native.cpp.o
+[ 34%] Linking CXX executable bench_c11_shared
+[ 35%] Built target bench_c11_shared
+[ 36%] Building CXX object CMakeFiles/bench_a17_noguard.dir/src/generated/core_native.cpp.o
+[ 36%] Building CXX object CMakeFiles/bench_a17_scalarv.dir/src/bench.cpp.o
+[ 36%] Building CXX object CMakeFiles/bench_c14_shared.dir/src/generated/binding.cpp.o
+[ 37%] Building CXX object CMakeFiles/bench_a17_perturb.dir/src/bench.cpp.o
+[ 38%] Building CXX object CMakeFiles/bench_c14_shared.dir/src/generated/binding_borrow.cpp.o
+[ 38%] Building CXX object CMakeFiles/bench_a17_noguard.dir/src/generated/binding.cpp.o
+[ 38%] Linking CXX executable bench_c14_shared
+[ 39%] Built target bench_c14_shared
+[ 39%] Building CXX object CMakeFiles/bench_a17_noguard.dir/src/generated/binding_borrow.cpp.o
+[ 40%] Building CXX object CMakeFiles/bench_a17_scalarv.dir/src/generated/core_native.cpp.o
+[ 40%] Building CXX object CMakeFiles/bench_a17_tax.dir/src/bench.cpp.o
+[ 40%] Building CXX object CMakeFiles/bench_a17_perturb.dir/src/generated/core_native.cpp.o
+[ 40%] Linking CXX executable bench_a17_noguard
+[ 41%] Built target bench_a17_noguard
+[ 41%] Building CXX object CMakeFiles/bench_a17_scalarv.dir/src/generated/binding.cpp.o
+[ 41%] Building CXX object CMakeFiles/conc_a17_shared.dir/src/concurrency.cpp.o
+[ 41%] Building CXX object CMakeFiles/bench_a17_perturb.dir/src/generated/binding.cpp.o
+[ 41%] Building CXX object CMakeFiles/bench_a17_scalarv.dir/src/generated/binding_borrow.cpp.o
+[ 42%] Building CXX object CMakeFiles/conc_a17_shared.dir/src/generated/core_native.cpp.o
+[ 42%] Building CXX object CMakeFiles/bench_a17_perturb.dir/src/generated/binding_borrow.cpp.o
+[ 43%] Building CXX object CMakeFiles/bench_a17_tax.dir/src/generated/core_native.cpp.o
+[ 43%] Linking CXX executable bench_a17_scalarv
+[ 43%] Building CXX object CMakeFiles/conc_a17_shared.dir/src/generated/binding.cpp.o
+[ 44%] Built target bench_a17_scalarv
+[ 44%] Building CXX object CMakeFiles/bench_a17_tax.dir/src/generated/binding.cpp.o
+[ 44%] Linking CXX executable bench_a17_perturb
+[ 46%] Built target bench_a17_perturb
+[ 46%] Building CXX object CMakeFiles/conc_a17_shared.dir/src/generated/binding_borrow.cpp.o
+[ 46%] Building CXX object CMakeFiles/conc_c11_shared.dir/src/concurrency.cpp.o
+[ 46%] Building CXX object CMakeFiles/bench_a17_tax.dir/src/generated/binding_borrow.cpp.o
+[ 46%] Building CXX object CMakeFiles/conc_c11_shared.dir/src/generated/core_native.cpp.o
+[ 46%] Linking CXX executable conc_a17_shared
+[ 47%] Built target conc_a17_shared
+[ 48%] Building CXX object CMakeFiles/conc_c11_shared.dir/src/generated/binding.cpp.o
+[ 49%] Building CXX object CMakeFiles/conc_a17_static.dir/src/concurrency.cpp.o
+[ 49%] Linking CXX executable bench_a17_tax
+[ 50%] Building CXX object CMakeFiles/conc_a17_pad.dir/src/concurrency.cpp.o
+[ 51%] Built target bench_a17_tax
+[ 51%] Building CXX object CMakeFiles/conc_a17_static.dir/src/generated/core_native.cpp.o
+[ 51%] Building CXX object CMakeFiles/conc_c11_shared.dir/src/generated/binding_borrow.cpp.o
+[ 51%] Building CXX object CMakeFiles/conc_a17_pad.dir/src/generated/core_native.cpp.o
+[ 51%] Building CXX object CMakeFiles/conc_a17_global.dir/src/concurrency.cpp.o
+[ 51%] Building CXX object CMakeFiles/conc_a17_static.dir/src/generated/binding.cpp.o
+[ 51%] Linking CXX executable conc_c11_shared
+[ 52%] Built target conc_c11_shared
+[ 52%] Building CXX object CMakeFiles/conc_a17_pad.dir/src/generated/binding.cpp.o
+[ 53%] Building CXX object CMakeFiles/conc_a17_global.dir/src/generated/core_native.cpp.o
+[ 53%] Building CXX object CMakeFiles/conc_a17_both.dir/src/concurrency.cpp.o
+[ 54%] Building CXX object CMakeFiles/conc_a17_static.dir/src/generated/binding_borrow.cpp.o
+[ 55%] Building CXX object CMakeFiles/conc_a17_both.dir/src/generated/core_native.cpp.o
+[ 55%] Building CXX object CMakeFiles/conc_a17_global.dir/src/generated/binding.cpp.o
+[ 56%] Building CXX object CMakeFiles/conc_a17_pad.dir/src/generated/binding_borrow.cpp.o
+[ 56%] Linking CXX executable conc_a17_static
+[ 57%] Built target conc_a17_static
+[ 57%] Building CXX object CMakeFiles/conc_a17_both.dir/src/generated/binding.cpp.o
+[ 57%] Building CXX object CMakeFiles/conc_a17_global.dir/src/generated/binding_borrow.cpp.o
+[ 57%] Linking CXX executable conc_a17_pad
+[ 58%] Building CXX object CMakeFiles/conc_a17_corepad.dir/src/concurrency.cpp.o
+[ 59%] Built target conc_a17_pad
+[ 59%] Building CXX object CMakeFiles/conc_a17_both.dir/src/generated/binding_borrow.cpp.o
+[ 59%] Building CXX object CMakeFiles/conc_a17_corepad.dir/src/generated/core_native.cpp.o
+[ 59%] Building CXX object CMakeFiles/bench_a17_gateplant.dir/src/bench.cpp.o
+[ 59%] Linking CXX executable conc_a17_global
+[ 60%] Built target conc_a17_global
+[ 60%] Building CXX object CMakeFiles/conc_a17_corepad.dir/src/generated/binding.cpp.o
+[ 60%] Linking CXX executable conc_a17_both
+[ 61%] Built target conc_a17_both
+[ 62%] Building CXX object CMakeFiles/conc_a17_corepad.dir/src/generated/binding_borrow.cpp.o
+[ 62%] Building CXX object CMakeFiles/bench_a17_gateplant.dir/src/generated/core_native.cpp.o
+[ 63%] Building CXX object CMakeFiles/contentsets_a17.dir/src/contentsets.cpp.o
+[ 63%] Linking CXX executable conc_a17_corepad
+[ 64%] Built target conc_a17_corepad
+[ 64%] Building CXX object CMakeFiles/bench_a17_gateplant.dir/src/generated/binding.cpp.o
+[ 64%] Building CXX object CMakeFiles/contentsets_a17.dir/src/generated/core_native.cpp.o
+[ 64%] Building CXX object CMakeFiles/corpus_all_a17.dir/corpus/src/corpus_main.cpp.o
+[ 64%] Building CXX object CMakeFiles/contentsets_a17.dir/src/generated/binding.cpp.o
+[ 64%] Building CXX object CMakeFiles/corpus_all_a17.dir/corpus/src/generated/dispatch.cpp.o
+[ 64%] Building CXX object CMakeFiles/bench_a17_gateplant.dir/src/generated/binding_borrow.cpp.o
+[ 65%] Building CXX object CMakeFiles/contentsets_a17.dir/src/generated/binding_borrow.cpp.o
+[ 66%] Building CXX object CMakeFiles/corpus_all_a17.dir/corpus/src/generated/core_native.cpp.o
+[ 66%] Building CXX object CMakeFiles/corpus_all_a17.dir/corpus/src/generated/core_native_retain.cpp.o
+[ 66%] Linking CXX executable bench_a17_gateplant
+[ 68%] Built target bench_a17_gateplant
+[ 68%] Building CXX object CMakeFiles/corpus_all_a17.dir/corpus/src/generated/binding.cpp.o
+[ 68%] Linking CXX executable contentsets_a17
+[ 69%] Built target contentsets_a17
+[ 69%] Building CXX object CMakeFiles/corpus_all_c11.dir/corpus/src/corpus_main.cpp.o
+[ 69%] Building CXX object CMakeFiles/corpus_all_c11.dir/corpus/src/generated/dispatch.cpp.o
+[ 69%] Building CXX object CMakeFiles/corpus_all_c14.dir/corpus/src/corpus_main.cpp.o
+[ 70%] Building CXX object CMakeFiles/corpus_all_c11.dir/corpus/src/generated/core_native.cpp.o
+[ 70%] Building CXX object CMakeFiles/corpus_all_c14.dir/corpus/src/generated/dispatch.cpp.o
+[ 70%] Building CXX object CMakeFiles/corpus_all_a17_static.dir/corpus/src/corpus_main.cpp.o
+[ 70%] Building CXX object CMakeFiles/corpus_all_a17_static.dir/corpus/src/generated/dispatch.cpp.o
+[ 71%] Building CXX object CMakeFiles/corpus_all_c14.dir/corpus/src/generated/core_native.cpp.o
+[ 71%] Building CXX object CMakeFiles/corpus_all_c11.dir/corpus/src/generated/core_native_retain.cpp.o
+[ 72%] Building CXX object CMakeFiles/corpus_all_a17_static.dir/corpus/src/generated/core_native.cpp.o
+[ 72%] Building CXX object CMakeFiles/corpus_all_c14.dir/corpus/src/generated/core_native_retain.cpp.o
+[ 73%] Linking CXX executable corpus_all_a17
+[ 73%] Built target corpus_all_a17
+[ 73%] Building CXX object CMakeFiles/corpus_all_c11.dir/corpus/src/generated/binding.cpp.o
+[ 73%] Building CXX object CMakeFiles/corpus_all_a17_static.dir/corpus/src/generated/core_native_retain.cpp.o
+[ 73%] Building CXX object CMakeFiles/corpus_all_c14.dir/corpus/src/generated/binding.cpp.o
+[ 73%] Building CXX object CMakeFiles/corpus_all_noinit.dir/corpus/src/corpus_main.cpp.o
+[ 73%] Building CXX object CMakeFiles/corpus_all_noinit.dir/corpus/src/generated/dispatch.cpp.o
+[ 73%] Building CXX object CMakeFiles/corpus_all_a17_static.dir/corpus/src/generated/binding.cpp.o
+[ 73%] Building CXX object CMakeFiles/corpus_all_noinit.dir/corpus/src/generated/core_native.cpp.o
+[ 73%] Linking CXX executable corpus_all_c11
+[ 74%] Built target corpus_all_c11
+[ 74%] Building CXX object CMakeFiles/corpus_all_noinit.dir/corpus/src/generated/core_native_retain.cpp.o
+[ 74%] Building CXX object CMakeFiles/utf8check_a17.dir/src/utf8check.cpp.o
+[ 74%] Linking CXX executable corpus_all_c14
+[ 75%] Built target corpus_all_c14
+[ 75%] Building CXX object CMakeFiles/corpus_all_noinit.dir/corpus/src/generated/binding.cpp.o
+[ 75%] Building CXX object CMakeFiles/utf8check_a17.dir/src/generated/core_native.cpp.o
+[ 75%] Building CXX object CMakeFiles/utf8check_c11.dir/src/utf8check.cpp.o
+[ 75%] Linking CXX executable corpus_all_a17_static
+[ 76%] Built target corpus_all_a17_static
+[ 76%] Building CXX object CMakeFiles/utf8check_a17.dir/src/generated/binding.cpp.o
+[ 77%] Building CXX object CMakeFiles/utf8check_c11.dir/src/generated/core_native.cpp.o
+[ 77%] Building CXX object CMakeFiles/counts_a17_shared.dir/src/counts.cpp.o
+[ 77%] Building CXX object CMakeFiles/counts_a17_shared.dir/src/generated/core_native.cpp.o
+[ 77%] Building CXX object CMakeFiles/utf8check_a17.dir/src/generated/binding_borrow.cpp.o
+[ 77%] Building CXX object CMakeFiles/utf8check_c11.dir/src/generated/binding.cpp.o
+[ 78%] Building CXX object CMakeFiles/counts_a17_shared.dir/src/generated/binding.cpp.o
+[ 78%] Linking CXX executable corpus_all_noinit
+[ 80%] Built target corpus_all_noinit
+[ 80%] Building CXX object CMakeFiles/utf8check_c11.dir/src/generated/binding_borrow.cpp.o
+[ 80%] Linking CXX executable utf8check_a17
+[ 82%] Built target utf8check_a17
+[ 82%] Building CXX object CMakeFiles/counts_a17_shared.dir/src/generated/binding_borrow.cpp.o
+[ 83%] Building CXX object CMakeFiles/counts_a17_static.dir/src/counts.cpp.o
+[ 83%] Building CXX object CMakeFiles/counts_a17_static.dir/src/generated/core_native.cpp.o
+[ 83%] Building CXX object CMakeFiles/counts_a17_static_lto.dir/src/counts.cpp.o
+[ 84%] Linking CXX executable utf8check_c11
+[ 85%] Built target utf8check_c11
+[ 85%] Building CXX object CMakeFiles/counts_a17_static.dir/src/generated/binding.cpp.o
+[ 85%] Linking CXX executable counts_a17_shared
+[ 85%] Building CXX object CMakeFiles/counts_a17_static_lto.dir/src/generated/core_native.cpp.o
+[ 86%] Built target counts_a17_shared
+[ 87%] Building CXX object CMakeFiles/counts_a17_static_lto.dir/src/generated/binding.cpp.o
+[ 88%] Building CXX object CMakeFiles/counts_a17_static.dir/src/generated/binding_borrow.cpp.o
+[ 88%] Building CXX object CMakeFiles/counts_a17_static_lto.dir/src/generated/binding_borrow.cpp.o
+[ 88%] Building CXX object CMakeFiles/bench_a17_shared_lto.dir/src/bench.cpp.o
+[ 88%] Linking CXX executable counts_a17_static_lto
+lto-wrapper: warning: using serial compilation of 3 LTRANS jobs
+lto-wrapper: note: see the '-flto' option documentation for more information
+[ 88%] Building CXX object CMakeFiles/rpcbench.dir/src/rpcbench.cpp.o
+[ 88%] Linking CXX executable counts_a17_static
+[ 89%] Built target counts_a17_static
+[ 90%] Building CXX object CMakeFiles/bench_a17_shared_lto.dir/src/generated/core_native.cpp.o
+[ 90%] Building CXX object CMakeFiles/rpcbench.dir/src/rpc_common.cpp.o
+[ 90%] Building CXX object CMakeFiles/bench_a17_shared_lto.dir/src/generated/binding.cpp.o
+[ 90%] Building CXX object CMakeFiles/bench_a17_shared_lto.dir/src/generated/binding_borrow.cpp.o
+[ 91%] Building CXX object CMakeFiles/rpcflow.dir/src/rpcflow.cpp.o
+[ 91%] Building CXX object CMakeFiles/rpcbench.dir/src/generated/binding.cpp.o
+[ 91%] Linking CXX executable bench_a17_shared_lto
+[ 92%] Built target counts_a17_static_lto
+[ 92%] Building CXX object CMakeFiles/rpcflow.dir/src/rpc_common.cpp.o
+lto-wrapper: warning: using serial compilation of 7 LTRANS jobs
+lto-wrapper: note: see the '-flto' option documentation for more information
+/home/user/ArmoniK.Api/ffi/poc/cpp/src/rpcflow.cpp: In function 'int main(int, char**)':
+/home/user/ArmoniK.Api/ffi/poc/cpp/src/rpcflow.cpp:219:20: warning: '%s' directive output may be truncated writing up to 4095 bytes into a region of size 965 [-Wformat-truncation=]
+  219 |                   "%s child %d %d 2>&1", self, i, port);
+      |                    ^~                    ~~~~
+/home/user/ArmoniK.Api/ffi/poc/cpp/src/rpcflow.cpp:218:19: note: directive argument in the range [0, 8]
+  218 |                   "GRPC_VERBOSITY=DEBUG GRPC_TRACE=http,flowctl,bdp_estimator "
+      |                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  219 |                   "%s child %d %d 2>&1", self, i, port);
+      |                   ~~~~~~~~~~~~~~~~~~~~~
+/home/user/ArmoniK.Api/ffi/poc/cpp/src/rpcflow.cpp:218:19: note: directive argument in the range [50200, 50208]
+In file included from /usr/include/stdio.h:980,
+                 from /usr/include/c++/13/cstdio:42,
+                 from /usr/include/c++/13/ext/string_conversions.h:45,
+                 from /usr/include/c++/13/bits/basic_string.h:4109,
+                 from /usr/include/c++/13/string:54,
+                 from /usr/include/grpcpp/support/config.h:22,
+                 from /usr/include/grpcpp/impl/codegen/config.h:25,
+                 from /usr/include/grpcpp/impl/codegen/core_codegen_interface.h:28,
+                 from /usr/include/grpcpp/completion_queue.h:39,
+                 from /usr/include/grpcpp/channel.h:25,
+                 from /usr/include/grpcpp/grpcpp.h:52,
+                 from /home/user/ArmoniK.Api/ffi/poc/cpp/src/rpc_common.h:14,
+                 from /home/user/ArmoniK.Api/ffi/poc/cpp/src/rpcflow.cpp:28:
+In function 'int snprintf(char*, size_t, const char*, ...)',
+    inlined from 'int main(int, char**)' at /home/user/ArmoniK.Api/ffi/poc/cpp/src/rpcflow.cpp:217:18:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:35: note: '__builtin___snprintf_chk' output between 79 and 4174 bytes into a destination of size 1024
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+[ 92%] Building CXX object CMakeFiles/rpccounts.dir/src/rpccounts.cpp.o
+[ 93%] Building CXX object CMakeFiles/rpcflow.dir/src/generated/binding.cpp.o
+[ 93%] Linking CXX executable rpcbench
+[ 95%] Built target rpcbench
+[ 95%] Building CXX object CMakeFiles/rpccounts.dir/src/rpc_common.cpp.o
+[ 95%] Building CXX object CMakeFiles/rpccounts.dir/src/generated/binding.cpp.o
+[ 95%] Linking CXX executable rpcflow
+[ 96%] Built target rpcflow
+[ 96%] Linking CXX executable rpccounts
+[ 99%] Built target rpccounts
+[100%] Built target bench_a17_shared_lto
+exit 0
