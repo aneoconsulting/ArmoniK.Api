@@ -353,7 +353,7 @@ I own `ffi/corpus/**` and nothing else, so these are requests, not edits.
    discusses. If that is wanted, the manifest rows change in one place
    (`produce`) and `emit/vectors.py` in one line.
 6. **CI.** `ffi/corpus/run.sh --check` is the gate and nothing runs it yet. It
-   needs `pip install protobuf grpcio-tools` and about a minute and a half. ABI v1
+   needs `pip install protobuf grpcio-tools` and a few minutes. ABI v1
    section 12.1 calls the corpus a release gate, so this is the step that makes
    that sentence true.
 7. **`U-map-entry` wants a resolution, and the corpus cannot supply one.** The
@@ -380,9 +380,9 @@ I own `ffi/corpus/**` and nothing else, so these are requests, not edits.
 
 Run `./run.sh` first. It regenerates, validates against three runtimes,
 self-tests the guards and clones the branch to a different path to prove the tree
-rebuilds itself. It takes about 90 seconds, most of it `protoc` started once per
-vector (about 45 seconds for the build alone since the extension). If it
-passes, the corpus is in the state this file describes. The runtimes it was
+rebuilds itself. It takes a few minutes since the extension, most of it `protoc`
+started once per vector, three times over (build, `--check`, the clone's
+`--check`). If it passes, the corpus is in the state this file describes. The runtimes it was
 validated with are protobuf 7.36.2 and grpcio-tools 1.84.0 (libprotoc 35.1); a
 different version changes the oracle names in the manifest and `--check` then
 reports drift.

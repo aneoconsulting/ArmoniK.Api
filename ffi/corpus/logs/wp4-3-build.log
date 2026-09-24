@@ -1,0 +1,23 @@
+# 2026-09-24T09:02:42Z python3 emit/build.py (regenerate and validate against three oracles)
+Python 3.11.15
+grpcio-tools      1.84.0
+protobuf          7.36.2
+runtime      protobuf 7.36.2 (upb backend)
+protoc       libprotoc 35.1
+baseline     8
+chunking     8
+empty        30
+malformed    112
+shape        163
+transcode    53
+unknown      317
+total        691
+must_fail_seen_failing 143
+disputed     3
+agreed       688
+coverage     24 shapes, no gaps
+oracle       protobuf 7.36.2 (upb backend)
+oracle       protobuf 7.36.2 (pure-python backend)
+oracle       protobuf C++ via libprotoc 35.1 (protoc --decode)
+disputed     U-map-entry, X-tag-zero-Empty, X-tag-zero-nested-Empty
+exit=0
