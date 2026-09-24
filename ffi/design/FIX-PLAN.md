@@ -33,8 +33,18 @@ turns into rules:
    acceptable because those features change neither feasibility nor the cost of
    the binding. Findings that attack the transport for missing features are
    closed by this, not fixed.
-4. **The Python floor stays 3.7.** The Python *target* for the campaign is an
-   open decision (section 6, D1).
+4. **Language levels are fixed** (section 6 records them): Python floor 3.7,
+   target the CPython of Ubuntu 26.04; C# floors net6.0 and .NET Framework 4.8,
+   target net8.0; Java floor 8, target 17.
+5. **There is one generator implementation.** Every generated codec and binding,
+   in every language, comes out of the same generator with the wire rules
+   written once. Per-language backends render syntax; they do not decide wire
+   behaviour. This is the premise of the maintenance case, so the PoC has to
+   demonstrate it rather than approximate it (WP5).
+6. **Unknown-field retention is undecided, so it is measured**: the generator
+   and the core carry both behaviours (drop, retain) and the campaign times both.
+7. **There are no statistics on real payloads.** The payload set is not
+   weighted by traffic and the report says so.
 
 ## 1. Rules the implementer follows
 
@@ -52,7 +62,7 @@ turns into rules:
 - **Remove, do not correct.** A container figure that is wrong is deleted, not
   replaced by a better container figure, because the replacement is equally not
   a result.
-- **One work package per commit**, prefixes as `CLAUDE.md` says (`docs(ffi):`,
+- **Never two work packages in one commit** (a package may take several), prefixes as `CLAUDE.md` says (`docs(ffi):`,
   `poc(<lang>):`). Slice agents do not push; the aggregating session pushes to
   the working branch.
 - **Every closed finding gets one line** in section 7: `fixed <commit>`,
@@ -60,8 +70,19 @@ turns into rules:
 
 ## 2. Work packages, in order
 
-WP1 and WP2 are documents and can start immediately. WP3 needs WP1 (so the new
-rules are in force). WP4 and WP5 can run in parallel with WP3. WP6 closes.
+Order of execution (the numbering is kept for reference, the order is not
+numeric):
+
+1. **WP1, WP2**: documents. Start immediately; nothing depends on code.
+2. **WP4 items 1 to 3**: correctness defects that can crash a host or invalidate
+   a log. Fix them in the current code so the existing gates can be re-run.
+3. **WP5**: the one generator. It replaces most of the generated code every
+   harness calls, so harness work before it would be done twice.
+4. **WP4 remaining items**: most of them land in the generator's single rule set
+   and are done as part of WP5; the rest follow.
+5. **WP3**: the campaign specification (can be written in parallel with WP5),
+   then each slice conforms its harness to it on the generated code.
+6. **WP6**: STATE hygiene and re-review.
 
 ### WP1. Rewrite the plan to the owner's position (aggregating session)
 
@@ -91,15 +112,20 @@ Files: `README.md`, `CLAUDE.md`, `REPORT.md`, `.claude/agents/ffi-slice.md`,
      Add Python to question 3 (floors). Add a question for W12 (below).
    - W9's done-when: "`REPORT.md` records the evidence per option and what it does
      not establish" instead of "states a recommendation".
-3. **Extend the roles table in `CLAUDE.md`**: no role writes a recommendation,
+3. **Add the one-generator invariant to `CLAUDE.md`** beside R0 ("one core, not
+   one emitter"): every generated codec and binding comes from
+   `poc/codec/gen/`, wire rules are written once in its plan layer, and a wire
+   rule in a slice `gen/` is a defect in the same way a second copy of the core
+   is. The reference encoders are the stated exception (WP5 item 5).
+4. **Extend the roles table in `CLAUDE.md`**: no role writes a recommendation,
    the aggregating session included. Add to `ffi-slice.md`: a `STATE.md` states
    what exists and what was checked, never what a binding "should" choose.
-4. **Reclassify facts.** Add to `CLAUDE.md` invariants a list of what counts as
+5. **Reclassify facts.** Add to `CLAUDE.md` invariants a list of what counts as
    a result in this phase: byte identity; crossing *counts*; floor builds and
    corpus passes; feasibility (it builds, it links, it round-trips); defects
    found. Timings are "harness validated" or "harness defect found" and nothing
    else.
-5. **New work items in `README.md` section 7:**
+6. **New work items in `README.md` section 7:**
    - **W11. Campaign specification**: `design/CAMPAIGN.md`, the contract every
      slice harness meets before the campaign. Content in WP3.
    - **W12. Divergence inventory**: a factual table of where the five packages
@@ -110,10 +136,11 @@ Files: `README.md`, `CLAUDE.md`, `REPORT.md`, `.claude/agents/ffi-slice.md`,
      no judgement. This is the only work item on the maintenance side of the
      question, which today has none (review P1).
    - **W13. Campaign run**: executes W11 on the physical machine. Owner-driven.
-6. **Close the section 15 open questions that are answered**: 1 (moot, nothing to
+7. **Close the section 15 open questions that are answered**: 1 (moot, nothing to
    import), 3 (C++11 and C++14 both viable per `findings/cpp.md`); record 4 as
-   "floor 3.7, target open (D1)".
-7. **Correct `README.md` section 7 cells that contradict the slices**: W5 says the
+   "floor 3.7, target the CPython of Ubuntu 26.04". Record 6 (Java packaging)
+   as still open. Record the owner's levels (section 6) in README section 5.
+8. **Correct `README.md` section 7 cells that contradict the slices**: W5 says the
    C# core-ffi arm is not built (it is, stage 14); W7 says Python M3 to M7, RPC and
    concurrency are not built (they are).
 
@@ -190,8 +217,8 @@ all of them and a smoke run on its container shows it executes.
    process launches; per-round values are committed, not only medians. [R-C4,
    R-C7]
 7. Two request directions: an empty request with the P2.2 response (today's
-   grid), and a P2.2-sized request that the server decodes. Plus one streamed
-   upload in 2 MiB chunks, which is ArmoniK's bulk path. [R-C8]
+   grid), and a P2.2-sized request that the server decodes. A streamed upload
+   in 2 MiB chunks, ArmoniK's bulk path, is optional (item 22). [R-C8]
 8. Concurrency levels 1, 8, 16 in flight, with CPU per call **and** wall clock
    per call both reported, because they can disagree (queue delivery).
 
@@ -222,17 +249,39 @@ all of them and a smoke run on its container shows it executes.
     `packages/<lang>` configures) and **pinned** (4 MiB windows, stated), and B/C
     follow the same switch as A/D. [R-C13]
 
-**Runtimes** (decisions D1 to D3 fill the blanks)
-17. C#: floor netstandard2.0 on real .NET Framework 4.8, target `<D2>`.
-    Google.Protobuf 3.32.0, Grpc.Net.Client 2.71.0 (the versions in
-    `packages/csharp`).
-18. Java: floor Java 8, target `<D3>`. grpc-java 1.74.0 as in
-    `packages/java/pom.xml`.
-19. Python: floor 3.7 (correctness only), target `<D1>`. protobuf and grpcio at
-    versions inside `packages/python/pyproject.toml`'s ranges, stated.
+**Runtimes** (fixed by the owner, section 6)
+17. C#: floors **net6.0** and **.NET Framework 4.8**, target **net8.0**.
+    Floors are correctness gates only (corpus and byte identity), target is where
+    the clock runs. Google.Protobuf 3.32.0, Grpc.Net.Client 2.71.0 (the versions
+    in `packages/csharp`). Two consequences the implementer must handle:
+    - .NET Framework 4.8 runs only on Windows, so the net48 gate needs a Windows
+      machine or runner. Mono 6.8, which the slice used, is not .NET Framework
+      and does not count as the gate.
+    - The generated `LibraryImport` binding needs .NET 7 or later, so the net6.0
+      floor needs a `DllImport` rendering from the same generator, selected by
+      target level (`CLAUDE.md` invariant: one generator with a target level).
+18. Java: floor **8** (correctness), target **17** (JNI, as the slice already
+    uses). grpc-java 1.74.0 as in `packages/java/pom.xml`.
+19. Python: floor **3.7** (correctness), target **the CPython of Ubuntu 26.04
+    LTS, which is 3.14.3** (section 4). protobuf and grpcio at versions inside
+    `packages/python/pyproject.toml`'s ranges that publish wheels for 3.14,
+    stated in the log. The 3.7 gate runs on an interpreter installed for the
+    purpose (Ubuntu 26.04 does not package 3.7), with the newest protobuf and
+    grpcio releases that still support 3.7, stated.
 20. C++: floor C++11, target C++17. grpc++ at the version ArmoniK builds
     (`v1.54.0` in `packages/cpp/tools/Dockerfile.worker`) and at a current one,
     both stated.
+
+**Unknown fields** (owner position 6)
+21. Every host times decode, and decode followed by re-encode, on the corpus's
+    unknown-field payloads, with the core and the generated codecs in both
+    modes, **drop** and **retain**, and the incumbent in its default mode (stated).
+    Byte identity of a retain-mode round trip is part of the gate.
+
+**Streaming** (optional, scheduled last)
+22. The streamed upload of item 7 is optional. It is built only after items 1 to
+    21 hold in every slice, and only if client streaming in the core is a small
+    addition. Otherwise the report lists bulk transfer as not measured.
 
 Then each slice agent conforms its harness and commits a smoke log. Per-slice
 deltas from today, as the review found them:
@@ -262,40 +311,97 @@ In priority order. Items 1 to 3 may invalidate existing data or crash a host.
 | 9 | **Rust concurrency coverage**: `concur.rs` `together()` uses only P1.3 and P2.5 (absent-path); add P1.2 and P2.2; run under ThreadSanitizer if the toolchain allows. [R-D8] | rust | Log |
 | 10 | Minor: C# `ak_bytes_free` on non-OK status (`src/Rpc/CoreTransport.cs`); JNI `GetPrimitiveArrayCritical` null check (`native/generated/shim.c` encode path); `from_raw_parts(null, 0)` in `tc_utf8*` (`poc/codec/.../lib.rs`); `u32` truncation of spans for buffers over 4 GiB (reject at entry); `opts_word` XOR collision; Rust `lifecycle.sh`/`guardprice.sh` no longer build a guard-OFF arm because `init-guard` became default. [R-D9] | each owner | Per item |
 
-### WP5. Generator consistency (aggregating session for `poc/codec/gen`, slices for their `gen/`)
+### WP5. One generator implementation (aggregating session owns the design and the shared part; slice agents port their backends)
 
-The maintenance argument rests on "one generator". The review counted seven
-independent traversal emitters with their own wire rules. This is a fact to
-record (WP1 W12's sibling), and the following are defects to fix:
+Owner position 5 makes this a requirement, not a clean-up. What exists today
+(counted 2026-09-24, Python lines excluding generated output):
 
-1. **`poc/codec/gen/rust_core.py`** says the ABI core and the core-native control
-   share one traversal through `GroupEnc`/`FixDec`, which do not exist
-   (*verified*: `rust_abi.py` imports only `Sites` from it). Either make it true
-   or correct the docstring and the generated header comment, and record in
-   `README.md` that `ffi - native` differences in Rust and C++ include traversal
-   differences, not only the boundary. [R-E1]
-2. **Wire-type check on packed/unpacked decode**: `rust_abi.py` accepts wire 0 or
-   1 for every kind; `rust_core.py` and `cpp_core.py` accept any; C# and Java
-   match exactly. Make all emitters match the declared wire type and skip
-   otherwise. [R-E2]
-3. **`codec/gen/ir.py` has no `fixed32`**, so the core generator cannot load the
-   corpus schema, and the corpus release gate (ABI v1 section 12.1) never reaches
-   the core's encoder. Add it. [R-E3]
-4. **`-0.0`**: `rust_abi.py`, `rust_core.py`, `cpp_core.py` drop it (`!= 0.0`).
-   Compare bits, as C# does. [R-E3]
-5. **Java arm R** (`poc/java/gen/java_codec.py`): run the corpus; fix tag 0,
-   unconditional map key, `-0.0`, merge semantics for repeated singular
-   messages, unknown oneof case. [R-E4]
-6. **Python `py_codec.py`**: wire-type check on known fields, int32/int64 sign on
-   decode, tag 0; extend `walk.ROOTS` so the corpus reaches `WireZoo` and `Nest`.
-   [R-E5]
-7. **C# `abi_ir.py`**: sort by tag like the core, and make the layout probe
-   check field lists, not only sizes. [R-E6]
-8. **UTF-8 decode policy** differs per runtime (C# managed lossy by default,
-   others reject). Make it one generator option with one default, stated. [R-E7]
-9. **Field order**: emitters that write oneofs after plain fields match
-   protobuf's tag order only because `Probe`'s oneof tags are last. Emit in tag
-   order. [R-E8]
+| Where | Lines | What it decides on its own |
+|---|---|---|
+| `poc/codec/gen/` (`ir.py`, `rust_abi.py`, `rust_core.py`, `cpp_layout.py`) | 3,915 | the core's wire rules (`rust_abi.py` walks), a second set for the core-native control (`rust_core.py`) |
+| `poc/cpp/gen/` | 4,107 | `cpp_core.py` native codec rules; binding |
+| `poc/csharp/gen/` | 5,429 | a second IR (`ir.py`, `abi_ir.py`) re-deriving the ABI layout; `cs_managed.py` wire rules |
+| `poc/java/gen/` | 3,727 | `java_codec.py` wire rules (arm R) |
+| `poc/python/gen/` | 2,988 | `py_codec.py` wire rules over its own `walk.py` rather than the IR |
+| `poc/rust/gen/` | 1,014 | `rust_facade.py`, including an emitted prost impl for the incumbent arm |
+
+The review counted seven independent traversal emitters and found rule
+divergences between them (R-E1 to R-E8): wire-type acceptance, tag 0, `-0.0`,
+map-key default, merge semantics, int sign on decode, UTF-8 policy, field order.
+Every one of those is a symptom of the rules being written more than once.
+
+**Target architecture.** One package, `poc/codec/gen/`, is the only generator.
+Slice `gen/` directories keep only build and harness glue (project files, arm
+lists, payload dumpers), never a wire rule, an IR or a layout derivation.
+
+1. **One front end.** `schema/emit/shapes.py` loads `shapes.json`;
+   `poc/codec/gen/ir.py` is the only IR. Retire `poc/csharp/gen/ir.py`,
+   `abi_ir.py` and `poc/python/gen/walk.py`. The IR must also load the corpus
+   schema (`fixed32` and every wire type the corpus uses, R-E3).
+2. **One rule layer: a lowering from IR to language-neutral plans.** A new module
+   (suggested `poc/codec/gen/plan.py`) turns each message into:
+   - an **encode plan**: the ordered field writes in tag order (R-E8), presence
+     test per field (bit comparison for floats, so `-0.0` survives, R-E3), map
+     entries with the key always written (R-E4), packed runs, submessages with
+     the learned-width length strategy, oneof dispatch with a refusal for an
+     unknown case (R-E4), unknown-field re-emission in retain mode;
+   - a **decode plan**: a dispatch on (field number, wire type) where a known
+     field at the wrong wire type is skipped, identically for every kind (R-E2);
+     tag 0 rejected (R-E4, R-E5); packed and unpacked both accepted; merge
+     semantics for repeated singular and oneof messages (R-E4); sign extension
+     for int32/int64 (R-E5); group skip; recursion limit; UTF-8 policy as a
+     generator option with one default (R-E7); unknown fields dropped or retained
+     as a generator option (owner position 6);
+   - the **ABI layout** (`ak_efix_*`, `ak_dfix_*`, presence bits, loop slots), from
+     which every language's struct declaration is rendered, so no binding
+     hand-declares or re-derives one (R-D2, R-E6).
+   The rules in this layer are the ones every backend obeys. A backend that
+   needs a rule the plan does not express adds it to the plan, not to itself.
+3. **Backends render plans, nothing else.** One backend per target text:
+   - Rust: the core's codec behind the C ABI **and** the core-native control,
+     from the same plan, so their difference is the boundary only (R-E1);
+   - C++: the native control, the binding and the ABI header;
+   - C#: the managed codec and the binding (`LibraryImport` at net8.0,
+     `DllImport` at net6.0 and net48, one backend with a target level);
+   - Java: the managed codec (arm R) and the JNI binding, Java 8 and 17 trees
+     from one backend with a level (as today);
+   - Python: the pure-Python codec and the C shim, with a 3.7 floor level
+     (R-D4) and the 3.14 target level.
+   A backend may choose how to express a plan step idiomatically (a Java
+   `switch`, a Rust `match`), and may choose buffer strategies native to its
+   runtime, but it may not add, drop or reorder a wire decision.
+4. **Incumbent arms are not generated.** The incumbent is what ArmoniK ships
+   (R14), built by that ecosystem's own tool (protoc, prost-build, Grpc.Tools).
+   `poc/rust/gen/rust_facade.py`'s emitted prost impl is checked against
+   prost-build output; if it differs, the incumbent arm uses prost-build.
+5. **Oracles stay independent, on purpose.** `schema/emit/payloads.py` and
+   `corpus/emit/encode.py` are reference encoders, validated against upb and
+   protobuf. They must **not** be ported onto the generator: an oracle that
+   shares the implementation under test cannot catch its defects. This is the
+   one exception to "one generator", and it is stated as such in `README.md`.
+6. **Migration order**, each step gated by the corpus and byte identity before
+   the next starts:
+   1. `plan.py` plus the Rust backend for the core and core-native. Regenerate;
+      the core's output must stay byte-identical on the payload set, and the
+      corpus (with WP4 item 2's new vectors) must pass. Differences are
+      rule fixes and are listed in the commit.
+   2. C++ backend. 3. Java backend. 4. C# backend (retires its IR).
+   5. Python backend (retires `walk.py`).
+   Each slice agent ports its own backend onto the shared plan; the plan layer
+   itself changes only through the aggregating session (`CLAUDE.md`: changes to
+   existing core behaviour).
+7. **Guard against regression to per-language rules.** A check in
+   `poc/codec/gen/generate.py --check` that fails if a backend module imports
+   anything from the schema other than the plan (backends take plans, not IR
+   messages), and a corpus run over every generated codec in every language as
+   part of each slice's gate.
+
+Done when: `poc/codec/gen/generate.py` (one command) emits every generated file
+of every slice; `--check` finds no drift; no slice `gen/` directory contains a
+wire rule, an IR or a layout derivation; every generated codec in every language
+passes the full corpus, in both unknown-field modes; the Rust `ffi` and
+`core-native` arms are rendered from the same plan. The count of independent
+traversal emitters, recorded as a fact in `README.md`, goes from seven to one.
 
 ### WP6. STATE hygiene and re-review
 
@@ -318,12 +424,12 @@ nothing that blocks the campaign.
 ## 3. What this plan deliberately does not do
 
 - It does not re-take any timing in a container.
-- It does not add TLS, retry, metadata, deadlines or streaming to the core's
-  transport (owner position 3). The streamed-upload cell in W11 item 7 needs
-  client streaming in the core; if that is more than a small addition, the
-  implementer records it as a gap and asks the owner rather than building a
-  streaming engine.
-- It does not choose between options. It does not define "material".
+- It does not add TLS, retry, metadata or deadlines to the core's transport
+  (owner position 3). Client streaming is added only for the optional
+  streamed-upload cell (W11 item 22), and only if it is small; otherwise the
+  implementer records the gap and asks the owner.
+- It does not choose between options. It does not define "material". It does
+  not decide unknown-field retention; it makes both behaviours measurable.
 - It does not change anything under `packages/`.
 
 ## 4. Facts gathered while writing this plan
@@ -347,17 +453,25 @@ External facts:
   2028-11-14. Source: Microsoft, ".NET and .NET Core Support Policy",
   https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core
   (retrieved 2026-09-24).
+- Ubuntu 26.04 LTS ("resolute") ships `python3` 3.14.3 (package
+  `3.14.3-0ubuntu2`). Source: https://packages.ubuntu.com/resolute/python3
+  (retrieved 2026-09-24). It does not package 3.7.
+- grpcio 1.84.0, the latest release on PyPI on 2026-09-24, declares Python 3.14
+  support in its classifiers (https://pypi.org/pypi/grpcio/json). Whether wheels
+  exist for every pair of versions used must be checked when pinning.
 - CPython end-of-life dates could not be retrieved from this environment
-  (python.org and peps.python.org are blocked by the network policy). Check them
-  at https://devguide.python.org/versions/ before deciding D1.
+  (python.org and peps.python.org are blocked by the network policy); they are
+  not needed now that the target is fixed.
 
-Two facts that bear on the design constraints and are not in `README.md`:
-- **`packages/java` targets Java 17, not Java 8.** The README's Java 8 floor is a
-  customer constraint stated by the base design, not what the package builds
-  today. Record both; the owner decides whether the floor stands.
+Facts that bear on the design constraints and are not in `README.md`:
+- **`packages/java` builds with `release` 17.** The Java 8 floor is the owner's
+  constraint for the binding, not what the package builds today. Both are
+  recorded.
 - **The C# worker targets net6.0, which is out of support**, and the slice
   measured .NET 8. The generated `LibraryImport` binding needs .NET 7 or later,
-  so it does not build for net6.0 as it stands.
+  so the net6.0 floor needs a `DllImport` rendering (WP3 item 17).
+- **.NET Framework 4.8 is Windows-only**; the slice's net48 evidence was taken on
+  Mono 6.8.
 
 ## 5. Effort, roughly
 
@@ -367,31 +481,23 @@ Two facts that bear on the design constraints and are not in `README.md`:
 | WP3 spec | aggregating session | half a session |
 | WP3 harnesses | five slice agents in parallel | one session each; C++ and Java the largest |
 | WP4 | core + four slices + corpus | items 1 to 4 in one session; the rest opportunistic |
-| WP5 | aggregating session + java + python + csharp | one session; items 1 to 4 are the core generator |
+| WP5 | aggregating session (plan layer, Rust backend), then each slice agent (its backend) | the largest package: about 20,000 lines of generator today across eight places; one session for the plan layer and Rust backend, then one per language backend, sequential because each is gated before the next |
 | WP6 | slices, then review agents | half a session each |
 
-## 6. Decisions the owner must make (the plan does not make them)
+## 6. Owner decisions (recorded 2026-09-24)
 
-- **D1. Python target for the campaign.** Facts: the package declares `>=3.7`
-  and pins no runtime; the Python slice's container runs used CPython 3.11; 3.13
-  has an optional free-threaded build that changes the GIL assumptions in README
-  section 9. Options: (a) the CPython version ArmoniK's Python users actually
-  deploy, if known; (b) the oldest CPython still in upstream support on the
-  campaign date; (c) 3.11 for continuity with the existing harness; (d) two
-  targets, one of (a)/(b) plus 3.13 free-threaded as a labelled extra row.
-- **D2. C# target**: net6.0 (what the worker ships, out of support, and the
-  current binding does not build for it), .NET 8 (what the slice used, support
-  ends 2026-11-10), or .NET 10 (current LTS).
-- **D3. Java target**: 17 (what `packages/java` builds) or 21; and whether the
-  Java 8 floor stands given the package itself targets 17.
-- **D4. Decision 11 (unknown-field retention)**: does ArmoniK re-encode anything
-  it decoded (the worker forwarding path is the candidate)? A product fact the
-  owner can answer and no slice can.
-- **D5. Streamed-upload cell**: build client streaming in the core for the
-  campaign, or leave bulk transfer out of the campaign and say so.
-- **D6. Traffic profile**: whether a coarse call and byte mix from a running
-  deployment can be obtained, so the payload set can be stated as representative
-  or not (review P5). Without it the report says the payloads are not weighted.
+| # | Question | Decision |
+|---|---|---|
+| D1 | Python levels | floor 3.7 (correctness), target the CPython of Ubuntu 26.04 LTS (3.14.3) |
+| D2 | C# levels | floors net6.0 and .NET Framework 4.8 (correctness), target net8.0 |
+| D3 | Java levels | floor 8 (correctness), target 17 |
+| D4 | Unknown-field retention | not decided; both behaviours built and measured (WP3 item 21, WP5) |
+| D5 | Streamed upload | worth having but not required; optional and scheduled last (WP3 item 22) |
+| D6 | Traffic statistics | none exist; the report states the payload set is not weighted by traffic |
+| D7 | Generator | one generator implementation, wire rules written once (WP5); crucial |
+
+Still open, and not blocking this plan: README section 15 question 6 (Java
+packaging), question 7 (audience of `REPORT.md`).
 
 ## 7. Findings register
 
@@ -408,10 +514,10 @@ Disposition column is filled in as work lands.
 | R-A3 | Option "protoc codecs + core RPC" (cell B) missing | P | WP1 | |
 | R-A4 | Core transport lacks TLS, retry, metadata, deadlines, status | P | none | closed by owner position 3 |
 | R-A5 | REPORT Q2 decomposition subtracts cross-machine absolutes | P, X | WP1 (moved to campaign) | |
-| R-A6 | ABI decision 11 marked "Blocks: nothing" but changes behaviour in four languages | P | WP2, D4 | |
-| R-A7 | Floors incomplete: net48 only on Mono; Python 3.7 undemonstrated; Rust MSRV unverified | P, X | WP3 item 17, WP4 item 5 | |
-| R-A8 | Payload representativeness asserted, not established | P | D6 | |
-| R-A9 | No RPC arm measures encode, streaming or the worker path | P, X | WP3 item 7 | |
+| R-A6 | ABI decision 11 marked "Blocks: nothing" but changes behaviour in four languages | P | WP2, WP3 item 21, WP5 | |
+| R-A7 | Floors incomplete: net48 only on Mono; net6.0 not built; Python 3.7 undemonstrated; Rust MSRV unverified | P, X | WP3 items 17, 19, WP4 item 5, WP5 | |
+| R-A8 | Payload representativeness asserted, not established | P | none | closed by owner position 7: no statistics exist, report says unweighted |
+| R-A9 | No RPC arm measures encode, streaming or the worker path | P, X | WP3 items 7, 22 | |
 
 ### B. Container figures stated wrongly in the documents (all removed by WP2)
 
@@ -459,7 +565,7 @@ Disposition column is filled in as work lands.
 | R-D8 | Rust concurrency suite mostly absent-path payloads | CN | |
 | R-D9 | Minor boundary items (see WP4 item 10) | CN, CM | |
 
-### E. Generators (WP5)
+### E. Generators (all closed by WP5, the one generator)
 
 | ID | Finding | Source | Disposition |
 |---|---|---|---|
@@ -471,7 +577,7 @@ Disposition column is filled in as work lands.
 | R-E6 | C# re-derives ABI layout; probe shares the field list it checks | G | |
 | R-E7 | UTF-8 decode policy differs per runtime | G | |
 | R-E8 | Field order correct only by accident of tag numbering | G | |
-| R-E9 | "One generator" is not true of the tree: seven traversal emitters | G | record as fact in W12's neighbourhood (WP1) |
+| R-E9 | "One generator" is not true of the tree: seven traversal emitters | G | WP5 (consolidation), WP1 (invariant) | |
 
 ### F. STATE hygiene (WP6)
 
