@@ -1,883 +1,294 @@
 # Reading the rust slice
 
-The aggregating session's reading of `poc/rust`, which is not the same document
-as the slice's own `STATE.md`. What is here is what the slice's results mean for
-the branch: what is now established, what the other four slices have to do
-differently because of it, and what is still an argument.
-
-**W3 is done.** Four arms over every message and every payload of `SHAPES.md`,
-all byte-identical to the validated manifest, plus the three content sets, the
-unknown-field vectors and the RPC arm. The manifest was re-validated against prost
-after this session's adapter fix (16 of 16) and M2 and M4 were re-measured rather
-than assumed: the mechanisms held to the digit (10.024 crossings per task on
-encode, 7.004 on decode, decision 5 unchanged), most ratios did not move, and the
-new runs are tighter, so they supersede.
-
-**What that re-run also demonstrated, which nothing had yet**: the three facade
-arms matched the new hashes as soon as the generator was re-run, and the `prost`
-arm did not, because its objects come from a separately hand-written builder. Two
-construction routes were kept apart for exactly that reason and this is the first
-time the separation fired.
-
-## RESOLVED: the published encode figures came from code that was never committed
-
-**Read this before quoting any number in this document**, and read it as a
-correction rather than a caveat: the encode headline this document carried is
-wrong and is replaced below.
-
-The unknown-field arm could not reproduce the published M1/M2 ratios. Three
-hypotheses were on the table — the container drifted, the numbers are noisy, a
-rebuild changes layout — and the answer was a fourth nobody listed.
-
-**Ratios do reproduce here**, to ±0.02–0.05 on most rows, and the release binary
-is **bit-identical across rebuilds of unchanged source**, so a rebuild perturbs
-nothing. Tested properly with a semantically neutral layout perturbation (k
-exported no-ops that no arm calls, k ∈ {0, 3, 11}, binary hash changing every
-time): the across-build component is no larger than the same-binary component on
-nearly every row. The container is not unstable and layout is not the driver. Two
-rows are genuinely wide and are quoted as bands: P1.3 decode (0.12–0.24) and P2.1
-encode (0.16), both dominated by per-message cost.
-
-**The published figures are 0.10 to 0.27 away — five to ten times that band.**
-
-**Then the decisive experiment refused to run.** Checking out `cc7f68c6`, the
-commit behind the published stage-2 table, and building the benchmark fails:
-the binary is not in that commit. Verified here independently with `git ls-tree`:
-
-| commit | benchmark binaries in the tree |
-|---|---|
-| `cc7f68c6` (stage 2, the published M1 table) | **0** |
-| `d03c5161` (stage 3 part 1) | **0** |
-| `7fb30be5` | 7 |
-| `160c37be` | 9 |
-
-**The harness was untracked until `7fb30be5`, swallowed by the root `.gitignore`'s
-`[Bb]in/`** — the trap filed as a hygiene defect, which turns out to be the whole
-answer. Dependency versions are identical at every one of those commits, so no
-version bump is in play. **The oldest rebuildable commit agrees with today
-(0.992) and not with the published table (0.706–0.716).**
-
-So the published column is not defensible, and not because the container moved:
-**the code that produced it does not exist in the repository.** The replacement
-table in `ffi/logs/rust/stage3-reproducibility.log` is the one that can be checked,
-and it is not written as bounds, because the new figures reproduce and it is the
-old ones that cannot be re-derived.
-
-### What it costs the headline
-
-**`core-ffi-rust` on P1.2 encode is 0.982, not 0.706–0.716.** Through the C ABI
-the core is **at parity with prost on encode** for the uniform payloads, not
-thirty percent faster. Every statement of the thirty-percent form, in this
-document and in anything quoting it, is withdrawn.
-
-**What survives is a sharper claim, and it is the one the decomposition was always
-about**: `core-native` is **0.42–0.54 of prost on every encode row** (published
-0.34–0.57, so it reproduces). The generated codec is about twice prost's speed,
-**and crossing the C ABI hands all of that back.** For a Rust host the interface
-costs roughly what the codec gains.
-
-That matters for the proposal rather than merely for the arithmetic, because
-`packages/rust` would carry the core **natively**, with no FFI: on that path the
-2x stands. It is the *bindings* that pay the interface, which is what the other
-four slices are measuring.
-
-The decode side largely reproduces — every `core-ffi-rust` decode row but P1.3 and
-P2.1 is within about 0.06 of its published band, three inside it. **Encode moved
-and decode did not**, and no single arm's code explains that pattern, so the cause
-is not established and the log names none.
-
-### The three qualitative findings all re-confirm
-
-1. **The P1.3 inversion keeps its sign and magnitude**: `core-ffi-rust`
-   1.190–1.210 on encode against `core-native` 0.416–0.424; decode 1.623–1.858
-   against 0.946–1.062.
-2. **UTF-8 validation on non-ASCII: confirmed and larger than published.** The
-   scalar validator is 2.783 and 3.743 of prost on P1.2 Latin-1 and wide, against
-   a published 2.0–2.6; SIMD recovers to 1.43–1.80.
-3. **Decode converging to parity with container density**: same ordering,
-   `core-ffi-rust` 0.861 on P1.2 and 0.978 on P2.2.
-
-### The methodological result, which is worth more than the correction
-
-The UTF-8 row demonstrates R4 rather than arguing it. **The same finding, in one
-session, expressed two ways**: as a cross-arm ratio to prost it drifted; as a
-**within-arm delta against its own ASCII cost** it reproduced almost exactly —
-2.545 and 3.365 on P1.2 against a published 2.2–3.0. A delta between two arms in
-the same rounds is robust where a ratio to a third arm is not, and that is now in
-R4 with this row as the evidence.
-
-The second lesson is cheaper and was paid for twice: **a figure whose harness is
-not committed cannot be defended.** README section 12 already required every
-figure to name its log; a log whose harness is absent from the tree is the same
-failure one level down, and `ffi/.gitignore` now re-includes `bin/` so the
-remaining four slices cannot repeat it.
-
-## Configuration, once, for everything below
-
-4 vCPU Intel Xeon at 2.80 GHz, 15 GB, Ubuntu 24.04.4, Linux 6.18.44 x86_64, in a
-container, no pinning and no governor control. rustc 1.94.1, release. prost
-0.14.4, prost-build 0.14.4, protox 0.9.1. **Linkage: the core is a `cdylib`
-resolved by the dynamic linker**, which section "The defect" below says is not a
-detail. Accessor guard on. ASCII content set only. MSRV 1.88 is declared and
-**not verified**: no 1.88 toolchain exists in the container.
-
-Ratios are formed inside one process from interleaved rounds; three processes
-were run and what is quoted is the range across them.
-
-## The RPC half: two crossings per call, zero per field
-
-The number no other slice can get from its own measurements, and the one the
-"adopt the RPC layer, generate the codec" fallback rests on.
-
-**It is a property of the code rather than a measurement**, which is the stronger
-form: neither the slice's RPC crate nor the core's RPC module mentions a message
-type anywhere, verified here by reading both. The half dispatches on a path string
-and moves opaque bytes, so there is no place a per-field cost could enter. If the
-count were a function of field count, one of those files would have to know about
-fields.
-
-**The transferable form is the arithmetic, not the ratio.** Two crossings of 1.8
-ns against a call costing about 1.5 ms of CPU is roughly four parts in a million.
-A host paying 98 ns per crossing through JNI pays 196 ns on the same call: 0.013
-percent. End to end the Rust arm is 0.91 to 1.10 of tonic at 1, 8 and 16 in
-flight, which on four shared vCPUs is no measurable difference rather than a win,
-and is the less useful half of the result.
-
-**A hazard every slice's RPC arm will hit**, now rule R9: P2.2 is 540 KB and the
-default HTTP/2 stream window is 64 KB, so a single call in flight spends most of
-its wall-clock idle waiting for `WINDOW_UPDATE`. The slice's first version would
-have reported 33 ms per call for a path costing 1.5 ms of CPU. Measure CPU.
-
-**The concurrency defect, and what it says about obligation 12.5.** The client
-handle was built taking a mutable reference, so two host threads mutated shared
-state. It worked at 1 call in flight and failed outright at 8 — the good failure
-mode, since the bad one is a wrong byte under contention. It was found *by
-accident*, because stage 4 asked for 8 in flight. The conformance obligation that
-exists to catch exactly this class still has no implementation in any slice, and
-this is the best argument for it so far.
-
-**And the error channel discarded the cause.** The failure surfaced as
-`AK_ERR_HOST` with nothing attached, and the slice's code was correct against ABI
-v1 as written: the specification asks for a code and a message and gives no
-channel for a source chain. An error channel that discards the error is not an
-error channel. That is now part of open decision 12 rather than a slice's bug.
-
-## What is now established
-
-**The manifest is an oracle.** Every payload but P7.1 is byte-identical to prost
-and to a second encoder that shares no code with it; P7.1 cannot be produced by
-any canonical writer and is validated by decode. A slice that disagrees with a
-hash now has a defect in itself. This is what W2 was waiting for, and it is the
-single most reusable thing the slice has produced.
-
-**A crossing costs 1.8 ns in Rust through a shared library**, forward and
-forward-plus-reverse alike, stable to 0.1 ns across three runs and measured in the
-same process and the same build as the arms. That is the number section 4.1 of the
-README exists to obtain: every other slice's result splits into this plus its own
-runtime's tax.
-
-**Nine crossings encode a thousand rows, six decode them**, counted rather than
-inferred. The drafted ABI spent 15,137 on the same shape. The amended ABI's
-central claim survives contact with a second language.
-
-**The accessor guard is free here**, inside the run-to-run spread. The mechanism
-is the one ABI v1 section 5 predicts rather than anything Rust-specific: with
-strings riding in the group, the guard lands on one to five reverse calls per
-message instead of one per string. The section 5 worry was about the *number* of
-accessors, and the amendment has already removed most of them.
-
-## The defect every other slice has to protect against
-
-With the core in the crate graph as an rlib, rustc inlined every `extern "C"`
-entry point into the host: the release binary contained **zero** call sites to
-the encode, decode and element entry points. The FFI arm was the no-boundary
-control with extra struct copies, and every ratio from it would have been a
-figure about the optimiser.
-
-**The counting build did not catch it. It reported 3, 9 and 6 crossings** as
-usual, because the counting code was inlined along with the function bodies.
-
-That is the finding: **a counter is not evidence that a call happened**, and R5
-as written ("count the crossings, do not infer them") is necessary and not
-sufficient. R5 now also requires a slice to show from the built artifact that the
-entry points are unresolved imports, as a build step rather than a claim. Checked
-independently here: `nm -D --undefined-only` on the harness binary lists the
-thirteen ABI entry points as undefined.
-
-Who is exposed: **Rust and C++**, the two that can compile host and core
-together. In C++ it is spelled `-flto` over a statically linked core, and a
-non-LTO build and an LTO build of the same sources will disagree. The managed
-hosts cannot inline across the boundary and are safe from this one.
-
-The inverse matters too and is now in R7: **1.8 ns is a shared-library crossing.**
-A C++ host that statically links gets a direct call and pays less. A C++ column
-and this one are not measuring the same mechanism unless both say which.
-
-## The string path: validation is the largest effect in the branch
-
-The ASCII pass priced UTF-8 validation at 25 to 30 percent of an encode. **That
-was not the cost.** `core::str::from_utf8` consumes a `usize` at a time on ASCII
-and one byte at a time otherwise, so its cost tracks *non-ASCII bytes*, not bytes.
-On the two non-ASCII content sets the scalar validator costs 2.2 to 3.0 times its
-own ASCII cost, and turns a 0.72 to 0.81 win against prost into a **2.0 to 2.6
-loss**. It is the largest single effect measured anywhere in this branch, and an
-ASCII-only pass cannot see any of it. This is why SHAPES.md's rule that a
-string-path number without a content set is half a number is a rule and not a
-formality.
-
-**Settled, and the answer is that the old arrangement was strictly dominated.**
-Everything below stands as measurement; none of it stands as a reason to validate
-on encode. The encoder does not need a `string`'s bytes to be valid; the decoder
-cannot trust them whatever the encoder did; proto3 puts the obligation on parsers.
-So encode became a memcpy, and **decode became rejecting at no cost at all**:
-validate-and-reject measures 0.54 to 0.75 of the lossy conversion it replaces on
-ASCII, and 0.36 to 0.71 with the SIMD validator on every content set, because a
-lossy conversion already validates and its recovery path is slower than failing.
-
-It also **improves** the comparison against prost rather than costing it, since
-prost rejects too: P1.2 ASCII moves from 0.87-0.91 to 0.73-0.79, and P1.2 wide from
-0.78-0.80 to 0.49-0.51. The decode column this slice has been quoting was
-pessimistic, not flattering.
-
-So the design the slice started with paid for a slower validator to get a weaker
-guarantee, on both sides of the boundary at once, and the fix is cheaper in both
-directions. That is the cleanest result in the slice and it came from a question
-about the specification rather than from a benchmark.
-
-**Two defects the re-measurement produced, both worth the rule they carry.** The
-decode entry point returned the sticky error slot and nothing ever cleared it, so
-one rejected decode poisoned every later decode in that context — now a stated
-requirement in ABI v1 section 5, because "the first error wins" is incomplete
-without saying when the slate is wiped. And the first driver ran the policies in a
-fixed order, where the always-first build read 0.778 in one invocation and 0.88 in
-the next; round robin with a rotating order fixed it. An ordering artifact that
-large would have been invisible in any single run.
-
-**Superseded, kept for the record: the question was on the wrong side of the
-boundary.** Everything
-below stands as measurement and none of it stands as a reason to validate on
-encode. The encoder does not need a `string`'s bytes to be valid, since it writes
-a length and copies; the decoder cannot trust them whatever the encoder did; and
-proto3 requires parsers to validate. So the encode-side check is redundant with
-one that has to happen anyway, `ak_tc_utf8` collapses into `ak_tc_bytes`, and the
-whole 2.0-to-2.6 penalty below is a cost paid for nothing. ABI v1 decision 3
-carries the rewritten form. **The slice's own arrangement is the inversion in
-miniature**: it validates on encode at 25 to 30 percent of ASCII cost, and decodes
-through `String::from_utf8_lossy` at 37 sites while rejecting at none, so the only
-place protobuf actually requires a check is the place it silently substitutes.
-Nobody chose that; it is what a facade written the obvious way does.
-
-**The slice answered it with an arm rather than an argument**, which is the right
-instinct and worth recording as such. `ak_tc_utf8_simd` has the identical
-contract, verified here in the source: the same refusal of malformed input, the
-same grow and capacity handling, `simdutf8::basic` in place of the scalar DFA. It
-recovers half to two thirds of the penalty (1.27 to 1.50 of prost) and is not
-faster on ASCII, because the scalar ASCII path is already eight bytes an
-iteration. The accept and reject sets being identical is what makes it admissible
-here: a validator that differed on any input would make the core's bytes depend on
-which one a build chose.
-
-**What it did to the ruling on trusting the host: nothing, and that ruling still
-stands on its own terms.** A *trusted* transcoder makes validity a contract a host
-can be wrong about, picked per host type, and that is refused. The later proposal
-to drop encode-side validation outright is a different thing and the objection
-does not reach it: it extends trust to nobody, no generator chooses per type,
-every host gets the same passthrough, and the parser checks. There is no contract,
-so there is nothing to be wrong about.
-
-**And the measurement for it already exists**: `ak_tc_utf8_trusted` is that
-proposal, so 0.59 to 0.72 on M1 ASCII, 0.80 to 0.85 on M2 and 0.75 on both
-non-ASCII sets are the figures, with no new run needed. The SIMD validator is not
-wasted by this, but it moves: validation on decode is mandatory, and that is where
-a fast validator earns its place.
-
-**What it does not settle**, and the slice says so itself: one x86-64 machine with
-AVX2; runtime CPU dispatch with a fallback, which makes it a floor question in C++
-as much as in Rust; and a dependency inside the core rather than in a binding,
-which is an unpriced packaging cost.
-
-**Decode is unaffected**, and that is worth stating rather than passing over.
-Every arm validates on decode, so all three sets cost every arm 1.2 to 1.7 times
-its ASCII self and no ordering moves. That is exactly what ABI v1's asymmetry
-predicts, the core transcoding on encode and the host on decode, and it also holds
-the allocation-bound decode result up under a second content set.
-
-**One thing this slice cannot reach at all.** A Rust `String` cannot hold an
-unpaired surrogate, so the transcode pair of README section 10 item 4 is
-*unreachable* here rather than unbuilt. The corpus has to carry those vectors as
-raw bytes produced by a non-Rust host, and C# and Java are the slices that have to
-run that pair. Correctly logged as unreachable rather than quietly omitted.
-
-## The adapter was unreachable from the payload set, at both sites
-
-M4 exists for one reason: one facade type, two wire forms, a map that is not
-injective, and a defect only a byte corpus catches. **The payload set could not
-reach that shape at either site**, and the slice found it by checking the adapter
-by state rather than by running the payload, which is what I had asked for and is
-the only way it surfaces.
-
-At the nested site, `emit/payloads.py` filled `success` and `error`
-independently. Over 200 elements the only combinations occurring were
-(true, non-empty) and (false, non-empty). **(true, non-empty) is a state
-`TaskDetailed.Output`'s own comment forbids** ("the error message, only set if
-task have failed") and that no adapter over {Ok, Error(details)} can represent;
-the success state (true, empty) never occurred at all.
-
-At the plain site the finding is sharper and is a property of the schema rather
-than of the generator: **Ok and Invalid both flatten to the empty string, so one
-of them must come back wrong whatever the adapter author chooses.** Return Invalid
-and lose Ok; return Ok and silently claim success for a task that reported no
-outcome. The nested form round-trips all three states. That is the concrete defect
-SHAPES.md is abstract about, and no payload reached either state.
-
-Fixed in the schema directory, which this session owns: the generator now cycles
-the three states per element. Verified independently off the wire bytes: 167 Ok,
-167 Error, 166 absent at P2.2's nested site, zero occurrences of the impossible
-state, and P4.1's plain site carrying the collision at 67 non-empty against 133
-empty-or-absent. It moved P2.1 to P2.4 and P4.1.
-
-**Worth noting about the real schema**, which the slice's work surfaced: both wire
-forms are real and both are called `Output`. `TaskDetailed.Output` is
-`{bool success, string error}`; `objects.proto`'s `Output` is a
-`oneof {Empty ok, Error error}`. The facade unifies two messages that a reader of
-either `.proto` alone would not connect.
-
-## A control turned a twelvefold win into a bounded claim
-
-P5.4 decode came out at 0.08 of prost. The slice did not report it; it added a raw
-4 MB copy as a floor arm, and found every core arm sitting on that floor
-(`core-native` 0.084, `core-ffi-rust` 0.080, raw `copy_from_slice` 0.082, raw
-`to_vec` 0.080).
-
-So the claim is **"a 4 MB bulk decode costs one copy in the core and twelve in
-prost"**, which bounds both sides, rather than "the core is twelve times faster
-than prost", which bounds neither. Why prost sits twelve times above the floor is
-recorded as a labelled suspicion and not chased, because it is a finding about
-prost rather than about the ABI.
-
-This is now rule R2's second half. It also cuts against the branch's own case in
-one place: ABI v1 section 8's direct-argument path is justified by a JVM figure of
-0.16 to 0.34, and since the Rust *no-boundary* control is already on the memcpy
-floor, the Rust slice can say nothing in support of it.
-
-**A second harness defect in the same pass would have been published as a
-finding.** `core-native` on P5.4 encode measured 1.412 of prost because the arm
-allocated a fresh `Vec` per call and grew it by doubling from 4 KB to 4 MB, while
-every other arm reused a warm buffer and prost's `encode_to_vec` sizes once. A
-growth-policy comparison wearing a codec's name; 1.412 became 1.018 when fixed.
-Caught only because a 4 MB payload made it large enough to disbelieve, and at M1
-sizes it would have looked like a plausible regression. That is the same lesson as
-the inlining defect from a different direction: the arm you are proud of and the
-arm you distrust both need a floor.
-
-## Unknown fields: the branch's largest unpriced behaviour change
-
-The slice set out to cover a shape and turned up a migration question instead.
-
-**At the wire level there is no such thing as an unknown oneof member.** The
-grouping exists only in the descriptor, so a parser cannot tell an unrecognised
-oneof tag from any other unknown field: the case stays at the last known member
-and the payload is dropped. Seven hand-built vectors, all four arms agreeing on
-the decoded value *and* the re-encoded bytes. The contrast the slice draws is the
-useful part: an unknown *enum value* round-trips losslessly, because the field is
-known and only the value is not, while an unknown *field* cannot round-trip at all
-in any arm. SHAPES.md had these as one row and now has two.
-
-**What the slice did not draw, and this session did.** "Nothing retains unknown
-fields" is not a neutral property of the design, because four of the five
-languages retain them today. proto3 has preserved unknown fields since protobuf
-3.5, so `Google.Protobuf`, protobuf-java, protobuf C++ and upb all carry an
-unrecognised field from decode through to re-encode. prost does not, and the core
-follows prost. **So adopting the core removes a protobuf guarantee from every
-language except the one whose incumbent already lacked it** — and Rust, the
-language that loses nothing here, is the one the slice was written in, which is
-exactly how a divergence like this stays invisible.
-
-It is now ABI v1 open decision 11. Two things about it worth keeping:
-
-- **Who it bites is specific.** A client that decodes and never re-encodes loses
-  nothing. A proxy, a worker forwarding a `ProcessRequest`, anything round-tripping
-  between two schema versions loses the field silently. That is the same seam as
-  conformance obligation 12.4, seen from the other side.
-- **Retention is not obviously cheap.** Keeping unknown bytes means storing them
-  somewhere the host can hold, which is a host-visible allocation on a path this
-  design works to keep allocation-free. Nobody has priced it.
-
-This is the kind of finding the branch exists for: not a number, and not
-discoverable by a benchmark. A shape-coverage vector found it.
-
-## The audit: the inlining objection, and why the decomposition survived it
-
-The per-element interface costs quoted in this document were obtained by
-subtracting `core-native` from `core-ffi-rust`. The objection, raised against it
-rather than by it: `core-native` is compiled into the harness, so rustc could fuse
-the traversal into the benchmark loop while the FFI arm cannot be inlined at all,
-and the subtraction would then charge an inlining advantage to the interface.
-
-**The premise turned out to be false for these binaries, and the artifact says so.
-Verified here independently rather than taken from the slice**, because the
-finding conveniently exonerates a claim this document had already made:
-
-- `encode_into_list_results_response` is **20 bytes** (`0x14`) — two stores and a
-  tail `jmp`. The traversal it jumps to, `enc_list_results_response`, is **4,299
-  bytes** (`0x10cb`); the decode traversal is **11,311 bytes** (`0x2c2f`).
-- The largest `bench::main::{{closure}}` is **472 bytes** (`0x1d8`). A 472-byte
-  closure cannot contain an 11,311-byte traversal.
-- The call sites inside those closures are `call *0x…(%rip)` — **indirect calls
-  through the GOT**, the same shape as the call into the cdylib.
-
-The mechanism, stated narrowly because the broad version of it is false: the
-profile carries no `[profile.release]` section, so cargo's default applies and
-**LTO is off**; and the two entry points the benchmark actually calls are
-**non-generic `pub fn` with no `#[inline]`**, so their MIR is not exported and
-their bodies cannot cross into `harness` at all. That is the load-bearing fact.
-
-It is *not* true that nothing in `facade` can cross. `core_native.rs` carries 38
-`#[inline]` functions, `enc_list_results_response` among them, and an `#[inline]`
-function's MIR **is** exported cross-crate with LTO off. That traversal was not
-inlined on cost grounds — 4,299 bytes into a 472-byte closure — and the benchmark
-never calls it directly anyway; it calls the 20-byte entry thunk, which is the one
-that genuinely cannot cross. (The symbol table shows this from the other side:
-the traversal is a *local* symbol, instantiated into the binary, while the entry
-point is a global from the rlib.)
-
-**The distinction names a failure mode rather than splitting hairs.** If the
-generator ever put `#[inline]` on a per-message entry point, or made one generic,
-the objection this audit refutes would become true again **with LTO still off**,
-and the published ratios would quietly begin carrying an inlining advantage.
-`gen/inline_check.sh` catches it — the closure would grow past the traversal —
-which is why that check is a script run every build rather than a paragraph in a
-log. So both arms were already paying an indirect call, and there was no inlining
-advantage to subtract.
-
-Two arms confirm it by measurement rather than by reading the disassembly:
-`core-native-noinline` (`#[inline(never)]`, a lower bound, since IPO survives it)
-and `core-native-opaque` (a `black_box`ed function pointer: no inlining, no
-devirtualisation, no constant propagation). The three-term split:
-
-| | inlining term, ns/element | group term, ns/element |
+Phase note: this file records facts only; container timings were removed on 2026-09-24 (design/FIX-PLAN.md WP2). The raw logs remain in logs/rust/.
+
+The aggregating session's reading of `poc/rust` (the slice's own record is
+`poc/rust/STATE.md`). It lists what was built, what was checked, what the
+interface counts are, which defects were found and by what, and what is not
+established. It contains no performance result and no recommendation (README
+section 1.1).
+
+## Configuration
+
+rustc 1.94.1, release, PIE. prost 0.14.4, prost-build 0.14.4, protox 0.9.1,
+tonic 0.14.6 (stage 6). The core `ak-core` is a `cdylib` resolved by the dynamic
+linker; the harness checks this from the built artifact (below). Shared 4 vCPU
+container, no pinning.
+
+**Floor**: MSRV 1.88 is declared and **not verified**. No 1.88 toolchain exists in
+the container, so README section 5.2's arm a is unverified as being at the floor
+(slice defect D2, open). For Rust the floor and the target are the same code.
+
+## What was built
+
+- **Arms**: `prost` (incumbent; tonic-prost 0.14.6 calls `Message::encode` and
+  `Message::decode`, so for Rust the production path and the library entry point
+  are the same call and R14 has no second row); `armonik` (facade types with
+  generated `prost::Message` impls, the `packages/rust` pattern, without
+  `armonik-macros`); `core-native` (the generated traversal in the host, no
+  boundary); `core-ffi-rust` (the same traversal through the C ABI, push family);
+  `core-native-noinline` and `core-native-opaque` (inlining controls); the pull
+  arms `core-ffi-pull`, `core-ffi-pull-walk`, `core-ffi-pull-opaque`,
+  `core-ffi-parse-only`; a zeroed-group fill arm (open decision 9); an
+  unknown-field bag arm (open decision 11); three decode UTF-8 policy builds
+  (lossy, reject, reject with SIMD) and the encode transcoders `ak_tc_utf8`,
+  `ak_tc_utf8_simd`, `ak_tc_utf8_trusted`.
+- **Shapes and payloads**: every message and payload of `design/SHAPES.md`
+  (M1 to M7, P1.1 to P7.1).
+- **Content sets**: ascii, latin1 and wide on every payload
+  (`stage5-content-all.log`): 16 payloads in correctness, 11 in the timing pass.
+- **RPC**: a unary arm against tonic over loopback h2 (`stage4-rpc.log`), then
+  section 9's three deliveries (blocking, callback, completion queue) and an A/B/C
+  grid (A prost + tonic, B prost + core transport, C core + core) over a Unix
+  socket and loopback TCP, with ArmoniK's window and message settings pinned
+  through `ak_client_new_opts` (`stage6-rpc-grid.log`). Server in-process.
+- **Pull decode family** (ABI v1 section 7.1): `ak_parse_<Root>`, the `ak_bdr_*`
+  record buffer, one `dec_walk` emitted once and instantiated for both families
+  (`stage5-pull-decode.log`).
+- **Concurrency suite** (obligation 12.5), codec half only
+  (`stage5-concurrency.log`).
+- **Lifecycle** (ABI v1 section 3): `ak_init`, options and flags, the version
+  check, `ak_build_id`, the log bridge, the panic hook, the
+  `AK_ERR_UNINITIALIZED` guard behind feature `init-guard`
+  (`stage5-lifecycle.log`).
+
+All additions to the shared core at `poc/codec/` were additive (stage 5's first
+commit: 2,048 insertions, zero deletions) and off by default or new surface.
+
+## Correctness results
+
+- **The manifest is an oracle.** Every payload except P7.1 is byte-identical
+  between prost and a second encoder sharing no code with it; P7.1 cannot be
+  produced by a canonical writer and is validated by decode. Re-validated 16 of
+  16 after the adapter fix and after the packed-enum schema change
+  (`stage1-manifest-vs-prost-after-fix.log`,
+  `stage1-manifest-vs-prost-packed-enum.log`).
+- **All four encoder arms are byte-identical to the manifest** on every payload
+  and decode their own output to an equal value. `prost` and `armonik` are
+  independent encoders; `core-native` and `core-ffi-rust` share the codec and so
+  validate only the binding.
+- **Pull arms are gated by value identity** on 16 payloads over 7 roots against
+  the `armonik` and push decoders, including M7 (two interleaved repeated fields
+  of one type, which exercises the section 7.3 flush on a foreign tag).
+- **M3**: explicit presence exercised as three cases (absent, present-and-zero,
+  present-and-nonzero) on all three `optional` fields, all four arms agreeing; the
+  payload-free oneof member occurs 40 times in 200 elements.
+- **Unknown fields**: seven hand-built vectors, all four arms agreeing on decoded
+  value and re-encoded bytes. At the wire level an unknown oneof member is an
+  unknown field (the case stays at the last known member and the payload is
+  dropped); an unknown enum value round-trips losslessly. With the bag arm, the
+  bag's bytes are preserved exactly, but the layout is not when an unknown tag
+  lies between two known ones, because the bag is appended rather than merged; a
+  message round-tripped through the core is then not byte-comparable with one
+  round-tripped through protobuf-java.
+- **Separate construction routes caught a defect** (D15): after the adapter
+  change the three generated-builder arms matched the new hashes and the
+  hand-written prost builder did not.
+
+## Crossing counts
+
+Counted from a counting build unless noted.
+
+| what | count | log |
 |---|---|---|
-| P1.3 encode | −0.10 to +0.01 | 11.29 to 11.42 |
-| P1.3 decode | −1.03 to −0.82 | 27.63 to 28.36 |
-| P1.2 encode | +0.19 to +0.60 | 43.23 to 45.13 |
-
-At nine crossings per thousand elements the dynamic call itself is about 0.02
-ns/element, so the second column is group materialisation with a rounding error
-attached. **The absent-path inversion is not an inlining artifact.**
-
-**Two things not to carry away from that table.** P1.1 is deliberately absent from
-it: with four elements its per-element column is a per-*message* cost divided by
-four, so it is not comparable with P1.2's, and it moved from about 40 ns to about
-30 between the two binaries for that reason. And a per-element interface cost is
-worth quoting only where it exceeds the run-to-run spread, which on M1 and M2
-decode it does not.
-
-**The audit's own limit**, stated in its log: one toolchain, one link, no LTO.
-With `lto = "fat"`, or where a traversal is small enough to inline cross-crate,
-the premise this refutes could become true. What is established is that it is
-false for the binaries these figures came from.
-
-**But the audit creates a caveat of its own, and it cuts the other way.**
-`core-native` is therefore *not* the fully-inlined no-boundary control its name
-suggests — it is "no boundary, but still an indirect call through the GOT". That
-makes it a cleaner isolation of the group than intended, and it means **a genuinely
-inlined native Rust codec is unmeasured**: with LTO on, or the entry points marked
-`#[inline]`, the no-boundary arm could be faster than anything in this document,
-and every ratio quoted against `core-native` would widen. Nothing here bounds that.
-
-## The zeroed-group fill answers open decision 9
-
-The candidate: the host memsets the element-group chunk once and assigns only the
-fields that differ from the default, instead of section 6's total fill. Built as an
-arm beside the default path, with the generator emitting both and nothing the
-default path uses changed.
-
-| payload | what it is | ns/element | zeroed / total |
-|---|---|---|---|
-| P1.2 | M1, every field present | −1.66 to +1.70 | 0.986 to 1.014 |
-| P1.3 | M1, the absent path | −4.98 to −4.06 | **0.719 to 0.766** |
-| P2.2 | M2, the deciding shape | −26.18 to −13.02 | 0.970 to 0.985 |
-| P2.5 | M2, the absent path | −0.42 to +0.17 | 0.983 to 1.007 |
-
-**P1.3 encode goes from 1.108–1.188 of prost to 0.815–0.857: the M1 absent-path
-inversion disappears.** P2.2, the row set up to decide *against* the candidate,
-shows a small consistent saving instead. The condition — wins on the absent path,
-costs less than 5.4 ns per element elsewhere — is met on every payload measured.
-
-**A correction to this session's framing, which the slice was right to make.** I
-put this as "reversing a trade ABI v1 already made and priced at 5.4/24.4 ns". It
-is not: the array is the *host's* chunk buffer, and the codec still never resets
-anything, so section 6's no-reset property is untouched. What changes is only the
-host's fill — an unconditional store per field becomes a bulk memset plus a
-conditional store. 5.4/24.4 is the right threshold to judge the cost against, not
-a cost being paid back.
-
-**Three deliberate-break positive controls** guard the arm, because a silent
-fallback to the total fill would have passed byte identity *and* measured the
-same: dropping `ResultRaw.name` breaks M1's zeroed rows only; dropping
-`TaskDetailed.owner_pod_id` breaks all five M2 rows and incidentally shows P2.5 is
-not fully absent; and turning the presence test into a value test on
-`Probe.opt_count` breaks P3.1, which is why M3 is in the conformance list at all —
-present-and-zero is load-bearing.
-
-**What this does not settle**: whether the same trade holds in a managed host,
-where a bulk clear of a struct array and a conditional store cost something quite
-different. The C# and Java slices decide that, not this one.
-
-## Decode is bounded by container construction, not by allocation in general
-
-Stage 3 part 1 read this as "decode is allocation-bound". M3 sharpens it, and the
-sharper version is more useful to the other slices because it tells them which of
-their messages to expect parity on.
-
-`core-native` decode against prost, by element shape:
-
-| payload | what an element costs the host | decode |
-|---|---|---|
-| P3.1 | flat, 5 fields, 1 to 2 strings | 0.81 to 0.82 |
-| P1.2 | 6 blobs, 2 optional children, no container | 0.83 to 0.86 |
-| P2.2 | 4 `Vec<String>`, a `BTreeMap`, 27 fields | 0.89 to 0.96 |
-
-**Decode converges to parity in proportion to host-side container construction**,
-not to bytes and not to strings: P3.1 and P1.2 allocate plenty of `String`s and
-still show the win. A map insert and four vector growths are work every arm does
-identically and no codec can avoid.
-
-**The crossings are not the reason**, which is what makes this portable rather
-than a Rust result: seven per element at 1.8 ns is 12.6 ns against about 2,200 ns,
-0.6 percent, and the no-boundary control converges too.
-
-Three consequences, and the second is the one I would hold other slices to.
-
-- **Retracted.** This bullet previously read "the interface cost is still real and
-  still small underneath: about 6 percent of decode on M2, about 2 percent on M1".
-  The audit below found that on M1 and M2 *decode* the no-boundary and FFI arms sit
-  inside each other's run-to-run spread and the sign flips between builds, so **no
-  per-element interface cost should be quoted for those rows in either
-  direction**. The absent-path rows (P1.3) are outside the spread and stand.
-- **A decode win measured on a container-light message may not survive P2.2.** The
-  published managed decode figures deserve re-reading on that basis before the
-  report quotes them, because if they came from less string-dense payloads the
-  win shrinks on the shape ArmoniK actually sends. This does not overturn them; it
-  says they are not yet comparable.
-- What is left to win on decode is allocation, not crossings, which is what ABI v1
-  open decision 10 is now about.
-
-**Hazard, and it is the slice's own (R9):** the M2 decode ratios have a much wider
-run-to-run spread than anything in stage 2, `core-ffi-rust` on P2.3 ranging 0.819
-to 0.953 across three processes, because each decode builds a 15,000-`String`
-object graph and allocator state varies. Read the ranges, not the medians. The
-encode ratios are tight.
-
-## The two shapes .NET could not measure cost nothing
-
-`Probe`'s oneof and its three `optional` scalars ride in the group entirely: **3
-crossings for 200 elements, in both directions**, and every arm byte-identical.
-Explicit presence was exercised rather than merely present, with all three cases
-occurring on all three fields (absent, present-and-zero, present-and-nonzero), and
-the payload-free oneof member reached 40 times in 200 elements.
-
-The mechanism is the part for the C# slice to copy rather than the counts: an
-explicit field's encode branches on **the presence bit**, never on the value or
-the length, which is what lets a present-and-empty string be written as present.
-A by-value group reports absent and empty identically unless it is built this way.
-
-One layout decision the slice made and flagged, now in ABI v1 section 6: a oneof
-is a discriminant plus every member inlined flat, **not a union**, because a union
-makes the group's layout depend on which member is largest and section 10 already
-requires layouts to be reproducible by hand. It costs group size on a shape the
-schema has 19 of, and the union is recorded as an unmeasured alternative rather
-than an equivalent.
-
-## Encode survives the harder shape
-
-**Superseded by the re-run above**: the through-the-ABI figures in this section
-came from the unreproducible column. The reproducible statement is that
-`core-native` is 0.42–0.54 of prost on every encode row and `core-ffi-rust` is at
-parity, on M1 and M2 alike. What this section still establishes is the *shape*
-result it was written for: the encode ordering does not change when the message
-gains nesting, maps and string density. P2.4 remains the exception and remains
-decision 5's worst case rather than a shape effect.
-
-## ABI v1 decision 5, answered
-
-Zero warm prefix misses and zero bytes moved on every uniform payload; on P2.4,
-one miss per element and 980,938 bytes moved of a 981,222-byte output. Isolated
-against two size-matched uniform arms rather than attributed, and floored against
-prost's own two-pass construction, **the mechanism costs 1 to 3 percentage points
-of an encode on the payload built to defeat it and nothing elsewhere.** Zero
-grow-callback invocations anywhere.
-
-The slice's closing argument is the part worth keeping: the worst case cannot be
-engineered away. Over-reserving needs a non-minimal varint, which the ABI refuses;
-under-reserving needs the move; the alternatives cost every payload to spare P2.4.
-So the learned width is right at a bounded worst case, not a bet that the worst
-case is rare.
-
-## The defect that byte identity could not catch
-
-`ak_elemu_TaskDetailed` read the open field's tag and site from the context at
-entry, and the element body overwrote them, so from the second chunk onwards a
-run read whatever the previous element left behind. The visible symptom was a
-length-prefix site that would not converge (448 misses in 500 identical elements).
-The actual defect is that **a chunking host writes every chunk after the first
-under the inner field's tag**: silent wire corruption.
-
-**Byte identity passed throughout, on a tag collision.**
-`ListTasksDetailedResponse.tasks` is tag 1 and `TaskOptions.options` is tag 1, so
-the wrong tag was the right tag. No message in `design/SHAPES.md` has a root whose
-repeated field carries a tag different from a repeated or map field inside its
-element, which means **no slice built against this corpus can catch this class of
-defect**. That is now corpus requirement 5 in README section 10, and the ABI
-carries the rule it implies: an element or run entry point leaves the open-field
-state as it found it.
-
-It is not Rust-specific. Any implementation holding "which field is open" in the
-context has it, and rule 2 makes that the natural design.
-
-## Crossings on M2
-
-Decode costs **7.004 crossings per `TaskDetailed`**, which is exactly what ABI v1
-7.2 predicted against the drafted ABI's 43. The specification's figure was an
-argument; it is now a measurement.
-
-Encode costs **10.02 per element** on the same payload, which nobody had. The
-batching predicate saves decode and not encode, because on encode the host drives
-every one of its own containers, so each loop slot is a crossing whatever the
-predicate says. Section 6 now says so.
-
-## The result that changes what a slice may quote
-
-On P1.1 and P1.2 the core beats prost in both directions through the C ABI
-(encode 0.59 to 0.72, decode 0.78 to 0.89). **On P1.3, where every element
-encodes to nothing, it loses in both directions** (1.16 to 1.39) while the
-no-boundary control stays at 0.47 to 0.84.
-
-The whole gap is the by-value group. The fill is unconditional by specification
-(ABI v1 section 6), so the binding fills a ~200-byte element group and the core
-materialises a ~128-byte one whatever the wire holds, and on the absent path there
-is nothing for that fixed cost to amortise against.
-
-This is the first time the group's cost has been charged rather than assumed, and
-two things follow.
-
-- **Every slice reports P1.3 and P2.5 as their own rows and does not fold them
-  into an average.** A page of results where most fields are unset is ordinary
-  control-plane traffic, not a pathological input, and a slice quoting "the group
-  is worth X" from a full payload is quoting a number that reverses.
-- It opens a real design question, now **ABI v1 open decision 9**: a presence-word
-  fast path for an entirely empty element, an element run that can hand over a
-  count of empties, or accept the cost and say so. Nothing is decided on one slice
-  and one message. M2's P2.5 is the nested case, and the managed slices pay a
-  different price for the same fill because theirs crosses a runtime boundary.
-
-## The open decision that turned out to have a price
-
-ABI v1 decision 3 (UTF-8 passthrough) was framed as pure semantics. It is not:
-validation is **25 to 30 percent of an encode** here, the largest single knob on
-the encode path measured anywhere so far.
-
-The slice's proposal, recorded in decision 3 and not accepted: carry both
-transcoders and let the generator pick from the host type. This session's caveat,
-which is the reason it is not accepted yet: a trusted transcoder is a correctness
-contract a host can be wrong about, and that is precisely the failure mode v1
-already removed once when it dropped `max_bytes_per_unit`, where being wrong was
-measured as silent wire corruption. The mitigation is real (a generator reading a
-type is not a human making a promise) and it makes the question narrow: is there a
-host type in any of the five languages where the generator would emit `trusted`
-and the invariant does not hold? **C++ answers it for `std::string`, Python for
-`str`.** Until one of them does, the default is unchanged.
-
-## What is not established, and what to distrust
-
-- **M1 and M2 only.** Oneofs, explicit presence, the adapter site, bulk bytes,
-  packed fields and interleaved repeated fields are unmeasured in Rust.
-- **Nothing is measured past 4 levels of nesting.** The description reaches 4 and
-  the real schema reaches 6, and the two levels missing are the filter and request
-  message family, which this payload set carries none of. ABI v1 open decision 7,
-  the decode recursion limit, is therefore unexercised.
-- **The packed enum shape was falsely marked covered** until this slice checked
-  it: `design/SHAPES.md` attributed it to M2, which has no packed field at all. It
-  now lives on M6 and is unmeasured until that message is built.
-- **The `armonik` column does not price `packages/rust`.** It reproduces that
-  crate's *pattern* (hand-written-shaped types, generated `prost::Message` impls,
-  no conversion layer) with this slice's generator, and does not use
-  `armonik-macros`. The slice's own defect log is why that caveat has teeth: its
-  first measurement of this arm read 1.16 to 1.40 and would have supported "hand
-  written types cost something against generated structs", a false finding about
-  the bet `packages/rust` actually made; two statements of emitted code closed it
-  to 0.94 to 1.03. A verdict on the in-repo crate needs its own measurement,
-  quoted standalone and never as a ratio against these columns.
-- **The main decode tables in this document were taken with the lossy policy**
-  and are not restated. If a rejecting decode is adopted they improve by roughly
-  0.08 to 0.12 on M1 and 0.03 to 0.08 on M2, in this slice's favour.
-- **The content sets are run on P1.2 and P2.2 only**, and on one x86-64 machine
-  with AVX2. The SIMD validator's behaviour where those features are absent is
-  not measured, and it is a floor question rather than a target one.
-- **The transcode pair is unreachable from this slice** (above), so nothing here
-  bears on the Java/.NET substitution disagreement.
-- **One machine, one configuration, no concurrency, container, shared hardware.**
-- **MSRV declared, not verified.**
-- **One open defect in the slice, carried deliberately**: `ak_fail` casts its
-  context to the encode context unconditionally, so a decode-side failure would
-  corrupt the decode context. Unreachable today and scheduled with the decode
-  error channel in stage 3. Worth watching, because it is the error channel ABI
-  v1 section 5 calls the widest hole in the drafted interface.
-
-## The RPC half's case is behavioural, and none of the behaviour is measured
-
-This is the most important sentence in this document and it should survive into
-the report unsoftened. The argument for putting the RPC layer on the C ABI is that
-five implementations currently disagree about which status codes are retried, what
-`AllowUnsafeConnection` disables, and the write-then-notify ordering. **Stage 4
-measured none of that.** It measured the call path, whose cost was never the
-question, and found it free.
-
-Unmeasured on the RPC side: the callback and completion-queue delivery modes,
-metadata, deadlines, the gRPC status code as a number, cancellation, retry,
-backoff, TLS, streaming, a real network, failure injection and the server seam.
-
-## Stage 5: the three things the branch had specified and nobody had built
-
-The slice is complete, and its last work unit closed the three largest gaps in
-this document at once, all of them additively in the SHARED core at `poc/codec/`
-rather than in the slice (R0).
-
-### The pull decode family exists, and open decision 2's buildability half is answered yes
-
-**One `dec_walk` is emitted once and instantiated twice.** The families differ in a
-macro body, the entry point's prologue and epilogue, and one argument. That was the
-condition the whole decode design rested on: two emitters would be a fork at the
-generator level, on exactly the shapes nobody tests.
-
-**Its control is structural, which is better than statistical.** A record is written
-exactly where push makes a reverse call, so the counts must be equal. They are, to
-the digit, on all thirteen counted payloads (P2.2: 3,501 and 3,501), and pull's
-reverse count is **zero** everywhere. So the specification can now say it plainly:
-**pull removes the upcalls, it does not reduce them.**
-
-**Pull costs a rust host −5 to +18 percent of a push decode, and the prediction going
-in was wrong.** At a 1.8 ns reverse call pull was expected to lose; it is 0.94 to 1.18
-of push, at or below push on nine of twelve payloads and a win on every M2 shape. The
-reason is the one the branch keeps finding: a push reverse call goes through a vtable
-slot reached across the shared object, while the replay's equivalent is a local call
-over a buffer already in L2. **An opaque-replay arm clears the obvious objection** —
-the parity is not rustc inlining the replay away.
-
-**And where pull loses, a byte table predicts it.** P1.3 (+5 to +13%) and P6.1 (+8 to
-+18%) are the two losing rows, and on P1.3 the record stream is **63.6 times the wire**,
-38,488 B to describe a 605 B message, because a record carries an absent element's whole
-fixed group. Pull's cost tracks the record-to-wire byte ratio, which is a property of
-the **shape**, so a binding author can predict it before measuring. Every payload below
-a ratio of 1 is at or under push.
-
-This does not settle which family a managed host should take — rust is the host where
-the upcall is cheapest, so it is the host the decision least depends on. What it hands
-the managed slices is a re-pricing kit: crossings go per-message (3 to 16 on P2.2
-against 3,501 per-element), materialisation is 8.5 to 47 percent of a push decode and
-the drain copy 1 to 12.
-
-### A shared encode context aborts the process, and that is a hole in section 5
-
-**The concurrency suite (obligation 12.5) exists and the codec half is clean**: 0 wrong
-out of 2,840 encodes and 2,840 decodes across 2, 4 and 8 threads with a context each,
-phases offset, every encode compared byte for byte against a single-threaded reference.
-"No shared mutable state" is now a measurement rather than a reading of the source.
-
-**The positive control is the result.** Four threads on one context is D16's defect
-planted deliberately, and it is **not** detected as wrong bytes: the core panics inside
-`Enc`, the frame the panic must unwind through is an `extern "C"` entry point, the
-unwind is refused, and **the process aborts**. So section 5's error channel covers
-failures the *host* reports and has nothing at all for a panic inside the core, and
-every codec entry point is exposed to it. Section 3's panic hook changes what is
-printed, not whether the abort happens.
-
-That is a specification gap rather than a slice defect, and it is mine to carry:
-**a library that can abort its host process on a misuse the host can commit is not
-shippable as a drop-in codec**, whatever its ratios. The slice raised it and did not
-take it, correctly — an owning-thread id beside the context's existing `kind` word
-would turn it into `AK_ERR_INVALID_STATE` at the first misuse, and that is an ABI
-change, not a slice change.
-
-### `ak_init` and the lifecycle are exercised
-
-Section 3 stops being unexercised specification. The guard it installs is the one
-figure the branch had been quoting ambiguously, and it is now stated so it cannot be
-misquoted: **the per-entry-point init guard is ±0.003 ns, indistinguishable from
-zero.** An earlier reading of "0.70 ns" was the measurement's own floor, not the
-guard.
-
-## The specified surface that is not built
-
-From the slice's completeness pass, and it belongs in the report rather than in a
-footnote, because a specification is not evidence:
-
-**Three entries of this list were closed by stage 5** (`ak_init` and the lifecycle,
-the pull decode family, the concurrency suite) and are written up above. What is
-still specified and unbuilt:
-
-- **The codec's rollback of a half-written field is written and never triggered.**
-  Section 6 calls that the widest hole in the drafted interface; nothing in this
-  slice makes a host fail mid-run deliberately, so the fix for it is untested.
-- **Group-layout assertions, the `coder` hint, size and recursion limits and the
-  whole RPC half** are specified and unbuilt here.
-- **Malformed wire is unexercised**, and `ak_fail` is reachable only through a
-  panic — which stage 5 showed does not reach the host at all from inside an
-  `extern "C"` frame.
-- **Decision 11's unknown-field capture is deliberately not wired to pull**, so the
-  two open behaviours interact in a way nobody has measured.
-- **There is no `core-native-pull`**: the no-boundary control exists for the push
-  traversal only, so "what does the pull traversal cost without a boundary" is a
-  question this slice cannot answer. Push against pull is measured in the same
-  rounds, which is what decision 2 needed; the other decomposition is not there.
-
-## What I would do next, if this slice is reopened
-
-In the order the slice itself proposes, which I agree with:
-
-**Items 1 to 3 of this list are done** — the concurrency suite, `ak_init` and the
-lifecycle, and the pull decode family — and they are the stage 5 section above. What
-is left, in the order the slice proposes and I agree with:
-
-1. **The remaining content sets, and the SIMD validator on a machine without AVX2**,
-   which is the floor question behind the reframed decision 3.
-2. **The unbatched element form on decode, and the pull family under decision 11's
-   unknown-field capture**, which is the one interaction between two open decisions
-   that nobody has looked at.
-3. **The MSRV**, which is declared at 1.88 and unverified: this container has only
-   1.94.1, so the floor is a claim rather than a gate. Every other slice builds its
-   floor; rust does not, and it is the slice that defines the denominator.
-
-None of it blocks another slice. Everything another slice needs from Rust exists,
-and the pull family it needed most now does too.
-
-## What the slice's own defect log says about method
-
-Four defects, each found before timing and each swept across the generator rather
-than patched where it surfaced. Two would have produced a publishable wrong
-number: the inlining above, and the `armonik` emitter. One (`all_absent`
-precedence, which left a Timestamp alive in a payload where everything should be
-absent) was invisible to P1.1 and P1.2 and visible only on P1.3.
-
-That is three separate defects in two stages whose detection depended on the
-absent path or on the standing question "is this arm actually running". Both are
-already rules (R6, and the slice agents' brief); the slice is evidence they earn
-their place rather than decoration.
-
-**The slice's largest methodological contribution is one observation seen twice,
-in opposite directions**, and it is what both halves of R5 now say:
-
-- an arm that **claims a boundary and has none** — the core as an rlib, every
-  entry point inlined, and the boundary counters still reporting the right counts
-  because the counting code inlined with them;
-- an arm that **claims no boundary and might have one** — a control that could be
-  fused into the benchmark loop, which would make the subtraction that isolates
-  the interface flatter it by whatever the optimiser found.
-
-Neither is visible to R7's configuration discipline, because LTO, `#[inline]` and
-genericity do not appear in a configuration line. Both are visible only from the
-built artifact. **An arm is not what its name says until the artifact agrees**,
-and both directions are now checked as a build step of the slice's own suite
-rather than by an audit that runs when someone goes looking. The C++ slice inherits
-the inverse hazard, where the question is `-flto` over the *control* rather than
-over the core, and can lift the check rather than re-derive it.
+| M1, 1,000 rows | 9 to encode, 6 to decode (the drafted ABI: 15,137) | `stage2-four-arms-M1.log` |
+| M2, per `TaskDetailed` | 10.024 to encode, 7.004 to decode (ABI v1 7.2 predicted 7; drafted ABI 43) | `stage3-M2-M4-revalidated.log` |
+| M3, 200 elements | 3 in each direction (oneof and optionals ride in the group) | `stage3-M3.log` |
+| one unary RPC | 2, and 0 per field (read from the code: neither `crates/rpc` nor ak-core's rpc module mentions a message type; `gen/rpcgrid.sh` step 1 checks it) | `stage4-rpc.log`, `stage6-rpc-grid.log` |
+| pull, reverse calls | 0 on all 13 counted payloads | `stage5-pull-decode.log` |
+| pull, records vs push reverse calls | equal on all 13 (P2.2: 3,501 and 3,501) | `stage5-pull-decode.log` |
+| pull, forward calls per decode | 3 if the host sizes its chunk to the footprint; 16 on P2.2 at 32 KB chunks | `stage5-pull-decode.log` |
+| init guard | per entry point, so one guarded crossing per decode; P2.2 encode makes 2,511 forward crossings | `stage5-lifecycle.log` |
+
+Counts were unchanged to the digit after stage 5's core additions. Related
+structural facts:
+
+- **Decision 5 (learned prefix width)**: zero warm prefix misses and zero bytes
+  moved on every uniform payload; on P2.4 one miss per element, 980,938 bytes
+  moved of a 981,222-byte output; zero grow-callback invocations anywhere.
+- **Pull record stream**: on P1.3 it is 38,488 B for a 605 B message (a record
+  carries an absent element's whole fixed group), a property of the shape.
+- **Unknown-field bag**: as one opaque bytes blob it changes the leafness of no
+  message; as a repeated field it takes the schema from 9 leaf messages to 0 and
+  every batched run fails (`gen/unknown_predicate.py`).
+- **Batching predicate**: it saves decode crossings and not encode crossings,
+  because on encode the host drives its own containers (ABI v1 section 6).
+
+## Concurrency suite and lifecycle
+
+- **Codec half clean**: 0 wrong out of 2,840 encodes and 2,840 decodes across 2, 4
+  and 8 threads with a context each, phases offset, every encode compared byte for
+  byte with a single-threaded reference and every decode by value.
+- **Section 6's two refusals built separately**, four builds with required
+  outcomes, all as required: shipped 0 wrong; `global-widths` 0 wrong (a data
+  race, not a byte defect); `pad-widths` 10 wrong; both together 1,410 wrong.
+- **The oracle was changed**: re-encoding with a fresh `core-ffi` context sees 0
+  wrong on the combined build where prost sees 4, because a global table pollutes
+  the "fresh" context too. The suite now uses prost.
+- **Contention arm checked to contend**: a warm context on one shape misses zero
+  length prefixes; the same context alternating the pair misses exactly one per
+  encode.
+- **Lifecycle**: fourteen cases, each in its own process. Eight threads racing
+  `ak_init` give exactly one `AK_OK` and seven `AK_ALREADY_INITIALIZED`, and no
+  caller returns before the installs are visible. The core's panic hook does not
+  see a Rust host's panics (a cdylib carries its own `std`). Init flags are a
+  process-wide negotiation where the first caller's flags apply; section 3 does not state
+  this.
+
+## Defects found, and what found them
+
+- **Panic across `extern "C"` aborts the host** (concurrency suite positive
+  control: four threads on one context). The core panics inside `Enc`, the unwind
+  through the `extern "C"` entry point is refused, the process aborts. Section 5's
+  error channel has nothing for a panic inside the core; section 3's panic hook
+  changes what is printed, not whether the abort happens. Raised as an ABI change
+  (an owning-thread id beside the context's `kind` word), not taken.
+- **D3, entry points inlined into the host** (disassembly). With the core as an
+  rlib, the release binary had zero call sites to the encode, decode and element
+  entry points, and the counting build still reported 3, 9 and 6 because the
+  counters were inlined too. Fixed with a cdylib; `nm -D --undefined-only` on the
+  harness lists the thirteen ABI entry points as undefined, checked every run.
+  Exposure: Rust and C++ (`-flto` over a static core); managed hosts cannot inline
+  across the boundary.
+- **D9, open-field state not restored by an element run** (a length-prefix site
+  that would not converge). A chunking host wrote every chunk after the first
+  under the inner field's tag. Byte identity passed throughout because
+  `ListTasksDetailedResponse.tasks` and `TaskOptions.options` are both tag 1; no
+  root in `design/SHAPES.md` can catch this class, hence corpus requirement 5.
+- **D16, RPC client mutated shared state** (8 calls in flight in stage 4, by
+  accident). Worked at 1 in flight, failed at 8. The failure surfaced as
+  `AK_ERR_HOST` with no cause attached, because ABI v1 has no channel for a source
+  chain (now part of open decision 12).
+- **D17, sticky decode error slot never cleared**: one rejected decode poisoned
+  every later decode on the context. Now a stated requirement in ABI v1 section 5.
+- **D20, empty string pointer equals `AK_STR_DIRECT`** (content sets on every
+  payload, first run). `as_ptr()` on an empty slice returns 1, the section 8
+  sentinel, so empty strings took the direct-argument path and produced correct
+  bytes only while the context had never encoded `UploadResultDataMessage`. Fixed
+  in the binding; the ABI hazard (a sentinel in a range an empty buffer can
+  occupy) is open and the other bindings are unchecked.
+- **D21, `ak_client_opts` declared with 4 fields while the core read 6**
+  (reconciliation review). Fixed; a const block now asserts size, alignment and
+  every field offset, verified failing on the old declaration.
+- **M4 adapter states unreachable from the payload set** (checking the adapter by
+  state). The nested site produced (true, non-empty), which
+  `TaskDetailed.Output` forbids; at the plain site Ok and Invalid both flatten to
+  the empty string, so one must come back wrong whatever the adapter chooses. The
+  generator now cycles the three states: 167 Ok, 167 Error, 166 absent at P2.2's
+  nested site; P4.1's plain site 67 non-empty against 133 empty-or-absent. Schema
+  fact surfaced: `TaskDetailed.Output` (`{bool success, string error}`) and
+  `objects.proto`'s `Output` (`oneof {Empty ok, Error error}`) share a name.
+- **Packed repeated enum falsely marked covered** for M2; now on M6 as
+  `MetricsBatch.statuses` (`945d3cd1`).
+- **Generator defects**: D4 (`all_absent` precedence, visible only on P1.3), D5,
+  D6, D8 (depth two and beyond only), D12 (oneof members ignored by every
+  backend), D13 (`direct_fields` refused nothing).
+- **Design fact**: four of five incumbents (Google.Protobuf, protobuf-java,
+  protobuf C++, upb) retain unknown fields from decode to re-encode; prost does
+  not, and the core follows prost. This is ABI v1 open decision 11.
+- **Design fact**: a oneof is laid out as a discriminant plus every member flat,
+  not a union, so group layout stays reproducible by hand (ABI v1 section 6).
+- **Design fact**: encode-side UTF-8 validation was removed (decision 3):
+  `ak_tc_bytes()` and `ak_tc_utf8_trusted()` return the same function pointer in
+  this tree; decode validates. `ak_tc_utf8_simd` has the same accept and reject
+  sets as the scalar validator (checked in the source).
+
+## Harness facts
+
+- **In this slice's grid, `B - A` is not a transport comparison**: cell A (prost
+  on tonic) and cell B (the generated codec's host side on the core's transport)
+  both run on tonic, so the host transport and the core transport are the same
+  stack here (`logs/rust/stage6-rpc-grid.log`).
+- **D19**: the root `.gitignore`'s `[Bb]in/` excluded every measurement binary
+  until `7fb30be5`, so logs from `cc7f68c6` and `d03c5161` have no committed
+  harness and cannot be re-derived. `ffi/.gitignore` now re-includes `bin/`.
+- **A counter is not evidence that a call happened** (D3). R5 requires showing
+  from the artifact that entry points are unresolved imports.
+- **The no-boundary control must be checked in the other direction too**:
+  `gen/inline_check.sh` compares the calling closure's size with the traversal's
+  (472 bytes against 4,299 and 11,311 in the audited build). With LTO off and
+  non-generic, non-`#[inline]` entry points the traversal cannot cross into the
+  harness; an `#[inline]` or generic entry point, or LTO, would change that.
+  `core-native` is therefore "no boundary, still a GOT-indirect call", not a fully
+  inlined native codec.
+- **D14**: the `core-native` M4 to M7 encode case allocated and grew a fresh `Vec`
+  per call while other arms reused a buffer.
+- **D18**: running policy builds in a fixed order made the always-first build
+  read differently between invocations; round robin with rotating order fixed it.
+- **Two-build comparisons failed their control** (`gen/guardprice.sh`):
+  `core-native`, identical in both builds, moved between them. The guard question
+  was re-asked within one process with a twin arm that measures the method's
+  floor.
+- **A within-arm delta and a cross-arm ratio to a third arm behaved differently
+  across sessions** on the same finding (content sets); R4 records this.
+- **Nagle on the stage 4 server socket**: `rpc::serve` had Nagle on while tonic's
+  client had it off, which governed loopback-TCP wall time (not HTTP/2 flow
+  control, as first stated). `rpc::serve` now sets `TCP_NODELAY`;
+  `rpc::serve_nagle` keeps the old form. Every loopback-TCP figure taken before
+  the change is affected.
+- **Stage 6 asserts only response length** at 8 and 16 in flight: a load, not a
+  correctness suite.
+
+## Open review findings (2026-09-24, unconfirmed)
+
+From `design/FIX-PLAN.md` section 7. None is confirmed by the slice agent yet.
+
+- **R-C14**: `poc/rust/STATE.md:110-137` still shows the retired M1/M2 table.
+- **R-C16**: the crossing benchmark is bimodal between two builds, and the
+  init-guard bound is quoted against a control resolution far coarser than it.
+- **R-D1**: length-varint wrap in the shared core (`ak-rt` `dec.rs`): hang,
+  out-of-bounds span to the host, panic across `extern "C"` (source verified, not
+  run).
+- **R-D6**: encode entry points ignore the sticky error slot.
+- **R-D8**: the concurrency suite's `together()` uses only absent-path payloads
+  (P1.3, P2.5); P1.2 and P2.2 to be added, ThreadSanitizer if available.
+- **R-D9**: minor boundary items, including `from_raw_parts(null, 0)` in
+  `tc_utf8*`, `u32` span truncation over 4 GiB, and `lifecycle.sh` /
+  `guardprice.sh` no longer building a guard-off arm since `init-guard` became
+  default.
+- **R-E1**: the "one traversal" claim in `rust_core.py` is false; `core-native`
+  and `core-ffi-rust` do not come from one plan.
+- **R-A7**: Rust MSRV unverified.
+- **R-A9 / R-C8**: no RPC arm measures streaming or the worker path.
+
+## What is not established
+
+- **No performance result.** Every timing in `logs/rust/` is container
+  instrumentation, including the crossing cost, the RPC grid, the pull and push
+  comparison, the zeroed-group fill, the unknown-field bag, the guard and the UTF-8
+  policies. The campaign (W13) measures these.
+- **The floor**: MSRV 1.88 not built or run.
+- **Nesting beyond 4 levels**: the payload set carries responses only; the real
+  schema's depth 6 lies on filter and request messages. Decision 7 (recursion
+  limit) is unexercised.
+- **Content sets**: no manifest oracle for latin1 or wide (`ffi/schema/` emits
+  ASCII only), so correctness there is arm against prost arm. SIMD validator
+  behaviour without AVX2 is not tested.
+- **Transcode pair** (README section 10 item 4): unreachable, a Rust `String`
+  cannot hold an unpaired surrogate.
+- **Direct-argument path** (section 8): built and byte-identical; on a Rust host
+  there is nothing to pin, so nothing here bears on it.
+- **`packages/rust` itself**: the `armonik` arm reproduces its pattern without
+  `armonik-macros` and does not price the in-repo crate.
+- **RPC half**: metadata, deadlines, numeric status, retry and backoff, TLS,
+  streaming, a real network, failure injection and the server side are not built;
+  `ak_call_cancel` is built and never called; configuration precedence and
+  `worker_threads` defaults are unexercised. Rust has no carrier thread, so the
+  idiomatic-wait requirement is not testable here. Server always in-process.
+- **Concurrency**: RPC half not in the suite; no race detector run; two shapes
+  only.
+- **Pull family**: not wired to unknown-field capture; `ak_bdr_reserve` never
+  called; `AK_ERR_CAPACITY` on an oversized record never triggered; no
+  `core-native-pull` control.
+- **Error paths**: encode-side rollback of a half-written field is written and
+  never triggered; `AK_ERR_MALFORMED` and `AK_ERR_TRUNCATED` have no vector;
+  malformed UTF-8 is exercised by one vector and returns `AK_ERR_TRANSCODE`
+  (whether `AK_ERR_MALFORMED` is the right code is open).
+- **Specified and unbuilt**: group layout export and load-time assert, the
+  `ak_span.coder` hint, size and recursion limits, the unbatched decode element
+  form, the opt-in diagnostic encode mode, merge-by-tag for the bag.
+- **Unknown-field bag**: non-empty bag throughput, decode-side crossings for
+  unknown runs, a oneof's message member and inner slots of non-leaf elements.
+- **Allocation and footprint**: not counted in any arm.
+- **Linkage**: shared library only; a static link is a different mechanism.
+- **Corpus** (`ffi/corpus/`): not consumed by this slice.
