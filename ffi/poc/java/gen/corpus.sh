@@ -20,7 +20,7 @@ ARMS=R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow
 export AK_CORPUS_TIMEOUT_MS=${AK_CORPUS_TIMEOUT_MS:-5000}
 echo "== java slice corpus gate; tree ${AK_COMMIT:-$(git rev-parse --short HEAD)}$(git diff --quiet HEAD -- . ../codec/gen || echo ' + uncommitted changes')"
 echo "   $(cat build/core-rev.txt 2>/dev/null)"
-echo "   corpus core built with: $(grep -ho ',"features":"\[[^]]*\]' core-build/target-corpus/release/.fingerprint/ak-core-*/lib-ak_core.json | sort -u | tr -d '\\' | tr '\n' ' ')"
+echo "   corpus core built with: $(grep -ho ',"features":"\[[^]]*\]' core-build/current/target-corpus/release/.fingerprint/ak-core-*/lib-ak_core.json | sort -u | tr -d '\\' | tr '\n' ' ')"
 echo "   shim $SHIM -> $(ldd "$SHIM" | awk '/libak_core/ {print $3}')"
 echo "   the loaded core is the corpus-schema build: $(nm -D --defined-only "$(ldd "$SHIM" | awk '/libak_core/ {print $3}')" | grep -c ' T ak_decode_WireZoo') ak_decode_WireZoo export(s)"
 echo "   per-row timeout ${AK_CORPUS_TIMEOUT_MS} ms"

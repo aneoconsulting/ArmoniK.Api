@@ -27,27 +27,41 @@ python3 gen/generate.py
 # commit is printed and belongs in every log.
 # Every codec build carries `init-guard` (R-G7): ABI v1 section 3 as specified, so a binding
 # that skipped `ak_init` fails here instead of passing silently.
+#
+# D39: the cargo target directories are KEYED on what is built. `git archive` stamps every
+# file with the commit's time, so over a reused target dir cargo could see an older mtime
+# than the artifacts it already had and keep a stale core -- it did once. Each snapshot now
+# builds into core-build/<key>/, key = the git TREE hash of ffi/poc/codec at $REV (or, for
+# AK_CODEC, a hash of that directory's sources), and core-build/current points at the one
+# this build made. A key that already exists was built from exactly those sources.
 REV=${AK_CORE_REV:-HEAD}
 if [ -n "${AK_CODEC:-}" ]; then
   CODEC=$AK_CODEC
+  KEY=dir-$(cd "$CODEC" && find . -type f ! -path './target/*' ! -path '*/__pycache__/*' \
+              | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -c1-16)
+  echo "   core: AK_CODEC=$CODEC, source key $KEY" | tee build/core-rev.txt
 else
   CODEC=$HERE/build/codec-snap
   rm -rf "$CODEC" && mkdir -p "$CODEC"
-  ( cd "$(git rev-parse --show-toplevel)" && git archive "$REV" ffi/poc/codec ) \
-    | tar -x -C "$CODEC" --strip-components=3
-  echo "   core snapshot: ffi/poc/codec at $(git rev-parse --short "$REV")" | tee build/core-rev.txt
+  TOP=$(git rev-parse --show-toplevel)
+  ( cd "$TOP" && git archive "$REV" ffi/poc/codec ) | tar -x -C "$CODEC" --strip-components=3
+  KEY=tree-$(cd "$TOP" && git rev-parse "$REV:ffi/poc/codec" | cut -c1-16)
+  echo "   core snapshot: ffi/poc/codec at $(git rev-parse --short "$REV"), tree key $KEY" | tee build/core-rev.txt
 fi
+CB=core-build/$KEY
+mkdir -p "$CB"
+ln -sfn "$KEY" core-build/current
 CORE=$CODEC/crates/ak-core/Cargo.toml
 say "core (timed, init-guard)"
-CARGO_TARGET_DIR=$HERE/core-build/target cargo build --release --features init-guard \
+CARGO_TARGET_DIR=$HERE/$CB/target cargo build --release --features init-guard \
   --manifest-path $CORE >/dev/null
 say "core (counting, init-guard)"
-CARGO_TARGET_DIR=$HERE/core-build/target-count cargo build --release --features count,init-guard \
+CARGO_TARGET_DIR=$HERE/$CB/target-count cargo build --release --features count,init-guard \
   --manifest-path $CORE >/dev/null
 # The core generated for ffi/corpus's reader schema (test-only `corpus` feature: it changes
 # the ABI, so it is its own build and its own shim, never linked with a shapes host).
 say "core (corpus schema, init-guard)"
-CARGO_TARGET_DIR=$HERE/core-build/target-corpus cargo build --release --features corpus,init-guard \
+CARGO_TARGET_DIR=$HERE/$CB/target-corpus cargo build --release --features corpus,init-guard \
   --manifest-path $CORE >/dev/null
 
 # ---- 3. the JNI shim, one per core build, plus a no-guard and a tax build
@@ -60,23 +74,28 @@ shim() {   # $1 = output dir, $2 = core target dir, $3 = generated native dir, $
       "$@" -o "build/$out/libakjni.so" "$gen/shim.c" native/tax.c \
       -L"$core/release" -lak_core -Wl,-rpath,"$HERE/$core/release"
 }
-shim jni       core-build/target        native/generated
-shim jnicnt    core-build/target-count  native/generated
-shim jnong     core-build/target        native/generated         -DAK_NO_GUARD
-shim jnitax    core-build/target        native/generated         -DAK_CROSSING_TAX
-shim jnicorpus core-build/target-corpus native/generated_corpus
+shim jni       $CB/target        native/generated
+shim jnicnt    $CB/target-count  native/generated
+shim jnong     $CB/target        native/generated         -DAK_NO_GUARD
+shim jnitax    $CB/target        native/generated         -DAK_CROSSING_TAX
+shim jnicorpus $CB/target-corpus native/generated_corpus
+# Each shim must resolve to THIS build's core, never another key's.
+for s in jni jnicnt jnong jnitax jnicorpus; do
+  ldd build/$s/libakjni.so | grep -q "$HERE/$CB/" \
+    || { echo "shim $s does not link $CB: $(ldd build/$s/libakjni.so | grep ak_core)"; exit 1; }
+done
 
 # ---- 3b. ABI v1 section 9, the RPC half. A SEPARATE core build (the `rpc` feature links
 # tonic and tokio, which a codec arm must not carry). Not in the correctness gate.
 say "core (rpc feature) and its shim"
-CARGO_TARGET_DIR=$HERE/core-build/target-rpc cargo build --release --features rpc,init-guard \
+CARGO_TARGET_DIR=$HERE/$CB/target-rpc cargo build --release --features rpc,init-guard \
   --manifest-path $CORE >/dev/null
 mkdir -p build/jnirpc
 gcc -O2 -fPIC -shared -std=c11 -Wall -Wextra -Wno-unused-parameter \
     -I"$J17/include" -I"$J17/include/linux" -Inative/generated \
     -o build/jnirpc/libakjni.so native/generated/shim.c native/tax.c native/rpc.c \
-    -L"core-build/target-rpc/release" -lak_core \
-    -Wl,-rpath,"$HERE/core-build/target-rpc/release"
+    -L"$CB/target-rpc/release" -lak_core \
+    -Wl,-rpath,"$HERE/$CB/target-rpc/release"
 
 # ---- 4. the incumbent's generated Java
 say "protoc"

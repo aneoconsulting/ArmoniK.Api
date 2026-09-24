@@ -20,7 +20,7 @@ echo "# the core at load, not inlined into it"
 nm -D --undefined-only build/jni/libakjni.so | grep -E ' U ak_' | sort | sed 's/^/  /'
 echo
 echo "# and the core defines them"
-nm -D --defined-only core-build/target/release/libak_core.so | grep -cE ' T ak_' \
+nm -D --defined-only core-build/current/target/release/libak_core.so | grep -cE ' T ak_' \
   | sed 's/^/  exported ak_* symbols: /'
 echo
 echo "# the shim carries no copy of the codec: no ak_encode_/ak_decode_ TEXT symbols"

@@ -16,7 +16,8 @@ the unknown-DROPPED form on an `unknown` row passes C3 (both forms are accepted)
 listed as a retention gap, as the rust slice's harness does.
 
   gen/corpus.py <java-bin-dir> <classes-dir> <arms> [<shim.so>]      (run from poc/java)
-  env: AK_CORPUS_TIMEOUT_MS (5000), AK_CORPUS_PLANT (proj|reenc|accept), AK_CORPUS_ONLY
+  env: AK_CORPUS_DIR (a manifest directory other than ffi/corpus/generated, e.g. the
+       rust slice's probe manifest, poc/rust/gen/probe_corpus.py), AK_CORPUS_TIMEOUT_MS (5000), AK_CORPUS_PLANT (proj|reenc|accept), AK_CORPUS_ONLY
        (comma-separated row id prefixes), AK_SKIP_INIT=1
 """
 import json
@@ -28,7 +29,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 SLICE = os.path.dirname(HERE)
 FFI = os.path.dirname(os.path.dirname(SLICE))
-CORPUS = os.path.join(FFI, "corpus", "generated")
+CORPUS = os.environ.get("AK_CORPUS_DIR") or os.path.join(FFI, "corpus", "generated")
 OUT = os.path.join(SLICE, "build", "corpus_out")
 
 
