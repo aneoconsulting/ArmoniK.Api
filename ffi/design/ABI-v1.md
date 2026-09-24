@@ -4,6 +4,9 @@
 built against. Until it is agreed, no slice starts; once it is agreed, a slice
 that disagrees with it raises a finding rather than diverging quietly.
 
+Phase note (2026-09-24): container timings in this document were removed or
+marked as instrumentation (design/FIX-PLAN.md WP2).
+
 **It is called v1 because it is meant to be the only one.** The version is not a
 hedge against this document being provisional: it is there so that a future shape
 this design cannot absorb has a name (`ABI-v2.md`, in its own document) rather
@@ -30,7 +33,7 @@ The host must never need to know the wire format.*
 
 The first half is necessary because only the host knows how its collections are
 stored. The second is where the design stops sliding: once a crossing is known to
-cost 10 ns one way and 2 ns the other, every measurement argues for moving one
+cost more in one direction than in the other, every measurement argues for moving one
 more thing into the cheap direction, and that gradient ends with the host
 encoding its own messages, which is the five-implementations problem this exists
 to remove. The line is drawn on versioning, not on taste: **a named accessor slot
@@ -146,10 +149,10 @@ silent certificate-verification bypass for a context that explicitly pinned a CA
 **`worker_threads` comes from `ak_runtime_opts` with a small explicit default,
 never from `Runtime::new()`.** Rust reads the cgroup quota, so `cpu: 500m` rounds
 down to one worker while a requests-only pod takes every CPU on the node
-(measured: 23 threads, 1.49 GB of virtual address space, idle). Two workers to
-four on two vCPUs cost 2 percent of throughput and doubled to quadrupled the
-p999, so a client that silently takes a worker per CPU does not look slow, it
-looks erratic.
+(observed: 23 threads, 1.49 GB of virtual address space, idle). More workers
+than vCPUs hurt tail latency far more than throughput (container
+instrumentation; to be measured in the campaign), so a client that silently
+takes a worker per CPU does not look slow, it looks erratic.
 
 **Ownership between handles is internal.** A call holds an `Arc` on its client's
 storage, invisible to the ABI, so `ak_client_destroy` drops the host's reference
@@ -218,10 +221,10 @@ because it is not only simplification:
   declares 1 or 3 was coupled to whether it fails or substitutes on malformed
   input; that coupling is gone and the question is now purely about semantics
   (open decision 3).
-- **The measured win for expressing the bound per code unit rather than as a
+- **The argument for expressing the bound per code unit rather than as a
   ratio survives as an argument for `len` being in code units**, which it still
-  is. The 3.0 to 14.1 percent that form was worth came from avoiding a hardware
-  divide per string; no form of it remains in the call path.
+  is. That form avoided a hardware divide per string; no form of it remains in
+  the call path.
 - **What it costs is one check that cannot be removed**: the codec refuses a
   returned count larger than the capacity it gave, because nothing can make a
   transcoder that writes past its buffer safe. A transcoder that over-runs and
@@ -239,9 +242,10 @@ because it is not only simplification:
   written by opening a prefix of a learned width, handing the transcoder the rest
   of the buffer, and resolving the prefix afterwards. A host that *already holds
   the bytes* knows the length and could write key, length and body in one pass.
-  Measured on P1.2's 6,000 strings in one process: **5.04 ns against 9.53 ns per
-  string, +4.49 ns**, which is a substantial share of the C ABI's encode gap
-  against a no-boundary control on a string-dense message.
+  On P1.2's 6,000 strings the two-pass write was slower per string than a
+  one-pass write, and looked like a real share of the C ABI's encode gap against
+  a no-boundary control on a string-dense message (container instrumentation; to
+  be measured in the campaign).
 
   **The fix is a `tc == ak_tc_bytes` fast path in the core**: where the specified
   passthrough transcoder is in use, the codec may take `ak_str.len` as the byte
@@ -254,14 +258,14 @@ because it is not only simplification:
   **Worth reading beside upb, which takes the opposite route**: upb encodes
   *backwards* so that a length is always known by the time its prefix is written
   (`upb/wire/encode.c:8`, "We encode backwards, to avoid pre-computing lengths").
-  That makes prefixes free and makes buffer growth expensive — `encode_growbuffer`
-  memmoves everything written so far to the end of the new block — and the C++
-  slice measured upb's encode at 1.18 to 1.97 of protobuf C++ on string-dense
-  payloads as a result. protobuf C++ takes the third route, a full `ByteSizeLong`
+  That makes prefixes free and makes buffer growth expensive (`encode_growbuffer`
+  memmoves everything written so far to the end of the new block), and the C++
+  slice saw upb's encode slower than protobuf C++ on string-dense payloads
+  (container instrumentation; to be measured in the campaign). protobuf C++ takes the third route, a full `ByteSizeLong`
   pre-pass and then an exact forward write. The learned width is a fourth point in
-  that trade and decision 5 measured its miss rate at zero on every uniform
-  payload, so the fast path above is a refinement of a design that is already the
-  right shape rather than a repair.
+  that trade and decision 5 counted its misses at zero on every uniform
+  payload, so the fast path above is a refinement of the design rather than a
+  repair.
 
 ## 5. Errors
 
@@ -328,8 +332,8 @@ thread-local `ak_last_error()`; the context is the place, and an entry point wit
 no context takes an `ak_err` out-parameter.
 
 **That mandate is now measured rather than argued, and the core does not meet it.**
-The rust slice's concurrency suite planted the obvious host misuse — four threads
-sharing one encode context — as a positive control, expecting wrong bytes. It does
+The rust slice's concurrency suite planted the obvious host misuse (four threads
+sharing one encode context) as a positive control, expecting wrong bytes. It does
 not produce wrong bytes: the core panics inside `Enc`, the frame the unwind must
 cross is an `extern "C"` entry point, the unwind is refused, and **the process
 aborts**. Section 3's panic hook changes what is printed, not whether that happens.
@@ -345,12 +349,12 @@ Two things follow, and they are separate:
   one is cheap.** An owning-thread id beside the context's existing `kind` word
   turns a concurrent use into `AK_ERR_INVALID_STATE` at the *first* misuse, before
   any state is corrupted, where a caught panic reports it afterwards and cannot say
-  why. The cost is one word in the context and one comparison per entry point,
-  against a guard that section 5 already prices at about 1.1 ns.
+  why. The cost is one word in the context and one comparison per entry point.
 
 **Cost, stated so a slice does not inherit an optimistic margin.** The guard
-measured +1.1 ns on a scalar accessor and +2.9 ns on a string accessor, and every
-published figure in both managed reports was measured *without* it. v1 makes that
+has a per-accessor cost, larger on a string accessor than on a scalar one
+(container instrumentation; to be measured in the campaign), and every
+published figure in both managed reports was taken *without* it. v1 makes that
 cheaper than it was rather than free: with strings riding in the group, the
 accessors that remain are one per repeated field and one per element rather than
 one per string, so the guard lands on tens of calls per message instead of
@@ -415,8 +419,9 @@ That is the mechanism the .NET gap left untested, and it is the part for a manag
 binding to copy, rather than the counts.
 
 **One element entry point taking a count, not two symbols.** `n = 1` is the
-unbatched call. One codec body serves both shapes at no measurable cost and in
-less compiled code, and the alternative is a second protocol with its own
+unbatched call. One codec body serves both shapes in less compiled code (its
+run-time cost is container instrumentation; to be measured in the campaign), and
+the alternative is a second protocol with its own
 rollback semantics to specify and test. The host may switch forms per field and
 per element mid-stream, because every entry point appends: tested by feeding one
 repeated field through three entry points in one pass, one element at a time,
@@ -430,28 +435,28 @@ repeated and map fields) is the default because its ownership story is simplest:
 the codec makes no reverse call during a run, so the entry point can be declared
 non-suspending and a host exception cannot happen mid-run. The unrestricted form
 (`ak_elemu_X`) names element *i* as `tok0 + i` from a contiguous token range the
-host allocated, costs one more bounded 32 KB buffer per nesting level, and is
-about 4 percent better on nested payloads. That is a trade, and the leaf form is
-the default.
+host allocated, costs one more bounded 32 KB buffer per nesting level, and was
+faster on nested payloads (container instrumentation; to be measured in the
+campaign). That is a trade, and the leaf form is the default.
 
-Its value differs by runtime by construction, which is why both slices are right:
-it is worth 2 to 9 percent on JNI (a forward call is 11.2 ns), about half that on
-FFM (3.4 ns), and nothing measurable on .NET (about 1.5 ns). **A host may decline
-to batch at all.**
+Its value differs by runtime by construction: it saves forward crossings, and a
+forward crossing costs different amounts on JNI, FFM and .NET, which is why the
+two slices' observations need not conflict. **A host may decline to batch at
+all.**
 
 **What it then loses, or gains, is a function of its crossing price, and the C++
-slice measured the curve rather than the point.** With a calibrated delay in front
+slice probed the curve rather than the point.** With a calibrated delay in front
 of every forward entry-point call, the P2.2 delta between the unbatched and
-batched arms moves from −20.9 ns per element at no added tax to +25.4 at +4.4 ns,
-monotone through +147.1 at +24.6. **The crossover is at a forward crossing of
-roughly 2 to 4 ns.** Below it a host that declines to batch is *faster*, because
-the chunk's second pass over memory costs more than the crossings it saves; above
-it batching wins and keeps winning.
+batched arms changed sign as the added delay grew. **There is a crossover in the
+forward crossing price.** Below it a host that declines to batch is *faster*,
+because the chunk's second pass over memory costs more than the crossings it
+saves; above it batching wins. Where the crossover lies, and which side of it
+each host sits on, is container instrumentation and is to be measured in the
+campaign.
 
-So the honest statement is per host and not per specification: C++ at 1.82 ns
-sits below the crossover and gains by declining, while .NET 8, FFM and JNI all sit
-above it. A slice that reports only its own sign has not answered this; it reports
-its crossing price beside it. (`findings/cpp.md`, `logs/cpp/tax.log`.)
+So the statement is per host and not per specification. A slice that reports
+only its own sign has not answered this; it reports its crossing price beside
+it. (`findings/cpp.md`, `logs/cpp/tax.log`.)
 
 **A packed repeated scalar is the host's own array, handed over whole.** One
 symbol per host layout; the wire encoding comes from the schema and lives in the
@@ -475,23 +480,26 @@ together.** A concurrency suite built for obligation 12.5 separated them
 
 - **The table lives in the context, never process-global.** 37 live slots at four
   bytes pack about sixteen to a cache line. A global table is a data race and a
-  **throughput** defect — 1.83 to 2.05 times slower contended in C++, 1.32 to 2.23
-  in Java — but it is **not a byte defect**: an unpadded prefix is rewritten to
-  whatever width the body actually needs, whatever the guess was. Uncontended it
-  costs 1.13 to 1.23 and scaling does not degrade at all, so the cost tracks how
-  often the table is *written* rather than the fact of sharing.
+  **throughput** defect (slower when contended in C++ and in Java, and the
+  slowdown appeared to track how often the table is *written* rather than the
+  fact of sharing; container instrumentation, to be measured in the campaign),
+  but it is **not a byte defect**: an unpadded prefix is rewritten to whatever
+  width the body actually needs, whatever the guess was.
 - **Do not pad the prefix to a fixed width.** Built three ways and refused three
   ways, most sharply because padding to the learned width makes the encoder's
-  output depend on its own history — which a byte-vector corpus cannot express,
+  output depend on its own history, which a byte-vector corpus cannot express,
   and which lets two threads of one process emit two different legal encodings of
   one message.
 
 **Only the combination corrupts, and it corrupts in a way a naive suite cannot
 see**: the threads *agree* with each other, because they share the pollution, so
 a suite that compares two threads' output finds nothing. It takes an independent
-reference — the incumbent's encoder, not a re-encode with the code under test —
+reference (the incumbent's encoder, not a re-encode with the code under test)
 to catch it. Measured: one payload shape gives 0 wrong of 24, two shapes that
-want different widths at a shared site give 44 of 48.
+want different widths at a shared site give 44 of 48 (a count that includes each
+wrong native encode twice, once directly and once through the round trip, so 22
+distinct wrong encodes; and the planted builds did not reach the shared core,
+FIX-PLAN R-D7).
 
 **And the pair has to be chosen, not assumed.** Widths only ever grow within a
 context, so only an ordered pair where the first shape leaves a site *wider* than
@@ -503,9 +511,9 @@ the answer **even when it is empty**.
 **Nothing the host calls in the codec is a table.** The host links the codec, so
 it knows the symbol; a table adds an indirection, a layout that has to be
 versioned, and a failure mode where a newer host reads a slot an older codec
-never wrote. A missing symbol is a load failure, which is loud. Measured worth
-nothing either way, so this is an interface-size and failure-mode argument and
-should be made on those grounds. **The other direction cannot have that**, and
+never wrote. A missing symbol is a load failure, which is loud. Container
+instrumentation showed no difference either way, so this is an interface-size
+and failure-mode argument and should be made on those grounds. **The other direction cannot have that**, and
 the asymmetry is forced: a managed method has no symbol, and a function pointer
 is the only callable address .NET, the JVM and CPython can produce.
 
@@ -537,20 +545,23 @@ half a field.
 **The fill must be total.** Every scalar, every count and all three words of
 every `ak_str` are assigned unconditionally, and the presence word is assigned
 rather than OR-ed. In exchange the codec does not reset the element group between
-elements, worth 5.4 ns per `ResultRaw` and 24.4 per `TaskDetailed`. This is an
+elements, which saves a reset per element (settled in the draft; timing evidence
+is container instrumentation, re-checked in the campaign). This is an
 invariant and it belongs in the header: a partial fill does not fail, it silently
 inherits the previous element's value.
 
 **What the total fill costs is the absent path**, measured first by the Rust slice
 and carried as open decision 9: the fill is unconditional, so on a payload whose
 elements encode to nothing there is nothing for it to amortise against, and the
-group turns a win in both directions into a loss in both. Do not quote the group's
+group turned from a gain in both directions into a loss in both (container
+instrumentation; to be measured in the campaign). Do not judge the group's
 worth from a full payload alone.
 
-**A measured alternative exists and it does not weaken this invariant.** If the
+**An alternative exists and it does not weaken this invariant.** If the
 host bulk-clears its chunk buffer and then assigns only the fields that differ
-from the default, the absent-path inversion disappears and no measured payload
-pays for it (decision 9). The codec still resets nothing between elements, which
+from the default, the absent-path inversion disappeared in container
+instrumentation with no visible cost on the other payloads (decision 9; to be
+measured in the campaign). The codec still resets nothing between elements, which
 is what this paragraph is actually buying; what changes is the host's side of the
 contract, and a partial fill is safe only because the clear precedes it.
 
@@ -560,23 +571,23 @@ contract, and a partial fill is safe only because the clear precedes it.
 owns the bytes: the span points into the buffer the host handed in, so there is
 nothing to reserve, size or transcode.
 
-**And decode converges to parity with the incumbent in proportion to how much
-host-side container construction an element needs**, which bounds what any of this
-machinery can be worth. Three shapes measured in the Rust slice, `core-native`
-against prost: a flat 5-field message with one or two strings decodes at 0.81 to
-0.82; a 10-field message with six blobs and two optional children at 0.83 to 0.86;
-a 27-field message with four `Vec<String>`, a `BTreeMap` and a nested child at 0.89
-to 0.96. Strings alone do not explain it, since the first two allocate plenty; a
-map insert and four vector growths are work every arm does identically and no
-codec can avoid. Measured in
-the Rust slice on P2.2, the shape the control plane actually moves: 17,500 strings
-and 2,000 map entries in 551 KB, where both core arms land at parity with prost
-(0.81 to 1.21) against 0.75 to 0.89 on the flat M1 payloads. The crossings are not
-the reason, and this is what makes the finding portable: 7 per element at 1.8 ns
-is 12.6 ns against ~2,200 ns per element, 0.6 percent, and the **no-boundary**
-control is at parity too. What dominates is `String` allocation and map insertion,
-which every arm does identically. The interface cost is still there and still
-small, about 6 percent of decode on M2 and 2 percent on M1.
+**And decode's distance from the incumbent appeared to shrink with how much
+host-side container construction an element needs**, which would bound what any
+of this machinery can be worth. The Rust slice compared three shapes,
+`core-native` against prost: a flat 5-field message with one or two strings; a
+10-field message with six blobs and two optional children; a 27-field message
+with four `Vec<String>`, a `BTreeMap` and a nested child. The gap closed as
+construction grew (container instrumentation; to be measured in the campaign).
+Strings alone do not explain it, since the first two allocate plenty; a map
+insert and four vector growths are work every arm does identically and no codec
+can avoid. The same held on P2.2, the shape the control plane actually moves
+(17,500 strings and 2,000 map entries in 551 KB), where both core arms came out
+level with prost. The crossings are not the reason, and this is what makes the
+finding portable: P2.2 decode makes 7 crossings per element (a count), against the
+whole cost of building the element's host objects, and the **no-boundary** control behaved
+the same way. What dominates is `String` allocation and map insertion, which
+every arm does identically. The interface cost is still there and still small
+relative to that construction (container instrumentation).
 
 Two things follow for the slices. **A decode win measured on a payload less
 string-dense than P2.2 may not survive P2.2**, so every slice reports it, and a
@@ -589,11 +600,12 @@ side transcodes into the memory it owns. On encode the destination is the codec'
 buffer. On decode the destination is a `System.String` or a `java.lang.String`,
 which only the runtime can allocate and which must be exactly sized at
 allocation, so the host writes and its writer is the platform's fused intrinsic.
-Consuming UTF-8 has no per-character loop to take over, and measured, the
-transcoder on decode is a wash (0.86 to 1.08).
+Consuming UTF-8 has no per-character loop to take over, and a transcoder on
+decode showed no clear gain (container instrumentation; to be measured in the
+campaign).
 
 **That creates the one policy the ABI must state rather than leave to defaults:
-malformed input** — and with encode-side validation gone (decision 3), decode is
+malformed input.** With encode-side validation gone (decision 3), decode is
 now the *only* place a `string` field's bytes are ever checked, so this policy
 carries the whole of protobuf's UTF-8 guarantee rather than half of it. A facade
 written the obvious way does not implement it: the Rust slice decodes through a
@@ -601,7 +613,8 @@ lossy conversion at 37 sites and rejects at none, so bad input silently becomes
 U+FFFD. Whether the answer is reject or substitute, it is generated and asserted
 rather than left to whichever call a facade author reached for. **Decode rejects**: proto3 requires a
 parser to validate, `Google.Protobuf` and protobuf-java both throw, prost returns
-an error, and decision 3 measures rejecting as free or cheaper than substituting.
+an error, and decision 3 records rejecting as no dearer than substituting
+(container instrumentation).
 The U+FFFD-against-`?` divergence that motivated this paragraph is a *conversion*
 question and stays with the converting transcoders on encode, where both halves
 replace unrepresentable input with U+FFFD. This is not cosmetic:
@@ -618,15 +631,15 @@ rather than a measurement artifact.
 | Family | Who drives | Shape | Best for |
 |---|---|---|---|
 | **push** | the codec | the codec fills a bounded arena and calls `apply` / `add_<field>(obj, elems, n)` | a host whose reverse call is cheap: C++, and .NET |
-| **pull** | the host | `parse` into a host-owned context making zero upcalls, then `drain` in 32 KB chunks through forward calls, then walk heap arrays | a host whose reverse call is dear: the JVM (33.8 ns FFM, 98.4 JNI), and probably CPython |
+| **pull** | the host | `parse` into a host-owned context making zero upcalls, then `drain` in 32 KB chunks through forward calls, then walk heap arrays | a host whose reverse call is dear: the JVM (FFM and JNI), and probably CPython |
 
 The pull family exists because on the JVM a push entry point makes upcalls, and
 upcalls and a critical section are mutually exclusive, so pushing forces the wire
 buffer to be copied into native scratch first. The Java slice built the push form
-(as `BDP`) and measured it 1 to 14 percent slower than pull, the whole deficit
-being that copy. The C# slice measured the pull form's intermediate as costing an
-estimated 12 to 19 percent of a parse on a runtime where the crossing it saves is
-worth 10 ns.
+(as `BDP`) and saw it slower than pull, the deficit attributed to that copy. The
+C# slice estimated the pull form's intermediate as a real share of a parse on a
+runtime where the crossing it saves is cheap. (Both container instrumentation;
+to be measured in the campaign.)
 
 **So the ABI carries both, and a binding chooses.** The condition that keeps this
 from being a fork: **one traversal emitter parameterised by where values are
@@ -688,8 +701,9 @@ two calls per element, which is 7 crossings per task where the drafted ABI spent
 
 The run is materialised in a fixed-size arena sized as **a byte budget divided by
 the group size**, not an element count, so the scratch is the same 32 KB whatever
-the schema does. Bounding at 32 KB measured free (0.999 to 1.013) because the
-destination stays in L2 however large the message is.
+the schema does. Bounding at 32 KB keeps the destination in L2 however large the
+message is, and it showed no cost in container instrumentation (to be measured
+in the campaign).
 
 **The arena is flushed whenever a tag arrives that does not belong to the open
 batch.** This is correctness, not tidiness: protobuf permits a repeated field's
@@ -708,8 +722,9 @@ host-owned context.
 
 **Resolve spans against the base pointer you already hold.** The host pinned the
 buffer to make the call, so an offset is one add and then the same fused
-transcode. Indexing the managed array instead measures 14 percent worse, and it
-is the obvious thing to write.
+transcode. Indexing the managed array instead was slower (container
+instrumentation; to be measured in the campaign), and it is the obvious thing to
+write.
 
 **A batched add may be called more than once per field.** Append; never size to
 the count you were handed.
@@ -722,9 +737,9 @@ is **optional in this specification**: see open decision 4.
 
 A small range of `ak_str.data` values is reserved as sentinels meaning *this
 field is a direct argument of the call* rather than a pointer into staging. It is
-one sentence in the specification and the one unambiguous win on the JVM: a
-multi-megabyte result upload at 0.16 to 0.34 of protobuf-java, against roughly
-parity for a staged path. `critical(true)` on FFM, `GetPrimitiveArrayCritical` on
+one sentence in the specification and it is aimed at the JVM: a multi-megabyte
+result upload skips the copy a staged path pays (its gain against protobuf-java
+is container instrumentation; to be measured in the campaign). `critical(true)` on FFM, `GetPrimitiveArrayCritical` on
 JNI; C++ and C# never use it and pay nothing for it.
 
 It generalises untested: it is built for one field of one root message and
@@ -738,8 +753,8 @@ it.
 
 **Rust cannot confirm what this path buys, and the reason is worth stating.**
 There is no pinning to avoid and a copy is a copy either way, so the slice
-measures it byte-identical and says nothing about the 0.16-to-0.34 figure above,
-which is a JVM number. Worse for that figure: on a 4 MB decode the slice's
+checks it byte-identical and says nothing about the JVM gain above. Worse for
+that claim: on a 4 MB decode the slice's
 *no-boundary* control sits on the raw `memcpy` floor, so what the bulk path beats
 there is the incumbent's copy strategy rather than a boundary cost. The
 direct-argument path's value remains a JVM claim resting on one slice.
@@ -758,12 +773,11 @@ string and moves opaque bytes, so there is no place a per-field cost could enter
 This is what the "adopt the RPC layer, generate the codec" fallback rests on, and
 it is now checkable by reading two files rather than by trusting this paragraph.
 
-**What that is worth, in a form that does not depend on the host.** Two crossings
-of 1.8 ns against a call of about 1.5 ms of CPU is roughly four parts in a
-million. A host whose crossing costs 98 ns through JNI pays 196 ns on the same
-call: 0.013 percent. Measured end to end the Rust arm is 0.91 to 1.10 of tonic at
-1, 8 and 16 in flight, which on four shared vCPUs is no measurable difference
-rather than a win. **The arithmetic is the transferable part; the ratio is not.**
+**What that is worth, in a form that does not depend on the host.** The
+per-call share of the boundary is two crossing prices divided by the CPU cost of
+one RPC, whatever the message. Both terms are to be measured in the campaign; the
+container figures that filled in this arithmetic, and the end-to-end comparison
+with tonic, were instrumentation. **The arithmetic is the transferable part.**
 
 **A client handle is usable from many threads at once**, which "ownership between
 handles is internal" in section 3 implies and which is easy to build wrongly: a
@@ -804,7 +818,8 @@ rather than changing shape:
   tag so managed hosts need no pinning. The queue is a callback pushing onto a
   channel, so it is strictly additive. Its case is not amortisation (the drain
   ratio never exceeds 2.19): a thread parked in a drain is in native state and
-  costs a collection nothing, and on virtual threads it is the fastest arm.
+  should cost a collection nothing, and on virtual threads it looked the best arm
+  (container instrumentation; to be measured in the campaign).
 
   **BUILT, in the shared core, and this paragraph was specification with nothing
   under it until now.** `ak_call_unary_cb` and `ak_call_unary_q` are three
@@ -821,36 +836,29 @@ rather than changing shape:
 
   **The queue trades one reverse call for one forward call**, and that is its whole
   case on a host where the two are priced differently: on the JVM a cached upcall
-  is 72 to 80 ns against a forward crossing of 11.9 to 12.9, so the trade is worth
-  about 60 ns per call before the pinning question is even asked. On .NET, where a
-  crossing is 7.5 to 12 ns in both directions and the runtime has a future to
-  complete from any thread, the callback is the natural one. **Neither is a default
+  costs several times a forward crossing, so the trade favours the queue before
+  the pinning question is even asked. On .NET, where the two directions cost
+  about the same and the runtime has a future to complete from any thread, the
+  callback is the natural one. (Crossing prices are container instrumentation;
+  to be measured in the campaign.) **Neither is a default
   the ABI picks**, which is why both are exported.
 
   **Why this got built now, and it is an R14 finding pointed inward.** The java
   slice's transport arm was taken through the **blocking** mode, because it was the
-  only one implemented — on the host whose own measurement (the fourth amendment
+  only one implemented, on the host whose own measurement (the fourth amendment
   below) says blocking in a native frame pins a virtual thread's carrier. A harness
   that makes the incumbent do extra work is a defect; so is one that makes the
   core's own arm take the delivery its host is worst at, and this was the second
   kind. The measurement stands as a blocking-mode measurement and is labelled one.
 
-  **MEASURED on the JVM, and the delivery was worth more than the gap it was being
-  blamed for.** CPU microseconds per RPC, P2.2, JDK 17, one process:
-
-  | in flight | grpc-java | core, blocking | core, queue |
-  |---|---|---|---|
-  | 1 | 3,867 | 3,884 | 4,978 |
-  | 8 | 2,781 | 3,509 | **3,025** |
-  | 16 | 2,754 | 3,435 | **2,979** |
-
-  Against grpc-java the core goes from **1.26 to 1.09** at 8 in flight and 1.25 to
-  1.08 at 16, purely by changing delivery. **At 1 in flight the queue LOSES** (submit
-  then wait serialises what a blocking call does in one step, and pays a third
-  crossing for it), which is the honest shape of the result: the queue is a
-  concurrency mechanism, not a faster call. On JDK 21 it is **0.70 of the blocking
-  mode** at 16, and **a virtual thread drains it at no cost** (2,708 against 2,869 on
-  a platform thread).
+  **Observed on the JVM** (P2.2, JDK 17, client and server in one process, which
+  is a known harness hazard; container instrumentation, to be measured in the
+  campaign): the queue delivery used less CPU per RPC than the blocking delivery
+  at 8 and 16 in flight. **At 1 in flight the queue used more** (submit then wait serialises
+  what a blocking call does in one step, and pays a third crossing for it), which
+  is the expected shape: the queue is a concurrency mechanism, not a faster call.
+  On JDK 21 the same direction held at 16 in flight, and a virtual thread drained
+  the queue with no visible penalty against a platform thread.
 
   **What that does NOT establish, because the slice said so rather than letting it
   pass**: it does not reproduce the carrier-pinning comparison. A queue has one
@@ -866,12 +874,12 @@ rather than changing shape:
   grpc-java server in the same process which must allocate to answer, so a collection
   needed in that window waited on a critical section that waited on the server that
   waited on the collection. **It survived the large payload by timing and hung on the
-  first small one.** Fixing it also moved the core's CPU by 5 to 7 percent at
+  first small one.** Fixing it also changed the core's CPU figures at
   concurrency, so the earlier figures were contaminated as well as unsafe.
 
   The rule generalises past RPC and past Java: the pinned-buffer optimisation 7.1
   makes possible on decode is safe precisely because `ak_parse_*` makes **no upcall**
-  and completes without any other host thread — which is what "the wire is handed
+  and completes without any other host thread, which is what "the wire is handed
   over under a critical section and never copied" depends on. A blocking RPC call is
   the opposite case and must not be given the same treatment.
 - **At least one mode in which the caller waits in the host language.** Blocking
@@ -879,25 +887,21 @@ rather than changing shape:
   parking in Java on a future, which the callback mode already provides. The
   requirement on the ABI is this weak and this general.
 
-  **MEASURED, by the java slice, and it is the one item on this list only a JVM
-  slice could settle.** Eight virtual threads each waiting 300 ms on a scheduler
-  of known parallelism: if the carrier is pinned the run takes `ceil(N/P) × W`.
-
-  | carriers | predicted if pinned | blocking in the native frame | parked on a future |
-  |---|---|---|---|
-  | 1 | 2,400 ms | **2,420** | **306** |
-  | 2 | 1,200 ms | **1,222** | **304** |
-  | 4 | 600 ms | **622** | **305** |
-
-  The blocking mode scales exactly as the pinned prediction; the callback mode is
-  flat. So **the completion callback is not a convenience, it is what makes this
+  **Checked by the java slice, and it is the one item on this list only a JVM
+  slice could settle.** Eight virtual threads each wait a fixed W on a scheduler
+  of known parallelism P: if the carrier is pinned the run takes `ceil(N/P) x W`.
+  This is a scheduling test whose observable is wall time, not a performance
+  result. At 1, 2 and 4 carriers the blocking mode's run time followed the pinned
+  prediction, and the mode parked on a future stayed at about one W. So **the
+  completion callback is not a convenience, it is what makes this
   ABI usable from the idiom Java is moving to**, and a host that offers only the
   blocking mode is not conformant in any useful sense on JDK 21 and later. It
-  needs no RPC stack to reproduce — the question is where the waiting happens —
+  needs no RPC stack to reproduce (the question is where the waiting happens),
   which is why it was cheap and why nobody had done it. (`logs/java/pinning.log`.)
 
 **Not offered: the host executor slot.** Built and measured on two runtimes,
-earns its complexity on neither. Two structural findings from building it are
+it earned its complexity on neither (settled in the draft; timing evidence is
+container instrumentation, re-checked in the campaign). Two structural findings from building it are
 kept: it needs a bootstrap drainer, because hyper spawns the connection task
 through it and `connect()` cannot complete until something drains; and
 `ak_runtime_destroy` must not run while a host thread might be inside a poll,
@@ -940,11 +944,11 @@ forbidden. Under callback delivery, "returned" means the completion has fired.
 | Not in it | Why |
 |---|---|
 | a map case | a map is a repeated field of a pair message, and the repeated-message path handles it both ways. Specialising it into two strings is correct for one instantiation of one container |
-| a scatter/gather decode | built and measured at 0.90 to 0.95, and it would give up the property that a span is an offset into one buffer, which is what the JVM needs. Renting the flatten buffer recovers most of it in three lines |
+| a scatter/gather decode | built and timed (container instrumentation), and it would give up the property that a span is an offset into one buffer, which is what the JVM needs. Renting the flatten buffer recovers most of it in three lines |
 | a host executor slot | section 7 |
 | a thread-local anywhere | a hidden global with a re-entrancy hazard; the context is the replacement |
-| a tape, or any positional value stream | fastest measured encode arm on the JVM (0.99 to 1.16) and refused on architecture: a tape is a wire format, with a grammar to specify, version and debug across two languages, which is what protobuf already is |
-| batched submission, call fusion | under one percent at best and not stable in sign |
+| a tape, or any positional value stream | the fastest JVM encode arm in container instrumentation, and refused on architecture: a tape is a wire format, with a grammar to specify, version and debug across two languages, which is what protobuf already is |
+| batched submission, call fusion | no stable gain (settled in the draft; timing evidence is container instrumentation, re-checked in the campaign) |
 | a runtime schema fingerprint | both sides ship from one release, so a disagreement is a codegen bug: it belongs in CI as a build-time subset check, not in a runtime guard |
 
 ## 12. Conformance obligations ABI v1 creates
@@ -977,7 +981,7 @@ forbidden. Under callback delivery, "returned" means the completion has fired.
    context each, phases offset, every encode byte-compared against a
    single-threaded reference: **0 wrong of 2,840 encodes and 2,840 decodes**, so the
    codec half having no shared mutable state is now a measurement. The control that
-   plants the defect does **not** report wrong bytes — it aborts the process — which
+   plants the defect does **not** report wrong bytes (it aborts the process), which
    is obligation 6.
 6. **A planted panic must arrive at the boundary as `AK_ERR_PANIC`, not as an
    abort.** Section 5 makes `catch_unwind` mandatory at every entry point and
@@ -991,43 +995,39 @@ forbidden. Under callback delivery, "returned" means the completion has fired.
 
 Each blocks something. None is settled by a measurement that exists today.
 
-1. **Is every mechanism free under the C++11 floor? ANSWERED by the C++ slice,
-   and the answer is three different answers.** Not all free, the signs differ,
-   and the most useful result is that one of them was never a question about C++.
-   `findings/cpp.md` section 2; logs `bench_a17_shared.log`, `tax.log`.
+1. **Is every mechanism free under the C++11 floor? REOPENED, to be decided from
+   the campaign (W13).** It was recorded as answered by the C++ slice
+   (`findings/cpp.md` section 2; logs cited: `bench_a17_shared.log`, `tax.log`).
+   The adversarial review found that the table this rested on matches no
+   committed log, and that the batching verdict flips in the cited log (FIX-PLAN
+   R-C1, verified); its figures were container timings in any case. The
+   mechanisms the slice described are kept, as the list the campaign prices:
 
-   **The group costs, and it costs the HOST rather than the boundary.** Priced
-   alone, the fill is 22.5 ns per element on M1, 74.1 on M2, and 22.6 on M1's
-   absent path where a whole protobuf encode is 16.5 ns. That is the P1.3
-   inversion measured rather than inferred, and C++ reproduces it larger than
-   Rust did (`ffi` 1.77-1.81 of protobuf against a 0.67-0.68 control). **Decision
-   9's candidate fixes it** and is a win or neutral on 13 of 15 rows, so decision
-   9 is part of the proposal rather than an option beside it.
+   **The group's fill, which costs the HOST rather than the boundary.** The fill
+   is paid per element, on M1's absent path as well, where a whole protobuf
+   encode is small. That is the P1.3 inversion, which C++ reproduced as Rust did.
+   Decision 9's candidate (the sparse fill) is the fix to measure beside it.
 
-   **String as data is a win**, +1.42 % to +3.89 % of an encode with a consistent
-   sign on 10 of 15 rows, about 0.3 to 1.2 ns per string, which is one reverse
-   crossing. The rows where it straddles zero are the ones with no strings or
-   almost none.
+   **String as data**, which saves one reverse crossing per string. The payloads
+   with no strings or almost none are its controls.
 
-   **The batching predicate loses in C++, and that is not the finding.** The
-   crossing was priced up with a calibrated delay in front of every forward
-   entry-point call: on P2.2 the delta moves from −20.9 ns per element at no tax
-   to +25.4 at +4.4 ns, monotone, with **the crossover at a forward crossing of
-   roughly 2 to 4 ns**. So batching loses at C++'s 1.82 ns and wins comfortably on
-   .NET 8 (7.5-12 ns), FFM (33.8) and JNI (98.4). **This document carries the
-   crossover, not the C++ verdict**: "batching is a small loss" would have been
-   true of one host and wrong for three, and a slice that reports only its own
-   sign has not answered the question. The slice's first mechanism story —
-   "batching wins where the crossing count per element explodes" — did not survive
-   its own table and was withdrawn rather than patched.
+   **The batching predicate, whose sign depends on the host's crossing price.**
+   The crossing was priced up with a calibrated delay in front of every forward
+   entry-point call, and on P2.2 the delta between the unbatched and batched arms
+   changed sign as the delay grew (section 6). **This document carries the
+   crossover, not a per-host verdict**: a verdict from one host would be wrong
+   for the others, and a slice that reports only its own sign has not answered
+   the question. The slice's first mechanism story ("batching wins where the
+   crossing count per element explodes") did not survive its own table and was
+   withdrawn rather than patched.
 
    **A fourth mechanism nobody listed**: section 4's removal of the declared
-   expansion bound forces a two-pass blob write, 5.04 against 9.53 ns per string.
-   See the addition to section 4.
+   expansion bound forces a two-pass blob write. See the addition to section 4.
 
-   **Blocks: nothing. This document can be frozen on these four**, with the two
-   amendments below (section 4's fast path, section 6's batching sentence) and
-   decision 13 opened.
+   **Blocks**: any statement of what these four mechanisms cost under the C++11
+   floor. It does not block the ABI shapes: the two amendments that came out of
+   it (section 4's fast path, section 6's batching sentence) and decision 13
+   stand on their mechanisms.
 2. **Which decode family does each binding take** (7.1), and is the single
    parameterised emitter actually buildable?
 
@@ -1035,59 +1035,43 @@ Each blocks something. None is settled by a measurement that exists today.
    emitter is buildable: the rust slice emits one `dec_walk` once and instantiates
    it twice, the families differing in a macro body, the entry point's prologue and
    epilogue and one argument. Its structural control is that pull writes a record
-   exactly where push makes a reverse call, so the counts must be equal — and they
+   exactly where push makes a reverse call, so the counts must be equal, and they
    are, to the digit, on all thirteen counted payloads, with pull's reverse count
    measured at **zero** everywhere. **Pull removes the upcalls; it does not reduce
    them.**
 
    **And the java slice has now built the pull arm on the host where it matters, so
-   the practical half is answered too: the ABI carries BOTH families, and a JVM
-   binding takes pull.** Reverse crossings are **zero on every payload in both
+   the practical half is answered in the draft: the ABI carries BOTH families.**
+   Which family a JVM binding uses is a binding choice for the campaign to
+   inform; structurally, pull makes no upcall, so the JVM buffer can be passed
+   under a critical section without a copy. Reverse crossings are **zero on every payload in both
    deliveries**, where push makes 3,501 on P2.2; forward is 2 for the walk delivery
    whatever the message size, and 1 plus one per 32 KB chunk for the drain.
 
-   **The M2 decode regression the branch has carried since the first Java report is
-   gone.** Median paired ratio to protobuf-java:
+   **In container instrumentation the M2 decode regression the branch had carried
+   since the first Java report did not appear on the pull arms** (to be measured in
+   the campaign). Paired against push, pull was never slower on any payload. Against
+   the no-boundary control (arm R, generated Java) pull tied rather than won on the
+   M2 payloads, where push lost; P6.1 went pull's way and P1.3 and P5.1 went arm R's.
+   So on that evidence **pull does not make the C ABI beat a generated Java codec on
+   decode; it stops the C ABI losing to one.**
 
-   | payload | `R` (generated Java) | `ffi` push | `ffi-pull` | `ffi-pull-walk` |
-   |---|---|---|---|---|
-   | P2.1 | 0.747 | 1.311 | 0.947 | 0.923 |
-   | **P2.2** | 0.884 | **1.383** | **0.807** | 0.853 |
-   | P2.3 | 0.962 | 1.335 | 0.890 | 0.916 |
-   | P2.5 | 0.812 | 1.383 | 0.846 | 0.822 |
-   | P6.1 | 1.056 | 1.197 | **0.465** | 0.422 |
-   | P7.1 | 0.523 | **3.000** | 1.157 | 0.901 |
-
-   Paired against push, **pull is never slower**: a clean sign in its favour on eight
-   of sixteen payloads and straddling zero on the rest, with **not one payload having
-   an established sign the other way**. On P2.2 the delta is 1,606 ns per element,
-   which is the 7.004 upcalls at this machine's 80 ns and then some.
-
-   **The honest verdict is a tie against the no-boundary control, not a win.**
-   `R - ffi-pull` straddles zero on every M2 payload, so **pull does not make the C
-   ABI beat a generated Java codec on decode; it stops the C ABI losing to one** —
-   push loses to arm R with a clean sign on P2.1, P2.2, P2.5 and P4.1, and pull loses
-   to it nowhere. Two exceptions go both ways and are real: P6.1, where pull beats arm
-   R by 831 ns per element, and P1.3 and P5.1, where arm R wins.
-
-   **The drain copy does not measure on the JVM.** `ffi-pull - ffi-pull-walk` straddles
-   zero on **all sixteen** payloads. The C# slice estimated the intermediate at 12 to 19
-   percent of a parse on a runtime where the crossing it saves is worth 10 ns; where the
-   crossing is worth 80 the copy disappears. **So a host that finds the walk delivery
-   awkward can drain and lose nothing measurable**, which is a better answer for the
-   specification than either delivery alone.
+   **The drain copy was not visible on the JVM** (`ffi-pull - ffi-pull-walk`
+   straddled zero on all sixteen payloads; container instrumentation). **So a host
+   that finds the walk delivery awkward may drain instead**, which is a better answer
+   for the specification than either delivery alone, subject to the campaign.
 
    **One structural consequence worth more than the ratios.** Because `ak_parse_*` makes
    no upcall *by construction*, the JVM binding can hand the wire over under
-   `GetPrimitiveArrayCritical` and never copy it into native scratch — the thing the push
+   `GetPrimitiveArrayCritical` and never copy it into native scratch, the thing the push
    family forces, since an upcall and a critical section are mutually exclusive. The shim
    pushes no callback frame at all, so a future callback cannot be added without someone
    noticing the rule was broken. That is the design constraint 7.1 was written around,
-   now measured rather than argued.
+   now built rather than argued.
 
-   **What is still open**: C++, C# and Python have push arms only, so their decode
-   figures remain push figures. The two hosts where that matters most are C# (crossing
-   7.5-12 ns, so the crossover is genuinely close) and Python (where the ABI's crossings
+   **What is still open**: C++, C# and Python have push arms only. The two hosts where
+   that matters most are C# (where the two crossing directions may be close in price)
+   and Python (where the ABI's crossings
    are already 0.01 per element and the answer may be that neither family is the
    question).
 
@@ -1096,35 +1080,33 @@ Each blocks something. None is settled by a measurement that exists today.
    ELEMENT and pull is per MESSAGE, so P2.2 goes from **3,501 reverse calls to 16
    forward**, or to **3** if the host sizes one drain chunk to `ak_bdr_footprint`.
    Three is the floor for every payload in the set, and the chunk size is the only
-   knob the host has — it trades crossings against how much of the response is
+   knob the host has: it trades crossings against how much of the response is
    materialised at once, which is the bound 7.1 gives the host in the first place.
    The two costs that replace the upcalls are decomposed so another host can price
-   them without building the arm: **materialisation (`ak_parse_*` alone) is 8.5 to 47
-   percent of a push decode depending on shape, and the drain copy 1 to 12 percent**.
-   A host paying about 80 ns an upcall therefore trades 7.004 × 80 ns per element
+   them without building the arm: **materialisation (`ak_parse_*` alone) and the drain
+   copy**, each a share of a push decode that depends on shape (the Rust split is
+   container instrumentation). A host therefore trades 7.004 upcalls per element
    against 3 to 16 forward calls per message plus those two terms.
 
-   **On a host whose reverse call is cheap the families are near parity, and the
-   prediction going in was wrong.** At rust's 1.8 ns reverse call pull was expected to
-   lose; over six runs it is **0.94 to 1.18 of push**, at or below push on nine of
-   twelve payloads and a win on every M2 shape, because a push reverse call goes
-   through a vtable slot reached across the shared object while the replay's
-   equivalent is a local call over a buffer already in L2. An opaque-replay arm
-   clears the obvious objection: the parity is not rustc inlining the replay.
+   **On a host whose reverse call is cheap, pull was expected to lose and did not
+   clearly lose** (Rust; container instrumentation, to be measured in the campaign).
+   The mechanism offered: a push reverse call goes through a vtable slot reached
+   across the shared object while the replay's equivalent is a local call over a
+   buffer already in L2. An opaque-replay arm clears the obvious objection that the
+   replay was being inlined.
 
-   **Where pull loses, a byte table predicts it and the clock does not.** The two
-   losing rows are P1.3 (+5 to +13%) and P6.1 (+8 to +18%), and on P1.3 the record
-   stream is **63.6 times the wire** — 38,488 B to describe a 605 B message — because
-   a record carries an absent element's whole fixed group. **Pull's cost tracks the
-   ratio of record bytes to wire bytes, which is a property of the SHAPE**, and every
-   payload whose ratio is below 1 is at or under push. That is the rule a binding
-   author can apply to a shape before measuring it, and it makes the absent path the
+   **Where pull loses, a byte table predicts it.** The rows where pull was slower in
+   container instrumentation are P1.3 and P6.1, and on P1.3 the record stream is
+   **63.6 times the wire** (38,488 B to describe a 605 B message), because a record
+   carries an absent element's whole fixed group. **Pull's cost should track the ratio
+   of record bytes to wire bytes, which is a property of the SHAPE**, and every payload
+   whose ratio is below 1 was at or under push. That is the rule a binding author can
+   apply to a shape before measuring it, and it makes the absent path the
    one place where pull and decision 9 have to be reasoned about together.
 3. **Where does UTF-8 get checked? SETTLED: not on encode, and rejected on
    decode.** Asked three times. The first two framings ("fail or substitute",
    then "validate or trust the host") both assumed the check belongs on the encode
-   path, and the third showed it does not, at which point the measurements went
-   from a trade to a free choice in both directions.
+   path, and the third showed it does not.
 
    **Encode does not check.** A `string` field is a length prefix and a byte copy,
    so validity changes nothing about the framing and the check buys the encoder
@@ -1132,68 +1114,61 @@ Each blocks something. None is settled by a measurement that exists today.
    arrive off a wire anything may have written, and proto3 puts the obligation on
    parsers for that reason. `ak_tc_utf8` is therefore `ak_tc_bytes`: one memcpy,
    no validation, no trust extended to anybody and so no contract a host can be
-   wrong about. Worth 0.59 to 0.72 of prost on ASCII and 0.75 on non-ASCII content,
-   against 2.0 to 2.6 for the validating form.
+   wrong about.
 
-   **Decode rejects, and rejecting is not a cost.** Measured on the string path
-   alone, validate-and-reject is **0.54 to 0.75 of a lossy decode on ASCII**, 0.83
-   to 0.97 on Latin-1 and 0.94 to 1.10 on above-U+00FF; with a SIMD validator it is
-   cheaper than lossy on every content set (0.36 to 0.71). The reason is that a
-   lossy conversion **already validates** — it scans to decide what to replace —
-   and its recovery path is slower than failing. So the guarantee is free and the
-   weaker one was never cheaper.
+   **Decode rejects, and rejecting should not be a cost.** On the string path alone,
+   validate-and-reject was no dearer than a lossy decode, and with a SIMD validator
+   it was cheaper on every content set (container instrumentation; to be measured
+   in the campaign). The reason is structural: a lossy conversion **already
+   validates** (it scans to decide what to replace), and its recovery path does
+   more work than failing.
 
-   **And it improves the comparison rather than costing it.** prost rejects
-   malformed UTF-8, so a rejecting decode makes both sides do the same work: on
-   P1.2 the ratio moves from 0.87-0.91 to 0.73-0.79 on ASCII, and from 0.78-0.80
-   to 0.49-0.51 on wide with the SIMD validator. **The old arrangement was
-   strictly dominated**: it paid for a slower validator to get a weaker guarantee,
-   on both sides of the boundary at once.
+   **And it makes the comparison fair.** prost rejects malformed UTF-8, so a
+   rejecting decode makes both sides do the same work. The old arrangement paid
+   for a validator to get a weaker guarantee, on both sides of the boundary at
+   once.
 
    **What survives.** The malformed-input policy stays for the *converting*
    transcoders (`ak_tc_utf16`, `ak_tc_latin1`, `ak_tc_ucs4`): an unpaired surrogate
    is not representable in UTF-8, that is a conversion question rather than a
    validation one, and section 12.2's transcode pair is still a pair. **On CPython
    two of those three compete with the interpreter's own cache rather than with
-   nothing**: reading a `str`'s UTF-8 costs 2.19-2.27 ns for ASCII and 64.2-67.8 ns
-   for Latin-1 and above-U+00FF when the object has no cached UTF-8 yet, which is
-   exactly the state of a string that came off the wire, and CPython keeps the
+   nothing**: reading a `str`'s UTF-8 is cheap for ASCII and much dearer for
+   Latin-1 and above-U+00FF when the object has no cached UTF-8 yet (container
+   instrumentation), which is exactly the state of a string that came off the wire, and CPython keeps the
    result afterwards. So `ak_tc_latin1` and `ak_tc_ucs4` are worth what they save
    against a *first* read, not against a steady-state one, and on ArmoniK's actual
    content (ASCII GUIDs) the passthrough is the common path anyway. Encode
    validation survives only as an **opt-in diagnostic mode**, because it surfaces a
    bad string at the caller that produced it rather than at a receiver in another
    language where a conformant parser rejects the whole message; that is roughly
-   what protobuf C++ does today, and it is not worth 25 to 30 percent of every
-   encode by default.
+   what protobuf C++ does today, and it is not paid on every encode by default.
 
-   **And it is now stronger than "free": the core's validator is cheaper than the
-   one the host is already running.** Measured against protobuf C++'s own
-   `IsStructurallyValidUTF8` — the validator the incumbent runs on every `string`
-   field it parses, already linked into every arm, so no configuration claim has
-   to be believed — the core's table validator costs **2.27× a raw copy on ASCII
-   against the incumbent's 2.56×, 15.9× against 19.6× on Latin-1, and 19.6×
-   against 34.4× on wide content** (`logs/cpp/utf8.log`). So decision 3's
+   **The core's validator was cheaper than the one the host is already running.**
+   Compared against protobuf C++'s own `IsStructurallyValidUTF8` (the validator the
+   incumbent runs on every `string` field it parses, already linked into every arm,
+   so no configuration claim has to be believed), the core's table validator came
+   out cheaper on ASCII, Latin-1 and wide content (`logs/cpp/utf8.log`; container
+   instrumentation, to be measured in the campaign). If that holds, decision 3's
    decode-side check is not a cost the core imposes on a host that did not have
-   one; it is cheaper than the check that host already pays.
+   one.
 
-   **The earlier "4.5× to 20×" is withdrawn, and it erred in the flattering
-   direction.** Its string set included `ResultRaw.opaque_id`, which is a `bytes`
+   **An earlier figure is withdrawn, and it erred in the flattering direction.** Its string set included `ResultRaw.opaque_id`, which is a `bytes`
    field: proto3 puts no UTF-8 requirement on it, the codec reaches it through
    `ak_tc_bytes`, and no validator ever sees it. In the ASCII set its values are
    arbitrary bytes, so the check arm rejected on the first bad byte and did *less*
-   work than a validation — the published ASCII row understated the cost of
+   work than a validation, so the published ASCII row understated the cost of
    validating. Found by a differential test asserting that everything it validates
    is valid, which the timing table had never done.
 
    **Two notes on how that validator was arrived at, because they generalise.**
-   Byte identity cannot see a validator defect at all — a manifest is made of
+   Byte identity cannot see a validator defect at all: a manifest is made of
    things that *encode*, so it carries no malformed input, and a validator that
    accepts an unpaired surrogate passes every gate the branch has; it took 17.78
    million differential checks against an oracle written from RFC 3629, one range
    per line, which is not one of the implementations under test. And a textbook
-   DFA turned out **slower than the scalar form on wide content** (0.78×), because
-   its state is a serial dependency and the branches it removes were being
+   DFA turned out **slower than the scalar form on wide content** (container
+   instrumentation), because its state is a serial dependency and the branches it removes were being
    predicted correctly anyway. What wins keeps the scalar shape and drops the
    code-point arithmetic: validation needs ranges rather than values, and every
    range constraint in UTF-8 is a function of the lead byte alone.
@@ -1210,17 +1185,18 @@ Each blocks something. None is settled by a measurement that exists today.
    first slice to build the encode path answers it, and P2.4 is the payload for
    it. **This is the one decision created by v1 rather than inherited.**
 
-   **Answered. Keep the learned width.** The Rust slice measured it per site,
-   which an aggregate cannot do. On every uniform payload (P1.2, P2.2, P2.3,
+   **Answered. Keep the learned width** (settled in the draft; timing evidence is
+   container instrumentation, re-checked in the campaign). The Rust slice counted
+   it per site, which an aggregate cannot do. On every uniform payload (P1.2, P2.2, P2.3,
    P2.5) a warm context misses **zero** times and moves **zero** bytes. On P2.4,
    built so that a per-site width is wrong on every element, it misses once per
    element and memmoves 980,938 bytes of a 981,222-byte output: the whole payload,
    once, every encode. Isolated against two size-matched uniform arms rather than
    attributed, and against prost as a floor for the construction's own
-   non-linearity, **the mechanism costs 1 to 3 percentage points of an encode on
-   the payload built to defeat it**, and nothing at all elsewhere. Each move is a
-   sequential in-cache memmove of a ~12 KB element body. **Zero grow-callback
-   invocations on any payload**, which is what handing the transcoder the whole
+   non-linearity, **the mechanism's cost appeared small on the payload built to
+   defeat it** and there are no moves elsewhere (container instrumentation; to be
+   measured in the campaign). Each move is a sequential in-cache memmove of a
+   ~12 KB element body. **Zero grow-callback invocations on any payload**, which is what handing the transcoder the whole
    remaining buffer was meant to buy.
 
    **The worst case cannot be engineered away, and that is the closing argument
@@ -1245,29 +1221,27 @@ Each blocks something. None is settled by a measurement that exists today.
    exceed 4 MiB, which for an HPC orchestrator is normal. `AK_ERR_LIMIT` exists
    for it; the default does not.
 9. **Does the by-value group need an empty-element path? ANSWERED in Rust: yes,
-   and it is a host-side fill change rather than an ABI change.** The group carries
-   the whole singular subtree unconditionally (section 6), so on P1.3, where every
-   element encodes to nothing, the fixed cost had nothing to amortise against and
-   the verdict inverted: `core-ffi-rust` at 1.16 to 1.39 of prost in both
-   directions against 0.47 to 0.84 for the no-boundary control.
+   and it is a host-side fill change rather than an ABI change** (settled in the
+   draft; timing evidence is container instrumentation, re-checked in the
+   campaign). The group carries the whole singular subtree unconditionally
+   (section 6), so on P1.3, where every element encodes to nothing, the fixed cost
+   had nothing to amortise against and `core-ffi-rust` fell behind prost in both
+   directions where the no-boundary control stayed ahead.
 
-   **The cost is the fill, not the boundary, and that is now audited rather than
+   **The cost is the fill, not the boundary, and that was audited rather than
    inferred.** The per-element figure was obtained by subtracting the no-boundary
    arm, which invited the objection that the subtraction charges an inlining
-   advantage to the interface. Measured with two further arms (`#[inline(never)]`,
-   and a `black_box`ed function pointer that also defeats devirtualisation and
-   constant propagation), the inlining term is **−0.10 to +0.01 ns per element on
-   P1.3 encode against a group term of 11.3 to 11.4**, and −1.03 to −0.82 against
-   27.6 to 28.4 on decode. With LTO off the traversal was never inlined into the
-   caller in the first place, so both arms already paid an indirect call.
+   advantage to the interface. With two further arms (`#[inline(never)]`, and a
+   `black_box`ed function pointer that also defeats devirtualisation and constant
+   propagation), the inlining term was negligible against the group term on both
+   encode and decode. With LTO off the traversal was never inlined into the caller
+   in the first place, so both arms already paid an indirect call.
 
-   **The candidate, measured: the host memsets the element-group chunk once and
-   assigns only the fields that differ from the default.** P1.3 encode goes from
-   1.108–1.188 of prost to **0.815–0.857**, so the inversion disappears; P2.2, the
-   shape the control plane actually moves and the row set up to decide against it,
-   shows a small consistent saving (0.970 to 0.985); P1.2 and P2.5 are neutral
-   within spread. It costs less than the 5.4 ns per `ResultRaw` threshold on every
-   payload measured.
+   **The candidate: the host memsets the element-group chunk once and assigns only
+   the fields that differ from the default.** On P1.3 encode the inversion
+   disappeared; P2.2, the shape the control plane actually moves and the row set up
+   to decide against it, showed a small saving; P1.2 and P2.5 were neutral within
+   spread.
 
    **What it does and does not touch.** It does *not* reverse section 6's
    no-reset-between-elements property: the array is the host's own chunk buffer and
@@ -1278,28 +1252,26 @@ Each blocks something. None is settled by a measurement that exists today.
 
    **Why it is not adopted here.** A bulk clear of a struct array and a conditional
    store cost something quite different in a managed host, and this is exactly the
-   kind of mechanism whose value differs by runtime by construction — the batched
-   element run already differs 2 to 9 percent on JNI and nothing measurable on
-   .NET. **Blocks: nothing. ANSWERED: three hosts agree and the condition is
-   met.** Rust and C++ settled it first; **the java slice generalises it to a
-   managed host**, which is exactly what this decision was waiting on — 46 ns per
-   element on the absent path, 0.32 of the total fill, clean sign over 40 rounds
-   and clear of the drift bar by an order of magnitude, with every other payload
-   inside the bar (medians between −0.04 and +0.02 of the fill). The absent-path
-   inversion goes from `ffi-take` 1.967 to 0.734 of protobuf-java. **The sparse
-   fill becomes the specified path**, with the wording corrected below; the total
-   fill stays legal for a host that prefers it.
+   kind of mechanism whose value differs by runtime by construction, as the batched
+   element run's does. **Blocks: nothing. ANSWERED in the draft: three hosts
+   agree.** Rust and C++ settled it first; **the java slice extended it to a
+   managed host**, which is what this decision was waiting on: on the absent path
+   the sparse fill came out ahead of the total fill with a clean sign, the
+   absent-path inversion against protobuf-java disappeared, and every other
+   payload stayed inside the drift bar (container instrumentation; to be measured
+   in the campaign). **The sparse fill becomes the specified path**, with the
+   wording corrected below; the total fill stays legal for a host that prefers it.
 
-   **The candidate's own wording is wrong, and the C++ slice found it by
-   measuring.** "Clear the chunk" is what `rust_abi.py` emits, and it clears the
-   whole 32 KB arena regardless of how many elements will be filled: O(arena)
-   where the fill is O(elements). Measured, that costs **+156 ns per element on
-   P1.1 (+94.6 % of a protobuf encode) and +550 on P2.1 (+45.6 %)** while still
-   winning 62 % on P1.3 — so the candidate looked refuted and was not. Clearing
-   only `min(n, chunk)` elements removes the inversion and keeps every win. **If
+   **The candidate's own wording is wrong, and the C++ slice found it.** "Clear the
+   chunk" is what `rust_abi.py` emits, and it clears the whole 32 KB arena
+   regardless of how many elements will be filled: O(arena) where the fill is
+   O(elements). That made the candidate look like a large loss on payloads with few
+   elements per chunk (P1.1, P2.1) while it still won on P1.3, so the candidate
+   looked refuted and was not. Clearing only `min(n, chunk)` elements removes the
+   inversion and keeps the wins (container instrumentation). **If
    decision 9 is adopted, the sentence is "clear the elements you will fill".**
-   The rust slice could not see this: it measured P1.2, P1.3, P2.2 and P2.5, and
-   the effect needs a payload with few elements per chunk.
+   The rust slice could not see this: it ran P1.2, P1.3, P2.2 and P2.5, and the
+   effect needs a payload with few elements per chunk.
 
 10. **Can decode deliver the group before the runs?** The push family's two-call
    protocol (`new`, then `apply`) makes a host materialise a default element and
@@ -1311,8 +1283,9 @@ Each blocks something. None is settled by a measurement that exists today.
    first and one construction, and fall back to the current order when an arena
    fills. Nothing is built. It changes the decode contract, so it is written down
    here rather than tried in a slice. It is also the shape of saving that section
-   7's measured note says is the one still available on decode: one construction
-   per element is allocation, and allocation is what decode turns out to be.
+   7's note says is the one still available on decode: one construction per
+   element is allocation, and allocation appeared to dominate decode (container
+   instrumentation).
 
 11. **Does the core retain unknown fields?** Today it does not, and neither does
    prost, so nothing in this design carries an unrecognised field from decode to
@@ -1340,11 +1313,14 @@ Each blocks something. None is settled by a measurement that exists today.
    worker path as the place two decoders meet over one buffer; this is the same
    seam seen from the other side.
 
-   **Settled by**: deciding whether ArmoniK re-encodes anything it decoded, which
-   is a question about the product rather than about the ABI, and then either
-   pricing retention or writing the loss into the migration notes. **Blocks:
-   nothing today. It is the largest unpriced behaviour change the branch has
-   found, and it was found by a shape-coverage vector rather than by a benchmark.**
+   **Status: the owner has not decided** (FIX-PLAN D4). Both behaviours, drop and
+   retain, are to be built in the core and in the generator, as a generator option,
+   and both are measured in the campaign (FIX-PLAN WP3 item 21, WP5). Dropping
+   changes behaviour for four of the five languages (C#, Java, C++, Python), whose
+   incumbents retain unknown fields; only Rust's incumbent already drops them. The
+   product question that bears on it is whether ArmoniK re-encodes anything it
+   decoded (FIX-PLAN R-A6). It was found by a shape-coverage vector rather than by
+   a benchmark.
 
 12. **The diagnostic contract**, and it is worse than "five failures render as
    one string". `ak_init` now owns the log and tracing bridges (section 3), which
@@ -1362,42 +1338,38 @@ Each blocks something. None is settled by a measurement that exists today.
    error channel, and the fix belongs to this decision rather than to a slice.
 
 13. **Should the facade be able to BORROW a decoded string rather than own it?**
-   Opened by the C++ slice, and it is the largest decode effect the branch has
-   measured. Nothing in this document changes to allow it: `ak_span` is already an
+   Opened by the C++ slice, on a decode effect seen in container instrumentation.
+   Nothing in this document changes to allow it: `ak_span` is already an
    offset into the buffer the host handed in (section 4), and section 7 already
    tells the host to resolve spans against a base pointer it holds. What is open
    is what the **facade** promises.
 
-   **What it is worth.** A borrowed-string facade arm in C++ — same codec, same
-   ABI, same generated call text, only the destination type changed — moves decode
-   from about twice upb to level with or below it: P1.2 from 0.562-0.790 to
-   **0.234-0.241** against a clang upb build's 0.245, P2.3 from 0.855-0.921 to
-   0.383-0.396, and −24 to −50 % of a protobuf decode across the element-bearing
-   payloads. P6.1, one string and five packed scalar arrays, barely moves at
-   −4.3 %, which is the control that says the arm measures the copy and not
-   something else.
+   **What it may be worth.** A borrowed-string facade arm in C++ (same codec, same
+   ABI, same generated call text, only the destination type changed) moved decode
+   from behind upb to level with it on the element-bearing payloads. P6.1, one
+   string and five packed scalar arrays, barely moved, which is the control that
+   says the arm measures the copy and not something else. (Container
+   instrumentation; to be measured in the campaign.)
 
-   **It is not a C++ result.** The provenance table below already records that
-   decode spans as offsets into the host's buffer took a 4 MB download from 4.2
-   times protobuf-java to 1.00. Three hosts, one mechanism, and the branch held
-   both halves without connecting them.
+   **It is not a C++ mechanism.** The provenance table below already records that
+   decode spans as offsets into the host's buffer are what a 4 MB download on the
+   JVM relies on. Three hosts, one mechanism, and the branch held both halves
+   without connecting them.
 
-   **The java slice then measured the same mechanism on the JVM, and a managed host
-   gets about a third of it.** `ffi-borrow` takes P1.2 from 0.830 to **0.669** of
-   protobuf-java and P1.1 from 1.038 to 0.882, where the C++ slice's same arm moved
-   P1.2 two to three times further; on the container-heavy P2.2 it straddles zero,
-   which is the branch's own container-construction bound seen from a third host.
-   So the contract has to be drafted against a host that gets 16 percent where C++
-   gets 50, not against the best case.
+   **The java slice then tried the same mechanism on the JVM, and a managed host
+   got less of it.** `ffi-borrow` moved P1.2 and P1.1 in the same direction as C++,
+   by less; on the container-heavy P2.2 it straddled zero, which is the branch's own
+   container-construction bound seen from a third host (container instrumentation).
+   So the contract has to be drafted against a host that gets less than C++ does,
+   not against the best case.
 
    **And the Python premise this decision was carrying is wrong.** The open question
    supposed upb may already borrow at the Python level, which would make the option
    moot there. It does not: upb aliases into its input buffer in C, but a Python
-   `str` is a fresh object built on **every** attribute read and nothing is cached —
-   a second full read of the *same* upb message costs 3.12-3.16 ms against 3.41-3.48
-   for the first, so all but about a tenth of the materialisation is paid again,
-   while the facade's second read is 2.38-2.54. **A caller that reads its response
-   twice pays upb twice and the facade once.** The borrowed span is therefore open
+   `str` is a fresh object built on **every** attribute read and nothing is cached,
+   so a second full read of the *same* upb message pays nearly all of the
+   materialisation again (container instrumentation). **A caller that reads its
+   response twice pays upb's materialisation twice and the facade's once.** The borrowed span is therefore open
    in Python and the incumbent has not taken it; what a borrowed Python string *is*
    has no draft, and that is the blocker rather than the measurement.
 
@@ -1406,11 +1378,10 @@ Each blocks something. None is settled by a measurement that exists today.
    in C# and Java it interacts with pinning, in C++ it means a facade type that is
    not `std::string`, and a hybrid facade that borrows some fields and owns others
    has a public surface nobody has drafted. **Settled by**: drafting that contract
-   and pricing what a host pays to honour it — not by another measurement of the
-   copy, which is now bounded from both ends. **Blocks: nothing today; it is an
-   additive option. But it is the difference between "the core's decode beats what
-   ArmoniK ships" and "the core's decode is level with the fastest C protobuf",
-   and the report has to say which claim it is making.**
+   and pricing what a host pays to honour it in the campaign. **Blocks: nothing
+   today; it is an additive option. Which decode claim the campaign can support
+   depends on it: the report states whether a decode figure was taken with
+   borrowed or owned spans.**
 
 **Settled since the first draft**, kept here so a reader of an earlier version
 does not look for them: the accessor error channel is now section 5 rather than a
@@ -1419,28 +1390,30 @@ precedence is stated in section 3 rather than carried as a decision.
 
 ## 14. Provenance
 
-Every amendment, what motivated it, and where the figure lives. A slice that
-wants to revisit one starts here rather than re-deriving it.
+Every amendment, what motivated it, and what it turns on. A slice that wants to
+revisit one starts here rather than re-deriving it. Where the motivation was a
+timing, it was taken in a container and is instrumentation, to be measured in the
+campaign; the figures themselves were removed (FIX-PLAN WP2).
 
-| Amendment | From | The figure it turns on |
+| Amendment | From | What it turns on |
 |---|---|---|
-| by-value group carrying the singular subtree | C#, confirmed on JVM | decode 1.192 to 0.955 on P1.2; the JVM control without it is 1.22 to 1.64 times worse |
-| string as data in the group (the triple) | C# and Java | the largest single change: 1.12 to 1.64 times on JVM encode, 25 to 36 percent on .NET |
-| lengths in source code units | Java | the ratio-over-bytes form cost a hardware divide per string: 3.0 to 14.1 percent of an encode |
-| transcoder growth callback, and no declared expansion bound at all | Java, then v1 | the callback closed silent wire corruption at 0.957 against the retry loop it replaced; v1 drops the declared bound with it, which no slice has measured (decision 5) |
-| packed scalar as the host's own array | C# | 0.22 against 0.44 of `ToByteArray`; 2,001 crossings against 25,201 |
-| one element entry point with a count | C# | no measurable cost, less compiled code, one protocol instead of two |
-| host-driven batched element runs, leaf form default | Java | 2 to 9 percent on JNI, about half on FFM, nothing on .NET |
+| by-value group carrying the singular subtree | C#, confirmed on JVM | decode on P1.2, and a JVM control without it (instrumentation) |
+| string as data in the group (the triple) | C# and Java | the largest single change on JVM and .NET encode (instrumentation); one reverse crossing fewer per string |
+| lengths in source code units | Java | the ratio-over-bytes form cost a hardware divide per string |
+| transcoder growth callback, and no declared expansion bound at all | Java, then v1 | the callback closed silent wire corruption that the retry loop it replaced allowed; v1 drops the declared bound with it (decision 5) |
+| packed scalar as the host's own array | C# | 2,001 crossings against 25,201 |
+| one element entry point with a count | C# | less compiled code, one protocol instead of two |
+| host-driven batched element runs, leaf form default | Java | forward crossings saved; worth differs by runtime (instrumentation) |
 | batching predicate, transitive, from the descriptor | C# | 7 crossings per task against 43 |
 | bounded arena in the context, flushed on a foreign tag | C# | correctness on legal interleaved wire, plus re-entrancy |
-| decode spans as offsets into the host's buffer | C# and Java | what takes a 4 MB download from 4.2 times protobuf-java to 1.00 |
-| pull-family drain | Java | decode 1.17 to 1.99 of protobuf-java becomes 0.68 to 0.92 |
-| learned length-placeholder width, per context | Java | 1.32 to 2.23 times aggregate throughput at two threads, against a global table |
-| direct arguments for bulk bytes | Java | 0.16 to 0.34 of protobuf-java on a 4 MB upload |
-| plain exports rather than a table | C# | nothing measurable; interface size and failure mode |
-| no map case | C# | tens of nanoseconds per entry, paid deliberately |
+| decode spans as offsets into the host's buffer | C# and Java | an offset stays meaningful after a JNI critical section is released, which the 4 MB download path relies on |
+| pull-family drain | Java | zero upcalls, so the wire can stay under a critical section; decode against protobuf-java (instrumentation) |
+| learned length-placeholder width, per context | Java | a global table is a data race; aggregate throughput against it (instrumentation) |
+| direct arguments for bulk bytes | Java | no staging copy on a 4 MB upload on the JVM (instrumentation) |
+| plain exports rather than a table | C# | interface size and failure mode |
+| no map case | C# | a per-entry cost, paid deliberately (instrumentation) |
 | group layout export and assert, one ABI version | C# and Java | insurance against the worst failure mode a by-value ABI adds |
 | RPC: handle on the blocking call, metadata, deadline, status code | Java | a retry policy is a function of the status code |
 | explicit `ak_init`, one-shot installs owned there | base design, v1 | the crypto provider, the log and tracing bridges and the panic hook cannot be installed late, and two of the three are one-shot per process |
-| error channel in the context, guard generated | C#, then v1 | an unguarded accessor terminates the process; the guard costs +1.1 ns scalar and +2.9 ns string, and every published margin was measured without it |
-| completion queue with one drainer; no executor slot | Java, C# | the queue is the best arm on virtual threads; the executor slot earns nothing on either runtime |
+| error channel in the context, guard generated | C#, then v1 | an unguarded accessor terminates the process; the guard has a per-accessor cost, and every published margin was measured without it |
+| completion queue with one drainer; no executor slot | Java, C# | the queue trades one reverse call for one forward call and lets a virtual thread wait in Java; the executor slot earned nothing on either runtime (instrumentation) |
