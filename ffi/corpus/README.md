@@ -77,7 +77,7 @@ write it, at +80 B on P2.5. Both parse to the same message and neither encoder i
 wrong. So a row carries a **set** of accepted encodings, each labelled and each
 naming who was seen writing it, and a reader must parse every one of them
 whatever it writes. `design/SHAPES.md` records this; the corpus generalises it.
-85 of 336 rows have more than one form.
+334 of 691 rows have more than one form.
 
 ## What validates it -- three runtimes, and not this directory
 
@@ -108,7 +108,9 @@ Four things **fail the build** rather than being reported:
 1. an accept-vector **no** oracle will parse;
 2. a reject-vector **every** oracle accepts -- a rejection test that nothing
    rejects is a test nobody has watched work, and that lesson cost this branch
-   twice. All three refuse all 49 today, none disputed;
+   twice. All three refuse 141 of the 143; upb accepts the other two
+   (`X-tag-zero-Empty`, `X-tag-zero-nested-Empty`: field number 0 in a message
+   with no fields), so those two are disputed rather than decided;
 3. a field shape present in the description that **no vector exercises**. The
    coverage table is computed by walking the description and comparing it against
    what the encoder traced itself writing, so this is a mechanical claim rather
@@ -119,7 +121,7 @@ Four things **fail the build** rather than being reported:
    allowed to revise.
 
 `emit/selftest.py` then does to each of those guards what they do to the
-vectors: hands it input it is supposed to refuse and fails if it does not. 44
+vectors: hands it input it is supposed to refuse and fails if it does not. 60
 checks, including that the seal refuses a changed, a missing and an added vector,
 that the dispute machinery produces a row whose readings really do differ, that
 `--check` notices drift in both directions, and that no generated file carries an
@@ -129,12 +131,12 @@ absolute path from the machine that wrote it.
 
 | Class | n | What it is |
 |---|---|---|
-| `unknown` | 74 | section 10 item 1. One of each wire type at seven sites, the deprecated group form, the largest legal tag, inside a map entry, at a oneof member's tag on a message that **actually has a oneof**, and unknown enum values on known fields |
+| `unknown` | 317 | section 10 item 1. One of each wire type at seven sites, the deprecated group form, the largest legal tag, inside a map entry, at a oneof member's tag on a message that **actually has a oneof**, and unknown enum values on known fields. Plus `U-wire-*` (243): a KNOWN field number at every wire type its kind does not use, for every shape of every message |
 | `empty` | 30 | section 10 item 2 and R6. Empty roots and elements, the absent path, present-and-zero at leaf depth, six map-entry degenerate forms, packed written unpacked and split, oneof and explicit-presence emptiness, and the adapter's non-injective site |
-| `shape` | 145 | section 10 item 3, driven off the description. Every message full, at a second element index and minimal; **every oneof member**; varint width boundaries including the ten-byte negative int32; wire type 5, which `shapes.json` has no field of; double edge cases; string length and content-class boundaries; nesting depth |
+| `shape` | 163 | section 10 item 3, driven off the description. Every message full, at a second element index and minimal; **every oneof member**; varint width boundaries including the ten-byte negative int32; wire type 5, which `shapes.json` has no field of; double edge cases; string length and content-class boundaries; nesting depth. Plus negative int32/int64 projected on the SHAPES.md roots (`S-neg-*`) and -0.0 in the repeated double (`S-mzero-*`) |
 | `transcode` | 53 | section 10 item 4, both halves |
 | `chunking` | 8 | section 10 item 5, on the corpus's own shapes |
-| `malformed` | 18 | wire a conformant parser must refuse, each one **seen** being refused |
+| `malformed` | 112 | wire a conformant parser must refuse, each one **seen** being refused. Plus lengths that wrap 2^64 from their own position (`X-lenwrap-*`, 63) and field number 0 on every root (`X-tag-zero-*`, 31) |
 | `baseline` | 8 | `ffi/schema/generated`'s committed payloads, by reference, with upb's opinion recorded beside prost's |
 
 ## The shape section 10 item 5 needed

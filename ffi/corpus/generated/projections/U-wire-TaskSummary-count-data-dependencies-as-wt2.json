@@ -1,0 +1,34 @@
+{
+ "_unknown": [
+  {
+   "hex": "089601",
+   "tag": 11,
+   "wire_type": 2
+  }
+ ],
+ "count_data_dependencies": "192075329967",
+ "created_at": {
+  "seconds": "1700000000"
+ },
+ "error": "mike charlie echo papa echo",
+ "id": "2988529b-ecc1-7502-10a0-cccbd6dd3c75",
+ "options": {
+  "application_name": "echo340",
+  "application_namespace": "echo396",
+  "application_service": "delta219",
+  "application_version": "lima235",
+  "engine_type": "november813",
+  "max_duration": {},
+  "max_retries": "81745",
+  "options": {
+   "k00": "echo916",
+   "k01": "echo980",
+   "k02": "lima915",
+   "k03": "lima347"
+  },
+  "partition_id": "charlie962",
+  "priority": "13964"
+ },
+ "session_id": "343a73c4-1100-1fb6-1f99-49b854d61856",
+ "status_message": "juliet lima golf hotel charlie"
+}

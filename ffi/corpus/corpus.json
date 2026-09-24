@@ -152,6 +152,35 @@
     "note": "127 is declared in ResultStatus and is the two-byte varint boundary; 999 is undeclared in every enum here; 2147483647 is the int32 maximum an open enum must still carry."
   },
 
+  "length_wrap": {
+    "_why": "FIX-PLAN WP4 item 2, register R-D1. A decoder that checks a length-delimited field with `pos + n > len` in unsigned 64-bit arithmetic accepts a declared length n = 2^64 - pos + k: the sum wraps to k, which is not past the end, so the check passes. The core did this (poc/codec/crates/ak-rt/src/dec.rs len_body, no overflow-checks in release). X-len-huge uses 2^31 - 1, which wraps nothing on a 64-bit usize, so the corpus never reached it. `pos` is the offset of the body, just after the length varint. A decoder that makes a sub-reader per nested message counts it from the start of the enclosing message; one that keeps one reader over the whole buffer counts it from the start of the buffer. Nested sites therefore carry both.",
+    "modes": {
+      "under": "n = 2^64 - pos - 1: pos + n = 2^64 - 1, the largest value that does NOT wrap. The control: a correct and a wrapping decoder both refuse it",
+      "zero": "n = 2^64 - pos: pos + n wraps to exactly 0, the start of the frame. A skipper that trusts the sum loops forever",
+      "one": "n = 2^64 - pos + 1: wraps to 1",
+      "max": "n = 2^64 - 1, the largest varint value: wraps to pos - 1",
+      "start": "pos + n wraps to the offset of the field's own key, so a skipper re-reads the same field forever. Only distinct from `zero` where something precedes the field in its frame"
+    }
+  },
+
+  "wrong_wire_type": {
+    "_why": "FIX-PLAN WP4 item 2, register R-E2. A known field number arriving with a wire type its declared kind does not use. The protobuf language guide does not state this case in one sentence; what it states is that a parser must accept packed and unpacked forms of a repeated scalar interchangeably, and that a field a parser does not recognise is skipped by its wire type. All three oracles key their dispatch on the (field number, wire type) PAIR -- protobuf-python's pure decoder looks the field up by its encoded tag bytes and falls through to the unknown-field path on a miss -- so a known number at a foreign wire type is an unknown field: skipped, retained where unknown fields are retained, and the known field left as it was. The vectors carry the full canonical message and then the foreign-typed field, so a decoder that dispatches on the field number alone overwrites a set field, appends to a repeated one or switches a oneof, and fails C2 rather than passing by luck.",
+    "payloads": {
+      "0": "a varint, 150 (96 01)",
+      "1": "eight bytes 01..08",
+      "2": "a three-byte body 08 96 01, which is itself a valid message body",
+      "5": "four bytes 01..04"
+    }
+  },
+
+  "negative_ints": {
+    "_why": "FIX-PLAN WP4 item 2, register R-E5. S-varint-i32-* and S-varint-i64-* already project negative values, but only on WireZoo, which a codec generator with no fixed32 case cannot reach at all (R-E3). These put negative int32 and int64 values on the roots SHAPES.md and every slice already implement, singular, explicit-presence, oneof and packed, each with a projection, so a decoder that forgets to sign-extend -- or sign-extends an int32 from 64 bits instead of truncating to 32 -- fails C2 rather than only C3."
+  },
+
+  "minus_zero": {
+    "_why": "FIX-PLAN WP4 item 2, register R-E3. An emitter that tests presence with `v != 0.0` drops -0.0, because -0.0 == 0.0. The schema has double in two places: WireZoo.v_double (implicit presence, already S-double-minus-zero) and MetricsBatch.values (repeated, packed). It has no float and no explicit-presence double, so neither can carry a vector here."
+  },
+
   "element_counts": {
     "_why": "README section 10 item 5 wants enough elements to force more than one chunk. ABI v1 section 6 chunks element runs at 32 KB of host-side element GROUPS, not of wire bytes, so the chunk count is a function of the host's group size and cannot be computed here. Each chunking vector therefore declares its element count and the group size at which that count crosses one chunk, and the consumer contract requires a slice to report the count it actually saw.",
     "chunk_bytes": 32768

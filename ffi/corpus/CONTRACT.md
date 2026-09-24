@@ -69,7 +69,9 @@ fail it and it does not silently drop it: it reports it as disputed, with which
 reading its own codec produced. That is data the branch wants -- a sixth opinion
 on an open question -- and it is not a verdict on the slice.
 
-One row is disputed today: **`U-map-entry`**, an unknown field inside every map
+Three rows are disputed today. Two are about the VERDICT and are described
+under C4 (`X-tag-zero-Empty`, `X-tag-zero-nested-Empty`). The third is about the
+READING: **`U-map-entry`**, an unknown field inside every map
 entry. upb drops the entry from the map and keeps its bytes as an unknown field
 of the *parent*; protobuf-python's pure backend and protobuf C++ both put the
 entry in the map. A map field is shorthand for a repeated `MapEntry` message, and
@@ -104,7 +106,7 @@ Each row carries:
 ### C1 -- parse every accept vector
 
 For every row with `expect: "accept"`: decode `file` as `root`, with the codec
-you generated from `corpus.proto`. It must succeed. There are 287 of them and a
+you generated from `corpus.proto`. It must succeed. There are 548 of them and a
 slice that skips one records it by id.
 
 ### C2 -- project it
@@ -112,7 +114,7 @@ slice that skips one records it by id.
 Where `projection` is not null, the decoded message must equal that JSON under
 the encoding in section 3. **This is the obligation that byte identity does not
 imply** and the reason the corpus carries projections at all: a codec can
-round-trip bytes it has misunderstood. 281 rows carry one, and each is a reading
+round-trip bytes it has misunderstood. 542 rows carry one, and each is a reading
 **two runtimes agreed on**, not one runtime's opinion.
 
 `projection` is null in three different situations and they are not the same
@@ -140,7 +142,7 @@ manifest does now too.
 **A vector may have more than one accepted form and that is not a weakness in the
 vector.** An empty map value is an implicit-presence leaf holding the proto zero:
 prost omits it, protobuf C++, upb and protobuf-java write it, both parse to the
-same map and neither encoder is wrong. 87 rows have more than one form. Your
+same map and neither encoder is wrong. 334 rows have more than one form. Your
 slice records which one it wrote, because which one it writes is a fact about its
 incumbent, not a verdict.
 
@@ -153,21 +155,44 @@ same strength:
 | `written_by` | who was seen producing exactly these bytes |
 | `observed_in_a_protobuf_runtime` | **false** means only the corpus's own writer produced it: the form is asserted to be valid, and no protobuf runtime asked here was seen writing it |
 
-87 rows carry at least one form in that weaker category. "upb writes this form"
+334 rows carry at least one form in that weaker category. "upb writes this form"
 and "every conformant encoder writes this form" are different sentences and the
 manifest used to make only the first.
 
 ### C4 -- refuse every reject vector, and prove you watched it refuse
 
-For every row with `expect: "reject"` (49 of them): your decoder must return an
+For every row with `expect: "reject"` (143 of them): your decoder must return an
 error. Not a crash, not a partial message, not a silently truncated one.
 
 **Record the error you actually got, per vector id.** A rejection test that
 nothing rejects is a test nobody has watched work, and that lesson cost this
 branch twice. `reject.seen_failing` names every runtime watched refusing each
-vector and the error each one raised. **All three refuse all 49**, with no row
-disputed, so "my decoder accepts this" is a finding in the slice and not a doubt
-about the vector.
+vector and the error each one raised. **All three refuse 141 of the 143**, so on
+those "my decoder accepts this" is a finding in the slice and not a doubt about the
+vector.
+
+**The other two are disputed, and excluded from pass or fail like any disputed
+row.** `X-tag-zero-Empty` and `X-tag-zero-nested-Empty` carry field number 0 in a
+message that has no fields. protobuf-python's pure backend and protobuf C++ refuse
+both; **upb accepts both**, keeping field 0 as an unknown field -- on a message
+with no fields only, since it refuses field number 0 on every other root in the
+corpus. Report which way your decoder went, as for any disputed row.
+
+`X-lenwrap-*` (63) are lengths that wrap 2^64 from their own position: a varint
+of 2^64 - pos and its neighbours, where `pos` is the offset just after the length
+varint, at an unknown, a string and a message field, and inside a nested message
+counted both from the start of the buffer and from the start of the enclosing
+message, because a decoder with one reader over the buffer and one with a
+sub-reader per message wrap at different values. `meta` gives the declared length,
+the offset it is counted from and where the sum lands. A decoder that checks
+`pos + n > len` passes the check when the sum wraps; the check that cannot wrap is
+`n > len - pos`. `X-lenwrap-lrr-unknown-zero` is FIX-PLAN WP4 item 1's 11-byte
+reproducer. A wrapping decoder does not always fail visibly: the `zero` and
+`start` modes jump backwards and loop, so run them under a timeout.
+
+`X-tag-zero-<Root>` (30) put field number 0 after the full canonical message of
+every message the corpus uses as a root, so a decoder that treats key 0 as the
+end of the message returns a complete-looking message instead of failing.
 
 Two of these are about a *limit* rather than about malformed bytes:
 `X-depth-101` and `X-depth-300`. A decoder that recurses without one does not
@@ -220,7 +245,7 @@ not optional.
 
 ## 4. What each class additionally demands
 
-### `unknown` (74 vectors)
+### `unknown` (317 vectors)
 
 Whether you retain unknown fields or drop them, your re-encode must be one of
 `accepted_encodings`: both the retained and the dropped form are there, labelled.
@@ -237,6 +262,17 @@ tag from any other unknown field, because the grouping lives only in the
 descriptor: the case stays at the last *known* member and the payload is dropped.
 `U-oneof-member-before-known` is the one that looks like it works.
 
+`U-wire-*` (243) are a KNOWN field number at a wire type its kind does not use:
+for every message, the first field of each shape it has, at every wire type
+among 0, 1, 2 and 5 its kind cannot arrive as (a packed field's unpacked form is
+not foreign). All three oracles accept every one, reading the field as an
+unknown field, because they dispatch on the (field number, wire type) pair. The
+foreign-typed field comes after the full canonical message, so a decoder that
+dispatches on the field number alone overwrites a set field, appends to a
+repeated one or switches a oneof, and fails C2. `unknown_tags_seen_by_reader` on
+these rows is a known field number; `meta.wrong_wire_type` says which field,
+which wire type was declared and which was sent.
+
 ### `empty` (30 vectors)
 
 Nothing extra, and that is the point: a generator that fills every field cannot
@@ -245,7 +281,7 @@ passed all seven standard payloads in the Java slice. If your harness
 short-circuits an empty buffer before it reaches the decoder, these vectors pass
 without executing anything.
 
-### `shape` (145 vectors)
+### `shape` (163 vectors)
 
 `manifest.shape_coverage` maps every field shape in the description to the fields
 that have it. The corpus's own build **fails** if a shape has no vector; your
@@ -253,6 +289,20 @@ slice's obligation is the same claim one level down, and a shape your backend ha
 no case for must **raise**, never skip. That rule is a rule because a field
 walker that silently excluded oneof members emitted a complete-looking codec for
 a message whose oneof it ignored entirely, and reported nothing wrong.
+
+`S-neg-*` (14) put negative int32 and int64 values on the roots SHAPES.md and
+every slice already implement (singular, explicit presence, oneof, packed, three
+levels down), each with a projection, so a decoder that forgets to sign-extend
+fails C2 and not only C3. `S-varint-*` already did this on `WireZoo`, which a
+codec generator with no `fixed32` case cannot reach at all. Three of them are
+consume-only: a negative int32 written as a five-byte varint, and an int32 field
+carrying a varint wider than 32 bits. An int32 reads the low 32 bits and
+sign-extends from bit 31; the canonical re-encoding is the ten-byte form.
+
+`S-mzero-*` (4) put -0.0 in `MetricsBatch.values`, the one repeated double in the
+schema. The projection of -0.0 is `"-0"`. The schema has no `float` and no
+explicit-presence double, so neither has a vector; the implicit-presence double
+is `S-double-minus-zero`, on `WireZoo`.
 
 ### `transcode` (53 vectors)
 
@@ -302,7 +352,7 @@ reach this class at all.
 `C-mixed-100` has an element encoding to nothing every tenth position, so a run
 carrying state across elements has to survive an element that writes no bytes.
 
-### `malformed` (18) and `baseline` (8)
+### `malformed` (112) and `baseline` (8)
 
 Malformed is C4. Baseline rows are `ffi/schema/generated`'s payloads by
 reference; `upb_reencodes_identically` and `meta.delta_bytes` record upb's

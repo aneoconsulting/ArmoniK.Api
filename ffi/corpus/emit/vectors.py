@@ -71,6 +71,7 @@ def build_all(reader, superset, corpus):
     out += transcode(reader, superset, corpus)
     out += chunking(reader, superset, corpus)
     out += malformed(reader, superset, corpus)
+    out += wp4(reader, superset, corpus)
     seen = set()
     for v in out:
         if v.id in seen:
@@ -1166,4 +1167,357 @@ def malformed(reader, superset, corpus):
           "reaches depth 4. A decoder that recurses without a limit does not fail this vector: it "
           "exhausts its stack, which on a native core is a crash in the host's process.",
           meta={"depth": d, "protobuf_default_limit": 100})
+    return out
+
+
+# --------------------------------------------------------------------------
+# FIX-PLAN WP4 item 2: vectors that would have caught defects a review found and
+# the corpus did not cover. Appended after every earlier class so that no
+# earlier vector's bytes can move (generated/vectors.sha256 would refuse it);
+# each one lands in the class whose obligation it tests.
+#
+#   X-lenwrap-*    a length that wraps 2^64 from its own position   (R-D1)
+#   U-wire-*       a known field number at a foreign wire type       (R-E2)
+#   X-tag-zero-*   field number 0, on every message the corpus roots (R-E4, R-E5)
+#   S-mzero-*      -0.0 in the repeated double the schema has        (R-E3)
+#   S-neg-*        negative int32/int64, projected, on SHAPES roots  (R-E5)
+
+TWO64 = 1 << 64
+
+
+def wp4(reader, superset, corpus):
+    out = []
+    out += lenwrap(reader, corpus)
+    out += wrongwire(reader, superset, corpus)
+    out += tagzero(reader, corpus)
+    out += minuszero(reader, corpus)
+    out += negints(reader, corpus)
+    return out
+
+
+def wrap_arith(data, meta):
+    """Check a length-wrap vector against its own claim, from the bytes.
+
+    Reads the length varint that ends at `body_offset_abs`, and asserts it is
+    the declared length and that it wraps (or, for mode `under`, sits exactly
+    one below wrapping) from the position the vector says it is counted from.
+    Used by the build on every X-lenwrap row and by emit/selftest.py on a row
+    whose claim is false, so the guard is watched refusing something.
+    """
+    end = meta["body_offset_abs"]
+    start = end - 10
+    n, j = 0, start
+    for sh in range(0, 70, 7):
+        c = data[j]
+        n |= (c & 0x7F) << sh
+        j += 1
+        if not c & 0x80:
+            break
+    if j != end:
+        raise ShapeNotCovered("length varint does not end at body_offset_abs %d" % end)
+    if str(n) != meta["declared_length"]:
+        raise ShapeNotCovered("declared_length %s but the bytes say %d" % (meta["declared_length"], n))
+    base = meta["counted_from_offset"]
+    total = base + n
+    if meta["mode"] == "under":
+        if total != TWO64 - 1:
+            raise ShapeNotCovered("mode under: %d + %d is not 2^64 - 1" % (base, n))
+    elif total < TWO64:
+        raise ShapeNotCovered("%d + %d does not wrap 2^64" % (base, n))
+    if str(total % TWO64) != meta["sum_mod_2_64"]:
+        raise ShapeNotCovered("sum_mod_2_64 %s but the arithmetic says %d"
+                              % (meta["sum_mod_2_64"], total % TWO64))
+    return True
+
+
+def lenwrap(reader, corpus):
+    out = []
+    modes = corpus["length_wrap"]["modes"]
+    LRR, Z = "ListResultsResponse", "WireZoo"
+    rr_full = E.enc_message(reader, corpus, "ResultRaw", "ResultRaw", 0, Opts())
+
+    # (site id, root, prose, field tag, what the field is, prefix in its frame,
+    #  outer frame tag or None)
+    sites = [
+        ("lrr-unknown", LRR, "an UNKNOWN field (tag 15) at the root, first on the wire",
+         15, "unknown", b"", None),
+        ("lrr-unknown-after", LRR, "an UNKNOWN field (tag 15) at the root, after page and total",
+         15, "unknown", W.i(2, 7) + W.i(3, 42), None),
+        ("lrr-results", LRR, "the KNOWN repeated message field results (tag 1), first on the wire",
+         1, "message", b"", None),
+        ("lrr-results-second", LRR, "the KNOWN message field results (tag 1), after one valid element",
+         1, "message", W.ld(1, rr_full), None),
+        ("zoo-string", Z, "the KNOWN string field v_string (tag 6), first on the wire",
+         6, "string", b"", None),
+        ("zoo-string-after", Z, "the KNOWN string field v_string (tag 6), after a one-byte and a "
+                                "ten-byte varint field",
+         6, "string", W.i(1, 1) + W.i(2, -1), None),
+        ("zoo-msg", Z, "the KNOWN message field v_msg (tag 9), first on the wire",
+         9, "message", b"", None),
+        ("sur-string", "Surrogate", "the KNOWN string field text (tag 1) of the transcode carrier",
+         1, "string", b"", None),
+        ("wide-items", "ChunkedResponseWide", "the KNOWN message field items at tag 70000, a "
+                                              "three-byte key",
+         70000, "message", b"", None),
+        ("lrr-nested-string", LRR, "the KNOWN string field session_id (tag 1) inside results[0]",
+         1, "string", b"", 1),
+        ("lrr-nested-msg", LRR, "the KNOWN message field created_at (tag 5) inside results[0]",
+         5, "message", b"", 1),
+        ("lrr-nested-unknown", LRR, "an UNKNOWN field (tag 100) inside results[0]",
+         100, "unknown", b"", 1),
+    ]
+
+    for sid, root, prose, tag, what, prefix, outer in sites:
+        key = W.key(tag, W.LEN)
+        pos_rel = len(prefix) + len(key) + 10
+        frame_abs = 0
+        if outer is not None:
+            inner_len = pos_rel
+            frame_abs = len(W.key(outer, W.LEN)) + len(W.varint(inner_len))
+        pos_abs = frame_abs + pos_rel
+        counted = [("", pos_rel, len(prefix))] if outer is None else \
+            [("-rel", pos_rel, len(prefix)), ("-abs", pos_abs, frame_abs + len(prefix))]
+        for suffix, base, keyoff in counted:
+            for mode in ("under", "zero", "one", "max", "start"):
+                if mode == "start" and keyoff == 0:
+                    continue                          # identical to `zero`
+                if mode == "max" and suffix == "-abs":
+                    continue                          # 2^64 - 1 is the same bytes either way
+                n = {"under": TWO64 - base - 1, "zero": TWO64 - base, "one": TWO64 - base + 1,
+                     "max": TWO64 - 1, "start": TWO64 - base + keyoff}[mode]
+                lenv = W.varint(n)
+                if len(lenv) != 10:
+                    raise ShapeNotCovered("%s: a wrapping length must be a ten-byte varint" % sid)
+                inner = prefix + key + lenv
+                data = inner if outer is None else W.ld(outer, inner)
+                if outer is not None and len(W.varint(len(inner))) != frame_abs - len(W.key(outer, W.LEN)):
+                    raise ShapeNotCovered("%s: outer length width moved" % sid)
+                if mode == "max":
+                    frame = "its own frame and the buffer alike"
+                elif suffix == "-abs":
+                    frame = "the start of the BUFFER (one reader over the whole input)"
+                elif suffix == "-rel":
+                    frame = "the start of the ENCLOSING MESSAGE (a sub-reader per message)"
+                else:
+                    frame = "the start of the buffer, which is also the frame"
+                meta = {
+                    "site": sid, "field_tag": tag, "field_is": what, "mode": mode,
+                    "declared_length": str(n),
+                    "body_offset_abs": pos_abs, "body_offset_in_frame": pos_rel,
+                    "counted_from": ("buffer" if suffix != "-rel" else "enclosing message"),
+                    "counted_from_offset": base,
+                    "sum_mod_2_64": str((base + n) % TWO64),
+                    "mode_means": modes[mode],
+                    "register": "R-D1",
+                }
+                wrap_arith(data, meta)
+                vid = "X-lenwrap-%s%s-%s" % (sid, suffix, mode)
+                out.append(Vec(
+                    vid, "malformed", root, data,
+                    "%s, whose declared length is %s: counted from %s, pos + length %s"
+                    % (prose, {"under": "2^64 - pos - 1", "zero": "2^64 - pos",
+                               "one": "2^64 - pos + 1", "max": "2^64 - 1",
+                               "start": "2^64 - pos + (offset of its own key)"}[mode], frame,
+                       "= 2^64 - 1 and does not wrap" if mode == "under"
+                       else "wraps to %d" % ((base + n) % TWO64)),
+                    expect="reject",
+                    reject={"reason": "the declared length overruns the buffer (pos + length "
+                                      "reaches or wraps 2^64)"},
+                    why="R-D1: `pos + n > len` in unsigned 64-bit arithmetic passes when the sum "
+                        "wraps, and the decoder then jumps backwards (a skipper loops forever), "
+                        "hands the host a span that ends before it starts, or panics slicing it. "
+                        "The corpus had only X-len-huge (2^31 - 1), which wraps nothing on a "
+                        "64-bit usize. The check that cannot wrap is `n > len - pos`.",
+                    meta=meta))
+    return out
+
+
+def wrongwire(reader, superset, corpus):
+    """A known field number at every wire type its kind does not use.
+
+    Mechanical, like the shape sweep: every message the corpus roots, the first
+    field of each SHAPE it has (E.shape_key: kind, cardinality, presence,
+    oneof), and every wire type among 0, 1, 2, 5 that the field's kind cannot
+    arrive as. A packed repeated scalar legally arrives as its element's wire
+    type too (unpacked), so that one is not foreign.
+    """
+    out = []
+    ww = corpus["wrong_wire_type"]
+    payload = {0: W.varint(150), 1: bytes(range(1, 9)), 2: W.varint(3) + b"\x08\x96\x01",
+               5: bytes(range(1, 5))}
+    for name in sorted(reader["messages"]):
+        m = reader["messages"][name]
+        picked = {}
+        for f in __import__("shapes").fields(m):
+            picked.setdefault(E.shape_key(f), f)
+        if not picked:
+            continue
+        tr = set()
+        full = E.enc_message(reader, corpus, name, name, 0, Opts(trace=tr))
+        maps = any(k.startswith("map/") for k in tr)
+        for skey in sorted(picked, key=lambda k: picked[k]["tag"]):
+            f = picked[skey]
+            legal = {spec.wire_of(f)}
+            if spec.card(f) == "packed":
+                legal.add(spec.KINDS[f["kind"]])
+            for wt in sorted({0, 1, 2, 5} - legal):
+                foreign = W.key(f["tag"], wt) + payload[wt]
+                data = full + foreign
+                forms = [("unknown-dropped: the known field as it was, the foreign-typed one gone",
+                          full)]
+                if maps:
+                    always = E.enc_message(reader, corpus, name, name, 0, Opts(map_value="always"))
+                    forms.append(("unknown-retained, map values always written", always + foreign))
+                    forms.append(("unknown-dropped, map values always written", always))
+                out.append(Vec(
+                    "U-wire-%s-%s-as-wt%d" % (name, f["name"].replace("_", "-"), wt),
+                    "unknown", name, data,
+                    "%s.%s (%s, wire type %s) arriving with wire type %d after the full message"
+                    % (name, f["name"], skey, "/".join(str(x) for x in sorted(legal)), wt),
+                    why=ww["_why"],
+                    forms=forms,
+                    meta={"wrong_wire_type": {"field": f["name"], "tag": f["tag"],
+                                              "shape": skey, "declared_wire": sorted(legal),
+                                              "sent_wire": wt,
+                                              "payload": ww["payloads"][str(wt)]},
+                          "declared_in_superset": False,
+                          "register": "R-E2"},
+                    notes={"all": "the known field keeps the value the full message gave it; the "
+                                  "foreign-typed occurrence is an unknown field. It stays unknown "
+                                  "under the superset view too, so there is no superset "
+                                  "projection."}))
+    return out
+
+
+def tagzero(reader, corpus):
+    out = []
+    for name in sorted(reader["messages"]):
+        full = E.enc_message(reader, corpus, name, name, 0, Opts())
+        out.append(Vec(
+            "X-tag-zero-%s" % name, "malformed", name, full + W.key(0, W.VARINT) + W.varint(1),
+            "field number 0 after the full %s" % name,
+            expect="reject",
+            reject={"reason": "field number 0 is not a legal tag"},
+            why="X-tag-zero covered WireZoo only, and a generated decoder is one function per "
+                "message, so each one has its own chance to treat key 0 as the end of the message "
+                "or to dispatch it as a field. Placed after a well-formed message so that a "
+                "decoder which stops at key 0 returns a complete-looking message instead of "
+                "failing (R-E4, R-E5).",
+            meta={"register": "R-E4, R-E5", "prefix_bytes": len(full)}))
+    # The same inside a field-less message reached through a carrier. Added
+    # after the first build showed upb accepting X-tag-zero-Empty: upb skips
+    # field number 0 as an unknown field on a message with no fields (wire types
+    # 0 and 5), where it refuses it on every other message. The pure-python
+    # backend and protobuf C++ refuse both. This row puts that code path where a
+    # real payload would reach it: the payload-free oneof member.
+    out.append(Vec(
+        "X-tag-zero-nested-Empty", "malformed", "ListProbeResponse",
+        W.ld(1, W.s(1, "p") + W.ld(14, W.key(0, W.VARINT) + W.varint(1))),
+        "field number 0 inside the payload-free oneof member Probe.as_nothing (an Empty), "
+        "inside ListProbeResponse.probes[0]",
+        expect="reject",
+        reject={"reason": "field number 0 is not a legal tag"},
+        why="X-tag-zero-Empty's nested twin. A decoder for a message with no fields has nothing "
+            "to dispatch and is the one most likely to skip every key as unknown without "
+            "looking at it; upb does exactly that.",
+        meta={"register": "R-E4, R-E5", "empty_message_path": "probes[0].as_nothing"}))
+    return out
+
+
+def minuszero(reader, corpus):
+    out = []
+    MZ = -0.0
+    why = corpus["minus_zero"]["_why"]
+    cases = [
+        ("MetricsBatch-values", "MetricsBatch", W.packed_f64(3, [MZ]),
+         "a packed repeated double holding one -0.0"),
+        ("MetricsBatch-values-mixed", "MetricsBatch", W.packed_f64(3, [0.0, MZ, 1.0, MZ]),
+         "a packed repeated double holding 0.0, -0.0, 1.0, -0.0"),
+        ("ListMetricsResponse-values", "ListMetricsResponse",
+         W.ld(1, W.s(1, "g") + W.packed_f64(3, [MZ, MZ])),
+         "-0.0 twice in the packed doubles of a nested batch"),
+    ]
+    for label, root, data, prose in cases:
+        out.append(Vec("S-mzero-%s" % label, "shape", root, data, prose,
+                       why=why + " The projection of -0.0 is \"-0\", so a reader that loses the "
+                                 "sign fails C2 as well as C3.",
+                       canonical=True, produce=ALL, meta={"register": "R-E3"}))
+    unpacked = W.f64(3, MZ)
+    out.append(Vec("S-mzero-MetricsBatch-values-unpacked", "shape", "MetricsBatch", unpacked,
+                   "one -0.0 in a repeated double written UNPACKED (wire type 1)",
+                   why=why + " Consume-only: the canonical re-encoding is packed.",
+                   forms=[("canonical: packed", W.packed_f64(3, [MZ]))],
+                   meta={"register": "R-E3"}))
+    return out
+
+
+def negints(reader, corpus):
+    out = []
+    why = corpus["negative_ints"]["_why"]
+    I32MIN, I64MIN = -(1 << 31), -(1 << 63)
+
+    def ts(sec, nanos):
+        return (W.i(1, sec) if sec else b"") + (W.i(2, nanos) if nanos else b"")
+
+    canon = [
+        ("Timestamp", "Timestamp", ts(-1, -1), "seconds = -1 (int64), nanos = -1 (int32)"),
+        ("Timestamp-min", "Timestamp", ts(I64MIN, I32MIN),
+         "seconds = INT64_MIN, nanos = INT32_MIN"),
+        ("Duration", "Duration", ts(-2, -999999999), "seconds = -2, nanos = -999999999"),
+        ("ListResultsResponse", "ListResultsResponse",
+         W.ld(1, W.ld(5, ts(-1, -1)) + W.i(9, -1)) + W.i(2, -1) + W.i(3, I32MIN),
+         "page = -1 and total = INT32_MIN at the root, results[0].size = -1 (int64) and "
+         "results[0].created_at = {-1, -1}"),
+        ("ListTasksDetailedResponse", "ListTasksDetailedResponse",
+         W.ld(1, W.ld(10, W.i(3, -3) + W.i(4, I32MIN))) + W.i(2, -1),
+         "page = -1, tasks[0].options.max_retries = -3 and priority = INT32_MIN (three levels "
+         "down)"),
+        ("ListTaskSummaryResponse", "ListTaskSummaryResponse",
+         W.ld(1, W.ld(3, W.i(3, -1)) + W.i(11, -1)),
+         "tasks[0].options.max_retries = -1 (int32), tasks[0].count_data_dependencies = -1 "
+         "(int64)"),
+        ("ListMetricsResponse-packed", "ListMetricsResponse",
+         W.ld(1, W.s(1, "g") + W.packed_varint(2, [-1, I64MIN, 1, -(1 << 32)])
+              + W.packed_varint(4, [-1, I32MIN, 7, -128])),
+         "packed int64 ticks [-1, INT64_MIN, 1, -2^32] and packed int32 codes "
+         "[-1, INT32_MIN, 7, -128]"),
+        ("ListProbeResponse", "ListProbeResponse",
+         W.ld(1, W.s(1, "p") + W.i(2, -1) + W.i(10, I64MIN)),
+         "an explicit-presence int32 opt_count = -1 and the oneof member as_int = INT64_MIN"),
+        ("ChunkedResponse", "ChunkedResponse",
+         W.ld(7, W.ld(4, W.packed_varint(1, [-1]) + W.ld(2, W.s(1, "a") + W.i(2, -1)))) + W.i(8, -7),
+         "items[0].inner.marks = [-1] (packed int64), items[0].inner.leaves[0].v = -1 (int32), "
+         "page = -7"),
+        ("LeafResponse", "LeafResponse", W.ld(9, W.s(1, "x") + W.i(2, I64MIN)),
+         "items[0].n = INT64_MIN"),
+        ("DualResponse", "DualResponse",
+         W.ld(1, W.s(1, "a") + W.i(2, I32MIN)) + W.ld(2, W.s(1, "b") + W.i(2, -1)),
+         "left[0].value = INT32_MIN, right[0].value = -1"),
+    ]
+    for label, root, data, prose in canon:
+        out.append(Vec("S-neg-%s" % label, "shape", root, data, "negative integers: " + prose,
+                       why=why, canonical=True, produce=ALL, meta={"register": "R-E5"}))
+
+    # Two legal wire forms of a negative int32 that no conformant writer emits.
+    # protobuf's language guide: a number parsed from the wire that does not fit
+    # the field's type gets the effect of a C++ cast to that type, so an int32
+    # reads the low 32 bits of whatever varint arrives.
+    five = [
+        ("i32-five-byte-Timestamp", "Timestamp", W.key(2, W.VARINT) + b"\xff\xff\xff\xff\x0f",
+         ts(0, -1), "nanos = -1 written as the five-byte varint 0xFFFFFFFF"),
+        ("i32-five-byte-ListResultsResponse", "ListResultsResponse",
+         W.key(2, W.VARINT) + b"\x80\x80\x80\x80\x08", W.i(2, I32MIN),
+         "page = INT32_MIN written as the five-byte varint 0x80000000"),
+        ("i32-truncated-Pair", "Pair", W.s(1, "k") + W.i(2, (1 << 40) + (1 << 32) - 1),
+         W.s(1, "k") + W.i(2, -1),
+         "value carrying the varint 2^40 + 2^32 - 1, whose low 32 bits are -1"),
+    ]
+    for label, root, data, canonical_form, prose in five:
+        out.append(Vec("S-neg-%s" % label, "shape", root, data, "negative int32 decode: " + prose,
+                       why=why + " Consume-only: an int32 reads the low 32 bits of the varint and "
+                                 "sign-extends from bit 31, so a decoder that keeps the 64-bit "
+                                 "value reads a large positive number here. The canonical "
+                                 "re-encoding is the ten-byte sign-extended form.",
+                       forms=[("canonical: ten-byte sign-extended", canonical_form)],
+                       meta={"register": "R-E5"}))
     return out

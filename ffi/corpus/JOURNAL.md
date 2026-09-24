@@ -325,3 +325,94 @@ Still true, and still the most useful sentence in `STATE.md`: three runtimes fro
 one project is a wider sample than one, and it is not a standard. Three slices
 have not run the corpus. **They remain the widest opinion available**, and this
 revision is what happened when two of them ran.
+
+## 16. 2026-09-24: FIX-PLAN WP4 item 2, the vectors a review found missing
+
+The review behind `design/FIX-PLAN.md` found defects the corpus did not cover:
+the core's `len_body` checks `pos + n > len` in unsigned arithmetic with no
+overflow checks in release (R-D1); decoders that disagree on a known field at a
+foreign wire type (R-E2); tag 0 handled per emitter (R-E4, R-E5); `-0.0`
+dropped by `!= 0.0` presence tests (R-E3); int32/int64 sign on decode (R-E5).
+Five families, 355 vectors, in the order they were built.
+
+**Length wrap.** `X-len-huge` is 2^31 - 1, which wraps nothing on a 64-bit
+`usize`, so the corpus could not see R-D1. The value that wraps depends on
+`pos`, and `pos` is not one number: the Rust core makes a sub-reader per nested
+message (`Dec::new(&buf[off..off + n])`), so it counts from the enclosing
+message; a decoder with one reader over the buffer counts from the buffer. So
+nested sites carry both (`-rel`, `-abs`). Modes `under`/`zero`/`one` are the
+literal "2^64 - pos and nearby values"; `max` is 2^64 - 1; `start` lands on the
+field's own key, which differs from `zero` only where something precedes the
+field in its frame. A first idea, a mode that wraps to exactly the end of the
+buffer (a wrapping decoder would then ACCEPT cleanly), is impossible: with
+n < 2^64, `pos + n == end (mod 2^64)` forces `n = end - pos`, which is small.
+Refuted by arithmetic before any code. `wrap_arith()` re-derives each vector's
+claim from its bytes at build time; the selftest feeds it three false claims.
+`X-lenwrap-lrr-unknown-zero` came out as `7a f5 ff ff ff ff ff ff ff ff 01`,
+WP4 item 1's reproducer byte for byte, which is a check on the arithmetic and
+not a coincidence. 63 vectors, all refused by all three oracles (upb and
+pure-python say "Truncated message" / "Truncated string", protoc "Failed to
+parse input").
+
+**Wrong wire type.** Probed first, by hand, 23 cases across every kind: upb
+and pure-python both read a known number at a foreign wire type as an unknown
+field, keep it, and leave the known field as it was -- including a singular
+int32 arriving as LEN (not taken as packed), a oneof member arriving foreign
+after another member (the case stays), and a map arriving as a varint. So the
+family is `accept`, in class `unknown`, with the retained form (the committed
+bytes) and the dropped form declared. Built mechanically -- every message, the
+first field of each `shape_key`, every wire type in {0, 1, 2, 5} its kind
+cannot arrive as -- which is 243. The foreign field goes AFTER the full message,
+not before: last-wins would otherwise mask a decoder that dispatches on the
+number alone. protoc accepted all 243 too; no dispute. The build's unknown-field
+assertion needed one change: the tag is a known one, so `meta.wrong_wire_type`
+adds it to that vector's unknown set.
+
+**Tag 0 on every root.** 30 vectors, field number 0 after the full canonical
+message, so a decoder that treats key 0 as end-of-message returns something
+complete-looking. **The first build disputed `X-tag-zero-Empty`: upb accepted
+it.** Probed: upb keeps field 0 as an unknown field on `Empty` at wire types 0
+and 5, and refuses field 0 on every other root, including one-field messages;
+the pure backend and protoc refuse it everywhere. So it is a property of a
+message with no fields, not of short messages. `X-tag-zero-nested-Empty` was
+added to put the same bytes where a real payload reaches that code path
+(`Probe.as_nothing`); upb accepts that too. Both are verdict disputes, excluded
+from pass or fail, with both readings published. Not resolved here, for the same
+reason `U-map-entry` is not.
+
+**-0.0.** The schema has double in two places: `WireZoo.v_double` (implicit,
+already `S-double-minus-zero`) and `MetricsBatch.values` (repeated). No float,
+no explicit-presence double, so the rest of the request has nothing to attach
+to without changing `corpus.proto`, which consumers build against; recorded as
+not covered. Three packed vectors (produce = all) and one unpacked
+(consume-only). The projection `"%.17g" % -0.0` is `"-0"`, so C2 sees the sign.
+
+**Negative ints.** `S-varint-*` already projected negatives, but only on
+`WireZoo`, which a generator with no `fixed32` case (R-E3) cannot reach at
+all -- so the coverage existed and was unreachable by the codecs it was meant
+for. 11 canonical vectors on SHAPES.md roots (every one re-encoded identically
+by upb, so produce = all is honest), 3 consume-only: a five-byte negative int32
+twice, and an int32 carrying a 41-bit varint whose low 32 bits are -1 (the
+language guide's "as if cast in C++").
+
+**The seal.** Extended through the build's own path, not by editing the file:
+`emit/build.py` refused exactly the 355 additions and nothing else; `--reseal`;
+then the old seal diffed against the new -- 0 of the 328 old lines missing or
+changed, 355 added, 0 committed vector files modified. The first pass did this
+with 354 and was redone from the committed seal after the nested tag-0 row was
+added, so the logs show one extension rather than two. A note in the seal's
+header says what was added and points at the diff. The 336 existing manifest
+rows are identical to the committed ones.
+
+**Two selftest checks became false and were rewritten, not deleted.** "Every
+must-fail vector is seen failing (by upb)" and "every must-fail vector was
+refused by all three" were both true of the 49 and are not true of the 143. They
+now say what the corpus actually guarantees: a must-fail vector not refused by
+all three is published as disputed with the acceptor named, and the build still
+dies if nothing refuses one. The dispute-reading check also assumed every
+dispute has readings; a verdict dispute has none, and it now says which kind it
+is looking at. 60 checks, 0 failed.
+
+What this does not establish: that any slice fails or passes the new rows. None
+has run them. The families were chosen to bite on the register entries, and
+whether they do is the slices' measurement to make.
