@@ -869,3 +869,32 @@ version conditionals there. And 3.7 is not obtainable in this container: the apt
 lists `3.7.17-1+noble2`, but the egress proxy refuses the deadsnakes PPA (403), python.org
 and github, so neither the package nor a source tarball nor a standalone build can be
 fetched.
+
+### J31. R-F3 and R-F2: two STATE.md statements that no log supported
+
+**R-F3, confirmed.** STATE.md's P2.2 row gave "10.02 / 7.00" in the shim -> CPython
+column and "32" for the Python storages; `53-conformance-all-shapes.log` says 51.67 / 51.67
+and 146.68 / 131.35. Both are right about different edges. 10.02 is **core** fwd 5.02 +
+core rev 5.00 per `TaskDetailed` on encode and 7.00 is core rev on decode -- the number J22
+matched against the rust slice -- and it had been copied into the shim column of two
+tables. "32" matches nothing in any log (the nearest, `C-API value read=32170`, is a raw
+count over the payload, not per element) and is deleted. The crossing table is now
+regenerated from `85` (3.12), which is identical row for row to `53`'s 3.11 block, with
+the three edges named and a rule that they are never summed.
+
+**R-F2, confirmed.** STATE.md said in its header that the concurrency suite exists and
+passes, and in "what is not measured" that concurrency is unanswered and 12.5 has no python
+row. The second was a leftover from before work unit 3; deleted. `57-gc-bias.log`'s closing
+line says `bench.py` no longer disables GC, but `bench.py` goes through `mech/harness.run`
+with its default `gc_enabled=False`: the line was printed during J28's withdrawn first fix
+and outlived it. `gcbias.py` now prints what the code does; the committed log is left as it
+was produced and STATE.md says the line is stale.
+
+**While checking both, a third statement with no log: U1.** The upb map-entry defect was
+"isolated on a two-field message" by hand and never committed. `u1_map_unknown.py`
+reproduces it on 3.12 / protobuf 7.36.2 (`88-u1-map-unknown.log`): upb returns `{}`, the
+python backend, the core and the pure-Python control return `{'k': 'v'}`.
+
+STATE.md was rewritten to the phase rule at the same time: no timing figure in it, timing
+logs listed as instrumentation, no recommendation (the queue-as-default and the
+outcome-2 sentences are gone), target 3.12 per owner decision D1 rather than 3.11.
