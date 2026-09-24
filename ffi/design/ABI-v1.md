@@ -276,7 +276,11 @@ not propagate and cannot be caught, and the generated guard that catches it need
 somewhere to put what it caught.
 
 ```c
-typedef struct { int32_t code; uint32_t msg_len; const char *msg; } ak_err;
+/* Settled 2026-09-24 to match the implementation (ak-abi): the detail is an index
+   into a static table (ak_err_text), not a pointer, because a pointer would have to be
+   owned by somebody and a code is owned by nobody. The earlier draft carried
+   {code, msg_len, msg}. */
+typedef struct { int32_t code; uint32_t detail; } ak_err;
 
 /* Any host code holding a context may fail the operation. Sticky: the first
    error wins, so unwinding cannot overwrite the cause. Never allocates, never
