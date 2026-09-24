@@ -898,3 +898,38 @@ python backend, the core and the pure-Python control return `{'k': 'v'}`.
 STATE.md was rewritten to the phase rule at the same time: no timing figure in it, timing
 logs listed as instrumentation, no recommendation (the queue-as-default and the
 outcome-2 sentences are gone), target 3.12 per owner decision D1 rather than 3.11.
+
+### J32. Re-gate against the shared core at 6ede244 (R-D1 fixed)
+
+Built from `git archive 6ede244` through `AK_UPSTREAM` (the cpp agent still had
+`poc/cpp/gen` uncommitted). The build's core-tree hash and the library size both moved
+(5ac4151c -> 8a5fbb83, 806,680 -> 808,520 bytes), which is the check that the new core is
+the one in the build and not the old one surviving in a target directory.
+
+**R-D1 through this slice** (`rd1_lenwrap.py`, `logs/python/89-rd1-lenwrap.log`). Three
+wrapped inputs, each decoded in its own subprocess under a 10 s timeout. Against the OLD
+core (8864e4d, forced over the shims' RUNPATH with `LD_LIBRARY_PATH`, the mapped core
+printed): the finding's 11 bytes **hang**, a root-level wrapped length **aborts the Python
+process** on a non-unwinding Rust panic, and a nested wrapped string length **segfaults the
+Python process** -- the host being handed the bad span, which is the review's "4 GiB
+out-of-bounds span to host" happening in a real host. Against 6ede244: all six rows return
+`AK_ERR_TRUNCATED` promptly, on both shims; the P1.2 control decodes.
+
+**Everything else holds**: conformance passes on both shims; crossing counts identical row
+for row to 8864e4d (the fix moved no count); the RPC gate gives 80 of 80 aborted and 20 of
+20 gated again.
+
+**The corpus grew under this slice's feet and found two things.** 213 of 691 rows are now in
+scope (was 126 of 336). Both core-ffi arms pass every obligation, the 42 in-scope
+length-wrap vectors included. The pure-Python control fails 42 rows, exactly R-E5's three
+classes: 27 `U-wire-*` (it reads a known field at whatever wire type arrives), 7 `S-neg-*`
+(negative int32/int64 projected as unsigned 64-bit), 8 `X-tag-zero-*` (tag 0 accepted).
+Not fixed: those are decode rules, and WP5 moves them into the shared generator; writing
+them into `gen/py_codec.py` now is the defect WP5 removes.
+
+The second thing is D12, in `corpus.py` itself: the first C1 failure ended the run with
+`NameError: name 'UPSTREAM' is not defined`. Commit 7e0404a emptied the upstream-defect
+table by deleting it and left the three places that read it. It could not show while every
+row passed, which is the same shape as J27's script that had stopped running: code on a path
+nothing exercised. Restored as an empty table, and the per-arm failure list is no longer
+cut at eight, so the log carries every row a reader has to classify.

@@ -1,8 +1,15 @@
+# python slice: RE-GATE, the conformance corpus as far as walk.ROOTS reaches, core 6ede244
+# date: 2026-09-24T09:10:03Z; slice code ca03d6d + this session's poc/python edits (committed with this log); core 6ede244 (git archive via AK_UPSTREAM, R-D1 fix); corpus ca03d6d; python 3.12.3
+# The corpus grew (WP4 item 2): 213 of 691 rows in scope, against 126 of 336 in the previous version of this log.
+# Every failure below is in the PURE-PYTHON CONTROL (pycodec, gen/py_codec.py), and the three classes are
+# FIX-PLAN R-E5's: wire type not checked (U-wire), sign of negative int32/int64 (S-neg), tag 0 accepted (X-tag).
+# Both core-ffi arms pass every obligation. Not fixed here: R-E5 is closed by WP5, and a wire rule in this
+# slice's gen/ is what WP5 removes.
+
 # python slice: the conformance corpus (W8), as far as this scope reaches
 # corpus:   1
-# vectors:  336 in the corpus
+# vectors:  691 in the corpus
 # reader:   generated from ffi/schema/shapes.json, M1 subtree
-
 ## CONTRACT.md rule 0: the reader is not generated from the superset
    [ok]  ListResultsResponse: identical to corpus.proto; the superset adds 7 fields this reader does not know (u_varint, u_fixed64, u_len, ...)
    [ok]  ResultRaw: identical to corpus.proto; the superset adds 7 fields this reader does not know (u_varint, u_fixed64, u_len, ...)
@@ -24,75 +31,252 @@
    [ok]  DualResponse: identical to corpus.proto; the superset extends it nowhere, so the unknown-field skip is tested elsewhere
    [ok]  Pair: identical to corpus.proto; the superset extends it nowhere, so the unknown-field skip is tested elsewhere
    [ok]  6 of 19 scoped messages are extended by the superset, which is what makes the `unknown` class mean something here
-
 ## scope
-   128 of 336 rows root at one of this slice's 7 roots and are in scope.
+   213 of 691 rows root at one of this slice's 7 roots and are in scope.
    Roots covered: DualResponse, ListMetricsResponse, ListProbeResponse, ListResultsResponse, ListTaskSummaryResponse, ListTasksDetailedResponse, UploadResultDataMessage
    Out of scope, by root, and every one of them is a message this slice does
    not cover rather than a row it chose to skip:
-      WireZoo                      62
-      Surrogate                    56
-      ChunkedResponse              15
-      Nest                         9
-      Probe                        8
-      ChunkedResponseWide          5
-      LeafResponse                 5
-      ChunkElement                 3
-      ChunkInner                   3
-      ChunkLeaf                    3
-      Duration                     3
-      Empty                        3
-      LeafElement                  3
-      MetricsBatch                 3
-      Pair                         3
-      ResultRaw                    3
-      SurrogateInner               3
-      TaskDetailed                 3
-      TaskOptions                  3
-      TaskOutput                   3
-      TaskSummary                  3
-      Timestamp                    3
-      UploadResultData             3
-   In scope, by class: baseline=8, empty=30, malformed=2, shape=22, unknown=66
-
+      WireZoo                      103
+      Surrogate                    76
+      Probe                        33
+      ChunkedResponse              23
+      ResultRaw                    22
+      MetricsBatch                 20
+      ChunkElement                 16
+      Nest                         16
+      TaskDetailed                 16
+      TaskOptions                  16
+      TaskSummary                  16
+      ChunkedResponseWide          13
+      LeafElement                  13
+      Timestamp                    13
+      Duration                     11
+      Pair                         11
+      ChunkLeaf                    10
+      LeafResponse                 10
+      TaskOutput                   10
+      UploadResultData             10
+      ChunkInner                   9
+      SurrogateInner               7
+      Empty                        4
+   In scope, by class: baseline=8, empty=30, malformed=52, shape=30, unknown=93
 ## C1 parse, C2 project, C3 re-encode, C4 refuse
-   core-ffi / C ext type    C1 126/126  C2 123/123  C3 126/126  C4 2/2
-   core-ffi / plain         C1 126/126  C2 123/123  C3 126/126  C4 2/2
-   pycodec / plain          C1 126/126  C2 123/123  C3 126/126  C4 2/2
-
+   core-ffi / C ext type    C1 161/161  C2 158/158  C3 161/161  C4 52/52
+   core-ffi / plain         C1 161/161  C2 158/158  C3 161/161  C4 52/52
+   pycodec / plain          C1 134/161  C2 124/158  C3 134/161  C4 44/52
+        FAIL S-neg-DualResponse: C2 projection differs: left: "[{'key': 'a', 'value': '1844674407156206" vs "[{'key': 'a', 'value': '-2147483648'}]"
+        FAIL S-neg-ListMetricsResponse-packed: C2 projection differs: batches: "[{'id': 'g', 'ticks': ['1844674407370955" vs "[{'codes': ['-1', '-2147483648', '7', '-"
+        FAIL S-neg-ListProbeResponse: C2 projection differs: probes: "[{'id': 'p', 'opt_count': '1844674407370" vs "[{'as_int': '-9223372036854775808', 'id'"
+        FAIL S-neg-ListResultsResponse: C2 projection differs: page: '18446744073709551615' vs '-1'
+        FAIL S-neg-ListTaskSummaryResponse: C2 projection differs: tasks: "[{'options': {'max_retries': '1844674407" vs "[{'count_data_dependencies': '-1', 'opti"
+        FAIL S-neg-ListTasksDetailedResponse: C2 projection differs: page: '18446744073709551615' vs '-1'
+        FAIL S-neg-i32-five-byte-ListResultsResponse: C2 projection differs: page: '2147483648' vs '-2147483648'
+        FAIL U-wire-DualResponse-left-as-wt0: C1 ValueError: length 150 at 67 overruns the enclosing message (ends 67)
+        FAIL U-wire-DualResponse-left-as-wt1: C1 ValueError: length overruns the enclosing message
+        FAIL U-wire-DualResponse-left-as-wt5: C1 ValueError: length overruns the enclosing message
+        FAIL U-wire-ListMetricsResponse-batches-as-wt0: C1 ValueError: length 150 at 1243 overruns the enclosing message (ends 1243)
+        FAIL U-wire-ListMetricsResponse-batches-as-wt1: C1 ValueError: length overruns the enclosing message
+        FAIL U-wire-ListMetricsResponse-batches-as-wt5: C1 ValueError: length overruns the enclosing message
+        FAIL U-wire-ListProbeResponse-probes-as-wt0: C1 ValueError: length 150 at 134 overruns the enclosing message (ends 134)
+        FAIL U-wire-ListProbeResponse-probes-as-wt1: C1 ValueError: length overruns the enclosing message
+        FAIL U-wire-ListProbeResponse-probes-as-wt5: C1 ValueError: length overruns the enclosing message
+        FAIL U-wire-ListResultsResponse-page-as-wt1: C1 ValueError: wire type 7
+        FAIL U-wire-ListResultsResponse-page-as-wt2: C1 ValueError: length 150 at 432 overruns the enclosing message (ends 432)
+        FAIL U-wire-ListResultsResponse-page-as-wt5: C1 ValueError: length overruns the enclosing message
+        FAIL U-wire-ListResultsResponse-results-as-wt0: C1 ValueError: length 150 at 430 overruns the enclosing message (ends 430)
+        FAIL U-wire-ListResultsResponse-results-as-wt1: C1 ValueError: length overruns the enclosing message
+        FAIL U-wire-ListResultsResponse-results-as-wt5: C1 ValueError: length overruns the enclosing message
+        FAIL U-wire-ListTaskSummaryResponse-tasks-as-wt0: C1 ValueError: length 150 at 613 overruns the enclosing message (ends 613)
+        FAIL U-wire-ListTaskSummaryResponse-tasks-as-wt1: C1 ValueError: length overruns the enclosing message
+        FAIL U-wire-ListTaskSummaryResponse-tasks-as-wt5: C1 ValueError: length overruns the enclosing message
+        FAIL U-wire-ListTasksDetailedResponse-page-as-wt1: C1 ValueError: wire type 7
+        FAIL U-wire-ListTasksDetailedResponse-page-as-wt2: C1 ValueError: length 150 at 1748 overruns the enclosing message (ends 1748)
+        FAIL U-wire-ListTasksDetailedResponse-page-as-wt5: C1 ValueError: length overruns the enclosing message
+        FAIL U-wire-ListTasksDetailedResponse-tasks-as-wt0: C1 ValueError: length 150 at 1746 overruns the enclosing message (ends 1746)
+        FAIL U-wire-ListTasksDetailedResponse-tasks-as-wt1: C1 ValueError: length overruns the enclosing message
+        FAIL U-wire-ListTasksDetailedResponse-tasks-as-wt5: C1 ValueError: length overruns the enclosing message
+        FAIL U-wire-UploadResultDataMessage-upload-as-wt0: C1 ValueError: length 150 at 99 overruns the enclosing message (ends 99)
+        FAIL U-wire-UploadResultDataMessage-upload-as-wt1: C1 ValueError: length overruns the enclosing message
+        FAIL U-wire-UploadResultDataMessage-upload-as-wt5: C1 ValueError: length overruns the enclosing message
+        FAIL X-tag-zero-DualResponse: C4 accepted a reject vector
+        FAIL X-tag-zero-ListMetricsResponse: C4 accepted a reject vector
+        FAIL X-tag-zero-ListProbeResponse: C4 accepted a reject vector
+        FAIL X-tag-zero-ListResultsResponse: C4 accepted a reject vector
+        FAIL X-tag-zero-ListTaskSummaryResponse: C4 accepted a reject vector
+        FAIL X-tag-zero-ListTasksDetailedResponse: C4 accepted a reject vector
+        FAIL X-tag-zero-UploadResultDataMessage: C4 accepted a reject vector
+        FAIL X-tag-zero-nested-Empty: C4 accepted a reject vector
 ## C3: which accepted form this slice writes
 #  CONTRACT.md C3: a vector may have more than one accepted form, and which
 #  one a slice writes is a fact about it rather than a verdict.
-   core-ffi / C ext type    as committed=45, as committed in ffi/schema/generated=7, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=17
-   core-ffi / plain         as committed=45, as committed in ffi/schema/generated=7, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=17
-   pycodec / plain          as committed=45, as committed in ffi/schema/generated=7, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=17
-
+   core-ffi / C ext type    as committed=52, as committed in ffi/schema/generated=7, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: ten-byte sign-extended=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=26, unknown-dropped: the known field as it was, the foreign-typed one gone=27
+   core-ffi / plain         as committed=52, as committed in ffi/schema/generated=7, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: ten-byte sign-extended=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=26, unknown-dropped: the known field as it was, the foreign-typed one gone=27
+   pycodec / plain          as committed=53, as committed in ffi/schema/generated=7, as upb writes it: the same message in a different field ORDER=1, canonical: ascending by tag=1, canonical: each repeated field contiguous=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=1, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, key and value always written=1, map values always written (protobuf C++, upb, protobuf-java)=4, unknown-dropped=62, unknown-dropped, map values always written=17
 ## ABI v1 open decision 11, answered for this slice
 #  CONTRACT.md class `unknown`: say whether you retained or dropped. Counted
 #  over the `unknown`-class rows only, because on any other row there is no
 #  unknown field and `as committed` means the canonical form.
-   core-ffi / C ext type    as committed=4, unknown-dropped=62, unknown-dropped, map values always written=17  (of 66 unknown-class rows)
-   core-ffi / plain         as committed=4, unknown-dropped=62, unknown-dropped, map values always written=17  (of 66 unknown-class rows)
-   pycodec / plain          as committed=4, unknown-dropped=62, unknown-dropped, map values always written=17  (of 66 unknown-class rows)
+   core-ffi / C ext type    as committed=4, unknown-dropped=62, unknown-dropped, map values always written=26, unknown-dropped: the known field as it was, the foreign-typed one gone=27  (of 93 unknown-class rows)
+   core-ffi / plain         as committed=4, unknown-dropped=62, unknown-dropped, map values always written=26, unknown-dropped: the known field as it was, the foreign-typed one gone=27  (of 93 unknown-class rows)
+   pycodec / plain          as committed=4, unknown-dropped=62, unknown-dropped, map values always written=17  (of 93 unknown-class rows)
    **This slice DROPS unknown fields.** The core carries `ak_unk_f` vtable
    slots and this shim passes NULL for every one of them, so the drop is a
    choice the binding makes and not a limit of the ABI: a binding that wanted
    retention has somewhere to put it. That is ABI v1 open decision 11's
    answer for python, and it matches what four of the five incumbents do NOT
    do -- upb retains, and this does not.
-
 ## C4: what the refusals looked like
+   core-ffi / C ext type    X-lenwrap-lrr-nested-msg-abs-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-msg-abs-start ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-msg-abs-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-msg-abs-zero ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-msg-rel-max ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-msg-rel-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-msg-rel-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-msg-rel-zero ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-string-abs-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-string-abs-start ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-string-abs-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-string-abs-zero ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-string-rel-max ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-string-rel-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-string-rel-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-string-rel-zero ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-unknown-abs-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-unknown-abs-start ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-unknown-abs-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-unknown-abs-zero ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-unknown-rel-max ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-unknown-rel-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-unknown-rel-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-nested-unknown-rel-zero ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-results-max ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-results-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-results-second-max ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-results-second-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-results-second-start ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-results-second-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-results-second-zero ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-results-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-results-zero ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-unknown-after-max ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-unknown-after-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-unknown-after-start ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-unknown-after-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-unknown-after-zero ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-unknown-max ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-unknown-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-unknown-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / C ext type    X-lenwrap-lrr-unknown-zero ValueError: ak_decode_ListResultsResponse returned -3
    core-ffi / C ext type    X-nested-len-overrun   ValueError: ak_decode_ListResultsResponse returned -3
    core-ffi / C ext type    X-packed-truncated     ValueError: ak_decode_ListMetricsResponse returned -3
+   core-ffi / C ext type    X-tag-zero-DualResponse ValueError: ak_decode_DualResponse returned -2
+   core-ffi / C ext type    X-tag-zero-ListMetricsResponse ValueError: ak_decode_ListMetricsResponse returned -2
+   core-ffi / C ext type    X-tag-zero-ListProbeResponse ValueError: ak_decode_ListProbeResponse returned -2
+   core-ffi / C ext type    X-tag-zero-ListResultsResponse ValueError: ak_decode_ListResultsResponse returned -2
+   core-ffi / C ext type    X-tag-zero-ListTaskSummaryResponse ValueError: ak_decode_ListTaskSummaryResponse returned -2
+   core-ffi / C ext type    X-tag-zero-ListTasksDetailedResponse ValueError: ak_decode_ListTasksDetailedResponse returned -2
+   core-ffi / C ext type    X-tag-zero-UploadResultDataMessage ValueError: ak_decode_UploadResultDataMessage returned -2
+   core-ffi / C ext type    X-tag-zero-nested-Empty ValueError: ak_decode_ListProbeResponse returned -2
+   core-ffi / plain         X-lenwrap-lrr-nested-msg-abs-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-msg-abs-start ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-msg-abs-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-msg-abs-zero ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-msg-rel-max ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-msg-rel-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-msg-rel-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-msg-rel-zero ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-string-abs-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-string-abs-start ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-string-abs-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-string-abs-zero ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-string-rel-max ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-string-rel-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-string-rel-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-string-rel-zero ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-unknown-abs-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-unknown-abs-start ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-unknown-abs-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-unknown-abs-zero ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-unknown-rel-max ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-unknown-rel-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-unknown-rel-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-nested-unknown-rel-zero ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-results-max ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-results-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-results-second-max ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-results-second-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-results-second-start ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-results-second-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-results-second-zero ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-results-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-results-zero ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-unknown-after-max ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-unknown-after-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-unknown-after-start ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-unknown-after-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-unknown-after-zero ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-unknown-max ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-unknown-one ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-unknown-under ValueError: ak_decode_ListResultsResponse returned -3
+   core-ffi / plain         X-lenwrap-lrr-unknown-zero ValueError: ak_decode_ListResultsResponse returned -3
    core-ffi / plain         X-nested-len-overrun   ValueError: ak_decode_ListResultsResponse returned -3
    core-ffi / plain         X-packed-truncated     ValueError: ak_decode_ListMetricsResponse returned -3
+   core-ffi / plain         X-tag-zero-DualResponse ValueError: ak_decode_DualResponse returned -2
+   core-ffi / plain         X-tag-zero-ListMetricsResponse ValueError: ak_decode_ListMetricsResponse returned -2
+   core-ffi / plain         X-tag-zero-ListProbeResponse ValueError: ak_decode_ListProbeResponse returned -2
+   core-ffi / plain         X-tag-zero-ListResultsResponse ValueError: ak_decode_ListResultsResponse returned -2
+   core-ffi / plain         X-tag-zero-ListTaskSummaryResponse ValueError: ak_decode_ListTaskSummaryResponse returned -2
+   core-ffi / plain         X-tag-zero-ListTasksDetailedResponse ValueError: ak_decode_ListTasksDetailedResponse returned -2
+   core-ffi / plain         X-tag-zero-UploadResultDataMessage ValueError: ak_decode_UploadResultDataMessage returned -2
+   core-ffi / plain         X-tag-zero-nested-Empty ValueError: ak_decode_ListProbeResponse returned -2
+   pycodec / plain          X-lenwrap-lrr-nested-msg-abs-one ValueError: length 18446744073709551604 at 13 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-nested-msg-abs-start ValueError: length 18446744073709551605 at 13 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-nested-msg-abs-under ValueError: length 18446744073709551602 at 13 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-nested-msg-abs-zero ValueError: length 18446744073709551603 at 13 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-nested-msg-rel-max ValueError: length 18446744073709551615 at 13 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-nested-msg-rel-one ValueError: length 18446744073709551606 at 13 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-nested-msg-rel-under ValueError: length 18446744073709551604 at 13 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-nested-msg-rel-zero ValueError: length 18446744073709551605 at 13 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-nested-string-abs-one ValueError: length 18446744073709551604 at 13 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-nested-string-abs-start ValueError: length 18446744073709551605 at 13 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-nested-string-abs-under ValueError: length 18446744073709551602 at 13 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-nested-string-abs-zero ValueError: length 18446744073709551603 at 13 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-nested-string-rel-max ValueError: length 18446744073709551615 at 13 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-nested-string-rel-one ValueError: length 18446744073709551606 at 13 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-nested-string-rel-under ValueError: length 18446744073709551604 at 13 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-nested-string-rel-zero ValueError: length 18446744073709551605 at 13 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-nested-unknown-abs-one ValueError: length overruns the enclosing message
+   pycodec / plain          X-lenwrap-lrr-nested-unknown-abs-start ValueError: length overruns the enclosing message
+   pycodec / plain          X-lenwrap-lrr-nested-unknown-abs-under ValueError: length overruns the enclosing message
+   pycodec / plain          X-lenwrap-lrr-nested-unknown-abs-zero ValueError: length overruns the enclosing message
+   pycodec / plain          X-lenwrap-lrr-nested-unknown-rel-max ValueError: length overruns the enclosing message
+   pycodec / plain          X-lenwrap-lrr-nested-unknown-rel-one ValueError: length overruns the enclosing message
+   pycodec / plain          X-lenwrap-lrr-nested-unknown-rel-under ValueError: length overruns the enclosing message
+   pycodec / plain          X-lenwrap-lrr-nested-unknown-rel-zero ValueError: length overruns the enclosing message
+   pycodec / plain          X-lenwrap-lrr-results-max ValueError: length 18446744073709551615 at 11 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-results-one ValueError: length 18446744073709551606 at 11 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-results-second-max ValueError: length 18446744073709551615 at 221 overruns the enclosing me
+   pycodec / plain          X-lenwrap-lrr-results-second-one ValueError: length 18446744073709551396 at 221 overruns the enclosing me
+   pycodec / plain          X-lenwrap-lrr-results-second-start ValueError: length 18446744073709551605 at 221 overruns the enclosing me
+   pycodec / plain          X-lenwrap-lrr-results-second-under ValueError: length 18446744073709551394 at 221 overruns the enclosing me
+   pycodec / plain          X-lenwrap-lrr-results-second-zero ValueError: length 18446744073709551395 at 221 overruns the enclosing me
+   pycodec / plain          X-lenwrap-lrr-results-under ValueError: length 18446744073709551604 at 11 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-results-zero ValueError: length 18446744073709551605 at 11 overruns the enclosing mes
+   pycodec / plain          X-lenwrap-lrr-unknown-after-max ValueError: length overruns the enclosing message
+   pycodec / plain          X-lenwrap-lrr-unknown-after-one ValueError: length overruns the enclosing message
+   pycodec / plain          X-lenwrap-lrr-unknown-after-start ValueError: length overruns the enclosing message
+   pycodec / plain          X-lenwrap-lrr-unknown-after-under ValueError: length overruns the enclosing message
+   pycodec / plain          X-lenwrap-lrr-unknown-after-zero ValueError: length overruns the enclosing message
+   pycodec / plain          X-lenwrap-lrr-unknown-max ValueError: length overruns the enclosing message
+   pycodec / plain          X-lenwrap-lrr-unknown-one ValueError: length overruns the enclosing message
+   pycodec / plain          X-lenwrap-lrr-unknown-under ValueError: length overruns the enclosing message
+   pycodec / plain          X-lenwrap-lrr-unknown-zero ValueError: length overruns the enclosing message
    pycodec / plain          X-nested-len-overrun   ValueError: length 12 at 2 overruns the enclosing message (ends 9)
    pycodec / plain          X-packed-truncated     IndexError: index out of range
-
 ## failures owned by another component, named and not fixed here
    none
-
 ## disagreements reported upstream, not folded into the pass count
    none
-
-CORPUS SUBSET PASSES
+42 FAILURE(S)
+exit=1

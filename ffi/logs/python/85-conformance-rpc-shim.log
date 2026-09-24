@@ -1,5 +1,5 @@
-# python slice: conformance on the RPC shim (and the plain shim), AFTER the R-D3 fix
-# date: 2026-09-24T08:53:14Z; code 8864e4d + this session's poc/python changes; core 8864e4d via AK_UPSTREAM
+# python slice: RE-GATE against the shared core at 6ede244 (R-D1 fixed): conformance, both shims
+# date: 2026-09-24T09:10:03Z; slice code ca03d6d + this session's poc/python edits (committed with this log); core 6ede244 (git archive via AK_UPSTREAM, R-D1 fix); corpus ca03d6d; python 3.12.3
 
 ########## AK_FFI_MODULE=_akffi_rpc ##########
 # python slice, work unit 2: conformance on the COMPOSED arm (README R2)
