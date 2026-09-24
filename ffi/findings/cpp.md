@@ -1,403 +1,236 @@
 # Reading the cpp slice
 
-The aggregating session's reading of `poc/cpp`, which is not the same document as
-the slice's own `STATE.md`. What is here is what the slice's results mean for the
-branch: what is established, what the other slices have to do differently because
-of it, and what is still an argument.
+Phase note: this file records facts only; container timings were removed on 2026-09-24 (design/FIX-PLAN.md WP2). The raw logs remain in logs/cpp/.
 
-**W4 is done, and it is the slice that settles W1's blocking decision.** Full
-codec plus the RPC arm, every message and payload of `SHAPES.md` byte-identical
-across five arms at C++11, C++14 and C++17, floor and target implementations,
-shared and static linkage, plus two arms nobody asked for at the start: upb as a
-ceiling, and a borrowed-string facade that turns out to matter more than either.
-
-**Read the numbers as shapes, not as decimals.** Cross-language absolutes are
-being re-taken on a controlled physical machine (README R13). What a rerun cannot
-change is what this document leans on: crossing counts, signs, size classes, and
-the mechanisms behind them.
+The aggregating session's reading of `poc/cpp`. It is not the slice's own
+`STATE.md`. It lists what was built, what was checked and what is not
+established. It makes no recommendation; decisions are the owner's.
 
 **Configuration** (R7): g++ 13.3.0, `-O2 -DNDEBUG`, protobuf C++ 3.21.12 and
-grpc++ 1.51.1 from apt, upb v25.3 built from source, rustc 1.94.1, 4 vCPU Xeon at
-2.80 GHz. `packages/cpp` pins neither protobuf nor grpc and sets `CXX_STANDARD 14`.
-R13 calibration: this container's rust-slice crossing is 1.5 ns, against 1.8 ns in
-the container the rust slice ran in.
-
-## 1. Read this first: the published numbers moved under review, against the slice's interest
-
-An adversarial review returned 28 findings and the slice answered all of them. The
-corrections are large enough that any figure quoted from the first run is wrong:
-
-| | first run | after |
-|---|---|---|
-| P1.2 encode `ffi` | 0.895-0.913 | 0.944-0.988 |
-| P2.2 encode `ffi` | 0.691-0.699 | 0.772-0.795 |
-| P6.1 decode `native` | 1.241-1.273 | 0.861-0.873 |
-| RPC client CPU | 0.558-0.652 | 0.856-0.870 |
-| "validation costs 22-28 % of a decode" | headline | **withdrawn** |
-
-Three causes, and each is a lesson for the remaining slices rather than a C++
-detail. **The incumbent was handicapped three ways on encode** (C7): the harness
-cleared and resized its output string, which value-initialises, so protobuf paid a
-full zero-fill of the output on every iteration; it hand-rolled a
-`CodedOutputStream` instead of calling `SerializeToString`; and deterministic map
-ordering was charged to the headline rather than priced separately. Worth about
-**8 points of every encode ratio**. **The no-boundary control was defective twice**
-(C1, C8): first a `std::vector::push_back` encoder that made the control slower
-than the arm it controls for, then a decoder that never reserved while the binding
-reserves at every batched fill. **The RPC arm counted different thread sets per
-arm** (C11), biasing the ratio by about 0.2.
-
-**Every managed slice should check its own baseline for the same class of defect
-before it reports**, and the C# and Python sessions have been told so. A baseline
-that does extra work is the most flattering possible error and the hardest to see
-from inside.
-
-## 2. ABI v1 decision 1 is answerable, and one of the four answers does not transfer
-
-The decision asked whether the managed-motivated amendments are free at the C++11
-floor. They are not all free, the signs differ, and the useful finding is that one
-of them is a function of the crossing price rather than of the language.
-
-**The group costs, and it costs the host, not the boundary.** `groupfill` prices
-the host-side fill alone at **22.5 ns per element on M1, 74.1 on M2, and 22.6 on
-M1's absent path where a whole protobuf encode is 16.5 ns**. That is the P1.3
-inversion measured directly rather than inferred, and C++ reproduces it larger
-than Rust did. **Decision 9's candidate fixes it** (−66.8 % of a protobuf encode
-on P1.3) and is a win or neutral on 13 of 15 rows. C++ agrees with Rust that this
-is a host-side fill change, not an ABI change.
-
-**String as data is a win**, +1.42 % to +3.89 % of an encode with a consistent
-sign on 10 of 15 rows, which is 0.3 to 1.2 ns per string, about one reverse
-crossing. The one row with the opposite sign is named rather than dropped.
-
-**The batching predicate loses in C++ — and that is not the finding.** The slice's
-first mechanism story ("batching wins where the crossing count per element
-explodes") did not survive its own table, and was withdrawn rather than patched.
-What replaced it is the most portable measurement in the branch: a calibrated
-delay in front of every forward entry-point call, so the crossing can be priced
-up. On P2.2 the delta moves from **−20.9 ns per element at no tax to +25.4 at
-+4.4 ns**, monotone, with **the crossover at a forward crossing of roughly 2 to
-4 ns**.
-
-So batching loses in C++ at 1.82 ns and wins comfortably on .NET 8 (7.5-12 ns),
-FFM (33.8) and JNI (98.4). **The specification must carry the crossover, not the
-C++ verdict.** "Batching is a small loss" would have been true of one host and
-wrong for three.
-
-**A fourth mechanism nobody listed.** Section 4 removed the declared expansion
-bound, so the core opens a length prefix of a learned width and resolves it
-afterwards; a host that already holds the bytes could write key, length and body
-in one pass. Measured at **5.04 against 9.53 ns per string, +4.49 ns**. The fix is
-a `tc == ak_tc_bytes` fast path in the core, and **that is the aggregating
-session's to take, because the core emitter is shared with the rust slice**.
-
-## 3. The encode column is a narrower win than the branch assumed
-
-With the incumbent unhandicapped, encode through the C ABI is **above 1.0 on four
-of fifteen payloads**: P1.3 (1.77-1.81, the absent path), P6.1 (1.25-1.27, the
-packed control), P3.1 (1.06-1.08) and P1.1 (1.10-1.13). It is at parity on P1.2
-(0.94-0.99) and wins clearly only where an element carries enough work to amortise
-the group: P2.2 0.77-0.80, P2.3 0.61, P2.4 0.58-0.60, P4.1 0.71.
-
-The mechanism is the same one in every case and it is already named in ABI v1
-section 6: the by-value group carries the whole singular subtree unconditionally,
-so where per-element work is small the fixed cost dominates, and where a container
-is not the wire layout (`vector<TaskStatus>`, `vector<bool>`) the binding
-materialises a contiguous array first. **Decision 9 is therefore not a nicety.**
-It is what makes the absent path viable, and the report should treat adopting it
-as part of the proposal rather than as an open option.
-
-## 4. The decode result is the slice's real contribution, and it arrived last
-
-Three measurements compose into one conclusion the branch did not have.
-
-**upb bounds the claim.** On decode upb is **0.22 to 0.58 of protobuf C++** on
-every element-bearing payload, where the core through the C ABI is 0.58 to 1.07.
-So the core's decode win against the incumbent is real and is **roughly half of
-what a C protobuf can do**. "Faster than what ArmoniK ships" and "as fast as C can
-go" are different claims and only the first is supported. With the memcpy floor
-below and upb above, R2's floor rule is satisfied from both ends for the first
-time in the branch.
-
-**The upb encode column is not a ceiling and the slice says so.** upb is 1.18 to
-1.97 of protobuf C++ on string-dense payloads, because protobuf sizes its output
-once and writes forward while upb grows a backward buffer geometrically and
-memmoves what it has written. Declining to quote a number that would have
-flattered the core is the right call, and it also settles something about our own
-design: the core's learned-width prefix is a third point in that trade, and
-decision 5 already measured its miss rate at zero on every uniform payload.
-
-**The tail-call hypothesis is dead, and that is good news.** upb's fast decoder is
-gated on `UPB_MUSTTAIL`, which Rust cannot express today. It is also **unreachable
-from a reflection-built minitable**: `decode.c:766` fires only when
-`table_mask != -1` and `mini_descriptor/decode.c:698,712` sets it to −1 on every
-minitable it builds. Proved from artifacts rather than asserted — the runtime
-prints the mask, and the archive holds 0 fast-parse functions without the define
-and 42 with it. Enabling it made upb **3 to 19 % slower**, which is what an
-unreachable fast path costs. So **none of upb's measured decode advantage is
-tail-call dispatch**: all of it is the generic decoder — the epsilon-copy input
-stream's one bounds check per field, arena allocation, minitable dispatch, and not
-copying strings. Every one of those is a work item a Rust core could take, not
-headroom it is locked out of.
-
-**And most of what is left is the string copy.** A borrowed-string facade arm —
-no ABI change, because `ak_span` is already an offset into the host's own buffer —
-takes decode from about twice upb to level with or below it:
-
-| payload | `ffi` | `ffi-borrow` | upb (clang) |
-|---|---|---|---|
-| P1.2 | 0.562-0.790 | **0.234-0.241** | 0.245 |
-| P2.2 | 0.661-0.696 | 0.387-0.407 | 0.283 |
-| P2.3 | 0.855-0.921 | 0.383-0.396 | 0.245 |
-| P6.1 (control) | 0.639-0.654 | 0.599-0.646 | 0.522 |
-
-P6.1 is the internal control that says the arm measures what it claims: one string
-and five packed scalar arrays, almost no copy to remove, and it barely moves. The
-bulk-bytes rows fall to 0.000-0.035, which is not a speedup to quote but the
-expected consequence of replacing a 4 MB copy with a pointer, and it wants an
-explicit floor label under R2.
-
-**So the core's decode gap to the fastest C protobuf is a facade ownership
-question, reachable from Rust, rather than a codec or a language-runtime limit.**
-
-## 4b. The encode column was an ASCII column, and reading it without its set would have published a policy difference as codec speed
-
-This is the sharpest correction the slice produced and it arrived last.
-
-**The content set moves encode by an order of magnitude and barely moves decode.**
-On P1.2 the `ffi`/`pb` encode ratio runs **0.988 → 0.167 → 0.114** across ASCII,
-Latin-1 and wide; decode runs 0.656 → 0.671 → 0.546, and no payload's decode
-ratio moves more than about 0.15. So the published C++ **encode** column is an
-ASCII column and nothing else, while the decode column survives being read
-without its set. `design/SHAPES.md` already says a string-path figure without its
-content set is half a number; this says the halves are not the same size.
-
-**And most of that encode movement is not codec speed at all.** protobuf C++
-**validates UTF-8 when it serialises** — 37 unconditional `VerifyUtf8String(...,
-SERIALIZE)` call sites in the generated code, counted rather than inferred — and
-ABI v1 decision 3 says the core does not. Publishing `ffi`/`pb` alone on
-non-ASCII content would have reported a **policy difference as a codec win**,
-which is defect C7 pointing the other way: the slice's earlier trap was a
-handicapped incumbent, and this one would have been an incumbent doing work the
-core had been excused.
-
-Like for like, with the validating transcoder in the table for every set, the
-core is **at parity on ASCII (0.995 to 1.389) and about twice as fast on Latin-1
-and wide (0.421 to 0.626)** — which matches what `utf8.log` measures between the
-two validators directly. Growing each arm against its own ASCII row separates the
-three effects cleanly: `ffi` 1.04 to 1.05 (wire width alone), `ffi-valtc` 2.20 to
-2.82 (width plus the core's validator), `pb` 6.13 to 9.12 (width plus protobuf's
-validator plus its per-string costs).
-
-**An unplanned cross-generator check fell out of it.** Wire sizes came out at
-1.687 to 1.748× for Latin-1 and 2.373 to 2.495× for wide, against the rust
-slice's independently published 1.70 to 1.75 and 2.39 to 2.50. Two generators,
-two languages, agreement to three digits — R1's "one description drives
-everything" tested from a direction nobody designed a test for.
-
-## 4c. C16 has a mechanism, and it is the allocator
-
-The systematic outlier round on P1.2 decode, present in every log this slice ever
-produced, is **glibc's mmap path**. Pinning `MALLOC_MMAP_THRESHOLD_` *and*
-`MALLOC_TRIM_THRESHOLD_` removes the outlier and keeps the steady state flat from
-round one; forcing always-mmap reproduces the outlier's value in every round; the
-default allocator takes an order of magnitude more minor page faults. Pinning only
-the mmap threshold is not enough, because glibc then trims and the churn costs
-what mmap did — which is why the two-variable answer was not obvious.
-
-Refuted along the way: the machine, and the arm rotation. **And the validator work
-did not create C16, it uncovered it** — with the check disabled the row is flat,
-because a decode dominated by a slow validator hides a fixed per-iteration cost,
-and halving the validator turned that cost into a visible fraction.
-
-No figure is withdrawn; min-of-rounds plus the printed per-round list is exactly
-why. What remains is a caveat that is a **fact about C++ consumers rather than
-about the ABI**: decoding large messages pays an allocator cost that default glibc
-tuning only amortises after the first few messages. Not settled: when precisely
-the threshold adapts, which is a question about glibc.
-
-## 5. This makes borrowed spans a cross-language decision, not a C++ arm
-
-The branch already held the other half of this and had not connected it. ABI v1's
-provenance table records that **decode spans as offsets into the host's buffer took
-a 4 MB download from 4.2 times protobuf-java to 1.00**, a managed-host result. The
-C++ arm now shows the same mechanism worth −24 to −50 % of a protobuf decode on
-ordinary element-bearing payloads, against an incumbent that is not the JVM.
-
-Three hosts, one mechanism, already expressible in the ABI as drafted. What is
-unresolved is not whether it is worth it but **what the facade promises**: a
-borrowed view is valid only while the input buffer lives, which is a lifetime
-contract the branch has never written down, and in C# and Java it interacts with
-pinning. That is a design question and it becomes ABI v1 open decision 13 rather
-than something a slice settles.
-
-The honest boundary: the arm isolates the **string copy** and nothing else.
-Vectors, maps and message children are still constructed, and the residual gap to
-upb on P2.2 and P2.3 is exactly that. The branch's earlier finding that decode is
-bounded by host-side container construction is unchanged and is now the next thing
-to price.
-
-## 6. The floor, and README open question 3
-
-**Either C++11 or C++14 is a viable floor and neither costs anything**, but the
-three-binary table could not say so. `gen/drift.sh` measures **worst across-build
-ratio drift of 0.240** with a neutral layout perturbation, which is larger than the
-effect being looked for, and `AK_CXX17` reaches only 11 sites in the whole emitted
-tree, all on the decode side — so most of arm b compiles source identical to arm a.
-
-Re-formed inside one process, the two constructs the switch actually selects are
-`insert_or_assign` at **1.074** of `m[k] = v` and `emplace_back()` at **0.967** of
-`push_back` plus `back()`. The C++11 floor costs nothing and the C++17 map
-construct is a 7 % regression, which is why arm b had appeared *faster* than arm a.
-
-**The 0.240 drift bar is a branch-level output, not a C++ one.** Every
-cross-binary claim in every slice needs it or an equivalent, and three conclusions
-in this slice's first run were smaller than it.
-
-## 7. The RPC arm
-
-Client CPU **0.856 to 0.870** of grpc++ at 1, 8 and 16 in flight, where CPU is
-`getrusage` minus the server handler's own, measured the same way for both arms.
-Most of the ratio is the codec: the same response decoded standalone in the same
-binary is 0.668. **Two crossings per RPC, zero per field**, checked by grepping the
-core's RPC module for any message type rather than by trusting the sentence.
-
-R9's hazard is visible rather than hidden: wall clock exceeds CPU at 1 in flight
-and more than halves at 8, which is the 64 KB stream window and not throughput.
-
-This is a weaker result than the first run's 0.558 and it is the defensible one.
-It is also **not the rust slice's comparison** — that isolated the interface
-(core-ffi against tonic); this measures interface plus transport plus codec
-against a different stack. Only the rust column bears on the ABI.
-
-## 8. What this slice asks of the design documents
-
-1. **Decision 1: answered.** Record the four mechanisms with the crossover, not
-   the C++ verdict.
-2. **Decision 9: adopt, with the wording corrected.** The candidate's clear must
-   say "clear the elements you will fill"; `rust_abi.py:2370` still clears the
-   whole 32 KB chunk, which is O(arena) where the fill is O(elements).
-3. **Section 4: add the two-pass blob write and the `ak_tc_bytes` fast path.**
-   Mine to take; the core emitter is shared.
-4. **New open decision 13: borrowed spans as a facade option**, with the lifetime
-   contract as the substance.
-5. **Section 6: a host that declines to batch does not merely lose its own
-   crossing cost** — below the crossover it gains.
-6. **README section 2: the C++ crossing row.** 1.82 ns shared and 1.22 ns static
-   here, against a published 0.25 ns that does not reproduce, and against 1.5 ns
-   for the rust harness through the same `.so` on the same machine. That last gap
-   is not a harness artifact: with a register-only barrier the C++ figure is
-   1.822-1.824.
-
-## 9. What this slice does not establish
-
-Beyond the slice's own list, which is longer and should be read with it:
-
-- **Encode above parity is not explained away.** Four payloads regress and the
-  group is the named cause, but no arm isolates the group's cost *inside* an
-  encode the way `groupfill` does outside one. C15 is the visible symptom:
-  `groupfill` exceeds the delta it is supposed to bound on P1.3, the suspected
-  cause was refuted by a direct-call variant, and it is reported as an upper bound.
-- **The borrowed facade is a measurement, not a design.** Nothing prices keeping
-  the input buffer alive, a hybrid facade, or what either does to the public
-  surface.
-- **The ceiling stops at upb's generic decoder.** What `protoc-gen-upb` would add
-  is unmeasured and needs Bazel.
-- **One compiler on the codec arms** (g++), one thread everywhere, no allocation
-  or footprint column, content sets on the string path only.
-- **C16**, a systematic 34 % outlier round on P1.2 decode present in every log this
-  slice produced, characterised and unexplained.
-
-## The group-skip defect: fixed, and the slice became a corpus consumer doing it
-
-**Closed.** `skip` takes the field number now, `skip_group` ends only on an
-`END_GROUP` whose number matches, bounded at 100 returning `ERR_DEPTH`, and the
-change was **swept across the generator rather than patched where it was found** —
-13 sites in `gen/cpp_core.py`, including the `sub.skip(ew)` inside the map-entry
-loop that a `default:`-only sweep would have missed. 11 checks at C++17 target and
-the C++17, C++14 and C++11 floors: 44 runs, 0 failures.
-
-**The two planted defects both fail, and the second is the interesting one.** Plant
-1 counts nesting depth instead of matching the field number and fails exactly the
-two mismatched-end cases — it *accepts* `X-group-mismatched-end`, which is what that
-vector exists to catch. Plant 2 drops the `case 5:` 32-bit arm while adding `case
-3:`, and fails every buffer carrying a `fixed32`. That second plant is not
-hypothetical: it is the regression I introduced in the shared core's own fix and
-caught only because the tests ran.
-
-**The before picture is worth keeping**, because it shows a gate that was passing
-for the wrong reason: of five probes against the old one-argument `skip`, two were
-outright wrong and the three that looked right all stopped at `pos 1` — refusing
-because wire type 3 was unknown, not because the group was unterminated or
-mismatched. A checker that only asks "did it reject" would have called that half
-correct.
-
-**And the timing question was measured rather than asserted.** The signature change
-recompiles every decode function in the control TU, so: 225 ratio rows, worst move
-0.164, median 0.009, **0 rows over R4's 0.240 drift bar**. The published tables
-stand. One honest side effect recorded rather than smoothed: gcc now inlines
-`dec_list_results_response` into its caller inside the control TU, so `boundary.log`
-reports 21 checks instead of 23.
-
-### The corpus consumer, and what it found
-
-**128 of 336 rows in scope**, three arms — `native`, `ffi`, and **protobuf C++ as an
-oracle projecting through its own reflection**, which is the first time any slice
-has put a second implementation beside its own on the corpus. 0 failures, and 128
-of 128 rows where the two arms agree on the decoded facade. Run at C++17 and at the
-C++11 floor with identical results.
-
-**A schema-less walker is the part other slices should copy.** The 62 `WireZoo`
-rows root at a message this slice has no type for, so they are out of C1-C3 scope
-entirely — but their wire forms are exactly what the group fix addresses. Run
-through `Dec::skip` with no schema at all, **62 of 62 agree with the corpus's
-verdict**, including both reject vectors for the right reason. That pattern is
-about twenty lines and it is what turned "three accept vectors" into "five vectors
-with the reject half actually watched". Every slice can reach those rows that way
-even where its codec has no matching root.
-
-**Decision 11, answered for C++**: this slice **drops** unknown fields in both arms
-where protobuf C++ retains them. Rust drops (prost), Python drops, Java retains,
-C++ drops. The decision now has four hosts and the split is the incumbent's, not
-the ABI's.
-
-**One defect of its own, and the tell is the lesson.** Its first corpus run reported
-the `ffi` arm writing an unaccepted form on 114 of 126 rows — a use-after-free in
-the harness, `ak_enc_take` handing back a pointer into a context freed before the
-copy. **The same wrong hash repeating across unrelated vectors** is what says
-"harness" rather than "codec", and a wrong C3 count that looks like a codec defect
-is the expensive kind of mistake.
-
-**Two rows it refused to decide, and both are the corpus's rather than the slice's**:
-`U-map-entry`, where upb disagrees with protobuf C++, pure-Python and this slice
-about whether an unknown field inside a map entry kills the entry (README 10.1,
-reproduced independently); and `B-P7_1`, whose only accepted encoding no canonical
-writer produces. Its verdict line keeps `failures / disputed / permuted` apart
-instead of folding them together, which is the right shape for a gate whose oracle
-is not settled.
-
-## The group-skip defect as it stood, for the record
-
-Found in the shared core by the python slice's corpus run and fixed there by the
-aggregating session; **this slice's own `include/ak/rt.h` has the same defect and
-it is still open.** `skip(uint32_t wire)` has cases for 0, 1, 2 and 5 and sends
-everything else to `ERR_MALFORMED`, so an unknown field of the deprecated GROUP
-form makes the floor and `core-native` arms reject a message that upb accepts
-(`U-root-group`, `U-nested-group`, `U-oneof-group` in `corpus/generated/vectors/`).
-
-Two things make it worth a paragraph rather than a line:
-
-- **The fix is not "add case 3".** A group carries no length, so the skipper has to
-  recurse to an `END_GROUP` **whose field number matches** the one that opened it.
-  Counting depth instead accepts `X-group-mismatched-end` and then mis-nests every
-  group after it, which is why that vector exists. It also needs a depth bound, or a
-  payload of nothing but start tags is a stack overflow rather than an error.
-- **Four slices gated clean on this.** Byte identity against a schema-generated
-  manifest cannot find it, because proto3 cannot express a group and so nothing the
-  generator emits produces one. Only a consumer of a hand-built corpus can, and only
-  one slice has been one.
-
-The java slice's `Dec.skip` is correct, field-number match and all. The C# slice's
-`Wire.Skip` has the same hole as this one. Neither is a measurement defect; both are
-conformance defects in an arm the branch is proposing as a replacement for a library
-that gets this right.
+grpc++ 1.51.1 from apt, upb v25.3 built from source, rustc 1.94.1.
+`packages/cpp` pins neither protobuf nor grpc and sets `CXX_STANDARD 14`.
+The logs come from two different containers: `rpc.log` and `rpcflow.log` from
+one, every other log from another (`poc/cpp/STATE.md`, Machine row).
+
+## 1. What was built
+
+- **Codec.** The generated codec for every message and payload of
+  `design/SHAPES.md`, over the shared core at `poc/codec/crates/ak-core`
+  (no per-slice copy; `logs/cpp/w10-one-core.log`, `logs/cpp/generator.log`).
+  Floor and target implementations; the target is C++17.
+- **Arms.** `pb`, `pb-det`, `pb-arena` (the incumbent, protobuf C++),
+  `memcpy` (floor), `native` (the codec emitted into C++, no boundary), `ffi`
+  (through the C ABI), `ffi-valtc` (validating transcoder), `ffi-zeroed`
+  (ABI v1 decision 9 candidate fill), `ffi-nobat` (host declines to batch),
+  `ffi-hosttc` (transcoder in the host), `groupfill` (host-side group fill
+  alone), `ffi-borrow` (decode into a facade whose strings are views over the
+  input buffer; a measurement arm, not a proposal), and `upb` in a separate
+  binary (minitables built by reflection from `protoc`'s descriptor set, no
+  Bazel, no `protoc-gen-upb`).
+- **Linkage.** Shared library and static, as separately labelled arms and
+  separate processes.
+- **RPC arm.** The `design/SHAPES.md` four-cell grid in each of ABI v1
+  section 9's three deliveries (blocking, callback, queue), over a Unix domain
+  socket and loopback TCP, pinned and unpinned (`logs/cpp/rpc.log`,
+  `logs/cpp/rpcflow.log`). `ak_client_new_opts` was added to the shared core so
+  the transport could be configured; `ak_client_new` is now a call to it with
+  NULL options.
+- **Standalone checks.** Group skip (`groupskip.log`), corpus consumer
+  (`corpus.log`), ODR layout check (`odr.log`), boundary/inlining check
+  (`boundary.log`), concurrency suite (`concurrency.log`), content sets
+  (`contentsets.log`), UTF-8 validator exhaustive check (`utf8.log`).
+
+## 2. Correctness and byte identity
+
+- `logs/cpp/conformance.log`: five encoders byte-identical against
+  `manifest.json` on every payload, plus absent, unknown and malformed vectors.
+  443 checks, 0 failures, on each of: C++17 target shared, C++17 floor shared,
+  C++14 floor shared, C++11 floor shared, C++17 target static. The lossy
+  decode-policy build runs 441 checks, 0 failures. One payload (P2.5) has two
+  valid encodings.
+- P2.5: upb writes 19,712 B, the same form protobuf C++ writes, which
+  `design/SHAPES.md` records as the second valid encoding.
+- `ffi-borrow` is gated by byte identity: decode into the borrowed facade,
+  re-encode, compare with the manifest, every payload
+  (`bench_a17_shared.log`: "byte identity holds on every payload").
+- Content sets (`contentsets.log`): each set round-trips to the same bytes.
+  Wire size is 1.687 to 1.748 times ASCII for Latin-1 and 2.373 to 2.495 times
+  for wide. protobuf C++'s generated code calls
+  `VerifyUtf8String(..., SERIALIZE)` unconditionally at 37 call sites; ABI v1
+  decision 3 says the core does not validate on encode.
+- `odr.log`: 144 layout facts compared between C++11 and C++17 builds, 49
+  moved (for example `sizeof ak::Optional<int32_t>` 8 vs 16). Mixing levels in
+  one program would be an ODR violation; the check exits nonzero on a moved
+  layout.
+- `AK_CXX17` reaches 11 sites in the emitted tree, all on the decode side
+  (`poc/cpp/STATE.md`).
+
+## 3. Floors
+
+C++11 and C++14 floors are demonstrated, not declared: both build and pass the
+full conformance gate (`logs/cpp/conformance.log`, `-std=201103` and
+`-std=201402`), the group-skip suite (`groupskip.log`) and, for C++11, the
+corpus run (`corpus.log`).
+
+## 4. Corpus consumption (`logs/cpp/corpus.log`)
+
+- 128 of 336 rows root at a message this slice covers; run with three arms:
+  `native`, `ffi`, and protobuf C++ as an oracle through its own reflection.
+  Run at C++17 and at the C++11 floor with the same result.
+- Verdict: 0 failures, 1 disputed (`U-map-entry`, where upb disagrees with
+  protobuf C++, pure-Python protobuf and this slice), 1 permuted (`B-P7_1`,
+  whose accepted encoding no canonical writer produces). The verdict line keeps
+  the three buckets apart.
+- 128 of 128 rows: `native` and `ffi` decode to the same facade.
+- The 62 `WireZoo` rows root at a message outside this slice's schema. A
+  schema-less walker over `Dec::skip` agrees with the corpus's verdict on 62
+  of 62, including both reject vectors.
+- ABI v1 decision 11: this slice drops unknown fields in both its arms;
+  protobuf C++ retains them.
+
+## 5. Crossing counts
+
+- Codec, per payload and arm, from the counting core (`logs/cpp/counts.log`):
+  forward and reverse counts for encode, encode zeroed-fill, encode unbatched,
+  encode host transcoder, and decode, shared and static. Example, P2.2 encode:
+  2511 forward / 2501 reverse batched, 8501 forward unbatched, 19668 reverse
+  with the host transcoder; P2.2 decode: 1 forward / 3501 reverse.
+- RPC, from a counting core (`logs/cpp/rpc.log`, R5 block): blocking 2 fwd /
+  0 rev, callback 3 fwd / 1 rev, queue 4 fwd / 0 rev per RPC. The counts are
+  identical on a 540 KB response with about 4,500 fields and on an empty one,
+  so they do not depend on field count. ABI v1 section 9's table says 2/0,
+  2/1 and 3/0: it does not count `ak_call_destroy`, which the callback and
+  queue deliveries require.
+
+## 6. ABI v1 decision 1
+
+Decision 1 (are the managed-motivated amendments free at the C++11 floor) is
+reopened and goes to the campaign. The batching conclusion previously written
+here rested on a `STATE.md` table that matches no committed log (R-C1). What
+remains as fact: the arms that isolate each amendment exist (`ffi-zeroed`,
+`ffi-nobat`, `ffi-hosttc`, `groupfill`) and their crossing counts are in
+`counts.log`. A calibrated delay in front of every forward entry-point call
+exists as a harness mechanism (`tax.log`); its output is instrumentation.
+
+Mechanisms identified from the source, not from timings:
+
+- Decision 9's candidate clear, as written in `rust_abi.py`, clears the whole
+  32 KB chunk rather than the elements that will be filled.
+- With the declared expansion bound removed (ABI v1 section 4), the core opens a
+  length prefix of a learned width and resolves it afterwards; a host already
+  holding the bytes could write key, length and body in one pass. A
+  `tc == ak_tc_bytes` fast path in the shared core emitter would do this.
+- Where a container is not the wire layout (`vector<TaskStatus>`,
+  `vector<bool>`), the binding materialises a contiguous array before encode.
+
+## 7. upb facts
+
+- `upb/port/def.inc` defaults `UPB_FASTTABLE` to 0; `gen/fetch_upb.sh` first
+  defined neither enabling macro, so the upb arm ran with the fast decoder
+  compiled out. `upb.log`'s configuration line now says so.
+- The fast dispatch is unreachable from a reflection-built minitable:
+  `upb/wire/decode.c:766` requires `table_mask != -1` and
+  `upb/mini_descriptor/decode.c:698,712` sets it to -1. The runtime prints
+  `table_mask = -1`; the archive holds 0 fast-parse functions without the
+  define and 42 with it (`upb-fasttable.log`, `STATE.md`).
+- `protoc-gen-upb` output was not built (needs Bazel).
+
+## 8. Defects found, and what found them
+
+- **Group skip (C24).** `skip(wire)` had no case for wire type 3, so every arm
+  rejected a legal message carrying an unknown GROUP field. 443 conformance
+  checks passed over it, because proto3 cannot express a group and the manifest
+  is generated from proto3. Found by the python slice's corpus run in the
+  shared core; the same defect was in this slice's `include/ak/rt.h`. Fixed:
+  `skip(tag, wire)` plus a field-number-matching `skip_group` bounded at 100
+  with `ERR_DEPTH`, swept across 13 emission sites in `gen/cpp_core.py`.
+  `groupskip.log`: 11 checks at four (standard, implementation) pairs, 0
+  failures; the depth-counting plant fails the two mismatched-end cases and the
+  dropped-`case 5:` plant fails the two cases carrying a `fixed32`. The second
+  plant reproduces a regression introduced during the fix and caught by the
+  tests.
+- **Rust slice build break (C27, open).** The C24 signature change was not
+  regenerated in `poc/rust`, so the rust slice does not build on this branch
+  (20 E0061 errors). Not this slice's source.
+- **Harness use-after-free.** The first corpus run reported `ffi` writing an
+  unaccepted form on 114 of 126 rows: `ak_enc_take` returned a pointer into a
+  freed context. Found because the same wrong hash repeated across unrelated
+  vectors.
+- **Baseline defects found by review (C1, C7, C8, C11).** The incumbent's
+  encode harness cleared and resized its output (a zero-fill per iteration),
+  hand-rolled a `CodedOutputStream` instead of `SerializeToString`, and charged
+  deterministic map ordering to the headline. The no-boundary control used
+  `std::vector::push_back`, then decoded without reserving where the binding
+  reserves. The RPC arm counted different thread sets per arm. All fixed in the
+  harness; the figures they affected are gone from this file.
+- **Concurrency suite (C21, C22).** The first suite passed on all three planted
+  builds because its payload pairs never shared a width-table site; the
+  reference was built with the encoder that carried the plants. Fixed: P1.1 and
+  P1.3 as the pair, protobuf's encoder as the oracle. See R-D7 below: the plants
+  still do not reach the shared core.
+- **grpc++ window.** grpc++ exposes no argument for the connection window, so
+  the pinned 4 MiB stream-window configuration of `design/SHAPES.md` is not
+  reachable; `rpc.log` carries both configurations (`rpcflow.log`).
+- **Boundary check.** `boundary.log` reports 21 checks, not 23, because gcc now
+  inlines `dec_list_results_response` into its caller inside the control TU.
+
+## 9. Harness facts
+
+- A baseline that does extra work (zero-fill, hand-rolled stream, extra
+  ordering) is invisible from inside the harness; it was found only by review.
+- A harness defect can look like a codec defect; a repeated identical wrong
+  hash across unrelated inputs points to the harness.
+- A must-fail plant is needed for every check: the first concurrency suite and
+  the first group-skip probes both passed for the wrong reason.
+- Byte identity against a schema-generated manifest cannot reach wire forms the
+  schema language cannot express; a hand-built corpus can.
+- The P1.2 decode round-to-round outlier (C16) traces to glibc's mmap and trim
+  thresholds (`c16.log`); pinning both `MALLOC_MMAP_THRESHOLD_` and
+  `MALLOC_TRIM_THRESHOLD_` removes it, pinning only the first does not.
+- Two containers of nominally similar spec gave crossing figures that do not
+  agree (R13); no absolute crosses between `rpc.log`/`rpcflow.log` and the
+  other logs.
+- Cross-binary comparisons (C++11 vs C++14 vs C++17 builds) carry layout drift
+  (`drift.sh`, `drift.log`); `AK_CXX17` changes only 11 sites, so most of the
+  code in those binaries is identical source.
+
+## 10. Not measured, not established
+
+- Every performance comparison: encode, decode, RPC, upb, borrowed facade,
+  batching, string-as-data, content sets, floor cost. All container timings are
+  instrumentation until the campaign (README 1.1).
+- The borrowed facade is a measurement arm, not a design: no lifetime contract
+  for the input buffer, no hybrid facade, no public-surface cost.
+- `protoc-gen-upb` output; a second compiler on the codec arms; allocation or
+  footprint; content sets beyond the string path; request direction in RPC.
+- C27 is open, so the rust slice's crossing benchmark cannot be run on this
+  branch.
+
+## 11. Open review findings (design/FIX-PLAN.md section 7)
+
+All unconfirmed until the slice agent answers them, except those the register
+marks verified.
+
+- R-B2 (verified): the empty-call RPC sign was stated reversed against
+  `rpc.log:694`. Figure removed with WP2.
+- R-C1 (verified): the `STATE.md` table behind the decision-1 batching verdict
+  matches no committed log. Decision 1 reopened.
+- R-C4: the C++ RPC grid runs client and server in one process.
+- R-C5: grid rows across slices are different experiments (delivery, decode
+  family, units, server accounting, direction).
+- R-C8: only the response direction is measured in RPC.
+- R-C10: the C++ headline incumbent is the library's best path, not gRPC's
+  marshaller (R14).
+- R-C15: the batching crossover was compared against other containers'
+  absolutes, and the tax sweep does not reproduce run to run.
+- R-D1 (source verified, not run): length-varint wrap in `rt.h` as well as the
+  shared core.
+- R-D2 (verified): `ak_client_opts` in `rpc_common.h` declares 3 of 6 fields;
+  `tcp_nagle` is read from the stack. TCP rows of `rpc.log`/`rpcflow.log` may be
+  invalid pending the history check.
+- R-D5: `ffi-valtc` is not in any gate log.
+- R-D7: the concurrency plants never reach the shared core; wrong encodes are
+  double-counted (22, not 44).
+- R-E1 (verified): the "one traversal" claim in `rust_core.py` is false.
+- R-E2: wire-type acceptance differs across emitters, including `cpp_core.py`.
+- R-F1: the C++ `STATE.md` contradicts itself on what exists.
