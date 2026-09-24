@@ -11,11 +11,10 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
-sys.path.insert(0, os.path.abspath(os.path.join(HERE, "..", "..", "..", "schema", "emit")))
+# The refusal is the plan layer's (FIX-PLAN WP5): this test asks `plan.py`, not the IR.
+sys.path.insert(0, os.path.abspath(os.path.join(HERE, "..", "..", "codec", "gen")))
 
-import ir as IR       # noqa: E402
-import shapes as S    # noqa: E402
+import plan as P      # noqa: E402
 
 CASES = [
     ("a direct field on a message that needs a reverse call",
@@ -31,21 +30,21 @@ def main():
     print()
     print("%-52s %s" % ("case", "outcome"))
     # The one configuration that MUST be accepted.
-    ir = IR.load(["UploadResultDataMessage"])
+    ir = P.load(["UploadResultDataMessage"])
     try:
-        IR.check_direct(ir, "UploadResultDataMessage")
+        P.check_direct(ir, "UploadResultDataMessage")
         print("%-52s %s" % ("M5 as the schema declares it", "accepted, as it must be"))
     except NotImplementedError as e:
         print("%-52s %s" % ("M5 as the schema declares it", "WRONGLY REFUSED: %s" % e))
         bad += 1
 
     for label, msg, root in CASES:
-        sc = S.load()
+        sc = P.shapes_schema()
         sc["messages"][msg]["fields"].append(
             {"name": "payload_blob", "tag": 99, "kind": "bytes", "value": "bulk"})
-        i = IR.Ir(sc, [root])
+        i = P.load_schema(sc, [root])
         try:
-            IR.check_direct(i, root)
+            P.check_direct(i, root)
             print("%-52s NOT REFUSED -- the check does not work" % label)
             bad += 1
         except NotImplementedError as e:

@@ -1,0 +1,15 @@
+[package]
+name = "corpus-facade"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[lib]
+# The generated binding says `use facade::*;`, as it does in the shapes.json harness.
+name = "facade"
+
+[dependencies]
+ak-rt = { path = "../../../../codec/crates/ak-rt" }
+bytes = "1"
+serde_json = "1"

@@ -1,0 +1,1259 @@
+
+===== 0. configuration =====
+rustc 1.94.1 (e408947bf 2026-03-25)
+commit 24dce7d + uncommitted changes in poc/rust or poc/codec
+4
+model name	: Intel(R) Xeon(R) Processor @ 2.10GHz
+
+===== 1. generators current, one core =====
+ok    crates/facade/src/generated/types.rs
+ok    crates/facade/src/generated/prost_impl.rs
+ok    crates/facade/src/generated/build.rs
+ok    crates/facade/src/generated/core_native.rs
+ok    crates/facade/src/generated/core_native_retain.rs
+ok    ../codec/crates/ak-abi/src/generated/abi.rs
+ok    ../codec/crates/ak-core/src/generated/codec.rs
+ok    crates/harness/src/generated/binding.rs
+ok    corpus/crates/facade/src/generated/types.rs
+ok    corpus/crates/facade/src/generated/core_native.rs
+ok    corpus/crates/facade/src/generated/core_native_retain.rs
+ok    corpus/crates/facade/src/generated/project.rs
+ok    corpus/crates/harness/src/generated/binding.rs
+ok    corpus/crates/harness/src/generated/dispatch.rs
+ok    ../codec/crates/ak-abi/src/generated_corpus/abi.rs
+ok    ../codec/crates/ak-core/src/generated_corpus/codec.rs
+guard 6 backend modules import plans only; a planted IR import is caught
+ok    crates/ak-abi/src/generated/abi.rs
+ok    crates/ak-core/src/generated/codec.rs
+ok    crates/ak-core/src/generated/layout.rs
+ok    crates/ak-core/src/generated/rpc_check.rs
+ok    crates/ak-abi/src/generated_corpus/abi.rs
+ok    crates/ak-core/src/generated_corpus/codec.rs
+ok    crates/ak-core/src/generated_corpus/layout.rs
+ok    crates/ak-abi/src/lib.rs
+
+one_core: 0 failure(s)
+
+===== 2. core unit tests (debug build: std's precondition checks on) =====
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+===== 3. byte identity against the validated manifest =====
+P5.1    real      core-ffi-rust          116       116  ok       ok       ok
+P5.2    real      prost                65620     65620  ok       ok       ok
+P5.2    real      armonik              65620     65620  ok       ok       ok
+P5.2    real      core-native          65620     65620  ok       ok       ok
+P5.2    real      core-ffi-rust        65620     65620  ok       ok       ok
+P5.3    real      prost              1048660   1048660  ok       ok       ok
+P5.3    real      armonik            1048660   1048660  ok       ok       ok
+P5.3    real      core-native        1048660   1048660  ok       ok       ok
+P5.3    real      core-ffi-rust      1048660   1048660  ok       ok       ok
+P5.4    real      prost              4194390   4194390  ok       ok       ok
+P5.4    real      armonik            4194390   4194390  ok       ok       ok
+P5.4    real      core-native        4194390   4194390  ok       ok       ok
+P5.4    real      core-ffi-rust      4194390   4194390  ok       ok       ok
+P6.1    mixed     prost               123354    123354  ok       ok       ok
+P6.1    mixed     armonik             123354    123354  ok       ok       ok
+P6.1    mixed     core-native         123354    123354  ok       ok       ok
+P6.1    mixed     core-ffi-rust       123354    123354  ok       ok       ok
+                  ^ M6 is MIXED: ticks/values/codes/flags are CONTROL
+                    (the schema has no packed scalar); statuses is REAL
+                    (all 3 packed fields in the schema are enums).
+P7.1    CONTROL   4 arms, decode          98        98  ok       ok       re-encode is a permutation of the same triples
+                  ^ CONTROL, and DECODE ONLY: no canonical writer can
+                    produce these bytes, so no arm is asked to.
+
+VERDICT: every arm is byte-identical to the validated manifest on every payload it covers.
+
+===== 4. presence, oneof, unknown-field vectors =====
+#   P2.x contains `success=true, error=<sentence>` -- a state no adapter over
+#   {Ok, Error(d)} can represent at all. Counted over 200 elements the only
+#   combinations present are (true, non-empty) and (false, non-empty); the
+#   success state (true, empty) never occurs.
+
+# M4: are the adapter's three states reachable from the payload set now?
+#   Counted off DECODED values, not from the builder, and the state is read the
+#   way an adapter would read it rather than from the fields directly.
+
+  nested site (TaskDetailed.output, P2.2, 500 elements)
+      Ok       (success, no error) 167
+      Error    (error, no success) 167
+      Invalid  (no child at all)   166
+      IMPOSSIBLE (success AND error, which the message's own comment forbids) 0
+
+  plain site (TaskSummary.error, P4.1, 200 elements)
+      Error        (non-empty string)              67
+      Ok OR Invalid (empty string -- INDISTINGUISHABLE) 133
+
+#   The plain site's second row IS the finding: 133 elements carry a state the
+#   wire form cannot tell apart, so an adapter must return one of two answers for
+#   all of them and be wrong on the other. Before this the row was 0 and the
+#   defect was unreachable.
+
+VERDICT: every shape above is exercised and every arm agrees.
+
+===== 5. crossing counts (counting build) =====
+# boundary-call counts, arm core-ffi-rust
+#   counting build: YES
+#   guard:          on
+
+payload class    direction  elements  forward  reverse  crossings  transc           prefix  grows
+P1.1    real     enc cold          4        2        1          3      24        1 (207 B)      0
+P1.1    real     enc warm          4        2        1          3      24                0      0
+                   per elem                                  0.750                                
+P1.1    real     decode            4        1        2          3       0                0      0
+                   per elem                                  0.750                                
+P1.2    real     enc cold       1000        8        1          9    6000        1 (207 B)      4
+P1.2    real     enc warm       1000        8        1          9    6000                0      0
+                   per elem                                  0.009                                
+P1.2    real     decode         1000        1        5          6       0                0      0
+                   per elem                                  0.006                                
+P1.3    real     enc cold        300        3        1          4       0                0      0
+P1.3    real     enc warm        300        3        1          4       0                0      0
+                   per elem                                  0.013                                
+P1.3    real     decode          300        1        3          4       0                0      0
+                   per elem                                  0.013                                
+P2.1    real     enc cold          1        7        6         13      35       2 (1209 B)      0
+P2.1    real     enc warm          1        7        6         13      35                0      0
+                   per elem                                 13.000                                
+P2.1    real     decode            1        1        8          9       0                0      0
+                   per elem                                  9.000                                
+P2.2    real     enc cold        500     2511     2501       5012   17167       2 (1209 B)      7
+P2.2    real     enc warm        500     2511     2501       5012   17167                0      0
+                   per elem                                 10.024                                
+P2.2    real     decode          500        1     3501       3502       0                0      0
+                   per elem                                  7.004                                
+P2.3    real     enc cold        125      629      626       1255   17792       2 (5313 B)      8
+P2.3    real     enc warm        125      629      626       1255   17792                0      0
+                   per elem                                 10.040                                
+P2.3    real     decode          125        1      876        877       0                0      0
+                   per elem                                  7.016                                
+P2.4    real     enc cold         80      403      401        804   26267    81 (979360 B)      7
+P2.4    real     enc warm         80      403      401        804   26267    80 (979181 B)      0
+                   per elem                                 10.050                                
+P2.4    real     decode           80        1      561        562       0                0      0
+                   per elem                                  7.025                                
+P2.5    real     enc cold         20      102      101        203     640       2 (1100 B)      2
+P2.5    real     enc warm         20      102      101        203     640                0      0
+                   per elem                                 10.150                                
+P2.5    real     decode           20        1      141        142       0                0      0
+                   per elem                                  7.100                                
+P3.1    real     enc cold        200        2        1          3     430                0      2
+P3.1    real     enc warm        200        2        1          3     430                0      0
+                   per elem                                  0.015                                
+P3.1    real     decode          200        1        2          3       0                0      0
+                   per elem                                  0.015                                
+
+# length-prefix misses by site, warm context (ABI v1 open decision 5)
+#   a site is one length-prefix call site in the generated codec. Its learned
+#   width is per context and starts at one byte.
+
+  P1.2   1000 elements: no misses in the warm pass
+  P2.2   500 elements: no misses in the warm pass
+  P2.4   80 elements, 80 misses in one warm pass:
+          80  1.00/el  loop/ListTasksDetailedResponse/tasks
+
+# regression: a warm context must not miss on a UNIFORM payload
+#   P1.2   warm misses = 0 ok
+#   P2.2   warm misses = 0 ok
+#   P2.3   warm misses = 0 ok
+#   P2.5   warm misses = 0 ok
+
+# `crossings` is forward + reverse: calls that leave one side's compilation unit.
+# `transc` counts transcoder invocations, which are indirect calls the core makes
+#   into ITSELF (ABI v1 section 4 puts every representation in the core), so they
+#   are not host crossings. Counting them together is what made the drafted
+#   interface look like 15,137 calls on a 1,000-row response.
+# `prefix` counts length-placeholder resizes: ABI v1 open decision 5. `enc cold`
+#   is a context whose learned widths have never been set, `enc warm` the steady
+#   state. P2.4 alternates element bodies across a varint length boundary by
+#   construction, so a per-site learned width is wrong on every element of it:
+#   that row is the one decision 5 turns on.
+# M1's element type is a LEAF, so its rows batch. M2's is not (ABI v1 7.2), so
+#   M2 costs two calls per element plus one run per repeated field it carries.
+# ABI v1 section 7.1: the PUSH family and the PULL family, one process
+#   guard:          on
+#   counting build: YES -- section 4's timings are NOT usable
+#   rounds: 15, interleaved; per-round target 25 ms
+
+#   arms
+#     prost                today's floor, the baseline every ratio is against
+#     core-native          the same traversal with no boundary (R3's control)
+#     core-ffi-push        ak_decode_*: the codec calls the host per field group
+#     core-ffi-pull        ak_parse_* + ak_bdr_drain into host memory + replay
+#     core-ffi-pull-walk   ak_parse_* + ak_bdr_ptr + replay in place, no copy
+#     core-ffi-pull-opaque the same walk with the replay's calls made OPAQUE, so
+#                          rustc can neither inline nor devirtualise them. R5's
+#                          second half: a replay is host code calling host code
+#                          and CAN be fused into the loop, where a push callback
+#                          reached through a vtable across the .so never can.
+#     core-ffi-parse-only  ak_parse_* alone. NOT A DECODE: no object graph is
+#                          built. It is the materialisation term on its own.
+
+## 1. correctness: four decoders, one value
+
+payload root          wire B    elems    armonik pull-drain  pull-walk
+P1.1    M1               858        4         ok         ok         ok
+P1.2    M1            218121     1000         ok         ok         ok
+P1.3    M1               605      300         ok         ok         ok
+P2.1    M2              1037        1         ok         ok         ok
+P2.2    M2            540422      500         ok         ok         ok
+P2.3    M2            647024      125         ok         ok         ok
+P2.4    M2            979465       80         ok         ok         ok
+P2.5    M2             19632       20         ok         ok         ok
+P3.1    M3             12097      200         ok         ok         ok
+P4.1    M4             65321      200         ok         ok         ok
+P5.1    M5               116        1         ok         ok         ok
+P5.2    M5             65620        1         ok         ok         ok
+P5.3    M5           1048660        1         ok         ok         ok
+P5.4    M5           4194390        1         ok         ok         ok
+P6.1    M6            123354      200         ok         ok         ok
+P7.1    M7                98        0         ok         ok         ok
+
+## 2. crossings, and the structural control
+
+payload root     elems  records  push fw  push rev  rev/elem  pull fw 1chunk fw  pull rev   agree
+P1.1    M1           4        2        1         2     0.500        3         3         0      ok
+P1.2    M1        1000        5        1         5     0.005        6         3         0      ok
+P1.3    M1         300        3        1         3     0.010        4         3         0      ok
+P2.1    M2           1        8        1         8     8.000        3         3         0      ok
+P2.2    M2         500     3501        1      3501     7.002       16         3         0      ok
+P2.3    M2         125      876        1       876     7.008       11         3         0      ok
+P2.4    M2          80      561        1       561     7.013       13         3         0      ok
+P2.5    M2          20      141        1       141     7.050        3         3         0      ok
+P3.1    M3         200        2        1         2     0.010        3         3         0      ok
+P4.1    M4         200      601        1       601     3.005        5         3         0      ok
+P5.4    M5           1        1        1         1     1.000        3         3         0      ok
+P6.1    M6         200     1401        1      1401     7.005        8         3         0      ok
+P7.1    M7           0        7        1         7         -        3         3         0      ok
+
+# THE STRUCTURAL CONTROL. A record is written exactly where the push family
+# makes a reverse call, by construction, so `records` must equal `push rev` on
+# every shape -- and it does, to the digit, on all thirteen. That is the evidence
+# that ONE traversal produced both families (ABI v1 open decision 2's second
+# half); a disagreement would mean they had drifted apart on some shape, which
+# is what "one traversal emitter, not two" exists to prevent. `pull rev` is 0
+# everywhere, which is the family's defining claim, measured rather than assumed.
+
+# AND THE INTERFACE ARGUMENT, which is a property of the descriptor and not of
+# this machine (R13): push's reverse column is PER ELEMENT and pull's forward
+# column is PER MESSAGE. On P2.2 that is 3,501 reverse calls against 16 forward
+# ones. At this host's 1.8 ns it buys nothing; at the java slice's ~80 ns
+# reverse call it is 280 us per response.
+
+## 3. what the intermediate costs in bytes
+
+payload root           wire B    records B     x wire
+P1.1    M1                858          576      0.671
+P1.2    M1             218121       128136      0.587
+P1.3    M1                605        38488     63.617
+P2.1    M2               1037          912      0.879
+P2.2    M2             540422       436040      0.807
+P2.3    M2             647024       269040      0.416
+P2.4    M2             979465       351400      0.359
+P2.5    M2              19632        17480      0.890
+P3.1    M3              12097        19256      1.592
+P4.1    M4              65321        75232      1.152
+P5.4    M5            4194390           72      0.000
+P6.1    M6             123354       187232      1.518
+
+# A record is 24 bytes of header plus one group per element, and a group is
+# wider than the wire form of a sparse element -- so the ratio is a property of
+# the SHAPE, not of the payload size, and the absent-path rows are the high ones.
+
+
+# Section 4 skipped: this is a counting build.
+
+===== 6. content sets, every payload (correctness section) =====
+# content sets on EVERY payload (design/SHAPES.md, "Content sets")
+#   guard: on
+#   init-guard: on
+#   arms: prost | core-native | core-ffi-rust. The two validating encode arms
+#         are NOT here: decision 3 settled and encode no longer validates, so
+#         they would be priced against a path nothing takes. content.rs keeps
+#         them for the record on P1.2 and P2.2.
+#   P1.3 and P2.5 are the ABSENT-PATH CONTROLS: their rows must barely move.
+
+## 1. byte identity across the arms, every payload, every content set
+#    reference: the prost arm. There is no manifest for latin1 or wide.
+
+payload set           bytes   B/ascii arms agree   decode round trip
+P1.1    ascii           858      1.00 ok           ok
+P1.2    ascii        218121      1.00 ok           ok
+P1.3    ascii           605      1.00 ok           ok
+P2.1    ascii          1037      1.00 ok           ok
+P2.2    ascii        540422      1.00 ok           ok
+P2.3    ascii        647024      1.00 ok           ok
+P2.4    ascii        979465      1.00 ok           ok
+P2.5    ascii         19632      1.00 ok           ok
+P3.1    ascii         12097      1.00 ok           ok
+P4.1    ascii         65321      1.00 ok           ok
+P5.1    ascii           116      1.00 ok           ok
+P5.2    ascii         65620      1.00 ok           ok
+P6.1    ascii        123354      1.00 ok           ok
+
+P1.1    latin1         1466      1.71 ok           ok
+P1.2    latin1       370110      1.70 ok           ok
+P1.3    latin1          605      1.00 ok           ok
+P2.1    latin1         1868      1.80 ok           ok
+P2.2    latin1       944454      1.75 ok           ok
+P2.3    latin1      1233982      1.91 ok           ok
+P2.4    latin1      1890741      1.93 ok           ok
+P2.5    latin1        35226      1.79 ok           ok
+P3.1    latin1        20658      1.71 ok           ok
+P4.1    latin1       110170      1.69 ok           ok
+P5.1    latin1          189      1.63 ok           ok
+P5.2    latin1        65692      1.00 ok           ok
+P6.1    latin1       130554      1.06 ok           ok
+
+P1.1    wide           2074      2.42 ok           ok
+P1.2    wide         522099      2.39 ok           ok
+P1.3    wide            605      1.00 ok           ok
+P2.1    wide           2699      2.60 ok           ok
+P2.2    wide        1348486      2.50 ok           ok
+P2.3    wide        1820940      2.81 ok           ok
+P2.4    wide        2802017      2.86 ok           ok
+P2.5    wide          50820      2.59 ok           ok
+P3.1    wide          29383      2.43 ok           ok
+P4.1    wide         155019      2.37 ok           ok
+P5.1    wide            261      2.25 ok           ok
+P5.2    wide          65764      1.00 ok           ok
+P6.1    wide         137754      1.12 ok           ok
+
+# P5.x must read 1.00 on every set: a `bytes` field has no content set, so a
+# row that moved there would mean the harness was recoding something binary.
+
+## timing sections skipped: AK_NO_TIMING
+
+===== 7. concurrency suite, four builds =====
+===== 0. configuration =====
+rustc 1.94.1 (e408947bf 2026-03-25)
+4
+model name	: Intel(R) Xeon(R) Processor @ 2.10GHz
+===== 1. build all four arms, and confirm each one's .so from ldd =====
+# shipped loaded: 	libak_core.so
+/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+# global loaded: 	libak_core.so
+/home/user/ArmoniK.Api/ffi/poc/rust/target-gw/release/deps/libak_core.so
+# pad loaded: 	libak_core.so
+/home/user/ArmoniK.Api/ffi/poc/rust/target-pad/release/deps/libak_core.so
+# both loaded: 	libak_core.so
+/home/user/ArmoniK.Api/ffi/poc/rust/target-gw-pad/release/deps/libak_core.so
+===== 1b. the shared-site pair really does flip a width (counting build) =====
+# A contention arm that never contends measures nothing, so the flipping is counted.
+===== 2. the shipped build, three runs (must PASS) =====
+----- shipped run 1 -----
+# ABI v1 obligation 12.5: the concurrency suite
+#   width table: per context, prefix moved on a miss -- ABI v1 section 6 as SHIPPED
+#   guard:       on
+#   shapes:      P1.2 and P2.2 (M1 leaf, M2 non-leaf), plus P1.3 and P2.5
+#   vCPUs:       4
+## 1. the reference: prost, the INCUMBENT's encoder
+shape         bytes
+P1.2         218121
+P2.2         540422
+P1.3            605
+P2.5          19632
+# NOT a re-encode with the code under test. Section 6: only the COMBINATION of
+# its two refusals corrupts, and it corrupts so that the threads agree with each
+# other -- so a suite comparing two threads, or comparing against a reference
+# taken with the same polluted encoder, finds nothing. It takes an independent
+# encoder, and prost is one: different codec, different object graph, itself
+# checked against the validated manifest by gen/stage2.sh.
+## 1b. what each oracle sees
+encodes from a context with history                   8
+wrong against PROST (the oracle now)                  0
+wrong against a fresh core-ffi context (the old oracle)          0
+# Nothing to find on this build, and both oracles agree that there is
+# nothing -- which is what the change to the oracle has to cost: zero.
+## 2. SEQUENCE: two shapes alternating on ONE context, one thread
+  encodes 40, wrong 0
+  decodes 40, wrong 0
+# The one-shape control, which is the comparison obligation 12.5 asks for:
+  one shape (P1.2) on one context, 40 encodes, wrong 0
+# A per-shape-state defect is invisible to that row by construction and
+# visible to the rotation above. That is why the obligation says two shapes.
+## 3. TOGETHER: N threads, one context each, all four shapes (P1.2, P2.2, P1.3, P2.5) rotated per round
+threads         encodes      wrong decodes wrong
+2                   400          0            0
+4                   800          0            0
+8                  1600          0            0
+# 8 threads on 4 vCPUs is deliberate: oversubscription puts a preemption
+# between a `begin` and its `end`, which is where a state defect that needs a
+# window to open would show. R9 is the caveat on the other side -- a
+# concurrency figure from a small container is a lower bound on contention,
+# and section 5 below is the figure, not this section.
+## 4. THE POSITIVE CONTROL: the suite has to be seen failing
+# Planted violation: 4 threads share ONE encode context, which ABI v1 section
+# 3 makes a host-owned single-threaded thing. D16's class -- a shared mutable
+# handle reached through an opaque pointer -- moved from the RPC half to the
+# codec half on purpose. It is a deliberate contract violation and a data race,
+# so it runs in a CHILD PROCESS and nothing downstream depends on it.
+  child exit: None
+  child stderr: thread '<unnamed>' (30414) panicked at /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-rt/src/enc.rs:229:18:
+  child stderr: panic in a function that cannot unwind
+  The control fires, so sections 2 and 3 are statements about the code and not
+  about a check that cannot fail.
+  AND THE SHAPE OF THE FAILURE IS A FINDING NOBODY ASKED FOR. The violation is
+  not detected as wrong bytes: two threads resizing one length prefix index the
+  encode buffer past its end, the core panics inside `Enc`, and because the
+  frame it has to unwind through is an `extern "C"` entry point of the ABI
+  (`ak_elem_ResultRaw`), the panic CANNOT unwind and the PROCESS ABORTS.
+  Three things follow, and they are for the specification rather than for this
+  slice:
+   1. ABI v1 section 5's error channel covers a failure the HOST reports, through
+      `ak_fail` and the generated guard. A panic inside the CORE has no channel
+      at all: it reaches a `extern "C"` boundary and aborts. Every entry point
+      in the codec is exposed to this, not only under a shared context.
+   2. Section 3 says `ak_init` installs a panic hook. It is unbuilt (this slice
+      builds it -- see the lifecycle log), and a hook changes what is PRINTED,
+      not whether the abort happens. Catching the unwind at the entry point is a
+      different and larger change.
+   3. The context already carries a `kind` word so a wrong pointer is
+      diagnosable. An owning-thread id beside it would turn this abort into
+      `AK_ERR_INVALID_STATE` at the first misuse rather than at an arbitrary
+      later one. That is a design question and it is raised, not taken.
+## 5 skipped: AK_NO_TIMING (correctness-only gate; container timings are instrumentation).
+# RESULT: every encode matched prost byte for byte, every decode matched
+# by value. 0 wrong.
+# This build MUST PASS.
+>>> ok: shipped run 1 behaved as its build requires
+----- shipped run 2 -----
+# ABI v1 obligation 12.5: the concurrency suite
+#   width table: per context, prefix moved on a miss -- ABI v1 section 6 as SHIPPED
+#   guard:       on
+#   shapes:      P1.2 and P2.2 (M1 leaf, M2 non-leaf), plus P1.3 and P2.5
+#   vCPUs:       4
+## 1. the reference: prost, the INCUMBENT's encoder
+shape         bytes
+P1.2         218121
+P2.2         540422
+P1.3            605
+P2.5          19632
+# NOT a re-encode with the code under test. Section 6: only the COMBINATION of
+# its two refusals corrupts, and it corrupts so that the threads agree with each
+# other -- so a suite comparing two threads, or comparing against a reference
+# taken with the same polluted encoder, finds nothing. It takes an independent
+# encoder, and prost is one: different codec, different object graph, itself
+# checked against the validated manifest by gen/stage2.sh.
+## 1b. what each oracle sees
+encodes from a context with history                   8
+wrong against PROST (the oracle now)                  0
+wrong against a fresh core-ffi context (the old oracle)          0
+# Nothing to find on this build, and both oracles agree that there is
+# nothing -- which is what the change to the oracle has to cost: zero.
+## 2. SEQUENCE: two shapes alternating on ONE context, one thread
+  encodes 40, wrong 0
+  decodes 40, wrong 0
+# The one-shape control, which is the comparison obligation 12.5 asks for:
+  one shape (P1.2) on one context, 40 encodes, wrong 0
+# A per-shape-state defect is invisible to that row by construction and
+# visible to the rotation above. That is why the obligation says two shapes.
+## 3. TOGETHER: N threads, one context each, all four shapes (P1.2, P2.2, P1.3, P2.5) rotated per round
+threads         encodes      wrong decodes wrong
+2                   400          0            0
+4                   800          0            0
+8                  1600          0            0
+# 8 threads on 4 vCPUs is deliberate: oversubscription puts a preemption
+# between a `begin` and its `end`, which is where a state defect that needs a
+# window to open would show. R9 is the caveat on the other side -- a
+# concurrency figure from a small container is a lower bound on contention,
+# and section 5 below is the figure, not this section.
+## 4. THE POSITIVE CONTROL: the suite has to be seen failing
+# Planted violation: 4 threads share ONE encode context, which ABI v1 section
+# 3 makes a host-owned single-threaded thing. D16's class -- a shared mutable
+# handle reached through an opaque pointer -- moved from the RPC half to the
+# codec half on purpose. It is a deliberate contract violation and a data race,
+# so it runs in a CHILD PROCESS and nothing downstream depends on it.
+  child exit: None
+  The control fires, so sections 2 and 3 are statements about the code and not
+  about a check that cannot fail.
+  AND THE SHAPE OF THE FAILURE IS A FINDING NOBODY ASKED FOR. The violation is
+  not detected as wrong bytes: two threads resizing one length prefix index the
+  encode buffer past its end, the core panics inside `Enc`, and because the
+  frame it has to unwind through is an `extern "C"` entry point of the ABI
+  (`ak_elem_ResultRaw`), the panic CANNOT unwind and the PROCESS ABORTS.
+  Three things follow, and they are for the specification rather than for this
+  slice:
+   1. ABI v1 section 5's error channel covers a failure the HOST reports, through
+      `ak_fail` and the generated guard. A panic inside the CORE has no channel
+      at all: it reaches a `extern "C"` boundary and aborts. Every entry point
+      in the codec is exposed to this, not only under a shared context.
+   2. Section 3 says `ak_init` installs a panic hook. It is unbuilt (this slice
+      builds it -- see the lifecycle log), and a hook changes what is PRINTED,
+      not whether the abort happens. Catching the unwind at the entry point is a
+      different and larger change.
+   3. The context already carries a `kind` word so a wrong pointer is
+      diagnosable. An owning-thread id beside it would turn this abort into
+      `AK_ERR_INVALID_STATE` at the first misuse rather than at an arbitrary
+      later one. That is a design question and it is raised, not taken.
+## 5 skipped: AK_NO_TIMING (correctness-only gate; container timings are instrumentation).
+# RESULT: every encode matched prost byte for byte, every decode matched
+# by value. 0 wrong.
+# This build MUST PASS.
+>>> ok: shipped run 2 behaved as its build requires
+----- shipped run 3 -----
+# ABI v1 obligation 12.5: the concurrency suite
+#   width table: per context, prefix moved on a miss -- ABI v1 section 6 as SHIPPED
+#   guard:       on
+#   shapes:      P1.2 and P2.2 (M1 leaf, M2 non-leaf), plus P1.3 and P2.5
+#   vCPUs:       4
+## 1. the reference: prost, the INCUMBENT's encoder
+shape         bytes
+P1.2         218121
+P2.2         540422
+P1.3            605
+P2.5          19632
+# NOT a re-encode with the code under test. Section 6: only the COMBINATION of
+# its two refusals corrupts, and it corrupts so that the threads agree with each
+# other -- so a suite comparing two threads, or comparing against a reference
+# taken with the same polluted encoder, finds nothing. It takes an independent
+# encoder, and prost is one: different codec, different object graph, itself
+# checked against the validated manifest by gen/stage2.sh.
+## 1b. what each oracle sees
+encodes from a context with history                   8
+wrong against PROST (the oracle now)                  0
+wrong against a fresh core-ffi context (the old oracle)          0
+# Nothing to find on this build, and both oracles agree that there is
+# nothing -- which is what the change to the oracle has to cost: zero.
+## 2. SEQUENCE: two shapes alternating on ONE context, one thread
+  encodes 40, wrong 0
+  decodes 40, wrong 0
+# The one-shape control, which is the comparison obligation 12.5 asks for:
+  one shape (P1.2) on one context, 40 encodes, wrong 0
+# A per-shape-state defect is invisible to that row by construction and
+# visible to the rotation above. That is why the obligation says two shapes.
+## 3. TOGETHER: N threads, one context each, all four shapes (P1.2, P2.2, P1.3, P2.5) rotated per round
+threads         encodes      wrong decodes wrong
+2                   400          0            0
+4                   800          0            0
+8                  1600          0            0
+# 8 threads on 4 vCPUs is deliberate: oversubscription puts a preemption
+# between a `begin` and its `end`, which is where a state defect that needs a
+# window to open would show. R9 is the caveat on the other side -- a
+# concurrency figure from a small container is a lower bound on contention,
+# and section 5 below is the figure, not this section.
+## 4. THE POSITIVE CONTROL: the suite has to be seen failing
+# Planted violation: 4 threads share ONE encode context, which ABI v1 section
+# 3 makes a host-owned single-threaded thing. D16's class -- a shared mutable
+# handle reached through an opaque pointer -- moved from the RPC half to the
+# codec half on purpose. It is a deliberate contract violation and a data race,
+# so it runs in a CHILD PROCESS and nothing downstream depends on it.
+  child exit: None
+  child stderr: thread '<unnamed>' (30457) panicked at /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-rt/src/enc.rs:229:18:
+  child stderr: panic in a function that cannot unwind
+  The control fires, so sections 2 and 3 are statements about the code and not
+  about a check that cannot fail.
+  AND THE SHAPE OF THE FAILURE IS A FINDING NOBODY ASKED FOR. The violation is
+  not detected as wrong bytes: two threads resizing one length prefix index the
+  encode buffer past its end, the core panics inside `Enc`, and because the
+  frame it has to unwind through is an `extern "C"` entry point of the ABI
+  (`ak_elem_ResultRaw`), the panic CANNOT unwind and the PROCESS ABORTS.
+  Three things follow, and they are for the specification rather than for this
+  slice:
+   1. ABI v1 section 5's error channel covers a failure the HOST reports, through
+      `ak_fail` and the generated guard. A panic inside the CORE has no channel
+      at all: it reaches a `extern "C"` boundary and aborts. Every entry point
+      in the codec is exposed to this, not only under a shared context.
+   2. Section 3 says `ak_init` installs a panic hook. It is unbuilt (this slice
+      builds it -- see the lifecycle log), and a hook changes what is PRINTED,
+      not whether the abort happens. Catching the unwind at the entry point is a
+      different and larger change.
+   3. The context already carries a `kind` word so a wrong pointer is
+      diagnosable. An owning-thread id beside it would turn this abort into
+      `AK_ERR_INVALID_STATE` at the first misuse rather than at an arbitrary
+      later one. That is a design question and it is raised, not taken.
+## 5 skipped: AK_NO_TIMING (correctness-only gate; container timings are instrumentation).
+# RESULT: every encode matched prost byte for byte, every decode matched
+# by value. 0 wrong.
+# This build MUST PASS.
+>>> ok: shipped run 3 behaved as its build requires
+===== 3. the process-global table, three runs (a REFUSED design that is byte-CLEAN: must PASS) =====
+----- global run 1 -----
+# ABI v1 obligation 12.5: the concurrency suite
+#   width table: PROCESS-GLOBAL (--features global-widths). Section 6's first refusal: a data race and a throughput defect, and NOT a byte defect. MUST PASS
+#   guard:       on
+#   shapes:      P1.2 and P2.2 (M1 leaf, M2 non-leaf), plus P1.3 and P2.5
+#   vCPUs:       4
+## 1. the reference: prost, the INCUMBENT's encoder
+shape         bytes
+P1.2         218121
+P2.2         540422
+P1.3            605
+P2.5          19632
+# NOT a re-encode with the code under test. Section 6: only the COMBINATION of
+# its two refusals corrupts, and it corrupts so that the threads agree with each
+# other -- so a suite comparing two threads, or comparing against a reference
+# taken with the same polluted encoder, finds nothing. It takes an independent
+# encoder, and prost is one: different codec, different object graph, itself
+# checked against the validated manifest by gen/stage2.sh.
+## 1b. what each oracle sees
+encodes from a context with history                   8
+wrong against PROST (the oracle now)                  0
+wrong against a fresh core-ffi context (the old oracle)          0
+# Nothing to find on this build, and both oracles agree that there is
+# nothing -- which is what the change to the oracle has to cost: zero.
+## 2. SEQUENCE: two shapes alternating on ONE context, one thread
+  encodes 40, wrong 0
+  decodes 40, wrong 0
+# The one-shape control, which is the comparison obligation 12.5 asks for:
+  one shape (P1.2) on one context, 40 encodes, wrong 0
+# A per-shape-state defect is invisible to that row by construction and
+# visible to the rotation above. That is why the obligation says two shapes.
+## 3. TOGETHER: N threads, one context each, all four shapes (P1.2, P2.2, P1.3, P2.5) rotated per round
+threads         encodes      wrong decodes wrong
+2                   400          0            0
+4                   800          0            0
+8                  1600          0            0
+# 8 threads on 4 vCPUs is deliberate: oversubscription puts a preemption
+# between a `begin` and its `end`, which is where a state defect that needs a
+# window to open would show. R9 is the caveat on the other side -- a
+# concurrency figure from a small container is a lower bound on contention,
+# and section 5 below is the figure, not this section.
+## 4 and 5 skipped: this is a planted build, and a control or a timing
+## taken on one would be measuring the plant.
+# RESULT: every encode matched prost byte for byte, every decode matched
+# by value. 0 wrong.
+# This build MUST PASS. A process-global table is a throughput defect, not a byte defect.
+>>> ok: global run 1 behaved as its build requires
+----- global run 2 -----
+# ABI v1 obligation 12.5: the concurrency suite
+#   width table: PROCESS-GLOBAL (--features global-widths). Section 6's first refusal: a data race and a throughput defect, and NOT a byte defect. MUST PASS
+#   guard:       on
+#   shapes:      P1.2 and P2.2 (M1 leaf, M2 non-leaf), plus P1.3 and P2.5
+#   vCPUs:       4
+## 1. the reference: prost, the INCUMBENT's encoder
+shape         bytes
+P1.2         218121
+P2.2         540422
+P1.3            605
+P2.5          19632
+# NOT a re-encode with the code under test. Section 6: only the COMBINATION of
+# its two refusals corrupts, and it corrupts so that the threads agree with each
+# other -- so a suite comparing two threads, or comparing against a reference
+# taken with the same polluted encoder, finds nothing. It takes an independent
+# encoder, and prost is one: different codec, different object graph, itself
+# checked against the validated manifest by gen/stage2.sh.
+## 1b. what each oracle sees
+encodes from a context with history                   8
+wrong against PROST (the oracle now)                  0
+wrong against a fresh core-ffi context (the old oracle)          0
+# Nothing to find on this build, and both oracles agree that there is
+# nothing -- which is what the change to the oracle has to cost: zero.
+## 2. SEQUENCE: two shapes alternating on ONE context, one thread
+  encodes 40, wrong 0
+  decodes 40, wrong 0
+# The one-shape control, which is the comparison obligation 12.5 asks for:
+  one shape (P1.2) on one context, 40 encodes, wrong 0
+# A per-shape-state defect is invisible to that row by construction and
+# visible to the rotation above. That is why the obligation says two shapes.
+## 3. TOGETHER: N threads, one context each, all four shapes (P1.2, P2.2, P1.3, P2.5) rotated per round
+threads         encodes      wrong decodes wrong
+2                   400          0            0
+4                   800          0            0
+8                  1600          0            0
+# 8 threads on 4 vCPUs is deliberate: oversubscription puts a preemption
+# between a `begin` and its `end`, which is where a state defect that needs a
+# window to open would show. R9 is the caveat on the other side -- a
+# concurrency figure from a small container is a lower bound on contention,
+# and section 5 below is the figure, not this section.
+## 4 and 5 skipped: this is a planted build, and a control or a timing
+## taken on one would be measuring the plant.
+# RESULT: every encode matched prost byte for byte, every decode matched
+# by value. 0 wrong.
+# This build MUST PASS. A process-global table is a throughput defect, not a byte defect.
+>>> ok: global run 2 behaved as its build requires
+----- global run 3 -----
+# ABI v1 obligation 12.5: the concurrency suite
+#   width table: PROCESS-GLOBAL (--features global-widths). Section 6's first refusal: a data race and a throughput defect, and NOT a byte defect. MUST PASS
+#   guard:       on
+#   shapes:      P1.2 and P2.2 (M1 leaf, M2 non-leaf), plus P1.3 and P2.5
+#   vCPUs:       4
+## 1. the reference: prost, the INCUMBENT's encoder
+shape         bytes
+P1.2         218121
+P2.2         540422
+P1.3            605
+P2.5          19632
+# NOT a re-encode with the code under test. Section 6: only the COMBINATION of
+# its two refusals corrupts, and it corrupts so that the threads agree with each
+# other -- so a suite comparing two threads, or comparing against a reference
+# taken with the same polluted encoder, finds nothing. It takes an independent
+# encoder, and prost is one: different codec, different object graph, itself
+# checked against the validated manifest by gen/stage2.sh.
+## 1b. what each oracle sees
+encodes from a context with history                   8
+wrong against PROST (the oracle now)                  0
+wrong against a fresh core-ffi context (the old oracle)          0
+# Nothing to find on this build, and both oracles agree that there is
+# nothing -- which is what the change to the oracle has to cost: zero.
+## 2. SEQUENCE: two shapes alternating on ONE context, one thread
+  encodes 40, wrong 0
+  decodes 40, wrong 0
+# The one-shape control, which is the comparison obligation 12.5 asks for:
+  one shape (P1.2) on one context, 40 encodes, wrong 0
+# A per-shape-state defect is invisible to that row by construction and
+# visible to the rotation above. That is why the obligation says two shapes.
+## 3. TOGETHER: N threads, one context each, all four shapes (P1.2, P2.2, P1.3, P2.5) rotated per round
+threads         encodes      wrong decodes wrong
+2                   400          0            0
+4                   800          0            0
+8                  1600          0            0
+# 8 threads on 4 vCPUs is deliberate: oversubscription puts a preemption
+# between a `begin` and its `end`, which is where a state defect that needs a
+# window to open would show. R9 is the caveat on the other side -- a
+# concurrency figure from a small container is a lower bound on contention,
+# and section 5 below is the figure, not this section.
+## 4 and 5 skipped: this is a planted build, and a control or a timing
+## taken on one would be measuring the plant.
+# RESULT: every encode matched prost byte for byte, every decode matched
+# by value. 0 wrong.
+# This build MUST PASS. A process-global table is a throughput defect, not a byte defect.
+>>> ok: global run 3 behaved as its build requires
+===== 4. the padded prefix (a REFUSED design: must FAIL) =====
+----- pad -----
+# ABI v1 obligation 12.5: the concurrency suite
+#   width table: prefix PADDED to the learned width (--features pad-widths). Section 6's second refusal, and the one that corrupts bytes. MUST FAIL
+#   guard:       on
+#   shapes:      P1.2 and P2.2 (M1 leaf, M2 non-leaf), plus P1.3 and P2.5
+#   vCPUs:       4
+## 1. the reference: prost, the INCUMBENT's encoder
+shape         bytes
+P1.2         218121
+P2.2         540422
+P1.3            605
+P2.5          19632
+# NOT a re-encode with the code under test. Section 6: only the COMBINATION of
+# its two refusals corrupts, and it corrupts so that the threads agree with each
+# other -- so a suite comparing two threads, or comparing against a reference
+# taken with the same polluted encoder, finds nothing. It takes an independent
+# encoder, and prost is one: different codec, different object graph, itself
+# checked against the validated manifest by gen/stage2.sh.
+## 1b. what each oracle sees
+encodes from a context with history                   8
+wrong against PROST (the oracle now)                  4
+wrong against a fresh core-ffi context (the old oracle)          4
+# Both oracles see this plant. The combination is the case where only the
+# independent one does; run --features global-widths,pad-widths for it.
+## 2. SEQUENCE: two shapes alternating on ONE context, one thread
+  encodes 40, wrong 10
+  decodes 40, wrong 0
+# The one-shape control, which is the comparison obligation 12.5 asks for:
+  one shape (P1.2) on one context, 40 encodes, wrong 0
+# A per-shape-state defect is invisible to that row by construction and
+# visible to the rotation above. That is why the obligation says two shapes.
+## 3. TOGETHER: N threads, one context each, all four shapes (P1.2, P2.2, P1.3, P2.5) rotated per round
+threads         encodes      wrong decodes wrong
+2                   400         99            0
+4                   800        198            0
+8                  1600        396            0
+# 8 threads on 4 vCPUs is deliberate: oversubscription puts a preemption
+# between a `begin` and its `end`, which is where a state defect that needs a
+# window to open would show. R9 is the caveat on the other side -- a
+# concurrency figure from a small container is a lower bound on contention,
+# and section 5 below is the figure, not this section.
+## 4 and 5 skipped: this is a planted build, and a control or a timing
+## taken on one would be measuring the plant.
+# RESULT: 703 disagreements against prost.
+# This build is a REFUSED design and MUST FAIL. It did, which is what says the suite works.
+>>> ok: pad behaved as its build requires
+===== 5. global AND padded, the combination (a REFUSED design: must FAIL) =====
+----- both -----
+# ABI v1 obligation 12.5: the concurrency suite
+#   width table: PROCESS-GLOBAL *and* PADDED. The combination, which is the worst case and the one a naive suite cannot see. MUST FAIL
+#   guard:       on
+#   shapes:      P1.2 and P2.2 (M1 leaf, M2 non-leaf), plus P1.3 and P2.5
+#   vCPUs:       4
+## 1. the reference: prost, the INCUMBENT's encoder
+shape         bytes
+P1.2         218121
+P2.2         540422
+P1.3            605
+P2.5          19632
+# NOT a re-encode with the code under test. Section 6: only the COMBINATION of
+# its two refusals corrupts, and it corrupts so that the threads agree with each
+# other -- so a suite comparing two threads, or comparing against a reference
+# taken with the same polluted encoder, finds nothing. It takes an independent
+# encoder, and prost is one: different codec, different object graph, itself
+# checked against the validated manifest by gen/stage2.sh.
+## 1b. what each oracle sees
+encodes from a context with history                   8
+wrong against PROST (the oracle now)                  4
+wrong against a fresh core-ffi context (the old oracle)          0
+# THE OLD ORACLE IS BLIND HERE AND THE NEW ONE IS NOT. A fresh context is
+# only fresh in the parts of the state that are per-context; with a global
+# table it reads the same pollution the threads do, so it pads the same way
+# and agrees. Section 6's sentence, on this host.
+## 2. SEQUENCE: two shapes alternating on ONE context, one thread
+  encodes 40, wrong 10
+  decodes 40, wrong 0
+# The one-shape control, which is the comparison obligation 12.5 asks for:
+  one shape (P1.2) on one context, 40 encodes, wrong 0
+# A per-shape-state defect is invisible to that row by construction and
+# visible to the rotation above. That is why the obligation says two shapes.
+## 3. TOGETHER: N threads, one context each, all four shapes (P1.2, P2.2, P1.3, P2.5) rotated per round
+threads         encodes      wrong decodes wrong
+2                   400        100            0
+4                   800        200            0
+8                  1600        400            0
+# 8 threads on 4 vCPUs is deliberate: oversubscription puts a preemption
+# between a `begin` and its `end`, which is where a state defect that needs a
+# window to open would show. R9 is the caveat on the other side -- a
+# concurrency figure from a small container is a lower bound on contention,
+# and section 5 below is the figure, not this section.
+## 4 and 5 skipped: this is a planted build, and a control or a timing
+## taken on one would be measuring the plant.
+# RESULT: 710 disagreements against prost.
+# This build is a REFUSED design and MUST FAIL. It did, which is what says the suite works.
+>>> ok: both behaved as its build requires
+===== verdict =====
+all four builds behaved as required
+
+===== 8. lifecycle =====
+===== 0. configuration =====
+rustc 1.94.1 (e408947bf 2026-03-25)
+4
+model name	: Intel(R) Xeon(R) Processor @ 2.10GHz
+
+===== 1. generator is current, and there is one core =====
+ok    crates/facade/src/generated/types.rs
+ok    crates/facade/src/generated/prost_impl.rs
+ok    crates/facade/src/generated/build.rs
+ok    crates/facade/src/generated/core_native.rs
+ok    crates/facade/src/generated/core_native_retain.rs
+ok    ../codec/crates/ak-abi/src/generated/abi.rs
+ok    ../codec/crates/ak-core/src/generated/codec.rs
+ok    crates/harness/src/generated/binding.rs
+ok    corpus/crates/facade/src/generated/types.rs
+ok    corpus/crates/facade/src/generated/core_native.rs
+ok    corpus/crates/facade/src/generated/core_native_retain.rs
+ok    corpus/crates/facade/src/generated/project.rs
+ok    corpus/crates/harness/src/generated/binding.rs
+ok    corpus/crates/harness/src/generated/dispatch.rs
+ok    ../codec/crates/ak-abi/src/generated_corpus/abi.rs
+ok    ../codec/crates/ak-core/src/generated_corpus/codec.rs
+  [ok]   codec/gen/generate.py --check: 8 files ok
+
+one_core: 0 failure(s)
+
+===== 2. build both arms =====
+# what each binary actually loaded, from ldd and not from the build log:
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release/deps/libak_core.so (0x00007fa164a00000)
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/rust/target-ig/release/deps/libak_core.so (0x00007f4d3d400000)
+# That the OFF arm really is off is checked by BEHAVIOUR, not by the build line:
+# section 3's first case, uninit-first, must SUCCEED there and be refused in the ON arm.
+
+===== 3. the lifecycle, guard OFF =====
+# ABI v1 section 3: the lifecycle
+#   init-guard: off -- entry points do not check; the guard's PRICE is section 4
+#   build id:   ak-core 0.0.0 abi1 ak-core
+#   ak_abi_version(): 1, the host was generated against 1
+
+# Each case below is a FRESH PROCESS. `ak_init` is one-shot and there is no
+# `ak_shutdown`, so a suite that ran two cases in one process would be
+# measuring the second case against the first case's installs.
+
+case                         exit   what it establishes
+uninit-first                 ok     an entry point BEFORE ak_init
+    guard off: encode before ak_init SUCCEEDED, which is what this
+    build means. Section 3's rule is unenforced unless init-guard is on.
+init-ok                      ok     ak_init returns AK_OK and ak_initialized() flips
+    ak_init -> 0 (AK_OK=0), detail 0
+    ak_initialized() -> 1
+init-twice-same              ok     the same options again: AK_ALREADY_INITIALIZED, a SUCCESS
+    first 0, second 1 (AK_ALREADY_INITIALIZED=1)
+    # and it is a SUCCESS, not an error: a host library that initialises
+    # defensively must not fail because another one got there first.
+init-twice-differ            ok     different options: refused, AK_DETAIL_OPTS_DIFFER
+    first 0, second -8, detail 2 (AK_DETAIL_OPTS_DIFFER=2)
+    # The one-shot installs cannot be redone, which is also why there is
+    # no ak_shutdown.
+init-differ-collide          ok     R-D9: options built to collide under an XOR fold: still refused
+    first 0, second -8, detail 2 (want -8, AK_DETAIL_OPTS_DIFFER=2)
+init-bad-version             ok     a host generated against another ABI: AK_ERR_ABI
+    ak_init(abi_version=8) -> -11, detail 1
+    ak_initialized() -> 0 (must still be 0)
+    # The check is made by the side that KNOWS what it was generated
+    # against, once, at the only point where failing is cheap.
+init-null                    ok     a null options pointer: AK_ERR_INVALID_STATE, not a crash
+    ak_init(NULL) -> -8, detail 3
+    ak_init(NULL, NULL) -> -8
+log-bridge                   ok     the host's ak_log_fn receives a line
+        [host log, ctx=0x0] a line from the core
+    ak_init -> 0; ak_log_test delivered=1, lines=1
+log-declined                 ok     AK_INIT_OWN_LOGGING: no line reaches the host
+    ak_init(OWN_LOGGING) -> 0; delivered=0, lines=0
+    # The host passed a sink AND the flag; the flag wins, because the
+    # flag is the host saying it owns the process log.
+panic-hook                   ok     a panic IN THE CORE reaches the host's log, then aborts
+    WANT: one line through the host sink, then an abort
+        [host log, ctx=0x0] panic in ak-core: panicked at /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/lib.rs:267:5:
+    deliberate panic inside ak-core, from ak_panic_test
+        [host log, ctx=0x0] panic in ak-core: panicked at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library/core/src/panicking.rs:225:5:
+    panic in a function that cannot unwind
+    (child aborted, signal)
+no-panic-hook                ok     AK_INIT_NO_PANIC_HOOK: no line, and still an abort
+    WANT: no line through the host sink, and still an abort
+    (child aborted) panic in a function that cannot unwind
+host-panic-own-hook          ok     a HOST panic is not the core's; two copies of std
+    host hook fired 1 time(s); the CORE's sink got 0 line(s)
+    # The core installed a hook and it did not fire, because the cdylib
+    # carries its own `std`. That is not a defect: the hook is for panics
+    # in the CORE, which is where the host cannot see them.
+codec-after-init             ok     the codec works normally once initialised
+    initialised by Ctx::new(); P1.2 encode 218121 B, prost 218121 B, equal=true, round trip=true
+two-components               ok     two components, two flag sets: the first caller wins
+    component A -> 0; component B -> -8, detail 2
+    # THE FLAGS ARE A PROCESS-WIDE NEGOTIATION AND THE FIRST CALLER WINS.
+    # Section 3 says a second call with different options fails, and treats
+    # that as obviously right because the one-shot installs cannot be
+    # redone. It is right, and it also means two independent components in
+    # one process cannot both choose -- the second gets a hard failure for
+    # asking, not the first caller's settings. Two hosts loading the same
+    # core is the normal case for a shared library. Raised, not taken: the
+    # alternatives (ignore the later flags, or merge them) each give up
+    # something section 3 is deliberately buying.
+init-races                   ok     8 threads calling ak_init at once: exactly one installs
+    8 threads: 1 AK_OK, 7 AK_ALREADY_INITIALIZED, 0 other
+    callers that returned before the installs were visible: 0
+
+# VERDICT: section 3's lifecycle behaves as specified on every case built.
+
+===== 4. the lifecycle, guard ON (section 3 as specified) =====
+# ABI v1 section 3: the lifecycle
+#   init-guard: ON -- every entry point checks (section 3 as specified)
+#   build id:   ak-core 0.0.0 abi1 ak-core
+#   ak_abi_version(): 1, the host was generated against 1
+
+# Each case below is a FRESH PROCESS. `ak_init` is one-shot and there is no
+# `ak_shutdown`, so a suite that ran two cases in one process would be
+# measuring the second case against the first case's installs.
+
+case                         exit   what it establishes
+uninit-first                 ok     an entry point BEFORE ak_init
+    guard ON: encode before ak_init -> Err(-10) (want Err(-10))
+init-ok                      ok     ak_init returns AK_OK and ak_initialized() flips
+    ak_init -> 0 (AK_OK=0), detail 0
+    ak_initialized() -> 1
+init-twice-same              ok     the same options again: AK_ALREADY_INITIALIZED, a SUCCESS
+    first 0, second 1 (AK_ALREADY_INITIALIZED=1)
+    # and it is a SUCCESS, not an error: a host library that initialises
+    # defensively must not fail because another one got there first.
+init-twice-differ            ok     different options: refused, AK_DETAIL_OPTS_DIFFER
+    first 0, second -8, detail 2 (AK_DETAIL_OPTS_DIFFER=2)
+    # The one-shot installs cannot be redone, which is also why there is
+    # no ak_shutdown.
+init-differ-collide          ok     R-D9: options built to collide under an XOR fold: still refused
+    first 0, second -8, detail 2 (want -8, AK_DETAIL_OPTS_DIFFER=2)
+init-bad-version             ok     a host generated against another ABI: AK_ERR_ABI
+    ak_init(abi_version=8) -> -11, detail 1
+    ak_initialized() -> 0 (must still be 0)
+    # The check is made by the side that KNOWS what it was generated
+    # against, once, at the only point where failing is cheap.
+init-null                    ok     a null options pointer: AK_ERR_INVALID_STATE, not a crash
+    ak_init(NULL) -> -8, detail 3
+    ak_init(NULL, NULL) -> -8
+log-bridge                   ok     the host's ak_log_fn receives a line
+        [host log, ctx=0x0] a line from the core
+    ak_init -> 0; ak_log_test delivered=1, lines=1
+log-declined                 ok     AK_INIT_OWN_LOGGING: no line reaches the host
+    ak_init(OWN_LOGGING) -> 0; delivered=0, lines=0
+    # The host passed a sink AND the flag; the flag wins, because the
+    # flag is the host saying it owns the process log.
+panic-hook                   ok     a panic IN THE CORE reaches the host's log, then aborts
+    WANT: one line through the host sink, then an abort
+        [host log, ctx=0x0] panic in ak-core: panicked at /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/lib.rs:267:5:
+    deliberate panic inside ak-core, from ak_panic_test
+        [host log, ctx=0x0] panic in ak-core: panicked at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library/core/src/panicking.rs:225:5:
+    panic in a function that cannot unwind
+    (child aborted, signal)
+no-panic-hook                ok     AK_INIT_NO_PANIC_HOOK: no line, and still an abort
+    WANT: no line through the host sink, and still an abort
+    (child aborted) panic in a function that cannot unwind
+host-panic-own-hook          ok     a HOST panic is not the core's; two copies of std
+    host hook fired 1 time(s); the CORE's sink got 0 line(s)
+    # The core installed a hook and it did not fire, because the cdylib
+    # carries its own `std`. That is not a defect: the hook is for panics
+    # in the CORE, which is where the host cannot see them.
+codec-after-init             ok     the codec works normally once initialised
+    initialised by Ctx::new(); P1.2 encode 218121 B, prost 218121 B, equal=true, round trip=true
+two-components               ok     two components, two flag sets: the first caller wins
+    component A -> 0; component B -> -8, detail 2
+    # THE FLAGS ARE A PROCESS-WIDE NEGOTIATION AND THE FIRST CALLER WINS.
+    # Section 3 says a second call with different options fails, and treats
+    # that as obviously right because the one-shot installs cannot be
+    # redone. It is right, and it also means two independent components in
+    # one process cannot both choose -- the second gets a hard failure for
+    # asking, not the first caller's settings. Two hosts loading the same
+    # core is the normal case for a shared library. Raised, not taken: the
+    # alternatives (ignore the later flags, or merge them) each give up
+    # something section 3 is deliberately buying.
+init-races                   ok     8 threads calling ak_init at once: exactly one installs
+    8 threads: 1 AK_OK, 7 AK_ALREADY_INITIALIZED, 0 other
+    callers that returned before the installs were visible: 0
+
+# VERDICT: section 3's lifecycle behaves as specified on every case built.
+
+===== 5. correctness with the guard on =====
+# The guard adds a branch to every entry point. Byte identity is re-run rather than
+# assumed, on the build that has it.
+                    produce these bytes, so no arm is asked to.
+
+VERDICT: every arm is byte-identical to the validated manifest on every payload it covers.
+
+===== 9. R-D1 length-wrap reproductions =====
+# R-D1 length-varint-wrap reproduction -- gate
+#   rustc 1.94.1, release (overflow-checks off), cdylib boundary
+#   each case: timeout 5 ./rdrepro <case>
+#   exit 124 = hang, 134 = SIGABRT (panic across extern "C"), 101 = rust panic, 139 = SIGSEGV
+#   input for (a) is the finding's literal 11 bytes: 7A F5 FF FF FF FF FF FF FF FF 01
+
+## case a-ffi
+    [a] ffi   rc=-3 elems=0 apply_called=false session_id.off=0 session_id.len=0 (0x00000000)
+    -> exit=0 (returned)
+
+## case a-native
+    [a] native rc=-3 (Err)
+    -> exit=0 (returned)
+
+## case b-err-ffi
+    [b-err] ffi   rc=-3 elems=1 apply_called=false session_id.off=4 session_id.len=2 (0x00000002)
+    -> exit=0 (returned)
+
+## case b-err-native
+    [b-err] native rc=-3 (Err)
+    -> exit=0 (returned)
+
+## case b-span-ffi
+    [b-span] ffi   rc=-3 elems=0 apply_called=false session_id.off=0 session_id.len=0 (0x00000000)
+    -> exit=0 (returned)
+
+## case b-span-native
+    [b-span] native rc=-3 (Err)
+    -> exit=0 (returned)
+
+## case c-ffi
+    [c] ffi   rc=-3 elems=0 apply_called=false session_id.off=0 session_id.len=0 (0x00000000)
+    -> exit=0 (returned)
+
+## case c-native
+    [c] native rc=-3 (Err)
+    -> exit=0 (returned)
+
+## case u32-ffi
+    [u32] ffi rc=-5 (AK_ERR_LIMIT is -5; a clean reject means the guard is present)
+    -> exit=0 (returned)
+
+## case nested2-ffi
+    [nested2] ffi   Err(-3) (must be Err)
+    -> exit=0 (returned)
+
+## case nested2-native
+    [nested2] native Err(-3) (must be Err)
+    -> exit=0 (returned)
+
+# cases that did not return promptly: 0
+
+===== 10. R-D6 sticky error slot =====
+# FIX-PLAN WP4 item 7 / R-D6: the sticky error slot, ABI v1 section 5
+# rule: rc < 0, and zero upcalls after the host's ak_fail (apply included)
+E1 encode M1, loop fails, returns AK_OK      rc=-1   upcalls=1 after_fail=0 apply_called=false ak_enc_err=-1  PASS
+E2 encode M2, inner element loop fails       rc=-1   upcalls=2 after_fail=0 apply_called=false   PASS
+D1 decode M1, add fails                      rc=-1   upcalls=1 after_fail=0 apply_called=false   PASS
+D2 decode M2, new_tasks fails                rc=-1   upcalls=1 after_fail=0 apply_called=false   PASS
+D2b decode M2, inner add (parent_task_ids) fails rc=-1   upcalls=2 after_fail=0 apply_called=false   PASS
+D3 decode M1, root unknown-field upcall fails rc=-1   upcalls=2 after_fail=0 apply_called=false   PASS
+D4 decode M2, new_tasks returns token -1     rc=-1   upcalls=1 after_fail=0 apply_called=false (token -1, no ak_fail)  PASS
+ALL PASS
+
+===== 11. the conformance corpus, C ABI and core-native, drop and retain =====
+# commit 24dce7d + uncommitted changes in poc/rust or poc/codec; rustc 1.94.1
+===== 1. generators current =====
+ok    corpus/crates/facade/src/generated/types.rs
+ok    corpus/crates/facade/src/generated/core_native.rs
+ok    corpus/crates/facade/src/generated/core_native_retain.rs
+ok    corpus/crates/facade/src/generated/project.rs
+ok    corpus/crates/harness/src/generated/binding.rs
+ok    corpus/crates/harness/src/generated/dispatch.rs
+ok    ../codec/crates/ak-abi/src/generated_corpus/abi.rs
+ok    ../codec/crates/ak-core/src/generated_corpus/codec.rs
+===== 2. build =====
+# libak_core.so => /home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release/deps/libak_core.so
+# the loaded core is the corpus-schema build: 1 ak_decode_WireZoo export(s)
+===== 3. the corpus, four arms =====
+# the conformance corpus, C ABI and core-native, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (691 rows)
+#   core       ak-core --features corpus,init-guard: the core generated for the corpus's
+#              READER schema by poc/codec/gen (plan.py + rust_abi.py); CONTRACT rule 0
+#   native     core_native / core_native_retain, rendered from the same plans
+#   decode utf8 policy: reject; recursion limit 100
+#   each row in a child process, timeout 10000 ms
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+
+## ffi-drop
+   pass 672  fail 0  disputed (excluded) 3  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  156  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  310  fail   0
+   forms written (C3):
+      182  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       45  unknown-dropped
+       25  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   disputed: U-map-entry [ffi-drop]: accepted; projection matches the reading of null
+   disputed: X-tag-zero-Empty [ffi-drop]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [ffi-drop]: refused (-2)
+
+## ffi-retain
+   pass 672  fail 0  disputed (excluded) 3  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  156  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  310  fail   0
+   forms written (C3):
+      368  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+       97  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        8  unknown-dropped
+        9  unknown-dropped / unknown-dropped, map values always written
+        6  unknown-retained, appended in tag order
+   disputed: U-map-entry [ffi-retain]: accepted; projection matches the reading of null
+   disputed: X-tag-zero-Empty [ffi-retain]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [ffi-retain]: refused (-2)
+   retain mode wrote the DROPPED form on 17 row(s) (accepted by the contract; a retention gap):
+     U-deep-all (ffi-retain)
+     U-deep-u-fixed32 (ffi-retain)
+     U-deep-u-fixed64 (ffi-retain)
+     U-deep-u-len (ffi-retain)
+     U-deep-u-msg (ffi-retain)
+     U-deep-u-packed (ffi-retain)
+     U-deep-u-repeated (ffi-retain)
+     U-deep-u-varint (ffi-retain)
+     U-leaf-all (ffi-retain)
+     U-leaf-u-fixed32 (ffi-retain)
+     U-leaf-u-fixed64 (ffi-retain)
+     U-leaf-u-len (ffi-retain)
+     U-leaf-u-msg (ffi-retain)
+     U-leaf-u-packed (ffi-retain)
+     U-leaf-u-repeated (ffi-retain)
+     U-leaf-u-varint (ffi-retain)
+     U-map-entry (ffi-retain)
+
+## native-drop
+   pass 688  fail 0  disputed (excluded) 3  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  316  fail   0
+   forms written (C3):
+      189  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       45  unknown-dropped
+       25  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   disputed: U-map-entry [native-drop]: accepted; projection matches the reading of null
+   disputed: X-tag-zero-Empty [native-drop]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [native-drop]: refused (-2)
+
+## native-retain
+   pass 688  fail 0  disputed (excluded) 3  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  316  fail   0
+   forms written (C3):
+      389  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        1  unknown-dropped / unknown-dropped, map values always written
+        6  unknown-retained, appended in tag order
+   disputed: U-map-entry [native-retain]: accepted; projection matches the reading of null
+   disputed: X-tag-zero-Empty [native-retain]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [native-retain]: refused (-2)
+   retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
+     U-map-entry (native-retain)
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on all four arms
+===== 4. controls (each MUST FAIL) =====
+  control proj: failed as required (104 arm-row failures)
+  control reenc: failed as required (104 arm-row failures)
+  control accept: failed as required (228 arm-row failures)
+  control noinit: failed as required: 52 C ABI arm-row failures, 0 native (native has no ak_init to skip)
+       FAIL E-map-dup-key [ffi-drop]: C1: refused with -10
+       FAIL E-map-empty-value-written [ffi-drop]: C1: refused with -10
+CORPUS GATE PASSED
+
+GATE PASSED
+exit 0

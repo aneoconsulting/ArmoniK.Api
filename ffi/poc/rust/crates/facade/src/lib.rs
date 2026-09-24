@@ -6,6 +6,10 @@
 pub mod generated {
     pub mod build;
     pub mod core_native;
+    /// The same codec rendered with the plan's unknown-field option set to RETAIN
+    /// (FIX-PLAN WP5, owner position 6): unknown fields captured into `unknown_fields` and
+    /// re-emitted after the known ones. `core_native` is the DROP rendering.
+    pub mod core_native_retain;
     pub mod prost_impl;
     pub mod types;
 }

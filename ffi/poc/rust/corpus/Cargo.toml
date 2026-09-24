@@ -1,0 +1,16 @@
+# FIX-PLAN WP5 item 6.1: the conformance corpus through the C ABI and core-native, in both
+# unknown-field modes. A workspace of its OWN, because it builds the shared core with the
+# test-only `corpus` feature -- the ABI generated for ffi/corpus's reader schema -- and a
+# feature that changes the ABI must never be unified into a build of the shapes.json core.
+[workspace]
+resolver = "2"
+members = ["crates/facade", "crates/harness"]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.88"
+version = "0.0.0"
+publish = false
+
+[profile.release]
+lto = false

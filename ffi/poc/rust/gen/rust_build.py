@@ -271,7 +271,7 @@ def emit_payloads(ir):
     """
     o = ["", "// ---- payloads ----------------------------------------------------------", ""]
     ids = []
-    for pid, spec in ir.schema["payloads"].items():
+    for pid, spec in ir.payloads.items():
         root = spec["root"]
         if root not in ir.messages:
             continue
