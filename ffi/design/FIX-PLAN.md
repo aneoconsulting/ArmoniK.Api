@@ -600,3 +600,4 @@ Disposition column is filled in as work lands.
 |---|---|---|---|
 | R-F1 | C#, Java, Python, C++ `STATE.md` contradict themselves on what exists | CM, X, CN | |
 | R-F2 | Python `STATE.md` "concurrency still unanswered" vs suite present; `57-gc-bias.log` closing line contradicts `bench.py` | MM, CM | |
+| R-F3 | Python P2.2 crossing counts: `STATE.md` gives 10.02 / 7.00 (C extension type) and 32 (Python storages); `logs/python/53-conformance-all-shapes.log` gives 51.67 / 51.67 against 146.68 / 131.35. Found while rewriting `findings/python.md`, which now cites the log | WP2 | |
