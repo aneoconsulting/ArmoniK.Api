@@ -173,6 +173,10 @@ public sealed class CoreChannel : IDisposable
 
     public unsafe CoreChannel(string uri, int workerThreads, AkClientOpts? opts = null)
     {
+        // ABI v1 section 3: ak_init before any other entry point. The codec
+        // binding does it in its static constructor; this is the same call,
+        // reached from the transport's own imports.
+        Armonik.Ffi.Harness.AbiInit.Ensure();
         _rt = AkRpc.ak_runtime_new((uint)workerThreads);
         if (_rt == IntPtr.Zero) throw new InvalidOperationException("ak_runtime_new");
         var u = Encoding.UTF8.GetBytes(uri);
@@ -223,9 +227,7 @@ public sealed class CoreChannel : IDisposable
         if (call == IntPtr.Zero) { h.Free(); throw new InvalidOperationException("ak_call_unary_cb"); }
         await st.Tcs.Task.ConfigureAwait(false);
         AkRpc.ak_call_destroy(call);
-        if (st.Status != AkRpc.AK_OK)
-            throw new InvalidOperationException("core call status " + st.Status);
-        return st.Bytes;
+        return TakeOrThrow(st);
     }
 
     // ---- the blocking call, the labelled row ---------------------------------
@@ -236,12 +238,18 @@ public sealed class CoreChannel : IDisposable
     /// but a parked thread-pool thread is still a thread-pool thread.
     public unsafe AkBytes CallBlocking(byte[] path, byte[] req)
     {
-        AkBytes b;
+        AkBytes b = default;
         int rc;
         fixed (byte* p = path)
         fixed (byte* r = req)
             rc = AkRpc.ak_call_unary(_cl, p, (nuint)path.Length, r, (nuint)req.Length, &b);
-        if (rc != AkRpc.AK_OK) throw new InvalidOperationException("ak_call_unary rc " + rc);
+        if (rc != AkRpc.AK_OK)
+        {
+            // Same rule as TakeOrThrow (R-D9): `out` starts zeroed, so this is a
+            // no-op unless the core wrote an owned body before failing.
+            Release(ref b);
+            throw new InvalidOperationException("ak_call_unary rc " + rc);
+        }
         return b;
     }
 
@@ -288,9 +296,22 @@ public sealed class CoreChannel : IDisposable
         if (call == IntPtr.Zero) { _pending.TryRemove(tag, out _); throw new InvalidOperationException("ak_call_unary_q"); }
         await st.Tcs.Task.ConfigureAwait(false);
         AkRpc.ak_call_destroy(call);
-        if (st.Status != AkRpc.AK_OK)
-            throw new InvalidOperationException("core call status " + st.Status);
-        return st.Bytes;
+        return TakeOrThrow(st);
+    }
+
+    /// R-D9: a completion owns its `bytes` whatever its status, and
+    /// `ak_bytes_free` is the one release path (ABI v1 section 9). Today's core
+    /// hands back an empty `ak_bytes` on failure, so the free is a no-op there,
+    /// but the binding must not depend on that: a core that attaches an error
+    /// body would otherwise leak it on every failed call. Freed BEFORE the
+    /// throw, so no exception path can skip it.
+    private static AkBytes TakeOrThrow(CallState st)
+    {
+        if (st.Status == AkRpc.AK_OK) return st.Bytes;
+        var b = st.Bytes;
+        st.Bytes = default;
+        Release(ref b);
+        throw new InvalidOperationException("core call status " + st.Status);
     }
 
     /// The second crossing, and the only other one.

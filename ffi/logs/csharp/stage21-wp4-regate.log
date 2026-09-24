@@ -1,0 +1,1498 @@
+# csharp slice, WP4 re-gate (FIX-PLAN WP4 item 10 / R-D9, item 2's corpus rows). CORRECTNESS ONLY: no timing is taken.
+# date:          2026-09-24T16:13:19Z
+# branch HEAD:   1c6996427bb0fc6f48165a6cf875dd6304f4ce90; the slice's own changes are in the commit that adds this log
+# core:          ffi/poc/codec snapshot via 'git archive HEAD ffi/poc/codec' (last core commit 6ede244),
+#                built in scratch: --features rpc -> poc/csharp/target-core (sha256 1e4f241b5829cb55...),
+#                --features "rpc count" -> poc/csharp/target-core-count (sha256 cd329fa323eb2129...)
+# layout probe:  abi/ rebuilt against the SNAPSHOT's ak-abi: output identical to gen/abi-layout.json
+# corpus:        ffi/corpus at c1c97ff, 691 vectors
+# runtimes:      .NET 8.0.31 (SDK 8.0.131, Ubuntu 24.04 'dotnet-sdk-8.0' package);
+#                net6.0 managed floor: self-contained publish, runtime pack Microsoft.NETCore.App.Runtime.linux-x64  from NuGet
+# incumbent:     Google.Protobuf 3.28.3 (FIX-PLAN WP3 item 17 names 3.32.0; not moved in this unit)
+# machine:       container, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz, 6.18.44-fc-v37
+# arms:          a = target sources, net8.0; b = floor sources (/p:AkFloor=true), net8.0;
+#                strict = /p:AkStrict=true (ABI v1 decision 3's rejecting UTF-8 policy), net8.0;
+#                net6 = floor sources linked by src/HarnessFloor with TargetFramework net48 -> net6.0 in a SCRATCH
+#                copy only (sed on the csproj; nothing committed), core-ffi excluded as on net48
+
+################ generator --check
+$ python3 gen/generate.py --check
+Error processing line 1 of /usr/lib/python3/dist-packages/distutils-precedence.pth:
+
+  Traceback (most recent call last):
+    File "<frozen site>", line 201, in addpackage
+    File "<string>", line 1, in <module>
+  ModuleNotFoundError: No module named '_distutils_hack'
+
+Remainder of file ignored
+ok    src/Facade/Generated/Build.cs
+ok    src/Facade/Generated/Codec.cs
+ok    src/Facade/Generated/Eq.cs
+ok    src/Facade/Generated/Types.cs
+ok    src/Facade/Generated/Values.cs
+ok    src/Harness/Corpus/Codec.cs
+ok    src/Harness/Corpus/Eq.cs
+ok    src/Harness/Corpus/Proj.cs
+ok    src/Harness/Corpus/Types.cs
+ok    src/Harness/Generated/Abi.cs
+ok    src/Harness/Generated/Arms.cs
+ok    src/Harness/Generated/BuildGp.cs
+ok    src/Harness/Generated/CoreArms.cs
+ok    src/Harness/Generated/Core_DualResponse.cs
+ok    src/Harness/Generated/Core_ListMetricsResponse.cs
+ok    src/Harness/Generated/Core_ListProbeResponse.cs
+ok    src/Harness/Generated/Core_ListResultsResponse.cs
+ok    src/Harness/Generated/Core_ListTaskSummaryResponse.cs
+ok    src/Harness/Generated/Core_ListTasksDetailedResponse.cs
+ok    src/Harness/Generated/Core_UploadResultDataMessage.cs
+19 messages, 72 length-prefix sites, walker guard passed on 1 message(s) with a oneof
+exit status: 0
+
+################ arm a: conformance
+$ dotnet src/Harness/bin/Release/net8.0/harness.dll conformance
+# harness: conformance
+# utc:                 2026-09-24T16:13:20Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# decode UTF-8 policy: lossy, U+FFFD substituted, which is what Google.Protobuf also does
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+payload  shape  root                        bytes  gp-tba  gp-wto  gp-bw   gp-mar  managed  2pass  vector  mrt  grt  value
+--------------------------------------------------------------------------------------------------------------------------------------
+P1.1     M1     ListResultsResponse          858  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P1.2     M1     ListResultsResponse       218121  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P1.3     M1     ListResultsResponse          605  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.1     M2     ListTasksDetailedResponse    1037  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.2     M2     ListTasksDetailedResponse  540422  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.3     M2     ListTasksDetailedResponse  647024  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.4     M2     ListTasksDetailedResponse  979465  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.5     M2     ListTasksDetailedResponse   19632  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P3.1     M3     ListProbeResponse          12097  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P4.1     M4     ListTaskSummaryResponse    65321  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.1     M5     UploadResultDataMessage      116  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.2     M5     UploadResultDataMessage    65620  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.3     M5     UploadResultDataMessage  1048660  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.4     M5     UploadResultDataMessage  4194390  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P6.1     M6     ListMetricsResponse       123354  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P7.1     -      DualResponse                  98  perm    perm    perm    perm    perm     perm   perm    ok   ok   ok
+
+152 checks, 0 failure(s)
+exit status: 0
+
+################ arm a: unknown
+$ dotnet src/Harness/bin/Release/net8.0/harness.dll unknown
+# harness: unknown
+# utc:                 2026-09-24T16:13:21Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# decode UTF-8 policy: lossy, U+FFFD substituted, which is what Google.Protobuf also does
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+vector                     bytes  gp-dec  man-dec  known-values-agree  gp-retains  man-retains
+------------------------------------------------------------------------------------------------------------
+root-varint-between          861  ok      ok       ok                  YES         no
+root-len                     865  ok      ok       ok                  YES         no
+elem-varint-interleaved      860  ok      ok       ok                  YES         no
+elem-i64                     868  ok      ok       ok                  YES         no
+elem-i32                     864  ok      ok       ok                  YES         no
+elem-len-nested              867  ok      ok       ok                  YES         no
+oneof-unrecognised-member  12099  ok      ok       ok                  YES         no
+
+  root-varint-between       unknown varint at the ROOT, tag 4, above every known root tag (1..3)
+  root-len                  unknown length-delimited field at the root
+  elem-varint-interleaved   unknown varint INSIDE element 0, at tag 7 -- the gap ResultRaw leaves between `completed_at` (6) and `result_id` (8), so it sits numerically BETWEEN two known tags
+  elem-i64                  unknown fixed64 inside element 0
+  elem-i32                  unknown fixed32 inside element 0
+  elem-len-nested           unknown length-delimited field inside element 0 whose body is itself a message -- a decoder that recursed into it rather than skipping it would report the inner tags as unknown fields of the OUTER message
+  oneof-unrecognised-member an unrecognised ONEOF member: tag 15 sits one past `as_nothing` (14) in Probe.body. design/SHAPES.md's row says this CANNOT round trip in any arm, because the grouping lives only in the descriptor and a parser cannot tell it from any other unknown field
+
+Reading the two retention columns.
+  `YES` means the arm's re-encode differs from the payload with the unknown
+  field removed, which for these vectors means it wrote the unknown field back.
+
+  Google.Protobuf keeps an UnknownFieldSet per message and writes it back, so a
+  message round-tripped through .NET today preserves a field this build has never
+  heard of. The managed codec as generated has no bag and drops it. Both accept
+  the input and neither loses a KNOWN value, so this is not a correctness gate;
+  it is ABI v1 open decision 11 with a cost attached, and on .NET the cost is a
+  guarantee that exists today and would be removed. prost drops unknown fields
+  too, which is why the Rust slice could not price this.
+
+  The oneof vector is the one design/SHAPES.md says cannot round trip in ANY arm.
+  Google.Protobuf retains the BYTES of tag 15 but the case stays at whatever
+  member the element already carried; the grouping is descriptor-only, so no
+  parser can recover the intent. Retention makes the bytes survive and does not
+  make the VALUE survive, and those are different claims.
+
+0 failure(s) -- a FAIL in a decode column, or a managed re-encode that is not
+the baseline (the managed codec is supposed to drop, so differing means a known
+value moved, which would be a real defect).
+exit status: 0
+
+################ arm a: groups
+$ dotnet src/Harness/bin/Release/net8.0/harness.dll groups
+# harness: groups
+# utc:                 2026-09-24T16:13:22Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# decode UTF-8 policy: lossy, U+FFFD substituted, which is what Google.Protobuf also does
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+The GROUP vectors from ffi/corpus. proto3 cannot express one, so this is
+the one class of unknown field the schema's own manifest cannot test.
+
+vector                   bytes  expect  incumbent  managed  agree  note
+----------------------------------------------------------------------------------------------------------------------
+U-root-group              461  accept  ok         ok       yes    a group at the top level of the message that crosses the wire
+U-nested-group            244  accept  ok         ok       yes    a group INSIDE an element of a repeated field
+U-oneof-group              95  accept  ok         ok       yes    a group on a message that actually has a oneof
+X-group-unterminated       10  reject  ok         ok       yes    a group that is never closed (corpus root WireZoo; read here under ListResultsResponse, where tag 120 is equally unknown)
+X-group-mismatched-end     12  reject  ok         ok       yes    END_GROUP with a field number that does not match the group that opened (same substitution)
+
+And the case no vector covers, because a corpus of malformed bytes has to
+stop somewhere: 200 nested start tags, past the 100 the skipper allows.
+AK_NEST sets the depth. At 200 the bound is what makes the rejection say
+ErrDepth rather than ErrTruncated -- an unbounded skipper still rejects
+this one, for the wrong reason. Deep enough and an unbounded skipper does
+not reject at all: it overflows the stack, which .NET cannot catch.
+  err = -8, ErrDepth, and the process is still here
+  Google.Protobuf: rejected, InvalidProtocolBufferException
+
+The same at 200,000, which is past where an unbounded skipper aborts:
+  err = -8, ErrDepth, and the process is still here
+
+0 failure(s)
+exit status: 0
+
+################ arm a: utf8
+$ dotnet src/Harness/bin/Release/net8.0/harness.dll utf8
+# harness: utf8
+# utc:                 2026-09-24T16:13:22Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# decode UTF-8 policy: lossy, U+FFFD substituted, which is what Google.Protobuf also does
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+Malformed UTF-8 in a string field: what each arm does with it.
+
+Root-site vectors only. The corpus reads these under `Surrogate`; this
+reads them as `ResultRaw`, whose field 1 is also a string, because the
+incumbent assembly is generated from ffi/schema and has no Surrogate. The
+nested, map-key, map-value and repeated sites are NOT covered here.
+
+vector                              incumbent                     managed control
+----------------------------------------------------------------------------------------------------
+T-dec-root-above-10ffff             accepted, 4 chars             accepted, 4 chars
+T-dec-root-cesu8-pair               accepted, 6 chars             accepted, 6 chars
+T-dec-root-f5-lead                  accepted, 4 chars             accepted, 4 chars
+T-dec-root-fe-ff                    accepted, 2 chars             accepted, 2 chars
+T-dec-root-five-byte                accepted, 5 chars             accepted, 5 chars
+T-dec-root-lead-no-continuation     accepted, 1 chars             accepted, 1 chars
+T-dec-root-lone-continuation        accepted, 1 chars             accepted, 1 chars
+T-dec-root-overlong-2               accepted, 2 chars             accepted, 2 chars
+T-dec-root-overlong-3               accepted, 3 chars             accepted, 3 chars
+T-dec-root-overlong-4               accepted, 4 chars             accepted, 4 chars
+T-dec-root-overlong-nul             accepted, 2 chars             accepted, 2 chars
+T-dec-root-surrogate-d800           accepted, 3 chars             accepted, 3 chars
+T-dec-root-surrogate-dfff           accepted, 3 chars             accepted, 3 chars
+T-dec-root-truncated-3              accepted, 1 chars             accepted, 1 chars
+T-dec-root-truncated-4              accepted, 1 chars             accepted, 1 chars
+
+15 vectors: the incumbent rejected 0, the managed control rejected 0.
+
+THE TWO ARMS AGREE, so the decode comparison is like for like and the
+managed decode margin is not bought by skipping validation. Both are
+non-conformant against CONTRACT.md's transcode class in the same way,
+which is ABI v1 open decision 3 and a policy question, not a defect in
+the comparison.
+
+For reference, what .NET's own strict decoder does with the same bodies:
+  new UTF8Encoding(false, throwOnInvalidBytes: true) rejects 15 of 15.
+  So a validating managed arm is one constructor argument away, and
+  pricing it is what ABI v1 decision 3 asks for on .NET.
+exit status: 0
+
+################ arm a: mapforms
+$ dotnet src/Harness/bin/Release/net8.0/harness.dll mapforms
+# harness: mapforms
+# utc:                 2026-09-24T16:13:22Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# decode UTF-8 policy: lossy, U+FFFD substituted, which is what Google.Protobuf also does
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+Which form does each encoder produce on P2.5?
+
+  manifest (prost's rule, empty map value OMITTED) : 19632 B
+  Google.Protobuf ToByteArray                      : 19632 B  -> OMITS it, same as the manifest
+  the generated managed codec                      : 19632 B  -> OMITS it, same as the manifest
+
+  So on .NET both arms produce the manifest's form. protobuf C++ and upb
+  write the empty value and would produce 19712 B. That is a difference
+  between runtimes, not a defect in any of them.
+
+The +80 B form, built by rewriting the committed vector:
+  empty map values inserted : 40
+  bytes                     : 19712 (manifest 19632, delta 80)
+  expected                  : 19712 B and 40 insertions -- ok
+
+Does every decoder read BOTH forms, and agree on the value?
+
+decoder         form      result
+----------------------------------------------------------------
+managed         canonical ok, equals the built graph
+gp-parse        canonical ok, re-encodes to the canonical form
+managed         +80 B     ok, equals the built graph
+gp-parse        +80 B     ok, re-encodes to the canonical form
+
+Reading this.
+  Both decoders normalise the +80 B form back to the canonical one, because
+  an empty map value and an absent map value are the SAME facade value and
+  neither encoder writes it. So the two forms round-trip to one another's
+  values and this slice's byte-identity gate is unaffected.
+
+  A P2.5 TIMING row therefore carries the manifest's 19,632 B in every arm
+  of this slice, and is not comparable with a slice whose encoder writes
+  19,712 B: 80 bytes and 40 extra fields are not the same work.
+
+0 failure(s)
+exit status: 0
+
+################ arm a: corpus
+$ dotnet src/Harness/bin/Release/net8.0/harness.dll corpus
+# harness: corpus
+# utc:                 2026-09-24T16:13:22Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# decode UTF-8 policy: lossy, U+FFFD substituted, which is what Google.Protobuf also does
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+An INDEPENDENT oracle, for the roots `ffi/schema` also has: the same
+bytes through `Google.Protobuf`, found by descriptor name. The corpus's own
+expectations were computed with upb, and where the two disagree the
+question R14 asks is what the library ArmoniK runs actually does.
+  accept/reject agrees on 395 vectors, differs on 0, 296 have no incumbent type.
+
+ffi/corpus, consumed. CONTRACT.md C1 (parse), C2 (project), C3 (re-encode
+to an accepted form), C4 (refuse, and name the error). C5 is the produce
+half and is reported separately below.
+
+Codec generated from generated/corpus.proto, NEVER from
+corpus_superset.proto (rule 0). The runtime under it -- Enc, Dec, W,
+OrderedMap -- is the SAME source the measured arms use.
+
+class        vectors   C1 parse   C2 project   C3 re-encode   C4 refuse   skipped
+--------------------------------------------------------------------------------------------
+baseline           8     8/8         6 (+2 n/a)      8/8           0/0            0
+chunking           8     8/8         5 (+3 n/a)      8/8           0/0            0
+empty             30    30/30       30             30/30          0/0            0
+malformed        112     0/0         0              0/0         110/110          0
+shape            163   163/163     163            163/163         0/0            0
+transcode         53    22/22       22             22/22          0/31           0
+unknown          317   316/316     316            316/316         0/0            0
+--------------------------------------------------------------------------------------------
+TOTAL            691
+
+FAILURES, by id:
+  T-dec-map-key-above-10ffff       transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-key-lone-continuation  transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-key-overlong-nul       transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-key-surrogate-d800     transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-value-above-10ffff     transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-value-lone-continuation transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-value-overlong-nul     transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-value-surrogate-d800   transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-nested-above-10ffff        transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-nested-lone-continuation   transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-nested-overlong-nul        transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-nested-surrogate-d800      transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-repeated-above-10ffff      transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-repeated-lone-continuation transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-repeated-overlong-nul      transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-repeated-surrogate-d800    transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-above-10ffff          transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-cesu8-pair            transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-f5-lead               transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-fe-ff                 transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-five-byte             transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-lead-no-continuation  transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-lone-continuation     transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-overlong-2            transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-overlong-3            transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-overlong-4            transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-overlong-nul          transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-surrogate-d800        transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-surrogate-dfff        transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-truncated-3           transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-truncated-4           transcode  C1=- C2=- C3=- C4=ACCEPTED!
+
+DISPUTED rows (CONTRACT.md 1.5): 3, EXCLUDED from every count above and from
+pass/fail. Which way this codec went, and Google.Protobuf beside it:
+  U-map-entry                      accept    this codec: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+                                             Google.Protobuf: accepted: ... "options": { "options": { "k00": "alpha800", "k01": "alpha656", "k02": "echo180", "k03": "bravo161" }, "maxDuration": { }, "maxRetries": 73189, "priority": 38870, "partitionId": "foxtrot381", "applicationName": "november773", "applicationVe ...
+  X-tag-zero-Empty                 reject    this codec: refused (Err -4 (malformed))
+                                             Google.Protobuf: refused (InvalidProtocolBufferException)
+  X-tag-zero-nested-Empty          reject    this codec: refused (Err -4 (malformed))
+                                             Google.Protobuf: refused (InvalidProtocolBufferException)
+
+C3: which accepted form this slice's encoder produced.
+    189  as committed
+    162  unknown-dropped: the known field as it was, the foreign-typed one gone
+     81  unknown-dropped: the known field as it was, the foreign-typed one gone+unknown-dropped, map values always written
+     45  unknown-dropped
+     24  unknown-dropped+unknown-dropped, map values always written
+     18  as committed+map values always written (protobuf C++, upb, protobuf-java)
+      7  as committed in ffi/schema/generated
+      5  as committed+map values always written
+      3  canonical: omitted
+      3  canonical: ten-byte sign-extended
+      2  canonical: packed
+      1  as upb writes it: the same message in a different field ORDER
+      1  canonical: the zero leaves omitted
+      1  canonical: one entry, the last value
+      1  canonical: the empty value omitted
+      1  canonical: ascending by tag+key and value always written
+      1  canonical: one member
+      1  canonical: one run
+      1  canonical: each repeated field contiguous
+
+C4: the error this decoder actually returned, per reject vector.
+   72x Err -3 (truncated)
+   36x Err -4 (malformed)
+   31x (none)
+    2x Err -8 (depth)
+
+ABI v1 open decision 11, answered for C#: this slice's generated codec
+DROPS unknown fields. 329 projected `_unknown` block(s) the corpus
+expected are absent here, and CONTRACT.md section 3 makes comparing them
+optional for exactly that reason. `Google.Protobuf` RETAINS them, so the
+behaviour change is visible on .NET: see stage1-conformance.log.
+
+3 projected value(s) matched numerically but not textually (double spelling: %.17g against G17).
+THE REMAINING DIVERGENCE, A POLICY RATHER THAN A DEFECT THIS SLICE FIXES ALONE.
+
+The 31 T-dec-* vectors: malformed UTF-8 in a string field, which
+CONTRACT.md says a conformant parser must reject. This build accepts
+them, because it reads strings through Encoding.UTF8, which SUBSTITUTES
+U+FFFD. Google.Protobuf does the same (`harness utf8`). The rejecting
+policy is the separate /p:AkStrict=true build (ABI v1 open decision 3).
+
+U-map-entry, which earlier runs listed here, is a DISPUTED row in the corpus
+now and is reported in the disputed section above, outside pass/fail.
+
+C5 (produce) and the chunking class, stated rather than claimed:
+  * C5 asks a slice to BUILD each message from the description and encode
+    it. This slice has payload builders for `ffi/schema`'s roots only, and
+    `harness conformance` is that claim: byte identity on all 16 payloads.
+    For the corpus's own roots there is no builder, so C3 (re-encode what
+    was parsed) is what runs and C5 is NOT claimed for them.
+  * The chunking class asks a batching host to run each vector at more than
+    one chunk. **The managed codec does not batch at all** -- it walks the
+    host's own containers in one pass -- so per CONTRACT.md it says so and
+    that is its gap. The core-ffi arm DOES batch and is measured at two
+    chunk sizes (AK_CHUNK), but its binding exists for ffi/schema's roots
+    only and the chunking roots are corpus-only, so it cannot reach them.
+
+31 failure(s) (31 T-dec policy, 0 U-map-entry, 0 other), 0 not run
+exit status: 0
+
+################ arm a: coreffi, rpc core
+$ dotnet src/Harness/bin/Release/net8.0/harness.dll coreffi
+# harness: coreffi
+# utc:                 2026-09-24T16:13:22Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# decode UTF-8 policy: lossy, U+FFFD substituted, which is what Google.Protobuf also does
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+Layout agreement (ABI v1 obligation 12.3, as far as it goes here):
+  ok: 42 structs and 28 vtables match the Rust build; core ak_abi_version()=1; ak_init()=0
+
+core-ffi through the C ABI, every shape. Strings are handed over as staged UTF-8 with ak_tc_bytes.
+  chunk = the whole run elements per element-entry call
+
+                                                   encode crossings    decode crossings
+                                                   encode xings  push dec     pull dec
+payload  root                          bytes  enc  dec  val  pull R5    fwd  rev   fwd  rev   fwd  rev   pull buf
+------------------------------------------------------------------------------------------------------------
+P1.1     ListResultsResponse            858  ok   ok   ok   ok   -       2    1     1    2     2    0       576
+P1.2     ListResultsResponse         218121  ok   ok   ok   ok   -       2    1     1    5     2    0    128136
+P1.3     ListResultsResponse            605  ok   ok   ok   ok   -       2    1     1    3     2    0     38488
+P2.1     ListTasksDetailedResponse     1037  ok   ok   ok   ok   -       7    6     1    8     2    0       912
+P2.2     ListTasksDetailedResponse   540422  ok   ok   ok   ok   -    2502 2501     1 3501     2    0    436040
+P2.3     ListTasksDetailedResponse   647024  ok   ok   ok   ok   -     627  626     1  876     2    0    269040
+P2.4     ListTasksDetailedResponse   979465  ok   ok   ok   ok   -     402  401     1  561     2    0    351400
+P2.5     ListTasksDetailedResponse    19632  ok   ok   ok   ok   -     102  101     1  141     2    0     17480
+P3.1     ListProbeResponse            12097  ok   ok   ok   ok   -       2    1     1    2     2    0     19256
+P4.1     ListTaskSummaryResponse      65321  ok   ok   ok   ok   -     202  201     1  601     2    0     75232
+P5.1     UploadResultDataMessage        116  ok   ok   ok   ok   -       1    0     1    1     2    0        72
+P5.2     UploadResultDataMessage      65620  ok   ok   ok   ok   -       1    0     1    1     2    0        72
+P5.3     UploadResultDataMessage    1048660  ok   ok   ok   ok   -       1    0     1    1     2    0        72
+P5.4     UploadResultDataMessage    4194390  ok   ok   ok   ok   -       1    0     1    1     2    0        72
+P6.1     ListMetricsResponse         123354  ok   ok   ok   ok   -    1002 1001     1 1401     2    0    187232
+P7.1     DualResponse                    98  perm ok   ok   ok   -       3    2     1    3     2    0       208
+
+R5: the host's tally and the core's counters are not comparable here -- this core was not built with --features count.
+
+Reading the crossing columns. THEY ARE THE SAME QUANTITY as the core's own,
+and this slice said otherwise once. The only thing the core counts that a
+host tally cannot see is a TRANSCODER call, and both string forms this
+binding offers are pointers into the core, so it invokes none of its own.
+The gap once reported against the rust slice was a CHUNK SIZE: set
+AK_CHUNK=150 and the columns match to the digit. See JOURNAL.md 19.
+
+What the counts mean, and the whole reason the shapes differ:
+  THE PULL COLUMN IS THE POINT OF THE LAST TWO. `ak_parse_*` makes no
+  reverse call at all: it appends a record per deposit to a buffer in the
+  host-owned decode context, and the host replays it afterwards. So pull's
+  reverse count is ZERO on every shape, where push's is 2 to 3,501, and the
+  two forward calls are ak_parse_* and ak_bdr_ptr. design/ABI-v1.md decision
+  2 says four of five slices have only measured push; this is the managed
+  pull arm it asks for, gated against push on the same bytes and the same
+  comparer. `pull buf` is what it trades the upcalls FOR: the record
+  buffer's high-water mark in the decode context (ak_bdr_footprint), so
+  the trade reads in both directions and not only in time.
+
+  A LEAF element batches (ABI v1 section 6), so the run crosses once
+  whatever its length and the count is CONSTANT in the element count.
+  A non-leaf cannot: section 7.2 refuses it, and the count becomes
+  LINEAR -- a reverse call per loop slot per element on encode, and
+  new+apply per element plus a run per inner field on decode.
+
+0 failure(s)
+exit status: 0
+
+################ arm a: coreffi, COUNTING core (R5 against the core's own counters)
+$ dotnet src/Harness/bin/Release/net8.0/harness.dll coreffi
+# harness: coreffi
+# utc:                 2026-09-24T16:13:23Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# decode UTF-8 policy: lossy, U+FFFD substituted, which is what Google.Protobuf also does
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+Layout agreement (ABI v1 obligation 12.3, as far as it goes here):
+  ok: 42 structs and 28 vtables match the Rust build; core ak_abi_version()=1; ak_init()=0
+
+core-ffi through the C ABI, every shape. Strings are handed over as staged UTF-8 with ak_tc_bytes.
+  chunk = the whole run elements per element-entry call
+
+                                                   encode crossings    decode crossings
+                                                   encode xings  push dec     pull dec
+payload  root                          bytes  enc  dec  val  pull R5    fwd  rev   fwd  rev   fwd  rev   pull buf
+------------------------------------------------------------------------------------------------------------
+P1.1     ListResultsResponse            858  ok   ok   ok   ok   ok      2    1     1    2     2    0       576
+P1.2     ListResultsResponse         218121  ok   ok   ok   ok   ok      2    1     1    5     2    0    128136
+P1.3     ListResultsResponse            605  ok   ok   ok   ok   ok      2    1     1    3     2    0     38488
+P2.1     ListTasksDetailedResponse     1037  ok   ok   ok   ok   ok      7    6     1    8     2    0       912
+P2.2     ListTasksDetailedResponse   540422  ok   ok   ok   ok   ok   2502 2501     1 3501     2    0    436040
+P2.3     ListTasksDetailedResponse   647024  ok   ok   ok   ok   ok    627  626     1  876     2    0    269040
+P2.4     ListTasksDetailedResponse   979465  ok   ok   ok   ok   ok    402  401     1  561     2    0    351400
+P2.5     ListTasksDetailedResponse    19632  ok   ok   ok   ok   ok    102  101     1  141     2    0     17480
+P3.1     ListProbeResponse            12097  ok   ok   ok   ok   ok      2    1     1    2     2    0     19256
+P4.1     ListTaskSummaryResponse      65321  ok   ok   ok   ok   ok    202  201     1  601     2    0     75232
+P5.1     UploadResultDataMessage        116  ok   ok   ok   ok   ok      1    0     1    1     2    0        72
+P5.2     UploadResultDataMessage      65620  ok   ok   ok   ok   ok      1    0     1    1     2    0        72
+P5.3     UploadResultDataMessage    1048660  ok   ok   ok   ok   ok      1    0     1    1     2    0        72
+P5.4     UploadResultDataMessage    4194390  ok   ok   ok   ok   ok      1    0     1    1     2    0        72
+P6.1     ListMetricsResponse         123354  ok   ok   ok   ok   ok   1002 1001     1 1401     2    0    187232
+P7.1     DualResponse                    98  perm ok   ok   ok   ok      3    2     1    3     2    0       208
+
+R5: the host's tally and the core's counters are compared above and equal on every row.
+
+Reading the crossing columns. THEY ARE THE SAME QUANTITY as the core's own,
+and this slice said otherwise once. The only thing the core counts that a
+host tally cannot see is a TRANSCODER call, and both string forms this
+binding offers are pointers into the core, so it invokes none of its own.
+The gap once reported against the rust slice was a CHUNK SIZE: set
+AK_CHUNK=150 and the columns match to the digit. See JOURNAL.md 19.
+
+What the counts mean, and the whole reason the shapes differ:
+  THE PULL COLUMN IS THE POINT OF THE LAST TWO. `ak_parse_*` makes no
+  reverse call at all: it appends a record per deposit to a buffer in the
+  host-owned decode context, and the host replays it afterwards. So pull's
+  reverse count is ZERO on every shape, where push's is 2 to 3,501, and the
+  two forward calls are ak_parse_* and ak_bdr_ptr. design/ABI-v1.md decision
+  2 says four of five slices have only measured push; this is the managed
+  pull arm it asks for, gated against push on the same bytes and the same
+  comparer. `pull buf` is what it trades the upcalls FOR: the record
+  buffer's high-water mark in the decode context (ak_bdr_footprint), so
+  the trade reads in both directions and not only in time.
+
+  A LEAF element batches (ABI v1 section 6), so the run crosses once
+  whatever its length and the count is CONSTANT in the element count.
+  A non-leaf cannot: section 7.2 refuses it, and the count becomes
+  LINEAR -- a reverse call per loop slot per element on encode, and
+  new+apply per element plus a run per inner field on decode.
+
+0 failure(s)
+exit status: 0
+
+################ arm a: coreffi, core built with features rpc+init-guard (sha256 7f0634dfd6aa5f11...)
+$ dotnet src/Harness/bin/Release/net8.0/harness.dll coreffi
+# harness: coreffi
+# utc:                 2026-09-24T16:13:24Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# decode UTF-8 policy: lossy, U+FFFD substituted, which is what Google.Protobuf also does
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+Layout agreement (ABI v1 obligation 12.3, as far as it goes here):
+  ok: 42 structs and 28 vtables match the Rust build; core ak_abi_version()=1; ak_init()=0
+
+core-ffi through the C ABI, every shape. Strings are handed over as staged UTF-8 with ak_tc_bytes.
+  chunk = the whole run elements per element-entry call
+
+                                                   encode crossings    decode crossings
+                                                   encode xings  push dec     pull dec
+payload  root                          bytes  enc  dec  val  pull R5    fwd  rev   fwd  rev   fwd  rev   pull buf
+------------------------------------------------------------------------------------------------------------
+P1.1     ListResultsResponse            858  ok   ok   ok   ok   -       2    1     1    2     2    0       576
+P1.2     ListResultsResponse         218121  ok   ok   ok   ok   -       2    1     1    5     2    0    128136
+P1.3     ListResultsResponse            605  ok   ok   ok   ok   -       2    1     1    3     2    0     38488
+P2.1     ListTasksDetailedResponse     1037  ok   ok   ok   ok   -       7    6     1    8     2    0       912
+P2.2     ListTasksDetailedResponse   540422  ok   ok   ok   ok   -    2502 2501     1 3501     2    0    436040
+P2.3     ListTasksDetailedResponse   647024  ok   ok   ok   ok   -     627  626     1  876     2    0    269040
+P2.4     ListTasksDetailedResponse   979465  ok   ok   ok   ok   -     402  401     1  561     2    0    351400
+P2.5     ListTasksDetailedResponse    19632  ok   ok   ok   ok   -     102  101     1  141     2    0     17480
+P3.1     ListProbeResponse            12097  ok   ok   ok   ok   -       2    1     1    2     2    0     19256
+P4.1     ListTaskSummaryResponse      65321  ok   ok   ok   ok   -     202  201     1  601     2    0     75232
+P5.1     UploadResultDataMessage        116  ok   ok   ok   ok   -       1    0     1    1     2    0        72
+P5.2     UploadResultDataMessage      65620  ok   ok   ok   ok   -       1    0     1    1     2    0        72
+P5.3     UploadResultDataMessage    1048660  ok   ok   ok   ok   -       1    0     1    1     2    0        72
+P5.4     UploadResultDataMessage    4194390  ok   ok   ok   ok   -       1    0     1    1     2    0        72
+P6.1     ListMetricsResponse         123354  ok   ok   ok   ok   -    1002 1001     1 1401     2    0    187232
+P7.1     DualResponse                    98  perm ok   ok   ok   -       3    2     1    3     2    0       208
+
+R5: the host's tally and the core's counters are not comparable here -- this core was not built with --features count.
+
+Reading the crossing columns. THEY ARE THE SAME QUANTITY as the core's own,
+and this slice said otherwise once. The only thing the core counts that a
+host tally cannot see is a TRANSCODER call, and both string forms this
+binding offers are pointers into the core, so it invokes none of its own.
+The gap once reported against the rust slice was a CHUNK SIZE: set
+AK_CHUNK=150 and the columns match to the digit. See JOURNAL.md 19.
+
+What the counts mean, and the whole reason the shapes differ:
+  THE PULL COLUMN IS THE POINT OF THE LAST TWO. `ak_parse_*` makes no
+  reverse call at all: it appends a record per deposit to a buffer in the
+  host-owned decode context, and the host replays it afterwards. So pull's
+  reverse count is ZERO on every shape, where push's is 2 to 3,501, and the
+  two forward calls are ak_parse_* and ak_bdr_ptr. design/ABI-v1.md decision
+  2 says four of five slices have only measured push; this is the managed
+  pull arm it asks for, gated against push on the same bytes and the same
+  comparer. `pull buf` is what it trades the upcalls FOR: the record
+  buffer's high-water mark in the decode context (ak_bdr_footprint), so
+  the trade reads in both directions and not only in time.
+
+  A LEAF element batches (ABI v1 section 6), so the run crosses once
+  whatever its length and the count is CONSTANT in the element count.
+  A non-leaf cannot: section 7.2 refuses it, and the count becomes
+  LINEAR -- a reverse call per loop slot per element on encode, and
+  new+apply per element plus a run per inner field on decode.
+
+0 failure(s)
+exit status: 0
+
+################ arm b: conformance
+$ dotnet src/Harness/bin-floor/Release/net8.0/harness.dll conformance
+# harness: conformance
+# utc:                 2026-09-24T16:13:25Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       YES (AK_FLOOR)
+# decode UTF-8 policy: lossy, U+FFFD substituted, which is what Google.Protobuf also does
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+payload  shape  root                        bytes  gp-tba  gp-wto  gp-bw   gp-mar  managed  2pass  vector  mrt  grt  value
+--------------------------------------------------------------------------------------------------------------------------------------
+P1.1     M1     ListResultsResponse          858  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P1.2     M1     ListResultsResponse       218121  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P1.3     M1     ListResultsResponse          605  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.1     M2     ListTasksDetailedResponse    1037  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.2     M2     ListTasksDetailedResponse  540422  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.3     M2     ListTasksDetailedResponse  647024  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.4     M2     ListTasksDetailedResponse  979465  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.5     M2     ListTasksDetailedResponse   19632  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P3.1     M3     ListProbeResponse          12097  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P4.1     M4     ListTaskSummaryResponse    65321  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.1     M5     UploadResultDataMessage      116  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.2     M5     UploadResultDataMessage    65620  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.3     M5     UploadResultDataMessage  1048660  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.4     M5     UploadResultDataMessage  4194390  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P6.1     M6     ListMetricsResponse       123354  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P7.1     -      DualResponse                  98  perm    perm    perm    perm    perm     perm   perm    ok   ok   ok
+
+152 checks, 0 failure(s)
+exit status: 0
+
+################ arm b: unknown
+$ dotnet src/Harness/bin-floor/Release/net8.0/harness.dll unknown
+# harness: unknown
+# utc:                 2026-09-24T16:13:27Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       YES (AK_FLOOR)
+# decode UTF-8 policy: lossy, U+FFFD substituted, which is what Google.Protobuf also does
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+vector                     bytes  gp-dec  man-dec  known-values-agree  gp-retains  man-retains
+------------------------------------------------------------------------------------------------------------
+root-varint-between          861  ok      ok       ok                  YES         no
+root-len                     865  ok      ok       ok                  YES         no
+elem-varint-interleaved      860  ok      ok       ok                  YES         no
+elem-i64                     868  ok      ok       ok                  YES         no
+elem-i32                     864  ok      ok       ok                  YES         no
+elem-len-nested              867  ok      ok       ok                  YES         no
+oneof-unrecognised-member  12099  ok      ok       ok                  YES         no
+
+  root-varint-between       unknown varint at the ROOT, tag 4, above every known root tag (1..3)
+  root-len                  unknown length-delimited field at the root
+  elem-varint-interleaved   unknown varint INSIDE element 0, at tag 7 -- the gap ResultRaw leaves between `completed_at` (6) and `result_id` (8), so it sits numerically BETWEEN two known tags
+  elem-i64                  unknown fixed64 inside element 0
+  elem-i32                  unknown fixed32 inside element 0
+  elem-len-nested           unknown length-delimited field inside element 0 whose body is itself a message -- a decoder that recursed into it rather than skipping it would report the inner tags as unknown fields of the OUTER message
+  oneof-unrecognised-member an unrecognised ONEOF member: tag 15 sits one past `as_nothing` (14) in Probe.body. design/SHAPES.md's row says this CANNOT round trip in any arm, because the grouping lives only in the descriptor and a parser cannot tell it from any other unknown field
+
+Reading the two retention columns.
+  `YES` means the arm's re-encode differs from the payload with the unknown
+  field removed, which for these vectors means it wrote the unknown field back.
+
+  Google.Protobuf keeps an UnknownFieldSet per message and writes it back, so a
+  message round-tripped through .NET today preserves a field this build has never
+  heard of. The managed codec as generated has no bag and drops it. Both accept
+  the input and neither loses a KNOWN value, so this is not a correctness gate;
+  it is ABI v1 open decision 11 with a cost attached, and on .NET the cost is a
+  guarantee that exists today and would be removed. prost drops unknown fields
+  too, which is why the Rust slice could not price this.
+
+  The oneof vector is the one design/SHAPES.md says cannot round trip in ANY arm.
+  Google.Protobuf retains the BYTES of tag 15 but the case stays at whatever
+  member the element already carried; the grouping is descriptor-only, so no
+  parser can recover the intent. Retention makes the bytes survive and does not
+  make the VALUE survive, and those are different claims.
+
+0 failure(s) -- a FAIL in a decode column, or a managed re-encode that is not
+the baseline (the managed codec is supposed to drop, so differing means a known
+value moved, which would be a real defect).
+exit status: 0
+
+################ arm b: groups
+$ dotnet src/Harness/bin-floor/Release/net8.0/harness.dll groups
+# harness: groups
+# utc:                 2026-09-24T16:13:27Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       YES (AK_FLOOR)
+# decode UTF-8 policy: lossy, U+FFFD substituted, which is what Google.Protobuf also does
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+The GROUP vectors from ffi/corpus. proto3 cannot express one, so this is
+the one class of unknown field the schema's own manifest cannot test.
+
+vector                   bytes  expect  incumbent  managed  agree  note
+----------------------------------------------------------------------------------------------------------------------
+U-root-group              461  accept  ok         ok       yes    a group at the top level of the message that crosses the wire
+U-nested-group            244  accept  ok         ok       yes    a group INSIDE an element of a repeated field
+U-oneof-group              95  accept  ok         ok       yes    a group on a message that actually has a oneof
+X-group-unterminated       10  reject  ok         ok       yes    a group that is never closed (corpus root WireZoo; read here under ListResultsResponse, where tag 120 is equally unknown)
+X-group-mismatched-end     12  reject  ok         ok       yes    END_GROUP with a field number that does not match the group that opened (same substitution)
+
+And the case no vector covers, because a corpus of malformed bytes has to
+stop somewhere: 200 nested start tags, past the 100 the skipper allows.
+AK_NEST sets the depth. At 200 the bound is what makes the rejection say
+ErrDepth rather than ErrTruncated -- an unbounded skipper still rejects
+this one, for the wrong reason. Deep enough and an unbounded skipper does
+not reject at all: it overflows the stack, which .NET cannot catch.
+  err = -8, ErrDepth, and the process is still here
+  Google.Protobuf: rejected, InvalidProtocolBufferException
+
+The same at 200,000, which is past where an unbounded skipper aborts:
+  err = -8, ErrDepth, and the process is still here
+
+0 failure(s)
+exit status: 0
+
+################ arm b: corpus
+$ dotnet src/Harness/bin-floor/Release/net8.0/harness.dll corpus
+# harness: corpus
+# utc:                 2026-09-24T16:13:27Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       YES (AK_FLOOR)
+# decode UTF-8 policy: lossy, U+FFFD substituted, which is what Google.Protobuf also does
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+An INDEPENDENT oracle, for the roots `ffi/schema` also has: the same
+bytes through `Google.Protobuf`, found by descriptor name. The corpus's own
+expectations were computed with upb, and where the two disagree the
+question R14 asks is what the library ArmoniK runs actually does.
+  accept/reject agrees on 395 vectors, differs on 0, 296 have no incumbent type.
+
+ffi/corpus, consumed. CONTRACT.md C1 (parse), C2 (project), C3 (re-encode
+to an accepted form), C4 (refuse, and name the error). C5 is the produce
+half and is reported separately below.
+
+Codec generated from generated/corpus.proto, NEVER from
+corpus_superset.proto (rule 0). The runtime under it -- Enc, Dec, W,
+OrderedMap -- is the SAME source the measured arms use.
+
+class        vectors   C1 parse   C2 project   C3 re-encode   C4 refuse   skipped
+--------------------------------------------------------------------------------------------
+baseline           8     8/8         6 (+2 n/a)      8/8           0/0            0
+chunking           8     8/8         5 (+3 n/a)      8/8           0/0            0
+empty             30    30/30       30             30/30          0/0            0
+malformed        112     0/0         0              0/0         110/110          0
+shape            163   163/163     163            163/163         0/0            0
+transcode         53    22/22       22             22/22          0/31           0
+unknown          317   316/316     316            316/316         0/0            0
+--------------------------------------------------------------------------------------------
+TOTAL            691
+
+FAILURES, by id:
+  T-dec-map-key-above-10ffff       transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-key-lone-continuation  transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-key-overlong-nul       transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-key-surrogate-d800     transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-value-above-10ffff     transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-value-lone-continuation transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-value-overlong-nul     transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-value-surrogate-d800   transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-nested-above-10ffff        transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-nested-lone-continuation   transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-nested-overlong-nul        transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-nested-surrogate-d800      transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-repeated-above-10ffff      transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-repeated-lone-continuation transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-repeated-overlong-nul      transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-repeated-surrogate-d800    transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-above-10ffff          transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-cesu8-pair            transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-f5-lead               transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-fe-ff                 transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-five-byte             transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-lead-no-continuation  transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-lone-continuation     transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-overlong-2            transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-overlong-3            transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-overlong-4            transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-overlong-nul          transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-surrogate-d800        transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-surrogate-dfff        transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-truncated-3           transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-truncated-4           transcode  C1=- C2=- C3=- C4=ACCEPTED!
+
+DISPUTED rows (CONTRACT.md 1.5): 3, EXCLUDED from every count above and from
+pass/fail. Which way this codec went, and Google.Protobuf beside it:
+  U-map-entry                      accept    this codec: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+                                             Google.Protobuf: accepted: ... "options": { "options": { "k00": "alpha800", "k01": "alpha656", "k02": "echo180", "k03": "bravo161" }, "maxDuration": { }, "maxRetries": 73189, "priority": 38870, "partitionId": "foxtrot381", "applicationName": "november773", "applicationVe ...
+  X-tag-zero-Empty                 reject    this codec: refused (Err -4 (malformed))
+                                             Google.Protobuf: refused (InvalidProtocolBufferException)
+  X-tag-zero-nested-Empty          reject    this codec: refused (Err -4 (malformed))
+                                             Google.Protobuf: refused (InvalidProtocolBufferException)
+
+C3: which accepted form this slice's encoder produced.
+    189  as committed
+    162  unknown-dropped: the known field as it was, the foreign-typed one gone
+     81  unknown-dropped: the known field as it was, the foreign-typed one gone+unknown-dropped, map values always written
+     45  unknown-dropped
+     24  unknown-dropped+unknown-dropped, map values always written
+     18  as committed+map values always written (protobuf C++, upb, protobuf-java)
+      7  as committed in ffi/schema/generated
+      5  as committed+map values always written
+      3  canonical: omitted
+      3  canonical: ten-byte sign-extended
+      2  canonical: packed
+      1  as upb writes it: the same message in a different field ORDER
+      1  canonical: the zero leaves omitted
+      1  canonical: one entry, the last value
+      1  canonical: the empty value omitted
+      1  canonical: ascending by tag+key and value always written
+      1  canonical: one member
+      1  canonical: one run
+      1  canonical: each repeated field contiguous
+
+C4: the error this decoder actually returned, per reject vector.
+   72x Err -3 (truncated)
+   36x Err -4 (malformed)
+   31x (none)
+    2x Err -8 (depth)
+
+ABI v1 open decision 11, answered for C#: this slice's generated codec
+DROPS unknown fields. 329 projected `_unknown` block(s) the corpus
+expected are absent here, and CONTRACT.md section 3 makes comparing them
+optional for exactly that reason. `Google.Protobuf` RETAINS them, so the
+behaviour change is visible on .NET: see stage1-conformance.log.
+
+3 projected value(s) matched numerically but not textually (double spelling: %.17g against G17).
+THE REMAINING DIVERGENCE, A POLICY RATHER THAN A DEFECT THIS SLICE FIXES ALONE.
+
+The 31 T-dec-* vectors: malformed UTF-8 in a string field, which
+CONTRACT.md says a conformant parser must reject. This build accepts
+them, because it reads strings through Encoding.UTF8, which SUBSTITUTES
+U+FFFD. Google.Protobuf does the same (`harness utf8`). The rejecting
+policy is the separate /p:AkStrict=true build (ABI v1 open decision 3).
+
+U-map-entry, which earlier runs listed here, is a DISPUTED row in the corpus
+now and is reported in the disputed section above, outside pass/fail.
+
+C5 (produce) and the chunking class, stated rather than claimed:
+  * C5 asks a slice to BUILD each message from the description and encode
+    it. This slice has payload builders for `ffi/schema`'s roots only, and
+    `harness conformance` is that claim: byte identity on all 16 payloads.
+    For the corpus's own roots there is no builder, so C3 (re-encode what
+    was parsed) is what runs and C5 is NOT claimed for them.
+  * The chunking class asks a batching host to run each vector at more than
+    one chunk. **The managed codec does not batch at all** -- it walks the
+    host's own containers in one pass -- so per CONTRACT.md it says so and
+    that is its gap. The core-ffi arm DOES batch and is measured at two
+    chunk sizes (AK_CHUNK), but its binding exists for ffi/schema's roots
+    only and the chunking roots are corpus-only, so it cannot reach them.
+
+31 failure(s) (31 T-dec policy, 0 U-map-entry, 0 other), 0 not run
+exit status: 0
+
+################ strict: corpus
+$ dotnet src/Harness/bin-strict/Release/net8.0/harness.dll corpus
+# harness: corpus
+# utc:                 2026-09-24T16:13:28Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# decode UTF-8 policy: REJECTING (AK_STRICT) -- ABI v1 open decision 3
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net8.0
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+An INDEPENDENT oracle, for the roots `ffi/schema` also has: the same
+bytes through `Google.Protobuf`, found by descriptor name. The corpus's own
+expectations were computed with upb, and where the two disagree the
+question R14 asks is what the library ArmoniK runs actually does.
+  accept/reject agrees on 395 vectors, differs on 0, 296 have no incumbent type.
+
+ffi/corpus, consumed. CONTRACT.md C1 (parse), C2 (project), C3 (re-encode
+to an accepted form), C4 (refuse, and name the error). C5 is the produce
+half and is reported separately below.
+
+Codec generated from generated/corpus.proto, NEVER from
+corpus_superset.proto (rule 0). The runtime under it -- Enc, Dec, W,
+OrderedMap -- is the SAME source the measured arms use.
+
+class        vectors   C1 parse   C2 project   C3 re-encode   C4 refuse   skipped
+--------------------------------------------------------------------------------------------
+baseline           8     8/8         6 (+2 n/a)      8/8           0/0            0
+chunking           8     8/8         5 (+3 n/a)      8/8           0/0            0
+empty             30    30/30       30             30/30          0/0            0
+malformed        112     0/0         0              0/0         110/110          0
+shape            163   163/163     163            163/163         0/0            0
+transcode         53    22/22       22             22/22         31/31           0
+unknown          317   316/316     316            316/316         0/0            0
+--------------------------------------------------------------------------------------------
+TOTAL            691
+
+DISPUTED rows (CONTRACT.md 1.5): 3, EXCLUDED from every count above and from
+pass/fail. Which way this codec went, and Google.Protobuf beside it:
+  U-map-entry                      accept    this codec: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+                                             Google.Protobuf: accepted: ... "options": { "options": { "k00": "alpha800", "k01": "alpha656", "k02": "echo180", "k03": "bravo161" }, "maxDuration": { }, "maxRetries": 73189, "priority": 38870, "partitionId": "foxtrot381", "applicationName": "november773", "applicationVe ...
+  X-tag-zero-Empty                 reject    this codec: refused (Err -4 (malformed))
+                                             Google.Protobuf: refused (InvalidProtocolBufferException)
+  X-tag-zero-nested-Empty          reject    this codec: refused (Err -4 (malformed))
+                                             Google.Protobuf: refused (InvalidProtocolBufferException)
+
+C3: which accepted form this slice's encoder produced.
+    189  as committed
+    162  unknown-dropped: the known field as it was, the foreign-typed one gone
+     81  unknown-dropped: the known field as it was, the foreign-typed one gone+unknown-dropped, map values always written
+     45  unknown-dropped
+     24  unknown-dropped+unknown-dropped, map values always written
+     18  as committed+map values always written (protobuf C++, upb, protobuf-java)
+      7  as committed in ffi/schema/generated
+      5  as committed+map values always written
+      3  canonical: omitted
+      3  canonical: ten-byte sign-extended
+      2  canonical: packed
+      1  as upb writes it: the same message in a different field ORDER
+      1  canonical: the zero leaves omitted
+      1  canonical: one entry, the last value
+      1  canonical: the empty value omitted
+      1  canonical: ascending by tag+key and value always written
+      1  canonical: one member
+      1  canonical: one run
+      1  canonical: each repeated field contiguous
+
+C4: the error this decoder actually returned, per reject vector.
+   72x Err -3 (truncated)
+   36x Err -4 (malformed)
+   31x Err -6 (transcode)
+    2x Err -8 (depth)
+
+ABI v1 open decision 11, answered for C#: this slice's generated codec
+DROPS unknown fields. 329 projected `_unknown` block(s) the corpus
+expected are absent here, and CONTRACT.md section 3 makes comparing them
+optional for exactly that reason. `Google.Protobuf` RETAINS them, so the
+behaviour change is visible on .NET: see stage1-conformance.log.
+
+3 projected value(s) matched numerically but not textually (double spelling: %.17g against G17).
+THE REMAINING DIVERGENCE, A POLICY RATHER THAN A DEFECT THIS SLICE FIXES ALONE.
+
+The 0 T-dec-* vectors: malformed UTF-8 in a string field, which
+CONTRACT.md says a conformant parser must reject. This build accepts
+them, because it reads strings through Encoding.UTF8, which SUBSTITUTES
+U+FFFD. Google.Protobuf does the same (`harness utf8`). The rejecting
+policy is the separate /p:AkStrict=true build (ABI v1 open decision 3).
+
+U-map-entry, which earlier runs listed here, is a DISPUTED row in the corpus
+now and is reported in the disputed section above, outside pass/fail.
+
+C5 (produce) and the chunking class, stated rather than claimed:
+  * C5 asks a slice to BUILD each message from the description and encode
+    it. This slice has payload builders for `ffi/schema`'s roots only, and
+    `harness conformance` is that claim: byte identity on all 16 payloads.
+    For the corpus's own roots there is no builder, so C3 (re-encode what
+    was parsed) is what runs and C5 is NOT claimed for them.
+  * The chunking class asks a batching host to run each vector at more than
+    one chunk. **The managed codec does not batch at all** -- it walks the
+    host's own containers in one pass -- so per CONTRACT.md it says so and
+    that is its gap. The core-ffi arm DOES batch and is measured at two
+    chunk sizes (AK_CHUNK), but its binding exists for ffi/schema's roots
+    only and the chunking roots are corpus-only, so it cannot reach them.
+
+0 failure(s) (0 T-dec policy, 0 U-map-entry, 0 other), 0 not run
+exit status: 0
+
+################ net6 managed floor: conformance
+$ /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/n6/out-floor-net6/harness6 conformance
+# harness: conformance
+# utc:                 2026-09-24T16:13:28Z
+# runtime:             .NET 6.0.36
+# os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       YES (AK_FLOOR)
+# decode UTF-8 policy: lossy, U+FFFD substituted, which is what Google.Protobuf also does
+# facade TFM:          unknown
+# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+payload  shape  root                        bytes  gp-tba  gp-wto  gp-bw   gp-mar  managed  2pass  vector  mrt  grt  value
+--------------------------------------------------------------------------------------------------------------------------------------
+P1.1     M1     ListResultsResponse          858  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P1.2     M1     ListResultsResponse       218121  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P1.3     M1     ListResultsResponse          605  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.1     M2     ListTasksDetailedResponse    1037  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P2.2     M2     ListTasksDetailedResponse  540422  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.3     M2     ListTasksDetailedResponse  647024  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.4     M2     ListTasksDetailedResponse  979465  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P2.5     M2     ListTasksDetailedResponse   19632  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P3.1     M3     ListProbeResponse          12097  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P4.1     M4     ListTaskSummaryResponse    65321  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.1     M5     UploadResultDataMessage      116  ok      ok      ok      ok      ok       ok     ok      ok   ok   ok
+P5.2     M5     UploadResultDataMessage    65620  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.3     M5     UploadResultDataMessage  1048660  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P5.4     M5     UploadResultDataMessage  4194390  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P6.1     M6     ListMetricsResponse       123354  ok      ok      ok      ok      ok       ok     -       ok   ok   ok
+P7.1     -      DualResponse                  98  perm    perm    perm    perm    perm     perm   perm    ok   ok   ok
+
+152 checks, 0 failure(s)
+exit status: 0
+
+################ net6 managed floor: unknown
+$ /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/n6/out-floor-net6/harness6 unknown
+# harness: unknown
+# utc:                 2026-09-24T16:13:30Z
+# runtime:             .NET 6.0.36
+# os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       YES (AK_FLOOR)
+# decode UTF-8 policy: lossy, U+FFFD substituted, which is what Google.Protobuf also does
+# facade TFM:          unknown
+# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+vector                     bytes  gp-dec  man-dec  known-values-agree  gp-retains  man-retains
+------------------------------------------------------------------------------------------------------------
+root-varint-between          861  ok      ok       ok                  YES         no
+root-len                     865  ok      ok       ok                  YES         no
+elem-varint-interleaved      860  ok      ok       ok                  YES         no
+elem-i64                     868  ok      ok       ok                  YES         no
+elem-i32                     864  ok      ok       ok                  YES         no
+elem-len-nested              867  ok      ok       ok                  YES         no
+oneof-unrecognised-member  12099  ok      ok       ok                  YES         no
+
+  root-varint-between       unknown varint at the ROOT, tag 4, above every known root tag (1..3)
+  root-len                  unknown length-delimited field at the root
+  elem-varint-interleaved   unknown varint INSIDE element 0, at tag 7 -- the gap ResultRaw leaves between `completed_at` (6) and `result_id` (8), so it sits numerically BETWEEN two known tags
+  elem-i64                  unknown fixed64 inside element 0
+  elem-i32                  unknown fixed32 inside element 0
+  elem-len-nested           unknown length-delimited field inside element 0 whose body is itself a message -- a decoder that recursed into it rather than skipping it would report the inner tags as unknown fields of the OUTER message
+  oneof-unrecognised-member an unrecognised ONEOF member: tag 15 sits one past `as_nothing` (14) in Probe.body. design/SHAPES.md's row says this CANNOT round trip in any arm, because the grouping lives only in the descriptor and a parser cannot tell it from any other unknown field
+
+Reading the two retention columns.
+  `YES` means the arm's re-encode differs from the payload with the unknown
+  field removed, which for these vectors means it wrote the unknown field back.
+
+  Google.Protobuf keeps an UnknownFieldSet per message and writes it back, so a
+  message round-tripped through .NET today preserves a field this build has never
+  heard of. The managed codec as generated has no bag and drops it. Both accept
+  the input and neither loses a KNOWN value, so this is not a correctness gate;
+  it is ABI v1 open decision 11 with a cost attached, and on .NET the cost is a
+  guarantee that exists today and would be removed. prost drops unknown fields
+  too, which is why the Rust slice could not price this.
+
+  The oneof vector is the one design/SHAPES.md says cannot round trip in ANY arm.
+  Google.Protobuf retains the BYTES of tag 15 but the case stays at whatever
+  member the element already carried; the grouping is descriptor-only, so no
+  parser can recover the intent. Retention makes the bytes survive and does not
+  make the VALUE survive, and those are different claims.
+
+0 failure(s) -- a FAIL in a decode column, or a managed re-encode that is not
+the baseline (the managed codec is supposed to drop, so differing means a known
+value moved, which would be a real defect).
+exit status: 0
+
+################ net6 managed floor: groups
+$ /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/n6/out-floor-net6/harness6 groups
+# harness: groups
+# utc:                 2026-09-24T16:13:30Z
+# runtime:             .NET 6.0.36
+# os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       YES (AK_FLOOR)
+# decode UTF-8 policy: lossy, U+FFFD substituted, which is what Google.Protobuf also does
+# facade TFM:          unknown
+# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+The GROUP vectors from ffi/corpus. proto3 cannot express one, so this is
+the one class of unknown field the schema's own manifest cannot test.
+
+vector                   bytes  expect  incumbent  managed  agree  note
+----------------------------------------------------------------------------------------------------------------------
+U-root-group              461  accept  ok         ok       yes    a group at the top level of the message that crosses the wire
+U-nested-group            244  accept  ok         ok       yes    a group INSIDE an element of a repeated field
+U-oneof-group              95  accept  ok         ok       yes    a group on a message that actually has a oneof
+X-group-unterminated       10  reject  ok         ok       yes    a group that is never closed (corpus root WireZoo; read here under ListResultsResponse, where tag 120 is equally unknown)
+X-group-mismatched-end     12  reject  ok         ok       yes    END_GROUP with a field number that does not match the group that opened (same substitution)
+
+And the case no vector covers, because a corpus of malformed bytes has to
+stop somewhere: 200 nested start tags, past the 100 the skipper allows.
+AK_NEST sets the depth. At 200 the bound is what makes the rejection say
+ErrDepth rather than ErrTruncated -- an unbounded skipper still rejects
+this one, for the wrong reason. Deep enough and an unbounded skipper does
+not reject at all: it overflows the stack, which .NET cannot catch.
+  err = -8, ErrDepth, and the process is still here
+  Google.Protobuf: rejected, InvalidProtocolBufferException
+
+The same at 200,000, which is past where an unbounded skipper aborts:
+  err = -8, ErrDepth, and the process is still here
+
+0 failure(s)
+exit status: 0
+
+################ net6 managed floor: corpus
+$ /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/n6/out-floor-net6/harness6 corpus
+# harness: corpus
+# utc:                 2026-09-24T16:13:30Z
+# runtime:             .NET 6.0.36
+# os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.28.3.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       YES (AK_FLOOR)
+# decode UTF-8 policy: lossy, U+FFFD substituted, which is what Google.Protobuf also does
+# facade TFM:          unknown
+# transcoder:          Encoding.UTF8.GetBytes(char*, int, byte*, int) -- netstandard2.0, unsafe
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+An INDEPENDENT oracle, for the roots `ffi/schema` also has: the same
+bytes through `Google.Protobuf`, found by descriptor name. The corpus's own
+expectations were computed with upb, and where the two disagree the
+question R14 asks is what the library ArmoniK runs actually does.
+  accept/reject agrees on 395 vectors, differs on 0, 296 have no incumbent type.
+
+ffi/corpus, consumed. CONTRACT.md C1 (parse), C2 (project), C3 (re-encode
+to an accepted form), C4 (refuse, and name the error). C5 is the produce
+half and is reported separately below.
+
+Codec generated from generated/corpus.proto, NEVER from
+corpus_superset.proto (rule 0). The runtime under it -- Enc, Dec, W,
+OrderedMap -- is the SAME source the measured arms use.
+
+class        vectors   C1 parse   C2 project   C3 re-encode   C4 refuse   skipped
+--------------------------------------------------------------------------------------------
+baseline           8     8/8         6 (+2 n/a)      8/8           0/0            0
+chunking           8     8/8         5 (+3 n/a)      8/8           0/0            0
+empty             30    30/30       30             30/30          0/0            0
+malformed        112     0/0         0              0/0         110/110          0
+shape            163   163/163     163            163/163         0/0            0
+transcode         53    22/22       22             22/22          0/31           0
+unknown          317   316/316     316            316/316         0/0            0
+--------------------------------------------------------------------------------------------
+TOTAL            691
+
+FAILURES, by id:
+  T-dec-map-key-above-10ffff       transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-key-lone-continuation  transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-key-overlong-nul       transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-key-surrogate-d800     transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-value-above-10ffff     transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-value-lone-continuation transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-value-overlong-nul     transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-map-value-surrogate-d800   transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-nested-above-10ffff        transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-nested-lone-continuation   transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-nested-overlong-nul        transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-nested-surrogate-d800      transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-repeated-above-10ffff      transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-repeated-lone-continuation transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-repeated-overlong-nul      transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-repeated-surrogate-d800    transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-above-10ffff          transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-cesu8-pair            transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-f5-lead               transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-fe-ff                 transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-five-byte             transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-lead-no-continuation  transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-lone-continuation     transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-overlong-2            transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-overlong-3            transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-overlong-4            transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-overlong-nul          transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-surrogate-d800        transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-surrogate-dfff        transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-truncated-3           transcode  C1=- C2=- C3=- C4=ACCEPTED!
+  T-dec-root-truncated-4           transcode  C1=- C2=- C3=- C4=ACCEPTED!
+
+DISPUTED rows (CONTRACT.md 1.5): 3, EXCLUDED from every count above and from
+pass/fail. Which way this codec went, and Google.Protobuf beside it:
+  U-map-entry                      accept    this codec: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+                                             Google.Protobuf: accepted: ... "options": { "options": { "k00": "alpha800", "k01": "alpha656", "k02": "echo180", "k03": "bravo161" }, "maxDuration": { }, "maxRetries": 73189, "priority": 38870, "partitionId": "foxtrot381", "applicationName": "november773", "applicationVe ...
+  X-tag-zero-Empty                 reject    this codec: refused (Err -4 (malformed))
+                                             Google.Protobuf: refused (InvalidProtocolBufferException)
+  X-tag-zero-nested-Empty          reject    this codec: refused (Err -4 (malformed))
+                                             Google.Protobuf: refused (InvalidProtocolBufferException)
+
+C3: which accepted form this slice's encoder produced.
+    189  as committed
+    162  unknown-dropped: the known field as it was, the foreign-typed one gone
+     81  unknown-dropped: the known field as it was, the foreign-typed one gone+unknown-dropped, map values always written
+     45  unknown-dropped
+     24  unknown-dropped+unknown-dropped, map values always written
+     18  as committed+map values always written (protobuf C++, upb, protobuf-java)
+      7  as committed in ffi/schema/generated
+      5  as committed+map values always written
+      3  canonical: omitted
+      3  canonical: ten-byte sign-extended
+      2  canonical: packed
+      1  as upb writes it: the same message in a different field ORDER
+      1  canonical: the zero leaves omitted
+      1  canonical: one entry, the last value
+      1  canonical: the empty value omitted
+      1  canonical: ascending by tag+key and value always written
+      1  canonical: one member
+      1  canonical: one run
+      1  canonical: each repeated field contiguous
+
+C4: the error this decoder actually returned, per reject vector.
+   72x Err -3 (truncated)
+   36x Err -4 (malformed)
+   31x (none)
+    2x Err -8 (depth)
+
+ABI v1 open decision 11, answered for C#: this slice's generated codec
+DROPS unknown fields. 329 projected `_unknown` block(s) the corpus
+expected are absent here, and CONTRACT.md section 3 makes comparing them
+optional for exactly that reason. `Google.Protobuf` RETAINS them, so the
+behaviour change is visible on .NET: see stage1-conformance.log.
+
+3 projected value(s) matched numerically but not textually (double spelling: %.17g against G17).
+THE REMAINING DIVERGENCE, A POLICY RATHER THAN A DEFECT THIS SLICE FIXES ALONE.
+
+The 31 T-dec-* vectors: malformed UTF-8 in a string field, which
+CONTRACT.md says a conformant parser must reject. This build accepts
+them, because it reads strings through Encoding.UTF8, which SUBSTITUTES
+U+FFFD. Google.Protobuf does the same (`harness utf8`). The rejecting
+policy is the separate /p:AkStrict=true build (ABI v1 open decision 3).
+
+U-map-entry, which earlier runs listed here, is a DISPUTED row in the corpus
+now and is reported in the disputed section above, outside pass/fail.
+
+C5 (produce) and the chunking class, stated rather than claimed:
+  * C5 asks a slice to BUILD each message from the description and encode
+    it. This slice has payload builders for `ffi/schema`'s roots only, and
+    `harness conformance` is that claim: byte identity on all 16 payloads.
+    For the corpus's own roots there is no builder, so C3 (re-encode what
+    was parsed) is what runs and C5 is NOT claimed for them.
+  * The chunking class asks a batching host to run each vector at more than
+    one chunk. **The managed codec does not batch at all** -- it walks the
+    host's own containers in one pass -- so per CONTRACT.md it says so and
+    that is its gap. The core-ffi arm DOES batch and is measured at two
+    chunk sizes (AK_CHUNK), but its binding exists for ffi/schema's roots
+    only and the chunking roots are corpus-only, so it cannot reach them.
+
+31 failure(s) (31 T-dec policy, 0 U-map-entry, 0 other), 0 not run
+exit status: 0
+
+################ BEFORE the ak_init fix (same init-guard core, binding without ak_init): the defect this unit found
+# the binding declared and called no ak_init (ABI v1 section 3); the guard refuses every codec entry point
+core-ffi through the C ABI, every shape. Strings are handed over as staged UTF-8 with ak_tc_bytes.
+  chunk = the whole run elements per element-entry call
+
+                                                   encode crossings    decode crossings
+                                                   encode xings  push dec     pull dec
+payload  root                          bytes  enc  dec  val  pull R5    fwd  rev   fwd  rev   fwd  rev   pull buf
+------------------------------------------------------------------------------------------------------------
+P1.1     ListResultsResponse            858  THREW InvalidOperationException -    -    -    -       0    0     0    0     0    0         0
+P1.2     ListResultsResponse         218121  THREW InvalidOperationException -    -    -    -       0    0     0    0     0    0         0
+P1.3     ListResultsResponse            605  THREW InvalidOperationException -    -    -    -       0    0     0    0     0    0         0
+P2.1     ListTasksDetailedResponse     1037  THREW InvalidOperationException -    -    -    -       0    0     0    0     0    0         0
+P2.2     ListTasksDetailedResponse   540422  THREW InvalidOperationException -    -    -    -       0    0     0    0     0    0         0
+P2.3     ListTasksDetailedResponse   647024  THREW InvalidOperationException -    -    -    -       0    0     0    0     0    0         0
+P2.4     ListTasksDetailedResponse   979465  THREW InvalidOperationException -    -    -    -       0    0     0    0     0    0         0
+P2.5     ListTasksDetailedResponse    19632  THREW InvalidOperationException -    -    -    -       0    0     0    0     0    0         0
+P3.1     ListProbeResponse            12097  THREW InvalidOperationException -    -    -    -       0    0     0    0     0    0         0
+P4.1     ListTaskSummaryResponse      65321  THREW InvalidOperationException -    -    -    -       0    0     0    0     0    0         0
+P5.1     UploadResultDataMessage        116  THREW InvalidOperationException -    -    -    -       0    0     0    0     0    0         0
+P5.2     UploadResultDataMessage      65620  THREW InvalidOperationException -    -    -    -       0    0     0    0     0    0         0
+P5.3     UploadResultDataMessage    1048660  THREW InvalidOperationException -    -    -    -       0    0     0    0     0    0         0
+P5.4     UploadResultDataMessage    4194390  THREW InvalidOperationException -    -    -    -       0    0     0    0     0    0         0
+P6.1     ListMetricsResponse         123354  THREW InvalidOperationException -    -    -    -       0    0     0    0     0    0         0
+P7.1     DualResponse                    98  THREW InvalidOperationException -    -    -    -       0    0     0    0     0    0         0
+
+R5: the host's tally and the core's counters are not comparable here -- this core was not built with --features count.
+
+Reading the crossing columns. THEY ARE THE SAME QUANTITY as the core's own,
+and this slice said otherwise once. The only thing the core counts that a
+host tally cannot see is a TRANSCODER call, and both string forms this
+binding offers are pointers into the core, so it invokes none of its own.
+The gap once reported against the rust slice was a CHUNK SIZE: set
+AK_CHUNK=150 and the columns match to the digit. See JOURNAL.md 19.
+
+What the counts mean, and the whole reason the shapes differ:
+  THE PULL COLUMN IS THE POINT OF THE LAST TWO. `ak_parse_*` makes no
+  reverse call at all: it appends a record per deposit to a buffer in the
+  host-owned decode context, and the host replays it afterwards. So pull's
+  reverse count is ZERO on every shape, where push's is 2 to 3,501, and the
+  two forward calls are ak_parse_* and ak_bdr_ptr. design/ABI-v1.md decision
+  2 says four of five slices have only measured push; this is the managed
+  pull arm it asks for, gated against push on the same bytes and the same
+  comparer. `pull buf` is what it trades the upcalls FOR: the record
+  buffer's high-water mark in the decode context (ak_bdr_footprint), so
+  the trade reads in both directions and not only in time.
+
+  A LEAF element batches (ABI v1 section 6), so the run crosses once
+  whatever its length and the count is CONSTANT in the element count.
+  A non-leaf cannot: section 7.2 refuses it, and the count becomes
+  LINEAR -- a reverse call per loop slot per element on encode, and
+  new+apply per element plus a run per inner field on decode.
+
+16 failure(s)
+exit status: 16

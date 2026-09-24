@@ -148,6 +148,11 @@ public static class Program
         // this is. R5's hazard is a harness that reads zeroes out of a
         // non-counting core and publishes "the boundary is free".
         bool crossings = argv.Contains("--crossings");
+        // R-D9's gate: every delivery on a FAILED call must still reach
+        // `ak_bytes_free` before it throws. Counted, not inferred: with the
+        // counting core, a failed call's forward count includes the free, so
+        // a binding that skips it reads one short.
+        bool errorPath = argv.Contains("--error-path");
         int rounds = Arg(argv, "--rounds", 3);
         int calls = Arg(argv, "--calls", 300);
         var levels = new[] { 1, 8, 16 };
@@ -193,6 +198,15 @@ public static class Program
         app.MapGrpcService<Bench>();
         app.MapGrpcService<Streamer>();
         await app.StartAsync();
+
+        // A correctness gate, so it runs before any timed table and prints none.
+        if (errorPath)
+        {
+            int rc = await ErrorPath(sock, Arg(argv, "--calls", 50));
+            await app.StopAsync();
+            if (File.Exists(sock)) File.Delete(sock);
+            return rc;
+        }
 
         var handler = new SocketsHttpHandler
         {
@@ -482,6 +496,67 @@ public static class Program
         return 0;
     }
 
+
+    /// R-D9. A path the server does not serve comes back UNIMPLEMENTED, which
+    /// the core reports as a non-OK status on every delivery. Each call must
+    /// throw, and each must have crossed into `ak_bytes_free` first: the
+    /// expected forward counts are the success path's (blocking 2, callback 3,
+    /// queue 4, stage 19), because the free is on both paths. One short means
+    /// the binding threw without freeing.
+    private static async Task<int> ErrorPath(string sock, int n)
+    {
+        using var cc = new CoreChannel("unix:" + sock, 2);
+        // The queue's drainer polls `ak_queue_next` with a 200 ms timeout, and
+        // every poll is a forward crossing, so it is started only for the queue
+        // rows (a running drainer put 2.02 on a blocking row), and the check
+        // below is on the whole part of the per-call count: idle polls add a
+        // few per row, a missing free subtracts one per call.
+        var bad = System.Text.Encoding.UTF8.GetBytes("/armonik.ffi.Bench/NoSuchMethod");
+        var good = System.Text.Encoding.UTF8.GetBytes("/armonik.ffi.Bench/Down");
+        bool counting = AkRpc.ak_rpc_counting() == 1;
+        Console.WriteLine("# harness: rpc --error-path (R-D9: free on a non-OK status)");
+        Console.WriteLine("# counting build: {0}", counting ? "YES" : "NO (throw check only)");
+        Console.WriteLine("# calls:          {0} per delivery per path", n);
+        Console.WriteLine();
+        Console.WriteLine("path    delivery     threw/calls   forward/call   reverse/call   expected fwd");
+        Console.WriteLine(new string('-', 82));
+        var expect = new Dictionary<string, int> { ["blocking"] = 2, ["callback"] = 3, ["queue"] = 4 };
+        int fails = 0;
+        foreach (var d in new[] { "blocking", "callback", "queue" })
+        foreach (var (label, path) in new[] { ("ok", good), ("error", bad) })
+        {
+            if (d == "queue" && label == "ok") cc.StartQueue();
+            if (counting) AkRpc.ak_rpc_counters_reset();
+            int threw = 0;
+            for (int i = 0; i < n; i++)
+            {
+                try
+                {
+                    AkBytes got;
+                    if (d == "callback") got = await cc.CallCbAsync(path, Array.Empty<byte>());
+                    else if (d == "queue") got = await cc.CallQAsync(path, Array.Empty<byte>());
+                    else got = cc.CallBlocking(path, Array.Empty<byte>());
+                    CoreChannel.Release(ref got);
+                }
+                catch (InvalidOperationException) { threw++; }
+            }
+            double fwd = double.NaN, rev = double.NaN;
+            if (counting)
+            {
+                AkRpcCounters k;
+                unsafe { AkRpc.ak_rpc_counters(&k); }
+                fwd = (double)k.Forward / n; rev = (double)k.Reverse / n;
+            }
+            bool okThrow = label == "ok" ? threw == 0 : threw == n;
+            bool okFwd = !counting || Math.Floor(fwd + 1e-9) == expect[d];
+            if (!okThrow || !okFwd) fails++;
+            Console.WriteLine("{0,-7} {1,-12} {2,5}/{3,-7} {4,12:F2} {5,14:F2} {6,14}  {7}",
+                label, d, threw, n, fwd, rev, expect[d], okThrow && okFwd ? "PASS" : "FAIL");
+        }
+        Console.WriteLine();
+        Console.WriteLine("error-path: {0} failure(s)", fails);
+        return fails == 0 ? 0 : 1;
+    }
 
     private static async Task Go(CoreChannel c, byte[] path)
     {

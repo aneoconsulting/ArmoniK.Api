@@ -1296,3 +1296,71 @@ I am not proposing the one-line fix. Nothing under `packages/` changes, and I
 have not tested whether pinning a window reintroduces the connectivity issue the
 switch exists for -- which is the honest reason it is a recommendation and not a
 patch.
+
+### 46. WP4 item 10, the net6.0 floor, and two defects every gate was passing
+
+Phase: setup and design. No timing was taken in this unit.
+
+The container had no .NET. `apt-get install dotnet-sdk-8.0` from Ubuntu's own
+repository worked (SDK 8.0.131, runtime 8.0.31). No .NET 6 package exists for
+noble, and `builds.dotnet.microsoft.com` (the dotnet-install host) is refused
+by the proxy with 403; `api.nuget.org` is reachable, so the net6.0 runtime came
+in as a runtime pack inside a self-contained publish. The core was built from a
+`git archive HEAD ffi/poc/codec` snapshot (core commit 6ede244) because the rust
+agent is changing `poc/codec`; the layout probe rebuilt against the snapshot
+matched `abi-layout.json` exactly.
+
+**R-D9.** `CallCbAsync`/`CallQAsync` threw on a non-OK status and dropped the
+completion's `ak_bytes`; `CallBlocking` too. Fixed with one `TakeOrThrow`. The
+first gate I wrote compared forward counts exactly and failed on a SUCCESS row
+(2.02 for blocking): the queue drainer's 200 ms idle polls are forward
+crossings, and it was running during the blocking row. So the drainer starts
+only for the queue rows and the check is on the whole part. The negative
+control (frees removed) reads one crossing short on every error row, so the gate
+can see the defect. The core returns an empty `ak_bytes` on failure, so nothing
+was leaking; the fix removes a dependence on that.
+
+**The binding never called `ak_init`.** Not in the task; found while writing
+STATE's lifecycle line, which said "nothing, there being no core". ABI v1
+section 3 says every entry point requires it. Every gate passed because the
+guard is the `init-guard` cargo feature and no build here turns it on (the
+snapshot's default features are empty, which is worth checking against
+FIX-PLAN WP4 item 10's "init-guard became default"). Built the core with
+`rpc init-guard`: core-ffi 16 failures of 16. The fix went in the generator
+(`gen/cs_abi.py`): a static constructor on `Abi`, so no import can be reached
+first. 0 failures against the guarded core. The same question applies to every
+slice whose gate runs on an unguarded core.
+
+**The reader narrowed a length prefix.** The corpus now has 691 vectors. One
+reject row, `X-len-huge` (prefix 2^31 - 1, no body), was "refused" by an
+`ArgumentOutOfRangeException` out of `Encoding.UTF8.GetString`: `LenEnd` cast
+the 64-bit prefix to `int` and tested `Pos + n > End`, which overflows. The
+runner counted any exception as a refusal, so it read as a pass. Two fixes: the
+comparison is now 64-bit against the bytes left, and the runner fails a reject
+row refused by an exception. The same narrowing also meant 2^32 + k read as k;
+no corpus row reached that. `MapForms`' rewriter has the same pattern on bytes
+this slice emits only (D8).
+
+**The corpus runner's accounting.** `U-map-entry` became a disputed row with no
+projection, the runner printed C2 "n/a" and then subtracted it as a failure:
+"-1 other", exit status 255 on a clean run. Disputed rows are now excluded from
+pass/fail and reported with the reading this codec produced (pure-python's for
+`U-map-entry`; refused for both tag-zero rows, as `Google.Protobuf` does).
+
+**net6.0.** As expected, the binding does not build: 57 `LibraryImport`
+declarations in `Abi.cs`, nothing else fails. The managed half builds and passes
+the same gate on .NET 6.0.36 as on net8.0. Not restructured: WP5.
+
+**A hand-written configuration line.** `Config.Print` printed "R13 calibration
+on THIS machine: 1.8 ns" as a constant on every run on every machine. Removed.
+It is the class of line this slice's own C2 defect was about.
+
+**STATE.md rewritten (R-F1).** It said the RPC arm did not exist and described
+it; said there was no core; said one thread everywhere next to a concurrency
+log; said there was no recursion limit next to the log that added one; quoted
+120, 136 and 152 checks for the same gate; carried recommendations and
+timing ratios as results; and called Mono "net48". All of that is gone; the old
+text is in git at 817174f.
+
+`BenchDotNet` does not build and has not since b59139a: recorded (D1), not
+fixed, since it is a timing harness and WP3 decides what the campaign runs.

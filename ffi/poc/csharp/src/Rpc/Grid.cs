@@ -96,8 +96,8 @@ public static class Grid
         for (int i = 0; i < n; i++)
         {
             var b = await ch.CallCbAsync(Path, Empty);
-            Sink = dec(b);
-            CoreChannel.Release(ref b);
+            try { Sink = dec(b); }
+            finally { CoreChannel.Release(ref b); }  // R-D9: a decode that throws still frees
         }
     }
 
@@ -106,8 +106,8 @@ public static class Grid
         for (int i = 0; i < n; i++)
         {
             var b = await ch.CallQAsync(Path, Empty);
-            Sink = dec(b);
-            CoreChannel.Release(ref b);
+            try { Sink = dec(b); }
+            finally { CoreChannel.Release(ref b); }  // R-D9: a decode that throws still frees
         }
     }
 
@@ -121,8 +121,8 @@ public static class Grid
             for (int i = 0; i < n; i++)
             {
                 var b = ch.CallBlocking(Path, Empty);
-                Sink = dec(b);
-                CoreChannel.Release(ref b);
+                try { Sink = dec(b); }
+                finally { CoreChannel.Release(ref b); }  // R-D9: a decode that throws still frees
             }
         });
 
