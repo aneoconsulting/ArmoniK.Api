@@ -384,7 +384,7 @@ fn dec_timestamp(d: &mut Dec, out: &mut Timestamp, depth: u32) {
         let k = d.varint();
         if d.err != 0 { return; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }
         match (tag, wire) {
             (1, 0) => {
                 let v = d.varint() as i64;
@@ -415,7 +415,7 @@ fn dec_duration(d: &mut Dec, out: &mut Duration, depth: u32) {
         let k = d.varint();
         if d.err != 0 { return; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }
         match (tag, wire) {
             (1, 0) => {
                 let v = d.varint() as i64;
@@ -446,7 +446,7 @@ fn dec_result_raw(d: &mut Dec, out: &mut ResultRaw, depth: u32) {
         let k = d.varint();
         if d.err != 0 { return; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }
         match (tag, wire) {
             (1, 2) => {
                 let (off, n) = d.len_body();
@@ -536,7 +536,7 @@ fn dec_task_options(d: &mut Dec, out: &mut TaskOptions, depth: u32) {
         let k = d.varint();
         if d.err != 0 { return; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }
         match (tag, wire) {
             (1, 2) => {
                 let (off, n) = d.len_body();
@@ -548,7 +548,7 @@ fn dec_task_options(d: &mut Dec, out: &mut TaskOptions, depth: u32) {
                     let kk = sub.varint();
                     if sub.err != 0 { break; }
                     let (et, ew) = ((kk >> 3) as u32, (kk & 7) as u32);
-                    if et == 0 { sub.err = ak_rt::ERR_MALFORMED; break; }
+                    if et == 0 || (kk >> 3) > ak_rt::MAX_FIELD_NUMBER { sub.err = ak_rt::ERR_MALFORMED; break; }
                     match (et, ew) {
                         (1, 2) => {
                             let (a, b) = sub.len_body();
@@ -652,7 +652,7 @@ fn dec_task_output(d: &mut Dec, out: &mut TaskOutput, depth: u32) {
         let k = d.varint();
         if d.err != 0 { return; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }
         match (tag, wire) {
             (1, 0) => {
                 let v = d.varint() != 0;
@@ -686,7 +686,7 @@ fn dec_task_detailed(d: &mut Dec, out: &mut TaskDetailed, depth: u32) {
         let k = d.varint();
         if d.err != 0 { return; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }
         match (tag, wire) {
             (1, 2) => {
                 let (off, n) = d.len_body();
@@ -909,7 +909,7 @@ fn dec_task_summary(d: &mut Dec, out: &mut TaskSummary, depth: u32) {
         let k = d.varint();
         if d.err != 0 { return; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }
         match (tag, wire) {
             (1, 2) => {
                 let (off, n) = d.len_body();
@@ -984,7 +984,7 @@ fn dec_probe(d: &mut Dec, out: &mut Probe, depth: u32) {
         let k = d.varint();
         if d.err != 0 { return; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }
         match (tag, wire) {
             (1, 2) => {
                 let (off, n) = d.len_body();
@@ -1068,7 +1068,7 @@ fn dec_empty(d: &mut Dec, out: &mut Empty, depth: u32) {
         let k = d.varint();
         if d.err != 0 { return; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }
         match (tag, wire) {
             // Plan rule (retain): an unknown field is captured verbatim, key
             // included, and re-emitted after the known fields on encode.
@@ -1091,7 +1091,7 @@ fn dec_upload_result_data(d: &mut Dec, out: &mut UploadResultData, depth: u32) {
         let k = d.varint();
         if d.err != 0 { return; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }
         match (tag, wire) {
             (1, 2) => {
                 let (off, n) = d.len_body();
@@ -1132,7 +1132,7 @@ fn dec_metrics_batch(d: &mut Dec, out: &mut MetricsBatch, depth: u32) {
         let k = d.varint();
         if d.err != 0 { return; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }
         match (tag, wire) {
             (1, 2) => {
                 let (off, n) = d.len_body();
@@ -1232,7 +1232,7 @@ fn dec_pair(d: &mut Dec, out: &mut Pair, depth: u32) {
         let k = d.varint();
         if d.err != 0 { return; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }
         match (tag, wire) {
             (1, 2) => {
                 let (off, n) = d.len_body();
@@ -1266,7 +1266,7 @@ fn dec_list_results_response(d: &mut Dec, out: &mut ListResultsResponse, depth: 
         let k = d.varint();
         if d.err != 0 { return; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }
         match (tag, wire) {
             (1, 2) => {
                 let (off, n) = d.len_body();
@@ -1305,7 +1305,7 @@ fn dec_list_tasks_detailed_response(d: &mut Dec, out: &mut ListTasksDetailedResp
         let k = d.varint();
         if d.err != 0 { return; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }
         match (tag, wire) {
             (1, 2) => {
                 let (off, n) = d.len_body();
@@ -1344,7 +1344,7 @@ fn dec_list_task_summary_response(d: &mut Dec, out: &mut ListTaskSummaryResponse
         let k = d.varint();
         if d.err != 0 { return; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }
         match (tag, wire) {
             (1, 2) => {
                 let (off, n) = d.len_body();
@@ -1375,7 +1375,7 @@ fn dec_list_probe_response(d: &mut Dec, out: &mut ListProbeResponse, depth: u32)
         let k = d.varint();
         if d.err != 0 { return; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }
         match (tag, wire) {
             (1, 2) => {
                 let (off, n) = d.len_body();
@@ -1406,7 +1406,7 @@ fn dec_list_metrics_response(d: &mut Dec, out: &mut ListMetricsResponse, depth: 
         let k = d.varint();
         if d.err != 0 { return; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }
         match (tag, wire) {
             (1, 2) => {
                 let (off, n) = d.len_body();
@@ -1437,7 +1437,7 @@ fn dec_upload_result_data_message(d: &mut Dec, out: &mut UploadResultDataMessage
         let k = d.varint();
         if d.err != 0 { return; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }
         match (tag, wire) {
             (1, 2) => {
                 let (off, n) = d.len_body();
@@ -1468,7 +1468,7 @@ fn dec_dual_response(d: &mut Dec, out: &mut DualResponse, depth: u32) {
         let k = d.varint();
         if d.err != 0 { return; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }
         match (tag, wire) {
             (1, 2) => {
                 let (off, n) = d.len_body();

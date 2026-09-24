@@ -269,7 +269,7 @@ def _dec_message(p, m, o):
             o.append("                    let kk = sub.varint();")
             o.append("                    if sub.err != 0 { break; }")
             o.append("                    let (et, ew) = ((kk >> 3) as u32, (kk & 7) as u32);")
-            o.append("                    if et == 0 { sub.err = ak_rt::ERR_MALFORMED; break; }")
+            o.append("                    if et == 0 || (kk >> 3) > ak_rt::MAX_FIELD_NUMBER { sub.err = ak_rt::ERR_MALFORMED; break; }")
             o.append("                    match (et, ew) {")
             # The pair message's OWN decode plan.
             for (etag, ewire), eact in sorted(entry.decode.items()):
@@ -362,7 +362,7 @@ def emit_core_native(x, unknown="drop", types_path="super::types::*"):
         body.append("        let k = d.varint();")
         body.append("        if d.err != 0 { return; }")
         body.append("        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);")
-        body.append("        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; return; }")
+        body.append("        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; return; }")
         body.append("        match (tag, wire) {")
         _dec_message(p, m, body)
         if retain:

@@ -2047,7 +2047,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if (n == 0) { arena.release(mk); return 0; }
     int i = 0;
     long strMark = arena.mark();
-    for (java.util.Map.Entry<String, String> en : mp.entrySet()) {
+    for (java.util.Map.Entry<String, String> en : Codec.utf8Sorted(mp)) {
       long gp = chunkp + (long) i * ak.shapes.Layout.AK_EFIX_TASKOPTIONSOPTIONSENTRY_SIZE;
       putStr(gp + ak.shapes.Layout.AK_EFIX_TASKOPTIONSOPTIONSENTRY__KEY, en.getKey());
       putStr(gp + ak.shapes.Layout.AK_EFIX_TASKOPTIONSOPTIONSENTRY__VALUE, en.getValue());
@@ -2082,7 +2082,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if (n == 0) { arena.release(mk); return 0; }
     int i = 0;
     long strMark = arena.mark();
-    for (java.util.Map.Entry<String, String> en : mp.entrySet()) {
+    for (java.util.Map.Entry<String, String> en : Codec.utf8Sorted(mp)) {
       long gp = chunkp + (long) i * ak.shapes.Layout.AK_EFIX_TASKOPTIONSOPTIONSENTRY_SIZE;
       putStr(gp + ak.shapes.Layout.AK_EFIX_TASKOPTIONSOPTIONSENTRY__KEY, en.getKey());
       putStr(gp + ak.shapes.Layout.AK_EFIX_TASKOPTIONSOPTIONSENTRY__VALUE, en.getValue());
@@ -2114,7 +2114,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if (n == 0) { arena.release(mk); return 0; }
     int i = 0;
     long strMark = arena.mark();
-    for (java.util.Map.Entry<String, String> en : mp.entrySet()) {
+    for (java.util.Map.Entry<String, String> en : Codec.utf8Sorted(mp)) {
       long gp = chunkp + (long) i * ak.shapes.Layout.AK_EFIX_TASKOPTIONSOPTIONSENTRY_SIZE;
       putStr(gp + ak.shapes.Layout.AK_EFIX_TASKOPTIONSOPTIONSENTRY__KEY, en.getKey());
       putStr(gp + ak.shapes.Layout.AK_EFIX_TASKOPTIONSOPTIONSENTRY__VALUE, en.getValue());
@@ -2149,7 +2149,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if (n == 0) { arena.release(mk); return 0; }
     int i = 0;
     long strMark = arena.mark();
-    for (java.util.Map.Entry<String, String> en : mp.entrySet()) {
+    for (java.util.Map.Entry<String, String> en : Codec.utf8Sorted(mp)) {
       long gp = chunkp + (long) i * ak.shapes.Layout.AK_EFIX_TASKOPTIONSOPTIONSENTRY_SIZE;
       putStr(gp + ak.shapes.Layout.AK_EFIX_TASKOPTIONSOPTIONSENTRY__KEY, en.getKey());
       putStr(gp + ak.shapes.Layout.AK_EFIX_TASKOPTIONSOPTIONSENTRY__VALUE, en.getValue());

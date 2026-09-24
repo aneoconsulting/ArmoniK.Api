@@ -18,7 +18,7 @@ UNKNOWN_FIELDS = 'retain'
 
 ERR_MALFORMED, ERR_TRUNCATED, ERR_DEPTH, ERR_TRANSCODE, ERR_ABI = -2, -3, -4, -6, -11
 _M64 = (1 << 64) - 1
-_GROUP_LIMIT = 100               # nested groups, as the core's skipper bounds them
+_GROUP_LIMIT = 100               # plan.GROUP_DEPTH_LIMIT: nested groups, per skip
 
 
 class DecodeError(ValueError):
@@ -142,8 +142,8 @@ def _skip_group(b, i, end, tag, depth):
             raise DecodeError(ERR_TRUNCATED, "unterminated group %d" % tag)
         k, i = _vr(b, i, end)
         t, w = k >> 3, k & 7
-        if t == 0:
-            raise DecodeError(ERR_MALFORMED, "field number 0")
+        if t == 0 or t > 536870911:
+            raise DecodeError(ERR_MALFORMED, "field number 0 or above 2^29-1")
         if w == 4:
             if t != tag:
                 raise DecodeError(ERR_MALFORMED, "END_GROUP %d closes group %d" % (t, tag))
@@ -1100,8 +1100,8 @@ def _d_Timestamp(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 8:
             _v, i = _vr(b, i, end)
             _v = _i64(_v)
@@ -1133,8 +1133,8 @@ def _d_Duration(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 8:
             _v, i = _vr(b, i, end)
             _v = _i64(_v)
@@ -1166,8 +1166,8 @@ def _d_ResultRaw(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             o.session_id = _str(b, i, _n)
@@ -1235,8 +1235,8 @@ def _d_TaskOptions(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             if depth + 1 > LIMIT:
@@ -1245,8 +1245,8 @@ def _d_TaskOptions(b, i, end, C, depth, o=None):
             _me = i + _n
             while i < _me:
                 _ek, i = _vr(b, i, _me)
-                if _ek < 8:
-                    raise DecodeError(ERR_MALFORMED, 'field number 0')
+                if _ek < 8 or _ek >> 3 > 536870911:
+                    raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
                 if _ek == 10:
                     _en, i = _len(b, i, _me)
                     _mk = _str(b, i, _en)
@@ -1317,8 +1317,8 @@ def _d_TaskOutput(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 8:
             _v, i = _vr(b, i, end)
             _v = _v != 0
@@ -1350,8 +1350,8 @@ def _d_TaskDetailed(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             o.id = _str(b, i, _n)
@@ -1487,8 +1487,8 @@ def _d_TaskSummary(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             o.id = _str(b, i, _n)
@@ -1544,8 +1544,8 @@ def _d_Probe(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             o.id = _str(b, i, _n)
@@ -1612,8 +1612,8 @@ def _d_Empty(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if True:
             i = _skip(b, i, end, _k >> 3, _k & 7)
             if _u is None:
@@ -1637,8 +1637,8 @@ def _d_UploadResultData(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             o.session_id = _str(b, i, _n)
@@ -1674,8 +1674,8 @@ def _d_MetricsBatch(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             o.id = _str(b, i, _n)
@@ -1771,8 +1771,8 @@ def _d_Pair(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             o.key = _str(b, i, _n)
@@ -1804,8 +1804,8 @@ def _d_ListResultsResponse(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             o.results.append(_d_ResultRaw(b, i, i + _n, C, depth + 1))
@@ -1841,8 +1841,8 @@ def _d_ListTasksDetailedResponse(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             o.tasks.append(_d_TaskDetailed(b, i, i + _n, C, depth + 1))
@@ -1878,8 +1878,8 @@ def _d_ListTaskSummaryResponse(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             o.tasks.append(_d_TaskSummary(b, i, i + _n, C, depth + 1))
@@ -1907,8 +1907,8 @@ def _d_ListProbeResponse(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             o.probes.append(_d_Probe(b, i, i + _n, C, depth + 1))
@@ -1936,8 +1936,8 @@ def _d_ListMetricsResponse(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             o.batches.append(_d_MetricsBatch(b, i, i + _n, C, depth + 1))
@@ -1965,8 +1965,8 @@ def _d_UploadResultDataMessage(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             o.upload = _d_UploadResultData(b, i, i + _n, C, depth + 1, o.upload)
@@ -1994,8 +1994,8 @@ def _d_DualResponse(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             o.left.append(_d_Pair(b, i, i + _n, C, depth + 1))
@@ -2027,8 +2027,8 @@ def _d_ChunkLeaf(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             o.k = _str(b, i, _n)
@@ -2060,8 +2060,8 @@ def _d_ChunkInner(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 8:
             _v, i = _vr(b, i, end)
             _v = _i64(_v)
@@ -2103,8 +2103,8 @@ def _d_ChunkElement(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             _v = _str(b, i, _n)
@@ -2118,8 +2118,8 @@ def _d_ChunkElement(b, i, end, C, depth, o=None):
             _me = i + _n
             while i < _me:
                 _ek, i = _vr(b, i, _me)
-                if _ek < 8:
-                    raise DecodeError(ERR_MALFORMED, 'field number 0')
+                if _ek < 8 or _ek >> 3 > 536870911:
+                    raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
                 if _ek == 10:
                     _en, i = _len(b, i, _me)
                     _mk = _str(b, i, _en)
@@ -2162,8 +2162,8 @@ def _d_ChunkedResponse(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 58:
             _n, i = _len(b, i, end)
             o.items.append(_d_ChunkElement(b, i, i + _n, C, depth + 1))
@@ -2195,8 +2195,8 @@ def _d_ChunkedResponseWide(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 560002:
             _n, i = _len(b, i, end)
             o.items.append(_d_ChunkElement(b, i, i + _n, C, depth + 1))
@@ -2224,8 +2224,8 @@ def _d_LeafElement(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             o.id = _str(b, i, _n)
@@ -2261,8 +2261,8 @@ def _d_LeafResponse(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 74:
             _n, i = _len(b, i, end)
             o.items.append(_d_LeafElement(b, i, i + _n, C, depth + 1))
@@ -2290,8 +2290,8 @@ def _d_Surrogate(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             o.text = _str(b, i, _n)
@@ -2308,8 +2308,8 @@ def _d_Surrogate(b, i, end, C, depth, o=None):
             _me = i + _n
             while i < _me:
                 _ek, i = _vr(b, i, _me)
-                if _ek < 8:
-                    raise DecodeError(ERR_MALFORMED, 'field number 0')
+                if _ek < 8 or _ek >> 3 > 536870911:
+                    raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
                 if _ek == 10:
                     _en, i = _len(b, i, _me)
                     _mk = _str(b, i, _en)
@@ -2353,8 +2353,8 @@ def _d_SurrogateInner(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             o.text = _str(b, i, _n)
@@ -2382,8 +2382,8 @@ def _d_Nest(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 10:
             _n, i = _len(b, i, end)
             o.child = _d_Nest(b, i, i + _n, C, depth + 1, o.child)
@@ -2415,8 +2415,8 @@ def _d_WireZoo(b, i, end, C, depth, o=None):
             i += 1
         else:
             _k, i = _vr(b, i, end)
-        if _k < 8:
-            raise DecodeError(ERR_MALFORMED, 'field number 0')
+        if _k < 8 or _k >> 3 > 536870911:
+            raise DecodeError(ERR_MALFORMED, 'field number 0 or above 2^29-1')
         if _k == 8:
             _v, i = _vr(b, i, end)
             _v = _i32(_v)

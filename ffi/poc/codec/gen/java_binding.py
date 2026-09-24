@@ -412,8 +412,10 @@ def _emit_loop(ir, o, owner, path, f, slot, zeroed):
     if not leaf:
         o.append("    long tok0 = tokenBase();")
     if entry:
-        o.append("    for (java.util.Map.Entry<%s, %s> en : mp.entrySet()) {"
-                 % (N.string_type(), N.string_type()))
+        # plan ENCODE RULES: ascending UTF-8 key order (a String TreeMap is UTF-16 order).
+        src = "Codec.utf8Sorted(mp)" if N.string_type() == "String" else "mp.entrySet()"
+        o.append("    for (java.util.Map.Entry<%s, %s> en : %s) {"
+                 % (N.string_type(), N.string_type(), src))
         o.append("      long gp = chunkp + (long) i * %s;" % _size(_efix(et)))
         o.append("      putStr(gp + %s, en.getKey());" % _off(_efix(et), "key"))
         o.append("      putStr(gp + %s, en.getValue());" % _off(_efix(et), "value"))

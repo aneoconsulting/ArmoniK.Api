@@ -17,6 +17,36 @@ public static class Codec
     public const string UnknownMode = "both";
     public const int Limit = 100;
 
+    /// plan ENCODE RULES (WP5 step 6): map entries in ascending order of the key's UTF-8
+    /// bytes, which is code-point order. `OrderedMap` keeps INSERTION order, so the
+    /// encoder hands entries over in this order whatever order the map was filled in.
+    public static int[] Utf8Order(OrderedMap<string, string> m)
+    {
+        var ix = new int[m.Count];
+        for (int i = 0; i < ix.Length; i++) ix[i] = i;
+        if (ix.Length > 1) Array.Sort(ix, (x, y) => CmpUtf8(m.At(x).Key, m.At(y).Key));
+        return ix;
+    }
+
+    private static int Cp(string s, ref int i)
+    {
+        char c = s[i++];
+        if (char.IsHighSurrogate(c) && i < s.Length && char.IsLowSurrogate(s[i]))
+            return char.ConvertToUtf32(c, s[i++]);
+        return c;
+    }
+
+    public static int CmpUtf8(string a, string b)
+    {
+        int i = 0, j = 0;
+        while (i < a.Length && j < b.Length)
+        {
+            int x = Cp(a, ref i), y = Cp(b, ref j);
+            if (x != y) return x < y ? -1 : 1;
+        }
+        return (i < a.Length ? 1 : 0) - (j < b.Length ? 1 : 0);
+    }
+
     public static void WriteTimestamp(ref Enc e, Timestamp m)
     {
         if (m.Seconds != 0) e.VarintField(1, (ulong)(m.Seconds));
@@ -59,9 +89,10 @@ public static class Codec
 
     public static void WriteTaskOptions(ref Enc e, TaskOptions m)
     {
-        for (int i = 0; i < m.Options.Count; i++)
+        var ord_options = Utf8Order(m.Options);
+        for (int i = 0; i < ord_options.Length; i++)
         {
-            var kv = m.Options.At(i);
+            var kv = m.Options.At(ord_options[i]);
             var mk = e.Begin(1, 7);
             if (kv.Key != null && kv.Key.Length != 0) e.StringField(1, kv.Key, 8);
             if (kv.Value != null && kv.Value.Length != 0) e.StringField(2, kv.Value, 9);
@@ -411,9 +442,10 @@ public static class Codec
     public static void WriteChunkElement(ref Enc e, ChunkElement m)
     {
         for (int i = 0; i < m.Labels.Count; i++) e.StringField(1, m.Labels[i] ?? "", 75);
-        for (int i = 0; i < m.Attrs.Count; i++)
+        var ord_attrs = Utf8Order(m.Attrs);
+        for (int i = 0; i < ord_attrs.Length; i++)
         {
-            var kv = m.Attrs.At(i);
+            var kv = m.Attrs.At(ord_attrs[i]);
             var mk = e.Begin(2, 76);
             if (kv.Key != null && kv.Key.Length != 0) e.StringField(1, kv.Key, 77);
             if (kv.Value != null && kv.Value.Length != 0) e.StringField(2, kv.Value, 78);
@@ -485,9 +517,10 @@ public static class Codec
             WriteSurrogateInner(ref e, m.Nested);
             e.End(mk);
         }
-        for (int i = 0; i < m.Attrs.Count; i++)
+        var ord_attrs = Utf8Order(m.Attrs);
+        for (int i = 0; i < ord_attrs.Length; i++)
         {
-            var kv = m.Attrs.At(i);
+            var kv = m.Attrs.At(ord_attrs[i]);
             var mk = e.Begin(3, 88);
             if (kv.Key != null && kv.Key.Length != 0) e.StringField(1, kv.Key, 89);
             if (kv.Value != null && kv.Value.Length != 0) e.StringField(2, kv.Value, 90);
@@ -575,9 +608,10 @@ public static class Codec
     public static int SizeOfTaskOptions(TaskOptions m)
     {
         int n = 0;
-        for (int i = 0; i < m.Options.Count; i++)
+        var ord_options = Utf8Order(m.Options);
+        for (int i = 0; i < ord_options.Length; i++)
         {
-            var kv = m.Options.At(i);
+            var kv = m.Options.At(ord_options[i]);
             int b = 0;
             if (kv.Key != null && kv.Key.Length != 0) { int L = Enc.Utf8Len(kv.Key); b += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)L) + L; }
             if (kv.Value != null && kv.Value.Length != 0) { int L = Enc.Utf8Len(kv.Value); b += W.VarintLen(18UL) + W.VarintLen((ulong)(uint)L) + L; }
@@ -822,9 +856,10 @@ public static class Codec
     {
         int n = 0;
         for (int i = 0; i < m.Labels.Count; i++) { int L = Enc.Utf8Len(m.Labels[i] ?? ""); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)L) + L; }
-        for (int i = 0; i < m.Attrs.Count; i++)
+        var ord_attrs = Utf8Order(m.Attrs);
+        for (int i = 0; i < ord_attrs.Length; i++)
         {
-            var kv = m.Attrs.At(i);
+            var kv = m.Attrs.At(ord_attrs[i]);
             int b = 0;
             if (kv.Key != null && kv.Key.Length != 0) { int L = Enc.Utf8Len(kv.Key); b += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)L) + L; }
             if (kv.Value != null && kv.Value.Length != 0) { int L = Enc.Utf8Len(kv.Value); b += W.VarintLen(18UL) + W.VarintLen((ulong)(uint)L) + L; }
@@ -876,9 +911,10 @@ public static class Codec
         int n = 0;
         if (m.Text != null && m.Text.Length != 0) { int L = Enc.Utf8Len(m.Text); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)L) + L; }
         if (m.Nested != null) { int b = SizeOfSurrogateInner(m.Nested); n += W.VarintLen(18UL) + W.VarintLen((ulong)(uint)b) + b; }
-        for (int i = 0; i < m.Attrs.Count; i++)
+        var ord_attrs = Utf8Order(m.Attrs);
+        for (int i = 0; i < ord_attrs.Length; i++)
         {
-            var kv = m.Attrs.At(i);
+            var kv = m.Attrs.At(ord_attrs[i]);
             int b = 0;
             if (kv.Key != null && kv.Key.Length != 0) { int L = Enc.Utf8Len(kv.Key); b += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)L) + L; }
             if (kv.Value != null && kv.Value.Length != 0) { int L = Enc.Utf8Len(kv.Value); b += W.VarintLen(18UL) + W.VarintLen((ulong)(uint)L) + L; }
@@ -956,9 +992,10 @@ public static class Codec
 
     public static void WriteSizedTaskOptions(ref Enc e, TaskOptions m)
     {
-        for (int i = 0; i < m.Options.Count; i++)
+        var ord_options = Utf8Order(m.Options);
+        for (int i = 0; i < ord_options.Length; i++)
         {
-            var kv = m.Options.At(i);
+            var kv = m.Options.At(ord_options[i]);
             int b = 0;
             int L_key = (kv.Key != null && kv.Key.Length != 0) ? Enc.Utf8Len(kv.Key) : -1;
             if (L_key >= 0) b += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)L_key) + L_key;
@@ -1178,9 +1215,10 @@ public static class Codec
     public static void WriteSizedChunkElement(ref Enc e, ChunkElement m)
     {
         for (int i = 0; i < m.Labels.Count; i++) { var s = m.Labels[i] ?? ""; int L = Enc.Utf8Len(s); e.SizedHeader(1, L); e.StringBodySized(s, L); }
-        for (int i = 0; i < m.Attrs.Count; i++)
+        var ord_attrs = Utf8Order(m.Attrs);
+        for (int i = 0; i < ord_attrs.Length; i++)
         {
-            var kv = m.Attrs.At(i);
+            var kv = m.Attrs.At(ord_attrs[i]);
             int b = 0;
             int L_key = (kv.Key != null && kv.Key.Length != 0) ? Enc.Utf8Len(kv.Key) : -1;
             if (L_key >= 0) b += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)L_key) + L_key;
@@ -1226,9 +1264,10 @@ public static class Codec
     {
         if (m.Text != null && m.Text.Length != 0) { var s = m.Text; int L = Enc.Utf8Len(s); e.SizedHeader(1, L); e.StringBodySized(s, L); }
         if (m.Nested != null) { var c = m.Nested; e.SizedHeader(2, SizeOfSurrogateInner(c)); WriteSizedSurrogateInner(ref e, c); }
-        for (int i = 0; i < m.Attrs.Count; i++)
+        var ord_attrs = Utf8Order(m.Attrs);
+        for (int i = 0; i < ord_attrs.Length; i++)
         {
-            var kv = m.Attrs.At(i);
+            var kv = m.Attrs.At(ord_attrs[i]);
             int b = 0;
             int L_key = (kv.Key != null && kv.Key.Length != 0) ? Enc.Utf8Len(kv.Key) : -1;
             if (L_key >= 0) b += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)L_key) + L_key;
@@ -1283,7 +1322,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 8UL: // (1, 0) set_scalar seconds
@@ -1322,7 +1361,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 8UL: // (1, 0) set_scalar seconds
@@ -1361,7 +1400,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) set_blob session_id
@@ -1466,7 +1505,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) map_entry options
@@ -1479,7 +1518,7 @@ public static class Codec
                     {
                         ulong k2 = d.Varint(); if (d.Err != 0) break;
                         uint t2 = (uint)(k2 >> 3); int w2 = (int)(k2 & 7UL);
-                        if (t2 == 0) { d.Err = W.ErrMalformed; break; }
+                        if (t2 == 0 || (k2 >> 3) > 536870911UL) { d.Err = W.ErrMalformed; break; }
                         switch (((ulong)t2 << 3) | (uint)w2)
                         {
                             case 10UL: mk = d.StrReject(); break;
@@ -1579,7 +1618,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 8UL: // (1, 0) set_scalar success
@@ -1618,7 +1657,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) set_blob id
@@ -1891,7 +1930,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) set_blob id
@@ -1978,7 +2017,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) set_blob id
@@ -2071,7 +2110,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 default:
@@ -2098,7 +2137,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) set_blob session_id
@@ -2143,7 +2182,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) set_blob id
@@ -2256,7 +2295,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) set_blob key
@@ -2295,7 +2334,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) append_message results
@@ -2345,7 +2384,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) append_message tasks
@@ -2395,7 +2434,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) append_message tasks
@@ -2433,7 +2472,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) append_message probes
@@ -2471,7 +2510,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) append_message batches
@@ -2509,7 +2548,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) merge_child upload
@@ -2548,7 +2587,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) append_message left
@@ -2597,7 +2636,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) set_blob k
@@ -2636,7 +2675,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 8UL: // (1, 0) packed_one marks
@@ -2690,7 +2729,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) append_blob labels
@@ -2709,7 +2748,7 @@ public static class Codec
                     {
                         ulong k2 = d.Varint(); if (d.Err != 0) break;
                         uint t2 = (uint)(k2 >> 3); int w2 = (int)(k2 & 7UL);
-                        if (t2 == 0) { d.Err = W.ErrMalformed; break; }
+                        if (t2 == 0 || (k2 >> 3) > 536870911UL) { d.Err = W.ErrMalformed; break; }
                         switch (((ulong)t2 << 3) | (uint)w2)
                         {
                             case 10UL: mk = d.StrReject(); break;
@@ -2767,7 +2806,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 58UL: // (7, 2) append_message items
@@ -2811,7 +2850,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 560002UL: // (70000, 2) append_message items
@@ -2849,7 +2888,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) set_blob id
@@ -2900,7 +2939,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 74UL: // (9, 2) append_message items
@@ -2938,7 +2977,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) set_blob text
@@ -2969,7 +3008,7 @@ public static class Codec
                     {
                         ulong k2 = d.Varint(); if (d.Err != 0) break;
                         uint t2 = (uint)(k2 >> 3); int w2 = (int)(k2 & 7UL);
-                        if (t2 == 0) { d.Err = W.ErrMalformed; break; }
+                        if (t2 == 0 || (k2 >> 3) > 536870911UL) { d.Err = W.ErrMalformed; break; }
                         switch (((ulong)t2 << 3) | (uint)w2)
                         {
                             case 10UL: mk = d.StrReject(); break;
@@ -3021,7 +3060,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) set_blob text
@@ -3054,7 +3093,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 10UL: // (1, 2) merge_child child
@@ -3099,7 +3138,7 @@ public static class Codec
             uint tag = (uint)(k >> 3);
             int wire = (int)(k & 7UL);
             // plan: field number 0 is malformed, on every message.
-            if (tag == 0) { d.Err = W.ErrMalformed; return; }
+            if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
                 case 8UL: // (1, 0) set_scalar v_int32

@@ -439,7 +439,7 @@ static void dec_timestamp(ak::Dec *d, Timestamp *out, uint32_t depth) {
     uint64_t k = d->varint();
     if (d->err != 0) return;
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
-    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
+    if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
       case 8ull: {  // field 1, wire type 0: set_scalar
         out->seconds = (int64_t)d->varint();
@@ -466,7 +466,7 @@ static void dec_duration(ak::Dec *d, Duration *out, uint32_t depth) {
     uint64_t k = d->varint();
     if (d->err != 0) return;
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
-    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
+    if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
       case 8ull: {  // field 1, wire type 0: set_scalar
         out->seconds = (int64_t)d->varint();
@@ -493,7 +493,7 @@ static void dec_result_raw(ak::Dec *d, ResultRaw *out, uint32_t depth) {
     uint64_t k = d->varint();
     if (d->err != 0) return;
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
-    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
+    if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
       case 10ull: {  // field 1, wire type 2: set_blob
         size_t off, n; d->len_body(&off, &n);
@@ -583,7 +583,7 @@ static void dec_task_options(ak::Dec *d, TaskOptions *out, uint32_t depth) {
     uint64_t k = d->varint();
     if (d->err != 0) return;
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
-    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
+    if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
       case 10ull: {  // field 1, wire type 2: map_entry
         size_t off, n; d->len_body(&off, &n);
@@ -595,7 +595,7 @@ static void dec_task_options(ak::Dec *d, TaskOptions *out, uint32_t depth) {
           uint64_t kk = sub.varint();
           if (sub.err != 0) break;
           uint32_t et = (uint32_t)(kk >> 3), ew = (uint32_t)(kk & 7);
-          if (et == 0) { sub.err = ak::ERR_MALFORMED; break; }
+          if (et == 0 || (kk >> 3) > 536870911uLL) { sub.err = ak::ERR_MALFORMED; break; }
           switch (((uint64_t)et << 3) | ew) {
             case 10ull: {
               size_t a, b; sub.len_body(&a, &b);
@@ -701,7 +701,7 @@ static void dec_task_output(ak::Dec *d, TaskOutput *out, uint32_t depth) {
     uint64_t k = d->varint();
     if (d->err != 0) return;
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
-    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
+    if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
       case 8ull: {  // field 1, wire type 0: set_scalar
         out->success = (d->varint() != 0);
@@ -731,7 +731,7 @@ static void dec_task_detailed(ak::Dec *d, TaskDetailed *out, uint32_t depth) {
     uint64_t k = d->varint();
     if (d->err != 0) return;
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
-    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
+    if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
       case 10ull: {  // field 1, wire type 2: set_blob
         size_t off, n; d->len_body(&off, &n);
@@ -988,7 +988,7 @@ static void dec_task_summary(ak::Dec *d, TaskSummary *out, uint32_t depth) {
     uint64_t k = d->varint();
     if (d->err != 0) return;
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
-    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
+    if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
       case 10ull: {  // field 1, wire type 2: set_blob
         size_t off, n; d->len_body(&off, &n);
@@ -1061,7 +1061,7 @@ static void dec_probe(ak::Dec *d, Probe *out, uint32_t depth) {
     uint64_t k = d->varint();
     if (d->err != 0) return;
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
-    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
+    if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
       case 10ull: {  // field 1, wire type 2: set_blob
         size_t off, n; d->len_body(&off, &n);
@@ -1144,7 +1144,7 @@ static void dec_empty(ak::Dec *d, Empty *out, uint32_t depth) {
     uint64_t k = d->varint();
     if (d->err != 0) return;
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
-    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
+    if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
       // Plan rule (drop): an unknown field -- including a known number at
       // a wire type the table has no case for (R-E2) -- is skipped.
@@ -1163,7 +1163,7 @@ static void dec_upload_result_data(ak::Dec *d, UploadResultData *out, uint32_t d
     uint64_t k = d->varint();
     if (d->err != 0) return;
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
-    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
+    if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
       case 10ull: {  // field 1, wire type 2: set_blob
         size_t off, n; d->len_body(&off, &n);
@@ -1202,7 +1202,7 @@ static void dec_metrics_batch(ak::Dec *d, MetricsBatch *out, uint32_t depth) {
     uint64_t k = d->varint();
     if (d->err != 0) return;
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
-    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
+    if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
       case 10ull: {  // field 1, wire type 2: set_blob
         size_t off, n; d->len_body(&off, &n);
@@ -1328,7 +1328,7 @@ static void dec_pair(ak::Dec *d, Pair *out, uint32_t depth) {
     uint64_t k = d->varint();
     if (d->err != 0) return;
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
-    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
+    if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
       case 10ull: {  // field 1, wire type 2: set_blob
         size_t off, n; d->len_body(&off, &n);
@@ -1358,7 +1358,7 @@ static void dec_list_results_response(ak::Dec *d, ListResultsResponse *out, uint
     uint64_t k = d->varint();
     if (d->err != 0) return;
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
-    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
+    if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
       case 10ull: {  // field 1, wire type 2: append_message
         size_t off, n; d->len_body(&off, &n);
@@ -1394,7 +1394,7 @@ static void dec_list_tasks_detailed_response(ak::Dec *d, ListTasksDetailedRespon
     uint64_t k = d->varint();
     if (d->err != 0) return;
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
-    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
+    if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
       case 10ull: {  // field 1, wire type 2: append_message
         size_t off, n; d->len_body(&off, &n);
@@ -1430,7 +1430,7 @@ static void dec_list_task_summary_response(ak::Dec *d, ListTaskSummaryResponse *
     uint64_t k = d->varint();
     if (d->err != 0) return;
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
-    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
+    if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
       case 10ull: {  // field 1, wire type 2: append_message
         size_t off, n; d->len_body(&off, &n);
@@ -1458,7 +1458,7 @@ static void dec_list_probe_response(ak::Dec *d, ListProbeResponse *out, uint32_t
     uint64_t k = d->varint();
     if (d->err != 0) return;
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
-    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
+    if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
       case 10ull: {  // field 1, wire type 2: append_message
         size_t off, n; d->len_body(&off, &n);
@@ -1486,7 +1486,7 @@ static void dec_list_metrics_response(ak::Dec *d, ListMetricsResponse *out, uint
     uint64_t k = d->varint();
     if (d->err != 0) return;
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
-    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
+    if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
       case 10ull: {  // field 1, wire type 2: append_message
         size_t off, n; d->len_body(&off, &n);
@@ -1514,7 +1514,7 @@ static void dec_upload_result_data_message(ak::Dec *d, UploadResultDataMessage *
     uint64_t k = d->varint();
     if (d->err != 0) return;
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
-    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
+    if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
       case 10ull: {  // field 1, wire type 2: merge_child
         size_t off, n; d->len_body(&off, &n);
@@ -1542,7 +1542,7 @@ static void dec_dual_response(ak::Dec *d, DualResponse *out, uint32_t depth) {
     uint64_t k = d->varint();
     if (d->err != 0) return;
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
-    if (tag == 0) { d->err = ak::ERR_MALFORMED; return; }
+    if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
       case 10ull: {  // field 1, wire type 2: append_message
         size_t off, n; d->len_body(&off, &n);

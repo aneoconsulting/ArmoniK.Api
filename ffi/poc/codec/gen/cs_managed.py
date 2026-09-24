@@ -31,7 +31,7 @@ call, as the C ABI core's two entry families do. A map entry has no facade class
 bag: an unknown field inside an entry is skipped in every mode (the rust backends do the
 same; `U-map-entry` is a disputed corpus row).
 """
-from plan import LEN, as_plan
+from plan import GROUP_DEPTH_LIMIT, LEN, MAX_FIELD_NUMBER, as_plan
 import cs_names as N
 from cs_types import BAG, facade_messages
 
@@ -233,9 +233,10 @@ class Codec:
         if st.op == "map":
             entry = self.p.msg(f.entry)
             s = self.site(m.name, f, "map entry")
-            o += "%sfor (int i = 0; i < %s.Count; i++)" % (p, acc)
+            o += "%svar ord_%s = Utf8Order(%s);" % (p, f.name, acc)
+            o += "%sfor (int i = 0; i < ord_%s.Length; i++)" % (p, f.name)
             o += "%s{" % p
-            o += "%s    var kv = %s.At(i);" % (p, acc)
+            o += "%s    var kv = %s.At(ord_%s[i]);" % (p, acc, f.name)
             o += "%s    var mk = e.Begin(%d, %d);" % (p, f.tag, s)
             for est in self._entry_steps(entry):
                 x = "kv.Key" if est.field.name == "key" else "kv.Value"
@@ -312,9 +313,10 @@ class Codec:
             return
         if st.op == "map":
             entry = self.p.msg(f.entry)
-            o += "%sfor (int i = 0; i < %s.Count; i++)" % (p, acc)
+            o += "%svar ord_%s = Utf8Order(%s);" % (p, f.name, acc)
+            o += "%sfor (int i = 0; i < ord_%s.Length; i++)" % (p, f.name)
             o += "%s{" % p
-            o += "%s    var kv = %s.At(i);" % (p, acc)
+            o += "%s    var kv = %s.At(ord_%s[i]);" % (p, acc, f.name)
             o += "%s    int b = 0;" % p
             for est in self._entry_steps(entry):
                 x = "kv.Key" if est.field.name == "key" else "kv.Value"
@@ -379,9 +381,10 @@ class Codec:
         if st.op == "map":
             entry = self.p.msg(f.entry)
             steps = self._entry_steps(entry)
-            o += "%sfor (int i = 0; i < %s.Count; i++)" % (p, acc)
+            o += "%svar ord_%s = Utf8Order(%s);" % (p, f.name, acc)
+            o += "%sfor (int i = 0; i < ord_%s.Length; i++)" % (p, f.name)
             o += "%s{" % p
-            o += "%s    var kv = %s.At(i);" % (p, acc)
+            o += "%s    var kv = %s.At(ord_%s[i]);" % (p, acc, f.name)
             o += "%s    int b = 0;" % p
             for est in steps:
                 x = "kv.Key" if est.field.name == "key" else "kv.Value"
@@ -402,7 +405,7 @@ class Codec:
     # ======================================================== DECODE
     def _capture(self):
         """The unknown-field arm of the dispatch, per Options.unknown."""
-        skip = "d.Skip((int)tag, wire, %d);" % self.limit
+        skip = "d.Skip((int)tag, wire, %d);" % GROUP_DEPTH_LIMIT
         grab = "if (d.Err == 0) m.%s = W.Append(m.%s, d.Buf, s0, d.Pos - s0);" % (BAG, BAG)
         if self.retain == "drop":
             return ["// plan (drop): an unknown field -- including a known number at a wire type",
@@ -428,7 +431,7 @@ class Codec:
         o += "            uint tag = (uint)(k >> 3);"
         o += "            int wire = (int)(k & 7UL);"
         o += "            // plan: field number 0 is malformed, on every message."
-        o += "            if (tag == 0) { d.Err = W.ErrMalformed; return; }"
+        o += "            if (tag == 0 || (k >> 3) > %dUL) { d.Err = W.ErrMalformed; return; }" % MAX_FIELD_NUMBER
         o += "            switch (((ulong)tag << 3) | (uint)wire)"
         o += "            {"
         for (tag, wire), act in sorted(m.decode.items()):
@@ -503,7 +506,7 @@ class Codec:
             o += "%s{" % b
             o += "%s    ulong k2 = d.Varint(); if (d.Err != 0) break;" % b
             o += "%s    uint t2 = (uint)(k2 >> 3); int w2 = (int)(k2 & 7UL);" % b
-            o += "%s    if (t2 == 0) { d.Err = W.ErrMalformed; break; }" % b
+            o += "%s    if (t2 == 0 || (k2 >> 3) > %dUL) { d.Err = W.ErrMalformed; break; }" % (b, MAX_FIELD_NUMBER)
             o += "%s    switch (((ulong)t2 << 3) | (uint)w2)" % b
             o += "%s    {" % b
             for (etag, ewire), eact in sorted(entry.decode.items()):
@@ -514,7 +517,7 @@ class Codec:
                 o += "%s        case %dUL: %s = %s; break;" % (b, (etag << 3) | ewire, x, self._str(ef))
             o += "%s        // A facade map entry has no bag: an unknown field inside an entry" % b
             o += "%s        // is skipped in every mode." % b
-            o += "%s        default: d.Skip((int)t2, w2, %d); break;" % (b, self.limit)
+            o += "%s        default: d.Skip((int)t2, w2, %d); break;" % (b, GROUP_DEPTH_LIMIT)
             o += "%s    }" % b
             o += "%s}" % b
             o += "%sd.End = save;" % b
@@ -558,6 +561,9 @@ def emit(x, ns, extra_using=()):
     o += "    public const string UnknownMode = \"%s\";" % p.options.unknown
     o += "    public const int Limit = %d;" % p.options.recursion_limit
     o += ""
+    for ln in CS_MAP_ORDER.strip("\n").split("\n"):
+        o += ln
+    o += ""
     msgs = facade_messages(p)
     for m in msgs:
         c.emit_write(o, m)
@@ -578,3 +584,36 @@ def emit(x, ns, extra_using=()):
     o += "    };"
     o += "}"
     return str(o), c.sites
+
+
+CS_MAP_ORDER = '''
+    /// plan ENCODE RULES (WP5 step 6): map entries in ascending order of the key's UTF-8
+    /// bytes, which is code-point order. `OrderedMap` keeps INSERTION order, so the
+    /// encoder hands entries over in this order whatever order the map was filled in.
+    public static int[] Utf8Order(OrderedMap<string, string> m)
+    {
+        var ix = new int[m.Count];
+        for (int i = 0; i < ix.Length; i++) ix[i] = i;
+        if (ix.Length > 1) Array.Sort(ix, (x, y) => CmpUtf8(m.At(x).Key, m.At(y).Key));
+        return ix;
+    }
+
+    private static int Cp(string s, ref int i)
+    {
+        char c = s[i++];
+        if (char.IsHighSurrogate(c) && i < s.Length && char.IsLowSurrogate(s[i]))
+            return char.ConvertToUtf32(c, s[i++]);
+        return c;
+    }
+
+    public static int CmpUtf8(string a, string b)
+    {
+        int i = 0, j = 0;
+        while (i < a.Length && j < b.Length)
+        {
+            int x = Cp(a, ref i), y = Cp(b, ref j);
+            if (x != y) return x < y ? -1 : 1;
+        }
+        return (i < a.Length ? 1 : 0) - (j < b.Length ? 1 : 0);
+    }
+'''

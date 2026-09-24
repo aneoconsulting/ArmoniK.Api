@@ -142,8 +142,20 @@ DECODE RULES (stated once, applied by every backend)
       in `int`) is outside this rule and wrong on the corpus's `X-lenwrap-*` rows;
       a truncated varint, length or fixed field -> ERR_TRUNCATED; a varint longer than 10
       bytes -> ERR_MALFORMED;
+    * the 10th byte of a varint contributes its LOW bit only: bits beyond 64 are DISCARDED,
+      not refused (WP5 step 6). The three corpus oracles agree: protobuf 7.36.2 upb and
+      pure-python and protobuf C++ 3.21.12 all accept `10 FF FF FF FF FF FF FF FF FF 02`
+      into an int64 as 2^63-1 and `... 7F` as -1 (logs/rust/wp5s6-oracles.log). A backend
+      that refused them would reject what every protobuf accepts;
+    * a FIELD NUMBER above MAX_FIELD_NUMBER (2^29 - 1 = 536,870,911, protobuf's maximum)
+      -> ERR_MALFORMED, never truncated to 32 bits (which aliased 2^32 + n to n): at the
+      top of every message and inside a skipped group. upb and protobuf C++ refuse; the
+      pure-python backend accepts (the minority reading, logs/rust/wp5s6-oracles.log);
     * nesting: a message more than `recursion_limit` levels below the root -> ERR_DEPTH;
-      nested groups likewise;
+    * nested GROUPS are counted separately from message depth: within one skipped
+      unknown field, a group more than GROUP_DEPTH_LIMIT (100) levels deep -> ERR_DEPTH,
+      whatever the message depth around it (the core's `skip_group`; protobuf's default
+      recursion limit is the same number);
     * `string` fields are validated as UTF-8 under utf8="reject" (the default, proto3's
       rule) -> ERR_TRANSCODE; "lossy" substitutes U+FFFD and is the one alternative;
     * the first error stops the decode; NOTHING is delivered after it (no flush, no apply,
@@ -205,6 +217,10 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 import ir as IR  # noqa: E402  the ONE front end; only this module imports it
+
+# DECODE RULES' numeric constants (WP5 step 6).
+MAX_FIELD_NUMBER = (1 << 29) - 1
+GROUP_DEPTH_LIMIT = 100
 
 VARINT, I64, LEN, SGROUP, EGROUP, I32 = 0, 1, 2, 3, 4, 5
 

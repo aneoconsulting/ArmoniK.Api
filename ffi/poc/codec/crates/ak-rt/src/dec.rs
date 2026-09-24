@@ -142,7 +142,8 @@ impl<'a> Dec<'a> {
                 return;
             }
             let (t, w) = ((k >> 3) as u32, (k & 7) as u32);
-            if t == 0 {
+            // plan.MAX_FIELD_NUMBER, inside a group too (WP5 step 6).
+            if t == 0 || (k >> 3) > crate::MAX_FIELD_NUMBER {
                 self.err = crate::ERR_MALFORMED;
                 return;
             }
@@ -160,7 +161,8 @@ impl<'a> Dec<'a> {
         }
     }
 
-    /// protobuf's own default recursion limit, applied to nested groups.
+    /// plan.GROUP_DEPTH_LIMIT: nested groups within ONE skipped field, counted apart from
+    /// message depth (protobuf's own default recursion limit is the same number).
     const MAX_GROUP_DEPTH: u32 = 100;
 }
 
@@ -235,7 +237,8 @@ mod group_skip_tests {
                 break;
             }
             let (t, w) = ((k >> 3) as u32, (k & 7) as u32);
-            if t == 0 {
+            // plan.MAX_FIELD_NUMBER, inside a group too (WP5 step 6).
+            if t == 0 || (k >> 3) > crate::MAX_FIELD_NUMBER {
                 d.err = crate::ERR_MALFORMED;
                 break;
             }
@@ -295,6 +298,22 @@ mod group_skip_tests {
     fn nesting_past_the_limit_is_depth_not_a_stack_overflow() {
         let buf: Vec<u8> = (0..200).map(|_| tag(15, 3)).collect();
         assert_eq!(skip_all(&buf).0, crate::ERR_DEPTH);
+    }
+
+    /// WP5 step 6: a field number above 2^29 - 1 inside a skipped group is malformed, as
+    /// upb and protobuf C++ refuse it (logs/rust/wp5s6-oracles.log).
+    #[test]
+    fn a_field_number_above_the_maximum_inside_a_group_is_malformed() {
+        // group 15 { field 2^29, varint 1 } end 15
+        let mut buf = vec![tag(15, 3)];
+        let mut k: u64 = (1u64 << 29) << 3;
+        while k >= 0x80 {
+            buf.push((k as u8) | 0x80);
+            k >>= 7;
+        }
+        buf.push(k as u8);
+        buf.extend([0x01, tag(15, 4)]);
+        assert_eq!(skip_all(&buf).0, crate::ERR_MALFORMED);
     }
 
     #[test]
