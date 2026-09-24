@@ -1,0 +1,76 @@
+# 2026-09-24T18:45:22Z python3 emit/selftest.py
+generated/ is not what emit/build.py writes today:
+  differs: vectors/S-bool-true.bin
+generated/ is not what emit/build.py writes today:
+  missing from the committed tree: vectors/S-bool-true.bin
+generated/ is not what emit/build.py writes today:
+  committed but no longer generated: vectors/S-not-a-vector.bin
+ok   the walker raises on an unknown field KIND                     ShapeNotCovered: enc_field has no case for kind 'sfixed64' at ChunkLeaf.x
+ok   the walker raises on an unknown CARDINALITY                    ShapeNotCovered: no case for cardinality 'optional-group' at ChunkLeaf.x
+ok   the walker raises on a map that is not map<string, string>     ShapeNotCovered: only map<string, string> has a case (ChunkLeaf.x)
+ok   the walker raises on an unknown VALUE rule                     ShapeNotCovered: no value rule 'haiku' for ChunkLeaf.x
+ok   the walker raises on a message type that does not exist        ShapeNotCovered: no message 'NoSuchMessage' in the description
+ok   the walker raises on a second oneof in one message             ShapeNotCovered: Probe has 2 oneofs and this walker handles one
+ok   the walker raises on an encoder option it does not have        ShapeNotCovered: unknown encoder option(s): ['no_such_option']
+ok   load() raises on a duplicate tag                               ShapeNotCovered: ChunkLeaf: tag 1 on both k and again (selftest)
+ok   load() raises on a tag in protobuf's reserved range            ShapeNotCovered: ChunkLeaf.res tag 19500 is in protobuf's reserved range
+ok   a valid vector is NOT rejected by upb, so the reject tests are not vacuous U-root-u-varint
+ok   every must-fail vector upb accepts is published as disputed (144 of 146 refused by upb; accepted: X-tag-zero-Empty, X-tag-zero-nested-Empty) 
+ok   the shape universe is computed from the description (24 shapes) 
+ok   the gap reporter is silent when every shape is covered         
+ok   the gap reporter NAMES a shape that has no vector              
+ok   no unknown tag is declared at its site in the READER view      []
+ok   every unknown tag IS declared at its site in the SUPERSET view []
+ok   the unknown ONEOF member is declared on Probe in the superset only 
+ok   --check notices a changed vector                               
+ok   --check notices a missing vector                               
+ok   --check notices a file that is no longer generated             
+ok   no generated file contains an absolute path from this machine  
+ok   every manifest row carries tests/produce/consume/expect/sha256/file 
+ok   every committed vector matches its own hash                    
+ok   no vector asks a producer for a non-canonical encoding         
+ok   every reject row names what was seen refusing it               146 rows
+ok   the vector bytes are sealed (694 of them)                      
+ok   every committed vector still matches the seal                  
+ok   the seal refuses a vector whose BYTES changed                  SystemExit: the committed vector bytes have moved, and consumers have pinned them:
+  BYTES CHANGED: C-
+ok   the seal refuses a vector that disappeared                     SystemExit: the committed vector bytes have moved, and consumers have pinned them:
+  no longer generat
+ok   the seal refuses a vector that was added                       SystemExit: the committed vector bytes have moved, and consumers have pinned them:
+  added, not in the
+ok   at least one row is DISPUTED, so the machinery is not vacuous  U-map-entry, X-tag-zero-Empty, X-tag-zero-nested-Empty, X-field-over-max, X-field-2p32-plus-2, X-field-over-max-in-group
+ok   every disputed row has no projection of its own and is excluded from pass/fail 
+ok   every disputed row carries more than one reading, each naming its runtime 
+ok   U-map-entry's readings really do differ                        
+ok   X-tag-zero-Empty is a verdict dispute naming who refused and who accepted 
+ok   X-tag-zero-nested-Empty is a verdict dispute naming who refused and who accepted 
+ok   X-field-over-max is a verdict dispute naming who refused and who accepted 
+ok   X-field-2p32-plus-2 is a verdict dispute naming who refused and who accepted 
+ok   X-field-over-max-in-group is a verdict dispute naming who refused and who accepted 
+ok   a disputed row names WHERE the readings differ                 
+ok   the diff reporter is silent on two identical readings          
+ok   the diff reporter names a nested path                          
+ok   every accepted encoding names who was seen writing it          
+ok   forms the corpus DECLARES but no runtime was seen writing are marked as such 341 rows, e.g. B-P2_5, B-P7_1, E-bytes-empty-written
+ok   every agreed accept row has at least one accepted encoding     
+ok   the interleaved rows accept a permutation, so a conformant encoder passes C3 B-P7_1, S-interleaved, S-map-order-reversed, U-root-before, U-root-interleaved
+ok   the permutation rule is not applied to rows that are not permutations 
+ok   three oracles are named in the manifest (3)                    protobuf 7.36.2 (upb backend); protobuf 7.36.2 (pure-python backend); protobuf C++ via libprotoc 35.1 (protoc --decode)
+ok   every must-fail vector was refused by all three, or is DISPUTED naming who accepted it (141 of 146 by all three) X-field-2p32-plus-2 accepted by protobuf 7.36.2 (pure-python backend); X-field-over-max accepted by protobuf 7.36.2 (pure-python backend); X-field-over-max-in-group accepted by protobuf 7.36.2 (pure-python backend); X-tag-zero-Empty accepted by protobuf 7.36.2 (upb backend); X-tag-zero-nested-Empty accepted by protobuf 7.36.2 (upb backend) | {"protobuf 7.36.2 (pure-python backend)": 143, "protobuf 7.36.2 (upb backend)": 144, "protobuf C++ via libprotoc 35.1 (protoc --decode)": 146}
+ok   X-lenwrap-lrr-unknown-zero is FIX-PLAN WP4 item 1's reproducer, byte for byte 7af5ffffffffffffffff01
+ok   the wrap guard refuses a length that does NOT wrap from its position ShapeNotCovered: 9 + 18446744073709551605 does not wrap 2^64
+ok   the wrap guard refuses a declared length the bytes do not carry ShapeNotCovered: declared_length 18446744073709551603 but the bytes say 18446744073709551605
+ok   the wrap guard refuses a vector whose stated sum is wrong      ShapeNotCovered: sum_mod_2_64 1 but the arithmetic says 0
+ok   every X-lenwrap row wraps 2^64 (or sits one below) exactly as it says (63 rows) 
+ok   the wrap reaches an unknown, a string and a message field      message, string, unknown
+ok   nested wraps are counted from the buffer AND from the enclosing message buffer, enclosing message
+ok   every X-lenwrap row is must-fail and agreed                    
+ok   every message x shape x foreign wire type has a U-wire row (243) missing []; extra []
+ok   every U-wire row is agreed and reads the foreign-typed field as UNKNOWN 
+ok   field number 0 has a must-fail row on every root (30)          
+ok   every S-mzero row projects "-0" (4 rows)                       
+ok   every S-neg row projects a negative integer (14 rows)          
+ok   every S-neg / S-mzero row a slice must produce is the form upb writes too 
+
+63 checks, 0 failed
+exit=0

@@ -1,0 +1,19 @@
+# 2026-09-24T18:44:33Z the seal at HEAD against the seal after --reseal
+# old data lines: 683   new data lines: 694
+# old lines missing or changed (comm -23), must be empty:
+# count: 0
+# lines only in the new seal: 11
+294d5cd5e59202f6701dd29f99e31b7c6f0186745bb4099c8b0fe9246b1e5dfb  S-varint10-bit64-Timestamp.bin
+294d5cd5e59202f6701dd29f99e31b7c6f0186745bb4099c8b0fe9246b1e5dfb  S-varint10-int32.bin
+335f9969ed229fcb5c3e3ba4820dea570950d246f79810cd8d3b287c7aab56e9  X-field-over-max-in-group.bin
+35d273de44d957186f94d4e7602c1e53b9662d88b6df27736091a59444a27ae8  X-field-2p32-plus-2.bin
+387aa0941bf1fd88ec4670a77398fe7a0a58676299c90da15a8d16800c598916  S-map-order-reversed.bin
+47ac9fd8e60d0af2f21431e8af9c59630dd4c014f5d775c59051a49528612f7f  S-map-order-utf8.bin
+4892122775f45217571f78fd59236b1b697f0172c9f305a5a06746788c87bd9f  S-varint10-over-zero.bin
+8b12f7b51e4f30c394d7ec8724387817038ea0af23a9cd61c635480c5e0d0a93  S-varint10-bit64.bin
+b54096bd3aa9d2b4c6e6a6f626b3afd8494400fb2948a3c6383cc82b8cf7bbac  U-group-field-max.bin
+b7f5208acee7aea46c6cdfd31ecc92e1b8c7d3569812293fcbf5a90af2922b77  X-field-over-max.bin
+cd6e3e4b202ae56031e0dd08e7d2a89d3f7d880d97ce1cc904598ef0f53cd59a  S-varint10-7f.bin
+# removed lines in git diff -U0 (must be none): 0
+# committed vector files modified or deleted: 0
+# new vector files: 11

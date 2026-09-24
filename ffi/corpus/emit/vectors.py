@@ -72,6 +72,7 @@ def build_all(reader, superset, corpus):
     out += chunking(reader, superset, corpus)
     out += malformed(reader, superset, corpus)
     out += wp4(reader, superset, corpus)
+    out += wp5s6(reader, superset, corpus)
     seen = set()
     for v in out:
         if v.id in seen:
@@ -1520,4 +1521,93 @@ def negints(reader, corpus):
                                  "re-encoding is the ten-byte sign-extended form.",
                        forms=[("canonical: ten-byte sign-extended", canonical_form)],
                        meta={"register": "R-E5"}))
+    return out
+
+
+# --------------------------------------------------------------------------
+# FIX-PLAN WP5 step 6: rules the shared plan (poc/codec/gen/plan.py) now states,
+# proposed by the rust slice (poc/rust/gen/probe_corpus.py, rows P-*) and built
+# here through the corpus's own generator and oracles. Appended after wp4 so no
+# earlier vector's bytes can move.
+#
+#   X-field-*        field numbers above 2^29 - 1, refused
+#   U-group-field-max  2^29 - 1 inside a skipped group, accepted (the control)
+#   S-varint10-*     a tenth varint byte carrying bits beyond 64, discarded
+#   S-map-order-*    map entries in ascending UTF-8 key order
+
+FIELD_MAX = (1 << 29) - 1
+
+
+def wp5s6(reader, superset, corpus):
+    out = []
+    Z = "WireZoo"
+    why_f = corpus["field_number_limit"]["_why"]
+    over = [
+        ("X-field-over-max", W.varint(((FIELD_MAX + 1) << 3) | W.VARINT) + W.varint(1),
+         "field number 2^29, one above the largest legal field number, at the root"),
+        ("X-field-2p32-plus-2", W.varint((((1 << 32) + 2) << 3) | W.VARINT) + W.varint(5),
+         "field number 2^32 + 2, which a decoder keeping the field number in 32 bits reads as "
+         "field 2 (v_int64 = 5)"),
+        ("X-field-over-max-in-group",
+         W.key(100, W.SGROUP) + W.varint(((FIELD_MAX + 1) << 3) | W.VARINT) + W.varint(1)
+         + W.key(100, W.EGROUP),
+         "field number 2^29 inside an unknown group the reader is only skipping"),
+    ]
+    for vid, data, prose in over:
+        out.append(Vec(vid, "malformed", Z, data, prose, expect="reject",
+                       reject={"reason": "field number above 2^29 - 1"},
+                       why=why_f, meta={"source": "poc/rust/gen/probe_corpus.py", "plan": "WP5 step 6"}))
+
+    gbody = W.i(FIELD_MAX, 1)
+    out.append(Vec("U-group-field-max", "unknown", Z,
+                   W.key(100, W.SGROUP) + gbody + W.key(100, W.EGROUP),
+                   "field number 2^29 - 1 inside an unknown group the reader is only skipping",
+                   why=why_f + " The control for X-field-over-max-in-group: the same group, one "
+                               "field number lower, must be skipped without complaint.",
+                   forms=[("unknown-dropped", b"")],
+                   meta={"group_tag": 100, "declared_in_superset": False,
+                         "source": "poc/rust/gen/probe_corpus.py", "plan": "WP5 step 6"},
+                   notes={"all": "WireZoo is not an unknown-field site, so tag 100 is unknown "
+                                 "under both views and there is no superset projection."}))
+
+    why_v = corpus["varint_tenth_byte"]["_why"]
+    FF = b"\xff"
+    ten = [
+        ("bit64", Z, W.key(2, W.VARINT) + FF * 9 + b"\x02", W.i(2, (1 << 63) - 1),
+         "v_int64 whose tenth byte is 0x02: bit 64 set and discarded, bit 63 clear, so 2^63 - 1"),
+        ("7f", Z, W.key(2, W.VARINT) + FF * 9 + b"\x7f", W.i(2, -1),
+         "v_int64 whose tenth byte is 0x7f: bits 64 to 69 discarded, so -1"),
+        ("over-zero", Z, W.key(2, W.VARINT) + b"\x80" * 9 + b"\x7e", b"",
+         "v_int64 whose only set bits are beyond 64: the value is 0, which an implicit-presence "
+         "field does not keep"),
+        ("int32", Z, W.key(1, W.VARINT) + FF * 9 + b"\x02", W.i(1, -1),
+         "v_int32 carrying the ten-byte varint with bit 64 set: the low 32 bits are -1"),
+        ("bit64-Timestamp", "Timestamp", W.key(1, W.VARINT) + FF * 9 + b"\x02", W.i(1, (1 << 63) - 1),
+         "Timestamp.seconds with the same tenth byte 0x02, on a root every slice implements"),
+    ]
+    for label, root, data, canon, prose in ten:
+        out.append(Vec("S-varint10-%s" % label, "shape", root, data, prose,
+                       why=why_v + " Consume-only; the canonical re-encoding is declared.",
+                       forms=[("canonical", canon)],
+                       meta={"source": "poc/rust/gen/probe_corpus.py", "plan": "WP5 step 6"}))
+
+    why_m = corpus["map_entry_order"]["_why"]
+    k1, k2 = u"\ue000", u"\U00010000"
+
+    def entry(k, v):
+        return W.ld(1, W.s(1, k) + W.s(2, v))
+    srt = entry(k1, "a") + entry(k2, "b")
+    rev = entry(k2, "b") + entry(k1, "a")
+    out.append(Vec("S-map-order-utf8", "shape", "TaskOptions", srt,
+                   "TaskOptions.options with keys U+E000 and U+10000, in UTF-8 byte order",
+                   why=why_m, canonical=True, produce=ALL,
+                   meta={"keys_utf8_hex": [k1.encode("utf-8").hex(), k2.encode("utf-8").hex()],
+                         "keys_utf16be_hex": [k1.encode("utf-16-be").hex(), k2.encode("utf-16-be").hex()],
+                         "plan": "WP5 step 6"}))
+    out.append(Vec("S-map-order-reversed", "shape", "TaskOptions", rev,
+                   "the same two entries in the reverse (UTF-16) order on the wire",
+                   why=why_m + " Consume-only: a reader must take either order, and re-encode in "
+                               "UTF-8 key order.",
+                   forms=[("canonical: entries ascending by UTF-8 key", srt)],
+                   meta={"plan": "WP5 step 6"}))
     return out

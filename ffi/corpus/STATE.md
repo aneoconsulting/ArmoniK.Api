@@ -3,10 +3,20 @@
 The handoff for W8. Read this first; the transcript is gone.
 
 **Status: built, gated, revised once by its own consumers, and extended once
-by FIX-PLAN WP4 item 2.** `ffi/corpus/` holds a generator, 691 manifest rows (683
-vectors plus 8 schema payloads by reference), projections, a consumer contract and
+by FIX-PLAN WP4 item 2 and WP5 step 6.** `ffi/corpus/` holds a generator, 702
+manifest rows (694 vectors plus 8 schema payloads by reference), projections, a consumer contract and
 a gate. `./run.sh --check` passes from a clean clone at a different path
-(`logs/wp4-5-run-check.log`).
+(`logs/wp5s6-5-run-check.log`).
+
+**Extension of 2026-09-24, second (FIX-PLAN WP5 step 6).** 11 vectors for rules
+`poc/codec/gen/plan.py` now states, proposed by the rust slice
+(`poc/rust/gen/probe_corpus.py`) and built through this generator and its three
+oracles: field numbers above 2^29 - 1 refused (`X-field-*`, 3, all **disputed**:
+pure-python accepts), 2^29 - 1 inside a skipped group accepted
+(`U-group-field-max`), a tenth varint byte carrying bits beyond 64 discarded
+(`S-varint10-*`, 5, agreed), map entries in UTF-8 key order
+(`S-map-order-utf8`, `S-map-order-reversed`, agreed). Additions only again:
+`logs/wp5s6-2-seal-diff.log`, 0 of 683 old seal lines missing or changed.
 
 **Extension of 2026-09-24 (FIX-PLAN WP4 item 2).** 355 vectors added for defects a
 review found and the corpus did not cover: lengths that wrap 2^64 (R-D1), a known
@@ -33,15 +43,15 @@ is the manifest's claims about them.
 | | |
 |---|---|
 | Generator | `emit/` -- 6 modules, driven off `corpus.json` merged over `../schema/shapes.json` |
-| Vectors | 691 rows: 317 `unknown`, 30 `empty`, 163 `shape`, 53 `transcode`, 8 `chunking`, 112 `malformed`, 8 `baseline` |
-| Of those | 548 must be accepted, 143 must be **refused** |
+| Vectors | 702 rows: 318 `unknown`, 30 `empty`, 170 `shape`, 53 `transcode`, 8 `chunking`, 115 `malformed`, 8 `baseline` |
+| Of those | 556 must be accepted, 146 must be **refused** |
 | Manifest | `generated/manifest.json` -- per vector: what it tests, produce/consume per slice, the **set** of accepted encodings, a projection, per-class metadata, per-language notes |
-| Projections | 542 rows carry one, plus 65 superset projections. What a reader must SEE, not just bytes |
+| Projections | 550 rows carry one, plus 65 superset projections. What a reader must SEE, not just bytes |
 | Contract | `CONTRACT.md`. The whole obligation, so five slices do not each invent it |
-| Verdicts | 688 `agreed`, **3 `disputed`** (`U-map-entry` on the reading; `X-tag-zero-Empty`, `X-tag-zero-nested-Empty` on the verdict) |
-| Seal | `generated/vectors.sha256`, 683 vectors (328 sealed 2026-09-20, 355 added 2026-09-24). The build refuses to move a byte |
-| Gate | `run.sh` / `emit/build.py --check` / `emit/selftest.py` (60 checks) |
-| Logs | `logs/wp4-*.log`: the seal refusing the additions, the re-seal, the old-against-new seal diff, the build, the selftest, `run.sh --check` |
+| Verdicts | 696 `agreed`, **6 `disputed`** (`U-map-entry` on the reading; `X-tag-zero-Empty`, `X-tag-zero-nested-Empty`, `X-field-over-max`, `X-field-2p32-plus-2`, `X-field-over-max-in-group` on the verdict) |
+| Seal | `generated/vectors.sha256`, 694 vectors (328 sealed 2026-09-20, 355 added for WP4 item 2 and 11 for WP5 step 6 on 2026-09-24). The build refuses to move a byte |
+| Gate | `run.sh` / `emit/build.py --check` / `emit/selftest.py` (63 checks) |
+| Logs | `logs/wp4-*.log` and `logs/wp5s6-*.log`, each set: the seal refusing the additions, the re-seal, the old-against-new seal diff, the build, the selftest, `run.sh --check` |
 
 ### The three oracles
 
@@ -59,8 +69,9 @@ the disputed row is a map-semantics question. The cpp slice's reflection arm can
 answer it, because `Reflection::ListFields` over generated code IS the presence
 rule CONTRACT.md section 3 describes.
 
-**All three refuse 141 of the 143 must-fail vectors.** upb accepts the other two;
-see below. The pure-python backend and protobuf C++ refuse all 143.
+**All three refuse 141 of the 146 must-fail vectors.** upb accepts two
+(`X-tag-zero-Empty`, `X-tag-zero-nested-Empty`) and the pure-python backend
+accepts three (`X-field-*`); protobuf C++ refuses all 146. See below.
 
 ## The two decisions this was built on, restated because they are load-bearing
 
@@ -120,7 +131,23 @@ behaviour is specific to a message with no fields. The corpus records both
 readings and excludes both rows from a consumer's pass or fail count, as it does
 for `U-map-entry`; it does not decide between them.
 
-## What the extension added, by register entry
+## The three field-number verdict disputes (WP5 step 6)
+
+| Vector | Bytes | upb | pure-python | protobuf C++ 35.1 |
+|---|---|---|---|---|
+| `X-field-over-max` | `80 80 80 80 10 01` (field 2^29, varint) | refuses (`DecodeError`) | **accepts** | refuses |
+| `X-field-2p32-plus-2` | `90 80 80 80 80 01 05` (field 2^32 + 2) | refuses | **accepts** | refuses |
+| `X-field-over-max-in-group` | group 100 around field 2^29 | refuses | **accepts** | refuses |
+
+The rust slice's own probe (`logs/rust/wp5s6-oracles.log`, protobuf C++ 3.21.12)
+saw the same three verdicts. `poc/codec/gen/plan.py` states refusal as the core's
+rule; the corpus publishes both and excludes the rows from pass or fail.
+`U-group-field-max` (field 2^29 - 1 inside the same group) is accepted by all
+three, and 2^29 - 1 as a known and as an unknown field was already covered by
+`S-bigtag` and `U-root-max-tag`, so the proposed `P-field-max` and
+`P-varint10-bit63` (same bytes as `S-varint-i64-minus-1`) were not added again.
+
+## What the WP4 extension added, by register entry
 
 | Register | Vectors | Class | What |
 |---|---|---|---|
@@ -233,15 +260,15 @@ field read as unknown. No row is disputed.
 
 ## Coverage gaps per slice
 
-Every slice must **consume** all 691. What differs is what it can **produce**.
+Every slice must **consume** all 702. What differs is what it can **produce**.
 
 | Slice | Cannot produce | Which |
 |---|---|---|
-| `csharp` | 332 of 548 | 317 `unknown` (243 of them `U-wire-*`) + 10 non-canonical `empty` + `S-interleaved` + 4 non-canonical `S-neg-*`/`S-mzero-*` |
-| `java` | 332 of 548 | the same |
-| `cpp` | 339 of 548 | the same, plus the 7 `T-enc-*` |
-| `python` | 339 of 548 | the same, plus the 7 `T-enc-*` |
-| `rust` | 339 of 548 | the same, plus the 7 `T-enc-*` |
+| `csharp` | 339 of 556 | 318 `unknown` (243 of them `U-wire-*`) + 10 non-canonical `empty` + `S-interleaved` + 4 non-canonical `S-neg-*`/`S-mzero-*` + 5 `S-varint10-*` + `S-map-order-reversed` |
+| `java` | 339 of 556 | the same |
+| `cpp` | 346 of 556 | the same, plus the 7 `T-enc-*` |
+| `python` | 346 of 556 | the same, plus the 7 `T-enc-*` |
+| `rust` | 346 of 556 | the same, plus the 7 `T-enc-*` |
 
 None of these is a defect:
 
@@ -372,9 +399,11 @@ I own `ffi/corpus/**` and nothing else, so these are requests, not edits.
    `U-wire-*` against every generated decoder (R-E2); `X-tag-zero-*`, `S-neg-*`
    against `py_codec` and Java arm R (R-E4, R-E5); `S-mzero-*` against the core
    emitters (R-E3).
-10. **The two new verdict disputes want a resolution the corpus cannot supply**:
+10. **The five verdict disputes want a resolution the corpus cannot supply**:
     whether field number 0 on a message with no fields is an error (pure-python,
-    protobuf C++) or an unknown field (upb). Same standing as request 7.
+    protobuf C++) or an unknown field (upb); and whether a field number above
+    2^29 - 1 is an error (upb, protobuf C++, and `poc/codec/gen/plan.py`) or an
+    unknown field (pure-python). Same standing as request 7.
 
 ## If you are the next session on this
 
