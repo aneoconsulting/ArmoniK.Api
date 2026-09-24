@@ -3323,10 +3323,12 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
-    flush!();
-    if let Some(ap) = (*vt).apply_tasks {
-        ak_rt::bump!((*dcx).c, reverse);
-        ap(ctx, obj, tok, &out);
+    if d.err == 0 {
+        flush!();
+        if let Some(ap) = (*vt).apply_tasks {
+            ak_rt::bump!((*dcx).c, reverse);
+            ap(ctx, obj, tok, &out);
+        }
     }
 }
 
@@ -3537,10 +3539,12 @@ unsafe fn dec_list_task_summary_response_tasks_element(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
-    flush!();
-    if let Some(ap) = (*vt).apply_tasks {
-        ak_rt::bump!((*dcx).c, reverse);
-        ap(ctx, obj, tok, &out);
+    if d.err == 0 {
+        flush!();
+        if let Some(ap) = (*vt).apply_tasks {
+            ak_rt::bump!((*dcx).c, reverse);
+            ap(ctx, obj, tok, &out);
+        }
     }
 }
 
@@ -3798,10 +3802,12 @@ unsafe fn dec_list_metrics_response_batches_element(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
-    flush!();
-    if let Some(ap) = (*vt).apply_batches {
-        ak_rt::bump!((*dcx).c, reverse);
-        ap(ctx, obj, tok, &out);
+    if d.err == 0 {
+        flush!();
+        if let Some(ap) = (*vt).apply_batches {
+            ak_rt::bump!((*dcx).c, reverse);
+            ap(ctx, obj, tok, &out);
+        }
     }
 }
 
@@ -3826,6 +3832,13 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
+    // u32::MAX would alias offsets and lengths. Reject at entry rather than
+    // truncate. `usize` is 64-bit on every host this ships to.
+    if len > u32::MAX as usize {
+        (*dcx).hdr.err = AK_ERR_LIMIT;
+        return AK_ERR_LIMIT;
+    }
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -3891,11 +3904,13 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
-    flush!();
-    if !uk_root.is_null() { (*uk_root).flush(); }
-    if let Some(apply) = (*vt).apply {
-        ak_rt::bump!((*dcx).c, reverse);
-        apply(ctx, obj, &out);
+    if d.err == 0 {
+        flush!();
+        if !uk_root.is_null() { (*uk_root).flush(); }
+        if let Some(apply) = (*vt).apply {
+            ak_rt::bump!((*dcx).c, reverse);
+            apply(ctx, obj, &out);
+        }
     }
     // The host may have failed the operation from inside a reverse call; the
     // sticky slot in the context is where it said so (ABI v1 section 5).
@@ -3923,6 +3938,13 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
+    // u32::MAX would alias offsets and lengths. Reject at entry rather than
+    // truncate. `usize` is 64-bit on every host this ships to.
+    if len > u32::MAX as usize {
+        (*dcx).hdr.err = AK_ERR_LIMIT;
+        return AK_ERR_LIMIT;
+    }
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -3959,11 +3981,13 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
-    flush!();
-    if !uk_root.is_null() { (*uk_root).flush(); }
-    if let Some(apply) = (*vt).apply {
-        ak_rt::bump!((*dcx).c, reverse);
-        apply(ctx, obj, &out);
+    if d.err == 0 {
+        flush!();
+        if !uk_root.is_null() { (*uk_root).flush(); }
+        if let Some(apply) = (*vt).apply {
+            ak_rt::bump!((*dcx).c, reverse);
+            apply(ctx, obj, &out);
+        }
     }
     // The host may have failed the operation from inside a reverse call; the
     // sticky slot in the context is where it said so (ABI v1 section 5).
@@ -3991,6 +4015,13 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
+    // u32::MAX would alias offsets and lengths. Reject at entry rather than
+    // truncate. `usize` is 64-bit on every host this ships to.
+    if len > u32::MAX as usize {
+        (*dcx).hdr.err = AK_ERR_LIMIT;
+        return AK_ERR_LIMIT;
+    }
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -4048,11 +4079,13 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
-    flush!();
-    if !uk_root.is_null() { (*uk_root).flush(); }
-    if let Some(apply) = (*vt).apply {
-        ak_rt::bump!((*dcx).c, reverse);
-        apply(ctx, obj, &out);
+    if d.err == 0 {
+        flush!();
+        if !uk_root.is_null() { (*uk_root).flush(); }
+        if let Some(apply) = (*vt).apply {
+            ak_rt::bump!((*dcx).c, reverse);
+            apply(ctx, obj, &out);
+        }
     }
     // The host may have failed the operation from inside a reverse call; the
     // sticky slot in the context is where it said so (ABI v1 section 5).
@@ -4080,6 +4113,13 @@ pub unsafe extern "C" fn ak_decode_ListTaskSummaryResponse(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
+    // u32::MAX would alias offsets and lengths. Reject at entry rather than
+    // truncate. `usize` is 64-bit on every host this ships to.
+    if len > u32::MAX as usize {
+        (*dcx).hdr.err = AK_ERR_LIMIT;
+        return AK_ERR_LIMIT;
+    }
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -4108,11 +4148,13 @@ pub unsafe extern "C" fn ak_decode_ListTaskSummaryResponse(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
-    flush!();
-    if !uk_root.is_null() { (*uk_root).flush(); }
-    if let Some(apply) = (*vt).apply {
-        ak_rt::bump!((*dcx).c, reverse);
-        apply(ctx, obj, &out);
+    if d.err == 0 {
+        flush!();
+        if !uk_root.is_null() { (*uk_root).flush(); }
+        if let Some(apply) = (*vt).apply {
+            ak_rt::bump!((*dcx).c, reverse);
+            apply(ctx, obj, &out);
+        }
     }
     // The host may have failed the operation from inside a reverse call; the
     // sticky slot in the context is where it said so (ABI v1 section 5).
@@ -4140,6 +4182,13 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
+    // u32::MAX would alias offsets and lengths. Reject at entry rather than
+    // truncate. `usize` is 64-bit on every host this ships to.
+    if len > u32::MAX as usize {
+        (*dcx).hdr.err = AK_ERR_LIMIT;
+        return AK_ERR_LIMIT;
+    }
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -4193,11 +4242,13 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
-    flush!();
-    if !uk_root.is_null() { (*uk_root).flush(); }
-    if let Some(apply) = (*vt).apply {
-        ak_rt::bump!((*dcx).c, reverse);
-        apply(ctx, obj, &out);
+    if d.err == 0 {
+        flush!();
+        if !uk_root.is_null() { (*uk_root).flush(); }
+        if let Some(apply) = (*vt).apply {
+            ak_rt::bump!((*dcx).c, reverse);
+            apply(ctx, obj, &out);
+        }
     }
     // The host may have failed the operation from inside a reverse call; the
     // sticky slot in the context is where it said so (ABI v1 section 5).
@@ -4225,6 +4276,13 @@ pub unsafe extern "C" fn ak_decode_ListMetricsResponse(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
+    // u32::MAX would alias offsets and lengths. Reject at entry rather than
+    // truncate. `usize` is 64-bit on every host this ships to.
+    if len > u32::MAX as usize {
+        (*dcx).hdr.err = AK_ERR_LIMIT;
+        return AK_ERR_LIMIT;
+    }
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -4253,11 +4311,13 @@ pub unsafe extern "C" fn ak_decode_ListMetricsResponse(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
-    flush!();
-    if !uk_root.is_null() { (*uk_root).flush(); }
-    if let Some(apply) = (*vt).apply {
-        ak_rt::bump!((*dcx).c, reverse);
-        apply(ctx, obj, &out);
+    if d.err == 0 {
+        flush!();
+        if !uk_root.is_null() { (*uk_root).flush(); }
+        if let Some(apply) = (*vt).apply {
+            ak_rt::bump!((*dcx).c, reverse);
+            apply(ctx, obj, &out);
+        }
     }
     // The host may have failed the operation from inside a reverse call; the
     // sticky slot in the context is where it said so (ABI v1 section 5).
@@ -4285,6 +4345,13 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
+    // u32::MAX would alias offsets and lengths. Reject at entry rather than
+    // truncate. `usize` is 64-bit on every host this ships to.
+    if len > u32::MAX as usize {
+        (*dcx).hdr.err = AK_ERR_LIMIT;
+        return AK_ERR_LIMIT;
+    }
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -4378,11 +4445,13 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); if !uk_root.is_null() { (*uk_root).push(base0 + s0, d.pos - s0); } }
         }
     }
-    flush!();
-    if !uk_root.is_null() { (*uk_root).flush(); }
-    if let Some(apply) = (*vt).apply {
-        ak_rt::bump!((*dcx).c, reverse);
-        apply(ctx, obj, &out);
+    if d.err == 0 {
+        flush!();
+        if !uk_root.is_null() { (*uk_root).flush(); }
+        if let Some(apply) = (*vt).apply {
+            ak_rt::bump!((*dcx).c, reverse);
+            apply(ctx, obj, &out);
+        }
     }
     // The host may have failed the operation from inside a reverse call; the
     // sticky slot in the context is where it said so (ABI v1 section 5).
@@ -5074,15 +5143,17 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
-    flush!();
-    (*dcx).bdr.push(
-        ak_rt::bdr::OP_APPLY_ELEM,
-        65536,
-        tok,
-        1,
-        &out as *const _ as *const u8,
-        ::core::mem::size_of::<ak_dfix_TaskDetailed>(),
-    );
+    if d.err == 0 {
+        flush!();
+        (*dcx).bdr.push(
+            ak_rt::bdr::OP_APPLY_ELEM,
+            65536,
+            tok,
+            1,
+            &out as *const _ as *const u8,
+            ::core::mem::size_of::<ak_dfix_TaskDetailed>(),
+        );
+    }
 }
 
 /// Pull form of the non-leaf element run. `new` becomes a minted token and
@@ -5290,15 +5361,17 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
-    flush!();
-    (*dcx).bdr.push(
-        ak_rt::bdr::OP_APPLY_ELEM,
-        65536,
-        tok,
-        1,
-        &out as *const _ as *const u8,
-        ::core::mem::size_of::<ak_dfix_TaskSummary>(),
-    );
+    if d.err == 0 {
+        flush!();
+        (*dcx).bdr.push(
+            ak_rt::bdr::OP_APPLY_ELEM,
+            65536,
+            tok,
+            1,
+            &out as *const _ as *const u8,
+            ::core::mem::size_of::<ak_dfix_TaskSummary>(),
+        );
+    }
 }
 
 /// Pull form of the non-leaf element run. `new` becomes a minted token and
@@ -5577,15 +5650,17 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
-    flush!();
-    (*dcx).bdr.push(
-        ak_rt::bdr::OP_APPLY_ELEM,
-        65536,
-        tok,
-        1,
-        &out as *const _ as *const u8,
-        ::core::mem::size_of::<ak_dfix_MetricsBatch>(),
-    );
+    if d.err == 0 {
+        flush!();
+        (*dcx).bdr.push(
+            ak_rt::bdr::OP_APPLY_ELEM,
+            65536,
+            tok,
+            1,
+            &out as *const _ as *const u8,
+            ::core::mem::size_of::<ak_dfix_MetricsBatch>(),
+        );
+    }
 }
 
 /// Pull family (ABI v1 section 7.1): parse into the context, zero upcalls.
@@ -5610,6 +5685,11 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
+    if len > u32::MAX as usize {
+        (*dcx).hdr.err = AK_ERR_LIMIT;
+        return AK_ERR_LIMIT;
+    }
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -5680,17 +5760,19 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
-    flush!();
-    // The root group LAST, exactly where the push family calls `apply`, so the
-    // record stream is the call sequence push would have made, in its order.
-    (*dcx).bdr.push(
-        ak_rt::bdr::OP_APPLY,
-        0,
-        AK_TOKEN_ROOT,
-        1,
-        &out as *const _ as *const u8,
-        ::core::mem::size_of::<ak_dfix_ListResultsResponse>(),
-    );
+    if d.err == 0 {
+        flush!();
+        // The root group LAST, exactly where the push family calls `apply`, so the
+        // record stream is the call sequence push would have made, in its order.
+        (*dcx).bdr.push(
+            ak_rt::bdr::OP_APPLY,
+            0,
+            AK_TOKEN_ROOT,
+            1,
+            &out as *const _ as *const u8,
+            ::core::mem::size_of::<ak_dfix_ListResultsResponse>(),
+        );
+    }
     if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
 }
 
@@ -5716,6 +5798,11 @@ pub unsafe extern "C" fn ak_parse_ListTasksDetailedResponse(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
+    if len > u32::MAX as usize {
+        (*dcx).hdr.err = AK_ERR_LIMIT;
+        return AK_ERR_LIMIT;
+    }
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -5752,17 +5839,19 @@ pub unsafe extern "C" fn ak_parse_ListTasksDetailedResponse(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
-    flush!();
-    // The root group LAST, exactly where the push family calls `apply`, so the
-    // record stream is the call sequence push would have made, in its order.
-    (*dcx).bdr.push(
-        ak_rt::bdr::OP_APPLY,
-        0,
-        AK_TOKEN_ROOT,
-        1,
-        &out as *const _ as *const u8,
-        ::core::mem::size_of::<ak_dfix_ListTasksDetailedResponse>(),
-    );
+    if d.err == 0 {
+        flush!();
+        // The root group LAST, exactly where the push family calls `apply`, so the
+        // record stream is the call sequence push would have made, in its order.
+        (*dcx).bdr.push(
+            ak_rt::bdr::OP_APPLY,
+            0,
+            AK_TOKEN_ROOT,
+            1,
+            &out as *const _ as *const u8,
+            ::core::mem::size_of::<ak_dfix_ListTasksDetailedResponse>(),
+        );
+    }
     if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
 }
 
@@ -5788,6 +5877,11 @@ pub unsafe extern "C" fn ak_parse_ListProbeResponse(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
+    if len > u32::MAX as usize {
+        (*dcx).hdr.err = AK_ERR_LIMIT;
+        return AK_ERR_LIMIT;
+    }
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -5850,17 +5944,19 @@ pub unsafe extern "C" fn ak_parse_ListProbeResponse(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
-    flush!();
-    // The root group LAST, exactly where the push family calls `apply`, so the
-    // record stream is the call sequence push would have made, in its order.
-    (*dcx).bdr.push(
-        ak_rt::bdr::OP_APPLY,
-        0,
-        AK_TOKEN_ROOT,
-        1,
-        &out as *const _ as *const u8,
-        ::core::mem::size_of::<ak_dfix_ListProbeResponse>(),
-    );
+    if d.err == 0 {
+        flush!();
+        // The root group LAST, exactly where the push family calls `apply`, so the
+        // record stream is the call sequence push would have made, in its order.
+        (*dcx).bdr.push(
+            ak_rt::bdr::OP_APPLY,
+            0,
+            AK_TOKEN_ROOT,
+            1,
+            &out as *const _ as *const u8,
+            ::core::mem::size_of::<ak_dfix_ListProbeResponse>(),
+        );
+    }
     if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
 }
 
@@ -5886,6 +5982,11 @@ pub unsafe extern "C" fn ak_parse_ListTaskSummaryResponse(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
+    if len > u32::MAX as usize {
+        (*dcx).hdr.err = AK_ERR_LIMIT;
+        return AK_ERR_LIMIT;
+    }
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -5914,17 +6015,19 @@ pub unsafe extern "C" fn ak_parse_ListTaskSummaryResponse(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
-    flush!();
-    // The root group LAST, exactly where the push family calls `apply`, so the
-    // record stream is the call sequence push would have made, in its order.
-    (*dcx).bdr.push(
-        ak_rt::bdr::OP_APPLY,
-        0,
-        AK_TOKEN_ROOT,
-        1,
-        &out as *const _ as *const u8,
-        ::core::mem::size_of::<ak_dfix_ListTaskSummaryResponse>(),
-    );
+    if d.err == 0 {
+        flush!();
+        // The root group LAST, exactly where the push family calls `apply`, so the
+        // record stream is the call sequence push would have made, in its order.
+        (*dcx).bdr.push(
+            ak_rt::bdr::OP_APPLY,
+            0,
+            AK_TOKEN_ROOT,
+            1,
+            &out as *const _ as *const u8,
+            ::core::mem::size_of::<ak_dfix_ListTaskSummaryResponse>(),
+        );
+    }
     if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
 }
 
@@ -5950,6 +6053,11 @@ pub unsafe extern "C" fn ak_parse_UploadResultDataMessage(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
+    if len > u32::MAX as usize {
+        (*dcx).hdr.err = AK_ERR_LIMIT;
+        return AK_ERR_LIMIT;
+    }
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -6003,17 +6111,19 @@ pub unsafe extern "C" fn ak_parse_UploadResultDataMessage(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
-    flush!();
-    // The root group LAST, exactly where the push family calls `apply`, so the
-    // record stream is the call sequence push would have made, in its order.
-    (*dcx).bdr.push(
-        ak_rt::bdr::OP_APPLY,
-        0,
-        AK_TOKEN_ROOT,
-        1,
-        &out as *const _ as *const u8,
-        ::core::mem::size_of::<ak_dfix_UploadResultDataMessage>(),
-    );
+    if d.err == 0 {
+        flush!();
+        // The root group LAST, exactly where the push family calls `apply`, so the
+        // record stream is the call sequence push would have made, in its order.
+        (*dcx).bdr.push(
+            ak_rt::bdr::OP_APPLY,
+            0,
+            AK_TOKEN_ROOT,
+            1,
+            &out as *const _ as *const u8,
+            ::core::mem::size_of::<ak_dfix_UploadResultDataMessage>(),
+        );
+    }
     if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
 }
 
@@ -6039,6 +6149,11 @@ pub unsafe extern "C" fn ak_parse_ListMetricsResponse(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
+    if len > u32::MAX as usize {
+        (*dcx).hdr.err = AK_ERR_LIMIT;
+        return AK_ERR_LIMIT;
+    }
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -6067,17 +6182,19 @@ pub unsafe extern "C" fn ak_parse_ListMetricsResponse(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
-    flush!();
-    // The root group LAST, exactly where the push family calls `apply`, so the
-    // record stream is the call sequence push would have made, in its order.
-    (*dcx).bdr.push(
-        ak_rt::bdr::OP_APPLY,
-        0,
-        AK_TOKEN_ROOT,
-        1,
-        &out as *const _ as *const u8,
-        ::core::mem::size_of::<ak_dfix_ListMetricsResponse>(),
-    );
+    if d.err == 0 {
+        flush!();
+        // The root group LAST, exactly where the push family calls `apply`, so the
+        // record stream is the call sequence push would have made, in its order.
+        (*dcx).bdr.push(
+            ak_rt::bdr::OP_APPLY,
+            0,
+            AK_TOKEN_ROOT,
+            1,
+            &out as *const _ as *const u8,
+            ::core::mem::size_of::<ak_dfix_ListMetricsResponse>(),
+        );
+    }
     if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
 }
 
@@ -6103,6 +6220,11 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
+    if len > u32::MAX as usize {
+        (*dcx).hdr.err = AK_ERR_LIMIT;
+        return AK_ERR_LIMIT;
+    }
     let buf0 = ::core::slice::from_raw_parts(buf, len);
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
@@ -6206,16 +6328,18 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
             _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
         }
     }
-    flush!();
-    // The root group LAST, exactly where the push family calls `apply`, so the
-    // record stream is the call sequence push would have made, in its order.
-    (*dcx).bdr.push(
-        ak_rt::bdr::OP_APPLY,
-        0,
-        AK_TOKEN_ROOT,
-        1,
-        &out as *const _ as *const u8,
-        ::core::mem::size_of::<ak_dfix_DualResponse>(),
-    );
+    if d.err == 0 {
+        flush!();
+        // The root group LAST, exactly where the push family calls `apply`, so the
+        // record stream is the call sequence push would have made, in its order.
+        (*dcx).bdr.push(
+            ak_rt::bdr::OP_APPLY,
+            0,
+            AK_TOKEN_ROOT,
+            1,
+            &out as *const _ as *const u8,
+            ::core::mem::size_of::<ak_dfix_DualResponse>(),
+        );
+    }
     if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
 }
