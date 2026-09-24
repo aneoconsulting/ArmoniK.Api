@@ -50,6 +50,34 @@ public final class CodecRetain {
   static final byte[] EMPTY = new byte[0];
 
 
+  /** plan ENCODE RULES (WP5 step 6): map entries in ascending order of the key's UTF-8
+   *  bytes, i.e. code-point order. A {@code TreeMap<String, ...>} iterates in UTF-16 code
+   *  unit order, which differs for a key with a supplementary character, so the entries
+   *  are handed over re-sorted. (A {@code Utf8View} key already compares by bytes.) */
+  public static <V> java.util.List<java.util.Map.Entry<String, V>> utf8Sorted(java.util.Map<String, V> m) {
+    java.util.ArrayList<java.util.Map.Entry<String, V>> l = new java.util.ArrayList<java.util.Map.Entry<String, V>>(m.entrySet());
+    if (l.size() > 1) {
+      java.util.Collections.sort(l, new java.util.Comparator<java.util.Map.Entry<String, V>>() {
+        public int compare(java.util.Map.Entry<String, V> a, java.util.Map.Entry<String, V> b) {
+          return cmpUtf8(a.getKey(), b.getKey());
+        }
+      });
+    }
+    return l;
+  }
+
+  public static int cmpUtf8(String a, String b) {
+    int i = 0, j = 0;
+    while (i < a.length() && j < b.length()) {
+      int x = a.codePointAt(i), y = b.codePointAt(j);
+      if (x != y) return x < y ? -1 : 1;
+      i += Character.charCount(x);
+      j += Character.charCount(y);
+    }
+    return (i < a.length() ? 1 : 0) - (j < b.length() ? 1 : 0);
+  }
+
+
   static void encTimestamp(Enc e, Timestamp o) {
     if (o.seconds != 0) e.varintField(1, o.seconds);
     if (o.nanos != 0) e.varintField(2, (long) (o.nanos));
@@ -78,7 +106,7 @@ public final class CodecRetain {
   }
 
   static void encTaskOptions(Enc e, TaskOptions o) {
-    for (java.util.Map.Entry<String, String> en : o.options.entrySet()) {
+    for (java.util.Map.Entry<String, String> en : utf8Sorted(o.options)) {
       long mk = e.begin(1, 2);
       if (!en.getKey().isEmpty()) e.stringField(1, en.getKey());
       if (!en.getValue().isEmpty()) e.stringField(2, en.getValue());
@@ -265,7 +293,7 @@ public final class CodecRetain {
 
   static void encChunkElement(Enc e, ChunkElement o) {
     for (String x : o.labels) e.stringField(1, x);
-    for (java.util.Map.Entry<String, String> en : o.attrs.entrySet()) {
+    for (java.util.Map.Entry<String, String> en : utf8Sorted(o.attrs)) {
       long mk = e.begin(2, 37);
       if (!en.getKey().isEmpty()) e.stringField(1, en.getKey());
       if (!en.getValue().isEmpty()) e.stringField(2, en.getValue());
@@ -302,7 +330,7 @@ public final class CodecRetain {
   static void encSurrogate(Enc e, Surrogate o) {
     if (!o.text.isEmpty()) e.stringField(1, o.text);
     if (o.nested != null) { long mk = e.begin(2, 43); encSurrogateInner(e, o.nested); e.end(mk); }
-    for (java.util.Map.Entry<String, String> en : o.attrs.entrySet()) {
+    for (java.util.Map.Entry<String, String> en : utf8Sorted(o.attrs)) {
       long mk = e.begin(3, 44);
       if (!en.getKey().isEmpty()) e.stringField(1, en.getKey());
       if (!en.getValue().isEmpty()) e.stringField(2, en.getValue());
@@ -353,7 +381,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -391,7 +419,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -429,7 +457,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -514,7 +542,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -526,7 +554,7 @@ public final class CodecRetain {
                 while (!d.done()) {
                   long kk = d.readVarint();
                   int et = (int) (kk >>> 3), ew = (int) (kk & 7);
-                  if (et == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+                  if (et == 0 || Long.compareUnsigned(kk >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
                   if (et == 1 && ew == 2) ek = d.readString();
                   else if (et == 2 && ew == 2) ev = d.readString();
                   // A facade map entry has no bag: an unknown field inside an
@@ -610,7 +638,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -648,7 +676,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -825,7 +853,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -895,7 +923,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -977,7 +1005,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           default: break;
@@ -1005,7 +1033,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -1048,7 +1076,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -1156,7 +1184,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -1194,7 +1222,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -1239,7 +1267,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -1284,7 +1312,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -1319,7 +1347,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -1354,7 +1382,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -1389,7 +1417,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -1423,7 +1451,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -1465,7 +1493,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -1503,7 +1531,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -1553,7 +1581,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -1570,7 +1598,7 @@ public final class CodecRetain {
                 while (!d.done()) {
                   long kk = d.readVarint();
                   int et = (int) (kk >>> 3), ew = (int) (kk & 7);
-                  if (et == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+                  if (et == 0 || Long.compareUnsigned(kk >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
                   if (et == 1 && ew == 2) ek = d.readString();
                   else if (et == 2 && ew == 2) ev = d.readString();
                   // A facade map entry has no bag: an unknown field inside an
@@ -1619,7 +1647,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 7:
@@ -1659,7 +1687,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 70000:
@@ -1694,7 +1722,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -1738,7 +1766,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 9:
@@ -1773,7 +1801,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -1796,7 +1824,7 @@ public final class CodecRetain {
                 while (!d.done()) {
                   long kk = d.readVarint();
                   int et = (int) (kk >>> 3), ew = (int) (kk & 7);
-                  if (et == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+                  if (et == 0 || Long.compareUnsigned(kk >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
                   if (et == 1 && ew == 2) ek = d.readString();
                   else if (et == 2 && ew == 2) ev = d.readString();
                   // A facade map entry has no bag: an unknown field inside an
@@ -1844,7 +1872,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -1877,7 +1905,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:
@@ -1916,7 +1944,7 @@ public final class CodecRetain {
       long k = d.readVarint();
       int tag = (int) (k >>> 3), wire = (int) (k & 7);
       // Plan rule: field number 0 is malformed on every message (R-E4).
-      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0");
+      if (tag == 0 || Long.compareUnsigned(k >>> 3, 536870911L) > 0) throw Dec.err(Dec.ERR_MALFORMED, "field number 0 or above 2^29-1");
       known: {
         switch (tag) {
           case 1:

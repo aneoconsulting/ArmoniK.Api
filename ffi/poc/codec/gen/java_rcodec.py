@@ -17,7 +17,7 @@ One class per unknown-field mode, because a facade codec has no per-call switch 
 the C ABI has two families: `Codec` (plan Options.unknown = "drop") and `CodecRetain`
 ("retain", the facade's `unknownFields`), two renderings of one plan (owner position 6).
 """
-from plan import relower
+from plan import MAX_FIELD_NUMBER, relower
 import java_names as N
 
 WHO = "java_rcodec.py"
@@ -162,7 +162,9 @@ def _enc_message(p, m, o, sites, retain):
             s = sites.of(("map", name, f.name))
             entry = p.msg(f.entry)
             st_t = N.string_type()
-            o.append("    for (java.util.Map.Entry<%s, %s> en : %s.entrySet()) {" % (st_t, st_t, v))
+            # plan ENCODE RULES: ascending UTF-8 key order (a String TreeMap is UTF-16 order).
+            src = ("utf8Sorted(%s)" % v) if st_t == "String" else ("%s.entrySet()" % v)
+            o.append("    for (java.util.Map.Entry<%s, %s> en : %s) {" % (st_t, st_t, src))
             o.append("      long mk = e.begin(%d, %d);" % (f.tag, s))
             # The pair message's OWN encode plan: key 1 and value 2, each an implicit-
             # presence string, each omitted when empty (the canonical form, R-E4).
@@ -250,7 +252,7 @@ def _dec_action(p, m, act, o):
         o.append("              while (!d.done()) {")
         o.append("                long kk = d.readVarint();")
         o.append("                int et = (int) (kk >>> 3), ew = (int) (kk & 7);")
-        o.append("                if (et == 0) throw Dec.err(Dec.ERR_MALFORMED, \"field number 0\");")
+        o.append("                if (et == 0 || Long.compareUnsigned(kk >>> 3, %dL) > 0) throw Dec.err(Dec.ERR_MALFORMED, \"field number 0 or above 2^29-1\");" % MAX_FIELD_NUMBER)
         # The pair message's OWN decode plan.
         first = True
         for (etag, ewire), eact in sorted(entry.decode.items()):
@@ -299,7 +301,7 @@ def _dec_message(p, m, o, retain):
     o.append("      long k = d.readVarint();")
     o.append("      int tag = (int) (k >>> 3), wire = (int) (k & 7);")
     o.append("      // Plan rule: field number 0 is malformed on every message (R-E4).")
-    o.append("      if (tag == 0) throw Dec.err(Dec.ERR_MALFORMED, \"field number 0\");")
+    o.append("      if (tag == 0 || Long.compareUnsigned(k >>> 3, %dL) > 0) throw Dec.err(Dec.ERR_MALFORMED, \"field number 0 or above 2^29-1\");" % MAX_FIELD_NUMBER)
     o.append("      known: {")
     o.append("        switch (tag) {")
     for tag in sorted(by_tag):
@@ -413,7 +415,7 @@ def emit(p, ns=N.PKG, unknown="drop"):
          "  /** The plan's unknown-field mode and UTF-8 policy, for a log to name. */",
          "  public static final String UNKNOWN_FIELDS = \"%s\";" % unknown,
          "  public static final String UTF8_POLICY = \"%s\";" % p.options.utf8,
-         APPEND]
+         APPEND, JAVA_MAP_ORDER]
     o.extend(body)
     o.append("")
     o.append("  // ---- the roots ------------------------------------------------------")
@@ -437,3 +439,33 @@ def emit(p, ns=N.PKG, unknown="drop"):
     o.append("}")
     o.append("")
     return "\n".join(o)
+
+
+JAVA_MAP_ORDER = '''
+  /** plan ENCODE RULES (WP5 step 6): map entries in ascending order of the key's UTF-8
+   *  bytes, i.e. code-point order. A {@code TreeMap<String, ...>} iterates in UTF-16 code
+   *  unit order, which differs for a key with a supplementary character, so the entries
+   *  are handed over re-sorted. (A {@code Utf8View} key already compares by bytes.) */
+  public static <V> java.util.List<java.util.Map.Entry<String, V>> utf8Sorted(java.util.Map<String, V> m) {
+    java.util.ArrayList<java.util.Map.Entry<String, V>> l = new java.util.ArrayList<java.util.Map.Entry<String, V>>(m.entrySet());
+    if (l.size() > 1) {
+      java.util.Collections.sort(l, new java.util.Comparator<java.util.Map.Entry<String, V>>() {
+        public int compare(java.util.Map.Entry<String, V> a, java.util.Map.Entry<String, V> b) {
+          return cmpUtf8(a.getKey(), b.getKey());
+        }
+      });
+    }
+    return l;
+  }
+
+  public static int cmpUtf8(String a, String b) {
+    int i = 0, j = 0;
+    while (i < a.length() && j < b.length()) {
+      int x = a.codePointAt(i), y = b.codePointAt(j);
+      if (x != y) return x < y ? -1 : 1;
+      i += Character.charCount(x);
+      j += Character.charCount(y);
+    }
+    return (i < a.length() ? 1 : 0) - (j < b.length() ? 1 : 0);
+  }
+'''

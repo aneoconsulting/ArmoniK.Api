@@ -352,6 +352,36 @@ public sealed unsafe class Stage : IDisposable
 /// A native array that only grows, re-allocated before any pointer into it is handed out.
 public static unsafe class Arr
 {
+    /// plan ENCODE RULES (WP5 step 6): map entries in ascending order of the key's UTF-8
+    /// bytes, which is code-point order. `OrderedMap` keeps INSERTION order, so the
+    /// encoder hands entries over in this order whatever order the map was filled in.
+    public static int[] Utf8Order(OrderedMap<string, string> m)
+    {
+        var ix = new int[m.Count];
+        for (int i = 0; i < ix.Length; i++) ix[i] = i;
+        if (ix.Length > 1) Array.Sort(ix, (x, y) => CmpUtf8(m.At(x).Key, m.At(y).Key));
+        return ix;
+    }
+
+    private static int Cp(string s, ref int i)
+    {
+        char c = s[i++];
+        if (char.IsHighSurrogate(c) && i < s.Length && char.IsLowSurrogate(s[i]))
+            return char.ConvertToUtf32(c, s[i++]);
+        return c;
+    }
+
+    public static int CmpUtf8(string a, string b)
+    {
+        int i = 0, j = 0;
+        while (i < a.Length && j < b.Length)
+        {
+            int x = Cp(a, ref i), y = Cp(b, ref j);
+            if (x != y) return x < y ? -1 : 1;
+        }
+        return (i < a.Length ? 1 : 0) - (j < b.Length ? 1 : 0);
+    }
+
     public static void Ensure(ref void* p, ref int cap, int n, int size)
     {
         if (n <= cap && p != null) return;
@@ -550,7 +580,9 @@ def _emit_root(o, p, root, facade_ns):
         o += "            _run->N_%s = n;" % s.name
         o += "            Arr.Ensure(ref _run->S_%s, ref _cap_%s, n, %s);" % (s.name, s.name, _elem_size(s))
         if s.kind == "map":
-            o += "            for (int i = 0; i < n; i++) { var kv = lst.At(i); %s }" % _inline(_stage_elem, s, "_run->S_%s" % s.name, "i", "kv", "retain")
+            # plan ENCODE RULES: entries in ascending UTF-8 key order (WP5 step 6).
+            o += "            var ord = n == 0 ? null : Arr.Utf8Order(lst);"
+            o += "            for (int i = 0; i < n; i++) { var kv = lst.At(ord[i]); %s }" % _inline(_stage_elem, s, "_run->S_%s" % s.name, "i", "kv", "retain")
         else:
             o += "            for (int i = 0; i < n; i++)"
             o += "            {"

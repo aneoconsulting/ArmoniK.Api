@@ -5757,7 +5757,7 @@ unsafe fn dec_chunk_element_attrs_entry_fix_into(d: &mut Dec, base: usize, unk: 
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -5807,7 +5807,7 @@ unsafe fn dec_chunk_leaf_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, ou
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -5855,7 +5855,7 @@ unsafe fn dec_empty_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, out: &m
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             _ => {
                 d.skip(tag, wire);
@@ -5893,7 +5893,7 @@ unsafe fn dec_leaf_element_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, 
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -5916,7 +5916,7 @@ unsafe fn dec_leaf_element_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, 
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -5967,7 +5967,7 @@ unsafe fn dec_pair_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, out: &mu
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -6015,7 +6015,7 @@ unsafe fn dec_probe_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, out: &m
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -6121,7 +6121,7 @@ unsafe fn dec_result_raw_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, ou
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -6156,7 +6156,7 @@ unsafe fn dec_result_raw_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, ou
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -6182,7 +6182,7 @@ unsafe fn dec_result_raw_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, ou
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -6258,7 +6258,7 @@ unsafe fn dec_surrogate_attrs_entry_fix_into(d: &mut Dec, base: usize, unk: *mut
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -6308,7 +6308,7 @@ unsafe fn dec_task_options_options_entry_fix_into(d: &mut Dec, base: usize, unk:
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -6358,7 +6358,7 @@ unsafe fn dec_timestamp_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, out
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 0 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -6562,7 +6562,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -6635,7 +6635,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 2 => {
                         if cur != 5 { flush!(); cur = 5; }
@@ -6658,7 +6658,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                             let k = c2.varint();
                             if c2.err != 0 { break; }
                             let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                            if tag == 0 { c2.err = ak_rt::ERR_MALFORMED; break; }
+                            if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c2.err = ak_rt::ERR_MALFORMED; break; }
                             match tag {
                             1 if wire == 0 => {
                                 if cur != 0 { flush!(); cur = 0; }
@@ -6733,7 +6733,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -6759,7 +6759,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -6785,7 +6785,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -6811,7 +6811,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -6837,7 +6837,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -6863,7 +6863,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -6897,7 +6897,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -6923,7 +6923,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -6949,7 +6949,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -6975,7 +6975,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -7007,7 +7007,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -7033,7 +7033,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -7059,7 +7059,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -7181,7 +7181,7 @@ unsafe fn dec_list_task_summary_response_tasks_element(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -7206,7 +7206,7 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 2 => {
                         if cur != 1 { flush!(); cur = 1; }
@@ -7229,7 +7229,7 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                             let k = c2.varint();
                             if c2.err != 0 { break; }
                             let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                            if tag == 0 { c2.err = ak_rt::ERR_MALFORMED; break; }
+                            if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c2.err = ak_rt::ERR_MALFORMED; break; }
                             match tag {
                             1 if wire == 0 => {
                                 if cur != 0 { flush!(); cur = 0; }
@@ -7308,7 +7308,7 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -7546,7 +7546,7 @@ unsafe fn dec_list_metrics_response_batches_element(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -7828,7 +7828,7 @@ unsafe fn dec_chunked_response_items_element(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -7865,7 +7865,7 @@ unsafe fn dec_chunked_response_items_element(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 3 { flush!(); cur = 3; }
@@ -8080,7 +8080,7 @@ unsafe fn dec_chunked_response_wide_items_element(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -8117,7 +8117,7 @@ unsafe fn dec_chunked_response_wide_items_element(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 3 { flush!(); cur = 3; }
@@ -8224,7 +8224,7 @@ pub unsafe extern "C" fn ak_decode_Timestamp(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 0 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -8308,7 +8308,7 @@ pub unsafe extern "C" fn ak_decode_Duration(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 0 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -8392,7 +8392,7 @@ pub unsafe extern "C" fn ak_decode_ResultRaw(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -8427,7 +8427,7 @@ pub unsafe extern "C" fn ak_decode_ResultRaw(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -8453,7 +8453,7 @@ pub unsafe extern "C" fn ak_decode_ResultRaw(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -8596,7 +8596,7 @@ pub unsafe extern "C" fn ak_decode_TaskOptions(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -8619,7 +8619,7 @@ pub unsafe extern "C" fn ak_decode_TaskOptions(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -8752,7 +8752,7 @@ pub unsafe extern "C" fn ak_decode_TaskOutput(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 0 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -8979,7 +8979,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -9052,7 +9052,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 2 => {
                         if cur != 5 { flush!(); cur = 5; }
@@ -9075,7 +9075,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                             let k = c2.varint();
                             if c2.err != 0 { break; }
                             let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                            if tag == 0 { c2.err = ak_rt::ERR_MALFORMED; break; }
+                            if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c2.err = ak_rt::ERR_MALFORMED; break; }
                             match tag {
                             1 if wire == 0 => {
                                 if cur != 0 { flush!(); cur = 0; }
@@ -9150,7 +9150,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -9176,7 +9176,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -9202,7 +9202,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -9228,7 +9228,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -9254,7 +9254,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -9280,7 +9280,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -9314,7 +9314,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -9340,7 +9340,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -9366,7 +9366,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -9392,7 +9392,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -9424,7 +9424,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -9450,7 +9450,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -9476,7 +9476,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -9606,7 +9606,7 @@ pub unsafe extern "C" fn ak_decode_TaskSummary(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -9631,7 +9631,7 @@ pub unsafe extern "C" fn ak_decode_TaskSummary(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 2 => {
                         if cur != 1 { flush!(); cur = 1; }
@@ -9654,7 +9654,7 @@ pub unsafe extern "C" fn ak_decode_TaskSummary(
                             let k = c2.varint();
                             if c2.err != 0 { break; }
                             let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                            if tag == 0 { c2.err = ak_rt::ERR_MALFORMED; break; }
+                            if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c2.err = ak_rt::ERR_MALFORMED; break; }
                             match tag {
                             1 if wire == 0 => {
                                 if cur != 0 { flush!(); cur = 0; }
@@ -9733,7 +9733,7 @@ pub unsafe extern "C" fn ak_decode_TaskSummary(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -9838,7 +9838,7 @@ pub unsafe extern "C" fn ak_decode_Probe(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -9982,7 +9982,7 @@ pub unsafe extern "C" fn ak_decode_Empty(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             _ => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -10058,7 +10058,7 @@ pub unsafe extern "C" fn ak_decode_UploadResultData(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -10291,7 +10291,7 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -10468,7 +10468,7 @@ pub unsafe extern "C" fn ak_decode_Pair(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -10583,7 +10583,7 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -10677,7 +10677,7 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -10768,7 +10768,7 @@ pub unsafe extern "C" fn ak_decode_ListTaskSummaryResponse(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -10880,7 +10880,7 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -10966,7 +10966,7 @@ pub unsafe extern "C" fn ak_decode_ListMetricsResponse(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -11049,7 +11049,7 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -11062,7 +11062,7 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -11218,7 +11218,7 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -11314,7 +11314,7 @@ pub unsafe extern "C" fn ak_decode_ChunkLeaf(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -11457,7 +11457,7 @@ pub unsafe extern "C" fn ak_decode_ChunkInner(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 0 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -11676,7 +11676,7 @@ pub unsafe extern "C" fn ak_decode_ChunkElement(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -11713,7 +11713,7 @@ pub unsafe extern "C" fn ak_decode_ChunkElement(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 3 { flush!(); cur = 3; }
@@ -11823,7 +11823,7 @@ pub unsafe extern "C" fn ak_decode_ChunkedResponse(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             7 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -11910,7 +11910,7 @@ pub unsafe extern "C" fn ak_decode_ChunkedResponseWide(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             70000 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -11993,7 +11993,7 @@ pub unsafe extern "C" fn ak_decode_LeafElement(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -12016,7 +12016,7 @@ pub unsafe extern "C" fn ak_decode_LeafElement(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -12134,7 +12134,7 @@ pub unsafe extern "C" fn ak_decode_LeafResponse(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             9 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -12277,7 +12277,7 @@ pub unsafe extern "C" fn ak_decode_Surrogate(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -12296,7 +12296,7 @@ pub unsafe extern "C" fn ak_decode_Surrogate(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -12406,7 +12406,7 @@ pub unsafe extern "C" fn ak_decode_SurrogateInner(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -12488,7 +12488,7 @@ pub unsafe extern "C" fn ak_decode_WireZoo(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 0 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -12536,7 +12536,7 @@ pub unsafe extern "C" fn ak_decode_WireZoo(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -12777,7 +12777,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -12850,7 +12850,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 2 => {
                         if cur != 5 { flush!(); cur = 5; }
@@ -12873,7 +12873,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                             let k = c2.varint();
                             if c2.err != 0 { break; }
                             let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                            if tag == 0 { c2.err = ak_rt::ERR_MALFORMED; break; }
+                            if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c2.err = ak_rt::ERR_MALFORMED; break; }
                             match tag {
                             1 if wire == 0 => {
                                 if cur != 0 { flush!(); cur = 0; }
@@ -12948,7 +12948,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -12974,7 +12974,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -13000,7 +13000,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -13026,7 +13026,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -13052,7 +13052,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -13078,7 +13078,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -13112,7 +13112,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -13138,7 +13138,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -13164,7 +13164,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -13190,7 +13190,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -13222,7 +13222,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -13248,7 +13248,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -13274,7 +13274,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -13375,7 +13375,7 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -13400,7 +13400,7 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 2 => {
                         if cur != 1 { flush!(); cur = 1; }
@@ -13423,7 +13423,7 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                             let k = c2.varint();
                             if c2.err != 0 { break; }
                             let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                            if tag == 0 { c2.err = ak_rt::ERR_MALFORMED; break; }
+                            if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c2.err = ak_rt::ERR_MALFORMED; break; }
                             match tag {
                             1 if wire == 0 => {
                                 if cur != 0 { flush!(); cur = 0; }
@@ -13502,7 +13502,7 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -13731,7 +13731,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -14001,7 +14001,7 @@ unsafe fn dec_chunked_response_items_element_pull(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -14038,7 +14038,7 @@ unsafe fn dec_chunked_response_items_element_pull(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 3 { flush!(); cur = 3; }
@@ -14241,7 +14241,7 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -14278,7 +14278,7 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 3 { flush!(); cur = 3; }
@@ -14370,7 +14370,7 @@ pub unsafe extern "C" fn ak_parse_Timestamp(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 0 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -14443,7 +14443,7 @@ pub unsafe extern "C" fn ak_parse_Duration(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 0 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -14516,7 +14516,7 @@ pub unsafe extern "C" fn ak_parse_ResultRaw(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -14551,7 +14551,7 @@ pub unsafe extern "C" fn ak_parse_ResultRaw(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -14577,7 +14577,7 @@ pub unsafe extern "C" fn ak_parse_ResultRaw(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -14711,7 +14711,7 @@ pub unsafe extern "C" fn ak_parse_TaskOptions(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -14734,7 +14734,7 @@ pub unsafe extern "C" fn ak_parse_TaskOptions(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -14856,7 +14856,7 @@ pub unsafe extern "C" fn ak_parse_TaskOutput(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 0 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -15086,7 +15086,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -15159,7 +15159,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 2 => {
                         if cur != 5 { flush!(); cur = 5; }
@@ -15182,7 +15182,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                             let k = c2.varint();
                             if c2.err != 0 { break; }
                             let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                            if tag == 0 { c2.err = ak_rt::ERR_MALFORMED; break; }
+                            if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c2.err = ak_rt::ERR_MALFORMED; break; }
                             match tag {
                             1 if wire == 0 => {
                                 if cur != 0 { flush!(); cur = 0; }
@@ -15257,7 +15257,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -15283,7 +15283,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -15309,7 +15309,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -15335,7 +15335,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -15361,7 +15361,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -15387,7 +15387,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -15421,7 +15421,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -15447,7 +15447,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -15473,7 +15473,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -15499,7 +15499,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -15531,7 +15531,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -15557,7 +15557,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -15583,7 +15583,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -15704,7 +15704,7 @@ pub unsafe extern "C" fn ak_parse_TaskSummary(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -15729,7 +15729,7 @@ pub unsafe extern "C" fn ak_parse_TaskSummary(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 2 => {
                         if cur != 1 { flush!(); cur = 1; }
@@ -15752,7 +15752,7 @@ pub unsafe extern "C" fn ak_parse_TaskSummary(
                             let k = c2.varint();
                             if c2.err != 0 { break; }
                             let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                            if tag == 0 { c2.err = ak_rt::ERR_MALFORMED; break; }
+                            if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c2.err = ak_rt::ERR_MALFORMED; break; }
                             match tag {
                             1 if wire == 0 => {
                                 if cur != 0 { flush!(); cur = 0; }
@@ -15831,7 +15831,7 @@ pub unsafe extern "C" fn ak_parse_TaskSummary(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -15925,7 +15925,7 @@ pub unsafe extern "C" fn ak_parse_Probe(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -16058,7 +16058,7 @@ pub unsafe extern "C" fn ak_parse_Empty(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             // Decision 11's capture is NOT built for this family: the bag is a
             // candidate and pull is a family, and pricing one through the other
@@ -16123,7 +16123,7 @@ pub unsafe extern "C" fn ak_parse_UploadResultData(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -16360,7 +16360,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -16526,7 +16526,7 @@ pub unsafe extern "C" fn ak_parse_Pair(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -16632,7 +16632,7 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -16715,7 +16715,7 @@ pub unsafe extern "C" fn ak_parse_ListTasksDetailedResponse(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -16795,7 +16795,7 @@ pub unsafe extern "C" fn ak_parse_ListTaskSummaryResponse(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -16898,7 +16898,7 @@ pub unsafe extern "C" fn ak_parse_ListProbeResponse(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -16973,7 +16973,7 @@ pub unsafe extern "C" fn ak_parse_ListMetricsResponse(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -17045,7 +17045,7 @@ pub unsafe extern "C" fn ak_parse_UploadResultDataMessage(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -17058,7 +17058,7 @@ pub unsafe extern "C" fn ak_parse_UploadResultDataMessage(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -17207,7 +17207,7 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -17292,7 +17292,7 @@ pub unsafe extern "C" fn ak_parse_ChunkLeaf(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -17429,7 +17429,7 @@ pub unsafe extern "C" fn ak_parse_ChunkInner(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 0 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -17647,7 +17647,7 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -17684,7 +17684,7 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 3 { flush!(); cur = 3; }
@@ -17783,7 +17783,7 @@ pub unsafe extern "C" fn ak_parse_ChunkedResponse(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             7 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -17859,7 +17859,7 @@ pub unsafe extern "C" fn ak_parse_ChunkedResponseWide(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             70000 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -17931,7 +17931,7 @@ pub unsafe extern "C" fn ak_parse_LeafElement(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -17954,7 +17954,7 @@ pub unsafe extern "C" fn ak_parse_LeafElement(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -18063,7 +18063,7 @@ pub unsafe extern "C" fn ak_parse_LeafResponse(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             9 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -18200,7 +18200,7 @@ pub unsafe extern "C" fn ak_parse_Surrogate(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -18219,7 +18219,7 @@ pub unsafe extern "C" fn ak_parse_Surrogate(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
@@ -18318,7 +18318,7 @@ pub unsafe extern "C" fn ak_parse_SurrogateInner(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -18389,7 +18389,7 @@ pub unsafe extern "C" fn ak_parse_WireZoo(
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-        if tag == 0 { d.err = ak_rt::ERR_MALFORMED; break; }
+        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }
         match tag {
             1 if wire == 0 => {
                 if cur != 0 { flush!(); cur = 0; }
@@ -18437,7 +18437,7 @@ pub unsafe extern "C" fn ak_parse_WireZoo(
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
-                    if tag == 0 { c1.err = ak_rt::ERR_MALFORMED; break; }
+                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { c1.err = ak_rt::ERR_MALFORMED; break; }
                     match tag {
                     1 if wire == 0 => {
                         if cur != 0 { flush!(); cur = 0; }

@@ -30,6 +30,12 @@ pub const WIRE_I64: u32 = 1;
 pub const WIRE_LEN: u32 = 2;
 pub const WIRE_I32: u32 = 5;
 
+/// The plan's DECODE RULES (`poc/codec/gen/plan.py`, MAX_FIELD_NUMBER): protobuf's largest
+/// field number, 2^29 - 1. A key whose field number exceeds it is ERR_MALFORMED -- at the
+/// top of every message (the generated loops) and inside a skipped group (`Dec::skip`) --
+/// and is never truncated to 32 bits, which aliased field 2^32 + n to field n.
+pub const MAX_FIELD_NUMBER: u64 = (1 << 29) - 1;
+
 pub mod bdr;
 pub mod dec;
 pub mod strings;
