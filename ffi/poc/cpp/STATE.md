@@ -6,7 +6,7 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | **2026-09-24 (third work unit), FIX-PLAN WP5 step 2 done: the C++ backend renders the shared plan. Correctness only, no timing taken.** The native control, the binding, the facade and the ABI header are rendered by new modules in `poc/codec/gen/` (`cpp_abi.py`, `cpp_native.py`, `cpp_binding.py`, `cpp_facade.py`, `cpp_names.py`) that import `plan` only; `gen/` keeps glue. `cpp_core.py`'s own wire rules and the `rust_core` import are gone. The ABI header, `ak_client_opts`, `ak_bytes`, `ak_completion` and every RPC prototype come from the plan (R-G5; `src/rpc_common.h` declares none of them); the binding renders `ak_init` from `plan.lifecycle` and calls it in every entry point (R-G7); every C ABI core this slice links is built WITH `init-guard`. Gate (`gen/wp5_gate.sh`, logs `wp5-*.log`): payload set byte-identical at C++17/C++17-floor/C++14/C++11/static (476 checks x5, 0 failures); the FULL corpus (691 rows) through four arms at C++17/14/11/static, 0 failures, outcomes identical across the four builds (2764 of 2764); the corpus core's 542 layout facts match; four planted controls fail as required; 0 byte changes on the 213 rows the old harness could root. `poc/codec/gen/rust_core.py` is NOT deleted: three shared files still name it (see "Plan and shared-tree gaps") |
+| **Status** | **2026-09-24 (fourth work unit), WP5 tail: D38 and D39 fixed, re-gated from a CLEAN build at `fd3ec1a` against core/generator `41eb485`+. Correctness only, no timing.** D38: `ak/rt.h`'s group skip refuses a field number above the plan's `MAX_FIELD_NUMBER` with `ERR_MALFORMED` (compared on the full 64-bit key), taking the limit and the group depth from `include/generated/ak_rules.h`, rendered from `plan.py` by `cpp_native.emit_rules`; the probe row `P-field-maxplus1-in-group` failed on both native arms before (`d38-probe-before.log`) and passes on all four after (`wp5-probe.log`, C++17 and C++11). D39: `gen/wp5_gate.sh` now generates, configures and builds every target itself (`CLEAN=1` for a clean build) and refuses to gate a binary older than the newest C++/Rust source; its control (`AK_GATE_NO_BUILD=1`) refused 24 stale binaries (`d39-stale-refusal.log`). Clean-build gate: 0 failed steps -- payload set 476/0 x5 (noinit plant fails 205); corpus now 702 rows: ffi 680/0, native 696/0, 6 disputed, 16 not in the C ABI, at 17/14/11/static, 2808 outcomes identical across builds; controls fail; byte audit 213/213 unchanged; 542 corpus layout facts agree. The third work unit (WP5 step 2) is kept below |
 | **Core** | **the shared one at `ffi/poc/codec/crates/ak-core` (README R0), not a copy**, built by CMake with `--features init-guard` in every configuration (timed, counting, the three planted cores) and once more with `--features corpus,init-guard` into `core-build/target-corpus` for the corpus harness (its own ABI and header, `corpus/include/ak_abi.h`). `-DAK_CORE_ROOT`/`-DAK_CORE_TGT` still point the build at a snapshot. This work unit ran against the shared tree at `882112c` (HEAD when gated) |
 | **Blocked on** | nothing |
 | **Floor** | **C++11, demonstrated not declared.** C++14 also builds and passes (README open question 3) |
@@ -16,7 +16,25 @@ session, which makes it the most expensive defect in this directory.
 | **Machine** | **TWO of them, and that is a fact about the logs rather than a footnote.** Everything except `rpc.log` and `rpcflow.log`: 4 vCPU Intel Xeon @ **2.80 GHz**. Those two: 4 vCPU Intel Xeon @ **2.10 GHz**, same kernel (Linux 6.18.44), same g++ 13.3.0 `-O2 -g -DNDEBUG`, same rustc 1.94.1. **No absolute crosses between them** (R13, R4) |
 | **R13 calibration** | the 2.80 GHz machine's rust-slice crossing is **1.5 ns** forward (`calibration-r13.log`), against 1.8 ns in the rust slice's own container. **On the 2.10 GHz machine it could not be re-taken: the rust slice does not build on this branch (C27).** What was re-taken there is this slice's OWN crossing, by the unchanged bench: **forward 0.59-0.65 ns, reverse 0.27-0.31 ns**, against 1.822-1.824 / 0.6 published from the 2.80 GHz box. A factor of about three, on a nominally slower clock. That is the whole reason R13 exists |
 
-## This work unit (2026-09-24, third): FIX-PLAN WP5 step 2, the C++ backend on the plan
+## This work unit (2026-09-24, fourth): WP5 tail, D38 and D39
+
+Against core and generator at `41eb485` (plan consolidation: `c_abi.py` is the one C header
+backend, `MAX_FIELD_NUMBER = 2^29-1`, `GROUP_DEPTH_LIMIT = 100`). The aggregating session had
+already switched this slice's `generate.py` from `cpp_abi` to `c_abi`.
+
+| item | what was wrong | fix | evidence |
+|---|---|---|---|
+| **D38** | `Dec::skip_group` checked only `t == 0` and narrowed `k >> 3` to 32 bits, so a key above 2^29-1 inside a skipped group was accepted (the generated decoders already refused it at message level) | refuse `(k >> 3) > MAX_FIELD_NUMBER` with `ERR_MALFORMED` before narrowing; `MAX_FIELD_NUMBER` and `MAX_GROUP_DEPTH` now come from `include/generated/ak_rules.h` (`AK_MAX_FIELD_NUMBER`, `AK_GROUP_DEPTH_LIMIT`), rendered from `plan.py` by the new `cpp_native.emit_rules`. `c_abi.py`/`plan.FIXED` do not carry these constants, so they are in a header of their own rather than in `ak_abi.h` | before: native-drop and native-retain fail `P-field-maxplus1-in-group` (C4 accepted), ffi passes (`d38-probe-before.log`, the pre-fix binary). After: 11/11 on all four arms at C++17 and C++11 (`wp5-probe.log`) |
+| **D39** | `wp5_gate.sh` never built, so it could gate binaries older than the sources it named | the gate runs `generate.py`, `cmake` configure and a full build (every core via cargo) and then compares every gated binary's mtime with the newest C++/Rust input, refusing to continue on any stale one; `CLEAN=1` deletes the build dir first | control `AK_GATE_NO_BUILD=1` on the pre-fix build: 24 binaries STALE, nothing gated, exit 1 (`d39-stale-refusal.log`); the real run: clean build, 47 executables linked, freshness ok (`wp5-build.log`) |
+
+Re-gate from a clean build (`CLEAN=1 gen/wp5_gate.sh build`, commit `fd3ec1a`; the log header
+says "+ uncommitted changes in poc/codec" because of the csharp agent's working-tree edits to
+`cs_binding.py`/`cs_managed.py`, which nothing in this build compiles): every step green.
+Corpus is 702 rows now (the corpus grew); ffi-drop/-retain 680 pass 0 fail, native-drop/
+-retain 696 pass 0 fail, 6 disputed, 16 Nest rows not in the C ABI; outcomes identical across
+C++17/14/11/static (2808). Probe manifest (`poc/rust/gen/probe_corpus.py`, 11 rows): 11/11 x4.
+
+## Previous work unit (2026-09-24, third): FIX-PLAN WP5 step 2, the C++ backend on the plan
 
 Machine: 4 vCPU Intel Xeon @ 2.10 GHz container, g++ 13.3.0, rustc 1.94.1, protobuf
 3.21.12 and grpc++ 1.51.1 (apt). **No timing was taken**: every bench and content-set
@@ -73,7 +91,11 @@ plan option rendered into the core and the native codec, not a host build switch
 
 | gate | result | log |
 |---|---|---|
-| `gen/generate.py --check` | every target current; guard: 5 shared C++ modules import plans only, glue imports no IR, planted import caught | `wp5-generator.log` |
+| `gen/generate.py --check` | every target current; guard: 5 shared C++ modules import plans only, glue imports no IR, planted import caught | `wp5-build.log` | D39: generate, clean configure + build, mtime freshness of every gated binary | the gated binaries are the tree's; refused otherwise |
+| `d39-stale-refusal.log` | the same step with `AK_GATE_NO_BUILD=1` on the pre-fix build | the freshness check refuses 24 stale binaries (the D39 control) |
+| `wp5-probe.log` | the rust slice's oracle-probe manifest, four arms, C++17 and C++11 | D38 after: 11/11 on every arm |
+| `d38-probe-before.log` | the probe manifest through the pre-fix `corpus_all_a17` | D38 before: native-drop and native-retain accept `P-field-maxplus1-in-group` |
+| `wp5-generator.log` |
 | `poc/codec/gen/generate.py --check` | green (the shared core this slice gates) | `wp5-generator.log` |
 | `refusal_test.py` | 17 of 17 refused / emitted as required, incl. `cpp_native` on `utf8="lossy"` (must raise) | `wp5-generator.log` |
 | `rd2_guard.sh` | header at C++11/14/17, four RPC sources compile; plant A (field dropped) and plant B (a seventh field added to `plan.rpc`) refused | `wp5-generator.log` |

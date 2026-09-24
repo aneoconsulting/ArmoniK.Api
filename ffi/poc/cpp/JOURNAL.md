@@ -1325,3 +1325,25 @@ shared `--check` has needed since WP5 step 1. Reproduced: a scratch copy that in
 Plan gaps, stated rather than filled: `ak_err`'s layout, the `ak_log_fn` signature and
 the `AK_INIT_*` values; the counting build's RPC counters; the section 4/5 fixed
 vocabulary; field numbers above 2^29-1. Each is in STATE.md.
+
+## 2026-09-24, fourth work unit: WP5 tail, D38 and D39
+
+D38, from the rust agent's oracle probe: the native arms accepted a field number of
+2^29 inside a skipped group. The generated decoders already refuse it at message level, but
+`ak/rt.h`'s hand-written `skip_group` only tested `t == 0`, after narrowing `k >> 3` to
+`uint32_t`. Reproduced first with the stale pre-fix binary: native-drop and native-retain
+both accept `P-field-maxplus1-in-group`, while ffi refuses it (`d38-probe-before.log`).
+The fix compares the full 64-bit value against the plan's maximum and returns
+ERR_MALFORMED. The instruction was "from the plan-rendered header, not a literal", but
+`c_abi.py` / `plan.FIXED` carry neither `MAX_FIELD_NUMBER` nor `GROUP_DEPTH_LIMIT`, and
+editing either is outside this slice. So `cpp_native.emit_rules` (my shared module)
+renders them into `include/generated/ak_rules.h`, and `rt.h` includes that header for both
+constants. The 100 that was a literal there is gone too. After: 11/11 on all four arms.
+
+D39: the gate never built, which is how it could pass on stale binaries. It now generates,
+configures, builds every target and then checks mtimes. The first draft counted
+`gen/*.py` as inputs, and that would flag every binary stale after any harness-script
+edit. The inputs are now only what gets compiled (C++ sources and headers, CMakeLists, the
+core's Rust). The control run skipped the build on the pre-fix tree and was refused with
+24 stale binaries. The clean-build gate is green. The corpus had grown to 702 rows in the
+meantime; the result is the same shape: 0 failures, disputed rows excluded.

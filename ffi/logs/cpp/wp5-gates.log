@@ -1,8 +1,8 @@
 # cpp slice, WP5 step 2: the other gates (nothing timed)
-#   date       2026-09-24T17:33:58Z
+#   date       2026-09-24T18:56:58Z
 #   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
 #   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit     882112c + uncommitted changes in poc/cpp or poc/codec
+#   commit     6ce373d + uncommitted changes in poc/cpp or poc/codec
 #   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
 #              for the corpus ABI); no timing is taken by anything in this log
 
@@ -160,7 +160,7 @@ groupskip: 0 build(s) did not do what they must
 
 ===== concurrency.sh (AK_CONC_NO_T7=1; planted cores must fail) =====
 == ABI v1 obligation 12.5 ==
-date: 2026-09-24T17:33:58Z  nproc = 4  build dir: ./build
+date: 2026-09-24T18:56:58Z  nproc = 4  build dir: ./build
 
 =========== conc_a17_shared 4 6   (must PASS) ===========
 $ ldd ./build/conc_a17_shared | grep ak_core
