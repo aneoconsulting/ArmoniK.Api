@@ -17,7 +17,7 @@ One class per unknown-field mode, because a facade codec has no per-call switch 
 the C ABI has two families: `Codec` (plan Options.unknown = "drop") and `CodecRetain`
 ("retain", the facade's `unknownFields`), two renderings of one plan (owner position 6).
 """
-from plan import MAX_FIELD_NUMBER, relower
+from plan import GROUP_DEPTH_LIMIT, MAX_FIELD_NUMBER, relower
 import java_names as N
 
 WHO = "java_rcodec.py"
@@ -265,7 +265,7 @@ def _dec_action(p, m, act, o):
             first = False
         o.append("                // A facade map entry has no bag: an unknown field inside an")
         o.append("                // entry is skipped in both modes (`U-map-entry`, disputed).")
-        o.append("                else d.skip(et, ew);")
+        o.append("                else d.skip(et, ew, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);")
         o.append("              }")
         o.append("              d.pop(outer);")
         o.append("              // Plan rule: a duplicate key replaces the earlier value.")
@@ -321,12 +321,12 @@ def _dec_message(p, m, o, retain):
     if retain:
         o.append("        // Plan rule (retain): not in the table -> captured verbatim, key")
         o.append("        // included, and re-emitted after the known fields on encode.")
-        o.append("        d.skip(tag, wire);")
+        o.append("        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);")
         o.append("        r.%s = Dec.append(r.%s, d.b, s0, d.pos);" % (N.UNKNOWN, N.UNKNOWN))
     else:
         o.append("        // Plan rule (drop): not in the table -- including a known number at a")
         o.append("        // wire type the table has no entry for (R-E2) -- is skipped.")
-        o.append("        d.skip(tag, wire);")
+        o.append("        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);")
     o.append("      }")
     o.append("    }")
 
@@ -412,6 +412,10 @@ def emit(p, ns=N.PKG, unknown="drop"):
          "  public static final int SITES = %d;" % len(sites),
          "  /** The plan's recursion limit (Options.recursion_limit). */",
          "  public static final int LIMIT = %d;" % p.options.recursion_limit,
+         "  /** The plan's MAX_FIELD_NUMBER and GROUP_DEPTH_LIMIT, handed to `Dec.skip`, whose",
+         "   *  group skip applies them to every key inside a group (D38). */",
+         "  public static final long MAX_FIELD_NUMBER = %dL;" % MAX_FIELD_NUMBER,
+         "  public static final int GROUP_DEPTH_LIMIT = %d;" % GROUP_DEPTH_LIMIT,
          "  /** The plan's unknown-field mode and UTF-8 policy, for a log to name. */",
          "  public static final String UNKNOWN_FIELDS = \"%s\";" % unknown,
          "  public static final String UTF8_POLICY = \"%s\";" % p.options.utf8,
