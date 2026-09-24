@@ -89,6 +89,7 @@ fn main() {
         ("init-ok", "ak_init returns AK_OK and ak_initialized() flips"),
         ("init-twice-same", "the same options again: AK_ALREADY_INITIALIZED, a SUCCESS"),
         ("init-twice-differ", "different options: refused, AK_DETAIL_OPTS_DIFFER"),
+        ("init-differ-collide", "R-D9: options built to collide under an XOR fold: still refused"),
         ("init-bad-version", "a host generated against another ABI: AK_ERR_ABI"),
         ("init-null", "a null options pointer: AK_ERR_INVALID_STATE, not a crash"),
         ("log-bridge", "the host's ak_log_fn receives a line"),
@@ -199,6 +200,26 @@ fn child(case: &str) -> i32 {
                          e.detail);
                 println!("# The one-shot installs cannot be redone, which is also why there is");
                 println!("# no ak_shutdown.");
+                ok(a == AK_OK && b == AK_ERR_INVALID_STATE && e.detail == AK_DETAIL_OPTS_DIFFER)
+            }
+            "init-differ-collide" => {
+                // FIX-PLAN WP4 item 10 / R-D9: the core used to fold the options into ONE
+                // word, `log ^ log_ctx` in the low bits, and compare words. Two different
+                // option sets whose sink pointer and context XOR to the same value are the
+                // same word, so the second call was reported AK_ALREADY_INITIALIZED -- a
+                // success -- for options that differ. Constructed here on purpose: first
+                // call no sink with ctx = X, second call sink f with ctx = X ^ f.
+                let mut e = ak_err::default();
+                let x: usize = 0x5a5a_0000;
+                let f: ak_log_fn = host_log;
+                let mut o1 = opts(AK_INIT_NO_CRYPTO, None);
+                o1.log_ctx = x as *mut std::ffi::c_void;
+                let mut o2 = opts(AK_INIT_NO_CRYPTO, Some(f));
+                o2.log_ctx = (x ^ (f as usize)) as *mut std::ffi::c_void;
+                let a = ak_init(&o1, &mut e);
+                let b = ak_init(&o2, &mut e);
+                println!("first {a}, second {b}, detail {} (want {AK_ERR_INVALID_STATE}, AK_DETAIL_OPTS_DIFFER={AK_DETAIL_OPTS_DIFFER})",
+                         e.detail);
                 ok(a == AK_OK && b == AK_ERR_INVALID_STATE && e.detail == AK_DETAIL_OPTS_DIFFER)
             }
             "init-bad-version" => {

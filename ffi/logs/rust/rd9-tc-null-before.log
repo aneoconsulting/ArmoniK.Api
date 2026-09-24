@@ -1,0 +1,11 @@
+# R-D9 (FIX-PLAN WP4 item 10): transcoders on an empty (NULL, 0) host string -- BEFORE the fix
+#   base 817174f, rustc 1.94.1, DEBUG build (std's ub_checks turn from_raw_parts(NULL,0) into an abort)
+#   cargo test -p ak-core --lib tc_empty   (test: crates/ak-core/src/lib.rs mod tc_empty_tests)
+
+running 1 test
+thread 'tc_empty_tests::every_transcoder_accepts_null_and_zero' (14735) panicked at crates/ak-core/src/lib.rs:643:13:
+unsafe precondition(s) violated: slice::from_raw_parts requires the pointer to be aligned and non-null, and the total size of the slice not to exceed `isize::MAX`
+   3: core::slice::raw::from_raw_parts::precondition_check
+   5: ak_core::tc_utf8
+thread caused non-unwinding panic. aborting.
+  process didn't exit successfully: `/home/user/ArmoniK.Api/ffi/poc/rust/target-codec-test/debug/deps/ak_core-19e3dcdd8614fa01 tc_empty` (signal: 6, SIGABRT: process abort signal)

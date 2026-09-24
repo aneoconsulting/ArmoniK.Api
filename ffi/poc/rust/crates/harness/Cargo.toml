@@ -137,3 +137,8 @@ path = "src/bin/rpcgrid.rs"
 # process; the shell driver runs each under `timeout`.
 name = "rdrepro"
 path = "src/bin/rdrepro.rs"
+
+[[bin]]
+# FIX-PLAN WP4 item 7 / R-D6: the sticky error slot, checked after every upcall.
+name = "stickyerr"
+path = "src/bin/stickyerr.rs"

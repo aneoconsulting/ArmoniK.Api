@@ -27,6 +27,15 @@ fn main() {
     // move, and with the old order the harness would have linked and loaded THAT: the
     // exact shape of "a change that measures the same because it is not in the build".
     let deps = profile_dir.join("deps");
+    // An explicit override for a toolchain whose target-directory layout is not the one
+    // the ancestor walk above assumes: the nightly used for the ThreadSanitizer build
+    // (FIX-PLAN WP4 item 9) puts a dependency's cdylib under `build/<crate>/<hash>/out`.
+    // Set by `gen/tsan.sh`, which finds the one `libak_core.so` that build produced.
+    println!("cargo:rerun-if-env-changed=AK_CORE_LIB_DIR");
+    if let Ok(dir) = std::env::var("AK_CORE_LIB_DIR") {
+        println!("cargo:rustc-link-search=native={dir}");
+        println!("cargo:rustc-link-arg=-Wl,-rpath,{dir}");
+    }
     for d in [&deps, &profile_dir] {
         println!("cargo:rustc-link-search=native={}", d.display());
         println!("cargo:rustc-link-arg=-Wl,-rpath,{}", d.display());

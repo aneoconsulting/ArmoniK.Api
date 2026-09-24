@@ -27,10 +27,12 @@ grep -m1 'model name' /proc/cpuinfo || true
 
 echo
 echo "===== 1. build both arms ====="
-cargo build --release -q -p harness --bin bench
+# R-D9: `init-guard` is a DEFAULT harness feature, so the OFF arm turns the defaults off
+# and keeps the accessor `guard`. Before this fix both arms carried the init guard.
+CARGO_TARGET_DIR=target-noig cargo build --release -q -p harness --no-default-features --features guard --bin bench
 CARGO_TARGET_DIR=target-ig cargo build --release -q -p harness --features init-guard --bin bench
 echo "# what each binary actually loaded, from ldd and not from the build log:"
-ldd target/release/bench | grep ak_core
+ldd target-noig/release/bench | grep ak_core
 ldd target-ig/release/bench | grep ak_core
 
 echo
@@ -38,7 +40,7 @@ echo "===== 2. two runs of each build, serialised ====="
 for i in 1 2; do
   echo
   echo "----- guard OFF run $i -----"
-  ./target/release/bench 2>/dev/null | sed -n '/^payload/,/^# prost/p'
+  ./target-noig/release/bench 2>/dev/null | sed -n '/^payload/,/^# prost/p'
 done
 for i in 1 2; do
   echo

@@ -1,0 +1,10 @@
+# R-D9 (FIX-PLAN WP4 item 10): lifecycle.sh / guardprice.sh 'guard OFF' arm -- BEFORE and AFTER
+#   base 817174f, rustc 1.94.1
+## BEFORE: the OFF arm as the old scripts built it: 'cargo build -p harness' (default features)
+#   init-guard: ON -- every entry point checks (section 3 as specified)
+    uninit-first in that arm: guard ON: encode before ak_init -> Err(-10) (want Err(-10))
+## AFTER: '--no-default-features --features guard', own target dir target-noig
+#   init-guard: off -- entry points do not check; the guard's PRICE is section 4
+    uninit-first in that arm: guard off: encode before ak_init SUCCEEDED, which is what this
+## stage2.sh/stage3.sh accessor-guard row: '--no-default-features' alone dropped init-guard too; now '--features init-guard' is put back (build-only check)
+#   init-guard: ON -- every entry point checks (section 3 as specified)

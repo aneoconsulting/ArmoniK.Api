@@ -29,16 +29,24 @@ python3 gen/generate.py --check
 
 echo
 echo "===== 2. build both arms ====="
-cargo build --release -q -p harness --bin lifecycle --bin bench --bin conformance
+# R-D9 (FIX-PLAN WP4 item 10): `init-guard` became a DEFAULT feature of the harness, so
+# the "guard OFF" arm must turn the defaults off and put `guard` (the accessor guard, a
+# different thing) back. Before this fix both arms had the init guard and the comparison
+# compared a build with itself. Own target dir, so the two ak-core feature sets never
+# overwrite each other's cdylib.
+CARGO_TARGET_DIR=target-noig cargo build --release -q -p harness --no-default-features --features guard \
+  --bin lifecycle --bin bench --bin conformance
 CARGO_TARGET_DIR=target-ig cargo build --release -q -p harness --features init-guard \
   --bin lifecycle --bin bench --bin conformance
 echo "# what each binary actually loaded, from ldd and not from the build log:"
-ldd target/release/lifecycle | grep ak_core
+ldd target-noig/release/lifecycle | grep ak_core
 ldd target-ig/release/lifecycle | grep ak_core
+echo "# That the OFF arm really is off is checked by BEHAVIOUR, not by the build line:"
+echo "# section 3's first case, uninit-first, must SUCCEED there and be refused in the ON arm."
 
 echo
 echo "===== 3. the lifecycle, guard OFF ====="
-./target/release/lifecycle
+./target-noig/release/lifecycle
 
 echo
 echo "===== 4. the lifecycle, guard ON (section 3 as specified) ====="

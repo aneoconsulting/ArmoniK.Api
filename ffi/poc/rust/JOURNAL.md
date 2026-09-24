@@ -1993,3 +1993,61 @@ so every slice that renders from `gen/rust_abi.py` and links `ak-rt` gets both. 
 slice has its own `rt.h` `len_body` (FIX-PLAN WP4 item 1 names it) and the managed slices'
 generated codecs render their own trailing-delivery epilogues from their own backends — those
 are theirs to check against the same three claims. The u32 entry guard is likewise per-backend.
+
+## 2026-09-24 (later) -- FIX-PLAN WP4 items 7, 9, 10 (R-D6, R-D8, R-D9), Part A of this session
+
+Every finding reproduced before the fix, logged before and after.
+
+### R-D6, the sticky error slot (confirmed, fixed in the shared core, c10e934)
+
+`crates/harness/src/bin/stickyerr.rs` drives the real cdylib with hand-written callbacks
+that call `ak_fail` and return AK_OK, and counts upcalls made after the failure. Before
+(`logs/rust/rd6-sticky-before.log`): encode of M1 returned **2** (a successful 2-byte
+encode) with `ak_enc_err=-1`; encode of M2 returned 4 with **7** upcalls after the failure;
+every decode returned -1 but kept calling (`add`, `new` twice more, `apply`); a negative
+element token without `ak_fail` returned **rc=0** and silently dropped all three elements.
+After (`rd6-sticky-after.log`): 7 of 7 cases rc<0 and zero upcalls after the failure.
+Emitter change in `poc/codec/gen/rust_abi.py` (encode upcall check, entry status,
+decode flush guard, stop-after-upcall in every reader, element `new`/`apply`, root epilogue)
+plus `enc_status`, the transcoder-as-upcall check in `enc_blob` and `UnkBuf::host_err` in
+`ak-core`. Byte identity and crossing counts unchanged (`logs/rust/wp4-gate.log`).
+
+### R-D8, concurrency coverage (confirmed, fixed)
+
+`together()` now rotates all four shapes (P1.2, P2.2, P1.3, P2.5) per round with a per-thread
+phase. 0 wrong on shipped and global builds; the must-fail plants now show 703 (pad) and 710
+(both) wrong against 10/1,410 before -- the present-path payloads give the pad plant far more
+sites to corrupt. **ThreadSanitizer ran**: nightly 1.100 installed in about a minute,
+`gen/tsan.sh` instruments harness, cdylib and std (-Zbuild-std). Sections 1-3: 0 TSan
+warnings; the planted shared-context control: 77 warnings, so TSan is seen working
+(`logs/rust/rd8-tsan.log`). One thing needed: this nightly's target-dir layout puts a
+dependency's cdylib under `build/<crate>/<hash>/out`, so `harness/build.rs` takes an
+`AK_CORE_LIB_DIR` override (the tsan script sets it).
+
+### R-D9, the core and script parts (confirmed, fixed)
+
+- `from_raw_parts(NULL, 0)` in the transcoders: a debug-build unit test aborts on the
+  standard library's precondition check (`rd9-tc-null-before.log`); guarded in all five
+  transcoders and the direct-argument path (`rd9-tc-null-after.log`).
+- `opts_word` XOR collision: a new lifecycle case builds two option sets that fold to the
+  same word; the old core answered AK_ALREADY_INITIALIZED (`rd9-opts-collision.log`, built in
+  a worktree at the base commit), the new one refuses with AK_DETAIL_OPTS_DIFFER.
+- `lifecycle.sh`/`guardprice.sh`: the "guard OFF" arm was the harness DEFAULT build, and
+  `init-guard` is a default feature of the HARNESS crate (not of ak-core), so both arms had
+  the guard (`rd9-guard-off-arm.log`: the old OFF arm prints "init-guard: ON"). Now
+  `--no-default-features --features guard`, own target dir. `stage2.sh`/`stage3.sh`'s
+  accessor-guard row used `--no-default-features` alone, which dropped the init guard too:
+  `--features init-guard` put back so the row changes one thing.
+
+### New: `gen/gate.sh`, the correctness-only gate
+
+Generators current, core unit tests, byte identity, shapes, counts, content sets
+(correctness section), the four-build concurrency suite (timing section skipped via
+`AK_NO_TIMING`), lifecycle, R-D1 reproductions (now with a verdict), R-D6. `wp4-gate.log`:
+GATE PASSED.
+
+### Found, not fixed in Part A (goes into WP5's rewrite)
+
+The decode emitter names every nested reader `cd`, so at depth two the propagation line
+reads `if cd.err != 0 { cd.err = cd.err; }` (rustc warns "useless assignment", four sites):
+an error inside a message nested two levels below its group root is dropped at that level.

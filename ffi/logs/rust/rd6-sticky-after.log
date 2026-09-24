@@ -1,0 +1,15 @@
+# R-D6 sticky error slot -- AFTER the fix (emitter gen/rust_abi.py + ak-core enc_status/enc_blob/UnkBuf, regenerated)
+#   base commit 817174f + this change, rustc 1.94.1, release, cdylib boundary, harness default features (guard, init-guard)
+#   driver crates/harness/src/bin/stickyerr.rs
+
+# FIX-PLAN WP4 item 7 / R-D6: the sticky error slot, ABI v1 section 5
+# rule: rc < 0, and zero upcalls after the host's ak_fail (apply included)
+E1 encode M1, loop fails, returns AK_OK      rc=-1   upcalls=1 after_fail=0 apply_called=false ak_enc_err=-1  PASS
+E2 encode M2, inner element loop fails       rc=-1   upcalls=2 after_fail=0 apply_called=false   PASS
+D1 decode M1, add fails                      rc=-1   upcalls=1 after_fail=0 apply_called=false   PASS
+D2 decode M2, new_tasks fails                rc=-1   upcalls=1 after_fail=0 apply_called=false   PASS
+D2b decode M2, inner add (parent_task_ids) fails rc=-1   upcalls=2 after_fail=0 apply_called=false   PASS
+D3 decode M1, root unknown-field upcall fails rc=-1   upcalls=2 after_fail=0 apply_called=false   PASS
+D4 decode M2, new_tasks returns token -1     rc=-1   upcalls=1 after_fail=0 apply_called=false (token -1, no ak_fail)  PASS
+ALL PASS
+exit 0

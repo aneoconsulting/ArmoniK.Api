@@ -174,6 +174,12 @@ fn correctness(ctx: &'static m1::core_ffi_arm::Ctx) -> usize {
 }
 
 fn timings(ctx: &'static m1::core_ffi_arm::Ctx) {
+    // gen/gate.sh: correctness only. Everything from here on is a timing, and a container
+    // timing is instrumentation (README section 1.1).
+    if std::env::var_os("AK_NO_TIMING").is_some() {
+        println!("## timing sections skipped: AK_NO_TIMING");
+        return;
+    }
     println!("## 2. encode and decode, all three sets, ONE process, rounds interleaved");
     println!();
     let mut cases: Vec<Case> = Vec::new();
