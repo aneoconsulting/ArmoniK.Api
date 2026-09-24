@@ -211,6 +211,8 @@ def targets():
         "include/ak_abi.h": header,
         "include/generated/ak_layout.h": layout_h,
         "include/generated/ak_layout_names.h": layout_names_h,
+        # D38: the plan's decode-rule constants for the hand-written runtime (ak/rt.h).
+        "include/generated/ak_rules.h": cpp_native.emit_rules(p),
         "src/generated/types.h": cpp_facade.emit_types(p),
         "src/generated/types.cpp": cpp_facade.emit_types_impl(p),
         "src/generated/odr.h": cpp_facade.emit_odr_asserts(p),

@@ -20,6 +20,10 @@
 
 #include <cstdint>
 #include <cstring>
+
+// The plan's DECODE RULES constants (AK_MAX_FIELD_NUMBER, AK_GROUP_DEPTH_LIMIT), rendered
+// from poc/codec/gen/plan.py by cpp_native.emit_rules -- never restated here (D38).
+#include "generated/ak_rules.h"
 #include <string>
 #include <vector>
 
@@ -97,10 +101,12 @@ const int32_t ERR_DEPTH = -4;
 const int32_t ERR_TRANSCODE = -6;
 const int32_t ERR_CAPACITY = -7;
 
-// protobuf's own default recursion limit, applied to nested groups. Namespace scope and
-// `const`, so it has internal linkage, needs no out-of-line definition at C++11, and adds
-// nothing to the layout of any installed type.
-const uint32_t MAX_GROUP_DEPTH = 100;
+// The plan's GROUP_DEPTH_LIMIT (protobuf's own default recursion limit), applied to nested
+// groups. Namespace scope and `const`: internal linkage, no layout change.
+const uint32_t MAX_GROUP_DEPTH = AK_GROUP_DEPTH_LIMIT;
+// The plan's MAX_FIELD_NUMBER (2^29 - 1): a key whose field number is above it is refused
+// with ERR_MALFORMED, inside a skipped group as everywhere else (D38).
+const uint64_t MAX_FIELD_NUMBER = AK_MAX_FIELD_NUMBER;
 
 const uint32_t WIRE_VARINT = 0;
 const uint32_t WIRE_I64 = 1;
@@ -407,8 +413,10 @@ class Dec {
       if (pos >= len) { err = ERR_TRUNCATED; return; }  // X-group-unterminated
       uint64_t k = varint();
       if (err != 0) return;
+      // D38: compared on the full 64-bit key BEFORE narrowing, or a number above 2^32 would
+      // truncate to a small one; above the plan's maximum is malformed, as in the core.
+      if ((k >> 3) == 0 || (k >> 3) > MAX_FIELD_NUMBER) { err = ERR_MALFORMED; return; }
       uint32_t t = (uint32_t)(k >> 3), w = (uint32_t)(k & 7);
-      if (t == 0) { err = ERR_MALFORMED; return; }
       if (w == 4) {
 #if AK_GROUP_PLANT == 1
         // PLANTED: any END_GROUP closes any group, which is the depth counter.
