@@ -52,7 +52,8 @@ name: Publish Packages
 # `manual` is the "pre pre-release" path, and it is a dry run unless the
 # dispatcher unticks `dry_run`. It can only ever publish a pre-release: it
 # refuses anything but a SemVer pre-release version, so a manual run can never
-# take over `latest`, and it publishes nothing unless a package is ticked.
+# take over `latest`, and it publishes nothing unless a package is ticked. A dry
+# run may be dispatched from any branch, a real one only from `main`.
 # Restrict who may use it with an Actions ruleset actor rule (Settings >
 # Actions > Policies) limiting workflow_dispatch to Admin, and keep the
 # `npm-publish` and `crates-io-publish` environments restricted to `main` plus
@@ -291,10 +292,10 @@ jobs:
               echo "::error::A manual publish needs a SemVer pre-release version such as 3.30.0-dev.1, got '$version'"
               exit 1
             fi
-            # The `npm-publish` environment already refuses to hand an OIDC
-            # token to any other ref, but the token-based registries have no
-            # such guard, so enforce it here for every ecosystem.
-            if [ "$GITHUB_REF_NAME" != main ]; then
+            # Real publishes only: the token-based registries have no environment
+            # guarding their secrets. A dry run skips every step using one, so it
+            # may run from any branch.
+            if [ "$dry_run" != true ] && [ "$GITHUB_REF_NAME" != main ]; then
               echo "::error::A manual publish must be dispatched from main, got '$GITHUB_REF_NAME'"
               exit 1
             fi
@@ -707,10 +708,9 @@ jobs:
     runs-on: ubuntu-latest
     # Bound in each package's npm trusted publisher config. Restrict the
     # environment to `main` and the release tag pattern so the OIDC token cannot
-    # be obtained from a run dispatched off an arbitrary branch. A dry run goes
-    # through it too, which is deliberate: it then also proves the ref is one the
-    # environment accepts.
-    environment: npm-publish
+    # be obtained from a run dispatched off an arbitrary branch. Skipped on a dry
+    # run, which needs no token and may run from any branch.
+    environment: ${{ needs.context.outputs.dry_run != 'true' && 'npm-publish' || '' }}
     permissions:
       contents: read
       id-token: write # Required for OIDC
@@ -772,8 +772,9 @@ jobs:
     needs: [context]
     if: needs.context.outputs.rust == 'true'
     runs-on: ubuntu-latest
-    # Named in both crates' trusted publisher config. Restrict it like `npm-publish`.
-    environment: crates-io-publish
+    # Named in both crates' trusted publisher config. Restrict it like
+    # `npm-publish`. Skipped on a dry run, as there.
+    environment: ${{ needs.context.outputs.dry_run != 'true' && 'crates-io-publish' || '' }}
     permissions:
       contents: read
       id-token: write # Required for OIDC
