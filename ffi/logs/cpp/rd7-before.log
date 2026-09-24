@@ -1,0 +1,182 @@
+# R-D7 BEFORE: the planted concurrency builds as committed at 817174f
+#   date        2026-09-24T16:13:12Z
+#   machine     Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
+#   tree        git archive 817174f (ffi/poc/cpp, ffi/poc/codec, ffi/schema) into scratch, built unchanged
+#   T7 (the one timing) is cut from this log with grep; nothing else is.
+
+== which core each planted binary links ==
+CMakeLists.txt:193:ak_arm(conc_a17_pad    ${CONC} 17 target on shared reject ${CORE_OUT})
+CMakeLists.txt:194:target_compile_definitions(conc_a17_pad PRIVATE AK_CONC_PAD=1)
+CMakeLists.txt:195:ak_arm(conc_a17_global ${CONC} 17 target on shared reject ${CORE_OUT})
+CMakeLists.txt:196:target_compile_definitions(conc_a17_global PRIVATE AK_CONC_GLOBAL=1)
+CMakeLists.txt:197:ak_arm(conc_a17_both   ${CONC} 17 target on shared reject ${CORE_OUT})
+CMakeLists.txt:198:target_compile_definitions(conc_a17_both PRIVATE AK_CONC_PAD=1 AK_CONC_GLOBAL=1)
+conc_a17_pad -> 	libak_core.so => /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/before/ffi/poc/cpp/core-build/target/release/libak_core.so
+conc_a17_both -> 	libak_core.so => /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/before/ffi/poc/cpp/core-build/target/release/libak_core.so
+(the UNPLANTED core, target/release: the plants are AK_CONC_* defines in include/ak/rt.h, the native codec only)
+
+=========== conc_a17_pad 4 6 ===========
+== ABI v1 obligation 12.5: the concurrency suite ==
+-std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
+plants: AK_CONC_PAD=1  AK_CONC_GLOBAL=0   <-- a REFUSED design from ABI v1 section 6, built on purpose
+hardware_concurrency=4
+
+-- the reference bytes, anchored to manifest.json --
+   P1.1  858 B
+   P1.3  605 B
+   P1.2  218121 B
+   P2.2  540422 B
+
+-- T0: does this shape set have a history surface at all? --
+   P1.1 writes 0 of 35 length-prefix sites
+   P1.3 writes 0 of 35 length-prefix sites
+   P1.2 writes 0 of 35 length-prefix sites
+   P2.2 writes 0 of 35 length-prefix sites
+   (AK_CONC_PAD: this probe reads `resize_prefix`, which the plant removes on
+    the narrowing side, so it under-reports here. The surface is the shipped
+    build's, above.)
+
+-- T1: the encoder's output does not depend on its own history --
+   Sequential, one thread. The learned width survives a reset by design, so
+   this asks whether what survives can be seen on the wire. Needs two shapes.
+
+  FAIL  native: P1.3 after P1.1 is byte-identical to P1.3 on a virgin encoder
+  FAIL  native: P1.3 after P1.2 is byte-identical to P1.3 on a virgin encoder
+   12 pairs checked on two arms.
+
+-- T2 and T3: the same work, run in sequence and then together --
+   4 threads x 6 rounds x 4 shapes, every encode memcmp'd against the
+   reference. T2 joins each thread before starting the next, so the two
+   differ only by overlap: a defect that shows in both is not a concurrency
+   defect, and that distinction is why 12.5 asks for both.
+
+  T2 threads in sequence                   96 encodes   native 23  ffi 0  ffi-hosttc 0  roundtrip 23  spurious-err 0
+  FAIL  T2: every encode in sequence matched the reference
+  T3 threads together                      96 encodes   native 23  ffi 0  ffi-hosttc 0  roundtrip 23  spurious-err 0
+  FAIL  T3: every encode in parallel matched the reference
+
+-- T4: a failure on one thread is not visible on another --
+   Half the threads feed truncated input and must fail; half feed the
+   reference and must succeed with err == 0. Concurrently, 24 rounds.
+
+  FAIL  every good decode produced the reference bytes
+   truncated-but-accepted 0, good-but-wrong 12, error leaked across a context 0
+
+-- T5: two threads with different histories encode the same message --
+   Every ordered pair: thread A encodes the prior and then the target,
+   thread B encodes the target alone. Both must produce the reference AND
+   agree with each other -- agreement is the half that a manifest comparison
+   alone would miss if both drifted the same way, which is exactly what a
+   process-global table does.
+
+   P1.1 then P1.3: disagreed 12, wrong 12 (of 12 rounds)
+   P1.2 then P1.3: disagreed 12, wrong 12 (of 12 rounds)
+  FAIL  no ordered pair made two threads disagree
+  FAIL  no ordered pair made a thread diverge from the reference
+   12 ordered pairs x 12 rounds: disagreements 24, wrong against the reference 24
+
+-- T6: one shape against two, same threads, same rounds --
+   12.5: "a suite with one shape reports zero wrong bytes with a
+   per-thread-state defect present and absent alike; two shapes find it in
+   twenty encodes out of twenty." That is a claim, so it is measured. On the
+   shipped design every row below is zero; the three planted builds are where
+   the row that matters is not.
+
+  one shape  (P1.1 alone)        24 encodes,    0 wrong  (native 0, ffi 0, hosttc 0, roundtrip 0)
+  one shape  (P1.2 alone)        24 encodes,    0 wrong  (native 0, ffi 0, hosttc 0, roundtrip 0)
+  two shapes (P1.1 + P1.2)       48 encodes,   44 wrong  (native 22, ffi 0, hosttc 0, roundtrip 22)
+  four shapes (P1.x + P2.x)      96 encodes,   46 wrong  (native 23, ffi 0, hosttc 0, roundtrip 23)
+
+
+41 checks, 7 failures
+This is a PLANTED build. A zero here would mean the suite cannot see the
+defect class it exists for, so failures above are the expected result and
+the exit code is inverted by gen/concurrency.sh, not by this binary.
+exit 1
+
+=========== conc_a17_both 4 6 ===========
+== ABI v1 obligation 12.5: the concurrency suite ==
+-std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
+plants: AK_CONC_PAD=1  AK_CONC_GLOBAL=1   <-- a REFUSED design from ABI v1 section 6, built on purpose
+hardware_concurrency=4
+
+-- the reference bytes, anchored to manifest.json --
+   P1.1  858 B
+   P1.3  605 B
+   P1.2  218121 B
+   P2.2  540422 B
+
+-- T0: does this shape set have a history surface at all? --
+   P1.1 writes 0 of 35 length-prefix sites
+   P1.3 writes 0 of 35 length-prefix sites
+   P1.2 writes 0 of 35 length-prefix sites
+   P2.2 writes 0 of 35 length-prefix sites
+   (AK_CONC_GLOBAL: there is no per-context table to read, so an empty
+    surface here is the plant and not a bad shape set.)
+
+-- T1: the encoder's output does not depend on its own history --
+   Sequential, one thread. The learned width survives a reset by design, so
+   this asks whether what survives can be seen on the wire. Needs two shapes.
+
+  FAIL  native: P1.3 after P1.1 is byte-identical to P1.3 on a virgin encoder
+  FAIL  native: P1.3 after P1.2 is byte-identical to P1.3 on a virgin encoder
+  FAIL  native: P1.3 after P2.2 is byte-identical to P1.3 on a virgin encoder
+   12 pairs checked on two arms.
+
+-- T2 and T3: the same work, run in sequence and then together --
+   4 threads x 6 rounds x 4 shapes, every encode memcmp'd against the
+   reference. T2 joins each thread before starting the next, so the two
+   differ only by overlap: a defect that shows in both is not a concurrency
+   defect, and that distinction is why 12.5 asks for both.
+
+  T2 threads in sequence                   96 encodes   native 24  ffi 0  ffi-hosttc 0  roundtrip 24  spurious-err 0
+  FAIL  T2: every encode in sequence matched the reference
+  T3 threads together                      96 encodes   native 24  ffi 0  ffi-hosttc 0  roundtrip 24  spurious-err 0
+  FAIL  T3: every encode in parallel matched the reference
+
+-- T4: a failure on one thread is not visible on another --
+   Half the threads feed truncated input and must fail; half feed the
+   reference and must succeed with err == 0. Concurrently, 24 rounds.
+
+  FAIL  every good decode produced the reference bytes
+   truncated-but-accepted 0, good-but-wrong 12, error leaked across a context 0
+
+-- T5: two threads with different histories encode the same message --
+   Every ordered pair: thread A encodes the prior and then the target,
+   thread B encodes the target alone. Both must produce the reference AND
+   agree with each other -- agreement is the half that a manifest comparison
+   alone would miss if both drifted the same way, which is exactly what a
+   process-global table does.
+
+   P1.1 then P1.3: disagreed 0, wrong 12 (of 12 rounds)
+   P1.2 then P1.3: disagreed 0, wrong 12 (of 12 rounds)
+   P2.2 then P1.3: disagreed 0, wrong 12 (of 12 rounds)
+  FAIL  no ordered pair made a thread diverge from the reference
+   12 ordered pairs x 12 rounds: disagreements 0, wrong against the reference 36
+
+-- T6: one shape against two, same threads, same rounds --
+   12.5: "a suite with one shape reports zero wrong bytes with a
+   per-thread-state defect present and absent alike; two shapes find it in
+   twenty encodes out of twenty." That is a claim, so it is measured. On the
+   shipped design every row below is zero; the three planted builds are where
+   the row that matters is not.
+
+  one shape  (P1.1 alone)        24 encodes,    0 wrong  (native 0, ffi 0, hosttc 0, roundtrip 0)
+  one shape  (P1.2 alone)        24 encodes,   48 wrong  (native 24, ffi 0, hosttc 0, roundtrip 24)
+  two shapes (P1.1 + P1.2)       48 encodes,   48 wrong  (native 24, ffi 0, hosttc 0, roundtrip 24)
+  four shapes (P1.x + P2.x)      96 encodes,   48 wrong  (native 24, ffi 0, hosttc 0, roundtrip 24)
+
+
+41 checks, 7 failures
+This is a PLANTED build. A zero here would mean the suite cannot see the
+defect class it exists for, so failures above are the expected result and
+the exit code is inverted by gen/concurrency.sh, not by this binary.
+exit 1
+
+== reading ==
+1. ffi 0 and ffi-hosttc 0 in EVERY row of both planted builds: the control never shows the ffi arm can fail.
+2. 'roundtrip' decodes through the core and RE-ENCODES WITH ak::Enc, so it is the planted native encoder
+   observed a second time: native N and roundtrip N are always equal. The pad build's T6 two-shape row
+   '44 wrong' is 22 distinct wrong encodes (native 22 + the same 22 again); T2/T3 '46 of 96' is 23.
+3. The T6 labels are typed and wrong: g_shapes is P1.1, P1.3, P1.2, P2.2 (T0 reordered it), so
+   'one shape (P1.2 alone)' is P1.3 alone and 'two shapes (P1.1 + P1.2)' is P1.1 + P1.3.

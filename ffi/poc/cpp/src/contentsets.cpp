@@ -137,6 +137,19 @@ static void run(Row *row, const char *id, Fac (*mk)(void), void (*pbmk)(Pb *),
       check(rc >= 0 && n == want.size() && std::memcmp(p, want.data(), n) == 0,
             std::string(id) + " " + names[s] + ": ffi-hosttc is byte-identical");
     }
+    {
+      // R-D5: `ffi-valtc` is timed below (the like-for-like encode row) and no gate ran
+      // it. On latin1 and wide it is the arm whose validator actually has work to do, so
+      // it is the one most worth gating on these sets.
+      shapes::ffi::Tcs tv = shapes::ffi::tcs_core_validating();
+      intptr_t rc = ffi_enc(ectx, facade, tv);
+      const uint8_t *p = NULL;
+      std::size_t n = 0;
+      int32_t trc = ak_enc_take(ectx, &p, &n);
+      check(rc >= 0 && trc == 0 && ak_enc_err(ectx) == 0 && n == want.size() &&
+                std::memcmp(p, want.data(), n) == 0,
+            std::string(id) + " " + names[s] + ": ffi-valtc is byte-identical");
+    }
     // The decode round trip per set, which is the other half of what SHAPES.md asks for.
     {
       Fac back;
@@ -273,6 +286,12 @@ int main(int argc, char **argv) {
     std::printf("  NOT REPORTING TIMINGS: an arm that is not byte-identical has no speed\n"
                 "  worth reporting (R2).\n");
     return 1;
+  }
+  // AK_CS_GATE_ONLY=1 (run with rounds = 0): the byte-identity gates and nothing else, so
+  // a correctness log carries no container timing (README 1.1).
+  if (std::getenv("AK_CS_GATE_ONLY")) {
+    std::printf("  AK_CS_GATE_ONLY: gates only, no timing reported\n");
+    return 0;
   }
 
   std::printf("\n-- wire size: what the sets cost in bytes --\n");

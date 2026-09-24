@@ -1,0 +1,275 @@
+# R-D5 AFTER: ffi-valtc in every gate that times it, and the bench refuses to time an arm whose gate fails
+#   date        2026-09-24T16:12:43Z
+#   machine     Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
+#   compiler    g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+#   commit      1c69964 + this slice's uncommitted R-D5/R-D7 work (committed with this log)
+#   core        a SNAPSHOT of ffi/poc/codec at 1c69964 (git archive; the codec tree last changed in 6ede244), AK_CORE_ROOT=<snapshot>
+
+The conformance half is logs/cpp/conformance.log (476 checks at every level, 474 lossy;
+443/441 before: +15 payloads x (rc, sha) for ffi-valtc, +3 for the malformed-UTF-8 encode).
+
+===== contentsets_a17 0, AK_CS_GATE_ONLY=1 (byte identity per set; 80 checks before, +15 ffi-valtc) =====
+== the content sets, on whole payloads ==
+-std=201703  impl=target  linkage=shared  rounds=0
+protobuf 3021012.  Oracle: the INCUMBENT arm, anchored to manifest.json on ascii
+C++ holds UTF-8 already, so these rows price WIDTH AND VALIDATION, never a
+narrowing transcoder. Not comparable with a managed slice's (SHAPES.md).
+
+-- byte identity, every arm against the incumbent, every set --
+
+  95 checks, 0 failures
+  AK_CS_GATE_ONLY: gates only, no timing reported
+exit 0
+
+===== bench_a17_shared, AK_BENCH_GATE_ONLY=1 (every timed codec arm's gate, nothing timed) =====
+-std=201703  impl=target  guard=on  decode-policy=reject  linkage=shared  rounds=9
+protobuf 3021012.  pb = SerializeToString (what a C++ consumer writes).
+protobuf validates UTF-8 on SERIALIZE; the spec says the core does not, so
+`ffi-valtc` is the like-for-like row and `ffi` is the specified behaviour.
+NDEBUG is defined: protobuf's GOOGLE_DCHECKs are compiled out.
+# AK_BENCH_GATE_ONLY: gates only, nothing is timed
+
+-- arms --
+  P1.1  enc gate: 10 of 10 arms pass
+  P1.1  dec gate: 5 of 5 arms pass
+  P1.2  enc gate: 10 of 10 arms pass
+  P1.2  dec gate: 5 of 5 arms pass
+  P1.3  enc gate: 10 of 10 arms pass
+  P1.3  dec gate: 5 of 5 arms pass
+  P2.1  enc gate: 10 of 10 arms pass
+  P2.1  dec gate: 5 of 5 arms pass
+  P2.2  enc gate: 10 of 10 arms pass
+  P2.2  dec gate: 5 of 5 arms pass
+  P2.3  enc gate: 10 of 10 arms pass
+  P2.3  dec gate: 5 of 5 arms pass
+  P2.4  enc gate: 10 of 10 arms pass
+  P2.4  dec gate: 5 of 5 arms pass
+  P2.5  enc gate: 10 of 10 arms pass
+  P2.5  dec gate: 5 of 5 arms pass
+  P3.1  enc gate: 10 of 10 arms pass
+  P3.1  dec gate: 5 of 5 arms pass
+  P4.1  enc gate: 10 of 10 arms pass
+  P4.1  dec gate: 5 of 5 arms pass
+  P5.1  enc gate: 10 of 10 arms pass
+  P5.1  dec gate: 5 of 5 arms pass
+  P5.2  enc gate: 10 of 10 arms pass
+  P5.2  dec gate: 5 of 5 arms pass
+  P5.3  enc gate: 10 of 10 arms pass
+  P5.3  dec gate: 5 of 5 arms pass
+  P5.4  enc gate: 10 of 10 arms pass
+  P5.4  dec gate: 5 of 5 arms pass
+  P6.1  enc gate: 10 of 10 arms pass
+  P6.1  dec gate: 5 of 5 arms pass
+
+gate-only run: 0 arm(s) failed their gate
+exit 0
+
+===== bench_a17_static, AK_BENCH_GATE_ONLY=1 (every timed codec arm's gate, nothing timed) =====
+-std=201703  impl=target  guard=on  decode-policy=reject  linkage=static  rounds=9
+protobuf 3021012.  pb = SerializeToString (what a C++ consumer writes).
+protobuf validates UTF-8 on SERIALIZE; the spec says the core does not, so
+`ffi-valtc` is the like-for-like row and `ffi` is the specified behaviour.
+NDEBUG is defined: protobuf's GOOGLE_DCHECKs are compiled out.
+# AK_BENCH_GATE_ONLY: gates only, nothing is timed
+
+-- arms --
+  P1.1  enc gate: 10 of 10 arms pass
+  P1.1  dec gate: 5 of 5 arms pass
+  P1.2  enc gate: 10 of 10 arms pass
+  P1.2  dec gate: 5 of 5 arms pass
+  P1.3  enc gate: 10 of 10 arms pass
+  P1.3  dec gate: 5 of 5 arms pass
+  P2.1  enc gate: 10 of 10 arms pass
+  P2.1  dec gate: 5 of 5 arms pass
+  P2.2  enc gate: 10 of 10 arms pass
+  P2.2  dec gate: 5 of 5 arms pass
+  P2.3  enc gate: 10 of 10 arms pass
+  P2.3  dec gate: 5 of 5 arms pass
+  P2.4  enc gate: 10 of 10 arms pass
+  P2.4  dec gate: 5 of 5 arms pass
+  P2.5  enc gate: 10 of 10 arms pass
+  P2.5  dec gate: 5 of 5 arms pass
+  P3.1  enc gate: 10 of 10 arms pass
+  P3.1  dec gate: 5 of 5 arms pass
+  P4.1  enc gate: 10 of 10 arms pass
+  P4.1  dec gate: 5 of 5 arms pass
+  P5.1  enc gate: 10 of 10 arms pass
+  P5.1  dec gate: 5 of 5 arms pass
+  P5.2  enc gate: 10 of 10 arms pass
+  P5.2  dec gate: 5 of 5 arms pass
+  P5.3  enc gate: 10 of 10 arms pass
+  P5.3  dec gate: 5 of 5 arms pass
+  P5.4  enc gate: 10 of 10 arms pass
+  P5.4  dec gate: 5 of 5 arms pass
+  P6.1  enc gate: 10 of 10 arms pass
+  P6.1  dec gate: 5 of 5 arms pass
+
+gate-only run: 0 arm(s) failed their gate
+exit 0
+
+===== bench_c11_shared, AK_BENCH_GATE_ONLY=1 (every timed codec arm's gate, nothing timed) =====
+-std=201103  impl=floor  guard=on  decode-policy=reject  linkage=shared  rounds=9
+protobuf 3021012.  pb = SerializeToString (what a C++ consumer writes).
+protobuf validates UTF-8 on SERIALIZE; the spec says the core does not, so
+`ffi-valtc` is the like-for-like row and `ffi` is the specified behaviour.
+NDEBUG is defined: protobuf's GOOGLE_DCHECKs are compiled out.
+# AK_BENCH_GATE_ONLY: gates only, nothing is timed
+
+-- arms --
+  P1.1  enc gate: 10 of 10 arms pass
+  P1.1  dec gate: 5 of 5 arms pass
+  P1.2  enc gate: 10 of 10 arms pass
+  P1.2  dec gate: 5 of 5 arms pass
+  P1.3  enc gate: 10 of 10 arms pass
+  P1.3  dec gate: 5 of 5 arms pass
+  P2.1  enc gate: 10 of 10 arms pass
+  P2.1  dec gate: 5 of 5 arms pass
+  P2.2  enc gate: 10 of 10 arms pass
+  P2.2  dec gate: 5 of 5 arms pass
+  P2.3  enc gate: 10 of 10 arms pass
+  P2.3  dec gate: 5 of 5 arms pass
+  P2.4  enc gate: 10 of 10 arms pass
+  P2.4  dec gate: 5 of 5 arms pass
+  P2.5  enc gate: 10 of 10 arms pass
+  P2.5  dec gate: 5 of 5 arms pass
+  P3.1  enc gate: 10 of 10 arms pass
+  P3.1  dec gate: 5 of 5 arms pass
+  P4.1  enc gate: 10 of 10 arms pass
+  P4.1  dec gate: 5 of 5 arms pass
+  P5.1  enc gate: 10 of 10 arms pass
+  P5.1  dec gate: 5 of 5 arms pass
+  P5.2  enc gate: 10 of 10 arms pass
+  P5.2  dec gate: 5 of 5 arms pass
+  P5.3  enc gate: 10 of 10 arms pass
+  P5.3  dec gate: 5 of 5 arms pass
+  P5.4  enc gate: 10 of 10 arms pass
+  P5.4  dec gate: 5 of 5 arms pass
+  P6.1  enc gate: 10 of 10 arms pass
+  P6.1  dec gate: 5 of 5 arms pass
+
+gate-only run: 0 arm(s) failed their gate
+exit 0
+
+===== bench_a17_gateplant, AK_BENCH_GATE_ONLY=1: ffi-valtc's utf8 transcoder replaced by one that refuses every string (must FAIL) =====
+(P1.3 passes under the plant because it carries no present string: a transcoder that is never called cannot fail. Expected.)
+-std=201703  impl=target  guard=on  decode-policy=reject  linkage=shared  rounds=9
+protobuf 3021012.  pb = SerializeToString (what a C++ consumer writes).
+protobuf validates UTF-8 on SERIALIZE; the spec says the core does not, so
+`ffi-valtc` is the like-for-like row and `ffi` is the specified behaviour.
+NDEBUG is defined: protobuf's GOOGLE_DCHECKs are compiled out.
+# AK_BENCH_GATE_ONLY: gates only, nothing is timed
+
+-- arms --
+  P1.1  enc ffi-valtc   GATE FAILED -- NOT TIMED
+  P1.1  enc gate: 9 of 10 arms pass
+  P1.1  dec gate: 5 of 5 arms pass
+  P1.2  enc ffi-valtc   GATE FAILED -- NOT TIMED
+  P1.2  enc gate: 9 of 10 arms pass
+  P1.2  dec gate: 5 of 5 arms pass
+  P1.3  enc gate: 10 of 10 arms pass
+  P1.3  dec gate: 5 of 5 arms pass
+  P2.1  enc ffi-valtc   GATE FAILED -- NOT TIMED
+  P2.1  enc gate: 9 of 10 arms pass
+  P2.1  dec gate: 5 of 5 arms pass
+  P2.2  enc ffi-valtc   GATE FAILED -- NOT TIMED
+  P2.2  enc gate: 9 of 10 arms pass
+  P2.2  dec gate: 5 of 5 arms pass
+  P2.3  enc ffi-valtc   GATE FAILED -- NOT TIMED
+  P2.3  enc gate: 9 of 10 arms pass
+  P2.3  dec gate: 5 of 5 arms pass
+  P2.4  enc ffi-valtc   GATE FAILED -- NOT TIMED
+  P2.4  enc gate: 9 of 10 arms pass
+  P2.4  dec gate: 5 of 5 arms pass
+  P2.5  enc ffi-valtc   GATE FAILED -- NOT TIMED
+  P2.5  enc gate: 9 of 10 arms pass
+  P2.5  dec gate: 5 of 5 arms pass
+  P3.1  enc ffi-valtc   GATE FAILED -- NOT TIMED
+  P3.1  enc gate: 9 of 10 arms pass
+  P3.1  dec gate: 5 of 5 arms pass
+  P4.1  enc ffi-valtc   GATE FAILED -- NOT TIMED
+  P4.1  enc gate: 9 of 10 arms pass
+  P4.1  dec gate: 5 of 5 arms pass
+  P5.1  enc ffi-valtc   GATE FAILED -- NOT TIMED
+  P5.1  enc gate: 9 of 10 arms pass
+  P5.1  dec gate: 5 of 5 arms pass
+  P5.2  enc ffi-valtc   GATE FAILED -- NOT TIMED
+  P5.2  enc gate: 9 of 10 arms pass
+  P5.2  dec gate: 5 of 5 arms pass
+  P5.3  enc ffi-valtc   GATE FAILED -- NOT TIMED
+  P5.3  enc gate: 9 of 10 arms pass
+  P5.3  dec gate: 5 of 5 arms pass
+  P5.4  enc ffi-valtc   GATE FAILED -- NOT TIMED
+  P5.4  enc gate: 9 of 10 arms pass
+  P5.4  dec gate: 5 of 5 arms pass
+  P6.1  enc ffi-valtc   GATE FAILED -- NOT TIMED
+  P6.1  enc gate: 9 of 10 arms pass
+  P6.1  dec gate: 5 of 5 arms pass
+
+gate-only run: 14 arm(s) failed their gate and would NOT have been timed
+exit 1
+
+===== bench_a17_gateplant 1, AK_BENCH_ONLY=P1.1, TIMING MODE: the planted arm must be absent from every table =====
+(The figures below are container instrumentation and are not results; this run exists to show the
+ refused arm has no row and the process exits non-zero. Compare rd5-before.log, where the same plant is timed.)
+# filtered: AK_BENCH_ONLY=P1.1
+-std=201703  impl=target  guard=on  decode-policy=reject  linkage=shared  rounds=1
+protobuf 3021012.  pb = SerializeToString (what a C++ consumer writes).
+protobuf validates UTF-8 on SERIALIZE; the spec says the core does not, so
+`ffi-valtc` is the like-for-like row and `ffi` is the specified behaviour.
+NDEBUG is defined: protobuf's GOOGLE_DCHECKs are compiled out.
+
+-- the crossing itself, same process and build, linkage=shared --
+   register-only barrier, to match the rust harness R13 compares against
+  forward 0.702 ns   forward+reverse 0.986 ns   reverse alone 0.284 ns
+
+-- arms --
+  P1.1  enc ffi-valtc   GATE FAILED -- NOT TIMED
+  P1.1  enc gate: 9 of 10 arms pass
+  P1.1  dec gate: 5 of 5 arms pass
+  P1.1       858 B  done
+
+-- the BORROWED-string facade: how much of decode is the COPY: (ffi-borrow) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.1   dec   ns/el      -229.31      -229.31      -229.31     -45.46 -
+
+-- the STRING-AS-DATA form (decision 1): (ffi-hosttc) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.1   enc   ns/el         8.33         8.33         8.33       7.34 +
+
+-- the BATCHING predicate (decision 1): (ffi-nobat) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.1   enc   ns/el         1.36         1.36         1.36       1.20 +
+
+-- decision 9's zeroed element fill: (ffi-zeroed) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.1   enc   ns/el        -0.48        -0.48        -0.48      -0.42 -
+
+-- encode-side UTF-8 validation, which protobuf does and the spec does not: (ffi-valtc) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+
+-- the boundary: ffi against the no-boundary control: (ffi) - (native), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.1   enc   ns/el        35.92        35.92        35.92      31.64 +
+P1.1   dec   ns/el       -30.13       -30.13       -30.13      -5.97 -
+
+-- the group fill: direct call against a call through a pointer: (groupfill-ind) - (groupfill), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+
+payload dir  arm           ns/op med  ns/op min  r/pb lo  r/pb hi   spr% per-round r/pb
+P1.1   enc  pb                454.1      454.1    1.000    1.000    0.0 1.000
+P1.1   enc  pb-det            444.0      444.0    0.978    0.978    0.0 0.978
+P1.1   enc  pb-arena          427.0      427.0    0.940    0.940    0.0 0.940
+P1.1   enc  memcpy             11.4       11.4    0.025    0.025    0.0 0.025
+P1.1   enc  native            260.6      260.6    0.574    0.574    0.0 0.574
+P1.1   enc  ffi               404.3      404.3    0.890    0.890    0.0 0.890
+P1.1   enc  ffi-zeroed        402.4      402.4    0.886    0.886    0.0 0.886
+P1.1   enc  ffi-nobat         409.7      409.7    0.902    0.902    0.0 0.902
+P1.1   enc  ffi-hosttc        437.6      437.6    0.964    0.964    0.0 0.964
+P1.1   dec  pb               2017.6     2017.6    1.000    1.000    0.0 1.000
+P1.1   dec  pb-arena         1922.0     1922.0    0.953    0.953    0.0 0.953
+P1.1   dec  native           1434.3     1434.3    0.711    0.711    0.0 0.711
+P1.1   dec  ffi              1313.8     1313.8    0.651    0.651    0.0 0.651
+P1.1   dec  ffi-borrow        396.5      396.5    0.197    0.197    0.0 0.197
+
+GATE: 1 arm(s) failed their correctness gate and were NOT timed; the rows above omit them
+exit 1

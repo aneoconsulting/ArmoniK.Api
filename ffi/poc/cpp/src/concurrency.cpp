@@ -22,13 +22,21 @@
 //
 // And the thing 12.5's last sentence is really about -- "a suite with one shape reports
 // zero wrong bytes with a per-thread-state defect present and absent alike" -- is T6, run
-// against three PLANTED builds of the two designs ABI v1 section 6 refused. See `ak/rt.h`.
+// against the PLANTED builds of the two designs ABI v1 section 6 refused, in ak::Enc AND in
+// the linked core. See `ak/rt.h` and CMakeLists.txt.
 //
-// Scope. The plants are in this slice's own `ak::Enc`, because the core is shared (R0) and
-// planting a defect in it is not a slice's to do. So the positive control demonstrates that
-// the SUITE catches the class; the core is subjected to the suite and not to the plant.
+// Scope. Each planted build plants BOTH encoders the same way: this slice's own `ak::Enc`
+// by define (`ak/rt.h`), and the shared core by LINKING its test-only feature build
+// (`pad-widths`, `global-widths`; see CMakeLists.txt and ak-rt's manifest). Until R-D7 the
+// planted builds linked the UNPLANTED core, so the ffi arm read 0 in every one of them and
+// the positive control never showed that the ffi arm can fail. `conc_a17_corepad` plants
+// the core alone, so the ffi arm is seen failing with the native arm at 0.
+#ifndef AK_CONC_CORE_PLANT
+#define AK_CONC_CORE_PLANT ""
+#endif
 #include <atomic>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <chrono>
@@ -51,7 +59,14 @@ struct Shape {
   std::vector<bool> writes;     // which sites it visits at all
   void (*enc_native)(ak::Enc *);
   intptr_t (*enc_ffi)(ak_enc_ctx *, const shapes::ffi::Tcs &);
-  bool (*roundtrip)(ak_dec_ctx *, const uint8_t *, std::size_t, ak::Enc *);
+  // A DECODE check: the core decodes the reference and the value is compared with the
+  // built object. It used to re-encode the decoded value with `ak::Enc` and memcmp, which
+  // made it a second observation of the NATIVE ENCODER (R-D7): every wrong native encode
+  // was counted twice, once here, and "44 wrong" was 22 distinct wrong encodes.
+  bool (*roundtrip)(ak_dec_ctx *, const uint8_t *, std::size_t);
+  // Whether the decoder ACCEPTED the input, whatever it produced: T4's poisoned threads
+  // need this and not `roundtrip`, which a truncated-but-accepted decode would also fail.
+  bool (*accepts)(ak_dec_ctx *, const uint8_t *, std::size_t);
 };
 
 template <class F, class P, F (*MK)(void), void (*PBMK)(P *), void (*NAT)(const F &, ak::Enc *),
@@ -76,11 +91,14 @@ struct Case {
   }
   static void enc_native(ak::Enc *e) { NAT(obj(), e); }
   static intptr_t enc_ffi(ak_enc_ctx *c, const shapes::ffi::Tcs &t) { return FFI(c, obj(), t); }
-  static bool roundtrip(ak_dec_ctx *d, const uint8_t *p, std::size_t n, ak::Enc *e) {
+  static bool roundtrip(ak_dec_ctx *d, const uint8_t *p, std::size_t n) {
     F back;
     if (DEC(d, p, n, &back) < 0) return false;
-    NAT(back, e);
-    return true;
+    return back == obj();
+  }
+  static bool accepts(ak_dec_ctx *d, const uint8_t *p, std::size_t n) {
+    F back;
+    return DEC(d, p, n, &back) >= 0;
   }
 };
 
@@ -117,6 +135,7 @@ static void add(const char *id, const char *sha, std::size_t nbytes) {
   s.enc_native = &C::enc_native;
   s.enc_ffi = &C::enc_ffi;
   s.roundtrip = &C::roundtrip;
+  s.accepts = &C::accepts;
   // The reference is the canonical encoding, and it is ANCHORED: memcmp is what the
   // threads do because sha256 of 4 MB per assertion would make the suite a hash benchmark,
   // but the buffer memcmp runs against is checked against manifest.json's sha right here,
@@ -158,23 +177,32 @@ struct Counts {
   std::atomic<long> wrong_native;
   std::atomic<long> wrong_ffi;
   std::atomic<long> wrong_hosttc;
-  std::atomic<long> wrong_roundtrip;
+  std::atomic<long> wrong_roundtrip;   // wrong DECODES, not encodes
   std::atomic<long> spurious_err;
   Counts() { reset(); }
   void reset() {
     encodes = 0; wrong_native = 0; wrong_ffi = 0; wrong_hosttc = 0;
     wrong_roundtrip = 0; spurious_err = 0;
   }
-  long wrong() const {
-    return wrong_native + wrong_ffi + wrong_hosttc + wrong_roundtrip;
-  }
+  // Every counter is a DISTINCT operation: one native encode, one encode through the core
+  // with its transcoder, one with the host's, one decode. Nothing is observed twice.
+  long wrong_encodes() const { return wrong_native + wrong_ffi + wrong_hosttc; }
+  long wrong() const { return wrong_encodes() + wrong_roundtrip; }
 };
+
+// Whole-run totals of distinct wrong operations, per encoder, so main() can say which
+// encoder the plant reached -- and gen/concurrency.sh can require the core's to be > 0.
+static std::atomic<long> g_tot_native(0), g_tot_core(0), g_tot_dec(0);
+static void tally(const Counts &c) {
+  g_tot_native += c.wrong_native;
+  g_tot_core += c.wrong_ffi + c.wrong_hosttc;
+  g_tot_dec += c.wrong_roundtrip;
+}
 
 // `first` and `count` select a window of the shape table, so the SAME worker runs the
 // one-shape and the two-shape cases and the difference between them is only the window.
 static void worker(int tid, int rounds, std::size_t first, std::size_t count, Counts *c) {
   ak::Enc e(shapes::native::kSites);
-  ak::Enc re(shapes::native::kSites);
   ak_enc_ctx *ectx = ak_enc_ctx_new();
   ak_dec_ctx *dctx = ak_dec_ctx_new();
   shapes::ffi::Tcs core = shapes::ffi::tcs_core();
@@ -210,13 +238,8 @@ static void worker(int tid, int rounds, std::size_t first, std::size_t count, Co
         if (rc < 0 || n != s.ref.size() || std::memcmp(p, s.ref.data(), n) != 0)
           ++c->wrong_hosttc;
       }
-      {
-        re.reset();
-        bool ok = s.roundtrip(dctx, (const uint8_t *)s.ref.data(), s.ref.size(), &re);
-        if (!ok || re.size() != s.ref.size() ||
-            std::memcmp(re.data(), s.ref.data(), re.size()) != 0)
-          ++c->wrong_roundtrip;
-      }
+      if (!s.roundtrip(dctx, (const uint8_t *)s.ref.data(), s.ref.size()))
+        ++c->wrong_roundtrip;
       if (ak_enc_err(ectx) != 0 || ak_dec_err(dctx) != 0) ++c->spurious_err;
     }
   }
@@ -225,10 +248,11 @@ static void worker(int tid, int rounds, std::size_t first, std::size_t count, Co
 }
 
 static void report(const char *what, const Counts &c) {
-  std::printf("  %-34s %8ld encodes   native %ld  ffi %ld  ffi-hosttc %ld  roundtrip %ld"
-              "  spurious-err %ld\n",
-              what, (long)c.encodes, (long)c.wrong_native, (long)c.wrong_ffi,
-              (long)c.wrong_hosttc, (long)c.wrong_roundtrip, (long)c.spurious_err);
+  std::printf("  %-26s %5ld iterations; distinct wrong encodes %ld (native %ld, ffi %ld,"
+              " ffi-hosttc %ld); wrong decodes %ld; spurious-err %ld\n",
+              what, (long)c.encodes, c.wrong_encodes(), (long)c.wrong_native,
+              (long)c.wrong_ffi, (long)c.wrong_hosttc, (long)c.wrong_roundtrip,
+              (long)c.spurious_err);
 }
 
 // ---------------------------------------------------------------- T1: history
@@ -314,6 +338,7 @@ static void t1_history() {
         s.enc_native(&e);
         bool ok = e.size() == s.ref.size() &&
                   std::memcmp(e.data(), s.ref.data(), e.size()) == 0;
+        if (!ok) ++g_tot_native;
         check(ok, std::string("native: ") + s.id + " after " + prior.id +
                       " is byte-identical to " + s.id + " on a virgin encoder");
       }
@@ -327,6 +352,7 @@ static void t1_history() {
         s.enc_ffi(ctx, tc);
         ak_enc_take(ctx, &p, &n);
         bool ok = n == s.ref.size() && std::memcmp(p, s.ref.data(), n) == 0;
+        if (!ok) ++g_tot_core;
         check(ok, std::string("ffi:    ") + s.id + " after " + prior.id +
                       " is byte-identical to " + s.id + " on a virgin context");
         ak_enc_ctx_free(ctx);
@@ -354,22 +380,17 @@ static void t4_error_isolation(int threads, int rounds) {
     bool poison = (t % 2) == 1;
     ts.push_back(std::thread([t, poison, rounds, &bad_ok, &good_failed, &leaked]() {
       ak_dec_ctx *dctx = ak_dec_ctx_new();
-      ak::Enc re(shapes::native::kSites);
       for (int r = 0; r < rounds; ++r) {
         const Shape &s = g_shapes[(std::size_t)(t + r) % g_shapes.size()];
         if (poison) {
           // Truncated in the middle of a length-delimited body: malformed, not empty.
           std::size_t n = s.ref.size() / 2 + 1;
-          re.reset();
-          bool ok = s.roundtrip(dctx, (const uint8_t *)s.ref.data(), n, &re);
+          bool ok = s.accepts(dctx, (const uint8_t *)s.ref.data(), n);
           if (ok && ak_dec_err(dctx) == 0) ++bad_ok;
           ak_dec_err_reset(dctx);
         } else {
-          re.reset();
-          bool ok = s.roundtrip(dctx, (const uint8_t *)s.ref.data(), s.ref.size(), &re);
-          if (!ok || re.size() != s.ref.size() ||
-              std::memcmp(re.data(), s.ref.data(), re.size()) != 0)
-            ++good_failed;
+          bool ok = s.roundtrip(dctx, (const uint8_t *)s.ref.data(), s.ref.size());
+          if (!ok) ++good_failed;
           if (ak_dec_err(dctx) != 0) ++leaked;
         }
       }
@@ -378,7 +399,7 @@ static void t4_error_isolation(int threads, int rounds) {
   }
   for (std::size_t i = 0; i < ts.size(); ++i) ts[i].join();
   check(bad_ok == 0, "every truncated decode failed");
-  check(good_failed == 0, "every good decode produced the reference bytes");
+  check(good_failed == 0, "every good decode produced the built value");
   check(leaked == 0, "no good context saw another thread's error");
   std::printf("   truncated-but-accepted %ld, good-but-wrong %ld, error leaked across a"
               " context %ld\n", (long)bad_ok, (long)good_failed, (long)leaked);
@@ -549,8 +570,11 @@ int main(int argc, char **argv) {
               AK_LINKAGE, threads, rounds);
   std::printf("plants: AK_CONC_PAD=%d  AK_CONC_GLOBAL=%d%s\n", AK_CONC_PAD, AK_CONC_GLOBAL,
               (AK_CONC_PAD || AK_CONC_GLOBAL)
-                  ? "   <-- a REFUSED design from ABI v1 section 6, built on purpose"
+                  ? "   <-- in ak::Enc: a REFUSED design from ABI v1 section 6, built on purpose"
                   : "   (the shipped design)");
+  std::printf("core plant: %s%s\n", AK_CONC_CORE_PLANT[0] ? AK_CONC_CORE_PLANT : "none",
+              AK_CONC_CORE_PLANT[0] ? "   <-- the linked ak-core is a planted feature build"
+                                    : "   (the linked ak-core is the shipped build)");
   std::printf("hardware_concurrency=%u\n", std::thread::hardware_concurrency());
 
   std::printf("\n-- the reference bytes, anchored to manifest.json --\n");
@@ -580,6 +604,7 @@ int main(int argc, char **argv) {
       th.join();
     }
     report("T2 threads in sequence", seq);
+    tally(seq);
     check(seq.wrong() == 0, "T2: every encode in sequence matched the reference");
     check(seq.spurious_err == 0, "T2: no context reported an error");
 
@@ -589,6 +614,7 @@ int main(int argc, char **argv) {
       ts.push_back(std::thread(worker, t, rounds, 0, g_shapes.size(), &par));
     for (std::size_t i = 0; i < ts.size(); ++i) ts[i].join();
     report("T3 threads together", par);
+    tally(par);
     check(par.wrong() == 0, "T3: every encode in parallel matched the reference");
     check(par.spurious_err == 0, "T3: no context reported an error");
   }
@@ -604,27 +630,42 @@ int main(int argc, char **argv) {
   std::printf("   shipped design every row below is zero; the three planted builds are where\n");
   std::printf("   the row that matters is not.\n\n");
   {
-    const char *names[] = {"one shape  (P1.1 alone)", "one shape  (P1.2 alone)",
-                           "two shapes (P1.1 + P1.2)", "four shapes (P1.x + P2.x)"};
+    // The labels are built from the table, not typed. They were typed, and said
+    // "P1.2 alone" and "P1.1 + P1.2" over windows that are P1.3 and P1.1 + P1.3, because
+    // the table's order changed (T0) and the strings did not.
     std::size_t first[] = {0, 1, 0, 0};
     std::size_t count[] = {1, 1, 2, 4};
     for (int w = 0; w < 4; ++w) {
+      std::string label = count[w] == 1 ? "one shape  (" : count[w] == 2 ? "two shapes ("
+                                                                          : "four shapes (";
+      for (std::size_t k = 0; k < count[w]; ++k)
+        label += std::string(k ? " + " : "") + g_shapes[first[w] + k].id;
+      label += ")";
       Counts c;
       std::vector<std::thread> ts;
       for (int t = 0; t < threads; ++t)
         ts.push_back(std::thread(worker, t, rounds, first[w], count[w], &c));
       for (std::size_t i = 0; i < ts.size(); ++i) ts[i].join();
-      std::printf("  %-26s %6ld encodes, %4ld wrong  (native %ld, ffi %ld, hosttc %ld,"
-                  " roundtrip %ld)\n",
-                  names[w], (long)c.encodes, c.wrong(), (long)c.wrong_native,
+      tally(c);
+      std::printf("  %-36s %4ld iterations, %4ld distinct wrong encodes (native %ld, ffi %ld,"
+                  " hosttc %ld), wrong decodes %ld\n",
+                  label.c_str(), (long)c.encodes, c.wrong_encodes(), (long)c.wrong_native,
                   (long)c.wrong_ffi, (long)c.wrong_hosttc, (long)c.wrong_roundtrip);
     }
   }
 
-  t7_scaling(threads < 2 ? 2 : threads);
+  // T7 is a timing. In the setup phase (README 1.1) a container timing is instrumentation,
+  // so the gate runs set AK_CONC_NO_T7=1 and their logs carry no figure.
+  if (!std::getenv("AK_CONC_NO_T7")) t7_scaling(threads < 2 ? 2 : threads);
+  else std::printf("\n-- T7 skipped (AK_CONC_NO_T7): a timing, not a gate --\n");
 
+  // The line gen/concurrency.sh reads. Per encoder, so a plant that reaches only one of
+  // them is visible as such (R-D7).
+  std::printf("\nwhole run, distinct wrong operations: native-encoder %ld  core-encoder %ld"
+              "  decoder %ld\n",
+              (long)g_tot_native, (long)g_tot_core, (long)g_tot_dec);
   std::printf("\n%d checks, %d failures\n", g_checks, g_fail);
-  if (AK_CONC_PAD || AK_CONC_GLOBAL) {
+  if (AK_CONC_PAD || AK_CONC_GLOBAL || AK_CONC_CORE_PLANT[0]) {
     std::printf("This is a PLANTED build. A zero here would mean the suite cannot see the\n"
                 "defect class it exists for, so failures above are the expected result and\n"
                 "the exit code is inverted by gen/concurrency.sh, not by this binary.\n");

@@ -52,8 +52,19 @@ set_property(TARGET shapes_pb PROPERTY POSITION_INDEPENDENT_CODE ON)
 #
 # Three builds, which never share a binary: the timed one, the counting one (README R5)
 # and, under -DAK_RPC=ON, the one with ABI v1 section 9 linked in.
-set(CORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../codec/crates/ak-core")
-set(CORE_TGT "${CMAKE_CURRENT_SOURCE_DIR}/core-build")
+#
+# AK_CORE_ROOT / AK_CORE_TGT: the core's workspace root and this slice's cargo output
+# directory. Both default to the shared tree. They are overridable because a slice gate
+# has to be run against a FIXED core while another agent changes the shared one: the
+# gate is then built from a `git archive <commit> ffi/poc/codec` snapshot, and every log
+# names the commit. A second output directory keeps cargo from rebuilding the shared
+# tree's artifacts from the snapshot's paths and back.
+set(AK_CORE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../codec" CACHE PATH
+    "workspace root of the shared core (ffi/poc/codec or a snapshot of it)")
+set(AK_CORE_TGT "${CMAKE_CURRENT_SOURCE_DIR}/core-build" CACHE PATH
+    "where this slice's CARGO_TARGET_DIRs live")
+set(CORE_DIR "${AK_CORE_ROOT}/crates/ak-core")
+set(CORE_TGT "${AK_CORE_TGT}")
 set(CORE_OUT "${CORE_TGT}/target/release")
 set(CORE_COUNT_OUT "${CORE_TGT}/target-count/release")
 
@@ -69,6 +80,31 @@ add_custom_target(core_count ALL
   BYPRODUCTS ${CORE_COUNT_OUT}/libak_core.so
   COMMENT "cargo build the shared ak-core --features count")
 
+# R-D7: the concurrency suite's PLANTED cores. ABI v1 section 6's two refused designs
+# exist in the shared core as test-only features (`pad-widths`, `global-widths`, ak-rt's
+# manifest). Before this, the planted C++ builds planted `ak::Enc` only and linked the
+# UNPLANTED core, so the suite's ffi arm read 0 in every planted build and nothing showed
+# it could fail. Correctness fixtures only; never linked into a timed or gated binary.
+set(CORE_PAD_OUT    "${CORE_TGT}/target-pad/release")
+set(CORE_GLOBAL_OUT "${CORE_TGT}/target-global/release")
+set(CORE_BOTH_OUT   "${CORE_TGT}/target-both/release")
+add_custom_target(core_pad ALL
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-pad
+          cargo build --release --features pad-widths --manifest-path ${CORE_DIR}/Cargo.toml
+  BYPRODUCTS ${CORE_PAD_OUT}/libak_core.so
+  COMMENT "cargo build the shared ak-core --features pad-widths (a planted core)")
+add_custom_target(core_global ALL
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-global
+          cargo build --release --features global-widths --manifest-path ${CORE_DIR}/Cargo.toml
+  BYPRODUCTS ${CORE_GLOBAL_OUT}/libak_core.so
+  COMMENT "cargo build the shared ak-core --features global-widths (a planted core)")
+add_custom_target(core_both ALL
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-both
+          cargo build --release --features pad-widths,global-widths
+          --manifest-path ${CORE_DIR}/Cargo.toml
+  BYPRODUCTS ${CORE_BOTH_OUT}/libak_core.so
+  COMMENT "cargo build the shared ak-core --features pad-widths,global-widths (a planted core)")
+
 # ---- one arm ------------------------------------------------------------------------
 # ak_arm(<name> <exe-source> <std> <impl> <guard> <linkage> <policy> <core-dir>)
 function(ak_arm name src std impl guard linkage policy coredir)
@@ -83,7 +119,7 @@ function(ak_arm name src std impl guard linkage policy coredir)
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/binding.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/types_borrow.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/binding_borrow.cpp)
-  add_dependencies(${name} core core_count)
+  add_dependencies(${name} core core_count core_pad core_global core_both)
   target_include_directories(${name} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -190,12 +226,25 @@ target_compile_definitions(bench_a17_tax PRIVATE AK_CROSSING_TAX=1)
 ak_arm(conc_a17_shared ${CONC} 17 target on shared reject ${CORE_OUT})
 ak_arm(conc_c11_shared ${CONC} 11 floor  on shared reject ${CORE_OUT})
 ak_arm(conc_a17_static ${CONC} 17 target on static reject ${CORE_OUT})
-ak_arm(conc_a17_pad    ${CONC} 17 target on shared reject ${CORE_OUT})
-target_compile_definitions(conc_a17_pad PRIVATE AK_CONC_PAD=1)
-ak_arm(conc_a17_global ${CONC} 17 target on shared reject ${CORE_OUT})
-target_compile_definitions(conc_a17_global PRIVATE AK_CONC_GLOBAL=1)
-ak_arm(conc_a17_both   ${CONC} 17 target on shared reject ${CORE_OUT})
-target_compile_definitions(conc_a17_both PRIVATE AK_CONC_PAD=1 AK_CONC_GLOBAL=1)
+# Each planted build plants BOTH encoders the same way: `ak::Enc` by define, and the core
+# by linking its planted feature build (R-D7). AK_CONC_CORE_PLANT tells the binary which
+# core it linked, so its first lines say so and main() can require the ffi arm to fail.
+ak_arm(conc_a17_pad    ${CONC} 17 target on shared reject ${CORE_PAD_OUT})
+target_compile_definitions(conc_a17_pad PRIVATE AK_CONC_PAD=1 AK_CONC_CORE_PLANT="pad-widths")
+ak_arm(conc_a17_global ${CONC} 17 target on shared reject ${CORE_GLOBAL_OUT})
+target_compile_definitions(conc_a17_global PRIVATE AK_CONC_GLOBAL=1 AK_CONC_CORE_PLANT="global-widths")
+ak_arm(conc_a17_both   ${CONC} 17 target on shared reject ${CORE_BOTH_OUT})
+target_compile_definitions(conc_a17_both PRIVATE AK_CONC_PAD=1 AK_CONC_GLOBAL=1
+                           AK_CONC_CORE_PLANT="pad-widths,global-widths")
+# The core planted ALONE, `ak::Enc` shipped: the ffi arm has to fail on its own, with the
+# native arm at 0, or the suite is only ever seeing the native encoder.
+ak_arm(conc_a17_corepad ${CONC} 17 target on shared reject ${CORE_PAD_OUT})
+target_compile_definitions(conc_a17_corepad PRIVATE AK_CONC_CORE_PLANT="pad-widths")
+# And the gate refusal: a bench whose `ffi-valtc` transcoder is replaced by one that
+# refuses every string (R-D5). The bench must refuse to time that arm and exit non-zero.
+# A correctness fixture, never a timing.
+ak_arm(bench_a17_gateplant ${BENCH} 17 target on shared reject ${CORE_OUT})
+target_compile_definitions(bench_a17_gateplant PRIVATE AK_GATE_PLANT=1)
 
 # ABI v1 open decision 3's validator, which is what the decode-side number was really
 # about. Correctness first: an exhaustive differential test against an independent oracle,

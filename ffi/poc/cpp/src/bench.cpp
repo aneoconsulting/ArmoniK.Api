@@ -160,7 +160,47 @@ struct Arm {
   const char *name;
   std::function<void()> fn;
   int iters;
+  // R-D5: what makes this arm's output correct, run ONCE before any timing. The first
+  // version of this file sank every return code into AK_SINK and never looked at it, so an
+  // arm whose encode refused (a validating transcoder meeting a bad string, a rejected
+  // group) would have been timed as if it were fast. An arm whose gate fails is REMOVED
+  // before calibration and the process exits non-zero: its row never exists.
+  std::function<bool()> gate;
 };
+
+static int g_gate_fail = 0;
+// AK_BENCH_GATE_ONLY=1: run every arm's gate and nothing else -- no calibration, no timing.
+// What a correctness log of the bench is taken with, so it carries no container figure.
+static bool g_gate_only = false;
+
+// Runs every arm's gate, drops the ones that fail, and says which. Every arm must carry a
+// gate: an arm without one is itself a gate failure, so a new arm cannot be timed by
+// forgetting to write one.
+static void gate_arms(const char *id, const char *dir, std::vector<Arm> &arms) {
+  std::vector<Arm> kept;
+  for (size_t i = 0; i < arms.size(); ++i) {
+    bool ok = arms[i].gate ? arms[i].gate() : false;
+    if (ok) {
+      kept.push_back(arms[i]);
+    } else {
+      ++g_gate_fail;
+      std::printf("  %-5s %s %-11s GATE FAILED%s -- NOT TIMED\n", id, dir, arms[i].name,
+                  arms[i].gate ? "" : " (the arm has no gate)");
+    }
+  }
+  std::printf("  %-5s %s gate: %zu of %zu arms pass\n", id, dir, kept.size(), arms.size());
+  arms.swap(kept);
+}
+
+#ifdef AK_GATE_PLANT
+// R-D5's plant: a "validating" transcoder that refuses every string. `ffi-valtc` built
+// over it returns an error on every payload that carries a string, which is what the gate
+// has to catch. Never in a timed binary; bench_a17_gateplant only.
+extern "C" int32_t ak_gate_plant_refuse(const void *, size_t, uint8_t *, int32_t,
+                                        ak_grow_fn, void *) {
+  return -6;  // AK_ERR_TRANSCODE
+}
+#endif
 
 static void run_round(const char *id, const char *dir, std::vector<Arm> &arms, int round) {
   size_t n = arms.size();
@@ -203,28 +243,67 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   ak_dec_ctx *dctx = ak_dec_ctx_new();
   shapes::ffi::Tcs tc = shapes::ffi::tcs_core();
   shapes::ffi::Tcs tv = shapes::ffi::tcs_core_validating();
+#ifdef AK_GATE_PLANT
+  tv.utf8 = &ak_gate_plant_refuse;
+#endif
   shapes::ffi::Tcs th = shapes::ffi::tcs_host();
   std::string s1, s2, s3, s4;
+  const std::string want(want_sha);
+  // One encode through the C ABI, its return code and its bytes both checked.
+  auto ffi_ok = [&](intptr_t rc) {
+    const uint8_t *p = NULL;
+    size_t n = 0;
+    int32_t trc = ak_enc_take(ctx, &p, &n);
+    bool ok = rc >= 0 && trc == 0 && ak_enc_err(ctx) == 0 &&
+              sha_of(std::string((const char *)p, n)) == want;
+    ak_enc_reset(ctx);  // a refused gate must not leave its error on the next arm's gate
+    return ok;
+  };
 
   std::vector<Arm> enc;
   {
     Arm a;
-    a.name = "pb";        a.fn = [&]() { pb_serialize_default(pb, &s1); AK_SINK_MEM(s1); };  enc.push_back(a);
-    a.name = "pb-det";    a.fn = [&]() { pb_serialize_det(pb, &s2); AK_SINK_MEM(s2); };      enc.push_back(a);
-    a.name = "pb-arena";  a.fn = [&]() { pb_serialize_default(*pba, &s3); AK_SINK_MEM(s3); }; enc.push_back(a);
-    a.name = "memcpy";    a.fn = [&]() { memcpy_floor(wire, &s4); AK_SINK_MEM(s4); };        enc.push_back(a);
-    a.name = "native";    a.fn = [&]() { nat_enc(facade, &e); AK_SINK_MEM(e); };             enc.push_back(a);
-    a.name = "ffi";       a.fn = [&]() { intptr_t r = ffi_enc(ctx, facade, tc); AK_SINK(r); }; enc.push_back(a);
-    a.name = "ffi-valtc"; a.fn = [&]() { intptr_t r = ffi_enc(ctx, facade, tv); AK_SINK(r); }; enc.push_back(a);
-    a.name = "ffi-zeroed";a.fn = [&]() { intptr_t r = ffi_enc_z(ctx, facade, tc); AK_SINK(r); }; enc.push_back(a);
-    a.name = "ffi-nobat"; a.fn = [&]() { intptr_t r = ffi_enc_nb(ctx, facade, tc); AK_SINK(r); }; enc.push_back(a);
-    a.name = "ffi-hosttc";a.fn = [&]() { intptr_t r = ffi_enc(ctx, facade, th); AK_SINK(r); }; enc.push_back(a);
+    // The pb arms are gated against the deterministic form `wire`: equal for pb-det and
+    // memcpy, a permutation of equal length for the default-order ones (conformance checks
+    // the permutation; here the length is enough to catch a failed serialise).
+    a.name = "pb";        a.fn = [&]() { pb_serialize_default(pb, &s1); AK_SINK_MEM(s1); };
+    a.gate = [&]() { s1.clear(); pb_serialize_default(pb, &s1); return s1.size() == wire.size(); };
+    enc.push_back(a);
+    a.name = "pb-det";    a.fn = [&]() { pb_serialize_det(pb, &s2); AK_SINK_MEM(s2); };
+    a.gate = [&]() { s2.clear(); pb_serialize_det(pb, &s2); return s2 == wire; };
+    enc.push_back(a);
+    a.name = "pb-arena";  a.fn = [&]() { pb_serialize_default(*pba, &s3); AK_SINK_MEM(s3); };
+    a.gate = [&]() { s3.clear(); pb_serialize_default(*pba, &s3); return s3.size() == wire.size(); };
+    enc.push_back(a);
+    a.name = "memcpy";    a.fn = [&]() { memcpy_floor(wire, &s4); AK_SINK_MEM(s4); };
+    a.gate = [&]() { s4.clear(); memcpy_floor(wire, &s4); return s4 == wire; };
+    enc.push_back(a);
+    // The codec arms are gated against the MANIFEST's canonical sha, as conformance is.
+    a.name = "native";    a.fn = [&]() { nat_enc(facade, &e); AK_SINK_MEM(e); };
+    a.gate = [&]() { nat_enc(facade, &e); return sha_of(e) == want; };
+    enc.push_back(a);
+    a.name = "ffi";       a.fn = [&]() { intptr_t r = ffi_enc(ctx, facade, tc); AK_SINK(r); };
+    a.gate = [&]() { return ffi_ok(ffi_enc(ctx, facade, tc)); };
+    enc.push_back(a);
+    a.name = "ffi-valtc"; a.fn = [&]() { intptr_t r = ffi_enc(ctx, facade, tv); AK_SINK(r); };
+    a.gate = [&]() { return ffi_ok(ffi_enc(ctx, facade, tv)); };
+    enc.push_back(a);
+    a.name = "ffi-zeroed";a.fn = [&]() { intptr_t r = ffi_enc_z(ctx, facade, tc); AK_SINK(r); };
+    a.gate = [&]() { return ffi_ok(ffi_enc_z(ctx, facade, tc)); };
+    enc.push_back(a);
+    a.name = "ffi-nobat"; a.fn = [&]() { intptr_t r = ffi_enc_nb(ctx, facade, tc); AK_SINK(r); };
+    a.gate = [&]() { return ffi_ok(ffi_enc_nb(ctx, facade, tc)); };
+    enc.push_back(a);
+    a.name = "ffi-hosttc";a.fn = [&]() { intptr_t r = ffi_enc(ctx, facade, th); AK_SINK(r); };
+    a.gate = [&]() { return ffi_ok(ffi_enc(ctx, facade, th)); };
+    enc.push_back(a);
   }
   std::vector<Arm> dec;
   {
     Arm a;
     a.name = "pb";
     a.fn = [&]() { P m; m.ParseFromString(wire); AK_SINK_MEM(m); };
+    a.gate = [&]() { P m; return m.ParseFromString(wire); };
     dec.push_back(a);
     a.name = "pb-arena";
     a.fn = [&]() {
@@ -233,12 +312,28 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
       m->ParseFromString(wire);
       AK_SINK_MEM(m);
     };
+    a.gate = [&]() {
+      google::protobuf::Arena ar;
+      P *m = google::protobuf::Arena::CreateMessage<P>(&ar);
+      return m->ParseFromString(wire);
+    };
     dec.push_back(a);
     a.name = "native";
     a.fn = [&]() { F o; nat_dec((const uint8_t *)wire.data(), wire.size(), &o); AK_SINK_MEM(o); };
+    a.gate = [&]() {
+      F o;
+      return nat_dec((const uint8_t *)wire.data(), wire.size(), &o) == 0 && o == facade;
+    };
     dec.push_back(a);
     a.name = "ffi";
     a.fn = [&]() { F o; ffi_dec(dctx, (const uint8_t *)wire.data(), wire.size(), &o); AK_SINK_MEM(o); };
+    a.gate = [&]() {
+      F o;
+      int32_t rc = ffi_dec(dctx, (const uint8_t *)wire.data(), wire.size(), &o);
+      bool ok = rc == 0 && ak_dec_err(dctx) == 0 && o == facade;
+      ak_dec_err_reset(dctx);
+      return ok;
+    };
     dec.push_back(a);
     // The BORROWED-facade arm. Same ABI, same entry point, same UTF-8 validation; the
     // only difference is that every string field is an `ak::StringView` over the input
@@ -247,36 +342,43 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
     // a proposal: the views are valid only while the input buffer lives.
     a.name = "ffi-borrow";
     a.fn = [&]() { B o; bor_dec(dctx, (const uint8_t *)wire.data(), wire.size(), &o); AK_SINK_MEM(o); };
+    // BYTE IDENTITY GATES THE ARM (R2): decode into the borrowed facade and re-encode.
+    // Against the MANIFEST's canonical form, not against `wire`. The timed input is the
+    // incumbent's bytes, and on P2.5 those carry two explicit empty map values that the
+    // canonical form omits (design/SHAPES.md: two valid encodings). Re-encoding either
+    // facade from them produces the canonical form, which is the same thing the owned
+    // arm does and what `conformance` already checks. It used to run AFTER the timing;
+    // it is now the arm's gate, so a failure means the row is never taken.
+    a.gate = [&]() {
+      B o;
+      int32_t rc = bor_dec(dctx, (const uint8_t *)wire.data(), wire.size(), &o);
+      ak_enc_ctx *c2 = ak_enc_ctx_new();
+      shapes_borrow::ffi::Tcs bt = shapes_borrow::ffi::tcs_core();
+      intptr_t n = bor_enc(c2, o, bt);
+      const uint8_t *p = NULL;
+      size_t len = 0;
+      ak_enc_take(c2, &p, &len);
+      std::string back((const char *)p, len);
+      ak_enc_ctx_free(c2);
+      bool ok = rc == 0 && n >= 0 && sha_of(back) == want;
+      if (!ok) ++g_borrow_fail;
+      ak_dec_err_reset(dctx);
+      return ok;
+    };
     dec.push_back(a);
+  }
+  gate_arms(id, "enc", enc);
+  gate_arms(id, "dec", dec);
+  if (g_gate_only) {
+    ak_enc_ctx_free(ctx);
+    ak_dec_ctx_free(dctx);
+    return;
   }
   calibrate_all(enc);
   calibrate_all(dec);
   for (int r = 0; r < g_rounds; ++r) {
     run_round(id, "enc", enc, r);
     run_round(id, "dec", dec, r);
-  }
-  // BYTE IDENTITY GATES THE ARM (R2): decode into the borrowed facade and re-encode.
-  {
-    B o;
-    int32_t rc = bor_dec(dctx, (const uint8_t *)wire.data(), wire.size(), &o);
-    ak_enc_ctx *c2 = ak_enc_ctx_new();
-    shapes_borrow::ffi::Tcs bt = shapes_borrow::ffi::tcs_core();
-    intptr_t n = bor_enc(c2, o, bt);
-    const uint8_t *p = NULL;
-    size_t len = 0;
-    ak_enc_take(c2, &p, &len);
-    std::string back((const char *)p, len);
-    // Against the MANIFEST's canonical form, not against `wire`. The timed input is the
-    // incumbent's bytes, and on P2.5 those carry two explicit empty map values that the
-    // canonical form omits (design/SHAPES.md: two valid encodings). Re-encoding either
-    // facade from them produces the canonical form, which is the same thing the owned
-    // arm does and what `conformance` already checks.
-    if (rc != 0 || n < 0 || sha_of(back) != std::string(want_sha)) {
-      std::printf("  %-5s BORROWED FACADE BYTE IDENTITY FAILED (rc=%d n=%zd, %zu B)\n",
-                  id, rc, (ssize_t)n, back.size());
-      ++g_borrow_fail;
-    }
-    ak_enc_ctx_free(c2);
   }
   ak_enc_ctx_free(ctx);
   ak_dec_ctx_free(dctx);
@@ -484,7 +586,9 @@ int main(int argc, char **argv) {
   }
 #endif
 
-  price_the_boundary();
+  g_gate_only = getenv("AK_BENCH_GATE_ONLY") != NULL;
+  if (g_gate_only) std::printf("# AK_BENCH_GATE_ONLY: gates only, nothing is timed\n");
+  if (!g_gate_only) price_the_boundary();
 
   std::printf("\n-- arms --\n");
 #define X(id, Root, sroot, pfx, sha, nbytes)                                        \
@@ -497,6 +601,11 @@ int main(int argc, char **argv) {
       &shapes::native::encode_into_##sroot, &shapes::native::decode_##sroot, sha);
   AK_CASES(X)
 #undef X
+  if (g_gate_only) {
+    std::printf("\ngate-only run: %d arm(s) failed their gate%s\n", g_gate_fail,
+                g_gate_fail ? " and would NOT have been timed" : "");
+    return g_gate_fail ? 1 : 0;
+  }
 
   // The group fill alone, interleaved in its own rounds beside a `pb` row taken in the
   // same rounds.
@@ -769,6 +878,12 @@ int main(int argc, char **argv) {
          "groupfill-ind", "groupfill");
 
   report();
+  if (g_gate_fail) {
+    std::printf("\nGATE: %d arm(s) failed their correctness gate and were NOT timed; the"
+                " rows above omit them\n", g_gate_fail);
+    return 1;
+  }
+  std::printf("\ngate: every timed codec arm passed its correctness gate before timing\n");
   if (g_borrow_fail) {
     std::printf("\nBORROWED FACADE: %d payloads failed byte identity -- its rows are void\n",
                 g_borrow_fail);
