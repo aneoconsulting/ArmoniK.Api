@@ -31,6 +31,7 @@ hyper-rustls = { version = "0.27", default-features = false }
 hyper-util = "0.1"
 prost = "0.14"
 prost-types = "0.14"
+protox = "0.9"
 rustls = { version = "0.23", default-features = false }
 # `std` as well as `derive`: without it `String` implements neither `Serialize` nor `Deserialize`, so
 # the `serde` feature would not compile.

@@ -228,7 +228,7 @@ jobs:
           fetch-depth: 0
       - uses: taiki-e/install-action@019e22100565643c6890fe3f00da0b63017c1672 # v2
         with:
-          tool: protoc,sccache
+          tool: sccache
       - name: Install toolchain
         if: ${{ !contains(matrix.toolchain, 'nightly') }}
         uses: dtolnay/rust-toolchain@stable

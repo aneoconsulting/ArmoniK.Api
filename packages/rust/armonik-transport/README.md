@@ -4,7 +4,7 @@ Transport layer for the [ArmoniK](https://github.com/aneoconsulting/ArmoniK) Rus
 configuration parsing, and TLS/mTLS connection setup.
 
 Depend on it when you need the connection layer without generated protobuf types or a
-`protoc`/`tonic-prost-build` build step. [`armonik`](../armonik) re-exports all of it, so a client that
+`protox`/`tonic-prost-build` build step. [`armonik`](../armonik) re-exports all of it, so a client that
 wants the services as well needs only that one.
 
 ## Publishing
