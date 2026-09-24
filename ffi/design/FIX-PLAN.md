@@ -1,6 +1,6 @@
 # Fix plan after the 2026-09-24 adversarial review
 
-Status: **WP1, WP2 done; WP4 items 1 to 4 done** (2026-09-24). Next: WP5, then the rest of WP4. Written for whoever implements it, which is
+Status: **WP1, WP2, WP4 done except item 5 (Python floor, in WP5); WP5 step 1 done** (2026-09-24, 77f91ee). Next: WP5 steps 2 to 5 (C++, Java, C#, Python backends onto `plan.py`). Written for whoever implements it, which is
 assumed to be neither the author nor anyone with the review session's context.
 Everything needed is in this file or in the paths it names.
 
@@ -345,7 +345,10 @@ lists, payload dumpers), never a wire rule, an IR or a layout derivation.
    (suggested `poc/codec/gen/plan.py`) turns each message into:
    - an **encode plan**: the ordered field writes in tag order (R-E8), presence
      test per field (bit comparison for floats, so `-0.0` survives, R-E3), map
-     entries with the key always written (R-E4), packed runs, submessages with
+     entries in the canonical form, key and value each omitted when empty (the
+     manifest's form; R-E4's defect was Java writing the key unconditionally, and an
+     earlier wording here, "key always written", was that defect restated: corrected
+     2026-09-24 after the rust slice showed `E-map-entry-empty` rejects it), packed runs, submessages with
      the learned-width length strategy, oneof dispatch with a refusal for an
      unknown case (R-E4), unknown-field re-emission in retain mode;
    - a **decode plan**: a dispatch on (field number, wire type) where a known
@@ -575,24 +578,24 @@ Disposition column is filled in as work lands.
 | R-D3 | Python RPC arm ungated; failures timed as cheap successes | CM || confirmed and fixed c55a11a: 68 of 80 failure rows produced a figure before, 80 of 80 abort after (logs/python/81, 83); an OK status with a wrong body also fooled cell A |
 | R-D4 | Python shim cannot compile on 3.7 | CM || confirmed (logs/python/82-floor-3.7.log), not fixed: WP5 emits the conditionals; hand-written native/binding.c needs its own edit; CPython 3.7 not installable here (network policy) |
 | R-D5 | `ffi-valtc` (C++) and pull arms (Java) not in any gate log | CN, CM || confirmed and fixed: C++ 937ae78 (every arm gated before timing; planted refusal now exits 1), Java 1c69964 (pull arms 1,389 checks x3 levels) |
-| R-D6 | Encode ignores the sticky error slot | CN | |
+| R-D6 | Encode ignores the sticky error slot | CN | confirmed and fixed c10e934 (logs/rust/rd6-sticky-*.log); stated in plan.py |
 | R-D7 | C++ concurrency plants never reach the core; wrong encodes double-counted | CN || confirmed and fixed 937ae78: planted cores linked; core-only plant shows ffi 23/96 with native 0; distinct counts (22 of 48, not 44) |
-| R-D8 | Rust concurrency suite mostly absent-path payloads | CN | |
-| R-D9 | Minor boundary items (see WP4 item 10) | CN, CM || u32 item confirmed and fixed 6ede244 (AK_ERR_LIMIT at entry); other items open |
+| R-D8 | Rust concurrency suite mostly absent-path payloads | CN | confirmed and fixed 24dce7d: four shapes; TSan 0 warnings on the suite, 77 on the planted race (logs/rust/rd8-tsan.log, wp5-tsan.log) |
+| R-D9 | Minor boundary items (see WP4 item 10) | CN, CM || u32 6ede244; core transcoders on (NULL,0), opts_word collision, guard-off scripts c10e934/24dce7d; C# leak e96e6ee; JNI null 1c69964: all confirmed and fixed |
 
 ### E. Generators (all closed by WP5, the one generator)
 
 | ID | Finding | Source | Disposition |
 |---|---|---|---|
-| R-E1 | "One traversal" claim in `rust_core.py` false (*verified*) | G | |
-| R-E2 | Wire-type acceptance differs across emitters | G | |
-| R-E3 | Core generator lacks `fixed32`; `-0.0` dropped by core emitters | G | |
+| R-E1 | "One traversal" claim in `rust_core.py` false (*verified*) | G | fixed 77f91ee: core ffi and core-native render the same plans |
+| R-E2 | Wire-type acceptance differs across emitters | G | fixed in plan.py 77f91ee for the Rust backends; other backends on port |
+| R-E3 | Core generator lacks `fixed32`; `-0.0` dropped by core emitters | G | fixed 77f91ee: fixed32 in the IR (WireZoo reachable through the C ABI); -0.0 by bit comparison (no corpus row exercises singular -0.0: corpus gap) |
 | R-E4 | Java arm R never ran the corpus; five rule gaps | G || confirmed by running 1c69964: arm R fails 19 of 392 corpus rows (logs/java/re4-corpus-armR.log); fixed by WP5 |
 | R-E5 | Python `py_codec` decode: wire type, sign, tag 0; corpus roots unreachable | G || confirmed by running the extended corpus: pycodec fails 42 rows (27 wire type, 7 sign, 8 tag 0), logs/python/70-corpus-subset.log; fixed by WP5 |
 | R-E6 | C# re-derives ABI layout; probe shares the field list it checks | G | |
-| R-E7 | UTF-8 decode policy differs per runtime | G | |
-| R-E8 | Field order correct only by accident of tag numbering | G | |
-| R-E9 | "One generator" is not true of the tree: seven traversal emitters | G | WP5 (consolidation), WP1 (invariant) | |
+| R-E7 | UTF-8 decode policy differs per runtime | G | one option in plan.py, reject by default (31 T-dec rows now refused) 77f91ee; C# lossy default to follow on port |
+| R-E8 | Field order correct only by accident of tag numbering | G | tag order stated in plan.py 77f91ee |
+| R-E9 | "One generator" is not true of the tree: seven traversal emitters | G | WP5 (consolidation), WP1 (invariant) | plan.py exists 77f91ee; Rust ported; C++, Java, C#, Python to port |
 
 ### G. Found while fixing (2026-09-24)
 
@@ -607,6 +610,9 @@ Disposition column is filled in as work lands.
 | R-G7 | The C# binding never called `ak_init` (ABI v1 section 3); every gate passed because the shared core's default features do not include `init-guard`, so the check was off. Against a guarded core, core-ffi failed 16 of 16 | csharp slice | C# fixed e96e6ee. **Open for every slice**: gates must run against a core built with `init-guard`, and each binding must call `ak_init` (WP5 renders it once) |
 | R-G8 | Hand-written runtimes narrow or wrap the 64-bit length prefix: C# `Dec.LenEnd` cut it to `int` (an exception, counted as a pass, refused `X-len-huge`); Java arm R's `Dec.readLen` checks `pos + n > limit` in `int` | csharp, java slices | C# fixed e96e6ee (and its runner now fails a row refused by an exception); Java open, WP5 |
 | R-G9 | Java 8 floor build broken since 5241ced (`ProcessHandle`, Java 9); no floor log was committed in that window | java slice | fixed 1c69964 |
+| R-G10 | The old emitter named every nested reader `cd`, so an error two levels down was lost; the old core accepted a truncated `tasks[0].options.max_duration` (logs/rust/wp5-nested2-before.log) | rust slice, WP5 | fixed 77f91ee |
+| R-G11 | Unknown fields inside an inlined singular child, a oneof message member or a map entry have no decode-side slot in the C ABI, so retain mode writes the dropped form there (16 rows; rust D34) | rust slice, WP5 | **owner decision** (needs an ABI shape) |
+| R-G12 | A recursive message (corpus `Nest`) has no finite group, so the generator refuses it from the C ABI (rust D35) | rust slice, WP5 | **owner decision** (ABI scope) |
 
 ### F. STATE hygiene (WP6)
 
