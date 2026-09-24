@@ -791,11 +791,6 @@ jobs:
           # every other event.
           ref: ${{ github.event.pull_request.head.sha }}
 
-      # `armonik`'s build script compiles the protos.
-      - uses: taiki-e/install-action@019e22100565643c6890fe3f00da0b63017c1672 # v2
-        with:
-          tool: protoc
-
       # Stable rather than the MSRV: `cargo publish --workspace` needs Cargo 1.90.
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@stable
