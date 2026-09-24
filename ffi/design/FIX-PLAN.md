@@ -312,7 +312,7 @@ In priority order. Items 1 to 3 may invalidate existing data or crash a host.
 | 7 | **Sticky error slot on encode**: encode entry points ignore `hdr.err`, so a host that calls `ak_fail` and returns 0 gets a successful encode; decode checks it only at the end. Align with `design/ABI-v1.md` section 5. [R-D6] | aggregating session (core) | A test callback that calls `ak_fail` and returns `AK_OK` makes encode and decode fail |
 | 8 | **C++ concurrency must-fail control reaches the core**: build the planted variant of the shared core (`--features pad-widths` or equivalent) and link it, so `ffi > 0` is shown possible. Report 22 distinct wrong encodes, not 44. [R-D7] | cpp | Log with `ffi > 0` under the plant |
 | 9 | **Rust concurrency coverage**: `concur.rs` `together()` uses only P1.3 and P2.5 (absent-path); add P1.2 and P2.2; run under ThreadSanitizer if the toolchain allows. [R-D8] | rust | Log |
-| 10 | Minor: C# `ak_bytes_free` on non-OK status (`src/Rpc/CoreTransport.cs`); JNI `GetPrimitiveArrayCritical` null check (`native/generated/shim.c` encode path); `from_raw_parts(null, 0)` in `tc_utf8*` (`poc/codec/.../lib.rs`); `u32` truncation of spans for buffers over 4 GiB (reject at entry); `opts_word` XOR collision; Rust `lifecycle.sh`/`guardprice.sh` no longer build a guard-OFF arm because `init-guard` became default. [R-D9] | each owner | Per item |
+| 10 | Minor: C# `ak_bytes_free` on non-OK status (`src/Rpc/CoreTransport.cs`); JNI `GetPrimitiveArrayCritical` null check (`native/generated/shim.c` encode path); `from_raw_parts(null, 0)` in `tc_utf8*` (`poc/codec/.../lib.rs`); `u32` truncation of spans for buffers over 4 GiB (reject at entry); `opts_word` XOR collision; Rust `lifecycle.sh`/`guardprice.sh` may no longer build a guard-OFF arm (the harness crate's defaults include `init-guard`; the shared core's defaults do not, R-G7). [R-D9] | each owner | Per item |
 
 ### WP5. One generator implementation (aggregating session owns the design and the shared part; slice agents port their backends)
 
@@ -574,9 +574,9 @@ Disposition column is filled in as work lands.
 | R-D2 | C++ `ak_client_opts` 3 of 6 fields; `tcp_nagle` read from stack (*verified*) | CN || confirmed and fixed 834705f: generated declaration plus size and offset asserts; rpc.log and rpcflow.log predate the 6-field struct, so their TCP rows stand (logs/cpp/rd2-history.log) |
 | R-D3 | Python RPC arm ungated; failures timed as cheap successes | CM || confirmed and fixed c55a11a: 68 of 80 failure rows produced a figure before, 80 of 80 abort after (logs/python/81, 83); an OK status with a wrong body also fooled cell A |
 | R-D4 | Python shim cannot compile on 3.7 | CM || confirmed (logs/python/82-floor-3.7.log), not fixed: WP5 emits the conditionals; hand-written native/binding.c needs its own edit; CPython 3.7 not installable here (network policy) |
-| R-D5 | `ffi-valtc` (C++) and pull arms (Java) not in any gate log | CN, CM | |
+| R-D5 | `ffi-valtc` (C++) and pull arms (Java) not in any gate log | CN, CM || confirmed and fixed: C++ 937ae78 (every arm gated before timing; planted refusal now exits 1), Java 1c69964 (pull arms 1,389 checks x3 levels) |
 | R-D6 | Encode ignores the sticky error slot | CN | |
-| R-D7 | C++ concurrency plants never reach the core; wrong encodes double-counted | CN | |
+| R-D7 | C++ concurrency plants never reach the core; wrong encodes double-counted | CN || confirmed and fixed 937ae78: planted cores linked; core-only plant shows ffi 23/96 with native 0; distinct counts (22 of 48, not 44) |
 | R-D8 | Rust concurrency suite mostly absent-path payloads | CN | |
 | R-D9 | Minor boundary items (see WP4 item 10) | CN, CM || u32 item confirmed and fixed 6ede244 (AK_ERR_LIMIT at entry); other items open |
 
@@ -587,7 +587,7 @@ Disposition column is filled in as work lands.
 | R-E1 | "One traversal" claim in `rust_core.py` false (*verified*) | G | |
 | R-E2 | Wire-type acceptance differs across emitters | G | |
 | R-E3 | Core generator lacks `fixed32`; `-0.0` dropped by core emitters | G | |
-| R-E4 | Java arm R never ran the corpus; five rule gaps | G | |
+| R-E4 | Java arm R never ran the corpus; five rule gaps | G || confirmed by running 1c69964: arm R fails 19 of 392 corpus rows (logs/java/re4-corpus-armR.log); fixed by WP5 |
 | R-E5 | Python `py_codec` decode: wire type, sign, tag 0; corpus roots unreachable | G || confirmed by running the extended corpus: pycodec fails 42 rows (27 wire type, 7 sign, 8 tag 0), logs/python/70-corpus-subset.log; fixed by WP5 |
 | R-E6 | C# re-derives ABI layout; probe shares the field list it checks | G | |
 | R-E7 | UTF-8 decode policy differs per runtime | G | |
@@ -604,11 +604,14 @@ Disposition column is filled in as work lands.
 | R-G4 | Python `native/binding.c` restates `ak_client_opts` by hand (6 fields, matching today) and uses 3.10+ calls outside the generator | python slice | open, WP5 |
 | R-G5 | `ak-abi` declares `ak_queue_next`'s timeout as `i32` where the core exports `u64`; `ak_bytes` and `ak_completion` are declared twice in Rust with no layout check tying them; the remaining RPC prototypes are hand-declared in `poc/cpp/src/rpc_common.h` (cpp C34, from reading) | cpp slice | open, WP5 item 2 (the ABI layout is rendered from one place) |
 | R-G6 | After a decode error, what the host's output object contains was compared between arms and differed on 46 of 52 refused rows once the core stopped delivering groups after an error (cpp C33) | cpp slice | **ruled by the aggregating session**: after a decode error the output object is unspecified and a host discards it; conformance compares error codes on refused rows only. ABI v1 section 5 already says decode stops; WP5's plan layer states the rule for every backend |
+| R-G7 | The C# binding never called `ak_init` (ABI v1 section 3); every gate passed because the shared core's default features do not include `init-guard`, so the check was off. Against a guarded core, core-ffi failed 16 of 16 | csharp slice | C# fixed e96e6ee. **Open for every slice**: gates must run against a core built with `init-guard`, and each binding must call `ak_init` (WP5 renders it once) |
+| R-G8 | Hand-written runtimes narrow or wrap the 64-bit length prefix: C# `Dec.LenEnd` cut it to `int` (an exception, counted as a pass, refused `X-len-huge`); Java arm R's `Dec.readLen` checks `pos + n > limit` in `int` | csharp, java slices | C# fixed e96e6ee (and its runner now fails a row refused by an exception); Java open, WP5 |
+| R-G9 | Java 8 floor build broken since 5241ced (`ProcessHandle`, Java 9); no floor log was committed in that window | java slice | fixed 1c69964 |
 
 ### F. STATE hygiene (WP6)
 
 | ID | Finding | Source | Disposition |
 |---|---|---|---|
-| R-F1 | C#, Java, Python, C++ `STATE.md` contradict themselves on what exists | CM, X, CN | |
+| R-F1 | C#, Java, Python, C++ `STATE.md` contradict themselves on what exists | CM, X, CN || fixed for Java 1c69964 and C# e96e6ee; C++ corrected 937ae78; Rust pending |
 | R-F2 | Python `STATE.md` "concurrency still unanswered" vs suite present; `57-gc-bias.log` closing line contradicts `bench.py` | MM, CM || confirmed and fixed 46bf20f |
 | R-F3 | Python P2.2 crossing counts: `STATE.md` gives 10.02 / 7.00 (C extension type) and 32 (Python storages); `logs/python/53-conformance-all-shapes.log` gives 51.67 / 51.67 against 146.68 / 131.35. Found while rewriting `findings/python.md`, which now cites the log | WP2 || confirmed and fixed 46bf20f: 10.02 / 7.00 are core crossings, 51.67 / 51.67 shim crossings; "32" had no log |
