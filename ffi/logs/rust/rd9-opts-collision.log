@@ -1,0 +1,5 @@
+# R-D9 (FIX-PLAN WP4 item 10): ak_init options that collide under the old XOR fold
+## BEFORE: core at 937ae78 (worktree), this session's lifecycle.rs case
+first 0, second 1, detail 0 (want -8, AK_DETAIL_OPTS_DIFFER=2)
+exit 1
+## AFTER: three-word comparison (this change): see logs/rust/wp4-gate.log section 8, case init-differ-collide

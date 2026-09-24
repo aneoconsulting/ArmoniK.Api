@@ -45,7 +45,10 @@ done
 
 echo
 echo "===== 6. timings, guard OFF (a second process; prost is the control column) ====="
-cargo run --release -q -p harness --no-default-features --bin bench 2>/dev/null
+# R-D9: this row prices the ACCESSOR guard (`guard`). `init-guard` became a default
+# feature too, so `--no-default-features` alone would drop both and conflate them; the
+# init guard is put back so the row changes exactly one thing. Own target dir.
+CARGO_TARGET_DIR=target-noguard cargo run --release -q -p harness --no-default-features --features init-guard --bin bench 2>/dev/null
 
 echo
 echo "===== the NO-BOUNDARY CONTROL is a control (README R5) ====="

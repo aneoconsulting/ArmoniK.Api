@@ -84,9 +84,23 @@ case and the one a naive suite cannot see. MUST FAIL",
     // The planted-build arms are about the ENCODER, so the shared-context control and the
     // throughput sweep are only run on the shipped build: on a build that is already wrong
     // by construction they would be measuring the plant.
-    if !global && !pad {
+    // `AK_CONCUR_NO_TIMING` is set by `gen/tsan.sh`: under ThreadSanitizer the planted
+    // shared-context race of section 4 is a race by construction (TSan would report the
+    // plant, not the core), and section 5 is a timing, meaningless under instrumentation.
+    let tsan = std::env::var_os("AK_CONCUR_NO_TIMING").is_some();
+    // `AK_NO_TIMING` (gen/gate.sh, the correctness-only gate): keep the positive control,
+    // which is a correctness check, and skip section 5, which is a timing.
+    let no_timing = std::env::var_os("AK_NO_TIMING").is_some();
+    if tsan {
+        println!("## 4 and 5 skipped: AK_CONCUR_NO_TIMING (the ThreadSanitizer run).");
+        println!();
+    } else if !global && !pad {
         bad += positive_control(&r);
-        throughput(&r);
+        if no_timing {
+            println!("## 5 skipped: AK_NO_TIMING (correctness-only gate; container timings are instrumentation).");
+        } else {
+            throughput(&r);
+        }
     } else {
         println!("## 4 and 5 skipped: this is a planted build, and a control or a timing");
         println!("## taken on one would be measuring the plant.");
@@ -281,7 +295,7 @@ fn sequence(r: &Ref) -> usize {
 /// N threads, each with its own context, each cycling both shapes, every encode compared
 /// to the reference. This is the arrangement ABI v1 specifies and it must be clean.
 fn together(r: &Ref) -> usize {
-    println!("## 3. TOGETHER: N threads, one context each, both shapes");
+    println!("## 3. TOGETHER: N threads, one context each, all four shapes ({SHAPE_A}, {SHAPE_B}, {SHAPE_A2}, {SHAPE_B2}) rotated per round");
     println!();
     println!("{:<10} {:>12} {:>10} {:>12}", "threads", "encodes", "wrong", "decodes wrong");
     let mut bad = 0usize;
@@ -297,27 +311,38 @@ fn together(r: &Ref) -> usize {
                     // One context per thread. That is the contract: a context is a
                     // host-owned, single-threaded thing (ABI v1 section 3).
                     let c = Ctx::new();
-                    let va = arms::armonik_arm::value(SHAPE_A2);
-                    let vb = arms_m2::armonik_arm::value(SHAPE_B2);
+                    // FIX-PLAN WP4 item 9 / R-D8: all FOUR shapes, not only the two
+                    // absent-path payloads. P1.3 and P2.5 encode mostly nothing, so a
+                    // per-context state defect on a PRESENT field -- a blob site, a
+                    // map entry, an inner repeated field of a non-leaf element -- had
+                    // nothing to corrupt in this section. P1.2 (M1 full) and P2.2 (M2
+                    // full, 540 KB) are the payloads that write every site.
+                    let va = arms::armonik_arm::value(SHAPE_A);
+                    let vb = arms_m2::armonik_arm::value(SHAPE_B);
+                    let va2 = arms::armonik_arm::value(SHAPE_A2);
+                    let vb2 = arms_m2::armonik_arm::value(SHAPE_B2);
                     let mut w = 0usize;
                     let mut d = 0usize;
                     for i in 0..ROUNDS_PER_THREAD {
                         // Offset the phase per thread so the threads are not in lockstep;
                         // lockstep would make every thread want the same width at the same
                         // moment, which is the EASY case for a shared table.
-                        if (i + t) % 2 == 0 {
-                            if arms::core_ffi_arm::encode_into(&c, &va) != &r.a2[..] {
-                                w += 1;
+                        match (i + t) % 4 {
+                            0 => {
+                                if arms::core_ffi_arm::encode_into(&c, &va) != &r.a[..] { w += 1; }
+                                if arms::core_ffi_arm::decode(&c, &r.a) != va { d += 1; }
                             }
-                            if arms::core_ffi_arm::decode(&c, &r.a2) != va {
-                                d += 1;
+                            1 => {
+                                if arms_m2::core_ffi_arm::encode_into(&c, &vb) != &r.b[..] { w += 1; }
+                                if arms_m2::core_ffi_arm::decode(&c, &r.b) != vb { d += 1; }
                             }
-                        } else {
-                            if arms_m2::core_ffi_arm::encode_into(&c, &vb) != &r.b2[..] {
-                                w += 1;
+                            2 => {
+                                if arms::core_ffi_arm::encode_into(&c, &va2) != &r.a2[..] { w += 1; }
+                                if arms::core_ffi_arm::decode(&c, &r.a2) != va2 { d += 1; }
                             }
-                            if arms_m2::core_ffi_arm::decode(&c, &r.b2) != vb {
-                                d += 1;
+                            _ => {
+                                if arms_m2::core_ffi_arm::encode_into(&c, &vb2) != &r.b2[..] { w += 1; }
+                                if arms_m2::core_ffi_arm::decode(&c, &r.b2) != vb2 { d += 1; }
                             }
                         }
                     }
