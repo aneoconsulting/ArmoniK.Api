@@ -1435,3 +1435,27 @@ codec's fixed entry points, the values of the lifecycle's named flags, the RPC c
 surface, the 32-bit field-number truncation. The cpp slice's step-2 commit reports the
 same list independently. And the shared `generate.py` does not know the C# backends
 (this slice may not edit it): its guard is applied by the slice driver instead (D10).
+
+### 48. The WP5 tail: D38, D40, and a re-gate against 41eb485
+
+The aggregating session consolidated the plan (`57b6180`, `41eb485`): the fixed ABI and the
+RPC counting surface in `plan.FIXED`, map entries in UTF-8 byte order, `MAX_FIELD_NUMBER`
+refused, `GROUP_DEPTH_LIMIT`. It re-rendered my backends for those; two items were left.
+
+**D38.** The oracle-probe row `P-field-maxplus1-in-group` (a group containing field
+2^29) was accepted by both managed arms (`logs/rust/wp5s6-probe-csharp-after.log`): the
+generated top-level check was right, but the hand-written `Dec.SkipGroup` still truncated
+the inner key's field number to 32 bits and tested only zero. The limit now comes from the
+plan: `cs_managed` renders `Codec.MaxFieldNumber` and `Codec.GroupDepthLimit` and passes
+both to `Dec.Skip`, which compares the full 64-bit field number. The runtime states
+neither constant.
+
+**D40.** `cs_binding.emit_rpc` renders `plan.FIXED.rpc_counters_struct` and
+`rpc_counting` with both import forms; the hand block in `CoreTransport.cs` is gone and its
+two users read `ak_rpc_counters.forward/.reverse`. The RPC layout check now covers 6
+structs / 20 members, `ak_rpc_counters` included.
+
+**Re-gate** from clean core builds (all targets deleted first). The corpus runner gained
+`--manifest` so the probe rows run through the same four arms; `gen/gate.sh` runs them on
+both levels: 11/11 everywhere. The corpus has grown to 702 rows (three field-number rows,
+disputed in the corpus, refused by all four arms). Everything else unchanged.

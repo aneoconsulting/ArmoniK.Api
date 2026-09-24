@@ -8,13 +8,13 @@ reasoning behind each change is in `JOURNAL.md` (entry 47 for this unit).
 
 | | |
 |---|---|
-| **Status** | **FIX-PLAN WP5 step 4 done (2026-09-24).** Every codec and binding this slice runs is rendered by the shared C# backends in `ffi/poc/codec/gen/` from `plan.py`; the second IR and every wire rule and layout derivation in `poc/csharp/gen/` are retired. Gate green on net8.0 and net6.0, core-ffi included on both, full corpus four arms on both (`logs/csharp/wp5-step4-gate.log`). Not campaign-ready: the WP3 harness changes (D6) are not done |
+| **Status** | **FIX-PLAN WP5 step 4 done, and the WP5 tail (D38, D40) done (2026-09-24), re-gated against core/generator `41eb485` (`logs/csharp/wp5-tail-gate.log`, GATE PASSED).** Every codec and binding this slice runs is rendered by the shared C# backends in `ffi/poc/codec/gen/` from `plan.py`; the second IR and every wire rule and layout derivation in `poc/csharp/gen/` are retired. Gate green on net8.0 and net6.0, core-ffi included on both, full corpus four arms on both (`logs/csharp/wp5-step4-gate.log`). Not campaign-ready: the WP3 harness changes (D6) are not done |
 | **Owner's levels** (FIX-PLAN section 6, D2) | floors **net6.0** and **.NET Framework 4.8** (correctness only), target **net8.0** |
 | **Target** | net8.0 on .NET 8.0.31, SDK 8.0.131 (Ubuntu 24.04 `dotnet-sdk-8.0`). Everything below |
 | **net6.0 floor** | .NET 6.0.36 (runtime pack `Microsoft.NETCore.App.Runtime.linux-x64` 6.0.36 from NuGet, self-contained publish). **Builds and passes everything below, core-ffi included** (it did not build before this unit: `LibraryImport`) |
 | **net48 floor** | **compiled only.** The generated P/Invoke binding's `DllImport` branch compiles for net48 (`src/HarnessFloor`); the core-ffi host half is `#if NET5_0_OR_GREATER` (needs `[UnmanagedCallersOnly]`) and is compiled out. **Nothing is run on .NET Framework**: it needs Windows; this container has no Mono either. Every earlier net48 result in this slice's history was Mono 6.8 and is not the gate (FIX-PLAN WP3 item 17) |
 | **Incumbent** | `Google.Protobuf` 3.28.3, `Grpc.Tools` 2.66.0, `Grpc.Net.Client`/`Grpc.AspNetCore` 2.66.0. The owner names 3.32.0 and 2.71.0 (D5); not moved |
-| **Core** | the one core at `ffi/poc/codec`, from a `git archive HEAD` snapshot (last core commit `77f91ee`), built by `gen/build_core.sh`, **every build with `init-guard`**: `target-core` (`rpc,init-guard`), `target-core-count` (`rpc,count,init-guard`), `target-core-corpus` (`corpus,init-guard`) |
+| **Core** | the one core at `ffi/poc/codec`, from a `git archive HEAD` snapshot (last core commit `41eb485`), built by `gen/build_core.sh`, **every build with `init-guard`**: `target-core` (`rpc,init-guard`), `target-core-count` (`rpc,count,init-guard`), `target-core-corpus` (`corpus,init-guard`) |
 | **Machine** | a container, 4 vCPU Intel Xeon @ 2.10GHz, Linux 6.18.44. Nothing here depends on it |
 
 ## What exists
@@ -177,25 +177,25 @@ delivery, 0 failures, crossings per call as ABI v1 section 9 (counting core).
 | D4 | net48 | compiled only; no gate on .NET Framework (needs Windows); the host half has no net48 form |
 | D5 | projects | incumbent at 3.28.3 / 2.66.0, not the owner's 3.32.0 / 2.71.0 |
 | D6 | RPC harness | not WP3-conformant (server in-process, `TotalProcessorTime`, B/C pinned under `--shipped`, min-of-N) |
-| D10 | `ffi/poc/codec/gen/generate.py` | the shared one-command generator does not list the C# backends in its guard or write the C# targets (this slice may not edit it); the slice driver applies the same guard to them |
 
-Closed this unit: D2 (net6.0/net48 binding), D3 (transport binding generated, except the
+Closed in the WP5 tail: **D38** (the runtime's group skip accepted a field number above
+2^29 - 1 inside a group: it now takes `Codec.MaxFieldNumber`/`Codec.GroupDepthLimit`,
+rendered from `plan.MAX_FIELD_NUMBER`/`plan.GROUP_DEPTH_LIMIT`, and refuses on the full
+64-bit value as the core does), **D40** (the RPC counting surface is rendered from
+`plan.FIXED` into `Generated/RpcAbi.cs` with both import forms; `CoreTransport.cs`
+declares nothing of the ABI by hand), **D10** (the shared `generate.py` now guards the C#
+backends and runs this slice's `--check`, done by the aggregating session at `57b6180`).
+
+Closed in step 4: D2 (net6.0/net48 binding), D3 (transport binding generated, except the
 counters below), D7 (retain mode: managed and core-ffi), D8 (`MapForms` narrowing; also
 `Triples`), D9 (`ak_init_opts`/`ak_err` are in the by-name layout check now).
 
-## What the plan does not state (declared by hand in the backend, reported)
+## What the plan did not state
 
-- the vocabulary structs' layouts: `ak_str`, `ak_span`, `ak_blob`, `ak_uspan`, `ak_err`,
-  `AkCounters`, `ak_bdr_rec` (plan names them; the probe checks them);
-- the codec's fixed entry points: contexts, transcoders, `ak_run_*`, `ak_blob_run`,
-  counters, the pull family, `ak_layout_facts`, `ak_abi_version`;
-- the numeric values of `plan.lifecycle`'s named flags and success codes (read from
-  ak-abi's `lib.rs` at generation time);
-- the RPC counting surface: `ak_rpc_counting`, `ak_rpc_counters`, `ak_rpc_counters_reset`
-  and `ak_rpc_counters` (kept by hand in `CoreTransport.cs`);
-- the key's field number: every backend (and the core) truncates `k >> 3` to 32 bits, so a
-  field number of 2^32 + n aliases n; protobuf bounds field numbers at 2^29 - 1. This
-  backend matches the core; the rule is the plan's to state.
+Reported at step 4 (vocabulary struct layouts, fixed entry points, flag values, the RPC
+counting surface, the field-number limit). All are in the plan since `57b6180`/`41eb485`
+(`plan.FIXED`, `MAX_FIELD_NUMBER`, `GROUP_DEPTH_LIMIT`) and the C# backends render them;
+nothing is declared by hand any more.
 
 ## What is not measured or not established
 
@@ -221,7 +221,8 @@ counters below), D7 (retain mode: managed and core-ffi), D8 (`MapForms` narrowin
 
 | Log | What it establishes |
 |---|---|
-| `wp5-step4-gate.log` | **the current gate**: generator check and guard; core builds (init-guard); net8.0 and net6.0: conformance 152/152, unknown (retain = incumbent bytes), groups, utf8, mapforms, layout by name + section 10 (+ plant), core-ffi every shape incl. retain, R5 on the counting core, no-ak_init control; akrpc layout and error path; the corpus, four arms, net8.0 and net6.0, with four controls each; net48 compile |
+| `wp5-tail-gate.log` | **the current gate**, core `41eb485`, clean core builds: as step 4's, plus the oracle-probe rows (11/11 on all four arms, net8.0 and net6.0, `P-field-maxplus1-in-group` refused); corpus 702 rows: managed 696/0, ffi 680/0 (+16 Nest), 6 disputed; RPC layout 6 structs / 20 members incl. `ak_rpc_counters` |
+| `wp5-step4-gate.log` | the step-4 gate (core `77f91ee`): generator check and guard; core builds (init-guard); net8.0 and net6.0: conformance 152/152, unknown (retain = incumbent bytes), groups, utf8, mapforms, layout by name + section 10 (+ plant), core-ffi every shape incl. retain, R5 on the counting core, no-ak_init control; akrpc layout and error path; the corpus, four arms, net8.0 and net6.0, with four controls each; net48 compile |
 | `wp5-step4-before-after.log` | the retired managed codec against the plan-rendered one on the corpus: C3 forms, C4 codes per row |
 | `wp4-rd9-bytes-free.log` | R-D9 on the previous binding, with a negative control |
 | `wp3-17-net6-floor-build.log` | net6.0 before this unit: the binding did not build |

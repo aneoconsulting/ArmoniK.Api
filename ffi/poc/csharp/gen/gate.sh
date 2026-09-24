@@ -13,7 +13,8 @@
 #   5  net6.0 harness: the same, core-ffi included (it did not build before this unit)
 #   6  akrpc (net8.0): plan.rpc's structs by name; R-D9's error path, counted
 #   7  the corpus, net8.0 and net6.0: managed-drop, managed-retain, ffi-drop, ffi-retain, each
-#      row in a child process under a timeout; then the controls that must FAIL
+#      row in a child process under a timeout; then the controls that must FAIL; then the
+#      oracle-probe rows (poc/rust/gen/probe_corpus.py)
 #
 #   SCRATCH=dir gen/gate.sh      (SCRATCH holds the core snapshot; default: mktemp -d)
 set -uo pipefail
@@ -119,6 +120,11 @@ for lvl in 8 6; do
   AK_CORPUS_PLANT=reenc control "net$lvl corpus reenc" "${CX[@]}" --only "$SUB"
   AK_CORPUS_PLANT=accept control "net$lvl corpus accept" "${CX[@]}" --only "$SUB"
   AK_GATE_PLANT_NO_INIT=1 control "net$lvl corpus noinit" "${CX[@]}" --only "$SUB"
+  # The oracle-probe rows (poc/rust/gen/probe_corpus.py, the majority reading of upb and
+  # protobuf C++): the varint 10th byte, the field-number limit at the top and inside a
+  # group (D38), the map-entry order.
+  rm -rf "$SCRATCH/probe"; python3 -S "$REPO/ffi/poc/rust/gen/probe_corpus.py" "$SCRATCH/probe" > /dev/null
+  run "net$lvl probe rows" "${CX[@]}" --manifest "$SCRATCH/probe/manifest.json"
 done
 
 echo
