@@ -195,10 +195,9 @@ structural facts:
 
 ## Harness facts
 
-- **In this slice's grid, `B - A` is not a transport comparison**: cell A (prost
-  on tonic) and cell B (the generated codec's host side on the core's transport)
-  both run on tonic, so the host transport and the core transport are the same
-  stack here (`logs/rust/stage6-rpc-grid.log`).
+- **In this slice's grid, `B - A` is not a transport comparison**: the host's transport
+  (cell A) is tonic, and the core's transport (cell B) is built on tonic too, so
+  the two transports are the same stack here (`logs/rust/stage6-rpc-grid.log`).
 - **D19**: the root `.gitignore`'s `[Bb]in/` excluded every measurement binary
   until `7fb30be5`, so logs from `cc7f68c6` and `d03c5161` have no committed
   harness and cannot be re-derived. `ffi/.gitignore` now re-includes `bin/`.
