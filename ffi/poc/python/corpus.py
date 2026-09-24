@@ -224,6 +224,14 @@ def strip_unknown(d):
 # defect table is where that lives.
 DISAGREEMENTS = {}
 
+# Rows failing on ANOTHER component's defect: {(vector id, obligation): defect id}, with
+# UPSTREAM_WHY[defect id] saying what it is. EMPTY. Commit 7e0404a deleted this table when
+# it emptied it and left the three places that read it, so the first C1 failure after that
+# crashed the script with a NameError instead of being reported -- invisible for as long as
+# every row passed, and found by the first corpus that made a row fail (D12).
+UPSTREAM = {}
+UPSTREAM_WHY = {}
+
 ARMS = [
     ("core-ffi / C ext type",
      lambda b, r: arms._ffi.decode("cext", r, b, arms.TY_CEXT),
@@ -363,12 +371,11 @@ def main():
                      if r["expect"] == "accept" and r.get("projection"))
         print("   %-24s C1 %d/%d  C2 %d/%d  C3 %d/%d  C4 %d/%d"
               % (arm, nc1, n_acc, nc2, n_proj, nc3, n_acc, nc4, n_rej))
-        for b in bad[:8]:
+        # Every failure, not the first eight: the log is the evidence, and a truncated list
+        # cannot be classified by whoever reads it (WP4 item 2's vectors made 42 at once).
+        for b in bad:
             print("        FAIL %s" % b)
             fails += 1
-        if len(bad) > 8:
-            print("        ... and %d more" % (len(bad) - 8))
-            fails += len(bad) - 8
 
     print("\n## C3: which accepted form this slice writes")
     print("#  CONTRACT.md C3: a vector may have more than one accepted form, and which")
