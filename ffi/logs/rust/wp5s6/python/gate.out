@@ -1,0 +1,24 @@
+===== 90. build =====
+the composed arm is built. conformance.py gates it before anything is timed.
+===== py3.12 =====
+   91 conformance _akffi:     ALL CHECKS PASS
+   92 conformance _akffi_rpc: ALL CHECKS PASS
+   93 corpus:                 CORPUS PASSES on all 5 arms / CONTROLS ALL FAILED AS REQUIRED
+   94 rpc gate:               80 aborted, 0 timed under injection
+   95 rd1:                    ALL WRAPPED LENGTHS REFUSED, CONTROL DECODES
+   96 u1:                     8 readings
+===== py3.7 =====
+   91 conformance _akffi:     ALL CHECKS PASS
+   92 conformance _akffi_rpc: ALL CHECKS PASS
+   93 corpus:                 CORPUS PASSES on all 5 arms / CONTROLS ALL FAILED AS REQUIRED
+   94 rpc gate:               80 aborted, 0 timed under injection
+   95 rd1:                    ALL WRAPPED LENGTHS REFUSED, CONTROL DECODES
+   96 u1:                     8 readings
+===== 97. the 3.7 source check =====
+
+FLOOR SOURCE CHECK PASSES (compile against 3.7.5 headers; the control fails)
+===== 98. crossing counts against the pre-port shim (logs/python/85) =====
+   py3.12: 160 rows, IDENTICAL to logs/python/85 (3.12, pre-port shim)
+   py3.7: 160 rows, IDENTICAL to logs/python/85 (3.12, pre-port shim)
+gate exit 0
+exit 0

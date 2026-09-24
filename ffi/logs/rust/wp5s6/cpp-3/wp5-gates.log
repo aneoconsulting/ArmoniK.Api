@@ -1,0 +1,1164 @@
+# cpp slice, WP5 step 2: the other gates (nothing timed)
+#   date       2026-09-24T18:41:22Z
+#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
+#   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
+#   commit     41eb485
+#   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
+#              for the corpus ABI); no timing is taken by anything in this log
+
+===== groupskip.sh =====
+== C24: the GROUP skip, every standard level and both implementations ==
+
+=========== groupskip_a17   (must PASS) ===========
+# cpp slice: ak::Dec::skip over the GROUP form (wire types 3 and 4)
+#   -std           201703
+#   implementation target
+#   plant          0 (0 = the shipped code)
+#   depth limit    100
+#   oracle         ffi/poc/codec/crates/ak-rt/src/dec.rs group_skip_tests,
+#                  case for case, and the corpus vectors it names
+
+  ok    T1 a group is skipped whole                  ok at 6 of 6
+  ok    T2 groups nest                               ok at 6 of 6
+  ok    T3 an unterminated group is truncated        ERR_TRUNCATED at 3 of 3
+  ok    T4 a mismatched end tag is malformed         ERR_MALFORMED at 4 of 4
+  ok    T5 a mismatched end inside a nest is malformed ERR_MALFORMED at 3 of 4
+  ok    T6 an end tag with nothing open is malformed ERR_MALFORMED at 1 of 1
+  ok    T7 nesting past the limit is DEPTH, not a crash ERR_DEPTH at 101 of 200
+  ok    T8 the other four wire types still skip      ok at 21 of 21
+  ok    T9 wire type 6 is malformed                  ERR_MALFORMED at 1 of 1
+  ok    T9 wire type 7 is malformed                  ERR_MALFORMED at 1 of 1
+  ok    T10 a group's length-delimited body is not walked ok at 24 of 24
+
+11 checks, 0 failures
+  >>> ok: groupskip_a17 passed
+
+=========== groupskip_b17   (must PASS) ===========
+# cpp slice: ak::Dec::skip over the GROUP form (wire types 3 and 4)
+#   -std           201703
+#   implementation floor
+#   plant          0 (0 = the shipped code)
+#   depth limit    100
+#   oracle         ffi/poc/codec/crates/ak-rt/src/dec.rs group_skip_tests,
+#                  case for case, and the corpus vectors it names
+
+  ok    T1 a group is skipped whole                  ok at 6 of 6
+  ok    T2 groups nest                               ok at 6 of 6
+  ok    T3 an unterminated group is truncated        ERR_TRUNCATED at 3 of 3
+  ok    T4 a mismatched end tag is malformed         ERR_MALFORMED at 4 of 4
+  ok    T5 a mismatched end inside a nest is malformed ERR_MALFORMED at 3 of 4
+  ok    T6 an end tag with nothing open is malformed ERR_MALFORMED at 1 of 1
+  ok    T7 nesting past the limit is DEPTH, not a crash ERR_DEPTH at 101 of 200
+  ok    T8 the other four wire types still skip      ok at 21 of 21
+  ok    T9 wire type 6 is malformed                  ERR_MALFORMED at 1 of 1
+  ok    T9 wire type 7 is malformed                  ERR_MALFORMED at 1 of 1
+  ok    T10 a group's length-delimited body is not walked ok at 24 of 24
+
+11 checks, 0 failures
+  >>> ok: groupskip_b17 passed
+
+=========== groupskip_c14   (must PASS) ===========
+# cpp slice: ak::Dec::skip over the GROUP form (wire types 3 and 4)
+#   -std           201402
+#   implementation floor
+#   plant          0 (0 = the shipped code)
+#   depth limit    100
+#   oracle         ffi/poc/codec/crates/ak-rt/src/dec.rs group_skip_tests,
+#                  case for case, and the corpus vectors it names
+
+  ok    T1 a group is skipped whole                  ok at 6 of 6
+  ok    T2 groups nest                               ok at 6 of 6
+  ok    T3 an unterminated group is truncated        ERR_TRUNCATED at 3 of 3
+  ok    T4 a mismatched end tag is malformed         ERR_MALFORMED at 4 of 4
+  ok    T5 a mismatched end inside a nest is malformed ERR_MALFORMED at 3 of 4
+  ok    T6 an end tag with nothing open is malformed ERR_MALFORMED at 1 of 1
+  ok    T7 nesting past the limit is DEPTH, not a crash ERR_DEPTH at 101 of 200
+  ok    T8 the other four wire types still skip      ok at 21 of 21
+  ok    T9 wire type 6 is malformed                  ERR_MALFORMED at 1 of 1
+  ok    T9 wire type 7 is malformed                  ERR_MALFORMED at 1 of 1
+  ok    T10 a group's length-delimited body is not walked ok at 24 of 24
+
+11 checks, 0 failures
+  >>> ok: groupskip_c14 passed
+
+=========== groupskip_c11   (must PASS) ===========
+# cpp slice: ak::Dec::skip over the GROUP form (wire types 3 and 4)
+#   -std           201103
+#   implementation floor
+#   plant          0 (0 = the shipped code)
+#   depth limit    100
+#   oracle         ffi/poc/codec/crates/ak-rt/src/dec.rs group_skip_tests,
+#                  case for case, and the corpus vectors it names
+
+  ok    T1 a group is skipped whole                  ok at 6 of 6
+  ok    T2 groups nest                               ok at 6 of 6
+  ok    T3 an unterminated group is truncated        ERR_TRUNCATED at 3 of 3
+  ok    T4 a mismatched end tag is malformed         ERR_MALFORMED at 4 of 4
+  ok    T5 a mismatched end inside a nest is malformed ERR_MALFORMED at 3 of 4
+  ok    T6 an end tag with nothing open is malformed ERR_MALFORMED at 1 of 1
+  ok    T7 nesting past the limit is DEPTH, not a crash ERR_DEPTH at 101 of 200
+  ok    T8 the other four wire types still skip      ok at 21 of 21
+  ok    T9 wire type 6 is malformed                  ERR_MALFORMED at 1 of 1
+  ok    T9 wire type 7 is malformed                  ERR_MALFORMED at 1 of 1
+  ok    T10 a group's length-delimited body is not walked ok at 24 of 24
+
+11 checks, 0 failures
+  >>> ok: groupskip_c11 passed
+
+=========== groupskip_plant_depth   (a PLANTED defect: must FAIL) ===========
+  what it plants: count nesting depth instead of matching the field number (accepts X-group-mismatched-end)
+# cpp slice: ak::Dec::skip over the GROUP form (wire types 3 and 4)
+#   -std           201703
+#   implementation target
+#   plant          1 (0 = the shipped code)
+#   depth limit    100
+#   oracle         ffi/poc/codec/crates/ak-rt/src/dec.rs group_skip_tests,
+#                  case for case, and the corpus vectors it names
+
+  ok    T1 a group is skipped whole                  ok at 6 of 6
+  ok    T2 groups nest                               ok at 6 of 6
+  ok    T3 an unterminated group is truncated        ERR_TRUNCATED at 3 of 3
+  FAIL  T4 a mismatched end tag is malformed         got ok at 4 of 4, wanted ERR_MALFORMED
+  FAIL  T5 a mismatched end inside a nest is malformed got ok at 4 of 4, wanted ERR_MALFORMED
+  ok    T6 an end tag with nothing open is malformed ERR_MALFORMED at 1 of 1
+  ok    T7 nesting past the limit is DEPTH, not a crash ERR_DEPTH at 101 of 200
+  ok    T8 the other four wire types still skip      ok at 21 of 21
+  ok    T9 wire type 6 is malformed                  ERR_MALFORMED at 1 of 1
+  ok    T9 wire type 7 is malformed                  ERR_MALFORMED at 1 of 1
+  ok    T10 a group's length-delimited body is not walked ok at 24 of 24
+
+11 checks, 2 failures
+  >>> ok: groupskip_plant_depth failed, which is what says the test works
+
+=========== groupskip_plant_i32   (a PLANTED defect: must FAIL) ===========
+  what it plants: the case 5: 32-bit arm dropped while case 3: was added
+# cpp slice: ak::Dec::skip over the GROUP form (wire types 3 and 4)
+#   -std           201703
+#   implementation target
+#   plant          2 (0 = the shipped code)
+#   depth limit    100
+#   oracle         ffi/poc/codec/crates/ak-rt/src/dec.rs group_skip_tests,
+#                  case for case, and the corpus vectors it names
+
+  ok    T1 a group is skipped whole                  ok at 6 of 6
+  ok    T2 groups nest                               ok at 6 of 6
+  ok    T3 an unterminated group is truncated        ERR_TRUNCATED at 3 of 3
+  ok    T4 a mismatched end tag is malformed         ERR_MALFORMED at 4 of 4
+  ok    T5 a mismatched end inside a nest is malformed ERR_MALFORMED at 3 of 4
+  ok    T6 an end tag with nothing open is malformed ERR_MALFORMED at 1 of 1
+  ok    T7 nesting past the limit is DEPTH, not a crash ERR_DEPTH at 101 of 200
+  FAIL  T8 the other four wire types still skip      got ERR_MALFORMED at 17 of 21, wanted ok consuming the whole buffer
+  ok    T9 wire type 6 is malformed                  ERR_MALFORMED at 1 of 1
+  ok    T9 wire type 7 is malformed                  ERR_MALFORMED at 1 of 1
+  FAIL  T10 a group's length-delimited body is not walked got ERR_MALFORMED at 5 of 24, wanted ok consuming the whole buffer
+
+11 checks, 2 failures
+  >>> ok: groupskip_plant_i32 failed, which is what says the test works
+
+groupskip: 0 build(s) did not do what they must
+>>> ok: groupskip.sh (exit 0)
+
+===== concurrency.sh (AK_CONC_NO_T7=1; planted cores must fail) =====
+== ABI v1 obligation 12.5 ==
+date: 2026-09-24T18:41:22Z  nproc = 4  build dir: ./build
+
+=========== conc_a17_shared 4 6   (must PASS) ===========
+$ ldd ./build/conc_a17_shared | grep ak_core
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target/release/libak_core.so
+== ABI v1 obligation 12.5: the concurrency suite ==
+-std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
+plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
+core plant: none   (the linked ak-core is the shipped build)
+hardware_concurrency=4
+
+-- the reference bytes, anchored to manifest.json --
+   P1.1  858 B
+   P1.3  605 B
+   P1.2  218121 B
+   P2.2  540422 B
+
+-- T0: does this shape set have a history surface at all? --
+   P1.1 writes 3 of 35 length-prefix sites
+   P1.3 writes 1 of 35 length-prefix sites
+   P1.2 writes 3 of 35 length-prefix sites
+   P2.2 writes 17 of 35 length-prefix sites
+   after P1.1, P1.3 finds 1 site(s) reserved wider than it needs
+   after P1.2, P1.3 finds 1 site(s) reserved wider than it needs
+
+-- T1: the encoder's output does not depend on its own history --
+   Sequential, one thread. The learned width survives a reset by design, so
+   this asks whether what survives can be seen on the wire. Needs two shapes.
+
+   12 pairs checked on two arms.
+
+-- T2 and T3: the same work, run in sequence and then together --
+   4 threads x 6 rounds x 4 shapes, every encode memcmp'd against the
+   reference. T2 joins each thread before starting the next, so the two
+   differ only by overlap: a defect that shows in both is not a concurrency
+   defect, and that distinction is why 12.5 asks for both.
+
+  T2 threads in sequence        96 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+  T3 threads together           96 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+
+-- T4: a failure on one thread is not visible on another --
+   Half the threads feed truncated input and must fail; half feed the
+   reference and must succeed with err == 0. Concurrently, 24 rounds.
+
+   truncated-but-accepted 0, good-but-wrong 0, error leaked across a context 0
+
+-- T5: two threads with different histories encode the same message --
+   Every ordered pair: thread A encodes the prior and then the target,
+   thread B encodes the target alone. Both must produce the reference AND
+   agree with each other -- agreement is the half that a manifest comparison
+   alone would miss if both drifted the same way, which is exactly what a
+   process-global table does.
+
+   12 ordered pairs x 12 rounds: disagreements 0, wrong against the reference 0
+
+-- T6: one shape against two, same threads, same rounds --
+   12.5: "a suite with one shape reports zero wrong bytes with a
+   per-thread-state defect present and absent alike; two shapes find it in
+   twenty encodes out of twenty." That is a claim, so it is measured. On the
+   shipped design every row below is zero; the three planted builds are where
+   the row that matters is not.
+
+  one shape  (P1.1)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  one shape  (P1.3)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  two shapes (P1.1 + P1.3)               48 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  four shapes (P1.1 + P1.3 + P1.2 + P2.2)   96 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+
+-- T7 skipped (AK_CONC_NO_T7): a timing, not a gate --
+
+whole run, distinct wrong operations: native-encoder 0  core-encoder 0  decoder 0
+
+42 checks, 0 failures
+  exit 0
+  >>> ok: conc_a17_shared exit code = 0 (-eq 0)
+  >>> ok: conc_a17_shared native-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_a17_shared core-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_a17_shared decoder wrong = 0 (-eq 0)
+
+=========== conc_c11_shared 4 6   (must PASS) ===========
+$ ldd ./build/conc_c11_shared | grep ak_core
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target/release/libak_core.so
+== ABI v1 obligation 12.5: the concurrency suite ==
+-std=201103  impl=floor  guard=on  linkage=shared  threads=4  rounds=6
+plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
+core plant: none   (the linked ak-core is the shipped build)
+hardware_concurrency=4
+
+-- the reference bytes, anchored to manifest.json --
+   P1.1  858 B
+   P1.3  605 B
+   P1.2  218121 B
+   P2.2  540422 B
+
+-- T0: does this shape set have a history surface at all? --
+   P1.1 writes 3 of 35 length-prefix sites
+   P1.3 writes 1 of 35 length-prefix sites
+   P1.2 writes 3 of 35 length-prefix sites
+   P2.2 writes 17 of 35 length-prefix sites
+   after P1.1, P1.3 finds 1 site(s) reserved wider than it needs
+   after P1.2, P1.3 finds 1 site(s) reserved wider than it needs
+
+-- T1: the encoder's output does not depend on its own history --
+   Sequential, one thread. The learned width survives a reset by design, so
+   this asks whether what survives can be seen on the wire. Needs two shapes.
+
+   12 pairs checked on two arms.
+
+-- T2 and T3: the same work, run in sequence and then together --
+   4 threads x 6 rounds x 4 shapes, every encode memcmp'd against the
+   reference. T2 joins each thread before starting the next, so the two
+   differ only by overlap: a defect that shows in both is not a concurrency
+   defect, and that distinction is why 12.5 asks for both.
+
+  T2 threads in sequence        96 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+  T3 threads together           96 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+
+-- T4: a failure on one thread is not visible on another --
+   Half the threads feed truncated input and must fail; half feed the
+   reference and must succeed with err == 0. Concurrently, 24 rounds.
+
+   truncated-but-accepted 0, good-but-wrong 0, error leaked across a context 0
+
+-- T5: two threads with different histories encode the same message --
+   Every ordered pair: thread A encodes the prior and then the target,
+   thread B encodes the target alone. Both must produce the reference AND
+   agree with each other -- agreement is the half that a manifest comparison
+   alone would miss if both drifted the same way, which is exactly what a
+   process-global table does.
+
+   12 ordered pairs x 12 rounds: disagreements 0, wrong against the reference 0
+
+-- T6: one shape against two, same threads, same rounds --
+   12.5: "a suite with one shape reports zero wrong bytes with a
+   per-thread-state defect present and absent alike; two shapes find it in
+   twenty encodes out of twenty." That is a claim, so it is measured. On the
+   shipped design every row below is zero; the three planted builds are where
+   the row that matters is not.
+
+  one shape  (P1.1)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  one shape  (P1.3)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  two shapes (P1.1 + P1.3)               48 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  four shapes (P1.1 + P1.3 + P1.2 + P2.2)   96 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+
+-- T7 skipped (AK_CONC_NO_T7): a timing, not a gate --
+
+whole run, distinct wrong operations: native-encoder 0  core-encoder 0  decoder 0
+
+42 checks, 0 failures
+  exit 0
+  >>> ok: conc_c11_shared exit code = 0 (-eq 0)
+  >>> ok: conc_c11_shared native-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_c11_shared core-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_c11_shared decoder wrong = 0 (-eq 0)
+
+=========== conc_a17_static 4 6   (must PASS) ===========
+$ ldd ./build/conc_a17_static | grep ak_core
+== ABI v1 obligation 12.5: the concurrency suite ==
+-std=201703  impl=target  guard=on  linkage=static  threads=4  rounds=6
+plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
+core plant: none   (the linked ak-core is the shipped build)
+hardware_concurrency=4
+
+-- the reference bytes, anchored to manifest.json --
+   P1.1  858 B
+   P1.3  605 B
+   P1.2  218121 B
+   P2.2  540422 B
+
+-- T0: does this shape set have a history surface at all? --
+   P1.1 writes 3 of 35 length-prefix sites
+   P1.3 writes 1 of 35 length-prefix sites
+   P1.2 writes 3 of 35 length-prefix sites
+   P2.2 writes 17 of 35 length-prefix sites
+   after P1.1, P1.3 finds 1 site(s) reserved wider than it needs
+   after P1.2, P1.3 finds 1 site(s) reserved wider than it needs
+
+-- T1: the encoder's output does not depend on its own history --
+   Sequential, one thread. The learned width survives a reset by design, so
+   this asks whether what survives can be seen on the wire. Needs two shapes.
+
+   12 pairs checked on two arms.
+
+-- T2 and T3: the same work, run in sequence and then together --
+   4 threads x 6 rounds x 4 shapes, every encode memcmp'd against the
+   reference. T2 joins each thread before starting the next, so the two
+   differ only by overlap: a defect that shows in both is not a concurrency
+   defect, and that distinction is why 12.5 asks for both.
+
+  T2 threads in sequence        96 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+  T3 threads together           96 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+
+-- T4: a failure on one thread is not visible on another --
+   Half the threads feed truncated input and must fail; half feed the
+   reference and must succeed with err == 0. Concurrently, 24 rounds.
+
+   truncated-but-accepted 0, good-but-wrong 0, error leaked across a context 0
+
+-- T5: two threads with different histories encode the same message --
+   Every ordered pair: thread A encodes the prior and then the target,
+   thread B encodes the target alone. Both must produce the reference AND
+   agree with each other -- agreement is the half that a manifest comparison
+   alone would miss if both drifted the same way, which is exactly what a
+   process-global table does.
+
+   12 ordered pairs x 12 rounds: disagreements 0, wrong against the reference 0
+
+-- T6: one shape against two, same threads, same rounds --
+   12.5: "a suite with one shape reports zero wrong bytes with a
+   per-thread-state defect present and absent alike; two shapes find it in
+   twenty encodes out of twenty." That is a claim, so it is measured. On the
+   shipped design every row below is zero; the three planted builds are where
+   the row that matters is not.
+
+  one shape  (P1.1)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  one shape  (P1.3)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  two shapes (P1.1 + P1.3)               48 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  four shapes (P1.1 + P1.3 + P1.2 + P2.2)   96 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+
+-- T7 skipped (AK_CONC_NO_T7): a timing, not a gate --
+
+whole run, distinct wrong operations: native-encoder 0  core-encoder 0  decoder 0
+
+42 checks, 0 failures
+  exit 0
+  >>> ok: conc_a17_static exit code = 0 (-eq 0)
+  >>> ok: conc_a17_static native-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_a17_static core-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_a17_static decoder wrong = 0 (-eq 0)
+
+=========== conc_a17_shared 16 4   (must PASS) ===========
+$ ldd ./build/conc_a17_shared | grep ak_core
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target/release/libak_core.so
+== ABI v1 obligation 12.5: the concurrency suite ==
+-std=201703  impl=target  guard=on  linkage=shared  threads=16  rounds=4
+plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
+core plant: none   (the linked ak-core is the shipped build)
+hardware_concurrency=4
+
+-- the reference bytes, anchored to manifest.json --
+   P1.1  858 B
+   P1.3  605 B
+   P1.2  218121 B
+   P2.2  540422 B
+
+-- T0: does this shape set have a history surface at all? --
+   P1.1 writes 3 of 35 length-prefix sites
+   P1.3 writes 1 of 35 length-prefix sites
+   P1.2 writes 3 of 35 length-prefix sites
+   P2.2 writes 17 of 35 length-prefix sites
+   after P1.1, P1.3 finds 1 site(s) reserved wider than it needs
+   after P1.2, P1.3 finds 1 site(s) reserved wider than it needs
+
+-- T1: the encoder's output does not depend on its own history --
+   Sequential, one thread. The learned width survives a reset by design, so
+   this asks whether what survives can be seen on the wire. Needs two shapes.
+
+   12 pairs checked on two arms.
+
+-- T2 and T3: the same work, run in sequence and then together --
+   16 threads x 4 rounds x 4 shapes, every encode memcmp'd against the
+   reference. T2 joins each thread before starting the next, so the two
+   differ only by overlap: a defect that shows in both is not a concurrency
+   defect, and that distinction is why 12.5 asks for both.
+
+  T2 threads in sequence       256 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+  T3 threads together          256 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+
+-- T4: a failure on one thread is not visible on another --
+   Half the threads feed truncated input and must fail; half feed the
+   reference and must succeed with err == 0. Concurrently, 16 rounds.
+
+   truncated-but-accepted 0, good-but-wrong 0, error leaked across a context 0
+
+-- T5: two threads with different histories encode the same message --
+   Every ordered pair: thread A encodes the prior and then the target,
+   thread B encodes the target alone. Both must produce the reference AND
+   agree with each other -- agreement is the half that a manifest comparison
+   alone would miss if both drifted the same way, which is exactly what a
+   process-global table does.
+
+   12 ordered pairs x 8 rounds: disagreements 0, wrong against the reference 0
+
+-- T6: one shape against two, same threads, same rounds --
+   12.5: "a suite with one shape reports zero wrong bytes with a
+   per-thread-state defect present and absent alike; two shapes find it in
+   twenty encodes out of twenty." That is a claim, so it is measured. On the
+   shipped design every row below is zero; the three planted builds are where
+   the row that matters is not.
+
+  one shape  (P1.1)                      64 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  one shape  (P1.3)                      64 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  two shapes (P1.1 + P1.3)              128 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  four shapes (P1.1 + P1.3 + P1.2 + P2.2)  256 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+
+-- T7 skipped (AK_CONC_NO_T7): a timing, not a gate --
+
+whole run, distinct wrong operations: native-encoder 0  core-encoder 0  decoder 0
+
+42 checks, 0 failures
+  exit 0
+  >>> ok: conc_a17_shared exit code = 0 (-eq 0)
+  >>> ok: conc_a17_shared native-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_a17_shared core-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_a17_shared decoder wrong = 0 (-eq 0)
+
+=========== conc_a17_pad 4 6   (a REFUSED design: must FAIL) ===========
+$ ldd ./build/conc_a17_pad | grep ak_core
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target-pad/release/libak_core.so
+== ABI v1 obligation 12.5: the concurrency suite ==
+-std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
+plants: AK_CONC_PAD=1  AK_CONC_GLOBAL=0   <-- in ak::Enc: a REFUSED design from ABI v1 section 6, built on purpose
+core plant: pad-widths   <-- the linked ak-core is a planted feature build
+hardware_concurrency=4
+
+-- the reference bytes, anchored to manifest.json --
+   P1.1  858 B
+   P1.3  605 B
+   P1.2  218121 B
+   P2.2  540422 B
+
+-- T0: does this shape set have a history surface at all? --
+   P1.1 writes 0 of 35 length-prefix sites
+   P1.3 writes 0 of 35 length-prefix sites
+   P1.2 writes 0 of 35 length-prefix sites
+   P2.2 writes 0 of 35 length-prefix sites
+   (AK_CONC_PAD: this probe reads `resize_prefix`, which the plant removes on
+    the narrowing side, so it under-reports here. The surface is the shipped
+    build's, above.)
+
+-- T1: the encoder's output does not depend on its own history --
+   Sequential, one thread. The learned width survives a reset by design, so
+   this asks whether what survives can be seen on the wire. Needs two shapes.
+
+  FAIL  native: P1.3 after P1.1 is byte-identical to P1.3 on a virgin encoder
+  FAIL  ffi:    P1.3 after P1.1 is byte-identical to P1.3 on a virgin context
+  FAIL  native: P1.3 after P1.2 is byte-identical to P1.3 on a virgin encoder
+  FAIL  ffi:    P1.3 after P1.2 is byte-identical to P1.3 on a virgin context
+   12 pairs checked on two arms.
+
+-- T2 and T3: the same work, run in sequence and then together --
+   4 threads x 6 rounds x 4 shapes, every encode memcmp'd against the
+   reference. T2 joins each thread before starting the next, so the two
+   differ only by overlap: a defect that shows in both is not a concurrency
+   defect, and that distinction is why 12.5 asks for both.
+
+  T2 threads in sequence        96 iterations; distinct wrong encodes 69 (native 23, ffi 23, ffi-hosttc 23); wrong decodes 0; spurious-err 0
+  FAIL  T2: every encode in sequence matched the reference
+  T3 threads together           96 iterations; distinct wrong encodes 69 (native 23, ffi 23, ffi-hosttc 23); wrong decodes 0; spurious-err 0
+  FAIL  T3: every encode in parallel matched the reference
+
+-- T4: a failure on one thread is not visible on another --
+   Half the threads feed truncated input and must fail; half feed the
+   reference and must succeed with err == 0. Concurrently, 24 rounds.
+
+   truncated-but-accepted 0, good-but-wrong 0, error leaked across a context 0
+
+-- T5: two threads with different histories encode the same message --
+   Every ordered pair: thread A encodes the prior and then the target,
+   thread B encodes the target alone. Both must produce the reference AND
+   agree with each other -- agreement is the half that a manifest comparison
+   alone would miss if both drifted the same way, which is exactly what a
+   process-global table does.
+
+   P1.1 then P1.3: disagreed 12, wrong 12 (of 12 rounds)
+   P1.2 then P1.3: disagreed 12, wrong 12 (of 12 rounds)
+  FAIL  no ordered pair made two threads disagree
+  FAIL  no ordered pair made a thread diverge from the reference
+   12 ordered pairs x 12 rounds: disagreements 24, wrong against the reference 24
+
+-- T6: one shape against two, same threads, same rounds --
+   12.5: "a suite with one shape reports zero wrong bytes with a
+   per-thread-state defect present and absent alike; two shapes find it in
+   twenty encodes out of twenty." That is a claim, so it is measured. On the
+   shipped design every row below is zero; the three planted builds are where
+   the row that matters is not.
+
+  one shape  (P1.1)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  one shape  (P1.3)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  two shapes (P1.1 + P1.3)               48 iterations,   66 distinct wrong encodes (native 22, ffi 22, hosttc 22), wrong decodes 0
+  four shapes (P1.1 + P1.3 + P1.2 + P2.2)   96 iterations,   69 distinct wrong encodes (native 23, ffi 23, hosttc 23), wrong decodes 0
+
+-- T7 skipped (AK_CONC_NO_T7): a timing, not a gate --
+
+whole run, distinct wrong operations: native-encoder 93  core-encoder 184  decoder 0
+
+41 checks, 8 failures
+This is a PLANTED build. A zero here would mean the suite cannot see the
+defect class it exists for, so failures above are the expected result and
+the exit code is inverted by gen/concurrency.sh, not by this binary.
+  exit 1
+  >>> ok: conc_a17_pad exit code (non-zero: the suite saw the plant) = 1 (-ne 0)
+  >>> ok: conc_a17_pad native-encoder wrong = 93 (-gt 0)
+  >>> ok: conc_a17_pad core-encoder wrong (the ffi arm CAN fail) = 184 (-gt 0)
+  >>> ok: conc_a17_pad decoder wrong (no encode plant reaches the decoder) = 0 (-eq 0)
+
+=========== conc_a17_both 4 6   (a REFUSED design: must FAIL) ===========
+$ ldd ./build/conc_a17_both | grep ak_core
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target-both/release/libak_core.so
+== ABI v1 obligation 12.5: the concurrency suite ==
+-std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
+plants: AK_CONC_PAD=1  AK_CONC_GLOBAL=1   <-- in ak::Enc: a REFUSED design from ABI v1 section 6, built on purpose
+core plant: pad-widths,global-widths   <-- the linked ak-core is a planted feature build
+hardware_concurrency=4
+
+-- the reference bytes, anchored to manifest.json --
+   P1.1  858 B
+   P1.3  605 B
+   P1.2  218121 B
+   P2.2  540422 B
+
+-- T0: does this shape set have a history surface at all? --
+   P1.1 writes 0 of 35 length-prefix sites
+   P1.3 writes 0 of 35 length-prefix sites
+   P1.2 writes 0 of 35 length-prefix sites
+   P2.2 writes 0 of 35 length-prefix sites
+   (AK_CONC_GLOBAL: there is no per-context table to read, so an empty
+    surface here is the plant and not a bad shape set.)
+
+-- T1: the encoder's output does not depend on its own history --
+   Sequential, one thread. The learned width survives a reset by design, so
+   this asks whether what survives can be seen on the wire. Needs two shapes.
+
+  FAIL  native: P1.3 after P1.1 is byte-identical to P1.3 on a virgin encoder
+  FAIL  ffi:    P1.3 after P1.1 is byte-identical to P1.3 on a virgin context
+  FAIL  native: P1.3 after P1.2 is byte-identical to P1.3 on a virgin encoder
+  FAIL  ffi:    P1.3 after P1.2 is byte-identical to P1.3 on a virgin context
+  FAIL  native: P1.3 after P2.2 is byte-identical to P1.3 on a virgin encoder
+  FAIL  ffi:    P1.3 after P2.2 is byte-identical to P1.3 on a virgin context
+   12 pairs checked on two arms.
+
+-- T2 and T3: the same work, run in sequence and then together --
+   4 threads x 6 rounds x 4 shapes, every encode memcmp'd against the
+   reference. T2 joins each thread before starting the next, so the two
+   differ only by overlap: a defect that shows in both is not a concurrency
+   defect, and that distinction is why 12.5 asks for both.
+
+  T2 threads in sequence        96 iterations; distinct wrong encodes 72 (native 24, ffi 24, ffi-hosttc 24); wrong decodes 0; spurious-err 0
+  FAIL  T2: every encode in sequence matched the reference
+  T3 threads together           96 iterations; distinct wrong encodes 72 (native 24, ffi 24, ffi-hosttc 24); wrong decodes 0; spurious-err 0
+  FAIL  T3: every encode in parallel matched the reference
+
+-- T4: a failure on one thread is not visible on another --
+   Half the threads feed truncated input and must fail; half feed the
+   reference and must succeed with err == 0. Concurrently, 24 rounds.
+
+   truncated-but-accepted 0, good-but-wrong 0, error leaked across a context 0
+
+-- T5: two threads with different histories encode the same message --
+   Every ordered pair: thread A encodes the prior and then the target,
+   thread B encodes the target alone. Both must produce the reference AND
+   agree with each other -- agreement is the half that a manifest comparison
+   alone would miss if both drifted the same way, which is exactly what a
+   process-global table does.
+
+   P1.1 then P1.3: disagreed 0, wrong 12 (of 12 rounds)
+   P1.2 then P1.3: disagreed 0, wrong 12 (of 12 rounds)
+   P2.2 then P1.3: disagreed 0, wrong 12 (of 12 rounds)
+  FAIL  no ordered pair made a thread diverge from the reference
+   12 ordered pairs x 12 rounds: disagreements 0, wrong against the reference 36
+
+-- T6: one shape against two, same threads, same rounds --
+   12.5: "a suite with one shape reports zero wrong bytes with a
+   per-thread-state defect present and absent alike; two shapes find it in
+   twenty encodes out of twenty." That is a claim, so it is measured. On the
+   shipped design every row below is zero; the three planted builds are where
+   the row that matters is not.
+
+  one shape  (P1.1)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  one shape  (P1.3)                      24 iterations,   72 distinct wrong encodes (native 24, ffi 24, hosttc 24), wrong decodes 0
+  two shapes (P1.1 + P1.3)               48 iterations,   72 distinct wrong encodes (native 24, ffi 24, hosttc 24), wrong decodes 0
+  four shapes (P1.1 + P1.3 + P1.2 + P2.2)   96 iterations,   72 distinct wrong encodes (native 24, ffi 24, hosttc 24), wrong decodes 0
+
+-- T7 skipped (AK_CONC_NO_T7): a timing, not a gate --
+
+whole run, distinct wrong operations: native-encoder 123  core-encoder 243  decoder 0
+
+41 checks, 9 failures
+This is a PLANTED build. A zero here would mean the suite cannot see the
+defect class it exists for, so failures above are the expected result and
+the exit code is inverted by gen/concurrency.sh, not by this binary.
+  exit 1
+  >>> ok: conc_a17_both exit code (non-zero: the suite saw the plant) = 1 (-ne 0)
+  >>> ok: conc_a17_both native-encoder wrong = 123 (-gt 0)
+  >>> ok: conc_a17_both core-encoder wrong (the ffi arm CAN fail) = 243 (-gt 0)
+  >>> ok: conc_a17_both decoder wrong (no encode plant reaches the decoder) = 0 (-eq 0)
+
+=========== conc_a17_corepad 4 6   (a REFUSED design: must FAIL) ===========
+$ ldd ./build/conc_a17_corepad | grep ak_core
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target-pad/release/libak_core.so
+== ABI v1 obligation 12.5: the concurrency suite ==
+-std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
+plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
+core plant: pad-widths   <-- the linked ak-core is a planted feature build
+hardware_concurrency=4
+
+-- the reference bytes, anchored to manifest.json --
+   P1.1  858 B
+   P1.3  605 B
+   P1.2  218121 B
+   P2.2  540422 B
+
+-- T0: does this shape set have a history surface at all? --
+   P1.1 writes 3 of 35 length-prefix sites
+   P1.3 writes 1 of 35 length-prefix sites
+   P1.2 writes 3 of 35 length-prefix sites
+   P2.2 writes 17 of 35 length-prefix sites
+   after P1.1, P1.3 finds 1 site(s) reserved wider than it needs
+   after P1.2, P1.3 finds 1 site(s) reserved wider than it needs
+
+-- T1: the encoder's output does not depend on its own history --
+   Sequential, one thread. The learned width survives a reset by design, so
+   this asks whether what survives can be seen on the wire. Needs two shapes.
+
+  FAIL  ffi:    P1.3 after P1.1 is byte-identical to P1.3 on a virgin context
+  FAIL  ffi:    P1.3 after P1.2 is byte-identical to P1.3 on a virgin context
+   12 pairs checked on two arms.
+
+-- T2 and T3: the same work, run in sequence and then together --
+   4 threads x 6 rounds x 4 shapes, every encode memcmp'd against the
+   reference. T2 joins each thread before starting the next, so the two
+   differ only by overlap: a defect that shows in both is not a concurrency
+   defect, and that distinction is why 12.5 asks for both.
+
+  T2 threads in sequence        96 iterations; distinct wrong encodes 46 (native 0, ffi 23, ffi-hosttc 23); wrong decodes 0; spurious-err 0
+  FAIL  T2: every encode in sequence matched the reference
+  T3 threads together           96 iterations; distinct wrong encodes 46 (native 0, ffi 23, ffi-hosttc 23); wrong decodes 0; spurious-err 0
+  FAIL  T3: every encode in parallel matched the reference
+
+-- T4: a failure on one thread is not visible on another --
+   Half the threads feed truncated input and must fail; half feed the
+   reference and must succeed with err == 0. Concurrently, 24 rounds.
+
+   truncated-but-accepted 0, good-but-wrong 0, error leaked across a context 0
+
+-- T5: two threads with different histories encode the same message --
+   Every ordered pair: thread A encodes the prior and then the target,
+   thread B encodes the target alone. Both must produce the reference AND
+   agree with each other -- agreement is the half that a manifest comparison
+   alone would miss if both drifted the same way, which is exactly what a
+   process-global table does.
+
+   12 ordered pairs x 12 rounds: disagreements 0, wrong against the reference 0
+
+-- T6: one shape against two, same threads, same rounds --
+   12.5: "a suite with one shape reports zero wrong bytes with a
+   per-thread-state defect present and absent alike; two shapes find it in
+   twenty encodes out of twenty." That is a claim, so it is measured. On the
+   shipped design every row below is zero; the three planted builds are where
+   the row that matters is not.
+
+  one shape  (P1.1)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  one shape  (P1.3)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  two shapes (P1.1 + P1.3)               48 iterations,   44 distinct wrong encodes (native 0, ffi 22, hosttc 22), wrong decodes 0
+  four shapes (P1.1 + P1.3 + P1.2 + P2.2)   96 iterations,   46 distinct wrong encodes (native 0, ffi 23, hosttc 23), wrong decodes 0
+
+-- T7 skipped (AK_CONC_NO_T7): a timing, not a gate --
+
+whole run, distinct wrong operations: native-encoder 0  core-encoder 184  decoder 0
+
+42 checks, 4 failures
+This is a PLANTED build. A zero here would mean the suite cannot see the
+defect class it exists for, so failures above are the expected result and
+the exit code is inverted by gen/concurrency.sh, not by this binary.
+  exit 1
+  >>> ok: conc_a17_corepad exit code (non-zero: the suite saw the plant) = 1 (-ne 0)
+  >>> ok: conc_a17_corepad native-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_a17_corepad core-encoder wrong (the ffi arm CAN fail) = 184 (-gt 0)
+  >>> ok: conc_a17_corepad decoder wrong (no encode plant reaches the decoder) = 0 (-eq 0)
+
+=========== conc_a17_global 4 6   (a REFUSED design that is byte-CLEAN: must PASS) ===========
+$ ldd ./build/conc_a17_global | grep ak_core
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target-global/release/libak_core.so
+== ABI v1 obligation 12.5: the concurrency suite ==
+-std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
+plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=1   <-- in ak::Enc: a REFUSED design from ABI v1 section 6, built on purpose
+core plant: global-widths   <-- the linked ak-core is a planted feature build
+hardware_concurrency=4
+
+-- the reference bytes, anchored to manifest.json --
+   P1.1  858 B
+   P1.3  605 B
+   P1.2  218121 B
+   P2.2  540422 B
+
+-- T0: does this shape set have a history surface at all? --
+   P1.1 writes 0 of 35 length-prefix sites
+   P1.3 writes 0 of 35 length-prefix sites
+   P1.2 writes 0 of 35 length-prefix sites
+   P2.2 writes 0 of 35 length-prefix sites
+   (AK_CONC_GLOBAL: there is no per-context table to read, so an empty
+    surface here is the plant and not a bad shape set.)
+
+-- T1: the encoder's output does not depend on its own history --
+   Sequential, one thread. The learned width survives a reset by design, so
+   this asks whether what survives can be seen on the wire. Needs two shapes.
+
+   12 pairs checked on two arms.
+
+-- T2 and T3: the same work, run in sequence and then together --
+   4 threads x 6 rounds x 4 shapes, every encode memcmp'd against the
+   reference. T2 joins each thread before starting the next, so the two
+   differ only by overlap: a defect that shows in both is not a concurrency
+   defect, and that distinction is why 12.5 asks for both.
+
+  T2 threads in sequence        96 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+  T3 threads together           96 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+
+-- T4: a failure on one thread is not visible on another --
+   Half the threads feed truncated input and must fail; half feed the
+   reference and must succeed with err == 0. Concurrently, 24 rounds.
+
+   truncated-but-accepted 0, good-but-wrong 0, error leaked across a context 0
+
+-- T5: two threads with different histories encode the same message --
+   Every ordered pair: thread A encodes the prior and then the target,
+   thread B encodes the target alone. Both must produce the reference AND
+   agree with each other -- agreement is the half that a manifest comparison
+   alone would miss if both drifted the same way, which is exactly what a
+   process-global table does.
+
+   12 ordered pairs x 12 rounds: disagreements 0, wrong against the reference 0
+
+-- T6: one shape against two, same threads, same rounds --
+   12.5: "a suite with one shape reports zero wrong bytes with a
+   per-thread-state defect present and absent alike; two shapes find it in
+   twenty encodes out of twenty." That is a claim, so it is measured. On the
+   shipped design every row below is zero; the three planted builds are where
+   the row that matters is not.
+
+  one shape  (P1.1)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  one shape  (P1.3)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  two shapes (P1.1 + P1.3)               48 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  four shapes (P1.1 + P1.3 + P1.2 + P2.2)   96 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+
+-- T7 skipped (AK_CONC_NO_T7): a timing, not a gate --
+
+whole run, distinct wrong operations: native-encoder 0  core-encoder 0  decoder 0
+
+41 checks, 0 failures
+This is a PLANTED build. A zero here would mean the suite cannot see the
+defect class it exists for, so failures above are the expected result and
+the exit code is inverted by gen/concurrency.sh, not by this binary.
+  exit 0
+  >>> ok: conc_a17_global exit code = 0 (-eq 0)
+  >>> ok: conc_a17_global native-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_a17_global core-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_a17_global links the global-widths core (grep status) = 0 (-eq 0)
+
+concurrency: 0 expectation(s) not met
+>>> ok: concurrency.sh (exit 0)
+
+===== odr_check.sh =====
+== pass 1: the facade as it is ==
+TU A: __cplusplus = 201103   TU B: __cplusplus = 201703
+163 layout facts compared across the two levels, 0 moved
+objects passed across the seam in both directions: ok
+  exit 0 (0 = no installed type's layout moved with -std)
+
+== pass 2: the POSITIVE CONTROL, one type made -std dependent on purpose ==
+TU A: __cplusplus = 201103   TU B: __cplusplus = 201703
+  MOVED  sizeof shapes::ResultRaw                         c++11=360  c++17=376
+  MOVED  shapes::ResultRaw.completed_at                   c++11=160  c++17=168
+  MOVED  shapes::ResultRaw.result_id                      c++11=216  c++17=232
+  MOVED  shapes::ResultRaw.size                           c++11=248  c++17=264
+  MOVED  shapes::ResultRaw.created_by                     c++11=256  c++17=272
+  MOVED  shapes::ResultRaw.opaque_id                      c++11=288  c++17=304
+  MOVED  shapes::ResultRaw.manual_deletion                c++11=320  c++17=336
+  MOVED  shapes::ResultRaw.unknown_fields                 c++11=328  c++17=344
+  MOVED  sizeof shapes::TaskOptions                       c++11=336  c++17=344
+  MOVED  shapes::TaskOptions.max_retries                  c++11=104  c++17=112
+  MOVED  shapes::TaskOptions.priority                     c++11=108  c++17=116
+  MOVED  shapes::TaskOptions.partition_id                 c++11=112  c++17=120
+  MOVED  shapes::TaskOptions.application_name             c++11=144  c++17=152
+  MOVED  shapes::TaskOptions.application_version          c++11=176  c++17=184
+  MOVED  shapes::TaskOptions.application_namespace        c++11=208  c++17=216
+  MOVED  shapes::TaskOptions.application_service          c++11=240  c++17=248
+  MOVED  shapes::TaskOptions.engine_type                  c++11=272  c++17=280
+  MOVED  shapes::TaskOptions.unknown_fields               c++11=304  c++17=312
+  MOVED  sizeof shapes::TaskDetailed                      c++11=1488  c++17=1608
+  MOVED  shapes::TaskDetailed.created_at                  c++11=576  c++17=592
+  MOVED  shapes::TaskDetailed.submitted_at                c++11=632  c++17=656
+  MOVED  shapes::TaskDetailed.started_at                  c++11=688  c++17=720
+  MOVED  shapes::TaskDetailed.ended_at                    c++11=744  c++17=784
+  MOVED  shapes::TaskDetailed.pod_ttl                     c++11=800  c++17=848
+  MOVED  shapes::TaskDetailed.output                      c++11=856  c++17=912
+  MOVED  shapes::TaskDetailed.pod_hostname                c++11=936  c++17=1000
+  MOVED  shapes::TaskDetailed.received_at                 c++11=968  c++17=1032
+  MOVED  shapes::TaskDetailed.acquired_at                 c++11=1024  c++17=1096
+  MOVED  shapes::TaskDetailed.creation_to_end_duration    c++11=1080  c++17=1160
+  MOVED  shapes::TaskDetailed.processing_to_end_duration  c++11=1136  c++17=1224
+  MOVED  shapes::TaskDetailed.initial_task_id             c++11=1192  c++17=1288
+  MOVED  shapes::TaskDetailed.received_to_end_duration    c++11=1224  c++17=1320
+  MOVED  shapes::TaskDetailed.processed_at                c++11=1280  c++17=1384
+  MOVED  shapes::TaskDetailed.fetched_at                  c++11=1336  c++17=1448
+  MOVED  shapes::TaskDetailed.payload_id                  c++11=1392  c++17=1512
+  MOVED  shapes::TaskDetailed.created_by                  c++11=1424  c++17=1544
+  MOVED  shapes::TaskDetailed.unknown_fields              c++11=1456  c++17=1576
+  MOVED  sizeof shapes::TaskSummary                       c++11=576  c++17=600
+  MOVED  shapes::TaskSummary.status                       c++11=408  c++17=424
+  MOVED  shapes::TaskSummary.created_at                   c++11=416  c++17=432
+  MOVED  shapes::TaskSummary.error                        c++11=472  c++17=496
+  MOVED  shapes::TaskSummary.status_message               c++11=504  c++17=528
+  MOVED  shapes::TaskSummary.count_data_dependencies      c++11=536  c++17=560
+  MOVED  shapes::TaskSummary.unknown_fields               c++11=544  c++17=568
+  MOVED  sizeof shapes::Probe                             c++11=176  c++17=200
+  MOVED  shapes::Probe.opt_label                          c++11=40  c++17=48
+  MOVED  shapes::Probe.opt_flag                           c++11=80  c++17=96
+  MOVED  shapes::Probe.unknown_fields                     c++11=144  c++17=168
+  MOVED  shapes::Probe.body                               c++11=88  c++17=112
+  MOVED  sizeof shapes::UploadResultDataMessage           c++11=168  c++17=176
+  MOVED  shapes::UploadResultDataMessage.unknown_fields   c++11=136  c++17=144
+  MOVED  sizeof ak::Optional<int32_t>                     c++11=8  c++17=16
+  MOVED  alignof ak::Optional<int32_t>                    c++11=4  c++17=8
+  MOVED  sizeof ak::Optional<int64_t>                     c++11=16  c++17=24
+  MOVED  sizeof ak::Optional<double>                      c++11=16  c++17=24
+163 layout facts compared across the two levels, 55 moved
+a moved layout is an ODR violation: the objects below would be misread,
+so the check stops here rather than demonstrating it by crashing.
+  exit 1 (nonzero = the check CAN fail, so pass 1 means something)
+
+odr_check: ok
+>>> ok: odr_check.sh (exit 0)
+
+===== bench_a17_shared, AK_BENCH_GATE_ONLY=1 =====
+  P5.4  dec gate: 5 of 5 arms pass
+  P6.1  enc gate: 10 of 10 arms pass
+  P6.1  dec gate: 5 of 5 arms pass
+gate-only run: 0 arm(s) failed their gate
+>>> ok: bench_a17_shared
+
+===== bench_a17_static, AK_BENCH_GATE_ONLY=1 =====
+  P5.4  dec gate: 5 of 5 arms pass
+  P6.1  enc gate: 10 of 10 arms pass
+  P6.1  dec gate: 5 of 5 arms pass
+gate-only run: 0 arm(s) failed their gate
+>>> ok: bench_a17_static
+
+===== bench_b17_shared, AK_BENCH_GATE_ONLY=1 =====
+  P5.4  dec gate: 5 of 5 arms pass
+  P6.1  enc gate: 10 of 10 arms pass
+  P6.1  dec gate: 5 of 5 arms pass
+gate-only run: 0 arm(s) failed their gate
+>>> ok: bench_b17_shared
+
+===== bench_c14_shared, AK_BENCH_GATE_ONLY=1 =====
+  P5.4  dec gate: 5 of 5 arms pass
+  P6.1  enc gate: 10 of 10 arms pass
+  P6.1  dec gate: 5 of 5 arms pass
+gate-only run: 0 arm(s) failed their gate
+>>> ok: bench_c14_shared
+
+===== bench_c11_shared, AK_BENCH_GATE_ONLY=1 =====
+  P5.4  dec gate: 5 of 5 arms pass
+  P6.1  enc gate: 10 of 10 arms pass
+  P6.1  dec gate: 5 of 5 arms pass
+gate-only run: 0 arm(s) failed their gate
+>>> ok: bench_c11_shared
+
+===== bench_a17_gateplant (a refusing ffi-valtc): must refuse to time it and exit 1 =====
+gate-only run: 14 arm(s) failed their gate and would NOT have been timed
+>>> ok: planted gate refused (exit 1)
+
+===== contentsets_a17, AK_CS_GATE_ONLY=1 =====
+== the content sets, on whole payloads ==
+-std=201703  impl=target  linkage=shared  rounds=0
+protobuf 3021012.  Oracle: the INCUMBENT arm, anchored to manifest.json on ascii
+C++ holds UTF-8 already, so these rows price WIDTH AND VALIDATION, never a
+narrowing transcoder. Not comparable with a managed slice's (SHAPES.md).
+
+-- byte identity, every arm against the incumbent, every set --
+
+  95 checks, 0 failures
+  AK_CS_GATE_ONLY: gates only, no timing reported
+>>> ok: contentsets gate (exit 0)
+
+===== crossing counts (the COUNTING core, R5) =====
+counting build, linkage=shared, -std=201703
+Per-element columns are forward / reverse.
+
+  P1.1   encode                 forward      2  reverse      1  transcode       24   per element  0.500 /  0.250
+  P1.1   encode zeroed-fill     forward      2  reverse      1  transcode       24   per element  0.500 /  0.250
+  P1.1   encode UNBATCHED       forward      5  reverse      1  transcode       24   per element  1.250 /  0.250
+  P1.1   encode host transcoder forward      2  reverse     25  transcode       24   per element  0.500 /  6.250
+  P1.1   decode                 forward      1  reverse      2  transcode        0   per element  0.250 /  0.500
+  P1.2   encode                 forward      8  reverse      1  transcode     6000   per element  0.008 /  0.001
+  P1.2   encode zeroed-fill     forward      8  reverse      1  transcode     6000   per element  0.008 /  0.001
+  P1.2   encode UNBATCHED       forward   1001  reverse      1  transcode     6000   per element  1.001 /  0.001
+  P1.2   encode host transcoder forward      8  reverse   6001  transcode     6000   per element  0.008 /  6.001
+  P1.2   decode                 forward      1  reverse      5  transcode        0   per element  0.001 /  0.005
+  P1.3   encode                 forward      3  reverse      1  transcode        0   per element  0.010 /  0.003
+  P1.3   encode zeroed-fill     forward      3  reverse      1  transcode        0   per element  0.010 /  0.003
+  P1.3   encode UNBATCHED       forward    301  reverse      1  transcode        0   per element  1.003 /  0.003
+  P1.3   encode host transcoder forward      3  reverse      1  transcode        0   per element  0.010 /  0.003
+  P1.3   decode                 forward      1  reverse      3  transcode        0   per element  0.003 /  0.010
+  P2.1   encode                 forward      7  reverse      6  transcode       35   per element  7.000 /  6.000
+  P2.1   encode zeroed-fill     forward      7  reverse      6  transcode       35   per element  7.000 /  6.000
+  P2.1   encode UNBATCHED       forward     18  reverse      6  transcode       35   per element 18.000 /  6.000
+  P2.1   encode host transcoder forward      7  reverse     41  transcode       35   per element  7.000 / 41.000
+  P2.1   decode                 forward      1  reverse      8  transcode        0   per element  1.000 /  8.000
+  P2.2   encode                 forward   2511  reverse   2501  transcode    17167   per element  5.022 /  5.002
+  P2.2   encode zeroed-fill     forward   2511  reverse   2501  transcode    17167   per element  5.022 /  5.002
+  P2.2   encode UNBATCHED       forward   8501  reverse   2501  transcode    17167   per element 17.002 /  5.002
+  P2.2   encode host transcoder forward   2511  reverse  19668  transcode    17167   per element  5.022 / 39.336
+  P2.2   decode                 forward      1  reverse   3501  transcode        0   per element  0.002 /  7.002
+  P2.3   encode                 forward    629  reverse    626  transcode    17792   per element  5.032 /  5.008
+  P2.3   encode zeroed-fill     forward    629  reverse    626  transcode    17792   per element  5.032 /  5.008
+  P2.3   encode UNBATCHED       forward  15626  reverse    626  transcode    17792   per element 125.008 /  5.008
+  P2.3   encode host transcoder forward    629  reverse  18418  transcode    17792   per element  5.032 / 147.344
+  P2.3   decode                 forward      1  reverse    876  transcode        0   per element  0.008 /  7.008
+  P2.4   encode                 forward    403  reverse    401  transcode    26267   per element  5.037 /  5.013
+  P2.4   encode zeroed-fill     forward    403  reverse    401  transcode    26267   per element  5.037 /  5.013
+  P2.4   encode UNBATCHED       forward  24881  reverse    401  transcode    26267   per element 311.012 /  5.013
+  P2.4   encode host transcoder forward    403  reverse  26668  transcode    26267   per element  5.037 / 333.350
+  P2.4   decode                 forward      1  reverse    561  transcode        0   per element  0.013 /  7.013
+  P2.5   encode                 forward    102  reverse    101  transcode      640   per element  5.100 /  5.050
+  P2.5   encode zeroed-fill     forward    102  reverse    101  transcode      640   per element  5.100 /  5.050
+  P2.5   encode UNBATCHED       forward    341  reverse    101  transcode      640   per element 17.050 /  5.050
+  P2.5   encode host transcoder forward    102  reverse    741  transcode      640   per element  5.100 / 37.050
+  P2.5   decode                 forward      1  reverse    141  transcode        0   per element  0.050 /  7.050
+  P3.1   encode                 forward      2  reverse      1  transcode      430   per element  0.010 /  0.005
+  P3.1   encode zeroed-fill     forward      2  reverse      1  transcode      430   per element  0.010 /  0.005
+  P3.1   encode UNBATCHED       forward    201  reverse      1  transcode      430   per element  1.005 /  0.005
+  P3.1   encode host transcoder forward      2  reverse    431  transcode      430   per element  0.010 /  2.155
+  P3.1   decode                 forward      1  reverse      2  transcode        0   per element  0.005 /  0.010
+  P4.1   encode                 forward    203  reverse    201  transcode     3467   per element  1.015 /  1.005
+  P4.1   encode zeroed-fill     forward    203  reverse    201  transcode     3467   per element  1.015 /  1.005
+  P4.1   encode UNBATCHED       forward   1001  reverse    201  transcode     3467   per element  5.005 /  1.005
+  P4.1   encode host transcoder forward    203  reverse   3668  transcode     3467   per element  1.015 / 18.340
+  P4.1   decode                 forward      1  reverse    601  transcode        0   per element  0.005 /  3.005
+  P5.1   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.1   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.1   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.1   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
+  P5.1   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.2   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.2   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.2   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.2   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
+  P5.2   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.3   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.3   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.3   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.3   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
+  P5.3   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.4   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.4   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.4   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.4   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
+  P5.4   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P6.1   encode                 forward   1002  reverse   1001  transcode      200   per element  5.010 /  5.005
+  P6.1   encode zeroed-fill     forward   1002  reverse   1001  transcode      200   per element  5.010 /  5.005
+  P6.1   encode UNBATCHED       forward   1201  reverse   1001  transcode      200   per element  6.005 /  5.005
+  P6.1   encode host transcoder forward   1002  reverse   1201  transcode      200   per element  5.010 /  6.005
+  P6.1   decode                 forward      1  reverse   1401  transcode        0   per element  0.005 /  7.005
+
+-- the batching predicate's decomposition (ABI v1 decision 1) --
+  payload element group      sizeof  chunk cap       used  chunk bytes
+  P1.1   ResultRaw             200        163          4          800   fits L1?
+  P1.2   ResultRaw             200        163        163        32600           
+  P1.3   ResultRaw             200        163        163        32600           
+  P2.1   TaskDetailed          616         53          1          616   fits L1?
+  P2.2   TaskDetailed          616         53         53        32648           
+  P2.3   TaskDetailed          616         53         53        32648           
+  P2.4   TaskDetailed          616         53         53        32648           
+  P2.5   TaskDetailed          616         53         20        12320   fits L1?
+  P3.1   Probe                 144        227        200        28800           
+  P4.1   TaskSummary           312        105        105        32760           
+  P6.1   MetricsBatch           32       1024        200         6400   fits L1?
+  P2.3 and P2.4 are the two payloads where UNBATCHING adds 125 and 311
+  forward crossings per element rather than 1, and they are the two where
+  batching wins decisively. Everywhere else the delta tracks the chunk
+  bytes touched, not the crossing count.
+>>> ok: counts shared (exit 0)
+
+counting build, linkage=static, -std=201703
+Per-element columns are forward / reverse.
+
+  P1.1   encode                 forward      2  reverse      1  transcode       24   per element  0.500 /  0.250
+  P1.1   encode zeroed-fill     forward      2  reverse      1  transcode       24   per element  0.500 /  0.250
+  P1.1   encode UNBATCHED       forward      5  reverse      1  transcode       24   per element  1.250 /  0.250
+  P1.1   encode host transcoder forward      2  reverse     25  transcode       24   per element  0.500 /  6.250
+  P1.1   decode                 forward      1  reverse      2  transcode        0   per element  0.250 /  0.500
+  P1.2   encode                 forward      8  reverse      1  transcode     6000   per element  0.008 /  0.001
+  P1.2   encode zeroed-fill     forward      8  reverse      1  transcode     6000   per element  0.008 /  0.001
+  P1.2   encode UNBATCHED       forward   1001  reverse      1  transcode     6000   per element  1.001 /  0.001
+  P1.2   encode host transcoder forward      8  reverse   6001  transcode     6000   per element  0.008 /  6.001
+  P1.2   decode                 forward      1  reverse      5  transcode        0   per element  0.001 /  0.005
+  P1.3   encode                 forward      3  reverse      1  transcode        0   per element  0.010 /  0.003
+  P1.3   encode zeroed-fill     forward      3  reverse      1  transcode        0   per element  0.010 /  0.003
+  P1.3   encode UNBATCHED       forward    301  reverse      1  transcode        0   per element  1.003 /  0.003
+  P1.3   encode host transcoder forward      3  reverse      1  transcode        0   per element  0.010 /  0.003
+  P1.3   decode                 forward      1  reverse      3  transcode        0   per element  0.003 /  0.010
+  P2.1   encode                 forward      7  reverse      6  transcode       35   per element  7.000 /  6.000
+  P2.1   encode zeroed-fill     forward      7  reverse      6  transcode       35   per element  7.000 /  6.000
+  P2.1   encode UNBATCHED       forward     18  reverse      6  transcode       35   per element 18.000 /  6.000
+  P2.1   encode host transcoder forward      7  reverse     41  transcode       35   per element  7.000 / 41.000
+  P2.1   decode                 forward      1  reverse      8  transcode        0   per element  1.000 /  8.000
+  P2.2   encode                 forward   2511  reverse   2501  transcode    17167   per element  5.022 /  5.002
+  P2.2   encode zeroed-fill     forward   2511  reverse   2501  transcode    17167   per element  5.022 /  5.002
+  P2.2   encode UNBATCHED       forward   8501  reverse   2501  transcode    17167   per element 17.002 /  5.002
+  P2.2   encode host transcoder forward   2511  reverse  19668  transcode    17167   per element  5.022 / 39.336
+  P2.2   decode                 forward      1  reverse   3501  transcode        0   per element  0.002 /  7.002
+  P2.3   encode                 forward    629  reverse    626  transcode    17792   per element  5.032 /  5.008
+  P2.3   encode zeroed-fill     forward    629  reverse    626  transcode    17792   per element  5.032 /  5.008
+  P2.3   encode UNBATCHED       forward  15626  reverse    626  transcode    17792   per element 125.008 /  5.008
+  P2.3   encode host transcoder forward    629  reverse  18418  transcode    17792   per element  5.032 / 147.344
+  P2.3   decode                 forward      1  reverse    876  transcode        0   per element  0.008 /  7.008
+  P2.4   encode                 forward    403  reverse    401  transcode    26267   per element  5.037 /  5.013
+  P2.4   encode zeroed-fill     forward    403  reverse    401  transcode    26267   per element  5.037 /  5.013
+  P2.4   encode UNBATCHED       forward  24881  reverse    401  transcode    26267   per element 311.012 /  5.013
+  P2.4   encode host transcoder forward    403  reverse  26668  transcode    26267   per element  5.037 / 333.350
+  P2.4   decode                 forward      1  reverse    561  transcode        0   per element  0.013 /  7.013
+  P2.5   encode                 forward    102  reverse    101  transcode      640   per element  5.100 /  5.050
+  P2.5   encode zeroed-fill     forward    102  reverse    101  transcode      640   per element  5.100 /  5.050
+  P2.5   encode UNBATCHED       forward    341  reverse    101  transcode      640   per element 17.050 /  5.050
+  P2.5   encode host transcoder forward    102  reverse    741  transcode      640   per element  5.100 / 37.050
+  P2.5   decode                 forward      1  reverse    141  transcode        0   per element  0.050 /  7.050
+  P3.1   encode                 forward      2  reverse      1  transcode      430   per element  0.010 /  0.005
+  P3.1   encode zeroed-fill     forward      2  reverse      1  transcode      430   per element  0.010 /  0.005
+  P3.1   encode UNBATCHED       forward    201  reverse      1  transcode      430   per element  1.005 /  0.005
+  P3.1   encode host transcoder forward      2  reverse    431  transcode      430   per element  0.010 /  2.155
+  P3.1   decode                 forward      1  reverse      2  transcode        0   per element  0.005 /  0.010
+  P4.1   encode                 forward    203  reverse    201  transcode     3467   per element  1.015 /  1.005
+  P4.1   encode zeroed-fill     forward    203  reverse    201  transcode     3467   per element  1.015 /  1.005
+  P4.1   encode UNBATCHED       forward   1001  reverse    201  transcode     3467   per element  5.005 /  1.005
+  P4.1   encode host transcoder forward    203  reverse   3668  transcode     3467   per element  1.015 / 18.340
+  P4.1   decode                 forward      1  reverse    601  transcode        0   per element  0.005 /  3.005
+  P5.1   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.1   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.1   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.1   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
+  P5.1   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.2   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.2   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.2   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.2   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
+  P5.2   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.3   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.3   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.3   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.3   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
+  P5.3   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.4   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.4   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.4   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.4   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
+  P5.4   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P6.1   encode                 forward   1002  reverse   1001  transcode      200   per element  5.010 /  5.005
+  P6.1   encode zeroed-fill     forward   1002  reverse   1001  transcode      200   per element  5.010 /  5.005
+  P6.1   encode UNBATCHED       forward   1201  reverse   1001  transcode      200   per element  6.005 /  5.005
+  P6.1   encode host transcoder forward   1002  reverse   1201  transcode      200   per element  5.010 /  6.005
+  P6.1   decode                 forward      1  reverse   1401  transcode        0   per element  0.005 /  7.005
+
+-- the batching predicate's decomposition (ABI v1 decision 1) --
+  payload element group      sizeof  chunk cap       used  chunk bytes
+  P1.1   ResultRaw             200        163          4          800   fits L1?
+  P1.2   ResultRaw             200        163        163        32600           
+  P1.3   ResultRaw             200        163        163        32600           
+  P2.1   TaskDetailed          616         53          1          616   fits L1?
+  P2.2   TaskDetailed          616         53         53        32648           
+  P2.3   TaskDetailed          616         53         53        32648           
+  P2.4   TaskDetailed          616         53         53        32648           
+  P2.5   TaskDetailed          616         53         20        12320   fits L1?
+  P3.1   Probe                 144        227        200        28800           
+  P4.1   TaskSummary           312        105        105        32760           
+  P6.1   MetricsBatch           32       1024        200         6400   fits L1?
+  P2.3 and P2.4 are the two payloads where UNBATCHING adds 125 and 311
+  forward crossings per element rather than 1, and they are the two where
+  batching wins decisively. Everywhere else the delta tracks the chunk
+  bytes touched, not the crossing count.
+>>> ok: counts static (exit 0)
+
+===== RPC crossing counts (the binding's ak_init_once before the first RPC) =====
+counting core: ak_rpc_counting() = 1
+configuration: grpc++ 1.51.1 server, UDS, transport pinned, 5 RPCs per cell
+
+delivery   method                   resp bytes   fwd/RPC   rev/RPC   ABI v1 section 9 says
+blocking   Fetch (~4,500 fields)        540422     2.000     0.000   2 fwd / 0 rev
+callback   Fetch (~4,500 fields)        540422     3.000     1.000   2 fwd / 1 rev
+queue      Fetch (~4,500 fields)        540422     4.000     0.000   3 fwd / 0 rev
+blocking   Ping  (0 fields)                  0     2.000     0.000   2 fwd / 0 rev
+callback   Ping  (0 fields)                  0     3.000     1.000   2 fwd / 1 rev
+queue      Ping  (0 fields)                  0     4.000     0.000   3 fwd / 0 rev
+
+What the two methods settle: the counts are identical on a 540 KB response
+with about 4,500 fields and on an empty one with none, so the crossing count
+per RPC is not a function of field count. That is section 9's claim, COUNTED.
+
+What the table gets wrong, and it is not rounding. The callback and the
+queue both return an `ak_call*` the host must release, and section 9's table
+does not count `ak_call_destroy`. A host that does not call it leaks a handle
+per RPC. Counted with the handle released as the ABI requires:
+  blocking  2 fwd / 0 rev   (the table's 2/0, and this one is right --
+                                   the blocking form takes no handle here)
+  callback  3 fwd / 1 rev   (the table says 2/1)
+  queue     4 fwd / 0 rev   (the table says 3/0)
+
+Still the point section 9 is making: three, four crossings against a call of
+about a millisecond of CPU. At this slice's measured 1.82 ns per forward
+crossing through a shared library, the whole boundary is under 8 ns.
+>>> ok: rpccounts (exit 0)
+

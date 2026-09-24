@@ -1,0 +1,8 @@
+generator      0 failure(s)
+conformance    0 failure(s)
+corpus         0 failure(s)
+bytes          0 failure(s)
+boundary       0 failure(s)
+gates          0 failure(s)
+wp5_gate: 0 step(s) failed
+exit 0

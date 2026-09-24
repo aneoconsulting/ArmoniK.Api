@@ -1,0 +1,51 @@
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /tmp/claude-0/csprobe/ffi/corpus/generated/manifest.json (11 rows run of 11)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=both limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+
+## managed-drop
+   pass 10  fail 1  disputed (excluded) 0  not in the C ABI 0
+     probe      pass   10  fail   1
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+   refusals by code (C4):
+        2  managed -4 (malformed)
+   FAIL P-field-maxplus1-in-group: C4: accepted a reject row
+
+## managed-retain
+   pass 10  fail 1  disputed (excluded) 0  not in the C ABI 0
+     probe      pass   10  fail   1
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+   refusals by code (C4):
+        2  managed -4 (malformed)
+   FAIL P-field-maxplus1-in-group: C4: accepted a reject row
+
+## ffi-drop
+   pass 11  fail 0  disputed (excluded) 0  not in the C ABI 0
+     probe      pass   11  fail   0
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+   refusals by code (C4):
+        3  core -2 (malformed)
+
+## ffi-retain
+   pass 11  fail 0  disputed (excluded) 0  not in the C ABI 0
+     probe      pass   11  fail   0
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+   refusals by code (C4):
+        3  core -2 (malformed)
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 2, differs on 0, 9 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS FAILS: 2 arm-row failure(s), 0 hang/crash row(s)

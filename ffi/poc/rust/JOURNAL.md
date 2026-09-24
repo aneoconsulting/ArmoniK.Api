@@ -2124,3 +2124,39 @@ corpus's own merge (`spec.load()`), so `fixed32` and the corpus-only messages ex
 - `gen/concur.sh`'s `| head` under `pipefail` made the counting run exit 101 on one gate run.
 - The python generator reports `ak_abi.h` STALE at the base commit already (the cpp slice's
   header changed under it); not caused by this work.
+
+## 2026-09-24 -- FIX-PLAN WP5 step 6: consolidation (authorized by the aggregating session)
+
+### Done
+
+1. `plan.FIXED` (FixedAbi): error codes and details, handles, fn types (ak_log_fn,
+   transcoders, loop/unk callbacks), ak_str/ak_span/ak_blob/ak_uspan/ak_err/ak_init_opts/
+   AkCounters/ak_bdr_rec, AK_STR_DIRECT/AK_TOKEN_ROOT/AK_BDR_*, the fixed entry points and
+   export list, AK_INIT_* flag values and success codes, RPC counting surface; vtable member
+   order, pull record numbering and `pull_slot` as plan functions. Rust renders the fixed part
+   of ak-abi/src/lib.rs into a `plan.fixed` region and asserts the core's definitions with
+   abi_check.rs (fn-pointer coercions).
+2. `c_abi.py` (was cpp_abi.py) is the one C header; java_abi.py and cpp/gen/cpp_header.py
+   deleted; C# declarations from plan.FIXED. rust_core.py deleted; references fixed
+   (generate.py, one_core.sh, gen/corpus_before.py).
+3. generate.py: guard over every backend (26), one command runs every slice generator.
+   one_core.sh --selftest failed in the cpp gate's first run (cpp-1) because the scratch
+   copy lacked ffi/corpus and saw untracked files; fixed, controls shown failing.
+4. python mech generator and arms retired (3cee365), logs kept.
+5. Rules: asked the oracles before changing anything. 10th byte: all three accept, kept
+   "discard" (contrary to the brief). Field number > 2^29-1: upb and C++ refuse, pure-python
+   accepts; rendered as ERR_MALFORMED in every generated reader and in ak-rt's skip_group.
+   Map order: Java TreeMap<String> sorts by UTF-16 units and C# kept insertion order; both
+   now sort by UTF-8 bytes. Before/after on a scratch probe manifest (not the corpus).
+
+### Refuted / not done
+
+- "The rules are now in every arm": refuted for the hand runtimes (D38) -- the in-group
+  field-number check reaches only generated code and ak-rt.
+- First java after-probe still accepted every field row on the ffi arms. First hypothesis
+  "not running": correct. A fresh core build refused (-2) through ctypes, the java slice's
+  `core-build/target-corpus` accepted; its build reused the target dir over a snapshot. Clean
+  rebuild: ffi arms 0 fails. Same question asked of cpp: `build/` binaries predated the C++
+  backend commit, so the second cpp gate run (cpp-2-stale-binaries) proved nothing; rebuilt
+  with cmake and reran (cpp-3). D39.
+- C# RPC counting not rendered (hand CoreTransport.cs would clash), D40.
