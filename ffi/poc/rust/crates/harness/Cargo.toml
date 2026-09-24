@@ -131,3 +131,9 @@ path = "src/bin/contentall.rs"
 [[bin]]
 name = "rpcgrid"
 path = "src/bin/rpcgrid.rs"
+
+[[bin]]
+# FIX-PLAN WP4 item 1 / R-D1: the length-varint-wrap reproduction driver. One case per
+# process; the shell driver runs each under `timeout`.
+name = "rdrepro"
+path = "src/bin/rdrepro.rs"

@@ -16,3 +16,6 @@ target-count/
 target-ig/
 target-pad/
 target-gw-pad/
+# WP4 item 1 / R-D1: this session's own CARGO_TARGET_DIR, kept off poc/codec/target so
+# the core rebuild does not contend with the other slice agents.
+target-r-d1/

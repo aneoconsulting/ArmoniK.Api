@@ -1,0 +1,44 @@
+# R-D1 length-varint-wrap reproduction -- unfixed
+#   rustc 1.94.1, release (overflow-checks off), cdylib boundary
+#   each case: timeout 5 ./rdrepro <case>
+#   exit 124 = hang, 134 = SIGABRT (panic across extern "C"), 101 = rust panic, 139 = SIGSEGV
+#   input for (a) is the finding's literal 11 bytes: 7A F5 FF FF FF FF FF FF FF FF 01
+
+## case a-ffi
+    -> exit=124 (TIMEOUT/hang)
+
+## case a-native
+    -> exit=124 (TIMEOUT/hang)
+
+## case b-err-ffi
+    [b-err] ffi   rc=-2 elems=1 apply_called=true session_id.off=4 session_id.len=2 (0x00000002)
+    -> exit=0 (returned)
+
+## case b-err-native
+    [b-err] native rc=-2 (Err)
+    -> exit=0 (returned)
+
+## case b-span-ffi
+    [b-span] ffi   rc=-2 elems=1 apply_called=true session_id.off=13 session_id.len=4294967295 (0xFFFFFFFF)
+    -> exit=0 (returned)
+
+## case b-span-native
+    thread 'main' (13297) panicked at crates/facade/src/generated/core_native.rs:380:54:
+    slice index starts at 11 but ends at 10
+    -> exit=101 (rust panic)
+
+## case c-ffi
+    thread '<unnamed>' (13305) panicked at /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:3877:44:
+    slice index starts at 11 but ends at 10
+    thread '<unnamed>' (13305) panicked at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library/core/src/panicking.rs:225:5:
+    panic in a function that cannot unwind
+    -> exit=134 (SIGABRT (extern-C abort))
+
+## case c-native
+    thread 'main' (13313) panicked at crates/facade/src/generated/core_native.rs:1127:44:
+    slice index starts at 11 but ends at 10
+    -> exit=101 (rust panic)
+
+## case u32-ffi
+    -> exit=124 (TIMEOUT/hang)
+

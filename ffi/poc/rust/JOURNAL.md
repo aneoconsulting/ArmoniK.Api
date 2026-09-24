@@ -1913,3 +1913,83 @@ not a rule and not a review, but a **compile error in a third party's harness**.
 slice and I had both stopped at "it builds for me", the union would have shipped with the
 declaration mismatch in it. The layout assert is the thing that makes that structural rather
 than lucky.
+
+## WP4 item 1 / finding R-D1: the length-varint wrap, reproduced then fixed
+
+The aggregating session handed this over as an unconfirmed review finding and authorized the
+core change (FIX-PLAN WP4 item 1). The rule that mattered most here was **reproduce first, on
+the current code, and log it** — the finding was "source verified, not run", and three of its
+claims are the kind that a source read gets subtly wrong.
+
+### Reproduction (`logs/rust/rd1-wrap-unfixed.log`)
+
+`dec.rs`'s `len_body` did `if self.pos + n > self.buf.len()`. In a release build
+`overflow-checks` is off (the workspace `[profile.release]` sets `lto=false` and says nothing
+about overflow, so it defaults off), so for a length varint near 2^64 the add wraps and the
+check passes. I built `rdrepro`, one case per process under `timeout 5`, driving each through
+BOTH the C ABI (`ak_decode_ListResultsResponse`) and the core-native path:
+
+- **(a) hang**: the finding's literal 11 bytes `7A F5 FF FF FF FF FF FF FF FF 01` — field 15,
+  wire 2, length ~2^64 — hang both arms (exit 124). `pos` wraps backward, the root loop
+  re-reads the same unknown field forever. Confirmed exactly as claimed.
+- **(b) bad span delivered after error**: a results element whose `session_id` length is
+  `u64::MAX` produces a span with `len` 0x`FFFFFFFF` (the observing vtable, which reads the
+  span integers without dereferencing them, saw `session_id.len=4294967295`), and the trailing
+  `flush!()`/`apply` delivered it with `apply_called=true` even though the call returned
+  `rc=-2`. A host would have read 4 GiB out of bounds. Confirmed.
+- **(c) abort across `extern "C"`**: a results element whose OWN length wraps made
+  `&buf0[off..off + n]` panic inside `ak_decode_*`, and because a panic cannot unwind through
+  an `extern "C"` frame the process aborts (SIGABRT, "panic in a function that cannot unwind").
+  This is the same hole section 5 already calls the widest, reached from hostile wire rather
+  than from a host panic. Confirmed.
+- **u32 (R-D9)**: no entry length check, so a `>u32::MAX` length was accepted and the reader
+  ran off the buffer (hang). Confirmed.
+
+All four reproduced. Nothing had to be fixed that was not broken.
+
+### Fix
+
+`len_body` and `f64` now compare against the REMAINING bytes: `n > self.buf.len() - self.pos`
+with `pos <= len` established (every read advances `pos` only after its own bounds check), so
+the subtraction cannot underflow and there is no add to overflow. On rejection `len_body`
+returns `(pos, 0)` — an empty, in-bounds span — which is what makes **every** `&buf[off..off+n]`
+on the decode path sliceable by construction. So claim (c) is fixed at the source of the bad
+`n`, not slice by slice.
+
+For claim (b) the span fix alone is not enough: the trailing delivery has to stop. The decode
+emitter (`gen/rust_abi.py`) now wraps the trailing `flush!()`/`apply` (push family) and the
+`OP_APPLY`/`OP_APPLY_ELEM` record (pull family) in `if d.err == 0`, at all four emission sites,
+so nothing is handed to the host after a decode error. This is a codegen rule, so it went into
+the emitter and was regenerated, not hand-edited into `codec.rs`; the whitespace-ignoring diff
+of `codec.rs` is exactly the guards plus the u32 checks and nothing else. `gen/generate.py
+--check` is clean in this slice AND in the codec generator, so the two agree.
+
+The u32 item (R-D9): `ak_decode_*` and `ak_parse_*` reject `len > u32::MAX as usize` at entry
+with `AK_ERR_LIMIT`. Core-native materialises owned values, no spans, so it is untouched.
+
+One subtlety worth recording about (b): after the fix, the `b-err` case (a valid element then a
+malformed field) still shows `elems=1` — but `apply_called=false`. The valid element was flushed
+by the `cur`-transition BEFORE the malformed field was even read; that is a validly-decoded
+prefix, and the caller still gets `rc=-3` and must discard. What the fix stops is the delivery
+of the IN-PROGRESS, post-error state — which is exactly what the `b-span` case now shows at
+`elems=0`.
+
+### Gate (`logs/rust/rd1-*.log`)
+
+`len_body` carries three unit regressions in ak-rt (near-2^64 truncates; the returned span is
+always sliceable across four hostile lengths; a valid length still decodes). Conformance is
+16/16 byte-identical to the validated manifest with decode round trips; the pull family's value
+identity is 16/16 across all four decoders; the unknown-field vectors and the oneof/presence
+shapes all agree; the four-build concurrency suite behaved as required (shipped and global pass,
+pad and both are caught). All of that is unchanged by the fix, because on valid input `d.err ==
+0` and the guarded delivery runs exactly as before. `rd1-wrap-fixed.log` shows every case
+returning promptly: (a) `rc=-3`, (b) `rc=-3` no bad span `apply_called=false`, (c) `rc=-3` no
+abort, u32 `rc=-5`.
+
+### Not swept here, flagged to the aggregating session
+
+The wrap and the deliver-after-error are fixed **in the shared emitter and the shared runtime**,
+so every slice that renders from `gen/rust_abi.py` and links `ak-rt` gets both. But the cpp
+slice has its own `rt.h` `len_body` (FIX-PLAN WP4 item 1 names it) and the managed slices'
+generated codecs render their own trailing-delivery epilogues from their own backends — those
+are theirs to check against the same three claims. The u32 entry guard is likewise per-backend.

@@ -1,0 +1,96 @@
+# M3: explicit presence, as three cases and not one column
+#   design/SHAPES.md: a by-value group reports absent and empty identically
+#   unless it is designed not to. These are the three rows that say whether it
+#   was. 200 elements; presence cycles per field and one element in seven is
+#   present AND zero.
+
+field                arm                absent   present+zero   present+nonzero  total
+opt_count (int32)    armonik                67             19               114    200
+opt_label (string)   armonik                50             21               129    200
+opt_flag  (bool)     armonik                40             92                68    200
+opt_count (int32)    core-native            67             19               114    200
+opt_label (string)   core-native            50             21               129    200
+opt_flag  (bool)     core-native            40             92                68    200
+opt_count (int32)    core-ffi-rust          67             19               114    200
+opt_label (string)   core-ffi-rust          50             21               129    200
+opt_flag  (bool)     core-ffi-rust          40             92                68    200
+opt_count (int32)    prost                  67             19               114    200
+opt_label (string)   prost                  50             21               129    200
+opt_flag  (bool)     prost                  40             92                68    200
+
+#   All three cases occur on every field, so the shape is exercised and not
+#   merely present. present+zero is the one a group cannot tell from absent
+#   unless its presence WORD carries it, which is what makes these rows a test.
+
+# M3: the oneof, by member
+
+member                         count
+as_int (int64)                    40
+as_text (string)                  40
+as_blob (bytes)                   40
+as_stamp (message)                40
+as_nothing (payload-free)         40
+none set                           0
+
+#   `as_nothing` is the payload-free member: present, empty, and selected by
+#   its presence alone. It is 40 of 200 here, so it is reached.
+
+# Fields the reader does not know (README section 10 item 1)
+#   Hand-built wire. No manifest hash: a corpus generated from the schema that
+#   reads it cannot contain one of these. The check is that all four arms agree
+#   on the decoded value and on the re-encoded bytes.
+
+vector                                       arms agree   re-encode    unknown survives
+unknown oneof tag 15 AFTER a known member    ok           ok           no: the oneof stays at as_int
+unknown oneof tag 15 BEFORE a known member   ok           ok           no: the oneof stays at as_int
+unknown oneof tag 15 ALONE                   ok           ok           no: the oneof is None
+unknown fields, all four wire types, top level ok           ok           no
+unknown field inside a nested message        ok           ok           no
+unknown field BEFORE every known field       ok           ok           no
+ResultRaw.status = 999 (unknown enum value)  ok           ok           YES: round-trips as Unknown(999)
+
+# M4: the adapter site. One facade type, two wire forms.
+#   Checked by state and not by payload: P4.1's `error` is a sentence in all
+#   200 elements, so the payload exercises the ONE case that works. The states
+#   where the map is not injective never occur in it.
+
+state              -> nested wire             nested round trip    -> plain wire              plain round trip
+Invalid            <field absent>             ok                   ""                         ok
+Ok                 success=true, error=""     ok                   ""                         LOSES -> Invalid
+Error("boom")      success=false, error="boom" ok                   "boom"                     ok
+
+#   The nested form round-trips every state. The PLAIN form cannot: `Ok` and
+#   `Invalid` both encode to the empty string, so one of them must come back
+#   wrong whatever the adapter author chooses. This one returns `Invalid`,
+#   which loses `Ok`; the intuitive alternative returns `Ok`, which silently
+#   claims success for a task that reported no outcome at all. That is the
+#   defect design/SHAPES.md says only a byte corpus catches, and the corpus
+#   as it stands does not: no payload reaches either state.
+
+#   The nested site has a worse problem, reported and not fixed: the payload
+#   generator fills TaskOutput.success and TaskOutput.error INDEPENDENTLY, so
+#   P2.x contains `success=true, error=<sentence>` -- a state no adapter over
+#   {Ok, Error(d)} can represent at all. Counted over 200 elements the only
+#   combinations present are (true, non-empty) and (false, non-empty); the
+#   success state (true, empty) never occurs.
+
+# M4: are the adapter's three states reachable from the payload set now?
+#   Counted off DECODED values, not from the builder, and the state is read the
+#   way an adapter would read it rather than from the fields directly.
+
+  nested site (TaskDetailed.output, P2.2, 500 elements)
+      Ok       (success, no error) 167
+      Error    (error, no success) 167
+      Invalid  (no child at all)   166
+      IMPOSSIBLE (success AND error, which the message's own comment forbids) 0
+
+  plain site (TaskSummary.error, P4.1, 200 elements)
+      Error        (non-empty string)              67
+      Ok OR Invalid (empty string -- INDISTINGUISHABLE) 133
+
+#   The plain site's second row IS the finding: 133 elements carry a state the
+#   wire form cannot tell apart, so an adapter must return one of two answers for
+#   all of them and be wrong on the other. Before this the row was 0 and the
+#   defect was unreachable.
+
+VERDICT: every shape above is exercised and every arm agrees.
