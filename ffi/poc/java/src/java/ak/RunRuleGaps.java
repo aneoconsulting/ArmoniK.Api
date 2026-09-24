@@ -3,91 +3,93 @@ package ak;
 import java.io.FileOutputStream;
 
 /**
- * R-E4, the rule gaps the corpus cannot reach in arm R's scope, run rather than read.
+ * R-E4 and R-G8: the rule gaps the corpus does not reach directly, run on arm R and (when
+ * {@code -Dak.lib} is set) on the ffi arm, over the corpus description ({@code ak.corpus}).
  *
- * <p>The corpus has no vector for a singular message field (or a oneof message member)
- * arriving twice, and no encode-side vector at all, so {@code gen/corpus_r.py} cannot
- * confirm two of the review's five gaps. This prints what arm R does with:
  * <ol>
- *   <li>{@code ResultRaw.created_at} on the wire twice, {@code {seconds:1}} then
- *       {@code {nanos:2}}. protobuf MERGES a repeated singular message field, so a
- *       conformant reader holds both; the vector is written to {@code args[0]} so the
- *       caller can ask protobuf C++ ({@code protoc --decode}) the same question;</li>
- *   <li>{@code Probe.as_stamp} (a oneof message member) twice, the same way;</li>
- *   <li>{@code Probe} with {@code body_case = 99}, a case the schema does not declare,
- *       encoded. A conformant generator refuses it (FIX-PLAN WP5, "a refusal for an
- *       unknown case"); this prints whether arm R refuses or writes something.</li>
+ *   <li>merge, singular: {@code ResultRaw.created_at} twice ({@code {seconds:1}} then
+ *       {@code {nanos:2}}): protobuf MERGES, so a conformant reader holds both;</li>
+ *   <li>merge, oneof: {@code Probe.as_stamp} twice, the same way;</li>
+ *   <li>unknown oneof case: {@code Probe} with {@code body_case = 99} encoded; the plan
+ *       REFUSES it ({@code oneof_checks}, ERR_ABI);</li>
+ *   <li>-0.0: {@code WireZoo.v_double = -0.0} encoded; the plan's implicit-presence test is
+ *       the bit pattern, so it is written ({@code 21 0000000000000080});</li>
+ *   <li>R-G8, the int length wrap: {@code 0a ffffffff07} on {@code ListResultsResponse}, a
+ *       length of 2^31 - 1 with 4 bytes left: refused as past the end of the buffer.</li>
  * </ol>
- * It judges nothing; the log states the expected behaviour beside the observed one.
+ * The vectors of 1 and 2 are written to {@code args[0]} so the caller can ask protobuf C++
+ * ({@code protoc --decode}) the same question. It prints; gen/corpus.sh reads it.
  */
 public final class RunRuleGaps {
-  public static void main(String[] args) throws Exception {
-    Class<?> codec = Class.forName("ak.shapes.Codec");
-    java.lang.reflect.Method decRR = codec.getDeclaredMethod("decResultRaw", Dec.class);
-    java.lang.reflect.Method decP = codec.getDeclaredMethod("decProbe", Dec.class);
-    java.lang.reflect.Method encP = codec.getDeclaredMethod("encProbe", Enc.class,
-        Class.forName("ak.shapes.Probe"));
-    decRR.setAccessible(true);
-    decP.setAccessible(true);
-    encP.setAccessible(true);
+  static String hex(byte[] w) {
+    StringBuilder h = new StringBuilder();
+    for (byte b : w) h.append(String.format("%02x", b & 0xff));
+    return h.toString();
+  }
 
-    // 1. ResultRaw.created_at (field 5) twice
+  interface Codec {
+    Object dec(String root, byte[] w);
+    byte[] enc(String root, Object o);
+  }
+
+  public static void main(String[] args) throws Exception {
     byte[] rr = {0x2a, 0x02, 0x08, 0x01, 0x2a, 0x02, 0x10, 0x02};
-    Object o = decRR.invoke(null, new Dec().reset(rr, 0, rr.length));
-    StringBuilder sb = new StringBuilder();
-    RunCorpusR.project(o, sb);
-    System.out.println("merge-singular  wire=2a020801 2a021002  armR=" + sb);
+    byte[] pb = {0x6a, 0x02, 0x08, 0x01, 0x6a, 0x02, 0x10, 0x02};
     if (args.length > 0) {
       FileOutputStream f = new FileOutputStream(args[0] + "/merge-singular.bin");
       f.write(rr);
       f.close();
-    }
-
-    // 2. Probe.as_stamp (field 13, oneof member) twice
-    byte[] pb = {0x6a, 0x02, 0x08, 0x01, 0x6a, 0x02, 0x10, 0x02};
-    o = decP.invoke(null, new Dec().reset(pb, 0, pb.length));
-    sb.setLength(0);
-    RunCorpusR.project(o, sb);
-    System.out.println("merge-oneof     wire=6a020801 6a021002  armR=" + sb);
-    if (args.length > 0) {
-      FileOutputStream f = new FileOutputStream(args[0] + "/merge-oneof.bin");
+      f = new FileOutputStream(args[0] + "/merge-oneof.bin");
       f.write(pb);
       f.close();
     }
+    run("R", new Codec() {
+      public Object dec(String r, byte[] w) { return ak.corpus.Dispatch.decR(r, w); }
+      public byte[] enc(String r, Object o) { return ak.corpus.Dispatch.encR(r, o); }
+    }, rr, pb);
+    if (System.getProperty("ak.lib") != null) {
+      final ak.corpus.Binding b = new ak.corpus.Binding();
+      run("ffi", new Codec() {
+        public Object dec(String r, byte[] w) { return ak.corpus.Dispatch.decFfi(b, r, w); }
+        public byte[] enc(String r, Object o) { return ak.corpus.Dispatch.encFfi(b, r, o); }
+      }, rr, pb);
+    }
+  }
 
-    // 3. an undeclared oneof case, encoded
-    Object p = Class.forName("ak.shapes.Probe").getDeclaredConstructor().newInstance();
-    p.getClass().getField("id").set(p, "x");
-    p.getClass().getField("body_case").setInt(p, 99);
-    Enc e = new Enc(codec.getField("SITES").getInt(null));
-    e.reset();
+  static void run(String arm, Codec c, byte[] rr, byte[] pb) {
+    System.out.println("merge-singular  " + arm + "  wire=" + hex(rr) + "  read="
+        + ak.corpus.Project.project("ResultRaw", c.dec("ResultRaw", rr))
+        + "   (protobuf: seconds 1 AND nanos 2)");
+    System.out.println("merge-oneof     " + arm + "  wire=" + hex(pb) + "  read="
+        + ak.corpus.Project.project("Probe", c.dec("Probe", pb))
+        + "   (protobuf: seconds 1 AND nanos 2)");
+
+    ak.corpus.Probe p = new ak.corpus.Probe();
+    p.id = "x";
+    p.body_case = 99;
     String what;
     try {
-      encP.invoke(null, e, p);
-      byte[] w = e.toBytes();
-      StringBuilder h = new StringBuilder();
-      for (byte b : w) h.append(String.format("%02x", b & 0xff));
-      what = "no refusal; wrote " + w.length + " B " + h;
-    } catch (java.lang.reflect.InvocationTargetException x) {
-      what = "refused: " + x.getCause();
+      what = "NO REFUSAL; wrote " + hex(c.enc("Probe", p));
+    } catch (Throwable t) {
+      what = "refused: " + t;
     }
-    System.out.println("unknown-case    body_case=99  armR=" + what);
+    System.out.println("unknown-case    " + arm + "  body_case=99  " + what);
 
-    // 4. E6: `Dec.readLen` checks `pos + n > limit` in int. A length of 2^31 - 1 after a
-    //    one-byte key makes pos + n wrap negative, so the check passes. The corpus's
-    //    X-lenwrap rows wrap 2^64, whose low 32 bits are negative as an int and are
-    //    refused by `n < 0`, so none of them reaches this.
-    java.lang.reflect.Method decL = codec.getDeclaredMethod("decListResultsResponse",
-        Dec.class);
-    decL.setAccessible(true);
+    ak.corpus.WireZoo z = new ak.corpus.WireZoo();
+    z.v_double = -0.0;
+    ak.corpus.WireZoo zp = new ak.corpus.WireZoo();
+    zp.v_double = 0.0;
+    System.out.println("minus-zero      " + arm + "  v_double=-0.0 wrote " + hex(c.enc("WireZoo", z))
+        + "   +0.0 wrote '" + hex(c.enc("WireZoo", zp)) + "'   (plan: -0.0 is 210000000000000080, +0.0 nothing)");
+
     byte[] lw = {0x0a, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, 0x07};
     try {
-      decL.invoke(null, new Dec().reset(lw, 0, lw.length));
+      c.dec("ListResultsResponse", lw);
       what = "ACCEPTED";
-    } catch (java.lang.reflect.InvocationTargetException x) {
-      what = "threw " + x.getCause();
+    } catch (Throwable t) {
+      what = "refused: " + t;
     }
-    System.out.println("int-lenwrap     wire=0affffffff07 (ListResultsResponse)  armR=" + what
-        + "   (a conformant refusal is Dec.Malformed)");
+    System.out.println("int-lenwrap     " + arm + "  wire=" + hex(lw) + "  " + what
+        + "   (R-G8: refused as past the end, at the length)");
   }
 }

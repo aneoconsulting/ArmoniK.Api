@@ -1,21 +1,43 @@
 package ak;
 
 /**
- * A protobuf reader over a {@code byte[]} -- the decode half of arm {@code R}'s runtime.
+ * A protobuf reader over a {@code byte[]} -- the decode primitives of arm {@code R}'s runtime.
  *
- * <p>No streaming, no chunking, no input-stream abstraction: every payload in
- * design/SHAPES.md is one contiguous buffer, and an abstraction the incumbent does not
- * have to pay for would be this arm's own handicap.
+ * <p>Primitives only. Which (field number, wire type) pairs a field accepts, merge versus
+ * replace, the unknown-field behaviour, tag 0, the depth limit and the UTF-8 policy are the
+ * PLAN's ({@code poc/codec/gen/plan.py}) and are rendered into the generated codec by
+ * {@code poc/codec/gen/java_rcodec.py}; this class reads varints, lengths and fixed-width
+ * values and skips an unknown field, each exactly as {@code ak-rt/src/dec.rs} does for the
+ * core, so arm R and the core cannot disagree on a primitive.
+ *
+ * <p><b>R-G8 / R-D1, the length rule.</b> A length prefix is read as the full unsigned
+ * 64-bit varint -- never narrowed to {@code int} before the check -- and accepted only if
+ * {@code n <= limit - pos} (unsigned), never tested as {@code pos + n > limit}, which wraps.
+ * The pre-WP5 {@code readLen} cast to {@code int} first and checked {@code pos + n > limit}
+ * in {@code int}: a length of 2^31 - 1 wrapped the check and was refused only later by the
+ * submessage-consumed check ({@code logs/java/re4-corpus-armR.log}).
+ *
+ * <p>Errors are exceptions carrying the ABI's code, so a decode stops at the first one and
+ * nothing after it is delivered (plan rule, R-G6): the generated decoder returns no object.
  */
 public final class Dec {
+  public static final int ERR_MALFORMED = -2;
+  public static final int ERR_TRUNCATED = -3;
+  public static final int ERR_DEPTH = -4;
+  public static final int ERR_TRANSCODE = -6;
+
   public byte[] b;
   public int pos;
   public int limit;
 
   public static final class Malformed extends RuntimeException {
     private static final long serialVersionUID = 1L;
-    public Malformed(String m) { super(m); }
+    public final int code;
+    public Malformed(String m) { this(ERR_MALFORMED, m); }
+    public Malformed(int code, String m) { super(m); this.code = code; }
   }
+
+  public static Malformed err(int code, String m) { return new Malformed(code, m); }
 
   public Dec reset(byte[] buf, int off, int len) {
     this.b = buf;
@@ -26,43 +48,51 @@ public final class Dec {
 
   public boolean done() { return pos >= limit; }
 
-  public int readTag() {
-    if (pos >= limit) return 0;
-    return (int) readVarint();
-  }
-
   public long readVarint() {
     long out = 0;
     int shift = 0;
     while (true) {
-      if (pos >= limit) throw new Malformed("truncated varint");
+      if (pos >= limit) throw new Malformed(ERR_TRUNCATED, "truncated varint");
       int x = b[pos++];
       out |= ((long) (x & 0x7F)) << shift;
       if (x >= 0) return out;
       shift += 7;
-      if (shift > 63) throw new Malformed("varint longer than 10 bytes");
+      if (shift > 63) throw new Malformed(ERR_MALFORMED, "varint longer than 10 bytes");
     }
   }
 
-  public int readVarint32() { return (int) readVarint(); }
-
   public double readDouble() {
-    if (pos + 8 > limit) throw new Malformed("truncated double");
+    if (limit - pos < 8) throw new Malformed(ERR_TRUNCATED, "truncated fixed64");
     long v = 0;
     for (int i = 7; i >= 0; i--) v = (v << 8) | (b[pos + i] & 0xFFL);
     pos += 8;
     return Double.longBitsToDouble(v);
   }
 
+  public int readFixed32() {
+    if (limit - pos < 4) throw new Malformed(ERR_TRUNCATED, "truncated fixed32");
+    int v = (b[pos] & 0xFF) | (b[pos + 1] & 0xFF) << 8 | (b[pos + 2] & 0xFF) << 16
+        | (b[pos + 3] & 0xFF) << 24;
+    pos += 4;
+    return v;
+  }
+
+  /** R-G8: 64-bit, unsigned, against the REMAINING bytes. */
   public int readLen() {
-    int n = (int) readVarint();
-    if (n < 0 || pos + n > limit) throw new Malformed("length past end of buffer");
-    return n;
+    long n = readVarint();
+    if (Long.compareUnsigned(n, (long) (limit - pos)) > 0)
+      throw new Malformed(ERR_TRUNCATED, "length past end of buffer");
+    return (int) n;
   }
 
   public String readString() {
     int n = readLen();
-    String s = Utf8.decode(b, pos, n);
+    String s;
+    try {
+      s = Utf8.decode(b, pos, n);
+    } catch (Utf8.Malformed e) {
+      throw new Malformed(ERR_TRANSCODE, e.getMessage());
+    }
     pos += n;
     return s;
   }
@@ -75,7 +105,7 @@ public final class Dec {
     return out;
   }
 
-  /** Enter a length-delimited submessage. Returns the outer limit to restore. */
+  /** Enter a length-delimited body. Returns the outer limit to restore. */
   public int push() {
     int n = readLen();
     int old = limit;
@@ -84,59 +114,75 @@ public final class Dec {
   }
 
   public void pop(int old) {
-    if (pos != limit) throw new Malformed("submessage body not fully consumed");
+    if (pos != limit) throw new Malformed(ERR_MALFORMED, "body not fully consumed");
     limit = old;
   }
 
-  /**
-   * Skip a field the reader does not know.
-   *
-   * <p>This is the whole of protobuf's forward compatibility and a corpus generated from
-   * the schema that reads it never executes it (README section 10 item 1), so the unknown
-   * -field vectors run against exactly this method. Nothing is retained: ABI v1 open
-   * decision 11 records that as a behaviour change from protobuf-java, which does retain,
-   * and this arm follows the core rather than the incumbent on purpose -- the two columns
-   * would otherwise not be the same work.
-   */
-  /** The core bounds group nesting at 100 and returns `AK_ERR_DEPTH`; this decoder
-   *  recursed without a bound, so a payload of start tags was a StackOverflowError
-   *  rather than a refusal. Caught by reading the core's D7 fix against this file, and
-   *  the corpus has the two vectors for it (`X-depth-101`, `X-depth-300`). The JVM makes
-   *  the unbounded form survivable where a native core makes it a crash inside the host's
-   *  process, which is ABI v1 open decision 7 -- but "survivable" is not "refused". */
+  /** The bytes from {@code start} to the current position, for a retain-mode capture. */
+  public static byte[] append(byte[] bag, byte[] src, int start, int end) {
+    int n = end - start;
+    if (bag == null) {
+      byte[] out = new byte[n];
+      System.arraycopy(src, start, out, 0, n);
+      return out;
+    }
+    byte[] out = java.util.Arrays.copyOf(bag, bag.length + n);
+    System.arraycopy(src, start, out, bag.length, n);
+    return out;
+  }
+
+  // ---- the unknown-field skip, as ak-rt/src/dec.rs `skip` and `skip_group` ------------
+
+  /** protobuf's own default recursion limit, applied to nested groups (ak-rt's). */
   static final int MAX_GROUP_DEPTH = 100;
 
-  public void skip(int tag) { skip(tag, 0); }
-
-  private void skip(int tag, int depth) {
-    switch (tag & 7) {
+  /** Skip one field whose key has been read. {@code tag} is the field number the wire
+   *  type arrived with: a GROUP carries no length, so its end is the END_GROUP whose field
+   *  number MATCHES the one that opened it. */
+  public void skip(int tag, int wire) {
+    switch (wire) {
       case 0: readVarint(); break;
-      case 1: if (pos + 8 > limit) throw new Malformed("truncated i64"); pos += 8; break;
-      // `pos += readLen()` would be WRONG and was: Java evaluates the left
-      // operand of a compound assignment FIRST, so the varint readLen
-      // consumed is discarded and the skip lands inside the body. It only
-      // shows on an unknown LEN field, which no payload generated from the
-      // schema that reads it contains -- README section 10 item 1 exactly.
+      case 1: pos += 8; break;
       case 2: { int n = readLen(); pos += n; break; }
-      case 5: if (pos + 4 > limit) throw new Malformed("truncated i32"); pos += 4; break;
-      case 3: {  // a start group: legal wire, and the schema has none, so refuse loudly
-        if (depth >= MAX_GROUP_DEPTH) throw new Malformed("group nesting past 100");
-        int field = tag >>> 3;
-        while (true) {
-          int t = readTag();
-          if (t == 0) throw new Malformed("unterminated group");
-          if ((t & 7) == 4) {
-            // The END_GROUP's field number must MATCH the one that opened it. Counting
-            // depth instead accepts a mismatched end and mis-nests every group after it,
-            // which is what the core's D7 fix says and what this already did.
-            if ((t >>> 3) != field) throw new Malformed("mismatched end group");
-            break;
-          }
-          skip(t, depth + 1);
-        }
-        break;
-      }
-      default: throw new Malformed("wire type " + (tag & 7));
+      case 3: skipGroup(tag, 0); break;
+      case 5: pos += 4; break;
+      // 4 is END_GROUP with nothing open; 6 and 7 do not exist.
+      default: throw new Malformed(ERR_MALFORMED, "wire type " + wire);
+    }
+    if (pos > limit) {
+      pos = limit;
+      throw new Malformed(ERR_TRUNCATED, "truncated field of wire type " + wire);
     }
   }
+
+  private void skipGroup(int tag, int depth) {
+    if (depth >= MAX_GROUP_DEPTH) throw new Malformed(ERR_DEPTH, "group nesting past 100");
+    while (true) {
+      if (pos >= limit) throw new Malformed(ERR_TRUNCATED, "unterminated group");
+      long k = readVarint();
+      int t = (int) (k >>> 3), w = (int) (k & 7);
+      if (t == 0) throw new Malformed(ERR_MALFORMED, "field number 0");
+      if (w == 4) {
+        if (t != tag) throw new Malformed(ERR_MALFORMED, "mismatched end group");
+        return;
+      }
+      if (w == 3) {
+        skipGroup(t, depth + 1);
+        continue;
+      }
+      skip(t, w);
+    }
+  }
+
+  // ---- the pre-WP5 key-at-a-time API, kept for the hand-written harnesses -----------
+  // (`Triples`, `RunUnknown`), which walk wire they built themselves. Not used by any
+  // generated codec.
+
+  /** The next key as an int, or 0 at the end. */
+  public int readTag() {
+    if (pos >= limit) return 0;
+    return (int) readVarint();
+  }
+
+  public void skip(int key) { skip(key >>> 3, key & 7); }
 }

@@ -25,7 +25,8 @@ LIB=$PWD/build/jni/libakjni.so
 CNT=$PWD/build/jnicnt/libakjni.so
 
 echo "== java slice correctness gate, three arms (README 5.2), no timing =="
-echo "tree commit: ${AK_COMMIT:-unknown}   core: ${AK_CORE:-../codec at the tree commit}"
+echo "tree commit: ${AK_COMMIT:-$(git rev-parse --short HEAD)}$(git diff --quiet HEAD -- . ../codec/gen || echo ' + uncommitted changes')"
+echo "$(cat build/core-rev.txt 2>/dev/null)   core built with: $(grep -ho ',"features":"\[[^]]*\]' core-build/target/release/.fingerprint/ak-core-*/lib-ak_core.json | sort -u | tr -d '\\' | tr '\n' ' ')"
 "$J17/bin/java" -version 2>&1 | head -1 | sed 's/^/target runtime: /'
 "$J8/bin/java"  -version 2>&1 | head -1 | sed 's/^/floor runtime:  /'
 echo "shim: $LIB  sha256 $(sha256sum "$LIB" | cut -c1-16)"

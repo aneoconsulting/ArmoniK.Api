@@ -40,8 +40,13 @@ public final class Native {
     bind(ak.Callbacks.class);
     if (abiVersion() != 1)
       throw new IllegalStateException("ak_abi_version() is " + abiVersion() + ", not 1");
-    ak.shapes.Layout.assertAgreement();
+    // `ak_init` (R-G7) and the layout guard (ABI v1 section 10) are per DESCRIPTION, so
+    // they are rendered into each generated package: `<pkg>.Binding`'s static initialiser
+    // calls `<entry>.ensureInit()` and `<pkg>.Layout.assertAgreement()` (FIX-PLAN WP5).
   }
+
+  /** Whether `ak_init` has returned successfully in this process (`ak_initialized`). */
+  public static native int initialized();
 
   /** Caches the reverse-call method ids from the INTERFACE, so one shim serves both the
    *  owning facade's Binding and the borrowed facade's. */

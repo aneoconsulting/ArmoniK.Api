@@ -6,8 +6,8 @@
 # nothing, refused nothing, and read as working).
 #
 # This slice is the case section 10 exists for: a Java binding has no compiler on its side,
-# so its group offsets come from a layout engine in `gen/java_layout.py` that reproduces
-# the SysV x86-64 rules BY HAND. This perturbs one fact in the emitted table, rebuilds only
+# so its group offsets come from a layout engine (`poc/codec/gen/java_layout.py`, laying out
+# the plan's member lists by the SysV x86-64 rules) and not from a compiler. This perturbs one fact in the emitted table, rebuilds only
 # that class, and shows the load-time comparison naming it.
 set -eu
 cd "$(dirname "$0")/.."
@@ -43,3 +43,28 @@ set +e
 rc=${PIPESTATUS[0]}
 set -e
 echo "# exit status $rc (non-zero is the guard working)"
+
+echo
+echo "== the same offsets, checked at COMPILE time: the header static-asserts every one"
+echo "# perturb ONE of the Java layout engine's numbers in a copy of the header; the shim"
+echo "# must then fail to compile, naming the fact"
+J17=${J17:-/usr/lib/jvm/java-17-openjdk-amd64}
+mkdir -p build/hdrbreak
+python3 - <<'PY'
+import re
+s = open("native/generated/ak_abi.h").read()
+m = re.search(r'AK_SASSERT\(offsetof\(struct (ak_efix_ResultRaw), (created_at)\) == (\d+),', s)
+bad = s[:m.start(3)] + str(int(m.group(3)) + 8) + s[m.end(3):]
+open("build/hdrbreak/ak_abi.h", "w").write(bad)
+print("#   ak_efix_ResultRaw.created_at %s -> %d" % (m.group(3), int(m.group(3)) + 8))
+PY
+set +e
+cp native/generated/shim.c build/hdrbreak/shim.c   # a quoted include searches the file's own dir first
+gcc -fsyntax-only -std=c11 -I"$J17/include" -I"$J17/include/linux" \
+  build/hdrbreak/shim.c 2>&1 | grep -m2 "static assert"
+rc=${PIPESTATUS[0]}
+set -e
+echo "# gcc exit status $rc (non-zero is the compile-time guard working)"
+gcc -fsyntax-only -std=c11 -I"$J17/include" -I"$J17/include/linux" -Inative/generated \
+  native/generated/shim.c && echo "# and the unperturbed header compiles (exit 0)"
+

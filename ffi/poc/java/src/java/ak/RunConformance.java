@@ -32,9 +32,9 @@ public final class RunConformance {
       // record stream builds a different object graph and the re-encode says so.
       arms.add(new FfiPullArm("ffi-pull", false));
       arms.add(new FfiPullArm("ffi-pull-walk", true));
-      // Decision 13's arm is emitted for the TARGET only, so the floor build registers
-      // nothing here rather than failing to compile. Reflection, so a missing arm is a
-      // stated skip and never a silent pass.
+      // Decision 13's arm is emitted at BOTH levels (the java8 tree carries it too, so it
+      // is gated on arms b and c). Reflection, so a build without it is a stated skip and
+      // never a silent pass.
       try {
         arms.add((Conformance.Arm) Class.forName("ak.BorrowArm").getDeclaredConstructor()
                  .newInstance());
