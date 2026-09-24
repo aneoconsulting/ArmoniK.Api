@@ -1,6 +1,6 @@
 # Fix plan after the 2026-09-24 adversarial review
 
-Status: **WP1, WP2, WP4 done except item 5 (Python floor, in WP5); WP5 step 1 done** (2026-09-24, 77f91ee). Next: WP5 steps 2 to 5 (C++, Java, C#, Python backends onto `plan.py`). Written for whoever implements it, which is
+Status: **WP1, WP2, WP4 done except item 5 (Python floor, in WP5); WP5 step 1 done** (2026-09-24, 77f91ee). WP5 steps 2 to 5 done (f9ed1d0, 2889d87, 5d4c30d, e7728e4). Next: WP5 consolidation (step 6 below), then WP3. Written for whoever implements it, which is
 assumed to be neither the author nor anyone with the review session's context.
 Everything needed is in this file or in the paths it names.
 
@@ -613,6 +613,10 @@ Disposition column is filled in as work lands.
 | R-G10 | The old emitter named every nested reader `cd`, so an error two levels down was lost; the old core accepted a truncated `tasks[0].options.max_duration` (logs/rust/wp5-nested2-before.log) | rust slice, WP5 | fixed 77f91ee |
 | R-G11 | Unknown fields inside an inlined singular child, a oneof message member or a map entry have no decode-side slot in the C ABI, so retain mode writes the dropped form there (16 rows; rust D34) | rust slice, WP5 | **owner decision** (needs an ABI shape) |
 | R-G12 | A recursive message (corpus `Nest`) has no finite group, so the generator refuses it from the C ABI (rust D35) | rust slice, WP5 | **owner decision** (ABI scope) |
+| R-G13 | Plan gaps reported by all four ports: the ABI's fixed vocabulary (error codes, `ak_str`, `ak_span`, `ak_blob`, `ak_uspan`, `ak_err`, counters, `ak_bdr_rec`), fixed entry points and export list, `AK_INIT_*` values, vtable member order and pull record numbering, RPC counting surface, map entry order, `direct` presence on encode, varint 10th-byte overflow, group nesting vs message depth, field numbers above 2^29-1 (truncated by every backend, refused by protobuf) | cpp, java, csharp, python slices | open, WP5 consolidation |
+| R-G14 | The C header is rendered by two backends (`cpp_abi.py` and `java_abi.py`); Python and C# reuse or bypass it. `generate.py`'s guard list names none of the new backends and does not regenerate the slices' outputs; `rust_core.py` and `poc/cpp/gen/cpp_header.py` survive as adapters; `one_core.sh --selftest` fails before planting since WP5 step 1 (scratch copy lacks `ffi/corpus`); `poc/python/mech/` keeps its own generator with wire rules | cpp, java, python slices | open, WP5 consolidation |
+| R-G15 | `ak_err` differed between ABI-v1 (`{code, msg_len, msg}`) and `ak-abi` (`{code, detail}`) | cpp slice | settled by the aggregating session: ABI-v1 now matches the implementation |
+| R-G16 | Port defects found by the corpus: Java's bulk direct path never ran, zeroed fill dropped -0.0, `Utf8View` refused ASCII after a multi-byte character; Python split packed runs over 4096 values into several records, and 3.7/3.8 shims exported no `PyInit_`; C# lacked the direct-argument parameters of `ak_encode_UploadResultDataMessage` and misdeclared `ak_bdr_count_forward` | java, python, csharp slices | fixed 2889d87/287deca, e7728e4/92a74da, 5d4c30d/7aad2c2 |
 
 ### F. STATE hygiene (WP6)
 
