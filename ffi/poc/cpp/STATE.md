@@ -6,8 +6,8 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | **2026-09-24, FIX-PLAN WP4 items 1 (C++ half) and 3 done, correctness only, no timing taken.** R-D1: `ak::Dec::len_body` wrapped `pos + k` and is now a checked comparison; the corpus's 55 `X-lenwrap-*` rows go from 9 hangs (and 4 out-of-bounds reads under ASan) to 0 failures on the native arm, and 0 on the ffi arm through the landed core, one process per row under `timeout 5` (`rd1-lenwrap.log`). R-D2: `ak_client_opts` is rendered into the generated `include/ak_abi.h` from ak-abi's Rust declaration with a size and offset guard, every call site sets all six fields, and `rpc.log`/`rpcflow.log` PREDATE the 6-field struct (`rd2-history.log`). **Re-gated against the shared core's R-D1 fix as landed (`6ede244`)**: conformance C++11/14/17 and static, corpus (three arms, C++17 and C++11), boundary check, generator gate, all green. Everything below this section is as it was, and its timing tables are container instrumentation (README section 1.1) that FIX-PLAN WP2/WP6 deal with, not this work unit |
-| **Core** | **the shared one at `ffi/poc/codec/crates/ak-core` (README R0), not a copy.** This slice no longer has a `core/` directory; `core-build/` is only its three `CARGO_TARGET_DIR`s. See `logs/cpp/w10-one-core.log` |
+| **Status** | **2026-09-24 (second work unit), FIX-PLAN WP4 items 6 (C++ half, R-D5) and 8 (R-D7) done, correctness only, no timing taken.** R-D5: `ffi-valtc` is in `conformance.cpp` `run_case` (rc + sha on all 15 payloads, plus a malformed-UTF-8 ENCODE that `ffi` accepts and `ffi-valtc` refuses with -6) and in `contentsets.cpp`'s gate (all 3 sets); `bench.cpp` gates every timed codec arm before calibration and refuses to time one that fails, exiting 1 (`conformance.log`, `rd5-gate.log`, `rd5-before.log`). R-D7: every planted concurrency build links the matching PLANTED core (`--features pad-widths` / `global-widths` / both), a fourth build plants the core alone, and a planted run now shows the ffi arm failing: pad 23 of 96 distinct wrong encodes on EACH of native, ffi and ffi-hosttc; core-only pad 0 native, 23 ffi, 23 hosttc; global byte-clean on both encoders (`concurrency.log`, `rd7-before.log`). **The old reading double-counted**: "44 of 48" was 22 distinct wrong encodes, "46 of 96" was 23. **Gated against a snapshot of `ffi/poc/codec` at `817174f`** (the codec tree last changed in `6ede244`), built out of tree, because the rust agent is changing the shared core concurrently. The earlier work unit of the same day (R-D1 C++ half, R-D2) is kept below. Timing tables further down are container instrumentation (README section 1.1) |
+| **Core** | **the shared one at `ffi/poc/codec/crates/ak-core` (README R0), not a copy.** This slice no longer has a `core/` directory; `core-build/` is only its `CARGO_TARGET_DIR`s (timed, counting, rpc, and since R-D7 the three planted builds `target-pad`, `target-global`, `target-both`). `-DAK_CORE_ROOT=<a codec workspace>` and `-DAK_CORE_TGT=<dir>` point the build at a snapshot instead (default: the shared tree and `core-build/`). See `logs/cpp/w10-one-core.log` |
 | **Blocked on** | nothing |
 | **Floor** | **C++11, demonstrated not declared.** C++14 also builds and passes (README open question 3) |
 | **Target** | C++17 |
@@ -16,7 +16,89 @@ session, which makes it the most expensive defect in this directory.
 | **Machine** | **TWO of them, and that is a fact about the logs rather than a footnote.** Everything except `rpc.log` and `rpcflow.log`: 4 vCPU Intel Xeon @ **2.80 GHz**. Those two: 4 vCPU Intel Xeon @ **2.10 GHz**, same kernel (Linux 6.18.44), same g++ 13.3.0 `-O2 -g -DNDEBUG`, same rustc 1.94.1. **No absolute crosses between them** (R13, R4) |
 | **R13 calibration** | the 2.80 GHz machine's rust-slice crossing is **1.5 ns** forward (`calibration-r13.log`), against 1.8 ns in the rust slice's own container. **On the 2.10 GHz machine it could not be re-taken: the rust slice does not build on this branch (C27).** What was re-taken there is this slice's OWN crossing, by the unchanged bench: **forward 0.59-0.65 ns, reverse 0.27-0.31 ns**, against 1.822-1.824 / 0.6 published from the 2.80 GHz box. A factor of about three, on a nominally slower clock. That is the whole reason R13 exists |
 
-## This work unit (2026-09-24): R-D1 (C++ half) and R-D2
+## This work unit (2026-09-24, second): R-D5 (C++ half) and R-D7
+
+Machine: 4 vCPU Intel Xeon @ 2.10 GHz container, g++ 13.3.0, protobuf 3.21.12 (apt, already
+present). **No timing was taken or reported**: the bench and content-set gates were run
+with `AK_BENCH_GATE_ONLY=1` / `AK_CS_GATE_ONLY=1`, the concurrency suite with
+`AK_CONC_NO_T7=1`, three switches added for that. The one exception is deliberate and
+labelled: `rd5-before.log` and the last block of `rd5-gate.log` run the planted bench in
+timing mode on P1.1 for one round, to show that before the fix a refused arm got a row and
+after it does not. Those figures are instrumentation.
+
+**The core is a snapshot.** `git archive 817174f ffi/poc/codec` into scratch, configured
+with `-DAK_CORE_ROOT=<snapshot>/ffi/poc/codec -DAK_CORE_TGT=<scratch>/core-tgt` and an
+out-of-tree build directory. The codec tree at `817174f` is the one last changed in
+`6ede244`, the core every earlier gate of the day ran against. Every log header names it.
+The in-tree `build/` was NOT rebuilt and is stale against these sources: rebuild it
+before running any script with its default `B=./build`.
+
+### R-D5: `ffi-valtc` was timed and gated nowhere. Confirmed and fixed
+
+Confirmed (`rd5-before.log`): at `817174f` the committed `conformance.log` contains no
+`valtc`, `conformance.cpp` never builds the validating transcoder, `contentsets.cpp`
+builds it only for the timed lambda, and `bench.cpp` sinks every arm's return code. The
+same plant as the new fixture (a validating transcoder that refuses every string), applied
+to the bench as committed and nothing else: the refused encode got a P1.1 row at about
+0.16 of protobuf and the process exited 0.
+
+Fixed:
+- `conformance.cpp` `run_case`: `ffi-valtc` rc (and `ak_enc_take`, `ak_enc_err`) and sha
+  against the manifest on every payload. Plus, in the malformed-UTF-8 block: `ffi`
+  (spec transcoder) must ACCEPT the bad string on encode and write the native bytes;
+  `ffi-valtc` must refuse it with `AK_ERR_TRANSCODE` (it does: rc -6, take -6, err -6);
+  a good encode on the same context after `ak_enc_reset` must succeed. That last pair is
+  what shows the validating arm is running its check, not the same arm under a second name.
+  **476 checks, 0 failures** at C++17 target, C++17 floor, C++14, C++11 and static; **474**
+  for the lossy build (443/441 before: 15 payloads x 2 + 3).
+- `contentsets.cpp`: `ffi-valtc` byte identity per payload per set, **95 checks** (80 + 15).
+- `bench.cpp`: every arm carries a `gate` (the pb arms against `wire`, the codec arms
+  against the manifest sha, decode arms by rc and value equality, `ffi-borrow` by its
+  re-encode, which used to run AFTER timing). `gate_arms` runs them once before
+  calibration, removes a failing arm (and an arm with no gate), and main exits 1.
+  `bench_a17_gateplant` is the planted fixture: 14 of 15 payloads' `ffi-valtc` refused
+  and not timed, exit 1; **P1.3 passes under the plant because it carries no present
+  string** (a transcoder that is never called cannot fail). Real benches, gate only:
+  `bench_a17_shared`, `bench_a17_static`, `bench_c11_shared`, 0 arms failed.
+
+### R-D7: the concurrency plants never reached the core. Confirmed and fixed
+
+Confirmed (`rd7-before.log`, the HEAD tree built unchanged): the plants were `AK_CONC_*`
+defines in `include/ak/rt.h` and every planted binary linked `core-build/target/release`,
+the UNPLANTED core; `ffi 0` and `ffi-hosttc 0` in every row of both must-fail builds.
+Also confirmed: `roundtrip` decoded through the core and RE-ENCODED WITH `ak::Enc`, so it
+was the planted native encoder observed a second time (native N = roundtrip N in every
+row), and the T6 labels were typed strings that no longer matched the table
+(`g_shapes` is P1.1, P1.3, P1.2, P2.2 since T0; "P1.2 alone" was P1.3 alone, "P1.1 +
+P1.2" was P1.1 + P1.3).
+
+Fixed: CMake builds three planted cores from the shared crate's existing test-only
+features (`pad-widths`, `global-widths`, both); `conc_a17_pad`, `_global` and `_both`
+plant `ak::Enc` by define AND link the matching planted core; `conc_a17_corepad` plants
+the core alone. `roundtrip` is now a decode check (value equality with the built object)
+and T4's poisoned threads use a separate `accepts`, so each counter is one distinct
+operation. The T6 labels are built from the table. The binary prints a whole-run line per
+encoder and `gen/concurrency.sh` requires, per build, which encoder must be wrong and
+which must not (and `decoder 0` everywhere). `concurrency.log`, all expectations met:
+
+| build | distinct wrong encodes, T3 (96 iterations): native / ffi / ffi-hosttc | T6 two shapes (48): native / ffi / hosttc | whole run: native / core / decoder | exit |
+|---|---|---|---|---|
+| shipped (C++17, C++11, static, 16 threads) | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 |
+| `pad` (both encoders) | 23 / 23 / 23 | 22 / 22 / 22 | 93 / 184 / 0 | 1 |
+| `both` (both encoders) | 24 / 24 / 24 | 24 / 24 / 24 | 123 / 243 / 0 | 1 |
+| `corepad` (core only) | **0 / 23 / 23** | **0 / 22 / 22** | 0 / 184 / 0 | 1 |
+| `global` (both encoders) | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 |
+
+Two runs gave identical counts. "Whole run" sums T1, T2, T3 and T6, each a distinct
+operation; the core column counts ffi and ffi-hosttc encodes separately because they are
+two calls. **What the table establishes**: the suite's ffi arm can fail, the shared
+core's `pad-widths` plant produces the same number of wrong encodes as the C++ one on the
+same schedule, and the core's `global-widths` is byte-clean alone as `ak::Enc`'s is.
+**What it does not**: T5 (two threads, one message) and T7 run the native encoder only,
+so the "two threads agree while both are wrong" reading of the `both` build is still a
+native-encoder reading; and no TSan run exists.
+
+## Previous work unit (2026-09-24, first): R-D1 (C++ half) and R-D2
 
 Machine: 4 vCPU Intel Xeon @ 2.10 GHz container, g++ 13.3.0, protobuf 3.21.12 and grpc++
 1.51.1 from apt, python3-protobuf 4.21.12 (apt, for `gen/corpus.py`'s oracle). **No timing
@@ -56,7 +138,7 @@ message, map entry and both map halves) and three in `src/conformance.cpp` -- an
 fixed-width arms add constants and are post-checked. So the one function is the whole fix
 and no generated file changed (`generate.py --check` 23 of 23 ok, `rd-generator.log`).
 
-Gates after the fix, against core `6ede244`: `conformance.log` 443 checks 0 failures x5
+Gates after the fix, against core `6ede244`: `conformance.log` 443 checks 0 failures x5 (the log as committed at `817174f`; re-taken at 476 in the second work unit, R-D5)
 (C++17 target, C++17 floor, C++14, C++11, static), 441 x1 (the lossy build), exactly as
 before; `groupskip.log` 0 builds wrong; `corpus.log` (all three arms) and
 `corpus-native.log` (native + the pb oracle), C++17 and the C++11 floor, **213 in-scope rows
@@ -392,17 +474,21 @@ measurement: `ffi` P1.2 encode a 0.944-0.988, b 0.940-0.972, c 0.942-0.978.
 
 ### Correctness — `logs/cpp/conformance.log`
 
-**443 checks, 0 failures**, five times (C++17 target, C++17 floor, C++14 floor, C++11
-floor, C++17 static) and **441 once** — the non-validating decode build, where two
+**476 checks, 0 failures**, five times (C++17 target, C++17 floor, C++14 floor, C++11
+floor, C++17 static) and **474 once** — the non-validating decode build, where two
 UTF-8-rejection checks are compiled out. The difference is named rather than flattened.
+(443/441 until R-D5 added `ffi-valtc`: 15 payloads x rc and sha, and 3 encode-side
+malformed-UTF-8 checks.)
 
-Covers: every payload of `SHAPES.md`; five encoders byte-identical to `manifest.json`; the
+Covers: every payload of `SHAPES.md`; six encoders byte-identical to `manifest.json`
+(native, ffi, ffi-zeroed, ffi-nobatch, ffi-hosttc, ffi-valtc); the
 headline `SerializeToString` path's bytes as well as the deterministic one; the memcpy
 floor's bytes; decoded values identical between the two facade decoders and equal to the
 built value; round trips; P7.1 by decode and by permutation of its (tag, wire type, body)
 triples; **unknown fields at the root, INSIDE a nested message, and on the message that
 has the oneof** (where the case stays at the last known member and the payload is
-dropped); the unknown enum value 999; malformed UTF-8.
+dropped); the unknown enum value 999; malformed UTF-8 on decode, and on ENCODE, where `ffi` accepts
+it and `ffi-valtc` must refuse it with `AK_ERR_TRANSCODE`.
 
 **protobuf C++ rejects malformed UTF-8** in a proto3 `string`, so the rejecting decode is
 the like-for-like policy and is this slice's default. **protobuf C++ needs deterministic
@@ -866,22 +952,35 @@ produces (so no plant can corrupt the oracle), at C++17, at the C++11 floor, on 
 linkages, and with four times more threads than the machine has cores. **Zero wrong bytes
 on every axis**, and no error leaks between contexts.
 
-**The suite is shown to work rather than assumed to.** Three builds carry the two designs
-ABI v1 section 6 refused, and `gen/concurrency.sh` requires each to do what section 6 says
-it does:
+**Corrected 2026-09-24 (R-D7), read this first.** The table and item 1 below were
+written when the planted builds planted `ak::Enc` only and linked the UNPLANTED core, and
+when `roundtrip` re-encoded with `ak::Enc`. So the ffi arm read 0 in every planted build
+(nothing showed it could fail), and every wrong native encode was counted twice. The
+corrected figures, with the core planted too, are in "This work unit" at the top and in
+the current `concurrency.log`: pad **23 of 96** distinct wrong encodes per encoder (was
+"46 of 96"), two shapes **22 of 48** (was "44 of 48"). The scaling column is T7 from the
+version of `concurrency.log` at `4af8d2b` (2.80 GHz container), instrumentation, and T7
+was not re-run.
 
-| build | bytes wrong | two threads disagree | scaling, contended |
+**The suite is shown to work rather than assumed to.** Planted builds carry the two
+designs ABI v1 section 6 refused, in both encoders since R-D7, and `gen/concurrency.sh`
+requires each to do what section 6 says it does:
+
+| build | distinct wrong encodes per encoder (T3, of 96) | two threads disagree (T5, native) | scaling, contended (4af8d2b, instrumentation) |
 |---|---|---|---|
 | shipped | 0 | 0 | 3.63-3.96x |
-| `AK_CONC_PAD` (pad the prefix to the learned width) | 46 of 96 | 16 of 16 | — |
-| `AK_CONC_GLOBAL` (the width table process-global) | **0** | 0 | 2.80-2.87x |
-| both | 46 of 96 | **0** | — |
+| pad (pad the prefix to the learned width) | 23 native, 23 ffi, 23 hosttc | 16 of 16 | — |
+| global (the width table process-global) | **0** | 0 | 2.80-2.87x |
+| both | 24 native, 24 ffi, 24 hosttc | **0** | — |
+| core-only pad | 0 native, 23 ffi, 23 hosttc | 0 | — |
 
 Four things this settles:
 
 1. **12.5's own claim, measured.** "A suite with one shape reports zero wrong bytes with a
    per-thread-state defect present and absent alike." On the pad build: one shape 0 of 24,
-   two shapes **44 of 48**. It holds — and the mechanism is narrower than the sentence. It
+   two shapes **22 of 48 distinct wrong native encodes** (and 22 ffi, 22 hosttc since the
+   core is planted too; the figure published here before was 44, which counted each wrong
+   native encode twice). It holds — and the mechanism is narrower than the sentence. It
    is not two shapes that matters but two shapes that want **different widths at a shared
    length-prefix site**. P1.1 (858 B) and P1.2 (218 KB) learn the *same* table, and two
    different message types touch disjoint sites. The pair that works is P1.1 and P1.3.
@@ -903,14 +1002,23 @@ Four things this settles:
 
 ## Next step
 
-WP4 items 1 (C++ half) and 3 are done and re-gated against the landed core. What remains
-from FIX-PLAN for this slice: WP4 item 6 (`ffi-valtc` into `conformance.cpp` `run_case`),
-item 8 (the concurrency must-fail control reaching the core), then WP5 (port the C++
-backend onto the shared plan, which is where C33's left-behind-object rule, C34 and C35
-belong) and WP3/WP6. To re-run this work unit's gates: `cmake --build build`, the six
-conformance builds, `python3 gen/corpus.py build/corpus_{a17,c11}_shared`,
-`FFI=1 gen/lenwrap_rows.sh` (add `ASAN=1` for the sanitizer pass), `gen/boundary.sh`,
-`gen/rd2_guard.sh`. Everything below is the queue from before this work unit.
+WP4 items 1 (C++ half), 3, 6 (C++ half) and 8 are done. What remains from FIX-PLAN for
+this slice: WP5 (port the C++ backend onto the shared plan, which is where C33's
+left-behind-object rule -- now ruled as R-G6: after a decode error the output object is
+unspecified and only error codes are compared -- C34 and C35 belong) and WP3/WP6. When the
+rust agent's core work lands, re-gate against it: point `AK_CORE_ROOT` at the shared tree
+(the default) and re-run the gates below.
+
+To re-run this work unit's gates (in-tree, default core; or out of tree with
+`-DAK_CORE_ROOT`/`-DAK_CORE_TGT` and `B=<dir>`): `cmake --build build`; the six
+conformance builds; `AK_CS_GATE_ONLY=1 build/contentsets_a17 0`;
+`AK_BENCH_GATE_ONLY=1 build/bench_a17_{shared,static}` and `bench_c11_shared`;
+`AK_BENCH_GATE_ONLY=1 build/bench_a17_gateplant` (must exit 1); `gen/concurrency.sh`.
+The earlier work unit's: `python3 gen/corpus.py build/corpus_{a17,c11}_shared`,
+`FFI=1 gen/lenwrap_rows.sh` (`ASAN=1` for the sanitizer pass), `gen/boundary.sh`,
+`gen/rd2_guard.sh`. **Not re-run in this work unit** (no source they build changed):
+corpus, lenwrap, boundary, rd2_guard, groupskip; `generate.py --check` and
+`audit_tracked.sh` were re-run and are green.
 
 ### The queue from before 2026-09-24
 
@@ -1000,6 +1108,8 @@ corpus). C30 is this slice's own and is fixed. In the order I would do it:
 | R-D1 | `include/ak/rt.h` `len_body` | `pos + k > len` wraps on a length near 2^64: 9 corpus rows hang, 4 read out of bounds (ASan) | **fixed**: checked comparison against the remaining length; `rd1-lenwrap.log` 0 of 55 after, plain and ASan |
 | R-D2 | `src/rpc_common.h` | hand-declared a 3-field `ak_client_opts` against the core's 6 | **fixed**: rendered into `include/ak_abi.h` from ak-abi, size/offset/field-count guards, all six fields set; `rd2-guard.log`. `rpc.log`/`rpcflow.log` predate the 6-field struct (`rd2-history.log`) |
 | C34 | `poc/codec/crates/ak-abi/src/lib.rs` vs `ak-core/src/rpc.rs` | **observed, not this slice's**: ak-abi declares `ak_queue_next(..., timeout_ms: i32)` while the core exports `timeout_ms: u64` (this slice's hand prototype matches the core); and `ak_bytes`/`ak_completion` exist twice in Rust with no layout assert tying them, unlike `ak_client_opts`. The remaining RPC prototypes and those two structs are still hand-declared in `rpc_common.h` | **open**, for the aggregating session (WP5: the ABI layout rendered once) |
+| C36 | `src/concurrency.cpp`, `CMakeLists.txt` (R-D7) | the planted builds planted `ak::Enc` and linked the unplanted core, so the ffi arm was never seen failing; `roundtrip` re-encoded with `ak::Enc`, so each wrong native encode was counted twice ("44 of 48" = 22); the T6 labels were typed and named the wrong windows after T0 reordered the table | **fixed**: planted cores linked, a core-only plant added, `roundtrip` is a decode check, labels built from the table, `gen/concurrency.sh` requires per-encoder counts (`concurrency.log`) |
+| C37 | `src/bench.cpp`, `src/conformance.cpp`, `src/contentsets.cpp` (R-D5) | `ffi-valtc` was timed in two binaries and gated in none; the bench sank every return code, so a refused encode would have been timed as fast (it was, under a plant: `rd5-before.log`) | **fixed**: gated in conformance and contentsets; every bench arm has a gate run before calibration, a failing arm is not timed and the bench exits 1; `bench_a17_gateplant` shows it (`rd5-gate.log`) |
 | C35 | `gen/cpp_core.py` `packed` | **observed while reading for R-D1, not fixed**: the non-wire-2 arm of a packed field reads the value with the field's own reader whatever wire type arrived (a packed int field at wire type 1 or 5 is read as a varint, a double at wire type 0 as 8 bytes) instead of skipping a known field at the wrong wire type. This is R-E2, which WP5 moves into the shared plan. **From reading the emitter, not from a run**: the in-scope `U-wire-*` rows pass on native, and whether any of them puts a packed field at a wrong wire type was not checked | **open**, WP5 |
 
 ## What is not measured
@@ -1064,7 +1174,10 @@ corpus). C30 is this slice's own and is fixed. In the order I would do it:
   completion resumes it, as free functions and an adapter type beside the installed class
   rather than as members of it. No new C entry point, and the floor keeps the blocking call
   as a complete alternative. **Not built**, by instruction.
-- **Concurrency**: one thread in every codec arm.
+- **Concurrency in the timed arms**: every bench timing is one thread. The concurrency
+  suite (`concurrency.log`) is a correctness gate; its one timing (T7) is skipped in the
+  gate run and was last taken at `4af8d2b`. T5 (two threads, one message) and T7 drive the
+  native encoder only, so neither has seen the planted core; T1, T2, T3 and T6 have.
 - **Allocation and footprint**: nothing counts allocations or peak memory.
 - **One compiler** (g++ 13.3.0); clang++ 18 is installed and unused.
 - **Nesting past depth 3**, the adapter's non-injective states, and P7.1 being decode-only:
@@ -1107,11 +1220,14 @@ corpus). C30 is this slice's own and is fixed. In the order I would do it:
 | `groupskip.log` | `ak::Dec::skip` alone, at C++17 target, C++17 floor, C++14 floor and C++11 floor, plus TWO PLANTED builds | **C24.** 11 checks x 4 configurations, 0 failures; the depth-counting plant fails the two mismatched-end cases and the dropped-`case 5:` plant fails the two that carry a `fixed32`. The decode path a schema-generated manifest can never reach |
 | `corpus.log` | **re-taken 2026-09-24 against core `6ede244`**: 213 of 691 rows, 0 failures, 0 disputed, 0 permuted, C1 161/161, C2 158/158, C3 161/161, C4 52/52 on all three arms, walker 103/103; the old description follows. 128 of 336 corpus rows, three arms (`native`, `ffi`, and protobuf C++ as an ORACLE), at C++17 and at the C++11 floor, plus the 62 `WireZoo` rows through the unknown-field walker | **W8.** 0 failures; C1 126/126, C2 123/124, C3 125/126, C4 2/2 on both arms; 128/128 arm agreement; walker 62/62. Two rows named rather than counted (C25 `U-map-entry`, where protobuf C++ and pure-Python side with this slice against upb and the corpus; C26 `B-P7_1`, a permutation). Decision 11 answered: this slice DROPS |
 | `c24-timing.log` | a fresh `bench_a17_shared` against the published one | **C24 moved nothing.** 225 ratio rows, worst move 0.164, median 0.009, 0 over R4's 0.240 across-build bar. The published tables stand |
-| `concurrency.log` | 4 shapes x 2 message types, threads in sequence and together, C++17 + C++11 floor + both linkages, plus THREE PLANTED builds | **ABI v1 obligation 12.5, which no slice had.** Zero wrong bytes on every axis. 12.5's own claim measured: 0 wrong on one shape, 44 of 48 on two. Section 6's two refusals are independent — a global table is byte-clean and costs 1.83-2.05x under contention; padding is the byte defect |
+| `concurrency.log` | **re-taken 2026-09-24 for R-D7, core snapshot `817174f`, T7 skipped.** 4 shapes x 2 message types, threads in sequence and together, C++17 + C++11 floor + both linkages, plus FOUR PLANTED builds, each linking the matching planted core | **ABI v1 obligation 12.5.** Zero wrong operations on every shipped axis. Planted: pad 23 of 96 distinct wrong encodes on each of native, ffi, hosttc; core-only pad 0/23/23; global byte-clean on both encoders; decoder 0 everywhere. 12.5's claim: 0 on one shape, 22 of 48 per encoder on two (the earlier "44" double-counted). The 1.83-2.05x global-table scaling cost is T7 from this file's version at `4af8d2b`, instrumentation |
+| `rd7-before.log` | the HEAD (`817174f`) tree built unchanged in scratch, `conc_a17_pad` and `conc_a17_both` | **R-D7 before**: both link the unplanted core; ffi 0 and hosttc 0 in every row; native N = roundtrip N (the double count); the T6 labels name the wrong windows |
+| `rd5-gate.log` | `contentsets_a17` gate only, the three benches gate only, `bench_a17_gateplant` gate only and in timing mode on P1.1 | **R-D5 after**: 95 content-set checks 0 failures; every timed codec arm gated, 0 failed; the planted `ffi-valtc` refused on 14 of 15 payloads (P1.3 has no string), not timed, exit 1 |
+| `rd5-before.log` | git evidence at `817174f`, and the same plant applied to the committed bench | **R-D5 before**: no gate names `ffi-valtc`; a refused encode was timed (about 0.16 of pb, instrumentation) and the bench exited 0 |
 | `utf8.log` | four validators, 17.78 M differential checks against an independent oracle, then timed in one process | **Decision 3's decode-side check re-priced: 2.27x a raw copy on ASCII, not 4.4x**, and the core's validator is cheaper than the INCUMBENT'S OWN on all three sets (R14). C20: the old set validated a `bytes` field |
 | `c16.log` | one payload, one arm, six conditions incl. two `MALLOC_` tunings and a page-fault count | **C16 characterised.** The outlier is glibc's mmap page-fault cost, removed by pinning two thresholds; 13x more minor faults by default. Machine load refuted. One residual named |
 | `contentsets.log` | 5 payloads x 3 content sets, one process, oracle = the incumbent per set | **SHAPES.md's sentence answered, and differently for the two directions.** The encode ratio is almost entirely a fact about the content set (0.988 → 0.114 on P1.2); the decode ratio is not (moves ≤ 0.15). Most of the encode column is protobuf validating UTF-8 on serialize, so `ffi-valtc` is the like-for-like row |
-| `conformance.log` | six builds, **re-run 2026-09-24 after R-D1/R-D2 against core `6ede244`, unchanged** | R2. 443 checks, 0 failures, five times; 441 once and why. P2.5's two valid forms; protobuf C++ rejects malformed UTF-8 |
+| `conformance.log` | six builds, **re-run 2026-09-24 for R-D5 against a core snapshot at `817174f` (codec last changed `6ede244`)** | R2. 476 checks, 0 failures, five times; 474 once and why. Six encoders incl. `ffi-valtc`; `ffi-valtc` refuses malformed UTF-8 on encode with -6; P2.5's two valid forms; protobuf C++ rejects malformed UTF-8 |
 | `boundary.log` | the built artifacts, plus `fusion_probe`; **re-run 2026-09-24 against core `6ede244`: 21 checks, 0 failed** | R5 both halves and both directions, **21 checks after C24** (two symbols are now inlined inside the control TU, which the checker reports and does not fail). Half two rebuilt after C18: it tests call sites and out-of-line bodies rather than a size relation, and its control is a fixture that cannot stop firing |
 | `odr.log` | a C++11 TU and a C++17 TU, linked | README 5.1's hard stop: 144 facts, 0 moved; 49 under the positive control |
 | `calibration-r13.log` | the rust slice's own bench, here | R13: this machine's rust crossing is 1.5 ns |

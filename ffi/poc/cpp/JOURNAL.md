@@ -1184,3 +1184,74 @@ agreement 213/213, walker 103/103. `FFI=1 gen/lenwrap_rows.sh`: the ffi arm refu
 Boundary 21/21. rpccounts still counts 2/0, 3/1 and 4/0 with the six-field options. The 46
 refused rows where the object left behind differs between arms (C33) are still there, as
 the core's no-flush-after-error behaviour predicts.
+
+## 2026-09-24 (second work unit): FIX-PLAN WP4 items 6 (R-D5, C++ half) and 8 (R-D7)
+
+Correctness only; no timing reported. The rust agent is changing the shared core at the
+same time, so every gate here was built against a `git archive 817174f ffi/poc/codec`
+snapshot (the codec tree last changed at `6ede244`) through two new cache variables,
+`AK_CORE_ROOT` and `AK_CORE_TGT`, in an out-of-tree build directory. The in-tree `build/`
+was not touched and is stale against these sources.
+
+### R-D5: the timed `ffi-valtc` arm was gated nowhere
+
+Reproduced first, on the HEAD tree built unchanged in scratch (`rd5-before.log`): no
+committed gate log contains `valtc`, `conformance.cpp` never builds the validating
+transcoder, `contentsets.cpp` builds it only for its timed lambda, and `bench.cpp` sinks
+every arm's return code into `AK_SINK`. To see what that costs, I applied one plant to
+the committed bench and nothing else: a validating transcoder that refuses every string.
+The refused encode got a P1.1 row at about 0.16 of protobuf, and the bench exited 0. That
+is the failure mode in its plainest form: an arm that does no work because it refused
+looks six times faster than the incumbent.
+
+Fixed in three places. In conformance: rc and sha on every payload, plus the
+malformed-UTF-8 string on the ENCODE side, which `ffi` must accept (no check, by spec) and
+`ffi-valtc` must refuse with -6. Without that pair a validating arm that silently was not
+validating would pass a sha gate, because every payload's strings are valid. It refuses
+(rc -6, take -6, err -6), and a good encode after `ak_enc_reset` on the same context
+succeeds. 476 checks at every level, 474 for the lossy build (443/441 before). In
+contentsets: byte identity per set, 95 checks (80 before). In the bench: every arm carries a
+gate, run once before calibration. A failing arm, or one with no gate, is dropped and main
+exits 1. The borrowed facade's byte-identity check used to run AFTER its timing; it is now
+its gate. `bench_a17_gateplant` is the fixture: `ffi-valtc` refused on 14 of 15 payloads,
+not timed, exit 1, and absent from every table in timing mode (`rd5-gate.log`). P1.3 passes
+under the plant because it carries no present string: a transcoder that is never called
+cannot fail. That is expected, and it is also a reminder that a string plant says nothing
+about a payload without strings.
+
+`AK_BENCH_GATE_ONLY=1` and `AK_CS_GATE_ONLY=1` (with rounds 0) run the gates and time
+nothing, so a correctness log carries no container figure.
+
+### R-D7: the concurrency must-fail control never reached the core
+
+Reproduced (`rd7-before.log`): `conc_a17_pad` and `conc_a17_both` linked
+`core-build/target/release`, the unplanted core. The plants were `AK_CONC_*` defines in
+`rt.h`, the native codec only. ffi 0 and hosttc 0 in every row. The reviewer's
+double-count is real, and the mechanism is specific: `roundtrip` decoded through the core
+and then RE-ENCODED WITH `ak::Enc`, so it was the planted native encoder observed a second
+time. native N equals roundtrip N in every row, so "44 of 48" was 22 distinct wrong
+encodes and "46 of 96" was 23. A third defect turned up while I was reading the output:
+the T6 labels were typed strings. After T0 reordered the table to P1.1, P1.3, P1.2, P2.2,
+"P1.2 alone" was really P1.3 alone and "P1.1 + P1.2" was really P1.1 + P1.3. The numbers
+were right and the names were wrong.
+
+The shared core already has both refused designs as test-only features (`pad-widths`,
+`global-widths`, ak-rt's manifest; the rust slice added them for its own suite), so
+nothing in `poc/codec` needed to change. CMake now builds three planted cores. Each planted
+C++ build plants `ak::Enc` and links the matching core, and `conc_a17_corepad` plants the
+core ALONE. `roundtrip` is now a decode check: value equality with the built object. T4's
+poisoned threads got a separate `accepts`, because otherwise a truncated input that
+decoded to a different value would stop counting as "accepted". The binary prints one
+whole-run line per encoder, and `gen/concurrency.sh` requires, per build, which encoder
+must be wrong and which must not, and decoder 0 everywhere.
+
+Result, identical on two runs: pad has 23 of 96 distinct wrong encodes on each of native,
+ffi and hosttc (T3), and 22 of 48 on each for two shapes (T6). Core-only pad reads 0 / 23 /
+23: the ffi arm fails on its own. both reads 24 / 24 / 24. global is byte-clean on both
+encoders, so the core's `global-widths` behaves the way `ak::Enc`'s does. The shared core's
+pad plant produces exactly the C++ plant's count on the same schedule, and the two are
+independent implementations of the same refused design.
+
+Not done: T5 (two threads, one message) and T7 still drive only the native encoder, so
+"both threads agree and are both wrong" under `both` is still a native-encoder reading.
+There is no TSan run.

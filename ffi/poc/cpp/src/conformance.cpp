@@ -84,7 +84,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
 
   ak_enc_ctx *ctx = ak_enc_ctx_new();
   shapes::ffi::Tcs tc = shapes::ffi::tcs_core();
-  std::string ffi_bytes, ffiz_bytes, ffinb_bytes, ffih_bytes;
+  std::string ffi_bytes, ffiz_bytes, ffinb_bytes, ffih_bytes, ffiv_bytes;
   {
     intptr_t rc = ffi_enc(ctx, facade, tc);
     const uint8_t *p = NULL;
@@ -117,6 +117,19 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
     ak_enc_take(ctx, &p, &n);
     check(rc >= 0, std::string(id) + " ffi-hosttc encode rc");
     ffih_bytes.assign((const char *)p, n);
+  }
+  {
+    // R-D5: `ffi-valtc` is a TIMED arm of bench.cpp and contentsets.cpp -- the like-for-like
+    // encode row against protobuf, which validates UTF-8 on serialise -- and until this
+    // block no gate ran it. The same entry point with the core's VALIDATING transcoder.
+    shapes::ffi::Tcs tv = shapes::ffi::tcs_core_validating();
+    intptr_t rc = ffi_enc(ctx, facade, tv);
+    const uint8_t *p = NULL;
+    size_t n = 0;
+    int32_t trc = ak_enc_take(ctx, &p, &n);
+    check(rc >= 0 && trc == 0 && ak_enc_err(ctx) == 0,
+          std::string(id) + " ffi-valtc encode rc");
+    ffiv_bytes.assign((const char *)p, n);
   }
   ak_enc_ctx_free(ctx);
 
@@ -151,6 +164,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   check(sha_of(ffiz_bytes) == want, std::string(id) + " ffi-zeroed sha");
   check(sha_of(ffinb_bytes) == want, std::string(id) + " ffi-nobatch sha");
   check(sha_of(ffih_bytes) == want, std::string(id) + " ffi-hosttc sha");
+  check(sha_of(ffiv_bytes) == want, std::string(id) + " ffi-valtc sha");
 
   // Decode, then value identity between the two facade decoders and a re-encode.
   {
@@ -488,6 +502,41 @@ static void run_absent_and_unknown() {
           "a good decode after a rejected one succeeds (D17 regression)");
     ak_dec_ctx_free(dctx);
 #endif
+    // The ENCODE side of the same string, which is what makes `ffi-valtc` a different arm
+    // from `ffi` rather than the same arm under another name (R-D5). The spec transcoder
+    // does not check and must accept; the validating one must refuse with
+    // AK_ERR_TRANSCODE. A validating arm that accepted this would be timing a check it
+    // does not run. Independent of the decode policy, so outside the #ifdef above.
+    {
+      ak_enc_ctx *ectx = ak_enc_ctx_new();
+      const uint8_t *p = NULL;
+      size_t n = 0;
+      intptr_t rs = shapes::ffi::encode_into_list_results_response(
+          ectx, one, shapes::ffi::tcs_core());
+      int32_t ts = ak_enc_take(ectx, &p, &n);
+      check(rs >= 0 && ts == 0 && std::string((const char *)p, n) == s,
+            "malformed UTF-8 on ENCODE: ffi (spec transcoder, no check) accepts it and"
+            " writes the native bytes");
+      ak_enc_reset(ectx);
+      intptr_t rv = shapes::ffi::encode_into_list_results_response(
+          ectx, one, shapes::ffi::tcs_core_validating());
+      int32_t tv = ak_enc_take(ectx, &p, &n);
+      int32_t ev = ak_enc_err(ectx);
+      std::printf("  ffi-valtc on malformed UTF-8: encode rc %ld, take %d, err %d\n",
+                  (long)rv, tv, ev);
+      check((rv < 0 || tv != 0) && ev == ak::ERR_TRANSCODE,
+            "malformed UTF-8 on ENCODE: ffi-valtc refuses it with AK_ERR_TRANSCODE");
+      // And the refusal does not survive a reset into the next encode.
+      ak_enc_reset(ectx);
+      intptr_t rg = shapes::ffi::encode_into_list_results_response(
+          ectx, shapes::build::payload_p1_1(), shapes::ffi::tcs_core_validating());
+      int32_t tg = ak_enc_take(ectx, &p, &n);
+      check(rg >= 0 && tg == 0 && ak_enc_err(ectx) == 0 &&
+                sha_of(std::string((const char *)p, n)) ==
+                    std::string("5df5eb5f3f51ae920f64ed07108d7158e0f559cda2be692f550767a9f39d3206"),
+            "ffi-valtc: a good encode after a refused one on the same context succeeds");
+      ak_enc_ctx_free(ectx);
+    }
     ns::ListResultsResponse pbm;
     bool pbok = pbm.ParseFromString(s);
     std::printf("  protobuf C++ on malformed UTF-8: ParseFromString -> %s\n",
@@ -520,7 +569,8 @@ int main(int argc, char **argv) {
   std::printf("\n-- group layout (ABI v1 section 10) --\n");
   run_layout();
 
-  std::printf("\n-- byte identity against manifest.json, five arms --\n");
+  std::printf("\n-- byte identity against manifest.json, six arms (native, ffi, ffi-zeroed, ffi-nobatch,"
+              " ffi-hosttc, ffi-valtc) --\n");
 #define X(id, Root, sroot, pfx, sha, nbytes)                                      \
   run_case<shapes::Root, ns::Root>(                                               \
       id, &shapes::build::payload_##pfx, &pbbuild::payload_##pfx,                 \

@@ -1,0 +1,82 @@
+# R-D5 BEFORE: ffi-valtc is timed and no gate runs it; the bench discards every arm's return code
+#   date        2026-09-24T16:12:58Z
+#   tree        git archive 817174f (ffi/poc/cpp, ffi/poc/codec, ffi/schema) into scratch; core = that commit's ffi/poc/codec
+
+== 1. the gates as committed at 817174f do not name the arm ==
+$ git show 817174f:ffi/logs/cpp/conformance.log | grep -c valtc
+0
+$ git show 817174f:ffi/poc/cpp/src/conformance.cpp | grep -c 'valtc\|tcs_core_validating'
+0
+$ git show 817174f:ffi/poc/cpp/src/contentsets.cpp | grep -n 'tcs_core_validating\|ffi-valtc is'
+182:    shapes::ffi::Tcs tv = shapes::ffi::tcs_core_validating();
+   (line 182 is the TIMED lambda's transcoder; no check() names ffi-valtc)
+
+== 2. bench.cpp at 817174f: the return code is sunk, never read ==
+218:    a.name = "ffi-valtc"; a.fn = [&]() { intptr_t r = ffi_enc(ctx, facade, tv); AK_SINK(r); }; enc.push_back(a);
+
+== 3. the same plant bench_a17_gateplant carries, applied to the bench as committed and nothing else ==
+   (a 'validating' transcoder that refuses every string: tv.utf8 = ak_gate_plant_refuse, returns -6)
+   AK_BENCH_ONLY=P1.1 bench_a17_shared 1. The figures are container instrumentation; what matters is
+   that a refused encode gets a row -- 0.16 of protobuf, i.e. 'six times faster' -- and the exit code is 0.
+
+# filtered: AK_BENCH_ONLY=P1.1
+-std=201703  impl=target  guard=on  decode-policy=reject  linkage=shared  rounds=1
+protobuf 3021012.  pb = SerializeToString (what a C++ consumer writes).
+protobuf validates UTF-8 on SERIALIZE; the spec says the core does not, so
+`ffi-valtc` is the like-for-like row and `ffi` is the specified behaviour.
+NDEBUG is defined: protobuf's GOOGLE_DCHECKs are compiled out.
+
+-- the crossing itself, same process and build, linkage=shared --
+   register-only barrier, to match the rust harness R13 compares against
+  forward 0.633 ns   forward+reverse 0.964 ns   reverse alone 0.330 ns
+
+-- arms --
+  P1.1       858 B  done
+
+-- the BORROWED-string facade: how much of decode is the COPY: (ffi-borrow) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.1   dec   ns/el      -204.78      -204.78      -204.78     -42.18 -
+
+-- the STRING-AS-DATA form (decision 1): (ffi-hosttc) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.1   enc   ns/el        -0.59        -0.59        -0.59      -0.55 -
+
+-- the BATCHING predicate (decision 1): (ffi-nobat) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.1   enc   ns/el        -0.79        -0.79        -0.79      -0.74 -
+
+-- decision 9's zeroed element fill: (ffi-zeroed) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.1   enc   ns/el        -3.46        -3.46        -3.46      -3.25 -
+
+-- encode-side UTF-8 validation, which protobuf does and the spec does not: (ffi-valtc) - (ffi), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.1   enc   ns/el       -81.84       -81.84       -81.84     -76.77 -
+
+-- the boundary: ffi against the no-boundary control: (ffi) - (native), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+P1.1   enc   ns/el        37.47        37.47        37.47      35.15 +
+P1.1   dec   ns/el       -24.58       -24.58       -24.58      -5.06 -
+
+-- the group fill: direct call against a call through a pointer: (groupfill-ind) - (groupfill), within-round --
+payload dir    unit           lo       median           hi    % of pb sign
+
+payload dir  arm           ns/op med  ns/op min  r/pb lo  r/pb hi   spr% per-round r/pb
+P1.1   enc  pb                426.4      426.4    1.000    1.000    0.0 1.000
+P1.1   enc  pb-det            445.0      445.0    1.044    1.044    0.0 1.044
+P1.1   enc  pb-arena          428.7      428.7    1.005    1.005    0.0 1.005
+P1.1   enc  memcpy             11.4       11.4    0.027    0.027    0.0 0.027
+P1.1   enc  native            247.0      247.0    0.579    0.579    0.0 0.579
+P1.1   enc  ffi               396.9      396.9    0.931    0.931    0.0 0.931
+P1.1   enc  ffi-valtc          69.5       69.5    0.163    0.163    0.0 0.163
+P1.1   enc  ffi-zeroed        383.0      383.0    0.898    0.898    0.0 0.898
+P1.1   enc  ffi-nobat         393.7      393.7    0.923    0.923    0.0 0.923
+P1.1   enc  ffi-hosttc        394.5      394.5    0.925    0.925    0.0 0.925
+P1.1   dec  pb               1942.0     1942.0    1.000    1.000    0.0 1.000
+P1.1   dec  pb-arena         1843.4     1843.4    0.949    0.949    0.0 0.949
+P1.1   dec  native           1301.8     1301.8    0.670    0.670    0.0 0.670
+P1.1   dec  ffi              1203.5     1203.5    0.620    0.620    0.0 0.620
+P1.1   dec  ffi-borrow        384.4      384.4    0.198    0.198    0.0 0.198
+
+borrowed facade: byte identity holds on every payload
+exit 0 (captured when run)
