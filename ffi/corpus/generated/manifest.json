@@ -27,11 +27,14 @@
     ],
     "refusals_confirmed_by": {
       "protobuf 7.36.2 (pure-python backend)": 143,
-      "protobuf 7.36.2 (upb backend)": 141,
-      "protobuf C++ via libprotoc 35.1 (protoc --decode)": 143
+      "protobuf 7.36.2 (upb backend)": 144,
+      "protobuf C++ via libprotoc 35.1 (protoc --decode)": 146
     },
     "disputed_rows": [
       "U-map-entry",
+      "X-field-2p32-plus-2",
+      "X-field-over-max",
+      "X-field-over-max-in-group",
       "X-tag-zero-Empty",
       "X-tag-zero-nested-Empty"
     ]
@@ -289,14 +292,14 @@
     "baseline": 8,
     "chunking": 8,
     "empty": 30,
-    "malformed": 112,
-    "shape": 163,
+    "malformed": 115,
+    "shape": 170,
     "transcode": 53,
-    "unknown": 317,
-    "total": 691,
-    "must_fail_seen_failing": 143,
-    "disputed": 3,
-    "agreed": 688
+    "unknown": 318,
+    "total": 702,
+    "must_fail_seen_failing": 146,
+    "disputed": 6,
+    "agreed": 696
   },
   "vectors": {
     "U-root-u-varint": {
@@ -42564,6 +42567,634 @@
         "protobuf 7.36.2 (upb backend)"
       ],
       "projection": "projections/S-neg-i32-truncated-Pair.json"
+    },
+    "X-field-over-max": {
+      "class": "malformed",
+      "tests": "field number 2^29, one above the largest legal field number, at the root",
+      "root": "WireZoo",
+      "view": "reader",
+      "expect": "reject",
+      "bytes": 6,
+      "sha256": "b7f5208acee7aea46c6cdfd31ecc92e1b8c7d3569812293fcbf5a90af2922b77",
+      "canonical": false,
+      "produce": [],
+      "consume": [
+        "cpp",
+        "csharp",
+        "java",
+        "python",
+        "rust"
+      ],
+      "why": "FIX-PLAN WP5 step 6, proposed by the rust slice through the aggregating session; the rule is stated in poc/codec/gen/plan.py. protobuf's largest field number is 2^29 - 1 = 536870911. A key whose field number is above it is refused, including 2^32 + n, which a decoder that keeps the key in 32 bits aliases to field n, and including inside a group the reader is only skipping. 2^29 - 1 itself is legal: S-bigtag (known) and U-root-max-tag (unknown) already carry it, and U-group-field-max carries it inside a skipped group as the control for the in-group refusal.",
+      "meta": {
+        "source": "poc/rust/gen/probe_corpus.py",
+        "plan": "WP5 step 6"
+      },
+      "file": "vectors/X-field-over-max.bin",
+      "reject": {
+        "reason": "field number above 2^29 - 1",
+        "seen_failing": {
+          "refused_by": [
+            "protobuf 7.36.2 (upb backend)",
+            "protobuf C++ via libprotoc 35.1 (protoc --decode)"
+          ],
+          "accepted_by": [
+            "protobuf 7.36.2 (pure-python backend)"
+          ],
+          "raised": {
+            "protobuf 7.36.2 (upb backend)": "DecodeError",
+            "protobuf C++ via libprotoc 35.1 (protoc --decode)": "Failed to parse input."
+          }
+        }
+      },
+      "verdict": "disputed",
+      "dispute": {
+        "what": "whether the vector is refused at all",
+        "refused_by": [
+          "protobuf 7.36.2 (upb backend)",
+          "protobuf C++ via libprotoc 35.1 (protoc --decode)"
+        ],
+        "accepted_by": [
+          "protobuf 7.36.2 (pure-python backend)"
+        ],
+        "excluded_from_pass_fail": true
+      }
+    },
+    "X-field-2p32-plus-2": {
+      "class": "malformed",
+      "tests": "field number 2^32 + 2, which a decoder keeping the field number in 32 bits reads as field 2 (v_int64 = 5)",
+      "root": "WireZoo",
+      "view": "reader",
+      "expect": "reject",
+      "bytes": 7,
+      "sha256": "35d273de44d957186f94d4e7602c1e53b9662d88b6df27736091a59444a27ae8",
+      "canonical": false,
+      "produce": [],
+      "consume": [
+        "cpp",
+        "csharp",
+        "java",
+        "python",
+        "rust"
+      ],
+      "why": "FIX-PLAN WP5 step 6, proposed by the rust slice through the aggregating session; the rule is stated in poc/codec/gen/plan.py. protobuf's largest field number is 2^29 - 1 = 536870911. A key whose field number is above it is refused, including 2^32 + n, which a decoder that keeps the key in 32 bits aliases to field n, and including inside a group the reader is only skipping. 2^29 - 1 itself is legal: S-bigtag (known) and U-root-max-tag (unknown) already carry it, and U-group-field-max carries it inside a skipped group as the control for the in-group refusal.",
+      "meta": {
+        "source": "poc/rust/gen/probe_corpus.py",
+        "plan": "WP5 step 6"
+      },
+      "file": "vectors/X-field-2p32-plus-2.bin",
+      "reject": {
+        "reason": "field number above 2^29 - 1",
+        "seen_failing": {
+          "refused_by": [
+            "protobuf 7.36.2 (upb backend)",
+            "protobuf C++ via libprotoc 35.1 (protoc --decode)"
+          ],
+          "accepted_by": [
+            "protobuf 7.36.2 (pure-python backend)"
+          ],
+          "raised": {
+            "protobuf 7.36.2 (upb backend)": "DecodeError",
+            "protobuf C++ via libprotoc 35.1 (protoc --decode)": "Failed to parse input."
+          }
+        }
+      },
+      "verdict": "disputed",
+      "dispute": {
+        "what": "whether the vector is refused at all",
+        "refused_by": [
+          "protobuf 7.36.2 (upb backend)",
+          "protobuf C++ via libprotoc 35.1 (protoc --decode)"
+        ],
+        "accepted_by": [
+          "protobuf 7.36.2 (pure-python backend)"
+        ],
+        "excluded_from_pass_fail": true
+      }
+    },
+    "X-field-over-max-in-group": {
+      "class": "malformed",
+      "tests": "field number 2^29 inside an unknown group the reader is only skipping",
+      "root": "WireZoo",
+      "view": "reader",
+      "expect": "reject",
+      "bytes": 10,
+      "sha256": "335f9969ed229fcb5c3e3ba4820dea570950d246f79810cd8d3b287c7aab56e9",
+      "canonical": false,
+      "produce": [],
+      "consume": [
+        "cpp",
+        "csharp",
+        "java",
+        "python",
+        "rust"
+      ],
+      "why": "FIX-PLAN WP5 step 6, proposed by the rust slice through the aggregating session; the rule is stated in poc/codec/gen/plan.py. protobuf's largest field number is 2^29 - 1 = 536870911. A key whose field number is above it is refused, including 2^32 + n, which a decoder that keeps the key in 32 bits aliases to field n, and including inside a group the reader is only skipping. 2^29 - 1 itself is legal: S-bigtag (known) and U-root-max-tag (unknown) already carry it, and U-group-field-max carries it inside a skipped group as the control for the in-group refusal.",
+      "meta": {
+        "source": "poc/rust/gen/probe_corpus.py",
+        "plan": "WP5 step 6"
+      },
+      "file": "vectors/X-field-over-max-in-group.bin",
+      "reject": {
+        "reason": "field number above 2^29 - 1",
+        "seen_failing": {
+          "refused_by": [
+            "protobuf 7.36.2 (upb backend)",
+            "protobuf C++ via libprotoc 35.1 (protoc --decode)"
+          ],
+          "accepted_by": [
+            "protobuf 7.36.2 (pure-python backend)"
+          ],
+          "raised": {
+            "protobuf 7.36.2 (upb backend)": "DecodeError",
+            "protobuf C++ via libprotoc 35.1 (protoc --decode)": "Failed to parse input."
+          }
+        }
+      },
+      "verdict": "disputed",
+      "dispute": {
+        "what": "whether the vector is refused at all",
+        "refused_by": [
+          "protobuf 7.36.2 (upb backend)",
+          "protobuf C++ via libprotoc 35.1 (protoc --decode)"
+        ],
+        "accepted_by": [
+          "protobuf 7.36.2 (pure-python backend)"
+        ],
+        "excluded_from_pass_fail": true
+      }
+    },
+    "U-group-field-max": {
+      "class": "unknown",
+      "tests": "field number 2^29 - 1 inside an unknown group the reader is only skipping",
+      "root": "WireZoo",
+      "view": "reader",
+      "expect": "accept",
+      "bytes": 10,
+      "sha256": "b54096bd3aa9d2b4c6e6a6f626b3afd8494400fb2948a3c6383cc82b8cf7bbac",
+      "canonical": false,
+      "produce": [],
+      "consume": [
+        "cpp",
+        "csharp",
+        "java",
+        "python",
+        "rust"
+      ],
+      "why": "FIX-PLAN WP5 step 6, proposed by the rust slice through the aggregating session; the rule is stated in poc/codec/gen/plan.py. protobuf's largest field number is 2^29 - 1 = 536870911. A key whose field number is above it is refused, including 2^32 + n, which a decoder that keeps the key in 32 bits aliases to field n, and including inside a group the reader is only skipping. 2^29 - 1 itself is legal: S-bigtag (known) and U-root-max-tag (unknown) already carry it, and U-group-field-max carries it inside a skipped group as the control for the in-group refusal. The control for X-field-over-max-in-group: the same group, one field number lower, must be skipped without complaint.",
+      "notes": {
+        "all": "WireZoo is not an unknown-field site, so tag 100 is unknown under both views and there is no superset projection."
+      },
+      "meta": {
+        "group_tag": 100,
+        "declared_in_superset": false,
+        "source": "poc/rust/gen/probe_corpus.py",
+        "plan": "WP5 step 6"
+      },
+      "file": "vectors/U-group-field-max.bin",
+      "unknown_tags_seen_by_reader": [
+        100
+      ],
+      "permutation_accepted": false,
+      "accepted_encodings": [
+        {
+          "sha256": "b54096bd3aa9d2b4c6e6a6f626b3afd8494400fb2948a3c6383cc82b8cf7bbac",
+          "bytes": 10,
+          "forms": [
+            "as committed"
+          ],
+          "written_by": [
+            "ffi/corpus/emit, the canonical form of ../schema/README.md",
+            "protobuf 7.36.2 (pure-python backend)",
+            "protobuf 7.36.2 (upb backend)"
+          ],
+          "observed_in_a_protobuf_runtime": true
+        },
+        {
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0,
+          "forms": [
+            "unknown-dropped"
+          ],
+          "written_by": [
+            "ffi/corpus/emit, the canonical form of ../schema/README.md"
+          ],
+          "observed_in_a_protobuf_runtime": false
+        }
+      ],
+      "upb_agreement": "identical",
+      "verdict": "agreed",
+      "verdict_agreed_by": [
+        "protobuf 7.36.2 (pure-python backend)",
+        "protobuf 7.36.2 (upb backend)"
+      ],
+      "projection": "projections/U-group-field-max.json"
+    },
+    "S-varint10-bit64": {
+      "class": "shape",
+      "tests": "v_int64 whose tenth byte is 0x02: bit 64 set and discarded, bit 63 clear, so 2^63 - 1",
+      "root": "WireZoo",
+      "view": "reader",
+      "expect": "accept",
+      "bytes": 11,
+      "sha256": "8b12f7b51e4f30c394d7ec8724387817038ea0af23a9cd61c635480c5e0d0a93",
+      "canonical": false,
+      "produce": [],
+      "consume": [
+        "cpp",
+        "csharp",
+        "java",
+        "python",
+        "rust"
+      ],
+      "why": "FIX-PLAN WP5 step 6, rule stated in poc/codec/gen/plan.py: the tenth byte of a varint contributes its low bit only, and bits beyond 64 are discarded rather than refused. A decoder that refuses them, or that lets them shift into bit 63, reads a different value. X-varint-11-bytes stays must-fail: an eleventh byte is refused. S-varint-i64-minus-1 already carries the legal tenth byte 0x01. Consume-only; the canonical re-encoding is declared.",
+      "meta": {
+        "source": "poc/rust/gen/probe_corpus.py",
+        "plan": "WP5 step 6"
+      },
+      "file": "vectors/S-varint10-bit64.bin",
+      "permutation_accepted": false,
+      "accepted_encodings": [
+        {
+          "sha256": "5bf5713b3ef5fdcc5bcc0c3692729b173e1839a0481b25b59df0ffb950e8b103",
+          "bytes": 10,
+          "forms": [
+            "canonical"
+          ],
+          "written_by": [
+            "ffi/corpus/emit, the canonical form of ../schema/README.md",
+            "protobuf 7.36.2 (pure-python backend)",
+            "protobuf 7.36.2 (upb backend)"
+          ],
+          "observed_in_a_protobuf_runtime": true
+        },
+        {
+          "sha256": "8b12f7b51e4f30c394d7ec8724387817038ea0af23a9cd61c635480c5e0d0a93",
+          "bytes": 11,
+          "forms": [
+            "as committed"
+          ],
+          "written_by": [
+            "ffi/corpus/emit, the canonical form of ../schema/README.md"
+          ],
+          "observed_in_a_protobuf_runtime": false
+        }
+      ],
+      "upb_agreement": "a form the vector declares",
+      "verdict": "agreed",
+      "verdict_agreed_by": [
+        "protobuf 7.36.2 (pure-python backend)",
+        "protobuf 7.36.2 (upb backend)"
+      ],
+      "projection": "projections/S-varint10-bit64.json"
+    },
+    "S-varint10-7f": {
+      "class": "shape",
+      "tests": "v_int64 whose tenth byte is 0x7f: bits 64 to 69 discarded, so -1",
+      "root": "WireZoo",
+      "view": "reader",
+      "expect": "accept",
+      "bytes": 11,
+      "sha256": "cd6e3e4b202ae56031e0dd08e7d2a89d3f7d880d97ce1cc904598ef0f53cd59a",
+      "canonical": false,
+      "produce": [],
+      "consume": [
+        "cpp",
+        "csharp",
+        "java",
+        "python",
+        "rust"
+      ],
+      "why": "FIX-PLAN WP5 step 6, rule stated in poc/codec/gen/plan.py: the tenth byte of a varint contributes its low bit only, and bits beyond 64 are discarded rather than refused. A decoder that refuses them, or that lets them shift into bit 63, reads a different value. X-varint-11-bytes stays must-fail: an eleventh byte is refused. S-varint-i64-minus-1 already carries the legal tenth byte 0x01. Consume-only; the canonical re-encoding is declared.",
+      "meta": {
+        "source": "poc/rust/gen/probe_corpus.py",
+        "plan": "WP5 step 6"
+      },
+      "file": "vectors/S-varint10-7f.bin",
+      "permutation_accepted": false,
+      "accepted_encodings": [
+        {
+          "sha256": "7989d948c2d92eb9a82a74476ab77cc8980f23dd3dcc973ef9a760883a3a3e6f",
+          "bytes": 11,
+          "forms": [
+            "canonical"
+          ],
+          "written_by": [
+            "ffi/corpus/emit, the canonical form of ../schema/README.md",
+            "protobuf 7.36.2 (pure-python backend)",
+            "protobuf 7.36.2 (upb backend)"
+          ],
+          "observed_in_a_protobuf_runtime": true
+        },
+        {
+          "sha256": "cd6e3e4b202ae56031e0dd08e7d2a89d3f7d880d97ce1cc904598ef0f53cd59a",
+          "bytes": 11,
+          "forms": [
+            "as committed"
+          ],
+          "written_by": [
+            "ffi/corpus/emit, the canonical form of ../schema/README.md"
+          ],
+          "observed_in_a_protobuf_runtime": false
+        }
+      ],
+      "upb_agreement": "a form the vector declares",
+      "verdict": "agreed",
+      "verdict_agreed_by": [
+        "protobuf 7.36.2 (pure-python backend)",
+        "protobuf 7.36.2 (upb backend)"
+      ],
+      "projection": "projections/S-varint10-7f.json"
+    },
+    "S-varint10-over-zero": {
+      "class": "shape",
+      "tests": "v_int64 whose only set bits are beyond 64: the value is 0, which an implicit-presence field does not keep",
+      "root": "WireZoo",
+      "view": "reader",
+      "expect": "accept",
+      "bytes": 11,
+      "sha256": "4892122775f45217571f78fd59236b1b697f0172c9f305a5a06746788c87bd9f",
+      "canonical": false,
+      "produce": [],
+      "consume": [
+        "cpp",
+        "csharp",
+        "java",
+        "python",
+        "rust"
+      ],
+      "why": "FIX-PLAN WP5 step 6, rule stated in poc/codec/gen/plan.py: the tenth byte of a varint contributes its low bit only, and bits beyond 64 are discarded rather than refused. A decoder that refuses them, or that lets them shift into bit 63, reads a different value. X-varint-11-bytes stays must-fail: an eleventh byte is refused. S-varint-i64-minus-1 already carries the legal tenth byte 0x01. Consume-only; the canonical re-encoding is declared.",
+      "meta": {
+        "source": "poc/rust/gen/probe_corpus.py",
+        "plan": "WP5 step 6"
+      },
+      "file": "vectors/S-varint10-over-zero.bin",
+      "permutation_accepted": false,
+      "accepted_encodings": [
+        {
+          "sha256": "4892122775f45217571f78fd59236b1b697f0172c9f305a5a06746788c87bd9f",
+          "bytes": 11,
+          "forms": [
+            "as committed"
+          ],
+          "written_by": [
+            "ffi/corpus/emit, the canonical form of ../schema/README.md"
+          ],
+          "observed_in_a_protobuf_runtime": false
+        },
+        {
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0,
+          "forms": [
+            "canonical"
+          ],
+          "written_by": [
+            "ffi/corpus/emit, the canonical form of ../schema/README.md",
+            "protobuf 7.36.2 (upb backend)"
+          ],
+          "observed_in_a_protobuf_runtime": true
+        }
+      ],
+      "upb_agreement": "a form the vector declares",
+      "verdict": "agreed",
+      "verdict_agreed_by": [
+        "protobuf 7.36.2 (pure-python backend)",
+        "protobuf 7.36.2 (upb backend)"
+      ],
+      "projection": "projections/S-varint10-over-zero.json"
+    },
+    "S-varint10-int32": {
+      "class": "shape",
+      "tests": "v_int32 carrying the ten-byte varint with bit 64 set: the low 32 bits are -1",
+      "root": "WireZoo",
+      "view": "reader",
+      "expect": "accept",
+      "bytes": 11,
+      "sha256": "294d5cd5e59202f6701dd29f99e31b7c6f0186745bb4099c8b0fe9246b1e5dfb",
+      "canonical": false,
+      "produce": [],
+      "consume": [
+        "cpp",
+        "csharp",
+        "java",
+        "python",
+        "rust"
+      ],
+      "why": "FIX-PLAN WP5 step 6, rule stated in poc/codec/gen/plan.py: the tenth byte of a varint contributes its low bit only, and bits beyond 64 are discarded rather than refused. A decoder that refuses them, or that lets them shift into bit 63, reads a different value. X-varint-11-bytes stays must-fail: an eleventh byte is refused. S-varint-i64-minus-1 already carries the legal tenth byte 0x01. Consume-only; the canonical re-encoding is declared.",
+      "meta": {
+        "source": "poc/rust/gen/probe_corpus.py",
+        "plan": "WP5 step 6"
+      },
+      "file": "vectors/S-varint10-int32.bin",
+      "permutation_accepted": false,
+      "accepted_encodings": [
+        {
+          "sha256": "294d5cd5e59202f6701dd29f99e31b7c6f0186745bb4099c8b0fe9246b1e5dfb",
+          "bytes": 11,
+          "forms": [
+            "as committed"
+          ],
+          "written_by": [
+            "ffi/corpus/emit, the canonical form of ../schema/README.md"
+          ],
+          "observed_in_a_protobuf_runtime": false
+        },
+        {
+          "sha256": "99ef7fe3588ef1ec2dfe21c4901e9c3ff1d9412c32ef03f91c245c51b7a57b8d",
+          "bytes": 11,
+          "forms": [
+            "canonical"
+          ],
+          "written_by": [
+            "ffi/corpus/emit, the canonical form of ../schema/README.md",
+            "protobuf 7.36.2 (pure-python backend)",
+            "protobuf 7.36.2 (upb backend)"
+          ],
+          "observed_in_a_protobuf_runtime": true
+        }
+      ],
+      "upb_agreement": "a form the vector declares",
+      "verdict": "agreed",
+      "verdict_agreed_by": [
+        "protobuf 7.36.2 (pure-python backend)",
+        "protobuf 7.36.2 (upb backend)"
+      ],
+      "projection": "projections/S-varint10-int32.json"
+    },
+    "S-varint10-bit64-Timestamp": {
+      "class": "shape",
+      "tests": "Timestamp.seconds with the same tenth byte 0x02, on a root every slice implements",
+      "root": "Timestamp",
+      "view": "reader",
+      "expect": "accept",
+      "bytes": 11,
+      "sha256": "294d5cd5e59202f6701dd29f99e31b7c6f0186745bb4099c8b0fe9246b1e5dfb",
+      "canonical": false,
+      "produce": [],
+      "consume": [
+        "cpp",
+        "csharp",
+        "java",
+        "python",
+        "rust"
+      ],
+      "why": "FIX-PLAN WP5 step 6, rule stated in poc/codec/gen/plan.py: the tenth byte of a varint contributes its low bit only, and bits beyond 64 are discarded rather than refused. A decoder that refuses them, or that lets them shift into bit 63, reads a different value. X-varint-11-bytes stays must-fail: an eleventh byte is refused. S-varint-i64-minus-1 already carries the legal tenth byte 0x01. Consume-only; the canonical re-encoding is declared.",
+      "meta": {
+        "source": "poc/rust/gen/probe_corpus.py",
+        "plan": "WP5 step 6"
+      },
+      "file": "vectors/S-varint10-bit64-Timestamp.bin",
+      "permutation_accepted": false,
+      "accepted_encodings": [
+        {
+          "sha256": "294d5cd5e59202f6701dd29f99e31b7c6f0186745bb4099c8b0fe9246b1e5dfb",
+          "bytes": 11,
+          "forms": [
+            "as committed"
+          ],
+          "written_by": [
+            "ffi/corpus/emit, the canonical form of ../schema/README.md"
+          ],
+          "observed_in_a_protobuf_runtime": false
+        },
+        {
+          "sha256": "7956155a3cbfdcea8d83f6eb286a4e7b8b38f416a5f96138d837cba6660cd4cf",
+          "bytes": 10,
+          "forms": [
+            "canonical"
+          ],
+          "written_by": [
+            "ffi/corpus/emit, the canonical form of ../schema/README.md",
+            "protobuf 7.36.2 (pure-python backend)",
+            "protobuf 7.36.2 (upb backend)"
+          ],
+          "observed_in_a_protobuf_runtime": true
+        }
+      ],
+      "upb_agreement": "a form the vector declares",
+      "verdict": "agreed",
+      "verdict_agreed_by": [
+        "protobuf 7.36.2 (pure-python backend)",
+        "protobuf 7.36.2 (upb backend)"
+      ],
+      "projection": "projections/S-varint10-bit64-Timestamp.json"
+    },
+    "S-map-order-utf8": {
+      "class": "shape",
+      "tests": "TaskOptions.options with keys U+E000 and U+10000, in UTF-8 byte order",
+      "root": "TaskOptions",
+      "view": "reader",
+      "expect": "accept",
+      "bytes": 21,
+      "sha256": "47ac9fd8e60d0af2f21431e8af9c59630dd4c014f5d775c59051a49528612f7f",
+      "canonical": true,
+      "produce": [
+        "cpp",
+        "csharp",
+        "java",
+        "python",
+        "rust"
+      ],
+      "consume": [
+        "cpp",
+        "csharp",
+        "java",
+        "python",
+        "rust"
+      ],
+      "why": "FIX-PLAN WP5 step 6, rule stated in poc/codec/gen/plan.py: map entries are written in ascending order of the key's UTF-8 bytes, which is code point order. U+E000 (EE 80 80) sorts before U+10000 (F0 90 80 80) that way and AFTER it in UTF-16 code-unit order (E000 against D800 DC00), so a host that sorts its string keys as UTF-16 writes the two entries reversed.",
+      "meta": {
+        "keys_utf8_hex": [
+          "ee8080",
+          "f0908080"
+        ],
+        "keys_utf16be_hex": [
+          "e000",
+          "d800dc00"
+        ],
+        "plan": "WP5 step 6"
+      },
+      "file": "vectors/S-map-order-utf8.bin",
+      "permutation_accepted": false,
+      "accepted_encodings": [
+        {
+          "sha256": "47ac9fd8e60d0af2f21431e8af9c59630dd4c014f5d775c59051a49528612f7f",
+          "bytes": 21,
+          "forms": [
+            "as committed"
+          ],
+          "written_by": [
+            "ffi/corpus/emit, the canonical form of ../schema/README.md",
+            "protobuf 7.36.2 (pure-python backend)",
+            "protobuf 7.36.2 (upb backend)"
+          ],
+          "observed_in_a_protobuf_runtime": true
+        }
+      ],
+      "upb_agreement": "identical",
+      "verdict": "agreed",
+      "verdict_agreed_by": [
+        "protobuf 7.36.2 (pure-python backend)",
+        "protobuf 7.36.2 (upb backend)"
+      ],
+      "projection": "projections/S-map-order-utf8.json"
+    },
+    "S-map-order-reversed": {
+      "class": "shape",
+      "tests": "the same two entries in the reverse (UTF-16) order on the wire",
+      "root": "TaskOptions",
+      "view": "reader",
+      "expect": "accept",
+      "bytes": 21,
+      "sha256": "387aa0941bf1fd88ec4670a77398fe7a0a58676299c90da15a8d16800c598916",
+      "canonical": false,
+      "produce": [],
+      "consume": [
+        "cpp",
+        "csharp",
+        "java",
+        "python",
+        "rust"
+      ],
+      "why": "FIX-PLAN WP5 step 6, rule stated in poc/codec/gen/plan.py: map entries are written in ascending order of the key's UTF-8 bytes, which is code point order. U+E000 (EE 80 80) sorts before U+10000 (F0 90 80 80) that way and AFTER it in UTF-16 code-unit order (E000 against D800 DC00), so a host that sorts its string keys as UTF-16 writes the two entries reversed. Consume-only: a reader must take either order, and re-encode in UTF-8 key order.",
+      "meta": {
+        "plan": "WP5 step 6"
+      },
+      "file": "vectors/S-map-order-reversed.bin",
+      "permutation_accepted": true,
+      "accepted_encodings": [
+        {
+          "sha256": "387aa0941bf1fd88ec4670a77398fe7a0a58676299c90da15a8d16800c598916",
+          "bytes": 21,
+          "forms": [
+            "as committed"
+          ],
+          "written_by": [
+            "ffi/corpus/emit, the canonical form of ../schema/README.md"
+          ],
+          "observed_in_a_protobuf_runtime": false
+        },
+        {
+          "sha256": "47ac9fd8e60d0af2f21431e8af9c59630dd4c014f5d775c59051a49528612f7f",
+          "bytes": 21,
+          "forms": [
+            "canonical: entries ascending by UTF-8 key"
+          ],
+          "written_by": [
+            "ffi/corpus/emit, the canonical form of ../schema/README.md",
+            "protobuf 7.36.2 (pure-python backend)",
+            "protobuf 7.36.2 (upb backend)"
+          ],
+          "observed_in_a_protobuf_runtime": true
+        }
+      ],
+      "upb_agreement": "a form the vector declares",
+      "verdict": "agreed",
+      "verdict_agreed_by": [
+        "protobuf 7.36.2 (pure-python backend)",
+        "protobuf 7.36.2 (upb backend)"
+      ],
+      "projection": "projections/S-map-order-reversed.json"
     },
     "B-P1_1": {
       "class": "baseline",

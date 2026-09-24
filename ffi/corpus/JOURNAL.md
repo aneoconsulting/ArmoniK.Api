@@ -416,3 +416,34 @@ is looking at. 60 checks, 0 failed.
 What this does not establish: that any slice fails or passes the new rows. None
 has run them. The families were chosen to bite on the register entries, and
 whether they do is the slices' measurement to make.
+
+## 17. 2026-09-24: FIX-PLAN WP5 step 6, the rules the shared plan now states
+
+Proposed by the rust slice through the aggregating session
+(`poc/rust/gen/probe_corpus.py`, rows `P-*`), built here through
+`emit/vectors.py` (`wp5s6()`) and the three oracles rather than copied, with the
+corpus's naming. The bytes match the proposal's.
+
+- `X-field-over-max`, `X-field-2p32-plus-2`, `X-field-over-max-in-group`
+  (must-fail): upb and protobuf C++ 35.1 refuse, **pure-python accepts** all
+  three -- the same split the rust slice saw with protobuf C++ 3.21.12. Disputed
+  on the verdict, both readings published, excluded from pass or fail.
+- `U-group-field-max` (accept): the control, 2^29 - 1 inside the same group.
+  Agreed.
+- `S-varint10-bit64`, `-7f`, `-over-zero`, `-int32`, `-bit64-Timestamp`
+  (consume-only, canonical form declared): all three accept and discard the bits
+  beyond 64; upb and pure-python project the same value (2^63 - 1, -1, nothing,
+  -1, 2^63 - 1). The Timestamp row is mine, so the rule is reachable on a root
+  every slice implements.
+- `S-map-order-utf8` (produce) and `S-map-order-reversed` (consume-only): upb
+  re-encodes the first identically and the second to the first. Agreed.
+- Not added: `P-field-max` (covered by `S-bigtag`, `U-root-max-tag`) and
+  `P-varint10-bit63` (byte-identical to `S-varint-i64-minus-1`).
+
+Seal extended the same way as section 16: the build refused exactly the 11
+additions, `--reseal`, then the diff (0 of 683 old lines missing or changed).
+Selftest 63 checks (the three new verdict disputes each get the
+verdict-dispute check), 0 failed. One thing a consumer can trip on: the map-order
+projections are standard JSON and `json.dumps` escapes U+10000 as
+`𐀀`; a byte comparison of the projection text against a writer that
+emits the raw code point fails, a JSON-decoded comparison does not.

@@ -1,0 +1,15 @@
+# 2026-09-24T18:44:32Z python3 emit/build.py against the seal at bacee66: it must refuse ONLY additions
+the committed vector bytes have moved, and consumers have pinned them:
+  added, not in the seal: S-map-order-reversed.bin
+  added, not in the seal: S-map-order-utf8.bin
+  added, not in the seal: S-varint10-7f.bin
+  added, not in the seal: S-varint10-bit64-Timestamp.bin
+  added, not in the seal: S-varint10-bit64.bin
+  added, not in the seal: S-varint10-int32.bin
+  added, not in the seal: S-varint10-over-zero.bin
+  added, not in the seal: U-group-field-max.bin
+  added, not in the seal: X-field-2p32-plus-2.bin
+  added, not in the seal: X-field-over-max-in-group.bin
+  added, not in the seal: X-field-over-max.bin
+If the change is intended, re-seal deliberately: emit/build.py --reseal
+exit=1

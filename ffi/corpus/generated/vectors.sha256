@@ -16,6 +16,10 @@
 # the 2026-09-20 seal is still here, byte for byte, and
 # logs/wp4-2-seal-diff.log is the diff that shows it.
 #
+# Extended 2026-09-24 again by 11 vectors (FIX-PLAN WP5 step 6: X-field-*,
+# U-group-field-max, S-varint10-*, S-map-order-*). Additions only;
+# logs/wp5s6-2-seal-diff.log is the diff that shows it.
+#
 # sha256  name
 450f3ab5470a8587c997e8a09cac37829a9792d29df81c9ab1e919e8b14a8dfb  C-elemu-4.bin
 f1d60600953d3f3f5e46e842109a5589e348d995309ed5dee011c0fa10477449  C-elemu-512.bin
@@ -169,6 +173,8 @@ f8bd6fe67f2a37819d27622ba65e7fc82999cffcbea6735649bbb2ba96db5164  S-fixed32-high
 1e9092836fafa3ccb4a6083a38be7cb04661f50b5fd803fd081c0069749ae852  S-fixed32-max.bin
 44b5b6b7c75318036d026bfb99bda6f5b94c78407ce2d5720aaa0d893fb9ebc4  S-fixed32-one.bin
 d3cb0fadc1f9b7545a8ef7f19d64b54aa3b19bddb92c2a8303d5f85a37371063  S-interleaved.bin
+387aa0941bf1fd88ec4670a77398fe7a0a58676299c90da15a8d16800c598916  S-map-order-reversed.bin
+47ac9fd8e60d0af2f21431e8af9c59630dd4c014f5d775c59051a49528612f7f  S-map-order-utf8.bin
 1203f2a099f69bd9d2afad19c7a58532c720da58a4c8fb4f43ed54636f02ace1  S-mzero-ListMetricsResponse-values.bin
 dc555512eac8e89b1b240656c708a46c1dad28d3a096a7a56f85f4184e8475dc  S-mzero-MetricsBatch-values-mixed.bin
 81b25aa9fc76cefa7d81a3e89841d4cc2769107b035613b9aefe2b1a4d48daad  S-mzero-MetricsBatch-values-unpacked.bin
@@ -218,6 +224,11 @@ c7af1ce3a50f28b55843926db87302db589400c0fb5c0b37dac704e1e182ff47  S-varint-i64-2
 5bf5713b3ef5fdcc5bcc0c3692729b173e1839a0481b25b59df0ffb950e8b103  S-varint-i64-int64-max.bin
 6e7e73a3d983203e5992de23a9506fd44b036b2875f333b4b997052a51855eb1  S-varint-i64-int64-min.bin
 7989d948c2d92eb9a82a74476ab77cc8980f23dd3dcc973ef9a760883a3a3e6f  S-varint-i64-minus-1.bin
+cd6e3e4b202ae56031e0dd08e7d2a89d3f7d880d97ce1cc904598ef0f53cd59a  S-varint10-7f.bin
+294d5cd5e59202f6701dd29f99e31b7c6f0186745bb4099c8b0fe9246b1e5dfb  S-varint10-bit64-Timestamp.bin
+8b12f7b51e4f30c394d7ec8724387817038ea0af23a9cd61c635480c5e0d0a93  S-varint10-bit64.bin
+294d5cd5e59202f6701dd29f99e31b7c6f0186745bb4099c8b0fe9246b1e5dfb  S-varint10-int32.bin
+4892122775f45217571f78fd59236b1b697f0172c9f305a5a06746788c87bd9f  S-varint10-over-zero.bin
 e53637d0ce630c733142aee3d63cf4cc91cf98e27cbefaaf56451739a307a9e3  T-bytes-above-10ffff.bin
 7d82955bf03282ed84af5559543a1d0ee139a61adcde0ff8f22409a2997f948c  T-bytes-cesu8-pair.bin
 d3ef800c50075395715f4e2945e154df2daf6e5e15f6b3ea93f200afd1df7f1b  T-bytes-f5-lead.bin
@@ -299,6 +310,7 @@ dc8ba020d4ec7732e322a2421222d4dcc29d5af6b84b2910ba9d7127f6c260ee  U-enum-value-1
 82bbe073031b362cabe5cd36226a160f2711d065119c6c453c691ce87106dc83  U-enum-value-2147483647.bin
 b511d72b230f6857359433ee0db78f5488f175378fa247b9c6dcb13bc9dbe98d  U-enum-value-999.bin
 fabef299177cd3eef22b508a5c1444bf0f24cb2e6194a61735322cde534c48bd  U-enum-value-packed.bin
+b54096bd3aa9d2b4c6e6a6f626b3afd8494400fb2948a3c6383cc82b8cf7bbac  U-group-field-max.bin
 ef89f38ca189526187b1b41e4dea760b8061102c35d09ce9fab116bd0f0f1d1f  U-leaf-all.bin
 a86680b882379ac1f840b70b6297dbcaa157541390154c9df5f519361d9627e4  U-leaf-u-fixed32.bin
 58e772347844fcbba8b465773b4d8c4434d5731b974d8ba470e9d384ee8b7ad5  U-leaf-u-fixed64.bin
@@ -590,6 +602,9 @@ c6eb3df267ef5b48b419b058a13c8ae7878df82f4d148d59166bf816c60b76bc  U-wire-WireZoo
 d29e10ebf234f9cac0f7e6a3c73e82f7b529a6c09459a53d9d1c870786395587  U-wire-WireZoo-v-string-as-wt5.bin
 24af47c73362b3e0053086d0cc32208a1c369695714a2b17f26ed21ccde8be08  X-depth-101.bin
 afa28da4d67b05a1b7986b74b6535abec8e00d152cda30beeb1c80eb1c8b35cb  X-depth-300.bin
+35d273de44d957186f94d4e7602c1e53b9662d88b6df27736091a59444a27ae8  X-field-2p32-plus-2.bin
+335f9969ed229fcb5c3e3ba4820dea570950d246f79810cd8d3b287c7aab56e9  X-field-over-max-in-group.bin
+b7f5208acee7aea46c6cdfd31ecc92e1b8c7d3569812293fcbf5a90af2922b77  X-field-over-max.bin
 6ef8dbf945e766c215841c0d368bfe01cd9b1998f0ef3b8aec657c2e00643f92  X-fixed32-truncated.bin
 d7f12b8a18a5fdca66bdc2b1733e66ced87944a509740657b5caf70a6dc859fb  X-fixed64-truncated.bin
 21313d5d01de592c7cbd7d1443e42044c3bed18a6bfd3a75d11ff5d5b09a465b  X-group-mismatched-end.bin

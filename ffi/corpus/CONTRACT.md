@@ -69,8 +69,9 @@ fail it and it does not silently drop it: it reports it as disputed, with which
 reading its own codec produced. That is data the branch wants -- a sixth opinion
 on an open question -- and it is not a verdict on the slice.
 
-Three rows are disputed today. Two are about the VERDICT and are described
-under C4 (`X-tag-zero-Empty`, `X-tag-zero-nested-Empty`). The third is about the
+Six rows are disputed today. Five are about the VERDICT and are described
+under C4 (`X-tag-zero-Empty`, `X-tag-zero-nested-Empty` and the three
+`X-field-*`). The third is about the
 READING: **`U-map-entry`**, an unknown field inside every map
 entry. upb drops the entry from the map and keeps its bytes as an unknown field
 of the *parent*; protobuf-python's pure backend and protobuf C++ both put the
@@ -106,7 +107,7 @@ Each row carries:
 ### C1 -- parse every accept vector
 
 For every row with `expect: "accept"`: decode `file` as `root`, with the codec
-you generated from `corpus.proto`. It must succeed. There are 548 of them and a
+you generated from `corpus.proto`. It must succeed. There are 556 of them and a
 slice that skips one records it by id.
 
 ### C2 -- project it
@@ -114,7 +115,7 @@ slice that skips one records it by id.
 Where `projection` is not null, the decoded message must equal that JSON under
 the encoding in section 3. **This is the obligation that byte identity does not
 imply** and the reason the corpus carries projections at all: a codec can
-round-trip bytes it has misunderstood. 542 rows carry one, and each is a reading
+round-trip bytes it has misunderstood. 550 rows carry one, and each is a reading
 **two runtimes agreed on**, not one runtime's opinion.
 
 `projection` is null in three different situations and they are not the same
@@ -142,7 +143,7 @@ manifest does now too.
 **A vector may have more than one accepted form and that is not a weakness in the
 vector.** An empty map value is an implicit-presence leaf holding the proto zero:
 prost omits it, protobuf C++, upb and protobuf-java write it, both parse to the
-same map and neither encoder is wrong. 334 rows have more than one form. Your
+same map and neither encoder is wrong. 341 rows have more than one form. Your
 slice records which one it wrote, because which one it writes is a fact about its
 incumbent, not a verdict.
 
@@ -155,19 +156,19 @@ same strength:
 | `written_by` | who was seen producing exactly these bytes |
 | `observed_in_a_protobuf_runtime` | **false** means only the corpus's own writer produced it: the form is asserted to be valid, and no protobuf runtime asked here was seen writing it |
 
-334 rows carry at least one form in that weaker category. "upb writes this form"
+341 rows carry at least one form in that weaker category. "upb writes this form"
 and "every conformant encoder writes this form" are different sentences and the
 manifest used to make only the first.
 
 ### C4 -- refuse every reject vector, and prove you watched it refuse
 
-For every row with `expect: "reject"` (143 of them): your decoder must return an
+For every row with `expect: "reject"` (146 of them): your decoder must return an
 error. Not a crash, not a partial message, not a silently truncated one.
 
 **Record the error you actually got, per vector id.** A rejection test that
 nothing rejects is a test nobody has watched work, and that lesson cost this
 branch twice. `reject.seen_failing` names every runtime watched refusing each
-vector and the error each one raised. **All three refuse 141 of the 143**, so on
+vector and the error each one raised. **All three refuse 141 of the 146**, so on
 those "my decoder accepts this" is a finding in the slice and not a doubt about the
 vector.
 
@@ -177,6 +178,15 @@ message that has no fields. protobuf-python's pure backend and protobuf C++ refu
 both; **upb accepts both**, keeping field 0 as an unknown field -- on a message
 with no fields only, since it refuses field number 0 on every other root in the
 corpus. Report which way your decoder went, as for any disputed row.
+
+**`X-field-over-max`, `X-field-2p32-plus-2` and `X-field-over-max-in-group` are
+disputed the other way round.** They carry field numbers above 2^29 - 1 (2^29 at
+the root, 2^32 + 2 -- which a decoder keeping the field number in 32 bits reads
+as field 2 -- and 2^29 inside a group the reader is only skipping). upb and
+protobuf C++ refuse all three; **the pure-python backend accepts all three**.
+`poc/codec/gen/plan.py` states the refusal as the core's rule; the corpus
+publishes both verdicts and excludes the rows from pass or fail. The control is
+`U-group-field-max` (2^29 - 1 inside a skipped group), which all three accept.
 
 `X-lenwrap-*` (63) are lengths that wrap 2^64 from their own position: a varint
 of 2^64 - pos and its neighbours, where `pos` is the offset just after the length
@@ -245,7 +255,7 @@ not optional.
 
 ## 4. What each class additionally demands
 
-### `unknown` (317 vectors)
+### `unknown` (318 vectors)
 
 Whether you retain unknown fields or drop them, your re-encode must be one of
 `accepted_encodings`: both the retained and the dropped form are there, labelled.
@@ -281,7 +291,7 @@ passed all seven standard payloads in the Java slice. If your harness
 short-circuits an empty buffer before it reaches the decoder, these vectors pass
 without executing anything.
 
-### `shape` (163 vectors)
+### `shape` (170 vectors)
 
 `manifest.shape_coverage` maps every field shape in the description to the fields
 that have it. The corpus's own build **fails** if a shape has no vector; your
@@ -303,6 +313,19 @@ sign-extends from bit 31; the canonical re-encoding is the ten-byte form.
 schema. The projection of -0.0 is `"-0"`. The schema has no `float` and no
 explicit-presence double, so neither has a vector; the implicit-presence double
 is `S-double-minus-zero`, on `WireZoo`.
+
+`S-varint10-*` (5, consume-only): a tenth varint byte carrying bits beyond
+64, which every oracle discards (`poc/codec/gen/plan.py` states the same):
+`ff x9 02` into an int64 reads 2^63 - 1, `ff x9 7f` reads -1, `80 x9 7e` reads 0,
+and into an int32 the low 32 bits. An eleventh byte is still refused
+(`X-varint-11-bytes`).
+
+`S-map-order-utf8` (produce) and `S-map-order-reversed` (consume-only) put map
+keys U+E000 and U+10000 in `TaskOptions.options`. Canonical order is ascending
+UTF-8 bytes (code points), where U+E000 comes first; UTF-16 code-unit order puts
+it second, so a host that sorts string keys as UTF-16 writes the reversed row.
+The projection file is standard JSON and escapes U+10000 as the pair
+`\ud800\udc00`; decode it with a JSON parser before comparing.
 
 ### `transcode` (53 vectors)
 
@@ -352,7 +375,7 @@ reach this class at all.
 `C-mixed-100` has an element encoding to nothing every tenth position, so a run
 carrying state across elements has to survive an element that writes no bytes.
 
-### `malformed` (112) and `baseline` (8)
+### `malformed` (115) and `baseline` (8)
 
 Malformed is C4. Baseline rows are `ffi/schema/generated`'s payloads by
 reference; `upb_reencodes_identically` and `meta.delta_bytes` record upb's

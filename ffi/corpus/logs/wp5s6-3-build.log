@@ -1,0 +1,20 @@
+# 2026-09-24T18:44:41Z python3 emit/build.py
+runtime      protobuf 7.36.2 (upb backend)
+protoc       libprotoc 35.1
+baseline     8
+chunking     8
+empty        30
+malformed    115
+shape        170
+transcode    53
+unknown      318
+total        702
+must_fail_seen_failing 146
+disputed     6
+agreed       696
+coverage     24 shapes, no gaps
+oracle       protobuf 7.36.2 (upb backend)
+oracle       protobuf 7.36.2 (pure-python backend)
+oracle       protobuf C++ via libprotoc 35.1 (protoc --decode)
+disputed     U-map-entry, X-field-2p32-plus-2, X-field-over-max, X-field-over-max-in-group, X-tag-zero-Empty, X-tag-zero-nested-Empty
+exit=0

@@ -181,6 +181,18 @@
     "_why": "FIX-PLAN WP4 item 2, register R-E3. An emitter that tests presence with `v != 0.0` drops -0.0, because -0.0 == 0.0. The schema has double in two places: WireZoo.v_double (implicit presence, already S-double-minus-zero) and MetricsBatch.values (repeated, packed). It has no float and no explicit-presence double, so neither can carry a vector here."
   },
 
+  "field_number_limit": {
+    "_why": "FIX-PLAN WP5 step 6, proposed by the rust slice through the aggregating session; the rule is stated in poc/codec/gen/plan.py. protobuf's largest field number is 2^29 - 1 = 536870911. A key whose field number is above it is refused, including 2^32 + n, which a decoder that keeps the key in 32 bits aliases to field n, and including inside a group the reader is only skipping. 2^29 - 1 itself is legal: S-bigtag (known) and U-root-max-tag (unknown) already carry it, and U-group-field-max carries it inside a skipped group as the control for the in-group refusal."
+  },
+
+  "varint_tenth_byte": {
+    "_why": "FIX-PLAN WP5 step 6, rule stated in poc/codec/gen/plan.py: the tenth byte of a varint contributes its low bit only, and bits beyond 64 are discarded rather than refused. A decoder that refuses them, or that lets them shift into bit 63, reads a different value. X-varint-11-bytes stays must-fail: an eleventh byte is refused. S-varint-i64-minus-1 already carries the legal tenth byte 0x01."
+  },
+
+  "map_entry_order": {
+    "_why": "FIX-PLAN WP5 step 6, rule stated in poc/codec/gen/plan.py: map entries are written in ascending order of the key's UTF-8 bytes, which is code point order. U+E000 (EE 80 80) sorts before U+10000 (F0 90 80 80) that way and AFTER it in UTF-16 code-unit order (E000 against D800 DC00), so a host that sorts its string keys as UTF-16 writes the two entries reversed."
+  },
+
   "element_counts": {
     "_why": "README section 10 item 5 wants enough elements to force more than one chunk. ABI v1 section 6 chunks element runs at 32 KB of host-side element GROUPS, not of wire bytes, so the chunk count is a function of the host's group size and cannot be computed here. Each chunking vector therefore declares its element count and the group size at which that count crosses one chunk, and the consumer contract requires a slice to report the count it actually saw.",
     "chunk_bytes": 32768
