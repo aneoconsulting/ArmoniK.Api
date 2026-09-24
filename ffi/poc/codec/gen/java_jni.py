@@ -1,0 +1,542 @@
+"""Java backend: the JNI shim, the C half of arm `core-ffi`, and its Java declarations,
+rendered from a plan (FIX-PLAN WP5 step 3).
+
+Moved from `poc/java/gen/java_jni.py`, which read the IR and compiled against another
+slice's header while declaring the pull family and the UTF-16 transcoders by hand. Now the
+shim includes the header `java_abi.emit_header` renders from the same plan, the direct-
+argument entry points come from `plan.direct_fields` for every root that has one (the
+pre-WP5 shim hand-wrote the one for `UploadResultDataMessage`), and `ak_init` is rendered
+from `plan.lifecycle` (R-G7): `NativeEntry.ensureInit()` calls it with the plan's default
+flags, treats AK_OK and AK_ALREADY_INITIALIZED as success and throws otherwise, and every
+generated `Binding` calls it before its first codec call.
+
+The shim does three things and deliberately no more: one JNI native per ABI entry point
+(never a dispatch table: the batching delta is a difference in forward crossing COUNTS);
+trampolines for the reverse calls (a Java method has no address); and ABI v1 section 5's
+guard (a Java exception escaping into Rust is undefined behaviour). `-DAK_NO_GUARD` exists
+only to price the guard; `-DAK_CROSSING_TAX` is the cpp slice's calibrated-delay build.
+
+`entry` names the Java class the per-message natives live in (`ak.NativeEntry` for the
+shapes description, `ak.corpus.NativeEntry` for the corpus's), which is also the JNI name
+prefix; the fixed natives are `ak.Native`'s in every build.
+"""
+from plan import direct_fields, element_types, slot_name
+import java_abi as A
+import java_names as N
+
+WHO = "java_jni.py"
+
+
+def jni_prefix(entry):
+    return "Java_" + entry.replace("_", "_1").replace(".", "_") + "_"
+
+
+PRE = r'''
+#include <jni.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "ak_abi.h"
+
+/* ---- the reverse-call context ----------------------------------------------------
+ *
+ * A trampoline has to find the JNIEnv and the Binding instance, and the ABI hands it
+ * neither. So the entry points push a frame and pop it, and the frame is THREAD LOCAL,
+ * never a static: a static would make two encoding threads share one Binding. A stack
+ * because an entry point may in principle be reached from inside a reverse call; the depth
+ * is 8 and an overflow is reported rather than wrapped. */
+typedef struct {
+  JNIEnv *env;
+  jobject self;
+} ak_frame;
+
+#define AK_DEPTH 8
+static __thread ak_frame g_stack[AK_DEPTH];
+static __thread int g_depth;
+
+static jclass g_binding_cls;
+static jmethodID g_encLoop, g_decApply, g_decNew, g_decApplyElem, g_decAdd;
+
+static inline int ak_push(JNIEnv *env, jobject self) {
+  if (g_depth >= AK_DEPTH) return 0;
+  g_stack[g_depth].env = env;
+  g_stack[g_depth].self = self;
+  g_depth++;
+  return 1;
+}
+
+static inline void ak_pop(void) { if (g_depth > 0) g_depth--; }
+
+static inline ak_frame *ak_top(void) { return &g_stack[g_depth - 1]; }
+
+/* ABI v1 section 5: a throw becomes `ak_fail` plus a return. */
+#ifdef AK_NO_GUARD
+#define AK_GUARD(env, ctx) ((void) 0)
+#else
+#define AK_GUARD(env, ctx)                                                       \
+  do {                                                                           \
+    if ((*(env))->ExceptionCheck(env)) {                                         \
+      static const char kMsg[] = "host exception in a reverse call";             \
+      (*(env))->ExceptionClear(env);                                             \
+      ak_fail((ctx), AK_ERR_HOST, (const uint8_t *) kMsg, (uint32_t)(sizeof(kMsg) - 1)); \
+    }                                                                            \
+  } while (0)
+#endif
+
+#ifdef AK_CROSSING_TAX
+void ak_crossing_tax(void);
+#define AK_TAX() ak_crossing_tax()
+#else
+#define AK_TAX() ((void) 0)
+#endif
+
+JNIEXPORT void JNICALL Java_ak_Native_bind(JNIEnv *env, jclass cls, jclass binding) {
+  (void) cls;
+  g_binding_cls = (*env)->NewGlobalRef(env, binding);
+  g_encLoop = (*env)->GetMethodID(env, binding, "encLoop", "(JIJ)I");
+  g_decApply = (*env)->GetMethodID(env, binding, "decApply", "(JIJ)V");
+  g_decNew = (*env)->GetMethodID(env, binding, "decNew", "(JI)J");
+  g_decApplyElem = (*env)->GetMethodID(env, binding, "decApplyElem", "(JIJJ)V");
+  g_decAdd = (*env)->GetMethodID(env, binding, "decAdd", "(JIJJI)V");
+}
+
+/* ---- the trampolines' common bodies ------------------------------------------------ */
+
+static inline int32_t ak_enc_loop(ak_enc_ctx *ctx, int32_t slot, int64_t token) {
+  ak_frame *f = ak_top();
+  JNIEnv *env = f->env;
+  jint rc = (*env)->CallIntMethod(env, f->self, g_encLoop, (jlong)(intptr_t) ctx,
+                                  (jint) slot, (jlong) token);
+  AK_GUARD(env, ctx);
+  return (int32_t) rc;
+}
+
+static inline void ak_dec_apply(ak_dec_ctx *ctx, int32_t slot, const void *fix) {
+  ak_frame *f = ak_top();
+  JNIEnv *env = f->env;
+  (*env)->CallVoidMethod(env, f->self, g_decApply, (jlong)(intptr_t) ctx, (jint) slot,
+                         (jlong)(intptr_t) fix);
+  AK_GUARD(env, ctx);
+}
+
+static inline int64_t ak_dec_new(ak_dec_ctx *ctx, int32_t slot) {
+  ak_frame *f = ak_top();
+  JNIEnv *env = f->env;
+  jlong t = (*env)->CallLongMethod(env, f->self, g_decNew, (jlong)(intptr_t) ctx,
+                                   (jint) slot);
+  AK_GUARD(env, ctx);
+  return (int64_t) t;
+}
+
+static inline void ak_dec_apply_elem(ak_dec_ctx *ctx, int32_t slot, int64_t token,
+                                     const void *fix) {
+  ak_frame *f = ak_top();
+  JNIEnv *env = f->env;
+  (*env)->CallVoidMethod(env, f->self, g_decApplyElem, (jlong)(intptr_t) ctx, (jint) slot,
+                         (jlong) token, (jlong)(intptr_t) fix);
+  AK_GUARD(env, ctx);
+}
+
+static inline void ak_dec_add(ak_dec_ctx *ctx, int32_t slot, int64_t token,
+                              const void *elems, int32_t n) {
+  ak_frame *f = ak_top();
+  JNIEnv *env = f->env;
+  (*env)->CallVoidMethod(env, f->self, g_decAdd, (jlong)(intptr_t) ctx, (jint) slot,
+                         (jlong) token, (jlong)(intptr_t) elems, (jint) n);
+  AK_GUARD(env, ctx);
+}
+'''
+
+
+def emit_c(p, entry):
+    J = jni_prefix(entry)
+    o = [N.c_head(p, WHO), PRE]
+    enc = A.enc_slots(p)
+    dec = A.dec_slots(p)
+
+    o.append("/* encode loop slots: %d */" % len(enc))
+    for i, (msg, path, f) in enumerate(enc):
+        o.append("static int32_t etr_%d(ak_enc_ctx *c, const void *o, int64_t t) {"
+                 "  (void) o;  return ak_enc_loop(c, %d, t); }   /* %s.%s */"
+                 % (i, i, msg, slot_name(path)))
+    o.append("static const ak_loop_f AK_ETR[] = {%s};"
+             % (", ".join("etr_%d" % i for i in range(len(enc))) or "0"))
+    o.append("")
+    o.append("/* decode callbacks: %d */" % len(dec))
+    for i, (msg, kind, sn, et) in enumerate(dec):
+        label = "%s.%s%s" % (msg, kind, (" " + sn) if sn else "")
+        if kind == "apply":
+            o.append("static void dtr_%d(ak_dec_ctx *c, void *o, const void *fx) {"
+                     "  (void) o;  ak_dec_apply(c, %d, fx); }   /* %s */" % (i, i, label))
+        elif kind == "new":
+            o.append("static int64_t dtr_%d(ak_dec_ctx *c, void *o) {"
+                     "  (void) o;  return ak_dec_new(c, %d); }   /* %s */" % (i, i, label))
+        elif kind == "applyelem":
+            o.append("static void dtr_%d(ak_dec_ctx *c, void *o, int64_t t, const void *fx) {"
+                     "  (void) o;  ak_dec_apply_elem(c, %d, t, fx); }   /* %s */" % (i, i, label))
+        else:   # add, addinner
+            o.append("static void dtr_%d(ak_dec_ctx *c, void *o, int64_t t, const void *e,"
+                     " int32_t n) {  (void) o;  ak_dec_add(c, %d, t, e, n); }   /* %s */"
+                     % (i, i, label))
+    o.append("static const void *const AK_DTR[] = {%s};"
+             % ", ".join("(const void *) dtr_%d" % i for i in range(len(dec))))
+    o.append("")
+    o.append("JNIEXPORT jlong JNICALL %sencTrampoline(JNIEnv *e, jclass c, jint i) {" % J)
+    o.append("  (void) e; (void) c;  return (jlong)(intptr_t) AK_ETR[i];")
+    o.append("}")
+    o.append("")
+    o.append("JNIEXPORT jlong JNICALL %sdecTrampoline(JNIEnv *e, jclass c, jint i) {" % J)
+    o.append("  (void) e; (void) c;  return (jlong)(intptr_t) AK_DTR[i];")
+    o.append("}")
+    o.append("")
+
+    # ---- ak_init, from plan.lifecycle (R-G7)
+    lc = p.lifecycle
+    o.append("/* ABI v1 section 3, rendered from plan.lifecycle (R-G7): %s before %s. */"
+             % (lc.init[0], lc.required_before))
+    o.append("JNIEXPORT jint JNICALL %sinit(JNIEnv *e, jclass c) {" % J)
+    o.append("  (void) e; (void) c;")
+    o.append("  struct ak_init_opts o;")
+    o.append("  memset(&o, 0, sizeof o);")
+    o.append("  o.abi_version = AK_ABI_VERSION;")
+    o.append("  o.flags = %s;" % " | ".join(lc.default_flags))
+    o.append("  o.log = NULL;")
+    o.append("  o.log_ctx = NULL;")
+    o.append("  struct ak_err err = {0, 0};")
+    o.append("  return (jint) %s(&o, &err);" % lc.init[0])
+    o.append("}")
+
+    for root in p.roots:
+        o.append("")
+        o.append("JNIEXPORT jlong JNICALL %sencode%s(JNIEnv *env, jclass cls, jobject self,"
+                 " jlong ctx, jlong vt, jlong fix) {" % (J, root))
+        o.append("  (void) cls;")
+        o.append("  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;")
+        o.append("  AK_TAX();")
+        dargs = ", NULL, 0" if direct_fields(p, root) else ""
+        o.append("  intptr_t rc = ak_encode_%s((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,"
+                 % root)
+        o.append("      (const struct ak_evt_%s *)(intptr_t) vt," % root)
+        o.append("      (const struct ak_efix_%s *)(intptr_t) fix%s);" % (root, dargs))
+        o.append("  ak_pop();")
+        o.append("  return (jlong) rc;")
+        o.append("}")
+        if direct_fields(p, root):
+            dpath = ".".join(direct_fields(p, root)[0][0])
+            o.append("")
+            o.append("/* ABI v1 section 8: `%s` is a DIRECT ARGUMENT, a `byte[]` pinned with" % dpath)
+            o.append(" * GetPrimitiveArrayCritical for the call. The generator-time refusal")
+            o.append(" * (plan.check_direct) proved this tree makes no reverse call, which is what")
+            o.append(" * makes a critical section legal here. */")
+            o.append("JNIEXPORT jlong JNICALL %sencodeDirect%s(JNIEnv *env, jclass cls, jobject self,"
+                     " jlong ctx, jlong vt, jlong fix, jbyteArray data, jint dlen) {" % (J, root))
+            o.append("  (void) cls;")
+            o.append("  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;")
+            o.append("  void *p = (*env)->GetPrimitiveArrayCritical(env, data, NULL);")
+            o.append("  /* R-D9: a NULL pin (the JVM threw OutOfMemoryError) is refused, never")
+            o.append("   * handed to the core as a NULL span with a nonzero length. */")
+            o.append("  if (p == NULL) { ak_pop(); return (jlong) AK_ERR_HOST; }")
+            o.append("  AK_TAX();")
+            o.append("  intptr_t rc = ak_encode_%s((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,"
+                     % root)
+            o.append("      (const struct ak_evt_%s *)(intptr_t) vt," % root)
+            o.append("      (const struct ak_efix_%s *)(intptr_t) fix, (const uint8_t *) p, (size_t) dlen);"
+                     % root)
+            o.append("  (*env)->ReleasePrimitiveArrayCritical(env, data, p, JNI_ABORT);")
+            o.append("  ak_pop();")
+            o.append("  return (jlong) rc;")
+            o.append("}")
+        o.append("")
+        o.append("JNIEXPORT jint JNICALL %sdecode%s(JNIEnv *env, jclass cls, jobject self,"
+                 " jlong ctx, jlong buf, jlong len, jlong vt) {" % (J, root))
+        o.append("  (void) cls;")
+        o.append("  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;")
+        o.append("  AK_TAX();")
+        o.append("  int32_t rc = ak_decode_%s((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1," % root)
+        o.append("      (const uint8_t *)(intptr_t) buf, (size_t) len,")
+        o.append("      (const struct ak_dvt_%s *)(intptr_t) vt);" % root)
+        o.append("  ak_pop();")
+        o.append("  return (jint) rc;")
+        o.append("}")
+        o.append("")
+        o.append("/* PULL. `ak_parse_%s` deposits records and calls nobody, so the wire is pinned" % root)
+        o.append(" * rather than copied; there is no ak_push frame to make an upcall from. */")
+        o.append("JNIEXPORT jint JNICALL %sparse%s(JNIEnv *env, jclass cls, jobject self,"
+                 " jlong ctx, jbyteArray wire, jint off, jint len) {" % (J, root))
+        o.append("  (void) cls; (void) self;")
+        o.append("  AK_TAX();")
+        o.append("  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);")
+        o.append("  if (base == NULL) return (jint) AK_ERR_HOST;")
+        o.append("  int32_t rc = ak_parse_%s((ak_dec_ctx *)(intptr_t) ctx," % root)
+        o.append("      (const uint8_t *) base + off, (size_t) len);")
+        o.append("  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);")
+        o.append("  return (jint) rc;")
+        o.append("}")
+
+    for et in sorted(element_types(p)):
+        o.append("")
+        if p.msg(et).leaf:
+            o.append("JNIEXPORT jint JNICALL %selem%s(JNIEnv *env, jclass cls, jlong ctx,"
+                     " jlong elems, jint n) {" % (J, et))
+            o.append("  (void) env; (void) cls;")
+            o.append("  AK_TAX();")
+            o.append("  return (jint) ak_elem_%s((ak_enc_ctx *)(intptr_t) ctx," % et)
+            o.append("      (const struct ak_efix_%s *)(intptr_t) elems, (int32_t) n);" % et)
+            o.append("}")
+        else:
+            o.append("JNIEXPORT jint JNICALL %selemu%s(JNIEnv *env, jclass cls, jlong ctx,"
+                     " jlong elems, jint n, jlong tok0) {" % (J, et))
+            o.append("  (void) env; (void) cls;")
+            o.append("  AK_TAX();")
+            o.append("  return (jint) ak_elemu_%s((ak_enc_ctx *)(intptr_t) ctx," % et)
+            o.append("      (const struct ak_efix_%s *)(intptr_t) elems, (int32_t) n, (int64_t) tok0);" % et)
+            o.append("}")
+
+    o.append(FIXED)
+    return "\n".join(o)
+
+
+FIXED = r'''
+/* ---- the runs, and the fixed exports (sections 3, 4, 5): `ak.Native` ------------- */
+
+JNIEXPORT jint JNICALL Java_ak_Native_blobRun(JNIEnv *e, jclass s, jlong ctx, jlong p, jint n) {
+  (void) e; (void) s;
+  AK_TAX();
+  return (jint) ak_blob_run((ak_enc_ctx *)(intptr_t) ctx, (const struct ak_str *)(intptr_t) p, (int32_t) n);
+}
+
+JNIEXPORT jint JNICALL Java_ak_Native_runI32(JNIEnv *e, jclass s, jlong ctx, jlong p, jlong n) {
+  (void) e; (void) s;
+  AK_TAX();
+  return (jint) ak_run_i32((ak_enc_ctx *)(intptr_t) ctx, (const int32_t *)(intptr_t) p, (size_t) n);
+}
+
+JNIEXPORT jint JNICALL Java_ak_Native_runI64(JNIEnv *e, jclass s, jlong ctx, jlong p, jlong n) {
+  (void) e; (void) s;
+  AK_TAX();
+  return (jint) ak_run_i64((ak_enc_ctx *)(intptr_t) ctx, (const int64_t *)(intptr_t) p, (size_t) n);
+}
+
+JNIEXPORT jint JNICALL Java_ak_Native_runF64(JNIEnv *e, jclass s, jlong ctx, jlong p, jlong n) {
+  (void) e; (void) s;
+  AK_TAX();
+  return (jint) ak_run_f64((ak_enc_ctx *)(intptr_t) ctx, (const double *)(intptr_t) p, (size_t) n);
+}
+
+JNIEXPORT jint JNICALL Java_ak_Native_runU8(JNIEnv *e, jclass s, jlong ctx, jlong p, jlong n) {
+  (void) e; (void) s;
+  AK_TAX();
+  return (jint) ak_run_u8((ak_enc_ctx *)(intptr_t) ctx, (const uint8_t *)(intptr_t) p, (size_t) n);
+}
+
+JNIEXPORT jint JNICALL Java_ak_Native_abiVersion(JNIEnv *e, jclass c) {
+  (void) e; (void) c;  return (jint) ak_abi_version();
+}
+JNIEXPORT jint JNICALL Java_ak_Native_initialized(JNIEnv *e, jclass c) {
+  (void) e; (void) c;  return (jint) ak_initialized();
+}
+JNIEXPORT jlong JNICALL Java_ak_Native_encCtxNew(JNIEnv *e, jclass c) {
+  (void) e; (void) c;  return (jlong)(intptr_t) ak_enc_ctx_new();
+}
+JNIEXPORT void JNICALL Java_ak_Native_encCtxFree(JNIEnv *e, jclass c, jlong x) {
+  (void) e; (void) c;  ak_enc_ctx_free((ak_enc_ctx *)(intptr_t) x);
+}
+JNIEXPORT void JNICALL Java_ak_Native_encReset(JNIEnv *e, jclass c, jlong x) {
+  (void) e; (void) c;  ak_enc_reset((ak_enc_ctx *)(intptr_t) x);
+}
+JNIEXPORT jint JNICALL Java_ak_Native_encErr(JNIEnv *e, jclass c, jlong x) {
+  (void) e; (void) c;  return (jint) ak_enc_err((ak_enc_ctx *)(intptr_t) x);
+}
+/* The encoded bytes, copied into a Java array: the same place protobuf-java's
+ * `toByteArray` leaves them. */
+JNIEXPORT jint JNICALL Java_ak_Native_encTake(JNIEnv *env, jclass c, jlong x, jbyteArray dst) {
+  (void) c;
+  const uint8_t *p = NULL;
+  size_t n = 0;
+  int32_t rc = ak_enc_take((ak_enc_ctx *)(intptr_t) x, &p, &n);
+  if (rc != AK_OK) return (jint) rc;
+  if (dst != NULL) {
+    jsize cap = (*env)->GetArrayLength(env, dst);
+    if ((jsize) n > cap) return (jint) AK_ERR_CAPACITY;
+    (*env)->SetByteArrayRegion(env, dst, 0, (jsize) n, (const jbyte *) p);
+  }
+  return (jint) n;
+}
+JNIEXPORT jint JNICALL Java_ak_Native_encLen(JNIEnv *e, jclass c, jlong x) {
+  (void) e; (void) c;
+  const uint8_t *p = NULL;
+  size_t n = 0;
+  int32_t rc = ak_enc_take((ak_enc_ctx *)(intptr_t) x, &p, &n);
+  return rc != AK_OK ? (jint) rc : (jint) n;
+}
+JNIEXPORT jlong JNICALL Java_ak_Native_decCtxNew(JNIEnv *e, jclass c) {
+  (void) e; (void) c;  return (jlong)(intptr_t) ak_dec_ctx_new();
+}
+JNIEXPORT void JNICALL Java_ak_Native_decCtxFree(JNIEnv *e, jclass c, jlong x) {
+  (void) e; (void) c;  ak_dec_ctx_free((ak_dec_ctx *)(intptr_t) x);
+}
+JNIEXPORT jint JNICALL Java_ak_Native_decErr(JNIEnv *e, jclass c, jlong x) {
+  (void) e; (void) c;  return (jint) ak_dec_err((ak_dec_ctx *)(intptr_t) x);
+}
+JNIEXPORT void JNICALL Java_ak_Native_decErrReset(JNIEnv *e, jclass c, jlong x) {
+  (void) e; (void) c;  ak_dec_err_reset((ak_dec_ctx *)(intptr_t) x);
+}
+JNIEXPORT void JNICALL Java_ak_Native_fail(JNIEnv *e, jclass c, jlong ctx, jint code) {
+  (void) e; (void) c;  ak_fail((void *)(intptr_t) ctx, (int32_t) code, NULL, 0);
+}
+
+/* ---- ABI v1 7.1's record buffer. The pull family's forward half. */
+JNIEXPORT void JNICALL Java_ak_Native_bdrReset(JNIEnv *e, jclass c, jlong x) {
+  (void) e; (void) c;  ak_bdr_reset((ak_dec_ctx *)(intptr_t) x);
+}
+JNIEXPORT jlong JNICALL Java_ak_Native_bdrFootprint(JNIEnv *e, jclass c, jlong x) {
+  (void) e; (void) c;  return (jlong) ak_bdr_footprint((const ak_dec_ctx *)(intptr_t) x);
+}
+JNIEXPORT jint JNICALL Java_ak_Native_bdrReserve(JNIEnv *e, jclass c, jlong x, jlong n) {
+  (void) e; (void) c;  return (jint) ak_bdr_reserve((ak_dec_ctx *)(intptr_t) x, (size_t) n);
+}
+JNIEXPORT jint JNICALL Java_ak_Native_bdrPtr(JNIEnv *env, jclass c, jlong x, jlongArray out) {
+  (void) c;
+  const uint8_t *p = NULL;
+  size_t n = 0;
+  int32_t rc = ak_bdr_ptr((ak_dec_ctx *)(intptr_t) x, &p, &n);
+  if (rc != AK_OK) return (jint) rc;
+  jlong v[2];
+  v[0] = (jlong)(intptr_t) p;
+  v[1] = (jlong) n;
+  (*env)->SetLongArrayRegion(env, out, 0, 2, v);
+  return (jint) AK_OK;
+}
+JNIEXPORT jlong JNICALL Java_ak_Native_bdrDrain(JNIEnv *env, jclass c, jlong x, jlong dst,
+                                                jlong cap, jlongArray cursor) {
+  (void) c;
+  jlong cur = 0;
+  (*env)->GetLongArrayRegion(env, cursor, 0, 1, &cur);
+  size_t at = (size_t) cur;
+  AK_TAX();
+  intptr_t got = ak_bdr_drain((ak_dec_ctx *)(intptr_t) x, (uint8_t *)(intptr_t) dst,
+                              (size_t) cap, &at);
+  cur = (jlong) at;
+  (*env)->SetLongArrayRegion(env, cursor, 0, 1, &cur);
+  /* NOT `ak_bdr_count_forward`: `ak_bdr_drain` is itself an entry point and bumps
+     `forward`; counting again would count every chunk twice. */
+  return (jlong) got;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_Native_tcUtf16(JNIEnv *e, jclass c) {
+  (void) e; (void) c;  return (jlong)(intptr_t) ak_tc_utf16();
+}
+JNIEXPORT jlong JNICALL Java_ak_Native_tcLatin1(JNIEnv *e, jclass c) {
+  (void) e; (void) c;  return (jlong)(intptr_t) ak_tc_latin1();
+}
+JNIEXPORT jlong JNICALL Java_ak_Native_tcBytes(JNIEnv *e, jclass c) {
+  (void) e; (void) c;  return (jlong)(intptr_t) ak_tc_bytes();
+}
+JNIEXPORT jlong JNICALL Java_ak_Native_tcUtf8(JNIEnv *e, jclass c) {
+  (void) e; (void) c;  return (jlong)(intptr_t) ak_tc_utf8();
+}
+
+JNIEXPORT void JNICALL Java_ak_Native_encCounters(JNIEnv *env, jclass c, jlong x, jlongArray out) {
+  (void) c;
+  struct AkCounters k;
+  memset(&k, 0, sizeof(k));
+  ak_enc_counters((const ak_enc_ctx *)(intptr_t) x, &k);
+  jlong v[6] = {(jlong) k.forward, (jlong) k.reverse, (jlong) k.transcode,
+                (jlong) k.prefix_moves, (jlong) k.prefix_bytes, (jlong) k.grows};
+  (*env)->SetLongArrayRegion(env, out, 0, 6, v);
+}
+JNIEXPORT void JNICALL Java_ak_Native_encCountersReset(JNIEnv *e, jclass c, jlong x) {
+  (void) e; (void) c;  ak_enc_counters_reset((ak_enc_ctx *)(intptr_t) x);
+}
+JNIEXPORT void JNICALL Java_ak_Native_decCounters(JNIEnv *env, jclass c, jlong x, jlongArray out) {
+  (void) c;
+  struct AkCounters k;
+  memset(&k, 0, sizeof(k));
+  ak_dec_counters((const ak_dec_ctx *)(intptr_t) x, &k);
+  jlong v[6] = {(jlong) k.forward, (jlong) k.reverse, (jlong) k.transcode,
+                (jlong) k.prefix_moves, (jlong) k.prefix_bytes, (jlong) k.grows};
+  (*env)->SetLongArrayRegion(env, out, 0, 6, v);
+}
+JNIEXPORT void JNICALL Java_ak_Native_decCountersReset(JNIEnv *e, jclass c, jlong x) {
+  (void) e; (void) c;  ak_dec_counters_reset((ak_dec_ctx *)(intptr_t) x);
+}
+
+/* ABI v1 section 10: the core's own view of every group layout. Sized from the core's own
+ * count, not a fixed buffer: the corpus description has more facts than the shapes one. */
+JNIEXPORT jint JNICALL Java_ak_Native_layoutFacts(JNIEnv *env, jclass c, jintArray out) {
+  (void) c;
+  uint32_t one = 0;
+  size_t have = ak_layout_facts(&one, 1);
+  jsize cap = out == NULL ? 0 : (*env)->GetArrayLength(env, out);
+  if (out != NULL && have > 0) {
+    uint32_t *tmp = (uint32_t *) malloc(have * sizeof(uint32_t));
+    if (tmp == NULL) return (jint) AK_ERR_CAPACITY;
+    ak_layout_facts(tmp, have);
+    jsize n = (jsize) (have < (size_t) cap ? have : (size_t) cap);
+    (*env)->SetIntArrayRegion(env, out, 0, n, (const jint *) tmp);
+    free(tmp);
+  }
+  return (jint) have;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_Native_noop(JNIEnv *e, jclass c, jlong x) {
+  (void) e; (void) c;  return (jlong) ak_noop((uint64_t) x);
+}
+'''
+
+
+def emit_java(p, entry):
+    """The Java declarations of the per-message natives, plus `ensureInit` (R-G7)."""
+    pkg, cls = entry.rsplit(".", 1)
+    lc = p.lifecycle
+    o = [N.java_head(p, WHO), "package %s;" % pkg, "",
+         "/** Per-message ABI entry points of this description, and the lifecycle call.",
+         " *  Declared once, shared by every facade package over this description. */",
+         "public final class %s {" % cls,
+         "  private %s() {}" % cls,
+         "",
+         "  public static native long encTrampoline(int i);",
+         "  public static native long decTrampoline(int i);",
+         "",
+         "  /** `%s` with the plan's default flags (%s). */" % (lc.init[0], ", ".join(lc.default_flags)),
+         "  static native int init();",
+         "",
+         "  private static boolean initDone;",
+         "",
+         "  /** ABI v1 section 3, rendered from plan.lifecycle (R-G7): called by every",
+         "   *  generated Binding before its first codec call. %s and %s are success;" % lc.success,
+         "   *  anything else throws, so a refused init is loud. `-Dak.skipInit=1` skips the",
+         "   *  call: a PLANTED CONTROL for the gate only -- against a core built with",
+         "   *  `%s` every codec call must then fail with AK_ERR_UNINITIALIZED. */" % lc.gate_feature,
+         "  public static synchronized void ensureInit() {",
+         "    if (initDone) return;",
+         "    if (\"1\".equals(System.getProperty(\"ak.skipInit\"))) {",
+         "      System.err.println(\"ak.skipInit=1: %s NOT called (planted control)\");" % lc.init[0],
+         "      initDone = true;",
+         "      return;",
+         "    }",
+         "    int rc = init();",
+         "    if (rc != 0 && rc != 1)   // AK_OK, AK_ALREADY_INITIALIZED",
+         "      throw new IllegalStateException(\"%s returned \" + rc);" % lc.init[0],
+         "    initDone = true;",
+         "  }"]
+    for root in p.roots:
+        o.append("")
+        o.append("  public static native long encode%s(Object self, long ctx, long vt, long fix);" % root)
+        if direct_fields(p, root):
+            o.append("  /** ABI v1 section 8: the direct field pinned for the call. */")
+            o.append("  public static native long encodeDirect%s(Object self, long ctx, long vt,"
+                     " long fix, byte[] data, int dlen);" % root)
+        o.append("  public static native int decode%s(Object self, long ctx, long buf, long len, long vt);" % root)
+        o.append("  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */")
+        o.append("  public static native int parse%s(Object self, long ctx, byte[] wire, int off, int len);" % root)
+    o.append("")
+    for et in sorted(element_types(p)):
+        if p.msg(et).leaf:
+            o.append("  public static native int elem%s(long ctx, long elems, int n);" % et)
+        else:
+            o.append("  public static native int elemu%s(long ctx, long elems, int n, long tok0);" % et)
+    o.append("}")
+    o.append("")
+    return "\n".join(o)
