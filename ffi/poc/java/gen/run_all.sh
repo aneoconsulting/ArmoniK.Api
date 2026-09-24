@@ -53,7 +53,7 @@ ROUNDS=20 ./gen/deopt.sh            > "$L/deopt.log" 2>&1
 # ---- the two secondary arms, both on JDK 21 because both are about a newer API
 J21=${J21:-/usr/lib/jvm/java-21-openjdk-amd64}
 "$J21/bin/java" --enable-preview -cp build/ffm \
-  -Dak.core="$PWD/core-build/target/release/libak_core.so" FfmProbe > "$L/ffm.log" 2>&1
+  -Dak.core="$PWD/core-build/current/target/release/libak_core.so" FfmProbe > "$L/ffm.log" 2>&1
 {
   for P in 2 1 4; do
     "$J21/bin/java" -Djdk.virtualThreadScheduler.parallelism=$P \

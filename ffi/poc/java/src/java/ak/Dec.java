@@ -132,19 +132,22 @@ public final class Dec {
   }
 
   // ---- the unknown-field skip, as ak-rt/src/dec.rs `skip` and `skip_group` ------------
-
-  /** protobuf's own default recursion limit, applied to nested groups (ak-rt's). */
-  static final int MAX_GROUP_DEPTH = 100;
+  //
+  // The two limits are the PLAN's (plan.MAX_FIELD_NUMBER, plan.GROUP_DEPTH_LIMIT), rendered
+  // into every generated codec as constants and passed in here, so this runtime holds no
+  // limit of its own. D38: before this, a key inside a group was checked for field number 0
+  // but not for a number above 2^29 - 1 (probe row P-field-maxplus1-in-group), where the
+  // core refuses it; and the depth was a constant of this file.
 
   /** Skip one field whose key has been read. {@code tag} is the field number the wire
    *  type arrived with: a GROUP carries no length, so its end is the END_GROUP whose field
    *  number MATCHES the one that opened it. */
-  public void skip(int tag, int wire) {
+  public void skip(int tag, int wire, long maxField, int groupDepth) {
     switch (wire) {
       case 0: readVarint(); break;
       case 1: pos += 8; break;
       case 2: { int n = readLen(); pos += n; break; }
-      case 3: skipGroup(tag, 0); break;
+      case 3: skipGroup(tag, 0, maxField, groupDepth); break;
       case 5: pos += 4; break;
       // 4 is END_GROUP with nothing open; 6 and 7 do not exist.
       default: throw new Malformed(ERR_MALFORMED, "wire type " + wire);
@@ -155,22 +158,25 @@ public final class Dec {
     }
   }
 
-  private void skipGroup(int tag, int depth) {
-    if (depth >= MAX_GROUP_DEPTH) throw new Malformed(ERR_DEPTH, "group nesting past 100");
+  private void skipGroup(int tag, int depth, long maxField, int groupDepth) {
+    if (depth >= groupDepth) throw new Malformed(ERR_DEPTH, "group nesting past " + groupDepth);
     while (true) {
       if (pos >= limit) throw new Malformed(ERR_TRUNCATED, "unterminated group");
       long k = readVarint();
-      int t = (int) (k >>> 3), w = (int) (k & 7);
-      if (t == 0) throw new Malformed(ERR_MALFORMED, "field number 0");
+      long fn = k >>> 3;
+      int w = (int) (k & 7);
+      if (fn == 0 || Long.compareUnsigned(fn, maxField) > 0)
+        throw new Malformed(ERR_MALFORMED, "field number 0 or above 2^29-1 inside a group");
+      int t = (int) fn;
       if (w == 4) {
         if (t != tag) throw new Malformed(ERR_MALFORMED, "mismatched end group");
         return;
       }
       if (w == 3) {
-        skipGroup(t, depth + 1);
+        skipGroup(t, depth + 1, maxField, groupDepth);
         continue;
       }
-      skip(t, w);
+      skip(t, w, maxField, groupDepth);
     }
   }
 
@@ -184,5 +190,7 @@ public final class Dec {
     return (int) readVarint();
   }
 
-  public void skip(int key) { skip(key >>> 3, key & 7); }
+  public void skip(int key) {
+    skip(key >>> 3, key & 7, ak.shapes.Codec.MAX_FIELD_NUMBER, ak.shapes.Codec.GROUP_DEPTH_LIMIT);
+  }
 }

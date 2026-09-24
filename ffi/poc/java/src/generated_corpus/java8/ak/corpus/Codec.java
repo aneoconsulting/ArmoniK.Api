@@ -16,6 +16,10 @@ public final class Codec {
   public static final int SITES = 47;
   /** The plan's recursion limit (Options.recursion_limit). */
   public static final int LIMIT = 100;
+  /** The plan's MAX_FIELD_NUMBER and GROUP_DEPTH_LIMIT, handed to `Dec.skip`, whose
+   *  group skip applies them to every key inside a group (D38). */
+  public static final long MAX_FIELD_NUMBER = 536870911L;
+  public static final int GROUP_DEPTH_LIMIT = 100;
   /** The plan's unknown-field mode and UTF-8 policy, for a log to name. */
   public static final String UNKNOWN_FIELDS = "drop";
   public static final String UTF8_POLICY = "reject";
@@ -368,7 +372,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -405,7 +409,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -489,7 +493,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -526,7 +530,7 @@ public final class Codec {
                   else if (et == 2 && ew == 2) ev = d.readString();
                   // A facade map entry has no bag: an unknown field inside an
                   // entry is skipped in both modes (`U-map-entry`, disputed).
-                  else d.skip(et, ew);
+                  else d.skip(et, ew, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
                 }
                 d.pop(outer);
                 // Plan rule: a duplicate key replaces the earlier value.
@@ -584,7 +588,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -621,7 +625,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -797,7 +801,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -866,7 +870,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -947,7 +951,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -974,7 +978,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1016,7 +1020,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1123,7 +1127,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1160,7 +1164,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1204,7 +1208,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1248,7 +1252,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1282,7 +1286,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1316,7 +1320,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1350,7 +1354,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1383,7 +1387,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1424,7 +1428,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1461,7 +1465,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1510,7 +1514,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1552,7 +1556,7 @@ public final class Codec {
                   else if (et == 2 && ew == 2) ev = d.readString();
                   // A facade map entry has no bag: an unknown field inside an
                   // entry is skipped in both modes (`U-map-entry`, disputed).
-                  else d.skip(et, ew);
+                  else d.skip(et, ew, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
                 }
                 d.pop(outer);
                 // Plan rule: a duplicate key replaces the earlier value.
@@ -1575,7 +1579,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1614,7 +1618,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1648,7 +1652,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1691,7 +1695,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1725,7 +1729,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1773,7 +1777,7 @@ public final class Codec {
                   else if (et == 2 && ew == 2) ev = d.readString();
                   // A facade map entry has no bag: an unknown field inside an
                   // entry is skipped in both modes (`U-map-entry`, disputed).
-                  else d.skip(et, ew);
+                  else d.skip(et, ew, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
                 }
                 d.pop(outer);
                 // Plan rule: a duplicate key replaces the earlier value.
@@ -1795,7 +1799,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1827,7 +1831,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1865,7 +1869,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
@@ -1943,7 +1947,7 @@ public final class Codec {
         }
         // Plan rule (drop): not in the table -- including a known number at a
         // wire type the table has no entry for (R-E2) -- is skipped.
-        d.skip(tag, wire);
+        d.skip(tag, wire, MAX_FIELD_NUMBER, GROUP_DEPTH_LIMIT);
       }
     }
   }
