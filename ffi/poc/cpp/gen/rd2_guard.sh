@@ -6,7 +6,7 @@
 #   plant A  the header's struct loses a field (the R-D2 shape: host smaller than core).
 #            The header's own sizeof/offsetof asserts must refuse it.
 #   plant B  plan.rpc's ak_client_opts gains a SEVENTH field. The shared renderer
-#            (cpp_abi.py) re-emits the header; `generate.py --check` must call the
+#            (c_abi.py) re-emits the header; `generate.py --check` must call the
 #            committed header STALE, and `rpc_common.h`'s field-count assert must refuse
 #            to compile, because `core_opts()` would leave the new field unset.
 set -u
@@ -46,7 +46,7 @@ fi
 echo
 echo "===== plant B: plan.rpc gains a seventh ak_client_opts field ====="
 # FIX-PLAN WP5 step 2: the header is rendered from `plan.rpc` by the shared C++ backend
-# (poc/codec/gen/cpp_abi.py), no longer parsed out of ak-abi's lib.rs. The plant adds the
+# (poc/codec/gen/c_abi.py), no longer parsed out of ak-abi's lib.rs. The plant adds the
 # field to the plan the renderer reads, in this process only.
 mkdir -p "$S/b"
 python3 - "$S/b" <<'EOF2' 2>&1 | grep -v -i 'distutils\|traceback\|frozen site\|string>\|remainder'
@@ -55,7 +55,7 @@ out = sys.argv[1]
 sys.path.insert(0, "gen")
 import generate as G
 import plan as P
-import cpp_abi
+import c_abi
 p = P.load(G.ROOTS)
 rpc = copy.deepcopy(P.RPC)
 rpc.structs = list(rpc.structs)
@@ -63,7 +63,7 @@ for i, (name, doc, fields) in enumerate(rpc.structs):
     if name == "ak_client_opts":
         rpc.structs[i] = (name, doc, fields + [("keepalive_ms", "u32", "PLANTED")])
 p.rpc = rpc
-header, _, _ = cpp_abi.emit(p)
+header, _, _ = c_abi.emit(p)
 open(os.path.join(out, "ak_abi.h"), "w").write(header)
 committed = open("include/ak_abi.h").read()
 print("  generate.py --check would say:", "STALE include/ak_abi.h" if header != committed else "ok (WRONG)")

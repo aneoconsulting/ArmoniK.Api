@@ -18,12 +18,14 @@ Modules (each imports `plan` and other Java-backend modules, never the IR or a s
   java_facade   facade classes and enums
   java_rcodec   arm R, drop and retain (plan.encode / oneof_checks / decode)
   java_layout   group offsets from plan.group_fields, asserted at run time and compile time
-  java_abi      the C header (groups, vtables, plan.rpc, plan.lifecycle) and slot tables
+  (the C header is c_abi's, the ONE C header backend, WP5 step 6; this backend adds only the
+   compile-time assertions of the offsets java_layout computes. The vtable member order and
+   the pull record numbering are plan.enc_vtable / dec_vtable / pull_records.)
   java_jni      the JNI shim and NativeEntry (ak_init rendered, R-G7)
   java_binding  the Java half of the binding, per level; java_pull, its pull family
 """
+import c_abi
 import java_binding
-import java_abi
 import java_facade
 import java_jni
 import java_layout
@@ -32,10 +34,28 @@ import java_rcodec
 from plan import check_direct
 
 BACKEND_MODULES = ["java_backend.py", "java_names.py", "java_facade.py", "java_rcodec.py",
-                   "java_layout.py", "java_abi.py", "java_jni.py", "java_binding.py",
+                   "java_layout.py", "java_jni.py", "java_binding.py",
                    "java_pull.py"]
 
 LEVELS = [("java17", 17), ("java8", 8)]
+
+
+def offset_asserts(pa):
+    """The Java binding's own offsets (java_layout), checked by the C compiler when the
+    shim builds: a disagreement between Java's numbers and C's stops the build. Handed to
+    the one C header backend as extra assertions; the header itself is c_abi's."""
+    lay = java_layout.build(pa)
+    o = ["/* The Java binding's group offsets (java_layout), checked by the C compiler. */"]
+    for sname in sorted(lay.groups):
+        if not sname.startswith(("ak_efix_", "ak_dfix_", "ak_ufix_")):
+            continue
+        size, _al, members = lay.groups[sname]
+        o.append("AK_SASSERT(sizeof(struct %s) == %d, \"sizeof %s\");" % (sname, size, sname))
+        for mname, off, _ty in members:
+            o.append("AK_SASSERT(offsetof(struct %s, %s) == %d, \"%s.%s\");"
+                     % (sname, mname, off, sname, mname))
+    o.append("")
+    return o
 
 
 def _dir(root, level_dir, pkg):
@@ -53,7 +73,7 @@ def emit(p, pkg, entry, java_root, native_dir, shared_dir, floor_pkg=None, borro
     for root in pa.roots:
         check_direct(pa, root)      # ABI v1 section 8's refusal, before a line is emitted
     layout = "%s.Layout" % pkg
-    out["%s/ak_abi.h" % native_dir] = java_abi.emit_header(pa)
+    out["%s/ak_abi.h" % native_dir] = c_abi.emit(pa, extra_asserts=offset_asserts(pa))[0]
     out["%s/shim.c" % native_dir] = java_jni.emit_c(pa, entry)
     out["%s/%s.java" % (shared_dir, entry.replace(".", "/"))] = java_jni.emit_java(pa, entry)
     for level_dir, level in LEVELS:

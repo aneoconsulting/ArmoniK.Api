@@ -55,6 +55,8 @@ pub mod generated {
     /// R-G5: the core's RPC definitions checked against the ONE declaration (`plan.rpc`).
     #[cfg(feature = "rpc")]
     pub mod rpc_check;
+    /// WP5 step 6 (R-G13): the core's fixed entry points checked against `plan.FIXED`.
+    pub mod abi_check;
     /// ABI v1 section 10: the core's own view of every group layout, exported so the
     /// host can compare it with what ITS compiler produced. The rust slice could not
     /// exercise this (both sides compiled against one header); here the two sides

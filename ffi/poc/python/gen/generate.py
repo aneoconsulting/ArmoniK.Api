@@ -11,7 +11,7 @@ derivation (CLAUDE.md, one generator):
 | `py_pure.emit_facade`   | `facade.py`: the Plain / `__slots__` facade and its metadata table |
 | `py_pure.emit_pycodec`  | `pycodec.py` (unknown fields dropped), `pycodec_retain.py` (retained) |
 | `py_capi.emit`          | `binding.c`: the CPython shim over the core, `ak_init` included |
-| `cpp_abi.emit` (the C++ backend's C header, plain C99) | `ak_abi.h`: groups, vtables, entry points, `plan.rpc`, `plan.lifecycle` |
+| `c_abi.emit` (the one C header backend, plain C99) | `ak_abi.h`: groups, vtables, entry points, `plan.rpc`, `plan.lifecycle` |
 
 Two plan sets, two output directories:
 
@@ -45,7 +45,7 @@ if CODECGEN not in sys.path:
 import plan as P         # noqa: E402  the rule layer
 import py_pure           # noqa: E402
 import py_capi           # noqa: E402
-import cpp_abi           # noqa: E402  the C header of ABI v1 (the C++ backend's; plain C99)
+import c_abi             # noqa: E402  the ONE C header backend (plain C99)
 
 OUT = os.path.join(HERE, "out")
 PY_BACKENDS = ["py_pure.py", "py_capi.py"]
@@ -72,7 +72,7 @@ def outputs():
         "pycodec.py": py_pure.emit_pycodec(p, "drop"),
         "pycodec_retain.py": py_pure.emit_pycodec(p, "retain"),
         "binding.c": py_capi.emit(p, "_akffi"),
-        "ak_abi.h": cpp_abi.emit(p)[0],
+        "ak_abi.h": c_abi.emit(p)[0],
     }
     # The corpus: the C ABI's roots are the ones the shared generator's corpus core carries.
     roots, _refused = G.corpus_roots()
@@ -83,7 +83,7 @@ def outputs():
         "corpus/pycodec.py": py_pure.emit_pycodec(full, "drop"),
         "corpus/pycodec_retain.py": py_pure.emit_pycodec(full, "retain"),
         "corpus/binding.c": py_capi.emit(cp, "_akffi_corpus", backends=("attr", "cext")),
-        "corpus/ak_abi.h": cpp_abi.emit(cp)[0],
+        "corpus/ak_abi.h": c_abi.emit(cp)[0],
     })
     return out, G
 

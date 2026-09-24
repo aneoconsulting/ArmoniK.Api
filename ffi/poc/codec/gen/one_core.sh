@@ -122,7 +122,9 @@ done < <(srcs 'Cargo.toml' | sort)
 # ---- 5. the shared emitters exist once ----------------------------------------------
 echo
 echo "# the emitters are shared too, which was the other half of the same defect"
-for f in ir.py rust_abi.py rust_core.py rustnames.py cpp_layout.py; do
+# Every module of the shared generator (WP5 step 6: all backends, not a hand list that went
+# stale when rust_core.py was deleted), except generate.py, which each slice has its own of.
+for f in $(cd "$ROOT/codec/gen" && ls *.py | grep -vx generate.py); do
   hits=$(srcs "$f" | sort)
   n=$(printf '%s\n' "$hits" | grep -c .)
   if [ "$n" != 1 ]; then
@@ -177,9 +179,11 @@ SELF=$(cd "$(dirname "$0")" && pwd)/one_core.sh
 REPO=$(cd "$ROOT/../.." && pwd)
 SCRATCH=$(mktemp -d)
 trap 'rm -rf "$SCRATCH"' EXIT
-# `ffi/schema` comes too: the R1 freshness check below re-runs the emitter, and the
-# emitter's first import is `ffi/schema/emit/shapes.py`.
-(cd "$REPO" && git ls-files -z ffi/poc ffi/schema | tar --null -T - -cf -) | (cd "$SCRATCH" && tar xf -)
+# `ffi/schema` and `ffi/corpus` come too: the R1 freshness check below re-runs the
+# generator, whose front end imports `ffi/schema/emit/shapes.py` and, for the corpus-schema
+# core it also writes, `ffi/corpus/emit/spec.py` over `ffi/corpus/corpus.json` (R-G14: the
+# copy lacked `ffi/corpus` from WP5 step 1 on, so the scratch copy could not pass clean).
+(cd "$REPO" && git ls-files -z ffi/poc ffi/schema ffi/corpus | tar --null -T - -cf -) | (cd "$SCRATCH" && tar xf -)
 BASE=$SCRATCH/ffi/poc
 if "$SELF" --root "$BASE" >/dev/null 2>&1; then
   echo "  [ok]   the scratch copy passes before anything is planted"

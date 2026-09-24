@@ -3,7 +3,7 @@
 
 Every group member it fills or reads, in order, comes from `plan.group_fields` (via
 `_group_members`), every presence bit from `plan.presence_bits`, every loop slot from
-`plan.loop_slots`, the vtable layout and trampoline numbering from `java_abi`, and the
+`plan.loop_slots`, the vtable layout and trampoline numbering from `plan`, and the
 direct-argument field from `plan.direct_fields`. The level parameter (17 or 8) changes the
 string staging and nothing else. Two rules swept in the port: a direct field now carries
 `AK_STR_DIRECT` (the core never took section 8's path before), and the sparse fill tests a
@@ -33,7 +33,7 @@ Four things here are decisions rather than transliterations, and each is an arm:
 """
 from plan import (abi_order_topo, direct_fields, elem_type, group_fields, loop_slots,
                   presence_bits, slot_name, vtable_messages)
-import java_abi as A
+import plan as A
 import java_layout as L
 import java_names as N
 import java_pull as PULL

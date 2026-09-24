@@ -21,3 +21,6 @@ const _ak_queue_shutdown: unsafe extern "C" fn(*mut ak_queue) = crate::rpc::ak_q
 const _ak_queue_destroy: unsafe extern "C" fn(*mut ak_queue) = crate::rpc::ak_queue_destroy;
 const _ak_call_cancel: unsafe extern "C" fn(*mut ak_call) = crate::rpc::ak_call_cancel;
 const _ak_call_destroy: unsafe extern "C" fn(*mut ak_call) = crate::rpc::ak_call_destroy;
+const _ak_rpc_counting: unsafe extern "C" fn() -> i32 = crate::rpc::ak_rpc_counting;
+const _ak_rpc_counters: unsafe extern "C" fn(*mut ak_rpc_counters) = crate::rpc::ak_rpc_counters;
+const _ak_rpc_counters_reset: unsafe extern "C" fn() = crate::rpc::ak_rpc_counters_reset;

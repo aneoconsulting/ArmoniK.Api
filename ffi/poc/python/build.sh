@@ -12,7 +12,7 @@
 #   5. R5   -- the shims' imports of ak_* are unresolved, so the boundary is real
 #
 # FIX-PLAN WP5 step 5: the generated sources are rendered by poc/codec/gen (py_pure,
-# py_capi, and the C++ backend's cpp_abi for the C header) from plans; the AK_UPSTREAM
+# py_capi, and the one C header backend c_abi) from plans; the AK_UPSTREAM
 # snapshot mechanism is retired, the
 # core and the generator are this checkout's, and the log says which commit and whether
 # poc/codec carried uncommitted changes.

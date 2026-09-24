@@ -107,6 +107,9 @@ ENCODE RULES (stated once, applied by every backend)
       double when its BIT PATTERN != 0, so -0.0 is written and +0.0 is not (R-E3);
       string/bytes when non-empty; a message when present;
     * explicit presence (`optional`): written iff set, zero or empty or not;
+    * a DIRECT-argument bytes field (ABI v1 section 8, presence "direct") is an
+      implicit-presence bytes field on the wire: written iff its length is not 0 (the core
+      tests `len != 0` on the direct argument; WP5 step 6, R-G13);
     * a oneof member: written iff the case selects it, whatever its value;
     * repeated scalars are packed; an empty repeated field writes nothing;
     * a map entry is an ordinary message of two implicit-presence fields, key 1 and
@@ -115,6 +118,10 @@ ENCODE RULES (stated once, applied by every backend)
       always written" (protobuf C++, upb, protobuf-java); it accepts NEITHER form's hybrid
       "key always, empty value omitted" (`E-map-entry-empty`), which is why FIX-PLAN WP5's
       "key always written" is not what this layer states -- see the note in `_lower_map`;
+    * map ENTRIES are written in ascending order of the key's UTF-8 bytes (code point
+      order), one entry per key: the manifest's canonical form, what a Rust `BTreeMap`, a
+      C++ `std::map<std::string>` and a sorted Python dict give. Where the host hands the
+      entries (a C ABI binding filling a run), the binding hands them in this order;
     * lengths are minimal varints (a learned-width backend moves the body on a miss; it
       never pads, ABI v1 section 6);
     * retain mode: every message's captured unknown runs after its known fields.
@@ -839,6 +846,302 @@ class Lifecycle:
     default_flags = ("AK_INIT_NO_CRYPTO", "AK_INIT_NO_PANIC_HOOK")
     required_before = "every codec and RPC entry point"
     gate_feature = "init-guard"
+    # WP5 step 6 (R-G13): the VALUES the names above stand for, stated here rather than
+    # restated by each header renderer. They equal ABI v1 section 3.
+    flag_values = (("AK_INIT_OWN_LOGGING", 1 << 0), ("AK_INIT_NO_PANIC_HOOK", 1 << 1),
+                   ("AK_INIT_NO_CRYPTO", 1 << 2))
 
 
 LIFECYCLE = Lifecycle()
+
+
+
+# =================================================================== the fixed ABI (R-G13)
+#
+# WP5 step 6. Everything of ABI v1 that does not depend on a description: section 5's
+# error codes, section 4's vocabulary, the fixed entry points of sections 3, 4, 5, 7.1 and
+# 10, the counting surfaces. Before this every header renderer (the C header twice, the
+# C# declarations, ak-abi's Rust) restated it as fixed text. It is data here; each backend
+# renders it and adds nothing.
+#
+# The type vocabulary (the same as the layout's, plus): `void` / `char` behind pointers;
+# `*const T`, `*mut T`, `*mut *const u8`; a function-pointer type by NAME (the `fn_types`
+# below); `T?` a NULLABLE function pointer (Rust `Option<T>`, C a plain pointer); and one
+# anonymous function type, `fn(u64)->u64`, the parameter of `ak_noop_reverse`.
+
+class FixedAbi:
+    abi_version = 1
+
+    # (name, value, meaning). ABI v1 section 5.
+    codes = [
+        ("AK_OK", 0, "success"),
+        ("AK_ALREADY_INITIALIZED", 1, "success: ak_init called again with the same options"),
+        ("AK_ERR_HOST", -1, "the host reported through ak_fail"),
+        ("AK_ERR_MALFORMED", -2, "invalid wire"),
+        ("AK_ERR_TRUNCATED", -3, "the input ended inside a value"),
+        ("AK_ERR_DEPTH", -4, "the decode recursion limit"),
+        ("AK_ERR_LIMIT", -5, "a size limit"),
+        ("AK_ERR_TRANSCODE", -6, "the transcoder refused its input"),
+        ("AK_ERR_CAPACITY", -7, "a transcoder wrote past the capacity given"),
+        ("AK_ERR_INVALID_STATE", -8, "e.g. two concurrent recv on one call"),
+        ("AK_ERR_PANIC", -9, "a caught Rust panic"),
+        ("AK_ERR_UNINITIALIZED", -10, "ak_init was not called"),
+        ("AK_ERR_ABI", -11, "version or group-layout mismatch"),
+    ]
+    # ak_err.detail values (ABI v1 section 3).
+    details = [("AK_DETAIL_NONE", 0), ("AK_DETAIL_ABI_MISMATCH", 1),
+               ("AK_DETAIL_OPTS_DIFFER", 2), ("AK_DETAIL_NULL_ARG", 3)]
+
+    handles = ["ak_enc_ctx", "ak_dec_ctx"]
+
+    # (name, [(param, type)], return type or None, doc)
+    fn_types = [
+        ("ak_grow_fn", [("sink", "*mut void"), ("want", "i32"), ("dst", "*mut *mut u8"),
+                        ("cap", "*mut i32")], "i32",
+         "ABI v1 section 4: the transcoder's growth callback; may move the buffer."),
+        ("ak_transcode_fn", [("src", "*const void"), ("len", "usize"), ("dst", "*mut u8"),
+                             ("cap", "i32"), ("grow", "ak_grow_fn"), ("sink", "*mut void")], "i32",
+         "ABI v1 section 4: source code units -> UTF-8 into dst; returns bytes written or an error."),
+        ("ak_log_fn", [("ctx", "*mut void"), ("level", "u32"), ("msg", "*const u8"),
+                       ("msg_len", "usize")], None,
+         "ABI v1 section 3: the host's log sink."),
+        ("ak_loop_f", [("ctx", "*mut ak_enc_ctx"), ("obj", "*const void"), ("token", "i64")], "i32",
+         "ABI v1 section 6: a host-driven loop over one repeated/packed/map field."),
+        ("ak_unk_f", [("ctx", "*mut ak_dec_ctx"), ("obj", "*mut void"),
+                      ("spans", "*const ak_uspan"), ("n", "i32")], None,
+         "Decision 11 candidate: captured unknown-field runs, delivered by token."),
+    ]
+
+    # (name, doc, [(member, type)]). Laid out repr(C) / C order, members as listed.
+    structs = [
+        ("ak_str", "ABI v1 section 4, encode: a blob as DATA in the group. `len` counts SOURCE "
+                   "code units; `tc == NULL` means the field is ABSENT.",
+         [("data", "*const void"), ("len", "usize"), ("tc", "ak_transcode_fn?")]),
+        ("ak_span", "ABI v1 section 4, decode: an OFFSET into the buffer the host handed in.",
+         [("off", "u32"), ("len", "u32"), ("coder", "u32")]),
+        ("ak_blob", "Decision 11's unknown-field bag: two words, raw tag-and-value runs.",
+         [("data", "*const void"), ("len", "usize")]),
+        ("ak_uspan", "One captured unknown run: which object (a token) and where in the input.",
+         [("token", "i64"), ("off", "u32"), ("len", "u32")]),
+        ("ak_err", "ak_init's out-parameter (ABI v1 section 3/5): a code and a detail.",
+         [("code", "i32"), ("detail", "u32")]),
+        ("ak_init_opts", "ak_init's options (ABI v1 section 3).",
+         [("abi_version", "u32"), ("flags", "u32"), ("log", "ak_log_fn?"),
+          ("log_ctx", "*mut void")]),
+        ("AkCounters", "README R5: boundary-call counts, counted in the CORE (zero unless the "
+                       "core is a counting build).",
+         [("forward", "u64"), ("reverse", "u64"), ("transcode", "u64"),
+          ("prefix_moves", "u64"), ("prefix_bytes", "u64"), ("grows", "u64")]),
+        ("ak_bdr_rec", "ABI v1 section 7.1: one pull record header, 24 bytes; the payload "
+                       "follows, padded to 8.",
+         [("op", "u32"), ("slot", "u32"), ("token", "i64"), ("n", "u32"), ("bytes", "u32")]),
+    ]
+    # The sizes a renderer asserts (LP64 / 64-bit hosts, which is every host this ships to).
+    sizes = {"ak_str": 24, "ak_span": 12, "ak_blob": 16, "ak_uspan": 16, "ak_err": 8,
+             "ak_init_opts": 24, "AkCounters": 48, "ak_bdr_rec": 24}
+
+    # (name, type, value, doc). `AK_STR_DIRECT` is a pointer VALUE, `AK_TOKEN_ROOT` an i64.
+    constants = [
+        ("AK_STR_DIRECT", "*const void", 1, "ABI v1 section 8: ak_str.data meaning 'a direct "
+                                             "argument of the call'."),
+        ("AK_TOKEN_ROOT", "i64", -1, "a token naming the root object itself"),
+        ("AK_BDR_APPLY", "u32", 1, "pull record: the root group (last record)"),
+        ("AK_BDR_ADD", "u32", 2, "pull record: a batched run"),
+        ("AK_BDR_NEW", "u32", 3, "pull record: a non-leaf element begins (minted token)"),
+        ("AK_BDR_APPLY_ELEM", "u32", 4, "pull record: a non-leaf element's group"),
+        ("AK_BDR_MIN_CHUNK", "usize", 32 * 1024 + 24, "the smallest drain chunk that holds any record"),
+    ]
+
+    # The packed-run symbols: one per HOST array layout (ABI v1 section 6).
+    run_types = ("i32", "i64", "f64", "u8")
+
+    # (group, name, [(param, type)], return type or None, doc). `group` lets a renderer lay
+    # them out in sections; every name here is exported by every core build.
+    functions = [
+        ("lifecycle", "ak_init", [("opts", "*const ak_init_opts"), ("err", "*mut ak_err")], "i32",
+         "Once per process, before anything else (plan.lifecycle)."),
+        ("lifecycle", "ak_initialized", [], "i32", "1 once ak_init has returned successfully."),
+        ("lifecycle", "ak_build_id", [], "*const char", "A NUL-terminated build id."),
+        ("lifecycle", "ak_log_test", [("level", "u32"), ("msg", "*const u8"), ("len", "usize")], "i32",
+         "Test hook: one line through the installed log bridge."),
+        ("lifecycle", "ak_panic_test", [], None, "Test hook: a panic inside the core."),
+        ("context", "ak_abi_version", [], "u32", ""),
+        ("context", "ak_enc_ctx_new", [], "*mut ak_enc_ctx", ""),
+        ("context", "ak_enc_ctx_free", [("ctx", "*mut ak_enc_ctx")], None, ""),
+        ("context", "ak_enc_reset", [("ctx", "*mut ak_enc_ctx")], None,
+         "Clears the buffer and the sticky slot."),
+        ("context", "ak_enc_take", [("ctx", "*mut ak_enc_ctx"), ("ptr", "*mut *const u8"),
+                                    ("len", "*mut usize")], "i32",
+         "Borrow what the context has encoded, valid until the next reset; returns the status."),
+        ("context", "ak_dec_ctx_new", [], "*mut ak_dec_ctx", ""),
+        ("context", "ak_dec_ctx_free", [("ctx", "*mut ak_dec_ctx")], None, ""),
+        ("error", "ak_fail", [("ctx", "*mut void"), ("code", "i32"), ("msg", "*const u8"),
+                              ("msg_len", "u32")], None,
+         "Sticky, first error wins; takes either context (ABI v1 section 5)."),
+        ("error", "ak_enc_err", [("ctx", "*const ak_enc_ctx")], "i32", ""),
+        ("error", "ak_dec_err", [("ctx", "*const ak_dec_ctx")], "i32", ""),
+        ("error", "ak_dec_err_reset", [("ctx", "*mut ak_dec_ctx")], None, ""),
+        ("transcode", "ak_tc_utf8", [], "ak_transcode_fn", "UTF-8, validate and refuse."),
+        ("transcode", "ak_tc_utf8_trusted", [], "ak_transcode_fn", "UTF-8, no validation."),
+        ("transcode", "ak_tc_utf8_simd", [], "ak_transcode_fn", "UTF-8, SIMD validator."),
+        ("transcode", "ak_tc_bytes", [], "ak_transcode_fn", "bytes: a copy."),
+        ("transcode", "ak_tc_utf16", [], "ak_transcode_fn", "UTF-16 code units -> UTF-8."),
+        ("transcode", "ak_tc_latin1", [], "ak_transcode_fn", "Latin-1 bytes -> UTF-8."),
+        ("counters", "ak_enc_counters", [("ctx", "*const ak_enc_ctx"), ("out", "*mut AkCounters")], None, ""),
+        ("counters", "ak_enc_count_reverse", [("ctx", "*mut ak_enc_ctx")], None,
+         "Counting build: the HOST reports a reverse crossing the core cannot see."),
+        ("counters", "ak_enc_counters_reset", [("ctx", "*mut ak_enc_ctx")], None, ""),
+        ("counters", "ak_dec_counters", [("ctx", "*const ak_dec_ctx"), ("out", "*mut AkCounters")], None, ""),
+        ("counters", "ak_dec_counters_reset", [("ctx", "*mut ak_dec_ctx")], None, ""),
+        ("counters", "ak_enc_site_moves", [("ctx", "*const ak_enc_ctx"), ("out", "*mut u32"),
+                                           ("cap", "usize")], "usize", ""),
+        ("noop", "ak_noop", [("x", "u64")], "u64", "A crossing and nothing else."),
+        ("noop", "ak_noop2", [("x", "u64")], "u64", "An identical twin of ak_noop."),
+        ("noop", "ak_noop_guarded", [("x", "u64")], "u64", "ak_noop with the init guard."),
+        ("noop", "ak_noop_reverse", [("f", "fn(u64)->u64"), ("x", "u64")], "u64",
+         "One forward and one reverse crossing."),
+        ("pull", "ak_bdr_reserve", [("ctx", "*mut ak_dec_ctx"), ("bytes", "usize")], "i32", ""),
+        ("pull", "ak_bdr_footprint", [("ctx", "*const ak_dec_ctx")], "usize", ""),
+        ("pull", "ak_bdr_drain", [("ctx", "*mut ak_dec_ctx"), ("dst", "*mut u8"), ("cap", "usize"),
+                                  ("cursor", "*mut usize")], "isize", ""),
+        ("pull", "ak_bdr_ptr", [("ctx", "*mut ak_dec_ctx"), ("ptr", "*mut *const u8"),
+                                ("len", "*mut usize")], "i32", ""),
+        ("pull", "ak_bdr_reset", [("ctx", "*mut ak_dec_ctx")], None, ""),
+        ("pull", "ak_bdr_count_forward", [("ctx", "*mut ak_dec_ctx"), ("n", "u32")], None,
+         "Counting build: the host reports the forward crossings of a drain loop."),
+        ("layout", "ak_layout_facts", [("out", "*mut u32"), ("cap", "usize")], "usize",
+         "ABI v1 section 10: the core's own view of every group layout."),
+    ]
+
+    # The RPC counting surface (README R5 for section 9). Exported with the `rpc` feature.
+    rpc_counters_struct = ("ak_rpc_counters", "RPC boundary-call counts (counting build).",
+                           [("forward", "u64"), ("reverse", "u64")])
+    rpc_counting = [
+        ("rpc_count", "ak_rpc_counting", [], "i32", "1 if this core counts RPC crossings."),
+        ("rpc_count", "ak_rpc_counters", [("out", "*mut ak_rpc_counters")], None, ""),
+        ("rpc_count", "ak_rpc_counters_reset", [], None, ""),
+    ]
+
+    def run_functions(self):
+        """`ak_run_<ty>` and `ak_blob_run`: fixed names, rendered from `run_types`."""
+        out = [("run", "ak_blob_run", [("ctx", "*mut ak_enc_ctx"), ("elems", "*const ak_str"),
+                                       ("n", "i32")], "i32",
+                "A run of strings or bytes under the repeated field the codec has open.")]
+        for ty in self.run_types:
+            out.append(("run", "ak_run_%s" % ty, [("ctx", "*mut ak_enc_ctx"), ("p", "*const %s" % ty),
+                                                   ("n", "usize")], "i32",
+                        "A packed repeated scalar: the host's own array, handed over whole."))
+        return out
+
+    def all_functions(self):
+        return self.functions + self.run_functions()
+
+
+FIXED = FixedAbi()
+BDR = {n: v for n, _t, v, _d in FIXED.constants if n.startswith("AK_BDR_")}
+
+
+# =================================================================== vtables and pull records
+#
+# WP5 step 6 (R-G13, Java's G1). The ORDER and SHAPE of the vtable structs and the pull
+# family's record slot numbering, stated once. Before this they were rendered by
+# `rust_abi` and restated by `java_abi` from the same facts.
+
+def batchable(p, f):
+    """ABI v1 section 7.2: a run is batched iff its element type, if any, is a leaf."""
+    et = elem_type(f)
+    return not (et and not p.msg(et).leaf)
+
+
+def enc_vtable(p, name):
+    """`ak_evt_<name>` members, in order, as (kind, slot name, element type): kind is
+    `loop` (ak_loop_f loop_<slot>), `elem` (a pointer to the element's own vtable, right
+    after its loop slot, when the element has loop slots) or `reserved` (an empty vtable
+    carries one pointer: an empty struct has no defined size in C)."""
+    slots = loop_slots(p, name)
+    if not slots:
+        return [("reserved", "_reserved", None)]
+    rows = []
+    for path, f in slots:
+        sn = slot_name(path)
+        rows.append(("loop", sn, None))
+        et = elem_type(f)
+        if et and loop_slots(p, et):
+            rows.append(("elem", sn, et))
+    return rows
+
+
+def dec_vtable(p, name):
+    """`ak_dvt_<name>` members, in order: `apply`, `unknown`, then per loop slot: `unk`
+    (the slot's elements' unknown runs, when it has an element type), then `add` (a
+    batchable run) or `new`, `applyelem` and one `addinner` per inner slot of a non-leaf
+    element. Each row is (kind, slot name, x): x is the element type (unk, add, new,
+    applyelem), the inner FieldPlan (addinner) or None. A non-leaf element inside a non-leaf
+    element is refused."""
+    rows = [("apply", "", None), ("unknown", "", None)]
+    for path, f in loop_slots(p, name):
+        sn = slot_name(path)
+        et = elem_type(f)
+        if et:
+            rows.append(("unk", sn, et))
+        if batchable(p, f):
+            rows.append(("add", sn, et))
+        else:
+            rows.append(("new", sn, et))
+            rows.append(("applyelem", sn, et))
+            for ipath, iff in loop_slots(p, et):
+                iet = elem_type(iff)
+                if iet and not p.msg(iet).leaf:
+                    raise NotImplementedError(
+                        "a non-leaf element inside a non-leaf element (%s.%s): the schema has "
+                        "no instance, so this is refused rather than emitted untested"
+                        % (et, slot_name(ipath)))
+                rows.append(("addinner", "%s_%s" % (sn, slot_name(ipath)), iff))
+    return rows
+
+
+def enc_slots(p):
+    """[(vtable message, slot path, field)] in vtable order, globally numbered."""
+    out = []
+    for name in vtable_messages(p):
+        for path, f in loop_slots(p, name):
+            out.append((name, path, f))
+    return out
+
+
+def dec_slots(p):
+    """Every decode callback of a ROOT's vtable that a binding wires, as (root, kind, slot
+    name, x); the unknown-field slots are omitted (a binding that captures wires them
+    itself)."""
+    out = []
+    for name in p.roots:
+        for kind, sn, x in dec_vtable(p, name):
+            if kind in ("unknown", "unk"):
+                continue
+            out.append((name, kind, sn, x))
+    return out
+
+
+def pull_slot(j, k=0):
+    """The pull family's record slot number: `(outer << 16) | inner`, both 1-based; the
+    root group is slot 0. `j` is the 0-based loop slot of the root, `k` the 0-based inner
+    slot of a non-leaf element (k = -1: the element itself, inner 0)."""
+    return ((j + 1) << 16) | (k + 1) if k >= 0 else (j + 1) << 16
+
+
+def pull_records(p, root):
+    """[(op, slot, kind, slot name)] a pull decode of `root` can write: the numbering both
+    the core (`ak_parse_*`) and every host replay use. A batchable run at the root is the
+    bare index j + 1 (inner 0, outer omitted)."""
+    out = [(BDR["AK_BDR_APPLY"], 0, "apply", "")]
+    for j, (path, f) in enumerate(loop_slots(p, root)):
+        sn = slot_name(path)
+        if batchable(p, f):
+            out.append((BDR["AK_BDR_ADD"], j + 1, "add", sn))
+        else:
+            et = elem_type(f)
+            out.append((BDR["AK_BDR_NEW"], pull_slot(j, -1), "new", sn))
+            out.append((BDR["AK_BDR_APPLY_ELEM"], pull_slot(j, -1), "applyelem", sn))
+            for k, (ipath, _iff) in enumerate(loop_slots(p, et)):
+                out.append((BDR["AK_BDR_ADD"], pull_slot(j, k), "addinner", "%s_%s" % (sn, slot_name(ipath))))
+    return out

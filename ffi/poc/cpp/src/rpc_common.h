@@ -37,15 +37,10 @@ namespace svcns = armonik::ffi::shapes::v1;
 // core read 6 (R-D2), and `ak_bytes`, `ak_completion`, `ak_queue_next` and the rest as a
 // third copy of declarations the core had twice.
 //
-// What remains below is NOT in plan.rpc and is therefore still declared by hand: the
-// counting build's RPC crossing counters, exported by the core only with `--features
-// rpc,count`. Reported to the aggregating session as missing from the plan.
-extern "C" {
-struct ak_rpc_counters { uint64_t forward; uint64_t reverse; };
-int32_t ak_rpc_counting(void);
-void ak_rpc_counters(struct ak_rpc_counters *out);
-void ak_rpc_counters_reset(void);
-}
+// The counting build's RPC crossing counters (`ak_rpc_counting`, `ak_rpc_counters`,
+// `ak_rpc_counters_reset`, `struct ak_rpc_counters`) are in the plan too since WP5 step 6
+// (`plan.FIXED.rpc_counting`, R-G13) and come from the generated header: nothing of the
+// ABI is declared by hand in this file any more.
 
 namespace akrpc {
 

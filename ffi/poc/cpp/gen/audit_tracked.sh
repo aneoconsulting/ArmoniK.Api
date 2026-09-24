@@ -28,7 +28,7 @@ done < <(find ffi/poc/cpp \
 # same failure one level further out.
 for f in ffi/poc/codec/gen/ir.py ffi/poc/codec/gen/plan.py ffi/poc/codec/gen/rust_abi.py \
          ffi/poc/codec/gen/rustnames.py ffi/poc/codec/gen/cpp_layout.py \
-         ffi/poc/codec/gen/cpp_abi.py ffi/poc/codec/gen/cpp_facade.py \
+         ffi/poc/codec/gen/c_abi.py ffi/poc/codec/gen/cpp_facade.py \
          ffi/poc/codec/gen/cpp_native.py ffi/poc/codec/gen/cpp_binding.py \
          ffi/poc/codec/gen/cpp_names.py ffi/corpus/generated/manifest.json \
          ffi/poc/codec/gen/generate.py ffi/poc/codec/Cargo.toml \
