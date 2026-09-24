@@ -55,6 +55,11 @@ public static class CorpusRun
         public string Form = "";      // which accepted encoding we wrote
         public string Err = "";       // C4: the error we actually got
         public string Skip;           // non-null: could not run, and why
+        public bool Accepted;         // this decoder accepted the bytes (no error, no throw)
+        // CONTRACT.md 1.5: a `disputed` row is excluded from pass/fail and
+        // reported with the reading this codec produced. Non-null on such a row.
+        public string Disputed;
+        public string GpReading;      // what Google.Protobuf did on a disputed row
     }
 
     public static int Run(params string[] argv)
@@ -97,11 +102,24 @@ public static class CorpusRun
                 C.Roots.Read(r.Root, ref d, msg, bytes.Length);
                 if (d.Err != 0) { err = "Err " + d.Err + ErrName(d.Err); msg = null; }
             }
-            catch (Exception ex) { err = ex.GetType().Name + ": " + Trim(ex.Message); msg = null; }
+            catch (Exception ex) { err = "THREW " + ex.GetType().Name + ": " + Trim(ex.Message); msg = null; }
+            r.Accepted = err == null;
+
+            // ---- disputed rows: excluded from pass/fail, reading reported ---
+            if (v["verdict"]?.AsString == "disputed")
+            {
+                r.Disputed = Dispute(dir, v, r, msg, err);
+                continue;
+            }
 
             if (r.Expect == "reject")
             {
-                r.C4 = err != null ? "ok" : "ACCEPTED!";
+                // A managed exception is NOT a refusal: the codec's contract is
+                // an error code, and an exception out of it means a bounds check
+                // that is missing and happened to be caught by the runtime's own.
+                // X-len-huge reached ArgumentOutOfRangeException this way.
+                r.C4 = err == null ? "ACCEPTED!"
+                     : err.StartsWith("THREW", StringComparison.Ordinal) ? "THREW" : "ok";
                 r.Err = err ?? "(none)";
                 continue;
             }
@@ -176,6 +194,32 @@ public static class CorpusRun
         return Report(results, verbose);
     }
 
+    /// A disputed row (CONTRACT.md 1.5). Two kinds today: a VERDICT dispute
+    /// (the oracles disagree whether to refuse) and a READING dispute (they
+    /// accept and project differently). Either way the answer is which side
+    /// this codec is on, and it never counts as a pass or a fail.
+    private static string Dispute(string dir, Json v, Result r, object msg, string err)
+    {
+        var d = v["dispute"];
+        if (err != null) return "refused (" + err + ")";
+        var readings = d?["readings"];
+        if (readings == null || readings.Arr == null) return "accepted";
+        var hit = new List<string>();
+        foreach (var rd in readings.Arr)
+        {
+            try
+            {
+                var want = Json.Parse(File.ReadAllText(Path.GetFullPath(Path.Combine(dir, rd["projection"].AsString))));
+                string why;
+                if (ProjEq(C.Proj.ByRoot(r.Root, msg), want, "", out why))
+                    hit.Add(string.Join(", ", rd["read_by"].Arr.Select(x => x.AsString).ToArray()));
+            }
+            catch (Exception) { }
+        }
+        return hit.Count == 0 ? "accepted, matches NO listed reading"
+                              : "accepted, reads as: " + string.Join(" | ", hit.ToArray());
+    }
+
     /// **An independent oracle for the roots the incumbent also has.**
     ///
     /// Nineteen of the corpus's thirty roots exist in `ffi/schema`'s
@@ -202,9 +246,27 @@ public static class CorpusRun
             string gpErr = null;
             try { md.Parser.ParseFrom(bytes); gpOk = true; }
             catch (Exception ex) { gpOk = false; gpErr = ex.GetType().Name; }
-            bool meOk = r.Expect == "reject" ? r.C4 != "ok" : r.C1 == "ok";
-            // `meOk` here means "this decoder accepted it", not "it passed".
-            meOk = r.Expect == "reject" ? r.C4 == "ACCEPTED!" : r.C1 == "ok";
+            // "this decoder accepted it", not "it passed".
+            bool meOk = r.Accepted;
+            if (r.Disputed != null)
+            {
+                r.GpReading = gpOk ? "accepted" : "refused (" + gpErr + ")";
+                if (gpOk)
+                    try
+                    {
+                        // The dispute's own paths say where to look; print from
+                        // the first of them rather than from the top.
+                        var j = new Google.Protobuf.JsonFormatter(
+                            new Google.Protobuf.JsonFormatter.Settings(false)).Format(md.Parser.ParseFrom(bytes));
+                        var at = v["dispute"]?["differs_at"];
+                        string leaf = at != null && at.Arr != null && at.Arr.Count > 0
+                            ? at.Arr[at.Arr.Count - 1].AsString.Split('.').Last() : null;
+                        int i = leaf != null ? j.IndexOf("\"" + leaf + "\"", StringComparison.Ordinal) : -1;
+                        r.GpReading += i >= 0 ? ": ... " + j.Substring(i, Math.Min(240, j.Length - i)) + " ..."
+                                              : ": " + (j.Length > 240 ? j.Substring(0, 240) + " ..." : j);
+                    }
+                    catch (Exception) { }
+            }
             if (gpOk == meOk) agree++;
             else
             {
@@ -390,6 +452,16 @@ public static class CorpusRun
             Console.WriteLine();
         }
 
+        var disp = rs.Where(r => r.Disputed != null).ToArray();
+        Console.WriteLine("DISPUTED rows (CONTRACT.md 1.5): {0}, EXCLUDED from every count above and from", disp.Length);
+        Console.WriteLine("pass/fail. Which way this codec went, and Google.Protobuf beside it:");
+        foreach (var r in disp)
+        {
+            Console.WriteLine("  {0,-32} {1,-9} this codec: {2}", r.Id, r.Expect, r.Disputed);
+            if (r.GpReading != null) Console.WriteLine("  {0,-32} {1,-9} Google.Protobuf: {2}", "", "", r.GpReading);
+        }
+        Console.WriteLine();
+
         var skips = rs.Where(r => r.Skip != null).ToArray();
         if (skips.Length != 0)
         {
@@ -409,7 +481,7 @@ public static class CorpusRun
         // C4: the error per reject vector. A rejection test that nothing
         // rejects is a test nobody has watched work.
         Console.WriteLine("C4: the error this decoder actually returned, per reject vector.");
-        foreach (var g in rs.Where(r => r.Expect == "reject" && r.Skip == null)
+        foreach (var g in rs.Where(r => r.Expect == "reject" && r.Skip == null && r.Disputed == null)
                             .GroupBy(r => r.Err).OrderByDescending(g => g.Count()))
         {
             Console.WriteLine("  {0,3}x {1}", g.Count(), g.Key);
@@ -430,23 +502,23 @@ public static class CorpusRun
                 + "spelling: %.17g against G17).", NumericFallbacks);
         // ---- the two remaining divergences, classified rather than counted ----
         int tdec = rs.Count(r => r.Expect == "reject" && r.Cls == "transcode" && r.C4 == "ACCEPTED!");
-        int other = bad - tdec - rs.Count(r => r.Id == "U-map-entry" && r.C2 != "ok");
-        Console.WriteLine("THE TWO DIVERGENCES, AND NEITHER IS A DEFECT THIS SLICE CAN FIX ALONE.");
+        // U-map-entry is a disputed row now (CONTRACT.md 1.5) and so never in
+        // `bad`; it is counted here only if it ever comes back as an agreed
+        // row that this codec projects differently. The earlier form counted
+        // it whenever C2 was not "ok", which read "n/a" as a failure and made
+        // `other` -1, i.e. exit status 255 on a clean run.
+        int umap = rs.Count(r => r.Id == "U-map-entry" && r.C2.StartsWith("DIFF", StringComparison.Ordinal));
+        int other = bad - tdec - umap;
+        Console.WriteLine("THE REMAINING DIVERGENCE, A POLICY RATHER THAN A DEFECT THIS SLICE FIXES ALONE.");
         Console.WriteLine();
-        Console.WriteLine("1. The {0} T-dec-* vectors: malformed UTF-8 in a string field, which", tdec);
-        Console.WriteLine("   CONTRACT.md says a conformant parser must reject. This codec accepts");
-        Console.WriteLine("   them, because it reads strings through Encoding.UTF8, which SUBSTITUTES");
-        Console.WriteLine("   U+FFFD. **So does Google.Protobuf**: `harness utf8` runs the 15 root-site");
-        Console.WriteLine("   vectors through both and the incumbent accepts every one. So the arms");
-        Console.WriteLine("   agree, the decode comparison is like for like, and the managed decode");
-        Console.WriteLine("   margin is NOT bought by skipping validation. It is ABI v1 open decision 3");
-        Console.WriteLine("   and .NET's whole ecosystem is on the lossy side of it.");
+        Console.WriteLine("The {0} T-dec-* vectors: malformed UTF-8 in a string field, which", tdec);
+        Console.WriteLine("CONTRACT.md says a conformant parser must reject. This build accepts");
+        Console.WriteLine("them, because it reads strings through Encoding.UTF8, which SUBSTITUTES");
+        Console.WriteLine("U+FFFD. Google.Protobuf does the same (`harness utf8`). The rejecting");
+        Console.WriteLine("policy is the separate /p:AkStrict=true build (ABI v1 open decision 3).");
         Console.WriteLine();
-        Console.WriteLine("2. U-map-entry: an unknown field inside every map entry. This decoder skips");
-        Console.WriteLine("   it and keeps the entry; the corpus's projection puts the WHOLE entries");
-        Console.WriteLine("   under `_unknown` and leaves the map absent. `Google.Protobuf`, on the");
-        Console.WriteLine("   same bytes, keeps the map -- printed above. Two implementations against");
-        Console.WriteLine("   the projection, so this is raised as a question about the vector.");
+        Console.WriteLine("U-map-entry, which earlier runs listed here, is a DISPUTED row in the corpus");
+        Console.WriteLine("now and is reported in the disputed section above, outside pass/fail.");
         Console.WriteLine();
         Console.WriteLine("C5 (produce) and the chunking class, stated rather than claimed:");
         Console.WriteLine("  * C5 asks a slice to BUILD each message from the description and encode");
@@ -458,11 +530,11 @@ public static class CorpusRun
         Console.WriteLine("    one chunk. **The managed codec does not batch at all** -- it walks the");
         Console.WriteLine("    host's own containers in one pass -- so per CONTRACT.md it says so and");
         Console.WriteLine("    that is its gap. The core-ffi arm DOES batch and is measured at two");
-        Console.WriteLine("    chunk sizes (AK_CHUNK), but its binding exists for M1 and M2 only and");
-        Console.WriteLine("    the chunking roots are corpus-only, so it cannot reach them either.");
+        Console.WriteLine("    chunk sizes (AK_CHUNK), but its binding exists for ffi/schema's roots");
+        Console.WriteLine("    only and the chunking roots are corpus-only, so it cannot reach them.");
         Console.WriteLine();
         Console.WriteLine("{0} failure(s) ({1} T-dec policy, {2} U-map-entry, {3} other), {4} not run",
-            bad, tdec, bad - tdec - other, other, skipped);
+            bad, tdec, umap, other, skipped);
         return other;
     }
 }

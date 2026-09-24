@@ -1,0 +1,96 @@
+# R-D9 (C# part), FIX-PLAN WP4 item 10: ak_bytes_free on a non-OK status
+# date:        2026-09-24T16:13:46Z
+# branch HEAD: 1c6996427bb0fc6f48165a6cf875dd6304f4ce90 (the slice changes are the commit that adds this log)
+# core:        snapshot of ffi/poc/codec via 'git archive HEAD' (last core commit 6ede244),
+#              built in scratch with --features "rpc count" into poc/csharp/target-core-count
+#              libak_core.so sha256 cd329fa323eb2129...
+# runtime:     .NET 8.0.31, SDK 8.0.131, Ubuntu 24.04 packages
+# machine:     container, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
+# code:        src/Rpc/CoreTransport.cs TakeOrThrow + CallBlocking; src/Rpc/Grid.cs try/finally; src/Rpc/Program.cs --error-path
+# command:     dotnet src/Rpc/bin/Release/net8.0/akrpc.dll --error-path --calls 50
+#
+# The server serves /armonik.ffi.Bench/Down and not NoSuchMethod, so the second
+# path returns UNIMPLEMENTED and the core reports a non-OK status on every
+# delivery. The gate: every failed call throws, AND its forward crossing count
+# equals the success path's (whole part; the queue drainer's idle 200 ms polls
+# add a few crossings per row), because ak_bytes_free is one forward crossing
+# and must be on both paths. Today's core returns an empty ak_bytes on failure,
+# so the free releases nothing; the fix is that the binding no longer depends
+# on that. No timing is taken or printed.
+
+## 1. With the fix, three runs
+
+# harness: rpc --error-path (R-D9: free on a non-OK status)
+# counting build: YES
+# calls:          50 per delivery per path
+
+path    delivery     threw/calls   forward/call   reverse/call   expected fwd
+----------------------------------------------------------------------------------
+ok      blocking         0/50              2.00           0.00              2  PASS
+error   blocking        50/50              2.00           0.00              2  PASS
+ok      callback         0/50              3.00           1.00              3  PASS
+error   callback        50/50              3.00           1.00              3  PASS
+ok      queue            0/50              4.02           0.00              4  PASS
+error   queue           50/50              4.00           0.00              4  PASS
+
+error-path: 0 failure(s)
+exit status: 0
+
+# harness: rpc --error-path (R-D9: free on a non-OK status)
+# counting build: YES
+# calls:          50 per delivery per path
+
+path    delivery     threw/calls   forward/call   reverse/call   expected fwd
+----------------------------------------------------------------------------------
+ok      blocking         0/50              2.00           0.00              2  PASS
+error   blocking        50/50              2.00           0.00              2  PASS
+ok      callback         0/50              3.00           1.00              3  PASS
+error   callback        50/50              3.00           1.00              3  PASS
+ok      queue            0/50              4.02           0.00              4  PASS
+error   queue           50/50              4.00           0.00              4  PASS
+
+error-path: 0 failure(s)
+exit status: 0
+
+# harness: rpc --error-path (R-D9: free on a non-OK status)
+# counting build: YES
+# calls:          50 per delivery per path
+
+path    delivery     threw/calls   forward/call   reverse/call   expected fwd
+----------------------------------------------------------------------------------
+ok      blocking         0/50              2.00           0.00              2  PASS
+error   blocking        50/50              2.00           0.00              2  PASS
+ok      callback         0/50              3.00           1.00              3  PASS
+error   callback        50/50              3.00           1.00              3  PASS
+ok      queue            0/50              4.02           0.00              4  PASS
+error   queue           50/50              4.00           0.00              4  PASS
+
+error-path: 0 failure(s)
+exit status: 0
+
+## 2. Negative control: the two Release(ref b) calls on the error paths removed,
+##    rebuilt, run, restored (taken before the ak_init call was added to the
+##    transport's constructor, which does not touch this path). Each error row
+##    reads one forward crossing short, which is the gate seeing the defect.
+##    The removal:
+
+246d245
+<             Release(ref b);
+309d307
+<         Release(ref b);
+
+# harness: rpc --error-path (R-D9: free on a non-OK status)
+# counting build: YES
+# calls:          50 per delivery per path
+
+path    delivery     threw/calls   forward/call   reverse/call   expected fwd
+----------------------------------------------------------------------------------
+ok      blocking         0/50              2.00           0.00              2  PASS
+error   blocking        50/50              1.00           0.00              2  FAIL
+ok      callback         0/50              3.00           1.00              3  PASS
+error   callback        50/50              2.00           1.00              3  FAIL
+ok      queue            0/50              4.00           0.00              4  PASS
+error   queue           50/50              3.00           0.00              4  FAIL
+
+error-path: 3 failure(s)
+exit status: 1

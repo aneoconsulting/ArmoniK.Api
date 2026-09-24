@@ -79,10 +79,11 @@ public static class Config
         Console.WriteLine("# transcoder:          {0}", Facade.BuildInfo.Transcoder);
         Console.WriteLine("# length-prefix sites: {0}", Armonik.Ffi.Facade.Codec.Sites);
         Console.WriteLine("#");
-        Console.WriteLine("# R13 calibration on THIS machine: the Rust slice's crossing benchmark");
-        Console.WriteLine("#   measures 1.8 ns forward and 2.1 ns forward-plus-reverse here");
-        Console.WriteLine("#   (ffi/logs/csharp/calibration-rust-crossing.log). Every absolute");
-        Console.WriteLine("#   below is also quotable as a multiple of that 1.8 ns.");
+        // This used to print a crossing calibration as a constant, "on THIS
+        // machine", whatever machine ran it: a hand-written configuration line
+        // that is wrong without anything failing. Removed (WP6). Crossing
+        // calibration is a campaign measurement (design/CAMPAIGN.md).
+        Console.WriteLine("# timings:             any timing a container prints is instrumentation (README 1.1)");
         Console.WriteLine("#");
     }
 

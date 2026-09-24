@@ -35,6 +35,18 @@ from cs_facade import Head
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
+def abi_version():
+    """`AK_ABI_VERSION` as the core's own ABI crate spells it, read at generation
+    time. The host passes it to `ak_init`, which is where ABI v1 section 3 checks
+    the version: once, on the side that knows it."""
+    src = os.path.join(HERE, "..", "..", "codec", "crates", "ak-abi", "src", "lib.rs")
+    with open(src) as f:
+        for line in f:
+            if line.startswith("pub const AK_ABI_VERSION: u32 = "):
+                return int(line.split("=")[1].strip().rstrip(";"))
+    raise KeyError("AK_ABI_VERSION not found in " + src)
+
+
 def load_layout():
     with open(os.path.join(HERE, "abi-layout.json")) as f:
         return json.load(f)
@@ -102,6 +114,29 @@ def emit(ir):
     o += "}"
     o += ""
 
+    # ---- ak_init's two structs (ABI v1 section 3) ----------------------
+    # Not in the layout probe: their layout is four, four, pointer, pointer and
+    # eight respectively, and the probe covers the generated groups only. The
+    # size asserts in AbiInit are the check this side can make.
+    o.doc("ABI v1 section 3's `ak_init_opts`. `log` and `log_ctx` are left null: "
+          "this host installs no log bridge.")
+    o += "[StructLayout(LayoutKind.Sequential)]"
+    o += "public struct AkInitOpts"
+    o += "{"
+    o += "    public uint abi_version;"
+    o += "    public uint flags;"
+    o += "    public IntPtr log;"
+    o += "    public IntPtr log_ctx;"
+    o += "}"
+    o += ""
+    o += "[StructLayout(LayoutKind.Sequential)]"
+    o += "public struct AkErr"
+    o += "{"
+    o += "    public int code;"
+    o += "    public uint detail;"
+    o += "}"
+    o += ""
+
     # ---- the presence constants -------------------------------------
     o.doc("The presence bits, as the Rust build reports them. A bit is NOT inferred "
           "from a field's position among the singular message children: that rule is "
@@ -122,12 +157,21 @@ def emit(ir):
     o += "{"
     o += '    public const string Lib = "ak_core";'
     o += ""
+    o += "    /// ABI v1 section 3: every entry point requires `ak_init` to have returned"
+    o += "    /// successfully. An explicit static constructor makes the runtime run it"
+    o += "    /// before the first call to ANY import below, so no path can reach the"
+    o += "    /// codec uninitialised. The binding called no `ak_init` at all until"
+    o += "    /// 2026-09-24, and every gate passed because the core's guard is a"
+    o += "    /// feature (`init-guard`) that no build here enabled."
+    o += "    static Abi() { AbiInit.Run(); }"
+    o += ""
     o += "    public const int AK_TOKEN_ROOT = -1;"
     o += "    /// What the abort guard returns when the host throws. ABI v1 section 5:"
     o += "    /// sticky, first error wins."
     o += "    public const int AK_ERR_HOST = -9;"
     o += ""
     imports = [
+        ("int", "ak_init", "AkInitOpts* opts, AkErr* err"),
         ("uint", "ak_abi_version", ""),
         ("IntPtr", "ak_enc_ctx_new", ""),
         ("void", "ak_enc_ctx_free", "IntPtr ctx"),
@@ -250,6 +294,32 @@ def emit(ir):
         o += "}"
         o += ""
 
+    # ---- ak_init, once per process -----------------------------------
+    o.doc("ABI v1 section 3, once per process. `Ensure` is for code outside this "
+          "assembly that calls the core through its own imports (the RPC arm's "
+          "transport), so it initialises the core the same way.")
+    o += "public static unsafe class AbiInit"
+    o += "{"
+    o += "    public const uint Version = %d;   // AK_ABI_VERSION, read by the generator" % abi_version()
+    o += "    public const int AK_OK = 0, AK_ALREADY_INITIALIZED = 1;"
+    o += "    /// The flags this host passes. NO_CRYPTO: the codec build links no TLS."
+    o += "    public const uint Flags = 1u << 2;"
+    o += "    public static int Code { get; private set; } = int.MinValue;"
+    o += "    public static void Ensure() => RuntimeHelpers.RunClassConstructor(typeof(Abi).TypeHandle);"
+    o += "    internal static void Run()"
+    o += "    {"
+    o += "        if (Unsafe.SizeOf<AkInitOpts>() != 8 + 2 * IntPtr.Size || Unsafe.SizeOf<AkErr>() != 8)"
+    o += "            throw new InvalidOperationException(\"ak_init_opts/ak_err layout mismatch\");"
+    o += "        var o = new AkInitOpts { abi_version = Version, flags = Flags };"
+    o += "        var e = new AkErr();"
+    o += "        int rc = Abi.ak_init(&o, &e);"
+    o += "        Code = rc;"
+    o += "        if (rc != AK_OK && rc != AK_ALREADY_INITIALIZED)"
+    o += "            throw new InvalidOperationException($\"ak_init failed: code {e.code}, detail {e.detail}\");"
+    o += "    }"
+    o += "}"
+    o += ""
+
     # ---- the layout assert -------------------------------------------
     o.doc("ABI v1 obligation 12.3, as far as it can be taken here.")
     o += "public static class AbiLayout"
@@ -285,7 +355,7 @@ def emit(ir):
                 t, vts[t]["size"], t, t, vts[t]["slots"])
     o += "        uint v = Abi.ak_abi_version();"
     o += "        return bad.Count == 0"
-    o += "            ? $\"ok: %d structs and %d vtables match the Rust build; core ak_abi_version()={v}\"" % (nstruct, nvt)
+    o += "            ? $\"ok: %d structs and %d vtables match the Rust build; core ak_abi_version()={v}; ak_init()={AbiInit.Code}\"" % (nstruct, nvt)
     o += "            : string.Join(\"; \", bad);"
     o += "    }"
     o += "}"

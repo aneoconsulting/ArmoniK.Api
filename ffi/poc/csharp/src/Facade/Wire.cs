@@ -402,11 +402,20 @@ public struct Dec
 
     /// The end offset of a length-delimited body, having consumed its prefix.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    ///
+    /// **The comparison is on the full 64-bit prefix against the bytes LEFT**,
+    /// never `Pos + n > End` on a narrowed `n`. The old form cast the prefix to
+    /// `int` first, so 2^32 + 5 read as 5 (a wrong parse), and `Pos + n`
+    /// overflowed for n near int.MaxValue and passed the check with a negative
+    /// end: ffi/corpus `X-len-huge` then surfaced as an
+    /// ArgumentOutOfRangeException from `Encoding.UTF8.GetString` instead of
+    /// ErrTruncated. The R-D1 length-wrap class, in this slice's own reader.
     public int LenEnd()
     {
-        int n = (int)Varint();
-        if (n < 0 || Pos + n > End) { Err = W.ErrTruncated; return Pos; }
-        return Pos + n;
+        ulong n = Varint();
+        if (Err != 0) return Pos;
+        if (n > (ulong)(End - Pos)) { Err = W.ErrTruncated; return Pos; }
+        return Pos + (int)n;
     }
 
 #if AK_STRICT

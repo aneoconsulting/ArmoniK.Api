@@ -526,6 +526,24 @@ public struct AkCounters
     public ulong grows;
 }
 
+/// ABI v1 section 3's `ak_init_opts`. `log` and `log_ctx` are left null: this host
+/// installs no log bridge.
+[StructLayout(LayoutKind.Sequential)]
+public struct AkInitOpts
+{
+    public uint abi_version;
+    public uint flags;
+    public IntPtr log;
+    public IntPtr log_ctx;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct AkErr
+{
+    public int code;
+    public uint detail;
+}
+
 /// The presence bits, as the Rust build reports them. A bit is NOT inferred from a
 /// field's position among the singular message children: that rule is right today and
 /// is still a guess, and the same class of guess invented a vtable slot once already.
@@ -586,10 +604,22 @@ public static unsafe partial class Abi
 {
     public const string Lib = "ak_core";
 
+    /// ABI v1 section 3: every entry point requires `ak_init` to have returned
+    /// successfully. An explicit static constructor makes the runtime run it
+    /// before the first call to ANY import below, so no path can reach the
+    /// codec uninitialised. The binding called no `ak_init` at all until
+    /// 2026-09-24, and every gate passed because the core's guard is a
+    /// feature (`init-guard`) that no build here enabled.
+    static Abi() { AbiInit.Run(); }
+
     public const int AK_TOKEN_ROOT = -1;
     /// What the abort guard returns when the host throws. ABI v1 section 5:
     /// sticky, first error wins.
     public const int AK_ERR_HOST = -9;
+
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial int ak_init(AkInitOpts* opts, AkErr* err);
 
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
@@ -1120,6 +1150,30 @@ public unsafe struct ak_dvt_Pair
     public IntPtr unknown;          // decision 11: null is today's behaviour
 }
 
+/// ABI v1 section 3, once per process. `Ensure` is for code outside this assembly that
+/// calls the core through its own imports (the RPC arm's transport), so it initialises
+/// the core the same way.
+public static unsafe class AbiInit
+{
+    public const uint Version = 1;   // AK_ABI_VERSION, read by the generator
+    public const int AK_OK = 0, AK_ALREADY_INITIALIZED = 1;
+    /// The flags this host passes. NO_CRYPTO: the codec build links no TLS.
+    public const uint Flags = 1u << 2;
+    public static int Code { get; private set; } = int.MinValue;
+    public static void Ensure() => RuntimeHelpers.RunClassConstructor(typeof(Abi).TypeHandle);
+    internal static void Run()
+    {
+        if (Unsafe.SizeOf<AkInitOpts>() != 8 + 2 * IntPtr.Size || Unsafe.SizeOf<AkErr>() != 8)
+            throw new InvalidOperationException("ak_init_opts/ak_err layout mismatch");
+        var o = new AkInitOpts { abi_version = Version, flags = Flags };
+        var e = new AkErr();
+        int rc = Abi.ak_init(&o, &e);
+        Code = rc;
+        if (rc != AK_OK && rc != AK_ALREADY_INITIALIZED)
+            throw new InvalidOperationException($"ak_init failed: code {e.code}, detail {e.detail}");
+    }
+}
+
 /// ABI v1 obligation 12.3, as far as it can be taken here.
 public static class AbiLayout
 {
@@ -1412,7 +1466,7 @@ public static class AbiLayout
         if (Unsafe.SizeOf<ak_dvt_Pair>() != 16) bad.Add($"ak_dvt_Pair has {Unsafe.SizeOf<ak_dvt_Pair>() / IntPtr.Size} slots, expected 2");
         uint v = Abi.ak_abi_version();
         return bad.Count == 0
-            ? $"ok: 42 structs and 28 vtables match the Rust build; core ak_abi_version()={v}"
+            ? $"ok: 42 structs and 28 vtables match the Rust build; core ak_abi_version()={v}; ak_init()={AbiInit.Code}"
             : string.Join("; ", bad);
     }
 }
