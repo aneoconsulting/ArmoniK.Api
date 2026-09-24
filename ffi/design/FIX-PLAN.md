@@ -602,6 +602,8 @@ Disposition column is filled in as work lands.
 | R-G2 | Python `corpus.py` crashed on its first failing row (`NameError: UPSTREAM`), so it could only report a pass (D12) | python slice | fixed 519d0c1 |
 | R-G3 | C++ corpus driver ignored the binary's exit status, so a core panic blanked every later row of every arm | cpp slice | fixed 834705f |
 | R-G4 | Python `native/binding.c` restates `ak_client_opts` by hand (6 fields, matching today) and uses 3.10+ calls outside the generator | python slice | open, WP5 |
+| R-G5 | `ak-abi` declares `ak_queue_next`'s timeout as `i32` where the core exports `u64`; `ak_bytes` and `ak_completion` are declared twice in Rust with no layout check tying them; the remaining RPC prototypes are hand-declared in `poc/cpp/src/rpc_common.h` (cpp C34, from reading) | cpp slice | open, WP5 item 2 (the ABI layout is rendered from one place) |
+| R-G6 | After a decode error, what the host's output object contains was compared between arms and differed on 46 of 52 refused rows once the core stopped delivering groups after an error (cpp C33) | cpp slice | **ruled by the aggregating session**: after a decode error the output object is unspecified and a host discards it; conformance compares error codes on refused rows only. ABI v1 section 5 already says decode stops; WP5's plan layer states the rule for every backend |
 
 ### F. STATE hygiene (WP6)
 
