@@ -933,3 +933,120 @@ table by deleting it and left the three places that read it. It could not show w
 row passed, which is the same shape as J27's script that had stopped running: code on a path
 nothing exercised. Restored as an empty table, and the per-arm failure list is no longer
 cut at eight, so the log carries every row a reader has to classify.
+
+## Work unit 5: FIX-PLAN WP5 step 5, the Python backend on the shared plan
+
+### J33. The backend moved into poc/codec/gen, and the port changed no byte and no count
+
+`gen/walk.py`, `py_codec.py`, `py_facade.py`, `py_binding.py`, `py_shim.py` and
+`py_values.py` are retired. Their replacement renders PLANS (`plan.py`) and imports nothing
+else from the description:
+
+- `poc/codec/gen/py_pure.py`: the facade (Plain, `__slots__`, and a `MESSAGES` metadata
+  table the harness glue now reads instead of walking the schema) and the pure-Python codec,
+  one module per unknown-field mode (`pycodec.py` drop, `pycodec_retain.py` retain), each
+  rendering `MessagePlan.encode` / `.decode` step by step, as `rust_native.py` does.
+- `poc/codec/gen/py_capi.py`: the CPython shim, three accessor backends, both directions,
+  `ak_init` from `plan.lifecycle`, the section 10 layout table from `cpp_layout.facts`, and
+  the three post-3.7 C-API calls behind `AK_NEWREF` / `AK_CALL0` / `AK_CALL1` under
+  `#if PY_VERSION_HEX >=` with 3.7-compatible `#else` branches (R-D4).
+- The C header is the C++ backend's `cpp_abi.emit` (plain C99, committed by the cpp port in
+  f9ed1d0 while this ran). A first version rendered its own (`py_cheader.py`); once the cpp
+  one existed it was deleted, and the header this slice compiles against is byte-identical
+  to `poc/cpp/include/ak_abi.h` and `poc/cpp/corpus/include/ak_abi.h` (log 98).
+
+`gen/generate.py` is now glue: it picks two plans (`shapes.json`'s seven roots, read from the
+shared `generate.py`; the corpus READER plan) and writes `gen/out/` and `gen/out/corpus/`.
+Its `--check` runs the shared one-generator guard over the python backend modules, planted
+violation included. `payload_values.py` moved out of `gen/out/` to the slice root: its
+"generator" returned a fixed template and read nothing from the description, so it was never
+generated output. The `AK_UPSTREAM` snapshot mechanism is retired; the build log names the
+commit and flags uncommitted changes in `poc/codec`.
+
+**What did not move.** Payload-set byte identity holds for every arm (logs 91, 92, both
+levels). The crossing counts are identical, row for row, 160 rows, to log 85's pre-port shim
+(log 98), on 3.12 and on 3.7: the plan-rendered shim makes exactly the CPython calls the
+walk-rendered one did. That is the check that the port is a port: a renderer that had changed
+a traversal would have moved a count.
+
+### J34. The pure-Python control's 42 corpus failures are gone, because its rules are the plan's
+
+`logs/python/70` had pycodec failing 42 rows (27 `U-wire-*`, 7 `S-neg-*`, 8 `X-tag-zero-*`).
+The plan-rendered codec dispatches on the whole key `(number << 3) | wire`, which IS the
+plan's (number, wire) pair, so a known number at a foreign wire type falls to the unknown
+branch (R-E2); reads int32/enum as the low 32 bits sign-extended and int64 as signed (R-E5);
+refuses key < 8 (field number 0) on every message and inside a map entry; checks every length
+as `n > end - i` on the full 64-bit varint (R-G8); refuses an 11-byte varint; skips groups to
+the END_GROUP of the same number, bounded at 100 nested groups like the core's skipper; and
+merges a repeated singular message and a same-member oneof message (R-E4). All 42 rows pass;
+the whole corpus passes on the pure-Python arms (688 pass, 3 disputed excluded, 0 fail), both
+modes (log 93).
+
+### J35. The whole corpus, five arms, both levels
+
+`corpus.py` was rewritten: every one of the 691 rows (it covered 213), each in a worker
+process under a 20 s timeout (a hang or a crash is a row result and restarts the worker),
+C1 to C5 (C5 builds the message from the projection with the arm's own constructors), the
+disputed rows reported with the reading produced, between-arm byte identity, and four planted
+controls (`proj`, `reenc`, `accept`, `noinit`), each seen failing on every arm it applies to.
+The C ABI arms run the corpus-feature core built WITH `init-guard` (every core in this slice
+now is), through `_akffi_corpus`, the shim rendered from the corpus reader plan for every root
+the C ABI can carry: 672 pass, 16 `Nest` rows not in the C ABI (refused by name by
+`plan.check_expressible`), 3 disputed. The same counts as the rust slice's ffi arms
+(logs/rust/wp5-corpus.log). `U-map-entry` reads as protobuf's pure-python backend does (the
+entry kept). 3.7 and 3.12 re-encode all 2696 (arm, row) pairs to the same bytes (log 93, 3.7,
+`--compare`).
+
+Retention through the C ABI is not rendered in this shim (the `ak_unk_f` slots stay NULL and
+the `ak_uencode_*` family is unused), so there is no ffi-retain arm; the retain mode exists in
+the pure-Python arm only.
+
+### J36. D13: a packed run longer than 4096 values was split into several records
+
+The default build puts `C-elemu-512`'s 512 `ChunkElement`s (a 32-byte group) in ONE chunk,
+which CONTRACT.md's `chunking` class says is a gap, so a test arm was added: the same corpus
+shim with `AK_CHUNK_BYTES=256` and `AK_CHUNK_PACKED=3` (`_akffi_corpus_chunk`, arm
+`ffi-chunk256`). First run: 71 rows failed C3/C5 (log 99). Every one involved a packed field,
+and the bytes showed why: the shim handed a packed run to the core in chunks of
+CHUNK_PACKED values, one `ak_run_*` each, and each call writes its own LEN record. Legal
+protobuf (a parser concatenates), not the canonical form, and not the ABI: section 6 says a
+packed run is "the host's own array, handed over whole", one call per field. With the
+default 4096 it could only show on a run longer than 4096 values, which neither the payload
+set nor the corpus has, so every gate had passed. Inherited unchanged from `py_binding.py`.
+Fixed in the renderer: the run is on the stack up to CHUNK_PACKED values and on the heap
+beyond, and crosses in one call. After the fix `ffi-chunk256` passes all 672 rows with
+`C-elemu-512` in 64 chunks and `C-leaf-2048` in 512 (log 93). The element-run chunking the
+arm was built to exercise was right all along.
+
+### J37. The 3.7 floor is obtainable, and building on it found one more defect
+
+The previous STATE said 3.7 could not be obtained (deadsnakes, python.org and github are
+refused). Refuted: `archive.ubuntu.com`'s pool serves Ubuntu 18.04's CPython 3.7.5 packages,
+and bionic's binaries run on this glibc. `fetch_py37.sh` extracts them (sha256-pinned) into
+`build/py37`, plus bionic's libffi6 (protobuf 4.24's import chain reaches ctypes), protobuf
+4.24.4 and grpcio-tools 1.59.3 for cp37 from PyPI, and a 3.7 `shapes_pb2` from that protoc.
+
+Against real 3.7.5 headers the generated shim and `native/binding.c` compile with
+`-Wall -Wextra -Werror` in all five build variants, and the pre-port tree (aba944a) fails the
+same check on exactly the four names R-D4 listed (log 97). Then the first 3.7 import failed:
+`dynamic module does not define module export function`. PyMODINIT_FUNC carries default
+visibility only from 3.9 (Py_EXPORTED_SYMBOL); this build uses `-fvisibility=hidden`, so on
+3.7 and 3.8 no shim exported its `PyInit_*`. A header-only check could not have found it; the
+layout control did, because it was tightened to require the layout refusal and not merely a
+failed import (a relative interpreter path had first made that control "pass" by not starting
+Python at all). Fixed with an explicit visibility attribute under
+`PY_VERSION_HEX < 0x03090000`; build.sh now checks every shim exports exactly one `PyInit_`.
+
+On 3.7.5 every gate then passes: conformance on both shims, the whole corpus on five arms with
+its controls, the RPC gate (80 of 80 aborted, 20 of 20 gated), R-D1, U1 (logs 91-96, py3.7).
+Harness-only changes for the floor: `conformance.py` reads `FieldDescriptor.label` where
+protobuf 4.24 has no `is_repeated`; `arms.py` prefers `build/<tag>/pb2`.
+
+### J38. The planted controls this work unit added, each seen failing
+
+`noinit` (the corpus shim built with `AK_SKIP_INIT` against the guarded core: every accept row
+refused with -10, and it imports no `ak_init`), a planted layout mismatch (refuses to import,
+naming the fact: the section 10 check is now real, the shim compares its 380 facts with the
+core's at import instead of printing that the build "would have" failed), `proj`, `reenc`,
+`accept` (log 93), the no-`AK_RPC` shim (build log 90), the backend guard's planted IR import
+(`generate.py --check`), and the 3.7 pre-port control (log 97).

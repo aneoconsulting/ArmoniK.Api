@@ -29,8 +29,13 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TAG = "py%d.%d" % sys.version_info[:2]
-for p in (HERE, os.path.join(HERE, "build", TAG), os.path.join(HERE, "gen", "out"),
-          os.path.join(HERE, "mech", "build", "pb2")):
+# shapes_pb2 for the incumbent arm: `mech/build.sh` writes one for the target interpreter;
+# an interpreter whose protobuf runtime cannot load that gencode (the 3.7 floor: protobuf
+# 4.24, build.sh --floor) has its own beside its shims, preferred when present.
+_PB2 = os.path.join(HERE, "build", TAG, "pb2")
+if not os.path.exists(os.path.join(_PB2, "shapes_pb2.py")):
+    _PB2 = os.path.join(HERE, "mech", "build", "pb2")
+for p in (HERE, os.path.join(HERE, "build", TAG), os.path.join(HERE, "gen", "out"), _PB2):
     if p not in sys.path:
         sys.path.insert(0, p)
 
@@ -51,14 +56,26 @@ def _try(name, fn):
 sys.path.insert(0, os.path.join(HERE, "gen"))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(HERE)), "schema", "emit"))
 
-import shapes as _S      # noqa: E402  (the description, shared)
-import walk as W         # noqa: E402  (this slice's scope guard and walker)
+import shapes as _S      # noqa: E402  (the description: payload specs only)
 
 _SCHEMA = _S.load()
 
-import facade            # noqa: E402  (generated)
-import pycodec           # noqa: E402  (generated)
-import payload_values as V  # noqa: E402  (generated)
+import facade            # noqa: E402  (generated from the plan by poc/codec/gen/py_pure.py)
+import pycodec           # noqa: E402  (generated: unknown fields dropped)
+import pycodec_retain    # noqa: E402  (generated: unknown fields retained)
+import payload_values as V  # noqa: E402  (harness glue)
+import facts as _F       # noqa: E402  (the facade's field facts, read from facade.MESSAGES)
+
+
+class W:
+    """walk.py's two entry points, over the facade's plan-rendered facts."""
+    @staticmethod
+    def walk(_schema, msg):
+        return _F.walk(facade, msg)
+
+    @staticmethod
+    def oneof_groups(_schema, msg):
+        return _F.oneof_groups(facade, msg)
 
 # Two builds of the same shim, over two builds of the same core, and they must NOT share
 # a process: both cores are called `libak_core.so`, so whichever is loaded first satisfies
@@ -302,8 +319,10 @@ def encode_arms(pid, mod=None):
     fp = build_facade(pid, CT_PLAIN)
     fs = build_facade(pid, CT_SLOTS)
     enc_py = getattr(pycodec, "encode_root_" + root)
+    enc_pyr = getattr(pycodec_retain, "encode_root_" + root)
     out.append(("pycodec / plain", lambda: enc_py(fp)))
     out.append(("pycodec / __slots__", lambda: enc_py(fs)))
+    out.append(("pycodec-retain / plain", lambda: enc_pyr(fp)))
     if m:
         fc = build_facade(pid, CT_CEXT)
         out.append(("core-ffi / plain", lambda: m.encode("attr", root, fp)))
@@ -321,11 +340,13 @@ def decode_arms(pid, mod=None):
     root = ROOT_OF[pid]
     buf = reference(pid)
     dec_py = getattr(pycodec, "decode_root_" + root)
+    dec_pyr = getattr(pycodec_retain, "decode_root_" + root)
     out = []
     if _pb2 is not None:
         out.append(("upb (incumbent)", lambda: _pb_root(pid).FromString(buf)))
     out.append(("pycodec / plain", lambda: dec_py(buf, CT_PLAIN)))
     out.append(("pycodec / __slots__", lambda: dec_py(buf, CT_SLOTS)))
+    out.append(("pycodec-retain / plain", lambda: dec_pyr(buf, CT_PLAIN)))
     if m:
         out.append(("core-ffi / plain", lambda: m.decode("attr", root, buf, TY_PLAIN)))
         out.append(("core-ffi / __slots__", lambda: m.decode("attr", root, buf, TY_SLOTS)))
@@ -543,6 +564,8 @@ def reencode(name, obj, pid):
     root = ROOT_OF[pid]
     if name.startswith("upb"):
         return obj.SerializeToString(deterministic=True)
+    if name.startswith("pycodec-retain"):
+        return getattr(pycodec_retain, "encode_root_" + root)(obj)
     if name.startswith("pycodec"):
         return getattr(pycodec, "encode_root_" + root)(obj)
     if "C ext type" in name:

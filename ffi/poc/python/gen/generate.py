@@ -1,126 +1,135 @@
 #!/usr/bin/env python3
-"""The python slice's generator.  One description drives everything (README R1).
+"""The python slice's generator front end: build glue only (FIX-PLAN WP5 step 5).
 
-It imports, READ-ONLY:
+Every generated file of this slice is rendered by the SHARED generator in
+`poc/codec/gen/` from a PLAN (`plan.py`); this script only chooses the plans and writes the
+text where the slice's build expects it. It contains no wire rule, no IR and no layout
+derivation (CLAUDE.md, one generator):
 
-*   the shared core's `ir.py` from `poc/codec/gen/`, which itself imports
-    `ffi/schema/emit/shapes.py`, so the core this slice measures against is the core
-    every slice measures (**R0**) -- N hosts over one core rather than N cores;
-*   the cpp slice's `cpp_header.py`, so the `ak_abi.h` the shim compiles against is the
-    one the cpp slice already validated against the Rust `#[repr(C)]`.  A group cannot be
-    laid out one way for C++ and another for the shim.
-
-**Nothing under `poc/codec/` is written by this script.**  The core's `codec.rs` and
-`layout.rs` are emitted by the slices that own those backends and are already current;
-this slice consumes them.
-
-What it emits, all into `gen/out/` and all committed:
-
-| file | what it is |
+| backend (poc/codec/gen/) | renders |
 |---|---|
-| `facade.py` | the facade, plain and `__slots__` |
-| `pycodec.py` | the generated pure-Python codec, encode and decode: **R3's no-boundary control** |
-| `payload_values.py` | facade objects carrying exactly the manifest's values |
-| `_akcodec_gen.c` | work unit 1's C shim with no core behind it, kept so its column stays defensible |
-| `binding.c` | **work unit 2's composed arm**: the generated C shim over the shared core |
-| `ak_abi.h` | the C ABI header, from `cpp_header.emit` |
+| `py_pure.emit_facade`   | `facade.py`: the Plain / `__slots__` facade and its metadata table |
+| `py_pure.emit_pycodec`  | `pycodec.py` (unknown fields dropped), `pycodec_retain.py` (retained) |
+| `py_capi.emit`          | `binding.c`: the CPython shim over the core, `ak_init` included |
+| `cpp_abi.emit` (the C++ backend's C header, plain C99) | `ak_abi.h`: groups, vtables, entry points, `plan.rpc`, `plan.lifecycle` |
 
-Run:  python gen/generate.py [--check]
+Two plan sets, two output directories:
+
+  gen/out/          `ffi/schema/shapes.json`, the seven roots every slice's core carries
+  gen/out/corpus/   the conformance corpus's READER schema (CONTRACT.md rule 0): the shim
+                    over the corpus-feature core for every root the C ABI can carry, and
+                    the facade and pure-Python codec for every corpus message (the one
+                    recursive message, `Nest`, is refused by the C ABI by name and runs
+                    through the pure-Python codec only)
+
+The shared generator is read from THIS checkout (the `AK_UPSTREAM` snapshot mechanism is
+retired: the slice now reads only the committed shared generator, and a build log records
+the commit and whether `poc/codec` had uncommitted changes).
+
+  gen/generate.py            write gen/out/
+  gen/generate.py --check    fail if what is committed differs, or if a python backend
+                             module imports anything but plans (the shared guard, applied
+                             to these modules, with its planted violation)
 """
+import importlib.util
 import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))       # .../poc/python/gen
-SLICE = os.path.dirname(HERE)                           # .../poc/python
-POC = os.path.dirname(SLICE)                            # .../poc
-FFI = os.path.dirname(POC)                              # .../ffi
-# AK_UPSTREAM: an `ffi/` tree to read the SHARED inputs from (the core's IR, the header
-# renderer, the schema emitter). Default: this checkout. Set to a `git archive` of a named
-# commit when other agents are editing those inputs concurrently, so `--check` compares
-# against a commit rather than against someone's half-written working tree. Read-only
-# either way; OUT is always this slice's.
-UPSTREAM = os.environ.get("AK_UPSTREAM") or FFI
-CODECGEN = os.path.join(UPSTREAM, "poc", "codec", "gen")
-CPPGEN = os.path.join(UPSTREAM, "poc", "cpp", "gen")
-SCHEMA_EMIT = os.path.join(UPSTREAM, "schema", "emit")
+SLICE = os.path.dirname(HERE)
+POC = os.path.dirname(SLICE)
+CODECGEN = os.path.join(POC, "codec", "gen")
+if CODECGEN not in sys.path:
+    sys.path.insert(0, CODECGEN)
 
-# THIS directory first.  Both of the other two contain a `generate.py`, and the cpp slice
-# records what happens when the order is wrong: an `import generate` anywhere resolves to
-# somebody else's generator and emits their files instead of ours.
-for p in (SCHEMA_EMIT, CPPGEN, CODECGEN, HERE):
-    if p not in sys.path:
-        sys.path.insert(0, p)
-
-import shapes as S       # noqa: E402  (the description, shared)
-import ir as IR          # noqa: E402  (shared core, read-only)
-import cpp_header        # noqa: E402  (cpp slice, read-only)
-
-import walk as W         # noqa: E402
-import py_facade         # noqa: E402
-import py_codec          # noqa: E402
-import py_shim           # noqa: E402
-import py_binding        # noqa: E402
-import py_values         # noqa: E402
+import plan as P         # noqa: E402  the rule layer
+import py_pure           # noqa: E402
+import py_capi           # noqa: E402
+import cpp_abi           # noqa: E402  the C header of ABI v1 (the C++ backend's; plain C99)
 
 OUT = os.path.join(HERE, "out")
+PY_BACKENDS = ["py_pure.py", "py_capi.py"]
 
-# The header and the layout facts must match the CORE, which carries every root, so the
-# IR is built over the same seven roots the rust, cpp and java slices use.  This slice's
-# OWN backends are restricted to `walk.SCOPE`, and they raise on anything outside it.
-ABI_ROOTS = [
-    "ListResultsResponse",          # M1  <- the only one this slice's backends cover
-    "ListTasksDetailedResponse",    # M2
-    "ListProbeResponse",            # M3
-    "ListTaskSummaryResponse",      # M4
-    "UploadResultDataMessage",      # M5
-    "ListMetricsResponse",          # M6
-    "DualResponse",                 # M7
-]
+# The roots every slice's core carries (poc/codec/gen/generate.py ROOTS), read from the
+# shared generator rather than listed here, so the shim and the core cannot disagree.
+
+
+def _shared_generate():
+    spec = importlib.util.spec_from_file_location("ak_shared_generate",
+                                                  os.path.join(CODECGEN, "generate.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def outputs():
-    schema = S.load()
-    scope, root = W.SCOPE, W.ROOT
-    ir = IR.load(ABI_ROOTS)
-    header, _layout_h, _names_h = cpp_header.emit(ir)
-    return {
-        "facade.py": py_facade.emit(schema, scope),
-        "pycodec.py": py_codec.emit(schema, scope, root, W.ROOTS),
-        "payload_values.py": py_values.emit(schema, scope, root),
-        "_akcodec_gen.c": py_shim.emit(schema, W.SCOPE_M1, root),
-        "binding.c": py_binding.emit(ir, scope, W.ROOTS),
-        "ak_abi.h": header,
+    G = _shared_generate()
+    p = P.load(G.ROOTS)
+    for r in p.roots:
+        P.check_direct(p, r)
+    out = {
+        "facade.py": py_pure.emit_facade(p),
+        "pycodec.py": py_pure.emit_pycodec(p, "drop"),
+        "pycodec_retain.py": py_pure.emit_pycodec(p, "retain"),
+        "binding.c": py_capi.emit(p, "_akffi"),
+        "ak_abi.h": cpp_abi.emit(p)[0],
     }
+    # The corpus: the C ABI's roots are the ones the shared generator's corpus core carries.
+    roots, _refused = G.corpus_roots()
+    cp = P.load_corpus(roots)
+    full = P.load_corpus(P.corpus_messages())
+    out.update({
+        "corpus/facade.py": py_pure.emit_facade(full),
+        "corpus/pycodec.py": py_pure.emit_pycodec(full, "drop"),
+        "corpus/pycodec_retain.py": py_pure.emit_pycodec(full, "retain"),
+        "corpus/binding.c": py_capi.emit(cp, "_akffi_corpus", backends=("attr", "cext")),
+        "corpus/ak_abi.h": cpp_abi.emit(cp)[0],
+    })
+    return out, G
+
+
+def guard(G):
+    sources = {b: open(os.path.join(CODECGEN, b)).read() for b in PY_BACKENDS}
+    bad = G.guard_violations(sources)
+    caught = G.guard_violations({"planted.py": "import ir as IR\nfrom shapes import load\n"}
+                                ).get("planted.py") == ["ir", "shapes"]
+    return bad, caught
 
 
 def main():
-    # `--out DIR` emits somewhere else and touches nothing committed. It exists because
-    # widening the scope is a long edit across five emitters, and the alternative to
-    # checking each step is rewriting `gen/out/` while a benchmark process is importing it.
-    global OUT
-    if "--out" in sys.argv:
-        OUT = sys.argv[sys.argv.index("--out") + 1]
-    os.makedirs(OUT, exist_ok=True)
-    outs = outputs()
     check = "--check" in sys.argv
+    outs, G = outputs()
+    rc = 0
+    if check:
+        bad, caught = guard(G)
+        for mod, hit in sorted(bad.items()):
+            print("GUARD %s imports %s: a backend takes plans, not the IR or the schema"
+                  % (mod, ", ".join(hit)))
+            rc = 1
+        if not caught:
+            print("GUARD the planted violation was NOT caught: the guard is blind")
+            rc = 1
+        if not bad and caught:
+            print("guard %d python backend modules import plans only; a planted IR import is caught"
+                  % len(PY_BACKENDS))
     stale = []
-    for name, text in outs.items():
-        p = os.path.join(OUT, name)
-        old = open(p).read() if os.path.exists(p) else None
+    for name, text in sorted(outs.items()):
+        path = os.path.join(OUT, name)
+        old = open(path).read() if os.path.exists(path) else None
         if old != text:
             stale.append(name)
             if not check:
-                with open(p, "w") as f:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w") as f:
                     f.write(text)
     if check:
         if stale:
             print("STALE, regenerate: %s" % ", ".join(stale))
             return 1
-        print("generated tree is current with shapes.json (%d files)" % len(outs))
-        return 0
-    print("wrote %d files to %s%s"
-          % (len(outs), OUT, (" (changed: %s)" % ", ".join(stale)) if stale else ""))
-    return 0
+        print("generated tree is current with the plans (%d files)" % len(outs))
+        return rc
+    print("wrote %d files to %s%s" % (len(outs), OUT, (" (changed: %s)" % ", ".join(stale)) if stale else ""))
+    return rc
 
 
 if __name__ == "__main__":

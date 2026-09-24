@@ -111,7 +111,8 @@ def _cmp_msg(a, b, where):
         except AttributeError:
             bad.append("%s .%s: the facade has no such field" % (where, n))
             continue
-        if fd.is_repeated:
+        # `is_repeated` is protobuf 5+; the 3.7 floor runs protobuf 4.24, which has `label`.
+        if (fd.is_repeated if hasattr(fd, "is_repeated") else fd.label == fd.LABEL_REPEATED):
             if fd.message_type is not None and fd.message_type.GetOptions().map_entry:
                 if dict(av) != dict(bv):
                     bad.append("%s .%s: map %r vs %r"
@@ -243,10 +244,14 @@ def main():
     print("   ak_abi_version() = %d, the shim was generated against 1"
           % arms._ffi.abi_version())
     facts = arms._ffi.layout_facts()
-    print("   the core exports %d layout facts; the shim's own compile-time asserts are"
-          % len(facts))
-    print("   in ak_abi.h and a mismatch is a build failure, so reaching this line at all")
-    print("   is the check passing.")
+    host = arms._ffi.layout_host()
+    print("   the core exports %d layout facts; the shim pins %d (AK_LAYOUT_HOST, rendered"
+          % (len(facts), len(host)))
+    print("   from the plan) and compared them all at import -- a mismatch is an ImportError")
+    print("   naming the fact (build.sh plants one and watches the import fail).")
+    if [v for _, v in host] != list(facts):
+        print("   FAIL: the host table and the core's facts differ after import")
+        fails += 1
     if not facts:
         print("   FAIL: the core exported no layout facts")
         fails += 1
