@@ -15,26 +15,16 @@
  * an intrinsic and NOT a crossing. Folding the copy into the call would have made this one
  * crossing and flattered the arm against its own specification.
  *
- * Declared here rather than in `ak_abi.h`: the shared header does not carry section 9
- * either, for the same reason it does not carry the pull family. Filed as a request.
+ * R-G5 (FIX-PLAN WP5 step 3): every struct and prototype below comes from the generated
+ * header, rendered from `plan.rpc` by poc/codec/gen/java_abi.py with a static assertion of
+ * each struct's size and offsets. Before WP5 this file hand-declared `ak_bytes`,
+ * `ak_completion` and every RPC prototype, with handles as `void *`.
  */
 #include <jni.h>
 #include <stdint.h>
 #include <stddef.h>
 
-typedef struct {
-  const uint8_t *ptr;
-  size_t len;
-  void *owner;
-} ak_bytes;
-
-void   *ak_runtime_new(uint32_t worker_threads);
-void    ak_runtime_destroy(void *r);
-void   *ak_client_new(void *r, const uint8_t *uri, size_t uri_len);
-void    ak_client_destroy(void *c);
-int32_t ak_call_unary(void *c, const uint8_t *path, size_t path_len,
-                      const uint8_t *req, size_t req_len, ak_bytes *out);
-void    ak_bytes_free(ak_bytes *b);
+#include "ak_abi.h"
 
 JNIEXPORT jlong JNICALL Java_ak_NativeRpc_runtimeNew(JNIEnv *e, jclass c, jint threads) {
   (void) e; (void) c;
@@ -43,7 +33,7 @@ JNIEXPORT jlong JNICALL Java_ak_NativeRpc_runtimeNew(JNIEnv *e, jclass c, jint t
 
 JNIEXPORT void JNICALL Java_ak_NativeRpc_runtimeDestroy(JNIEnv *e, jclass c, jlong r) {
   (void) e; (void) c;
-  ak_runtime_destroy((void *)(intptr_t) r);
+  ak_runtime_destroy((ak_runtime *)(intptr_t) r);
 }
 
 JNIEXPORT jlong JNICALL Java_ak_NativeRpc_clientNew(JNIEnv *env, jclass c, jlong r,
@@ -51,14 +41,14 @@ JNIEXPORT jlong JNICALL Java_ak_NativeRpc_clientNew(JNIEnv *env, jclass c, jlong
   (void) c;
   jbyte *u = (*env)->GetByteArrayElements(env, uri, NULL);
   if (u == NULL) return 0;   /* R-D9 sweep: OutOfMemoryError already pending */
-  void *cl = ak_client_new((void *)(intptr_t) r, (const uint8_t *) u, (size_t) len);
+  ak_client *cl = ak_client_new((ak_runtime *)(intptr_t) r, (const uint8_t *) u, (size_t) len);
   (*env)->ReleaseByteArrayElements(env, uri, u, JNI_ABORT);
   return (jlong)(intptr_t) cl;
 }
 
 JNIEXPORT void JNICALL Java_ak_NativeRpc_clientDestroy(JNIEnv *e, jclass c, jlong cl) {
   (void) e; (void) c;
-  ak_client_destroy((void *)(intptr_t) cl);
+  ak_client_destroy((ak_client *)(intptr_t) cl);
 }
 
 /* Crossing one. `out` receives {ptr, len, owner}; the core still owns the bytes.
@@ -86,7 +76,7 @@ JNIEXPORT jint JNICALL Java_ak_NativeRpc_callUnary(JNIEnv *env, jclass c, jlong 
   ak_bytes b = {NULL, 0, NULL};
   jbyte *base = (*env)->GetByteArrayElements(env, req, NULL);
   if (base == NULL) return -1;
-  int32_t rc = ak_call_unary((void *)(intptr_t) cl,
+  int32_t rc = ak_call_unary((ak_client *)(intptr_t) cl,
                              (const uint8_t *)(intptr_t) pathPtr, (size_t) pathLen,
                              (const uint8_t *) base + reqOff, (size_t) reqLen, &b);
   (*env)->ReleaseByteArrayElements(env, req, base, JNI_ABORT);
@@ -120,24 +110,9 @@ JNIEXPORT void JNICALL Java_ak_NativeRpc_bytesFree(JNIEnv *e, jclass c, jlong pt
  * mode's carrier pinning was measured.
  *
  * Three forward crossings per call (submit, next, free) and zero reverse, against the
- * blocking mode's two and zero. On this machine a forward crossing is 11.9 to 12.9 ns, so
- * the queue spends about 12 ns more per call to stop blocking a host thread in a native
- * frame for the duration of an RPC.
+ * blocking mode's two and zero: one more forward crossing per call to stop blocking a host
+ * thread in a native frame for the duration of an RPC.
  */
-typedef struct {
-  uint64_t tag;
-  int32_t  status;
-  ak_bytes bytes;
-} ak_completion;
-
-void   *ak_queue_new(void);
-void   *ak_call_unary_q(void *c, const uint8_t *path, size_t path_len,
-                        const uint8_t *req, size_t req_len, void *q, uint64_t tag);
-int32_t ak_queue_next(void *q, ak_completion *out, uint64_t timeout_ms);
-void    ak_queue_shutdown(void *q);
-void    ak_queue_destroy(void *q);
-void    ak_call_cancel(void *h);
-void    ak_call_destroy(void *h);
 
 JNIEXPORT jlong JNICALL Java_ak_NativeRpc_queueNew(JNIEnv *e, jclass c) {
   (void) e; (void) c;
@@ -146,12 +121,12 @@ JNIEXPORT jlong JNICALL Java_ak_NativeRpc_queueNew(JNIEnv *e, jclass c) {
 
 JNIEXPORT void JNICALL Java_ak_NativeRpc_queueShutdown(JNIEnv *e, jclass c, jlong q) {
   (void) e; (void) c;
-  ak_queue_shutdown((void *)(intptr_t) q);
+  ak_queue_shutdown((ak_queue *)(intptr_t) q);
 }
 
 JNIEXPORT void JNICALL Java_ak_NativeRpc_queueDestroy(JNIEnv *e, jclass c, jlong q) {
   (void) e; (void) c;
-  ak_queue_destroy((void *)(intptr_t) q);
+  ak_queue_destroy((ak_queue *)(intptr_t) q);
 }
 
 /* Crossing one: submit and return. The request is copied, not pinned, for the deadlock
@@ -164,10 +139,10 @@ JNIEXPORT jlong JNICALL Java_ak_NativeRpc_callUnaryQ(JNIEnv *env, jclass c, jlon
   (void) c;
   jbyte *base = (*env)->GetByteArrayElements(env, req, NULL);
   if (base == NULL) return 0;
-  void *h = ak_call_unary_q((void *)(intptr_t) cl,
+  ak_call *h = ak_call_unary_q((ak_client *)(intptr_t) cl,
                             (const uint8_t *)(intptr_t) pathPtr, (size_t) pathLen,
                             (const uint8_t *) base + reqOff, (size_t) reqLen,
-                            (void *)(intptr_t) q, (uint64_t) tag);
+                            (ak_queue *)(intptr_t) q, (uint64_t) tag);
   (*env)->ReleaseByteArrayElements(env, req, base, JNI_ABORT);
   return (jlong)(intptr_t) h;
 }
@@ -183,7 +158,7 @@ JNIEXPORT jint JNICALL Java_ak_NativeRpc_queueNext(JNIEnv *env, jclass c, jlong 
   comp.bytes.ptr = NULL;
   comp.bytes.len = 0;
   comp.bytes.owner = NULL;
-  int32_t rc = ak_queue_next((void *)(intptr_t) q, &comp, (uint64_t) timeoutMs);
+  int32_t rc = ak_queue_next((ak_queue *)(intptr_t) q, &comp, (uint64_t) timeoutMs);
   if (rc == 0) {
     jlong v[5];
     v[0] = (jlong) comp.status;
@@ -198,7 +173,7 @@ JNIEXPORT jint JNICALL Java_ak_NativeRpc_queueNext(JNIEnv *env, jclass c, jlong 
 
 JNIEXPORT void JNICALL Java_ak_NativeRpc_callDestroy(JNIEnv *e, jclass c, jlong h) {
   (void) e; (void) c;
-  if (h != 0) ak_call_destroy((void *)(intptr_t) h);
+  if (h != 0) ak_call_destroy((ak_call *)(intptr_t) h);
 }
 
 /* ---- ak_client_new_opts: pin the transport on the CORE side too -----------------------
@@ -211,14 +186,8 @@ JNIEXPORT void JNICALL Java_ak_NativeRpc_callDestroy(JNIEnv *e, jclass c, jlong 
  * the 540 KB response, so no arm stalled; that is a reason it went unnoticed, not a reason
  * it was sound.
  */
-/* R-D2 sweep (was a hand-declared 6-field copy, correct by luck of transcription): the
- * struct now comes from the generated header, which asserts its size and every offset
- * against the core's `ak-abi` declaration. */
-#include "ak_abi.h"
-typedef struct ak_client_opts ak_client_opts;
-
-void *ak_client_new_opts(void *r, const uint8_t *uri, size_t uri_len,
-                         const ak_client_opts *opts);
+/* R-D2 sweep: `ak_client_opts` comes from the generated header (plan.rpc), which asserts
+ * its size and every offset. */
 
 JNIEXPORT jlong JNICALL Java_ak_NativeRpc_clientNewOpts(JNIEnv *env, jclass c, jlong r,
                                                         jbyteArray uri, jint len,
@@ -235,7 +204,7 @@ JNIEXPORT jlong JNICALL Java_ak_NativeRpc_clientNewOpts(JNIEnv *env, jclass c, j
   o.tcp_nagle = (int32_t) nagle;
   jbyte *u = (*env)->GetByteArrayElements(env, uri, NULL);
   if (u == NULL) return 0;   /* R-D9 sweep: OutOfMemoryError already pending */
-  void *cl = ak_client_new_opts((void *)(intptr_t) r, (const uint8_t *) u, (size_t) len, &o);
+  ak_client *cl = ak_client_new_opts((ak_runtime *)(intptr_t) r, (const uint8_t *) u, (size_t) len, &o);
   (*env)->ReleaseByteArrayElements(env, uri, u, JNI_ABORT);
   return (jlong)(intptr_t) cl;
 }

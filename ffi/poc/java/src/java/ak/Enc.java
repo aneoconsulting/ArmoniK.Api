@@ -73,6 +73,43 @@ public final class Enc {
 
   public void varintField(int tag, long v) { key(tag, 0); varint(v); }
 
+  /** A `fixed32` field: wire type 5, four bytes little-endian. */
+  public void fixed32Field(int tag, int v) {
+    key(tag, 5);
+    fixed32(v);
+  }
+
+  public void fixed32(int v) {
+    ensure(4);
+    buf[len++] = (byte) v;
+    buf[len++] = (byte) (v >>> 8);
+    buf[len++] = (byte) (v >>> 16);
+    buf[len++] = (byte) (v >>> 24);
+  }
+
+  public void f64(double v) {
+    ensure(8);
+    long bits = Double.doubleToRawLongBits(v);
+    for (int i = 0; i < 8; i++) buf[len++] = (byte) (bits >>> (8 * i));
+  }
+
+  /** Bytes already in wire form (a retain-mode codec's captured unknown fields). */
+  public void raw(byte[] b) {
+    ensure(b.length);
+    System.arraycopy(b, 0, buf, len, b.length);
+    len += b.length;
+  }
+
+  /** An encode the plan REFUSES (a oneof case that is neither 0 nor a member tag: plan
+   *  `oneof_checks`, ERR_ABI). Thrown before any byte of the message is written. */
+  public static final class Refused extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+    public final int code;
+    public Refused(int code, String m) { super(m); this.code = code; }
+  }
+
+  public static final int ERR_ABI = -11;
+
   public void f64Field(int tag, double v) {
     key(tag, 1);
     ensure(8);

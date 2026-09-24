@@ -62,6 +62,10 @@ public final class Utf8View implements Comparable<Utf8View>, CharSequence {
     if (i == end) return true;
     while (i < end) {
       int b0 = b[i++] & 0xFF;
+      // ASCII after the first non-ASCII byte. Missing before FIX-PLAN WP5 step 3: every
+      // string with an ASCII character AFTER a multi-byte one was refused (found by the
+      // corpus's T-enc-lone-* rows, "A\uFFFDB", on the ffi-borrow arm).
+      if (b0 < 0x80) continue;
       if (b0 < 0xC2) return false;
       if (b0 < 0xE0) {
         if (i >= end || (b[i++] & 0xC0) != 0x80) return false;
