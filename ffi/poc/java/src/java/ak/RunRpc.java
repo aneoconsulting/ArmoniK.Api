@@ -177,7 +177,10 @@ public final class RunRpc {
     String connect = System.getProperty("ak.rpc.connect");
     java.io.File sock = connect != null ? new java.io.File(connect)
         : new java.io.File(System.getProperty("java.io.tmpdir"),
-            "ak-rpc-" + ProcessHandle.current().pid() + ".sock");
+            // Not ProcessHandle (Java 9): this file is in the Java 8 floor's compilation too,
+            // and ProcessHandle broke that build from 5241ced until the R-D5 re-gate.
+            "ak-rpc-" + java.lang.management.ManagementFactory.getRuntimeMXBean().getName()
+                .replaceAll("[^0-9A-Za-z]", "_") + ".sock");
     if (connect == null) sock.deleteOnExit();
     io.grpc.netty.shaded.io.netty.channel.epoll.EpollEventLoopGroup boss = null, work = null;
     Server server = null;

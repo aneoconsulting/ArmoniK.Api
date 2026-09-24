@@ -50,6 +50,7 @@ JNIEXPORT jlong JNICALL Java_ak_NativeRpc_clientNew(JNIEnv *env, jclass c, jlong
                                                     jbyteArray uri, jint len) {
   (void) c;
   jbyte *u = (*env)->GetByteArrayElements(env, uri, NULL);
+  if (u == NULL) return 0;   /* R-D9 sweep: OutOfMemoryError already pending */
   void *cl = ak_client_new((void *)(intptr_t) r, (const uint8_t *) u, (size_t) len);
   (*env)->ReleaseByteArrayElements(env, uri, u, JNI_ABORT);
   return (jlong)(intptr_t) cl;
@@ -210,14 +211,11 @@ JNIEXPORT void JNICALL Java_ak_NativeRpc_callDestroy(JNIEnv *e, jclass c, jlong 
  * the 540 KB response, so no arm stalled; that is a reason it went unnoticed, not a reason
  * it was sound.
  */
-typedef struct {
-  uint32_t stream_window;
-  uint32_t connection_window;
-  int32_t  adaptive_window;
-  uint32_t max_recv_message;
-  uint32_t max_send_message;
-  int32_t  tcp_nagle;
-} ak_client_opts;
+/* R-D2 sweep (was a hand-declared 6-field copy, correct by luck of transcription): the
+ * struct now comes from the generated header, which asserts its size and every offset
+ * against the core's `ak-abi` declaration. */
+#include "ak_abi.h"
+typedef struct ak_client_opts ak_client_opts;
 
 void *ak_client_new_opts(void *r, const uint8_t *uri, size_t uri_len,
                          const ak_client_opts *opts);
@@ -236,6 +234,7 @@ JNIEXPORT jlong JNICALL Java_ak_NativeRpc_clientNewOpts(JNIEnv *env, jclass c, j
   o.max_send_message = (uint32_t) maxSend;
   o.tcp_nagle = (int32_t) nagle;
   jbyte *u = (*env)->GetByteArrayElements(env, uri, NULL);
+  if (u == NULL) return 0;   /* R-D9 sweep: OutOfMemoryError already pending */
   void *cl = ak_client_new_opts((void *)(intptr_t) r, (const uint8_t *) u, (size_t) len, &o);
   (*env)->ReleaseByteArrayElements(env, uri, u, JNI_ABORT);
   return (jlong)(intptr_t) cl;
