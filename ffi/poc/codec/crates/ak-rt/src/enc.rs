@@ -137,6 +137,14 @@ impl Enc {
         self.buf.extend_from_slice(&v.to_le_bytes());
     }
 
+    /// A `fixed32` field (wire type 5): four bytes, little-endian. R-E3: the corpus's
+    /// `WireZoo.v_fixed32`, which a generator with no wire-type-5 case could not reach.
+    #[inline(always)]
+    pub fn fixed32_field(&mut self, tag: u32, v: u32) {
+        self.key(tag, crate::WIRE_I32);
+        self.buf.extend_from_slice(&v.to_le_bytes());
+    }
+
     /// A length-delimited field whose length is known before the body is written, which is
     /// the case for every blob the HOST hands over by value: it owns the bytes and knows
     /// how many there are. The core reaching a host string through a transcoder does not,

@@ -48,11 +48,18 @@ use core::ffi::c_void;
 pub mod rpc;
 
 pub mod generated {
+    /// `corpus` (test-only): the codec generated for the conformance corpus's reader
+    /// schema, from the same plan layer and the same backend (FIX-PLAN WP5 item 6.1).
+    #[cfg_attr(feature = "corpus", path = "../generated_corpus/codec.rs")]
     pub mod codec;
+    /// R-G5: the core's RPC definitions checked against the ONE declaration (`plan.rpc`).
+    #[cfg(feature = "rpc")]
+    pub mod rpc_check;
     /// ABI v1 section 10: the core's own view of every group layout, exported so the
     /// host can compare it with what ITS compiler produced. The rust slice could not
     /// exercise this (both sides compiled against one header); here the two sides
     /// genuinely restate the layout, which is the case section 10 exists for.
+    #[cfg_attr(feature = "corpus", path = "../generated_corpus/layout.rs")]
     pub mod layout;
 }
 

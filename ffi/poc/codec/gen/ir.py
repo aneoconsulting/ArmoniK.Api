@@ -1,7 +1,18 @@
-"""shapes.json -> the intermediate form every Rust backend in this directory reads.
+"""The front end: a description -> the one IR. FIX-PLAN WP5 item 1.
 
-Imports `ffi/schema/emit/shapes.py` rather than re-parsing the description (README R1),
-so a shape can only be answered one way. Nothing here knows about Rust; the backends do.
+Two descriptions, one IR:
+
+  load(roots)          `ffi/schema/shapes.json`, through `ffi/schema/emit/shapes.py`
+                       (README R1), so a shape can only be answered one way;
+  load_corpus(roots)   the corpus's READER view (`ffi/corpus/corpus.json` merged over
+                       shapes.json by `ffi/corpus/emit/spec.py`, the same merge that writes
+                       `corpus/generated/corpus.proto`). CONTRACT.md rule 0: a reader is
+                       generated from the reader view, never from the superset.
+
+**Only `plan.py` imports this module.** Backends take plans (`plan.py`'s contract), and
+`generate.py --check` fails if a backend imports the IR or the schema. The IR states what
+the description SAYS (names, tags, kinds, cardinality, presence); every rule about what
+that means on the wire is in `plan.py`.
 """
 import os
 import sys
@@ -15,9 +26,10 @@ import shapes as S   # noqa: E402
 
 VARINT, I64, LEN, I32 = 0, 1, 2, 5
 
-# Wire type per schema kind, for the singular case.
+# Wire type per schema kind, for the singular case. Every kind either description uses
+# (R-E3: the corpus's `fixed32` included); a kind with no entry raises at load time.
 WIRE = {"int32": VARINT, "int64": VARINT, "bool": VARINT, "enum": VARINT,
-        "double": I64, "string": LEN, "bytes": LEN, "message": LEN}
+        "double": I64, "fixed32": I32, "string": LEN, "bytes": LEN, "message": LEN}
 
 
 class Field:
@@ -43,7 +55,7 @@ class Field:
 
     @property
     def is_scalar_leaf(self):
-        return self.kind in ("int32", "int64", "bool", "double", "enum")
+        return self.kind in ("int32", "int64", "bool", "double", "enum", "fixed32")
 
     @property
     def is_blob(self):
@@ -145,113 +157,51 @@ def load(roots):
     return Ir(S.load(), roots)
 
 
+def corpus_schema():
+    """The corpus's READER view, merged by the corpus's own loader so the IR reads exactly
+    the schema `corpus.proto` was written from. Imported lazily: only the corpus build
+    needs it, and the corpus tree is not a dependency of the shipped core."""
+    corpus_emit = os.path.abspath(os.path.join(HERE, "..", "..", "..", "corpus", "emit"))
+    if corpus_emit not in sys.path:
+        sys.path.insert(0, corpus_emit)
+    import spec  # noqa: E402  ffi/corpus/emit/spec.py
+    reader, _superset, _delta = spec.load()
+    return reader
+
+
+def load_corpus(roots=None):
+    """The IR over the corpus reader schema. `roots=None` means every message it declares,
+    in declaration order: the corpus roots a vector at almost every message."""
+    schema = corpus_schema()
+    if roots is None:
+        roots = list(schema["messages"])
+    return Ir(schema, roots)
+
+
+# ---- ABI layout helpers: DEFINED IN plan.py, re-exported here for the generators that
+# still import them from the IR (cpp, java, csharp, python) until they are ported to plans
+# (FIX-PLAN WP5 migration steps 2 to 5). One definition; these are forwarding names only.
+
 def loop_slots(ir, name, prefix=()):
-    """Every field of `name` that needs a vtable slot, INCLUDING the ones inside a
-    singular message child that the encode group inlines.
-
-    ABI v1 section 6: "A repeated or map field inside an inlined child keeps its loop slot
-    and is reached through the parent." So `TaskDetailed`'s vtable carries
-    `loop_options_options` for the map that lives on `TaskOptions`, and `TaskOptions` never
-    appears in the ABI as a message with a vtable of its own.
-
-    Returns [(path tuple, Field)] in tag order, depth first.
-    """
-    out = []
-    for f in ir.msg(name).plain:
-        if f.oneof:
-            continue
-        if f.card in ("repeated", "packed", "map"):
-            out.append((prefix + (f.name,), f))
-        elif f.kind == "message" and f.card == "singular":
-            out.extend(loop_slots(ir, f.of, prefix + (f.name,)))
-    return out
+    import plan
+    return plan.loop_slots(ir, name, prefix)
 
 
 def slot_name(path):
-    return "_".join(path)
+    import plan
+    return plan.slot_name(path)
 
 
 def direct_fields(ir, name, prefix=(), seen=None):
-    """Every direct-argument field ANYWHERE in the tree rooted at `name`.
-
-    Through every edge, not only singular children: a direct field declared on a repeated
-    element type is still a direct field of the tree, and walking only singular children is
-    how the first version of this check found nothing and refused nothing.
-    """
-    seen = seen or set()
-    if name in seen:
-        return []
-    seen = seen | {name}
-    out = []
-    for f in ir.msg(name).fields:
-        if f.direct:
-            out.append((prefix + (f.name,), f))
-        elif f.kind == "message":
-            out.extend(direct_fields(ir, f.of, prefix + (f.name,), seen))
-    return out
+    import plan
+    return plan.direct_fields(ir, name, prefix, seen)
 
 
 def check_direct(ir, root):
-    """ABI v1 section 8: "a direct field declared on a message that does make a reverse call
-    should be a generator-time refusal and currently is not."
-
-    It is now. A direct argument exists so a host can pin its buffer across the whole call --
-    `GetPrimitiveArrayCritical` on JNI, `critical(true)` on FFM -- and a critical section and
-    an upcall are mutually exclusive. So a message tree that carries a direct field and also
-    needs a reverse call is a contract no host can honour, and the honest place to say so is
-    here rather than in a comment in the specification.
-
-    Also refused: more than one direct field in one tree. The path is built for one field of
-    one root message and nothing has tested it otherwise; silently generalising it is how an
-    untested path ships.
-    """
-    ds = direct_fields(ir, root)
-    if not ds:
-        return
-    # Every reverse call the tree would make, not only the root's own.
-    slots = list(loop_slots(ir, root))
-    for n in ir.messages:
-        if n == root:
-            continue
-        if direct_fields(ir, n):
-            slots.extend(loop_slots(ir, n))
-    if slots:
-        raise NotImplementedError(
-            "REFUSED: %s declares a direct-argument field (%s) and also needs a reverse call "
-            "for %s. ABI v1 section 8: a direct argument exists so the host can pin its "
-            "buffer across the call, and a critical section and an upcall are mutually "
-            "exclusive, so no host can honour both."
-            % (root, slot_name(ds[0][0]), ", ".join(slot_name(p) for p, _ in slots)))
-    if len(ds) > 1:
-        raise NotImplementedError(
-            "REFUSED: %s declares %d direct-argument fields (%s). ABI v1 section 8 builds the "
-            "path for ONE field of one root message and nothing tests it otherwise."
-            % (root, len(ds), ", ".join(slot_name(p) for p, _ in ds)))
+    import plan
+    return plan.check_direct(ir, root)
 
 
 def abi_order_topo(ir):
-    """`ir.abi_order`, re-sorted so a group is declared after every group it inlines.
-
-    Rust does not care and C does: `struct ak_efix_Probe` inlines `ak_efix_Empty` by value,
-    and `Empty` is declared after `Probe` in shapes.json. A slice that emitted the
-    description's order would get an incomplete type, which is a compile error rather than
-    a silent defect -- but the same ordering is what `cpp_layout.py` must use for the
-    run-time layout table to line up with the host's, and there it WOULD be silent.
-    """
-    out = []
-    seen = set()
-
-    def visit(name):
-        if name in seen:
-            return
-        seen.add(name)
-        for f in ir.msg(name).fields:
-            if f.kind == "message":
-                visit(f.of)
-            elif f.kind == "map":
-                visit(f.entry)
-        out.append(name)
-
-    for name in ir.abi_order:
-        visit(name)
-    return out
+    import plan
+    return plan.abi_order_topo(ir)

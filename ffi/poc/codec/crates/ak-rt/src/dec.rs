@@ -56,6 +56,18 @@ impl<'a> Dec<'a> {
         v
     }
 
+    /// A `fixed32` value (wire type 5). Same remaining-bytes check as `f64`.
+    #[inline(always)]
+    pub fn fixed32(&mut self) -> u32 {
+        if self.buf.len() - self.pos < 4 {
+            self.err = crate::ERR_TRUNCATED;
+            return 0;
+        }
+        let v = u32::from_le_bytes(self.buf[self.pos..self.pos + 4].try_into().unwrap());
+        self.pos += 4;
+        v
+    }
+
     /// The body of a length-delimited field, as (offset, length) into the ONE buffer the
     /// host handed in. That is what `ak_span` is (ABI v1 section 4) and what lets a host
     /// resolve a string against a base pointer it already holds (7.4).

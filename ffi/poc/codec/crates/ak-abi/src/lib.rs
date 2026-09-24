@@ -13,6 +13,11 @@
 use core::ffi::c_void;
 
 pub mod generated {
+    /// `corpus` (test-only, off by default): the same ABI generated for the conformance
+    /// corpus's reader schema instead of `ffi/schema/shapes.json`, so the corpus can be
+    /// run through the C ABI (FIX-PLAN WP5 item 6.1). It CHANGES the ABI, so it is only
+    /// ever enabled by a build of its own (`poc/rust/corpus/`, its own workspace).
+    #[cfg_attr(feature = "corpus", path = "../generated_corpus/abi.rs")]
     pub mod abi;
 }
 pub use generated::abi::*;
@@ -297,13 +302,28 @@ unsafe extern "C" {
     pub fn ak_bdr_count_forward(ctx: *mut ak_dec_ctx, n: u32);
 }
 
-// ---- section 9: the RPC half. It moves opaque bytes and dispatches on a path string.
+// ---- section 9: the RPC half, moving opaque bytes and dispatching on a path string.
+// The region between the two markers is RENDERED from `poc/codec/gen/plan.py`'s `RpcAbi`
+// by `poc/codec/gen/generate.py` (R-G5), not written by hand: the structs, the callback,
+// the constants and the prototypes are stated once, and the core's definitions are
+// checked against them at compile time (`ak-core/src/generated/rpc_check.rs`). It stays
+// in this file, rather than in `generated/`, because the cpp slice's header generator
+// reads `ak_client_opts` from here (R-D2) until its backend renders plans (WP5 step 2).
+// @generated-begin plan.rpc
+// Rendered by poc/codec/gen/generate.py from plan.py (RpcAbi). Do not edit by hand.
 
+/// An opaque handle; the host holds a pointer and never looks inside.
 pub enum ak_runtime {}
+/// An opaque handle; the host holds a pointer and never looks inside.
 pub enum ak_client {}
+/// An opaque handle; the host holds a pointer and never looks inside.
+pub enum ak_call {}
+/// An opaque handle; the host holds a pointer and never looks inside.
+pub enum ak_queue {}
 
-/// A byte range the core owns until the host releases it.
+/// A byte range the core owns until the host releases it with `ak_bytes_free`.
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct ak_bytes {
     pub ptr: *const u8,
     pub len: usize,
@@ -313,79 +333,62 @@ pub struct ak_bytes {
 
 impl Default for ak_bytes {
     fn default() -> Self {
-        ak_bytes { ptr: core::ptr::null(), len: 0, owner: core::ptr::null_mut() }
+        ak_bytes {
+            ptr: ::core::ptr::null(),
+            len: 0,
+            owner: ::core::ptr::null_mut(),
+        }
     }
 }
 
-unsafe extern "C" {
-    pub fn ak_runtime_new(worker_threads: u32) -> *mut ak_runtime;
-    pub fn ak_runtime_destroy(r: *mut ak_runtime);
-    pub fn ak_client_new(r: *mut ak_runtime, uri: *const u8, uri_len: usize) -> *mut ak_client;
-    pub fn ak_client_destroy(c: *mut ak_client);
-    /// One crossing in.
-    pub fn ak_call_unary(
-        c: *mut ak_client,
-        path: *const u8,
-        path_len: usize,
-        req: *const u8,
-        req_len: usize,
-        out: *mut ak_bytes,
-    ) -> i32;
-    /// The second crossing, and the only other one.
-    pub fn ak_bytes_free(b: *mut ak_bytes);
-
-    // ---- section 9's other two deliveries, and the transport settings ----------------
-
-    /// Callback delivery: returns a handle immediately, the completion arrives on a core
-    /// worker thread. 2 forward crossings and 1 reverse.
-    pub fn ak_call_unary_cb(
-        c: *mut ak_client,
-        path: *const u8,
-        path_len: usize,
-        req: *const u8,
-        req_len: usize,
-        cb: ak_completion_cb,
-        user_data: *mut c_void,
-        tag: u64,
-    ) -> *mut ak_call;
-    /// Completion-queue delivery: no upcall at all. 3 forward crossings and 0 reverse.
-    pub fn ak_call_unary_q(
-        c: *mut ak_client,
-        path: *const u8,
-        path_len: usize,
-        req: *const u8,
-        req_len: usize,
-        q: *mut ak_queue,
-        tag: u64,
-    ) -> *mut ak_call;
-    pub fn ak_queue_new() -> *mut ak_queue;
-    pub fn ak_queue_next(q: *mut ak_queue, out: *mut ak_completion, timeout_ms: i32) -> i32;
-    pub fn ak_queue_shutdown(q: *mut ak_queue);
-    pub fn ak_queue_destroy(q: *mut ak_queue);
-    pub fn ak_call_cancel(h: *mut ak_call);
-    pub fn ak_call_destroy(h: *mut ak_call);
-
-    /// A client with the transport pinned. `ak_client_new` takes a URI and nothing else, so
-    /// every RPC figure in this branch before it existed was taken on tonic's DEFAULT 64 KiB
-    /// stream window -- which README R9 says is most of the wall clock on a 540 KB response.
-    pub fn ak_client_new_opts(
-        r: *mut ak_runtime,
-        uri: *const u8,
-        uri_len: usize,
-        opts: *const ak_client_opts,
-    ) -> *mut ak_client;
-}
-
-pub enum ak_call {}
-pub enum ak_queue {}
-
-/// What a completion carries. Released with `ak_bytes_free`, exactly as the blocking
-/// mode's bytes are, so a host has one release path whichever delivery it takes.
+/// What a completion carries. Released with `ak_bytes_free`, as the blocking delivery's bytes are, so a host has one release path whichever delivery it takes.
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct ak_completion {
     pub tag: u64,
     pub status: i32,
     pub bytes: ak_bytes,
+}
+
+impl Default for ak_completion {
+    fn default() -> Self {
+        ak_completion {
+            tag: 0,
+            status: 0,
+            bytes: ak_bytes::default(),
+        }
+    }
+}
+
+/// The transport settings ArmoniK pins. The stream and the connection window are separate settings on tonic/hyper, so both are here. Zero means "the stack's".
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_client_opts {
+    /// SETTINGS_INITIAL_WINDOW_SIZE per stream; 0 = default. ArmoniK: 4 MiB.
+    pub stream_window: u32,
+    /// The connection-level window, a SEPARATE setting; 0 = default.
+    pub connection_window: u32,
+    /// 1 on, 0 off, -1 default (off). Overrides both windows when on.
+    pub adaptive_window: i32,
+    /// Largest message accepted, bytes; 0 = default.
+    pub max_recv_message: u32,
+    /// Largest message sent, bytes; 0 = default.
+    pub max_send_message: u32,
+    /// ArmoniK's tcp_nagle_algorithm: 1 Nagle on, 0 off, -1 default. ArmoniK ships it OFF.
+    pub tcp_nagle: i32,
+}
+
+impl Default for ak_client_opts {
+    fn default() -> Self {
+        ak_client_opts {
+            stream_window: 0,
+            connection_window: 0,
+            adaptive_window: 0,
+            max_recv_message: 0,
+            max_send_message: 0,
+            tcp_nagle: 0,
+        }
+    }
 }
 
 /// Called ONCE per call, on a thread the core owns.
@@ -398,30 +401,29 @@ pub const AK_QUEUE_TIMEOUT: i32 = 1;
 /// The queue is shutting down and is drained.
 pub const AK_QUEUE_SHUTDOWN: i32 = 2;
 
-/// The transport settings ArmoniK pins. **The stream and the connection window are separate
-/// settings on tonic/hyper**, and raising only the stream window leaves the connection at
-/// 65,535 -- which is why both are here and neither has a default. Zero means "tonic's".
-#[repr(C)]
-#[derive(Clone, Copy, Default)]
-pub struct ak_client_opts {
-    /// `SETTINGS_INITIAL_WINDOW_SIZE`, per stream. 0 leaves the stack's default.
-    /// ArmoniK: 4 MiB.
-    pub stream_window: u32,
-    /// The connection-level window, a SEPARATE setting from the one above. 0 leaves the
-    /// stack's default. Raising only the stream window is the mistake this entry point
-    /// exists to make impossible to repeat.
-    pub connection_window: u32,
-    /// 1 on, 0 off, -1 leave the default (off). Adaptive sizing OVERRIDES the two windows
-    /// above, so pinning a window and enabling this is a contradiction, not belt and braces.
-    pub adaptive_window: i32,
-    /// Largest message the client will accept, bytes. 0 leaves the stack's default.
-    pub max_recv_message: u32,
-    /// Largest message the client will send, bytes. 0 leaves the stack's default.
-    pub max_send_message: u32,
-    /// Nagle's algorithm, in ArmoniK's sense and spelling (`tcp_nagle_algorithm`):
-    /// 1 enables Nagle, 0 disables it, -1 leaves the default. ArmoniK ships it OFF.
-    pub tcp_nagle: i32,
+unsafe extern "C" {
+    pub fn ak_runtime_new(worker_threads: u32) -> *mut ak_runtime;
+    pub fn ak_runtime_destroy(r: *mut ak_runtime);
+    pub fn ak_client_new(r: *mut ak_runtime, uri: *const u8, uri_len: usize) -> *mut ak_client;
+    /// A client with the transport pinned. NULL options = `ak_client_new`.
+    pub fn ak_client_new_opts(r: *mut ak_runtime, uri: *const u8, uri_len: usize, opts: *const ak_client_opts) -> *mut ak_client;
+    pub fn ak_client_destroy(c: *mut ak_client);
+    /// Blocking delivery: one crossing in, `ak_bytes_free` the only other.
+    pub fn ak_call_unary(c: *mut ak_client, path: *const u8, path_len: usize, req: *const u8, req_len: usize, out: *mut ak_bytes) -> i32;
+    pub fn ak_bytes_free(b: *mut ak_bytes);
+    /// Callback delivery: 2 forward crossings and 1 reverse.
+    pub fn ak_call_unary_cb(c: *mut ak_client, path: *const u8, path_len: usize, req: *const u8, req_len: usize, cb: ak_completion_cb, user_data: *mut c_void, tag: u64) -> *mut ak_call;
+    /// Completion-queue delivery: no upcall. 3 forward crossings and 0 reverse.
+    pub fn ak_call_unary_q(c: *mut ak_client, path: *const u8, path_len: usize, req: *const u8, req_len: usize, q: *mut ak_queue, tag: u64) -> *mut ak_call;
+    pub fn ak_queue_new() -> *mut ak_queue;
+    /// Wait up to `timeout_ms` for one completion. R-G5: `u64`, as the core defines it.
+    pub fn ak_queue_next(q: *mut ak_queue, out: *mut ak_completion, timeout_ms: u64) -> i32;
+    pub fn ak_queue_shutdown(q: *mut ak_queue);
+    pub fn ak_queue_destroy(q: *mut ak_queue);
+    pub fn ak_call_cancel(h: *mut ak_call);
+    pub fn ak_call_destroy(h: *mut ak_call);
 }
+// @generated-end plan.rpc
 
 /// Boundary-call counts, from the counting build (README R5). Counted in the CORE, so a
 /// call that the optimiser removed is not counted, and a count that is right is evidence

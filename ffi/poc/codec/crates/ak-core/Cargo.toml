@@ -34,6 +34,10 @@ pad-widths = ["ak-rt/pad-widths"]
 # successfully, the codec included." Behind a feature so the claim can be PRICED -- with
 # it off, the emitted entry points are byte-for-byte what they were.
 init-guard = []
+# Test-only: the core generated for ffi/corpus's reader schema, so the corpus runs through
+# the C ABI (FIX-PLAN WP5 item 6.1). Changes the ABI: enabled only by `poc/rust/corpus/`,
+# a workspace of its own, never together with a shapes.json host.
+corpus = ["ak-abi/corpus"]
 # ABI v1 section 9, behind a feature so a codec arm does not link tonic and tokio into the
 # shared object it is timing. The rust slice turns it on; the cpp slice turns it on for its
 # RPC arm only; the java and csharp slices do not have one.

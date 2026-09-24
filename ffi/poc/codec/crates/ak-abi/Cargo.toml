@@ -5,4 +5,10 @@ rust-version.workspace = true
 version.workspace = true
 publish.workspace = true
 
+[features]
+default = []
+# Test-only: the ABI generated for ffi/corpus's reader schema (see src/lib.rs). Never in a
+# shipped build; `poc/rust/corpus/` enables it in a workspace of its own.
+corpus = []
+
 [dependencies]

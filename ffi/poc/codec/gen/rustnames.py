@@ -1,6 +1,6 @@
 """Rust spellings shared by every backend, so two backends cannot disagree on a name."""
 
-SCALAR = {"int32": "i32", "int64": "i64", "bool": "bool", "double": "f64"}
+SCALAR = {"int32": "i32", "int64": "i64", "bool": "bool", "double": "f64", "fixed32": "u32"}
 
 
 def screaming(camel):
@@ -37,6 +37,10 @@ def facade_type(f):
             else "::bytes::Bytes" if f.kind == "bytes"
             else f.of if f.kind in ("enum", "message")
             else SCALAR[f.kind])
+    if f.kind == "message" and f.card == "singular" and getattr(f, "recursive", False):
+        # A message that can contain itself (the corpus's `Nest`) needs an indirection to
+        # have a size. `plan.FieldPlan.recursive` says which field.
+        return "Option<Box<%s>>" % base
     if f.card in ("repeated", "packed"):
         return "Vec<%s>" % base
     if f.kind == "message":
