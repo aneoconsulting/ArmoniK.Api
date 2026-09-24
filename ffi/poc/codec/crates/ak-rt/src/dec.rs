@@ -44,7 +44,10 @@ impl<'a> Dec<'a> {
 
     #[inline(always)]
     pub fn f64(&mut self) -> f64 {
-        if self.pos + 8 > self.buf.len() {
+        // `pos <= buf.len()` always holds (every read advances `pos` only after a bounds
+        // check), so `buf.len() - pos` cannot underflow; comparing the REMAINING bytes
+        // against 8 avoids the `pos + 8` overflow the checked form has near `usize::MAX`.
+        if self.buf.len() - self.pos < 8 {
             self.err = crate::ERR_TRUNCATED;
             return 0.0;
         }
@@ -59,7 +62,16 @@ impl<'a> Dec<'a> {
     #[inline(always)]
     pub fn len_body(&mut self) -> (usize, usize) {
         let n = self.varint() as usize;
-        if self.pos + n > self.buf.len() {
+        // R-D1: the earlier `self.pos + n > self.buf.len()` wraps in release builds
+        // (overflow-checks off), so a length varint near 2^64 passed the check, `pos`
+        // moved backwards or off the end, and callers built `&buf[off..off + n]` with a
+        // wrapped `n` -- a hang in the root loop, a span with len 0xFFFF_FFFF handed to
+        // the host, or a panic across `extern "C"`. `pos <= buf.len()` always holds here
+        // (`varint` advances `pos` only after a bounds check), so `buf.len() - pos` cannot
+        // underflow, and comparing the REMAINING bytes against `n` cannot overflow. On
+        // rejection it returns `(pos, 0)`, an empty in-bounds span, so no caller's slice
+        // can panic even when the length was hostile.
+        if n > self.buf.len() - self.pos {
             self.err = crate::ERR_TRUNCATED;
             return (self.pos, 0);
         }
@@ -138,6 +150,56 @@ impl<'a> Dec<'a> {
 
     /// protobuf's own default recursion limit, applied to nested groups.
     const MAX_GROUP_DEPTH: u32 = 100;
+}
+
+#[cfg(test)]
+mod len_body_tests {
+    use super::Dec;
+
+    /// R-D1: a length varint near 2^64 must be rejected, not wrapped. The 10-byte
+    /// over-long varint below carries `u64::MAX`; the old `pos + n` wrapped and passed.
+    #[test]
+    fn a_near_2_64_length_is_truncated_not_wrapped() {
+        let mut buf = vec![0xFFu8; 10];
+        buf[9] = 0x01; // 10th byte's low bit -> value has bit 63 set, ~2^64
+        let mut d = Dec::new(&buf);
+        let (off, n) = d.len_body();
+        assert_eq!(d.err, crate::ERR_TRUNCATED);
+        assert_eq!(n, 0, "a rejected length yields an empty span");
+        assert!(off <= d.buf.len(), "the span offset stays in bounds");
+    }
+
+    /// The offsets the returned span carries are always in bounds, so `&buf[off..off + n]`
+    /// cannot panic even for a hostile length.
+    #[test]
+    fn the_returned_span_is_always_sliceable() {
+        for tail in [u64::MAX, u64::MAX - 3, (u32::MAX as u64) + 1, 1 << 40] {
+            let mut buf = Vec::new();
+            for i in 0..10u32 {
+                let mut b = ((tail >> (7 * i)) & 0x7f) as u8;
+                if i < 9 {
+                    b |= 0x80;
+                }
+                buf.push(b);
+            }
+            buf.extend([0u8; 4]);
+            let mut d = Dec::new(&buf);
+            let (off, n) = d.len_body();
+            // must not panic:
+            let _ = &d.buf[off..off + n];
+        }
+    }
+
+    /// A well-formed length still works.
+    #[test]
+    fn a_valid_length_still_decodes() {
+        let buf = [0x03u8, 0xaa, 0xbb, 0xcc, 0xdd];
+        let mut d = Dec::new(&buf);
+        let (off, n) = d.len_body();
+        assert_eq!(d.err, 0);
+        assert_eq!((off, n), (1, 3));
+        assert_eq!(d.pos, 4);
+    }
 }
 
 #[cfg(test)]
