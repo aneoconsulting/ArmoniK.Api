@@ -30,6 +30,11 @@ path, or nothing (review whatever changed since the last review).
    Tell each agent what is being claimed and where to look. They cannot build
    anything, so they need the paths.
 
+   Tell every agent the phase (`ffi/README.md` section 1.1): container timings
+   are instrumentation, so a finding against one matters when it is presented as
+   a result or exposes a harness defect the campaign would repeat; and no
+   document may recommend, because the decision is the owner's.
+
 3. **Dedupe and rank.** Several agents will find the same thing from different
    angles; that is a signal about severity, not three findings. Drop anything
    that is a preference rather than a defect.

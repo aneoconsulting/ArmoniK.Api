@@ -56,7 +56,15 @@ A list of findings, most severe first, each with:
 - **why it does not hold**, concretely, in terms of what the code or the log
   actually says;
 - **what would refute you**, stated as something the slice agent can run or read;
-- **severity**: does this change a number, a sign, or a recommendation?
+- **severity**: does this change a correctness result, a harness's ability to
+  measure the question in the campaign, or a stated fact?
+
+The branch is in its setup and design phase (`ffi/README.md` section 1.1):
+container timings are instrumentation. A finding against a container figure is
+worth raising when the figure is presented as a result, or when it exposes a
+harness defect the campaign would repeat. Also hunt for **recommendations**: no
+document here may recommend or rank options, because the decision is the
+owner's.
 
 If you find nothing, say so plainly and name what you checked. A review that
 invents findings to look thorough is worse than one that finds nothing, because

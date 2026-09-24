@@ -54,6 +54,15 @@ most important results in this work are corrections of exactly that.
 - **Keep it small.** Cover the shapes and nothing else. Anything not covered goes
   in "what is not measured".
 
+- **Phase: setup and design** (`ffi/README.md` section 1.1). A container timing is
+  instrumentation, not a result. Spend effort on correctness, crossing counts,
+  feasibility and harnesses that meet `ffi/design/CAMPAIGN.md`; do not tune a
+  container measurement. **Your `STATE.md` states what exists and what was
+  checked, and never what a binding should choose**: the decision is the owner's.
+- **No wire rule lives in your `gen/`** (`ffi/CLAUDE.md`, one generator). A
+  backend renders the shared generator's plans; a rule you need is added to the
+  shared layer through the aggregating session.
+
 ## Before you stop, every time
 
 1. Rewrite `ffi/poc/<lang>/STATE.md`: status, what exists, what is measured, the
@@ -63,10 +72,10 @@ most important results in this work are corrections of exactly that.
 3. Commit your own directory, message prefix `poc(<lang>): `. Commit the raw
    logs; a figure with no log behind it cannot be used. **Do not push**: the
    aggregating session pushes, so two agents never race on the branch.
-4. Report back: the configuration you measured in, the numbers with the log that
-   carries each, the crossing counts, what you could not make work, and what you
-   would do next. State ranges and spreads, never a single digit dressed up as
-   precision.
+4. Report back: what you built and checked, the correctness and crossing-count
+   results with the log that carries each, any timing labelled as container
+   instrumentation, what you could not make work, and what is next. State ranges
+   and spreads, never a single digit dressed up as precision.
 
 ## Handling a review finding
 
