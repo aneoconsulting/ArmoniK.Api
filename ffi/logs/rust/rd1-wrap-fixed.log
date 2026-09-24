@@ -1,0 +1,42 @@
+# R-D1 length-varint-wrap reproduction -- fixed
+#   rustc 1.94.1, release (overflow-checks off), cdylib boundary
+#   each case: timeout 5 ./rdrepro <case>
+#   exit 124 = hang, 134 = SIGABRT (panic across extern "C"), 101 = rust panic, 139 = SIGSEGV
+#   input for (a) is the finding's literal 11 bytes: 7A F5 FF FF FF FF FF FF FF FF 01
+
+## case a-ffi
+    [a] ffi   rc=-3 elems=0 apply_called=false session_id.off=0 session_id.len=0 (0x00000000)
+    -> exit=0 (returned)
+
+## case a-native
+    [a] native rc=-3 (Err)
+    -> exit=0 (returned)
+
+## case b-err-ffi
+    [b-err] ffi   rc=-3 elems=1 apply_called=false session_id.off=4 session_id.len=2 (0x00000002)
+    -> exit=0 (returned)
+
+## case b-err-native
+    [b-err] native rc=-3 (Err)
+    -> exit=0 (returned)
+
+## case b-span-ffi
+    [b-span] ffi   rc=-3 elems=0 apply_called=false session_id.off=0 session_id.len=0 (0x00000000)
+    -> exit=0 (returned)
+
+## case b-span-native
+    [b-span] native rc=-3 (Err)
+    -> exit=0 (returned)
+
+## case c-ffi
+    [c] ffi   rc=-3 elems=0 apply_called=false session_id.off=0 session_id.len=0 (0x00000000)
+    -> exit=0 (returned)
+
+## case c-native
+    [c] native rc=-3 (Err)
+    -> exit=0 (returned)
+
+## case u32-ffi
+    [u32] ffi rc=-5 (AK_ERR_LIMIT is -5; a clean reject means the guard is present)
+    -> exit=0 (returned)
+

@@ -1,0 +1,82 @@
+# stage 2 conformance: byte identity across the arms
+#   reference: ffi/schema/generated/manifest.json (VALIDATED, stage 1)
+
+payload arm                 want B     got B  bytes    sha256     decode round trip
+P1.1    prost                  858       858  ok       ok         ok
+P1.1    armonik                858       858  ok       ok         ok
+P1.1    core-native            858       858  ok       ok         ok
+P1.1    core-ffi-rust          858       858  ok       ok         ok
+P1.2    prost               218121    218121  ok       ok         ok
+P1.2    armonik             218121    218121  ok       ok         ok
+P1.2    core-native         218121    218121  ok       ok         ok
+P1.2    core-ffi-rust       218121    218121  ok       ok         ok
+P1.3    prost                  605       605  ok       ok         ok
+P1.3    armonik                605       605  ok       ok         ok
+P1.3    core-native            605       605  ok       ok         ok
+P1.3    core-ffi-rust          605       605  ok       ok         ok
+P2.1    prost                 1037      1037  ok       ok         ok
+P2.1    armonik               1037      1037  ok       ok         ok
+P2.1    core-native           1037      1037  ok       ok         ok
+P2.1    core-ffi-rust         1037      1037  ok       ok         ok
+P2.2    prost               540422    540422  ok       ok         ok
+P2.2    armonik             540422    540422  ok       ok         ok
+P2.2    core-native         540422    540422  ok       ok         ok
+P2.2    core-ffi-rust       540422    540422  ok       ok         ok
+P2.3    prost               647024    647024  ok       ok         ok
+P2.3    armonik             647024    647024  ok       ok         ok
+P2.3    core-native         647024    647024  ok       ok         ok
+P2.3    core-ffi-rust       647024    647024  ok       ok         ok
+P2.4    prost               979465    979465  ok       ok         ok
+P2.4    armonik             979465    979465  ok       ok         ok
+P2.4    core-native         979465    979465  ok       ok         ok
+P2.4    core-ffi-rust       979465    979465  ok       ok         ok
+P2.5    prost                19632     19632  ok       ok         ok
+P2.5    armonik              19632     19632  ok       ok         ok
+P2.5    core-native          19632     19632  ok       ok         ok
+P2.5    core-ffi-rust        19632     19632  ok       ok         ok
+P3.1    prost                12097     12097  ok       ok         ok
+P3.1    armonik              12097     12097  ok       ok         ok
+P3.1    core-native          12097     12097  ok       ok         ok
+P3.1    core-ffi-rust        12097     12097  ok       ok         ok
+P3.1    real      after-direct         12097     12097  ok       encoded on a context that already encoded UploadResultDataMessage
+P1.3    real      after-direct           605       605  ok       encoded on a context that already encoded UploadResultDataMessage
+P2.5    real      after-direct         19632     19632  ok       encoded on a context that already encoded UploadResultDataMessage
+                  ^ D20's regression: an empty string's data pointer
+                    is AK_STR_DIRECT, so it took the direct path and
+                    spliced in whatever the last M5 encode left.
+P2.4a   added (4 arms)       85665     85665  ok       n/a      ok
+P2.4b   added (4 arms)     1873265   1873265  ok       n/a      ok
+
+payload class     arm                 want B     got B  bytes    sha256   decode round trip
+P4.1    real      prost                65321     65321  ok       ok       ok
+P4.1    real      armonik              65321     65321  ok       ok       ok
+P4.1    real      core-native          65321     65321  ok       ok       ok
+P4.1    real      core-ffi-rust        65321     65321  ok       ok       ok
+P5.1    real      prost                  116       116  ok       ok       ok
+P5.1    real      armonik                116       116  ok       ok       ok
+P5.1    real      core-native            116       116  ok       ok       ok
+P5.1    real      core-ffi-rust          116       116  ok       ok       ok
+P5.2    real      prost                65620     65620  ok       ok       ok
+P5.2    real      armonik              65620     65620  ok       ok       ok
+P5.2    real      core-native          65620     65620  ok       ok       ok
+P5.2    real      core-ffi-rust        65620     65620  ok       ok       ok
+P5.3    real      prost              1048660   1048660  ok       ok       ok
+P5.3    real      armonik            1048660   1048660  ok       ok       ok
+P5.3    real      core-native        1048660   1048660  ok       ok       ok
+P5.3    real      core-ffi-rust      1048660   1048660  ok       ok       ok
+P5.4    real      prost              4194390   4194390  ok       ok       ok
+P5.4    real      armonik            4194390   4194390  ok       ok       ok
+P5.4    real      core-native        4194390   4194390  ok       ok       ok
+P5.4    real      core-ffi-rust      4194390   4194390  ok       ok       ok
+P6.1    mixed     prost               123354    123354  ok       ok       ok
+P6.1    mixed     armonik             123354    123354  ok       ok       ok
+P6.1    mixed     core-native         123354    123354  ok       ok       ok
+P6.1    mixed     core-ffi-rust       123354    123354  ok       ok       ok
+                  ^ M6 is MIXED: ticks/values/codes/flags are CONTROL
+                    (the schema has no packed scalar); statuses is REAL
+                    (all 3 packed fields in the schema are enums).
+P7.1    CONTROL   4 arms, decode          98        98  ok       ok       re-encode is a permutation of the same triples
+                  ^ CONTROL, and DECODE ONLY: no canonical writer can
+                    produce these bytes, so no arm is asked to.
+
+VERDICT: every arm is byte-identical to the validated manifest on every payload it covers.
