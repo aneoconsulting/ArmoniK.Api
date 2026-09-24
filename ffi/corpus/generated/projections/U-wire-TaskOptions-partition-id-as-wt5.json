@@ -1,0 +1,24 @@
+{
+ "_unknown": [
+  {
+   "tag": 5,
+   "value": "67305985",
+   "wire_type": 5
+  }
+ ],
+ "application_name": "mike236",
+ "application_namespace": "delta331",
+ "application_service": "bravo585",
+ "application_version": "juliet961",
+ "engine_type": "echo684",
+ "max_duration": {},
+ "max_retries": "74177",
+ "options": {
+  "k00": "bravo641",
+  "k01": "bravo401",
+  "k02": "hotel551",
+  "k03": "papa903"
+ },
+ "partition_id": "echo124",
+ "priority": "27286"
+}

@@ -2,9 +2,21 @@
 
 The handoff for W8. Read this first; the transcript is gone.
 
-**Status: built, gated, and revised once by its own consumers.** `ffi/corpus/`
-holds a generator, 336 vectors, a manifest, projections, a consumer contract and
-a gate. `./run.sh --check` passes from a clean clone at a different path.
+**Status: built, gated, revised once by its own consumers, and extended once
+by FIX-PLAN WP4 item 2.** `ffi/corpus/` holds a generator, 691 manifest rows (683
+vectors plus 8 schema payloads by reference), projections, a consumer contract and
+a gate. `./run.sh --check` passes from a clean clone at a different path
+(`logs/wp4-5-run-check.log`).
+
+**Extension of 2026-09-24 (FIX-PLAN WP4 item 2).** 355 vectors added for defects a
+review found and the corpus did not cover: lengths that wrap 2^64 (R-D1), a known
+field at a foreign wire type (R-E2), field number 0 on every root (R-E4, R-E5),
+-0.0 in the repeated double (R-E3), negative int32/int64 projected on SHAPES.md
+roots (R-E5). **No existing vector byte moved, and no existing manifest row
+changed**: the seal was extended by additions only, through the build's own
+path, and `logs/wp4-2-seal-diff.log` shows every one of the 328 old seal lines
+still present. The extension produced one new finding about an oracle: **upb
+accepts field number 0 on a message with no fields** (next section but one).
 
 **Revision of 2026-09-20.** The first two consumers (`poc/python`, `poc/cpp`)
 found something about the corpus rather than about themselves: it decided every
@@ -21,14 +33,15 @@ is the manifest's claims about them.
 | | |
 |---|---|
 | Generator | `emit/` -- 6 modules, driven off `corpus.json` merged over `../schema/shapes.json` |
-| Vectors | 336: 74 `unknown`, 30 `empty`, 145 `shape`, 53 `transcode`, 8 `chunking`, 18 `malformed`, 8 `baseline` |
-| Of those | 287 must be accepted, 49 must be **refused** |
+| Vectors | 691 rows: 317 `unknown`, 30 `empty`, 163 `shape`, 53 `transcode`, 8 `chunking`, 112 `malformed`, 8 `baseline` |
+| Of those | 548 must be accepted, 143 must be **refused** |
 | Manifest | `generated/manifest.json` -- per vector: what it tests, produce/consume per slice, the **set** of accepted encodings, a projection, per-class metadata, per-language notes |
-| Projections | 336 + 65 superset projections. What a reader must SEE, not just bytes |
+| Projections | 542 rows carry one, plus 65 superset projections. What a reader must SEE, not just bytes |
 | Contract | `CONTRACT.md`. The whole obligation, so five slices do not each invent it |
-| Verdicts | 335 `agreed`, **1 `disputed`** (`U-map-entry`) |
-| Seal | `generated/vectors.sha256`, 328 vectors. The build refuses to move a byte |
-| Gate | `run.sh` / `emit/build.py --check` / `emit/selftest.py` (44 checks) |
+| Verdicts | 688 `agreed`, **3 `disputed`** (`U-map-entry` on the reading; `X-tag-zero-Empty`, `X-tag-zero-nested-Empty` on the verdict) |
+| Seal | `generated/vectors.sha256`, 683 vectors (328 sealed 2026-09-20, 355 added 2026-09-24). The build refuses to move a byte |
+| Gate | `run.sh` / `emit/build.py --check` / `emit/selftest.py` (60 checks) |
+| Logs | `logs/wp4-*.log`: the seal refusing the additions, the re-seal, the old-against-new seal diff, the build, the selftest, `run.sh --check` |
 
 ### The three oracles
 
@@ -46,8 +59,8 @@ the disputed row is a map-semantics question. The cpp slice's reflection arm can
 answer it, because `Reflection::ListFields` over generated code IS the presence
 rule CONTRACT.md section 3 describes.
 
-**All three refuse all 49 must-fail vectors**, with no row disputed. That is a
-materially stronger claim than the one this file made yesterday.
+**All three refuse 141 of the 143 must-fail vectors.** upb accepts the other two;
+see below. The pure-python backend and protobuf C++ refuse all 143.
 
 ## The two decisions this was built on, restated because they are load-bearing
 
@@ -59,9 +72,9 @@ materially stronger claim than the one this file made yesterday.
    `ChunkedResponseWide` (tag 70000, a three-byte key), `LeafResponse` (the leaf
    entry-point form), `Surrogate`, `WireZoo` and `Nest` of its own. Every vector
    declares produce / consume per slice.
-2. **A vector may have more than one accepted encoding.** 85 of 336 rows do.
+2. **A vector may have more than one accepted encoding.** 334 of 691 rows do: 87 before the extension (this line said 85, which the committed manifest did not bear out), plus the 243 `U-wire-*`, which accept the retained and the dropped form, and the 4 consume-only `S-neg-*`/`S-mzero-*`.
 
-## The disputed row, in full
+## The reading dispute, `U-map-entry`, in full
 
 `U-map-entry` puts an unknown varint field (tag 3) inside every entry of
 `TaskOptions.options`, a `map<string, string>`.
@@ -88,6 +101,44 @@ is ABI v1 open decision 11 territory and is already expressed as accepted forms
 everywhere else in the corpus. The map contents are the substantive
 disagreement; retention is the second-order one.
 
+## The two verdict disputes the extension found
+
+`X-tag-zero-Empty` (`00 01` as an `Empty`) and `X-tag-zero-nested-Empty` (the same
+two bytes inside `Probe.as_nothing`, inside `ListProbeResponse`).
+
+| Runtime | Verdict | What it said |
+|---|---|---|
+| protobuf 7.36.2, **upb** | **accepts** | field 0 kept as an unknown field: `_unknown: [{tag: 0, wire_type: 0, value: 1}]`, re-encodes to `00 01` |
+| protobuf 7.36.2, **pure-python** | refuses | `DecodeError: Field number 0 is illegal.` |
+| **protobuf C++** 35.1, `protoc --decode` | refuses | `Failed to parse input.` |
+
+Probed by hand beyond the two rows (not committed as vectors): upb accepts field
+number 0 at wire types 0 and 5 on `Empty`, and refuses it on every other one of
+the corpus's 30 roots, including `Timestamp`, `SurrogateInner` and
+`UploadResultDataMessage`, each of which has at least one field. So the upb
+behaviour is specific to a message with no fields. The corpus records both
+readings and excludes both rows from a consumer's pass or fail count, as it does
+for `U-map-entry`; it does not decide between them.
+
+## What the extension added, by register entry
+
+| Register | Vectors | Class | What |
+|---|---|---|---|
+| R-D1 | 63 `X-lenwrap-*` | `malformed` | a length varint of 2^64 - pos and neighbours (`under` 2^64 - pos - 1, `zero`, `one` 2^64 - pos + 1, `max` 2^64 - 1, `start` = wraps to the field's own key), at an unknown field at the root, a known string and a known message field, on `ListResultsResponse`, `WireZoo`, `Surrogate`, `ChunkedResponseWide`; inside `results[0]` counted both from the buffer (`-abs`) and from the enclosing message (`-rel`). All must-fail, all refused by all three. `X-lenwrap-lrr-unknown-zero` is WP4 item 1's reproducer `7A F5 FF FF FF FF FF FF FF FF 01`, byte for byte |
+| R-E2 | 243 `U-wire-*` | `unknown` | every message x the first field of each shape it has x every wire type among 0, 1, 2, 5 its kind cannot arrive as, appended after the full canonical message. All three oracles **accept** all 243 and read the field as an unknown field; upb and pure-python agree on the projection and on the re-encoding (identical, unknown retained) |
+| R-E4, R-E5 | 31 `X-tag-zero-*` | `malformed` | field number 0 after the full canonical message of every one of the 30 roots, plus the nested `Empty`. 29 agreed, 2 disputed (above) |
+| R-E3 | 4 `S-mzero-*` | `shape` | -0.0 in `MetricsBatch.values`, packed (three, produce = all) and unpacked (consume-only); projects `"-0"` |
+| R-E5 | 14 `S-neg-*` | `shape` | negative int32/int64 on `Timestamp`, `Duration`, `ListResultsResponse`, `ListTasksDetailedResponse`, `ListTaskSummaryResponse`, `ListMetricsResponse` (packed), `ListProbeResponse` (explicit presence and oneof), `ChunkedResponse`, `LeafResponse`, `DualResponse`: 11 canonical (produce = all, upb re-encodes identically), 3 consume-only (five-byte negative int32 twice, a 41-bit varint in an int32) |
+
+How the accept/reject call for R-E2 was made: the protobuf language guide states
+that packed and unpacked forms of a repeated scalar are interchangeable and that
+an unrecognised field is skipped by its wire type; it does not state the
+known-number-foreign-wire-type case in one sentence. All three oracles dispatch on
+the (field number, wire type) pair -- protobuf-python's pure decoder looks fields
+up by their encoded tag bytes and falls to its unknown-field path on a miss -- and
+all three accepted every vector, so the rows are `accept`, `agreed`, with the
+field read as unknown. No row is disputed.
+
 ## Covered
 
 - **Unknown fields (item 1).** One of each proto3-expressible wire type at seven
@@ -99,6 +150,8 @@ disagreement; retention is the second-order one.
   no schema-generated corpus contains one); the largest legal field number; an
   unknown field **inside a map entry**; three unrecognised-oneof-member cases;
   and unknown enum **values** on known fields, singular and inside a packed run.
+  And a **known** field number at every foreign wire type, for every shape of
+  every message (`U-wire-*`).
 - **Absent and empty (item 2, R6).** An empty root, empty elements, the
   `all_absent` and `half_absent` modes, present-and-zero at leaf depth, six
   degenerate map-entry forms, packed written unpacked / split / empty, oneof and
@@ -110,7 +163,8 @@ disagreement; retention is the second-order one.
   `shapes.json` has no field of at all; double edge cases (minus zero, NaN,
   denormal); string length boundaries at 127/128 and 16383/16384 and nine content
   classes; nesting depth 1, 4, 6 and 20. The manifest's `shape_coverage` is
-  computed from the description and the build **fails** on a gap.
+  computed from the description and the build **fails** on a gap. Negative
+  int32/int64 projected on the SHAPES.md roots, and -0.0 in the repeated double.
 - **The transcode pair (item 4), both halves.** 7 encode-half vectors carrying
   the UTF-16 input as metadata and the ABI's U+FFFD substitution as bytes, at
   four string sites at once, with a valid-pair control; 31 decode-half rejects
@@ -119,9 +173,10 @@ disagreement; retention is the second-order one.
 - **Distinct tags and chunking (item 5).** 8 vectors, non-leaf and leaf element
   forms, a three-byte root key, and a run with an empty element every tenth
   position. Chunk arithmetic is explicit per vector.
-- **Refusals.** 49 vectors a conformant parser must reject, every one of them
-  **seen** being rejected by upb, with the exception it raised recorded in the
-  manifest.
+- **Refusals.** 143 vectors a conformant parser must reject, every one of them
+  **seen** being rejected by at least two of the three oracles, with the
+  exception each raised recorded in the manifest. Among them: lengths that wrap
+  2^64 from their own position, and field number 0 on every root.
 
 ## Not covered, and why
 
@@ -151,7 +206,10 @@ disagreement; retention is the second-order one.
    not across the payload set. A slice still checks content sets the way
    SHAPES.md says, and the corpus does not replace that.
 6. **Wire types the schema does not have.** No `sint32`/`sint64` (zigzag), no
-   `uint32`/`uint64`, no `fixed64`/`sfixed*`, no `float`. SHAPES.md's census says
+   `uint32`/`uint64`, no `fixed64`/`sfixed*`, no `float`. So FIX-PLAN WP4 item 2's
+   `-0.0` for `float` and for an explicit-presence double has no vector: the
+   schema has neither, and adding a field would change `corpus.proto`, which
+   consumers build against. SHAPES.md's census says
    the real schema has zero of all of them, so this follows the census -- but a
    generator backend with no case for zigzag would be caught by nothing here.
    `fixed32` was added precisely because wire type 5 was otherwise absent, and
@@ -164,23 +222,35 @@ disagreement; retention is the second-order one.
    concurrency suite (12.5) are not corpus artifacts and are untouched. 12.5 is
    the obligation with the most evidence behind it and the least existence.
 9. **Nothing about timing.** Correctness artifact only.
+10. **A wrapping decoder may hang rather than fail.** The `zero` and `start`
+    modes of `X-lenwrap-*` send a skipper that trusts `pos + n` back to an
+    earlier offset, so it loops. The corpus cannot bound that; a consumer runs
+    these rows under a timeout, and FIX-PLAN WP4 item 1 already names "returns an
+    error within 1 s" as its criterion.
+11. **No slice has run the extension.** The 355 new rows were checked against the
+    three oracles only. FIX-PLAN WP4 item 2 is settled by every slice re-running
+    the corpus, which is outside this directory.
 
 ## Coverage gaps per slice
 
-Every slice must **consume** all 336. What differs is what it can **produce**.
+Every slice must **consume** all 691. What differs is what it can **produce**.
 
 | Slice | Cannot produce | Which |
 |---|---|---|
-| `csharp` | 85 of 287 | 74 `unknown` + 10 non-canonical `empty` + `S-interleaved` |
-| `java` | 85 of 287 | the same |
-| `cpp` | 92 of 287 | the same, plus the 7 `T-enc-*` |
-| `python` | 92 of 287 | the same, plus the 7 `T-enc-*` |
-| `rust` | 92 of 287 | the same, plus the 7 `T-enc-*` |
+| `csharp` | 332 of 548 | 317 `unknown` (243 of them `U-wire-*`) + 10 non-canonical `empty` + `S-interleaved` + 4 non-canonical `S-neg-*`/`S-mzero-*` |
+| `java` | 332 of 548 | the same |
+| `cpp` | 339 of 548 | the same, plus the 7 `T-enc-*` |
+| `python` | 339 of 548 | the same, plus the 7 `T-enc-*` |
+| `rust` | 339 of 548 | the same, plus the 7 `T-enc-*` |
 
 None of these is a defect:
 
-- **74 `unknown`**: a codec cannot emit a field it does not know. That is the
-  class's whole point, not a hole in it.
+- **317 `unknown`**: a codec cannot emit a field it does not know, nor a known
+  field at a wire type its kind does not use. That is the class's whole point,
+  not a hole in it.
+- **4 `S-neg-*` / `S-mzero-*`**: a five-byte negative int32, an int32 carrying a
+  41-bit varint and an unpacked repeated double are legal wire no canonical
+  writer produces. Consume-only, with the canonical form declared.
 - **10 `empty` + `S-interleaved`**: legal wire that no canonical writer produces
   -- an implicit-presence leaf written as zero, a map entry with its value before
   its key, a packed field written unpacked, two repeated fields interleaved.
@@ -226,6 +296,33 @@ slice quietly skips.
   where the second oracle came back on the same backend as the first, because two
   readings from one parser are one reading.
 
+### And the extension of 2026-09-24
+
+- `corpus.json` gained four declarative sections (`length_wrap`,
+  `wrong_wire_type`, `negative_ints`, `minus_zero`): the modes, payloads and
+  reasons the new builders read. No message and no field changed, so both
+  `.proto` files are byte-identical.
+- `emit/vectors.py` gained `wp4()` and five builders, called after every earlier
+  class, and `wrap_arith()`, which checks each wrap vector's claim from its bytes
+  at build time.
+- `emit/build.py`: the unknown-field assertion accepts a known tag declared as
+  `meta.wrong_wire_type` for that vector only. Nothing else.
+- `emit/selftest.py`: 60 checks, up from 44. Two existing checks asserted that
+  every oracle refuses every must-fail vector, which the extension made false;
+  they now assert that a must-fail vector not refused by all three is published
+  as disputed with the acceptor named. The dispute check now distinguishes a
+  verdict dispute (no readings) from a reading dispute. Sixteen new checks cover
+  the extension: the wrap guard watched refusing a false claim three ways and run
+  over every row, WP4 item 1's reproducer present byte for byte, every
+  (message, shape, foreign wire type) present and read as unknown, tag 0 on every
+  root, `"-0"` and negative projections present.
+- The seal: `python3 emit/build.py` refused the 355 additions and nothing else
+  (`logs/wp4-1-build-before-reseal.log`); `--reseal` (`logs/wp4-2-reseal.log`);
+  the diff of the old seal against the new (`logs/wp4-2-seal-diff.log`): 0 old
+  lines missing or changed, 355 added, 0 committed vector files modified. The
+  manifest's 336 existing rows are identical to the committed ones; only
+  `counts` and `oracles` (refusal tallies, disputed list) moved.
+
 ## Requests -- things outside `ffi/corpus/**` that this work wants
 
 I own `ffi/corpus/**` and nothing else, so these are requests, not edits.
@@ -256,7 +353,7 @@ I own `ffi/corpus/**` and nothing else, so these are requests, not edits.
    discusses. If that is wanted, the manifest rows change in one place
    (`produce`) and `emit/vectors.py` in one line.
 6. **CI.** `ffi/corpus/run.sh --check` is the gate and nothing runs it yet. It
-   needs `pip install protobuf grpcio-tools` and about twenty seconds. ABI v1
+   needs `pip install protobuf grpcio-tools` and about a minute and a half. ABI v1
    section 12.1 calls the corpus a release gate, so this is the step that makes
    that sentence true.
 7. **`U-map-entry` wants a resolution, and the corpus cannot supply one.** The
@@ -269,13 +366,26 @@ I own `ffi/corpus/**` and nothing else, so these are requests, not edits.
    documents the second form at length, but a slice reading only the schema
    manifest still sees a single hash. The corpus's `B-P2_5` row now carries upb's
    `+80` as data. Not a defect; a place where two files disagree in tone.
+9. **Every slice re-runs the corpus** (FIX-PLAN WP4 item 2's settling
+   condition). The rows that bear on known defects: `X-lenwrap-*` against the
+   core's `len_body` and `poc/cpp/include/ak/rt.h` (R-D1, run under a timeout);
+   `U-wire-*` against every generated decoder (R-E2); `X-tag-zero-*`, `S-neg-*`
+   against `py_codec` and Java arm R (R-E4, R-E5); `S-mzero-*` against the core
+   emitters (R-E3).
+10. **The two new verdict disputes want a resolution the corpus cannot supply**:
+    whether field number 0 on a message with no fields is an error (pure-python,
+    protobuf C++) or an unknown field (upb). Same standing as request 7.
 
 ## If you are the next session on this
 
 Run `./run.sh` first. It regenerates, validates against three runtimes,
 self-tests the guards and clones the branch to a different path to prove the tree
-rebuilds itself. It takes about 35 seconds, most of it `protoc` started once per
-vector. If it passes, the corpus is in the state this file describes.
+rebuilds itself. It takes about 90 seconds, most of it `protoc` started once per
+vector (about 45 seconds for the build alone since the extension). If it
+passes, the corpus is in the state this file describes. The runtimes it was
+validated with are protobuf 7.36.2 and grpcio-tools 1.84.0 (libprotoc 35.1); a
+different version changes the oracle names in the manifest and `--check` then
+reports drift.
 
 Two things to hold on to:
 

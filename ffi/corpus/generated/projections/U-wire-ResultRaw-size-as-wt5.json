@@ -1,0 +1,23 @@
+{
+ "_unknown": [
+  {
+   "tag": 9,
+   "value": "67305985",
+   "wire_type": 5
+  }
+ ],
+ "completed_at": {
+  "seconds": "1700000000"
+ },
+ "created_at": {
+  "seconds": "1700000000"
+ },
+ "created_by": "4bd3bb6d-6d84-9350-673c-8a5cfece04ec",
+ "manual_deletion": true,
+ "name": "foxtrot661",
+ "opaque_id": "b22a1b200e4a203e351bb79f2f13d47c",
+ "owner_task_id": "41aaec16-49ea-ed39-f99e-2e85d2d582c0",
+ "result_id": "a86469f6-7b75-408a-5425-fa04e68574fb",
+ "session_id": "01014f5e-30f9-0ce8-3afa-69af17b93213",
+ "size": "338284890548"
+}

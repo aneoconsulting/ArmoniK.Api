@@ -89,7 +89,13 @@ def main():
     except Exception as e:                       # noqa: BLE001
         ok("a valid vector is NOT rejected by upb", False, str(e))
 
-    rejected = 0
+    # upb is one of three oracles, not the judge. Every must-fail vector upb
+    # does NOT refuse must be one the committed manifest records as disputed
+    # with upb among its acceptors -- so a upb acceptance is either a known,
+    # published disagreement or a failure here.
+    with open(os.path.join(spec.ROOT, "generated", "manifest.json")) as fh:
+        man0 = json.load(fh)
+    rejected, upb_accepts = 0, []
     for v in VEC.build_all(reader, superset, corpus):
         if v.expect != "reject":
             continue
@@ -97,8 +103,15 @@ def main():
             B.msg_class(pools, "reader", v.root)().ParseFromString(v.data)
         except Exception:                        # noqa: BLE001
             rejected += 1
+        else:
+            upb_accepts.append(v.id)
     total = sum(1 for v in VEC.build_all(reader, superset, corpus) if v.expect == "reject")
-    ok("every must-fail vector is seen failing (%d of %d)" % (rejected, total), rejected == total)
+    unpublished = [k for k in upb_accepts
+                   if man0["vectors"].get(k, {}).get("verdict") != "disputed"
+                   or B.UPB not in man0["vectors"][k]["reject"]["seen_failing"]["accepted_by"]]
+    ok("every must-fail vector upb accepts is published as disputed (%d of %d refused by upb; "
+       "accepted: %s)" % (rejected, total, ", ".join(upb_accepts) or "none"),
+       not unpublished, ", ".join(unpublished))
 
     # 3. The coverage check reports a gap rather than passing over it.
     universe = B.shape_universe(reader)
@@ -228,7 +241,16 @@ def main():
            and all(r.get("read_by") and r.get("projection")
                    for r in man2["vectors"][k]["dispute"]["readings"])
            for k in disputed if "readings" in man2["vectors"][k]["dispute"]))
+    # A dispute is about a READING (two projections) or about the VERDICT (some
+    # oracles refuse the vector, some accept it). Only the first kind has
+    # readings to compare; the second is checked in section 10.
     for k in disputed:
+        if "readings" not in man2["vectors"][k]["dispute"]:
+            ok("%s is a verdict dispute naming who refused and who accepted" % k,
+               man2["vectors"][k]["dispute"].get("refused_by")
+               and (man2["vectors"][k]["dispute"].get("accepted_by")
+                    or man2["vectors"][k]["dispute"].get("parsed_by")))
+            continue
         rs = man2["vectors"][k]["dispute"].get("readings", [])
         blobs = set()
         for r in rs:
@@ -273,16 +295,113 @@ def main():
     used = [o["name"] for o in man2["oracles"]["used"]]
     ok("three oracles are named in the manifest (%d)" % len(used), len(used) == 3,
        "; ".join(used))
-    ok("every must-fail vector was refused by all three",
-       all(n == sum(1 for v in man2["vectors"].values() if v["expect"] == "reject")
-           for n in man2["oracles"]["refusals_confirmed_by"].values()),
-       json.dumps(man2["oracles"]["refusals_confirmed_by"]))
+    rej_rows = dict((k, v) for k, v in man2["vectors"].items() if v["expect"] == "reject")
+    partial = sorted(k for k, v in rej_rows.items()
+                     if len(v["reject"]["seen_failing"]["refused_by"]) != 3)
+    ok("every must-fail vector was refused by all three, or is DISPUTED naming who accepted it "
+       "(%d of %d by all three)" % (len(rej_rows) - len(partial), len(rej_rows)),
+       all(rej_rows[k].get("verdict") == "disputed"
+           and rej_rows[k]["reject"]["seen_failing"]["accepted_by"] for k in partial)
+       and all(len(v["reject"]["seen_failing"]["refused_by"]) >= 1 for v in rej_rows.values()),
+       "; ".join("%s accepted by %s" % (k, ", ".join(rej_rows[k]["reject"]["seen_failing"]
+                                                    ["accepted_by"])) for k in partial)
+       + " | " + json.dumps(man2["oracles"]["refusals_confirmed_by"]))
+
+    # 11. FIX-PLAN WP4 item 2. Each category is checked against the claim it
+    #     makes, from the committed bytes and the description, not by counting.
+    wp4_checks(reader, man2, out)
 
     bad = [r for r in RESULTS if not r[0]]
     for good_, name, detail in RESULTS:
         print("%-4s %-62s %s" % ("ok" if good_ else "FAIL", name, detail))
     print("\n%d checks, %d failed" % (len(RESULTS), len(bad)))
     return 1 if bad else 0
+
+
+def wp4_checks(reader, man, out):
+    import vectors as VEC
+    import shapes as SH
+    rows = man["vectors"]
+
+    # (a) A length that wraps 2^64. The arithmetic guard, watched refusing a
+    #     false claim, then run over every committed row.
+    lw = sorted(k for k in rows if k.startswith("X-lenwrap-"))
+    probe = rows["X-lenwrap-lrr-unknown-zero"]
+    with open(os.path.join(out, probe["file"]), "rb") as fh:
+        pdata = fh.read()
+    ok("X-lenwrap-lrr-unknown-zero is FIX-PLAN WP4 item 1's reproducer, byte for byte",
+       pdata == bytes.fromhex("7af5ffffffffffffffff01"), pdata.hex())
+    nowrap = dict(probe["meta"], counted_from_offset=probe["meta"]["counted_from_offset"] - 2)
+    must_raise("the wrap guard refuses a length that does NOT wrap from its position",
+               lambda: VEC.wrap_arith(pdata, nowrap))
+    must_raise("the wrap guard refuses a declared length the bytes do not carry",
+               lambda: VEC.wrap_arith(pdata, dict(
+                   probe["meta"], declared_length=str(int(probe["meta"]["declared_length"]) - 2))))
+    must_raise("the wrap guard refuses a vector whose stated sum is wrong",
+               lambda: VEC.wrap_arith(pdata, dict(probe["meta"], sum_mod_2_64="1")))
+    bad = []
+    for k in lw:
+        with open(os.path.join(out, rows[k]["file"]), "rb") as fh:
+            d = fh.read()
+        try:
+            VEC.wrap_arith(d, rows[k]["meta"])
+        except ShapeNotCovered as e:
+            bad.append("%s: %s" % (k, e))
+    ok("every X-lenwrap row wraps 2^64 (or sits one below) exactly as it says (%d rows)" % len(lw),
+       lw and not bad, "; ".join(bad[:3]))
+    kinds = set(rows[k]["meta"]["field_is"] for k in lw)
+    ok("the wrap reaches an unknown, a string and a message field", kinds == {"unknown", "string",
+                                                                              "message"},
+       ", ".join(sorted(kinds)))
+    both = set(rows[k]["meta"]["counted_from"] for k in lw)
+    ok("nested wraps are counted from the buffer AND from the enclosing message",
+       both == {"buffer", "enclosing message"}, ", ".join(sorted(both)))
+    ok("every X-lenwrap row is must-fail and agreed",
+       all(rows[k]["expect"] == "reject" and rows[k]["verdict"] == "agreed" for k in lw))
+
+    # (b) A known field at a foreign wire type: every (message, shape, foreign
+    #     wire type) the description implies has its row, and every oracle read
+    #     it as an unknown field rather than refusing or misreading it.
+    want = set()
+    for name, m in reader["messages"].items():
+        picked = {}
+        for f in SH.fields(m):
+            picked.setdefault(E.shape_key(f), f)
+        for skey, f in picked.items():
+            legal = {spec.wire_of(f)}
+            if spec.card(f) == "packed":
+                legal.add(spec.KINDS[f["kind"]])
+            for wt in {0, 1, 2, 5} - legal:
+                want.add("U-wire-%s-%s-as-wt%d" % (name, f["name"].replace("_", "-"), wt))
+    have = set(k for k in rows if k.startswith("U-wire-"))
+    ok("every message x shape x foreign wire type has a U-wire row (%d)" % len(want),
+       want == have, "missing %s; extra %s" % (sorted(want - have)[:3], sorted(have - want)[:3]))
+    wrong = [k for k in have
+             if rows[k]["verdict"] != "agreed"
+             or rows[k].get("unknown_tags_seen_by_reader") != [rows[k]["meta"]["wrong_wire_type"]["tag"]]]
+    ok("every U-wire row is agreed and reads the foreign-typed field as UNKNOWN", not wrong,
+       ", ".join(sorted(wrong)[:5]))
+
+    # (c) Tag 0 on every message the corpus roots.
+    roots = set(r["root"] for r in rows.values())
+    tz = set(k[len("X-tag-zero-"):] for k in rows
+             if k.startswith("X-tag-zero-") and k != "X-tag-zero-nested-Empty")
+    ok("field number 0 has a must-fail row on every root (%d)" % len(roots), roots <= tz,
+       ", ".join(sorted(roots - tz)))
+
+    # (d) -0.0 keeps its sign, and (e) negative integers are PROJECTED.
+    def pj(k):
+        with open(os.path.join(out, rows[k]["projection"])) as fh:
+            return fh.read()
+    mz = sorted(k for k in rows if k.startswith("S-mzero-"))
+    ok("every S-mzero row projects \"-0\" (%d rows)" % len(mz),
+       mz and all(rows[k].get("projection") and '"-0"' in pj(k) for k in mz))
+    ng = sorted(k for k in rows if k.startswith("S-neg-"))
+    ok("every S-neg row projects a negative integer (%d rows)" % len(ng),
+       ng and all(rows[k].get("projection") and '"-' in pj(k) for k in ng))
+    noncanon = [k for k in ng + mz if rows[k]["produce"] and rows[k].get("upb_agreement") != "identical"]
+    ok("every S-neg / S-mzero row a slice must produce is the form upb writes too", not noncanon,
+       ", ".join(noncanon))
 
 
 def two_oneofs(reader):

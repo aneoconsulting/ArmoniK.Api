@@ -1,0 +1,10 @@
+{
+ "tasks": [
+  {
+   "count_data_dependencies": "-1",
+   "options": {
+    "max_retries": "-1"
+   }
+  }
+ ]
+}

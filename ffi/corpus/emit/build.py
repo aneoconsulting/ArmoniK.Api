@@ -268,7 +268,7 @@ def cpp_oracle(outdir, jobs):
     """protobuf C++, through `protoc --decode`, one process per vector.
 
     Used for the accept/reject VERDICT on every row -- a fully independent third
-    opinion on all 49 refusals -- and for its text reading, kept as evidence on
+    opinion on every refusal -- and for its text reading, kept as evidence on
     the rows where the two Python backends disagree.
 
     **Not** used as the projection oracle. `protoc --decode` renders a map field
@@ -442,8 +442,14 @@ def generate(outdir, quiet=False):
         # vector says are unknown must BE unknown under the reader, and known
         # under the superset.
         utags = spec.unknown_tags(corpus) | {VEC.uf_group_tag(corpus), 536870911}
+        # A KNOWN field number at a foreign wire type (U-wire-*) is an unknown
+        # field to every oracle asked: they dispatch on the (number, wire type)
+        # pair. Its tag is a known one, so it is added for that vector only.
+        ww = v.meta.get("wrong_wire_type")
+        if ww:
+            utags = utags | {ww["tag"]}
         seen = unknown_tags_seen(m) & utags
-        declared = set()
+        declared = {ww["tag"]} if ww else set()
         for k in ("unknown_tag", "group_tag"):
             if v.meta.get(k):
                 declared.add(v.meta[k])
@@ -508,7 +514,8 @@ def generate(outdir, quiet=False):
         "status": ("VALIDATED BY THREE RUNTIMES. Every accept-vector was parsed, re-encoded and "
                    "projected by two protobuf implementations that share no parser with the "
                    "writer or with each other, and every reject-vector was SEEN failing by all "
-                   "three. A row where the readings disagree is marked `disputed`, carries every "
+                   "three except where the row is marked disputed, which names the runtime that "
+                   "accepted it. A row where the readings disagree is marked `disputed`, carries every "
                    "reading, and is excluded from a consumer's pass or fail count rather than "
                    "failing it -- if two conformant runtimes read the same bytes differently, "
                    "the corpus's job is to say so, not to pick. The vector BYTES are frozen in "
