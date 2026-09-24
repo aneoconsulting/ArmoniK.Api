@@ -18,7 +18,7 @@ rendered from the corpus plan), native-drop, native-retain (core-native rendered
 same plans). A root the C ABI refuses (plan.check_expressible) is NOT IN THE ABI for its ffi
 arms, by name.
 
-  corpus_all.py BINARY [--only P1,P2] [--timeout S] [--plant proj|reenc|accept]
+  corpus_all.py BINARY [--manifest PATH] [--only P1,P2] [--timeout S] [--plant proj|reenc|accept]
                        [--expect-fail]   exit 0 iff the run FAILED (a control)
                        [--record FILE]   write every (row, arm) outcome, so two builds (two
                                          standard levels, two linkages) can be compared
@@ -190,6 +190,7 @@ def eval_arm(row, rid, arm, r, vec, t):
 
 
 def main(argv):
+    global CORPUS
     args = list(argv)
     if args and args[0] == "--compare":
         return compare(args[1:])
@@ -197,7 +198,9 @@ def main(argv):
     only, timeout, plant, expect_fail, record = [], 10.0, None, False, None
     while args:
         a = args.pop(0)
-        if a == "--only":
+        if a == "--manifest":
+            CORPUS = os.path.dirname(os.path.abspath(args.pop(0)))
+        elif a == "--only":
             only = args.pop(0).split(",")
         elif a == "--timeout":
             timeout = float(args.pop(0))

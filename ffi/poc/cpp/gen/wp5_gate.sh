@@ -20,7 +20,16 @@
 #                        (every arm, and the planted gate that must refuse), content sets,
 #                        crossing counts (the counting core), RPC crossing counts
 #
+#   wp5-build.log        D39: the gate BUILDS what it gates (cmake configure + build, every
+#                        target, every core via cargo), then REFUSES to run if any gated
+#                        binary is older than the newest source it depends on
+#   wp5-probe.log        the rust slice's oracle-probe manifest (poc/rust/gen/probe_corpus.py,
+#                        rows the aggregating session proposes to the corpus), four arms
+#
 #   gen/wp5_gate.sh [BUILD_DIR]      default ./build (configured with -DAK_RPC=ON)
+#   CLEAN=1                          delete BUILD_DIR first (a clean build)
+#   AK_GATE_NO_BUILD=1               control only: skip the build; the freshness check must
+#                                    then refuse a tree whose sources are newer
 #   OLD_REV=<commit>                 the "before" tree for wp5-bytes.log (default aba944a)
 set -u
 cd "$(dirname "$0")/.." || exit 2
@@ -52,6 +61,51 @@ must() {  # must <label> <expected-exit> <cmd...>
   echo
 }
 py() { python3 "$@" 2> >(grep -v -i 'distutils\|traceback (most recent call last):$\|frozen site\|<string>\|remainder of file\|^ *$' >&2); }
+
+# ---- D39: build what is gated, and refuse a binary older than its sources ------------
+# The gate once passed on binaries built before the backend commit it claimed to gate: it
+# never built. It now configures and builds every target itself (cargo rebuilds the cores
+# if the shared crates changed), and then checks mtimes, so a build that silently did not
+# happen cannot pass either.
+{
+  hdr "cpp slice, WP5: build (D39)"
+  [ "${CLEAN:-0}" = 1 ] && { echo "CLEAN=1: removing $B"; rm -rf "$B"; }
+  step "generate.py (the tree the build compiles is the tree the generator writes)"
+  py gen/generate.py | grep -v '^same' ; echo "generate.py exit ${PIPESTATUS[0]}"
+  step "cmake configure + build, every target"
+  if [ "${AK_GATE_NO_BUILD:-0}" = 1 ]; then
+    # The D39 CONTROL only: skip the build, so the freshness check below must refuse a
+    # binary older than its sources. Never used for a gate run.
+    echo "  AK_GATE_NO_BUILD=1: build SKIPPED (the freshness control)"
+  elif cmake -S . -B "$B" -DAK_RPC=ON > "$S/cfg.log" 2>&1 && cmake --build "$B" -j"$(nproc)" > "$S/build.log" 2>&1; then
+    echo ">>> ok: build ($(grep -c 'Linking' "$S/build.log") executables relinked)"
+  else
+    tail -30 "$S/cfg.log" "$S/build.log"; echo ">>> FAIL: build"
+  fi
+  step "freshness: every gated binary newer than the newest input"
+  # What the binaries are compiled from: the C++ sources and headers (generated ones
+  # included, which generate.py above just brought current), the build file, and the core's
+  # Rust sources. Harness scripts (gen/*.py) are not compiled into anything.
+  NEWEST=$(find CMakeLists.txt src include corpus ../codec/crates \
+             -path '*/target*' -prune -o -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.inc' \
+             -o -name '*.rs' -o -name '*.toml' -o -name CMakeLists.txt \) -printf '%T@ %p\n' \
+           | sort -n | tail -1)
+  echo "  newest input: ${NEWEST#* } ($(date -u -d @"${NEWEST%% *}" +%FT%TZ))"
+  stale=0
+  for b in conformance_a17_shared conformance_b17_shared conformance_c14_shared conformance_c11_shared \
+           conformance_a17_static conformance_a17_noinit corpus_all_a17 corpus_all_c14 corpus_all_c11 \
+           corpus_all_a17_static corpus_all_noinit bench_a17_shared bench_a17_static bench_b17_shared \
+           bench_c14_shared bench_c11_shared bench_a17_gateplant contentsets_a17 counts_a17_shared \
+           counts_a17_static groupskip_a17 conc_a17_shared odrcheck rpccounts; do
+    t=$(stat -c %Y "$B/$b" 2>/dev/null || echo 0)
+    if [ "$t" -lt "${NEWEST%%.*}" ]; then echo "  STALE $b"; stale=$((stale+1)); fi
+  done
+  [ $stale -eq 0 ] && echo ">>> ok: every gated binary is newer than every input" \
+                   || echo ">>> FAIL: $stale gated binary(ies) older than their sources: refusing to gate them"
+} > "$L/wp5-build.log" 2>&1
+if grep -q '>>> FAIL' "$L/wp5-build.log"; then
+  echo "wp5_gate: the build failed or is stale (see $L/wp5-build.log); nothing gated"; exit 1
+fi
 
 {
   hdr "cpp slice, WP5 step 2: the generator"
@@ -128,6 +182,16 @@ py() { python3 "$@" 2> >(grep -v -i 'distutils\|traceback (most recent call last
 } > "$L/wp5-corpus.log" 2>&1
 
 {
+  hdr "cpp slice, WP5: the oracle-probe rows (poc/rust/gen/probe_corpus.py), four arms"
+  step "probe_corpus.py: the scratch manifest"
+  must "probe_corpus.py" 0 py ../rust/gen/probe_corpus.py "$S/probe"
+  for b in corpus_all_a17 corpus_all_c11; do
+    step "$b on the probe manifest (D38: P-field-maxplus1-in-group must be REFUSED on every arm)"
+    must "probe $b" 0 py gen/corpus_all.py "$B/$b" --manifest "$S/probe/manifest.json"
+  done
+} > "$L/wp5-probe.log" 2>&1
+
+{
   hdr "cpp slice, WP5 step 2: byte audit, the C++ arms before the port against after it"
   OLD=${OLD_CORPUS_BIN:-}
   if [ -z "$OLD" ]; then
@@ -185,7 +249,7 @@ py() { python3 "$@" 2> >(grep -v -i 'distutils\|traceback (most recent call last
 } > "$L/wp5-gates.log" 2>&1
 
 TOTAL=0
-for f in generator conformance corpus bytes boundary gates; do
+for f in build generator conformance corpus probe bytes boundary gates; do
   n=$(grep -c '>>> FAIL' "$L/wp5-$f.log")
   TOTAL=$((TOTAL + n))
   printf '%-14s %s failure(s)\n' "$f" "$n"
