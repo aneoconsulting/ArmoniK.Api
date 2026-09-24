@@ -268,6 +268,22 @@ static PyObject *take_bytes(void *outp) {
   return r;
 }
 
+/* A completion's body, or None when the call FAILED (FIX-PLAN R-D3).
+ *
+ * The core completes a failed call with a non-zero status and EMPTY bytes (rpc.rs,
+ * `empty_ak_bytes`), and `take_bytes` turned those into b"" -- which every decoder here
+ * accepts as an empty message. So a caller that forgot the status got a successful decode
+ * of nothing, and `rpc.py` did forget it on two of its three deliveries. None cannot be
+ * decoded by anything, so a missed status check now fails loudly instead of timing a
+ * failure as a cheap success. The bytes are still released on the failure path. */
+static PyObject *completion_body(int32_t status, void *bytesp) {
+  if (status != 0) {
+    ak_bytes_free(bytesp);
+    Py_RETURN_NONE;
+  }
+  return take_bytes(bytesp);
+}
+
 static PyObject *py_call_unary(PyObject *m, PyObject *args) {
   (void)m;
   PyObject *clc;
@@ -343,7 +359,7 @@ static PyObject *py_queue_next(PyObject *m, PyObject *args) {
   if (rc == 1) Py_RETURN_NONE;                       /* AK_QUEUE_TIMEOUT */
   if (rc == 2) return Py_BuildValue("(KiO)", (unsigned long long)0, -1, Py_None);
   if (rc != 0) { PyErr_Format(PyExc_RuntimeError, "ak_queue_next -> %d", (int)rc); return NULL; }
-  PyObject *b = take_bytes(&c.bytes);
+  PyObject *b = completion_body(c.status, &c.bytes);
   if (!b) return NULL;
   return Py_BuildValue("(KiN)", (unsigned long long)c.tag, (int)c.status, b);
 }
@@ -378,7 +394,7 @@ typedef struct { PyObject *fn; } cb_ctx;
 static void ak_py_trampoline(void *user, ak_completion_t *comp) {
   cb_ctx *ctx = user;
   PyGILState_STATE g = PyGILState_Ensure();
-  PyObject *b = take_bytes(&comp->bytes);
+  PyObject *b = completion_body(comp->status, &comp->bytes);
   if (b) {
     PyObject *r = PyObject_CallFunction(ctx->fn, "KiO", (unsigned long long)comp->tag,
                                         (int)comp->status, b);
@@ -449,7 +465,8 @@ static PyMethodDef methods[] = {
     {"queue_new", py_queue_new, METH_NOARGS, "ak_queue_new() -> capsule"},
     {"queue_shutdown", py_queue_shutdown, METH_O, "ak_queue_shutdown(queue)"},
     {"queue_next", py_queue_next, METH_VARARGS,
-     "queue_next(queue[, timeout_ms]) -> (tag, status, bytes) | None. GIL released"},
+     "queue_next(queue[, timeout_ms]) -> (tag, status, bytes-or-None-on-failure) | None on"
+     " timeout. GIL released"},
     {"call_unary_q", py_call_unary_q, METH_VARARGS,
      "call_unary_q(client, path, req, queue, tag). Posts and returns; NO upcall"},
     {"call_unary_cb", py_call_unary_cb, METH_VARARGS,
