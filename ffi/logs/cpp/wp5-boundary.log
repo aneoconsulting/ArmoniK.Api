@@ -1,8 +1,8 @@
 # cpp slice, WP5 step 2: boundary
-#   date       2026-09-24T17:33:51Z
+#   date       2026-09-24T18:56:51Z
 #   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
 #   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit     882112c + uncommitted changes in poc/cpp or poc/codec
+#   commit     6ce373d + uncommitted changes in poc/cpp or poc/codec
 #   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
 #              for the corpus ABI); no timing is taken by anything in this log
 
@@ -35,7 +35,7 @@
   static: 86 ak_* symbols are DEFINED in the image (that is what static linkage is)
     ak_encode_ListResultsResponse             523 B entry point, 6 call sites
   [ok]   static arm: ak_encode_ListResultsResponse is CALLED, not inlined away
-    ak_decode_ListResultsResponse            4357 B entry point, 2 call sites
+    ak_decode_ListResultsResponse            4497 B entry point, 2 call sites
   [ok]   static arm: ak_decode_ListResultsResponse is CALLED, not inlined away
     ak_elem_ResultRaw                        3214 B entry point, 10 call sites
   [ok]   static arm: ak_elem_ResultRaw is CALLED, not inlined away
@@ -79,16 +79,16 @@
   [ok]   bench_a17_shared: all 9 timing closures still call out
   [ok]   bench_a17_shared: shapes::native::encode_into_list_results_response has an out-of-line body (1953 B)
   [ok]   bench_a17_shared: shapes::native::enc_task_detailed has an out-of-line body (2743 B)
-  [ok]   bench_a17_shared: shapes::native::dec_list_results_response has an out-of-line body (1602 B)
-  [ok]   bench_a17_shared: shapes::native::dec_list_tasks_detailed_response has an out-of-line body (3608 B)
-  [ok]   bench_a17_shared: shapes::native::decode_list_metrics_response has an out-of-line body (4058 B)
+  [ok]   bench_a17_shared: shapes::native::dec_list_results_response has an out-of-line body (1634 B)
+  [ok]   bench_a17_shared: shapes::native::dec_list_tasks_detailed_response has an out-of-line body (3639 B)
+  [ok]   bench_a17_shared: shapes::native::decode_list_metrics_response has an out-of-line body (4050 B)
   bench_a17_shared_lto:
   [ok]   bench_a17_shared_lto: all 7 timing closures still call out
   [ok]   bench_a17_shared_lto: shapes::native::encode_into_list_results_response has an out-of-line body (1214 B)
   [ok]   bench_a17_shared_lto: shapes::native::enc_task_detailed has an out-of-line body (2743 B)
-  [ok]   bench_a17_shared_lto: shapes::native::dec_list_results_response has an out-of-line body (1291 B)
-  [ok]   bench_a17_shared_lto: shapes::native::dec_list_tasks_detailed_response has an out-of-line body (2861 B)
-  [ok]   bench_a17_shared_lto: shapes::native::decode_list_metrics_response has an out-of-line body (2627 B)
+  [ok]   bench_a17_shared_lto: shapes::native::dec_list_results_response has an out-of-line body (1295 B)
+  [ok]   bench_a17_shared_lto: shapes::native::dec_list_tasks_detailed_response has an out-of-line body (2876 B)
+  [ok]   bench_a17_shared_lto: shapes::native::decode_list_metrics_response has an out-of-line body (2630 B)
   The control is reached through a FUNCTION POINTER passed to the case runner, so its
   address is taken and an out-of-line body must exist. Both properties above are the
   question itself rather than a proxy for it, and the fixture says the checker can

@@ -1,0 +1,39 @@
+# cpp slice, WP5: build (D39)
+#   date       2026-09-24T18:45:31Z
+#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
+#   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
+#   commit     bacee66 + uncommitted changes in poc/cpp or poc/codec
+#   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
+#              for the corpus ABI); no timing is taken by anything in this log
+
+===== generate.py (the tree the build compiles is the tree the generator writes) =====
+generate.py exit 0
+===== cmake configure + build, every target =====
+  AK_GATE_NO_BUILD=1: build SKIPPED (the freshness control)
+===== freshness: every gated binary newer than the newest input =====
+  newest input: include/generated/ak_rules.h (2026-09-24T18:44:17Z)
+  STALE conformance_a17_shared
+  STALE conformance_b17_shared
+  STALE conformance_c14_shared
+  STALE conformance_c11_shared
+  STALE conformance_a17_static
+  STALE conformance_a17_noinit
+  STALE corpus_all_a17
+  STALE corpus_all_c14
+  STALE corpus_all_c11
+  STALE corpus_all_a17_static
+  STALE corpus_all_noinit
+  STALE bench_a17_shared
+  STALE bench_a17_static
+  STALE bench_b17_shared
+  STALE bench_c14_shared
+  STALE bench_c11_shared
+  STALE bench_a17_gateplant
+  STALE contentsets_a17
+  STALE counts_a17_shared
+  STALE counts_a17_static
+  STALE groupskip_a17
+  STALE conc_a17_shared
+  STALE odrcheck
+  STALE rpccounts
+>>> FAIL: 24 gated binary(ies) older than their sources: refusing to gate them

@@ -1,0 +1,48 @@
+# D38 BEFORE: build/corpus_all_a17 built from the tree BEFORE rt.h took the plan's field-number limit (binary mtime 2026-09-24T18:39:08Z; include/ak/rt.h now 2026-09-24T18:44:17Z: this binary is stale on purpose)
+# commit bacee66 + uncommitted D38/D39 changes; probe manifest from poc/rust/gen/probe_corpus.py
+# the conformance corpus, C ABI and core-native, unknown fields dropped and retained
+#   binary     build/corpus_all_a17
+#   build      __cplusplus 201703, target impl True, binding skips ak_init: False
+#   manifest   ../../../../tmp/claude-0/sp/probe/manifest.json (11 rows)
+#   core       ak-core --features corpus,init-guard: generated for the corpus's READER
+#              schema by poc/codec/gen (plan.py + rust_abi.py); CONTRACT rule 0
+#   native     rendered by poc/codec/gen/cpp_native.py from the same plans: drop / retain
+#   decode utf8 policy reject; recursion limit 100; ffi-retain arm built: True
+#   each row in a child process, timeout 10 s
+
+## ffi-drop
+   pass 11  fail 0  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+     probe      pass   11  fail   0
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+   refusal codes (C4): -2 x3
+
+## ffi-retain
+   pass 11  fail 0  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+     probe      pass   11  fail   0
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+   refusal codes (C4): -2 x3
+
+## native-drop
+   pass 10  fail 1  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+     probe      pass   10  fail   1
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+   refusal codes (C4): -2 x2
+   FAIL P-field-maxplus1-in-group [native-drop]: C4: accepted a must-fail vector
+
+## native-retain
+   pass 10  fail 1  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+     probe      pass   10  fail   1
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+   refusal codes (C4): -2 x2
+   FAIL P-field-maxplus1-in-group [native-retain]: C4: accepted a must-fail vector
+
+# rows that hung or crashed a child: 0
+CORPUS FAILS: 2 arm-row failure(s), 0 hang/crash row(s)
