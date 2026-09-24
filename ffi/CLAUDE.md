@@ -19,6 +19,23 @@ slice writes the verdict its last measurement suggested; a review agent that can
 build something confirms its own finding. Three of the most important results in
 the existing reports are corrections of exactly those two failure modes.
 
+**No role writes a recommendation, the aggregating session included.** The
+decision is the project owner's. Documents record facts, what they do not
+establish, and the options (README section 13) described neutrally. A
+`STATE.md` says what exists and what was checked, never what a binding "should"
+choose.
+
+## Phase
+
+The branch is in its setup and design phase (README section 1.1). Performance is
+measured once, in a campaign on one physical machine, slices run sequentially,
+client and server pinned to disjoint CPU sets (W13, contract in
+`design/CAMPAIGN.md`). Until then **a container timing is instrumentation**: it
+shows a harness runs or exposes a harness defect. What counts as a result now:
+byte identity; crossing counts; floor builds and corpus passes; feasibility;
+defects found. A wrong container figure is deleted, not replaced by a better
+container figure. The open work is `design/FIX-PLAN.md`.
+
 ## Resuming
 
 A session ends and the context goes with it. `poc/<lang>/STATE.md` is what
@@ -98,6 +115,17 @@ classifier is right to refuse when someone else tries.
   inside a slice is a defect.** Three slices forked the runtime before this rule
   existed, every time because they needed to add something and there was nowhere
   to add it.
+- **One generator implementation** (W14). Every generated codec and binding in
+  every language comes from `poc/codec/gen/`, with the wire rules written once in
+  its shared layer and each language backend only rendering them. Language levels
+  are conditional compilation inside one generated output wherever the language
+  has it (C# `#if NET7_0_OR_GREATER`, C++ `#if __cplusplus`, the Python shim's
+  `PY_VERSION_HEX`); Java, which has none, gets one tree per level from the same
+  backend. **A wire rule, an IR or a layout derivation in a slice `gen/` is a
+  defect**, the same way a second copy of the core is. The one stated exception is
+  the reference encoders (`schema/emit/payloads.py`, `corpus/emit/encode.py`),
+  which stay independent on purpose: an oracle that shares the implementation
+  under test cannot catch its defects.
 - **Nothing under `packages/` changes.** The Rust slice reads and measures
   `packages/rust`; it does not edit it.
 - **The shapes are fixed by `design/SHAPES.md`.** A slice may add an arm. It may
@@ -122,15 +150,15 @@ classifier is right to refuse when someone else tries.
   absent-field and unknown-field payloads, before any number is recorded.
 - **Count crossings, do not infer them.** Every measured payload has a
   boundary-call count from a counting build.
-- **Nobody tries hard at cross-language performance yet.** The cross-language
-  comparison is re-taken on a controlled physical machine once the slices exist
-  and the ABI is validated. Today's absolutes are instrumentation. Spend the
-  effort on what a rerun cannot produce later: correctness and byte identity,
-  crossing counts (a property of the interface, not of the machine), the
-  within-process deltas that settle an ABI decision, and feasibility.
-- **Absolutes do not travel between machines, so every slice calibrates its
-  own** (R13). Slices run in separate sessions on separate containers, and the
-  cross-language crossing table of README section 2 is a table of absolutes. Each
+- **Nobody tries hard at cross-language performance yet.** It is taken once, in
+  the campaign (Phase, above). Spend the effort on what the campaign cannot
+  produce: correctness and byte identity, crossing counts (a property of the
+  interface, not of the machine), harnesses that meet `design/CAMPAIGN.md`, and
+  feasibility.
+- **Until the campaign, absolutes do not travel between machines, so every slice
+  calibrates its own** (R13). Slices run in separate sessions on separate
+  containers, and a cross-language table of absolutes assembled from them is a
+  table about containers. Each
   slice builds and runs the Rust slice's crossing benchmark on its own machine, as
   a build step, and quotes its own absolutes against that number as well as in
   nanoseconds. A slice on its own branch off the exploration branch pushes that

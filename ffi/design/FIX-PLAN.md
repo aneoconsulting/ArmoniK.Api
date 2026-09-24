@@ -1,6 +1,6 @@
 # Fix plan after the 2026-09-24 adversarial review
 
-Status: **proposed, not started.** Written for whoever implements it, which is
+Status: **WP1 done, WP2 in progress** (2026-09-24). Written for whoever implements it, which is
 assumed to be neither the author nor anyone with the review session's context.
 Everything needed is in this file or in the paths it names.
 
@@ -136,6 +136,8 @@ Files: `README.md`, `CLAUDE.md`, `REPORT.md`, `.claude/agents/ffi-slice.md`,
      no judgement. This is the only work item on the maintenance side of the
      question, which today has none (review P1).
    - **W13. Campaign run**: executes W11 on the physical machine. Owner-driven.
+   - **W14. One generator implementation**: WP5 as a work item, so the README's
+     table carries it.
 7. **Close the section 15 open questions that are answered**: 1 (moot, nothing to
    import), 3 (C++11 and C++14 both viable per `findings/cpp.md`); record 4 as
    "floor 3.7, target CPython 3.12 (Ubuntu 24.04)". Record 6 (Java packaging)
@@ -470,8 +472,8 @@ External facts:
   (retrieved 2026-09-24). The owner first chose Ubuntu 26.04's CPython (3.14.3,
   https://packages.ubuntu.com/resolute/python3) and moved to 3.12 for
   compatibility with Ubuntu 24.04.
-- The Python slice's existing container runs used 3.11, so its harness needs a
-  3.12 build before the campaign.
+- The Python slice's timed container runs used 3.11; its `STATE.md` records that
+  every arm also builds and passes on 3.10, 3.12 and 3.13.
 - CPython end-of-life dates could not be retrieved from this environment
   (python.org and peps.python.org are blocked by the network policy); they are
   not needed now that the target is fixed.
