@@ -1,6 +1,6 @@
 # Fix plan after the 2026-09-24 adversarial review
 
-Status: **WP1 and WP2 done** (2026-09-24). Next: WP4 items 1 to 3, then WP5. Written for whoever implements it, which is
+Status: **WP1, WP2 done; WP4 items 1 to 4 done** (2026-09-24). Next: WP5, then the rest of WP4. Written for whoever implements it, which is
 assumed to be neither the author nor anyone with the review session's context.
 Everything needed is in this file or in the paths it names.
 
@@ -570,15 +570,15 @@ Disposition column is filled in as work lands.
 
 | ID | Finding | Source | Disposition |
 |---|---|---|---|
-| R-D1 | Length-varint wrap: hang, 4 GiB out-of-bounds span to host, panic across `extern "C"` (source *verified*, not run) | CN | |
-| R-D2 | C++ `ak_client_opts` 3 of 6 fields; `tcp_nagle` read from stack (*verified*) | CN | |
-| R-D3 | Python RPC arm ungated; failures timed as cheap successes | CM | |
-| R-D4 | Python shim cannot compile on 3.7 | CM | |
+| R-D1 | Length-varint wrap: hang, 4 GiB out-of-bounds span to host, panic across `extern "C"` (source *verified*, not run) | CN || confirmed and fixed: core 6ede244 (logs/rust/rd1-wrap-*.log), C++ rt.h 834705f (logs/cpp/rd1-lenwrap.log, 9 hangs and 4 ASan OOB reads before); Python host segfaulted on the old core (logs/python/89-rd1-lenwrap.log) |
+| R-D2 | C++ `ak_client_opts` 3 of 6 fields; `tcp_nagle` read from stack (*verified*) | CN || confirmed and fixed 834705f: generated declaration plus size and offset asserts; rpc.log and rpcflow.log predate the 6-field struct, so their TCP rows stand (logs/cpp/rd2-history.log) |
+| R-D3 | Python RPC arm ungated; failures timed as cheap successes | CM || confirmed and fixed c55a11a: 68 of 80 failure rows produced a figure before, 80 of 80 abort after (logs/python/81, 83); an OK status with a wrong body also fooled cell A |
+| R-D4 | Python shim cannot compile on 3.7 | CM || confirmed (logs/python/82-floor-3.7.log), not fixed: WP5 emits the conditionals; hand-written native/binding.c needs its own edit; CPython 3.7 not installable here (network policy) |
 | R-D5 | `ffi-valtc` (C++) and pull arms (Java) not in any gate log | CN, CM | |
 | R-D6 | Encode ignores the sticky error slot | CN | |
 | R-D7 | C++ concurrency plants never reach the core; wrong encodes double-counted | CN | |
 | R-D8 | Rust concurrency suite mostly absent-path payloads | CN | |
-| R-D9 | Minor boundary items (see WP4 item 10) | CN, CM | |
+| R-D9 | Minor boundary items (see WP4 item 10) | CN, CM || u32 item confirmed and fixed 6ede244 (AK_ERR_LIMIT at entry); other items open |
 
 ### E. Generators (all closed by WP5, the one generator)
 
@@ -588,16 +588,25 @@ Disposition column is filled in as work lands.
 | R-E2 | Wire-type acceptance differs across emitters | G | |
 | R-E3 | Core generator lacks `fixed32`; `-0.0` dropped by core emitters | G | |
 | R-E4 | Java arm R never ran the corpus; five rule gaps | G | |
-| R-E5 | Python `py_codec` decode: wire type, sign, tag 0; corpus roots unreachable | G | |
+| R-E5 | Python `py_codec` decode: wire type, sign, tag 0; corpus roots unreachable | G || confirmed by running the extended corpus: pycodec fails 42 rows (27 wire type, 7 sign, 8 tag 0), logs/python/70-corpus-subset.log; fixed by WP5 |
 | R-E6 | C# re-derives ABI layout; probe shares the field list it checks | G | |
 | R-E7 | UTF-8 decode policy differs per runtime | G | |
 | R-E8 | Field order correct only by accident of tag numbering | G | |
 | R-E9 | "One generator" is not true of the tree: seven traversal emitters | G | WP5 (consolidation), WP1 (invariant) | |
+
+### G. Found while fixing (2026-09-24)
+
+| ID | Finding | Source | Disposition |
+|---|---|---|---|
+| R-G1 | upb accepts field number 0 on a message with no fields (`X-tag-zero-Empty`, `-nested-Empty`); pure-python and protobuf C++ refuse. Published as disputed | corpus agent, ca03d6d | recorded; decided by nobody, as for `U-map-entry` |
+| R-G2 | Python `corpus.py` crashed on its first failing row (`NameError: UPSTREAM`), so it could only report a pass (D12) | python slice | fixed 519d0c1 |
+| R-G3 | C++ corpus driver ignored the binary's exit status, so a core panic blanked every later row of every arm | cpp slice | fixed 834705f |
+| R-G4 | Python `native/binding.c` restates `ak_client_opts` by hand (6 fields, matching today) and uses 3.10+ calls outside the generator | python slice | open, WP5 |
 
 ### F. STATE hygiene (WP6)
 
 | ID | Finding | Source | Disposition |
 |---|---|---|---|
 | R-F1 | C#, Java, Python, C++ `STATE.md` contradict themselves on what exists | CM, X, CN | |
-| R-F2 | Python `STATE.md` "concurrency still unanswered" vs suite present; `57-gc-bias.log` closing line contradicts `bench.py` | MM, CM | |
-| R-F3 | Python P2.2 crossing counts: `STATE.md` gives 10.02 / 7.00 (C extension type) and 32 (Python storages); `logs/python/53-conformance-all-shapes.log` gives 51.67 / 51.67 against 146.68 / 131.35. Found while rewriting `findings/python.md`, which now cites the log | WP2 | |
+| R-F2 | Python `STATE.md` "concurrency still unanswered" vs suite present; `57-gc-bias.log` closing line contradicts `bench.py` | MM, CM || confirmed and fixed 46bf20f |
+| R-F3 | Python P2.2 crossing counts: `STATE.md` gives 10.02 / 7.00 (C extension type) and 32 (Python storages); `logs/python/53-conformance-all-shapes.log` gives 51.67 / 51.67 against 146.68 / 131.35. Found while rewriting `findings/python.md`, which now cites the log | WP2 || confirmed and fixed 46bf20f: 10.02 / 7.00 are core crossings, 51.67 / 51.67 shim crossings; "32" had no log |
