@@ -7,7 +7,8 @@ what a binding should choose (the decision is the owner's).
 
 | | |
 |---|---|
-| **Status** | **FIX-PLAN WP5 step 8 (2026-09-25): decision 11's confirmed implementation rules** -- options read in place (pools for repeated positions, entries cleared as consumed, host refills), one position and one buffer per oneof, root-bound decode contexts (`ak_dec_ctx_new_<Root>`, no untyped `ak_dec_ctx_new`); rust gate PASSED with pool, refill, oneof-switch and wrong-root controls (`logs/rust/wp5s8-gate.log`); crossing counts unchanged. Before that: **FIX-PLAN WP3 (2026-09-25): campaign harness built and smoke-run** -- `run_campaign.sh`, criterion codec suite, separate-process RPC grid, calib, crossing-count gate; section 10 checklist below (unmet: perf not installed; 1.88 toolchain not verified; codec wall time not recorded; callback/queue deliveries not in the campaign runner). Before that: **FIX-PLAN WP5 step 7 (decision 11's unknown-field mechanism, as the owner specified it) built in the plan, the core and the Rust backends, 2026-09-25**: decode groups carry `unknown: ak_unk_buf`, per-root `ak_dec_<Root>_opts` (one host pointer, one `ak_unk_opts` per message position), `ak_dec_ctx_new_<Root>` / `ak_dec_reset_<Root>`; the `unknown`/`unk_<slot>` callbacks, `ak_unk_f` and `ak_uspan` are gone; ffi-retain now writes the retained form on the 16 `U-leaf-*`/`U-deep-*` rows; push and pull both capture. Other slices' generated trees are STALE until their owners render the options (their backends were given a transitional drop-mode change so their generators run). Before that: **FIX-PLAN WP5 step 6 (consolidation) done, 2026-09-24**: the fixed ABI (codes, structs, entry points, vtable order, pull numbering, RPC counting) lives in `plan.FIXED` and every backend renders it; one C header backend (`c_abi.py`); the guard covers all 26 backend modules; `poc/codec/gen/generate.py [--check]` regenerates every slice; field-number and map-order rules stated and applied (commits 57b6180, 3cee365, 41eb485). Before that: **FIX-PLAN WP4 items 7, 9, 10 done (Part A) and WP5 step 1 done (Part B).** The shared core and the core-native control are now rendered by ONE rule layer (`poc/codec/gen/plan.py`) through Rust backends that render plans only; the full conformance corpus passes through the C ABI and core-native in both unknown-field modes. Stages 1 to 6 before that (four arms, every shape, RPC arm, pull family, concurrency suite, lifecycle) |
+| **Status** | **FIX-PLAN WP5 step 10 (2026-09-25): the NO-UNKNOWN variant** -- `plan.Options(unknown="drop")` on the C ABI renders a complete compile-time variant with unknown-field support compiled out (no `unknown` slot in the decode groups, no `ak_ufix_*`, no `ak_dec_<Root>_opts`, no `ak_dec_reset_<Root>`, no `ak_uencode_*`/`ak_uelem*_*`, no capture; root-bound contexts kept as `ak_dec_ctx_new_<Root>(void)`), selected by the `unknown-fields` cargo feature of ak-abi/ak-core (default on) and, for C, by a second complete header from `c_abi.emit` of the drop plan (defines `AK_NO_UNKNOWN_FIELDS 1`, 240 layout facts vs 400). Both variants gated (`logs/rust/wp5s10-gate.log`, `logs/rust/campaign-wp5s10/gate.log`); the campaign harness runs the codec suite's third mode and the RPC grid's C/D cells in all three modes; smoke run in `logs/rust/campaign-wp5s10/` (instrumentation). Commits d89bdfc (codec), f0c82bb (rust). Before that: **FIX-PLAN WP5 step 8 (2026-09-25): decision 11's confirmed implementation rules** -- options read in place (pools for repeated positions, entries cleared as consumed, host refills), one position and one buffer per oneof, root-bound decode contexts (`ak_dec_ctx_new_<Root>`, no untyped `ak_dec_ctx_new`); rust gate PASSED with pool, refill, oneof-switch and wrong-root controls (`logs/rust/wp5s8-gate.log`); crossing counts unchanged. Before that: **FIX-PLAN WP3 (2026-09-25): campaign harness built and smoke-run** -- `run_campaign.sh`, criterion codec suite, separate-process RPC grid, calib, crossing-count gate; section 10 checklist below (unmet: perf not installed; 1.88 toolchain not verified; codec wall time not recorded; callback/queue deliveries not in the campaign runner). Before that: **FIX-PLAN WP5 step 7 (decision 11's unknown-field mechanism, as the owner specified it) built in the plan, the core and the Rust backends, 2026-09-25**: decode groups carry `unknown: ak_unk_buf`, per-root `ak_dec_<Root>_opts` (one host pointer, one `ak_unk_opts` per message position), `ak_dec_ctx_new_<Root>` / `ak_dec_reset_<Root>`; the `unknown`/`unk_<slot>` callbacks, `ak_unk_f` and `ak_uspan` are gone; ffi-retain now writes the retained form on the 16 `U-leaf-*`/`U-deep-*` rows; push and pull both capture. Other slices' generated trees are STALE until their owners render the options (their backends were given a transitional drop-mode change so their generators run). Before that: **FIX-PLAN WP5 step 6 (consolidation) done, 2026-09-24**: the fixed ABI (codes, structs, entry points, vtable order, pull numbering, RPC counting) lives in `plan.FIXED` and every backend renders it; one C header backend (`c_abi.py`); the guard covers all 26 backend modules; `poc/codec/gen/generate.py [--check]` regenerates every slice; field-number and map-order rules stated and applied (commits 57b6180, 3cee365, 41eb485). Before that: **FIX-PLAN WP4 items 7, 9, 10 done (Part A) and WP5 step 1 done (Part B).** The shared core and the core-native control are now rendered by ONE rule layer (`poc/codec/gen/plan.py`) through Rust backends that render plans only; the full conformance corpus passes through the C ABI and core-native in both unknown-field modes. Stages 1 to 6 before that (four arms, every shape, RPC arm, pull family, concurrency suite, lifecycle) |
+| **Next step** | none assigned. Open for the aggregating session: the other slices render the no-unknown variant (their backends: see JOURNAL, WP5 step 10); a campaign-machine run of `run_campaign.sh` with both builds |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88 declared. **Not verified: no 1.88 toolchain in this container**, stable 1.94.1 only (plus a nightly 1.100, used for ThreadSanitizer and nothing else) |
 | **Target** | the same, one configuration (README section 5) |
@@ -28,6 +29,9 @@ plan.py          the RULE LAYER. IR -> MessagePlan (encode plan: EncStep list in
                  ABI (R-G5) + the lifecycle (R-G7). Its module docstring is the CONTRACT a
                  backend follows: what a plan contains, what a backend may and may not decide.
                  Options(unknown=drop|retain|both, utf8=reject|lossy, recursion_limit=100).
+                 On the C ABI: both = decision 11's mechanism; drop = THE NO-UNKNOWN VARIANT
+                 (WP5 step 10, `relower(p, p.options.with_unknown("drop"))`,
+                 `unknown_compiled_out(p)`).
 rust_abi.py      Rust backend: abi.rs, codec.rs (push and pull families), the RPC region of
                  ak-abi/src/lib.rs, rpc_check.rs. Renders plans only.
 rust_native.py   Rust backend: core-native, one module per unknown-field mode, from the SAME
@@ -45,7 +49,11 @@ generate.py      ONE command writes everything the core owns (incl. the corpus-s
                  --check flag. --check: drift + the GUARD over every *.py backend module
                  (26; plan/ir/generate excluded) + its planted-violation self-test.
                  --core-only skips the slices.
-one_core.sh      R0's mechanical check; allows codec/crates/*/src/generated_corpus/.
+one_core.sh      R0's mechanical check; allows codec/crates/*/src/generated_{corpus,nounk,corpus_nounk}/.
+crates/ak-{abi,core}/src/generated_nounk/, generated_corpus_nounk/
+                 the no-unknown variant's abi.rs / codec.rs / layout.rs, selected when the
+                 `unknown-fields` feature (default on) is OFF; a build of it needs its own
+                 CARGO_TARGET_DIR (a shared one overwrites libak_core.so).
 ```
 
 ### This slice
@@ -61,7 +69,12 @@ gen/gate.sh            THE CORRECTNESS GATE, nothing timed (AK_NO_TIMING): gener
                        core unit tests, byte identity, shapes, crossing counts, content sets,
                        four-build concurrency suite, lifecycle, R-D1 repros, R-D6, corpus.
                        `--tsan` adds ThreadSanitizer
-gen/corpus.sh          the corpus, four arms, plus four controls that must fail
+gen/corpus.sh          the corpus, four arms, plus four controls that must fail; section 6:
+                       the no-unknown build (ffi-nounk, native-drop, native-retain) + controls
+gen/c_variant.sh       both C headers (c_abi of the plan and of its drop relowering): C99 and
+                       C++11 compile, AK_LAYOUT_HOST vs each core's ak_layout_facts(), the two
+                       mismatched pairs required to fail
+gen/crossings-nounk.txt  the no-unknown build's committed crossing counts (gate step 12)
 gen/tsan.sh            the concurrency suite under ThreadSanitizer (nightly), with a planted
                        race that TSan must see
 gen/corpus_before.py   reproduces the pre-WP5 corpus run (logs/rust/wp5-corpus-before.log)
@@ -87,6 +100,28 @@ Arms: `prost`, `armonik` (facade + generated prost impl), `core-native` (drop) a
 `ffi-drop`, `ffi-retain`, `native-drop`, `native-retain`.
 
 ## What was checked (results; each with its log)
+
+WP5 step 10 (the no-unknown variant), commits d89bdfc + f0c82bb:
+
+- **Gate, both variants** (`logs/rust/wp5s10-gate.log` on the working tree,
+  `logs/rust/campaign-wp5s10/gate.log` on f0c82bb): GATE PASSED. Step 12 on the no-unknown
+  build (`target-nounk`, `--no-default-features --features init-guard`): the core exports 0
+  `ak_uencode_*`/`ak_uelem*_*`/`ak_dec_reset_*`; conformance (byte identity on every payload,
+  P1.3/P2.5 included) and shapes (presence, oneof, unknown-field vectors) VERDICT pass; the
+  codec pre-check 520/520 on 112 inputs; crossing counts identical to `gen/crossings-nounk.txt`;
+  `gen/c_variant.sh`: both headers compile C99/C++11 -Wall -Werror, full 400 and no-unknown
+  240 layout facts agree with their cores, both mismatched pairs caught.
+- **Corpus on the no-unknown build** (gate log, section 11 / corpus.sh section 6): ffi-nounk
+  680/0, native-drop/native-retain 696/0; 0 retained-form lines from ffi-nounk (every unknown
+  row written in the dropped form, accepted by the contract); controls proj/reenc/accept/noinit
+  fail as required on that build. The full build unchanged (ffi-drop/ffi-retain 680/0).
+- **Crossing counts** (`logs/rust/wp5s10/counts-diff.txt`): 335 rows per mode; the no-unknown
+  build differs from the full build's drop mode on 3 rows only -- P1.2, P1.2/latin1, P1.2/wide
+  decode reverse 8 -> 5, which is the pre-decision-11 value (`wp5s6-gate.log` line 118).
+- **Generators**: `poc/codec/gen/generate.py --check` all five slices exit 0, 264 files 0
+  problems in csharp (`logs/rust/wp5s10/generate-check.log`); the full variant's generated
+  text (codec, abi, layout, binding.rs, every slice's ak_abi.h) is byte-unchanged by the step;
+  `one_core.sh --selftest` 0 controls silent (`logs/rust/wp5s10/one-core-selftest.log`).
 
 WP5 step 7 (decision 11 mechanism), uncommitted state -> the poc(codec) commit named in JOURNAL:
 
@@ -203,16 +238,16 @@ does not express. The calib suite is a runner too (two arms, fixed iteration cou
 | 7 | payloads | met: 16 payloads (ASCII); latin1 and wide content sets on P1.2 and P2.2; 92 non-disputed `U-*` corpus rows whose root is one of this slice's 7 ABI roots (112 inputs). P7.1 decode only (SHAPES.md: no canonical writer) |
 | 8 | arms | met: incumbent-prod = prost through tonic's codec calls (`Message::encode` into a `BytesMut`, `decode` from a `Buf`); **incumbent-best is the same entry point** (R14, this STATE's incumbent row), so not a second row; core-ffi push, core-ffi-pull as a labelled extra; host-gen = `core-native`; Rust's `armonik` |
 | 9 | directions | met: encode, decode, decode-read (a generated visitor reads every field of both object models: scalars, enums, strings/bytes length and first/last byte, every element and map entry, present children and the active oneof member) |
-| 10 | drop and retain | met: core-native, core-ffi and core-ffi-pull in drop and retain (retain = every position of decision 11's options armed, `decode_with_*_unk`); incumbent and armonik in prost's default (drop), stated. On 27 `U-wire-*` rows prost REFUSES a known field at a foreign wire type (protobuf reads it as unknown): those (row, incumbent/armonik) pairs are not timed and are listed in the codec log header |
+| 10 | drop, retain and no-unknown | met: no-unknown = a SEPARATE binary built without `unknown-fields` (target-nounk), core-native/core-ffi/core-ffi-pull in mode no-unknown with incumbent-prod and armonik as in-process controls (`codec-nounk-launchN.jsonl`). Drop and retain: core-native, core-ffi and core-ffi-pull in drop and retain (retain = every position of decision 11's options armed, `decode_with_*_unk`); incumbent and armonik in prost's default (drop), stated. On 27 `U-wire-*` rows prost REFUSES a known field at a foreign wire type (protobuf reads it as unknown): those (row, incumbent/armonik) pairs are not timed and are listed in the codec log header |
 | 11 | serialised once per iteration, no memo | met: prost recomputes `encoded_len` every encode and the core-ffi / core-native encoders reset their context per call; Rust objects carry no size memo, so re-encoding one graph is a fresh serialisation |
-| 12 | cells A-D | met |
+| 12 | cells A-D, C and D in three modes | met: full client A, B, C-retain, C-drop, D-retain, D-drop (`rpc-T-launchN.jsonl`); no-unknown client (target-nounk) C-nounk, D-nounk with A and B as in-process controls (`rpc-T-nounk-launchN.jsonl`), against the same server; the plant control per client binary; the runner checks each binary loads the core of its variant (u-family exports) |
 | 13 | server separate process, pre-serialised | met: `rpc_server` on `AK_CPU_SERVER`, P2.2 pre-serialised at start-up and checked against the manifest hash; direction (b) decoded by prost in every cell |
 | 14 | directions a and b | met; the optional streamed upload is not built |
 | 15 | 1/8/16 in flight | met (k host threads, each blocking per call) |
 | 16 | B/C blocking; callback/queue labelled | B and C use `ak_call_unary` (blocking). The callback and queue deliveries are not in the campaign runner (they exist in the stage 6 harness, `rpcgrid`) |
 | 17 | shipped and pinned, B/C follow | met: shipped = tonic endpoint defaults + nodelay (packages/rust's `GrpcClient__TcpNagleAlgorithm` default false), `ak_client_new`, server defaults; pinned = 4 MiB stream and connection windows, adaptive off, Nagle off on tonic, the core client and the server |
 | 18 | every call checked, abort | met: status and response length on every call (cell A through its decoder's byte count), C and D also the core's decode; the first failure exits 3 with no output file; control `--plant` (wrong expected length) run per transport by the runner and required to abort with no file (`rpc-*-PLANT.log`) |
-| 19 | crossing counts gate | met: `crossings` (counting build) counts every timed core-ffi case (671 lines: every input x encode/decode/decode-pull x drop/retain), compared with the committed `gen/crossings.txt` in the gate and before codec and calib; a difference stops the run. Not counted: the two `ak_dec_reset_<Root>` calls around a retain decode (forward crossings the core's context counters do not see) |
+| 19 | crossing counts gate | met: `crossings` (counting build) counts every timed core-ffi case (671 lines: every input x encode/decode/decode-pull x drop/retain), compared with the committed `gen/crossings.txt` in the gate and before codec and calib; a difference stops the run. The no-unknown build: 335 rows (x no-unknown) vs `gen/crossings-nounk.txt`, same places. Not counted: the two `ak_dec_reset_<Root>` calls around a retain decode (forward crossings the core's context counters do not see) |
 | 20 | crossing cost fwd/rev, perf stat | partly: `calib` rows `forward` (ak_noop) and `forward-reverse` (ak_noop_reverse), the reverse cost is their difference in the same round; `perf stat -e cycles,instructions` per arm when perf is installed, **not installed in this container** (`calib-perf-launch1.txt` says so) |
 | 21 | CPU clocks | codec: CLOCK_THREAD_CPUTIME_ID per criterion sample (criterion's measurement replaced); **no wall time for the codec suite** (criterion measures one quantity), stated in the header. rpc: getrusage(RUSAGE_SELF) of the client per round, wall beside it. calib: CLOCK_THREAD_CPUTIME_ID |
 | 22 | blocks, order rotated between launches | met: codec in blocks by arm, the 5-arm order rotated by launch; rpc cells rotated by launch; calib's two arms alternate |
@@ -225,7 +260,7 @@ does not express. The calib suite is a runner too (two arms, fixed iteration cou
 | 29 | logs per suite and launch | met: `ffi/logs/rust/campaign/<suite>[-<transport>]-launch<N>.jsonl` |
 | 30 | summaries | none produced by this slice (optional) |
 | 31 | runner interface | met for the slice; `ffi/campaign.sh` is not this slice's file |
-| 32 | smoke run | met: `logs/rust/campaign/`, every file headed INSTRUMENTATION: gate PASSED; calib 2 rows; rpc 24 rows per transport, the plant control aborting on both; codec 2,296 cases x 10 samples = 22,960 rows, precheck 962/962, about 2 minutes |
+| 32 | smoke run | met, WP5 step 10: `logs/rust/campaign-wp5s10/` (codec full 22,960 rows + no-unknown 14,020 rows; rpc 36 + 24 rows per transport, the plant aborting on both clients and both transports; gate on f0c82bb). WP3: `logs/rust/campaign/`, every file headed INSTRUMENTATION: gate PASSED; calib 2 rows; rpc 24 rows per transport, the plant control aborting on both; codec 2,296 cases x 10 samples = 22,960 rows, precheck 962/962, about 2 minutes |
 
 **Smoke run** (container, `AK_CPU_CLIENT=1 AK_CPU_SERVER=2,3`, `AK_SMOKE=1`, commit 833ea32 for
 the timing suites; figures are instrumentation): `logs/rust/campaign/`.
@@ -301,8 +336,12 @@ log index and `JOURNAL.md`. D20's ABI hazard (an empty buffer's pointer can be s
   retry, TLS, streaming); `ak_call_cancel` never called; no concurrency suite over RPC.
 - **Nesting past depth 3 on the C ABI**: the schema's roots stop there; decision 7's limit is
   exercised on core-native (`Nest`) only.
-- **Group layout export**: both sides of this slice compile against one generated header, so
-  section 10's load-time check is untested here.
+- **Group layout export**: the Rust host compiles against the same generated declarations as
+  the core, so its own load-time check is trivially true; `gen/c_variant.sh` exercises section
+  10's check from a C++ host on both header variants (and its failure on a mismatch).
+- **The no-unknown variant's cost**: built, gated and in the campaign harness; no figure (a
+  container figure is instrumentation). `ak_dec_reset_*` and `ak_dec_<Root>_opts` do not exist
+  there, so a no-unknown host cannot be switched to retain at run time.
 - **Other slices' runtimes**: the hand-written runtimes (D38) are not generated, so a rule
   in plan.py reaches them only through their owners. `cs_layout_probe` still parses the Rust
   declaration's text (intentional, R-E6).
@@ -322,6 +361,9 @@ log index and `JOURNAL.md`. D20's ABI hazard (an empty buffer's pointer can be s
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/wp5s10-gate.log` | WP5 step 10: the gate with step 12 (the no-unknown build) on the working tree |
+| `logs/rust/wp5s10/` | counts diff (no-unknown vs drop), generate --check, one_core --selftest |
+| `logs/rust/campaign-wp5s10/` | WP5 step 10 smoke run: gate on f0c82bb, codec full + no-unknown, rpc both clients x both transports, plant controls (instrumentation) |
 | `logs/rust/wp5s8-gate.log` | WP5 step 8: the rust gate with the in-place/pool/oneof/root-bound rules and their controls |
 | `logs/rust/campaign/` | WP3 smoke run of every suite (instrumentation), gate log, runner logs |
 | `logs/rust/wp5s7-gate.log` | the rust gate with decision 11's mechanism (corpus, controls, counts) |

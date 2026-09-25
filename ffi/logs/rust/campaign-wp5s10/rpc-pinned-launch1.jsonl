@@ -1,0 +1,66 @@
+# rust slice campaign runner, suite rpc, core variant full
+# INSTRUMENTATION unless on the campaign machine of CAMPAIGN.md section 2 (a container figure is not a result)
+# commit     f0c82bb   tree-id 4113d17638ef79cb
+# date       2026-09-25T21:49:28Z
+# machine    Intel(R) Xeon(R) Processor @ 2.10GHz; 4 CPUs online; kernel 6.18.44-fc-v37
+# smt        active=0 control=notsupported
+# governor   n/a
+# turbo      intel_pstate/no_turbo=n/a cpufreq/boost=n/a
+# isolation  cmdline: cgroup: n/a
+# cpu sets   CLIENT=1 SERVER=2,3 OS=the rest
+# runtime    rustc 1.94.1 (e408947bf 2026-03-25); cargo 1.94.1 (29ea6fb6a 2026-03-24)
+# incumbent  prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6; criterion 0.5.1
+# build      cargo --release (opt-level 3, lto off, codegen-units default), core ak-core as a cdylib linked through the dynamic linker, core features rpc,init-guard,unknown-fields (the full variant, target/); harness guard on; transcoder ak_tc_utf8_trusted (a Rust String is UTF-8)
+# repeats    launches=1 rounds=1 smoke=1
+# slice: rust   suite: rpc
+# INSTRUMENTATION unless run on the campaign machine (CAMPAIGN.md section 2); a container figure is not a result
+# incumbent: prost 0.14 / tonic 0.14 (tonic-prost), as pinned in poc/rust/Cargo.lock
+# build: release profile, core ak-core cdylib (shared, linked by the dynamic linker), features rpc,init-guard; harness guard on
+# rustc: see run header
+# transport: pinned: 4 MiB stream + connection windows, adaptive off, Nagle off, both transports and the server
+# link: loopback TCP; server = rpc_server, a separate process (requirement 13), pre-serialised P2.2
+# cells: A prost+tonic, B prost+core (blocking), C core+core (blocking), D core+tonic; C and D per unknown-field mode (-retain: every decision 11 position armed and u-group encode; -drop: nothing armed; -nounk: the build with unknown-field support compiled out); callback/queue deliveries not run in this suite
+# build: unknown-fields (retain/drop)
+# launch: 1
+# cell order: A,B,C-retain,C-drop,D-retain,D-drop
+# rounds: 1
+# calls per round: 16 rounded up to a multiple of in-flight
+# warm-up: 16 calls per (cell, dir, in-flight) before round 1
+# clocks: cpu_ns = getrusage(RUSAGE_SELF) utime+stime of the client per round; wall_ns = monotonic
+# runtimes: tonic cells: tokio multi-thread, 2 workers; core cells: ak_runtime_new(2)
+{"cell":"A","cpu_ns":35155000,"dir":"a","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":39128706}
+{"cell":"A","cpu_ns":45991000,"dir":"a","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":46821469}
+{"cell":"A","cpu_ns":47900000,"dir":"a","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":48640510}
+{"cell":"A","cpu_ns":22126000,"dir":"b","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":61609724}
+{"cell":"A","cpu_ns":19737000,"dir":"b","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":39410645}
+{"cell":"A","cpu_ns":21175000,"dir":"b","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":49106973}
+{"cell":"B","cpu_ns":32843000,"dir":"a","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":43265420}
+{"cell":"B","cpu_ns":46865000,"dir":"a","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":50055263}
+{"cell":"B","cpu_ns":46967000,"dir":"a","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":47827364}
+{"cell":"B","cpu_ns":18882000,"dir":"b","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":62532193}
+{"cell":"B","cpu_ns":19662000,"dir":"b","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":35241521}
+{"cell":"B","cpu_ns":17958000,"dir":"b","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":40843440}
+{"cell":"C-retain","cpu_ns":42430000,"dir":"a","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":47147499}
+{"cell":"C-retain","cpu_ns":49255000,"dir":"a","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":49979825}
+{"cell":"C-retain","cpu_ns":53250000,"dir":"a","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":53760365}
+{"cell":"C-retain","cpu_ns":17483000,"dir":"b","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":52331160}
+{"cell":"C-retain","cpu_ns":14228000,"dir":"b","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":34873103}
+{"cell":"C-retain","cpu_ns":15440000,"dir":"b","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":49495840}
+{"cell":"C-drop","cpu_ns":47126000,"dir":"a","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":52577177}
+{"cell":"C-drop","cpu_ns":52308000,"dir":"a","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":52897554}
+{"cell":"C-drop","cpu_ns":53314000,"dir":"a","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":54714204}
+{"cell":"C-drop","cpu_ns":16155000,"dir":"b","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":43612417}
+{"cell":"C-drop","cpu_ns":14361000,"dir":"b","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":44384645}
+{"cell":"C-drop","cpu_ns":17108000,"dir":"b","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":41533905}
+{"cell":"D-retain","cpu_ns":39267000,"dir":"a","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":52748079}
+{"cell":"D-retain","cpu_ns":44050000,"dir":"a","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":45503916}
+{"cell":"D-retain","cpu_ns":48724000,"dir":"a","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":50174935}
+{"cell":"D-retain","cpu_ns":17137000,"dir":"b","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":52832130}
+{"cell":"D-retain","cpu_ns":16475000,"dir":"b","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":37413227}
+{"cell":"D-retain","cpu_ns":17916000,"dir":"b","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":55562764}
+{"cell":"D-drop","cpu_ns":39203000,"dir":"a","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":42580601}
+{"cell":"D-drop","cpu_ns":43580000,"dir":"a","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":44147626}
+{"cell":"D-drop","cpu_ns":47363000,"dir":"a","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":49506561}
+{"cell":"D-drop","cpu_ns":16727000,"dir":"b","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":42954323}
+{"cell":"D-drop","cpu_ns":21660000,"dir":"b","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":62514108}
+{"cell":"D-drop","cpu_ns":19493000,"dir":"b","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":37121152}
