@@ -1544,3 +1544,56 @@ code had changed since the last passed gate), 560 checks, 1,780 cases, 0 failed,
 lines, 44 min (36 min on the first attempt at 99bdc0d, whose output was discarded after the
 incumbent-best check and the GC fields were added). Heap at span start 61 to 72 MB with no
 trend; every case's span holds 4/4/4 collections. No figure from it is used anywhere.
+
+### 51. Unit 4 follow-up: the per-case cost was BDN's forced GCs; the JIT tier is read back
+
+Asked by the aggregating session: find why BDN's per-case cost grows with the case count in one
+process, fix it or split the launch; read back the JIT tier (req 24).
+
+**Where the time went.** A trace of BDN's host signals (AK_BDN_TRACE) put almost all of it
+between BeforeAnythingElse and BeforeActualRun (jitting, pilot, warm-up), not in the exporter,
+the diagnoser, the orderer or setup (0.1 to 0.2 ms per case, P2.2 graphs 110 to 170 ms).
+GC.GetTotalPauseDuration beside it: 50 to 80 % of a smoke case was GC pause, 30 to 35 gen2
+collections per case. BDN forces 4 full collections per iteration. Their cost follows the live
+heap, and the heap follows the case count: after the harness's own checks the process holds
+under 1 MB, so the 54 to 75 MB with 1,780 cases (against 10 to 24 MB with 60 to 110 cases) is
+BDN's per-case state, tens of kB each. About 15 ms per collection against about 5 ms.
+**Refuted on the way:** the parsed corpus manifest I had cached (entry 50) was one suspect;
+dropping it (now only root and file per row are kept) changed nothing at 1,780 cases, because
+the heap before BDN starts was already under 1 MB. Kept anyway.
+
+**Fix: one process per arm:mode unit** (7 per launch, 40 to 336 cases each), the unit order
+rotated by launch (arms, and the modes within an arm). Req 22 as amended allows arm blocks;
+each process still does its own pre-timing checks. Smoke: the codec phase went from 36 to 44
+min to 12.5 min (BDN itself 5.9 min); about 0.2 s per smoke case instead of 1.2 to 1.5 s.
+At the default job a case is about 2.5 s, 11 % of it GC pause, so the job itself, not the
+overhead, sets a launch at about 80 to 100 min in this container. Forced GC was not turned
+off: it is BDN's default and is kept, stated, with its pause recorded per case.
+
+**Correction to entry 50.** I wrote that the CPU span (BeforeActualRun..AfterActualRun)
+covers warm-up + actual. It does not: BDN signals BeforeActualRun after the warm-up. At the
+default job the span minus the actual-stage wall is 25 to 135 ms, the forced GCs, while the
+warm-up alone is 0.5 to 1.4 s. The smoke's extra time I had read as the warm-up was those GCs.
+The round-0 row now says so, carries gc_pause_ns, and cpu_ns/iters is the per-op process CPU
+of the actual stage including forced collections.
+
+**JIT tier read back.** An in-process EventListener on the runtime's JIT events
+(MethodLoadVerbose, tier = MethodFlags bits 7-9, TraceEvent's OptimizationTier names),
+attributed to cases by event timestamp against the host-signal times. Per case: compilations
+before and inside the actual stage by tier, and hot_tier0 = methods first compiled in the case
+that are still tier 0 at the end of its actual stage and promoted later (hot code measured at
+tier 0). First result, the decisive one: without help, the first cases of a process measured
+hot code at tier 0 (CodecSuite.Run itself, System.Text.Ascii vector helpers, Google.Protobuf
+parse primitives), at the default job too; tier-up waits for a quiet 100 ms which BDN's own
+start-up JIT keeps postponing. Fixes: a process-level pre-warm (rounds of 64 calls to every
+case through CodecSuite.Run, 0.5 s apart, until a round compiles nothing: 7 to 9 rounds) and
+two unexported prime cases (copies of the first two cases) that absorb what BDN's engine
+touches first.
+**A defect in the read-back, found by the smoke:** 10 of 1,780 cases were flagged for the
+runtime's cast cache and a reflection stub. Those methods were first compiled before the
+listener started, so their first recorded event was a promotion, read as "compiled in this
+case". Attribution now requires the first recorded event to be an initial tier-0 compile.
+After that fix: smoke PASS on all 1,780 cases (81 cases show a compilation inside the actual
+stage, all runtime or engine methods by name), and one unit at the default job (core-ffi:drop,
+336 cases) PASS. The split between measured and engine code is by name and every counted method
+is named in the rows.
