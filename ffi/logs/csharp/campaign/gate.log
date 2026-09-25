@@ -1,6 +1,6 @@
 # csharp slice gate (FIX-PLAN WP5 steps 4 and 9). CORRECTNESS ONLY: no timing is taken.
-# date:        2026-09-25T18:16:36Z
-# branch HEAD: 8d2e7ac
+# date:        2026-09-25T21:43:49Z
+# branch HEAD: f0c82bb + the uncommitted slice changes this log is committed with
 # dotnet:      SDK 8.0.131; runtimes: 8.0.31 + Microsoft.NETCore.App.Runtime.linux-x64 6.0.36 from NuGet (self-contained)
 # corpus:      ffi/corpus at de21106, 702 vectors
 # machine:     container, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz, 6.18.44-fc-v37
@@ -32,11 +32,11 @@ exit status: 0
 
 ################ 2. the core (every build with init-guard) and the layout probe
 $ gen/build_core.sh
-# core: git archive HEAD ffi/poc/codec (crates identical to the working tree); last core commit e897f57
+# core: git archive HEAD ffi/poc/codec (crates identical to the working tree); last core commit d89bdfc
 # rustc 1.94.1, cargo 1.94.1
-#   target-core: --features rpc,init-guard -> 60a5e89ee077066c (117 ak_* exports)
-#   target-core-count: --features rpc,count,init-guard -> 8f96586d52e078e4 (117 ak_* exports)
-#   target-core-corpus: --features corpus,init-guard -> 9dbe0be830f66110 (241 ak_* exports)
+#   target-core: --features rpc,init-guard -> d4245e9f9c8b50f2 (117 ak_* exports)
+#   target-core-count: --features rpc,count,init-guard -> 0817913b57779013 (117 ak_* exports)
+#   target-core-corpus: --features corpus,init-guard -> 16701a992f424285 (241 ak_* exports)
 #   layout probe: 109 structs (shapes), 203 structs (corpus)
 exit status: 0
 
@@ -86,10 +86,10 @@ exit status: 0
 #        .NET Framework needs Windows, and this container has no Mono either.
 
 ################ 4. net8.0 harness
-# core in Release/net8.0: target-core (60a5e89ee077066c)
+# core in Release/net8.0: target-core (d4245e9f9c8b50f2)
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll conformance
 # harness: conformance
-# utc:                 2026-09-25T18:20:19Z
+# utc:                 2026-09-25T21:45:08Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -131,7 +131,7 @@ P7.1     -      DualResponse                  98  perm    perm    perm    perm  
 exit status: 0
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll unknown
 # harness: unknown
-# utc:                 2026-09-25T18:20:20Z
+# utc:                 2026-09-25T21:45:10Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -193,7 +193,7 @@ value moved, which would be a real defect).
 exit status: 0
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll groups
 # harness: groups
-# utc:                 2026-09-25T18:20:20Z
+# utc:                 2026-09-25T21:45:10Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -239,7 +239,7 @@ The same at 200,000, which is past where an unbounded skipper aborts:
 exit status: 0
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll utf8
 # harness: utf8
-# utc:                 2026-09-25T18:20:20Z
+# utc:                 2026-09-25T21:45:10Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -298,7 +298,7 @@ plan Options.utf8 = reject: the managed codec must refuse 15 of 15; it refused 1
 exit status: 0
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll mapforms
 # harness: mapforms
-# utc:                 2026-09-25T18:20:20Z
+# utc:                 2026-09-25T21:45:10Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -355,7 +355,7 @@ Reading this.
 exit status: 0
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll layout /home/user/ArmoniK.Api/ffi/poc/csharp/target-core/layout.json
 # harness: layout
-# utc:                 2026-09-25T18:20:21Z
+# utc:                 2026-09-25T21:45:10Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -389,7 +389,7 @@ exit status: 2
 control net8 layout plant: failed, as required
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll coreffi
 # harness: coreffi
-# utc:                 2026-09-25T18:20:21Z
+# utc:                 2026-09-25T21:45:10Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -467,10 +467,10 @@ What the counts mean, and the whole reason the shapes differ:
 
 0 failure(s)
 exit status: 0
-# core in Release/net8.0: target-core-count (8f96586d52e078e4)
+# core in Release/net8.0: target-core-count (0817913b57779013)
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll coreffi
 # harness: coreffi
-# utc:                 2026-09-25T18:20:22Z
+# utc:                 2026-09-25T21:45:11Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -545,7 +545,7 @@ What the counts mean, and the whole reason the shapes differ:
 
 0 failure(s)
 exit status: 0
-# core in Release/net8.0: target-core (60a5e89ee077066c)
+# core in Release/net8.0: target-core (d4245e9f9c8b50f2)
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll coreffi   # a CONTROL: must fail
 P1.1     ListResultsResponse            858  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
 P1.2     ListResultsResponse         218121  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
@@ -567,10 +567,10 @@ exit status: 16
 control net8 coreffi without ak_init (init-guard core): failed, as required
 
 ################ 5. net6.0 harness
-# core in bin/publish-net6: target-core (60a5e89ee077066c)
+# core in bin/publish-net6: target-core (d4245e9f9c8b50f2)
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness conformance
 # harness: conformance
-# utc:                 2026-09-25T18:20:24Z
+# utc:                 2026-09-25T21:45:13Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -612,7 +612,7 @@ P7.1     -      DualResponse                  98  perm    perm    perm    perm  
 exit status: 0
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness unknown
 # harness: unknown
-# utc:                 2026-09-25T18:20:25Z
+# utc:                 2026-09-25T21:45:14Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -674,7 +674,7 @@ value moved, which would be a real defect).
 exit status: 0
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness groups
 # harness: groups
-# utc:                 2026-09-25T18:20:25Z
+# utc:                 2026-09-25T21:45:14Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -720,7 +720,7 @@ The same at 200,000, which is past where an unbounded skipper aborts:
 exit status: 0
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness utf8
 # harness: utf8
-# utc:                 2026-09-25T18:20:25Z
+# utc:                 2026-09-25T21:45:14Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -779,7 +779,7 @@ plan Options.utf8 = reject: the managed codec must refuse 15 of 15; it refused 1
 exit status: 0
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness mapforms
 # harness: mapforms
-# utc:                 2026-09-25T18:20:25Z
+# utc:                 2026-09-25T21:45:14Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -836,7 +836,7 @@ Reading this.
 exit status: 0
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness layout /home/user/ArmoniK.Api/ffi/poc/csharp/target-core/layout.json
 # harness: layout
-# utc:                 2026-09-25T18:20:26Z
+# utc:                 2026-09-25T21:45:15Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -870,7 +870,7 @@ exit status: 2
 control net6 layout plant: failed, as required
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness coreffi
 # harness: coreffi
-# utc:                 2026-09-25T18:20:26Z
+# utc:                 2026-09-25T21:45:15Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -948,10 +948,10 @@ What the counts mean, and the whole reason the shapes differ:
 
 0 failure(s)
 exit status: 0
-# core in bin/publish-net6: target-core-count (8f96586d52e078e4)
+# core in bin/publish-net6: target-core-count (0817913b57779013)
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness coreffi
 # harness: coreffi
-# utc:                 2026-09-25T18:20:27Z
+# utc:                 2026-09-25T21:45:16Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -1026,7 +1026,7 @@ What the counts mean, and the whole reason the shapes differ:
 
 0 failure(s)
 exit status: 0
-# core in bin/publish-net6: target-core (60a5e89ee077066c)
+# core in bin/publish-net6: target-core (d4245e9f9c8b50f2)
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness coreffi   # a CONTROL: must fail
 P1.1     ListResultsResponse            858  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
 P1.2     ListResultsResponse         218121  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
@@ -1048,7 +1048,7 @@ exit status: 16
 control net6 coreffi without ak_init (init-guard core): failed, as required
 
 ################ 6. akrpc (net8.0): the generated RPC binding
-# core in Release/net8.0: target-core-count (8f96586d52e078e4)
+# core in Release/net8.0: target-core-count (0817913b57779013)
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc.dll --layout /home/user/ArmoniK.Api/ffi/poc/csharp/target-core/layout.json
 # akrpc --layout: plan.rpc's structs (Generated/RpcAbi.cs) against the Rust declaration; ak_init() = 0
 layout, by name both ways: 6 C# structs / 20 members against the Rust declaration probed in layout.json: all agree
@@ -1066,14 +1066,14 @@ ok      blocking         0/50              2.00           0.00              2  P
 error   blocking        50/50              2.00           0.00              2  PASS
 ok      callback         0/50              3.00           1.00              3  PASS
 error   callback        50/50              3.00           1.00              3  PASS
-ok      queue            0/50              4.00           0.00              4  PASS
+ok      queue            0/50              4.02           0.00              4  PASS
 error   queue           50/50              4.00           0.00              4  PASS
 
 error-path: 0 failure(s)
 exit status: 0
 
 ################ 7.8 the corpus, net8.0
-# core in Release/net8.0: target-core-corpus (9dbe0be830f66110)
+# core in Release/net8.0: target-core-corpus (16701a992f424285)
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus --layout /home/user/ArmoniK.Api/ffi/poc/csharp/target-core-corpus/layout.json
 layout, by name both ways: 199 C# structs / 780 members against the Rust declaration probed in layout.json: all agree
   (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters)
@@ -1446,7 +1446,7 @@ CORPUS PASSES on all four arms
 exit status: 0
 
 ################ 7.6 the corpus, net6.0
-# core in bin/publish-net6: target-core-corpus (9dbe0be830f66110)
+# core in bin/publish-net6: target-core-corpus (16701a992f424285)
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/publish-net6/corpus --layout /home/user/ArmoniK.Api/ffi/poc/csharp/target-core-corpus/layout.json
 layout, by name both ways: 199 C# structs / 780 members against the Rust declaration probed in layout.json: all agree
   (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters)

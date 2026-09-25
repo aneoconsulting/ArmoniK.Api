@@ -257,7 +257,7 @@ runner (which meets 13 to 18, 21, 23, 27, 28) is kept.
 | 9 | directions | met: encode, decode, decode-read (a generated `Touch` visitor reads every field, both object models); decode-reencode on the unknown rows |
 | 10 | drop and retain | met: host-gen drop/retain, core-ffi drop/retain (decision 11: every position armed with grow; retain checked before timing: on every unknown row core-ffi retain and host-gen retain re-encode to the incumbent's bytes), core-ffi-pull drop; incumbent default (retains), stated. The one position the C# facade cannot hold is a map entry's bag (U-map-entry, disputed, not in the timed set) |
 | 11 | serialised once per iteration, no amortised memo | met: Google.Protobuf's C# messages keep no serialized-size memo (CalculateSize recomputes); core-ffi and host-gen reset their contexts per call; the graph is reused |
-| 12 | cells A-D | met |
+| 12 | cells A-D; C and D per unknown-field mode (amended 85cb00f) | met for retain and drop: `A`, `B`, `C-retain`, `C-drop`, `D-retain`, `D-drop` in both directions, samples carry `unknown_mode` (retain = decision 11's options armed at every position and `ak_uencode_*`; drop = reset with NULL and `ak_encode_*`; the extra `C.callback`/`C.queue` rows decode in drop mode). `C-nounk`/`D-nounk`: not yet, they need the compiled-out build (the rust agent is adding it to poc/codec) |
 | 13 | server separate process, pre-serialised | met: Kestrel in its own process on `AK_CPU_SERVER`, P2.2 bytes pre-serialised; direction b decoded by the incumbent in every cell |
 | 14 | directions a and b | met; the optional streamed upload is not built |
 | 15 | 1/8/16 in flight | met |
@@ -291,12 +291,17 @@ D1 (`src/BenchDotNet`, retired at WP3) is **restored** as the codec-suite engine
   unknown row to the incumbent's bytes), JIT check PASS; 1,780 cases, 0 failed: 1,780 raw
   iteration rows + 1,780 CPU rows; 276 of them core-ffi retain on the 92 unknown rows
   (decode, decode-read, decode-reencode), now on a decoder that retains (requirement 10).
-- rpc, calib and the abort control (WP3, commit `5d81225`): rpc 48 samples per transport
-  (16 cell/delivery rows x 3 in-flight levels, shipped and pinned); the requirement-18
-  control aborted with 0 samples on both transports (`*.PLANT.jsonl`); calib 2 samples after
-  the crossing-count gate (`calib-crossing-counts.log`).
+- **rpc with C and D per unknown-field mode** (req 12 amended 85cb00f; commit `637e77d`, gate
+  PASSED at that commit, `gate.log`): 60 samples per transport, shipped and pinned (20
+  cell/direction rows x 3 in-flight levels: A, B, C-retain, C-drop, D-retain, D-drop and the
+  B/C callback/queue extras, directions a and b), every call checked, no call failed and no
+  retained decode left a buffer undelivered; **figures stripped** (cpu_ns, wall_ns null). The
+  requirement-18 control (`*.PLANT.jsonl`) aborted with 0 samples on both transports.
+- calib (WP3, commit `5d81225`): 2 samples after the crossing-count gate
+  (`calib-crossing-counts.log`).
 
-`gate.log` is the gate the codec smoke ran behind (a copy of `wp5s9-gate.log`, the same run):
+`gate.log` is now the gate the rpc smoke ran behind (at `637e77d`; the codec smoke ran behind
+`wp5s9-gate.log`, the same checks at `8d2e7ac`):
 net8.0 and net6.0, conformance, core-ffi, crossing counts = `gen/crossings.txt`, corpus (managed
 and ffi arms, strict retain), decision 11's controls, probe rows, controls.
 
