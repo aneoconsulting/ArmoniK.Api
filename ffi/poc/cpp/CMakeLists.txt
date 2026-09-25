@@ -406,6 +406,29 @@ if(AK_RPC)
   ak_rpc_bin(rpcbench  ${CMAKE_CURRENT_SOURCE_DIR}/src/rpcbench.cpp  ${CORE_RPC_OUT}       core_rpc)
   ak_rpc_bin(rpcflow   ${CMAKE_CURRENT_SOURCE_DIR}/src/rpcflow.cpp   ${CORE_RPC_OUT}       core_rpc)
   ak_rpc_bin(rpccounts ${CMAKE_CURRENT_SOURCE_DIR}/src/rpccounts.cpp ${CORE_COUNT_RPC_OUT} core_rpc_count)
+
+  # ---- design/CAMPAIGN.md (W11): the campaign's binaries -----------------------------
+  # gen/run_campaign.sh drives them; nothing here prints a summary. The RPC client and the
+  # server are TWO processes, pinned by the runner to AK_CPU_CLIENT and AK_CPU_SERVER.
+  # The rpc core is built with init-guard like every other core (requirement 6).
+  set(CORE_CAMP_OUT "${CORE_TGT}/target-camp/release")
+  add_custom_target(core_camp ALL
+    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-camp
+            cargo build --release --features rpc,${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
+    BYPRODUCTS ${CORE_CAMP_OUT}/libak_core.so
+    COMMENT "cargo build the shared ak-core --features rpc,init-guard (campaign)")
+  ak_rpc_bin(campaign_rpc    ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_rpc.cpp    ${CORE_CAMP_OUT} core_camp)
+  ak_rpc_bin(campaign_server ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_server.cpp ${CORE_CAMP_OUT} core_camp)
+  ak_rpc_bin(campaign_calib  ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_calib.cpp  ${CORE_CAMP_OUT} core_camp)
+  # The codec suite links the same core as the codec gates (CORE_OUT: init-guard, no rpc)
+  # and grpc++ for the production path's SerializationTraits.
+  ak_arm(campaign_codec ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_codec.cpp 17 target on shared reject ${CORE_OUT})
+  target_sources(campaign_codec PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/core_native_retain.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/touch.cpp)
+  target_include_directories(campaign_codec PRIVATE ${GRPCPP_INCLUDE_DIRS})
+  target_link_directories(campaign_codec PRIVATE ${GRPCPP_LIBRARY_DIRS})
+  target_link_libraries(campaign_codec PRIVATE ${GRPCPP_LIBRARIES})
 endif()
 
 # ---- the upb arm: a CEILING, not a candidate ----------------------------------------
