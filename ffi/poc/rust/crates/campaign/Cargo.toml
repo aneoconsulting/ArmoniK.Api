@@ -6,7 +6,7 @@ version.workspace = true
 publish.workspace = true
 
 # FIX-PLAN WP3: the rust slice's campaign harness (design/CAMPAIGN.md).
-#   benches/codec.rs   the codec suite on criterion (requirement 22a)
+#   benches/codec_suite.rs  the codec suite on criterion (requirement 22a)
 #   bin/rpc_server     the RPC grid's server, a separate process (requirement 13)
 #   bin/rpc_client     the RPC grid's client, cells A-D (requirements 12-18)
 #   bin/calib          the crossing benchmark, forward and reverse (requirement 20)
@@ -43,5 +43,5 @@ libc = "0.2"
 criterion = { version = "0.5", default-features = false }
 
 [[bench]]
-name = "codec"
+name = "codec_suite"
 harness = false
