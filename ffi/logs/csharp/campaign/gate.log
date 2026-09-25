@@ -1,6 +1,6 @@
-# csharp slice, FIX-PLAN WP5 step 4 gate. CORRECTNESS ONLY: no timing is taken.
-# date:        2026-09-25T16:45:45Z
-# branch HEAD: 7c6b792
+# csharp slice gate (FIX-PLAN WP5 steps 4 and 9). CORRECTNESS ONLY: no timing is taken.
+# date:        2026-09-25T18:16:36Z
+# branch HEAD: 8d2e7ac
 # dotnet:      SDK 8.0.131; runtimes: 8.0.31 + Microsoft.NETCore.App.Runtime.linux-x64 6.0.36 from NuGet (self-contained)
 # corpus:      ffi/corpus at de21106, 702 vectors
 # machine:     container, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz, 6.18.44-fc-v37
@@ -32,12 +32,12 @@ exit status: 0
 
 ################ 2. the core (every build with init-guard) and the layout probe
 $ gen/build_core.sh
-# core: git archive HEAD ffi/poc/codec (crates identical to the working tree); last core commit 29d515e
+# core: git archive HEAD ffi/poc/codec (crates identical to the working tree); last core commit e897f57
 # rustc 1.94.1, cargo 1.94.1
-#   target-core: --features rpc,init-guard -> f51b5fe5f1697475 (118 ak_* exports)
-#   target-core-count: --features rpc,count,init-guard -> 1f78cb94d7dc4e86 (118 ak_* exports)
-#   target-core-corpus: --features corpus,init-guard -> 077272f028cf44f6 (242 ak_* exports)
-#   layout probe: 108 structs (shapes), 202 structs (corpus)
+#   target-core: --features rpc,init-guard -> 60a5e89ee077066c (117 ak_* exports)
+#   target-core-count: --features rpc,count,init-guard -> 8f96586d52e078e4 (117 ak_* exports)
+#   target-core-corpus: --features corpus,init-guard -> 9dbe0be830f66110 (241 ak_* exports)
+#   layout probe: 109 structs (shapes), 203 structs (corpus)
 exit status: 0
 
 ################ 3. builds
@@ -86,10 +86,10 @@ exit status: 0
 #        .NET Framework needs Windows, and this container has no Mono either.
 
 ################ 4. net8.0 harness
-# core in Release/net8.0: target-core (f51b5fe5f1697475)
+# core in Release/net8.0: target-core (60a5e89ee077066c)
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll conformance
 # harness: conformance
-# utc:                 2026-09-25T16:47:12Z
+# utc:                 2026-09-25T18:20:19Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -131,7 +131,7 @@ P7.1     -      DualResponse                  98  perm    perm    perm    perm  
 exit status: 0
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll unknown
 # harness: unknown
-# utc:                 2026-09-25T16:47:14Z
+# utc:                 2026-09-25T18:20:20Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -193,7 +193,7 @@ value moved, which would be a real defect).
 exit status: 0
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll groups
 # harness: groups
-# utc:                 2026-09-25T16:47:14Z
+# utc:                 2026-09-25T18:20:20Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -239,7 +239,7 @@ The same at 200,000, which is past where an unbounded skipper aborts:
 exit status: 0
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll utf8
 # harness: utf8
-# utc:                 2026-09-25T16:47:14Z
+# utc:                 2026-09-25T18:20:20Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -298,7 +298,7 @@ plan Options.utf8 = reject: the managed codec must refuse 15 of 15; it refused 1
 exit status: 0
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll mapforms
 # harness: mapforms
-# utc:                 2026-09-25T16:47:14Z
+# utc:                 2026-09-25T18:20:20Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -355,7 +355,7 @@ Reading this.
 exit status: 0
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll layout /home/user/ArmoniK.Api/ffi/poc/csharp/target-core/layout.json
 # harness: layout
-# utc:                 2026-09-25T16:47:14Z
+# utc:                 2026-09-25T18:20:21Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -374,8 +374,8 @@ $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/ha
 #
 # timings:             any timing a container prints is instrumentation (README 1.1)
 #
-layout, by name both ways: 97 C# structs / 442 members against the Rust declaration probed in layout.json: all agree
-  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters, ak_dec_ListResultsResponse_opts, ak_dec_ListTasksDetailedResponse_opts, ak_dec_ListProbeResponse_opts, ak_dec_ListTaskSummaryResponse_opts, ... 3 more)
+layout, by name both ways: 105 C# structs / 490 members against the Rust declaration probed in layout.json: all agree
+  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters)
 section 10, the loaded core's ak_layout_facts against this compiler: 400 facts, all agree
 ak_abi_version() = 1; ak_init() returned 0
 0 failure(s)
@@ -389,7 +389,7 @@ exit status: 2
 control net8 layout plant: failed, as required
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll coreffi
 # harness: coreffi
-# utc:                 2026-09-25T16:47:14Z
+# utc:                 2026-09-25T18:20:21Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -408,8 +408,8 @@ $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/ha
 #
 # timings:             any timing a container prints is instrumentation (README 1.1)
 #
-layout, by name both ways: 97 C# structs / 442 members against the Rust declaration probed in layout.json: all agree
-  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters, ak_dec_ListResultsResponse_opts, ak_dec_ListTasksDetailedResponse_opts, ak_dec_ListProbeResponse_opts, ak_dec_ListTaskSummaryResponse_opts, ... 3 more)
+layout, by name both ways: 105 C# structs / 490 members against the Rust declaration probed in layout.json: all agree
+  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters)
 section 10, the loaded core's ak_layout_facts against this compiler: 400 facts, all agree
 ak_abi_version() = 1; ak_init() returned 0
 0 failure(s)
@@ -467,10 +467,10 @@ What the counts mean, and the whole reason the shapes differ:
 
 0 failure(s)
 exit status: 0
-# core in Release/net8.0: target-core-count (1f78cb94d7dc4e86)
+# core in Release/net8.0: target-core-count (8f96586d52e078e4)
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll coreffi
 # harness: coreffi
-# utc:                 2026-09-25T16:47:15Z
+# utc:                 2026-09-25T18:20:22Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -545,7 +545,7 @@ What the counts mean, and the whole reason the shapes differ:
 
 0 failure(s)
 exit status: 0
-# core in Release/net8.0: target-core (f51b5fe5f1697475)
+# core in Release/net8.0: target-core (60a5e89ee077066c)
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll coreffi   # a CONTROL: must fail
 P1.1     ListResultsResponse            858  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
 P1.2     ListResultsResponse         218121  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
@@ -567,10 +567,10 @@ exit status: 16
 control net8 coreffi without ak_init (init-guard core): failed, as required
 
 ################ 5. net6.0 harness
-# core in bin/publish-net6: target-core (f51b5fe5f1697475)
+# core in bin/publish-net6: target-core (60a5e89ee077066c)
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness conformance
 # harness: conformance
-# utc:                 2026-09-25T16:47:17Z
+# utc:                 2026-09-25T18:20:24Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -612,7 +612,7 @@ P7.1     -      DualResponse                  98  perm    perm    perm    perm  
 exit status: 0
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness unknown
 # harness: unknown
-# utc:                 2026-09-25T16:47:18Z
+# utc:                 2026-09-25T18:20:25Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -674,7 +674,7 @@ value moved, which would be a real defect).
 exit status: 0
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness groups
 # harness: groups
-# utc:                 2026-09-25T16:47:18Z
+# utc:                 2026-09-25T18:20:25Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -720,7 +720,7 @@ The same at 200,000, which is past where an unbounded skipper aborts:
 exit status: 0
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness utf8
 # harness: utf8
-# utc:                 2026-09-25T16:47:18Z
+# utc:                 2026-09-25T18:20:25Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -779,7 +779,7 @@ plan Options.utf8 = reject: the managed codec must refuse 15 of 15; it refused 1
 exit status: 0
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness mapforms
 # harness: mapforms
-# utc:                 2026-09-25T16:47:18Z
+# utc:                 2026-09-25T18:20:25Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -836,7 +836,7 @@ Reading this.
 exit status: 0
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness layout /home/user/ArmoniK.Api/ffi/poc/csharp/target-core/layout.json
 # harness: layout
-# utc:                 2026-09-25T16:47:19Z
+# utc:                 2026-09-25T18:20:26Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -855,8 +855,8 @@ $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness lay
 #
 # timings:             any timing a container prints is instrumentation (README 1.1)
 #
-layout, by name both ways: 97 C# structs / 442 members against the Rust declaration probed in layout.json: all agree
-  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters, ak_dec_ListResultsResponse_opts, ak_dec_ListTasksDetailedResponse_opts, ak_dec_ListProbeResponse_opts, ak_dec_ListTaskSummaryResponse_opts, ... 3 more)
+layout, by name both ways: 105 C# structs / 490 members against the Rust declaration probed in layout.json: all agree
+  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters)
 section 10, the loaded core's ak_layout_facts against this compiler: 400 facts, all agree
 ak_abi_version() = 1; ak_init() returned 0
 0 failure(s)
@@ -870,7 +870,7 @@ exit status: 2
 control net6 layout plant: failed, as required
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness coreffi
 # harness: coreffi
-# utc:                 2026-09-25T16:47:19Z
+# utc:                 2026-09-25T18:20:26Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -889,8 +889,8 @@ $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness cor
 #
 # timings:             any timing a container prints is instrumentation (README 1.1)
 #
-layout, by name both ways: 97 C# structs / 442 members against the Rust declaration probed in layout.json: all agree
-  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters, ak_dec_ListResultsResponse_opts, ak_dec_ListTasksDetailedResponse_opts, ak_dec_ListProbeResponse_opts, ak_dec_ListTaskSummaryResponse_opts, ... 3 more)
+layout, by name both ways: 105 C# structs / 490 members against the Rust declaration probed in layout.json: all agree
+  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters)
 section 10, the loaded core's ak_layout_facts against this compiler: 400 facts, all agree
 ak_abi_version() = 1; ak_init() returned 0
 0 failure(s)
@@ -948,10 +948,10 @@ What the counts mean, and the whole reason the shapes differ:
 
 0 failure(s)
 exit status: 0
-# core in bin/publish-net6: target-core-count (1f78cb94d7dc4e86)
+# core in bin/publish-net6: target-core-count (8f96586d52e078e4)
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness coreffi
 # harness: coreffi
-# utc:                 2026-09-25T16:47:20Z
+# utc:                 2026-09-25T18:20:27Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -1026,7 +1026,7 @@ What the counts mean, and the whole reason the shapes differ:
 
 0 failure(s)
 exit status: 0
-# core in bin/publish-net6: target-core (f51b5fe5f1697475)
+# core in bin/publish-net6: target-core (60a5e89ee077066c)
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness coreffi   # a CONTROL: must fail
 P1.1     ListResultsResponse            858  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
 P1.2     ListResultsResponse         218121  THREW InvalidOperationException -    -    -    -    -       0    0     0    0     0    0         0
@@ -1048,11 +1048,11 @@ exit status: 16
 control net6 coreffi without ak_init (init-guard core): failed, as required
 
 ################ 6. akrpc (net8.0): the generated RPC binding
-# core in Release/net8.0: target-core-count (1f78cb94d7dc4e86)
+# core in Release/net8.0: target-core-count (8f96586d52e078e4)
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc.dll --layout /home/user/ArmoniK.Api/ffi/poc/csharp/target-core/layout.json
 # akrpc --layout: plan.rpc's structs (Generated/RpcAbi.cs) against the Rust declaration; ak_init() = 0
 layout, by name both ways: 6 C# structs / 20 members against the Rust declaration probed in layout.json: all agree
-  (declared in ak-abi, not bound by this binding: ak_str, ak_span, ak_blob, ak_unk_buf, ak_unk_opts, AkCounters, ak_bdr_rec, ak_efix_TaskOptionsOptionsEntry, ... 94 more)
+  (declared in ak-abi, not bound by this binding: ak_str, ak_span, ak_blob, ak_unk_buf, ak_unk_opts, ak_unk_pool, AkCounters, ak_bdr_rec, ... 95 more)
 0 failure(s)
 exit status: 0
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc.dll --error-path
@@ -1066,17 +1066,17 @@ ok      blocking         0/50              2.00           0.00              2  P
 error   blocking        50/50              2.00           0.00              2  PASS
 ok      callback         0/50              3.00           1.00              3  PASS
 error   callback        50/50              3.00           1.00              3  PASS
-ok      queue            0/50              4.02           0.00              4  PASS
+ok      queue            0/50              4.00           0.00              4  PASS
 error   queue           50/50              4.00           0.00              4  PASS
 
 error-path: 0 failure(s)
 exit status: 0
 
 ################ 7.8 the corpus, net8.0
-# core in Release/net8.0: target-core-corpus (077272f028cf44f6)
+# core in Release/net8.0: target-core-corpus (9dbe0be830f66110)
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus --layout /home/user/ArmoniK.Api/ffi/poc/csharp/target-core-corpus/layout.json
-layout, by name both ways: 169 C# structs / 645 members against the Rust declaration probed in layout.json: all agree
-  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters, ak_dec_Timestamp_opts, ak_dec_Duration_opts, ak_dec_ResultRaw_opts, ak_dec_TaskOptions_opts, ... 25 more)
+layout, by name both ways: 199 C# structs / 780 members against the Rust declaration probed in layout.json: all agree
+  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters)
 section 10, the loaded core's ak_layout_facts against this compiler: 574 facts, all agree
 ak_abi_version() = 1; ak_init() returned 0
 0 failure(s)
@@ -1228,11 +1228,13 @@ $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus
      transcode  pass   53  fail   0
      unknown    pass  311  fail   0
    forms written (C3):
-      183  as committed
+      378  as committed
         5  as committed / map values always written
        18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
         7  as committed in ffi/schema/generated
         1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
         5  canonical
         1  canonical: ascending by tag / key and value always written
         1  canonical: each repeated field contiguous
@@ -1245,10 +1247,7 @@ $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus
         3  canonical: ten-byte sign-extended
         1  canonical: the empty value omitted
         1  canonical: the zero leaves omitted
-       46  unknown-dropped
-       24  unknown-dropped / unknown-dropped, map values always written
-      156  unknown-dropped: the known field as it was, the foreign-typed one gone
-       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+        6  unknown-retained, appended in tag order
    refusals by code (C4):
        34  core -2 (malformed)
        73  core -3 (truncated)
@@ -1259,14 +1258,65 @@ $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus
    disputed: X-field-over-max-in-group: refused (core -2 (malformed))
    disputed: X-tag-zero-Empty: refused (core -2 (malformed))
    disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
-   retain mode wrote the DROPPED form on 307 unknown-class row(s) (accepted by the contract; a retention gap):
-     U-chunkelem-all, U-chunkelem-u-fixed32, U-chunkelem-u-fixed64, U-chunkelem-u-len, U-chunkelem-u-msg, U-chunkelem-u-packed, U-chunkelem-u-repeated, U-chunkelem-u-varint, U-deep-all, U-deep-u-fixed32, U-deep-u-fixed64, U-deep-u-len, U-deep-u-msg, U-deep-u-packed, U-deep-u-repeated, U-deep-u-varint, U-element-all, U-element-u-fixed32, U-element-u-fixed64, U-element-u-len, U-element-u-msg, U-element-u-packed, U-element-u-repeated, U-element-u-varint, U-group-field-max, U-leaf-all, U-leaf-u-fixed32, U-leaf-u-fixed64, U-leaf-u-len, U-leaf-u-msg, U-leaf-u-packed, U-leaf-u-repeated, U-leaf-u-varint, U-nested-all, U-nested-before, U-nested-group, U-nested-interleaved, U-nested-u-fixed32, U-nested-u-fixed64, U-nested-u-len, U-nested-u-msg, U-nested-u-packed, U-nested-u-repeated, U-nested-u-varint, U-oneof-all, U-oneof-before, U-oneof-group, U-oneof-interleaved, U-oneof-member-after-known, U-oneof-member-alone, U-oneof-member-before-known, U-oneof-u-fixed32, U-oneof-u-fixed64, U-oneof-u-len, U-oneof-u-msg, U-oneof-u-packed, U-oneof-u-repeated, U-oneof-u-varint, U-root-all, U-root-before, U-root-group, U-root-interleaved, U-root-max-tag, U-root-u-fixed32, U-root-u-fixed64, U-root-u-len, U-root-u-msg, U-root-u-packed, U-root-u-repeated, U-root-u-varint, U-wire-ChunkElement-attrs-as-wt0, U-wire-ChunkElement-attrs-as-wt1, U-wire-ChunkElement-attrs-as-wt5, U-wire-ChunkElement-id-as-wt0, U-wire-ChunkElement-id-as-wt1, U-wire-ChunkElement-id-as-wt5, U-wire-ChunkElement-inner-as-wt0, U-wire-ChunkElement-inner-as-wt1, U-wire-ChunkElement-inner-as-wt5, U-wire-ChunkElement-labels-as-wt0, U-wire-ChunkElement-labels-as-wt1, U-wire-ChunkElement-labels-as-wt5, U-wire-ChunkInner-leaves-as-wt0, U-wire-ChunkInner-leaves-as-wt1, U-wire-ChunkInner-leaves-as-wt5, U-wire-ChunkInner-marks-as-wt1, U-wire-ChunkInner-marks-as-wt5, U-wire-ChunkLeaf-k-as-wt0, U-wire-ChunkLeaf-k-as-wt1, U-wire-ChunkLeaf-k-as-wt5, U-wire-ChunkLeaf-v-as-wt1, U-wire-ChunkLeaf-v-as-wt2, U-wire-ChunkLeaf-v-as-wt5, U-wire-ChunkedResponse-items-as-wt0, U-wire-ChunkedResponse-items-as-wt1, U-wire-ChunkedResponse-items-as-wt5, U-wire-ChunkedResponse-page-as-wt1, U-wire-ChunkedResponse-page-as-wt2, U-wire-ChunkedResponse-page-as-wt5, U-wire-ChunkedResponseWide-items-as-wt0, U-wire-ChunkedResponseWide-items-as-wt1, U-wire-ChunkedResponseWide-items-as-wt5, U-wire-DualResponse-left-as-wt0, U-wire-DualResponse-left-as-wt1, U-wire-DualResponse-left-as-wt5, U-wire-Duration-nanos-as-wt1, U-wire-Duration-nanos-as-wt2, U-wire-Duration-nanos-as-wt5, U-wire-Duration-seconds-as-wt1, U-wire-Duration-seconds-as-wt2, U-wire-Duration-seconds-as-wt5, U-wire-LeafElement-id-as-wt0, U-wire-LeafElement-id-as-wt1, U-wire-LeafElement-id-as-wt5, U-wire-LeafElement-n-as-wt1, U-wire-LeafElement-n-as-wt2, U-wire-LeafElement-n-as-wt5, U-wire-LeafElement-stamp-as-wt0, U-wire-LeafElement-stamp-as-wt1, U-wire-LeafElement-stamp-as-wt5, U-wire-LeafResponse-items-as-wt0, U-wire-LeafResponse-items-as-wt1, U-wire-LeafResponse-items-as-wt5, U-wire-ListMetricsResponse-batches-as-wt0, U-wire-ListMetricsResponse-batches-as-wt1, U-wire-ListMetricsResponse-batches-as-wt5, U-wire-ListProbeResponse-probes-as-wt0, U-wire-ListProbeResponse-probes-as-wt1, U-wire-ListProbeResponse-probes-as-wt5, U-wire-ListResultsResponse-page-as-wt1, U-wire-ListResultsResponse-page-as-wt2, U-wire-ListResultsResponse-page-as-wt5, U-wire-ListResultsResponse-results-as-wt0, U-wire-ListResultsResponse-results-as-wt1, U-wire-ListResultsResponse-results-as-wt5, U-wire-ListTaskSummaryResponse-tasks-as-wt0, U-wire-ListTaskSummaryResponse-tasks-as-wt1, U-wire-ListTaskSummaryResponse-tasks-as-wt5, U-wire-ListTasksDetailedResponse-page-as-wt1, U-wire-ListTasksDetailedResponse-page-as-wt2, U-wire-ListTasksDetailedResponse-page-as-wt5, U-wire-ListTasksDetailedResponse-tasks-as-wt0, U-wire-ListTasksDetailedResponse-tasks-as-wt1, U-wire-ListTasksDetailedResponse-tasks-as-wt5, U-wire-MetricsBatch-codes-as-wt1, U-wire-MetricsBatch-codes-as-wt5, U-wire-MetricsBatch-flags-as-wt1, U-wire-MetricsBatch-flags-as-wt5, U-wire-MetricsBatch-id-as-wt0, U-wire-MetricsBatch-id-as-wt1, U-wire-MetricsBatch-id-as-wt5, U-wire-MetricsBatch-statuses-as-wt1, U-wire-MetricsBatch-statuses-as-wt5, U-wire-MetricsBatch-ticks-as-wt1, U-wire-MetricsBatch-ticks-as-wt5, U-wire-MetricsBatch-values-as-wt0, U-wire-MetricsBatch-values-as-wt5, U-wire-Pair-key-as-wt0, U-wire-Pair-key-as-wt1, U-wire-Pair-key-as-wt5, U-wire-Pair-value-as-wt1, U-wire-Pair-value-as-wt2, U-wire-Pair-value-as-wt5, U-wire-Probe-as-blob-as-wt0, U-wire-Probe-as-blob-as-wt1, U-wire-Probe-as-blob-as-wt5, U-wire-Probe-as-int-as-wt1, U-wire-Probe-as-int-as-wt2, U-wire-Probe-as-int-as-wt5, U-wire-Probe-as-stamp-as-wt0, U-wire-Probe-as-stamp-as-wt1, U-wire-Probe-as-stamp-as-wt5, U-wire-Probe-as-text-as-wt0, U-wire-Probe-as-text-as-wt1, U-wire-Probe-as-text-as-wt5, U-wire-Probe-id-as-wt0, U-wire-Probe-id-as-wt1, U-wire-Probe-id-as-wt5, U-wire-Probe-opt-count-as-wt1, U-wire-Probe-opt-count-as-wt2, U-wire-Probe-opt-count-as-wt5, U-wire-Probe-opt-flag-as-wt1, U-wire-Probe-opt-flag-as-wt2, U-wire-Probe-opt-flag-as-wt5, U-wire-Probe-opt-label-as-wt0, U-wire-Probe-opt-label-as-wt1, U-wire-Probe-opt-label-as-wt5, U-wire-ResultRaw-created-at-as-wt0, U-wire-ResultRaw-created-at-as-wt1, U-wire-ResultRaw-created-at-as-wt5, U-wire-ResultRaw-manual-deletion-as-wt1, U-wire-ResultRaw-manual-deletion-as-wt2, U-wire-ResultRaw-manual-deletion-as-wt5, U-wire-ResultRaw-opaque-id-as-wt0, U-wire-ResultRaw-opaque-id-as-wt1, U-wire-ResultRaw-opaque-id-as-wt5, U-wire-ResultRaw-session-id-as-wt0, U-wire-ResultRaw-session-id-as-wt1, U-wire-ResultRaw-session-id-as-wt5, U-wire-ResultRaw-size-as-wt1, U-wire-ResultRaw-size-as-wt2, U-wire-ResultRaw-size-as-wt5, U-wire-ResultRaw-status-as-wt1, U-wire-ResultRaw-status-as-wt2, U-wire-ResultRaw-status-as-wt5, U-wire-Surrogate-attrs-as-wt0, U-wire-Surrogate-attrs-as-wt1, U-wire-Surrogate-attrs-as-wt5, U-wire-Surrogate-nested-as-wt0, U-wire-Surrogate-nested-as-wt1, U-wire-Surrogate-nested-as-wt5, U-wire-Surrogate-raw-as-wt0, U-wire-Surrogate-raw-as-wt1, U-wire-Surrogate-raw-as-wt5, U-wire-Surrogate-text-as-wt0, U-wire-Surrogate-text-as-wt1, U-wire-Surrogate-text-as-wt5, U-wire-Surrogate-texts-as-wt0, U-wire-Surrogate-texts-as-wt1, U-wire-Surrogate-texts-as-wt5, U-wire-SurrogateInner-text-as-wt0, U-wire-SurrogateInner-text-as-wt1, U-wire-SurrogateInner-text-as-wt5, U-wire-TaskDetailed-id-as-wt0, U-wire-TaskDetailed-id-as-wt1, U-wire-TaskDetailed-id-as-wt5, U-wire-TaskDetailed-options-as-wt0, U-wire-TaskDetailed-options-as-wt1, U-wire-TaskDetailed-options-as-wt5, U-wire-TaskDetailed-parent-task-ids-as-wt0, U-wire-TaskDetailed-parent-task-ids-as-wt1, U-wire-TaskDetailed-parent-task-ids-as-wt5, U-wire-TaskDetailed-status-as-wt1, U-wire-TaskDetailed-status-as-wt2, U-wire-TaskDetailed-status-as-wt5, U-wire-TaskOptions-max-duration-as-wt0, U-wire-TaskOptions-max-duration-as-wt1, U-wire-TaskOptions-max-duration-as-wt5, U-wire-TaskOptions-max-retries-as-wt1, U-wire-TaskOptions-max-retries-as-wt2, U-wire-TaskOptions-max-retries-as-wt5, U-wire-TaskOptions-options-as-wt0, U-wire-TaskOptions-options-as-wt1, U-wire-TaskOptions-options-as-wt5, U-wire-TaskOptions-partition-id-as-wt0, U-wire-TaskOptions-partition-id-as-wt1, U-wire-TaskOptions-partition-id-as-wt5, U-wire-TaskOutput-error-as-wt0, U-wire-TaskOutput-error-as-wt1, U-wire-TaskOutput-error-as-wt5, U-wire-TaskOutput-success-as-wt1, U-wire-TaskOutput-success-as-wt2, U-wire-TaskOutput-success-as-wt5, U-wire-TaskSummary-count-data-dependencies-as-wt1, U-wire-TaskSummary-count-data-dependencies-as-wt2, U-wire-TaskSummary-count-data-dependencies-as-wt5, U-wire-TaskSummary-id-as-wt0, U-wire-TaskSummary-id-as-wt1, U-wire-TaskSummary-id-as-wt5, U-wire-TaskSummary-options-as-wt0, U-wire-TaskSummary-options-as-wt1, U-wire-TaskSummary-options-as-wt5, U-wire-TaskSummary-status-as-wt1, U-wire-TaskSummary-status-as-wt2, U-wire-TaskSummary-status-as-wt5, U-wire-Timestamp-nanos-as-wt1, U-wire-Timestamp-nanos-as-wt2, U-wire-Timestamp-nanos-as-wt5, U-wire-Timestamp-seconds-as-wt1, U-wire-Timestamp-seconds-as-wt2, U-wire-Timestamp-seconds-as-wt5, U-wire-UploadResultData-data-chunk-as-wt0, U-wire-UploadResultData-data-chunk-as-wt1, U-wire-UploadResultData-data-chunk-as-wt5, U-wire-UploadResultData-session-id-as-wt0, U-wire-UploadResultData-session-id-as-wt1, U-wire-UploadResultData-session-id-as-wt5, U-wire-UploadResultDataMessage-upload-as-wt0, U-wire-UploadResultDataMessage-upload-as-wt1, U-wire-UploadResultDataMessage-upload-as-wt5, U-wire-WireZoo-v-bool-as-wt1, U-wire-WireZoo-v-bool-as-wt2, U-wire-WireZoo-v-bool-as-wt5, U-wire-WireZoo-v-bytes-as-wt0, U-wire-WireZoo-v-bytes-as-wt1, U-wire-WireZoo-v-bytes-as-wt5, U-wire-WireZoo-v-double-as-wt0, U-wire-WireZoo-v-double-as-wt2, U-wire-WireZoo-v-double-as-wt5, U-wire-WireZoo-v-enum-as-wt1, U-wire-WireZoo-v-enum-as-wt2, U-wire-WireZoo-v-enum-as-wt5, U-wire-WireZoo-v-fixed32-as-wt0, U-wire-WireZoo-v-fixed32-as-wt1, U-wire-WireZoo-v-fixed32-as-wt2, U-wire-WireZoo-v-int32-as-wt1, U-wire-WireZoo-v-int32-as-wt2, U-wire-WireZoo-v-int32-as-wt5, U-wire-WireZoo-v-int64-as-wt1, U-wire-WireZoo-v-int64-as-wt2, U-wire-WireZoo-v-int64-as-wt5, U-wire-WireZoo-v-msg-as-wt0, U-wire-WireZoo-v-msg-as-wt1, U-wire-WireZoo-v-msg-as-wt5, U-wire-WireZoo-v-string-as-wt0, U-wire-WireZoo-v-string-as-wt1, U-wire-WireZoo-v-string-as-wt5
 
 Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 304 rows have no incumbent root.
 
 # rows that hung or crashed a child: 0
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
 CORPUS PASSES on all four arms
 exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus --only U-   # a CONTROL: must fail
+#   PLANTED DEFECT: unkdrop (a control: it MUST fail)
+## managed-drop
+   pass 317  fail 0  disputed (excluded) 1  not in the C ABI 0
+     unknown    pass  317  fail   0
+## managed-retain
+   pass 317  fail 0  disputed (excluded) 1  not in the C ABI 0
+     unknown    pass  317  fail   0
+## ffi-drop
+   pass 311  fail 0  disputed (excluded) 1  not in the C ABI 6
+     unknown    pass  311  fail   0
+## ffi-retain
+   pass 311  fail 0  disputed (excluded) 1  not in the C ABI 6
+     unknown    pass  311  fail   0
+retain strict (AK_CORPUS_RETAIN_STRICT=1): 307 gap(s): FAIL
+CORPUS FAILS: 307 arm-row failure(s), 0 hang/crash row(s)
+exit status: 1
+control net8 corpus unkdrop (ffi-retain in drop mode, strict retain): failed, as required
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus --unk-controls
+# decision 11 (WP5 step 9): every accept row whose root crosses the C ABI; retained push is the
+# reference; each position zeroed in turn must equal it with that position's bags cleared;
+# pull must equal push (compared as retained re-encodings, ak_uencode_*)
+  U-chunkelem-all                    ChunkedResponse            positions  5, changed by zeroing  1 (items)
+  U-deep-all                         ListTasksDetailedResponse  positions 18, changed by zeroing  1 (tasks_options)
+  U-element-all                      ListTasksDetailedResponse  positions 18, changed by zeroing  1 (tasks)
+  U-leaf-all                         ListResultsResponse        positions  4, changed by zeroing  2 (results_created_at, results_completed_at)
+  U-map-entry                        ListTasksDetailedResponse  positions 18, changed by zeroing  0 ()
+  U-nested-all                       ListResultsResponse        positions  4, changed by zeroing  1 (results)
+  U-oneof-all                        ListProbeResponse          positions  3, changed by zeroing  1 (probes)
+  U-root-all                         ListResultsResponse        positions  4, changed by zeroing  1 (self)
+rows 543 (accept, root in the ABI), 2290 (row, position) pairs; rows with unknowns at some position 307 (315 pairs changed by zeroing)
+discard mismatches: 0 row(s); pull != push: 0 row(s); retained decode errors (incl. UNDELIVERED): 0
+  wrong root (Timestamp context, Duration entry points): decode rc -8, parse rc -8, reset rc -8 (AK_ERR_INVALID_STATE = -8); own root: reset 0, parse 0  PASS
+UNK CONTROLS PASSED
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus --unk-controls --plant   # a CONTROL: must fail
+  FAIL U-chunkelem-all (ChunkedResponse): zeroing items did not drop exactly that position
+  FAIL U-chunkelem-u-fixed32 (ChunkedResponse): zeroing items did not drop exactly that position
+  FAIL U-chunkelem-u-fixed64 (ChunkedResponse): zeroing items did not drop exactly that position
+  FAIL U-chunkelem-u-len (ChunkedResponse): zeroing items did not drop exactly that position
+  FAIL U-chunkelem-u-msg (ChunkedResponse): zeroing items did not drop exactly that position
+  FAIL U-chunkelem-u-packed (ChunkedResponse): zeroing items did not drop exactly that position
+  FAIL U-chunkelem-u-repeated (ChunkedResponse): zeroing items did not drop exactly that position
+  FAIL U-chunkelem-u-varint (ChunkedResponse): zeroing items did not drop exactly that position
+  FAIL U-deep-all (ListTasksDetailedResponse): zeroing tasks_options did not drop exactly that position
+  FAIL U-deep-u-fixed32 (ListTasksDetailedResponse): zeroing tasks_options did not drop exactly that position
+  FAIL U-deep-u-fixed64 (ListTasksDetailedResponse): zeroing tasks_options did not drop exactly that position
+  FAIL U-deep-u-len (ListTasksDetailedResponse): zeroing tasks_options did not drop exactly that position
+discard mismatches: 307 row(s); pull != push: 0 row(s); retained decode errors (incl. UNDELIVERED): 0   [PLANTED: the expectation's clearing skipped]
+UNK CONTROLS FAILED
+exit status: 1
+control net8 decision 11 plant (the expectation's clearing skipped): failed, as required
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus --only S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root   # a CONTROL: must fail
 #   PLANTED DEFECT: proj (a control: it MUST fail)
 ## managed-drop
@@ -1396,10 +1446,10 @@ CORPUS PASSES on all four arms
 exit status: 0
 
 ################ 7.6 the corpus, net6.0
-# core in bin/publish-net6: target-core-corpus (077272f028cf44f6)
+# core in bin/publish-net6: target-core-corpus (9dbe0be830f66110)
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/publish-net6/corpus --layout /home/user/ArmoniK.Api/ffi/poc/csharp/target-core-corpus/layout.json
-layout, by name both ways: 169 C# structs / 645 members against the Rust declaration probed in layout.json: all agree
-  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters, ak_dec_Timestamp_opts, ak_dec_Duration_opts, ak_dec_ResultRaw_opts, ak_dec_TaskOptions_opts, ... 25 more)
+layout, by name both ways: 199 C# structs / 780 members against the Rust declaration probed in layout.json: all agree
+  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_client_opts, ak_rpc_counters)
 section 10, the loaded core's ak_layout_facts against this compiler: 574 facts, all agree
 ak_abi_version() = 1; ak_init() returned 0
 0 failure(s)
@@ -1551,11 +1601,13 @@ $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/publish-net6/corpus
      transcode  pass   53  fail   0
      unknown    pass  311  fail   0
    forms written (C3):
-      183  as committed
+      378  as committed
         5  as committed / map values always written
        18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
         7  as committed in ffi/schema/generated
         1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
         5  canonical
         1  canonical: ascending by tag / key and value always written
         1  canonical: each repeated field contiguous
@@ -1568,10 +1620,7 @@ $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/publish-net6/corpus
         3  canonical: ten-byte sign-extended
         1  canonical: the empty value omitted
         1  canonical: the zero leaves omitted
-       46  unknown-dropped
-       24  unknown-dropped / unknown-dropped, map values always written
-      156  unknown-dropped: the known field as it was, the foreign-typed one gone
-       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+        6  unknown-retained, appended in tag order
    refusals by code (C4):
        34  core -2 (malformed)
        73  core -3 (truncated)
@@ -1582,14 +1631,65 @@ $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/publish-net6/corpus
    disputed: X-field-over-max-in-group: refused (core -2 (malformed))
    disputed: X-tag-zero-Empty: refused (core -2 (malformed))
    disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
-   retain mode wrote the DROPPED form on 307 unknown-class row(s) (accepted by the contract; a retention gap):
-     U-chunkelem-all, U-chunkelem-u-fixed32, U-chunkelem-u-fixed64, U-chunkelem-u-len, U-chunkelem-u-msg, U-chunkelem-u-packed, U-chunkelem-u-repeated, U-chunkelem-u-varint, U-deep-all, U-deep-u-fixed32, U-deep-u-fixed64, U-deep-u-len, U-deep-u-msg, U-deep-u-packed, U-deep-u-repeated, U-deep-u-varint, U-element-all, U-element-u-fixed32, U-element-u-fixed64, U-element-u-len, U-element-u-msg, U-element-u-packed, U-element-u-repeated, U-element-u-varint, U-group-field-max, U-leaf-all, U-leaf-u-fixed32, U-leaf-u-fixed64, U-leaf-u-len, U-leaf-u-msg, U-leaf-u-packed, U-leaf-u-repeated, U-leaf-u-varint, U-nested-all, U-nested-before, U-nested-group, U-nested-interleaved, U-nested-u-fixed32, U-nested-u-fixed64, U-nested-u-len, U-nested-u-msg, U-nested-u-packed, U-nested-u-repeated, U-nested-u-varint, U-oneof-all, U-oneof-before, U-oneof-group, U-oneof-interleaved, U-oneof-member-after-known, U-oneof-member-alone, U-oneof-member-before-known, U-oneof-u-fixed32, U-oneof-u-fixed64, U-oneof-u-len, U-oneof-u-msg, U-oneof-u-packed, U-oneof-u-repeated, U-oneof-u-varint, U-root-all, U-root-before, U-root-group, U-root-interleaved, U-root-max-tag, U-root-u-fixed32, U-root-u-fixed64, U-root-u-len, U-root-u-msg, U-root-u-packed, U-root-u-repeated, U-root-u-varint, U-wire-ChunkElement-attrs-as-wt0, U-wire-ChunkElement-attrs-as-wt1, U-wire-ChunkElement-attrs-as-wt5, U-wire-ChunkElement-id-as-wt0, U-wire-ChunkElement-id-as-wt1, U-wire-ChunkElement-id-as-wt5, U-wire-ChunkElement-inner-as-wt0, U-wire-ChunkElement-inner-as-wt1, U-wire-ChunkElement-inner-as-wt5, U-wire-ChunkElement-labels-as-wt0, U-wire-ChunkElement-labels-as-wt1, U-wire-ChunkElement-labels-as-wt5, U-wire-ChunkInner-leaves-as-wt0, U-wire-ChunkInner-leaves-as-wt1, U-wire-ChunkInner-leaves-as-wt5, U-wire-ChunkInner-marks-as-wt1, U-wire-ChunkInner-marks-as-wt5, U-wire-ChunkLeaf-k-as-wt0, U-wire-ChunkLeaf-k-as-wt1, U-wire-ChunkLeaf-k-as-wt5, U-wire-ChunkLeaf-v-as-wt1, U-wire-ChunkLeaf-v-as-wt2, U-wire-ChunkLeaf-v-as-wt5, U-wire-ChunkedResponse-items-as-wt0, U-wire-ChunkedResponse-items-as-wt1, U-wire-ChunkedResponse-items-as-wt5, U-wire-ChunkedResponse-page-as-wt1, U-wire-ChunkedResponse-page-as-wt2, U-wire-ChunkedResponse-page-as-wt5, U-wire-ChunkedResponseWide-items-as-wt0, U-wire-ChunkedResponseWide-items-as-wt1, U-wire-ChunkedResponseWide-items-as-wt5, U-wire-DualResponse-left-as-wt0, U-wire-DualResponse-left-as-wt1, U-wire-DualResponse-left-as-wt5, U-wire-Duration-nanos-as-wt1, U-wire-Duration-nanos-as-wt2, U-wire-Duration-nanos-as-wt5, U-wire-Duration-seconds-as-wt1, U-wire-Duration-seconds-as-wt2, U-wire-Duration-seconds-as-wt5, U-wire-LeafElement-id-as-wt0, U-wire-LeafElement-id-as-wt1, U-wire-LeafElement-id-as-wt5, U-wire-LeafElement-n-as-wt1, U-wire-LeafElement-n-as-wt2, U-wire-LeafElement-n-as-wt5, U-wire-LeafElement-stamp-as-wt0, U-wire-LeafElement-stamp-as-wt1, U-wire-LeafElement-stamp-as-wt5, U-wire-LeafResponse-items-as-wt0, U-wire-LeafResponse-items-as-wt1, U-wire-LeafResponse-items-as-wt5, U-wire-ListMetricsResponse-batches-as-wt0, U-wire-ListMetricsResponse-batches-as-wt1, U-wire-ListMetricsResponse-batches-as-wt5, U-wire-ListProbeResponse-probes-as-wt0, U-wire-ListProbeResponse-probes-as-wt1, U-wire-ListProbeResponse-probes-as-wt5, U-wire-ListResultsResponse-page-as-wt1, U-wire-ListResultsResponse-page-as-wt2, U-wire-ListResultsResponse-page-as-wt5, U-wire-ListResultsResponse-results-as-wt0, U-wire-ListResultsResponse-results-as-wt1, U-wire-ListResultsResponse-results-as-wt5, U-wire-ListTaskSummaryResponse-tasks-as-wt0, U-wire-ListTaskSummaryResponse-tasks-as-wt1, U-wire-ListTaskSummaryResponse-tasks-as-wt5, U-wire-ListTasksDetailedResponse-page-as-wt1, U-wire-ListTasksDetailedResponse-page-as-wt2, U-wire-ListTasksDetailedResponse-page-as-wt5, U-wire-ListTasksDetailedResponse-tasks-as-wt0, U-wire-ListTasksDetailedResponse-tasks-as-wt1, U-wire-ListTasksDetailedResponse-tasks-as-wt5, U-wire-MetricsBatch-codes-as-wt1, U-wire-MetricsBatch-codes-as-wt5, U-wire-MetricsBatch-flags-as-wt1, U-wire-MetricsBatch-flags-as-wt5, U-wire-MetricsBatch-id-as-wt0, U-wire-MetricsBatch-id-as-wt1, U-wire-MetricsBatch-id-as-wt5, U-wire-MetricsBatch-statuses-as-wt1, U-wire-MetricsBatch-statuses-as-wt5, U-wire-MetricsBatch-ticks-as-wt1, U-wire-MetricsBatch-ticks-as-wt5, U-wire-MetricsBatch-values-as-wt0, U-wire-MetricsBatch-values-as-wt5, U-wire-Pair-key-as-wt0, U-wire-Pair-key-as-wt1, U-wire-Pair-key-as-wt5, U-wire-Pair-value-as-wt1, U-wire-Pair-value-as-wt2, U-wire-Pair-value-as-wt5, U-wire-Probe-as-blob-as-wt0, U-wire-Probe-as-blob-as-wt1, U-wire-Probe-as-blob-as-wt5, U-wire-Probe-as-int-as-wt1, U-wire-Probe-as-int-as-wt2, U-wire-Probe-as-int-as-wt5, U-wire-Probe-as-stamp-as-wt0, U-wire-Probe-as-stamp-as-wt1, U-wire-Probe-as-stamp-as-wt5, U-wire-Probe-as-text-as-wt0, U-wire-Probe-as-text-as-wt1, U-wire-Probe-as-text-as-wt5, U-wire-Probe-id-as-wt0, U-wire-Probe-id-as-wt1, U-wire-Probe-id-as-wt5, U-wire-Probe-opt-count-as-wt1, U-wire-Probe-opt-count-as-wt2, U-wire-Probe-opt-count-as-wt5, U-wire-Probe-opt-flag-as-wt1, U-wire-Probe-opt-flag-as-wt2, U-wire-Probe-opt-flag-as-wt5, U-wire-Probe-opt-label-as-wt0, U-wire-Probe-opt-label-as-wt1, U-wire-Probe-opt-label-as-wt5, U-wire-ResultRaw-created-at-as-wt0, U-wire-ResultRaw-created-at-as-wt1, U-wire-ResultRaw-created-at-as-wt5, U-wire-ResultRaw-manual-deletion-as-wt1, U-wire-ResultRaw-manual-deletion-as-wt2, U-wire-ResultRaw-manual-deletion-as-wt5, U-wire-ResultRaw-opaque-id-as-wt0, U-wire-ResultRaw-opaque-id-as-wt1, U-wire-ResultRaw-opaque-id-as-wt5, U-wire-ResultRaw-session-id-as-wt0, U-wire-ResultRaw-session-id-as-wt1, U-wire-ResultRaw-session-id-as-wt5, U-wire-ResultRaw-size-as-wt1, U-wire-ResultRaw-size-as-wt2, U-wire-ResultRaw-size-as-wt5, U-wire-ResultRaw-status-as-wt1, U-wire-ResultRaw-status-as-wt2, U-wire-ResultRaw-status-as-wt5, U-wire-Surrogate-attrs-as-wt0, U-wire-Surrogate-attrs-as-wt1, U-wire-Surrogate-attrs-as-wt5, U-wire-Surrogate-nested-as-wt0, U-wire-Surrogate-nested-as-wt1, U-wire-Surrogate-nested-as-wt5, U-wire-Surrogate-raw-as-wt0, U-wire-Surrogate-raw-as-wt1, U-wire-Surrogate-raw-as-wt5, U-wire-Surrogate-text-as-wt0, U-wire-Surrogate-text-as-wt1, U-wire-Surrogate-text-as-wt5, U-wire-Surrogate-texts-as-wt0, U-wire-Surrogate-texts-as-wt1, U-wire-Surrogate-texts-as-wt5, U-wire-SurrogateInner-text-as-wt0, U-wire-SurrogateInner-text-as-wt1, U-wire-SurrogateInner-text-as-wt5, U-wire-TaskDetailed-id-as-wt0, U-wire-TaskDetailed-id-as-wt1, U-wire-TaskDetailed-id-as-wt5, U-wire-TaskDetailed-options-as-wt0, U-wire-TaskDetailed-options-as-wt1, U-wire-TaskDetailed-options-as-wt5, U-wire-TaskDetailed-parent-task-ids-as-wt0, U-wire-TaskDetailed-parent-task-ids-as-wt1, U-wire-TaskDetailed-parent-task-ids-as-wt5, U-wire-TaskDetailed-status-as-wt1, U-wire-TaskDetailed-status-as-wt2, U-wire-TaskDetailed-status-as-wt5, U-wire-TaskOptions-max-duration-as-wt0, U-wire-TaskOptions-max-duration-as-wt1, U-wire-TaskOptions-max-duration-as-wt5, U-wire-TaskOptions-max-retries-as-wt1, U-wire-TaskOptions-max-retries-as-wt2, U-wire-TaskOptions-max-retries-as-wt5, U-wire-TaskOptions-options-as-wt0, U-wire-TaskOptions-options-as-wt1, U-wire-TaskOptions-options-as-wt5, U-wire-TaskOptions-partition-id-as-wt0, U-wire-TaskOptions-partition-id-as-wt1, U-wire-TaskOptions-partition-id-as-wt5, U-wire-TaskOutput-error-as-wt0, U-wire-TaskOutput-error-as-wt1, U-wire-TaskOutput-error-as-wt5, U-wire-TaskOutput-success-as-wt1, U-wire-TaskOutput-success-as-wt2, U-wire-TaskOutput-success-as-wt5, U-wire-TaskSummary-count-data-dependencies-as-wt1, U-wire-TaskSummary-count-data-dependencies-as-wt2, U-wire-TaskSummary-count-data-dependencies-as-wt5, U-wire-TaskSummary-id-as-wt0, U-wire-TaskSummary-id-as-wt1, U-wire-TaskSummary-id-as-wt5, U-wire-TaskSummary-options-as-wt0, U-wire-TaskSummary-options-as-wt1, U-wire-TaskSummary-options-as-wt5, U-wire-TaskSummary-status-as-wt1, U-wire-TaskSummary-status-as-wt2, U-wire-TaskSummary-status-as-wt5, U-wire-Timestamp-nanos-as-wt1, U-wire-Timestamp-nanos-as-wt2, U-wire-Timestamp-nanos-as-wt5, U-wire-Timestamp-seconds-as-wt1, U-wire-Timestamp-seconds-as-wt2, U-wire-Timestamp-seconds-as-wt5, U-wire-UploadResultData-data-chunk-as-wt0, U-wire-UploadResultData-data-chunk-as-wt1, U-wire-UploadResultData-data-chunk-as-wt5, U-wire-UploadResultData-session-id-as-wt0, U-wire-UploadResultData-session-id-as-wt1, U-wire-UploadResultData-session-id-as-wt5, U-wire-UploadResultDataMessage-upload-as-wt0, U-wire-UploadResultDataMessage-upload-as-wt1, U-wire-UploadResultDataMessage-upload-as-wt5, U-wire-WireZoo-v-bool-as-wt1, U-wire-WireZoo-v-bool-as-wt2, U-wire-WireZoo-v-bool-as-wt5, U-wire-WireZoo-v-bytes-as-wt0, U-wire-WireZoo-v-bytes-as-wt1, U-wire-WireZoo-v-bytes-as-wt5, U-wire-WireZoo-v-double-as-wt0, U-wire-WireZoo-v-double-as-wt2, U-wire-WireZoo-v-double-as-wt5, U-wire-WireZoo-v-enum-as-wt1, U-wire-WireZoo-v-enum-as-wt2, U-wire-WireZoo-v-enum-as-wt5, U-wire-WireZoo-v-fixed32-as-wt0, U-wire-WireZoo-v-fixed32-as-wt1, U-wire-WireZoo-v-fixed32-as-wt2, U-wire-WireZoo-v-int32-as-wt1, U-wire-WireZoo-v-int32-as-wt2, U-wire-WireZoo-v-int32-as-wt5, U-wire-WireZoo-v-int64-as-wt1, U-wire-WireZoo-v-int64-as-wt2, U-wire-WireZoo-v-int64-as-wt5, U-wire-WireZoo-v-msg-as-wt0, U-wire-WireZoo-v-msg-as-wt1, U-wire-WireZoo-v-msg-as-wt5, U-wire-WireZoo-v-string-as-wt0, U-wire-WireZoo-v-string-as-wt1, U-wire-WireZoo-v-string-as-wt5
 
 Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 304 rows have no incumbent root.
 
 # rows that hung or crashed a child: 0
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
 CORPUS PASSES on all four arms
 exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/publish-net6/corpus --only U-   # a CONTROL: must fail
+#   PLANTED DEFECT: unkdrop (a control: it MUST fail)
+## managed-drop
+   pass 317  fail 0  disputed (excluded) 1  not in the C ABI 0
+     unknown    pass  317  fail   0
+## managed-retain
+   pass 317  fail 0  disputed (excluded) 1  not in the C ABI 0
+     unknown    pass  317  fail   0
+## ffi-drop
+   pass 311  fail 0  disputed (excluded) 1  not in the C ABI 6
+     unknown    pass  311  fail   0
+## ffi-retain
+   pass 311  fail 0  disputed (excluded) 1  not in the C ABI 6
+     unknown    pass  311  fail   0
+retain strict (AK_CORPUS_RETAIN_STRICT=1): 307 gap(s): FAIL
+CORPUS FAILS: 307 arm-row failure(s), 0 hang/crash row(s)
+exit status: 1
+control net6 corpus unkdrop (ffi-retain in drop mode, strict retain): failed, as required
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/publish-net6/corpus --unk-controls
+# decision 11 (WP5 step 9): every accept row whose root crosses the C ABI; retained push is the
+# reference; each position zeroed in turn must equal it with that position's bags cleared;
+# pull must equal push (compared as retained re-encodings, ak_uencode_*)
+  U-chunkelem-all                    ChunkedResponse            positions  5, changed by zeroing  1 (items)
+  U-deep-all                         ListTasksDetailedResponse  positions 18, changed by zeroing  1 (tasks_options)
+  U-element-all                      ListTasksDetailedResponse  positions 18, changed by zeroing  1 (tasks)
+  U-leaf-all                         ListResultsResponse        positions  4, changed by zeroing  2 (results_created_at, results_completed_at)
+  U-map-entry                        ListTasksDetailedResponse  positions 18, changed by zeroing  0 ()
+  U-nested-all                       ListResultsResponse        positions  4, changed by zeroing  1 (results)
+  U-oneof-all                        ListProbeResponse          positions  3, changed by zeroing  1 (probes)
+  U-root-all                         ListResultsResponse        positions  4, changed by zeroing  1 (self)
+rows 543 (accept, root in the ABI), 2290 (row, position) pairs; rows with unknowns at some position 307 (315 pairs changed by zeroing)
+discard mismatches: 0 row(s); pull != push: 0 row(s); retained decode errors (incl. UNDELIVERED): 0
+  wrong root (Timestamp context, Duration entry points): decode rc -8, parse rc -8, reset rc -8 (AK_ERR_INVALID_STATE = -8); own root: reset 0, parse 0  PASS
+UNK CONTROLS PASSED
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/publish-net6/corpus --unk-controls --plant   # a CONTROL: must fail
+  FAIL U-chunkelem-all (ChunkedResponse): zeroing items did not drop exactly that position
+  FAIL U-chunkelem-u-fixed32 (ChunkedResponse): zeroing items did not drop exactly that position
+  FAIL U-chunkelem-u-fixed64 (ChunkedResponse): zeroing items did not drop exactly that position
+  FAIL U-chunkelem-u-len (ChunkedResponse): zeroing items did not drop exactly that position
+  FAIL U-chunkelem-u-msg (ChunkedResponse): zeroing items did not drop exactly that position
+  FAIL U-chunkelem-u-packed (ChunkedResponse): zeroing items did not drop exactly that position
+  FAIL U-chunkelem-u-repeated (ChunkedResponse): zeroing items did not drop exactly that position
+  FAIL U-chunkelem-u-varint (ChunkedResponse): zeroing items did not drop exactly that position
+  FAIL U-deep-all (ListTasksDetailedResponse): zeroing tasks_options did not drop exactly that position
+  FAIL U-deep-u-fixed32 (ListTasksDetailedResponse): zeroing tasks_options did not drop exactly that position
+  FAIL U-deep-u-fixed64 (ListTasksDetailedResponse): zeroing tasks_options did not drop exactly that position
+  FAIL U-deep-u-len (ListTasksDetailedResponse): zeroing tasks_options did not drop exactly that position
+discard mismatches: 307 row(s); pull != push: 0 row(s); retained decode errors (incl. UNDELIVERED): 0   [PLANTED: the expectation's clearing skipped]
+UNK CONTROLS FAILED
+exit status: 1
+control net6 decision 11 plant (the expectation's clearing skipped): failed, as required
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/publish-net6/corpus --only S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root   # a CONTROL: must fail
 #   PLANTED DEFECT: proj (a control: it MUST fail)
 ## managed-drop

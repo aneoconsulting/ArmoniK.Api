@@ -4,11 +4,11 @@
 It says what exists and what was checked. It carries no recommendation (the
 decision is the owner's) and no timing presented as a result: in the setup and
 design phase every container timing is instrumentation (README 1.1). The
-reasoning behind each change is in `JOURNAL.md` (entries 50 and 51 for this unit; 49 for WP3).
+reasoning behind each change is in `JOURNAL.md` (entry 52 for the decision 11 port; 50 and 51 for BDN; 49 for WP3).
 
 | | |
 |---|---|
-| **Status** | **Unit 4 (2026-09-25): BenchmarkDotNet restored as the codec-suite engine (CAMPAIGN.md 22a, `src/BenchDotNet`), driven by `run_campaign.sh --suite codec`; the rpc and calib suites stay on `akrpc campaign` (reason in the checklist section). BDN smoke run executed (`logs/csharp/campaign/codec-launch1.*`, figures = instrumentation). Follow-up (JOURNAL 51): the per-case overhead traced to BDN's forced GCs over a live heap that grows with the cases in one process; a launch is now one process per arm:mode unit; the JIT tier of the measured code is read back per case (PASS on every case of the smoke).** WP3 harness conformance done before it. Campaign-readiness checklist below (requirements 1 to 32; unmet items listed with reasons). WP5 (the one generator) done earlier; regenerated at decision 11 (`29d515e`), where core-ffi retain is the backend's TRANSITIONAL drop mode until the decision 11 options are rendered in `cs_host`. |
+| **Status** | **WP5 step 9, decision 11 port (2026-09-25): D41 closed.** The C# backends render `ak_dec_<Root>_opts`, the root-bound contexts and a retained decode through one grow; `logs/csharp/wp5s9-gate.log` GATE PASSED at `8d2e7ac` (core `e897f57`), net8.0 and net6.0: ffi-retain keeps the retained form on every non-disputed unknown row (0 gaps; the 307-row regression gone, now a gate failure under `AK_CORPUS_RETAIN_STRICT`), per-position discard / pull == push / wrong-root controls pass with their plants failing, crossing counts unchanged. CAMPAIGN requirement 10 met in the BDN codec suite. Before it: **Unit 4 (2026-09-25): BenchmarkDotNet restored as the codec-suite engine (CAMPAIGN.md 22a, `src/BenchDotNet`), driven by `run_campaign.sh --suite codec`; the rpc and calib suites stay on `akrpc campaign` (reason in the checklist section). BDN smoke run executed (`logs/csharp/campaign/codec-launch1.*`, figures = instrumentation). Follow-up (JOURNAL 51): the per-case overhead traced to BDN's forced GCs over a live heap that grows with the cases in one process; a launch is now one process per arm:mode unit; the JIT tier of the measured code is read back per case (PASS on every case of the smoke).** WP3 harness conformance done before it. Campaign-readiness checklist below (requirements 1 to 32; unmet items listed with reasons). WP5 (the one generator) done earlier; regenerated at decision 11 (`29d515e`), where core-ffi retain is the backend's TRANSITIONAL drop mode until the decision 11 options are rendered in `cs_host`. |
 | **Owner's levels** (FIX-PLAN section 6, D2) | floors **net6.0** and **.NET Framework 4.8** (correctness only), target **net8.0** |
 | **Target** | net8.0 on .NET 8.0.31, SDK 8.0.131 (Ubuntu 24.04 `dotnet-sdk-8.0`). Everything below |
 | **net6.0 floor** | .NET 6.0.36 (runtime pack `Microsoft.NETCore.App.Runtime.linux-x64` 6.0.36 from NuGet, self-contained publish). **Builds and passes everything below, core-ffi included** (it did not build before this unit: `LibraryImport`) |
@@ -37,8 +37,10 @@ cs_binding.py       the P/Invoke BINDING, one file per message set: vocabulary s
                     plan.lifecycle (static constructor), AbiLayout.Table()/Facts(); and the
                     RPC half from plan.rpc (RpcAbi.cs, with its own ak_init)
 cs_host.py          the core-ffi HOST half: per root, encode (ak_encode / ak_uencode with the
-                    bags), push decode (with and without the capture callbacks), pull decode,
-                    Try* forms returning the core's code; compiled where UnmanagedCallersOnly
+                    bags), push and pull decode on ONE root-bound context, drop mode or
+                    retained (decision 11: native options, one grow, reset/decode/reset,
+                    group readers taking each slot into UnknownFields), Try* forms, the
+                    per-position discard helpers; compiled where UnmanagedCallersOnly
                     exists (NET5_0_OR_GREATER)
 cs_layout_probe.py  the layout probe's Rust source, parsed out of ak-abi's RUST declaration
                     text (reads no plan: R-E6)
@@ -89,6 +91,25 @@ Retired this unit: `gen/ir.py`, `abi_ir.py` (the second IR), `csnames.py`, `cs_f
 
 ## What was checked, and holds today
 
+**Decision 11 (WP5 step 9), `logs/csharp/wp5s9-gate.log`, GATE PASSED at `8d2e7ac`, core
+`e897f57`, net8.0 and net6.0.** Layout by name both ways including every
+`ak_dec_<Root>_opts` (now required to be bound): 105 structs / 490 members (shapes), 199 / 780
+(corpus), section 10 facts agree. Conformance 152/152; core-ffi every shape incl. retain;
+crossing counts = `gen/crossings.txt` unchanged (the arm and disarm resets are forward calls
+the core's R5 counters do not count; the host counts them apart, `ResetCalls`). The corpus,
+four arms: ffi-retain 680 pass / 0 fail, 6 disputed, 16 not in the ABI; forms as the rust
+slice's (105 "as committed / unknown-retained", 6 "unknown-retained, appended in tag order");
+**no retain arm writes the dropped form on a non-disputed row** (`AK_CORPUS_RETAIN_STRICT=1`,
+a gate failure otherwise; control `unkdrop`, ffi-retain in drop mode, fails with 307 gaps).
+`corpus --unk-controls`: 543 accept rows whose root crosses the ABI, 2,290 (row, position)
+pairs, 307 rows with unknowns at some position (315 pairs changed by zeroing), each position
+zeroed in turn equal to the retained value with that position's bags cleared on every row,
+pull == push on every row, no buffer left undelivered; wrong root (a `Timestamp` context on
+`Duration`'s entry points): decode, parse and reset refused with AK_ERR_INVALID_STATE, the own
+root still resets and parses. Plant (the expectation's clearing skipped): 307 mismatching rows,
+fails as required. The same counts as the rust slice's step-8 gate. U-map-entry: the map
+entry's bytes reach the host and are freed (the facade map has no bag), disputed.
+
 All in `logs/csharp/wp5-step4-gate.log` (one run of `gen/gate.sh`, `GATE PASSED`).
 
 **Generator.** `--check`: 19 files current; the guard sees 6 shared backends and 7 glue
@@ -115,7 +136,7 @@ offset swap in the C# table fails (2 disagreements), on net8.0 and net6.0.
 
 **core-ffi, every shape (`harness coreffi`), net8.0 and net6.0.** All 16 payloads: encode
 byte identity, decode round trip, value identity, pull against push, and the retain path
-(`ak_uencode_*` + capture callbacks, same bytes); R5 against the counting core: the host's
+(`ak_uencode_*` + the armed options since step 9, same bytes); R5 against the counting core: the host's
 tally equals the core's counters on every row. **Control**: `ak_init` skipped
 (`AK_GATE_PLANT_NO_INIT=1`) against the init-guard core: 16 of 16 rows fail.
 
@@ -156,9 +177,8 @@ the two direct parameters the core exports).
   truncated, 35/34 malformed, 31 transcode; the 2 depth rows and 1 malformed row are
   `Nest`, managed only).
 - Forms (C3): the drop arms write the dropped form; managed-retain writes the retained
-  form everywhere; ffi-retain writes the dropped form on 16 unknown-class rows (an unknown
-  inside an inlined singular child has no carrier in the C ABI; the rust slice reports the
-  same, D34).
+  form everywhere; ffi-retain (step 4 core) wrote the dropped form on 16 unknown-class rows
+  (no carrier then; since step 9, 0 rows: see the decision 11 paragraph above).
 - Google.Protobuf as a second oracle: accept/reject agrees with managed-drop on all 395
   rows whose root it has.
 - **Controls, each required to fail and failing, on net8.0 and net6.0**: planted projection
@@ -182,8 +202,10 @@ delivery, 0 failures, crossings per call as ABI v1 section 9 (counting core).
 | # | Where | What |
 |---|---|---|
 | D4 | net48 | compiled only; no gate on .NET Framework (needs Windows); the host half has no net48 form |
-| D41 | `cs_host.py` (shared) | decision 11's options (`ak_dec_<Root>_opts`, `ak_dec_ctx_new_<Root>`) are not rendered: core-ffi decode is in the transitional DROP mode since `29d515e`, so the campaign's core-ffi "retain" rows decode in drop mode (encode still hands the bags over through `ak_uencode_*`). Requirement 10 is pending this port; this unit was told not to edit poc/codec |
 | D42 | `akrpc` legacy modes (`--grid`, `--stream`, `Bench.cs`) | pre-campaign timing harnesses, not conformant (in-process server, `TotalProcessorTime`); superseded by `akrpc campaign`, kept only for `--error-path` and `--layout` (gate); none is a campaign harness |
+
+Closed in WP5 step 9: **D41** (decision 11's options and root-bound contexts rendered in
+`cs_binding`/`cs_host`; core-ffi retain retains; `logs/csharp/wp5s9-gate.log`).
 
 Closed in the WP5 tail: **D38** (the runtime's group skip accepted a field number above
 2^29 - 1 inside a group: it now takes `Codec.MaxFieldNumber`/`Codec.GroupDepthLimit`,
@@ -233,7 +255,7 @@ runner (which meets 13 to 18, 21, 23, 27, 28) is kept.
 | 7 | payloads | met: 16 payloads; content sets latin1/wide on P1.2 and P2.2 (SHAPES.md); every `U-*` corpus row with a shapes root, disputed excluded (92 rows) |
 | 8 | arms | met: incumbent-prod (Grpc.Tools marshaller shape: CalculateSize + WriteTo(IBufferWriter); ParseFrom(ReadOnlySequence)), incumbent-best (WriteTo(IBufferWriter) without the size pass; ParseFrom(ReadOnlySpan)), core-ffi (push; pull as `core-ffi-pull`), host-gen (managed codec); on the unknown rows: incumbent-prod, host-gen and core-ffi, each drop/retain where it has the mode |
 | 9 | directions | met: encode, decode, decode-read (a generated `Touch` visitor reads every field, both object models); decode-reencode on the unknown rows |
-| 10 | drop and retain | **pending decision 11 port** (D41): host-gen drop/retain met; core-ffi retain rows run, but decode in the transitional drop mode; incumbent default (retains), stated |
+| 10 | drop and retain | met: host-gen drop/retain, core-ffi drop/retain (decision 11: every position armed with grow; retain checked before timing: on every unknown row core-ffi retain and host-gen retain re-encode to the incumbent's bytes), core-ffi-pull drop; incumbent default (retains), stated. The one position the C# facade cannot hold is a map entry's bag (U-map-entry, disputed, not in the timed set) |
 | 11 | serialised once per iteration, no amortised memo | met: Google.Protobuf's C# messages keep no serialized-size memo (CalculateSize recomputes); core-ffi and host-gen reset their contexts per call; the graph is reused |
 | 12 | cells A-D | met |
 | 13 | server separate process, pre-serialised | met: Kestrel in its own process on `AK_CPU_SERVER`, P2.2 bytes pre-serialised; direction b decoded by the incumbent in every cell |
@@ -262,23 +284,21 @@ D1 (`src/BenchDotNet`, retired at WP3) is **restored** as the codec-suite engine
 **Smoke runs** (`logs/csharp/campaign/`, CLIENT=0 SERVER=1, 1 launch, every file headed
 "instrumentation, not a result"):
 
-- **codec under BDN, units** (`codec-launch1.jsonl` + `codec-launch1.<unit>.bdn.log`, commit
-  and gate in its header): commit `7c6b792`, gate PASSED at that commit (`gate.log`); 7 unit
-  processes, each 560 pre-timing checks passed, pre-warm quiet after 7 to 9 rounds, JIT check
-  PASS; 1,780 cases, 0 failed: 1,780 raw iteration rows (round 1) + 1,780 CPU rows (round 0);
-  by direction encode 120, decode 600, decode-read 600, decode-reencode 460. 81 cases show a
-  compilation inside the actual stage, all runtime or engine methods by name (none of them
-  hot tier-0 measured code). The codec phase took 12.5 min (BDN itself 5.9 min over the 7
-  processes); the single-process version took 36 to 44 min at the same job.
+- **codec under BDN, units, after the decision 11 port** (`codec-launch1.jsonl` +
+  `codec-launch1.<unit>.bdn.log`, commit and gate in its header): commit `77b54c8`, gate PASSED
+  at `8d2e7ac`, identical content (`gate.log` = `wp5s9-gate.log`); 7 unit processes, each 744
+  pre-timing checks passed (now including: core-ffi retain and host-gen retain re-encode every
+  unknown row to the incumbent's bytes), JIT check PASS; 1,780 cases, 0 failed: 1,780 raw
+  iteration rows + 1,780 CPU rows; 276 of them core-ffi retain on the 92 unknown rows
+  (decode, decode-read, decode-reencode), now on a decoder that retains (requirement 10).
 - rpc, calib and the abort control (WP3, commit `5d81225`): rpc 48 samples per transport
   (16 cell/delivery rows x 3 in-flight levels, shipped and pinned); the requirement-18
   control aborted with 0 samples on both transports (`*.PLANT.jsonl`); calib 2 samples after
   the crossing-count gate (`calib-crossing-counts.log`).
 
-`gate.log` is the gate the codec smoke ran behind: net8.0 and net6.0, conformance, core-ffi,
-crossing counts = `gen/crossings.txt`, corpus (managed and ffi arms), probe rows, controls.
-In its corpus, ffi-retain writes the dropped form on the unknown rows: the transitional drop
-mode of D41, accepted by the contract, reported as a retention gap.
+`gate.log` is the gate the codec smoke ran behind (a copy of `wp5s9-gate.log`, the same run):
+net8.0 and net6.0, conformance, core-ffi, crossing counts = `gen/crossings.txt`, corpus (managed
+and ffi arms, strict retain), decision 11's controls, probe rows, controls.
 
 **Engine cost (container, instrumentation; JOURNAL 51).** The per-case overhead is BDN's forced
 GCs: 4 full collections per iteration (about 30 before the actual stage of a smoke case, about
@@ -313,8 +333,9 @@ nothing is declared by hand any more.
   listener started (runtime start-up code) is never attributed to a case. The rpc and calib
   suites do not read the tier back. BDN's forced GCs are inside the CPU span (their pause is
   recorded, not subtracted).
-- Unknown fields inside an inlined child, an inner run's element or a map entry through the
-  C ABI (no carrier); inside a map entry in the managed codec (the facade map has no bag).
+- Unknown fields inside a map entry, in either codec: the facade map has no bag (the core
+  delivers the entry's buffer and the host frees it). Decision 11's placement paths other
+  than grow (pools, in-place refill, AK_ERR_CAPACITY) through this host.
 - Google.Protobuf's message-size limit (ABI v1 decision 8) in the managed codec.
 - ABI v1 decisions 4, 6, 10, 12 on .NET; decision 13 bounded only by the no-string ceiling.
 - The `[UnmanagedCallersOnly]` guard removed; `packages/csharp`'s own object model; R2R;
@@ -322,8 +343,9 @@ nothing is declared by hand any more.
 
 ## Next step
 
-1. Render decision 11's options in `cs_host.py` (D41) when authorized, then requirement 10
-   is met and the core-ffi retain rows really retain.
+1. Decision 11's placement controls (a pre-allocated pool, in-place refill between
+   deliveries, the oneof buffer move, AK_ERR_CAPACITY with no grow) are not built for C#:
+   this host arms every position with grow only. The rust slice runs them.
 2. The net48 gate on a Windows machine (D4), which first needs a net48 host half
    (delegate thunks rooted for the vtable's lifetime).
 3. The campaign itself is the owner's: `run_campaign.sh` on the campaign machine (codec: 3
@@ -334,6 +356,7 @@ nothing is declared by hand any more.
 
 | Log | What it establishes |
 |---|---|
+| `wp5s9-gate.log` | the WP5 step 9 gate (decision 11 port), core `e897f57`, clean core builds: layout incl. the options structs, conformance, core-ffi, crossing counts, corpus with strict retain (0 gaps) and its unkdrop control, decision 11's controls (per-position discard, pull == push, wrong root) and their plant, net8.0 and net6.0 |
 | `bdn-default-job-unit/` | a TRIAL, not a campaign run: one unit (core-ffi:drop, 336 cases) at the default BDN job, for the JIT check (PASS) and the engine cost at that job |
 | `campaign/` | smoke runs of `run_campaign.sh`: `gate.log` + `codec-launch1.jsonl` and one `codec-launch1.<unit>.bdn.log` per process (BDN, units, JIT check; unit 4 follow-up); rpc shipped+pinned, the rpc abort control, calib (WP3). Every figure is container instrumentation |
 | `wp5-tail-gate.log` | the WP5-tail gate, core `41eb485`, clean core builds: as step 4's, plus the oracle-probe rows (11/11 on all four arms, net8.0 and net6.0, `P-field-maxplus1-in-group` refused); corpus 702 rows: managed 696/0, ffi 680/0 (+16 Nest), 6 disputed; RPC layout 6 structs / 20 members incl. `ak_rpc_counters` |
