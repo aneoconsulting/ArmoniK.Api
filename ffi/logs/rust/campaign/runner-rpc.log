@@ -1,0 +1,7 @@
+no gate pass recorded for tree d40dbf35eafc3ed8: running the gate first (requirement 26)
+gate: PASSED (/home/user/ArmoniK.Api/ffi/logs/rust/campaign/gate.log)
+rpc shipped: control (planted wrong length) aborted with no output: ABORT (requirement 18): cell A dir a inflight 1 warm-up: cell A response 540422 B, expected 540423
+rpc shipped launch 1: 24 sample rows -> /home/user/ArmoniK.Api/ffi/logs/rust/campaign/rpc-shipped-launch1.jsonl
+rpc pinned: control (planted wrong length) aborted with no output: ABORT (requirement 18): cell A dir a inflight 1 warm-up: cell A response 540422 B, expected 540423
+rpc pinned launch 1: 24 sample rows -> /home/user/ArmoniK.Api/ffi/logs/rust/campaign/rpc-pinned-launch1.jsonl
+rpc exit 0

@@ -2194,3 +2194,28 @@ corpus's own merge (`spec.load()`), so `fixed32` and the corpus-only messages ex
   slices were then regenerated and gated only in a scratch worktree (logs/rust/wp5s7/).
 - `U-map-entry` stays a retention gap: the core delivers the entry's bytes (8), the facade map
   has nowhere to keep them (D42).
+
+## 2026-09-25 -- FIX-PLAN WP3: the campaign harness (design/CAMPAIGN.md, req 22a: criterion)
+
+### Done
+
+- `crates/campaign`: codec suite on criterion 0.5 with a thread-CPU Measurement, Flat
+  sampling, raw sample.json -> section 7 JSON lines; per-root arm table and read-every-field
+  visitors from `gen/rust_campaign.py`; separate-process RPC grid (`rpc_server`,
+  `rpc_client`, cells A-D); `calib`; `crossings` (counting build, every timed core-ffi case,
+  committed as `gen/crossings.txt`); `run_campaign.sh`; gate.sh steps 11b/11c.
+- Smoke run of all four suites in the container (instrumentation): `logs/rust/campaign/`.
+
+### Found
+
+- prost REFUSES 27 `U-wire-*` rows (a known field at a foreign wire type is a decode error in
+  prost, an unknown field in protobuf and in the core). The incumbent is not timed on them;
+  the header lists each.
+- The in-process pre-check first demanded that retain re-encode a `U-*` row byte for byte;
+  rows with unknowns before or between known fields are accepted in the "appended in tag
+  order" form, so the check now uses the row's accepted encodings.
+- The stock `counts` bin covers P1.x-P3.1 only; requirement 19 needed every timed input, so
+  `crossings` counts all 112 inputs x 3 directions x 2 modes.
+- `one_core.sh`'s R0 check (a second `codec.rs`) caught the first bench file name.
+- Retain decodes cost two `ak_dec_reset_<Root>` forward calls that the core's context
+  counters do not count (stated in the checklist).

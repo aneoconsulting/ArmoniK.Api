@@ -1,0 +1,3 @@
+crossing counts: 671 rows identical to gen/crossings.txt
+codec launch 1: 22960 sample rows -> /home/user/ArmoniK.Api/ffi/logs/rust/campaign/codec-launch1.jsonl
+codec exit 0
