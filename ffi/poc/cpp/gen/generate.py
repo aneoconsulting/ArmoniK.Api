@@ -74,7 +74,7 @@ CPP_BACKENDS = ["c_abi.py", "cpp_facade.py", "cpp_native.py", "cpp_binding.py",
                 "cpp_names.py"]
 FORBIDDEN = {"ir", "shapes", "spec", "values", "payloads", "encode", "walk", "json"}
 # This slice's glue must not reach for the IR either.
-GLUE = ["generate.py", "cpp_touch.py", "campaign_summary.py", "cpp_build.py", "cpp_pbbuild.py", "cpp_cases.py", "cpp_project.py",
+GLUE = ["generate.py", "cpp_touch.py", "campaign_summary.py", "gbench_to_jsonl.py", "cpp_build.py", "cpp_pbbuild.py", "cpp_cases.py", "cpp_project.py",
         "corpus_all.py", "refusal_test.py"]
 GLUE_FORBIDDEN = {"ir", "shapes", "spec", "rust_core", "cppnames", "cpp_core"}
 

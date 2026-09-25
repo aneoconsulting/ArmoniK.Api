@@ -149,7 +149,7 @@ h = {
  "repeats": {"launches": $LAUNCHES, "rounds": $ROUNDS},
  "warmup": {"codec_bytes_per_arm": $WARM, "rpc_calls_per_cell": $RPCWARM, "allocator": "every arm runs its warm-up before round 1"},
  "sample": {"codec_bytes": $BYTES, "rpc_calls": $CALLS, "calib_iters": $CITERS,
-            "codec_clock": "CLOCK_THREAD_CPUTIME_ID + CLOCK_MONOTONIC", "rpc_clock": "getrusage(RUSAGE_SELF) of the client process + CLOCK_MONOTONIC"},
+            "codec_clock": "Google Benchmark " + sh("dpkg-query -W -f='\${Version}' libbenchmark-dev 2>/dev/null || echo vendored") + ": cpu_time (benchmark thread) and real_time, repetitions randomly interleaved", "rpc_clock": "getrusage(RUSAGE_SELF) of the client process + CLOCK_MONOTONIC"},
 }
 print("# " + json.dumps(h, sort_keys=True))
 EOF
@@ -264,10 +264,19 @@ case "$SUITE" in
     unknown_rows
     for l in $(seq 1 "$LAUNCHES"); do
       f=$OUT/codec-launch$l.jsonl
+      # Google Benchmark (requirement 22a): the binary gates, warms up and runs the
+      # benchmarks; its per-repetition JSON is converted to section 7's lines, and the raw
+      # Google Benchmark JSON is kept beside them.
+      gb=$OUT/codec-launch$l.gbench.json
       { header codec "$l"
         (cd "$FFI/schema/generated" && taskset -c "$AK_CPU_CLIENT" "$B/campaign_codec" --launch "$l" \
-           --rounds "$ROUNDS" --bytes "$BYTES" --warmup "$WARM" --corpus "$FFI/corpus/generated" --rows "$ROWS"); } > "$f" 2>&1 \
-        || { echo "codec launch $l failed: $f" >&2; exit 1; }
+           --rounds "$ROUNDS" --bytes "$BYTES" --warmup "$WARM" --corpus "$FFI/corpus/generated" \
+           --rows "$ROWS" --gbench-out "$gb" > "$TMPD/gb.console" 2>&1; echo $? > "$TMPD/gb.rc")
+        grep '^#' "$TMPD/gb.console"
+        python3 "$SLICE/gen/gbench_to_jsonl.py" "$gb" "$l"; } > "$f" 2>/dev/null
+      if [ "$(cat "$TMPD/gb.rc")" != 0 ] || ! grep -q '^{' "$f"; then
+        echo "codec launch $l failed: $f" >&2; tail -20 "$TMPD/gb.console" >&2; exit 1
+      fi
       echo "wrote $f"
     done ;;
   rpc)

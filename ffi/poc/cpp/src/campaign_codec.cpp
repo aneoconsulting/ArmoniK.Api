@@ -22,6 +22,8 @@
 //   vector), the Latin-1 and wide content sets on P1.2, P2.2, P3.1, P4.1 and P6.1 (the set
 //   the committed content-set gate covers; SHAPES.md: string-path payloads, P6.1 the
 //   control), and the corpus's unknown-class rows rooted at a shapes root (decode only).
+// Timing (req. 22a): Google Benchmark, see the end of main(). This file prints no sample;
+// the samples are Google Benchmark's per-repetition JSON, converted by gen/gbench_to_jsonl.py.
 // Correctness first (req. 26): before round 1, every arm of every group is run once and
 // checked. The canonical bytes are host-gen's encoding, required equal to the manifest's
 // SHA-256 on ASCII (no manifest covers the other two sets). The core's encoders must write
@@ -32,7 +34,11 @@
 // prints the group and exits 2 before any timing.
 //
 //   campaign_codec --launch L --rounds R --bytes B --warmup W [--only ID,ID]
-//                  [--corpus DIR --rows TSV] [--payloads DIR]
+//                  [--corpus DIR --rows TSV] [--payloads DIR] [--gbench-out FILE]
+#include <benchmark/benchmark.h>
+#ifndef AK_GBENCH_VERSION
+#define AK_GBENCH_VERSION "unknown"
+#endif
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/impl/codegen/proto_utils.h>
 #include <sched.h>
@@ -73,19 +79,10 @@ struct Cfg {
   double warmup = -1;                 // warm-up bytes per arm; default = one sample
   std::vector<std::string> only;
   std::string corpus, payloads, rows;
+  std::string gbout = "campaign_codec_gbench.json";  // Google Benchmark's JSON output
 };
 Cfg g_cfg;
 
-double thread_cpu_ns() {
-  struct timespec ts;
-  clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts);
-  return (double)ts.tv_sec * 1e9 + (double)ts.tv_nsec;
-}
-double mono_ns() {
-  struct timespec ts;
-  clock_gettime(CLOCK_MONOTONIC, &ts);
-  return (double)ts.tv_sec * 1e9 + (double)ts.tv_nsec;
-}
 
 volatile uint64_t g_sink = 0;
 // Keeps a decoded object alive without reading it (the bare decode direction).
@@ -377,6 +374,7 @@ int main(int argc, char **argv) {
     else if (a == "--corpus") g_cfg.corpus = v;
     else if (a == "--payloads") g_cfg.payloads = v;
     else if (a == "--rows") g_cfg.rows = v;
+    else if (a == "--gbench-out") g_cfg.gbout = v;
     else if (a == "--only") {
       std::string s(v);
       size_t p = 0;
@@ -495,8 +493,8 @@ int main(int argc, char **argv) {
   for (int c = 0; c < CPU_SETSIZE; ++c)
     if (CPU_ISSET(c, &set)) cpus += (cpus.empty() ? "" : ",") + std::to_string(c);
   std::printf("# {\"campaign_codec\": {\"launch\": %d, \"rounds\": %d, \"bytes_per_sample\": %.0f,"
-              " \"warmup_bytes_per_slot\": %.0f, \"affinity\": \"%s\", \"clock\": \"CLOCK_THREAD_CPUTIME_ID\"}}\n",
-              g_cfg.launch, g_cfg.rounds, g_cfg.bytes, g_cfg.warmup, cpus.c_str());
+              " \"warmup_bytes_per_slot\": %.0f, \"affinity\": \"%s\", \"timer\": \"Google Benchmark %s: cpu_time (benchmark thread) and real_time\"}}\n",
+              g_cfg.launch, g_cfg.rounds, g_cfg.bytes, g_cfg.warmup, cpus.c_str(), AK_GBENCH_VERSION);
 
   // ---- warm-up: every slot, the same byte budget, before round 1 (req. 24, 25) ----
   for (size_t gi = 0; gi < groups.size(); ++gi) {
@@ -504,26 +502,50 @@ int main(int argc, char **argv) {
     if (n < 1) n = 1;
     for (size_t s = 0; s < groups[gi].slots.size(); ++s) g_sink += groups[gi].slots[s].run(n);
   }
-  // ---- rounds: every group, its slots in an order rotated by round (req. 22) ----
-  for (int r = 0; r < g_cfg.rounds; ++r) {
+  // ---- timing: Google Benchmark (CAMPAIGN.md requirement 22a, owner 2026-09-25) ----
+  // One benchmark per slot, name "arm|payload|content|dir|unknown_mode". Fixed iterations
+  // per group (the byte budget / the wire size, as before), `rounds` repetitions, every
+  // repetition reported raw (no aggregate-only), repetitions interleaved across all
+  // benchmarks in random order (--benchmark_enable_random_interleaving), and the
+  // registration order rotated by launch so the three launches start from different arms.
+  // cpu_time is Google Benchmark's default CPU timer: the benchmark thread's CPU time;
+  // real_time is wall. gen/gbench_to_jsonl.py turns the JSON into section 7's lines.
+  if (g_cfg.rounds > 0) {
+    std::vector<std::pair<std::string, std::pair<Slot *, long> > > regs;
     for (size_t gi = 0; gi < groups.size(); ++gi) {
       Group &g = groups[gi];
       long n = (long)(g_cfg.bytes / (double)(g.wire ? g.wire : 1));
       if (n < 1) n = 1;
-      size_t ns_ = g.slots.size();
-      for (size_t j = 0; j < ns_; ++j) {
-        Slot &s = g.slots[(j + (size_t)r) % ns_];
-        double w0 = mono_ns(), c0 = thread_cpu_ns();
-        g_sink += s.run(n);
-        double c1 = thread_cpu_ns(), w1 = mono_ns();
-        std::printf("{\"slice\":\"cpp\",\"suite\":\"codec\",\"arm\":\"%s\",\"payload\":\"%s\","
-                    "\"content\":\"%s\",\"dir\":\"%s\",\"unknown_mode\":\"%s\",\"launch\":%d,"
-                    "\"round\":%d,\"cpu_ns\":%.0f,\"wall_ns\":%.0f,\"iters\":%ld}\n",
-                    s.arm.c_str(), g.payload.c_str(), g.content.c_str(), s.dir.c_str(),
-                    s.mode.c_str(), g_cfg.launch, r, c1 - c0, w1 - w0, n);
+      for (size_t s = 0; s < g.slots.size(); ++s) {
+        Slot *sl = &g.slots[s];
+        regs.push_back(std::make_pair(sl->arm + "|" + g.payload + "|" + g.content + "|" + sl->dir + "|" + sl->mode,
+                                      std::make_pair(sl, n)));
       }
-      std::fflush(stdout);
     }
+    size_t nr = regs.size(), rot = nr ? ((size_t)g_cfg.launch * 7919u) % nr : 0;
+    for (size_t k = 0; k < nr; ++k) {
+      const std::pair<std::string, std::pair<Slot *, long> > &r = regs[(k + rot) % nr];
+      Slot *sl = r.second.first;
+      benchmark::RegisterBenchmark(r.first.c_str(), [sl](benchmark::State &st) {
+        for (auto _ : st) {
+          uint64_t h = sl->run(1);
+          benchmark::DoNotOptimize(h);
+          benchmark::ClobberMemory();
+        }
+      })->Iterations(r.second.second)->Repetitions(g_cfg.rounds)->Unit(benchmark::kNanosecond)
+        ->ReportAggregatesOnly(false);
+    }
+    std::string out = "--benchmark_out=" + g_cfg.gbout;
+    std::vector<std::string> args = {"campaign_codec", out, "--benchmark_out_format=json",
+                                     "--benchmark_enable_random_interleaving=true",
+                                     "--benchmark_min_warmup_time=0",
+                                     "--benchmark_format=console"};
+    std::vector<char *> av;
+    for (size_t k = 0; k < args.size(); ++k) av.push_back(&args[k][0]);
+    int ac = (int)av.size();
+    benchmark::Initialize(&ac, av.data());
+    benchmark::RunSpecifiedBenchmarks();
+    benchmark::Shutdown();
   }
   return 0;
 }
