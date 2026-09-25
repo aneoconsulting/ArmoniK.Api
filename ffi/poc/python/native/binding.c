@@ -46,26 +46,31 @@ static PyObject *py_encode(PyObject *m, PyObject *args) {
   (void)m;
   const char *backend, *rootname;
   PyObject *root, *acc = NULL;
-  if (!PyArg_ParseTuple(args, "ssO|O", &backend, &rootname, &root, &acc)) return NULL;
+  int retain = 0;
+  if (!PyArg_ParseTuple(args, "ssO|Op", &backend, &rootname, &root, &acc, &retain)) return NULL;
   int b = backend_index(backend);
   int r = root_index(rootname);
   if (b < 0 || r < 0) return NULL;
-  return AK_ENC[b][r](root, acc);
+  if (acc == Py_None) acc = NULL;
+  return AK_ENC[b][r](root, acc, retain);
 }
 
 static PyObject *py_decode(PyObject *m, PyObject *args) {
   (void)m;
   const char *backend, *rootname;
   PyObject *buf, *types, *acc = NULL;
-  if (!PyArg_ParseTuple(args, "ssOO|O", &backend, &rootname, &buf, &types, &acc))
+  int retain = 0;
+  unsigned long long zero = 0;
+  if (!PyArg_ParseTuple(args, "ssOO|OpK", &backend, &rootname, &buf, &types, &acc, &retain, &zero))
     return NULL;
+  if (acc == Py_None) acc = NULL;
   int b = backend_index(backend);
   int r = root_index(rootname);
   if (b < 0 || r < 0) return NULL;
   HostTypes T;
   memset(&T, 0, sizeof T);
   if (types_from_seq(&T, types)) return NULL;
-  return AK_DEC[b][r](buf, acc, &T);
+  return AK_DEC[b][r](buf, acc, &T, retain, zero);
 }
 
 /* ABI v1 section 10 and obligation 12.3.  The shim and the core restate the same group
@@ -185,6 +190,43 @@ static PyObject *py_types(PyObject *m, PyObject *unused) {
     PyTuple_SET_ITEM(t, i, s);
   }
   return t;
+}
+
+/* Decision 11: the unknown-field positions of one root, as ("name", "msg"|"oneof", "path"),
+ * in the order of the decode's `zero` mask bits. */
+static PyObject *py_unk_positions(PyObject *m, PyObject *args) {
+  (void)m;
+  const char *rootname;
+  if (!PyArg_ParseTuple(args, "s", &rootname)) return NULL;
+  int r = root_index(rootname);
+  if (r < 0) return NULL;
+  PyObject *out = PyList_New(0);
+  if (!out) return NULL;
+  for (const char *const *p = AK_UNKPOS[r]; *p; p++) {
+    PyObject *s = PyUnicode_FromString(*p);
+    if (!s || PyList_Append(out, s) < 0) { Py_XDECREF(s); Py_DECREF(out); return NULL; }
+    Py_DECREF(s);
+  }
+  return out;
+}
+
+/* Decision 11 rule 6, the wrong-root control: (reset code, decode code, delivered?). */
+static PyObject *py_wrong_root(PyObject *m, PyObject *args) {
+  (void)m;
+  const char *a, *b;
+  if (!PyArg_ParseTuple(args, "ss", &a, &b)) return NULL;
+  int ia = root_index(a), ib = root_index(b);
+  if (ia < 0 || ib < 0) return NULL;
+  int32_t rr = 0, dr = 0;
+  ak_py_wrong_root(ia, ib, &rr, &dr);
+  return Py_BuildValue("(iiO)", (int)rr, (int)dr, AK_TRAP_DELIVERED ? Py_True : Py_False);
+}
+
+/* Buffers freed by the last decode's reclaim (never delivered): 0 after a successful decode. */
+static PyObject *py_last_reclaimed(PyObject *m, PyObject *unused) {
+  (void)m;
+  (void)unused;
+  return PyLong_FromUnsignedLong(AK_LAST_RECLAIMED);
 }
 
 /* The roots this shim's core carries, in dispatch order. */
@@ -455,11 +497,14 @@ static PyObject *py_call_unary_cb(PyObject *m, PyObject *args) {
 
 static PyMethodDef methods[] = {
     {"encode", py_encode, METH_VARARGS,
-     "encode(backend, rootname, obj[, accessors]) -> bytes, through the shared core"},
+     "encode(backend, rootname, obj[, accessors[, retain]]) -> bytes, through the shared core"},
     {"decode", py_decode, METH_VARARGS,
-     "decode(backend, rootname, buf, types[, accessors]) -> facade"},
+     "decode(backend, rootname, buf, types[, accessors[, retain[, zero_mask]]]) -> facade"},
     {"types", py_types, METH_NOARGS, "the facade type names, in HostTypes order"},
     {"roots", py_roots, METH_NOARGS, "the roots this shim's core carries"},
+    {"unk_positions", py_unk_positions, METH_VARARGS, "decision 11: a root's unknown-field positions"},
+    {"wrong_root", py_wrong_root, METH_VARARGS, "decision 11 rule 6 control: (reset rc, decode rc, delivered)"},
+    {"last_reclaimed", py_last_reclaimed, METH_NOARGS, "buffers the last decode reclaimed undelivered"},
     {"layout_host", py_layout_host, METH_NOARGS,
      "the shim's own layout facts, named, as compared with the core's at import"},
     {"layout_facts", py_layout_check, METH_NOARGS,
