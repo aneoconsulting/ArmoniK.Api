@@ -1184,3 +1184,10 @@ The gate at 6feff87 (python at acb5128) is unchanged from J42 on every figure at
 The first smoke rerun failed with ENOSPC; the disk was full across the shared container. I
 freed about 4 GB of my own stale snapshot builds (`build/cargo-<sha>`, `build/snap/<sha>`,
 scratchpad) and reran it. Not exercised: the re-entrant temporary-context path.
+
+Smoke rerun (instrumentation): the first attempt after the ENOSPC cleanup ran the gate, then
+refused the codec suite because the tree was dirty (requirement 27; my uncommitted STATE and
+JOURNAL, plus a cpp-slice file). The codec output found on disk after that refusal came from
+a run I could not trace, so I discarded it rather than commit it. After committing (24caa3e),
+`--suite codec --smoke --allow-dirty` re-ran the gate (passed at 24caa3e) and wrote 378 shape
+values and 60 unknown values with no traceback: logs/python/campaign/codec-*.
