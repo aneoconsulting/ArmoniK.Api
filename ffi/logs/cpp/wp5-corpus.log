@@ -1,8 +1,8 @@
 # cpp slice, WP5 step 2: the full conformance corpus, four arms
-#   date       2026-09-25T19:03:36Z
+#   date       2026-09-25T22:44:37Z
 #   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
 #   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit     6feff87
+#   commit     f4ab079
 #   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
 #              for the corpus ABI); no timing is taken by anything in this log
 

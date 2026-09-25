@@ -1,0 +1,90 @@
+# cpp slice, WP5 step 10: the no-unknown build
+#   date       2026-09-25T22:51:20Z
+#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
+#   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
+#   commit     9bb622d
+#   variant    plan relowered with unknown="drop" (plan.py THE NO-UNKNOWN VARIANT); core
+#              ak-core --no-default-features --features init-guard(+count|corpus|rpc),
+#              own target dirs core-build/target-*-nounk; no timing in this log
+
+===== 1. which core each binary loads =====
+  conformance_nounk_a17 -> core-build/target-nounk/release/libak_core.so : u-family exports 0
+  conformance_nounk_c11 -> core-build/target-nounk/release/libak_core.so : u-family exports 0
+  corpus_nounk_a17 -> core-build/target-corpus-nounk/release/libak_core.so : u-family exports 0
+  corpus_nounk_c11 -> core-build/target-corpus-nounk/release/libak_core.so : u-family exports 0
+  counts_nounk -> core-build/target-count-nounk/release/libak_core.so : u-family exports 0
+  campaign_codec_nounk -> core-build/target-nounk/release/libak_core.so : u-family exports 0
+  campaign_rpc_nounk -> core-build/target-camp-nounk/release/libak_core.so : u-family exports 0
+  conformance_nounk_static (static core): u-family symbols 0
+  (full) conformance_a17_shared -> core-build/target/release/libak_core.so : u-family exports 21
+  (full) corpus_all_a17 -> core-build/target-corpus/release/libak_core.so : u-family exports 70
+  (full) campaign_codec -> core-build/target/release/libak_core.so : u-family exports 21
+  (full) campaign_rpc -> core-build/target-camp/release/libak_core.so : u-family exports 21
+>>> ok: every variant binary resolves a no-unknown core, every full one a full core
+
+===== 2. the two C headers against the two cores (poc/rust/gen/c_variant.sh) =====
+  both headers compile as C99 and C++11 (-Wall -Werror)
+  full header: 400 layout facts agree with the core
+  no-unknown header: 240 layout facts agree with the core
+  mismatch caught (full header, nounk core): 400 facts, core exports 240
+  mismatch caught (nounk header, full core): 240 facts, core exports 400
+>>> ok: c_variant
+
+===== 3. payload byte identity, layout, rule 6: conformance_nounk =====
+    240 layout facts, 0 disagreements
+    no-unknown build: wrong root decode -8, parse -8, binding decode -8 (AK_ERR_INVALID_STATE -8); own root 0, unknowns dropped 1
+  478 checks, 0 failures, 1 payloads with two valid encodings
+>>> ok: conformance_nounk_a17
+    240 layout facts, 0 disagreements
+    no-unknown build: wrong root decode -8, parse -8, binding decode -8 (AK_ERR_INVALID_STATE -8); own root 0, unknowns dropped 1
+  478 checks, 0 failures, 1 payloads with two valid encodings
+>>> ok: conformance_nounk_c11
+    240 layout facts, 0 disagreements
+    no-unknown build: wrong root decode -8, parse -8, binding decode -8 (AK_ERR_INVALID_STATE -8); own root 0, unknowns dropped 1
+  478 checks, 0 failures, 1 payloads with two valid encodings
+>>> ok: conformance_nounk_static
+
+===== 4. the full corpus on the no-unknown build =====
+  ## ffi-drop
+     pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+  ## ffi-retain
+     pass 0  fail 0  disputed (excluded) 0  not in the C ABI 16  arm not built 686
+  ## native-drop
+     pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+  ## native-retain
+     pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+  ## ffi-drop unknown rows NOT written in the dropped form: 0
+  # rows that hung or crashed a child: 0
+  CORPUS PASSES on every built arm
+>>> ok: corpus corpus_nounk_a17
+  ## ffi-drop
+     pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+  ## ffi-retain
+     pass 0  fail 0  disputed (excluded) 0  not in the C ABI 16  arm not built 686
+  ## native-drop
+     pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+  ## native-retain
+     pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+  ## ffi-drop unknown rows NOT written in the dropped form: 0
+  # rows that hung or crashed a child: 0
+  CORPUS PASSES on every built arm
+>>> ok: corpus corpus_nounk_c11
+corpus_nounk_a17 vs corpus_nounk_c11: 2808 (row, arm) outcomes compared, 0 differ
+>>> ok: C++17 = C++11 outcomes
+>>> ok: control proj failed as required
+>>> ok: control reenc failed as required
+>>> ok: control accept failed as required
+  noinit: ffi arm-row failures 39
+>>> ok: control noinit failed as required
+  ## native-retain unknown rows NOT written in the dropped form: 313
+>>> ok: the dropped-form check fails on a retaining arm (seen failing)
+
+===== 5. crossing counts =====
+>>> ok: 87 rows identical to counts-nounk-baseline.log
+  against the full build in drop mode (counts-baseline.log):
+    10c10
+    <   P1.2   decode                 forward      1  reverse      8  transcode        0   per element  0.001 /  0.008
+    ---
+    >   P1.2   decode                 forward      1  reverse      5  transcode        0   per element  0.001 /  0.005
+
+nounk_gate: 0 failure(s)

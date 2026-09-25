@@ -1,8 +1,8 @@
 # cpp slice, WP5 step 2: the other gates (nothing timed)
-#   date       2026-09-25T19:04:32Z
+#   date       2026-09-25T22:45:59Z
 #   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
 #   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit     6feff87
+#   commit     f4ab079
 #   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
 #              for the corpus ABI); no timing is taken by anything in this log
 
@@ -160,11 +160,11 @@ groupskip: 0 build(s) did not do what they must
 
 ===== concurrency.sh (AK_CONC_NO_T7=1; planted cores must fail) =====
 == ABI v1 obligation 12.5 ==
-date: 2026-09-25T19:04:32Z  nproc = 4  build dir: ./build
+date: 2026-09-25T22:45:59Z  nproc = 4  build dir: ./build
 
 =========== conc_a17_shared 4 6   (must PASS) ===========
 $ ldd ./build/conc_a17_shared | grep ak_core
-	libak_core.so => /tmp/claude-0/sp/wt9/ffi/poc/cpp/core-build/target/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt11/ffi/poc/cpp/core-build/target/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
 plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
@@ -240,7 +240,7 @@ whole run, distinct wrong operations: native-encoder 0  core-encoder 0  decoder 
 
 =========== conc_c11_shared 4 6   (must PASS) ===========
 $ ldd ./build/conc_c11_shared | grep ak_core
-	libak_core.so => /tmp/claude-0/sp/wt9/ffi/poc/cpp/core-build/target/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt11/ffi/poc/cpp/core-build/target/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201103  impl=floor  guard=on  linkage=shared  threads=4  rounds=6
 plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
@@ -391,7 +391,7 @@ whole run, distinct wrong operations: native-encoder 0  core-encoder 0  decoder 
 
 =========== conc_a17_shared 16 4   (must PASS) ===========
 $ ldd ./build/conc_a17_shared | grep ak_core
-	libak_core.so => /tmp/claude-0/sp/wt9/ffi/poc/cpp/core-build/target/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt11/ffi/poc/cpp/core-build/target/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201703  impl=target  guard=on  linkage=shared  threads=16  rounds=4
 plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
@@ -467,7 +467,7 @@ whole run, distinct wrong operations: native-encoder 0  core-encoder 0  decoder 
 
 =========== conc_a17_pad 4 6   (a REFUSED design: must FAIL) ===========
 $ ldd ./build/conc_a17_pad | grep ak_core
-	libak_core.so => /tmp/claude-0/sp/wt9/ffi/poc/cpp/core-build/target-pad/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt11/ffi/poc/cpp/core-build/target-pad/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
 plants: AK_CONC_PAD=1  AK_CONC_GLOBAL=0   <-- in ak::Enc: a REFUSED design from ABI v1 section 6, built on purpose
@@ -557,7 +557,7 @@ the exit code is inverted by gen/concurrency.sh, not by this binary.
 
 =========== conc_a17_both 4 6   (a REFUSED design: must FAIL) ===========
 $ ldd ./build/conc_a17_both | grep ak_core
-	libak_core.so => /tmp/claude-0/sp/wt9/ffi/poc/cpp/core-build/target-both/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt11/ffi/poc/cpp/core-build/target-both/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
 plants: AK_CONC_PAD=1  AK_CONC_GLOBAL=1   <-- in ak::Enc: a REFUSED design from ABI v1 section 6, built on purpose
@@ -648,7 +648,7 @@ the exit code is inverted by gen/concurrency.sh, not by this binary.
 
 =========== conc_a17_corepad 4 6   (a REFUSED design: must FAIL) ===========
 $ ldd ./build/conc_a17_corepad | grep ak_core
-	libak_core.so => /tmp/claude-0/sp/wt9/ffi/poc/cpp/core-build/target-pad/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt11/ffi/poc/cpp/core-build/target-pad/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
 plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
@@ -731,7 +731,7 @@ the exit code is inverted by gen/concurrency.sh, not by this binary.
 
 =========== conc_a17_global 4 6   (a REFUSED design that is byte-CLEAN: must PASS) ===========
 $ ldd ./build/conc_a17_global | grep ak_core
-	libak_core.so => /tmp/claude-0/sp/wt9/ffi/poc/cpp/core-build/target-global/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt11/ffi/poc/cpp/core-build/target-global/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
 plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=1   <-- in ak::Enc: a REFUSED design from ABI v1 section 6, built on purpose
