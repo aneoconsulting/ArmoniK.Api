@@ -429,6 +429,11 @@ if(AK_RPC)
   target_include_directories(campaign_codec PRIVATE ${GRPCPP_INCLUDE_DIRS})
   target_link_directories(campaign_codec PRIVATE ${GRPCPP_LIBRARY_DIRS})
   target_link_libraries(campaign_codec PRIVATE ${GRPCPP_LIBRARIES})
+  # CAMPAIGN.md requirement 22a: the codec suite's timing is Google Benchmark (apt
+  # libbenchmark-dev; the version is printed in every log).
+  find_package(benchmark REQUIRED)
+  target_link_libraries(campaign_codec PRIVATE benchmark::benchmark)
+  target_compile_definitions(campaign_codec PRIVATE AK_GBENCH_VERSION="${benchmark_VERSION}")
 endif()
 
 # ---- the upb arm: a CEILING, not a candidate ----------------------------------------
