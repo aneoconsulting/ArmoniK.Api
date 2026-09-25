@@ -1492,3 +1492,9 @@ the group size, so 1,000 ResultRaw now need 8 flushes. Nothing else moved; re-ba
 
 **The smoke run** (1 launch, 1 round, reduced iterations) is committed under
 logs/csharp/campaign/ with every file marked instrumentation.
+
+Smoke run (after two runner defects the smoke itself found: the dirty check counted the
+notes, and the rpc socket path under the long scratchpad exceeded the 108-byte Unix socket
+limit, so Kestrel threw at startup): gate PASSED at 5d81225, then codec (1,780 samples),
+rpc shipped and pinned (48 each), the abort control (0 samples, both transports), calib (2
+samples, after the crossing-count gate). No figure from it is used anywhere.

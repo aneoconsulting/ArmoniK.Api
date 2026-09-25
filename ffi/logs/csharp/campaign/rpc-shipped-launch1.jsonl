@@ -1,0 +1,68 @@
+# csharp campaign runner, suite rpc
+# commit:        5d81225
+# SMOKE RUN (CAMPAIGN.md section 9) in a container: EVERY FIGURE BELOW IS INSTRUMENTATION, NOT A RESULT (README 1.1)
+# utc:           2026-09-25T07:14:22Z
+# cpu:           Intel(R) Xeon(R) Processor @ 2.80GHz; 4 logical CPUs; kernel 6.18.44-fc-v37
+# smt:           0 (active); governor: n/a; turbo: no_turbo=n/a boost=n/a
+# isolation:     cmdline isolcpus/nohz_full: cpuset: n/a
+# cpu sets:      CLIENT=0 SERVER=1 (smoke defaults); pinning by taskset
+# runtime:       .NET 8.0.31 (SDK 8.0.131); target net8.0, Release; tiering and PGO at their net8.0 defaults unless DOTNET_* is set: TieredCompilation=default TieredPGO=default; workstation GC, concurrent (default)
+# core:          libak_core.so shared, cargo --release, features rpc,init-guard (init-guard ON, as in every gate), built from git archive HEAD ffi/poc/codec
+# repeats:       1 launch(es) x 1 round(s); arms/cells interleaved per round, rotated
+# gate:          passed at 5d81225 (/home/user/ArmoniK.Api/ffi/logs/csharp/campaign/gate.log)
+# campaign suite rpc: raw samples, one JSON object per line; nothing summarised here
+# runtime:        .NET 8.0.31
+# incumbent:      Google.Protobuf 3.32.0; Grpc.Net.Client 2.71.0; Grpc.AspNetCore.Server 2.71.0
+# JIT:            TieredCompilation default(on), TieredPGO default(on), ReadyToRun default(on) (net8.0 defaults unless set)
+# GC:             server=False, concurrent=default(on), latency=Interactive
+# managed codec:  plan utf8=reject unknown=both limit=100
+# process CPUs:   affinity mask 0x1 (1 logical CPUs visible)
+# launch 1, rounds 1, 16 calls per sample, in flight 1/8/16; transport shipped (client: DisableDynamicWindowSizing, no window set; Kestrel defaults; core: ak_client_opts stream 0 connection 0 adaptive 0 nagle -1); Unix socket /tmp/ak-cs-campaign-20709.sock; the server is a separate process; B/C blocking delivery, .callback/.queue extra rows; direction a: empty request, P2.2 response (540422 B); b: P2.2 request decoded by the server, empty response; warm-up 32 calls per cell; every call checked (status and length)
+{"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","transport":"shipped","inflight":1,"launch":1,"round":1,"cpu_ns":244468000,"wall_ns":279584496,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","transport":"shipped","inflight":8,"launch":1,"round":1,"cpu_ns":206668000,"wall_ns":222313087,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","transport":"shipped","inflight":16,"launch":1,"round":1,"cpu_ns":196098000,"wall_ns":203692245,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B","payload":"P2.2","dir":"a","transport":"shipped","inflight":1,"launch":1,"round":1,"cpu_ns":212254000,"wall_ns":230712080,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B","payload":"P2.2","dir":"a","transport":"shipped","inflight":8,"launch":1,"round":1,"cpu_ns":208012000,"wall_ns":208925318,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B","payload":"P2.2","dir":"a","transport":"shipped","inflight":16,"launch":1,"round":1,"cpu_ns":204879000,"wall_ns":209430138,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C","payload":"P2.2","dir":"a","transport":"shipped","inflight":1,"launch":1,"round":1,"cpu_ns":109170000,"wall_ns":130242873,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C","payload":"P2.2","dir":"a","transport":"shipped","inflight":8,"launch":1,"round":1,"cpu_ns":140400000,"wall_ns":148450865,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C","payload":"P2.2","dir":"a","transport":"shipped","inflight":16,"launch":1,"round":1,"cpu_ns":140437000,"wall_ns":147626976,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"D","payload":"P2.2","dir":"a","transport":"shipped","inflight":1,"launch":1,"round":1,"cpu_ns":149938000,"wall_ns":238016001,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"D","payload":"P2.2","dir":"a","transport":"shipped","inflight":8,"launch":1,"round":1,"cpu_ns":184777000,"wall_ns":240489141,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"D","payload":"P2.2","dir":"a","transport":"shipped","inflight":16,"launch":1,"round":1,"cpu_ns":183893000,"wall_ns":189652191,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"b","transport":"shipped","inflight":1,"launch":1,"round":1,"cpu_ns":440233000,"wall_ns":485646077,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"b","transport":"shipped","inflight":8,"launch":1,"round":1,"cpu_ns":88212000,"wall_ns":368609969,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"b","transport":"shipped","inflight":16,"launch":1,"round":1,"cpu_ns":64578000,"wall_ns":166363198,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B","payload":"P2.2","dir":"b","transport":"shipped","inflight":1,"launch":1,"round":1,"cpu_ns":61984000,"wall_ns":178146307,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B","payload":"P2.2","dir":"b","transport":"shipped","inflight":8,"launch":1,"round":1,"cpu_ns":64231000,"wall_ns":139330949,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B","payload":"P2.2","dir":"b","transport":"shipped","inflight":16,"launch":1,"round":1,"cpu_ns":69932000,"wall_ns":134673425,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C","payload":"P2.2","dir":"b","transport":"shipped","inflight":1,"launch":1,"round":1,"cpu_ns":67799000,"wall_ns":174002455,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C","payload":"P2.2","dir":"b","transport":"shipped","inflight":8,"launch":1,"round":1,"cpu_ns":86300000,"wall_ns":159156176,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C","payload":"P2.2","dir":"b","transport":"shipped","inflight":16,"launch":1,"round":1,"cpu_ns":77111000,"wall_ns":142395610,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"D","payload":"P2.2","dir":"b","transport":"shipped","inflight":1,"launch":1,"round":1,"cpu_ns":71985000,"wall_ns":192030756,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"D","payload":"P2.2","dir":"b","transport":"shipped","inflight":8,"launch":1,"round":1,"cpu_ns":55882000,"wall_ns":133200575,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"D","payload":"P2.2","dir":"b","transport":"shipped","inflight":16,"launch":1,"round":1,"cpu_ns":60447000,"wall_ns":149855472,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.callback","payload":"P2.2","dir":"a","transport":"shipped","inflight":1,"launch":1,"round":1,"cpu_ns":88996000,"wall_ns":92485471,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.callback","payload":"P2.2","dir":"a","transport":"shipped","inflight":8,"launch":1,"round":1,"cpu_ns":105607000,"wall_ns":107068048,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.callback","payload":"P2.2","dir":"a","transport":"shipped","inflight":16,"launch":1,"round":1,"cpu_ns":85632000,"wall_ns":87319874,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.queue","payload":"P2.2","dir":"a","transport":"shipped","inflight":1,"launch":1,"round":1,"cpu_ns":68997000,"wall_ns":76216345,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.queue","payload":"P2.2","dir":"a","transport":"shipped","inflight":8,"launch":1,"round":1,"cpu_ns":69559000,"wall_ns":69577418,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.queue","payload":"P2.2","dir":"a","transport":"shipped","inflight":16,"launch":1,"round":1,"cpu_ns":62106000,"wall_ns":63416671,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.callback","payload":"P2.2","dir":"a","transport":"shipped","inflight":1,"launch":1,"round":1,"cpu_ns":60271000,"wall_ns":67692811,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.callback","payload":"P2.2","dir":"a","transport":"shipped","inflight":8,"launch":1,"round":1,"cpu_ns":75314000,"wall_ns":79427408,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.callback","payload":"P2.2","dir":"a","transport":"shipped","inflight":16,"launch":1,"round":1,"cpu_ns":76262000,"wall_ns":80232381,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.queue","payload":"P2.2","dir":"a","transport":"shipped","inflight":1,"launch":1,"round":1,"cpu_ns":64442000,"wall_ns":70617498,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.queue","payload":"P2.2","dir":"a","transport":"shipped","inflight":8,"launch":1,"round":1,"cpu_ns":76561000,"wall_ns":77282412,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.queue","payload":"P2.2","dir":"a","transport":"shipped","inflight":16,"launch":1,"round":1,"cpu_ns":67158000,"wall_ns":71318217,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.callback","payload":"P2.2","dir":"b","transport":"shipped","inflight":1,"launch":1,"round":1,"cpu_ns":17494000,"wall_ns":104046820,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.callback","payload":"P2.2","dir":"b","transport":"shipped","inflight":8,"launch":1,"round":1,"cpu_ns":26488000,"wall_ns":102786274,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.callback","payload":"P2.2","dir":"b","transport":"shipped","inflight":16,"launch":1,"round":1,"cpu_ns":27005000,"wall_ns":110330191,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.queue","payload":"P2.2","dir":"b","transport":"shipped","inflight":1,"launch":1,"round":1,"cpu_ns":18764000,"wall_ns":90852699,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.queue","payload":"P2.2","dir":"b","transport":"shipped","inflight":8,"launch":1,"round":1,"cpu_ns":23774000,"wall_ns":131635531,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.queue","payload":"P2.2","dir":"b","transport":"shipped","inflight":16,"launch":1,"round":1,"cpu_ns":34321000,"wall_ns":132314625,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.callback","payload":"P2.2","dir":"b","transport":"shipped","inflight":1,"launch":1,"round":1,"cpu_ns":55055000,"wall_ns":140518656,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.callback","payload":"P2.2","dir":"b","transport":"shipped","inflight":8,"launch":1,"round":1,"cpu_ns":57543000,"wall_ns":131287017,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.callback","payload":"P2.2","dir":"b","transport":"shipped","inflight":16,"launch":1,"round":1,"cpu_ns":54424000,"wall_ns":129341517,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.queue","payload":"P2.2","dir":"b","transport":"shipped","inflight":1,"launch":1,"round":1,"cpu_ns":58973000,"wall_ns":136371935,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.queue","payload":"P2.2","dir":"b","transport":"shipped","inflight":8,"launch":1,"round":1,"cpu_ns":83923000,"wall_ns":137474272,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.queue","payload":"P2.2","dir":"b","transport":"shipped","inflight":16,"launch":1,"round":1,"cpu_ns":65906000,"wall_ns":145304507,"iters":16}

@@ -1,0 +1,25 @@
+# csharp campaign runner, suite calib
+# commit:        5d81225
+# SMOKE RUN (CAMPAIGN.md section 9) in a container: EVERY FIGURE BELOW IS INSTRUMENTATION, NOT A RESULT (README 1.1)
+# utc:           2026-09-25T07:15:29Z
+# cpu:           Intel(R) Xeon(R) Processor @ 2.80GHz; 4 logical CPUs; kernel 6.18.44-fc-v37
+# smt:           0 (active); governor: n/a; turbo: no_turbo=n/a boost=n/a
+# isolation:     cmdline isolcpus/nohz_full: cpuset: n/a
+# cpu sets:      CLIENT=0 SERVER=1 (smoke defaults); pinning by taskset
+# runtime:       .NET 8.0.31 (SDK 8.0.131); target net8.0, Release; tiering and PGO at their net8.0 defaults unless DOTNET_* is set: TieredCompilation=default TieredPGO=default; workstation GC, concurrent (default)
+# core:          libak_core.so shared, cargo --release, features rpc,init-guard (init-guard ON, as in every gate), built from git archive HEAD ffi/poc/codec
+# repeats:       1 launch(es) x 1 round(s); arms/cells interleaved per round, rotated
+# gate:          passed at 5d81225, identical to 5d81225 in ffi/poc/csharp, poc/codec, schema, corpus (/home/user/ArmoniK.Api/ffi/logs/csharp/campaign/gate.log)
+# crossing counts: equal to gen/crossings.txt (calib-crossing-counts.log)
+# perf stat: perf is NOT installed on this machine; cycles/instructions not recorded (requirement 20 unmet here)
+# campaign suite calib: raw samples, one JSON object per line; nothing summarised here
+# runtime:        .NET 8.0.31
+# incumbent:      Google.Protobuf 3.32.0; Grpc.Net.Client 2.71.0; Grpc.AspNetCore.Server 2.71.0
+# JIT:            TieredCompilation default(on), TieredPGO default(on), ReadyToRun default(on) (net8.0 defaults unless set)
+# GC:             server=False, concurrent=default(on), latency=Interactive
+# managed codec:  plan utf8=reject unknown=both limit=100
+# process CPUs:   affinity mask 0x1 (1 logical CPUs visible)
+# launch 1, rounds 1, 100000 calls per sample; forward = ak_noop through the generated P/Invoke (LibraryImport on net8.0); reverse = ak_noop_reverse into an [UnmanagedCallersOnly] callback (one forward AND one reverse crossing per call); warm-up 100000 calls each
+{"slice":"csharp","suite":"calib","arm":"crossing-forward","launch":1,"round":1,"cpu_ns":1666483,"wall_ns":1967557,"iters":100000}
+{"slice":"csharp","suite":"calib","arm":"crossing-forward-reverse","launch":1,"round":1,"cpu_ns":2308103,"wall_ns":2310828,"iters":100000}
+# end (sink 0)
