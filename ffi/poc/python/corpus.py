@@ -652,8 +652,60 @@ def d11_controls(out=sys.stdout):
     print("   wrong root: %d ordered pairs refused with -8 and nothing delivered; positive control %d of %d roots; %d failure(s)"
           % (len(roots) * (len(roots) - 1) - (wr_bad if wr_bad else 0), pos_ok, len(roots), wr_bad), file=out)
     bad += wr_bad
+    bad += tls_control(mod, ty, man, rows, out)
     print("D11 CONTROLS %s" % ("PASS" if not bad else "FAIL (%d)" % bad), file=out)
     return 1 if bad else 0
+
+
+def tls_control(mod, ty, man, rows, out):
+    """Decode contexts are per root per thread (the decision 11 port's second form).
+    Reuse: 64 more decode+encodes of every row, drop and retain, on this thread create no
+    context (the per-thread decode contexts, one per root, and the one encode context).
+    Threads: 8 threads with a 1 us switch interval decode (retain) and re-encode every row
+    40 times; every re-encoding equals this thread's, no buffer is reclaimed, and at most one
+    context per (thread, root) is created."""
+    import threading
+    bad = 0
+    bufs = [(man[v]["root"], open(rpath(man[v]["file"]), "rb").read()) for v in rows]
+    want = [mod.encode("cext", r, mod.decode("cext", r, b, ty, None, True), None, True) for r, b in bufs]
+    c0 = mod.tls_created()
+    for _ in range(64):
+        for r, b in bufs:
+            mod.encode("cext", r, mod.decode("cext", r, b, ty, None, False), None, False)
+            mod.encode("cext", r, mod.decode("cext", r, b, ty, None, True), None, True)
+    reuse = mod.tls_created() - c0
+    print("   per-thread contexts, reuse: %d decode+encode(s) on this thread created %d context(s) (want 0)"
+          % (128 * len(bufs), reuse), file=out)
+    bad += 1 if reuse else 0
+    nroots = len({r for r, _b in bufs}) + 1   # + the thread's one encode context
+    errs = []
+    def work():
+        try:
+            for _ in range(40):
+                for (r, b), w in zip(bufs, want):
+                    o = mod.decode("cext", r, b, ty, None, True)
+                    if mod.last_reclaimed():
+                        errs.append("reclaimed %s" % r)
+                    if mod.encode("cext", r, o, None, True) != w:
+                        errs.append("differs %s" % r)
+        except Exception as e:  # noqa: BLE001 -- reported, counted
+            errs.append(repr(e))
+    old = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)
+    c1 = mod.tls_created()
+    ts = [threading.Thread(target=work) for _ in range(8)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+    sys.setswitchinterval(old)
+    made = mod.tls_created() - c1
+    print("   per-thread contexts, threads: 8 x %d decode+encode(s); %d error(s); %d context(s) created (at most %d)"
+          % (40 * len(bufs), len(errs), made, 8 * nroots), file=out)
+    for e in errs[:5]:
+        print("   THREAD ERROR %s" % e, file=out)
+    bad += len(errs) + (1 if made > 8 * nroots or made == 0 else 0)
+    return bad
 
 
 def main(argv):

@@ -229,6 +229,14 @@ static PyObject *py_last_reclaimed(PyObject *m, PyObject *unused) {
   return PyLong_FromUnsignedLong(AK_LAST_RECLAIMED);
 }
 
+/* Decision 11 port: decode contexts are per root per thread, created once and reused.
+ * The count of contexts created through the thread key: the harness checks it stays at
+ * one per (thread, root decoded), so a per-call allocation would show here. */
+static PyObject *py_tls_created(PyObject *m, PyObject *unused) {
+  (void)m; (void)unused;
+  return PyLong_FromUnsignedLong(AK_TLS_CREATED);
+}
+
 /* The roots this shim's core carries, in dispatch order. */
 static PyObject *py_roots(PyObject *m, PyObject *unused) {
   (void)m;
@@ -505,6 +513,7 @@ static PyMethodDef methods[] = {
     {"unk_positions", py_unk_positions, METH_VARARGS, "decision 11: a root's unknown-field positions"},
     {"wrong_root", py_wrong_root, METH_VARARGS, "decision 11 rule 6 control: (reset rc, decode rc, delivered)"},
     {"last_reclaimed", py_last_reclaimed, METH_NOARGS, "buffers the last decode reclaimed undelivered"},
+    {"tls_created", py_tls_created, METH_NOARGS, "decode contexts created through the per-thread key"},
     {"layout_host", py_layout_host, METH_NOARGS,
      "the shim's own layout facts, named, as compared with the core's at import"},
     {"layout_facts", py_layout_check, METH_NOARGS,
@@ -540,6 +549,7 @@ static PyMethodDef methods[] = {
 static int mod_exec(PyObject *m) {
   /* ABI v1 section 3 (R-G7): ak_init before any other call into the core. */
   if (ak_py_init()) return -1;
+  if (ak_py_tls_init()) { PyErr_SetString(PyExc_ImportError, "pthread_key_create failed"); return -1; }
   if (intern_keys()) return -1;
   if (ak_abi_version() != AK_ABI_VERSION) {
     PyErr_Format(PyExc_ImportError,
@@ -578,10 +588,15 @@ static int mod_clear(PyObject *m) {
   return 0;
 }
 
+/* The calling thread's decode contexts and the thread key go with the module; another
+ * live thread's block is freed by the key's destructor when that thread exits, or not at
+ * all if the process ends first. */
+static void mod_free(void *m) { (void)mod_clear((PyObject *)m); ak_py_tls_fini(); }
+
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT, AK_MODNAME_STR,
     "the composed arm: the shared core behind a generated CPython shim",
-    sizeof(mod_state), methods, mod_slots, mod_traverse, mod_clear, NULL};
+    sizeof(mod_state), methods, mod_slots, mod_traverse, mod_clear, mod_free};
 
 /* R-D4 at the floor: PyMODINIT_FUNC carries default visibility only from 3.9
  * (Py_EXPORTED_SYMBOL). Before that it is a bare `PyObject *`, so under this build's
