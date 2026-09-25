@@ -150,7 +150,7 @@ h = {
  "repeats": {"launches": $LAUNCHES, "rounds": $ROUNDS},
  "warmup": {"codec_bytes_per_arm": $WARM, "rpc_calls_per_cell": $RPCWARM, "allocator": "every arm runs its warm-up before round 1"},
  "sample": {"codec_bytes": $BYTES, "rpc_calls": $CALLS, "calib_iters": $CITERS,
-            "codec_clock": "Google Benchmark " + sh("dpkg-query -W -f='\${Version}' libbenchmark-dev 2>/dev/null || echo vendored") + ": cpu_time (benchmark thread) and real_time, repetitions randomly interleaved", "rpc_clock": "getrusage(RUSAGE_SELF) of the client process + CLOCK_MONOTONIC"},
+            "codec_clock": "Google Benchmark " + "v1.8.3 (344117638c8f, Release, built by the runner)" + ": cpu_time (benchmark thread) and real_time, repetitions randomly interleaved", "rpc_clock": "getrusage(RUSAGE_SELF) of the client process + CLOCK_MONOTONIC"},
 }
 print("# " + json.dumps(h, sort_keys=True))
 EOF
@@ -168,7 +168,8 @@ run_gate() {
     fi
     python3 gen/generate.py --check 2>/dev/null | grep -v '^ok' ; gck=${PIPESTATUS[0]}
     [ "$gck" = 0 ] || { echo ">>> FAIL: generate.py --check"; }
-    cmake -S . -B "$B" -DAK_RPC=ON > "$TMPD/cfg.log" 2>&1 && cmake --build "$B" -j"$(nproc)" > "$TMPD/build.log" 2>&1 \
+    gbench_release || echo ">>> FAIL: Google Benchmark release build"
+    cmake -S . -B "$B" -DAK_RPC=ON -Dbenchmark_DIR="$GBPREFIX/lib/cmake/benchmark" > "$TMPD/cfg.log" 2>&1 && cmake --build "$B" -j"$(nproc)" > "$TMPD/build.log" 2>&1 \
       && echo ">>> ok: build" || { tail -20 "$TMPD/build.log"; echo ">>> FAIL: build"; }
     echo "===== conformance: byte identity on the payload set, every level and linkage ====="
     for b in conformance_a17_shared conformance_b17_shared conformance_c14_shared conformance_c11_shared conformance_a17_static; do
@@ -240,6 +241,23 @@ with open(sys.argv[2], "w") as f:
                 and r.get("verdict") != "disputed":
             f.write("%s\t%s\t%s\n" % (k, r["root"], r["file"]))
 EOF
+}
+
+# Google Benchmark v1.8.3, RELEASE (requirement 22a): built once from the upstream tag into
+# the build directory. The tag's commit is checked, so a moved tag is refused.
+GB_TAG=v1.8.3
+GB_COMMIT=344117638c8ff7e239044fd0fa7085839fc03021
+GBPREFIX=$B/gbench-$GB_TAG-release
+gbench_release() {
+  [ -f "$GBPREFIX/lib/cmake/benchmark/benchmarkConfig.cmake" ] && return 0
+  local src=$B/gbench-src
+  rm -rf "$src" "$B/gbench-build"
+  GIT_LFS_SKIP_SMUDGE=1 git clone -q --depth 1 --branch "$GB_TAG" https://github.com/google/benchmark "$src" 2>/dev/null || return 1
+  [ "$(git -C "$src" rev-parse HEAD)" = "$GB_COMMIT" ] || { echo "Google Benchmark $GB_TAG is not $GB_COMMIT"; return 1; }
+  cmake -S "$src" -B "$B/gbench-build" -DCMAKE_BUILD_TYPE=Release -DBENCHMARK_ENABLE_TESTING=OFF \
+    -DBENCHMARK_ENABLE_GTEST_TESTS=OFF -DCMAKE_INSTALL_PREFIX="$GBPREFIX" > /dev/null 2>&1 \
+    && cmake --build "$B/gbench-build" -j"$(nproc)" > /dev/null 2>&1 \
+    && cmake --install "$B/gbench-build" > /dev/null 2>&1
 }
 
 PORT=""; EXP=""; SPID=""
