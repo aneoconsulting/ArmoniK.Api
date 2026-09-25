@@ -1208,3 +1208,53 @@ undelivered after a success).
   starts fresh threads.
 Found, not fixed: `AK_LAST_RECLAIMED` is a process-global in the generated render (STATE, open
 defects). No-unknown cells wait for the rust agent's compiled-out build.
+
+### J45. The no-unknown variant (FIX-PLAN WP5 step 10 port) and AK_LAST_RECLAIMED per thread
+
+**What changed.**
+- `py_capi.py` (this slice's backend) renders the variant when the plan says
+  `unknown_compiled_out`: no u-groups, fillu/loopu, options, reset, u-family, grow/reclaim,
+  delivery-time `unknown` reads or dropgroup; `ak_dec_ctx_new_<Root>(void)`; retain refused.
+  Every omission is keyed on the plan's predicate; the backend derives no member itself.
+- `gen/generate.py` writes `gen/out/nounk` and `gen/out/corpus-nounk`, each with its header
+  from `c_abi.emit(drop plan)`. `build.sh` builds four `--no-default-features` cores in
+  their own target directories and five variant modules.
+- `AK_LAST_RECLAIMED` is now `_Thread_local`. The full build's generated text changed only
+  there.
+
+**Is it in the build?**
+- Checked from the artifacts:
+  - variant cores export 0 u-family symbols (full 21) and variant shims import 0;
+  - `ldd` resolves each module to its own core;
+  - 240 layout facts in the variant against 400 in the full build (corpus 340 against 574);
+  - `nounk()` reports the variant at import.
+- The harnesses refuse a module that is not the variant they asked for.
+- The variant shim over the full core refuses to import (layout); this is the must-fail.
+
+**Gate.** The first run of step 101 reported 12 differences: 4 rows on 3 ffi arms were not in
+the dropped form. They were U-enum-value-127/999/2147483647/-packed. An unlisted value of an
+open enum is a KNOWN field and is kept, so the manifest gives these rows no dropped form, and
+the full build writes the same bytes (2,181 re-encodings compared with the full dump, 0
+differ). The check was wrong, not the variant. It now requires the dropped form only where the
+manifest has one (307 rows) and names the 4 as checked by C3 only.
+
+**Counts.** The per-element table showed no difference, because P1.2 has 1,000 elements and
+5 and 8 reverse crossings both print 0.01. I added whole-number per-call totals (`abs` lines;
+the per-element table is unchanged, so step 98 still compares with log 85). With them, only
+P1.2 decode reverse moves, 8 to 5, on all 5 backends: 5 of 160 rows, as in the rust slice.
+Committed as `counts/crossings-drop.txt` and `counts/crossings-nounk.txt`.
+
+**AK_LAST_RECLAIMED control.**
+- Thread A: a retain decode of U-group-field-max with a truncated field appended fails and
+  reclaims 1.
+- Thread B: a successful decode, reclaimed 0.
+- A then reads 1.
+- The twin built with `AK_THREAD_LOCAL` empty reads B's 0: the control can see a
+  process-wide slot.
+
+**host-gen.** `emit_pycodec(p, "drop") == emit_pycodec(relowered, "drop")`, so there is no
+separate host-gen no-unknown arm: it would be the same code.
+
+**Not measured.** The variant's facade still has an `_unknown` slot per object (the facade is
+one text for both plans). No pyacc or pull decode arm exists in the variant's campaign, as
+in the full build.

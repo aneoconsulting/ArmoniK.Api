@@ -1,0 +1,382 @@
+# python slice: the whole corpus through the no-unknown variant (WP5 step 10), py3.12
+# date:      2026-09-25T22:21:10Z
+# commit:    2410125 + uncommitted changes in poc/python or poc/codec
+# phase:     correctness only; nothing here is a timing
+
+# python slice: the conformance corpus, every row, every arm (FIX-PLAN WP5 item 6.1)
+#   manifest   ffi/corpus/generated/manifest.json (702 rows, corpus 1)
+#   generated  gen/out/corpus/*, rendered by poc/codec/gen from the corpus READER plan
+#   VARIANT    no-unknown (WP5 step 10): _akffi_corpus_nounk over ak-core --no-default-features --features corpus,init-guard; unknown fields compiled out
+#   py arms    pycodec.py (drop), pycodec_retain.py (retain), plain facade
+#   interpreter 3.12.3; each row in a worker process, timeout 20 s
+
+## ffi-cext
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+   obligations met: C1=542, C2=537, C3=542, C4=138, C5=198, C5-via-decode=5
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+       183  as committed
+       156  unknown-dropped: the known field as it was, the foreign-typed one gone
+        81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+        46  unknown-dropped
+        24  unknown-dropped / unknown-dropped, map values always written
+        18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+         7  as committed in ffi/schema/generated
+         5  as committed / map values always written
+         5  canonical
+         3  canonical: omitted
+         3  canonical: ten-byte sign-extended
+         2  canonical: packed
+         1  as upb writes it: the same message in a different field ORDER
+         1  canonical: ascending by tag / key and value always written
+         1  canonical: each repeated field contiguous
+         1  canonical: entries ascending by UTF-8 key
+         1  canonical: one entry, the last value
+         1  canonical: one member
+         1  canonical: one run
+         1  canonical: the empty value omitted
+         1  canonical: the zero leaves omitted
+   disputed: U-map-entry [ffi-cext]: accepted; projection matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2 [ffi-cext]: refused (ak_decode_WireZoo returned -2)
+   disputed: X-field-over-max [ffi-cext]: refused (ak_decode_WireZoo returned -2)
+   disputed: X-field-over-max-in-group [ffi-cext]: refused (ak_decode_WireZoo returned -2)
+   disputed: X-tag-zero-Empty [ffi-cext]: refused (ak_decode_Empty returned -2)
+   disputed: X-tag-zero-nested-Empty [ffi-cext]: refused (ak_decode_ListProbeResponse returned -2)
+   not in the C ABI (root refused by plan.check_expressible): S-Nest-alt, S-Nest-full, S-Nest-min, S-depth-1, S-depth-20, S-depth-4, S-depth-6, U-wire-Nest-child-as-wt0, U-wire-Nest-child-as-wt1, U-wire-Nest-child-as-wt5, U-wire-Nest-leaf-as-wt0, U-wire-Nest-leaf-as-wt1, U-wire-Nest-leaf-as-wt5, X-depth-101, X-depth-300, X-tag-zero-Nest
+   C5 rows with no projection to build from (checked by C3 re-encode only): B-P2_5, B-P4_1, C-elemu-512, C-leaf-2048, C-mixed-100
+   chunking C-elemu-4 [ffi-cext]: items: 4 x ChunkElement, group 32 B, 1024 per chunk -> 1 chunk(s)
+   chunking C-elemu-512 [ffi-cext]: items: 512 x ChunkElement, group 32 B, 1024 per chunk -> 1 chunk(s)
+   chunking C-elemu-64 [ffi-cext]: items: 64 x ChunkElement, group 32 B, 1024 per chunk -> 1 chunk(s)
+   chunking C-leaf-2048 [ffi-cext]: items: 2048 x LeafElement, group 56 B, 585 per chunk -> 4 chunk(s)
+   chunking C-leaf-8 [ffi-cext]: items: 8 x LeafElement, group 56 B, 585 per chunk -> 1 chunk(s)
+   chunking C-mixed-100 [ffi-cext]: items: 100 x ChunkElement, group 32 B, 1024 per chunk -> 1 chunk(s)
+   chunking C-wide-4 [ffi-cext]: items: 4 x ChunkElement, group 32 B, 1024 per chunk -> 1 chunk(s)
+   chunking C-wide-64 [ffi-cext]: items: 64 x ChunkElement, group 32 B, 1024 per chunk -> 1 chunk(s)
+
+## ffi-attr
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+   obligations met: C1=542, C2=537, C3=542, C4=138, C5=198, C5-via-decode=5
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+       183  as committed
+       156  unknown-dropped: the known field as it was, the foreign-typed one gone
+        81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+        46  unknown-dropped
+        24  unknown-dropped / unknown-dropped, map values always written
+        18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+         7  as committed in ffi/schema/generated
+         5  as committed / map values always written
+         5  canonical
+         3  canonical: omitted
+         3  canonical: ten-byte sign-extended
+         2  canonical: packed
+         1  as upb writes it: the same message in a different field ORDER
+         1  canonical: ascending by tag / key and value always written
+         1  canonical: each repeated field contiguous
+         1  canonical: entries ascending by UTF-8 key
+         1  canonical: one entry, the last value
+         1  canonical: one member
+         1  canonical: one run
+         1  canonical: the empty value omitted
+         1  canonical: the zero leaves omitted
+   disputed: U-map-entry [ffi-attr]: accepted; projection matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2 [ffi-attr]: refused (ak_decode_WireZoo returned -2)
+   disputed: X-field-over-max [ffi-attr]: refused (ak_decode_WireZoo returned -2)
+   disputed: X-field-over-max-in-group [ffi-attr]: refused (ak_decode_WireZoo returned -2)
+   disputed: X-tag-zero-Empty [ffi-attr]: refused (ak_decode_Empty returned -2)
+   disputed: X-tag-zero-nested-Empty [ffi-attr]: refused (ak_decode_ListProbeResponse returned -2)
+   not in the C ABI (root refused by plan.check_expressible): S-Nest-alt, S-Nest-full, S-Nest-min, S-depth-1, S-depth-20, S-depth-4, S-depth-6, U-wire-Nest-child-as-wt0, U-wire-Nest-child-as-wt1, U-wire-Nest-child-as-wt5, U-wire-Nest-leaf-as-wt0, U-wire-Nest-leaf-as-wt1, U-wire-Nest-leaf-as-wt5, X-depth-101, X-depth-300, X-tag-zero-Nest
+   C5 rows with no projection to build from (checked by C3 re-encode only): B-P2_5, B-P4_1, C-elemu-512, C-leaf-2048, C-mixed-100
+   chunking C-elemu-4 [ffi-attr]: items: 4 x ChunkElement, group 32 B, 1024 per chunk -> 1 chunk(s)
+   chunking C-elemu-512 [ffi-attr]: items: 512 x ChunkElement, group 32 B, 1024 per chunk -> 1 chunk(s)
+   chunking C-elemu-64 [ffi-attr]: items: 64 x ChunkElement, group 32 B, 1024 per chunk -> 1 chunk(s)
+   chunking C-leaf-2048 [ffi-attr]: items: 2048 x LeafElement, group 56 B, 585 per chunk -> 4 chunk(s)
+   chunking C-leaf-8 [ffi-attr]: items: 8 x LeafElement, group 56 B, 585 per chunk -> 1 chunk(s)
+   chunking C-mixed-100 [ffi-attr]: items: 100 x ChunkElement, group 32 B, 1024 per chunk -> 1 chunk(s)
+   chunking C-wide-4 [ffi-attr]: items: 4 x ChunkElement, group 32 B, 1024 per chunk -> 1 chunk(s)
+   chunking C-wide-64 [ffi-attr]: items: 64 x ChunkElement, group 32 B, 1024 per chunk -> 1 chunk(s)
+
+## ffi-chunk256
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+   obligations met: C1=542, C2=537, C3=542, C4=138, C5=198, C5-via-decode=5
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+       183  as committed
+       156  unknown-dropped: the known field as it was, the foreign-typed one gone
+        81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+        46  unknown-dropped
+        24  unknown-dropped / unknown-dropped, map values always written
+        18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+         7  as committed in ffi/schema/generated
+         5  as committed / map values always written
+         5  canonical
+         3  canonical: omitted
+         3  canonical: ten-byte sign-extended
+         2  canonical: packed
+         1  as upb writes it: the same message in a different field ORDER
+         1  canonical: ascending by tag / key and value always written
+         1  canonical: each repeated field contiguous
+         1  canonical: entries ascending by UTF-8 key
+         1  canonical: one entry, the last value
+         1  canonical: one member
+         1  canonical: one run
+         1  canonical: the empty value omitted
+         1  canonical: the zero leaves omitted
+   disputed: U-map-entry [ffi-chunk256]: accepted; projection matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2 [ffi-chunk256]: refused (ak_decode_WireZoo returned -2)
+   disputed: X-field-over-max [ffi-chunk256]: refused (ak_decode_WireZoo returned -2)
+   disputed: X-field-over-max-in-group [ffi-chunk256]: refused (ak_decode_WireZoo returned -2)
+   disputed: X-tag-zero-Empty [ffi-chunk256]: refused (ak_decode_Empty returned -2)
+   disputed: X-tag-zero-nested-Empty [ffi-chunk256]: refused (ak_decode_ListProbeResponse returned -2)
+   not in the C ABI (root refused by plan.check_expressible): S-Nest-alt, S-Nest-full, S-Nest-min, S-depth-1, S-depth-20, S-depth-4, S-depth-6, U-wire-Nest-child-as-wt0, U-wire-Nest-child-as-wt1, U-wire-Nest-child-as-wt5, U-wire-Nest-leaf-as-wt0, U-wire-Nest-leaf-as-wt1, U-wire-Nest-leaf-as-wt5, X-depth-101, X-depth-300, X-tag-zero-Nest
+   C5 rows with no projection to build from (checked by C3 re-encode only): B-P2_5, B-P4_1, C-elemu-512, C-leaf-2048, C-mixed-100
+   chunking C-elemu-4 [ffi-chunk256]: items: 4 x ChunkElement, group 32 B, 8 per chunk -> 1 chunk(s)
+   chunking C-elemu-512 [ffi-chunk256]: items: 512 x ChunkElement, group 32 B, 8 per chunk -> 64 chunk(s)
+   chunking C-elemu-64 [ffi-chunk256]: items: 64 x ChunkElement, group 32 B, 8 per chunk -> 8 chunk(s)
+   chunking C-leaf-2048 [ffi-chunk256]: items: 2048 x LeafElement, group 56 B, 4 per chunk -> 512 chunk(s)
+   chunking C-leaf-8 [ffi-chunk256]: items: 8 x LeafElement, group 56 B, 4 per chunk -> 2 chunk(s)
+   chunking C-mixed-100 [ffi-chunk256]: items: 100 x ChunkElement, group 32 B, 8 per chunk -> 13 chunk(s)
+   chunking C-wide-4 [ffi-chunk256]: items: 4 x ChunkElement, group 32 B, 8 per chunk -> 1 chunk(s)
+   chunking C-wide-64 [ffi-chunk256]: items: 64 x ChunkElement, group 32 B, 8 per chunk -> 8 chunk(s)
+
+## py-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+   obligations met: C1=555, C2=550, C3=555, C4=141, C5=205, C5-via-decode=5
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+       190  as committed
+       162  unknown-dropped: the known field as it was, the foreign-typed one gone
+        81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+        46  unknown-dropped
+        24  unknown-dropped / unknown-dropped, map values always written
+        18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+         7  as committed in ffi/schema/generated
+         5  as committed / map values always written
+         5  canonical
+         3  canonical: omitted
+         3  canonical: ten-byte sign-extended
+         2  canonical: packed
+         1  as upb writes it: the same message in a different field ORDER
+         1  canonical: ascending by tag / key and value always written
+         1  canonical: each repeated field contiguous
+         1  canonical: entries ascending by UTF-8 key
+         1  canonical: one entry, the last value
+         1  canonical: one member
+         1  canonical: one run
+         1  canonical: the empty value omitted
+         1  canonical: the zero leaves omitted
+   disputed: U-map-entry [py-drop]: accepted; projection matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2 [py-drop]: refused (DecodeError(-2))
+   disputed: X-field-over-max [py-drop]: refused (DecodeError(-2))
+   disputed: X-field-over-max-in-group [py-drop]: refused (DecodeError(-2))
+   disputed: X-tag-zero-Empty [py-drop]: refused (DecodeError(-2))
+   disputed: X-tag-zero-nested-Empty [py-drop]: refused (DecodeError(-2))
+   C5 rows with no projection to build from (checked by C3 re-encode only): B-P2_5, B-P4_1, C-elemu-512, C-leaf-2048, C-mixed-100
+
+## byte identity against another interpreter level's run
+   2181 (arm, row) re-encodings compared with corpus-py3.12.json; 0 differ
+
+## between-arm byte identity (CONTRACT 5.5), drop arms
+   542 rows re-encoded by at least two of these arms; 0 differ
+
+## retain arms: rows where the retained form was NOT written (a retention gap)
+
+## no-unknown variant: every unknown-class row writes the DROPPED form on every ffi arm
+   ffi-cext     307 unknown row(s) with a dropped form: 0 not written in it; 4 row(s) with no dropped form in the manifest (checked by C3 only): U-enum-value-127, U-enum-value-2147483647, U-enum-value-999, U-enum-value-packed
+   ffi-attr     307 unknown row(s) with a dropped form: 0 not written in it; 4 row(s) with no dropped form in the manifest (checked by C3 only): U-enum-value-127, U-enum-value-2147483647, U-enum-value-999, U-enum-value-packed
+   ffi-chunk256 307 unknown row(s) with a dropped form: 0 not written in it; 4 row(s) with no dropped form in the manifest (checked by C3 only): U-enum-value-127, U-enum-value-2147483647, U-enum-value-999, U-enum-value-packed
+
+## C4: the refusal each arm returned, per reject vector
+   vector                                   ffi-cext | ffi-attr | ffi-chunk256 | py-drop
+   T-dec-map-key-above-10ffff               ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-map-key-lone-continuation          ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-map-key-overlong-nul               ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-map-key-surrogate-d800             ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-map-value-above-10ffff             ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-map-value-lone-continuation        ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-map-value-overlong-nul             ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-map-value-surrogate-d800           ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-nested-above-10ffff                ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-nested-lone-continuation           ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-nested-overlong-nul                ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-nested-surrogate-d800              ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-repeated-above-10ffff              ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-repeated-lone-continuation         ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-repeated-overlong-nul              ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-repeated-surrogate-d800            ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-root-above-10ffff                  ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-root-cesu8-pair                    ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-root-f5-lead                       ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-root-fe-ff                         ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-root-five-byte                     ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-root-lead-no-continuation          ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-root-lone-continuation             ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-root-overlong-2                    ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-root-overlong-3                    ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-root-overlong-4                    ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-root-overlong-nul                  ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-root-surrogate-d800                ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-root-surrogate-dfff                ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-root-truncated-3                   ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   T-dec-root-truncated-4                   ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-6)
+   X-depth-101                              n/a | n/a | n/a | DecodeError(-4)
+   X-depth-300                              n/a | n/a | n/a | DecodeError(-4)
+   X-field-2p32-plus-2                      refused (ak_decode_WireZoo r | refused (ak_decode_WireZoo r | refused (ak_decode_WireZoo r | refused (DecodeError(-2))
+   X-field-over-max                         refused (ak_decode_WireZoo r | refused (ak_decode_WireZoo r | refused (ak_decode_WireZoo r | refused (DecodeError(-2))
+   X-field-over-max-in-group                refused (ak_decode_WireZoo r | refused (ak_decode_WireZoo r | refused (ak_decode_WireZoo r | refused (DecodeError(-2))
+   X-fixed32-truncated                      ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-fixed64-truncated                      ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-group-mismatched-end                   ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-2)
+   X-group-unterminated                     ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-len-huge                               ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-len-prefix-truncated                   ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-len-truncated                          ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-lenwrap-lrr-nested-msg-abs-one         ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-msg-abs-start       ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-msg-abs-under       ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-msg-abs-zero        ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-msg-rel-max         ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-msg-rel-one         ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-msg-rel-under       ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-msg-rel-zero        ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-string-abs-one      ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-string-abs-start    ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-string-abs-under    ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-string-abs-zero     ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-string-rel-max      ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-string-rel-one      ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-string-rel-under    ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-string-rel-zero     ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-unknown-abs-one     ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-unknown-abs-start   ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-unknown-abs-under   ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-unknown-abs-zero    ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-unknown-rel-max     ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-unknown-rel-one     ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-unknown-rel-under   ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-nested-unknown-rel-zero    ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-results-max                ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-results-one                ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-results-second-max         ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-results-second-one         ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-results-second-start       ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-results-second-under       ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-results-second-zero        ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-results-under              ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-results-zero               ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-unknown-after-max          ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-unknown-after-one          ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-unknown-after-start        ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-unknown-after-under        ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-unknown-after-zero         ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-unknown-max                ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-unknown-one                ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-unknown-under              ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-lrr-unknown-zero               ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-lenwrap-sur-string-max                 ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-3)
+   X-lenwrap-sur-string-one                 ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-3)
+   X-lenwrap-sur-string-under               ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-3)
+   X-lenwrap-sur-string-zero                ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-3)
+   X-lenwrap-wide-items-max                 ak_decode_ChunkedResponseWid | ak_decode_ChunkedResponseWid | ak_decode_ChunkedResponseWid | DecodeError(-3)
+   X-lenwrap-wide-items-one                 ak_decode_ChunkedResponseWid | ak_decode_ChunkedResponseWid | ak_decode_ChunkedResponseWid | DecodeError(-3)
+   X-lenwrap-wide-items-under               ak_decode_ChunkedResponseWid | ak_decode_ChunkedResponseWid | ak_decode_ChunkedResponseWid | DecodeError(-3)
+   X-lenwrap-wide-items-zero                ak_decode_ChunkedResponseWid | ak_decode_ChunkedResponseWid | ak_decode_ChunkedResponseWid | DecodeError(-3)
+   X-lenwrap-zoo-msg-max                    ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-lenwrap-zoo-msg-one                    ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-lenwrap-zoo-msg-under                  ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-lenwrap-zoo-msg-zero                   ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-lenwrap-zoo-string-after-max           ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-lenwrap-zoo-string-after-one           ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-lenwrap-zoo-string-after-start         ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-lenwrap-zoo-string-after-under         ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-lenwrap-zoo-string-after-zero          ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-lenwrap-zoo-string-max                 ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-lenwrap-zoo-string-one                 ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-lenwrap-zoo-string-under               ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-lenwrap-zoo-string-zero                ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-nested-len-overrun                     ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-3)
+   X-packed-truncated                       ak_decode_ListMetricsRespons | ak_decode_ListMetricsRespons | ak_decode_ListMetricsRespons | DecodeError(-3)
+   X-tag-zero                               ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-2)
+   X-tag-zero-ChunkElement                  ak_decode_ChunkElement retur | ak_decode_ChunkElement retur | ak_decode_ChunkElement retur | DecodeError(-2)
+   X-tag-zero-ChunkInner                    ak_decode_ChunkInner returne | ak_decode_ChunkInner returne | ak_decode_ChunkInner returne | DecodeError(-2)
+   X-tag-zero-ChunkLeaf                     ak_decode_ChunkLeaf returned | ak_decode_ChunkLeaf returned | ak_decode_ChunkLeaf returned | DecodeError(-2)
+   X-tag-zero-ChunkedResponse               ak_decode_ChunkedResponse re | ak_decode_ChunkedResponse re | ak_decode_ChunkedResponse re | DecodeError(-2)
+   X-tag-zero-ChunkedResponseWide           ak_decode_ChunkedResponseWid | ak_decode_ChunkedResponseWid | ak_decode_ChunkedResponseWid | DecodeError(-2)
+   X-tag-zero-DualResponse                  ak_decode_DualResponse retur | ak_decode_DualResponse retur | ak_decode_DualResponse retur | DecodeError(-2)
+   X-tag-zero-Duration                      ak_decode_Duration returned  | ak_decode_Duration returned  | ak_decode_Duration returned  | DecodeError(-2)
+   X-tag-zero-Empty                         refused (ak_decode_Empty ret | refused (ak_decode_Empty ret | refused (ak_decode_Empty ret | refused (DecodeError(-2))
+   X-tag-zero-LeafElement                   ak_decode_LeafElement return | ak_decode_LeafElement return | ak_decode_LeafElement return | DecodeError(-2)
+   X-tag-zero-LeafResponse                  ak_decode_LeafResponse retur | ak_decode_LeafResponse retur | ak_decode_LeafResponse retur | DecodeError(-2)
+   X-tag-zero-ListMetricsResponse           ak_decode_ListMetricsRespons | ak_decode_ListMetricsRespons | ak_decode_ListMetricsRespons | DecodeError(-2)
+   X-tag-zero-ListProbeResponse             ak_decode_ListProbeResponse  | ak_decode_ListProbeResponse  | ak_decode_ListProbeResponse  | DecodeError(-2)
+   X-tag-zero-ListResultsResponse           ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | ak_decode_ListResultsRespons | DecodeError(-2)
+   X-tag-zero-ListTaskSummaryResponse       ak_decode_ListTaskSummaryRes | ak_decode_ListTaskSummaryRes | ak_decode_ListTaskSummaryRes | DecodeError(-2)
+   X-tag-zero-ListTasksDetailedResponse     ak_decode_ListTasksDetailedR | ak_decode_ListTasksDetailedR | ak_decode_ListTasksDetailedR | DecodeError(-2)
+   X-tag-zero-MetricsBatch                  ak_decode_MetricsBatch retur | ak_decode_MetricsBatch retur | ak_decode_MetricsBatch retur | DecodeError(-2)
+   X-tag-zero-Nest                          n/a | n/a | n/a | DecodeError(-2)
+   X-tag-zero-Pair                          ak_decode_Pair returned -2 | ak_decode_Pair returned -2 | ak_decode_Pair returned -2 | DecodeError(-2)
+   X-tag-zero-Probe                         ak_decode_Probe returned -2 | ak_decode_Probe returned -2 | ak_decode_Probe returned -2 | DecodeError(-2)
+   X-tag-zero-ResultRaw                     ak_decode_ResultRaw returned | ak_decode_ResultRaw returned | ak_decode_ResultRaw returned | DecodeError(-2)
+   X-tag-zero-Surrogate                     ak_decode_Surrogate returned | ak_decode_Surrogate returned | ak_decode_Surrogate returned | DecodeError(-2)
+   X-tag-zero-SurrogateInner                ak_decode_SurrogateInner ret | ak_decode_SurrogateInner ret | ak_decode_SurrogateInner ret | DecodeError(-2)
+   X-tag-zero-TaskDetailed                  ak_decode_TaskDetailed retur | ak_decode_TaskDetailed retur | ak_decode_TaskDetailed retur | DecodeError(-2)
+   X-tag-zero-TaskOptions                   ak_decode_TaskOptions return | ak_decode_TaskOptions return | ak_decode_TaskOptions return | DecodeError(-2)
+   X-tag-zero-TaskOutput                    ak_decode_TaskOutput returne | ak_decode_TaskOutput returne | ak_decode_TaskOutput returne | DecodeError(-2)
+   X-tag-zero-TaskSummary                   ak_decode_TaskSummary return | ak_decode_TaskSummary return | ak_decode_TaskSummary return | DecodeError(-2)
+   X-tag-zero-Timestamp                     ak_decode_Timestamp returned | ak_decode_Timestamp returned | ak_decode_Timestamp returned | DecodeError(-2)
+   X-tag-zero-UploadResultData              ak_decode_UploadResultData r | ak_decode_UploadResultData r | ak_decode_UploadResultData r | DecodeError(-2)
+   X-tag-zero-UploadResultDataMessage       ak_decode_UploadResultDataMe | ak_decode_UploadResultDataMe | ak_decode_UploadResultDataMe | DecodeError(-2)
+   X-tag-zero-WireZoo                       ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-2)
+   X-tag-zero-nested-Empty                  refused (ak_decode_ListProbe | refused (ak_decode_ListProbe | refused (ak_decode_ListProbe | refused (DecodeError(-2))
+   X-trailing-byte                          ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-2)
+   X-varint-11-bytes                        ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-2)
+   X-varint-key-truncated                   ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-varint-value-truncated                 ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-3)
+   X-wire-type-6                            ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-2)
+   X-wire-type-7                            ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-2)
+
+# rows that hung or crashed a worker: 0
+# wall 1 s (instrumentation)
+CORPUS PASSES on all 4 arms
+
+===== controls (each MUST FAIL) =====
+  control proj  : failed as required on every arm (108 arm-row failures over 85 rows; ffi-cext=27, ffi-attr=27, ffi-chunk256=27, py-drop=27)
+      e.g. B-P2_1 [ffi-cext]: C2: projection differs: keys +[] -['_planted']
+  control reenc : failed as required on every arm (112 arm-row failures over 85 rows; ffi-cext=28, ffi-attr=28, ffi-chunk256=28, py-drop=28)
+      e.g. B-P2_1 [ffi-cext]: C3: wrote a form the manifest does not accept (1038 B, sha 59c4fa647f4d)
+  control accept: failed as required on every arm (228 arm-row failures over 85 rows; ffi-cext=57, ffi-attr=57, ffi-chunk256=57, py-drop=57)
+      e.g. T-dec-root-above-10ffff [ffi-cext]: C4: accepted a reject vector
+  control noinit: failed as required on every arm (56 arm-row failures over 85 rows; ffi-cext=28, ffi-attr=28)
+      e.g. B-P2_1 [ffi-cext]: C1: refused with ak_decode_ListTasksDetailedResponse returned -10
+CONTROLS ALL FAILED AS REQUIRED
+
+===== decision 11 controls (zeroed position, wrong root, leak) =====
+   positions: 0 over 29 roots (want 0: no options exist in this variant)
+   retain refused: 622 of 622 retain calls (decode and encode, every unknown row)
+   wrong root: 812 ordered pairs refused with -8 and nothing delivered (no reset exists); positive control 29 of 29 roots; 0 failure(s)
+   per-thread contexts: reuse 19904 decode+encode(s) created 0 (want 0); 8 threads x 12440: 0 error(s), 232 context(s) created (at most 232)
+NOUNK CONTROLS PASS

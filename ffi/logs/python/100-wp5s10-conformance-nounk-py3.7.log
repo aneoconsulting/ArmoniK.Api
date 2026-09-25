@@ -1,5 +1,5 @@
-# python slice: conformance on _akffi, py3.7
-# date:      2026-09-25T22:21:21Z
+# python slice: conformance on the no-unknown variant _akffi_nounk (WP5 step 10), py3.7
+# date:      2026-09-25T22:21:54Z
 # commit:    2410125 + uncommitted changes in poc/python or poc/codec
 # phase:     correctness only; nothing here is a timing
 
@@ -7,9 +7,9 @@
 # interpreter: 3.7.5
 # baseline:    gRPC's generated marshaller path: Message.SerializeToString on encode and Message.FromString on decode (R14)
 # manifest:    validated against prost 0.14.4 and a second encoder (W2)
-# shim:        _akffi (_akffi.cpython-37m-x86_64-linux-gnu.so)
+# shim:        _akffi_nounk (_akffi_nounk.cpython-37m-x86_64-linux-gnu.so)
 # section 9:   absent
-# core loaded: poc/python/build/cargo/plain/release/libak_core.so
+# core loaded: poc/python/build/cargo/plain-nounk/release/libak_core.so
 
 ## R1: the generated tree is current with shapes.json
    guard 2 python backend modules import plans only; a planted IR import is caught
@@ -17,7 +17,7 @@ generated tree is current with the plans (14 files)
 
 ## ABI v1 section 10: the core and the shim agree on the group layouts
    ak_abi_version() = 1, the shim was generated against 1
-   the core exports 400 layout facts; the shim pins 400 (AK_LAYOUT_HOST, rendered
+   the core exports 240 layout facts; the shim pins 240 (AK_LAYOUT_HOST, rendered
    from the plan) and compared them all at import -- a mismatch is an ImportError
    naming the fact (build.sh plants one and watches the import fail).
 
@@ -368,7 +368,7 @@ generated tree is current with the plans (14 files)
         ok*   core-ffi / pyacc (C attrgetter)  (a permutation of the same triples; SHAPES.md P7.1)
 
 ## crossing counts, counting build, BOTH halves (README R5)
-#  shim: _akffi_count; core loaded: poc/python/build/cargo/count/release/libak_core.so
+#  shim: _akffi_count_nounk; core loaded: poc/python/build/cargo/count-nounk/release/libak_core.so
 #  The core counts its own crossings and the shim counts what it does to
 #  CPython. Neither half can count the other's, which is why both are here.
 #  'shim' = calls the shim makes INTO CPython (value reads, list access, attribute
@@ -552,11 +552,11 @@ generated tree is current with the plans (14 files)
    abs P1.2  encode  C ext type             fwd      8 rev      1
    abs P1.2  encode  pyacc (python fn)      fwd      8 rev      1
    abs P1.2  encode  pyacc (C attrgetter)   fwd      8 rev      1
-   abs P1.2  decode  plain                  fwd      1 rev      8
-   abs P1.2  decode  __slots__              fwd      1 rev      8
-   abs P1.2  decode  C ext type             fwd      1 rev      8
-   abs P1.2  decode  pyacc (python fn)      fwd      1 rev      8
-   abs P1.2  decode  pyacc (C attrgetter)   fwd      1 rev      8
+   abs P1.2  decode  plain                  fwd      1 rev      5
+   abs P1.2  decode  __slots__              fwd      1 rev      5
+   abs P1.2  decode  C ext type             fwd      1 rev      5
+   abs P1.2  decode  pyacc (python fn)      fwd      1 rev      5
+   abs P1.2  decode  pyacc (C attrgetter)   fwd      1 rev      5
    abs P1.3  encode  plain                  fwd      3 rev      1
    abs P1.3  encode  __slots__              fwd      3 rev      1
    abs P1.3  encode  C ext type             fwd      3 rev      1
