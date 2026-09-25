@@ -250,7 +250,7 @@ def _dec_message(p, m, o):
             o.append("        // Plan rule: a repeated occurrence MERGES into the one decoded (R-E4).")
             o.append("        dec_%s(&sub, &%s.get_or_insert(), depth + 1);" % (snake(f.of), dst))
             o.append("        if (sub.err != 0) { d->err = sub.err; return; }")
-        elif op == "append_message":
+        elif op == "append_message" and f.card != "map":
             o.append("        size_t off, n; d->len_body(&off, &n);")
             o.append("        if (d->err != 0) return;")
             o.append("        ak::Dec sub(d->buf + off, n);")
@@ -288,7 +288,8 @@ def _dec_message(p, m, o):
             o.append("        %s v_ = %s;" % (_elem_type(f), _read(f, "d")))
             o.append("        if (d->err != 0) return;")
             o.append("        %s.push_back(v_);" % dst)
-        elif op == "map_entry":
+        # WP5 step 7: to the decode plan a map IS a repeated pair message (decision 11).
+        elif op == "append_message" and f.card == "map":
             entry = p.msg(f.entry)
             o.append("        size_t off, n; d->len_body(&off, &n);")
             o.append("        if (d->err != 0) return;")

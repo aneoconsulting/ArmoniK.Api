@@ -26,7 +26,7 @@ SCALAR = {"int32": "int", "int64": "long", "bool": "bool", "double": "double", "
 # The ABI vocabulary of plan.py (group members, slot elements, RPC types) in C#.
 ABI = {"i32": "int", "i64": "long", "u8": "byte", "u32": "uint", "f64": "double",
        "u64": "ulong", "usize": "nuint", "ak_str": "ak_str", "ak_span": "ak_span",
-       "ak_blob": "ak_blob"}
+       "ak_blob": "ak_blob", "ak_unk_buf": "ak_unk_buf"}
 
 
 def pascal(snake):

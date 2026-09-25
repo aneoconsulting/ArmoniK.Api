@@ -24,7 +24,8 @@ from plan import (FIXED, dec_vtable, enc_vtable, pull_slot,  # noqa: F401
                   ABI_SCALAR, CSCALAR, LEN, as_plan, check_expressible,
                   direct_fields, elem_type, element_types, group_fields, loop_slots,
                   oneof_message_members, presence_bits, slot_elem, slot_name, ugroup_fields,
-                  vtable_messages)
+                  vtable_messages, unk_positions, unk_offset, unk_opts_name,
+                  unk_opts_members, unk_root_id, unk_entry_points)
 from rustnames import SCALAR  # noqa: F401
 
 # Historical name, imported by the cpp and java generators until they are ported.
@@ -55,6 +56,15 @@ def _rty(t):
     return {"void": "c_void", "char": "core::ffi::c_char"}.get(t, t)
 
 
+RUST_KEYWORDS = {"self", "Self", "type", "match", "ref", "move", "fn", "impl", "loop", "mod",
+                 "use", "where", "struct", "enum", "trait", "crate", "super", "box", "in"}
+
+
+def rust_member(n):
+    """A plan member name as a Rust field name (syntax only): a keyword gets a trailing `_`."""
+    return n + "_" if n in RUST_KEYWORDS else n
+
+
 def _rsig(name, params, ret):
     return "%s(%s)%s" % (name, ", ".join("%s: %s" % (a, _rty(t)) for a, t in params),
                          " -> %s" % _rty(ret) if ret else "")
@@ -80,6 +90,8 @@ def _zero_of(ty):
         return "ak_span { off: 0, len: 0, coder: 0 }"
     if ty == "ak_blob":
         return "ak_blob { data: ::core::ptr::null(), len: 0 }"
+    if ty == "ak_unk_buf":
+        return "ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }"
     if ty in ZERO:
         return ZERO[ty]
     return "%s::ZERO" % ty
@@ -96,9 +108,10 @@ def emit_abi(ir):
          "//! The per-message part of the C ABI: section 6's groups and vtables, section 7's",
          "//! decode fixes. Both the core and the host binding compile against this file.",
          "#![allow(non_camel_case_types, non_upper_case_globals)]",
-         "// The fixed vocabulary (ak_str, ak_span, ak_blob, ak_uspan, ak_loop_f, ak_unk_f,",
+         "// The fixed vocabulary (ak_str, ak_span, ak_blob, ak_unk_buf, ak_unk_opts, ak_loop_f,",
          "// AK_TOKEN_ROOT) is plan.FIXED's, rendered into ak-abi's lib.rs (WP5 step 6).",
-         "use super::super::{ak_blob, ak_dec_ctx, ak_enc_ctx, ak_loop_f, ak_span, ak_str, ak_unk_f};",
+         "use super::super::{ak_blob, ak_dec_ctx, ak_enc_ctx, ak_loop_f, ak_span, ak_str, ak_unk_buf,",
+         "    ak_unk_opts};",
          "use core::ffi::c_void;",
          ""]
 
@@ -164,11 +177,6 @@ def emit_abi(ir):
                 o.append("    pub apply: Option<")
                 o.append("        unsafe extern \"C\" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_%s)," % name)
                 o.append("    >,")
-            elif kind == "unknown":
-                o.append("    /// Unknown fields of the root: `None` drops them, set captures them.")
-                o.append("    pub unknown: Option<ak_unk_f>,")
-            elif kind == "unk":
-                o.append("    pub unk_%s: Option<ak_unk_f>," % sn)
             elif kind == "add":
                 dty, _ = slot_elem(slots[sn])
                 o.append("    pub add_%s: Option<" % sn)
@@ -188,6 +196,22 @@ def emit_abi(ir):
                 o.append("        unsafe extern \"C\" fn(*mut ak_dec_ctx, *mut c_void, i64, *const %s, i32)," % idty)
                 o.append("    >,")
         o.append("}")
+        o.append("")
+
+    # Decision 11 (WP5 step 7): the per-root unknown-field options, from the plan.
+    for root in ir.roots:
+        o.append("/// Decision 11: `%s`'s unknown-field options, one entry per message position" % root)
+        o.append("/// (plan.unk_positions order). All zero = drop mode.")
+        o.append("#[repr(C)]")
+        o.append("#[derive(Clone, Copy)]")
+        o.append("pub struct %s {" % unk_opts_name(root))
+        o.append("    /// ONE per struct: passed as `sink` to whichever position's grow is called.")
+        o.append("    pub host: *mut c_void,")
+        for mn, m in unk_opts_members(ir, root):
+            o.append("    /// `%s`" % m)
+            o.append("    pub %s: ak_unk_opts," % rust_member(mn))
+        o.append("}")
+        o.append("pub const %s_N: usize = %d;" % (unk_opts_name(root).upper(), len(unk_opts_members(ir, root))))
         o.append("")
 
     o.append("// ABI v1 section 6: what a host calls in the codec are PLAIN EXPORTS, not a")
@@ -222,6 +246,9 @@ def emit_abi(ir):
         o.append("        len: usize,")
         o.append("        vt: *const ak_dvt_%s," % root)
         o.append("    ) -> i32;")
+        for fname, params, ret, doc in unk_entry_points(ir, root):
+            o.append("    /// %s" % doc)
+            o.append("    pub fn %s;" % _rsig(fname, params, ret))
         o.append("    /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse")
         o.append("    /// call. The decoded values land in the context's record buffer and the")
         o.append("    /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.")
@@ -358,6 +385,8 @@ def _init_guard(body):
         sig = " ".join(body[i:j + 1])
         if "-> isize" in sig:
             bad = "return AK_ERR_UNINITIALIZED as isize;"
+        elif "-> *mut" in sig:
+            bad = "return ::core::ptr::null_mut();"
         elif "->" in sig:
             bad = "return AK_ERR_UNINITIALIZED;"
         else:
@@ -760,7 +789,7 @@ def emit_codec(ir):
          "//! here, a facade object there (R-E1).",
          "#![allow(non_snake_case, non_camel_case_types, unused_unsafe, unused_variables,",
          "    unused_assignments, unused_mut, unused_macros, clippy::all)]",
-         "use crate::{enc_blob, enc_raw, DecCtxImpl, EncCtxImpl, UnkBuf};",
+         "use crate::{enc_blob, enc_raw, unk_put, DecCtxImpl, EncCtxImpl, UnkCx};",
          "use ak_abi::*;",
          "use ak_rt::dec::Dec;",
          "use core::ffi::c_void;",
@@ -777,17 +806,25 @@ PACKED_KIND = {"int32": 1, "int64": 2, "bool": 3, "double": 4, "enum": 5}
 
 # ============================================================== the core, decode
 
-def _push_elemcall(root, sn, dexpr, baseexpr):
+def _push_elemcall(root, sn, dexpr, baseexpr, ux):
     """The push family's deposit for a non-leaf element: a call that will make reverse
     calls of its own."""
-    return "dec_%s_%s_element(ctx, dcx, obj, vt, %s, %s)" % (snake(root), sn, dexpr, baseexpr)
+    return "dec_%s_%s_element(ctx, dcx, obj, vt, %s, %s, %s)" % (snake(root), sn, dexpr, baseexpr, ux)
 
 
-def _pull_elemcall(root, sn, dexpr, baseexpr):
+def _pull_elemcall(root, sn, dexpr, baseexpr, ux):
     """The pull family's, into the record buffer. Same arguments, no `obj` and no `vt`,
     because a parse makes no upcall at all -- which is the property the JVM needs and the
     reason section 7.1 carries two families."""
-    return "dec_%s_%s_element_pull(dcx, %s, %s)" % (snake(root), sn, dexpr, baseexpr)
+    return "dec_%s_%s_element_pull(dcx, %s, %s, %s)" % (snake(root), sn, dexpr, baseexpr, ux)
+
+
+# Decision 11 (WP5 step 7): an unknown run of the function's base message, copied into its
+# own buffer slot (plan: UNKNOWN FIELDS ON DECODE). `u.pos` NULL is drop mode.
+CAP = """                if %s.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..%s.pos]);
+                    if rc != 0 { %s.err = rc; }
+                }"""
 
 
 def _emit_decode(ir, sites):
@@ -804,7 +841,7 @@ def _emit_decode(ir, sites):
     out = []
 
     def dec_walk(root, name, fxexpr, prefix, bufname, basename, depth, slot_id, o,
-                 elemcall=None):
+                 elemcall=None, rel=0):
         """Render one message's DECODE PLAN (`plan.MessagePlan.decode`) as match arms.
 
         Every (field number, wire type) pair in the table becomes one arm; a pair that is
@@ -823,6 +860,11 @@ def _emit_decode(ir, sites):
         if elemcall is None:
             elemcall = _push_elemcall
         m = ir.msg(name)
+
+        def ux(f):
+            # Decision 11: the UnkCx of the position field `f` opens, relative to this
+            # function's base message (plan.unk_offset, WP5 step 7).
+            return "u.at(%d)" % (rel + unk_offset(ir, name, f))
         rd = "d" if depth == 0 else "c%d" % depth
         pol_reject = ir.options.utf8 == "reject"
 
@@ -856,16 +898,26 @@ def _emit_decode(ir, sites):
                 o.append("                let mut %s = Dec::new(%s);" % (crd, nbuf))
                 o.append("                %s.presence |= %s;" % (fxexpr, dbit(f.name)))
                 o.append("                while !%s.at_end() {" % crd)
+                o.append("                    let s0 = %s.pos;" % crd)
                 o.append("                    let k = %s.varint();" % crd)
                 o.append("                    if %s.err != 0 { break; }" % crd)
                 o.append("                    let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);")
                 o.append("                    if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { %s.err = ak_rt::ERR_MALFORMED; break; }" % crd)
                 o.append("                    match tag {")
                 sub = []
+                crel = rel + unk_offset(ir, name, f)
                 dec_walk(root, f.of, "%s.%s" % (fxexpr, f.name), path, nbuf, nb, nd, slot_id,
-                         sub, elemcall)
+                         sub, elemcall, crel)
                 o.extend("        " + ln for ln in sub)
-                o.append("                        _ => %s.skip(tag, wire)," % crd)
+                o.append("                        _ => {")
+                o.append("                            %s.skip(tag, wire);" % crd)
+                o.append("                            // Decision 11: the inlined child's OWN buffer.")
+                o.append("                            if %s.err == 0 && !u.pos.is_null() {" % crd)
+                o.append("                                let rc = unk_put(u.at(%d), &mut %s.%s.unknown, &%s[s0..%s.pos]);"
+                         % (crel, fxexpr, f.name, nbuf, crd))
+                o.append("                                if rc != 0 { %s.err = rc; }" % crd)
+                o.append("                            }")
+                o.append("                        }")
                 o.append("                    }")
                 o.append("                }")
                 o.append("                if %s.err != 0 { %s.err = %s.err; }" % (crd, rd, crd))
@@ -887,13 +939,13 @@ def _emit_decode(ir, sites):
                 if f.explicit:
                     o.append("                %s.presence |= %s;" % (fxexpr, dbit(f.name)))
                 o.append("            }")
-            elif op == "append_message" and not ir.msg(f.of).leaf:
+            elif op == "append_message" and not ir.msg(elem_type(f)).leaf:
                 # A non-leaf element: no batching (ABI v1 section 7.2).
                 o.append("            %d if wire == %d => {" % (tag, wire))
                 o.append("                if cur != 0 { flush!(); cur = 0; }")
                 o.append("                let (off, n) = %s.len_body();" % rd)
                 o.append("                let mut sub = Dec::new(&%s[off..off + n]);" % bufname)
-                o.append("                %s;" % elemcall(root, sn, "&mut sub", "%s + off" % basename))
+                o.append("                %s;" % elemcall(root, sn, "&mut sub", "%s + off" % basename, ux(f)))
                 o.append("                if sub.err != 0 { %s.err = sub.err; }" % rd)
                 o.append("            }")
             elif op in ("append_message", "map_entry"):
@@ -904,10 +956,8 @@ def _emit_decode(ir, sites):
                 o.append("                if n_%s == N_%s { flush_%s!(); }" % (sn, sn.upper(), sn))
                 o.append("                let (off, n) = %s.len_body();" % rd)
                 o.append("                let mut es = Dec::new(&%s[off..off + n]);" % bufname)
-                o.append("                if !uk_%s.is_null() { (*uk_%s).token = (%s + n_%s) as i64; }"
-                         % (sn, sn, "done_%s" % sn, sn))
-                o.append("                a_%s[n_%s].write(dec_%s_fix(&mut es, %s + off, uk_%s));"
-                         % (sn, sn, snake(et), basename, sn))
+                o.append("                a_%s[n_%s].write(dec_%s_fix(&mut es, %s + off, %s));"
+                         % (sn, sn, snake(et), basename, ux(f)))
                 o.append("                if es.err != 0 { %s.err = es.err; }" % rd)
                 o.append("                n_%s += 1;" % sn)
                 o.append("            }")
@@ -967,12 +1017,12 @@ def _emit_decode(ir, sites):
                     o.append("                let mut os = Dec::new(&%s[off..off + n]);" % bufname)
                     o.append("                // Plan rule: the SAME member again merges; another member,")
                     o.append("                // or none, starts from empty.")
-                    o.append("                if %s.%s_case != %d { %s = ak_dfix_%s::ZERO; }"
-                             % (fxexpr, oname, f.tag, n, f.of))
-                    # A oneof's message member has no capture of its own in the ABI: its
-                    # unknown fields are skipped, in retain mode too (reported, not hidden).
-                    o.append("                dec_%s_fix_into(&mut os, %s + off, ::core::ptr::null_mut(), &mut %s);"
-                             % (snake(f.of), basename, n))
+                    o.append("                // Decision 11: a buffer already placed in this member's slot is")
+                    o.append("                // KEPT, emptied: never dropped, never in two slots.")
+                    o.append("                if %s.%s_case != %d { let k = %s.unknown; %s = ak_dfix_%s::ZERO; %s.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap }; }"
+                             % (fxexpr, oname, f.tag, n, n, f.of, n))
+                    o.append("                dec_%s_fix_into(&mut os, %s + off, %s, &mut %s);"
+                             % (snake(f.of), basename, ux(f), n))
                     o.append("                if os.err != 0 { %s.err = os.err; }" % rd)
                 else:
                     o.append("                %s = %s;" % (n, rd_expr(act.read, rd)))
@@ -982,7 +1032,7 @@ def _emit_decode(ir, sites):
             else:
                 raise NotImplementedError("decode action %r (%s.%s)" % (op, name, f.name))
 
-    def arena_decl(sn, dty, o, indent="    ", unkcb=None):
+    def arena_decl(sn, dty, o, indent="    "):
         o.append("%s// ABI v1 7.3: a byte budget divided by the group size, not an element" % indent)
         o.append("%s// count, so the scratch is the same 32 KB whatever the schema does." % indent)
         o.append("%sconst N_%s: usize = ak_rt::arena_n(::core::mem::size_of::<%s>());"
@@ -990,16 +1040,6 @@ def _emit_decode(ir, sites):
         o.append("%slet mut a_%s: [::core::mem::MaybeUninit<%s>; N_%s] =" % (indent, sn, dty, sn.upper()))
         o.append("%s    [const { ::core::mem::MaybeUninit::uninit() }; N_%s];" % (indent, sn.upper()))
         o.append("%slet mut n_%s: usize = 0;" % (indent, sn))
-        o.append("%s// How many elements of this slot have already been handed over, so an" % indent)
-        o.append("%s// unknown run can name its element as an INDEX (decision 11 candidate)." % indent)
-        o.append("%slet mut done_%s: usize = 0;" % (indent, sn))
-        o.append("%slet _ = done_%s;" % (indent, sn))
-        if unkcb:
-            o.append("%slet mut ub_%s = UnkBuf::new((*vt).%s, ctx, obj);" % (indent, sn, unkcb))
-            o.append("%slet uk_%s: *mut UnkBuf = if ub_%s.cb.is_some() { &mut ub_%s } else { ::core::ptr::null_mut() };"
-                     % (indent, sn, sn, sn))
-        else:
-            o.append("%slet uk_%s: *mut UnkBuf = ::core::ptr::null_mut();" % (indent, sn))
 
     def flush_macros(slots, tokarg, o, family="push"):
         """One macro per slot, and one that flushes them all.
@@ -1036,9 +1076,7 @@ def _emit_decode(ir, sites):
                 o.append("                    a_%s.as_ptr() as *const u8," % sn)
                 o.append("                    n_%s * ::core::mem::size_of::<%s>()," % (sn, dty))
                 o.append("                );")
-            o.append("                done_%s += n_%s;" % (sn, sn))
             o.append("                n_%s = 0;" % sn)
-            o.append("                if !uk_%s.is_null() { (*uk_%s).flush(); }" % (sn, sn))
             if family == "push":
                 o.append("                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }")
             o.append("            }")
@@ -1056,24 +1094,24 @@ def _emit_decode(ir, sites):
         if not ir.msg(name).leaf:
             continue
         out.append("#[inline]")
-        out.append("unsafe fn dec_%s_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_%s {" % (snake(name), name))
+        out.append("unsafe fn dec_%s_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_%s {" % (snake(name), name))
         out.append("    let mut out = ak_dfix_%s::ZERO;" % name)
-        out.append("    dec_%s_fix_into(d, base, unk, &mut out);" % snake(name))
+        out.append("    dec_%s_fix_into(d, base, u, &mut out);" % snake(name))
         out.append("    out")
         out.append("}")
         out.append("")
         out.append("/// Decode INTO an existing group: what a oneof's message member needs to merge a")
         out.append("/// repeated occurrence (plan rule), and what `dec_%s_fix` wraps." % snake(name))
         out.append("#[inline]")
-        out.append("unsafe fn dec_%s_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, out: &mut ak_dfix_%s) {" % (snake(name), name))
+        out.append("unsafe fn dec_%s_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfix_%s) {" % (snake(name), name))
         out.append("    #[allow(unused_variables)]")
         out.append("    let buf0 = d.buf;")
         out.append("    let base0 = base;")
         out.append("    let mut cur = 0u32;")
         out.append("    macro_rules! flush { () => { }; }")
         out.append("    while !d.at_end() {")
-        out.append("        // Decision 11 candidate: where this field's tag-and-value run starts,")
-        out.append("        // so an unknown one can be handed over as a span rather than dropped.")
+        out.append("        // Decision 11: where this field's tag-and-value run starts, so an")
+        out.append("        // unknown one can be copied into the message's own buffer.")
         out.append("        let s0 = d.pos;")
         out.append("        let k = d.varint();")
         out.append("        if d.err != 0 { break; }")
@@ -1083,12 +1121,7 @@ def _emit_decode(ir, sites):
         dec_walk(name, name, "out", (), "buf0", "base0", 0, {}, out)
         out.append("            _ => {")
         out.append("                d.skip(tag, wire);")
-        out.append("                if !unk.is_null() {")
-        out.append("                    (*unk).push(base0 + s0, d.pos - s0);")
-        out.append("                    // R-D6: the push may have delivered a chunk; stop if the host failed.")
-        out.append("                    let he = (*unk).host_err();")
-        out.append("                    if he != AK_OK && d.err == 0 { d.err = he; }")
-        out.append("                }")
+        out.extend((CAP % ("d", "d", "d")).split("\n"))
         out.append("            }")
         out.append("        }")
         out.append("    }")
@@ -1115,6 +1148,7 @@ def _emit_decode(ir, sites):
             out.append("    vt: *const ak_dvt_%s," % root)
             out.append("    d: &mut Dec,")
             out.append("    base: usize,")
+            out.append("    u: UnkCx,")
             out.append(") {")
             out.append("    let tok = match (*vt).new_%s {" % sn)
             out.append("        Some(f) => {")
@@ -1133,12 +1167,6 @@ def _emit_decode(ir, sites):
             out.append("    #[allow(unused_variables)]")
             out.append("    let buf0 = d.buf;")
             out.append("    let base0 = base;")
-            out.append("    // Retain (plan rule): the element's OWN unknown fields, keyed by its token,")
-            out.append("    // through the slot's `unk_` callback. Before WP5 a non-leaf element captured")
-            out.append("    // nothing, so retain mode dropped them (`U-element-*`, `U-chunkelem-*`).")
-            out.append("    let mut ub_el = UnkBuf::new((*vt).unk_%s, ctx, obj);" % sn)
-            out.append("    ub_el.token = tok;")
-            out.append("    let uk_el: *mut UnkBuf = if ub_el.cb.is_some() { &mut ub_el } else { ::core::ptr::null_mut() };")
             slots = []
             for ipath, iff in inner_slots:
                 isn = slot_name(ipath)
@@ -1158,10 +1186,7 @@ def _emit_decode(ir, sites):
             out.append("            _ => {")
             out.append("                if cur != 0 { flush!(); cur = 0; }")
             out.append("                d.skip(tag, wire);")
-            out.append("                if !uk_el.is_null() {")
-            out.append("                    (*uk_el).push(base0 + s0, d.pos - s0);")
-            out.append("                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }")
-            out.append("                }")
+            out.extend((CAP % ("d", "d", "d")).split("\n"))
             out.append("            }")
             out.append("        }")
             out.append("    }")
@@ -1171,10 +1196,6 @@ def _emit_decode(ir, sites):
             # `d.err == 0`, so the output is byte-identical.
             out.append("    if d.err == 0 {")
             out.append("        flush!();")
-            out.append("    }")
-            out.append("    if d.err == 0 && !uk_el.is_null() {")
-            out.append("        (*uk_el).flush();")
-            out.append("        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }")
             out.append("    }")
             out.append("    if d.err == 0 {")
             out.append("        if let Some(ap) = (*vt).apply_%s {" % sn)
@@ -1224,12 +1245,12 @@ def _emit_decode(ir, sites):
                 continue
             sn = slot_name(path)
             dty, _ = slot_elem_rust(f)
-            arena_decl(sn, dty, out, unkcb=("unk_%s" % sn) if elem_type(f) else None)
+            arena_decl(sn, dty, out)
             slots.append((sn, dty, "add_%s" % sn))
         flush_macros(slots, "AK_TOKEN_ROOT", out)
-        out.append("    // Decision 11 candidate: the ROOT message's own unknown fields.")
-        out.append("    let mut ub_root = UnkBuf::new((*vt).unknown, ctx, obj);")
-        out.append("    let uk_root: *mut UnkBuf = if ub_root.cb.is_some() { &mut ub_root } else { ::core::ptr::null_mut() };")
+        out.append("    // Decision 11: the positions this context is armed with for this root, or")
+        out.append("    // none (drop mode: every capture below is one null test).")
+        out.append("    let u = UnkCx::root(dcx, %d);" % unk_root_id(ir, root))
         out.append("    let mut cur = 0u32;")
         out.append("    while !d.at_end() {")
         out.append("        let s0 = d.pos;")
@@ -1242,10 +1263,7 @@ def _emit_decode(ir, sites):
         out.append("            _ => {")
         out.append("                if cur != 0 { flush!(); cur = 0; }")
         out.append("                d.skip(tag, wire);")
-        out.append("                if !uk_root.is_null() {")
-        out.append("                    (*uk_root).push(base0 + s0, d.pos - s0);")
-        out.append("                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }")
-        out.append("                }")
+        out.extend((CAP % ("d", "d", "d")).split("\n"))
         out.append("            }")
         out.append("        }")
         out.append("    }")
@@ -1254,10 +1272,6 @@ def _emit_decode(ir, sites):
         # input `d.err == 0`, so the delivered bytes are byte-identical.
         out.append("    if d.err == 0 {")
         out.append("        flush!();")
-        out.append("    }")
-        out.append("    if d.err == 0 && !uk_root.is_null() {")
-        out.append("        (*uk_root).flush();")
-        out.append("        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }")
         out.append("    }")
         out.append("    // R-D6: `apply` only if nothing -- the reader or the host -- failed.")
         out.append("    if d.err == 0 && (*dcx).hdr.err == AK_OK {")
@@ -1269,6 +1283,43 @@ def _emit_decode(ir, sites):
         out.append("    // The host may have failed the operation from inside a reverse call; the")
         out.append("    // sticky slot in the context is where it said so (ABI v1 section 5).")
         out.append("    if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }")
+        out.append("}")
+        out.append("")
+
+    # ============================================ decision 11's options (WP5 step 7)
+    for root in ir.roots:
+        on = unk_opts_name(root)
+        mem = unk_opts_members(ir, root)
+        first, last = rust_member(mem[0][0]), rust_member(mem[-1][0])
+        rid = unk_root_id(ir, root)
+        out.append("// `%s` is `host` then %d `ak_unk_opts` back to back: the core reads it as" % (on, len(mem)))
+        out.append("// an array, so the layout is asserted here.")
+        out.append("const _: () = {")
+        out.append("    assert!(::core::mem::offset_of!(%s, %s) == 8);" % (on, first))
+        out.append("    assert!(::core::mem::offset_of!(%s, %s) == 8 + %d * ::core::mem::size_of::<ak_unk_opts>());"
+                   % (on, last, len(mem) - 1))
+        out.append("    assert!(::core::mem::size_of::<%s>() == 8 + %d * ::core::mem::size_of::<ak_unk_opts>());"
+                   % (on, len(mem)))
+        out.append("};")
+        out.append("")
+        out.append("/// Decision 11: re-arm every unknown-field position of `%s` (copied; NULL =" % root)
+        out.append("/// drop everywhere).")
+        out.append("#[no_mangle]")
+        out.append("pub unsafe extern \"C\" fn ak_dec_reset_%s(ctx: *mut ak_dec_ctx, opts: *const %s) {" % (root, on))
+        out.append("    if ctx.is_null() { return; }")
+        out.append("    if opts.is_null() {")
+        out.append("        crate::unk_arm(ctx as *mut DecCtxImpl, %d, ::core::ptr::null_mut(), ::core::ptr::null(), 0);" % rid)
+        out.append("    } else {")
+        out.append("        crate::unk_arm(ctx as *mut DecCtxImpl, %d, (*opts).host, &(*opts).%s, %d);" % (rid, first, len(mem)))
+        out.append("    }")
+        out.append("}")
+        out.append("")
+        out.append("/// Decision 11: a decode context armed for `%s` at creation." % root)
+        out.append("#[no_mangle]")
+        out.append("pub unsafe extern \"C\" fn ak_dec_ctx_new_%s(opts: *const %s) -> *mut ak_dec_ctx {" % (root, on))
+        out.append("    let ctx = crate::ak_dec_ctx_new();")
+        out.append("    ak_dec_reset_%s(ctx, opts);" % root)
+        out.append("    ctx")
         out.append("}")
         out.append("")
 
@@ -1306,6 +1357,7 @@ def _emit_decode(ir, sites):
             out.append("    dcx: *mut DecCtxImpl,")
             out.append("    d: &mut Dec,")
             out.append("    base: usize,")
+            out.append("    u: UnkCx,")
             out.append(") {")
             out.append("    // The codec MINTS the token because there is nobody to ask during a parse.")
             out.append("    // A token is an index (ABI v1 section 10), and the host's replay pushes its")
@@ -1327,6 +1379,7 @@ def _emit_decode(ir, sites):
             flush_macros(slots, "tok", out, family="pull")
             out.append("    let mut cur = 0u32;")
             out.append("    while !d.at_end() {")
+            out.append("        let s0 = d.pos;")
             out.append("        let k = d.varint();")
             out.append("        if d.err != 0 { break; }")
             out.append("        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);")
@@ -1334,7 +1387,11 @@ def _emit_decode(ir, sites):
             out.append("        match tag {")
             dec_walk(root, et, "out", (), "buf0", "base0", 0, sid, out,
                      elemcall=_pull_elemcall)
-            out.append("            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }")
+            out.append("            _ => {")
+            out.append("                if cur != 0 { flush!(); cur = 0; }")
+            out.append("                d.skip(tag, wire);")
+            out.extend((CAP % ("d", "d", "d")).split("\n"))
+            out.append("            }")
             out.append("        }")
             out.append("    }")
             # R-D1: no OP_APPLY_ELEM record after a decode error -- the host's replay must
@@ -1392,19 +1449,23 @@ def _emit_decode(ir, sites):
             arena_decl(sn, dty, out)
             slots.append((sn, dty, i + 1))
         flush_macros(slots, "AK_TOKEN_ROOT", out, family="pull")
+        out.append("    let u = UnkCx::root(dcx, %d);" % unk_root_id(ir, root))
         out.append("    let mut cur = 0u32;")
         out.append("    while !d.at_end() {")
+        out.append("        let s0 = d.pos;")
         out.append("        let k = d.varint();")
         out.append("        if d.err != 0 { break; }")
         out.append("        let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);")
         out.append("        if tag == 0 || (k >> 3) > ak_rt::MAX_FIELD_NUMBER { d.err = ak_rt::ERR_MALFORMED; break; }")
         out.append("        match tag {")
         dec_walk(root, root, "out", (), "buf0", "base0", 0, sid, out, elemcall=_pull_elemcall)
-        out.append("            // Decision 11's capture is NOT built for this family: the bag is a")
-        out.append("            // candidate and pull is a family, and pricing one through the other")
-        out.append("            // would make neither answerable. Unknown fields are skipped here,")
-        out.append("            // which is what the default push path does too.")
-        out.append("            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }")
+        out.append("            // Decision 11 (WP5 step 7): the same capture as push; the buffers ride in")
+        out.append("            // the groups the records carry and pass to the host when it reads them.")
+        out.append("            _ => {")
+        out.append("                if cur != 0 { flush!(); cur = 0; }")
+        out.append("                d.skip(tag, wire);")
+        out.extend((CAP % ("d", "d", "d")).split("\n"))
+        out.append("            }")
         out.append("        }")
         out.append("    }")
         # R-D1: no OP_APPLY record after a decode error, so the host's replay applies

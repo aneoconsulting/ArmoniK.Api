@@ -35,7 +35,6 @@ from plan import (FIXED, as_plan, abi_order_topo, direct_fields, element_types, 
 import cs_names as N
 
 LOOP_FN = "delegate* unmanaged[Cdecl]<IntPtr, void*, long, int>"
-UNK_FN = "delegate* unmanaged[Cdecl]<IntPtr, void*, ak_uspan*, int, void>"
 
 
 def cs_member(t):
@@ -168,14 +167,13 @@ def vtable_decls(p):
             if et and loop_slots(p, et):
                 ev.append(("elem_%s" % slot_name(path), "ak_evt_%s*" % et))
         out.append(("ak_evt_%s" % name, ev))
-        dv = [("apply", "delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_%s*, void>" % name),
-              ("unknown", UNK_FN)]
+        # WP5 step 7: no `unknown` / `unk_<slot>` members (decision 11: unknown fields travel
+        # as data in the groups); the order is plan.dec_vtable's.
+        dv = [("apply", "delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_%s*, void>" % name)]
         for path, f in slots:
             sn = slot_name(path)
             dty, _ = slot_elem(f)
             et = elem_type(f)
-            if et:
-                dv.append(("unk_%s" % sn, UNK_FN))
             if not (et and not p.msg(et).leaf):
                 dv.append(("add_%s" % sn, "delegate* unmanaged[Cdecl]<IntPtr, void*, long, %s*, int, void>"
                            % N.abi_type(dty)))

@@ -79,6 +79,11 @@ def _group_members(ir, m, enc):
             by_member["%s_%s" % (oname, g.name)] = (g, oname)
     out = []
     for member, _abi in group_fields(m, enc):
+        if _abi == "ak_unk_buf":
+            # WP5 step 7 (decision 11): the decode group's unknown-field buffer. Not rendered
+            # by this backend yet: its bindings never arm a context, so the slot is always
+            # empty (drop mode). Rendering the options is the Java slice's next step.
+            continue
         if member not in by_member:
             raise NotImplementedError("group member %s.%s has no field" % (m.name, member))
         f, oname = by_member[member]

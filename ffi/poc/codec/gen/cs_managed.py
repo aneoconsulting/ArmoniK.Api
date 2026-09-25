@@ -479,7 +479,7 @@ class Codec:
             o += "%svar c = %s ?? new %s();" % (b, acc, f.of)
             self._sub(o, b, "Read%s(ref d, c, depth + 1);" % f.of)
             o += "%s%s = c;" % (b, acc)
-        elif op == "append_message":
+        elif op == "append_message" and f.card != "map":
             o += "%svar c = new %s();" % (b, f.of)
             self._sub(o, b, "Read%s(ref d, c, depth + 1);" % f.of)
             o += "%s%s.Add(c);" % (b, acc)
@@ -496,7 +496,8 @@ class Codec:
             o += "%s// plan: the unpacked form, at the kind's own wire type only." % b
             o += "%svar v = %s; if (d.Err != 0) return;" % (b, _read(f))
             o += "%s%s.Add(v);" % (b, acc)
-        elif op == "map_entry":
+        # WP5 step 7: to the decode plan a map IS a repeated pair message (decision 11).
+        elif op == "append_message" and f.card == "map":
             entry = self.p.msg(f.entry)
             o += "%sint e2 = d.LenEnd(); if (d.Err != 0) return;" % b
             o += "%sif (depth + 1 > Limit) { d.Err = W.ErrDepth; return; }" % b

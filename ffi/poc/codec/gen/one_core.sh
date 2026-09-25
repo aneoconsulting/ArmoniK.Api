@@ -161,7 +161,7 @@ fi
 # ---- 7. the shared core is not stale -------------------------------------------------
 echo
 echo "# and what is committed is what the shared emitter writes (R1)"
-if out=$(cd "$ROOT/codec" && python3 gen/generate.py --check 2>&1); then
+if out=$(cd "$ROOT/codec" && python3 gen/generate.py --check --core-only 2>&1); then
   pass "codec/gen/generate.py --check: $(printf '%s' "$out" | grep -c '^ok') files ok"
 else
   fail "codec/gen/generate.py --check:"; printf '%s\n' "$out" | sed 's/^/           /'

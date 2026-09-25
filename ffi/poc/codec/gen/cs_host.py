@@ -718,31 +718,11 @@ def _emit_decode(o, p, root, slots):
     o += "        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }"
     o += "    }"
     o += ""
-    o += "    %s" % UCO
-    o += "    private static void UnkRoot(IntPtr ctx, void* obj, ak_uspan* spans, int n) => Pend(ctx, obj, 0, spans, n);"
-    o += ""
-    o += "    private static void Pend(IntPtr ctx, void* obj, int slot, ak_uspan* spans, int n)"
-    o += "    {"
-    o += "        _rev++;"
-    o += "        try"
-    o += "        {"
-    o += "            var run = (DecRun*)obj;"
-    o += "            var pend = (List<(int, long, byte[])>)GCHandle.FromIntPtr(run->Pending).Target;"
-    o += "            for (int i = 0; i < n; i++)"
-    o += "            {"
-    o += "                var a = new byte[spans[i].len];"
-    o += "                new ReadOnlySpan<byte>(run->Buf + spans[i].off, (int)spans[i].len).CopyTo(a);"
-    o += "                pend.Add((slot, spans[i].token, a));"
-    o += "            }"
-    o += "        }"
-    o += "        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }"
-    o += "    }"
-    o += ""
+    # WP5 step 7 (decision 11): the `unknown` / `unk_<slot>` callbacks are gone from the
+    # ABI; unknown fields travel as data in the groups (`ak_dec_<Root>_opts`). This backend
+    # does not render the options yet, so DecodeU decodes in DROP mode (its context is never
+    # armed) and `pend` stays empty: transitional, until the C# slice renders them.
     for si, s in enumerate(slots, 1):
-        if s.et:
-            o += "    %s" % UCO
-            o += "    private static void Unk_%s(IntPtr ctx, void* obj, ak_uspan* spans, int n) => Pend(ctx, obj, %d, spans, n);" % (s.name, si)
-            o += ""
         lst = _make("Tgt(obj)", p, root, s.path)
         if s.leaf:
             o += "    %s" % UCO
@@ -823,10 +803,7 @@ def _emit_decode(o, p, root, slots):
     o += "                var vt = new ak_dvt_%s" % root
     o += "                {"
     o += "                    apply = &ApplyRoot,"
-    o += "                    unknown = retain ? &UnkRoot : null,"
     for s in slots:
-        if s.et:
-            o += "                    unk_%s = retain ? &Unk_%s : null," % (s.name, s.name)
         if s.leaf:
             o += "                    add_%s = &Add_%s," % (s.name, s.name)
         else:

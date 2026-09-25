@@ -24,6 +24,100 @@ use ak_abi::*;
 use core::ffi::c_void;
 use facade::*;
 
+// ---- decision 11 (WP5 step 7): the host side of the unknown-field buffers --------
+//
+// The core copies each message's unknown runs into a buffer this binding owns, obtained
+// through `unk_grow` (plan: UNKNOWN FIELDS ON DECODE). A buffer passes to the host when
+// the group carrying it is delivered; `take_unk` turns it into the facade's bag. What the
+// core placed but never delivered -- an inactive oneof member's, a map entry's (the facade
+// map has no bag), everything of a failed decode -- is reclaimed by `unk_reclaim`.
+thread_local! {
+    static UNK_LIVE: ::core::cell::RefCell<Vec<(usize, usize)>> =
+        const { ::core::cell::RefCell::new(Vec::new()) };
+}
+
+/// `ak_grow_fn` for an unknown-field buffer: a fresh buffer when `*dst` is NULL, else a
+/// realloc that keeps the first `*cap` bytes.
+pub unsafe extern "C" fn unk_grow(_host: *mut c_void, want: i32, dst: *mut *mut u8, cap: *mut i32) -> i32 {
+    if want <= 0 {
+        return AK_ERR_LIMIT;
+    }
+    let (want, old, oc) = (want as usize, *dst, (*cap).max(0) as usize);
+    let p = if old.is_null() {
+        ::std::alloc::alloc(::std::alloc::Layout::from_size_align_unchecked(want, 1))
+    } else {
+        ::std::alloc::realloc(old, ::std::alloc::Layout::from_size_align_unchecked(oc, 1), want)
+    };
+    if p.is_null() {
+        return AK_ERR_LIMIT;
+    }
+    UNK_LIVE.with(|l| {
+        let mut l = l.borrow_mut();
+        if !old.is_null() {
+            if let Some(i) = l.iter().position(|e| e.0 == old as usize) {
+                l.swap_remove(i);
+            }
+        }
+        l.push((p as usize, want));
+    });
+    *dst = p;
+    *cap = want as i32;
+    AK_OK
+}
+
+/// A delivered slot's buffer, as the facade's bag (the host owns it from here).
+#[inline]
+pub(crate) fn take_unk(b: &ak_unk_buf) -> Vec<u8> {
+    if b.data.is_null() {
+        return Vec::new();
+    }
+    UNK_LIVE.with(|l| {
+        let mut l = l.borrow_mut();
+        if let Some(i) = l.iter().position(|e| e.0 == b.data as usize) {
+            l.swap_remove(i);
+        }
+    });
+    unsafe { Vec::from_raw_parts(b.data as *mut u8, b.len as usize, b.cap as usize) }
+}
+
+thread_local! {
+    static UNK_ENTRY_BYTES: ::core::cell::Cell<usize> = const { ::core::cell::Cell::new(0) };
+}
+
+/// Bytes the core delivered in map-entry buffers since the last call (the facade map has
+/// no bag, so they are counted here and dropped): decision 11's evidence that the core
+/// captures map entries even where this facade cannot keep them.
+pub fn unk_entry_bytes() -> usize {
+    UNK_ENTRY_BYTES.with(|c| c.replace(0))
+}
+
+/// Decision 11 controls on one input (see `unk_controls_*`).
+#[derive(Debug, Default)]
+pub struct UnkReport {
+    pub positions: usize,
+    /// Positions whose zeroing changes the expected value (where the input HAS unknowns).
+    pub changed: usize,
+    /// Positions where decoding with that entry zeroed did not give the all-armed value
+    /// with exactly that position's bags cleared. Must be empty.
+    pub mismatched: Vec<usize>,
+    /// The pull family (walk in place, all armed) gave the same value as push.
+    pub pull_equal: bool,
+    pub entry_bytes: usize,
+    /// Positions where the map-entry bytes delivered were not what the rule says.
+    pub entry_mismatch: Vec<usize>,
+}
+
+/// Free every buffer `unk_grow` handed out that was never delivered. Returns how many.
+pub fn unk_reclaim() -> usize {
+    UNK_LIVE.with(|l| {
+        let v = ::core::mem::take(&mut *l.borrow_mut());
+        for &(p, c) in &v {
+            unsafe { ::std::alloc::dealloc(p as *mut u8, ::std::alloc::Layout::from_size_align_unchecked(c, 1)) };
+        }
+        v.len()
+    })
+}
+
 /// ABI v1 section 5. Rust's analogue of the managed guard: a panic crossing `extern "C"`
 /// aborts the process, so the binding catches it and reports it through the context it was
 /// handed. On by default; the `no-guard` build exists only to price it, because every
@@ -3061,9 +3155,8 @@ unsafe fn from_timestamp(f: &ak_dfix_Timestamp, base: *const u8, ctx: *mut ak_de
     Timestamp {
         seconds: f.seconds,
         nanos: f.nanos,
-        // Decision 11's bag. The default decode path captures nothing,
-        // so this arm leaves it empty; `decode_with_*_unk` fills it.
-        unknown_fields: Vec::new(),
+        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+        unknown_fields: take_unk(&f.unknown),
     }
 }
 
@@ -3072,9 +3165,8 @@ unsafe fn from_duration(f: &ak_dfix_Duration, base: *const u8, ctx: *mut ak_dec_
     Duration {
         seconds: f.seconds,
         nanos: f.nanos,
-        // Decision 11's bag. The default decode path captures nothing,
-        // so this arm leaves it empty; `decode_with_*_unk` fills it.
-        unknown_fields: Vec::new(),
+        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+        unknown_fields: take_unk(&f.unknown),
     }
 }
 
@@ -3092,9 +3184,8 @@ unsafe fn from_result_raw(f: &ak_dfix_ResultRaw, base: *const u8, ctx: *mut ak_d
         created_by: s_of(base, f.created_by, ctx),
         opaque_id: b_of(base, f.opaque_id),
         manual_deletion: f.manual_deletion != 0,
-        // Decision 11's bag. The default decode path captures nothing,
-        // so this arm leaves it empty; `decode_with_*_unk` fills it.
-        unknown_fields: Vec::new(),
+        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+        unknown_fields: take_unk(&f.unknown),
     }
 }
 
@@ -3115,6 +3206,8 @@ unsafe fn fill_task_options(dst: &mut TaskOptions, f: &ak_dfix_TaskOptions, base
     dst.application_namespace = s_of(base, f.application_namespace, ctx);
     dst.application_service = s_of(base, f.application_service, ctx);
     dst.engine_type = s_of(base, f.engine_type, ctx);
+    // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+    dst.unknown_fields.extend_from_slice(&take_unk(&f.unknown));
 }
 
 #[inline(always)]
@@ -3122,9 +3215,8 @@ unsafe fn from_task_output(f: &ak_dfix_TaskOutput, base: *const u8, ctx: *mut ak
     TaskOutput {
         success: f.success != 0,
         error: s_of(base, f.error, ctx),
-        // Decision 11's bag. The default decode path captures nothing,
-        // so this arm leaves it empty; `decode_with_*_unk` fills it.
-        unknown_fields: Vec::new(),
+        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+        unknown_fields: take_unk(&f.unknown),
     }
 }
 
@@ -3212,6 +3304,8 @@ unsafe fn fill_task_detailed(dst: &mut TaskDetailed, f: &ak_dfix_TaskDetailed, b
     };
     dst.payload_id = s_of(base, f.payload_id, ctx);
     dst.created_by = s_of(base, f.created_by, ctx);
+    // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+    dst.unknown_fields.extend_from_slice(&take_unk(&f.unknown));
 }
 
 /// In place, never constructed: `TaskSummary` carries a repeated or map field,
@@ -3235,6 +3329,8 @@ unsafe fn fill_task_summary(dst: &mut TaskSummary, f: &ak_dfix_TaskSummary, base
     dst.error = s_of(base, f.error, ctx);
     dst.status_message = s_of(base, f.status_message, ctx);
     dst.count_data_dependencies = f.count_data_dependencies;
+    // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+    dst.unknown_fields.extend_from_slice(&take_unk(&f.unknown));
 }
 
 #[inline(always)]
@@ -3252,18 +3348,16 @@ unsafe fn from_probe(f: &ak_dfix_Probe, base: *const u8, ctx: *mut ak_dec_ctx) -
             14 => Some(ProbeBody::AsNothing(from_empty(&f.body_as_nothing, base, ctx))),
             _ => None,
         },
-        // Decision 11's bag. The default decode path captures nothing,
-        // so this arm leaves it empty; `decode_with_*_unk` fills it.
-        unknown_fields: Vec::new(),
+        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+        unknown_fields: take_unk(&f.unknown),
     }
 }
 
 #[inline(always)]
 unsafe fn from_empty(f: &ak_dfix_Empty, base: *const u8, ctx: *mut ak_dec_ctx) -> Empty {
     Empty {
-        // Decision 11's bag. The default decode path captures nothing,
-        // so this arm leaves it empty; `decode_with_*_unk` fills it.
-        unknown_fields: Vec::new(),
+        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+        unknown_fields: take_unk(&f.unknown),
     }
 }
 
@@ -3273,9 +3367,8 @@ unsafe fn from_upload_result_data(f: &ak_dfix_UploadResultData, base: *const u8,
         session_id: s_of(base, f.session_id, ctx),
         result_id: s_of(base, f.result_id, ctx),
         data_chunk: b_of(base, f.data_chunk),
-        // Decision 11's bag. The default decode path captures nothing,
-        // so this arm leaves it empty; `decode_with_*_unk` fills it.
-        unknown_fields: Vec::new(),
+        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+        unknown_fields: take_unk(&f.unknown),
     }
 }
 
@@ -3284,6 +3377,8 @@ unsafe fn from_upload_result_data(f: &ak_dfix_UploadResultData, base: *const u8,
 #[inline(always)]
 unsafe fn fill_metrics_batch(dst: &mut MetricsBatch, f: &ak_dfix_MetricsBatch, base: *const u8, ctx: *mut ak_dec_ctx) {
     dst.id = s_of(base, f.id, ctx);
+    // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+    dst.unknown_fields.extend_from_slice(&take_unk(&f.unknown));
 }
 
 #[inline(always)]
@@ -3291,9 +3386,8 @@ unsafe fn from_pair(f: &ak_dfix_Pair, base: *const u8, ctx: *mut ak_dec_ctx) -> 
     Pair {
         key: s_of(base, f.key, ctx),
         value: f.value,
-        // Decision 11's bag. The default decode path captures nothing,
-        // so this arm leaves it empty; `decode_with_*_unk` fills it.
-        unknown_fields: Vec::new(),
+        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+        unknown_fields: take_unk(&f.unknown),
     }
 }
 
@@ -3303,6 +3397,8 @@ unsafe fn from_pair(f: &ak_dfix_Pair, base: *const u8, ctx: *mut ak_dec_ctx) -> 
 unsafe fn fill_list_results_response(dst: &mut ListResultsResponse, f: &ak_dfix_ListResultsResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
     dst.page = f.page;
     dst.total = f.total;
+    // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+    dst.unknown_fields.extend_from_slice(&take_unk(&f.unknown));
 }
 
 /// In place, never constructed: `ListTasksDetailedResponse` carries a repeated or map field,
@@ -3311,33 +3407,40 @@ unsafe fn fill_list_results_response(dst: &mut ListResultsResponse, f: &ak_dfix_
 unsafe fn fill_list_tasks_detailed_response(dst: &mut ListTasksDetailedResponse, f: &ak_dfix_ListTasksDetailedResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
     dst.page = f.page;
     dst.total = f.total;
+    // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+    dst.unknown_fields.extend_from_slice(&take_unk(&f.unknown));
 }
 
 /// In place, never constructed: `ListTaskSummaryResponse` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
 unsafe fn fill_list_task_summary_response(dst: &mut ListTaskSummaryResponse, f: &ak_dfix_ListTaskSummaryResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
+    // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+    dst.unknown_fields.extend_from_slice(&take_unk(&f.unknown));
 }
 
 /// In place, never constructed: `ListProbeResponse` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
 unsafe fn fill_list_probe_response(dst: &mut ListProbeResponse, f: &ak_dfix_ListProbeResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
+    // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+    dst.unknown_fields.extend_from_slice(&take_unk(&f.unknown));
 }
 
 /// In place, never constructed: `ListMetricsResponse` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
 unsafe fn fill_list_metrics_response(dst: &mut ListMetricsResponse, f: &ak_dfix_ListMetricsResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
+    // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+    dst.unknown_fields.extend_from_slice(&take_unk(&f.unknown));
 }
 
 #[inline(always)]
 unsafe fn from_upload_result_data_message(f: &ak_dfix_UploadResultDataMessage, base: *const u8, ctx: *mut ak_dec_ctx) -> UploadResultDataMessage {
     UploadResultDataMessage {
         upload: if f.presence & AK_DFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD != 0 { Some(from_upload_result_data(&f.upload, base, ctx)) } else { None },
-        // Decision 11's bag. The default decode path captures nothing,
-        // so this arm leaves it empty; `decode_with_*_unk` fills it.
-        unknown_fields: Vec::new(),
+        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+        unknown_fields: take_unk(&f.unknown),
     }
 }
 
@@ -3345,6 +3448,8 @@ unsafe fn from_upload_result_data_message(f: &ak_dfix_UploadResultDataMessage, b
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
 unsafe fn fill_dual_response(dst: &mut DualResponse, f: &ak_dfix_DualResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
+    // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+    dst.unknown_fields.extend_from_slice(&take_unk(&f.unknown));
 }
 
 /// What the host hands the codec as `obj` on decode: the destination, plus
@@ -3352,12 +3457,6 @@ unsafe fn fill_dual_response(dst: &mut DualResponse, f: &ak_dfix_DualResponse, b
 pub struct SinkListResultsResponse<'a> {
     pub out: &'a mut ListResultsResponse,
     pub base: *const u8,
-    /// Decision 11 candidate: unknown runs staged by (slot, element index)
-    /// and applied after the decode. Staged rather than written straight
-    /// through because a capture buffer may flush mid-chunk, before the run
-    /// that carries the element it belongs to. Empty and unallocated on the
-    /// default path.
-    pub pending: Vec<(u32, i64, Vec<u8>)>,
 }
 
 unsafe extern "C" fn apply_list_results_response(
@@ -3370,6 +3469,8 @@ unsafe extern "C" fn apply_list_results_response(
         let f = &*fx;
         s.out.page = f.page;
         s.out.total = f.total;
+        // Decision 11 (WP5 step 7): the root's own buffer, the host's now.
+        s.out.unknown_fields = take_unk(&f.unknown);
     })
 }
 
@@ -3390,46 +3491,12 @@ unsafe extern "C" fn add_list_results_response_results(
     })
 }
 
-unsafe extern "C" fn unknown_list_results_response(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    spans: *const ak_uspan,
-    n: i32,
-) {
-    dguard(ctx, || {
-        let s = &mut *(obj as *mut SinkListResultsResponse);
-        for i in 0..n as usize {
-            let sp = &*spans.add(i);
-            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
-            s.pending.push((0, sp.token, b.to_vec()));
-        }
-    })
-}
-
-unsafe extern "C" fn unk_list_results_response_results(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    spans: *const ak_uspan,
-    n: i32,
-) {
-    dguard(ctx, || {
-        let s = &mut *(obj as *mut SinkListResultsResponse);
-        for i in 0..n as usize {
-            let sp = &*spans.add(i);
-            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
-            s.pending.push((1, sp.token, b.to_vec()));
-        }
-    })
-}
-
 pub fn decode_with_list_results_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListResultsResponse, i32> {
     let mut out = ListResultsResponse::default();
     let rc = unsafe {
-        let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+        let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ListResultsResponse {
             apply: Some(apply_list_results_response),
-            unknown: None,
-            unk_results: None,
             add_results: Some(add_list_results_response_results),
         };
         ak_decode_ListResultsResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
@@ -3437,32 +3504,78 @@ pub fn decode_with_list_results_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Resu
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
 
-pub fn decode_with_list_results_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListResultsResponse, i32> {
-    let mut out = ListResultsResponse::default();
-    let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
-    let rc = unsafe {
-        let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
-        let vt = ak_dvt_ListResultsResponse {
-            apply: Some(apply_list_results_response),
-            unknown: Some(unknown_list_results_response),
-            unk_results: Some(unk_list_results_response_results),
-            add_results: Some(add_list_results_response_results),
-        };
-        let rc = ak_decode_ListResultsResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt);
-        pending = ::core::mem::take(&mut sink.pending);
-        rc
-    };
-    if rc < 0 { return Err(rc); }
-    // Applied after the decode, not during it: a capture buffer may flush
-    // mid-chunk, before the run that carries the element it belongs to.
-    for (slot, token, bytes) in pending {
-        match slot {
-            0 => out.unknown_fields.extend_from_slice(&bytes),
-            1 => { if let Some(e) = out.results.get_mut(token as usize) { e.unknown_fields.extend_from_slice(&bytes); } }
-            _ => {}
-        }
+/// Decision 11: every position of `ListResultsResponse` backed by `unk_grow` (no pre-allocated
+/// buffer), except position `zero`, if given, left all zero (discarded there).
+pub fn unk_opts_list_results_response(zero: Option<usize>) -> ak_dec_ListResultsResponse_opts {
+    let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
+    let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    ak_dec_ListResultsResponse_opts {
+        host: ::core::ptr::null_mut(),
+        self_: if zero == Some(0) { z } else { e },
+        results: if zero == Some(1) { z } else { e },
+        results_created_at: if zero == Some(2) { z } else { e },
+        results_completed_at: if zero == Some(3) { z } else { e },
     }
-    Ok(out)
+}
+pub const UNK_POSITIONS_LISTRESULTSRESPONSE: usize = 4;
+
+/// The same decode with the context armed with `opts`, then disarmed; buffers
+/// the core placed but never delivered (an inactive oneof member, a map entry,
+/// a failed decode) are reclaimed.
+pub fn decode_with_list_results_response_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_ListResultsResponse_opts) -> Result<ListResultsResponse, i32> {
+    unsafe { ak_dec_reset_ListResultsResponse(ctx, opts); }
+    let r = decode_with_list_results_response(ctx, b);
+    unsafe { ak_dec_reset_ListResultsResponse(ctx, ::core::ptr::null()); }
+    unk_reclaim();
+    r
+}
+
+/// Decision 11: retain everywhere.
+pub fn decode_with_list_results_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListResultsResponse, i32> {
+    decode_with_list_results_response_opts(ctx, b, &unk_opts_list_results_response(None))
+}
+
+/// Decision 11: the pull family (walk in place) with every position retained.
+pub fn parse_walk_with_list_results_response_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<ListResultsResponse, i32> {
+    unsafe { ak_dec_reset_ListResultsResponse(ctx, &unk_opts_list_results_response(None)); }
+    let r = parse_walk_with_list_results_response(ctx, b, toks);
+    unsafe { ak_dec_reset_ListResultsResponse(ctx, ::core::ptr::null()); }
+    unk_reclaim();
+    r
+}
+
+/// Decision 11 control: clear every bag at position `pos` (plan.unk_positions).
+pub fn unk_clear_list_results_response(o: &mut ListResultsResponse, pos: usize) {
+    match pos {
+        0 => { o.unknown_fields.clear(); }
+        1 => { for x0 in o.results.iter_mut() { x0.unknown_fields.clear(); } }
+        2 => { for x0 in o.results.iter_mut() { if let Some(x1) = x0.created_at.as_mut() { x1.unknown_fields.clear(); } } }
+        3 => { for x0 in o.results.iter_mut() { if let Some(x1) = x0.completed_at.as_mut() { x1.unknown_fields.clear(); } } }
+        _ => {}
+    }
+}
+
+pub fn unk_controls_list_results_response(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+    const IS_ENTRY: [bool; 4] = [false, false, false, false];
+    unk_entry_bytes();
+    let all = decode_with_list_results_response_unk(ctx, b)?;
+    let eb_all = unk_entry_bytes();
+    let mut toks = Vec::new();
+    let pw = parse_walk_with_list_results_response_unk(ctx, b, &mut toks)?;
+    unk_entry_bytes();
+    // Compared through Debug so a NaN equals itself (S-double-nan); bytes are the corpus's job.
+    let dbg = |x: &ListResultsResponse| format!("{:?}", x);
+    let mut rep = UnkReport { positions: 4, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
+    for i in 0..4 {
+        let got = decode_with_list_results_response_opts(ctx, b, &unk_opts_list_results_response(Some(i)))?;
+        let eb = unk_entry_bytes();
+        let mut exp = all.clone();
+        if !plant { unk_clear_list_results_response(&mut exp, i); }
+        if dbg(&exp) != dbg(&all) { rep.changed += 1; }
+        if dbg(&got) != dbg(&exp) { rep.mismatched.push(i); }
+        if eb != (if IS_ENTRY[i] { 0 } else { eb_all }) { rep.entry_mismatch.push(i); }
+    }
+    Ok(rep)
 }
 
 /// Replay one chunk of records (ABI v1 section 7.1: "walk heap arrays").
@@ -3548,7 +3661,7 @@ pub fn parse_drain_with_list_results_response(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             // Two forward calls the counting build cannot see from inside,
             // because `ak_bdr_footprint` takes a const context (R5).
@@ -3587,7 +3700,7 @@ pub fn parse_walk_with_list_results_response(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             let mut p: *const u8 = ::core::ptr::null();
             let mut n: usize = 0;
@@ -3620,7 +3733,7 @@ pub fn parse_walk_opaque_with_list_results_response(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             let mut p: *const u8 = ::core::ptr::null();
             let mut n: usize = 0;
@@ -3642,12 +3755,6 @@ pub fn parse_walk_opaque_with_list_results_response(
 pub struct SinkListTasksDetailedResponse<'a> {
     pub out: &'a mut ListTasksDetailedResponse,
     pub base: *const u8,
-    /// Decision 11 candidate: unknown runs staged by (slot, element index)
-    /// and applied after the decode. Staged rather than written straight
-    /// through because a capture buffer may flush mid-chunk, before the run
-    /// that carries the element it belongs to. Empty and unallocated on the
-    /// default path.
-    pub pending: Vec<(u32, i64, Vec<u8>)>,
 }
 
 unsafe extern "C" fn apply_list_tasks_detailed_response(
@@ -3660,6 +3767,8 @@ unsafe extern "C" fn apply_list_tasks_detailed_response(
         let f = &*fx;
         s.out.page = f.page;
         s.out.total = f.total;
+        // Decision 11 (WP5 step 7): the root's own buffer, the host's now.
+        s.out.unknown_fields = take_unk(&f.unknown);
     })
 }
 
@@ -3767,38 +3876,10 @@ unsafe extern "C" fn add_list_tasks_detailed_response_tasks_options_options(
         for i in 0..n as usize {
             let e = &*elems.add(i);
             dst.insert(s_of(base, e.key, ctx), s_of(base, e.value, ctx));
-        }
-    })
-}
-
-unsafe extern "C" fn unknown_list_tasks_detailed_response(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    spans: *const ak_uspan,
-    n: i32,
-) {
-    dguard(ctx, || {
-        let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
-        for i in 0..n as usize {
-            let sp = &*spans.add(i);
-            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
-            s.pending.push((0, sp.token, b.to_vec()));
-        }
-    })
-}
-
-unsafe extern "C" fn unk_list_tasks_detailed_response_tasks(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    spans: *const ak_uspan,
-    n: i32,
-) {
-    dguard(ctx, || {
-        let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
-        for i in 0..n as usize {
-            let sp = &*spans.add(i);
-            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
-            s.pending.push((1, sp.token, b.to_vec()));
+            // Decision 11: the entry's own buffer; the facade map has no bag for
+            // it (U-map-entry), so it is taken and dropped.
+            let t = take_unk(&e.unknown);
+            UNK_ENTRY_BYTES.with(|c| c.set(c.get() + t.len()));
         }
     })
 }
@@ -3806,11 +3887,9 @@ unsafe extern "C" fn unk_list_tasks_detailed_response_tasks(
 pub fn decode_with_list_tasks_detailed_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListTasksDetailedResponse, i32> {
     let mut out = ListTasksDetailedResponse::default();
     let rc = unsafe {
-        let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+        let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ListTasksDetailedResponse {
             apply: Some(apply_list_tasks_detailed_response),
-            unknown: None,
-            unk_tasks: None,
             new_tasks: Some(new_list_tasks_detailed_response_tasks),
             apply_tasks: Some(apply_list_tasks_detailed_response_tasks),
             add_tasks_parent_task_ids: Some(add_list_tasks_detailed_response_tasks_parent_task_ids),
@@ -3824,38 +3903,106 @@ pub fn decode_with_list_tasks_detailed_response(ctx: *mut ak_dec_ctx, b: &[u8]) 
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
 
-pub fn decode_with_list_tasks_detailed_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListTasksDetailedResponse, i32> {
-    let mut out = ListTasksDetailedResponse::default();
-    let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
-    let rc = unsafe {
-        let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
-        let vt = ak_dvt_ListTasksDetailedResponse {
-            apply: Some(apply_list_tasks_detailed_response),
-            unknown: Some(unknown_list_tasks_detailed_response),
-            unk_tasks: Some(unk_list_tasks_detailed_response_tasks),
-            new_tasks: Some(new_list_tasks_detailed_response_tasks),
-            apply_tasks: Some(apply_list_tasks_detailed_response_tasks),
-            add_tasks_parent_task_ids: Some(add_list_tasks_detailed_response_tasks_parent_task_ids),
-            add_tasks_data_dependencies: Some(add_list_tasks_detailed_response_tasks_data_dependencies),
-            add_tasks_expected_output_ids: Some(add_list_tasks_detailed_response_tasks_expected_output_ids),
-            add_tasks_retry_of_ids: Some(add_list_tasks_detailed_response_tasks_retry_of_ids),
-            add_tasks_options_options: Some(add_list_tasks_detailed_response_tasks_options_options),
-        };
-        let rc = ak_decode_ListTasksDetailedResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt);
-        pending = ::core::mem::take(&mut sink.pending);
-        rc
-    };
-    if rc < 0 { return Err(rc); }
-    // Applied after the decode, not during it: a capture buffer may flush
-    // mid-chunk, before the run that carries the element it belongs to.
-    for (slot, token, bytes) in pending {
-        match slot {
-            0 => out.unknown_fields.extend_from_slice(&bytes),
-            1 => { if let Some(e) = out.tasks.get_mut(token as usize) { e.unknown_fields.extend_from_slice(&bytes); } }
-            _ => {}
-        }
+/// Decision 11: every position of `ListTasksDetailedResponse` backed by `unk_grow` (no pre-allocated
+/// buffer), except position `zero`, if given, left all zero (discarded there).
+pub fn unk_opts_list_tasks_detailed_response(zero: Option<usize>) -> ak_dec_ListTasksDetailedResponse_opts {
+    let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
+    let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    ak_dec_ListTasksDetailedResponse_opts {
+        host: ::core::ptr::null_mut(),
+        self_: if zero == Some(0) { z } else { e },
+        tasks: if zero == Some(1) { z } else { e },
+        tasks_options: if zero == Some(2) { z } else { e },
+        tasks_options_options: if zero == Some(3) { z } else { e },
+        tasks_options_max_duration: if zero == Some(4) { z } else { e },
+        tasks_created_at: if zero == Some(5) { z } else { e },
+        tasks_submitted_at: if zero == Some(6) { z } else { e },
+        tasks_started_at: if zero == Some(7) { z } else { e },
+        tasks_ended_at: if zero == Some(8) { z } else { e },
+        tasks_pod_ttl: if zero == Some(9) { z } else { e },
+        tasks_output: if zero == Some(10) { z } else { e },
+        tasks_received_at: if zero == Some(11) { z } else { e },
+        tasks_acquired_at: if zero == Some(12) { z } else { e },
+        tasks_creation_to_end_duration: if zero == Some(13) { z } else { e },
+        tasks_processing_to_end_duration: if zero == Some(14) { z } else { e },
+        tasks_received_to_end_duration: if zero == Some(15) { z } else { e },
+        tasks_processed_at: if zero == Some(16) { z } else { e },
+        tasks_fetched_at: if zero == Some(17) { z } else { e },
     }
-    Ok(out)
+}
+pub const UNK_POSITIONS_LISTTASKSDETAILEDRESPONSE: usize = 18;
+
+/// The same decode with the context armed with `opts`, then disarmed; buffers
+/// the core placed but never delivered (an inactive oneof member, a map entry,
+/// a failed decode) are reclaimed.
+pub fn decode_with_list_tasks_detailed_response_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_ListTasksDetailedResponse_opts) -> Result<ListTasksDetailedResponse, i32> {
+    unsafe { ak_dec_reset_ListTasksDetailedResponse(ctx, opts); }
+    let r = decode_with_list_tasks_detailed_response(ctx, b);
+    unsafe { ak_dec_reset_ListTasksDetailedResponse(ctx, ::core::ptr::null()); }
+    unk_reclaim();
+    r
+}
+
+/// Decision 11: retain everywhere.
+pub fn decode_with_list_tasks_detailed_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListTasksDetailedResponse, i32> {
+    decode_with_list_tasks_detailed_response_opts(ctx, b, &unk_opts_list_tasks_detailed_response(None))
+}
+
+/// Decision 11: the pull family (walk in place) with every position retained.
+pub fn parse_walk_with_list_tasks_detailed_response_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<ListTasksDetailedResponse, i32> {
+    unsafe { ak_dec_reset_ListTasksDetailedResponse(ctx, &unk_opts_list_tasks_detailed_response(None)); }
+    let r = parse_walk_with_list_tasks_detailed_response(ctx, b, toks);
+    unsafe { ak_dec_reset_ListTasksDetailedResponse(ctx, ::core::ptr::null()); }
+    unk_reclaim();
+    r
+}
+
+/// Decision 11 control: clear every bag at position `pos` (plan.unk_positions).
+pub fn unk_clear_list_tasks_detailed_response(o: &mut ListTasksDetailedResponse, pos: usize) {
+    match pos {
+        0 => { o.unknown_fields.clear(); }
+        1 => { for x0 in o.tasks.iter_mut() { x0.unknown_fields.clear(); } }
+        2 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.options.as_mut() { x1.unknown_fields.clear(); } } }
+        3 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.options.as_mut() {  } } }
+        4 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.options.as_mut() { if let Some(x2) = x1.max_duration.as_mut() { x2.unknown_fields.clear(); } } } }
+        5 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.created_at.as_mut() { x1.unknown_fields.clear(); } } }
+        6 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.submitted_at.as_mut() { x1.unknown_fields.clear(); } } }
+        7 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.started_at.as_mut() { x1.unknown_fields.clear(); } } }
+        8 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.ended_at.as_mut() { x1.unknown_fields.clear(); } } }
+        9 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.pod_ttl.as_mut() { x1.unknown_fields.clear(); } } }
+        10 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.output.as_mut() { x1.unknown_fields.clear(); } } }
+        11 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.received_at.as_mut() { x1.unknown_fields.clear(); } } }
+        12 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.acquired_at.as_mut() { x1.unknown_fields.clear(); } } }
+        13 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.creation_to_end_duration.as_mut() { x1.unknown_fields.clear(); } } }
+        14 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.processing_to_end_duration.as_mut() { x1.unknown_fields.clear(); } } }
+        15 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.received_to_end_duration.as_mut() { x1.unknown_fields.clear(); } } }
+        16 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.processed_at.as_mut() { x1.unknown_fields.clear(); } } }
+        17 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.fetched_at.as_mut() { x1.unknown_fields.clear(); } } }
+        _ => {}
+    }
+}
+
+pub fn unk_controls_list_tasks_detailed_response(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+    const IS_ENTRY: [bool; 18] = [false, false, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false];
+    unk_entry_bytes();
+    let all = decode_with_list_tasks_detailed_response_unk(ctx, b)?;
+    let eb_all = unk_entry_bytes();
+    let mut toks = Vec::new();
+    let pw = parse_walk_with_list_tasks_detailed_response_unk(ctx, b, &mut toks)?;
+    unk_entry_bytes();
+    // Compared through Debug so a NaN equals itself (S-double-nan); bytes are the corpus's job.
+    let dbg = |x: &ListTasksDetailedResponse| format!("{:?}", x);
+    let mut rep = UnkReport { positions: 18, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
+    for i in 0..18 {
+        let got = decode_with_list_tasks_detailed_response_opts(ctx, b, &unk_opts_list_tasks_detailed_response(Some(i)))?;
+        let eb = unk_entry_bytes();
+        let mut exp = all.clone();
+        if !plant { unk_clear_list_tasks_detailed_response(&mut exp, i); }
+        if dbg(&exp) != dbg(&all) { rep.changed += 1; }
+        if dbg(&got) != dbg(&exp) { rep.mismatched.push(i); }
+        if eb != (if IS_ENTRY[i] { 0 } else { eb_all }) { rep.entry_mismatch.push(i); }
+    }
+    Ok(rep)
 }
 
 /// Replay one chunk of records (ABI v1 section 7.1: "walk heap arrays").
@@ -3976,7 +4123,7 @@ pub fn parse_drain_with_list_tasks_detailed_response(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             // Two forward calls the counting build cannot see from inside,
             // because `ak_bdr_footprint` takes a const context (R5).
@@ -4015,7 +4162,7 @@ pub fn parse_walk_with_list_tasks_detailed_response(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             let mut p: *const u8 = ::core::ptr::null();
             let mut n: usize = 0;
@@ -4048,7 +4195,7 @@ pub fn parse_walk_opaque_with_list_tasks_detailed_response(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             let mut p: *const u8 = ::core::ptr::null();
             let mut n: usize = 0;
@@ -4070,12 +4217,6 @@ pub fn parse_walk_opaque_with_list_tasks_detailed_response(
 pub struct SinkListProbeResponse<'a> {
     pub out: &'a mut ListProbeResponse,
     pub base: *const u8,
-    /// Decision 11 candidate: unknown runs staged by (slot, element index)
-    /// and applied after the decode. Staged rather than written straight
-    /// through because a capture buffer may flush mid-chunk, before the run
-    /// that carries the element it belongs to. Empty and unallocated on the
-    /// default path.
-    pub pending: Vec<(u32, i64, Vec<u8>)>,
 }
 
 unsafe extern "C" fn apply_list_probe_response(
@@ -4086,6 +4227,8 @@ unsafe extern "C" fn apply_list_probe_response(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListProbeResponse);
         let f = &*fx;
+        // Decision 11 (WP5 step 7): the root's own buffer, the host's now.
+        s.out.unknown_fields = take_unk(&f.unknown);
     })
 }
 
@@ -4106,46 +4249,12 @@ unsafe extern "C" fn add_list_probe_response_probes(
     })
 }
 
-unsafe extern "C" fn unknown_list_probe_response(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    spans: *const ak_uspan,
-    n: i32,
-) {
-    dguard(ctx, || {
-        let s = &mut *(obj as *mut SinkListProbeResponse);
-        for i in 0..n as usize {
-            let sp = &*spans.add(i);
-            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
-            s.pending.push((0, sp.token, b.to_vec()));
-        }
-    })
-}
-
-unsafe extern "C" fn unk_list_probe_response_probes(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    spans: *const ak_uspan,
-    n: i32,
-) {
-    dguard(ctx, || {
-        let s = &mut *(obj as *mut SinkListProbeResponse);
-        for i in 0..n as usize {
-            let sp = &*spans.add(i);
-            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
-            s.pending.push((1, sp.token, b.to_vec()));
-        }
-    })
-}
-
 pub fn decode_with_list_probe_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListProbeResponse, i32> {
     let mut out = ListProbeResponse::default();
     let rc = unsafe {
-        let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+        let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ListProbeResponse {
             apply: Some(apply_list_probe_response),
-            unknown: None,
-            unk_probes: None,
             add_probes: Some(add_list_probe_response_probes),
         };
         ak_decode_ListProbeResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
@@ -4153,32 +4262,78 @@ pub fn decode_with_list_probe_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
 
-pub fn decode_with_list_probe_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListProbeResponse, i32> {
-    let mut out = ListProbeResponse::default();
-    let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
-    let rc = unsafe {
-        let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
-        let vt = ak_dvt_ListProbeResponse {
-            apply: Some(apply_list_probe_response),
-            unknown: Some(unknown_list_probe_response),
-            unk_probes: Some(unk_list_probe_response_probes),
-            add_probes: Some(add_list_probe_response_probes),
-        };
-        let rc = ak_decode_ListProbeResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt);
-        pending = ::core::mem::take(&mut sink.pending);
-        rc
-    };
-    if rc < 0 { return Err(rc); }
-    // Applied after the decode, not during it: a capture buffer may flush
-    // mid-chunk, before the run that carries the element it belongs to.
-    for (slot, token, bytes) in pending {
-        match slot {
-            0 => out.unknown_fields.extend_from_slice(&bytes),
-            1 => { if let Some(e) = out.probes.get_mut(token as usize) { e.unknown_fields.extend_from_slice(&bytes); } }
-            _ => {}
-        }
+/// Decision 11: every position of `ListProbeResponse` backed by `unk_grow` (no pre-allocated
+/// buffer), except position `zero`, if given, left all zero (discarded there).
+pub fn unk_opts_list_probe_response(zero: Option<usize>) -> ak_dec_ListProbeResponse_opts {
+    let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
+    let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    ak_dec_ListProbeResponse_opts {
+        host: ::core::ptr::null_mut(),
+        self_: if zero == Some(0) { z } else { e },
+        probes: if zero == Some(1) { z } else { e },
+        probes_body_as_stamp: if zero == Some(2) { z } else { e },
+        probes_body_as_nothing: if zero == Some(3) { z } else { e },
     }
-    Ok(out)
+}
+pub const UNK_POSITIONS_LISTPROBERESPONSE: usize = 4;
+
+/// The same decode with the context armed with `opts`, then disarmed; buffers
+/// the core placed but never delivered (an inactive oneof member, a map entry,
+/// a failed decode) are reclaimed.
+pub fn decode_with_list_probe_response_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_ListProbeResponse_opts) -> Result<ListProbeResponse, i32> {
+    unsafe { ak_dec_reset_ListProbeResponse(ctx, opts); }
+    let r = decode_with_list_probe_response(ctx, b);
+    unsafe { ak_dec_reset_ListProbeResponse(ctx, ::core::ptr::null()); }
+    unk_reclaim();
+    r
+}
+
+/// Decision 11: retain everywhere.
+pub fn decode_with_list_probe_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListProbeResponse, i32> {
+    decode_with_list_probe_response_opts(ctx, b, &unk_opts_list_probe_response(None))
+}
+
+/// Decision 11: the pull family (walk in place) with every position retained.
+pub fn parse_walk_with_list_probe_response_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<ListProbeResponse, i32> {
+    unsafe { ak_dec_reset_ListProbeResponse(ctx, &unk_opts_list_probe_response(None)); }
+    let r = parse_walk_with_list_probe_response(ctx, b, toks);
+    unsafe { ak_dec_reset_ListProbeResponse(ctx, ::core::ptr::null()); }
+    unk_reclaim();
+    r
+}
+
+/// Decision 11 control: clear every bag at position `pos` (plan.unk_positions).
+pub fn unk_clear_list_probe_response(o: &mut ListProbeResponse, pos: usize) {
+    match pos {
+        0 => { o.unknown_fields.clear(); }
+        1 => { for x0 in o.probes.iter_mut() { x0.unknown_fields.clear(); } }
+        2 => { for x0 in o.probes.iter_mut() { if let Some(ProbeBody::AsStamp(x1)) = x0.body.as_mut() { x1.unknown_fields.clear(); } } }
+        3 => { for x0 in o.probes.iter_mut() { if let Some(ProbeBody::AsNothing(x1)) = x0.body.as_mut() { x1.unknown_fields.clear(); } } }
+        _ => {}
+    }
+}
+
+pub fn unk_controls_list_probe_response(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+    const IS_ENTRY: [bool; 4] = [false, false, false, false];
+    unk_entry_bytes();
+    let all = decode_with_list_probe_response_unk(ctx, b)?;
+    let eb_all = unk_entry_bytes();
+    let mut toks = Vec::new();
+    let pw = parse_walk_with_list_probe_response_unk(ctx, b, &mut toks)?;
+    unk_entry_bytes();
+    // Compared through Debug so a NaN equals itself (S-double-nan); bytes are the corpus's job.
+    let dbg = |x: &ListProbeResponse| format!("{:?}", x);
+    let mut rep = UnkReport { positions: 4, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
+    for i in 0..4 {
+        let got = decode_with_list_probe_response_opts(ctx, b, &unk_opts_list_probe_response(Some(i)))?;
+        let eb = unk_entry_bytes();
+        let mut exp = all.clone();
+        if !plant { unk_clear_list_probe_response(&mut exp, i); }
+        if dbg(&exp) != dbg(&all) { rep.changed += 1; }
+        if dbg(&got) != dbg(&exp) { rep.mismatched.push(i); }
+        if eb != (if IS_ENTRY[i] { 0 } else { eb_all }) { rep.entry_mismatch.push(i); }
+    }
+    Ok(rep)
 }
 
 /// Replay one chunk of records (ABI v1 section 7.1: "walk heap arrays").
@@ -4264,7 +4419,7 @@ pub fn parse_drain_with_list_probe_response(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             // Two forward calls the counting build cannot see from inside,
             // because `ak_bdr_footprint` takes a const context (R5).
@@ -4303,7 +4458,7 @@ pub fn parse_walk_with_list_probe_response(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             let mut p: *const u8 = ::core::ptr::null();
             let mut n: usize = 0;
@@ -4336,7 +4491,7 @@ pub fn parse_walk_opaque_with_list_probe_response(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             let mut p: *const u8 = ::core::ptr::null();
             let mut n: usize = 0;
@@ -4358,12 +4513,6 @@ pub fn parse_walk_opaque_with_list_probe_response(
 pub struct SinkListTaskSummaryResponse<'a> {
     pub out: &'a mut ListTaskSummaryResponse,
     pub base: *const u8,
-    /// Decision 11 candidate: unknown runs staged by (slot, element index)
-    /// and applied after the decode. Staged rather than written straight
-    /// through because a capture buffer may flush mid-chunk, before the run
-    /// that carries the element it belongs to. Empty and unallocated on the
-    /// default path.
-    pub pending: Vec<(u32, i64, Vec<u8>)>,
 }
 
 unsafe extern "C" fn apply_list_task_summary_response(
@@ -4374,6 +4523,8 @@ unsafe extern "C" fn apply_list_task_summary_response(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListTaskSummaryResponse);
         let f = &*fx;
+        // Decision 11 (WP5 step 7): the root's own buffer, the host's now.
+        s.out.unknown_fields = take_unk(&f.unknown);
     })
 }
 
@@ -4413,38 +4564,10 @@ unsafe extern "C" fn add_list_task_summary_response_tasks_options_options(
         for i in 0..n as usize {
             let e = &*elems.add(i);
             dst.insert(s_of(base, e.key, ctx), s_of(base, e.value, ctx));
-        }
-    })
-}
-
-unsafe extern "C" fn unknown_list_task_summary_response(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    spans: *const ak_uspan,
-    n: i32,
-) {
-    dguard(ctx, || {
-        let s = &mut *(obj as *mut SinkListTaskSummaryResponse);
-        for i in 0..n as usize {
-            let sp = &*spans.add(i);
-            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
-            s.pending.push((0, sp.token, b.to_vec()));
-        }
-    })
-}
-
-unsafe extern "C" fn unk_list_task_summary_response_tasks(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    spans: *const ak_uspan,
-    n: i32,
-) {
-    dguard(ctx, || {
-        let s = &mut *(obj as *mut SinkListTaskSummaryResponse);
-        for i in 0..n as usize {
-            let sp = &*spans.add(i);
-            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
-            s.pending.push((1, sp.token, b.to_vec()));
+            // Decision 11: the entry's own buffer; the facade map has no bag for
+            // it (U-map-entry), so it is taken and dropped.
+            let t = take_unk(&e.unknown);
+            UNK_ENTRY_BYTES.with(|c| c.set(c.get() + t.len()));
         }
     })
 }
@@ -4452,11 +4575,9 @@ unsafe extern "C" fn unk_list_task_summary_response_tasks(
 pub fn decode_with_list_task_summary_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListTaskSummaryResponse, i32> {
     let mut out = ListTaskSummaryResponse::default();
     let rc = unsafe {
-        let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+        let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ListTaskSummaryResponse {
             apply: Some(apply_list_task_summary_response),
-            unknown: None,
-            unk_tasks: None,
             new_tasks: Some(new_list_task_summary_response_tasks),
             apply_tasks: Some(apply_list_task_summary_response_tasks),
             add_tasks_options_options: Some(add_list_task_summary_response_tasks_options_options),
@@ -4466,34 +4587,82 @@ pub fn decode_with_list_task_summary_response(ctx: *mut ak_dec_ctx, b: &[u8]) ->
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
 
-pub fn decode_with_list_task_summary_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListTaskSummaryResponse, i32> {
-    let mut out = ListTaskSummaryResponse::default();
-    let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
-    let rc = unsafe {
-        let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
-        let vt = ak_dvt_ListTaskSummaryResponse {
-            apply: Some(apply_list_task_summary_response),
-            unknown: Some(unknown_list_task_summary_response),
-            unk_tasks: Some(unk_list_task_summary_response_tasks),
-            new_tasks: Some(new_list_task_summary_response_tasks),
-            apply_tasks: Some(apply_list_task_summary_response_tasks),
-            add_tasks_options_options: Some(add_list_task_summary_response_tasks_options_options),
-        };
-        let rc = ak_decode_ListTaskSummaryResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt);
-        pending = ::core::mem::take(&mut sink.pending);
-        rc
-    };
-    if rc < 0 { return Err(rc); }
-    // Applied after the decode, not during it: a capture buffer may flush
-    // mid-chunk, before the run that carries the element it belongs to.
-    for (slot, token, bytes) in pending {
-        match slot {
-            0 => out.unknown_fields.extend_from_slice(&bytes),
-            1 => { if let Some(e) = out.tasks.get_mut(token as usize) { e.unknown_fields.extend_from_slice(&bytes); } }
-            _ => {}
-        }
+/// Decision 11: every position of `ListTaskSummaryResponse` backed by `unk_grow` (no pre-allocated
+/// buffer), except position `zero`, if given, left all zero (discarded there).
+pub fn unk_opts_list_task_summary_response(zero: Option<usize>) -> ak_dec_ListTaskSummaryResponse_opts {
+    let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
+    let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    ak_dec_ListTaskSummaryResponse_opts {
+        host: ::core::ptr::null_mut(),
+        self_: if zero == Some(0) { z } else { e },
+        tasks: if zero == Some(1) { z } else { e },
+        tasks_options: if zero == Some(2) { z } else { e },
+        tasks_options_options: if zero == Some(3) { z } else { e },
+        tasks_options_max_duration: if zero == Some(4) { z } else { e },
+        tasks_created_at: if zero == Some(5) { z } else { e },
     }
-    Ok(out)
+}
+pub const UNK_POSITIONS_LISTTASKSUMMARYRESPONSE: usize = 6;
+
+/// The same decode with the context armed with `opts`, then disarmed; buffers
+/// the core placed but never delivered (an inactive oneof member, a map entry,
+/// a failed decode) are reclaimed.
+pub fn decode_with_list_task_summary_response_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_ListTaskSummaryResponse_opts) -> Result<ListTaskSummaryResponse, i32> {
+    unsafe { ak_dec_reset_ListTaskSummaryResponse(ctx, opts); }
+    let r = decode_with_list_task_summary_response(ctx, b);
+    unsafe { ak_dec_reset_ListTaskSummaryResponse(ctx, ::core::ptr::null()); }
+    unk_reclaim();
+    r
+}
+
+/// Decision 11: retain everywhere.
+pub fn decode_with_list_task_summary_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListTaskSummaryResponse, i32> {
+    decode_with_list_task_summary_response_opts(ctx, b, &unk_opts_list_task_summary_response(None))
+}
+
+/// Decision 11: the pull family (walk in place) with every position retained.
+pub fn parse_walk_with_list_task_summary_response_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<ListTaskSummaryResponse, i32> {
+    unsafe { ak_dec_reset_ListTaskSummaryResponse(ctx, &unk_opts_list_task_summary_response(None)); }
+    let r = parse_walk_with_list_task_summary_response(ctx, b, toks);
+    unsafe { ak_dec_reset_ListTaskSummaryResponse(ctx, ::core::ptr::null()); }
+    unk_reclaim();
+    r
+}
+
+/// Decision 11 control: clear every bag at position `pos` (plan.unk_positions).
+pub fn unk_clear_list_task_summary_response(o: &mut ListTaskSummaryResponse, pos: usize) {
+    match pos {
+        0 => { o.unknown_fields.clear(); }
+        1 => { for x0 in o.tasks.iter_mut() { x0.unknown_fields.clear(); } }
+        2 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.options.as_mut() { x1.unknown_fields.clear(); } } }
+        3 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.options.as_mut() {  } } }
+        4 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.options.as_mut() { if let Some(x2) = x1.max_duration.as_mut() { x2.unknown_fields.clear(); } } } }
+        5 => { for x0 in o.tasks.iter_mut() { if let Some(x1) = x0.created_at.as_mut() { x1.unknown_fields.clear(); } } }
+        _ => {}
+    }
+}
+
+pub fn unk_controls_list_task_summary_response(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+    const IS_ENTRY: [bool; 6] = [false, false, false, true, false, false];
+    unk_entry_bytes();
+    let all = decode_with_list_task_summary_response_unk(ctx, b)?;
+    let eb_all = unk_entry_bytes();
+    let mut toks = Vec::new();
+    let pw = parse_walk_with_list_task_summary_response_unk(ctx, b, &mut toks)?;
+    unk_entry_bytes();
+    // Compared through Debug so a NaN equals itself (S-double-nan); bytes are the corpus's job.
+    let dbg = |x: &ListTaskSummaryResponse| format!("{:?}", x);
+    let mut rep = UnkReport { positions: 6, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
+    for i in 0..6 {
+        let got = decode_with_list_task_summary_response_opts(ctx, b, &unk_opts_list_task_summary_response(Some(i)))?;
+        let eb = unk_entry_bytes();
+        let mut exp = all.clone();
+        if !plant { unk_clear_list_task_summary_response(&mut exp, i); }
+        if dbg(&exp) != dbg(&all) { rep.changed += 1; }
+        if dbg(&got) != dbg(&exp) { rep.mismatched.push(i); }
+        if eb != (if IS_ENTRY[i] { 0 } else { eb_all }) { rep.entry_mismatch.push(i); }
+    }
+    Ok(rep)
 }
 
 /// Replay one chunk of records (ABI v1 section 7.1: "walk heap arrays").
@@ -4586,7 +4755,7 @@ pub fn parse_drain_with_list_task_summary_response(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             // Two forward calls the counting build cannot see from inside,
             // because `ak_bdr_footprint` takes a const context (R5).
@@ -4625,7 +4794,7 @@ pub fn parse_walk_with_list_task_summary_response(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             let mut p: *const u8 = ::core::ptr::null();
             let mut n: usize = 0;
@@ -4658,7 +4827,7 @@ pub fn parse_walk_opaque_with_list_task_summary_response(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             let mut p: *const u8 = ::core::ptr::null();
             let mut n: usize = 0;
@@ -4680,12 +4849,6 @@ pub fn parse_walk_opaque_with_list_task_summary_response(
 pub struct SinkUploadResultDataMessage<'a> {
     pub out: &'a mut UploadResultDataMessage,
     pub base: *const u8,
-    /// Decision 11 candidate: unknown runs staged by (slot, element index)
-    /// and applied after the decode. Staged rather than written straight
-    /// through because a capture buffer may flush mid-chunk, before the run
-    /// that carries the element it belongs to. Empty and unallocated on the
-    /// default path.
-    pub pending: Vec<(u32, i64, Vec<u8>)>,
 }
 
 unsafe extern "C" fn apply_upload_result_data_message(
@@ -4701,61 +4864,91 @@ unsafe extern "C" fn apply_upload_result_data_message(
         } else {
             None
         };
-    })
-}
-
-unsafe extern "C" fn unknown_upload_result_data_message(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    spans: *const ak_uspan,
-    n: i32,
-) {
-    dguard(ctx, || {
-        let s = &mut *(obj as *mut SinkUploadResultDataMessage);
-        for i in 0..n as usize {
-            let sp = &*spans.add(i);
-            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
-            s.pending.push((0, sp.token, b.to_vec()));
-        }
+        // Decision 11 (WP5 step 7): the root's own buffer, the host's now.
+        s.out.unknown_fields = take_unk(&f.unknown);
     })
 }
 
 pub fn decode_with_upload_result_data_message(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<UploadResultDataMessage, i32> {
     let mut out = UploadResultDataMessage::default();
     let rc = unsafe {
-        let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+        let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_UploadResultDataMessage {
             apply: Some(apply_upload_result_data_message),
-            unknown: None,
         };
         ak_decode_UploadResultDataMessage(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
 
-pub fn decode_with_upload_result_data_message_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<UploadResultDataMessage, i32> {
-    let mut out = UploadResultDataMessage::default();
-    let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
-    let rc = unsafe {
-        let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
-        let vt = ak_dvt_UploadResultDataMessage {
-            apply: Some(apply_upload_result_data_message),
-            unknown: Some(unknown_upload_result_data_message),
-        };
-        let rc = ak_decode_UploadResultDataMessage(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt);
-        pending = ::core::mem::take(&mut sink.pending);
-        rc
-    };
-    if rc < 0 { return Err(rc); }
-    // Applied after the decode, not during it: a capture buffer may flush
-    // mid-chunk, before the run that carries the element it belongs to.
-    for (slot, token, bytes) in pending {
-        match slot {
-            0 => out.unknown_fields.extend_from_slice(&bytes),
-            _ => {}
-        }
+/// Decision 11: every position of `UploadResultDataMessage` backed by `unk_grow` (no pre-allocated
+/// buffer), except position `zero`, if given, left all zero (discarded there).
+pub fn unk_opts_upload_result_data_message(zero: Option<usize>) -> ak_dec_UploadResultDataMessage_opts {
+    let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
+    let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    ak_dec_UploadResultDataMessage_opts {
+        host: ::core::ptr::null_mut(),
+        self_: if zero == Some(0) { z } else { e },
+        upload: if zero == Some(1) { z } else { e },
     }
-    Ok(out)
+}
+pub const UNK_POSITIONS_UPLOADRESULTDATAMESSAGE: usize = 2;
+
+/// The same decode with the context armed with `opts`, then disarmed; buffers
+/// the core placed but never delivered (an inactive oneof member, a map entry,
+/// a failed decode) are reclaimed.
+pub fn decode_with_upload_result_data_message_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_UploadResultDataMessage_opts) -> Result<UploadResultDataMessage, i32> {
+    unsafe { ak_dec_reset_UploadResultDataMessage(ctx, opts); }
+    let r = decode_with_upload_result_data_message(ctx, b);
+    unsafe { ak_dec_reset_UploadResultDataMessage(ctx, ::core::ptr::null()); }
+    unk_reclaim();
+    r
+}
+
+/// Decision 11: retain everywhere.
+pub fn decode_with_upload_result_data_message_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<UploadResultDataMessage, i32> {
+    decode_with_upload_result_data_message_opts(ctx, b, &unk_opts_upload_result_data_message(None))
+}
+
+/// Decision 11: the pull family (walk in place) with every position retained.
+pub fn parse_walk_with_upload_result_data_message_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<UploadResultDataMessage, i32> {
+    unsafe { ak_dec_reset_UploadResultDataMessage(ctx, &unk_opts_upload_result_data_message(None)); }
+    let r = parse_walk_with_upload_result_data_message(ctx, b, toks);
+    unsafe { ak_dec_reset_UploadResultDataMessage(ctx, ::core::ptr::null()); }
+    unk_reclaim();
+    r
+}
+
+/// Decision 11 control: clear every bag at position `pos` (plan.unk_positions).
+pub fn unk_clear_upload_result_data_message(o: &mut UploadResultDataMessage, pos: usize) {
+    match pos {
+        0 => { o.unknown_fields.clear(); }
+        1 => { if let Some(x0) = o.upload.as_mut() { x0.unknown_fields.clear(); } }
+        _ => {}
+    }
+}
+
+pub fn unk_controls_upload_result_data_message(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+    const IS_ENTRY: [bool; 2] = [false, false];
+    unk_entry_bytes();
+    let all = decode_with_upload_result_data_message_unk(ctx, b)?;
+    let eb_all = unk_entry_bytes();
+    let mut toks = Vec::new();
+    let pw = parse_walk_with_upload_result_data_message_unk(ctx, b, &mut toks)?;
+    unk_entry_bytes();
+    // Compared through Debug so a NaN equals itself (S-double-nan); bytes are the corpus's job.
+    let dbg = |x: &UploadResultDataMessage| format!("{:?}", x);
+    let mut rep = UnkReport { positions: 2, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
+    for i in 0..2 {
+        let got = decode_with_upload_result_data_message_opts(ctx, b, &unk_opts_upload_result_data_message(Some(i)))?;
+        let eb = unk_entry_bytes();
+        let mut exp = all.clone();
+        if !plant { unk_clear_upload_result_data_message(&mut exp, i); }
+        if dbg(&exp) != dbg(&all) { rep.changed += 1; }
+        if dbg(&got) != dbg(&exp) { rep.mismatched.push(i); }
+        if eb != (if IS_ENTRY[i] { 0 } else { eb_all }) { rep.entry_mismatch.push(i); }
+    }
+    Ok(rep)
 }
 
 /// Replay one chunk of records (ABI v1 section 7.1: "walk heap arrays").
@@ -4834,7 +5027,7 @@ pub fn parse_drain_with_upload_result_data_message(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             // Two forward calls the counting build cannot see from inside,
             // because `ak_bdr_footprint` takes a const context (R5).
@@ -4873,7 +5066,7 @@ pub fn parse_walk_with_upload_result_data_message(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             let mut p: *const u8 = ::core::ptr::null();
             let mut n: usize = 0;
@@ -4906,7 +5099,7 @@ pub fn parse_walk_opaque_with_upload_result_data_message(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             let mut p: *const u8 = ::core::ptr::null();
             let mut n: usize = 0;
@@ -4928,12 +5121,6 @@ pub fn parse_walk_opaque_with_upload_result_data_message(
 pub struct SinkListMetricsResponse<'a> {
     pub out: &'a mut ListMetricsResponse,
     pub base: *const u8,
-    /// Decision 11 candidate: unknown runs staged by (slot, element index)
-    /// and applied after the decode. Staged rather than written straight
-    /// through because a capture buffer may flush mid-chunk, before the run
-    /// that carries the element it belongs to. Empty and unallocated on the
-    /// default path.
-    pub pending: Vec<(u32, i64, Vec<u8>)>,
 }
 
 unsafe extern "C" fn apply_list_metrics_response(
@@ -4944,6 +5131,8 @@ unsafe extern "C" fn apply_list_metrics_response(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListMetricsResponse);
         let f = &*fx;
+        // Decision 11 (WP5 step 7): the root's own buffer, the host's now.
+        s.out.unknown_fields = take_unk(&f.unknown);
     })
 }
 
@@ -5053,46 +5242,12 @@ unsafe extern "C" fn add_list_metrics_response_batches_statuses(
     })
 }
 
-unsafe extern "C" fn unknown_list_metrics_response(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    spans: *const ak_uspan,
-    n: i32,
-) {
-    dguard(ctx, || {
-        let s = &mut *(obj as *mut SinkListMetricsResponse);
-        for i in 0..n as usize {
-            let sp = &*spans.add(i);
-            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
-            s.pending.push((0, sp.token, b.to_vec()));
-        }
-    })
-}
-
-unsafe extern "C" fn unk_list_metrics_response_batches(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    spans: *const ak_uspan,
-    n: i32,
-) {
-    dguard(ctx, || {
-        let s = &mut *(obj as *mut SinkListMetricsResponse);
-        for i in 0..n as usize {
-            let sp = &*spans.add(i);
-            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
-            s.pending.push((1, sp.token, b.to_vec()));
-        }
-    })
-}
-
 pub fn decode_with_list_metrics_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListMetricsResponse, i32> {
     let mut out = ListMetricsResponse::default();
     let rc = unsafe {
-        let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+        let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ListMetricsResponse {
             apply: Some(apply_list_metrics_response),
-            unknown: None,
-            unk_batches: None,
             new_batches: Some(new_list_metrics_response_batches),
             apply_batches: Some(apply_list_metrics_response_batches),
             add_batches_ticks: Some(add_list_metrics_response_batches_ticks),
@@ -5106,38 +5261,74 @@ pub fn decode_with_list_metrics_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Resu
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
 
-pub fn decode_with_list_metrics_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListMetricsResponse, i32> {
-    let mut out = ListMetricsResponse::default();
-    let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
-    let rc = unsafe {
-        let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
-        let vt = ak_dvt_ListMetricsResponse {
-            apply: Some(apply_list_metrics_response),
-            unknown: Some(unknown_list_metrics_response),
-            unk_batches: Some(unk_list_metrics_response_batches),
-            new_batches: Some(new_list_metrics_response_batches),
-            apply_batches: Some(apply_list_metrics_response_batches),
-            add_batches_ticks: Some(add_list_metrics_response_batches_ticks),
-            add_batches_values: Some(add_list_metrics_response_batches_values),
-            add_batches_codes: Some(add_list_metrics_response_batches_codes),
-            add_batches_flags: Some(add_list_metrics_response_batches_flags),
-            add_batches_statuses: Some(add_list_metrics_response_batches_statuses),
-        };
-        let rc = ak_decode_ListMetricsResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt);
-        pending = ::core::mem::take(&mut sink.pending);
-        rc
-    };
-    if rc < 0 { return Err(rc); }
-    // Applied after the decode, not during it: a capture buffer may flush
-    // mid-chunk, before the run that carries the element it belongs to.
-    for (slot, token, bytes) in pending {
-        match slot {
-            0 => out.unknown_fields.extend_from_slice(&bytes),
-            1 => { if let Some(e) = out.batches.get_mut(token as usize) { e.unknown_fields.extend_from_slice(&bytes); } }
-            _ => {}
-        }
+/// Decision 11: every position of `ListMetricsResponse` backed by `unk_grow` (no pre-allocated
+/// buffer), except position `zero`, if given, left all zero (discarded there).
+pub fn unk_opts_list_metrics_response(zero: Option<usize>) -> ak_dec_ListMetricsResponse_opts {
+    let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
+    let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    ak_dec_ListMetricsResponse_opts {
+        host: ::core::ptr::null_mut(),
+        self_: if zero == Some(0) { z } else { e },
+        batches: if zero == Some(1) { z } else { e },
     }
-    Ok(out)
+}
+pub const UNK_POSITIONS_LISTMETRICSRESPONSE: usize = 2;
+
+/// The same decode with the context armed with `opts`, then disarmed; buffers
+/// the core placed but never delivered (an inactive oneof member, a map entry,
+/// a failed decode) are reclaimed.
+pub fn decode_with_list_metrics_response_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_ListMetricsResponse_opts) -> Result<ListMetricsResponse, i32> {
+    unsafe { ak_dec_reset_ListMetricsResponse(ctx, opts); }
+    let r = decode_with_list_metrics_response(ctx, b);
+    unsafe { ak_dec_reset_ListMetricsResponse(ctx, ::core::ptr::null()); }
+    unk_reclaim();
+    r
+}
+
+/// Decision 11: retain everywhere.
+pub fn decode_with_list_metrics_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListMetricsResponse, i32> {
+    decode_with_list_metrics_response_opts(ctx, b, &unk_opts_list_metrics_response(None))
+}
+
+/// Decision 11: the pull family (walk in place) with every position retained.
+pub fn parse_walk_with_list_metrics_response_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<ListMetricsResponse, i32> {
+    unsafe { ak_dec_reset_ListMetricsResponse(ctx, &unk_opts_list_metrics_response(None)); }
+    let r = parse_walk_with_list_metrics_response(ctx, b, toks);
+    unsafe { ak_dec_reset_ListMetricsResponse(ctx, ::core::ptr::null()); }
+    unk_reclaim();
+    r
+}
+
+/// Decision 11 control: clear every bag at position `pos` (plan.unk_positions).
+pub fn unk_clear_list_metrics_response(o: &mut ListMetricsResponse, pos: usize) {
+    match pos {
+        0 => { o.unknown_fields.clear(); }
+        1 => { for x0 in o.batches.iter_mut() { x0.unknown_fields.clear(); } }
+        _ => {}
+    }
+}
+
+pub fn unk_controls_list_metrics_response(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+    const IS_ENTRY: [bool; 2] = [false, false];
+    unk_entry_bytes();
+    let all = decode_with_list_metrics_response_unk(ctx, b)?;
+    let eb_all = unk_entry_bytes();
+    let mut toks = Vec::new();
+    let pw = parse_walk_with_list_metrics_response_unk(ctx, b, &mut toks)?;
+    unk_entry_bytes();
+    // Compared through Debug so a NaN equals itself (S-double-nan); bytes are the corpus's job.
+    let dbg = |x: &ListMetricsResponse| format!("{:?}", x);
+    let mut rep = UnkReport { positions: 2, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
+    for i in 0..2 {
+        let got = decode_with_list_metrics_response_opts(ctx, b, &unk_opts_list_metrics_response(Some(i)))?;
+        let eb = unk_entry_bytes();
+        let mut exp = all.clone();
+        if !plant { unk_clear_list_metrics_response(&mut exp, i); }
+        if dbg(&exp) != dbg(&all) { rep.changed += 1; }
+        if dbg(&got) != dbg(&exp) { rep.mismatched.push(i); }
+        if eb != (if IS_ENTRY[i] { 0 } else { eb_all }) { rep.entry_mismatch.push(i); }
+    }
+    Ok(rep)
 }
 
 /// Replay one chunk of records (ABI v1 section 7.1: "walk heap arrays").
@@ -5258,7 +5449,7 @@ pub fn parse_drain_with_list_metrics_response(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             // Two forward calls the counting build cannot see from inside,
             // because `ak_bdr_footprint` takes a const context (R5).
@@ -5297,7 +5488,7 @@ pub fn parse_walk_with_list_metrics_response(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             let mut p: *const u8 = ::core::ptr::null();
             let mut n: usize = 0;
@@ -5330,7 +5521,7 @@ pub fn parse_walk_opaque_with_list_metrics_response(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             let mut p: *const u8 = ::core::ptr::null();
             let mut n: usize = 0;
@@ -5352,12 +5543,6 @@ pub fn parse_walk_opaque_with_list_metrics_response(
 pub struct SinkDualResponse<'a> {
     pub out: &'a mut DualResponse,
     pub base: *const u8,
-    /// Decision 11 candidate: unknown runs staged by (slot, element index)
-    /// and applied after the decode. Staged rather than written straight
-    /// through because a capture buffer may flush mid-chunk, before the run
-    /// that carries the element it belongs to. Empty and unallocated on the
-    /// default path.
-    pub pending: Vec<(u32, i64, Vec<u8>)>,
 }
 
 unsafe extern "C" fn apply_dual_response(
@@ -5368,6 +5553,8 @@ unsafe extern "C" fn apply_dual_response(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkDualResponse);
         let f = &*fx;
+        // Decision 11 (WP5 step 7): the root's own buffer, the host's now.
+        s.out.unknown_fields = take_unk(&f.unknown);
     })
 }
 
@@ -5405,63 +5592,12 @@ unsafe extern "C" fn add_dual_response_right(
     })
 }
 
-unsafe extern "C" fn unknown_dual_response(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    spans: *const ak_uspan,
-    n: i32,
-) {
-    dguard(ctx, || {
-        let s = &mut *(obj as *mut SinkDualResponse);
-        for i in 0..n as usize {
-            let sp = &*spans.add(i);
-            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
-            s.pending.push((0, sp.token, b.to_vec()));
-        }
-    })
-}
-
-unsafe extern "C" fn unk_dual_response_left(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    spans: *const ak_uspan,
-    n: i32,
-) {
-    dguard(ctx, || {
-        let s = &mut *(obj as *mut SinkDualResponse);
-        for i in 0..n as usize {
-            let sp = &*spans.add(i);
-            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
-            s.pending.push((1, sp.token, b.to_vec()));
-        }
-    })
-}
-
-unsafe extern "C" fn unk_dual_response_right(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    spans: *const ak_uspan,
-    n: i32,
-) {
-    dguard(ctx, || {
-        let s = &mut *(obj as *mut SinkDualResponse);
-        for i in 0..n as usize {
-            let sp = &*spans.add(i);
-            let b = ::core::slice::from_raw_parts(s.base.add(sp.off as usize), sp.len as usize);
-            s.pending.push((2, sp.token, b.to_vec()));
-        }
-    })
-}
-
 pub fn decode_with_dual_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<DualResponse, i32> {
     let mut out = DualResponse::default();
     let rc = unsafe {
-        let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+        let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_DualResponse {
             apply: Some(apply_dual_response),
-            unknown: None,
-            unk_left: None,
-            unk_right: None,
             add_left: Some(add_dual_response_left),
             add_right: Some(add_dual_response_right),
         };
@@ -5470,35 +5606,76 @@ pub fn decode_with_dual_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<DualR
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
 
-pub fn decode_with_dual_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<DualResponse, i32> {
-    let mut out = DualResponse::default();
-    let mut pending: Vec<(u32, i64, Vec<u8>)> = Vec::new();
-    let rc = unsafe {
-        let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
-        let vt = ak_dvt_DualResponse {
-            apply: Some(apply_dual_response),
-            unknown: Some(unknown_dual_response),
-            unk_left: Some(unk_dual_response_left),
-            unk_right: Some(unk_dual_response_right),
-            add_left: Some(add_dual_response_left),
-            add_right: Some(add_dual_response_right),
-        };
-        let rc = ak_decode_DualResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt);
-        pending = ::core::mem::take(&mut sink.pending);
-        rc
-    };
-    if rc < 0 { return Err(rc); }
-    // Applied after the decode, not during it: a capture buffer may flush
-    // mid-chunk, before the run that carries the element it belongs to.
-    for (slot, token, bytes) in pending {
-        match slot {
-            0 => out.unknown_fields.extend_from_slice(&bytes),
-            1 => { if let Some(e) = out.left.get_mut(token as usize) { e.unknown_fields.extend_from_slice(&bytes); } }
-            2 => { if let Some(e) = out.right.get_mut(token as usize) { e.unknown_fields.extend_from_slice(&bytes); } }
-            _ => {}
-        }
+/// Decision 11: every position of `DualResponse` backed by `unk_grow` (no pre-allocated
+/// buffer), except position `zero`, if given, left all zero (discarded there).
+pub fn unk_opts_dual_response(zero: Option<usize>) -> ak_dec_DualResponse_opts {
+    let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
+    let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    ak_dec_DualResponse_opts {
+        host: ::core::ptr::null_mut(),
+        self_: if zero == Some(0) { z } else { e },
+        left: if zero == Some(1) { z } else { e },
+        right: if zero == Some(2) { z } else { e },
     }
-    Ok(out)
+}
+pub const UNK_POSITIONS_DUALRESPONSE: usize = 3;
+
+/// The same decode with the context armed with `opts`, then disarmed; buffers
+/// the core placed but never delivered (an inactive oneof member, a map entry,
+/// a failed decode) are reclaimed.
+pub fn decode_with_dual_response_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_DualResponse_opts) -> Result<DualResponse, i32> {
+    unsafe { ak_dec_reset_DualResponse(ctx, opts); }
+    let r = decode_with_dual_response(ctx, b);
+    unsafe { ak_dec_reset_DualResponse(ctx, ::core::ptr::null()); }
+    unk_reclaim();
+    r
+}
+
+/// Decision 11: retain everywhere.
+pub fn decode_with_dual_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<DualResponse, i32> {
+    decode_with_dual_response_opts(ctx, b, &unk_opts_dual_response(None))
+}
+
+/// Decision 11: the pull family (walk in place) with every position retained.
+pub fn parse_walk_with_dual_response_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<DualResponse, i32> {
+    unsafe { ak_dec_reset_DualResponse(ctx, &unk_opts_dual_response(None)); }
+    let r = parse_walk_with_dual_response(ctx, b, toks);
+    unsafe { ak_dec_reset_DualResponse(ctx, ::core::ptr::null()); }
+    unk_reclaim();
+    r
+}
+
+/// Decision 11 control: clear every bag at position `pos` (plan.unk_positions).
+pub fn unk_clear_dual_response(o: &mut DualResponse, pos: usize) {
+    match pos {
+        0 => { o.unknown_fields.clear(); }
+        1 => { for x0 in o.left.iter_mut() { x0.unknown_fields.clear(); } }
+        2 => { for x0 in o.right.iter_mut() { x0.unknown_fields.clear(); } }
+        _ => {}
+    }
+}
+
+pub fn unk_controls_dual_response(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+    const IS_ENTRY: [bool; 3] = [false, false, false];
+    unk_entry_bytes();
+    let all = decode_with_dual_response_unk(ctx, b)?;
+    let eb_all = unk_entry_bytes();
+    let mut toks = Vec::new();
+    let pw = parse_walk_with_dual_response_unk(ctx, b, &mut toks)?;
+    unk_entry_bytes();
+    // Compared through Debug so a NaN equals itself (S-double-nan); bytes are the corpus's job.
+    let dbg = |x: &DualResponse| format!("{:?}", x);
+    let mut rep = UnkReport { positions: 3, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
+    for i in 0..3 {
+        let got = decode_with_dual_response_opts(ctx, b, &unk_opts_dual_response(Some(i)))?;
+        let eb = unk_entry_bytes();
+        let mut exp = all.clone();
+        if !plant { unk_clear_dual_response(&mut exp, i); }
+        if dbg(&exp) != dbg(&all) { rep.changed += 1; }
+        if dbg(&got) != dbg(&exp) { rep.mismatched.push(i); }
+        if eb != (if IS_ENTRY[i] { 0 } else { eb_all }) { rep.entry_mismatch.push(i); }
+    }
+    Ok(rep)
 }
 
 /// Replay one chunk of records (ABI v1 section 7.1: "walk heap arrays").
@@ -5591,7 +5768,7 @@ pub fn parse_drain_with_dual_response(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             // Two forward calls the counting build cannot see from inside,
             // because `ak_bdr_footprint` takes a const context (R5).
@@ -5630,7 +5807,7 @@ pub fn parse_walk_with_dual_response(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             let mut p: *const u8 = ::core::ptr::null();
             let mut n: usize = 0;
@@ -5663,7 +5840,7 @@ pub fn parse_walk_opaque_with_dual_response(
         if rc < 0 {
             rc
         } else {
-            let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr(), pending: Vec::new() };
+            let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr() };
             let obj = &mut sink as *mut _ as *mut c_void;
             let mut p: *const u8 = ::core::ptr::null();
             let mut n: usize = 0;

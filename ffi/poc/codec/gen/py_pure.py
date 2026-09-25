@@ -547,7 +547,7 @@ def _dec_message(p, m, o, retain):
             o(3, "_n, i = _len(b, i, end)")
             o(3, "o.%s = _d_%s(b, i, i + _n, C, depth + 1, o.%s)" % (f.name, f.of, f.name))
             o(3, "i += _n")
-        elif op == "append_message":
+        elif op == "append_message" and f.card != "map":
             o(3, "_n, i = _len(b, i, end)")
             o(3, "o.%s.append(_d_%s(b, i, i + _n, C, depth + 1))" % (f.name, f.of))
             o(3, "i += _n")
@@ -567,7 +567,8 @@ def _dec_message(p, m, o, retain):
             # The unpacked form, at the kind's own wire type only (R-E2).
             _read_scalar(o, 3, f, "_v")
             o(3, "o.%s.append(_v)" % f.name)
-        elif op == "map_entry":
+        # WP5 step 7: to the decode plan a map IS a repeated pair message (decision 11).
+        elif op == "append_message" and f.card == "map":
             _dec_map_entry(p, m, f, o, 3)
         elif op == "oneof_set":
             if f.kind == "message":
