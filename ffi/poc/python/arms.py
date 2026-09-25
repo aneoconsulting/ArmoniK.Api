@@ -35,7 +35,14 @@ TAG = "py%d.%d" % sys.version_info[:2]
 _PB2 = os.path.join(HERE, "build", TAG, "pb2")
 if not os.path.exists(os.path.join(_PB2, "shapes_pb2.py")):
     _PB2 = os.path.join(HERE, "mech", "build", "pb2")
-for p in (HERE, os.path.join(HERE, "build", TAG), os.path.join(HERE, "gen", "out"), _PB2):
+# WP5 step 10: a process of the no-unknown variant (AK_VARIANT=nounk, or a `_nounk` shim
+# selected) imports the variant's facade -- no `_unknown` anywhere -- and host-gen drop from
+# gen/out/nounk, and has no retain codec.
+NOUNK_VARIANT = (os.environ.get("AK_VARIANT") == "nounk"
+                 or os.environ.get("AK_FFI_MODULE", "").endswith("_nounk")
+                 or os.environ.get("AK_COUNT_MODULE", "").endswith("_nounk"))
+_GEN_OUT = os.path.join(HERE, "gen", "out", "nounk") if NOUNK_VARIANT else os.path.join(HERE, "gen", "out")
+for p in (HERE, os.path.join(HERE, "build", TAG), _GEN_OUT, _PB2):
     if p not in sys.path:
         sys.path.insert(0, p)
 
@@ -62,7 +69,7 @@ _SCHEMA = _S.load()
 
 import facade            # noqa: E402  (generated from the plan by poc/codec/gen/py_pure.py)
 import pycodec           # noqa: E402  (generated: unknown fields dropped)
-import pycodec_retain    # noqa: E402  (generated: unknown fields retained)
+pycodec_retain = None if NOUNK_VARIANT else __import__("pycodec_retain")  # (generated: retained)
 import payload_values as V  # noqa: E402  (harness glue)
 import facts as _F       # noqa: E402  (the facade's field facts, read from facade.MESSAGES)
 import arms_plan as _AP  # noqa: E402  (the decode+read reader, shared with camp_codec.py)
@@ -322,10 +329,11 @@ def encode_arms(pid, mod=None):
     fp = build_facade(pid, CT_PLAIN)
     fs = build_facade(pid, CT_SLOTS)
     enc_py = getattr(pycodec, "encode_root_" + root)
-    enc_pyr = getattr(pycodec_retain, "encode_root_" + root)
     out.append(("pycodec / plain", lambda: enc_py(fp)))
     out.append(("pycodec / __slots__", lambda: enc_py(fs)))
-    out.append(("pycodec-retain / plain", lambda: enc_pyr(fp)))
+    if pycodec_retain is not None:
+        enc_pyr = getattr(pycodec_retain, "encode_root_" + root)
+        out.append(("pycodec-retain / plain", lambda: enc_pyr(fp)))
     if m:
         fc = build_facade(pid, CT_CEXT)
         out.append(("core-ffi / plain", lambda: m.encode("attr", root, fp)))
@@ -343,13 +351,14 @@ def decode_arms(pid, mod=None):
     root = ROOT_OF[pid]
     buf = reference(pid)
     dec_py = getattr(pycodec, "decode_root_" + root)
-    dec_pyr = getattr(pycodec_retain, "decode_root_" + root)
     out = []
     if _pb2 is not None:
         out.append(("upb (incumbent)", lambda: _pb_root(pid).FromString(buf)))
     out.append(("pycodec / plain", lambda: dec_py(buf, CT_PLAIN)))
     out.append(("pycodec / __slots__", lambda: dec_py(buf, CT_SLOTS)))
-    out.append(("pycodec-retain / plain", lambda: dec_pyr(buf, CT_PLAIN)))
+    if pycodec_retain is not None:
+        dec_pyr = getattr(pycodec_retain, "decode_root_" + root)
+        out.append(("pycodec-retain / plain", lambda: dec_pyr(buf, CT_PLAIN)))
     if m:
         out.append(("core-ffi / plain", lambda: m.decode("attr", root, buf, TY_PLAIN)))
         out.append(("core-ffi / __slots__", lambda: m.decode("attr", root, buf, TY_SLOTS)))

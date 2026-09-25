@@ -796,14 +796,12 @@ typedef struct {
   PyObject_HEAD
   long long seconds;
   long nanos;
-  PyObject *_unknown;
 } CTimestamp;
 
 typedef struct {
   PyObject_HEAD
   long long seconds;
   long nanos;
-  PyObject *_unknown;
 } CDuration;
 
 typedef struct {
@@ -819,7 +817,6 @@ typedef struct {
   PyObject *created_by;
   PyObject *opaque_id;
   int manual_deletion;
-  PyObject *_unknown;
 } CResultRaw;
 
 typedef struct {
@@ -834,14 +831,12 @@ typedef struct {
   PyObject *application_namespace;
   PyObject *application_service;
   PyObject *engine_type;
-  PyObject *_unknown;
 } CTaskOptions;
 
 typedef struct {
   PyObject_HEAD
   int success;
   PyObject *error;
-  PyObject *_unknown;
 } CTaskOutput;
 
 typedef struct {
@@ -873,7 +868,6 @@ typedef struct {
   PyObject *fetched_at;
   PyObject *payload_id;
   PyObject *created_by;
-  PyObject *_unknown;
 } CTaskDetailed;
 
 typedef struct {
@@ -886,7 +880,6 @@ typedef struct {
   PyObject *error;
   PyObject *status_message;
   long long count_data_dependencies;
-  PyObject *_unknown;
 } CTaskSummary;
 
 typedef struct {
@@ -901,12 +894,10 @@ typedef struct {
   PyObject *as_stamp;
   PyObject *as_nothing;
   long body_case;
-  PyObject *_unknown;
 } CProbe;
 
 typedef struct {
   PyObject_HEAD
-  PyObject *_unknown;
 } CEmpty;
 
 typedef struct {
@@ -914,7 +905,6 @@ typedef struct {
   PyObject *session_id;
   PyObject *result_id;
   PyObject *data_chunk;
-  PyObject *_unknown;
 } CUploadResultData;
 
 typedef struct {
@@ -925,14 +915,12 @@ typedef struct {
   PyObject *codes;
   PyObject *flags;
   PyObject *statuses;
-  PyObject *_unknown;
 } CMetricsBatch;
 
 typedef struct {
   PyObject_HEAD
   PyObject *key;
   long value;
-  PyObject *_unknown;
 } CPair;
 
 typedef struct {
@@ -940,7 +928,6 @@ typedef struct {
   PyObject *results;
   long page;
   long total;
-  PyObject *_unknown;
 } CListResultsResponse;
 
 typedef struct {
@@ -948,52 +935,44 @@ typedef struct {
   PyObject *tasks;
   long page;
   long total;
-  PyObject *_unknown;
 } CListTasksDetailedResponse;
 
 typedef struct {
   PyObject_HEAD
   PyObject *tasks;
-  PyObject *_unknown;
 } CListTaskSummaryResponse;
 
 typedef struct {
   PyObject_HEAD
   PyObject *probes;
-  PyObject *_unknown;
 } CListProbeResponse;
 
 typedef struct {
   PyObject_HEAD
   PyObject *batches;
-  PyObject *_unknown;
 } CListMetricsResponse;
 
 typedef struct {
   PyObject_HEAD
   PyObject *upload;
-  PyObject *_unknown;
 } CUploadResultDataMessage;
 
 typedef struct {
   PyObject_HEAD
   PyObject *left;
   PyObject *right;
-  PyObject *_unknown;
 } CDualResponse;
 
 typedef struct {
   PyObject_HEAD
   PyObject *k;
   long v;
-  PyObject *_unknown;
 } CChunkLeaf;
 
 typedef struct {
   PyObject_HEAD
   PyObject *marks;
   PyObject *leaves;
-  PyObject *_unknown;
 } CChunkInner;
 
 typedef struct {
@@ -1002,20 +981,17 @@ typedef struct {
   PyObject *attrs;
   PyObject *id;
   PyObject *inner;
-  PyObject *_unknown;
 } CChunkElement;
 
 typedef struct {
   PyObject_HEAD
   PyObject *items;
   long page;
-  PyObject *_unknown;
 } CChunkedResponse;
 
 typedef struct {
   PyObject_HEAD
   PyObject *items;
-  PyObject *_unknown;
 } CChunkedResponseWide;
 
 typedef struct {
@@ -1023,13 +999,11 @@ typedef struct {
   PyObject *id;
   long long n;
   PyObject *stamp;
-  PyObject *_unknown;
 } CLeafElement;
 
 typedef struct {
   PyObject_HEAD
   PyObject *items;
-  PyObject *_unknown;
 } CLeafResponse;
 
 typedef struct {
@@ -1039,13 +1013,11 @@ typedef struct {
   PyObject *attrs;
   PyObject *texts;
   PyObject *raw;
-  PyObject *_unknown;
 } CSurrogate;
 
 typedef struct {
   PyObject_HEAD
   PyObject *text;
-  PyObject *_unknown;
 } CSurrogateInner;
 
 typedef struct {
@@ -1060,34 +1032,30 @@ typedef struct {
   long v_enum;
   PyObject *v_msg;
   long v_big_tag;
-  PyObject *_unknown;
 } CWireZoo;
 
 static PyMemberDef mem_Timestamp[] = {
   {"seconds", T_LONGLONG, offsetof(CTimestamp, seconds), 0, NULL},
   {"nanos", T_LONG, offsetof(CTimestamp, nanos), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CTimestamp, _unknown), 0, NULL},
   {NULL}};
 static int init_Timestamp(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"seconds", "nanos", "_unknown",  NULL};
+  static char *kwl[] = {"seconds", "nanos",  NULL};
   CTimestamp *o = (CTimestamp *)self;
   long long v_seconds = 0;
   long v_nanos = 0;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|LlO", kwl, &v_seconds, &v_nanos, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|Ll", kwl, &v_seconds, &v_nanos)) return -1;
   o->seconds = v_seconds;
   o->nanos = v_nanos;
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_Timestamp(PyObject *s, visitproc visit, void *arg) {
   CTimestamp *o = (CTimestamp *)s;
-  Py_VISIT(o->_unknown);
+  (void)o; (void)visit; (void)arg;
   return 0;
 }
 static int clear_Timestamp(PyObject *s) {
   CTimestamp *o = (CTimestamp *)s;
-  Py_CLEAR(o->_unknown);
+  (void)o;
   return 0;
 }
 static void dealloc_Timestamp(PyObject *s) {
@@ -1106,28 +1074,25 @@ static PyType_Spec spec_Timestamp = {"_akffi_corpus_nounk.CTimestamp", sizeof(CT
 static PyMemberDef mem_Duration[] = {
   {"seconds", T_LONGLONG, offsetof(CDuration, seconds), 0, NULL},
   {"nanos", T_LONG, offsetof(CDuration, nanos), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CDuration, _unknown), 0, NULL},
   {NULL}};
 static int init_Duration(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"seconds", "nanos", "_unknown",  NULL};
+  static char *kwl[] = {"seconds", "nanos",  NULL};
   CDuration *o = (CDuration *)self;
   long long v_seconds = 0;
   long v_nanos = 0;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|LlO", kwl, &v_seconds, &v_nanos, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|Ll", kwl, &v_seconds, &v_nanos)) return -1;
   o->seconds = v_seconds;
   o->nanos = v_nanos;
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_Duration(PyObject *s, visitproc visit, void *arg) {
   CDuration *o = (CDuration *)s;
-  Py_VISIT(o->_unknown);
+  (void)o; (void)visit; (void)arg;
   return 0;
 }
 static int clear_Duration(PyObject *s) {
   CDuration *o = (CDuration *)s;
-  Py_CLEAR(o->_unknown);
+  (void)o;
   return 0;
 }
 static void dealloc_Duration(PyObject *s) {
@@ -1155,10 +1120,9 @@ static PyMemberDef mem_ResultRaw[] = {
   {"created_by", T_OBJECT_EX, offsetof(CResultRaw, created_by), 0, NULL},
   {"opaque_id", T_OBJECT_EX, offsetof(CResultRaw, opaque_id), 0, NULL},
   {"manual_deletion", T_BOOL, offsetof(CResultRaw, manual_deletion), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CResultRaw, _unknown), 0, NULL},
   {NULL}};
 static int init_ResultRaw(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"session_id", "name", "owner_task_id", "status", "created_at", "completed_at", "result_id", "size", "created_by", "opaque_id", "manual_deletion", "_unknown",  NULL};
+  static char *kwl[] = {"session_id", "name", "owner_task_id", "status", "created_at", "completed_at", "result_id", "size", "created_by", "opaque_id", "manual_deletion",  NULL};
   CResultRaw *o = (CResultRaw *)self;
   PyObject *v_session_id = NULL;
   PyObject *v_name = NULL;
@@ -1171,8 +1135,7 @@ static int init_ResultRaw(PyObject *self, PyObject *a, PyObject *kw) {
   PyObject *v_created_by = NULL;
   PyObject *v_opaque_id = NULL;
   int v_manual_deletion = 0;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOOlOOOLOOpO", kwl, &v_session_id, &v_name, &v_owner_task_id, &v_status, &v_created_at, &v_completed_at, &v_result_id, &v_size, &v_created_by, &v_opaque_id, &v_manual_deletion, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOOlOOOLOOp", kwl, &v_session_id, &v_name, &v_owner_task_id, &v_status, &v_created_at, &v_completed_at, &v_result_id, &v_size, &v_created_by, &v_opaque_id, &v_manual_deletion)) return -1;
   { PyObject *v = v_session_id ? AK_NEWREF(v_session_id) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->session_id, v); }
   { PyObject *v = v_name ? AK_NEWREF(v_name) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->name, v); }
   { PyObject *v = v_owner_task_id ? AK_NEWREF(v_owner_task_id) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->owner_task_id, v); }
@@ -1184,7 +1147,6 @@ static int init_ResultRaw(PyObject *self, PyObject *a, PyObject *kw) {
   { PyObject *v = v_created_by ? AK_NEWREF(v_created_by) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->created_by, v); }
   { PyObject *v = v_opaque_id ? AK_NEWREF(v_opaque_id) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->opaque_id, v); }
   o->manual_deletion = v_manual_deletion;
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_ResultRaw(PyObject *s, visitproc visit, void *arg) {
@@ -1197,7 +1159,6 @@ static int trav_ResultRaw(PyObject *s, visitproc visit, void *arg) {
   Py_VISIT(o->result_id);
   Py_VISIT(o->created_by);
   Py_VISIT(o->opaque_id);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_ResultRaw(PyObject *s) {
@@ -1210,7 +1171,6 @@ static int clear_ResultRaw(PyObject *s) {
   Py_CLEAR(o->result_id);
   Py_CLEAR(o->created_by);
   Py_CLEAR(o->opaque_id);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_ResultRaw(PyObject *s) {
@@ -1237,10 +1197,9 @@ static PyMemberDef mem_TaskOptions[] = {
   {"application_namespace", T_OBJECT_EX, offsetof(CTaskOptions, application_namespace), 0, NULL},
   {"application_service", T_OBJECT_EX, offsetof(CTaskOptions, application_service), 0, NULL},
   {"engine_type", T_OBJECT_EX, offsetof(CTaskOptions, engine_type), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CTaskOptions, _unknown), 0, NULL},
   {NULL}};
 static int init_TaskOptions(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"options", "max_duration", "max_retries", "priority", "partition_id", "application_name", "application_version", "application_namespace", "application_service", "engine_type", "_unknown",  NULL};
+  static char *kwl[] = {"options", "max_duration", "max_retries", "priority", "partition_id", "application_name", "application_version", "application_namespace", "application_service", "engine_type",  NULL};
   CTaskOptions *o = (CTaskOptions *)self;
   PyObject *v_options = NULL;
   PyObject *v_max_duration = NULL;
@@ -1252,8 +1211,7 @@ static int init_TaskOptions(PyObject *self, PyObject *a, PyObject *kw) {
   PyObject *v_application_namespace = NULL;
   PyObject *v_application_service = NULL;
   PyObject *v_engine_type = NULL;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOllOOOOOOO", kwl, &v_options, &v_max_duration, &v_max_retries, &v_priority, &v_partition_id, &v_application_name, &v_application_version, &v_application_namespace, &v_application_service, &v_engine_type, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOllOOOOOO", kwl, &v_options, &v_max_duration, &v_max_retries, &v_priority, &v_partition_id, &v_application_name, &v_application_version, &v_application_namespace, &v_application_service, &v_engine_type)) return -1;
   { PyObject *v = v_options ? AK_NEWREF(v_options) : PyDict_New(); if (!v) return -1; Py_XSETREF(o->options, v); }
   { PyObject *v = v_max_duration ? AK_NEWREF(v_max_duration) : AK_NEWREF(Py_None); if (!v) return -1; Py_XSETREF(o->max_duration, v); }
   o->max_retries = v_max_retries;
@@ -1264,7 +1222,6 @@ static int init_TaskOptions(PyObject *self, PyObject *a, PyObject *kw) {
   { PyObject *v = v_application_namespace ? AK_NEWREF(v_application_namespace) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->application_namespace, v); }
   { PyObject *v = v_application_service ? AK_NEWREF(v_application_service) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->application_service, v); }
   { PyObject *v = v_engine_type ? AK_NEWREF(v_engine_type) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->engine_type, v); }
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_TaskOptions(PyObject *s, visitproc visit, void *arg) {
@@ -1277,7 +1234,6 @@ static int trav_TaskOptions(PyObject *s, visitproc visit, void *arg) {
   Py_VISIT(o->application_namespace);
   Py_VISIT(o->application_service);
   Py_VISIT(o->engine_type);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_TaskOptions(PyObject *s) {
@@ -1290,7 +1246,6 @@ static int clear_TaskOptions(PyObject *s) {
   Py_CLEAR(o->application_namespace);
   Py_CLEAR(o->application_service);
   Py_CLEAR(o->engine_type);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_TaskOptions(PyObject *s) {
@@ -1309,30 +1264,25 @@ static PyType_Spec spec_TaskOptions = {"_akffi_corpus_nounk.CTaskOptions", sizeo
 static PyMemberDef mem_TaskOutput[] = {
   {"success", T_BOOL, offsetof(CTaskOutput, success), 0, NULL},
   {"error", T_OBJECT_EX, offsetof(CTaskOutput, error), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CTaskOutput, _unknown), 0, NULL},
   {NULL}};
 static int init_TaskOutput(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"success", "error", "_unknown",  NULL};
+  static char *kwl[] = {"success", "error",  NULL};
   CTaskOutput *o = (CTaskOutput *)self;
   int v_success = 0;
   PyObject *v_error = NULL;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|pOO", kwl, &v_success, &v_error, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|pO", kwl, &v_success, &v_error)) return -1;
   o->success = v_success;
   { PyObject *v = v_error ? AK_NEWREF(v_error) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->error, v); }
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_TaskOutput(PyObject *s, visitproc visit, void *arg) {
   CTaskOutput *o = (CTaskOutput *)s;
   Py_VISIT(o->error);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_TaskOutput(PyObject *s) {
   CTaskOutput *o = (CTaskOutput *)s;
   Py_CLEAR(o->error);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_TaskOutput(PyObject *s) {
@@ -1376,10 +1326,9 @@ static PyMemberDef mem_TaskDetailed[] = {
   {"fetched_at", T_OBJECT_EX, offsetof(CTaskDetailed, fetched_at), 0, NULL},
   {"payload_id", T_OBJECT_EX, offsetof(CTaskDetailed, payload_id), 0, NULL},
   {"created_by", T_OBJECT_EX, offsetof(CTaskDetailed, created_by), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CTaskDetailed, _unknown), 0, NULL},
   {NULL}};
 static int init_TaskDetailed(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"id", "session_id", "owner_pod_id", "parent_task_ids", "data_dependencies", "expected_output_ids", "retry_of_ids", "status", "status_message", "options", "created_at", "submitted_at", "started_at", "ended_at", "pod_ttl", "output", "pod_hostname", "received_at", "acquired_at", "creation_to_end_duration", "processing_to_end_duration", "initial_task_id", "received_to_end_duration", "processed_at", "fetched_at", "payload_id", "created_by", "_unknown",  NULL};
+  static char *kwl[] = {"id", "session_id", "owner_pod_id", "parent_task_ids", "data_dependencies", "expected_output_ids", "retry_of_ids", "status", "status_message", "options", "created_at", "submitted_at", "started_at", "ended_at", "pod_ttl", "output", "pod_hostname", "received_at", "acquired_at", "creation_to_end_duration", "processing_to_end_duration", "initial_task_id", "received_to_end_duration", "processed_at", "fetched_at", "payload_id", "created_by",  NULL};
   CTaskDetailed *o = (CTaskDetailed *)self;
   PyObject *v_id = NULL;
   PyObject *v_session_id = NULL;
@@ -1408,8 +1357,7 @@ static int init_TaskDetailed(PyObject *self, PyObject *a, PyObject *kw) {
   PyObject *v_fetched_at = NULL;
   PyObject *v_payload_id = NULL;
   PyObject *v_created_by = NULL;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOOOOOOlOOOOOOOOOOOOOOOOOOOO", kwl, &v_id, &v_session_id, &v_owner_pod_id, &v_parent_task_ids, &v_data_dependencies, &v_expected_output_ids, &v_retry_of_ids, &v_status, &v_status_message, &v_options, &v_created_at, &v_submitted_at, &v_started_at, &v_ended_at, &v_pod_ttl, &v_output, &v_pod_hostname, &v_received_at, &v_acquired_at, &v_creation_to_end_duration, &v_processing_to_end_duration, &v_initial_task_id, &v_received_to_end_duration, &v_processed_at, &v_fetched_at, &v_payload_id, &v_created_by, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOOOOOOlOOOOOOOOOOOOOOOOOOO", kwl, &v_id, &v_session_id, &v_owner_pod_id, &v_parent_task_ids, &v_data_dependencies, &v_expected_output_ids, &v_retry_of_ids, &v_status, &v_status_message, &v_options, &v_created_at, &v_submitted_at, &v_started_at, &v_ended_at, &v_pod_ttl, &v_output, &v_pod_hostname, &v_received_at, &v_acquired_at, &v_creation_to_end_duration, &v_processing_to_end_duration, &v_initial_task_id, &v_received_to_end_duration, &v_processed_at, &v_fetched_at, &v_payload_id, &v_created_by)) return -1;
   { PyObject *v = v_id ? AK_NEWREF(v_id) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->id, v); }
   { PyObject *v = v_session_id ? AK_NEWREF(v_session_id) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->session_id, v); }
   { PyObject *v = v_owner_pod_id ? AK_NEWREF(v_owner_pod_id) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->owner_pod_id, v); }
@@ -1437,7 +1385,6 @@ static int init_TaskDetailed(PyObject *self, PyObject *a, PyObject *kw) {
   { PyObject *v = v_fetched_at ? AK_NEWREF(v_fetched_at) : AK_NEWREF(Py_None); if (!v) return -1; Py_XSETREF(o->fetched_at, v); }
   { PyObject *v = v_payload_id ? AK_NEWREF(v_payload_id) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->payload_id, v); }
   { PyObject *v = v_created_by ? AK_NEWREF(v_created_by) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->created_by, v); }
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_TaskDetailed(PyObject *s, visitproc visit, void *arg) {
@@ -1468,7 +1415,6 @@ static int trav_TaskDetailed(PyObject *s, visitproc visit, void *arg) {
   Py_VISIT(o->fetched_at);
   Py_VISIT(o->payload_id);
   Py_VISIT(o->created_by);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_TaskDetailed(PyObject *s) {
@@ -1499,7 +1445,6 @@ static int clear_TaskDetailed(PyObject *s) {
   Py_CLEAR(o->fetched_at);
   Py_CLEAR(o->payload_id);
   Py_CLEAR(o->created_by);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_TaskDetailed(PyObject *s) {
@@ -1524,10 +1469,9 @@ static PyMemberDef mem_TaskSummary[] = {
   {"error", T_OBJECT_EX, offsetof(CTaskSummary, error), 0, NULL},
   {"status_message", T_OBJECT_EX, offsetof(CTaskSummary, status_message), 0, NULL},
   {"count_data_dependencies", T_LONGLONG, offsetof(CTaskSummary, count_data_dependencies), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CTaskSummary, _unknown), 0, NULL},
   {NULL}};
 static int init_TaskSummary(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"id", "session_id", "options", "status", "created_at", "error", "status_message", "count_data_dependencies", "_unknown",  NULL};
+  static char *kwl[] = {"id", "session_id", "options", "status", "created_at", "error", "status_message", "count_data_dependencies",  NULL};
   CTaskSummary *o = (CTaskSummary *)self;
   PyObject *v_id = NULL;
   PyObject *v_session_id = NULL;
@@ -1537,8 +1481,7 @@ static int init_TaskSummary(PyObject *self, PyObject *a, PyObject *kw) {
   PyObject *v_error = NULL;
   PyObject *v_status_message = NULL;
   long long v_count_data_dependencies = 0;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOOlOOOLO", kwl, &v_id, &v_session_id, &v_options, &v_status, &v_created_at, &v_error, &v_status_message, &v_count_data_dependencies, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOOlOOOL", kwl, &v_id, &v_session_id, &v_options, &v_status, &v_created_at, &v_error, &v_status_message, &v_count_data_dependencies)) return -1;
   { PyObject *v = v_id ? AK_NEWREF(v_id) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->id, v); }
   { PyObject *v = v_session_id ? AK_NEWREF(v_session_id) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->session_id, v); }
   { PyObject *v = v_options ? AK_NEWREF(v_options) : AK_NEWREF(Py_None); if (!v) return -1; Py_XSETREF(o->options, v); }
@@ -1547,7 +1490,6 @@ static int init_TaskSummary(PyObject *self, PyObject *a, PyObject *kw) {
   { PyObject *v = v_error ? AK_NEWREF(v_error) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->error, v); }
   { PyObject *v = v_status_message ? AK_NEWREF(v_status_message) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->status_message, v); }
   o->count_data_dependencies = v_count_data_dependencies;
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_TaskSummary(PyObject *s, visitproc visit, void *arg) {
@@ -1558,7 +1500,6 @@ static int trav_TaskSummary(PyObject *s, visitproc visit, void *arg) {
   Py_VISIT(o->created_at);
   Py_VISIT(o->error);
   Py_VISIT(o->status_message);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_TaskSummary(PyObject *s) {
@@ -1569,7 +1510,6 @@ static int clear_TaskSummary(PyObject *s) {
   Py_CLEAR(o->created_at);
   Py_CLEAR(o->error);
   Py_CLEAR(o->status_message);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_TaskSummary(PyObject *s) {
@@ -1596,10 +1536,9 @@ static PyMemberDef mem_Probe[] = {
   {"as_stamp", T_OBJECT_EX, offsetof(CProbe, as_stamp), 0, NULL},
   {"as_nothing", T_OBJECT_EX, offsetof(CProbe, as_nothing), 0, NULL},
   {"body_case", T_LONG, offsetof(CProbe, body_case), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CProbe, _unknown), 0, NULL},
   {NULL}};
 static int init_Probe(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"id", "opt_count", "opt_label", "opt_flag", "as_int", "as_text", "as_blob", "as_stamp", "as_nothing", "body_case", "_unknown",  NULL};
+  static char *kwl[] = {"id", "opt_count", "opt_label", "opt_flag", "as_int", "as_text", "as_blob", "as_stamp", "as_nothing", "body_case",  NULL};
   CProbe *o = (CProbe *)self;
   PyObject *v_id = NULL;
   PyObject *v_opt_count = NULL;
@@ -1611,8 +1550,7 @@ static int init_Probe(PyObject *self, PyObject *a, PyObject *kw) {
   PyObject *v_as_stamp = NULL;
   PyObject *v_as_nothing = NULL;
   long v_body_case = 0;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOOOLOOOOlO", kwl, &v_id, &v_opt_count, &v_opt_label, &v_opt_flag, &v_as_int, &v_as_text, &v_as_blob, &v_as_stamp, &v_as_nothing, &v_body_case, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOOOLOOOOl", kwl, &v_id, &v_opt_count, &v_opt_label, &v_opt_flag, &v_as_int, &v_as_text, &v_as_blob, &v_as_stamp, &v_as_nothing, &v_body_case)) return -1;
   { PyObject *v = v_id ? AK_NEWREF(v_id) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->id, v); }
   { PyObject *v = v_opt_count ? AK_NEWREF(v_opt_count) : AK_NEWREF(Py_None); if (!v) return -1; Py_XSETREF(o->opt_count, v); }
   { PyObject *v = v_opt_label ? AK_NEWREF(v_opt_label) : AK_NEWREF(Py_None); if (!v) return -1; Py_XSETREF(o->opt_label, v); }
@@ -1623,7 +1561,6 @@ static int init_Probe(PyObject *self, PyObject *a, PyObject *kw) {
   { PyObject *v = v_as_stamp ? AK_NEWREF(v_as_stamp) : AK_NEWREF(Py_None); if (!v) return -1; Py_XSETREF(o->as_stamp, v); }
   { PyObject *v = v_as_nothing ? AK_NEWREF(v_as_nothing) : AK_NEWREF(Py_None); if (!v) return -1; Py_XSETREF(o->as_nothing, v); }
   o->body_case = v_body_case;
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_Probe(PyObject *s, visitproc visit, void *arg) {
@@ -1636,7 +1573,6 @@ static int trav_Probe(PyObject *s, visitproc visit, void *arg) {
   Py_VISIT(o->as_blob);
   Py_VISIT(o->as_stamp);
   Py_VISIT(o->as_nothing);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_Probe(PyObject *s) {
@@ -1649,7 +1585,6 @@ static int clear_Probe(PyObject *s) {
   Py_CLEAR(o->as_blob);
   Py_CLEAR(o->as_stamp);
   Py_CLEAR(o->as_nothing);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_Probe(PyObject *s) {
@@ -1666,24 +1601,21 @@ static PyType_Spec spec_Probe = {"_akffi_corpus_nounk.CProbe", sizeof(CProbe), 0
   Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC, slots_Probe};
 
 static PyMemberDef mem_Empty[] = {
-  {"_unknown", T_OBJECT_EX, offsetof(CEmpty, _unknown), 0, NULL},
   {NULL}};
 static int init_Empty(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"_unknown",  NULL};
+  static char *kwl[] = { NULL};
   CEmpty *o = (CEmpty *)self;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|O", kwl, &v__unknown)) return -1;
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
+  (void)o; if (!PyArg_ParseTupleAndKeywords(a, kw, "", kwl)) return -1;
   return 0;
 }
 static int trav_Empty(PyObject *s, visitproc visit, void *arg) {
   CEmpty *o = (CEmpty *)s;
-  Py_VISIT(o->_unknown);
+  (void)o; (void)visit; (void)arg;
   return 0;
 }
 static int clear_Empty(PyObject *s) {
   CEmpty *o = (CEmpty *)s;
-  Py_CLEAR(o->_unknown);
+  (void)o;
   return 0;
 }
 static void dealloc_Empty(PyObject *s) {
@@ -1703,20 +1635,17 @@ static PyMemberDef mem_UploadResultData[] = {
   {"session_id", T_OBJECT_EX, offsetof(CUploadResultData, session_id), 0, NULL},
   {"result_id", T_OBJECT_EX, offsetof(CUploadResultData, result_id), 0, NULL},
   {"data_chunk", T_OBJECT_EX, offsetof(CUploadResultData, data_chunk), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CUploadResultData, _unknown), 0, NULL},
   {NULL}};
 static int init_UploadResultData(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"session_id", "result_id", "data_chunk", "_unknown",  NULL};
+  static char *kwl[] = {"session_id", "result_id", "data_chunk",  NULL};
   CUploadResultData *o = (CUploadResultData *)self;
   PyObject *v_session_id = NULL;
   PyObject *v_result_id = NULL;
   PyObject *v_data_chunk = NULL;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOOO", kwl, &v_session_id, &v_result_id, &v_data_chunk, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOO", kwl, &v_session_id, &v_result_id, &v_data_chunk)) return -1;
   { PyObject *v = v_session_id ? AK_NEWREF(v_session_id) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->session_id, v); }
   { PyObject *v = v_result_id ? AK_NEWREF(v_result_id) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->result_id, v); }
   { PyObject *v = v_data_chunk ? AK_NEWREF(v_data_chunk) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->data_chunk, v); }
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_UploadResultData(PyObject *s, visitproc visit, void *arg) {
@@ -1724,7 +1653,6 @@ static int trav_UploadResultData(PyObject *s, visitproc visit, void *arg) {
   Py_VISIT(o->session_id);
   Py_VISIT(o->result_id);
   Py_VISIT(o->data_chunk);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_UploadResultData(PyObject *s) {
@@ -1732,7 +1660,6 @@ static int clear_UploadResultData(PyObject *s) {
   Py_CLEAR(o->session_id);
   Py_CLEAR(o->result_id);
   Py_CLEAR(o->data_chunk);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_UploadResultData(PyObject *s) {
@@ -1755,10 +1682,9 @@ static PyMemberDef mem_MetricsBatch[] = {
   {"codes", T_OBJECT_EX, offsetof(CMetricsBatch, codes), 0, NULL},
   {"flags", T_OBJECT_EX, offsetof(CMetricsBatch, flags), 0, NULL},
   {"statuses", T_OBJECT_EX, offsetof(CMetricsBatch, statuses), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CMetricsBatch, _unknown), 0, NULL},
   {NULL}};
 static int init_MetricsBatch(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"id", "ticks", "values", "codes", "flags", "statuses", "_unknown",  NULL};
+  static char *kwl[] = {"id", "ticks", "values", "codes", "flags", "statuses",  NULL};
   CMetricsBatch *o = (CMetricsBatch *)self;
   PyObject *v_id = NULL;
   PyObject *v_ticks = NULL;
@@ -1766,15 +1692,13 @@ static int init_MetricsBatch(PyObject *self, PyObject *a, PyObject *kw) {
   PyObject *v_codes = NULL;
   PyObject *v_flags = NULL;
   PyObject *v_statuses = NULL;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOOOOOO", kwl, &v_id, &v_ticks, &v_values, &v_codes, &v_flags, &v_statuses, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOOOOO", kwl, &v_id, &v_ticks, &v_values, &v_codes, &v_flags, &v_statuses)) return -1;
   { PyObject *v = v_id ? AK_NEWREF(v_id) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->id, v); }
   { PyObject *v = v_ticks ? AK_NEWREF(v_ticks) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->ticks, v); }
   { PyObject *v = v_values ? AK_NEWREF(v_values) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->values, v); }
   { PyObject *v = v_codes ? AK_NEWREF(v_codes) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->codes, v); }
   { PyObject *v = v_flags ? AK_NEWREF(v_flags) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->flags, v); }
   { PyObject *v = v_statuses ? AK_NEWREF(v_statuses) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->statuses, v); }
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_MetricsBatch(PyObject *s, visitproc visit, void *arg) {
@@ -1785,7 +1709,6 @@ static int trav_MetricsBatch(PyObject *s, visitproc visit, void *arg) {
   Py_VISIT(o->codes);
   Py_VISIT(o->flags);
   Py_VISIT(o->statuses);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_MetricsBatch(PyObject *s) {
@@ -1796,7 +1719,6 @@ static int clear_MetricsBatch(PyObject *s) {
   Py_CLEAR(o->codes);
   Py_CLEAR(o->flags);
   Py_CLEAR(o->statuses);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_MetricsBatch(PyObject *s) {
@@ -1815,30 +1737,25 @@ static PyType_Spec spec_MetricsBatch = {"_akffi_corpus_nounk.CMetricsBatch", siz
 static PyMemberDef mem_Pair[] = {
   {"key", T_OBJECT_EX, offsetof(CPair, key), 0, NULL},
   {"value", T_LONG, offsetof(CPair, value), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CPair, _unknown), 0, NULL},
   {NULL}};
 static int init_Pair(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"key", "value", "_unknown",  NULL};
+  static char *kwl[] = {"key", "value",  NULL};
   CPair *o = (CPair *)self;
   PyObject *v_key = NULL;
   long v_value = 0;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OlO", kwl, &v_key, &v_value, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|Ol", kwl, &v_key, &v_value)) return -1;
   { PyObject *v = v_key ? AK_NEWREF(v_key) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->key, v); }
   o->value = v_value;
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_Pair(PyObject *s, visitproc visit, void *arg) {
   CPair *o = (CPair *)s;
   Py_VISIT(o->key);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_Pair(PyObject *s) {
   CPair *o = (CPair *)s;
   Py_CLEAR(o->key);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_Pair(PyObject *s) {
@@ -1858,32 +1775,27 @@ static PyMemberDef mem_ListResultsResponse[] = {
   {"results", T_OBJECT_EX, offsetof(CListResultsResponse, results), 0, NULL},
   {"page", T_LONG, offsetof(CListResultsResponse, page), 0, NULL},
   {"total", T_LONG, offsetof(CListResultsResponse, total), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CListResultsResponse, _unknown), 0, NULL},
   {NULL}};
 static int init_ListResultsResponse(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"results", "page", "total", "_unknown",  NULL};
+  static char *kwl[] = {"results", "page", "total",  NULL};
   CListResultsResponse *o = (CListResultsResponse *)self;
   PyObject *v_results = NULL;
   long v_page = 0;
   long v_total = 0;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OllO", kwl, &v_results, &v_page, &v_total, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|Oll", kwl, &v_results, &v_page, &v_total)) return -1;
   { PyObject *v = v_results ? AK_NEWREF(v_results) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->results, v); }
   o->page = v_page;
   o->total = v_total;
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_ListResultsResponse(PyObject *s, visitproc visit, void *arg) {
   CListResultsResponse *o = (CListResultsResponse *)s;
   Py_VISIT(o->results);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_ListResultsResponse(PyObject *s) {
   CListResultsResponse *o = (CListResultsResponse *)s;
   Py_CLEAR(o->results);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_ListResultsResponse(PyObject *s) {
@@ -1903,32 +1815,27 @@ static PyMemberDef mem_ListTasksDetailedResponse[] = {
   {"tasks", T_OBJECT_EX, offsetof(CListTasksDetailedResponse, tasks), 0, NULL},
   {"page", T_LONG, offsetof(CListTasksDetailedResponse, page), 0, NULL},
   {"total", T_LONG, offsetof(CListTasksDetailedResponse, total), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CListTasksDetailedResponse, _unknown), 0, NULL},
   {NULL}};
 static int init_ListTasksDetailedResponse(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"tasks", "page", "total", "_unknown",  NULL};
+  static char *kwl[] = {"tasks", "page", "total",  NULL};
   CListTasksDetailedResponse *o = (CListTasksDetailedResponse *)self;
   PyObject *v_tasks = NULL;
   long v_page = 0;
   long v_total = 0;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OllO", kwl, &v_tasks, &v_page, &v_total, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|Oll", kwl, &v_tasks, &v_page, &v_total)) return -1;
   { PyObject *v = v_tasks ? AK_NEWREF(v_tasks) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->tasks, v); }
   o->page = v_page;
   o->total = v_total;
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_ListTasksDetailedResponse(PyObject *s, visitproc visit, void *arg) {
   CListTasksDetailedResponse *o = (CListTasksDetailedResponse *)s;
   Py_VISIT(o->tasks);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_ListTasksDetailedResponse(PyObject *s) {
   CListTasksDetailedResponse *o = (CListTasksDetailedResponse *)s;
   Py_CLEAR(o->tasks);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_ListTasksDetailedResponse(PyObject *s) {
@@ -1946,28 +1853,23 @@ static PyType_Spec spec_ListTasksDetailedResponse = {"_akffi_corpus_nounk.CListT
 
 static PyMemberDef mem_ListTaskSummaryResponse[] = {
   {"tasks", T_OBJECT_EX, offsetof(CListTaskSummaryResponse, tasks), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CListTaskSummaryResponse, _unknown), 0, NULL},
   {NULL}};
 static int init_ListTaskSummaryResponse(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"tasks", "_unknown",  NULL};
+  static char *kwl[] = {"tasks",  NULL};
   CListTaskSummaryResponse *o = (CListTaskSummaryResponse *)self;
   PyObject *v_tasks = NULL;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OO", kwl, &v_tasks, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|O", kwl, &v_tasks)) return -1;
   { PyObject *v = v_tasks ? AK_NEWREF(v_tasks) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->tasks, v); }
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_ListTaskSummaryResponse(PyObject *s, visitproc visit, void *arg) {
   CListTaskSummaryResponse *o = (CListTaskSummaryResponse *)s;
   Py_VISIT(o->tasks);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_ListTaskSummaryResponse(PyObject *s) {
   CListTaskSummaryResponse *o = (CListTaskSummaryResponse *)s;
   Py_CLEAR(o->tasks);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_ListTaskSummaryResponse(PyObject *s) {
@@ -1985,28 +1887,23 @@ static PyType_Spec spec_ListTaskSummaryResponse = {"_akffi_corpus_nounk.CListTas
 
 static PyMemberDef mem_ListProbeResponse[] = {
   {"probes", T_OBJECT_EX, offsetof(CListProbeResponse, probes), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CListProbeResponse, _unknown), 0, NULL},
   {NULL}};
 static int init_ListProbeResponse(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"probes", "_unknown",  NULL};
+  static char *kwl[] = {"probes",  NULL};
   CListProbeResponse *o = (CListProbeResponse *)self;
   PyObject *v_probes = NULL;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OO", kwl, &v_probes, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|O", kwl, &v_probes)) return -1;
   { PyObject *v = v_probes ? AK_NEWREF(v_probes) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->probes, v); }
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_ListProbeResponse(PyObject *s, visitproc visit, void *arg) {
   CListProbeResponse *o = (CListProbeResponse *)s;
   Py_VISIT(o->probes);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_ListProbeResponse(PyObject *s) {
   CListProbeResponse *o = (CListProbeResponse *)s;
   Py_CLEAR(o->probes);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_ListProbeResponse(PyObject *s) {
@@ -2024,28 +1921,23 @@ static PyType_Spec spec_ListProbeResponse = {"_akffi_corpus_nounk.CListProbeResp
 
 static PyMemberDef mem_ListMetricsResponse[] = {
   {"batches", T_OBJECT_EX, offsetof(CListMetricsResponse, batches), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CListMetricsResponse, _unknown), 0, NULL},
   {NULL}};
 static int init_ListMetricsResponse(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"batches", "_unknown",  NULL};
+  static char *kwl[] = {"batches",  NULL};
   CListMetricsResponse *o = (CListMetricsResponse *)self;
   PyObject *v_batches = NULL;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OO", kwl, &v_batches, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|O", kwl, &v_batches)) return -1;
   { PyObject *v = v_batches ? AK_NEWREF(v_batches) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->batches, v); }
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_ListMetricsResponse(PyObject *s, visitproc visit, void *arg) {
   CListMetricsResponse *o = (CListMetricsResponse *)s;
   Py_VISIT(o->batches);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_ListMetricsResponse(PyObject *s) {
   CListMetricsResponse *o = (CListMetricsResponse *)s;
   Py_CLEAR(o->batches);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_ListMetricsResponse(PyObject *s) {
@@ -2063,28 +1955,23 @@ static PyType_Spec spec_ListMetricsResponse = {"_akffi_corpus_nounk.CListMetrics
 
 static PyMemberDef mem_UploadResultDataMessage[] = {
   {"upload", T_OBJECT_EX, offsetof(CUploadResultDataMessage, upload), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CUploadResultDataMessage, _unknown), 0, NULL},
   {NULL}};
 static int init_UploadResultDataMessage(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"upload", "_unknown",  NULL};
+  static char *kwl[] = {"upload",  NULL};
   CUploadResultDataMessage *o = (CUploadResultDataMessage *)self;
   PyObject *v_upload = NULL;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OO", kwl, &v_upload, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|O", kwl, &v_upload)) return -1;
   { PyObject *v = v_upload ? AK_NEWREF(v_upload) : AK_NEWREF(Py_None); if (!v) return -1; Py_XSETREF(o->upload, v); }
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_UploadResultDataMessage(PyObject *s, visitproc visit, void *arg) {
   CUploadResultDataMessage *o = (CUploadResultDataMessage *)s;
   Py_VISIT(o->upload);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_UploadResultDataMessage(PyObject *s) {
   CUploadResultDataMessage *o = (CUploadResultDataMessage *)s;
   Py_CLEAR(o->upload);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_UploadResultDataMessage(PyObject *s) {
@@ -2103,32 +1990,27 @@ static PyType_Spec spec_UploadResultDataMessage = {"_akffi_corpus_nounk.CUploadR
 static PyMemberDef mem_DualResponse[] = {
   {"left", T_OBJECT_EX, offsetof(CDualResponse, left), 0, NULL},
   {"right", T_OBJECT_EX, offsetof(CDualResponse, right), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CDualResponse, _unknown), 0, NULL},
   {NULL}};
 static int init_DualResponse(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"left", "right", "_unknown",  NULL};
+  static char *kwl[] = {"left", "right",  NULL};
   CDualResponse *o = (CDualResponse *)self;
   PyObject *v_left = NULL;
   PyObject *v_right = NULL;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOO", kwl, &v_left, &v_right, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OO", kwl, &v_left, &v_right)) return -1;
   { PyObject *v = v_left ? AK_NEWREF(v_left) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->left, v); }
   { PyObject *v = v_right ? AK_NEWREF(v_right) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->right, v); }
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_DualResponse(PyObject *s, visitproc visit, void *arg) {
   CDualResponse *o = (CDualResponse *)s;
   Py_VISIT(o->left);
   Py_VISIT(o->right);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_DualResponse(PyObject *s) {
   CDualResponse *o = (CDualResponse *)s;
   Py_CLEAR(o->left);
   Py_CLEAR(o->right);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_DualResponse(PyObject *s) {
@@ -2147,30 +2029,25 @@ static PyType_Spec spec_DualResponse = {"_akffi_corpus_nounk.CDualResponse", siz
 static PyMemberDef mem_ChunkLeaf[] = {
   {"k", T_OBJECT_EX, offsetof(CChunkLeaf, k), 0, NULL},
   {"v", T_LONG, offsetof(CChunkLeaf, v), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CChunkLeaf, _unknown), 0, NULL},
   {NULL}};
 static int init_ChunkLeaf(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"k", "v", "_unknown",  NULL};
+  static char *kwl[] = {"k", "v",  NULL};
   CChunkLeaf *o = (CChunkLeaf *)self;
   PyObject *v_k = NULL;
   long v_v = 0;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OlO", kwl, &v_k, &v_v, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|Ol", kwl, &v_k, &v_v)) return -1;
   { PyObject *v = v_k ? AK_NEWREF(v_k) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->k, v); }
   o->v = v_v;
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_ChunkLeaf(PyObject *s, visitproc visit, void *arg) {
   CChunkLeaf *o = (CChunkLeaf *)s;
   Py_VISIT(o->k);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_ChunkLeaf(PyObject *s) {
   CChunkLeaf *o = (CChunkLeaf *)s;
   Py_CLEAR(o->k);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_ChunkLeaf(PyObject *s) {
@@ -2189,32 +2066,27 @@ static PyType_Spec spec_ChunkLeaf = {"_akffi_corpus_nounk.CChunkLeaf", sizeof(CC
 static PyMemberDef mem_ChunkInner[] = {
   {"marks", T_OBJECT_EX, offsetof(CChunkInner, marks), 0, NULL},
   {"leaves", T_OBJECT_EX, offsetof(CChunkInner, leaves), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CChunkInner, _unknown), 0, NULL},
   {NULL}};
 static int init_ChunkInner(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"marks", "leaves", "_unknown",  NULL};
+  static char *kwl[] = {"marks", "leaves",  NULL};
   CChunkInner *o = (CChunkInner *)self;
   PyObject *v_marks = NULL;
   PyObject *v_leaves = NULL;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOO", kwl, &v_marks, &v_leaves, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OO", kwl, &v_marks, &v_leaves)) return -1;
   { PyObject *v = v_marks ? AK_NEWREF(v_marks) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->marks, v); }
   { PyObject *v = v_leaves ? AK_NEWREF(v_leaves) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->leaves, v); }
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_ChunkInner(PyObject *s, visitproc visit, void *arg) {
   CChunkInner *o = (CChunkInner *)s;
   Py_VISIT(o->marks);
   Py_VISIT(o->leaves);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_ChunkInner(PyObject *s) {
   CChunkInner *o = (CChunkInner *)s;
   Py_CLEAR(o->marks);
   Py_CLEAR(o->leaves);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_ChunkInner(PyObject *s) {
@@ -2235,22 +2107,19 @@ static PyMemberDef mem_ChunkElement[] = {
   {"attrs", T_OBJECT_EX, offsetof(CChunkElement, attrs), 0, NULL},
   {"id", T_OBJECT_EX, offsetof(CChunkElement, id), 0, NULL},
   {"inner", T_OBJECT_EX, offsetof(CChunkElement, inner), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CChunkElement, _unknown), 0, NULL},
   {NULL}};
 static int init_ChunkElement(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"labels", "attrs", "id", "inner", "_unknown",  NULL};
+  static char *kwl[] = {"labels", "attrs", "id", "inner",  NULL};
   CChunkElement *o = (CChunkElement *)self;
   PyObject *v_labels = NULL;
   PyObject *v_attrs = NULL;
   PyObject *v_id = NULL;
   PyObject *v_inner = NULL;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOOOO", kwl, &v_labels, &v_attrs, &v_id, &v_inner, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOOO", kwl, &v_labels, &v_attrs, &v_id, &v_inner)) return -1;
   { PyObject *v = v_labels ? AK_NEWREF(v_labels) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->labels, v); }
   { PyObject *v = v_attrs ? AK_NEWREF(v_attrs) : PyDict_New(); if (!v) return -1; Py_XSETREF(o->attrs, v); }
   { PyObject *v = v_id ? AK_NEWREF(v_id) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->id, v); }
   { PyObject *v = v_inner ? AK_NEWREF(v_inner) : AK_NEWREF(Py_None); if (!v) return -1; Py_XSETREF(o->inner, v); }
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_ChunkElement(PyObject *s, visitproc visit, void *arg) {
@@ -2259,7 +2128,6 @@ static int trav_ChunkElement(PyObject *s, visitproc visit, void *arg) {
   Py_VISIT(o->attrs);
   Py_VISIT(o->id);
   Py_VISIT(o->inner);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_ChunkElement(PyObject *s) {
@@ -2268,7 +2136,6 @@ static int clear_ChunkElement(PyObject *s) {
   Py_CLEAR(o->attrs);
   Py_CLEAR(o->id);
   Py_CLEAR(o->inner);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_ChunkElement(PyObject *s) {
@@ -2287,30 +2154,25 @@ static PyType_Spec spec_ChunkElement = {"_akffi_corpus_nounk.CChunkElement", siz
 static PyMemberDef mem_ChunkedResponse[] = {
   {"items", T_OBJECT_EX, offsetof(CChunkedResponse, items), 0, NULL},
   {"page", T_LONG, offsetof(CChunkedResponse, page), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CChunkedResponse, _unknown), 0, NULL},
   {NULL}};
 static int init_ChunkedResponse(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"items", "page", "_unknown",  NULL};
+  static char *kwl[] = {"items", "page",  NULL};
   CChunkedResponse *o = (CChunkedResponse *)self;
   PyObject *v_items = NULL;
   long v_page = 0;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OlO", kwl, &v_items, &v_page, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|Ol", kwl, &v_items, &v_page)) return -1;
   { PyObject *v = v_items ? AK_NEWREF(v_items) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->items, v); }
   o->page = v_page;
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_ChunkedResponse(PyObject *s, visitproc visit, void *arg) {
   CChunkedResponse *o = (CChunkedResponse *)s;
   Py_VISIT(o->items);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_ChunkedResponse(PyObject *s) {
   CChunkedResponse *o = (CChunkedResponse *)s;
   Py_CLEAR(o->items);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_ChunkedResponse(PyObject *s) {
@@ -2328,28 +2190,23 @@ static PyType_Spec spec_ChunkedResponse = {"_akffi_corpus_nounk.CChunkedResponse
 
 static PyMemberDef mem_ChunkedResponseWide[] = {
   {"items", T_OBJECT_EX, offsetof(CChunkedResponseWide, items), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CChunkedResponseWide, _unknown), 0, NULL},
   {NULL}};
 static int init_ChunkedResponseWide(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"items", "_unknown",  NULL};
+  static char *kwl[] = {"items",  NULL};
   CChunkedResponseWide *o = (CChunkedResponseWide *)self;
   PyObject *v_items = NULL;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OO", kwl, &v_items, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|O", kwl, &v_items)) return -1;
   { PyObject *v = v_items ? AK_NEWREF(v_items) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->items, v); }
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_ChunkedResponseWide(PyObject *s, visitproc visit, void *arg) {
   CChunkedResponseWide *o = (CChunkedResponseWide *)s;
   Py_VISIT(o->items);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_ChunkedResponseWide(PyObject *s) {
   CChunkedResponseWide *o = (CChunkedResponseWide *)s;
   Py_CLEAR(o->items);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_ChunkedResponseWide(PyObject *s) {
@@ -2369,34 +2226,29 @@ static PyMemberDef mem_LeafElement[] = {
   {"id", T_OBJECT_EX, offsetof(CLeafElement, id), 0, NULL},
   {"n", T_LONGLONG, offsetof(CLeafElement, n), 0, NULL},
   {"stamp", T_OBJECT_EX, offsetof(CLeafElement, stamp), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CLeafElement, _unknown), 0, NULL},
   {NULL}};
 static int init_LeafElement(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"id", "n", "stamp", "_unknown",  NULL};
+  static char *kwl[] = {"id", "n", "stamp",  NULL};
   CLeafElement *o = (CLeafElement *)self;
   PyObject *v_id = NULL;
   long long v_n = 0;
   PyObject *v_stamp = NULL;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OLOO", kwl, &v_id, &v_n, &v_stamp, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OLO", kwl, &v_id, &v_n, &v_stamp)) return -1;
   { PyObject *v = v_id ? AK_NEWREF(v_id) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->id, v); }
   o->n = v_n;
   { PyObject *v = v_stamp ? AK_NEWREF(v_stamp) : AK_NEWREF(Py_None); if (!v) return -1; Py_XSETREF(o->stamp, v); }
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_LeafElement(PyObject *s, visitproc visit, void *arg) {
   CLeafElement *o = (CLeafElement *)s;
   Py_VISIT(o->id);
   Py_VISIT(o->stamp);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_LeafElement(PyObject *s) {
   CLeafElement *o = (CLeafElement *)s;
   Py_CLEAR(o->id);
   Py_CLEAR(o->stamp);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_LeafElement(PyObject *s) {
@@ -2414,28 +2266,23 @@ static PyType_Spec spec_LeafElement = {"_akffi_corpus_nounk.CLeafElement", sizeo
 
 static PyMemberDef mem_LeafResponse[] = {
   {"items", T_OBJECT_EX, offsetof(CLeafResponse, items), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CLeafResponse, _unknown), 0, NULL},
   {NULL}};
 static int init_LeafResponse(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"items", "_unknown",  NULL};
+  static char *kwl[] = {"items",  NULL};
   CLeafResponse *o = (CLeafResponse *)self;
   PyObject *v_items = NULL;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OO", kwl, &v_items, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|O", kwl, &v_items)) return -1;
   { PyObject *v = v_items ? AK_NEWREF(v_items) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->items, v); }
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_LeafResponse(PyObject *s, visitproc visit, void *arg) {
   CLeafResponse *o = (CLeafResponse *)s;
   Py_VISIT(o->items);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_LeafResponse(PyObject *s) {
   CLeafResponse *o = (CLeafResponse *)s;
   Py_CLEAR(o->items);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_LeafResponse(PyObject *s) {
@@ -2457,24 +2304,21 @@ static PyMemberDef mem_Surrogate[] = {
   {"attrs", T_OBJECT_EX, offsetof(CSurrogate, attrs), 0, NULL},
   {"texts", T_OBJECT_EX, offsetof(CSurrogate, texts), 0, NULL},
   {"raw", T_OBJECT_EX, offsetof(CSurrogate, raw), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CSurrogate, _unknown), 0, NULL},
   {NULL}};
 static int init_Surrogate(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"text", "nested", "attrs", "texts", "raw", "_unknown",  NULL};
+  static char *kwl[] = {"text", "nested", "attrs", "texts", "raw",  NULL};
   CSurrogate *o = (CSurrogate *)self;
   PyObject *v_text = NULL;
   PyObject *v_nested = NULL;
   PyObject *v_attrs = NULL;
   PyObject *v_texts = NULL;
   PyObject *v_raw = NULL;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOOOOO", kwl, &v_text, &v_nested, &v_attrs, &v_texts, &v_raw, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OOOOO", kwl, &v_text, &v_nested, &v_attrs, &v_texts, &v_raw)) return -1;
   { PyObject *v = v_text ? AK_NEWREF(v_text) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->text, v); }
   { PyObject *v = v_nested ? AK_NEWREF(v_nested) : AK_NEWREF(Py_None); if (!v) return -1; Py_XSETREF(o->nested, v); }
   { PyObject *v = v_attrs ? AK_NEWREF(v_attrs) : PyDict_New(); if (!v) return -1; Py_XSETREF(o->attrs, v); }
   { PyObject *v = v_texts ? AK_NEWREF(v_texts) : PyList_New(0); if (!v) return -1; Py_XSETREF(o->texts, v); }
   { PyObject *v = v_raw ? AK_NEWREF(v_raw) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->raw, v); }
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_Surrogate(PyObject *s, visitproc visit, void *arg) {
@@ -2484,7 +2328,6 @@ static int trav_Surrogate(PyObject *s, visitproc visit, void *arg) {
   Py_VISIT(o->attrs);
   Py_VISIT(o->texts);
   Py_VISIT(o->raw);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_Surrogate(PyObject *s) {
@@ -2494,7 +2337,6 @@ static int clear_Surrogate(PyObject *s) {
   Py_CLEAR(o->attrs);
   Py_CLEAR(o->texts);
   Py_CLEAR(o->raw);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_Surrogate(PyObject *s) {
@@ -2512,28 +2354,23 @@ static PyType_Spec spec_Surrogate = {"_akffi_corpus_nounk.CSurrogate", sizeof(CS
 
 static PyMemberDef mem_SurrogateInner[] = {
   {"text", T_OBJECT_EX, offsetof(CSurrogateInner, text), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CSurrogateInner, _unknown), 0, NULL},
   {NULL}};
 static int init_SurrogateInner(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"text", "_unknown",  NULL};
+  static char *kwl[] = {"text",  NULL};
   CSurrogateInner *o = (CSurrogateInner *)self;
   PyObject *v_text = NULL;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|OO", kwl, &v_text, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|O", kwl, &v_text)) return -1;
   { PyObject *v = v_text ? AK_NEWREF(v_text) : PyUnicode_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->text, v); }
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_SurrogateInner(PyObject *s, visitproc visit, void *arg) {
   CSurrogateInner *o = (CSurrogateInner *)s;
   Py_VISIT(o->text);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_SurrogateInner(PyObject *s) {
   CSurrogateInner *o = (CSurrogateInner *)s;
   Py_CLEAR(o->text);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_SurrogateInner(PyObject *s) {
@@ -2560,10 +2397,9 @@ static PyMemberDef mem_WireZoo[] = {
   {"v_enum", T_LONG, offsetof(CWireZoo, v_enum), 0, NULL},
   {"v_msg", T_OBJECT_EX, offsetof(CWireZoo, v_msg), 0, NULL},
   {"v_big_tag", T_LONG, offsetof(CWireZoo, v_big_tag), 0, NULL},
-  {"_unknown", T_OBJECT_EX, offsetof(CWireZoo, _unknown), 0, NULL},
   {NULL}};
 static int init_WireZoo(PyObject *self, PyObject *a, PyObject *kw) {
-  static char *kwl[] = {"v_int32", "v_int64", "v_bool", "v_double", "v_fixed32", "v_string", "v_bytes", "v_enum", "v_msg", "v_big_tag", "_unknown",  NULL};
+  static char *kwl[] = {"v_int32", "v_int64", "v_bool", "v_double", "v_fixed32", "v_string", "v_bytes", "v_enum", "v_msg", "v_big_tag",  NULL};
   CWireZoo *o = (CWireZoo *)self;
   long v_v_int32 = 0;
   long long v_v_int64 = 0;
@@ -2575,8 +2411,7 @@ static int init_WireZoo(PyObject *self, PyObject *a, PyObject *kw) {
   long v_v_enum = 0;
   PyObject *v_v_msg = NULL;
   long v_v_big_tag = 0;
-  PyObject *v__unknown = NULL;
-  if (!PyArg_ParseTupleAndKeywords(a, kw, "|lLpdIOOlOlO", kwl, &v_v_int32, &v_v_int64, &v_v_bool, &v_v_double, &v_v_fixed32, &v_v_string, &v_v_bytes, &v_v_enum, &v_v_msg, &v_v_big_tag, &v__unknown)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(a, kw, "|lLpdIOOlOl", kwl, &v_v_int32, &v_v_int64, &v_v_bool, &v_v_double, &v_v_fixed32, &v_v_string, &v_v_bytes, &v_v_enum, &v_v_msg, &v_v_big_tag)) return -1;
   o->v_int32 = v_v_int32;
   o->v_int64 = v_v_int64;
   o->v_bool = v_v_bool;
@@ -2587,7 +2422,6 @@ static int init_WireZoo(PyObject *self, PyObject *a, PyObject *kw) {
   o->v_enum = v_v_enum;
   { PyObject *v = v_v_msg ? AK_NEWREF(v_v_msg) : AK_NEWREF(Py_None); if (!v) return -1; Py_XSETREF(o->v_msg, v); }
   o->v_big_tag = v_v_big_tag;
-  { PyObject *v = v__unknown ? AK_NEWREF(v__unknown) : PyBytes_FromStringAndSize(NULL, 0); if (!v) return -1; Py_XSETREF(o->_unknown, v); }
   return 0;
 }
 static int trav_WireZoo(PyObject *s, visitproc visit, void *arg) {
@@ -2595,7 +2429,6 @@ static int trav_WireZoo(PyObject *s, visitproc visit, void *arg) {
   Py_VISIT(o->v_string);
   Py_VISIT(o->v_bytes);
   Py_VISIT(o->v_msg);
-  Py_VISIT(o->_unknown);
   return 0;
 }
 static int clear_WireZoo(PyObject *s) {
@@ -2603,7 +2436,6 @@ static int clear_WireZoo(PyObject *s) {
   Py_CLEAR(o->v_string);
   Py_CLEAR(o->v_bytes);
   Py_CLEAR(o->v_msg);
-  Py_CLEAR(o->_unknown);
   return 0;
 }
 static void dealloc_WireZoo(PyObject *s) {
@@ -2684,7 +2516,6 @@ static PyType_Spec spec_WireZoo = {"_akffi_corpus_nounk.CWireZoo", sizeof(CWireZ
 #define CHUNK_WIREZOO ((int32_t)(AK_CHUNK_BYTES / sizeof(struct ak_efix_WireZoo)) > 0 ? \
                   (int32_t)(AK_CHUNK_BYTES / sizeof(struct ak_efix_WireZoo)) : 1)
 
-static PyObject *K__unknown;
 static PyObject *K_acquired_at;
 static PyObject *K_application_name;
 static PyObject *K_application_namespace;
@@ -2865,7 +2696,6 @@ static void ak_py_tls_enc_release(ak_enc_ctx *c, int tmp);
 
 
 static int intern_keys(void) {
-  K__unknown = PyUnicode_InternFromString("_unknown"); if (!K__unknown) return -1;
   K_acquired_at = PyUnicode_InternFromString("acquired_at"); if (!K_acquired_at) return -1;
   K_application_name = PyUnicode_InternFromString("application_name"); if (!K_application_name) return -1;
   K_application_namespace = PyUnicode_InternFromString("application_namespace"); if (!K_application_namespace) return -1;

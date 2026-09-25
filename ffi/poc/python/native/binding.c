@@ -626,14 +626,19 @@ static int mod_exec(PyObject *m) {
 
 static PyModuleDef_Slot mod_slots[] = {{Py_mod_exec, (void *)mod_exec}, {0, NULL}};
 
+/* The state is NULL between module creation and exec under multi-phase init, and CPython
+ * before 3.9 may run a GC pass (hence this traverse) in that window: found as a segfault
+ * in mod_traverse on the 3.7 floor, from PyModule_FromDefAndSpec2's first allocation. */
 static int mod_traverse(PyObject *m, visitproc visit, void *arg) {
   mod_state *st = (mod_state *)PyModule_GetState(m);
+  if (!st) return 0;
   for (int i = 0; i < AK_NTYPES; i++) Py_VISIT(st->t[i]);
   return 0;
 }
 
 static int mod_clear(PyObject *m) {
   mod_state *st = (mod_state *)PyModule_GetState(m);
+  if (!st) return 0;
   for (int i = 0; i < AK_NTYPES; i++) Py_CLEAR(st->t[i]);
   return 0;
 }

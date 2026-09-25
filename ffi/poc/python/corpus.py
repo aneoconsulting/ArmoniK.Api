@@ -61,6 +61,7 @@ RETAIN_ARMS = ["ffi-retain", "py-retain"]
 NOUNK = os.environ.get("AK_NOUNK") == "1"
 SFX = "_nounk" if NOUNK else ""
 if NOUNK:
+    GEN = os.path.join(HERE, "gen", "out", "corpus-nounk")   # the facade without `_unknown`
     ARMS = list(DROP_ARMS)
     RETAIN_ARMS = []
 
@@ -748,6 +749,29 @@ def nounk_controls(out=sys.stdout):
     bad += 1 if npos else 0
     rows = sorted(k for k, r in man.items() if r["class"] == "unknown" and r["expect"] == "accept"
                   and r.get("verdict") != "disputed" and r["root"] in arm.roots)
+    # No facade class of the variant carries `_unknown` (CAMPAIGN req 10: no capture state in
+    # the binding): the Plain/Slots classes, the C extension types, and every object decoded
+    # from an unknown row, through both backends.
+    import facts as F
+    objs = []
+    for v in rows:
+        r = man[v]
+        buf = open(rpath(r["file"]), "rb").read()
+        objs.append((mod.decode("cext", r["root"], buf, ty), r["root"]))
+        objs.append((mod.decode("attr", r["root"], buf, tuple(getattr(arm.fac, "Plain" + n) for n in names)), r["root"]))
+    found = F.unknown_slots(arm.fac, mod, objs)
+    print("   _unknown on the variant's facades: %d finding(s) over %d Plain/Slots classes, %d C types and %d decoded "
+          "objects%s" % (len(found), 2 * len(arm.fac.MESSAGES), len(mod.types()), len(objs),
+                         (": " + "; ".join(found[:5])) if found else ""), file=out)
+    bad += len(found)
+    # the check must be able to fail: the FULL build's facade, same classes, must show it
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("full_facade", os.path.join(HERE, "gen", "out", "corpus", "facade.py"))
+    ff = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ff)
+    nf = len(F.unknown_slots(ff))
+    print("   must-fail twin: the full build's corpus facade shows %d finding(s) (want > 0)" % nf, file=out)
+    bad += 0 if nf else 1
     refused = 0
     for v in rows:
         r = man[v]
