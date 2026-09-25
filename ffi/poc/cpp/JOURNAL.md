@@ -1437,3 +1437,12 @@ old snapshots. Re-run green. `wp5_gate.sh`'s `tail -30` with two files was inval
 `tail -n 30`.
 
 Requirement 10: the codec suite now times core-ffi retain. The smoke is instrumentation.
+
+## 2026-09-25: CAMPAIGN req 12 amended, C/D per unknown-field mode
+
+Added C-retain, C-drop, D-retain and D-drop to the RPC grid, with a pre-run check against
+the incumbent's re-encode. The first smoke stopped at that check because I had also
+required the retain re-encode to be byte-identical to the server's wire. The server sends
+protobuf's form of P2.2, and our canonical re-encode differs from it in encoding choices,
+not in content. The check now compares messages (both re-serialised deterministically by
+protobuf). Second smoke green in every group; figures stripped.

@@ -16,6 +16,21 @@ session, which makes it the most expensive defect in this directory.
 | **Machine** | **TWO of them, and that is a fact about the logs rather than a footnote.** Everything except `rpc.log` and `rpcflow.log`: 4 vCPU Intel Xeon @ **2.80 GHz**. Those two: 4 vCPU Intel Xeon @ **2.10 GHz**, same kernel (Linux 6.18.44), same g++ 13.3.0 `-O2 -g -DNDEBUG`, same rustc 1.94.1. **No absolute crosses between them** (R13, R4) |
 | **R13 calibration** | the 2.80 GHz machine's rust-slice crossing is **1.5 ns** forward (`calibration-r13.log`), against 1.8 ns in the rust slice's own container. **On the 2.10 GHz machine it could not be re-taken: the rust slice does not build on this branch (C27).** What was re-taken there is this slice's OWN crossing, by the unchanged bench: **forward 0.59-0.65 ns, reverse 0.27-0.31 ns**, against 1.822-1.824 / 0.6 published from the 2.80 GHz box. A factor of about three, on a nominally slower clock. That is the whole reason R13 exists |
 
+## Addendum (2026-09-25): CAMPAIGN req 12 amended (85cb00f), RPC cells per unknown-field mode
+
+`src/campaign_rpc.cpp`: cells C and D now run as `C-retain`, `C-drop`, `D-retain`, `D-drop`
+(`--cells ABCD` expands; labels selectable). retain = `decode_with_*_unk` (every position
+armed) and, direction b, `encode_into_*_unk`; drop = the drop context and the plain encode.
+Every call is still checked. Pre-run check per C/D mode: decode one Fetch response,
+re-encode it in the same mode, and require protobuf's deterministic re-serialisation of our
+bytes to equal protobuf's own re-serialisation of the wire (the incumbent's re-encode). A
+first draft also required byte identity with the wire and stopped the smoke: the server's
+pre-serialised P2.2 is protobuf's form, not the canonical one; the check now compares
+messages (commits `253f487`, `4d2a54b`). `C-nounk`/`D-nounk` wait for the compiled-out build
+the rust agent is adding. Smoke (gate + rpc, 1 launch, 1 round, shipped and pinned): all 24
+(cell, dir, transport) groups sampled, gate green; figures stripped from the committed
+`campaign/rpc-launch1.jsonl`.
+
 ## This work unit (2026-09-25): FIX-PLAN WP5 step 9, decision 11 in the C++ binding
 
 Built against the core at `e897f57`/`4238d58` (ABI v1 decision 11 and its implementation
