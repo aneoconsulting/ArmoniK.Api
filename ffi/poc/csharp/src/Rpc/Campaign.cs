@@ -282,19 +282,23 @@ public static class CampaignMain
         // grpc-dotnet marshallers. A: Grpc.Tools' production shape; D: core-ffi.
         var aDown = DownMethod(c => { CheckLen(c.PayloadLength, want, "A"); return Gp.ListTasksDetailedResponse.Parser.ParseFrom(c.PayloadAsReadOnlySequence()); });
         var aUp = UpMethod<Gp.ListTasksDetailedResponse>((m, c) => { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); });
-        var dDown = DownMethod(c =>
+        // CAMPAIGN req 12 (amended 85cb00f): C and D run in each unknown-field mode of req 10.
+        // retain = decision 11's options armed at every position (TryDecode(retain: true):
+        // reset(&opts) / decode / reset(NULL), a buffer left undelivered fails the call) and
+        // ak_uencode_*; drop = the same build, reset with NULL and ak_encode_*.
+        Method<byte[], ListTasksDetailedResponse> DDownM(bool retain) => DownMethod(c =>
         {
             CheckLen(c.PayloadLength, want, "D");
             var b = Flatten(c.PayloadAsReadOnlySequence(), out int n);
-            int rc = Core.TryDecode(b, n, false, out var m);
-            if (rc < 0) throw new Abort("D: core decode " + rc);
+            int rc = Core.TryDecode(b, n, retain, out var m);
+            if (rc < 0) throw new Abort("D: core decode " + rc + (rc == CoreFfi_ListTasksDetailedResponse.UNDELIVERED ? " (UNDELIVERED)" : ""));
             return m;
         });
-        var dUp = UpMethod<ListTasksDetailedResponse>((m, c) =>
+        Method<ListTasksDetailedResponse, byte[]> DUpM(bool retain) => UpMethod<ListTasksDetailedResponse>((m, c) =>
         {
             unsafe
             {
-                int rc = Core.TryEncode(m, false, out byte* p, out int n);
+                int rc = Core.TryEncode(m, retain, out byte* p, out int n);
                 if (rc < 0) throw new Abort("D: core encode " + rc);
                 c.SetPayloadLength(n);
                 var w = c.GetBufferWriter();
@@ -303,6 +307,8 @@ public static class CampaignMain
                 c.Complete();
             }
         });
+        var dDownR = DDownM(true); var dDownD = DDownM(false);
+        var dUpR = DUpM(true); var dUpD = DUpM(false);
         var downPath = Encoding.UTF8.GetBytes("/" + Svc + "/Down");
         var upPath = Encoding.UTF8.GetBytes("/" + Svc + "/Up");
         byte[] gUpBytes = g22.ToByteArray();
@@ -346,7 +352,7 @@ public static class CampaignMain
             }
             finally { AkRpc.ak_bytes_free(&r); }
         }
-        unsafe void CDown()
+        unsafe void CDown(bool retain)
         {
             ak_bytes r = default;
             int rc;
@@ -358,8 +364,8 @@ public static class CampaignMain
                 // TryDecode takes a managed buffer; the response is copied once (charged to C).
                 var b = Buf((int)r.len);
                 new ReadOnlySpan<byte>((void*)r.ptr, (int)r.len).CopyTo(b);
-                int dr = Core.TryDecode(b, (int)r.len, false, out _);
-                if (dr < 0) throw new Abort("C: core decode " + dr);
+                int dr = Core.TryDecode(b, (int)r.len, retain, out _);
+                if (dr < 0) throw new Abort("C: core decode " + dr + (dr == CoreFfi_ListTasksDetailedResponse.UNDELIVERED ? " (UNDELIVERED)" : ""));
             }
             finally { AkRpc.ak_bytes_free(&r); }
         }
@@ -374,9 +380,9 @@ public static class CampaignMain
             try { if (rc != AkRpc.AK_OK) throw new Abort("B up: status " + rc); CheckLen((int)r.len, 0, "B up"); }
             finally { AkRpc.ak_bytes_free(&r); }
         }
-        unsafe void CUp()
+        unsafe void CUp(bool retain)
         {
-            int er = Core.TryEncode(f22, false, out byte* q, out int n);
+            int er = Core.TryEncode(f22, retain, out byte* q, out int n);
             if (er < 0) throw new Abort("C up: core encode " + er);
             ak_bytes r = default;
             int rc;
@@ -425,12 +431,16 @@ public static class CampaignMain
         {
             ("A", "a", (n, k) => AsyncOp(() => Grpc(aDown, Array.Empty<byte>()), n, k)),
             ("B", "a", (n, k) => BlockingOp(BDown, n, k)),
-            ("C", "a", (n, k) => BlockingOp(CDown, n, k)),
-            ("D", "a", (n, k) => AsyncOp(() => Grpc(dDown, Array.Empty<byte>()), n, k)),
+            ("C-retain", "a", (n, k) => BlockingOp(() => CDown(true), n, k)),
+            ("C-drop", "a", (n, k) => BlockingOp(() => CDown(false), n, k)),
+            ("D-retain", "a", (n, k) => AsyncOp(() => Grpc(dDownR, Array.Empty<byte>()), n, k)),
+            ("D-drop", "a", (n, k) => AsyncOp(() => Grpc(dDownD, Array.Empty<byte>()), n, k)),
             ("A", "b", (n, k) => AsyncOp(() => Grpc(aUp, g22), n, k)),
             ("B", "b", (n, k) => BlockingOp(BUp, n, k)),
-            ("C", "b", (n, k) => BlockingOp(CUp, n, k)),
-            ("D", "b", (n, k) => AsyncOp(() => Grpc(dUp, f22), n, k)),
+            ("C-retain", "b", (n, k) => BlockingOp(() => CUp(true), n, k)),
+            ("C-drop", "b", (n, k) => BlockingOp(() => CUp(false), n, k)),
+            ("D-retain", "b", (n, k) => AsyncOp(() => Grpc(dUpR, f22), n, k)),
+            ("D-drop", "b", (n, k) => AsyncOp(() => Grpc(dUpD, f22), n, k)),
             ("B.callback", "a", (n, k) => AsyncOp(() => CoreAsync(false, downPath, Array.Empty<byte>(), want, false), n, k)),
             ("B.queue", "a", (n, k) => AsyncOp(() => CoreAsync(true, downPath, Array.Empty<byte>(), want, false), n, k)),
             ("C.callback", "a", (n, k) => AsyncOp(() => CoreAsync(false, downPath, Array.Empty<byte>(), want, true), n, k)),
@@ -442,7 +452,7 @@ public static class CampaignMain
         };
         var cells = (from o in ops from k in levels select (o.Cell, o.Dir, k, o.Run)).ToList();
         Header("rpc", string.Format(CultureInfo.InvariantCulture,
-            "launch {0}, rounds {1}, {2} calls per sample, in flight {3}; transport {4} (client: DisableDynamicWindowSizing{5}; Kestrel {6}; core: ak_client_opts stream {7} connection {8} adaptive 0 nagle {9}); Unix socket {10}; the server is a separate process; B/C blocking delivery, .callback/.queue extra rows; direction a: empty request, P2.2 response ({11} B); b: P2.2 request decoded by the server, empty response; warm-up {12} calls per cell; every call checked (status and length)",
+            "launch {0}, rounds {1}, {2} calls per sample, in flight {3}; transport {4} (client: DisableDynamicWindowSizing{5}; Kestrel {6}; core: ak_client_opts stream {7} connection {8} adaptive 0 nagle {9}); Unix socket {10}; the server is a separate process; B/C blocking delivery, .callback/.queue extra rows (C.* in drop mode); C and D in each unknown-field mode (req 12 amended): C-retain/D-retain = decision 11's options armed at every position and ak_uencode_*, C-drop/D-drop = reset with NULL and ak_encode_* (C-nounk/D-nounk: the compiled-out build, not yet ported); a retained decode that leaves a grown buffer undelivered fails its call; direction a: empty request, P2.2 response ({11} B); b: P2.2 request decoded by the server, empty response; warm-up {12} calls per cell; every call checked (status and length)",
             launch, rounds, calls, string.Join("/", levels), transport, pinned ? " + InitialHttp2StreamWindowSize 4 MiB" : ", no window set",
             pinned ? "stream/connection window 4 MiB" : "defaults", opts.stream_window, opts.connection_window, opts.tcp_nagle, sock, want, 2 * levels.Max()));
 
@@ -463,6 +473,8 @@ public static class CampaignMain
                     lines.Add(new Sample
                     {
                         Suite = "rpc", Cell = c.Cell, Payload = "P2.2", Dir = c.Dir, Transport = transport, Inflight = c.k,
+                        Mode = c.Cell.EndsWith("-retain", StringComparison.Ordinal) ? "retain"
+                             : c.Cell.StartsWith("C", StringComparison.Ordinal) || c.Cell.StartsWith("D", StringComparison.Ordinal) ? "drop" : "default",
                         Launch = launch, Round = r, CpuNs = c1 - c0, WallNs = w1 - w0, Iters = calls,
                     }.Json());
                 }
