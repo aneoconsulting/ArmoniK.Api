@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The python slice's campaign runner (design/CAMPAIGN.md requirement 31).
 #
-#   ./run_campaign.sh --suite codec|rpc|calib|gate --out <dir> [--launches 3] [--rounds 5]
+#   ./run_campaign.sh --suite codec|rpc|calib|gate --out <dir>   (CAMPAIGN.md 29: --out ffi/logs/python/campaign) [--launches 3] [--rounds 5]
 #                     [--smoke] [--allow-dirty]
 #
 # Environment: AK_CPU_CLIENT, AK_CPU_SERVER (required for codec/rpc/calib unless --smoke),

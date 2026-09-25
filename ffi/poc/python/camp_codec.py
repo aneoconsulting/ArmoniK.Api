@@ -7,11 +7,9 @@ Families (a family is one process: the shapes core and the corpus-schema core ar
 `libak_core.so` and cannot share one):
   shapes    the 16 payloads of design/SHAPES.md, ASCII; P2.4 also in the Latin-1 and wide
             content sets (SHAPES.md's P10 row: content sets are measured on P2.4)
-  unknown   the corpus's unknown-field rows, one per position class: U-root-all,
-            U-nested-all, U-deep-all, U-element-all, U-leaf-all, U-oneof-all,
-            U-chunkelem-all (every wire type at every position; the disputed U-map-entry
-            is left out). CAMPAIGN.md 7 points at "the rows named in section 4.3", which
-            names none; this is the selection, stated
+  unknown   CAMPAIGN.md 7 (amended 0e8e9eb): every corpus U-* row whose root this slice's
+            C ABI carries (every corpus root but the refused `Nest`), accept rows only,
+            disputed rows excluded (U-map-entry)
 
 Arms (requirement 8) and unknown-field modes (requirement 10):
   incumbent-prod   grpcio's generated marshaller path: Message.SerializeToString on encode
@@ -63,8 +61,6 @@ def opt(name, default=None, conv=str):
 
 
 FAMILY = opt("--family", "shapes")
-UNKNOWN_ROWS = ["U-root-all", "U-nested-all", "U-deep-all", "U-element-all", "U-leaf-all",
-                "U-oneof-all", "U-chunkelem-all"]
 CONTENT_PAYLOADS = ["P2.4"]
 TARGET_MS = opt("--target-ms", 50.0, float)
 
@@ -221,7 +217,10 @@ def unknown_cases(log):
     TC = tuple(CC[n] for n in names)
     man = json.load(open(os.path.join(L.FFI, "corpus", "generated", "manifest.json")))["vectors"]
     cases, gates = [], []
-    for vid in UNKNOWN_ROWS:
+    roots = set(ffi.roots())
+    rows = sorted(k for k, r in man.items() if k.startswith("U-") and r["expect"] == "accept"
+                  and r.get("verdict") != "disputed" and r["root"] in roots)
+    for vid in rows:
         r = man[vid]
         root = r["root"]
         buf = open(os.path.normpath(os.path.join(L.FFI, "corpus", "generated", r["file"])), "rb").read()
@@ -263,7 +262,12 @@ def unknown_cases(log):
                   else (lambda _f=f, _p=plan: AP.read(_f(), _p)))
             cases.append(Case(vid, "ascii", "decode+read", arm, mode, loop(rd)))
     log.note("core-ffi retain: PENDING decision 11 port -- not timed (requirement 10)")
-    log.note("unknown-field rows: %s" % ", ".join(UNKNOWN_ROWS))
+    log.note("unknown-field rows (%d): %s" % (len(rows), ", ".join(rows)))
+    skipped = sorted(k for k, r in man.items() if k.startswith("U-") and k not in rows)
+    log.note("U-* rows not run, with the reason: %s" % ", ".join(
+        "%s (%s)" % (k, "disputed" if man[k].get("verdict") == "disputed" else
+                     "root %s not in the C ABI" % man[k]["root"] if man[k]["root"] not in roots else man[k]["expect"])
+        for k in skipped))
     return cases, gates
 
 
