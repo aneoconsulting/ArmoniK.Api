@@ -59,6 +59,12 @@ import java.util.concurrent.CyclicBarrier;
  * ({@code Native.unkLive}) and every retain Binding's reclaim counters must read 0 (a
  * non-zero reading aborts, req 18). A and B run the incumbent in its default mode.
  *
+ * <p><b>The no-unknown build</b> (WP5 step 10): this class compiled against the tree
+ * generated from the plan relowered with unknown="drop" and run on that build's core
+ * runs A, B, {@code C-nounk} and {@code D-nounk}; A and B are the in-process controls that
+ * let a ratio be formed against the full build's process. Every sample carries
+ * {@code unknown_mode} (default, retain, drop, no-unknown) and {@code build}.
+ *
  * <p><b>The server does identical work in every cell</b> (req 13): direction (a) answers
  * every request with the SAME pre-serialised P2.2 bytes; direction (b) parses the request
  * with protobuf-java and answers with an empty body. Both through a pass-through byte
@@ -180,7 +186,7 @@ public final class CampaignRpc {
   static final ThreadLocal<Binding> BIND_U = new ThreadLocal<Binding>() {
     @Override protected Binding initialValue() {
       Binding b = new Binding();
-      b.retain = true;
+      FfiArms.setRetain(b, true);
       MINE.get().add(b);
       BINDINGS_RETAIN.incrementAndGet();
       return b;
@@ -188,8 +194,9 @@ public final class CampaignRpc {
   };
   static void releaseThread() {
     for (Binding b : MINE.get()) {
-      UNK_RECLAIMED.addAndGet(b.unkReclaimed);
-      UNK_LEFT.addAndGet(b.unkLeftAfterSuccess);
+      long[] u = FfiArms.unkCounters(b);
+      UNK_RECLAIMED.addAndGet(u[0]);
+      UNK_LEFT.addAndGet(u[1]);
       b.close();
     }
     MINE.remove();
@@ -427,10 +434,16 @@ public final class CampaignRpc {
     List<Cell> cells = new ArrayList<Cell>();
     cells.add(new GrpcCell("A", true, false, sock, elg, pinned));
     cells.add(new CoreCell("B", true, false, sock, pinned));
-    cells.add(new CoreCell("C-retain", false, true, sock, pinned));
-    cells.add(new CoreCell("C-drop", false, false, sock, pinned));
-    cells.add(new GrpcCell("D-retain", false, true, sock, elg, pinned));
-    cells.add(new GrpcCell("D-drop", false, false, sock, elg, pinned));
+    if (ak.Variant.UNKNOWN_FIELDS) {
+      cells.add(new CoreCell("C-retain", false, true, sock, pinned));
+      cells.add(new CoreCell("C-drop", false, false, sock, pinned));
+      cells.add(new GrpcCell("D-retain", false, true, sock, elg, pinned));
+      cells.add(new GrpcCell("D-drop", false, false, sock, elg, pinned));
+    } else {
+      // WP5 step 10: the no-unknown build; A and B are the in-process controls.
+      cells.add(new CoreCell("C-nounk", false, false, sock, pinned));
+      cells.add(new GrpcCell("D-nounk", false, false, sock, elg, pinned));
+    }
 
     String[] dirs = {"a", "b"};
     // Correctness first, per cell and direction: one checked call each (req 18, 26).
@@ -460,6 +473,8 @@ public final class CampaignRpc {
           for (Cell c : Campaign.rotate(cells, r)) {
             long[] v = sample(c, d, inf, calls, chunk);
             Campaign.add(new Campaign.Sample().s("suite", "rpc").s("cell", c.name).s("payload", PAYLOAD)
+                .s("unknown_mode", c.incumbentCodec ? "default" : c.retain ? "retain"
+                    : ak.Variant.UNKNOWN_FIELDS ? "drop" : "no-unknown").s("build", ak.Variant.NAME)
                 .s("dir", d).s("transport", transport).n("inflight", inf).s("delivery",
                     c instanceof CoreCell ? "blocking" : null)
                 .n("launch", Campaign.LAUNCH).n("round", r).n("cpu_ns", v[0]).n("wall_ns", v[1])
@@ -470,7 +485,7 @@ public final class CampaignRpc {
     for (Cell c : cells) c.close();
     // The leak counters (decision 11 rule 3), after every call of the run.
     releaseThread();                           // the correctness phase's Bindings
-    long live = Native.unkLive(), reclaimed = UNK_RECLAIMED.get(), left = UNK_LEFT.get();
+    long live = ak.Variant.UNKNOWN_FIELDS ? Native.unkLive() : 0L, reclaimed = UNK_RECLAIMED.get(), left = UNK_LEFT.get();
     Campaign.meta("{\"unk_leak\":{\"buffers_alive\":" + live + ",\"reclaimed_after_failed_decodes\":"
         + reclaimed + ",\"left_after_successful_decodes\":" + left + ",\"retain_bindings\":"
         + BINDINGS_RETAIN.get() + ",\"drop_bindings\":" + BINDINGS_DROP.get() + "}}");

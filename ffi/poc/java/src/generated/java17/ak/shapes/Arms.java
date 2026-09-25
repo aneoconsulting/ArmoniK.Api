@@ -110,6 +110,9 @@ public final class Arms {
     }
   }
 
+  /** The Enc site count that fits every arm R class of this tree. */
+  public static final int R_SITES = Math.max(Codec.SITES, CodecRetain.SITES);
+
   public static void encodeRRetain(String id, Object o, Enc e) {
     switch (id) {
       case "P1.1": CodecRetain.encodeIntoListResultsResponse(e, (ListResultsResponse) o); break;

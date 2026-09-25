@@ -85,4 +85,14 @@ public final class FfiArms {
       default: throw new IllegalArgumentException(id);
     }
   }
+
+  /** Decision 11's retain mode on this binding; the no-unknown build refuses it. */
+  public static void setRetain(Binding b, boolean on) {
+    b.retain = on;
+  }
+
+  /** {buffers reclaimed after failed decodes, left after successful ones}. */
+  public static long[] unkCounters(Binding b) {
+    return new long[] {b.unkReclaimed, b.unkLeftAfterSuccess};
+  }
 }

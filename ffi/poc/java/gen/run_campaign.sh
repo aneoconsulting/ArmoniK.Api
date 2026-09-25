@@ -119,6 +119,18 @@ run_gate() {
   else
     echo "## crossing counts DIFFER from gen/campaign/counts.ref (req 19): see counts-$COMMIT.diff" >> "$f"; rc=1
   fi
+  # WP5 step 10: the NO-UNKNOWN build, gated on its own (payload set, corpus, its own counts).
+  { echo; echo "## gen/gate.sh, no-unknown build"; AK_VARIANT=nounk bash gen/gate.sh; } >> "$f" 2>&1 || rc=1
+  { echo; echo "## gen/corpus.sh, no-unknown build"; AK_VARIANT=nounk bash gen/corpus.sh; } >> "$f" 2>&1 || rc=1
+  "$J17/bin/java" -cp "build/cls17-nounk:$CP" -Dak.lib="$HERE/build/jnicnt-nounk/libakjni.so" ak.RunCounts \
+    2>/dev/null | grep -E '^P[0-9]' > "$OUT/counts-nounk-$COMMIT.txt" || true
+  if diff -u gen/campaign/counts-nounk.ref "$OUT/counts-nounk-$COMMIT.txt" > "$OUT/counts-nounk-$COMMIT.diff"; then
+    echo "## crossing counts, no-unknown build: identical to gen/campaign/counts-nounk.ref ($(wc -l < gen/campaign/counts-nounk.ref) rows)" >> "$f"
+  else
+    echo "## crossing counts, no-unknown build, DIFFER from gen/campaign/counts-nounk.ref (req 19): see counts-nounk-$COMMIT.diff" >> "$f"; rc=1
+  fi
+  { echo "## the two committed references against each other (full -> no-unknown):"
+    diff gen/campaign/counts.ref gen/campaign/counts-nounk.ref | sed 's/^/   /' || true; } >> "$f"
   if [ $rc = 0 ]; then echo "GATE PASSED" >> "$f"; echo "commit $COMMIT $(date -u +%FT%TZ)" > "$OUT/gate-$GKEY.ok"
   else echo "GATE FAILED: no timing suite runs at this commit" >> "$f"; fi
   echo "gate: $(tail -1 "$f")  ($f)"
@@ -141,63 +153,80 @@ codec)
   JMHCP=$(cat deps/jmh/cp.txt)
   EXTRA=""; WARM=${AK_WARM:-5}
   [ "$SMOKE" = 1 ] && { EXTRA="-Dak.camp.budget=${AK_SMOKE_BUDGET:-65536} -Dak.camp.maxiters=${AK_SMOKE_MAXITERS:-50}"; WARM=1; AK_SMOKE_UROWS=${AK_SMOKE_UROWS:-6}; }
-  for l in $(seq 1 "$LAUNCHES"); do
-    CELLS=$("$J17/bin/java" -cp "build/cls17:$CP" -Dak.camp.launch="$l" ${AK_CODEC_PROPS:-} ak.CampaignCodec | tr '\n' ',' | sed 's/,$//')
+  # WP5 step 10: two builds, each its own JMH invocation per launch (the no-unknown build is
+  # another class tree and another core; one process cannot hold both), in alternating order
+  # by launch. The incumbent arms run in both, the in-process controls that carry a ratio
+  # across (absolutes do not travel between the two builds' processes).
+  codec_run() {  # $1 = launch, $2 = full|nounk
+    local l=$1 V=$2 SX= TAG= BUILD=full
+    [ "$V" = nounk ] && { SX=-nounk; TAG=-nounk; BUILD=no-unknown; }
+    CELLS=$("$J17/bin/java" -cp "build/cls17$SX:$CP" -Dak.camp.launch="$l" ${AK_CODEC_PROPS:-} ak.CampaignCodec | tr '\n' ',' | sed 's/,$//')
     for coder in compact utf16; do
-      f="$OUT/codec-$coder-launch-$l.jsonl"; base="$OUT/codec-$coder-launch-$l"
-      header "$f" "engine=JMH 1.37 SingleShotTime, -f 1 per cell, warm-up $WARM iteration(s) + $ROUNDS measurement iteration(s) per cell, coder=$coder launch=$l, $(echo "$CELLS" | tr ',' '\n' | wc -l) cells"
+      f="$OUT/codec$TAG-$coder-launch-$l.jsonl"; base="$OUT/codec$TAG-$coder-launch-$l"
+      header "$f" "engine=JMH 1.37 SingleShotTime, -f 1 per cell, warm-up $WARM iteration(s) + $ROUNDS measurement iteration(s) per cell, build=$V coder=$coder launch=$l, $(echo "$CELLS" | tr ',' '\n' | wc -l) cells"
       CF=""; [ "$coder" = utf16 ] && CF="-XX:-CompactStrings"
       echo "# command: $PIN_C java org.openjdk.jmh.Main ak.CodecJmh.sample -f 1 -wi $WARM -i $ROUNDS -foe true -jvmArgs '$JVM_FLAGS $CF ...'" >> "$f"
       echo "# cpu_ns: the measuring thread's CPU clock read inside the benchmark method; wall_ns: JMH's raw per-iteration time" >> "$f"
       rm -f "$base.cpu.tsv"
-      $PIN_C "$J17/bin/java" -cp "build/jmh17:build/cls17:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.CodecJmh.sample' \
+      $PIN_C "$J17/bin/java" -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.CodecJmh.sample' \
         -f 1 -wi "$WARM" -i "$ROUNDS" -foe true -p cell="$CELLS" \
-        -jvmArgs "$JVM_FLAGS $CF -Dak.lib=$HERE/build/jni/libakjni.so -Dak.jmh.cpuout=$base.cpu.tsv $EXTRA" \
+        -jvmArgs "$JVM_FLAGS $CF -Dak.lib=$HERE/build/jni$SX/libakjni.so -Dak.jmh.cpuout=$base.cpu.tsv $EXTRA" \
         -rf json -rff "$base.jmh.json" > "$base.jmh.txt" 2>&1 \
-        || { echo "codec launch $l ($coder) FAILED (JMH, -foe true); no figure: $base.jmh.txt"; exit 1; }
-      python3 -S gen/jmh_to_jsonl.py "$base.jmh.json" "$base.cpu.tsv" "$l" "$coder" >> "$f" \
-        || { echo "codec launch $l ($coder): conversion FAILED; no figure"; exit 1; }
-      echo "codec launch $l ($coder): $(grep -c '"cpu_ns"' "$f") samples -> $f"
+        || { echo "codec$TAG launch $l ($coder) FAILED (JMH, -foe true); no figure: $base.jmh.txt"; exit 1; }
+      python3 -S gen/jmh_to_jsonl.py "$base.jmh.json" "$base.cpu.tsv" "$l" "$coder" "$BUILD" >> "$f" \
+        || { echo "codec$TAG launch $l ($coder): conversion FAILED; no figure"; exit 1; }
+      echo "codec$TAG launch $l ($coder): $(grep -c '"cpu_ns"' "$f") samples -> $f"
     done
     # Req 7 (amended): every corpus U-* row of class unknown, not disputed, whose root the
     # slice implements, through the corpus description and the corpus core's shim; compact
     # strings only (the rows exercise unknown-field handling, not the String coder).
-    UCELLS=$("$J17/bin/java" -cp "build/cls17:$CP" -Dak.camp.launch="$l" -Dak.camp.unknown=1 \
+    UCELLS=$("$J17/bin/java" -cp "build/cls17$SX:$CP" -Dak.camp.launch="$l" -Dak.camp.unknown=1 \
              ${AK_SMOKE_UROWS:+-Dak.camp.urows=$AK_SMOKE_UROWS} ak.CampaignCodec | tr '\n' ',' | sed 's/,$//')
-    f="$OUT/codec-unknown-launch-$l.jsonl"; base="$OUT/codec-unknown-launch-$l"
-    header "$f" "engine=JMH 1.37 SingleShotTime, -f 1 per cell, warm-up $WARM + $ROUNDS iteration(s), corpus U-* rows (req 7), coder=compact launch=$l, $(echo "$UCELLS" | tr ',' '\n' | wc -l) cells"
+    f="$OUT/codec$TAG-unknown-launch-$l.jsonl"; base="$OUT/codec$TAG-unknown-launch-$l"
+    header "$f" "engine=JMH 1.37 SingleShotTime, -f 1 per cell, warm-up $WARM + $ROUNDS iteration(s), corpus U-* rows (req 7), build=$V coder=compact launch=$l, $(echo "$UCELLS" | tr ',' '\n' | wc -l) cells"
     rm -f "$base.cpu.tsv"
-    $PIN_C "$J17/bin/java" -cp "build/jmh17:build/cls17:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.CodecJmh.sample' \
+    $PIN_C "$J17/bin/java" -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.CodecJmh.sample' \
       -f 1 -wi "$WARM" -i "$ROUNDS" -foe true -p cell="$UCELLS" \
-      -jvmArgs "$JVM_FLAGS -Dak.lib=$HERE/build/jnicorpus/libakjni.so -Dak.jmh.cpuout=$base.cpu.tsv $EXTRA" \
+      -jvmArgs "$JVM_FLAGS -Dak.lib=$HERE/build/jnicorpus$SX/libakjni.so -Dak.jmh.cpuout=$base.cpu.tsv $EXTRA" \
       -rf json -rff "$base.jmh.json" > "$base.jmh.txt" 2>&1 \
-      || { echo "codec U-rows launch $l FAILED (JMH, -foe true); no figure: $base.jmh.txt"; exit 1; }
-    python3 -S gen/jmh_to_jsonl.py "$base.jmh.json" "$base.cpu.tsv" "$l" compact >> "$f" \
-      || { echo "codec U-rows launch $l: conversion FAILED; no figure"; exit 1; }
-    echo "codec U-rows launch $l: $(grep -c '"cpu_ns"' "$f") samples -> $f"
+      || { echo "codec$TAG U-rows launch $l FAILED (JMH, -foe true); no figure: $base.jmh.txt"; exit 1; }
+    python3 -S gen/jmh_to_jsonl.py "$base.jmh.json" "$base.cpu.tsv" "$l" compact "$BUILD" >> "$f" \
+      || { echo "codec$TAG U-rows launch $l: conversion FAILED; no figure"; exit 1; }
+    echo "codec$TAG U-rows launch $l: $(grep -c '"cpu_ns"' "$f") samples -> $f"
+  }
+  for l in $(seq 1 "$LAUNCHES"); do
+    if [ $((l % 2)) = 1 ]; then codec_run "$l" full; codec_run "$l" nounk
+    else codec_run "$l" nounk; codec_run "$l" full; fi
   done ;;
 rpc)
   EXTRA=""; WARM=${AK_WARM:-2}
   [ "$SMOKE" = 1 ] && { EXTRA="-Dak.camp.calls=${AK_SMOKE_CALLS:-64} -Dak.camp.chunk=16"; WARM=1; }
+  rpc_run() {  # $1 = launch, $2 = transport, $3 = full|nounk
+    local l=$1 tr=$2 V=$3 SX= TAG= CELLS="A, B, C-retain, C-drop, D-retain, D-drop"
+    [ "$V" = nounk ] && { SX=-nounk; TAG=-nounk; CELLS="A, B (in-process controls), C-nounk, D-nounk"; }
+    local f="$OUT/rpc-$tr$TAG-launch-$l.jsonl"
+    local sock="$HERE/build/campaign-$$-$tr$TAG-$l.sock"
+    header "$f" "transport=$tr build=$V launch=$l warm-up=$WARM sample(s) per (dir,inflight,cell) before round 1 (cells $CELLS in ONE client process, server in its own process)"
+    echo "# server: $PIN_S java ... ak.CampaignRpc --serve (grpc-java, pre-serialised P2.2; direction b parses with protobuf-java; the full build's classes, no core codec on the server)" >> "$f"
+    $PIN_S $JAVA -Dak.camp.transport="$tr" -Dak.lib="$HERE/build/jnirpc/libakjni.so" \
+      ak.CampaignRpc --serve "$sock" > "$OUT/rpc-server-$tr$TAG-$l.txt" 2>&1 &
+    local spid=$!
+    for i in $(seq 1 120); do grep -q SERVING "$OUT/rpc-server-$tr$TAG-$l.txt" 2>/dev/null && break; sleep 0.5; done
+    grep -q SERVING "$OUT/rpc-server-$tr$TAG-$l.txt" || { kill $spid; echo "server did not start"; exit 1; }
+    local rc=0
+    $PIN_C "$J17/bin/java" $JVM_FLAGS -cp "build/cls17$SX:$CP" -Dak.camp.rounds=$ROUNDS \
+      -Dak.camp.transport="$tr" -Dak.camp.socket="$sock" -Dak.camp.launch="$l" \
+      -Dak.lib="$HERE/build/jnirpc$SX/libakjni.so" -Dak.rpclib="$HERE/build/jnirpc$SX/libakjni.so" \
+      -Dak.camp.out="$f" -Dak.camp.warm="$WARM" $EXTRA ${AK_RPC_PROPS:-} ak.CampaignRpc || rc=$?
+    kill $spid 2>/dev/null || true; wait $spid 2>/dev/null || true
+    rm -f "$sock"
+    [ $rc = 0 ] || { echo "rpc launch $l ($tr, $V) FAILED (req 18); no figure"; exit 1; }
+    echo "rpc launch $l ($tr, $V): $(grep -c '"cpu_ns"' "$f") samples -> $f"
+  }
   for l in $(seq 1 "$LAUNCHES"); do
     for tr in shipped pinned; do
-      f="$OUT/rpc-$tr-launch-$l.jsonl"
-      sock="$HERE/build/campaign-$$-$tr-$l.sock"
-      header "$f" "transport=$tr launch=$l warm-up=$WARM sample(s) per (dir,inflight,cell) before round 1 (cells A, B, C-retain, C-drop, D-retain, D-drop in ONE client process, server in its own process)"
-      echo "# server: $PIN_S java ... ak.CampaignRpc --serve (grpc-java, pre-serialised P2.2; direction b parses with protobuf-java)" >> "$f"
-      $PIN_S $JAVA -Dak.camp.transport="$tr" -Dak.lib="$HERE/build/jnirpc/libakjni.so" \
-        ak.CampaignRpc --serve "$sock" > "$OUT/rpc-server-$tr-$l.txt" 2>&1 &
-      spid=$!
-      for i in $(seq 1 120); do grep -q SERVING "$OUT/rpc-server-$tr-$l.txt" 2>/dev/null && break; sleep 0.5; done
-      grep -q SERVING "$OUT/rpc-server-$tr-$l.txt" || { kill $spid; echo "server did not start"; exit 1; }
-      rc=0
-      $PIN_C $JAVA -Dak.camp.transport="$tr" -Dak.camp.socket="$sock" -Dak.camp.launch="$l" \
-        -Dak.lib="$HERE/build/jnirpc/libakjni.so" -Dak.rpclib="$HERE/build/jnirpc/libakjni.so" \
-        -Dak.camp.out="$f" -Dak.camp.warm="$WARM" $EXTRA ${AK_RPC_PROPS:-} ak.CampaignRpc || rc=$?
-      kill $spid 2>/dev/null || true; wait $spid 2>/dev/null || true
-      rm -f "$sock"
-      [ $rc = 0 ] || { echo "rpc launch $l ($tr) FAILED (req 18); no figure"; exit 1; }
-      echo "rpc launch $l ($tr): $(grep -c '"cpu_ns"' "$f") samples -> $f"
+      if [ $((l % 2)) = 1 ]; then rpc_run "$l" "$tr" full; rpc_run "$l" "$tr" nounk
+      else rpc_run "$l" "$tr" nounk; rpc_run "$l" "$tr" full; fi
     done
   done ;;
 calib)

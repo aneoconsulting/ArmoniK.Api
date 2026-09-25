@@ -33,6 +33,14 @@ import java.util.Map;
  *   core-ffi        retain        every position armed (decision 11), u-group encode
  * </pre>
  *
+ * <p><b>The no-unknown build</b> (FIX-PLAN WP5 step 10, req 10's third mode): the same class
+ * compiled against the tree generated from the plan relowered with unknown="drop"
+ * ({@code ak.Variant.UNKNOWN_FIELDS == false}), linked to the core built without the
+ * {@code unknown-fields} feature. Its cells are {@code core-ffi|no-unknown},
+ * {@code core-ffi-pull|no-unknown} and {@code host-gen|no-unknown} (arm R in drop mode over a
+ * facade with no {@code unknownFields} member), with the incumbent arms as in-process
+ * controls. Absolutes never travel between the two builds' processes.
+ *
  * <p>Directions (req 9): {@code encode}, {@code decode} (the bare call) and
  * {@code decode-read} (decode, then {@code Walk}/{@code PbWalk} read every field).
  *
@@ -150,12 +158,11 @@ public final class CampaignCodec {
 
   static final class HostGen extends Fac {
     final boolean retain;
-    final Enc e = new Enc(ak.shapes.Codec.SITES > ak.shapes.CodecRetain.SITES
-        ? ak.shapes.Codec.SITES : ak.shapes.CodecRetain.SITES);
+    final Enc e = new Enc(Arms.R_SITES);
     final Dec d = new Dec();
     HostGen(boolean retain) { this.retain = retain; }
     public String name() { return "host-gen"; }
-    public String mode() { return retain ? "retain" : "drop"; }
+    public String mode() { return retain ? "retain" : ak.Variant.UNKNOWN_FIELDS ? "drop" : "no-unknown"; }
     public void encode(String id, int n) {
       for (int i = 0; i < n; i++) {
         if (retain) Arms.encodeRRetain(id, pool[i], e); else Arms.encodeR(id, pool[i], e);
@@ -182,9 +189,9 @@ public final class CampaignCodec {
     final boolean pull;
     final boolean retain;
     Ffi(boolean pull) { this(pull, false); }
-    Ffi(boolean pull, boolean retain) { this.pull = pull; this.retain = retain; b.retain = retain; }
+    Ffi(boolean pull, boolean retain) { this.pull = pull; this.retain = retain; FfiArms.setRetain(b, retain); }
     public String name() { return pull ? "core-ffi-pull" : "core-ffi"; }
-    public String mode() { return retain ? "retain" : "drop"; }
+    public String mode() { return retain ? "retain" : ak.Variant.UNKNOWN_FIELDS ? "drop" : "no-unknown"; }
     @Override public boolean encodes() { return !pull; }
     public void encode(String id, int n) {
       for (int i = 0; i < n; i++) {
@@ -212,8 +219,11 @@ public final class CampaignCodec {
   // and the pre-timing check; the self-timed loop it had is retired. `main` now only lists
   // the cells (arm|mode|payload|content|dir) the runner hands JMH as the `cell` parameter.
 
-  static final String[] ARMS = {"incumbent-prod|default", "incumbent-best|default",
-      "core-ffi|drop", "core-ffi|retain", "core-ffi-pull|drop", "host-gen|drop", "host-gen|retain"};
+  static final String[] ARMS = ak.Variant.UNKNOWN_FIELDS
+      ? new String[] {"incumbent-prod|default", "incumbent-best|default",
+          "core-ffi|drop", "core-ffi|retain", "core-ffi-pull|drop", "host-gen|drop", "host-gen|retain"}
+      : new String[] {"incumbent-prod|default", "incumbent-best|default",   // WP5 step 10
+          "core-ffi|no-unknown", "core-ffi-pull|no-unknown", "host-gen|no-unknown"};
 
   static CArm make(String arm, String mode) {
     if (arm.equals("incumbent-prod")) return new Pbj(true);
@@ -352,7 +362,7 @@ public final class CampaignCodec {
       this.arm = arm; this.mode = mode; this.root = root; this.row = row;
       if (arm.startsWith("core-ffi")) {
         b = new ak.corpus.Binding();
-        b.retain = mode.equals("retain");   // decision 11 (WP5 step 9)
+        ak.corpus.Dispatch.setRetain(b, mode.equals("retain"));   // decision 11 (WP5 step 9)
       } else if (arm.startsWith("incumbent")) {
         proto = (Message) Class.forName("ak.pb." + root).getMethod("getDefaultInstance").invoke(null);
         marsh = ProtoLiteUtils.marshaller(proto);
