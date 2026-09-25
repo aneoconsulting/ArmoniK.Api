@@ -1,14 +1,14 @@
 # cpp slice, WP5 step 2: boundary
-#   date       2026-09-24T18:56:51Z
+#   date       2026-09-25T19:04:25Z
 #   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
 #   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit     6ce373d + uncommitted changes in poc/cpp or poc/codec
+#   commit     6feff87
 #   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
 #              for the corpus ABI); no timing is taken by anything in this log
 
 ===== boundary.sh =====
 == half one: does the FFI arm cross? ==
-  shared: 42 ak_* symbols are UNDEFINED dynamic imports; the per-message ones are:
+  shared: 67 ak_* symbols are UNDEFINED dynamic imports; the per-message ones are:
                     U ak_decode_DualResponse
                     U ak_decode_ListMetricsResponse
                     U ak_decode_ListProbeResponse
@@ -32,10 +32,10 @@
                     U ak_encode_UploadResultDataMessage
   [ok]   shared arm: the boundary is a real dynamic import
 
-  static: 86 ak_* symbols are DEFINED in the image (that is what static linkage is)
+  static: 99 ak_* symbols are DEFINED in the image (that is what static linkage is)
     ak_encode_ListResultsResponse             523 B entry point, 6 call sites
   [ok]   static arm: ak_encode_ListResultsResponse is CALLED, not inlined away
-    ak_decode_ListResultsResponse            4497 B entry point, 2 call sites
+    ak_decode_ListResultsResponse            3342 B entry point, 4 call sites
   [ok]   static arm: ak_decode_ListResultsResponse is CALLED, not inlined away
     ak_elem_ResultRaw                        3214 B entry point, 10 call sites
   [ok]   static arm: ak_elem_ResultRaw is CALLED, not inlined away
@@ -87,7 +87,7 @@
   [ok]   bench_a17_shared_lto: shapes::native::encode_into_list_results_response has an out-of-line body (1214 B)
   [ok]   bench_a17_shared_lto: shapes::native::enc_task_detailed has an out-of-line body (2743 B)
   [ok]   bench_a17_shared_lto: shapes::native::dec_list_results_response has an out-of-line body (1295 B)
-  [ok]   bench_a17_shared_lto: shapes::native::dec_list_tasks_detailed_response has an out-of-line body (2876 B)
+  [ok]   bench_a17_shared_lto: shapes::native::dec_list_tasks_detailed_response has an out-of-line body (2826 B)
   [ok]   bench_a17_shared_lto: shapes::native::decode_list_metrics_response has an out-of-line body (2630 B)
   The control is reached through a FUNCTION POINTER passed to the case runner, so its
   address is taken and an out-of-line body must exist. Both properties above are the
@@ -98,9 +98,9 @@ boundary: 23 checks passed, 0 failed
 >>> ok: boundary.sh (exit 0)
 
 ===== the corpus core's layout facts against the corpus header =====
-layout: 542 facts compared (corpus ABI), 0 disagree
+layout: 574 facts compared (corpus ABI), 0 disagree
 >>> ok: corpus layout (exit 0)
 
-layout: 542 facts compared (corpus ABI), 0 disagree
+layout: 574 facts compared (corpus ABI), 0 disagree
 >>> ok: corpus layout (static) (exit 0)
 

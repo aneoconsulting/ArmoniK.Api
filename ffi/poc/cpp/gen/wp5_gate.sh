@@ -82,7 +82,7 @@ py() { python3 "$@" 2> >(grep -v -i 'distutils\|traceback (most recent call last
   elif cmake -S . -B "$B" -DAK_RPC=ON > "$S/cfg.log" 2>&1 && cmake --build "$B" -j"$(nproc)" > "$S/build.log" 2>&1; then
     echo ">>> ok: build ($(grep -c 'Linking' "$S/build.log") executables relinked)"
   else
-    tail -30 "$S/cfg.log" "$S/build.log"; echo ">>> FAIL: build"
+    tail -n 30 "$S/cfg.log" "$S/build.log"; echo ">>> FAIL: build"
   fi
   step "freshness: every gated binary newer than the newest input"
   # What the binaries are compiled from: the C++ sources and headers (generated ones

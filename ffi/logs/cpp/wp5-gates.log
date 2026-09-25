@@ -1,8 +1,8 @@
 # cpp slice, WP5 step 2: the other gates (nothing timed)
-#   date       2026-09-24T18:56:58Z
+#   date       2026-09-25T19:04:32Z
 #   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
 #   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit     6ce373d + uncommitted changes in poc/cpp or poc/codec
+#   commit     6feff87
 #   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
 #              for the corpus ABI); no timing is taken by anything in this log
 
@@ -160,11 +160,11 @@ groupskip: 0 build(s) did not do what they must
 
 ===== concurrency.sh (AK_CONC_NO_T7=1; planted cores must fail) =====
 == ABI v1 obligation 12.5 ==
-date: 2026-09-24T18:56:58Z  nproc = 4  build dir: ./build
+date: 2026-09-25T19:04:32Z  nproc = 4  build dir: ./build
 
 =========== conc_a17_shared 4 6   (must PASS) ===========
 $ ldd ./build/conc_a17_shared | grep ak_core
-	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt9/ffi/poc/cpp/core-build/target/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
 plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
@@ -240,7 +240,7 @@ whole run, distinct wrong operations: native-encoder 0  core-encoder 0  decoder 
 
 =========== conc_c11_shared 4 6   (must PASS) ===========
 $ ldd ./build/conc_c11_shared | grep ak_core
-	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt9/ffi/poc/cpp/core-build/target/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201103  impl=floor  guard=on  linkage=shared  threads=4  rounds=6
 plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
@@ -391,7 +391,7 @@ whole run, distinct wrong operations: native-encoder 0  core-encoder 0  decoder 
 
 =========== conc_a17_shared 16 4   (must PASS) ===========
 $ ldd ./build/conc_a17_shared | grep ak_core
-	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt9/ffi/poc/cpp/core-build/target/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201703  impl=target  guard=on  linkage=shared  threads=16  rounds=4
 plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
@@ -467,7 +467,7 @@ whole run, distinct wrong operations: native-encoder 0  core-encoder 0  decoder 
 
 =========== conc_a17_pad 4 6   (a REFUSED design: must FAIL) ===========
 $ ldd ./build/conc_a17_pad | grep ak_core
-	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target-pad/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt9/ffi/poc/cpp/core-build/target-pad/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
 plants: AK_CONC_PAD=1  AK_CONC_GLOBAL=0   <-- in ak::Enc: a REFUSED design from ABI v1 section 6, built on purpose
@@ -557,7 +557,7 @@ the exit code is inverted by gen/concurrency.sh, not by this binary.
 
 =========== conc_a17_both 4 6   (a REFUSED design: must FAIL) ===========
 $ ldd ./build/conc_a17_both | grep ak_core
-	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target-both/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt9/ffi/poc/cpp/core-build/target-both/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
 plants: AK_CONC_PAD=1  AK_CONC_GLOBAL=1   <-- in ak::Enc: a REFUSED design from ABI v1 section 6, built on purpose
@@ -648,7 +648,7 @@ the exit code is inverted by gen/concurrency.sh, not by this binary.
 
 =========== conc_a17_corepad 4 6   (a REFUSED design: must FAIL) ===========
 $ ldd ./build/conc_a17_corepad | grep ak_core
-	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target-pad/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt9/ffi/poc/cpp/core-build/target-pad/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
 plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
@@ -731,7 +731,7 @@ the exit code is inverted by gen/concurrency.sh, not by this binary.
 
 =========== conc_a17_global 4 6   (a REFUSED design that is byte-CLEAN: must PASS) ===========
 $ ldd ./build/conc_a17_global | grep ak_core
-	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target-global/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt9/ffi/poc/cpp/core-build/target-global/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
 plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=1   <-- in ak::Enc: a REFUSED design from ABI v1 section 6, built on purpose
@@ -948,7 +948,7 @@ Per-element columns are forward / reverse.
   P1.2   encode zeroed-fill     forward      8  reverse      1  transcode     6000   per element  0.008 /  0.001
   P1.2   encode UNBATCHED       forward   1001  reverse      1  transcode     6000   per element  1.001 /  0.001
   P1.2   encode host transcoder forward      8  reverse   6001  transcode     6000   per element  0.008 /  6.001
-  P1.2   decode                 forward      1  reverse      5  transcode        0   per element  0.001 /  0.005
+  P1.2   decode                 forward      1  reverse      8  transcode        0   per element  0.001 /  0.008
   P1.3   encode                 forward      3  reverse      1  transcode        0   per element  0.010 /  0.003
   P1.3   encode zeroed-fill     forward      3  reverse      1  transcode        0   per element  0.010 /  0.003
   P1.3   encode UNBATCHED       forward    301  reverse      1  transcode        0   per element  1.003 /  0.003
@@ -1046,7 +1046,7 @@ Per-element columns are forward / reverse.
   P1.2   encode zeroed-fill     forward      8  reverse      1  transcode     6000   per element  0.008 /  0.001
   P1.2   encode UNBATCHED       forward   1001  reverse      1  transcode     6000   per element  1.001 /  0.001
   P1.2   encode host transcoder forward      8  reverse   6001  transcode     6000   per element  0.008 /  6.001
-  P1.2   decode                 forward      1  reverse      5  transcode        0   per element  0.001 /  0.005
+  P1.2   decode                 forward      1  reverse      8  transcode        0   per element  0.001 /  0.008
   P1.3   encode                 forward      3  reverse      1  transcode        0   per element  0.010 /  0.003
   P1.3   encode zeroed-fill     forward      3  reverse      1  transcode        0   per element  0.010 /  0.003
   P1.3   encode UNBATCHED       forward    301  reverse      1  transcode        0   per element  1.003 /  0.003
@@ -1132,6 +1132,56 @@ Per-element columns are forward / reverse.
   bytes touched, not the crossing count.
 >>> ok: counts static (exit 0)
 
+===== crossing counts against the committed baseline (logs/cpp/counts-baseline.log) =====
+  87 count rows identical
+>>> ok: counts unchanged
+===== crossing counts of the retain arms (AK_COUNTS_RETAIN=1: decode_with_*_unk and *_pool) =====
+  P1.1   decode                 forward      1  reverse      2  transcode        0   per element  0.250 /  0.500
+  P1.1   decode retain (+2 rst) forward      1  reverse      2  transcode        0   per element  0.250 /  0.500
+  P1.1   decode pool (+2 rst)   forward      1  reverse      2  transcode        0   per element  0.250 /  0.500
+  P1.2   decode                 forward      1  reverse      8  transcode        0   per element  0.001 /  0.008
+  P1.2   decode retain (+2 rst) forward      1  reverse      8  transcode        0   per element  0.001 /  0.008
+  P1.2   decode pool (+2 rst)   forward      1  reverse      8  transcode        0   per element  0.001 /  0.008
+  P1.3   decode                 forward      1  reverse      3  transcode        0   per element  0.003 /  0.010
+  P1.3   decode retain (+2 rst) forward      1  reverse      3  transcode        0   per element  0.003 /  0.010
+  P1.3   decode pool (+2 rst)   forward      1  reverse      3  transcode        0   per element  0.003 /  0.010
+  P2.1   decode                 forward      1  reverse      8  transcode        0   per element  1.000 /  8.000
+  P2.1   decode retain (+2 rst) forward      1  reverse      8  transcode        0   per element  1.000 /  8.000
+  P2.1   decode pool (+2 rst)   forward      1  reverse      8  transcode        0   per element  1.000 /  8.000
+  P2.2   decode                 forward      1  reverse   3501  transcode        0   per element  0.002 /  7.002
+  P2.2   decode retain (+2 rst) forward      1  reverse   3501  transcode        0   per element  0.002 /  7.002
+  P2.2   decode pool (+2 rst)   forward      1  reverse   3501  transcode        0   per element  0.002 /  7.002
+  P2.3   decode                 forward      1  reverse    876  transcode        0   per element  0.008 /  7.008
+  P2.3   decode retain (+2 rst) forward      1  reverse    876  transcode        0   per element  0.008 /  7.008
+  P2.3   decode pool (+2 rst)   forward      1  reverse    876  transcode        0   per element  0.008 /  7.008
+  P2.4   decode                 forward      1  reverse    561  transcode        0   per element  0.013 /  7.013
+  P2.4   decode retain (+2 rst) forward      1  reverse    561  transcode        0   per element  0.013 /  7.013
+  P2.4   decode pool (+2 rst)   forward      1  reverse    561  transcode        0   per element  0.013 /  7.013
+  P2.5   decode                 forward      1  reverse    141  transcode        0   per element  0.050 /  7.050
+  P2.5   decode retain (+2 rst) forward      1  reverse    141  transcode        0   per element  0.050 /  7.050
+  P2.5   decode pool (+2 rst)   forward      1  reverse    141  transcode        0   per element  0.050 /  7.050
+  P3.1   decode                 forward      1  reverse      2  transcode        0   per element  0.005 /  0.010
+  P3.1   decode retain (+2 rst) forward      1  reverse      2  transcode        0   per element  0.005 /  0.010
+  P3.1   decode pool (+2 rst)   forward      1  reverse      2  transcode        0   per element  0.005 /  0.010
+  P4.1   decode                 forward      1  reverse    601  transcode        0   per element  0.005 /  3.005
+  P4.1   decode retain (+2 rst) forward      1  reverse    601  transcode        0   per element  0.005 /  3.005
+  P4.1   decode pool (+2 rst)   forward      1  reverse    601  transcode        0   per element  0.005 /  3.005
+  P5.1   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.1   decode retain (+2 rst) forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.1   decode pool (+2 rst)   forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.2   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.2   decode retain (+2 rst) forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.2   decode pool (+2 rst)   forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.3   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.3   decode retain (+2 rst) forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.3   decode pool (+2 rst)   forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.4   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.4   decode retain (+2 rst) forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.4   decode pool (+2 rst)   forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P6.1   decode                 forward      1  reverse   1401  transcode        0   per element  0.005 /  7.005
+  P6.1   decode retain (+2 rst) forward      1  reverse   1401  transcode        0   per element  0.005 /  7.005
+  P6.1   decode pool (+2 rst)   forward      1  reverse   1401  transcode        0   per element  0.005 /  7.005
+>>> ok: counts retain (exit 0)
 ===== RPC crossing counts (the binding's ak_init_once before the first RPC) =====
 counting core: ak_rpc_counting() = 1
 configuration: grpc++ 1.51.1 server, UDS, transport pinned, 5 RPCs per cell
