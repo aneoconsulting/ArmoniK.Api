@@ -1,8 +1,8 @@
 # cpp slice, WP5 step 2: the generator
-#   date       2026-09-24T18:55:34Z
+#   date       2026-09-25T19:03:09Z
 #   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
 #   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit     6ce373d + uncommitted changes in poc/cpp or poc/codec
+#   commit     6feff87
 #   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
 #              for the corpus ABI); no timing is taken by anything in this log
 
@@ -21,6 +21,10 @@ ok    src/generated/pb_build.h
 ok    src/generated/pb_build.cpp
 ok    src/generated/core_native.h
 ok    src/generated/core_native.cpp
+ok    src/generated/core_native_retain.h
+ok    src/generated/core_native_retain.cpp
+ok    src/generated/touch.h
+ok    src/generated/touch.cpp
 ok    src/generated/binding.h
 ok    src/generated/binding.cpp
 ok    src/generated/types_borrow.h
@@ -63,7 +67,7 @@ ok    crates/ak-abi/src/lib.rs
 slice rust    --check: exit 0
 slice cpp     --check: exit 0
 slice java    --check: exit 0
-   checked 258 generated files, 0 problem(s)
+   checked 264 generated files, 0 problem(s)
 slice csharp  --check: exit 0
 slice python  --check: exit 0
 >>> ok: codec generate.py --check (exit 0)
@@ -104,8 +108,8 @@ refusal_test: 17 passed, 0 failed
   >>> ok: src/rpccounts.cpp
 
 ===== plant A: the struct loses tcp_nagle (host smaller than core) -- must NOT compile =====
-    /tmp/tmp.vc7s0WXvsS/a/ak_abi.h:1175:42: error: static assertion failed: sizeof ak_client_opts
-     1156 | #define AK_SASSERT(c, m) static_assert(c, m)
+    /tmp/tmp.Mxzz8dcQZl/a/ak_abi.h:1298:42: error: static assertion failed: sizeof ak_client_opts
+     1270 | #define AK_SASSERT(c, m) static_assert(c, m)
   >>> ok: plant A refused
 
 ===== plant B: plan.rpc gains a seventh ak_client_opts field =====
@@ -129,7 +133,7 @@ audit: 0 untracked, ignored or missing files that a figure could depend on
 
 # the ABI's entry points are defined once
   [ok]   ak_enc_ctx_new: one definition, in codec/crates/ak-core/src/lib.rs
-  [ok]   ak_dec_ctx_new: one definition, in codec/crates/ak-core/src/lib.rs
+  [ok]   ak_dec_ctx_free: one definition, in codec/crates/ak-core/src/lib.rs
   [ok]   ak_tc_utf8: one definition, in codec/crates/ak-core/src/lib.rs
   [ok]   ak_tc_utf16: one definition, in codec/crates/ak-core/src/lib.rs
 
@@ -153,6 +157,10 @@ audit: 0 untracked, ignored or missing files that a figure could depend on
   [ok]   rust/corpus/crates/harness/Cargo.toml: ak-core -> codec/crates/ak-core
   [ok]   rust/corpus/crates/harness/Cargo.toml: ak-abi -> codec/crates/ak-abi
   [ok]   rust/corpus/crates/harness/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   rust/crates/campaign/Cargo.toml: ak-abi -> codec/crates/ak-abi
+  [ok]   rust/crates/campaign/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   rust/crates/campaign/Cargo.toml: ak-core -> codec/crates/ak-core
+  [ok]   rust/crates/campaign/Cargo.toml: rpc -> codec/crates/rpc
   [ok]   rust/crates/facade/Cargo.toml: ak-rt -> codec/crates/ak-rt
   [ok]   rust/crates/harness/Cargo.toml: ak-core -> codec/crates/ak-core
   [ok]   rust/crates/harness/Cargo.toml: ak-abi -> codec/crates/ak-abi
@@ -208,7 +216,7 @@ one_core --selftest: 0 control(s) did not fire
 
 # the ABI's entry points are defined once
   [ok]   ak_enc_ctx_new: one definition, in codec/crates/ak-core/src/lib.rs
-  [ok]   ak_dec_ctx_new: one definition, in codec/crates/ak-core/src/lib.rs
+  [ok]   ak_dec_ctx_free: one definition, in codec/crates/ak-core/src/lib.rs
   [ok]   ak_tc_utf8: one definition, in codec/crates/ak-core/src/lib.rs
   [ok]   ak_tc_utf16: one definition, in codec/crates/ak-core/src/lib.rs
 
@@ -232,6 +240,10 @@ one_core --selftest: 0 control(s) did not fire
   [ok]   rust/corpus/crates/harness/Cargo.toml: ak-core -> codec/crates/ak-core
   [ok]   rust/corpus/crates/harness/Cargo.toml: ak-abi -> codec/crates/ak-abi
   [ok]   rust/corpus/crates/harness/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   rust/crates/campaign/Cargo.toml: ak-abi -> codec/crates/ak-abi
+  [ok]   rust/crates/campaign/Cargo.toml: ak-rt -> codec/crates/ak-rt
+  [ok]   rust/crates/campaign/Cargo.toml: ak-core -> codec/crates/ak-core
+  [ok]   rust/crates/campaign/Cargo.toml: rpc -> codec/crates/rpc
   [ok]   rust/crates/facade/Cargo.toml: ak-rt -> codec/crates/ak-rt
   [ok]   rust/crates/harness/Cargo.toml: ak-core -> codec/crates/ak-core
   [ok]   rust/crates/harness/Cargo.toml: ak-abi -> codec/crates/ak-abi

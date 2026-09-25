@@ -1,0 +1,68 @@
+# cpp slice, WP5 step 9: decision 11 under ASan + LSan
+#   date       2026-09-25T19:05:13Z
+#   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+#   commit     6feff87
+#   flags      -fsanitize=address -fno-omit-frame-pointer, ASAN_OPTIONS=detect_leaks=1
+
+===== conformance_a17_shared (payload identity, decision 11 section) =====
+-- ABI v1 decision 11: unknown-field options, pools, oneof, root-bound contexts --
+  pool n=2, grow: rc 0, grow calls 1 (fresh 1), entries cleared 1, bags exact 1
+  pool n=2, no grow: rc -7 (AK_ERR_CAPACITY -7), entries cleared 1, grow calls 0
+  in-place refill: rc 0, 3 elements, refills 2, each in the buffer written in new_tasks, bags exact: 1
+  no refill (control): rc -7 (AK_ERR_CAPACITY -7)
+  oneof stamp -> nothing           rc 0, fresh buffers 1, final bag exact
+  oneof stamp -> nothing -> stamp  rc 0, fresh buffers 1, final bag exact
+  oneof stamp -> as_int (scalar)   rc 0, fresh buffers 1, final bag exact
+  root entry all zero (discard)    rc 0 (want 0), bag as expected
+  root buffer too small, no grow   rc -7 (want -7)
+  grow returns AK_ERR_HOST         rc -1 (want -1)
+  grow under-delivers              rc -7 (want -7)
+  root buffer fits, no grow        rc 0 (want 0), bag as expected
+  wrong root: decode -8, parse -8, reset -8, binding decode -8, binding armed decode -8 (AK_ERR_INVALID_STATE -8); own root 0
+  retain round trip: decode 0, encode 30, bytes identical 1; drop decode keeps none 1
+
+574 checks, 0 failures, 1 payloads with two valid encodings
+>>> ok: conformance under ASan (exit 0)
+
+===== corpus_all_a17 --unk-controls under ASan (a sanitizer abort is a crash row) =====
+Error processing line 1 of /usr/lib/python3/dist-packages/distutils-precedence.pth:
+
+  Traceback (most recent call last):
+    File "<frozen site>", line 201, in addpackage
+    File "<string>", line 1, in <module>
+  ModuleNotFoundError: No module named '_distutils_hack'
+
+Remainder of file ignored
+# decision 11 controls through the C ABI binding (corpus_all --unk), 702 rows
+   rows through the C ABI 686 (not in the ABI 16); refused by every mode alike 143
+   positions checked 2290; position-rows where zeroing changes the value 315; rows with unknowns 307
+   rows whose map entries carried unknown bytes (delivered, freed: U-map-entry) 1
+   pool buffers refilled in place across all rows 75
+UNK CONTROLS PASS: 0 failing row(s)
+>>> ok: controls under ASan
+
+===== corpus_all_a17, four arms, under ASan =====
+Error processing line 1 of /usr/lib/python3/dist-packages/distutils-precedence.pth:
+
+  Traceback (most recent call last):
+    File "<frozen site>", line 201, in addpackage
+    File "<string>", line 1, in <module>
+  ModuleNotFoundError: No module named '_distutils_hack'
+
+Remainder of file ignored
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+## ffi-retain
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+   retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
+## native-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+## native-retain
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+   retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
+## ffi-retain retention gaps outside {U-map-entry}: 0
+## native-retain retention gaps outside {U-map-entry}: 0
+# rows that hung or crashed a child: 0
+CORPUS PASSES on every built arm
+>>> ok: corpus under ASan
+d11_asan: 0 failure(s)

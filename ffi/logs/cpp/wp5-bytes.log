@@ -1,16 +1,16 @@
 # cpp slice, WP5 step 2: byte audit, the C++ arms before the port against after it
-#   date       2026-09-24T18:56:16Z
+#   date       2026-09-25T19:03:48Z
 #   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
 #   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit     6ce373d + uncommitted changes in poc/cpp or poc/codec
+#   commit     6feff87
 #   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
 #              for the corpus ABI); no timing is taken by anything in this log
 
 ===== build the BEFORE harness (src/corpus.cpp) at aba944a, out of tree =====
-  built /tmp/tmp.A1Jc3kC9zk/oldb/corpus_a17_shared from aba944a
+  built /tmp/tmp.fxtrLcmu4D/oldb/corpus_a17_shared from aba944a
 ===== wp5_bytes.py =====
 # WP5 step 2 byte audit: C++ arms before vs after the port, drop mode
-#   before  /tmp/tmp.A1Jc3kC9zk/oldb/corpus_a17_shared
+#   before  /tmp/tmp.fxtrLcmu4D/oldb/corpus_a17_shared
 #   after   build/corpus_all_a17
 #   rows    213 corpus rows rooted at the seven shapes roots (of 702)
 

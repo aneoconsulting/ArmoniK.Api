@@ -6,7 +6,7 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | **2026-09-25, WP3 + requirement 22a: the codec suite now times on Google Benchmark v1.8.3, a Release build the runner makes from the upstream tag; RPC and calib stay on the runner (requirements 13/18).** Smoke (1 launch, 1 round, instrumentation): gate green, 1305 Google Benchmark repetitions converted to section 7 lines. Campaign-ready except requirement 10 (core-ffi retain: pending the decision-11 C++ port) and the section 3 incumbent versions. Checklist and 22a deltas below |
+| **Status** | **2026-09-25, FIX-PLAN WP5 step 9: decision 11 ported to the C++ binding.** Root-bound decode contexts everywhere (no `ak_dec_ctx_new()` left), `ak_dec_<Root>_opts` rendered from `plan.unk_opts_layout`, armed decodes (reset(&opts) checked, decode, reset(NULL)), realloc-semantics grow, delivery of every group's and inlined child's slot into the facade bag (the active oneof member's; other slots freed; map entries counted and freed), pre-allocated pools refilled in place. Gate green from a clean worktree build at `6feff87` (`wp5-*.log`); ffi-retain retention gaps down to `U-map-entry`; requirement 10 met (core-ffi retain timed in the codec suite; smoke = instrumentation). Previous: WP3 + 22a (campaign harness on Google Benchmark v1.8.3 Release) |
 | **Core** | **the shared one at `ffi/poc/codec/crates/ak-core` (README R0), not a copy**, built by CMake with `--features init-guard` in every configuration (timed, counting, the three planted cores) and once more with `--features corpus,init-guard` into `core-build/target-corpus` for the corpus harness (its own ABI and header, `corpus/include/ak_abi.h`). `-DAK_CORE_ROOT`/`-DAK_CORE_TGT` still point the build at a snapshot. This work unit ran against the shared tree at `882112c` (HEAD when gated) |
 | **Blocked on** | nothing |
 | **Floor** | **C++11, demonstrated not declared.** C++14 also builds and passes (README open question 3) |
@@ -16,7 +16,59 @@ session, which makes it the most expensive defect in this directory.
 | **Machine** | **TWO of them, and that is a fact about the logs rather than a footnote.** Everything except `rpc.log` and `rpcflow.log`: 4 vCPU Intel Xeon @ **2.80 GHz**. Those two: 4 vCPU Intel Xeon @ **2.10 GHz**, same kernel (Linux 6.18.44), same g++ 13.3.0 `-O2 -g -DNDEBUG`, same rustc 1.94.1. **No absolute crosses between them** (R13, R4) |
 | **R13 calibration** | the 2.80 GHz machine's rust-slice crossing is **1.5 ns** forward (`calibration-r13.log`), against 1.8 ns in the rust slice's own container. **On the 2.10 GHz machine it could not be re-taken: the rust slice does not build on this branch (C27).** What was re-taken there is this slice's OWN crossing, by the unchanged bench: **forward 0.59-0.65 ns, reverse 0.27-0.31 ns**, against 1.822-1.824 / 0.6 published from the 2.80 GHz box. A factor of about three, on a nominally slower clock. That is the whole reason R13 exists |
 
-## This work unit (2026-09-25): FIX-PLAN WP3, the campaign harness (design/CAMPAIGN.md)
+## This work unit (2026-09-25): FIX-PLAN WP5 step 9, decision 11 in the C++ binding
+
+Built against the core at `e897f57`/`4238d58` (ABI v1 decision 11 and its implementation
+rules confirmed 2026-09-25; plan.py's UNKNOWN FIELDS contract). Shared-module change
+(authorized): `poc/codec/gen/cpp_binding.py` only (commit `ec0a7c8`); slice in `6feff87`.
+
+What exists:
+
+```
+binding (both facades, both schemas), rendered per root from the plan:
+  DecRoot<T>, DecCtxs, dec_ctx_new_for<T>()   rule 6: one context per root, drop mode
+  decode_with_<r>(ctx,...)                     decode as armed (no reset: drop contexts)
+  unk_opts_<r>(opts*, zero)                    every entry grow-backed, entry `zero` all zero
+  decode_with_<r>_opts(ctx,...,opts*,refill,hold)  reset(&opts) (return checked) ->
+                                               decode -> reset(NULL) -> reclaim
+  decode_with_<r>_unk                          retain everywhere (grow only)
+  decode_with_<r>_pool(ctx,...,k,cap,&refills) k buffers per pool, cap bytes, refilled in
+                                               place after every delivery; one per singular
+  unk_clear_<r>(v, pos)                        the discard control's expected value
+  unk_grow / unk_track / unk_reclaim / unk_entry_bytes
+delivery: apply_<root>, fill_*/from_* take f.unknown into unknown_fields; absent child and
+  inactive oneof member slots freed; map entry slots counted and freed (no facade bag)
+harness: every ak_dec_ctx_new() site re-pointed (bench, counts, conformance, contentsets,
+  concurrency, rpcbench, campaign_codec, campaign_rpc, corpus); corpus child `--unk`;
+  corpus_all.py --unk-controls [--plant clear] and --max-retain-gap; conformance section
+  "decision 11"; counts AK_COUNTS_RETAIN=1; gen/d11_asan.sh; campaign core-ffi retain on
+```
+
+What was checked (all from a clean `git worktree` build at `6feff87`, CLEAN=1):
+
+| Check | Result | Log |
+|---|---|---|
+| payload identity, C++17 target/floor, C++14, C++11, static | 574 checks, 0 failures x5 (adds ffi-retain encode sha, retain and pool decode == built value, nothing left live); noinit plant fails | `wp5-conformance.log` |
+| full corpus, 4 arms x 4 builds | ffi 680/0, native 696/0, 6 disputed, 16 not in the C ABI; 2808 outcomes identical across builds; **retain arms write the dropped form only on `U-map-entry`** (was 17 rows) | `wp5-corpus.log` |
+| decision 11 controls, 4 builds | 686 rows through the ABI, 143 refused alike by retain/drop/pool, 2290 positions, 315 position-rows where zeroing changes the value, 0 failing rows (pool = retain, drop = retain cleared, each position zeroed drops exactly it, map-entry bytes right) | `wp5-corpus.log` |
+| its plant (expected clear skipped) | 307 rows fail, as required | `wp5-corpus.log` |
+| pool / refill / oneof / errors / wrong root / round trip | pool n=2: 1 fresh grow, entries cleared; no grow: -7; in-place refill in new_tasks: each element in the host's buffer, no refill: -7; oneof switches: 1 fresh buffer, final bag exact (incl. switch to scalar); discard, too small (-7), grow error propagated (-1), under-delivery (-7); wrong root: decode, parse, reset, binding decode and armed decode all -8, own root 0; retain decode then encode byte-identical | `wp5-conformance.log` |
+| crossing counts | 87 rows identical to `counts-baseline.log` (plain decode does not reset); retain and pool rows = drop rows on the payloads (no unknowns), plus 2 uncounted resets | `wp5-gates.log` |
+| ASan + LSan | conformance, controls and corpus: 0 sanitizer reports | `wp5s9-asan.log` |
+| everything else (generator, probe 4 arms, byte audit, boundary, groupskip, concurrency, ODR, bench gates, content sets, rpccounts) | green | `wp5-*.log` |
+| campaign: gate + codec smoke | gate passed; codec 261 samples per (arm, mode) incl. **core-ffi retain**; header `"ffi_retain": "built"`, `"instrumentation": true` | `campaign/{gate.log,codec-launch1.jsonl}` |
+
+Not done or not established:
+- Requirement 10 is met for the codec suite; the RPC suite's core cell decodes in drop mode.
+- Retained bags are copied from the core's buffer into `std::string` (the facade type);
+  Rust adopts the allocation. Priced nowhere yet.
+- Rule 5 (a buffer above 2 GiB -> AK_ERR_LIMIT) is not exercised.
+- The two `ak_dec_reset_<Root>` calls of an armed decode are not in the core's counters.
+- `gen/wp5_gate.sh`'s build-failure print used `tail -30` (invalid with two files); fixed
+  after the gated commit (`tail -n 30`); it only affects the failure path.
+- The first gate attempt failed on a full disk (my old snapshots); freed, re-run green.
+
+## Previous work unit (2026-09-25): FIX-PLAN WP3, the campaign harness (design/CAMPAIGN.md)
 
 **Campaign-ready, with the exceptions listed as `not met` in the checklist below.**
 Smoke run in this container (4 vCPU Xeon @ 2.80 GHz, no isolation, no governor control,
@@ -112,7 +164,7 @@ adds none). Everything else unchanged.
 | 7 | 16 payloads, content sets, U-* rows | **met**, with a reading to confirm: content sets on P1.2, P2.2, P3.1, P4.1, P6.1 (SHAPES.md names no payload list; this is the committed content-set gate's); U-* rows at the seven roots the TIMED codec implements (92). Rows at other corpus roots are implemented only by the corpus build, a different ABI that is not a timed configuration |
 | 8 | arms | **met**: incumbent-prod, incumbent-best, core-ffi (push), host-gen; pull: not in this slice; Rust-only arms n/a |
 | 9 | encode, decode twice | **met**: decode and decode_read |
-| 10 | drop and retain for core-ffi and host-gen | **not met: pending decision 11 port**. host-gen drop and retain are timed; core-ffi retain is a hook (`-DAK_CAMPAIGN_FFI_RETAIN`) and the C++ binding in poc/codec is in its transitional drop mode (29d515e) until the decision-11 options are rendered for C++ (the next task) |
+| 10 | drop and retain for core-ffi and host-gen | **met (WP5 step 9)**: codec suite times core-ffi drop and retain (`encode_into_*_unk`, `decode_with_*_unk`, armed through `ak_dec_reset_<Root>`) and host-gen drop and retain; `-DAK_CAMPAIGN_NO_FFI_RETAIN` removes the arm. The RPC suite decodes in drop mode |
 | 11 | serialise once per iteration, fresh object | **met**: decode into a fresh object every iteration; protobuf C++ recomputes ByteSizeLong on every Serialize (no memo) |
 | 12 | cells A-D | **met** |
 | 13 | server out of process, pre-serialised | **met** (direction a); direction b's server decode is the incumbent's in every cell |
@@ -1269,6 +1321,14 @@ Four things this settles:
 
 ## Next step
 
+WP5 step 9 is done for this slice. Open for the aggregating session: whether the RPC
+suite needs a retain cell; the copy of retained bags into `std::string` (a facade
+choice, not priced); `one_core.sh --selftest` (C38) is still the shared script's defect.
+To re-run: `CLEAN=1 gen/wp5_gate.sh build`, then `gen/d11_asan.sh`. Earlier text follows.
+
+### Before WP5 step 9
+
+
 WP5 step 2 is done for this slice. What remains from FIX-PLAN: the aggregating session's
 side of the gaps listed in this work unit (add the five `cpp_*.py` modules to
 `generate.py`'s `BACKENDS`, drop `rust_core.py` there and in `one_core.sh`, fix
@@ -1487,6 +1547,8 @@ corpus). C30 is this slice's own and is fixed. In the order I would do it:
 
 | Log | Configuration | What it establishes |
 |---|---|---|
+| `wp5s9-asan.log` | `gen/d11_asan.sh`: conformance and corpus_all_a17 built with -fsanitize=address, LSan on | **WP5 step 9**: conformance 574/0, decision 11 controls 0 failing rows, corpus four arms green: no double free, use after free or leak in the unknown-field buffers |
+| `wp5-*.log` (re-taken 2026-09-25 at `6feff87`) | the WP5 gate, clean worktree build | **WP5 step 9**: see "This work unit"; supersedes the WP5 step 2 figures in the rows below |
 | `wp5-generator.log` | `generate.py --check` (+ guard), the shared `--check`, `refusal_test.py`, `rd2_guard.sh`, audit, `one_core.sh` | **WP5 step 2's generator gates**: every target current, the five shared C++ modules import plans only, 17 of 17 refusals, both RD2 plants refused (plant B now in `plan.rpc`), audit green; the `one_core.sh --selftest` defect (C38) shown and reproduced |
 | `wp5-conformance.log` | five conformance builds against the init-guard core, plus the planted `conformance_a17_noinit` | **payload set byte identity after the port**: 476 checks 0 failures x5; the planted build fails (205 checks) |
 | `wp5-corpus.log` | the FULL corpus (691 rows), four arms, one child per row, 10 s timeout, C++17/14/11/static; `--compare`; controls proj/reenc/accept/noinit | **WP5 item 6.1 for C++**: ffi 672/0, native 688/0, 3 disputed, 16 not in the C ABI; identical outcomes across four builds; every control fails |

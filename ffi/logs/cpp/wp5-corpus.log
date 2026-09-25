@@ -1,8 +1,8 @@
 # cpp slice, WP5 step 2: the full conformance corpus, four arms
-#   date       2026-09-24T18:56:08Z
+#   date       2026-09-25T19:03:36Z
 #   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
 #   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit     6ce373d + uncommitted changes in poc/cpp or poc/codec
+#   commit     6feff87
 #   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
 #              for the corpus ABI); no timing is taken by anything in this log
 
@@ -66,10 +66,10 @@
      transcode  pass   53  fail   0
      unknown    pass  311  fail   0
    forms written (C3):
-      370  as committed
+      378  as committed
         5  as committed / map values always written
        18  as committed / map values always written (protobuf C++, upb, protobuf-java)
-       97  as committed / unknown-retained, map values always written
+      105  as committed / unknown-retained, map values always written
         7  as committed in ffi/schema/generated
         1  as upb writes it: the same message in a different field ORDER
         1  as upb writes it: the same message, encoded differently
@@ -85,8 +85,7 @@
         3  canonical: ten-byte sign-extended
         1  canonical: the empty value omitted
         1  canonical: the zero leaves omitted
-        8  unknown-dropped
-        9  unknown-dropped / unknown-dropped, map values always written
+        1  unknown-dropped / unknown-dropped, map values always written
         6  unknown-retained, appended in tag order
    refusal codes (C4): -2 x39, -3 x73, -6 x31
    disputed: U-map-entry [ffi-retain]: accepted; projection matches the reading of null
@@ -95,23 +94,7 @@
    disputed: X-field-over-max-in-group [ffi-retain]: refused (-2)
    disputed: X-tag-zero-Empty [ffi-retain]: refused (-2)
    disputed: X-tag-zero-nested-Empty [ffi-retain]: refused (-2)
-   retain mode wrote the DROPPED form on 17 row(s) (accepted by the contract; a retention gap):
-     U-deep-all (ffi-retain)
-     U-deep-u-fixed32 (ffi-retain)
-     U-deep-u-fixed64 (ffi-retain)
-     U-deep-u-len (ffi-retain)
-     U-deep-u-msg (ffi-retain)
-     U-deep-u-packed (ffi-retain)
-     U-deep-u-repeated (ffi-retain)
-     U-deep-u-varint (ffi-retain)
-     U-leaf-all (ffi-retain)
-     U-leaf-u-fixed32 (ffi-retain)
-     U-leaf-u-fixed64 (ffi-retain)
-     U-leaf-u-len (ffi-retain)
-     U-leaf-u-msg (ffi-retain)
-     U-leaf-u-packed (ffi-retain)
-     U-leaf-u-repeated (ffi-retain)
-     U-leaf-u-varint (ffi-retain)
+   retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
      U-map-entry (ffi-retain)
 
 ## native-drop
@@ -194,6 +177,8 @@
    retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
      U-map-entry (native-retain)
 
+## ffi-retain retention gaps outside {U-map-entry}: 0
+## native-retain retention gaps outside {U-map-entry}: 0
 # rows that hung or crashed a child: 0
 CORPUS PASSES on every built arm
 >>> ok: corpus corpus_all_a17 (exit 0)
@@ -258,10 +243,10 @@ CORPUS PASSES on every built arm
      transcode  pass   53  fail   0
      unknown    pass  311  fail   0
    forms written (C3):
-      370  as committed
+      378  as committed
         5  as committed / map values always written
        18  as committed / map values always written (protobuf C++, upb, protobuf-java)
-       97  as committed / unknown-retained, map values always written
+      105  as committed / unknown-retained, map values always written
         7  as committed in ffi/schema/generated
         1  as upb writes it: the same message in a different field ORDER
         1  as upb writes it: the same message, encoded differently
@@ -277,8 +262,7 @@ CORPUS PASSES on every built arm
         3  canonical: ten-byte sign-extended
         1  canonical: the empty value omitted
         1  canonical: the zero leaves omitted
-        8  unknown-dropped
-        9  unknown-dropped / unknown-dropped, map values always written
+        1  unknown-dropped / unknown-dropped, map values always written
         6  unknown-retained, appended in tag order
    refusal codes (C4): -2 x39, -3 x73, -6 x31
    disputed: U-map-entry [ffi-retain]: accepted; projection matches the reading of null
@@ -287,23 +271,7 @@ CORPUS PASSES on every built arm
    disputed: X-field-over-max-in-group [ffi-retain]: refused (-2)
    disputed: X-tag-zero-Empty [ffi-retain]: refused (-2)
    disputed: X-tag-zero-nested-Empty [ffi-retain]: refused (-2)
-   retain mode wrote the DROPPED form on 17 row(s) (accepted by the contract; a retention gap):
-     U-deep-all (ffi-retain)
-     U-deep-u-fixed32 (ffi-retain)
-     U-deep-u-fixed64 (ffi-retain)
-     U-deep-u-len (ffi-retain)
-     U-deep-u-msg (ffi-retain)
-     U-deep-u-packed (ffi-retain)
-     U-deep-u-repeated (ffi-retain)
-     U-deep-u-varint (ffi-retain)
-     U-leaf-all (ffi-retain)
-     U-leaf-u-fixed32 (ffi-retain)
-     U-leaf-u-fixed64 (ffi-retain)
-     U-leaf-u-len (ffi-retain)
-     U-leaf-u-msg (ffi-retain)
-     U-leaf-u-packed (ffi-retain)
-     U-leaf-u-repeated (ffi-retain)
-     U-leaf-u-varint (ffi-retain)
+   retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
      U-map-entry (ffi-retain)
 
 ## native-drop
@@ -386,6 +354,8 @@ CORPUS PASSES on every built arm
    retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
      U-map-entry (native-retain)
 
+## ffi-retain retention gaps outside {U-map-entry}: 0
+## native-retain retention gaps outside {U-map-entry}: 0
 # rows that hung or crashed a child: 0
 CORPUS PASSES on every built arm
 >>> ok: corpus corpus_all_c14 (exit 0)
@@ -450,10 +420,10 @@ CORPUS PASSES on every built arm
      transcode  pass   53  fail   0
      unknown    pass  311  fail   0
    forms written (C3):
-      370  as committed
+      378  as committed
         5  as committed / map values always written
        18  as committed / map values always written (protobuf C++, upb, protobuf-java)
-       97  as committed / unknown-retained, map values always written
+      105  as committed / unknown-retained, map values always written
         7  as committed in ffi/schema/generated
         1  as upb writes it: the same message in a different field ORDER
         1  as upb writes it: the same message, encoded differently
@@ -469,8 +439,7 @@ CORPUS PASSES on every built arm
         3  canonical: ten-byte sign-extended
         1  canonical: the empty value omitted
         1  canonical: the zero leaves omitted
-        8  unknown-dropped
-        9  unknown-dropped / unknown-dropped, map values always written
+        1  unknown-dropped / unknown-dropped, map values always written
         6  unknown-retained, appended in tag order
    refusal codes (C4): -2 x39, -3 x73, -6 x31
    disputed: U-map-entry [ffi-retain]: accepted; projection matches the reading of null
@@ -479,23 +448,7 @@ CORPUS PASSES on every built arm
    disputed: X-field-over-max-in-group [ffi-retain]: refused (-2)
    disputed: X-tag-zero-Empty [ffi-retain]: refused (-2)
    disputed: X-tag-zero-nested-Empty [ffi-retain]: refused (-2)
-   retain mode wrote the DROPPED form on 17 row(s) (accepted by the contract; a retention gap):
-     U-deep-all (ffi-retain)
-     U-deep-u-fixed32 (ffi-retain)
-     U-deep-u-fixed64 (ffi-retain)
-     U-deep-u-len (ffi-retain)
-     U-deep-u-msg (ffi-retain)
-     U-deep-u-packed (ffi-retain)
-     U-deep-u-repeated (ffi-retain)
-     U-deep-u-varint (ffi-retain)
-     U-leaf-all (ffi-retain)
-     U-leaf-u-fixed32 (ffi-retain)
-     U-leaf-u-fixed64 (ffi-retain)
-     U-leaf-u-len (ffi-retain)
-     U-leaf-u-msg (ffi-retain)
-     U-leaf-u-packed (ffi-retain)
-     U-leaf-u-repeated (ffi-retain)
-     U-leaf-u-varint (ffi-retain)
+   retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
      U-map-entry (ffi-retain)
 
 ## native-drop
@@ -578,6 +531,8 @@ CORPUS PASSES on every built arm
    retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
      U-map-entry (native-retain)
 
+## ffi-retain retention gaps outside {U-map-entry}: 0
+## native-retain retention gaps outside {U-map-entry}: 0
 # rows that hung or crashed a child: 0
 CORPUS PASSES on every built arm
 >>> ok: corpus corpus_all_c11 (exit 0)
@@ -642,10 +597,10 @@ CORPUS PASSES on every built arm
      transcode  pass   53  fail   0
      unknown    pass  311  fail   0
    forms written (C3):
-      370  as committed
+      378  as committed
         5  as committed / map values always written
        18  as committed / map values always written (protobuf C++, upb, protobuf-java)
-       97  as committed / unknown-retained, map values always written
+      105  as committed / unknown-retained, map values always written
         7  as committed in ffi/schema/generated
         1  as upb writes it: the same message in a different field ORDER
         1  as upb writes it: the same message, encoded differently
@@ -661,8 +616,7 @@ CORPUS PASSES on every built arm
         3  canonical: ten-byte sign-extended
         1  canonical: the empty value omitted
         1  canonical: the zero leaves omitted
-        8  unknown-dropped
-        9  unknown-dropped / unknown-dropped, map values always written
+        1  unknown-dropped / unknown-dropped, map values always written
         6  unknown-retained, appended in tag order
    refusal codes (C4): -2 x39, -3 x73, -6 x31
    disputed: U-map-entry [ffi-retain]: accepted; projection matches the reading of null
@@ -671,23 +625,7 @@ CORPUS PASSES on every built arm
    disputed: X-field-over-max-in-group [ffi-retain]: refused (-2)
    disputed: X-tag-zero-Empty [ffi-retain]: refused (-2)
    disputed: X-tag-zero-nested-Empty [ffi-retain]: refused (-2)
-   retain mode wrote the DROPPED form on 17 row(s) (accepted by the contract; a retention gap):
-     U-deep-all (ffi-retain)
-     U-deep-u-fixed32 (ffi-retain)
-     U-deep-u-fixed64 (ffi-retain)
-     U-deep-u-len (ffi-retain)
-     U-deep-u-msg (ffi-retain)
-     U-deep-u-packed (ffi-retain)
-     U-deep-u-repeated (ffi-retain)
-     U-deep-u-varint (ffi-retain)
-     U-leaf-all (ffi-retain)
-     U-leaf-u-fixed32 (ffi-retain)
-     U-leaf-u-fixed64 (ffi-retain)
-     U-leaf-u-len (ffi-retain)
-     U-leaf-u-msg (ffi-retain)
-     U-leaf-u-packed (ffi-retain)
-     U-leaf-u-repeated (ffi-retain)
-     U-leaf-u-varint (ffi-retain)
+   retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
      U-map-entry (ffi-retain)
 
 ## native-drop
@@ -770,6 +708,8 @@ CORPUS PASSES on every built arm
    retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
      U-map-entry (native-retain)
 
+## ffi-retain retention gaps outside {U-map-entry}: 0
+## native-retain retention gaps outside {U-map-entry}: 0
 # rows that hung or crashed a child: 0
 CORPUS PASSES on every built arm
 >>> ok: corpus corpus_all_a17_static (exit 0)
@@ -780,6 +720,51 @@ corpus_all_a17 vs corpus_all_c11: 2808 (row, arm) outcomes compared, 0 differ
 corpus_all_a17 vs corpus_all_a17_static: 2808 (row, arm) outcomes compared, 0 differ
 >>> ok: compare (exit 0)
 
+===== decision 11 controls: corpus_all_a17 --unk-controls =====
+# decision 11 controls through the C ABI binding (corpus_all --unk), 702 rows
+   rows through the C ABI 686 (not in the ABI 16); refused by every mode alike 143
+   positions checked 2290; position-rows where zeroing changes the value 315; rows with unknowns 307
+   rows whose map entries carried unknown bytes (delivered, freed: U-map-entry) 1
+   pool buffers refilled in place across all rows 75
+UNK CONTROLS PASS: 0 failing row(s)
+>>> ok: unk controls corpus_all_a17 (exit 0)
+
+===== decision 11 controls: corpus_all_c14 --unk-controls =====
+# decision 11 controls through the C ABI binding (corpus_all --unk), 702 rows
+   rows through the C ABI 686 (not in the ABI 16); refused by every mode alike 143
+   positions checked 2290; position-rows where zeroing changes the value 315; rows with unknowns 307
+   rows whose map entries carried unknown bytes (delivered, freed: U-map-entry) 1
+   pool buffers refilled in place across all rows 75
+UNK CONTROLS PASS: 0 failing row(s)
+>>> ok: unk controls corpus_all_c14 (exit 0)
+
+===== decision 11 controls: corpus_all_c11 --unk-controls =====
+# decision 11 controls through the C ABI binding (corpus_all --unk), 702 rows
+   rows through the C ABI 686 (not in the ABI 16); refused by every mode alike 143
+   positions checked 2290; position-rows where zeroing changes the value 315; rows with unknowns 307
+   rows whose map entries carried unknown bytes (delivered, freed: U-map-entry) 1
+   pool buffers refilled in place across all rows 75
+UNK CONTROLS PASS: 0 failing row(s)
+>>> ok: unk controls corpus_all_c11 (exit 0)
+
+===== decision 11 controls: corpus_all_a17_static --unk-controls =====
+# decision 11 controls through the C ABI binding (corpus_all --unk), 702 rows
+   rows through the C ABI 686 (not in the ABI 16); refused by every mode alike 143
+   positions checked 2290; position-rows where zeroing changes the value 315; rows with unknowns 307
+   rows whose map entries carried unknown bytes (delivered, freed: U-map-entry) 1
+   pool buffers refilled in place across all rows 75
+UNK CONTROLS PASS: 0 failing row(s)
+>>> ok: unk controls corpus_all_a17_static (exit 0)
+
+===== control: --unk-controls --plant clear (the expected clear skipped) -- must FAIL =====
+   rows through the C ABI 686 (not in the ABI 16); refused by every mode alike 143
+   positions checked 2290; position-rows where zeroing changes the value 0; rows with unknowns 0
+   rows whose map entries carried unknown bytes (delivered, freed: U-map-entry) 1
+UNK CONTROLS FAIL: 307 failing row(s)
+   FAIL U-chunkelem-all: zeroed position(s) [1] did not drop exactly that position
+   FAIL U-chunkelem-u-fixed32: zeroed position(s) [1] did not drop exactly that position
+   FAIL U-chunkelem-u-fixed64: zeroed position(s) [1] did not drop exactly that position
+>>> ok: control clear failed as required
 ===== control: AK_CORPUS_PLANT=proj on S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root,U-wire-MetricsBatch -- must FAIL =====
 ## ffi-drop
    pass 57  fail 39  disputed (excluded) 0  not in the C ABI 0  arm not built 0

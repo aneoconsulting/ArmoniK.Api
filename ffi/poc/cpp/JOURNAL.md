@@ -1401,3 +1401,39 @@ snapshot was archived at b2bc2b8, and the five commits between them touch none o
 run's inputs. The runner now takes `AK_COMMIT` for snapshot runs.
 
 Owner follow-up: Google Benchmark now comes from a Release build of the v1.8.3 tag, made by the runner and commit-checked, instead of apt's debug library. Re-smoked at 833ea32: library_build_type release, 1305 repetitions, gate green.
+
+## 2026-09-25: FIX-PLAN WP5 step 9, decision 11 ported to the C++ binding
+
+cpp_binding.py (authorized edit) now renders decision 11 as confirmed by the owner:
+- One context per root: `DecRoot<T>`, `DecCtxs`, `dec_ctx_new_for<T>()`.
+- Options from `plan.unk_opts_layout`: `unk_opts_*` sets every entry grow-backed, except one
+  entry left all zero.
+- Armed decode: `decode_with_*_opts` runs reset(&opts) with its return checked, then the
+  decode, then reset(NULL), then reclaim.
+- Buffers are malloc'd. `unk_grow` has realloc semantics. Every buffer the binding creates
+  is tracked in a thread_local set, so an undelivered one (a failed decode, or an unconsumed
+  pool entry) is freed after the decode.
+- Delivery: `apply_<root>` and every `fill_*`/`from_*` append their slot to the bag and free
+  it. An absent child's slot and an inactive oneof member's slot are freed. A map entry's
+  slot is counted and freed.
+- Pools: `decode_with_*_pool` pre-allocates, and a Sink hook refills the pools in place
+  after every add/new/apply callback.
+- Removed: the transitional drop-mode `_unk` and AkPending.
+
+The harness now has no `ak_dec_ctx_new()` call.
+
+Retention gaps went from 17 to 1 (`U-map-entry`, which has no facade bag).
+
+New controls:
+- corpus `--unk`: pool must equal retain; drop must equal retain with every bag cleared;
+  each position zeroed must drop exactly that position; map-entry bytes must be right.
+  Its plant fails 307 rows.
+- conformance "decision 11" section: rust's pool/refill/oneof/wrong-root cases, plus
+  discard, grow error, under-delivery and a retain round trip.
+- ASan/LSan run clean.
+
+Crossing counts are unchanged. First gate attempt failed: the disk was full because of my
+old snapshots. Re-run green. `wp5_gate.sh`'s `tail -30` with two files was invalid; now
+`tail -n 30`.
+
+Requirement 10: the codec suite now times core-ffi retain. The smoke is instrumentation.
