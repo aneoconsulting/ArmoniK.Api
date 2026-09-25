@@ -10,6 +10,7 @@
 #        reenc   a byte appended to every re-encoding     -> C3 must fail
 #        accept  every refusal turned into an acceptance  -> C4 must fail
 #        noinit  ak_init skipped (the core checks)        -> every C ABI arm must fail
+#   5  decision 11's controls (corpus --unk-controls) and their plant, which must fail
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$HERE/.."
@@ -46,5 +47,18 @@ else
   grep -m2 'FAIL .*\[ffi-' /tmp/corpus-ctl.$$ | cut -c1-160 | sed 's/^/    /'
 fi
 rm -f /tmp/corpus-ctl.$$
+
+echo "===== 5. decision 11 (WP5 step 7): per-position discard, pull == push, placement ====="
+if "$BIN" --unk-controls > /tmp/corpus-unk.$$ 2>&1; then
+  grep -E "^rows|^discard|placement|U-map-entry|U-leaf-all|U-deep-all" /tmp/corpus-unk.$$
+else
+  cat /tmp/corpus-unk.$$; echo "  decision 11 controls FAILED"; bad=$((bad+1))
+fi
+if "$BIN" --unk-controls --plant > /tmp/corpus-unk.$$ 2>&1; then
+  echo "  control unk-plant: PASSED -- the discard comparison is blind"; bad=$((bad+1))
+else
+  echo "  control unk-plant (bags not cleared): failed as required: $(grep '^discard' /tmp/corpus-unk.$$)"
+fi
+rm -f /tmp/corpus-unk.$$
 [ $bad -eq 0 ] || { echo "CONTROLS FAILED: $bad"; exit 1; }
 echo "CORPUS GATE PASSED"

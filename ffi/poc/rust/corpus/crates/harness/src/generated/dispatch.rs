@@ -194,3 +194,38 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
         _ => Outcome::UnknownRoot,
     }
 }
+
+pub fn unk_controls(root: &str, cx: &Cx, b: &[u8], plant: bool) -> Option<Result<binding::UnkReport, i32>> {
+    match root {
+        "Timestamp" => Some(binding::unk_controls_timestamp(cx.dec, b, plant)),
+        "Duration" => Some(binding::unk_controls_duration(cx.dec, b, plant)),
+        "ResultRaw" => Some(binding::unk_controls_result_raw(cx.dec, b, plant)),
+        "TaskOptions" => Some(binding::unk_controls_task_options(cx.dec, b, plant)),
+        "TaskOutput" => Some(binding::unk_controls_task_output(cx.dec, b, plant)),
+        "TaskDetailed" => Some(binding::unk_controls_task_detailed(cx.dec, b, plant)),
+        "TaskSummary" => Some(binding::unk_controls_task_summary(cx.dec, b, plant)),
+        "Probe" => Some(binding::unk_controls_probe(cx.dec, b, plant)),
+        "Empty" => Some(binding::unk_controls_empty(cx.dec, b, plant)),
+        "UploadResultData" => Some(binding::unk_controls_upload_result_data(cx.dec, b, plant)),
+        "MetricsBatch" => Some(binding::unk_controls_metrics_batch(cx.dec, b, plant)),
+        "Pair" => Some(binding::unk_controls_pair(cx.dec, b, plant)),
+        "ListResultsResponse" => Some(binding::unk_controls_list_results_response(cx.dec, b, plant)),
+        "ListTasksDetailedResponse" => Some(binding::unk_controls_list_tasks_detailed_response(cx.dec, b, plant)),
+        "ListTaskSummaryResponse" => Some(binding::unk_controls_list_task_summary_response(cx.dec, b, plant)),
+        "ListProbeResponse" => Some(binding::unk_controls_list_probe_response(cx.dec, b, plant)),
+        "ListMetricsResponse" => Some(binding::unk_controls_list_metrics_response(cx.dec, b, plant)),
+        "UploadResultDataMessage" => Some(binding::unk_controls_upload_result_data_message(cx.dec, b, plant)),
+        "DualResponse" => Some(binding::unk_controls_dual_response(cx.dec, b, plant)),
+        "ChunkLeaf" => Some(binding::unk_controls_chunk_leaf(cx.dec, b, plant)),
+        "ChunkInner" => Some(binding::unk_controls_chunk_inner(cx.dec, b, plant)),
+        "ChunkElement" => Some(binding::unk_controls_chunk_element(cx.dec, b, plant)),
+        "ChunkedResponse" => Some(binding::unk_controls_chunked_response(cx.dec, b, plant)),
+        "ChunkedResponseWide" => Some(binding::unk_controls_chunked_response_wide(cx.dec, b, plant)),
+        "LeafElement" => Some(binding::unk_controls_leaf_element(cx.dec, b, plant)),
+        "LeafResponse" => Some(binding::unk_controls_leaf_response(cx.dec, b, plant)),
+        "Surrogate" => Some(binding::unk_controls_surrogate(cx.dec, b, plant)),
+        "SurrogateInner" => Some(binding::unk_controls_surrogate_inner(cx.dec, b, plant)),
+        "WireZoo" => Some(binding::unk_controls_wire_zoo(cx.dec, b, plant)),
+        _ => None,
+    }
+}

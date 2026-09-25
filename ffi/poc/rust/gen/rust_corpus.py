@@ -59,4 +59,15 @@ def emit_dispatch(full, abi_roots, refused):
     o.append("    }")
     o.append("}")
     o.append("")
+    # Decision 11 (WP5 step 7): the unknown-field controls, per root the ABI carries.
+    o.append("pub fn unk_controls(root: &str, cx: &Cx, b: &[u8], plant: bool) -> Option<Result<binding::UnkReport, i32>> {")
+    o.append("    match root {")
+    for name in full.order:
+        if full.msg(name).synthetic or name not in abi_roots:
+            continue
+        o.append("        %s => Some(binding::unk_controls_%s(cx.dec, b, plant))," % (lit(name), snake(name)))
+    o.append("        _ => None,")
+    o.append("    }")
+    o.append("}")
+    o.append("")
     return "\n".join(o)

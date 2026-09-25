@@ -1,0 +1,91 @@
+Error processing line 1 of /usr/lib/python3/dist-packages/distutils-precedence.pth:
+
+  Traceback (most recent call last):
+    File "<frozen site>", line 201, in addpackage
+    File "<string>", line 1, in <module>
+  ModuleNotFoundError: No module named '_distutils_hack'
+
+Remainder of file ignored
+guard 26 backend modules import plans only; a planted IR import is caught
+      c_abi.py cpp_binding.py cpp_facade.py cpp_layout.py cpp_names.py cpp_native.py cs_binding.py cs_host.py cs_layout_probe.py cs_managed.py cs_names.py cs_types.py java_backend.py java_binding.py java_facade.py java_jni.py java_layout.py java_names.py java_pull.py java_rcodec.py py_capi.py py_pure.py rust_abi.py rust_binding.py rust_native.py rustnames.py
+ok    crates/ak-abi/src/generated/abi.rs
+ok    crates/ak-core/src/generated/codec.rs
+ok    crates/ak-core/src/generated/layout.rs
+ok    crates/ak-core/src/generated/rpc_check.rs
+ok    crates/ak-core/src/generated/abi_check.rs
+ok    crates/ak-abi/src/generated_corpus/abi.rs
+ok    crates/ak-core/src/generated_corpus/codec.rs
+ok    crates/ak-core/src/generated_corpus/layout.rs
+ok    crates/ak-abi/src/lib.rs
+slice rust    --check: exit 0
+slice cpp     --check: exit 1
+   STALE include/ak_abi.h
+   STALE include/generated/ak_layout.h
+   STALE include/generated/ak_layout_names.h
+   STALE src/generated/core_native.cpp
+   STALE src/generated/core_native_retain.cpp
+   STALE src/generated/binding.cpp
+   STALE src/generated/binding_borrow.cpp
+   STALE corpus/include/ak_abi.h
+   STALE corpus/include/generated/ak_layout.h
+   STALE corpus/include/generated/ak_layout_names.h
+   STALE corpus/src/generated/core_native.cpp
+   STALE corpus/src/generated/core_native_retain.cpp
+   STALE corpus/src/generated/binding.cpp
+   | ok    corpus/src/generated/binding.h
+   | STALE corpus/src/generated/binding.cpp
+   | ok    corpus/src/generated/project.h
+   | ok    corpus/src/generated/project.cpp
+   | ok    corpus/src/generated/dispatch.cpp
+slice java    --check: exit 1
+   STALE native/generated/ak_abi.h
+   STALE native/generated_corpus/ak_abi.h
+   STALE src/generated/java17/ak/borrow/Binding.java
+   STALE src/generated/java17/ak/borrow/Codec.java
+   STALE src/generated/java17/ak/floor/Binding.java
+   STALE src/generated/java17/ak/shapes/Binding.java
+   STALE src/generated/java17/ak/shapes/Codec.java
+   STALE src/generated/java17/ak/shapes/CodecRetain.java
+   STALE src/generated/java17/ak/shapes/Layout.java
+   STALE src/generated/java8/ak/borrow/Binding.java
+   STALE src/generated/java8/ak/borrow/Codec.java
+   STALE src/generated/java8/ak/floor/Binding.java
+   STALE src/generated/java8/ak/shapes/Binding.java
+   STALE src/generated/java8/ak/shapes/Codec.java
+   STALE src/generated/java8/ak/shapes/CodecRetain.java
+   STALE src/generated/java8/ak/shapes/Layout.java
+   STALE src/generated_corpus/java17/ak/corpus/Binding.java
+   STALE src/generated_corpus/java17/ak/corpus/Codec.java
+   STALE src/generated_corpus/java17/ak/corpus/CodecRetain.java
+   STALE src/generated_corpus/java17/ak/corpus/Layout.java
+   STALE src/generated_corpus/java17/ak/corpus/borrow/Binding.java
+   STALE src/generated_corpus/java17/ak/corpus/borrow/Codec.java
+   STALE src/generated_corpus/java8/ak/corpus/Binding.java
+   STALE src/generated_corpus/java8/ak/corpus/Codec.java
+   STALE src/generated_corpus/java8/ak/corpus/CodecRetain.java
+   STALE src/generated_corpus/java8/ak/corpus/Layout.java
+   STALE src/generated_corpus/java8/ak/corpus/borrow/Binding.java
+   STALE src/generated_corpus/java8/ak/corpus/borrow/Codec.java
+   checked 262 generated files, 28 problem(s)
+   | STALE src/generated_corpus/java8/ak/corpus/CodecRetain.java
+   | STALE src/generated_corpus/java8/ak/corpus/Layout.java
+   | STALE src/generated_corpus/java8/ak/corpus/borrow/Binding.java
+   | STALE src/generated_corpus/java8/ak/corpus/borrow/Codec.java
+   | checked 262 generated files, 28 problem(s)
+slice csharp  --check: exit 1
+   STALE abi/src/main.rs
+   STALE src/Corpus/Generated/Abi.cs
+   STALE src/Corpus/Generated/Codec.cs
+   STALE src/Corpus/Generated/CoreFfi.cs
+   STALE src/Facade/Generated/Codec.cs
+   STALE src/Harness/Generated/Abi.cs
+   STALE src/Harness/Generated/CoreFfi.cs
+   | ok    src/Harness/Generated/BuildGp.cs
+   | ok    src/Harness/Generated/CoreArms.cs
+   | STALE src/Harness/Generated/CoreFfi.cs
+   | ok    src/Rpc/Generated/CampaignOps.cs
+   | ok    src/Rpc/Generated/RpcAbi.cs
+slice python  --check: exit 1
+   STALE, regenerate: ak_abi.h, binding.c, corpus/ak_abi.h, corpus/binding.c
+   | guard 2 python backend modules import plans only; a planted IR import is caught
+   | STALE, regenerate: ak_abi.h, binding.c, corpus/ak_abi.h, corpus/binding.c

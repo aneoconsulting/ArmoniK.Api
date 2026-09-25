@@ -18,6 +18,10 @@
 //!
 //!   corpus [--manifest PATH] [--timeout-ms N]     the whole corpus, a verdict, exit 0/1
 //!   corpus --row ID                                one row, one JSON line (the child)
+//!   corpus --unk-controls [--plant]                decision 11's controls (WP5 step 7):
+//!                                                  per-position discard on every accept
+//!                                                  row the ABI carries, pull == push, and
+//!                                                  the pre-allocated-buffer placement cases
 
 use ak_abi::*;
 use serde_json::{json, Map, Value};
@@ -411,6 +415,7 @@ fn main() {
     let mut row: Option<String> = None;
     let mut timeout = Duration::from_millis(10_000);
     let mut only: Vec<String> = Vec::new();
+    let (mut unkc, mut plant) = (false, false);
     let mut i = 1;
     while i < a.len() {
         match a[i].as_str() {
@@ -418,13 +423,133 @@ fn main() {
             "--row" => { row = Some(a[i + 1].clone()); i += 1; }
             "--only" => { only = a[i + 1].split(',').map(String::from).collect(); i += 1; }
             "--timeout-ms" => { timeout = Duration::from_millis(a[i + 1].parse().unwrap()); i += 1; }
+            "--unk-controls" => { unkc = true; }
+            "--plant" => { plant = true; }
             x => panic!("unknown argument {x}"),
         }
         i += 1;
     }
     let manifest = manifest.canonicalize().expect("manifest path");
+    if unkc {
+        std::process::exit(unk_controls(&manifest, &only, plant));
+    }
     std::process::exit(match row {
         Some(id) => child(&manifest, &id),
         None => parent(&manifest, timeout, &only),
     });
+}
+
+
+// ------------------------------------------------------------ decision 11's controls
+
+/// WP5 step 7. (1) On every accept row whose root crosses the C ABI: each position's entry
+/// zeroed in turn drops exactly that position (the all-armed value with that position's
+/// bags cleared), the pull family delivers what push does, and map-entry bytes arrive
+/// unless the entry position is zeroed. `--plant` skips the clearing, so (1) must FAIL on
+/// the rows that carry unknowns. (2) A pre-allocated buffer is placed once: with no grow,
+/// the second element that needs a buffer is refused (AK_ERR_CAPACITY) rather than given
+/// the same one; with grow, it gets a different buffer.
+fn unk_controls(manifest: &Path, only: &[String], plant: bool) -> i32 {
+    let m = load(manifest);
+    let dir = manifest.parent().unwrap();
+    assert!(binding::ak_init_once() >= 0);
+    let cx = unsafe { Cx { enc: ak_enc_ctx_new(), dec: ak_dec_ctx_new(), tcs: binding::Tcs::trusted() } };
+    let (mut rows, mut with_unk, mut bad, mut pull_bad, mut entry_rows) = (0, 0, 0, 0, 0);
+    let mut positions = 0usize;
+    let mut changed = 0usize;
+    for (id, row) in m["vectors"].as_object().unwrap() {
+        if row["expect"] != "accept" || (!only.is_empty() && !only.iter().any(|o| id.starts_with(o.as_str()))) {
+            continue;
+        }
+        let root = row["root"].as_str().unwrap();
+        let bytes = std::fs::read(dir.join(row["file"].as_str().unwrap())).unwrap();
+        let Some(r) = generated::dispatch::unk_controls(root, &cx, &bytes, plant) else { continue };
+        let r = match r {
+            Ok(r) => r,
+            Err(e) => { println!("  ERR  {id}: {e}"); bad += 1; continue; }
+        };
+        rows += 1;
+        positions += r.positions;
+        changed += r.changed;
+        if r.changed > 0 { with_unk += 1; }
+        if r.entry_bytes > 0 { entry_rows += 1; }
+        if !r.mismatched.is_empty() || !r.entry_mismatch.is_empty() {
+            bad += 1;
+            if bad <= 12 {
+                println!("  FAIL {id} ({root}): positions {:?} did not drop exactly themselves; entry {:?}", r.mismatched, r.entry_mismatch);
+            }
+        }
+        if !r.pull_equal { pull_bad += 1; println!("  FAIL {id}: pull != push"); }
+        if id.starts_with("U-") && (r.changed > 0 || r.entry_bytes > 0) {
+            println!("  {id:<34} {root:<26} positions {:>2}, changed by zeroing {:>2}, entry bytes {}", r.positions, r.changed, r.entry_bytes);
+        }
+    }
+    println!("rows {rows} (accept, root in the ABI), {positions} (row, position) pairs; rows with unknowns at some position {with_unk} ({changed} pairs changed by zeroing); rows with map-entry bytes {entry_rows}");
+    println!("discard mismatches: {bad} row(s); pull != push: {pull_bad} row(s){}", if plant { "   [PLANTED: clearing skipped]" } else { "" });
+    let placed = if plant { true } else { prealloc_cases(&cx) };
+    if bad == 0 && pull_bad == 0 && placed { 0 } else { 1 }
+}
+
+fn varint(mut n: u64, out: &mut Vec<u8>) {
+    while n >= 0x80 { out.push((n as u8) | 0x80); n >>= 7; }
+    out.push(n as u8);
+}
+fn ld(tag: u32, body: &[u8], out: &mut Vec<u8>) {
+    varint(((tag as u64) << 3) | 2, out);
+    varint(body.len() as u64, out);
+    out.extend_from_slice(body);
+}
+
+fn prealloc_cases(cx: &Cx) -> bool {
+    // Two ResultRaw elements, each with one unknown field (100, varint 7 / 9).
+    let mut b = Vec::new();
+    let mut runs = Vec::new();
+    for (sid, v) in [(&b"aa"[..], 7u8), (b"bb", 9u8)] {
+        let mut e = Vec::new();
+        ld(1, sid, &mut e);
+        let run = vec![0xa0, 0x06, v]; // key (100 << 3) | 0 = 800 = a0 06, value
+        e.extend_from_slice(&run);
+        runs.push(run);
+        ld(1, &e, &mut b);
+    }
+    let alloc = |n: usize| unsafe { std::alloc::alloc(std::alloc::Layout::from_size_align(n, 1).unwrap()) };
+    let pos_results = 1; // plan.unk_positions: self, results, ...
+    let mut ok = true;
+    for (name, cap, grow) in [("prealloc, no grow", 64usize, false), ("prealloc, grow", 64, true), ("prealloc too small, grow", 2, true)] {
+        let p = alloc(cap);
+        let mut o = binding::unk_opts_list_results_response(Some(usize::MAX));
+        // Every position zero except `results`: the pre-allocated buffer, and grow or not.
+        let z = ak_unk_opts { buf: ak_unk_buf { data: std::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+        o.self_ = z;
+        o.results_created_at = z;
+        o.results_completed_at = z;
+        o.results = ak_unk_opts { buf: ak_unk_buf { data: p as *mut std::ffi::c_void, len: 0, cap: cap as u32 },
+                                  grow: if grow { Some(binding::unk_grow) } else { None } };
+        let _ = pos_results;
+        let r = binding::decode_with_list_results_response_opts(cx.dec, &b, &o);
+        let verdict = match (&r, grow) {
+            (Err(e), false) => {
+                // The first element took the buffer; the second found none and no grow.
+                let pass = *e == AK_ERR_CAPACITY;
+                // Not delivered: the buffer is still the host's. Free it.
+                unsafe { std::alloc::dealloc(p, std::alloc::Layout::from_size_align(cap, 1).unwrap()) };
+                format!("rc {e} (AK_ERR_CAPACITY expected: never the same buffer twice) {}", if pass { "PASS" } else { "FAIL" })
+            }
+            (Ok(v), true) => {
+                let p0 = v.results[0].unknown_fields.as_ptr();
+                let p1 = v.results[1].unknown_fields.as_ptr();
+                let bytes_ok = v.results[0].unknown_fields == runs[0] && v.results[1].unknown_fields == runs[1];
+                let first_is_pre = if cap >= 3 { p0 == p as *const u8 } else { true };
+                let pass = bytes_ok && p0 != p1 && first_is_pre && p1 != p as *const u8;
+                format!("element 0 {} the pre-allocated buffer, element 1 a different one ({}), bags {} {}",
+                        if p0 == p as *const u8 { "in" } else { "grown from" },
+                        if p0 != p1 && p1 != p as *const u8 { "distinct" } else { "SHARED" },
+                        if bytes_ok { "exact" } else { "WRONG" }, if pass { "PASS" } else { "FAIL" })
+            }
+            (r, _) => format!("unexpected {:?} FAIL", r.as_ref().map(|_| ())),
+        };
+        if !verdict.ends_with("PASS") { ok = false; }
+        println!("  placement: {name:<26} {verdict}");
+    }
+    ok
 }

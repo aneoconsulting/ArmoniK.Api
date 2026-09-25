@@ -158,8 +158,6 @@ fn drive_ffi(label: &str, buf: &[u8]) {
     };
     let vt = ak_dvt_ListResultsResponse {
         apply: Some(obs_apply),
-        unknown: None,
-        unk_results: None,
         add_results: Some(obs_add),
     };
     let rc = unsafe {
@@ -249,8 +247,6 @@ fn main() {
             };
             let vt = ak_dvt_ListResultsResponse {
                 apply: Some(obs_apply),
-                unknown: None,
-                unk_results: None,
                 add_results: Some(obs_add),
             };
             let rc = unsafe {
