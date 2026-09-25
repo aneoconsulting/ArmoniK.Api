@@ -7,6 +7,8 @@ pub mod arms_rest;
 /// ABI v1 section 7.1's PULL delivery family, as two arms.
 pub mod pull;
 pub mod generated {
+    /// WP5 step 10: without `unknown-fields`, the no-unknown variant's binding.
+    #[cfg_attr(not(feature = "unknown-fields"), path = "binding_nounk.rs")]
     pub mod binding;
 }
 

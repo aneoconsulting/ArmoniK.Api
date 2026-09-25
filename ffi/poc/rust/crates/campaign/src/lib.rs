@@ -108,6 +108,14 @@ pub trait Visit {
     fn visit<R: Ops>(&mut self);
 }
 
+/// CAMPAIGN.md req 10's unknown-field modes of core-native, core-ffi and core-ffi-pull in
+/// THIS build: `drop` and `retain` with `unknown-fields`, `no-unknown` (support compiled
+/// out: a separate build and binary) without. (label, retain?)
+#[cfg(feature = "unknown-fields")]
+pub const MODES: &[(&str, bool)] = &[("drop", false), ("retain", true)];
+#[cfg(not(feature = "unknown-fields"))]
+pub const MODES: &[(&str, bool)] = &[("no-unknown", false)];
+
 pub const ARMS: [&str; 5] = ["incumbent-prod", "armonik", "core-native", "core-ffi", "core-ffi-pull"];
 
 /// Requirement 22: the arm order of launch `l` (1-based) is ARMS rotated by l - 1.
@@ -266,7 +274,7 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input) -> Vec<Case> {
             R::n_decode(wire, false).expect("core-native decodes the payload")
         }))
     };
-    let modes: [(&'static str, bool); 2] = [("drop", false), ("retain", true)];
+    let modes: &'static [(&'static str, bool)] = MODES;
     if inp.encode && p_run {
         let mut buf = BytesMut::with_capacity(wire.len() * 2 + 64);
         push("incumbent-prod", "encode", "default", Box::new(move || {
@@ -284,7 +292,7 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input) -> Vec<Case> {
         }));
     }
     if inp.encode {
-        for (mname, retain) in modes {
+        for &(mname, retain) in modes {
             let v = f_val(retain);
             let mut e = ak_rt::Enc::new(facade::generated::core_native::SITES);
             push("core-native", "encode", mname, Box::new(move || {
@@ -312,7 +320,7 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input) -> Vec<Case> {
                 if read { R::touch_f(&v) } else { std::hint::black_box(&v); 0 }
             }));
         }
-        for (mname, retain) in modes {
+        for &(mname, retain) in modes {
             push("core-native", dir, mname, Box::new(move || {
                 let v = R::n_decode(wire, retain).unwrap();
                 if read { R::touch_f(&v) } else { std::hint::black_box(&v); 0 }
@@ -359,7 +367,7 @@ pub fn precheck<R: Ops>(ctx: &Ctx, inp: &Input) -> (usize, Vec<String>, Vec<Stri
         chk(av.is_ok(), "armonik decodes".into());
     }
     let mut toks = Vec::new();
-    for retain in [false, true] {
+    for &(_, retain) in MODES {
         let nv = R::n_decode(wire, retain);
         let fv = R::f_decode(ctx, wire, retain);
         let pl = R::f_pull(ctx, wire, retain, &mut toks);

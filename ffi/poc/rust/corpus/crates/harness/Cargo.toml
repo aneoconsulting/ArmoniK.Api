@@ -8,12 +8,15 @@ publish.workspace = true
 [features]
 # ON: ABI v1 section 3 as specified, so a binding that skipped ak_init would fail here
 # rather than pass silently (R-G7). `corpus` is what selects the corpus-schema core.
-default = ["init-guard"]
+default = ["init-guard", "unknown-fields"]
 init-guard = ["ak-core/init-guard"]
+# WP5 step 10: OFF is the NO-UNKNOWN build (the core and binding with unknown-field
+# support compiled out): its gate runs the corpus with every unknown row written dropped.
+unknown-fields = ["ak-core/unknown-fields", "ak-abi/unknown-fields"]
 
 [dependencies]
-ak-core = { path = "../../../../codec/crates/ak-core", features = ["corpus"] }
-ak-abi = { path = "../../../../codec/crates/ak-abi", features = ["corpus"] }
+ak-core = { path = "../../../../codec/crates/ak-core", default-features = false, features = ["corpus"] }
+ak-abi = { path = "../../../../codec/crates/ak-abi", default-features = false, features = ["corpus"] }
 ak-rt = { path = "../../../../codec/crates/ak-rt" }
 facade = { package = "corpus-facade", path = "../facade" }
 serde_json = "1"

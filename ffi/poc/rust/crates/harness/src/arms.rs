@@ -334,6 +334,7 @@ pub mod core_ffi_zeroed {
 /// unknown runs are captured as spans into the buffer the host handed in and delivered as a
 /// side run keyed by token, so the core copies nothing, allocates nothing, and the element
 /// group is not touched at all.
+#[cfg(feature = "unknown-fields")]
 pub mod core_ffi_unk {
     use super::core_ffi_arm::Ctx;
     use crate::generated::binding;

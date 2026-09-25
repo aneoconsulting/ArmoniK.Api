@@ -16,11 +16,23 @@
 #                   a dirty tree, so the campaign never sets it)
 #
 # Order of work: the correctness gate (gen/gate.sh: byte identity, the full corpus in both
-# unknown-field modes with its controls, crossing counts) must have PASSED for this exact
+# unknown-field modes with its controls AND the no-unknown build (step 12), crossing counts) must have PASSED for this exact
 # tree before any timing suite runs (requirement 26); the crossing-count gate (19) runs again
-# before codec and calib and stops the run on any difference from gen/crossings.txt.
+# before codec and calib and stops the run on any difference from gen/crossings.txt or
+# gen/crossings-nounk.txt.
 # Every log starts with the header of requirement 27; samples are JSON lines (28), one file
 # per suite, transport and launch (29).
+#
+# Requirements 10 and 12 (amended, WP5 step 10): the unknown-field modes retain and drop run
+# in the FULL build (target/), the third mode no-unknown in a SEPARATE build with
+# ak-core/ak-abi's `unknown-fields` feature off (target-nounk/, its own target directory: a
+# shared one would overwrite libak_core.so). Each codec launch runs both binaries, the
+# order alternating by launch (odd: full first); each rpc transport runs both clients
+# against the same server, also alternating. Files: codec-launchN.jsonl (retain, drop) and
+# codec-nounk-launchN.jsonl (no-unknown); rpc-T-launchN.jsonl (A, B, C-retain, C-drop,
+# D-retain, D-drop) and rpc-T-nounk-launchN.jsonl (A, B as in-process controls, C-nounk,
+# D-nounk). No figure compares across the two binaries without the in-process control
+# columns each carries.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$HERE"
@@ -50,8 +62,9 @@ if ! git diff --quiet HEAD -- . ../codec ../../schema ../../corpus || [ -n "$(gi
 fi
 TREE=$( (git rev-parse HEAD; git diff HEAD -- . ../codec ../../schema ../../corpus) | sha256sum | cut -c1-16)
 sysf() { cat "$1" 2>/dev/null || echo "n/a"; }
-header() {  # header SUITE
-  echo "# rust slice campaign runner, suite $1"
+header() {  # header SUITE [VARIANT]
+  local variant=${2:-full}
+  echo "# rust slice campaign runner, suite $1, core variant $variant"
   echo "# INSTRUMENTATION unless on the campaign machine of CAMPAIGN.md section 2 (a container figure is not a result)"
   echo "# commit     $REV$DIRTY   tree-id $TREE"
   echo "# date       $(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -63,7 +76,7 @@ header() {  # header SUITE
   echo "# cpu sets   CLIENT=${AK_CPU_CLIENT:-unset} SERVER=${AK_CPU_SERVER:-unset} OS=the rest"
   echo "# runtime    $(rustc --version); $(cargo --version)"
   echo "# incumbent  prost $(awk '/^name = "prost"$/{getline; print $3}' Cargo.lock | tr -d '"'), tonic $(awk '/^name = "tonic"$/{getline; print $3}' Cargo.lock | tr -d '"'), tonic-prost $(awk '/^name = "tonic-prost"$/{getline; print $3}' Cargo.lock | tr -d '"'); criterion $(awk '/^name = "criterion"$/{getline; print $3}' Cargo.lock | tr -d '"')"
-  echo "# build      cargo --release (opt-level 3, lto off, codegen-units default), core ak-core as a cdylib linked through the dynamic linker, core features rpc,init-guard; harness guard on; transcoder ak_tc_utf8_trusted (a Rust String is UTF-8)"
+  echo "# build      cargo --release (opt-level 3, lto off, codegen-units default), core ak-core as a cdylib linked through the dynamic linker, core features $( [ "$variant" = nounk ] && echo "rpc,init-guard WITHOUT unknown-fields (the no-unknown variant, target-nounk/)" || echo "rpc,init-guard,unknown-fields (the full variant, target/)"); harness guard on; transcoder ak_tc_utf8_trusted (a Rust String is UTF-8)"
   echo "# repeats    launches=$LAUNCHES rounds=$ROUNDS smoke=${AK_SMOKE:-0}"
 }
 cpus_required() {
@@ -84,6 +97,16 @@ crossings() {
     echo "STOP: crossing counts differ from gen/crossings.txt (requirement 19); see $OUT/crossings.diff" >&2
     exit 1
   fi
+  got="$OUT/crossings-nounk-current.txt"
+  CARGO_TARGET_DIR="$HERE/target-count-nounk" cargo run --release -q -p campaign --no-default-features \
+    --features count,init-guard --bin crossings 2>/dev/null > "$got"
+  if diff -u gen/crossings-nounk.txt "$got" > "$OUT/crossings-nounk.diff"; then
+    echo "crossing counts (no-unknown build): $(wc -l < "$got") rows identical to gen/crossings-nounk.txt"
+    rm -f "$OUT/crossings-nounk.diff" "$got"
+  else
+    echo "STOP: no-unknown crossing counts differ from gen/crossings-nounk.txt (requirement 19); see $OUT/crossings-nounk.diff" >&2
+    exit 1
+  fi
 }
 
 # ---- requirement 26: the gate, passed for THIS tree -----------------------------------
@@ -102,15 +125,30 @@ need_gate() {
   fi
 }
 
-build() {
-  cargo build --release -q -p campaign --bins 2>/dev/null
-  BENCH=$(cargo bench -q -p campaign --bench codec_suite --no-run --message-format=json 2>/dev/null \
+bench_exe() {  # bench_exe CARGO-ARGS...
+  cargo bench -q -p campaign "$@" --bench codec_suite --no-run --message-format=json 2>/dev/null \
     | python3 -S -c 'import sys,json
 for l in sys.stdin:
     try: m=json.loads(l)
     except Exception: continue
-    if m.get("reason")=="compiler-artifact" and m.get("target",{}).get("name")=="codec_suite" and m.get("executable"): print(m["executable"])' | tail -1)
-  [ -x "$BENCH" ] || { echo "no codec bench executable" >&2; exit 1; }
+    if m.get("reason")=="compiler-artifact" and m.get("target",{}).get("name")=="codec_suite" and m.get("executable"): print(m["executable"])' | tail -1
+}
+NOUNK_FEATURES=(--no-default-features --features init-guard)
+build() {
+  cargo build --release -q -p campaign --bins 2>/dev/null
+  BENCH=$(bench_exe)
+  CARGO_TARGET_DIR="$HERE/target-nounk" cargo build --release -q -p campaign "${NOUNK_FEATURES[@]}" --bins 2>/dev/null
+  BENCH_NOUNK=$(CARGO_TARGET_DIR="$HERE/target-nounk" bench_exe "${NOUNK_FEATURES[@]}")
+  [ -x "$BENCH" ] && [ -x "$BENCH_NOUNK" ] || { echo "no codec bench executable" >&2; exit 1; }
+  # The variant of each binary, checked on the core it loads (not assumed from the path).
+  for b in "$BENCH:0" "$BENCH_NOUNK:1" "target/release/rpc_client:0" "target-nounk/release/rpc_client:1"; do
+    local exe=${b%:*} want=${b##*:} so n
+    so=$(ldd "$exe" | grep -o '/[^ ]*libak_core.so')
+    n=$(nm -D --defined-only "$so" | grep -c ' T ak_uencode_' || true)
+    if { [ "$want" = 1 ] && [ "$n" != 0 ]; } || { [ "$want" = 0 ] && [ "$n" = 0 ]; }; then
+      echo "variant mix-up: $exe loads $so ($n ak_uencode_* exports)" >&2; exit 1
+    fi
+  done
 }
 
 case "$SUITE" in
@@ -125,16 +163,21 @@ case "$SUITE" in
     if [ "${AK_SMOKE:-0}" = 1 ]; then
       export AK_SAMPLES=10 AK_WARMUP_ITERS=${AK_WARMUP_ITERS:-3} AK_WARMUP_MS=${AK_WARMUP_MS:-5} AK_MEASURE_MS=${AK_MEASURE_MS:-10}
     fi
-    for L in $(seq 1 "$LAUNCHES"); do
-      F="$OUT/codec-launch$L.jsonl"
-      header codec > "$F.head"
-      CRITERION_HOME="$SCRATCH/criterion-launch$L" AK_LAUNCH=$L AK_OUT="$F.body" \
-        taskset -c "$AK_CPU_CLIENT" "$BENCH" > "$OUT/codec-launch$L.criterion.log" 2>&1 \
-        || { echo "codec launch $L FAILED: $OUT/codec-launch$L.criterion.log" >&2; exit 1; }
-      { cat "$F.head"; echo "# criterion's console output (its own summary; the samples are in $(basename "$F"))"; cat "$OUT/codec-launch$L.criterion.log"; } > "$OUT/codec-launch$L.criterion.tmp"
-      mv "$OUT/codec-launch$L.criterion.tmp" "$OUT/codec-launch$L.criterion.log"
+    codec_run() {  # codec_run L VARIANT EXE
+      local L=$1 v=$2 exe=$3 tag="codec"; [ "$v" = nounk ] && tag="codec-nounk"
+      local F="$OUT/$tag-launch$L.jsonl" C="$OUT/$tag-launch$L.criterion.log"
+      header codec "$v" > "$F.head"
+      CRITERION_HOME="$SCRATCH/criterion-$v-launch$L" AK_LAUNCH=$L AK_OUT="$F.body" \
+        taskset -c "$AK_CPU_CLIENT" "$exe" > "$C" 2>&1 \
+        || { echo "codec launch $L ($v) FAILED: $C" >&2; exit 1; }
+      { cat "$F.head"; echo "# criterion's console output (its own summary; the samples are in $(basename "$F"))"; cat "$C"; } > "$C.tmp"
+      mv "$C.tmp" "$C"
       cat "$F.head" "$F.body" > "$F"; rm -f "$F.head" "$F.body"
-      echo "codec launch $L: $(grep -vc '^#' "$F") sample rows -> $F"
+      echo "codec launch $L ($v): $(grep -vc '^#' "$F") sample rows -> $F"
+    }
+    for L in $(seq 1 "$LAUNCHES"); do
+      if [ $((L % 2)) = 1 ]; then codec_run "$L" full "$BENCH"; codec_run "$L" nounk "$BENCH_NOUNK"
+      else codec_run "$L" nounk "$BENCH_NOUNK"; codec_run "$L" full "$BENCH"; fi
     done ;;
 
   rpc)
@@ -151,21 +194,31 @@ case "$SUITE" in
       for _ in $(seq 100); do [ -s "$PF" ] && break; sleep 0.1; done
       [ -s "$PF" ] || { echo "rpc_server ($T) did not start" >&2; kill $SP; exit 1; }
       PORT=$(head -1 "$PF")
-      # Requirement 18's control: a wrong expected length must abort with no figure.
-      if taskset -c "$AK_CPU_CLIENT" target/release/rpc_client --port "$PORT" --transport "$T" \
-           --rounds 1 --calls 16 --warmup 16 --out "$SCRATCH/plant.jsonl" --plant > "$OUT/rpc-$T-PLANT.log" 2>&1 \
-         || [ -e "$SCRATCH/plant.jsonl" ]; then
-        echo "CONTROL FAILED: the planted wrong length did not abort ($T)" >&2; kill $SP; exit 1
-      fi
-      echo "rpc $T: control (planted wrong length) aborted with no output: $(tail -1 "$OUT/rpc-$T-PLANT.log")"
-      for L in $(seq 1 "$LAUNCHES"); do
-        F="$OUT/rpc-$T-launch$L.jsonl"
-        header rpc > "$F.head"
-        taskset -c "$AK_CPU_CLIENT" target/release/rpc_client --port "$PORT" --transport "$T" --launch "$L" \
+      # Requirement 18's control, per client binary: a wrong expected length must abort
+      # with no figure.
+      for v in full nounk; do
+        CL=target/release/rpc_client; [ "$v" = nounk ] && CL=target-nounk/release/rpc_client
+        rm -f "$SCRATCH/plant.jsonl"
+        if taskset -c "$AK_CPU_CLIENT" "$CL" --port "$PORT" --transport "$T" \
+             --rounds 1 --calls 16 --warmup 16 --out "$SCRATCH/plant.jsonl" --plant > "$OUT/rpc-$T-$v-PLANT.log" 2>&1 \
+           || [ -e "$SCRATCH/plant.jsonl" ]; then
+          echo "CONTROL FAILED: the planted wrong length did not abort ($T, $v client)" >&2; kill $SP; exit 1
+        fi
+        echo "rpc $T ($v client): control (planted wrong length) aborted with no output: $(tail -1 "$OUT/rpc-$T-$v-PLANT.log")"
+      done
+      rpc_run() {  # rpc_run L VARIANT
+        local L=$1 v=$2 CL=target/release/rpc_client F="$OUT/rpc-$T-launch$1.jsonl"
+        [ "$v" = nounk ] && { CL=target-nounk/release/rpc_client; F="$OUT/rpc-$T-nounk-launch$L.jsonl"; }
+        header rpc "$v" > "$F.head"
+        taskset -c "$AK_CPU_CLIENT" "$CL" --port "$PORT" --transport "$T" --launch "$L" \
           --rounds "$ROUNDS" --calls "$CALLS" --warmup "$WARM" --out "$F.body" \
-          || { echo "rpc $T launch $L ABORTED (requirement 18): no figure" >&2; kill $SP; rm -f "$F.head" "$F.body"; exit 1; }
+          || { echo "rpc $T launch $L ($v) ABORTED (requirement 18): no figure" >&2; kill $SP; rm -f "$F.head" "$F.body"; exit 1; }
         cat "$F.head" "$F.body" > "$F"; rm -f "$F.head" "$F.body"
-        echo "rpc $T launch $L: $(grep -vc '^#' "$F") sample rows -> $F"
+        echo "rpc $T launch $L ($v): $(grep -vc '^#' "$F") sample rows -> $F"
+      }
+      for L in $(seq 1 "$LAUNCHES"); do
+        if [ $((L % 2)) = 1 ]; then rpc_run "$L" full; rpc_run "$L" nounk
+        else rpc_run "$L" nounk; rpc_run "$L" full; fi
       done
       kill $SP; wait $SP 2>/dev/null || true
     done ;;

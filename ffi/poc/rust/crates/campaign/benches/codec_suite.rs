@@ -121,12 +121,17 @@ fn main() {
     let mut f = std::fs::File::create(&out_path).unwrap();
     for h in header("codec", &[
         ("engine", "criterion 0.5, measurement = thread CPU (CLOCK_THREAD_CPUTIME_ID), SamplingMode::Flat, raw samples exported, none dropped".into()),
+        ("build", if cfg!(feature = "unknown-fields") {
+            "unknown-fields: core-ffi / core-native / core-ffi-pull in modes drop and retain".to_string()
+        } else {
+            "NO-UNKNOWN (unknown-field support compiled out, CAMPAIGN.md req 10): core-ffi / core-native / core-ffi-pull in mode no-unknown; incumbent-prod and armonik as in-process controls".to_string()
+        }),
         ("launch", launch.to_string()),
         ("arm order", order.join(",")),
         ("samples (rounds) per case", samples.max(10).to_string()),
         ("warm-up", format!("{warm_iters} fixed iterations per case, then criterion warm-up {warm_ms} ms; measurement {meas_ms} ms")),
         ("wall", "not recorded for the codec suite (criterion measures one quantity; thread CPU is requirement 21's)".into()),
-        ("unknown modes", "core-native, core-ffi, core-ffi-pull: drop and retain (every position armed); incumbent-prod and armonik: default (prost drops unknown fields)".into()),
+        ("unknown modes", format!("core-native, core-ffi, core-ffi-pull: {} (retain = every position armed); incumbent-prod and armonik: default (prost drops unknown fields). core-native's drop rendering has no unknown-field code in either build", MODES.iter().map(|m| m.0).collect::<Vec<_>>().join(", "))),
         ("precheck", format!("{checks} checks passed")),
         ("inputs", inputs.len().to_string()),
         ("cases", cases.len().to_string()),
