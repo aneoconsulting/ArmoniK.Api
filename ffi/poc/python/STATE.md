@@ -86,7 +86,8 @@ instrumentation: `logs/python/campaign/codec-*` (rerun on the per-thread context
 (a, a+read, b). Retain passes `retain=True` to decode and encode (every position armed, on the
 per-thread contexts); drop is the same build with every entry zero. Every sample row carries
 `unknown_mode` (A, B: `incumbent-default`; C-queue, C-callback: `drop`). **C-nounk/D-nounk
-are not built**: they wait for the compiled-out variant in `poc/codec` and its port here.
+are not built**: they wait for the compiled-out variant in `poc/codec` and its port here
+(the next step, with the `AK_LAST_RECLAIMED` fix).
 Checks per transport, and a failed one aborts with no sample written:
 - every call checked as before;
 - the retain control: P2.2 with field 1000 appended is re-emitted by the retain calls and
@@ -290,7 +291,9 @@ shim -> CPython (counted by the shim), core fwd and core rev (counted by the cor
   mine to edit). With threads decoding, a GIL switch between its store and the read
   can misattribute a decode's figure. `unk_totals()` reads it in C immediately after the
   generated decode returns. On success, one facade attribute store runs in between, and it
-  runs no bytecode for the cext facade. The fix belongs in the generator: make it per thread.
+  runs no bytecode for the cext facade. The fix is mine: `py_capi.py` is this slice's backend, so the fix is to make it
+  per thread there. Deferred on the aggregating session's instruction: it goes in with the
+  no-unknown port, once the rust agent's variant lands, not while `poc/codec` is being edited.
 
 | # | where | what |
 |---|---|---|
