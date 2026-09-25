@@ -2,10 +2,10 @@
 """design/CAMPAIGN.md requirement 30: the only summaries a slice may produce, from the raw
 per-sample JSON lines the runner committed (never from anything else).
 
-Per key -- (suite, arm or cell, payload, content, dir, unknown_mode, transport, inflight) --
+Per key -- (suite, build, arm or cell, payload, content, dir, unknown_mode, transport, inflight) --
 over every round of every launch: the median, minimum and maximum of CPU and of wall time
 PER ITERATION; and the PER-ROUND RATIO to the reference taken in the same launch and round
-(`incumbent-prod` for the codec suite, same payload/content/dir; cell `A` for the RPC suite,
+(the same build's `incumbent-prod` for the codec suite, same payload/content/dir; cell `A` for the RPC suite,
 same dir/transport/inflight), with its median and range. No significance claims, no verdict
 words: interpretation is the aggregating session's, the decision the owner's.
 
@@ -27,26 +27,26 @@ def load(paths):
 
 
 def key(s):
-    return (s.get("suite"), s.get("arm") or s.get("cell"), s.get("payload"), s.get("content"),
-            s.get("dir"), s.get("unknown_mode"), s.get("transport"), s.get("inflight"))
+    return (s.get("suite"), s.get("build", "full"), s.get("arm") or s.get("cell"), s.get("payload"),
+            s.get("content"), s.get("dir"), s.get("unknown_mode"), s.get("transport"), s.get("inflight"))
 
 
 def ref_key(s):
     """The reference sample for s: same launch, round and case."""
     if s.get("suite") == "codec":
-        return ("codec", "incumbent-prod", s.get("payload"), s.get("content"), s.get("dir"),
-                s.get("launch"), s.get("round"))
+        return ("codec", s.get("build", "full"), "incumbent-prod", s.get("payload"), s.get("content"),
+                s.get("dir"), s.get("launch"), s.get("round"))
     if s.get("suite") == "rpc":
-        return ("rpc", "A", s.get("payload"), s.get("dir"), s.get("transport"),
+        return ("rpc", s.get("build", "full"), "A", s.get("payload"), s.get("dir"), s.get("transport"),
                 s.get("inflight"), s.get("launch"), s.get("round"))
     return None
 
 
 def own_ref_key(s):
     if s.get("suite") == "codec":
-        return ("codec", s.get("arm"), s.get("payload"), s.get("content"), s.get("dir"),
-                s.get("launch"), s.get("round"))
-    return ("rpc", s.get("cell"), s.get("payload"), s.get("dir"), s.get("transport"),
+        return ("codec", s.get("build", "full"), s.get("arm"), s.get("payload"), s.get("content"),
+                s.get("dir"), s.get("launch"), s.get("round"))
+    return ("rpc", s.get("build", "full"), s.get("cell"), s.get("payload"), s.get("dir"), s.get("transport"),
             s.get("inflight"), s.get("launch"), s.get("round"))
 
 
@@ -75,7 +75,7 @@ def main(paths):
             if "wall_ns" in s and "wall_ns" in r:
                 g["ratio_wall"].append((s["wall_ns"] / it) / (r["wall_ns"] / float(r.get("iters") or 1)))
     out = []
-    names = ["suite", "arm_or_cell", "payload", "content", "dir", "unknown_mode", "transport", "inflight"]
+    names = ["suite", "build", "arm_or_cell", "payload", "content", "dir", "unknown_mode", "transport", "inflight"]
     for k, g in sorted(groups.items(), key=lambda kv: tuple(str(x) for x in kv[0])):
         row = {n: v for n, v in zip(names, k) if v is not None}
         row.update({"cpu_ns_per_iter": stats(g["cpu"]), "wall_ns_per_iter": stats(g["wall"]),

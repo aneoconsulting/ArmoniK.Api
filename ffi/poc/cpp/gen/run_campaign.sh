@@ -315,7 +315,7 @@ case "$SUITE" in
            --rounds "$ROUNDS" --bytes "$BYTES" --warmup "$WARM" --corpus "$FFI/corpus/generated" \
            --rows "$ROWS" --gbench-out "$gb" > "$TMPD/gb.console" 2>&1; echo $? > "$TMPD/gb.rc")
         grep '^#' "$TMPD/gb.console"
-        python3 "$SLICE/gen/gbench_to_jsonl.py" "$gb" "$l"; } > "$f" 2>/dev/null
+        python3 "$SLICE/gen/gbench_to_jsonl.py" "$gb" "$l" "$([ "$cb" = campaign_codec_nounk ] && echo no-unknown || echo full)"; } > "$f" 2>/dev/null
       if [ "$(cat "$TMPD/gb.rc")" != 0 ] || ! grep -q '^{' "$f"; then
         echo "codec launch $l failed: $f" >&2; tail -20 "$TMPD/gb.console" >&2; exit 1
       fi
