@@ -1,6 +1,6 @@
 # Fix plan after the 2026-09-24 adversarial review
 
-Status: **WP1, WP2, WP4, WP5 done** (2026-09-24). Every slice renders from `poc/codec/gen/plan.py`; `generate.py --check` covers all of them; every slice passes the 702-row corpus. Next: WP3 (campaign specification and harness conformance), then WP6. Open owner decisions: R-G11, R-G12.
+Status: **WP1, WP2, WP4, WP5 done; decision 11 in the core (29d515e); WP3 harness conformance done for C++, Java, C#, Python (smoke runs green), Rust pending** (2026-09-25). Open: owner confirmation of decision 11's implementation rules, then the four backend ports of decision 11 (unblocks CAMPAIGN req 10), Rust WP3, `ffi/campaign.sh`, WP6.
 assumed to be neither the author nor anyone with the review session's context.
 Everything needed is in this file or in the paths it names.
 
