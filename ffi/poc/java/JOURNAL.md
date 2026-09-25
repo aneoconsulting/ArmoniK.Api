@@ -610,3 +610,23 @@ footprints grow); encode rows are unchanged. The gate refused to time. The refer
 re-baselined deliberately at 29d515e with the diff committed
 (`logs/java/campaign-smoke/counts-rebaseline-29d515e.diff`), and the regenerated binding
 (the backend's transitional drop mode) passed the payload gate and the corpus before it.
+
+### J24. Req 22a: the codec suite on JMH (2026-09-25)
+
+Owner decision: every slice's codec suite on its ecosystem's framework, JMH for Java.
+`ak.CodecJmh` (src/jmh) wraps the same arms: `Mode.SingleShotTime`, one invocation per
+iteration running `iters` operations (one section 7 sample), fresh graphs built in the
+untimed iteration setup, the cell a single `@Param` (so no invalid arm/direction combination
+runs), the correctness check in the trial setup with `-foe true`, Blackhole on the result
+sink. JMH measures wall only; the method reads the thread CPU clock and the iteration
+teardown writes it beside JMH's rawData, which `gen/jmh_to_jsonl.py` joins per iteration.
+`-f 1` per launch means one fork per cell; interleaving becomes blocks (a cell's rounds run
+consecutively in its own JVM) with the arm order rotated between launches.
+
+The trial check caught its own over-strictness on the first smoke run: a decode of P7.1
+(interleaved on purpose) was compared with the vector itself; it is now compared with arm
+R's reading re-encoded. Smoke (1 launch, warm-up 1, 1 measurement iteration, reduced
+iterations): gate passed, 777 cells per coder state, every raw iteration converted;
+`logs/java/campaign-smoke/codec-*.jsonl` now hold the JMH run, figures stripped (JMH's own
+JSON, text and CPU side files are produced beside the lines in a real run and not committed
+from the smoke run, because they carry the figures).
