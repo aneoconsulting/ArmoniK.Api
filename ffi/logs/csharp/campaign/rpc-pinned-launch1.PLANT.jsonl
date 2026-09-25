@@ -1,15 +1,15 @@
 # csharp campaign runner, suite rpc
-# commit:        5d81225
+# commit:        f0c82bb
 # SMOKE RUN (CAMPAIGN.md section 9) in a container: EVERY FIGURE BELOW IS INSTRUMENTATION, NOT A RESULT (README 1.1)
-# utc:           2026-09-25T07:15:21Z
-# cpu:           Intel(R) Xeon(R) Processor @ 2.80GHz; 4 logical CPUs; kernel 6.18.44-fc-v37
+# utc:           2026-09-25T21:51:24Z
+# cpu:           Intel(R) Xeon(R) Processor @ 2.10GHz; 4 logical CPUs; kernel 6.18.44-fc-v37
 # smt:           0 (active); governor: n/a; turbo: no_turbo=n/a boost=n/a
 # isolation:     cmdline isolcpus/nohz_full: cpuset: n/a
 # cpu sets:      CLIENT=0 SERVER=1 (smoke defaults); pinning by taskset
 # runtime:       .NET 8.0.31 (SDK 8.0.131); target net8.0, Release; tiering and PGO at their net8.0 defaults unless DOTNET_* is set: TieredCompilation=default TieredPGO=default; workstation GC, concurrent (default)
 # core:          libak_core.so shared, cargo --release, features rpc,init-guard (init-guard ON, as in every gate), built from git archive HEAD ffi/poc/codec
 # repeats:       1 launch(es) x 1 round(s); arms/cells interleaved per round, rotated
-# gate:          passed at 5d81225, identical to 5d81225 in ffi/poc/csharp, poc/codec, schema, corpus (/home/user/ArmoniK.Api/ffi/logs/csharp/campaign/gate.log)
+# gate:          passed at f0c82bb (/home/user/ArmoniK.Api/ffi/logs/csharp/campaign/gate.log)
 # campaign suite rpc: raw samples, one JSON object per line; nothing summarised here
 # runtime:        .NET 8.0.31
 # incumbent:      Google.Protobuf 3.32.0; Grpc.Net.Client 2.71.0; Grpc.AspNetCore.Server 2.71.0
@@ -17,6 +17,6 @@
 # GC:             server=False, concurrent=default(on), latency=Interactive
 # managed codec:  plan utf8=reject unknown=both limit=100
 # process CPUs:   affinity mask 0x1 (1 logical CPUs visible)
-# launch 1, rounds 1, 16 calls per sample, in flight 1/8/16; transport pinned (client: DisableDynamicWindowSizing + InitialHttp2StreamWindowSize 4 MiB; Kestrel stream/connection window 4 MiB; core: ak_client_opts stream 4194304 connection 4194304 adaptive 0 nagle 0); Unix socket /tmp/ak-cs-campaign-9462.sock; the server is a separate process; B/C blocking delivery, .callback/.queue extra rows; direction a: empty request, P2.2 response (540423 B); b: P2.2 request decoded by the server, empty response; warm-up 32 calls per cell; every call checked (status and length)
+# launch 1, rounds 1, 16 calls per sample, in flight 1/8/16; transport pinned (client: DisableDynamicWindowSizing + InitialHttp2StreamWindowSize 4 MiB; Kestrel stream/connection window 4 MiB; core: ak_client_opts stream 4194304 connection 4194304 adaptive 0 nagle 0); Unix socket /tmp/ak-cs-campaign-29604.sock; the server is a separate process; B/C blocking delivery, .callback/.queue extra rows (C.* in drop mode); C and D in each unknown-field mode (req 12 amended): C-retain/D-retain = decision 11's options armed at every position and ak_uencode_*, C-drop/D-drop = reset with NULL and ak_encode_* (C-nounk/D-nounk: the compiled-out build, not yet ported); a retained decode that leaves a grown buffer undelivered fails its call; direction a: empty request, P2.2 response (540423 B); b: P2.2 request decoded by the server, empty response; warm-up 32 calls per cell; every call checked (status and length)
 # ABORT: RpcException: Status(StatusCode="Internal", Detail="Error starting gRPC call. Abort: A: response length 540422, expected 540423", DebugException="Armonik.Ffi.Campaign.CampaignMain+Abort: A: response length 540422, expected 540423")
 # no samples written

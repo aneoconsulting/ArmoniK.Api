@@ -1,15 +1,16 @@
+# FIGURES STRIPPED (cpu_ns, wall_ns set to null): a container smoke whose purpose is the cell list and the checks, not a timing (README 1.1)
 # csharp campaign runner, suite rpc
-# commit:        5d81225
+# commit:        637e77d
 # SMOKE RUN (CAMPAIGN.md section 9) in a container: EVERY FIGURE BELOW IS INSTRUMENTATION, NOT A RESULT (README 1.1)
-# utc:           2026-09-25T07:14:49Z
-# cpu:           Intel(R) Xeon(R) Processor @ 2.80GHz; 4 logical CPUs; kernel 6.18.44-fc-v37
+# utc:           2026-09-25T21:43:27Z
+# cpu:           Intel(R) Xeon(R) Processor @ 2.10GHz; 4 logical CPUs; kernel 6.18.44-fc-v37
 # smt:           0 (active); governor: n/a; turbo: no_turbo=n/a boost=n/a
 # isolation:     cmdline isolcpus/nohz_full: cpuset: n/a
 # cpu sets:      CLIENT=0 SERVER=1 (smoke defaults); pinning by taskset
 # runtime:       .NET 8.0.31 (SDK 8.0.131); target net8.0, Release; tiering and PGO at their net8.0 defaults unless DOTNET_* is set: TieredCompilation=default TieredPGO=default; workstation GC, concurrent (default)
 # core:          libak_core.so shared, cargo --release, features rpc,init-guard (init-guard ON, as in every gate), built from git archive HEAD ffi/poc/codec
 # repeats:       1 launch(es) x 1 round(s); arms/cells interleaved per round, rotated
-# gate:          passed at 5d81225 (/home/user/ArmoniK.Api/ffi/logs/csharp/campaign/gate.log)
+# gate:          passed at 637e77d (/home/user/ArmoniK.Api/ffi/logs/csharp/campaign/gate.log)
 # campaign suite rpc: raw samples, one JSON object per line; nothing summarised here
 # runtime:        .NET 8.0.31
 # incumbent:      Google.Protobuf 3.32.0; Grpc.Net.Client 2.71.0; Grpc.AspNetCore.Server 2.71.0
@@ -17,52 +18,64 @@
 # GC:             server=False, concurrent=default(on), latency=Interactive
 # managed codec:  plan utf8=reject unknown=both limit=100
 # process CPUs:   affinity mask 0x1 (1 logical CPUs visible)
-# launch 1, rounds 1, 16 calls per sample, in flight 1/8/16; transport pinned (client: DisableDynamicWindowSizing + InitialHttp2StreamWindowSize 4 MiB; Kestrel stream/connection window 4 MiB; core: ak_client_opts stream 4194304 connection 4194304 adaptive 0 nagle 0); Unix socket /tmp/ak-cs-campaign-20709.sock; the server is a separate process; B/C blocking delivery, .callback/.queue extra rows; direction a: empty request, P2.2 response (540422 B); b: P2.2 request decoded by the server, empty response; warm-up 32 calls per cell; every call checked (status and length)
-{"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":151443000,"wall_ns":169607146,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":144601000,"wall_ns":159370791,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":142891000,"wall_ns":169089603,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"B","payload":"P2.2","dir":"a","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":146747000,"wall_ns":162382478,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"B","payload":"P2.2","dir":"a","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":157685000,"wall_ns":159881197,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"B","payload":"P2.2","dir":"a","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":166034000,"wall_ns":176604338,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"C","payload":"P2.2","dir":"a","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":86180000,"wall_ns":108807412,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"C","payload":"P2.2","dir":"a","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":107833000,"wall_ns":111661109,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"C","payload":"P2.2","dir":"a","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":130742000,"wall_ns":135580485,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"D","payload":"P2.2","dir":"a","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":96058000,"wall_ns":110012304,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"D","payload":"P2.2","dir":"a","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":132581000,"wall_ns":135822541,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"D","payload":"P2.2","dir":"a","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":118420000,"wall_ns":119057710,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"b","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":147914000,"wall_ns":244429584,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"b","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":142380000,"wall_ns":239459989,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"b","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":153822000,"wall_ns":289904957,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"B","payload":"P2.2","dir":"b","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":171360000,"wall_ns":268412018,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"B","payload":"P2.2","dir":"b","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":182281000,"wall_ns":193935845,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"B","payload":"P2.2","dir":"b","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":210361000,"wall_ns":222509110,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"C","payload":"P2.2","dir":"b","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":241971000,"wall_ns":245809232,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"C","payload":"P2.2","dir":"b","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":189872000,"wall_ns":200049145,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"C","payload":"P2.2","dir":"b","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":185072000,"wall_ns":187378311,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"D","payload":"P2.2","dir":"b","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":68380000,"wall_ns":144316114,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"D","payload":"P2.2","dir":"b","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":41918000,"wall_ns":129841131,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"D","payload":"P2.2","dir":"b","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":36248000,"wall_ns":130820589,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"B.callback","payload":"P2.2","dir":"a","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":205533000,"wall_ns":228924151,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"B.callback","payload":"P2.2","dir":"a","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":196751000,"wall_ns":199379230,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"B.callback","payload":"P2.2","dir":"a","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":191026000,"wall_ns":192296822,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"B.queue","payload":"P2.2","dir":"a","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":192434000,"wall_ns":207197843,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"B.queue","payload":"P2.2","dir":"a","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":186251000,"wall_ns":188057581,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"B.queue","payload":"P2.2","dir":"a","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":181679000,"wall_ns":185627309,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"C.callback","payload":"P2.2","dir":"a","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":103255000,"wall_ns":113679035,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"C.callback","payload":"P2.2","dir":"a","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":116644000,"wall_ns":118750844,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"C.callback","payload":"P2.2","dir":"a","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":113419000,"wall_ns":116783648,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"C.queue","payload":"P2.2","dir":"a","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":141616000,"wall_ns":155099958,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"C.queue","payload":"P2.2","dir":"a","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":180616000,"wall_ns":180665867,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"C.queue","payload":"P2.2","dir":"a","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":171985000,"wall_ns":173020983,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"B.callback","payload":"P2.2","dir":"b","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":160372000,"wall_ns":161118207,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"B.callback","payload":"P2.2","dir":"b","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":115986000,"wall_ns":116054187,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"B.callback","payload":"P2.2","dir":"b","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":103252000,"wall_ns":104878964,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"B.queue","payload":"P2.2","dir":"b","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":20584000,"wall_ns":114266280,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"B.queue","payload":"P2.2","dir":"b","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":30309000,"wall_ns":107081410,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"B.queue","payload":"P2.2","dir":"b","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":23313000,"wall_ns":106442034,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"C.callback","payload":"P2.2","dir":"b","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":55267000,"wall_ns":146513641,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"C.callback","payload":"P2.2","dir":"b","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":44993000,"wall_ns":115011127,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"C.callback","payload":"P2.2","dir":"b","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":42761000,"wall_ns":124516984,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"C.queue","payload":"P2.2","dir":"b","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":52612000,"wall_ns":145723919,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"C.queue","payload":"P2.2","dir":"b","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":58475000,"wall_ns":120979413,"iters":16}
-{"slice":"csharp","suite":"rpc","cell":"C.queue","payload":"P2.2","dir":"b","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":57428000,"wall_ns":198376064,"iters":16}
+# launch 1, rounds 1, 16 calls per sample, in flight 1/8/16; transport pinned (client: DisableDynamicWindowSizing + InitialHttp2StreamWindowSize 4 MiB; Kestrel stream/connection window 4 MiB; core: ak_client_opts stream 4194304 connection 4194304 adaptive 0 nagle 0); Unix socket /tmp/ak-cs-campaign-8481.sock; the server is a separate process; B/C blocking delivery, .callback/.queue extra rows (C.* in drop mode); C and D in each unknown-field mode (req 12 amended): C-retain/D-retain = decision 11's options armed at every position and ak_uencode_*, C-drop/D-drop = reset with NULL and ak_encode_* (C-nounk/D-nounk: the compiled-out build, not yet ported); a retained decode that leaves a grown buffer undelivered fails its call; direction a: empty request, P2.2 response (540422 B); b: P2.2 request decoded by the server, empty response; warm-up 32 calls per cell; every call checked (status and length)
+{"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","unknown_mode":"default","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","unknown_mode":"default","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","unknown_mode":"default","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B","payload":"P2.2","dir":"a","unknown_mode":"default","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B","payload":"P2.2","dir":"a","unknown_mode":"default","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B","payload":"P2.2","dir":"a","unknown_mode":"default","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C-retain","payload":"P2.2","dir":"a","unknown_mode":"retain","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C-retain","payload":"P2.2","dir":"a","unknown_mode":"retain","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C-retain","payload":"P2.2","dir":"a","unknown_mode":"retain","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C-drop","payload":"P2.2","dir":"a","unknown_mode":"drop","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C-drop","payload":"P2.2","dir":"a","unknown_mode":"drop","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C-drop","payload":"P2.2","dir":"a","unknown_mode":"drop","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"D-retain","payload":"P2.2","dir":"a","unknown_mode":"retain","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"D-retain","payload":"P2.2","dir":"a","unknown_mode":"retain","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"D-retain","payload":"P2.2","dir":"a","unknown_mode":"retain","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"D-drop","payload":"P2.2","dir":"a","unknown_mode":"drop","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"D-drop","payload":"P2.2","dir":"a","unknown_mode":"drop","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"D-drop","payload":"P2.2","dir":"a","unknown_mode":"drop","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"b","unknown_mode":"default","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"b","unknown_mode":"default","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"b","unknown_mode":"default","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B","payload":"P2.2","dir":"b","unknown_mode":"default","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B","payload":"P2.2","dir":"b","unknown_mode":"default","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B","payload":"P2.2","dir":"b","unknown_mode":"default","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C-retain","payload":"P2.2","dir":"b","unknown_mode":"retain","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C-retain","payload":"P2.2","dir":"b","unknown_mode":"retain","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C-retain","payload":"P2.2","dir":"b","unknown_mode":"retain","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C-drop","payload":"P2.2","dir":"b","unknown_mode":"drop","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C-drop","payload":"P2.2","dir":"b","unknown_mode":"drop","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C-drop","payload":"P2.2","dir":"b","unknown_mode":"drop","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"D-retain","payload":"P2.2","dir":"b","unknown_mode":"retain","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"D-retain","payload":"P2.2","dir":"b","unknown_mode":"retain","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"D-retain","payload":"P2.2","dir":"b","unknown_mode":"retain","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"D-drop","payload":"P2.2","dir":"b","unknown_mode":"drop","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"D-drop","payload":"P2.2","dir":"b","unknown_mode":"drop","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"D-drop","payload":"P2.2","dir":"b","unknown_mode":"drop","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.callback","payload":"P2.2","dir":"a","unknown_mode":"default","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.callback","payload":"P2.2","dir":"a","unknown_mode":"default","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.callback","payload":"P2.2","dir":"a","unknown_mode":"default","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.queue","payload":"P2.2","dir":"a","unknown_mode":"default","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.queue","payload":"P2.2","dir":"a","unknown_mode":"default","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.queue","payload":"P2.2","dir":"a","unknown_mode":"default","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.callback","payload":"P2.2","dir":"a","unknown_mode":"drop","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.callback","payload":"P2.2","dir":"a","unknown_mode":"drop","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.callback","payload":"P2.2","dir":"a","unknown_mode":"drop","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.queue","payload":"P2.2","dir":"a","unknown_mode":"drop","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.queue","payload":"P2.2","dir":"a","unknown_mode":"drop","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.queue","payload":"P2.2","dir":"a","unknown_mode":"drop","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.callback","payload":"P2.2","dir":"b","unknown_mode":"default","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.callback","payload":"P2.2","dir":"b","unknown_mode":"default","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.callback","payload":"P2.2","dir":"b","unknown_mode":"default","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.queue","payload":"P2.2","dir":"b","unknown_mode":"default","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.queue","payload":"P2.2","dir":"b","unknown_mode":"default","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"B.queue","payload":"P2.2","dir":"b","unknown_mode":"default","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.callback","payload":"P2.2","dir":"b","unknown_mode":"drop","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.callback","payload":"P2.2","dir":"b","unknown_mode":"drop","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.callback","payload":"P2.2","dir":"b","unknown_mode":"drop","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.queue","payload":"P2.2","dir":"b","unknown_mode":"drop","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.queue","payload":"P2.2","dir":"b","unknown_mode":"drop","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
+{"slice":"csharp","suite":"rpc","cell":"C.queue","payload":"P2.2","dir":"b","unknown_mode":"drop","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}

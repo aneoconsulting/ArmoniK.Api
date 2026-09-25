@@ -1640,3 +1640,20 @@ retain and host-gen retain to re-encode every one of the 92 timed unknown rows t
 incumbent's bytes (744 checks, all pass), so requirement 10's retain rows are timed on a
 decoder that retains. Not built: the placement controls (pool, refill, oneof move, CAPACITY):
 this host only uses grow.
+
+### 53. CAMPAIGN req 12 amended (85cb00f): C and D per unknown-field mode
+
+The RPC grid's C and D now run as `C-retain`/`C-drop` and `D-retain`/`D-drop` in both
+directions (retain: decision 11's options armed at every position, `ak_uencode_*`; drop: reset
+with NULL, `ak_encode_*`); samples carry `unknown_mode`. A retained decode that leaves a grown
+buffer undelivered fails its call, so every call still checks it. `C-nounk`/`D-nounk` wait for
+the compiled-out build.
+
+**A runner defect the first smoke found.** At 253f487 the runner printed "the correctness gate
+FAILED" and still produced rpc samples: `GATE="$(gate_first)"` runs gate_first in a command
+substitution, so its `exit 1` only left the subshell. It has been like that since WP3 (every
+earlier smoke's gate had passed, so it never showed). Fixed (`|| exit 1` on all three suites),
+the samples discarded, the suite re-run at 637e77d behind a passing gate. The failing gate log
+itself was overwritten by the plant run's gate before I read it, so why that gate failed is
+not established; the next two gates (on later HEADs, other slices committing meanwhile) passed.
+Smoke: 60 samples per transport, no call failed, the abort control 0 samples; figures stripped.
