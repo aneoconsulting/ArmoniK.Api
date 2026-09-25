@@ -32,7 +32,7 @@ import re
 from plan import (FIXED, as_plan, abi_order_topo, direct_fields, element_types, elem_type,
                   group_fields, loop_slots, presence_bits, slot_elem, slot_name,
                   ugroup_fields, unk_entry_points, unk_opts_layout, unk_opts_name,
-                  vtable_messages)
+                  unknown_compiled_out, vtable_messages)
 import cs_names as N
 
 LOOP_FN = "delegate* unmanaged[Cdecl]<IntPtr, void*, long, int>"
@@ -147,7 +147,8 @@ def group_decls(p):
     out = []
     for name in abi_order_topo(p):
         m = p.msg(name)
-        for pre in ("e", "d", "u"):
+        # WP5 step 10: the NO-UNKNOWN variant has no u-groups (plan.unknown_compiled_out).
+        for pre in (("e", "d") if unknown_compiled_out(p) else ("e", "d", "u")):
             fields = ugroup_fields(m) if pre == "u" else group_fields(m, pre != "d")
             out.append(("ak_%sfix_%s" % (pre, name),
                         [(fn, N.abi_type(t)) for fn, t in fields] + [("presence", "uint")]))
@@ -199,6 +200,8 @@ def opts_decls(p):
     plan.unk_opts_layout (an `ak_unk_opts` for a position that occurs once per decode, an
     `ak_unk_pool` for one that can occur more; rule 1)."""
     out = []
+    if unknown_compiled_out(p):
+        return out                  # WP5 step 10: the options type does not exist
     for root in p.roots:
         out.append((unk_opts_name(root), [("host", "IntPtr")] +
                     [(n, t) for n, _m, t in unk_opts_layout(p, root)]))
@@ -226,18 +229,21 @@ def root_imports(p):
         direct = ", byte* direct, nuint direct_len" if direct_fields(p, root) else ""
         out.append(("nint", "ak_encode_%s" % root,
                     "void* obj, IntPtr ctx, ak_evt_%s* vt, ak_efix_%s* fix%s" % (root, root, direct)))
-        out.append(("nint", "ak_uencode_%s" % root,
-                    "void* obj, IntPtr ctx, ak_evt_%s* vt, ak_ufix_%s* fix%s" % (root, root, direct)))
+        if not unknown_compiled_out(p):
+            out.append(("nint", "ak_uencode_%s" % root,
+                        "void* obj, IntPtr ctx, ak_evt_%s* vt, ak_ufix_%s* fix%s" % (root, root, direct)))
         out.append(("int", "ak_decode_%s" % root,
                     "IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_%s* vt" % root))
         out.append(("int", "ak_parse_%s" % root, "IntPtr ctx, byte* buf, nuint len"))
     for et in sorted(element_types(p)):
         if p.msg(et).leaf:
             out.append(("int", "ak_elem_%s" % et, "IntPtr ctx, ak_efix_%s* elems, int n" % et))
-            out.append(("int", "ak_uelem_%s" % et, "IntPtr ctx, ak_ufix_%s* elems, int n" % et))
+            if not unknown_compiled_out(p):
+                out.append(("int", "ak_uelem_%s" % et, "IntPtr ctx, ak_ufix_%s* elems, int n" % et))
         else:
             out.append(("int", "ak_elemu_%s" % et, "IntPtr ctx, ak_efix_%s* elems, int n, long tok0" % et))
-            out.append(("int", "ak_uelemu_%s" % et, "IntPtr ctx, ak_ufix_%s* elems, int n, long tok0" % et))
+            if not unknown_compiled_out(p):
+                out.append(("int", "ak_uelemu_%s" % et, "IntPtr ctx, ak_ufix_%s* elems, int n, long tok0" % et))
     return out
 
 
@@ -384,6 +390,32 @@ def emit_abi(x, ns, lib="ak_core"):
     o += "        return bad;"
     o += "    }"
     o += "    public const int FactCount = %d;" % nfacts
+    o += "}"
+    o += ""
+    # WP5 step 10: which variant this binding is, and a load-time check that the core it
+    # loaded is the same one: the u-family entry points exist in the full core and not in
+    # the no-unknown one (an export check, independent of the layout facts).
+    probe = "ak_uencode_%s" % p.roots[0]
+    nounk = unknown_compiled_out(p)
+    o.doc("WP5 step 10: this binding's unknown-field variant, and a check that the LOADED core "
+          "is the same variant (the u-family export `%s` %s)." % (probe, "absent" if nounk else "present"))
+    o += "public static class AbiVariant"
+    o += "{"
+    o += "    public const bool UnknownCompiledOut = %s;" % ("true" if nounk else "false")
+    o += "    public const string Name = \"%s\";" % ("no-unknown" if nounk else "full")
+    o += "    /// null when the loaded core matches this binding's variant, else what is wrong."
+    o += "    public static string CheckLoadedCore()"
+    o += "    {"
+    o += "#if NETCOREAPP3_0_OR_GREATER"
+    o += "        AbiInit.Ensure();"
+    o += "        var h = NativeLibrary.Load(Abi.Lib, typeof(Abi).Assembly, null);"
+    o += "        bool has = NativeLibrary.TryGetExport(h, \"%s\", out _);" % probe
+    o += "        if (has == UnknownCompiledOut) return $\"the loaded core {(has ? \"exports\" : \"lacks\")} %s: it is not the {Name} variant this binding was rendered for\";" % probe
+    o += "        return null;"
+    o += "#else"
+    o += "        return \"not checked: NativeLibrary needs .NET Core 3.0 or later\";"
+    o += "#endif"
+    o += "    }"
     o += "}"
     return str(o)
 
