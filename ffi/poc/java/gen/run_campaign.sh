@@ -183,7 +183,7 @@ rpc)
     for tr in shipped pinned; do
       f="$OUT/rpc-$tr-launch-$l.jsonl"
       sock="$HERE/build/campaign-$$-$tr-$l.sock"
-      header "$f" "transport=$tr launch=$l warm-up=$WARM sample(s) per (dir,inflight,cell) before round 1 (cells A-D in ONE client process, server in its own process)"
+      header "$f" "transport=$tr launch=$l warm-up=$WARM sample(s) per (dir,inflight,cell) before round 1 (cells A, B, C-retain, C-drop, D-retain, D-drop in ONE client process, server in its own process)"
       echo "# server: $PIN_S java ... ak.CampaignRpc --serve (grpc-java, pre-serialised P2.2; direction b parses with protobuf-java)" >> "$f"
       $PIN_S $JAVA -Dak.camp.transport="$tr" -Dak.lib="$HERE/build/jnirpc/libakjni.so" \
         ak.CampaignRpc --serve "$sock" > "$OUT/rpc-server-$tr-$l.txt" 2>&1 &

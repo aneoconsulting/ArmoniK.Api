@@ -33,7 +33,7 @@ import java.util.concurrent.CyclicBarrier;
  *
  * <p><b>Two processes.</b> {@code --serve <socket>} is the server, its own JVM, pinned to
  * {@code AK_CPU_SERVER} by the runner; everything else is the client, pinned to
- * {@code AK_CPU_CLIENT}, and runs ALL FOUR CELLS in one process, interleaved per round in a
+ * {@code AK_CPU_CLIENT}, and runs ALL SIX CELLS in one process, interleaved per round in a
  * rotated order (req 22). The client's CPU is {@code CLOCK_PROCESS_CPUTIME_ID} (req 21),
  * which contains no server work.
  *
@@ -48,6 +48,16 @@ import java.util.concurrent.CyclicBarrier;
  *   D     core-ffi, as grpc-java             grpc-java
  *         Marshaller
  * </pre>
+ *
+ * <p><b>Unknown-field mode</b> (req 12 as amended 85cb00f, req 10): C and D run once per
+ * mode, {@code C-retain}, {@code C-drop}, {@code D-retain}, {@code D-drop}. Retain is a
+ * Binding with {@code retain = true}: every decode arms the root's options (every position
+ * with the shim's grow) and disarms after, and encode goes through the u-groups; drop is
+ * the default Binding (NULL options). Each mode has its own per-thread Binding. Before
+ * timing, each C and D cell also decodes the P2.2 body in its mode and re-encodes it, and
+ * the bytes must equal the body. After the run the shim's leak counter
+ * ({@code Native.unkLive}) and every retain Binding's reclaim counters must read 0 (a
+ * non-zero reading aborts, req 18). A and B run the incumbent in its default mode.
  *
  * <p><b>The server does identical work in every cell</b> (req 13): direction (a) answers
  * every request with the SAME pre-serialised P2.2 bytes; direction (b) parses the request
@@ -149,9 +159,43 @@ public final class CampaignRpc {
   // ---- the client cells ----------------------------------------------------------------
 
   static byte[] EXPECT_A;                                  // the P2.2 body, direction (a)
-  static final ThreadLocal<Binding> BIND = new ThreadLocal<Binding>() {
-    @Override protected Binding initialValue() { return new Binding(); }
+  /** This thread's Bindings. A sample's threads end with the sample, so each releases its
+   *  own ({@link #releaseThread}): folds the leak counters in and frees the native state.
+   *  (Before this, every sample's Bindings stayed allocated to the end of the process.) */
+  static final ThreadLocal<ArrayList<Binding>> MINE = new ThreadLocal<ArrayList<Binding>>() {
+    @Override protected ArrayList<Binding> initialValue() { return new ArrayList<Binding>(); }
   };
+  static final java.util.concurrent.atomic.AtomicLong UNK_RECLAIMED = new java.util.concurrent.atomic.AtomicLong(),
+      UNK_LEFT = new java.util.concurrent.atomic.AtomicLong(),
+      BINDINGS_RETAIN = new java.util.concurrent.atomic.AtomicLong(),
+      BINDINGS_DROP = new java.util.concurrent.atomic.AtomicLong();
+  static final ThreadLocal<Binding> BIND = new ThreadLocal<Binding>() {
+    @Override protected Binding initialValue() {
+      Binding b = new Binding();
+      MINE.get().add(b);
+      BINDINGS_DROP.incrementAndGet();
+      return b;
+    }
+  };
+  static final ThreadLocal<Binding> BIND_U = new ThreadLocal<Binding>() {
+    @Override protected Binding initialValue() {
+      Binding b = new Binding();
+      b.retain = true;
+      MINE.get().add(b);
+      BINDINGS_RETAIN.incrementAndGet();
+      return b;
+    }
+  };
+  static void releaseThread() {
+    for (Binding b : MINE.get()) {
+      UNK_RECLAIMED.addAndGet(b.unkReclaimed);
+      UNK_LEFT.addAndGet(b.unkLeftAfterSuccess);
+      b.close();
+    }
+    MINE.remove();
+    BIND.remove();
+    BIND_U.remove();
+  }
   static final ThreadLocal<byte[]> BUF = new ThreadLocal<byte[]>() {
     @Override protected byte[] initialValue() { return new byte[1 << 20]; }
   };
@@ -161,7 +205,12 @@ public final class CampaignRpc {
   abstract static class Cell {
     final String name;
     final boolean incumbentCodec;
-    Cell(String name, boolean incumbentCodec) { this.name = name; this.incumbentCodec = incumbentCodec; }
+    final boolean retain;                        // C and D: the unknown-field mode (req 12)
+    Cell(String name, boolean incumbentCodec, boolean retain) {
+      this.name = name; this.incumbentCodec = incumbentCodec; this.retain = retain;
+    }
+    /** This thread's Binding in this cell's mode. */
+    Binding bind() { return retain ? BIND_U.get() : BIND.get(); }
     abstract void callA();                       // (a)
     abstract void callB(Object request);         // (b); request from the pool
     void close() {}
@@ -175,8 +224,8 @@ public final class CampaignRpc {
     final MethodDescriptor<byte[], Object> mdA;
     final MethodDescriptor<Object, byte[]> mdB;
 
-    GrpcCell(String name, boolean incumbent, String sock, EpollEventLoopGroup elg, boolean pinned) {
-      super(name, incumbent);
+    GrpcCell(String name, boolean incumbent, boolean retain, String sock, EpollEventLoopGroup elg, boolean pinned) {
+      super(name, incumbent, retain);
       NettyChannelBuilder cb = NettyChannelBuilder.forAddress(new DomainSocketAddress(sock))
           .channelType(EpollDomainSocketChannel.class).eventLoopGroup(elg)
           .usePlaintext().maxInboundMessageSize(MAXMSG).maxInboundMetadataSize(1024 * 1024);
@@ -202,7 +251,7 @@ public final class CampaignRpc {
               at += k;
             }
             if (at != EXPECT_A.length) fail(name + "/a: response " + at + " B, want " + EXPECT_A.length);
-            return FfiArms.decode(BIND.get(), PAYLOAD, b, 0, at);
+            return FfiArms.decode(bind(), PAYLOAD, b, 0, at);
           } catch (IOException e) {
             throw new IllegalStateException(e);
           }
@@ -211,7 +260,7 @@ public final class CampaignRpc {
       MethodDescriptor.Marshaller<Object> req = new MethodDescriptor.Marshaller<Object>() {
         @Override public InputStream stream(Object v) {
           if (incumbentCodec) return pm.stream((Message) v);   // grpc-java's production path
-          Binding b = BIND.get();
+          Binding b = bind();
           FfiArms.encode(b, PAYLOAD, v);
           return new ByteArrayInputStream(b.take());
         }
@@ -245,8 +294,8 @@ public final class CampaignRpc {
       @Override protected long[] initialValue() { return new long[3]; }
     };
 
-    CoreCell(String name, boolean incumbent, String sock, boolean pinned) {
-      super(name, incumbent);
+    CoreCell(String name, boolean incumbent, boolean retain, String sock, boolean pinned) {
+      super(name, incumbent, retain);
       rt = NativeRpc.runtimeNew(Integer.getInteger("ak.rpc.workers", 2));
       if (rt == 0) fail("ak_runtime_new");
       byte[] uri = ("unix:" + sock).getBytes(StandardCharsets.UTF_8);
@@ -278,7 +327,7 @@ public final class CampaignRpc {
       Object x;
       try {
         x = incumbentCodec ? PbArms.parseArray(PAYLOAD, n == b.length ? b : Arrays.copyOf(b, n))
-                           : FfiArms.decode(BIND.get(), PAYLOAD, b, 0, n);
+                           : FfiArms.decode(bind(), PAYLOAD, b, 0, n);
       } catch (Exception e) {
         throw new IllegalStateException(e);
       }
@@ -290,7 +339,7 @@ public final class CampaignRpc {
       if (incumbentCodec) {
         w = ((Message) request).toByteArray();
       } else {
-        Binding bd = BIND.get();
+        Binding bd = bind();
         FfiArms.encode(bd, PAYLOAD, request);
         w = bd.take();
       }
@@ -338,6 +387,8 @@ public final class CampaignRpc {
         } catch (Throwable e) {
           err[0] = e;
           Campaign.abort("req 18: " + cell.name + "/" + dir + ": " + e);
+        } finally {
+          releaseThread();
         }
       }, "rpc-" + cell.name + "-" + t);
       ts[t].start();
@@ -374,16 +425,25 @@ public final class CampaignRpc {
 
     EpollEventLoopGroup elg = new EpollEventLoopGroup();
     List<Cell> cells = new ArrayList<Cell>();
-    cells.add(new GrpcCell("A", true, sock, elg, pinned));
-    cells.add(new CoreCell("B", true, sock, pinned));
-    cells.add(new CoreCell("C", false, sock, pinned));
-    cells.add(new GrpcCell("D", false, sock, elg, pinned));
+    cells.add(new GrpcCell("A", true, false, sock, elg, pinned));
+    cells.add(new CoreCell("B", true, false, sock, pinned));
+    cells.add(new CoreCell("C-retain", false, true, sock, pinned));
+    cells.add(new CoreCell("C-drop", false, false, sock, pinned));
+    cells.add(new GrpcCell("D-retain", false, true, sock, elg, pinned));
+    cells.add(new GrpcCell("D-drop", false, false, sock, elg, pinned));
 
     String[] dirs = {"a", "b"};
     // Correctness first, per cell and direction: one checked call each (req 18, 26).
     for (Cell c : cells) {
       c.callA();
       c.callB(c.fresh());
+      if (!c.incumbentCodec) {                 // the mode's own decode and encode, byte identity
+        Binding b = c.bind();
+        FfiArms.encode(b, PAYLOAD, FfiArms.decode(b, PAYLOAD, EXPECT_A, 0, EXPECT_A.length));
+        byte[] re = b.take();
+        if (!Arrays.equals(re, EXPECT_A)) fail(c.name + ": P2.2 decoded and re-encoded in its mode is "
+            + re.length + " B and differs from the body");
+      }
     }
     for (int k = 0; k < warm; k++)
       for (String d : dirs)
@@ -408,6 +468,16 @@ public final class CampaignRpc {
       Campaign.meta("{\"round\":" + r + ",\"jit_ms\":" + Campaign.jitMs() + "}");
     }
     for (Cell c : cells) c.close();
+    // The leak counters (decision 11 rule 3), after every call of the run.
+    releaseThread();                           // the correctness phase's Bindings
+    long live = Native.unkLive(), reclaimed = UNK_RECLAIMED.get(), left = UNK_LEFT.get();
+    Campaign.meta("{\"unk_leak\":{\"buffers_alive\":" + live + ",\"reclaimed_after_failed_decodes\":"
+        + reclaimed + ",\"left_after_successful_decodes\":" + left + ",\"retain_bindings\":"
+        + BINDINGS_RETAIN.get() + ",\"drop_bindings\":" + BINDINGS_DROP.get() + "}}");
+    System.out.println("unknown-field leak counters after the run: buffers alive " + live
+        + ", reclaimed after failed decodes " + reclaimed + ", left after successful decodes " + left
+        + " (" + BINDINGS_RETAIN.get() + " retain / " + BINDINGS_DROP.get() + " drop bindings)");
+    if (live != 0 || reclaimed != 0 || left != 0) fail("unknown-field leak counters are not 0");
     elg.shutdownGracefully(0, 0, java.util.concurrent.TimeUnit.SECONDS);
     Campaign.meta("{\"sink\":" + sinkv + "}");
     Campaign.flush(out);
