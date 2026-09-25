@@ -49,8 +49,9 @@ internal static unsafe class ProcCpu
 /// BDN has no signal between them, and none per iteration).
 public sealed class CpuDiagnoser : IDiagnoser
 {
-    public static readonly Dictionary<string, (long Cpu, long Wall)> Stage = new Dictionary<string, (long, long)>();
-    private long _c0, _w0;
+    public static readonly Dictionary<string, (long Cpu, long Wall, int G0, int G1, int G2, long Heap)> Stage = new Dictionary<string, (long, long, int, int, int, long)>();
+    private long _c0, _w0, _heap;
+    private int _g0, _g1, _g2;
     public IEnumerable<string> Ids => new[] { "AkProcessCpu" };
     public IEnumerable<IExporter> Exporters => Array.Empty<IExporter>();
     public IEnumerable<IAnalyser> Analysers => Array.Empty<IAnalyser>();
@@ -58,11 +59,16 @@ public sealed class CpuDiagnoser : IDiagnoser
     public bool RequiresBlockingAcknowledgments(BenchmarkCase benchmarkCase) => true;
     public void Handle(HostSignal signal, DiagnoserActionParameters parameters)
     {
-        if (signal == HostSignal.BeforeActualRun) { _w0 = ProcCpu.Wall(); _c0 = ProcCpu.Ns(); }
+        if (signal == HostSignal.BeforeActualRun)
+        {
+            _heap = GC.GetTotalMemory(false); _g0 = GC.CollectionCount(0); _g1 = GC.CollectionCount(1); _g2 = GC.CollectionCount(2);
+            _w0 = ProcCpu.Wall(); _c0 = ProcCpu.Ns();
+        }
         else if (signal == HostSignal.AfterActualRun)
         {
             long c1 = ProcCpu.Ns(), w1 = ProcCpu.Wall();
-            Stage[parameters.BenchmarkCase.Parameters["Case"].ToString()] = (c1 - _c0, w1 - _w0);
+            Stage[parameters.BenchmarkCase.Parameters["Case"].ToString()] = (c1 - _c0, w1 - _w0,
+                GC.CollectionCount(0) - _g0, GC.CollectionCount(1) - _g1, GC.CollectionCount(2) - _g2, _heap);
         }
     }
     public IEnumerable<Metric> ProcessResults(DiagnoserResults results) => Array.Empty<Metric>();
@@ -134,7 +140,7 @@ public sealed class JsonLinesExporter : IExporter
                 .Select(g => string.Format(CultureInfo.InvariantCulture, "\"{0}\":[{1},{2},{3}]", g.Key, g.Count(), g.Sum(m => m.Operations), (long)Math.Round(g.Sum(m => m.Nanoseconds)))));
             if (CpuDiagnoser.Stage.TryGetValue(c.Key, out var st))
                 o.Add(J(c, _launch, 0, st.Cpu, st.Wall, act.Sum(m => m.Operations),
-                    "\"engine\":\"bdn\",\"bdn_stages\":{" + stages + "},\"note\":\"round 0 = CPU (getrusage RUSAGE_SELF) and wall of the process across BDN BeforeActualRun..AfterActualRun, which spans the warm-up AND actual stages (pilot and jitting precede it); iters = actual-stage ops only, so cpu_ns/iters is NOT a per-op CPU figure, cpu_ns/wall_ns is the occupancy of that span; bdn_stages = [iterations, ops, ns] per mode/stage\""));
+                    "\"engine\":\"bdn\",\"bdn_stages\":{" + stages + "}," + string.Format(CultureInfo.InvariantCulture, "\"gc\":[{0},{1},{2}],\"heap_bytes\":{3},", st.G0, st.G1, st.G2, st.Heap) + "\"note\":\"round 0 = CPU (getrusage RUSAGE_SELF) and wall of the process across BDN BeforeActualRun..AfterActualRun, which spans the warm-up AND actual stages (pilot and jitting precede it); iters = actual-stage ops only, so cpu_ns/iters is NOT a per-op CPU figure, cpu_ns/wall_ns is the occupancy of that span; bdn_stages = [iterations, ops, ns] per mode/stage; gc = gen0/gen1/gen2 collections across the span; heap_bytes = GC.GetTotalMemory(false) at its start\""));
         }
         File.AppendAllLines(_path, o);
         return new[] { _path };

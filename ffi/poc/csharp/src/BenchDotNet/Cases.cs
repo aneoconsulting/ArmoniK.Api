@@ -109,7 +109,9 @@ public static class Cases
                 var w = new BufWriter(wire.Length + 4096);
                 ops.EncIncProd(w);
                 Same(w.WrittenSpan.ToArray(), wire, pid + " incumbent-prod");
-                n += 4;
+                ops.EncIncBest(w);
+                Same(w.WrittenSpan.ToArray(), wire, pid + " incumbent-best");
+                n += 5;
             }
         foreach (var id in UnknownRows())
         {
@@ -121,10 +123,12 @@ public static class Cases
         return n;
     }
 
+    private static Json _man;
     private static (RootOps, byte[]) Row(string id)
     {
         var dir = CorpusDir();
-        var v = Json.Parse(File.ReadAllText(Path.Combine(dir, "manifest.json")))["vectors"][id];
+        _man ??= Json.Parse(File.ReadAllText(Path.Combine(dir, "manifest.json")))["vectors"];
+        var v = _man[id];
         return (OpsTable.ForRoot(v["root"].AsString), File.ReadAllBytes(Path.Combine(dir, v["file"].AsString)));
     }
 
