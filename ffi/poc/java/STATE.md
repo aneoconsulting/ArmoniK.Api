@@ -48,7 +48,7 @@ crossing counts, floor builds, corpus passes, feasibility and defects found.
 The harness: `gen/run_campaign.sh --suite codec|rpc|calib|gate --out <dir>` over
 `ak.CodecJmh` on JMH (req 22a; arms in `ak.CampaignCodec`), `ak.CampaignRpc` (client and `--serve`), `ak.CampaignCalib` +
 `probe/CampaignRev`, the gate (`gen/gate.sh`, `gen/corpus.sh`, crossing counts against
-`gen/campaign/counts.ref`). Smoke run (req 32): `logs/java/campaign-smoke/`, 1 launch, 1
+`gen/campaign/counts.ref`). Smoke run (req 32): `logs/java/campaign/`, 1 launch, 1
 round, reduced iterations; **the committed copy has every figure stripped** (cpu_ns, wall_ns,
 jit_ms replaced by "stripped"), so it shows structure and coverage and nothing else.
 
@@ -60,7 +60,7 @@ jit_ms replaced by "stripped"), so it shows structure and coverage and nothing e
 | 4 | CLIENT / SERVER sets as parameters | met: `AK_CPU_CLIENT` / `AK_CPU_SERVER` via `taskset`, required outside smoke; NUMA/SMT-sibling disjointness is the owner's (node count printed) |
 | 5 | floors gated, not timed | met: the gate suite runs arms b and c (java8 tree, JDK 17 and JDK 8) and the corpus on JDK 8; nothing on 8 is timed (Campaign* is not in the floor build) |
 | 6 | build flags printed | met: core snapshot commit and tree key, cargo features (`init-guard` on), cdylib, shim `-O2`, JVM flags (heap fixed, G1, tiered JIT) |
-| 7 | 16 payloads, 3 content sets, unknown rows | **partly met**: 16 payloads x 3 sets (P7.1 is decode-only, ASCII vector). **Not met**: the corpus unknown-field rows "named in section 4.3" -- section 4.3 names none; needs the list |
+| 7 | 16 payloads, 3 content sets, unknown rows | met: 16 payloads x 3 sets (P7.1 decode-only, ASCII vector), and (amendment 0e8e9eb) all 317 non-disputed corpus `U-*` rows of class unknown, through the corpus description: host-gen drop and retain, core-ffi and core-ffi-pull drop (not on `Nest`, outside the C ABI), the incumbent on the rows whose root protoc generated; compact strings only |
 | 8 | arms | met: incumbent-prod (grpc-java `ProtoLiteUtils` marshaller, R14), incumbent-best (`toByteArray` / `parseFrom(byte[])`), core-ffi (push), core-ffi-pull (labelled extra), host-gen (arm R) |
 | 9 | encode, decode bare, decode + read all | met: `encode`, `decode`, `decode-read` (generated `Walk` / `PbWalk` read every field) |
 | 10 | drop and retain for core-ffi and host-gen | **pending decision 11 port**: host-gen drop and retain run (`Codec`, `CodecRetain`); core-ffi retain is wired as an `unknown_mode` hook and recorded as pending in a meta line, because the binding does not render decision 11's mechanism yet (being ported into poc/codec); incumbent: protobuf-java's default (retains) |
@@ -83,10 +83,10 @@ jit_ms replaced by "stripped"), so it shows structure and coverage and nothing e
 | 26 | gate before timing | met: a timing suite runs only with a passed gate stamp for the build (run first if absent) |
 | 27 | header | met (see 2-6, transport, repeats); dirty tree refused for poc/java (poc/codec, schema and corpus enter only through the `git archive` snapshot) |
 | 28 | JSON lines body | met, the required fields plus `coder`, `engine`, `delivery` (extra) and `{"meta":...}` lines; codec lines converted from JMH's rawData by `gen/jmh_to_jsonl.py` (a sample with no CPU reading is refused) |
-| 29 | logs to ffi/logs/campaign/java/ | **not met here by ownership**: `--out` takes any directory; the smoke log is committed under `logs/java/campaign-smoke/` because a slice writes `logs/<lang>/` only |
+| 29 | logs under ffi/logs/java/campaign/ (amended 0e8e9eb) | met: the runner's default `--out`; smoke logs committed there |
 | 30 | summaries | not produced (optional); the raw lines carry what section 8 needs |
 | 31 | runner interface, top-level campaign.sh | met for the slice runner; `ffi/campaign.sh` is the aggregating session's (not written here) |
-| 32 | smoke run, readiness recorded | met: this section and `logs/java/campaign-smoke/` |
+| 32 | smoke run, readiness recorded | met: this section and `logs/java/campaign/` |
 
 ## Correctness (results)
 

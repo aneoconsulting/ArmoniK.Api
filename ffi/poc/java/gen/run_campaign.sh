@@ -2,7 +2,7 @@
 # The java slice's campaign runner (design/CAMPAIGN.md, W11). The one entry point the owner
 # runs on the campaign machine:
 #
-#   gen/run_campaign.sh --suite codec|rpc|calib|gate --out <dir>
+#   gen/run_campaign.sh --suite codec|rpc|calib|gate [--out <dir>]   (default ffi/logs/java/campaign)
 #
 # Environment:
 #   AK_CPU_CLIENT, AK_CPU_SERVER   the CLIENT and SERVER cpu lists (req 4), for taskset.
@@ -31,7 +31,8 @@ while [ $# -gt 0 ]; do
   esac
 done
 case "$SUITE" in codec|rpc|calib|gate) ;; *) echo "usage: $0 --suite codec|rpc|calib|gate --out <dir>" >&2; exit 2 ;; esac
-[ -n "$OUT" ] || { echo "--out is required" >&2; exit 2; }
+# Req 29 (amended 0e8e9eb): logs go under ffi/logs/java/campaign/ unless --out says otherwise.
+[ -n "$OUT" ] || OUT="$(cd "$(dirname "$0")/../../.." && pwd)/logs/java/campaign"
 mkdir -p "$OUT"; OUT=$(cd "$OUT" && pwd)
 
 J17=${J17:-/usr/lib/jvm/java-17-openjdk-amd64}
@@ -139,7 +140,7 @@ codec)
   # Every raw iteration is exported (gen/jmh_to_jsonl.py); JMH's own JSON is kept beside it.
   JMHCP=$(cat deps/jmh/cp.txt)
   EXTRA=""; WARM=${AK_WARM:-5}
-  [ "$SMOKE" = 1 ] && { EXTRA="-Dak.camp.budget=${AK_SMOKE_BUDGET:-65536} -Dak.camp.maxiters=${AK_SMOKE_MAXITERS:-50}"; WARM=1; }
+  [ "$SMOKE" = 1 ] && { EXTRA="-Dak.camp.budget=${AK_SMOKE_BUDGET:-65536} -Dak.camp.maxiters=${AK_SMOKE_MAXITERS:-50}"; WARM=1; AK_SMOKE_UROWS=${AK_SMOKE_UROWS:-6}; }
   for l in $(seq 1 "$LAUNCHES"); do
     CELLS=$("$J17/bin/java" -cp "build/cls17:$CP" -Dak.camp.launch="$l" ${AK_CODEC_PROPS:-} ak.CampaignCodec | tr '\n' ',' | sed 's/,$//')
     for coder in compact utf16; do
@@ -158,6 +159,22 @@ codec)
         || { echo "codec launch $l ($coder): conversion FAILED; no figure"; exit 1; }
       echo "codec launch $l ($coder): $(grep -c '"cpu_ns"' "$f") samples -> $f"
     done
+    # Req 7 (amended): every corpus U-* row of class unknown, not disputed, whose root the
+    # slice implements, through the corpus description and the corpus core's shim; compact
+    # strings only (the rows exercise unknown-field handling, not the String coder).
+    UCELLS=$("$J17/bin/java" -cp "build/cls17:$CP" -Dak.camp.launch="$l" -Dak.camp.unknown=1 \
+             ${AK_SMOKE_UROWS:+-Dak.camp.urows=$AK_SMOKE_UROWS} ak.CampaignCodec | tr '\n' ',' | sed 's/,$//')
+    f="$OUT/codec-unknown-launch-$l.jsonl"; base="$OUT/codec-unknown-launch-$l"
+    header "$f" "engine=JMH 1.37 SingleShotTime, -f 1 per cell, warm-up $WARM + $ROUNDS iteration(s), corpus U-* rows (req 7), coder=compact launch=$l, $(echo "$UCELLS" | tr ',' '\n' | wc -l) cells; core-ffi retain pending decision 11"
+    rm -f "$base.cpu.tsv"
+    $PIN_C "$J17/bin/java" -cp "build/jmh17:build/cls17:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.CodecJmh.sample' \
+      -f 1 -wi "$WARM" -i "$ROUNDS" -foe true -p cell="$UCELLS" \
+      -jvmArgs "$JVM_FLAGS -Dak.lib=$HERE/build/jnicorpus/libakjni.so -Dak.jmh.cpuout=$base.cpu.tsv $EXTRA" \
+      -rf json -rff "$base.jmh.json" > "$base.jmh.txt" 2>&1 \
+      || { echo "codec U-rows launch $l FAILED (JMH, -foe true); no figure: $base.jmh.txt"; exit 1; }
+    python3 -S gen/jmh_to_jsonl.py "$base.jmh.json" "$base.cpu.tsv" "$l" compact >> "$f" \
+      || { echo "codec U-rows launch $l: conversion FAILED; no figure"; exit 1; }
+    echo "codec U-rows launch $l: $(grep -c '"cpu_ns"' "$f") samples -> $f"
   done ;;
 rpc)
   EXTRA=""; WARM=${AK_WARM:-2}
