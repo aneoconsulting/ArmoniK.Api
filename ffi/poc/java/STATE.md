@@ -65,7 +65,7 @@ jit_ms replaced by "stripped"), so it shows structure and coverage and nothing e
 | 9 | encode, decode bare, decode + read all | met: `encode`, `decode`, `decode-read` (generated `Walk` / `PbWalk` read every field) |
 | 10 | drop and retain for core-ffi and host-gen | met (WP5 step 9, decision 11): core-ffi drop and retain (every position armed with the shim's grow, u-group encode) and host-gen drop and retain, on the payloads and the U-* rows; the incumbent in protobuf-java's default mode (retains) |
 | 11 | serialise once per iteration, fresh graph | met: a pool of `iters` freshly built objects per encode sample, built in JMH's untimed `@Setup(Level.Iteration)`; same for the facade arms |
-| 12 | cells A-D | met |
+| 12 | cells A-D; C and D per unknown-field mode (amended 85cb00f) | met for retain and drop (dfbfefd): A, B, C-retain, C-drop, D-retain, D-drop in one client process; each C/D cell re-encodes P2.2 in its mode byte-identical before timing; leak counters read after the run, 0 (`campaign/rpc-*-launch-1.jsonl`, meta `unk_leak`). **C-nounk, D-nounk: not built** (waits for the rust agent's compiled-out variant in poc/codec) |
 | 13 | server separate process, pre-serialised | met: `--serve`, its own JVM on `AK_CPU_SERVER`; (a) the same pre-serialised P2.2 bytes; (b) parses with protobuf-java in every cell |
 | 14 | directions (a) and (b) | met; the optional streamed upload is not built |
 | 15 | 1 / 8 / 16 in flight | met (blocking threads) |
@@ -292,6 +292,7 @@ not), `contentsets.log`, `deopt.log`, `r9-mechanism.log`, `crossing.log`,
 
 | Log | What it establishes |
 |---|---|
+| `campaign/rpc-{shipped,pinned}-launch-1.jsonl` | RPC smoke at dfbfefd, six cells (req 12 as amended), every call checked, leak counters 0; figures stripped |
 | `wp5s9-leak/gate.log`, `wp5s9-leak/counts-973e5ba.txt` | D40: gate at 973e5ba (clean core build, init-guard), SMOKE mode, no figures: payload a/b/c pass; corpus 10 arms x 702, 8 and 17, 0 failing; 3b decision 11 controls; 3c leak control (686 corpus rows reclaim 0 buffers -- refused before any unknown is taken; 89,296 derived rows reclaim 930 push / 2,435 pull per arm; 0 alive after every row; 0 left after accepted decodes), planted no-reclaim fails; counts identical |
 | `wp5s9/gate.log`, `wp5s9/counts-efe58d1.txt` | WP5 step 9 (decision 11) gate at efe58d1 (superseded by wp5s9-leak for the retain arms' reclaim) |
 | `campaign-smoke/` | WP3 smoke run of `gen/run_campaign.sh` (gate, codec, rpc, calib): structure and coverage; every figure stripped |
