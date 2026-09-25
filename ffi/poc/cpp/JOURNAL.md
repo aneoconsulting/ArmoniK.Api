@@ -1446,3 +1446,46 @@ required the retain re-encode to be byte-identical to the server's wire. The ser
 protobuf's form of P2.2, and our canonical re-encode differs from it in encoding choices,
 not in content. The check now compares messages (both re-serialised deterministically by
 protobuf). Second smoke green in every group; figures stripped.
+
+## 2026-09-25: FIX-PLAN WP5 step 10, the no-unknown build
+
+The variant is rendered from `P.relower(p, p.options.with_unknown("drop"))`.
+- `cpp_binding.py` (my backend module): a NOUNK flag, set from `plan.unknown_compiled_out`,
+  drops the pieces the variant has no use for:
+  - delivery and the absent-child and oneof frees;
+  - map-entry frees;
+  - the retain encode, options, pools and clears;
+  - the refill hook;
+  - the decision-11 PRE helpers (moved into PRE_UNK).
+- Contexts use `ak_dec_ctx_new_<Root>(void)`, under the same DecRoot, DecCtxs and
+  dec_ctx_new_for names. The full binding's text is unchanged (`--check`).
+- Found while rendering: my first guard on the map-entry free matched the wrong line,
+  because a 20-space pattern is a substring of a 24-space one. The variant did not compile,
+  which caught it.
+
+Include-path issue:
+- A quoted include resolves in the including file's directory first. `src/generated/binding.h`
+  therefore always wins over an -I directory, so the variant binding needs its own file name
+  (`binding_nounk.h`).
+- `ak_abi.h` and `generated/ak_layout.h` do not live next to their includers, so the variant
+  include dir in front works for them.
+- The sources pick the binding on `AK_NO_UNKNOWN_FIELDS`, which the variant header defines.
+
+Cores:
+- ak-core `--no-default-features`, with init-guard plus count, corpus or rpc as needed.
+- Each has its own target dir, so no build overwrites another's `libak_core.so` (the rust
+  slice's finding).
+- The gate checks each binary's resolved core by its u-family exports.
+
+Results:
+- Gate green: 478/0 x3, corpus 680/0 and 696/0 with 0 unknown rows written non-dropped,
+  controls fail as required.
+- Counts: only P1.2 decode reverse 8 -> 5, which matches rust.
+
+Found:
+- The campaign runner passes an absolute BUILD, and nounk_gate used "$OLDPWD/$B"; now
+  absolute.
+- A and B, and incumbent-prod, run in both binaries, so samples could not be told apart.
+  Every sample now carries `build`, and the summary keys on it.
+
+Smoke: 2 launches; figures stripped.

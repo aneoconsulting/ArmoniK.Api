@@ -1,8 +1,8 @@
 # cpp slice, WP5 step 2: the generator
-#   date       2026-09-25T19:03:09Z
+#   date       2026-09-25T22:44:11Z
 #   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
 #   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit     6feff87
+#   commit     f4ab079
 #   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
 #              for the corpus ABI); no timing is taken by anything in this log
 
@@ -31,6 +31,13 @@ ok    src/generated/types_borrow.h
 ok    src/generated/types_borrow.cpp
 ok    src/generated/binding_borrow.h
 ok    src/generated/binding_borrow.cpp
+ok    nounk/include/ak_abi.h
+ok    nounk/include/generated/ak_layout.h
+ok    nounk/include/generated/ak_layout_names.h
+ok    src/generated/binding_nounk.h
+ok    src/generated/binding_nounk.cpp
+ok    src/generated/binding_borrow_nounk.h
+ok    src/generated/binding_borrow_nounk.cpp
 ok    src/generated/cases.h
 ok    src/generated/project.h
 ok    src/generated/project.cpp
@@ -50,6 +57,12 @@ ok    corpus/src/generated/binding.cpp
 ok    corpus/src/generated/project.h
 ok    corpus/src/generated/project.cpp
 ok    corpus/src/generated/dispatch.cpp
+ok    corpus/nounk/include/ak_abi.h
+ok    corpus/nounk/include/generated/ak_layout.h
+ok    corpus/nounk/include/generated/ak_layout_names.h
+ok    corpus/src/generated/binding_nounk.h
+ok    corpus/src/generated/binding_nounk.cpp
+ok    corpus/src/generated/dispatch_nounk.cpp
 >>> ok: generate.py --check (exit 0)
 
 ===== poc/codec/gen/generate.py --check (the shared core this slice gates) =====
@@ -63,6 +76,12 @@ ok    crates/ak-core/src/generated/abi_check.rs
 ok    crates/ak-abi/src/generated_corpus/abi.rs
 ok    crates/ak-core/src/generated_corpus/codec.rs
 ok    crates/ak-core/src/generated_corpus/layout.rs
+ok    crates/ak-abi/src/generated_nounk/abi.rs
+ok    crates/ak-core/src/generated_nounk/codec.rs
+ok    crates/ak-core/src/generated_nounk/layout.rs
+ok    crates/ak-abi/src/generated_corpus_nounk/abi.rs
+ok    crates/ak-core/src/generated_corpus_nounk/codec.rs
+ok    crates/ak-core/src/generated_corpus_nounk/layout.rs
 ok    crates/ak-abi/src/lib.rs
 slice rust    --check: exit 0
 slice cpp     --check: exit 0
@@ -108,7 +127,7 @@ refusal_test: 17 passed, 0 failed
   >>> ok: src/rpccounts.cpp
 
 ===== plant A: the struct loses tcp_nagle (host smaller than core) -- must NOT compile =====
-    /tmp/tmp.Mxzz8dcQZl/a/ak_abi.h:1298:42: error: static assertion failed: sizeof ak_client_opts
+    /tmp/tmp.3WDwy3wM1W/a/ak_abi.h:1298:42: error: static assertion failed: sizeof ak_client_opts
      1270 | #define AK_SASSERT(c, m) static_assert(c, m)
   >>> ok: plant A refused
 
@@ -117,8 +136,8 @@ refusal_test: 17 passed, 0 failed
 
   generate.py --check would say: STALE include/ak_abi.h
   >>> ok: the renderer picked up the new field
-    src/rpc_common.h:100:38: error: static assertion failed: ak_client_opts is 24 bytes (6 x 4)
-    src/rpc_common.h:101:37: error: static assertion failed: ak_client_opts gained a field: set it explicitly in core_opts() below
+    src/rpc_common.h:104:38: error: static assertion failed: ak_client_opts is 24 bytes (6 x 4)
+    src/rpc_common.h:105:37: error: static assertion failed: ak_client_opts gained a field: set it explicitly in core_opts() below
   >>> ok: plant B refused by rpc_common.h
 
 rd2_guard: 0 check(s) did not do what they must
@@ -201,7 +220,7 @@ audit: 0 untracked, ignored or missing files that a figure could depend on
   [ok]   every build links libak_core, the shared one
 
 # and what is committed is what the shared emitter writes (R1)
-  [ok]   codec/gen/generate.py --check: 9 files ok
+  [ok]   codec/gen/generate.py --check: 15 files ok
 
 one_core: 0 failure(s)
 >>> ok: one_core.sh (exit 0)
@@ -284,7 +303,7 @@ one_core --selftest: 0 control(s) did not fire
   [ok]   every build links libak_core, the shared one
 
 # and what is committed is what the shared emitter writes (R1)
-  [ok]   codec/gen/generate.py --check: 9 files ok
+  [ok]   codec/gen/generate.py --check: 15 files ok
 
 one_core: 0 failure(s)
 >>> ok: one_core.sh --root <scratch copy of ffi/poc + ffi/schema + ffi/corpus> (exit 0)

@@ -6,7 +6,7 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | **2026-09-25, FIX-PLAN WP5 step 9: decision 11 ported to the C++ binding.** Root-bound decode contexts everywhere (no `ak_dec_ctx_new()` left), `ak_dec_<Root>_opts` rendered from `plan.unk_opts_layout`, armed decodes (reset(&opts) checked, decode, reset(NULL)), realloc-semantics grow, delivery of every group's and inlined child's slot into the facade bag (the active oneof member's; other slots freed; map entries counted and freed), pre-allocated pools refilled in place. Gate green from a clean worktree build at `6feff87` (`wp5-*.log`); ffi-retain retention gaps down to `U-map-entry`; requirement 10 met (core-ffi retain timed in the codec suite; smoke = instrumentation). Previous: WP3 + 22a (campaign harness on Google Benchmark v1.8.3 Release) |
+| **Status** | **2026-09-25, FIX-PLAN WP5 step 10: the NO-UNKNOWN build (unknown fields compiled out) rendered, gated and in the campaign harness.** Header `nounk/include/ak_abi.h` (c_abi of the drop plan, AK_NO_UNKNOWN_FIELDS, 240 layout facts), binding rendered from the drop plan, ak-core `--no-default-features` cores in their own target dirs. Gate green (`wp5s10-nounk.log`, and `wp5_gate.sh` from a clean worktree build). Crossing counts: only P1.2 decode reverse 8 -> 5 against the full build in drop mode (`counts-nounk-baseline.log`). Campaign: codec suite core-ffi `no-unknown` (own binary), RPC cells C-nounk / D-nounk; smoke = instrumentation. Before: WP5 step 9 (decision 11 port), req 12 C/D retain/drop |
 | **Core** | **the shared one at `ffi/poc/codec/crates/ak-core` (README R0), not a copy**, built by CMake with `--features init-guard` in every configuration (timed, counting, the three planted cores) and once more with `--features corpus,init-guard` into `core-build/target-corpus` for the corpus harness (its own ABI and header, `corpus/include/ak_abi.h`). `-DAK_CORE_ROOT`/`-DAK_CORE_TGT` still point the build at a snapshot. This work unit ran against the shared tree at `882112c` (HEAD when gated) |
 | **Blocked on** | nothing |
 | **Floor** | **C++11, demonstrated not declared.** C++14 also builds and passes (README open question 3) |
@@ -15,6 +15,54 @@ session, which makes it the most expensive defect in this directory.
 | **Ceiling** | upb from protobuf v25.3, built from source, **`UPB_FASTTABLE=0`, gcc 13.3.0**. A bound, never a candidate |
 | **Machine** | **TWO of them, and that is a fact about the logs rather than a footnote.** Everything except `rpc.log` and `rpcflow.log`: 4 vCPU Intel Xeon @ **2.80 GHz**. Those two: 4 vCPU Intel Xeon @ **2.10 GHz**, same kernel (Linux 6.18.44), same g++ 13.3.0 `-O2 -g -DNDEBUG`, same rustc 1.94.1. **No absolute crosses between them** (R13, R4) |
 | **R13 calibration** | the 2.80 GHz machine's rust-slice crossing is **1.5 ns** forward (`calibration-r13.log`), against 1.8 ns in the rust slice's own container. **On the 2.10 GHz machine it could not be re-taken: the rust slice does not build on this branch (C27).** What was re-taken there is this slice's OWN crossing, by the unchanged bench: **forward 0.59-0.65 ns, reverse 0.27-0.31 ns**, against 1.822-1.824 / 0.6 published from the 2.80 GHz box. A factor of about three, on a nominally slower clock. That is the whole reason R13 exists |
+
+## This work unit (2026-09-25): FIX-PLAN WP5 step 10, the no-unknown build
+
+Built on the codec at d89bdfc (plan.py "THE NO-UNKNOWN VARIANT"). Shared-module change:
+`poc/codec/gen/cpp_binding.py` only (16b78a4). When the plan is relowered with
+unknown="drop" (plan.unknown_compiled_out), the binding renders none of the following:
+delivery, retain encode, options/pool/clear, or the refill hook. Contexts are created with
+`ak_dec_ctx_new_<Root>(void)`. The full binding's text is byte-unchanged.
+
+What exists:
+
+```
+nounk/include/{ak_abi.h, generated/ak_layout.h, ak_layout_names.h}   c_abi.emit(drop plan)
+corpus/nounk/include/...                                             the same for the corpus ABI
+src/generated/binding_nounk.*, binding_borrow_nounk.*, corpus/src/generated/binding_nounk.*,
+  dispatch_nounk.cpp (ffi-retain arm NOT BUILT)                      gen/generate.py
+cores   core-build/target-{nounk,count-nounk,corpus-nounk,camp-nounk}: ak-core
+        --no-default-features --features init-guard[,count|corpus|rpc]
+targets conformance_nounk_{a17,c11,static}, corpus_nounk_{a17,c11,noinit}, counts_nounk,
+        campaign_codec_nounk, campaign_rpc_nounk (nounk/include first; sources select the
+        variant binding on AK_NO_UNKNOWN_FIELDS, which the variant header defines)
+gen/nounk_gate.sh   the variant gate (wp5_gate.sh runs it; the campaign gate runs it)
+corpus_all.py --expect-dropped ARM
+```
+
+What was checked (`logs/cpp/wp5s10-nounk.log`):
+
+| Check | Result |
+|---|---|
+| core per binary | every variant binary resolves a core with 0 u-family exports (ak_uencode_*, ak_uelem*, ak_dec_reset_*); the full binaries resolve cores with 21 (shapes) / 70 (corpus); the static variant has none |
+| headers against cores | `poc/rust/gen/c_variant.sh` run read-only: both headers compile as C99/C++11, matched pairs agree (400 / 240 facts), both mismatched pairs caught |
+| payload byte identity | conformance_nounk at C++17, C++11 floor and static: 478 checks, 0 failures each, 240 layout facts 0 disagreements; rule 6 (wrong root -8 on decode, parse, binding decode); an unknown field at the root and in an element is dropped |
+| full corpus | C++17 and C++11: ffi 680/0, native 696/0, ffi-retain not built; **ffi-drop writes 0 unknown rows in a non-dropped form**; the two levels' outcomes are identical; the proj/reenc/accept/noinit controls fail as required; the dropped-form check fails a retaining arm (313 rows) |
+| crossing counts | 87 rows identical to `counts-nounk-baseline.log`; against `counts-baseline.log` (full, drop) only **P1.2 decode reverse 8 -> 5** (the same as the rust slice) |
+| campaign | the gate runs the variant gate and the nounk codec gate (1044 slots, 0 failed; the plant fails 166 slots); both RPC clients abort on a wrong length; codec suite: `codec-nounk-launch*.jsonl` with core-ffi `no-unknown`; RPC: C-nounk and D-nounk plus A and B from the nounk client; the binary order alternates by launch; every sample carries `build` (full or no-unknown) and `unknown_mode` |
+
+How host-gen is handled: host-gen is generated from the plan (cpp_native). Its drop codec is
+the drop rendering and contains no capture code, in both builds. It therefore runs in the
+no-unknown binary only as a `drop` in-process control, and has no separate `no-unknown` arm.
+The incumbents, and RPC cells A and B, also run in the no-unknown binary as in-process
+controls.
+
+Not done:
+- The first campaign gate stopped because nounk_gate.sh was given an absolute build dir;
+  fixed (db2762b).
+- A and B appear in both RPC clients, and incumbent-prod in both codec binaries, so samples
+  carry `build` and the summary keys on it (9bb622d).
+- No ASan run of the variant.
 
 ## Addendum (2026-09-25): CAMPAIGN req 12 amended (85cb00f), RPC cells per unknown-field mode
 
@@ -179,29 +227,29 @@ adds none). Everything else unchanged.
 | 7 | 16 payloads, content sets, U-* rows | **met**, with a reading to confirm: content sets on P1.2, P2.2, P3.1, P4.1, P6.1 (SHAPES.md names no payload list; this is the committed content-set gate's); U-* rows at the seven roots the TIMED codec implements (92). Rows at other corpus roots are implemented only by the corpus build, a different ABI that is not a timed configuration |
 | 8 | arms | **met**: incumbent-prod, incumbent-best, core-ffi (push), host-gen; pull: not in this slice; Rust-only arms n/a |
 | 9 | encode, decode twice | **met**: decode and decode_read |
-| 10 | drop and retain for core-ffi and host-gen | **met (WP5 step 9)**: codec suite times core-ffi drop and retain (`encode_into_*_unk`, `decode_with_*_unk`, armed through `ak_dec_reset_<Root>`) and host-gen drop and retain; `-DAK_CAMPAIGN_NO_FFI_RETAIN` removes the arm. The RPC suite decodes in drop mode |
+| 10 | three modes (drop, retain, no-unknown) for core-ffi and host-gen | **met (WP5 steps 9-10)**: codec suite core-ffi drop and retain (full binary) and no-unknown (`campaign_codec_nounk`, ak-core without `unknown-fields`); host-gen drop and retain (its drop is the drop plan's rendering, no capture code, and runs in the no-unknown binary as a `drop` control); every sample carries `unknown_mode` and `build` |
 | 11 | serialise once per iteration, fresh object | **met**: decode into a fresh object every iteration; protobuf C++ recomputes ByteSizeLong on every Serialize (no memo) |
-| 12 | cells A-D | **met** |
+| 12 | cells A-D, C and D per unknown-field mode | **met**: full client A, B, C-retain, C-drop, D-retain, D-drop; no-unknown client A, B (in-process controls), C-nounk, D-nounk; order alternated by launch; pre-run check against the incumbent in every C/D mode |
 | 13 | server out of process, pre-serialised | **met** (direction a); direction b's server decode is the incumbent's in every cell |
 | 14 | directions a and b | **met**; the optional streamed upload is not built |
 | 15 | 1, 8, 16 in flight | **met** |
 | 16 | B and C blocking | **met**; callback/queue rows exist only in the older rpcbench, not in the campaign binary |
 | 17 | shipped and pinned | **met**, stated: grpc++ shipped = packages/cpp's channel args minus its retry service config; grpc++ pinned has no connection-window argument (C31); core shipped = ak_client_new defaults |
 | 18 | every call checked | **met**: status + length per call (cell A: content per call, wire length once before the rounds), abort on first failure; control in the gate |
-| 19 | crossing counts gate | **met**: counts_a17_shared against logs/cpp/counts-baseline.log (it stopped the first smoke on a real change) |
+| 19 | crossing counts gate | **met**: counts_a17_shared against logs/cpp/counts-baseline.log, and counts_nounk against logs/cpp/counts-nounk-baseline.log (differs from the full drop counts only in P1.2 decode reverse 8 -> 5) |
 | 20 | crossing cost, fwd and rev, perf stat | **met on a machine with perf**; here perf is absent (recorded) and the rust slice's bench did not build in the out-of-tree snapshot (it lacks `poc/rust/crates`); reverse is reported as the fwd+rev row, from which the aggregator subtracts the forward row |
 | 21 | CPU time | **met**: Google Benchmark cpu_time (thread) + real_time (codec); CLOCK_THREAD_CPUTIME_ID (calib); getrusage(RUSAGE_SELF) of the client + wall (RPC) |
 | 22 | interleaved, rotated | **met**: codec by Google Benchmark random interleaving + launch rotation; RPC by rotated rounds |
 | 23 | 5 rounds x 3 launches, every round committed | **met** (runner defaults) |
 | 24 | warm-up fixed and identical | **met**: a byte budget per codec arm, a call count per RPC cell, before round 1; JIT n/a |
 | 25 | allocator warmed identically | **met** (every arm's warm-up precedes round 1); GC n/a |
-| 26 | correctness gate first | **met** |
+| 26 | correctness gate first | **met**: the campaign gate includes gen/nounk_gate.sh (the no-unknown build's own byte identity, corpus with every unknown row dropped, core-per-binary check, counts) and the nounk codec binary's gate and plant |
 | 27 | header; dirty tree refused | **met** |
 | 28 | one JSON object per sample | **met** |
 | 29 | logs in ffi/logs/cpp/campaign/ | **met** (smoke there) |
 | 30 | summaries only as specified | **met** (gen/campaign_summary.py; not run into a committed file) |
 | 31 | runner interface; top-level ffi/campaign.sh | **met** for the slice runner; `ffi/campaign.sh` is outside this slice (aggregating session) |
-| 32 | smoke run committed, marked | **met** |
+| 32 | smoke run committed, marked | **met**: the WP5 step 10 smoke (2 launches, 1 round, both builds) is committed with figures stripped |
 
 ## Previous work unit (2026-09-24, fourth): WP5 tail, D38 and D39
 
@@ -1562,6 +1610,9 @@ corpus). C30 is this slice's own and is fixed. In the order I would do it:
 
 | Log | Configuration | What it establishes |
 |---|---|---|
+| `wp5s10-nounk.log` | `gen/nounk_gate.sh`: the no-unknown build (ak-core --no-default-features, nounk/include) | **WP5 step 10**: core per binary, both headers against both cores, byte identity x3, corpus x2 with every unknown row dropped + controls, counts |
+| `counts-nounk-baseline.log` | counts_nounk, counting no-unknown core | the variant's committed crossing counts (P1.2 decode reverse 5 against 8 in the full build) |
+| `campaign/codec-nounk-launch*.jsonl`, `campaign/rpc-launch*.jsonl` (WP5 step 10 smoke) | 2 launches, 1 round, reduced sizes, figures stripped | the harness runs both builds; instrumentation only |
 | `wp5s9-asan.log` | `gen/d11_asan.sh`: conformance and corpus_all_a17 built with -fsanitize=address, LSan on | **WP5 step 9**: conformance 574/0, decision 11 controls 0 failing rows, corpus four arms green: no double free, use after free or leak in the unknown-field buffers |
 | `wp5-*.log` (re-taken 2026-09-25 at `6feff87`) | the WP5 gate, clean worktree build | **WP5 step 9**: see "This work unit"; supersedes the WP5 step 2 figures in the rows below |
 | `wp5-generator.log` | `generate.py --check` (+ guard), the shared `--check`, `refusal_test.py`, `rd2_guard.sh`, audit, `one_core.sh` | **WP5 step 2's generator gates**: every target current, the five shared C++ modules import plans only, 17 of 17 refusals, both RD2 plants refused (plant B now in `plan.rpc`), audit green; the `one_core.sh --selftest` defect (C38) shown and reproduced |
