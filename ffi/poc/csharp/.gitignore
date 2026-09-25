@@ -16,3 +16,10 @@ bin-strict/
 obj-strict/
 target-core/
 target-core-count/
+bin-nounk/
+obj-nounk/
+target-core-nounk/
+target-core-count-nounk/
+target-core-corpus-nounk/
+target-probe-nounk/
+target-probe-corpus-nounk/

@@ -5,6 +5,7 @@ Glue, not a codec: each entry wraps the `CoreFfi_<Root>` class the shared backen
 drive every root through one interface and none can be missing.
 """
 from glue import Head
+from plan import unknown_compiled_out
 
 
 def emit_registry(p, payloads):
@@ -59,7 +60,11 @@ def emit_registry(p, payloads):
         o += "    public int EncodeNoCopy() { _c.Encode(_src, out byte* p, out int l); return l; }"
         o += "    public int Fill() => _c.Fill(_src);"
         o += "    public int Decode(byte[] src, int len) { _sink = _c.Decode(src, len); return 1; }"
-        o += "    public int DecodeU(byte[] src, int len) { _sink = _c.DecodeU(src, len); return 1; }"
+        if unknown_compiled_out(p):
+            # WP5 step 10: the retain paths do not exist in this build.
+            o += "    public int DecodeU(byte[] src, int len) => throw new NotSupportedException(\"unknown fields are compiled out of this build\");"
+        else:
+            o += "    public int DecodeU(byte[] src, int len) { _sink = _c.DecodeU(src, len); return 1; }"
         o += "    public int Pull(byte[] src, int len) { _sink = _c.Pull(src, len); return 1; }"
         o += "    public object Sink => _sink;"
         o += "    public bool SameAsSource() => Eq.Same%s(_sink, _src);" % r
@@ -141,9 +146,12 @@ def emit_corpus_dispatch(abi, refused):
     o += "    /// re-encodings (ak_uencode_*), which carry every bag. null: root not in the C ABI."
     o += "    public static UnkRow UnkControl(string root, byte[] b, bool plant)"
     o += "    {"
-    o += "        switch (root)"
-    o += "        {"
-    for r in abi.roots:
+    if unknown_compiled_out(abi):
+        o += "        return null;   // WP5 step 10: no options exist in this build"
+        o += "    }"
+    o += "        switch (root)" if not unknown_compiled_out(abi) else ""
+    o += "        {" if not unknown_compiled_out(abi) else ""
+    for r in ([] if unknown_compiled_out(abi) else abi.roots):
         o += "            case \"%s\":" % r
         o += "            {"
         o += "                var c = _%s ??= new CoreFfi_%s();" % (r, r)
@@ -165,23 +173,29 @@ def emit_corpus_dispatch(abi, refused):
         o += "                }"
         o += "                return u;"
         o += "            }"
-    o += "            default: return null;"
-    o += "        }"
-    o += "    }"
+    if not unknown_compiled_out(abi):
+        o += "            default: return null;"
+        o += "        }"
+        o += "    }"
     o += ""
     a, b = abi.roots[0], abi.roots[1]
+    nounk = unknown_compiled_out(abi)
     o += "    /// Decision 11 rule 6: a context bound to %s, used for %s, is refused" % (a, b)
     o += "    /// (AK_ERR_INVALID_STATE) by decode, parse and reset, and still serves its own root."
     o += "    public static (int Decode, int Parse, int Reset, int OwnReset, int OwnParse) WrongRoot()"
     o += "    {"
     o += "        AbiInit.Ensure();"
-    o += "        IntPtr ctx = Abi.ak_dec_ctx_new_%s(null);" % a
+    o += "        IntPtr ctx = Abi.ak_dec_ctx_new_%s(%s);" % (a, "" if nounk else "null")
     o += "        byte one = 0;"
     o += "        var vt = default(ak_dvt_%s);" % b
     o += "        int d = Abi.ak_decode_%s(ctx, null, &one, 0, &vt);" % b
     o += "        int p = Abi.ak_parse_%s(ctx, &one, 0);" % b
-    o += "        int r = Abi.ak_dec_reset_%s(ctx, null);" % b
-    o += "        int or = Abi.ak_dec_reset_%s(ctx, null);" % a
+    if nounk:
+        o += "        // WP5 step 10: no ak_dec_reset_* in this build: int.MinValue = not applicable."
+        o += "        int r = int.MinValue, or = int.MinValue;"
+    else:
+        o += "        int r = Abi.ak_dec_reset_%s(ctx, null);" % b
+        o += "        int or = Abi.ak_dec_reset_%s(ctx, null);" % a
     o += "        int op = Abi.ak_parse_%s(ctx, &one, 0);" % a
     o += "        Abi.ak_dec_ctx_free(ctx);"
     o += "        return (d, p, r, or, op);"

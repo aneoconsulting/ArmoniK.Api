@@ -44,7 +44,15 @@
   <!-- The corpus-schema core: built by gen/gate.sh into target-core-corpus. -->
   <ItemGroup>
     <None Include="../../target-core-corpus/release/libak_core.so"
-          Condition="Exists('../../target-core-corpus/release/libak_core.so')"
+          Condition="'$(AkNounk)' != 'true' And Exists('../../target-core-corpus/release/libak_core.so')"
+          CopyToOutputDirectory="PreserveNewest" Link="libak_core.so" />
+  </ItemGroup>
+
+  <!-- WP5 step 10: the NO-UNKNOWN build loads the NO-UNKNOWN core (ak-core
+       with default features off, its own target dir), never the full one. -->
+  <ItemGroup Condition="'$(AkNounk)' == 'true'">
+    <None Include="../../target-core-corpus-nounk/release/libak_core.so"
+          Condition="Exists('../../target-core-corpus-nounk/release/libak_core.so')"
           CopyToOutputDirectory="PreserveNewest" Link="libak_core.so" />
   </ItemGroup>
 

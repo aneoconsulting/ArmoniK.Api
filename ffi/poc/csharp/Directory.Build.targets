@@ -1,0 +1,6 @@
+<Project>
+  <!-- FIX-PLAN WP5 step 10: the NO-UNKNOWN build's define (see Directory.Build.props). -->
+  <PropertyGroup Condition="'$(AkNounk)' == 'true'">
+    <DefineConstants>$(DefineConstants);AK_NO_UNKNOWN_FIELDS</DefineConstants>
+  </PropertyGroup>
+</Project>

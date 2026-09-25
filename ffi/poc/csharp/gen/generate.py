@@ -111,6 +111,28 @@ def targets():
         "src/Corpus/Generated/CoreFfi.cs": cs_host.emit_host(abi, "Armonik.Ffi.Corpus", "Armonik.Ffi.Corpus"),
         "src/Corpus/Generated/Dispatch.cs": cs_registry.emit_corpus_dispatch(abi, refused),
         "abi/src/main.rs": cs_layout_probe.emit(),
+    } | nounk_targets(p, full, abi, refused)
+
+
+def nounk_targets(p, full, abi, refused):
+    """WP5 step 10: the NO-UNKNOWN variant, rendered by the same backends from the plans
+    RELOWERED with unknown="drop" (plan.unknown_compiled_out). Built as its own
+    configuration (`/p:AkNounk=true`: GeneratedNounk/ replaces these files, output in
+    bin-nounk/ obj-nounk/), never a run-time switch."""
+    pd = P.relower(p, p.options.with_unknown("drop"))
+    fulld = P.relower(full, full.options.with_unknown("drop"))
+    abid = P.relower(abi, abi.options.with_unknown("drop"))
+    codec, _ = cs_managed.emit(pd, "Armonik.Ffi.Facade")
+    ccodec, _ = cs_managed.emit(fulld, "Armonik.Ffi.Corpus", ["Armonik.Ffi.Facade"])
+    return {
+        "src/Facade/GeneratedNounk/Codec.cs": codec,
+        "src/Harness/GeneratedNounk/Abi.cs": cs_binding.emit_abi(pd, "Armonik.Ffi.Harness"),
+        "src/Harness/GeneratedNounk/CoreFfi.cs": cs_host.emit_host(pd, "Armonik.Ffi.Harness", "Armonik.Ffi.Facade"),
+        "src/Harness/GeneratedNounk/CoreArms.cs": cs_registry.emit_registry(pd, payload_roots()),
+        "src/Corpus/GeneratedNounk/Codec.cs": ccodec,
+        "src/Corpus/GeneratedNounk/Abi.cs": cs_binding.emit_abi(abid, "Armonik.Ffi.Corpus"),
+        "src/Corpus/GeneratedNounk/CoreFfi.cs": cs_host.emit_host(abid, "Armonik.Ffi.Corpus", "Armonik.Ffi.Corpus"),
+        "src/Corpus/GeneratedNounk/Dispatch.cs": cs_registry.emit_corpus_dispatch(abid, refused),
     }
 
 

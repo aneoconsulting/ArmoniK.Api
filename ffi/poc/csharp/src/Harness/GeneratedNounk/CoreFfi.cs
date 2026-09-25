@@ -96,15 +96,6 @@ public sealed unsafe class Stage : IDisposable
         return new ak_str { data = (IntPtr)p, len = (nuint)b.Length, tc = TcBytes };
     }
 
-    /// The unknown-field bag: raw runs, no transcoder (ABI v1 decision 11 candidate).
-    public ak_blob Blob(byte[] b)
-    {
-        if (b == null || b.Length == 0) return default;
-        byte* p = Take(b.Length);
-        fixed (byte* s = b) Buffer.MemoryCopy(s, p, b.Length, b.Length);
-        return new ak_blob { data = (IntPtr)p, len = (nuint)b.Length };
-    }
-
     public void Dispose()
     {
         foreach (var b in _blocks) NativeMemory.Free((void*)b);
@@ -153,37 +144,6 @@ public static unsafe class Arr
         cap = c;
     }
 }
-/// Decision 11: the one grow callback every position of every root's options names
-/// (`ak_grow_fn`, i32 sizes). NativeMemory.Realloc: `*dst` NULL with `*cap` 0 is a fresh
-/// buffer, otherwise the first `*cap` bytes are preserved (realloc semantics; it may move).
-/// A retained decode tracks what it hands out (`G.Live`), so nothing leaks on failure.
-public static unsafe class UnkHost
-{
-    public static long Grows;
-
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    public static int Grow(IntPtr sink, int want, byte** dst, int* cap)
-    {
-        try
-        {
-            if (want < 0) return Abi.AK_ERR_LIMIT;
-            int c = *cap;
-            long nc = Math.Max((long)want, Math.Max(64L, 2L * c));
-            if (nc > int.MaxValue) nc = want;
-            void* old = *dst;
-            void* np = NativeMemory.Realloc(old, (nuint)nc);
-            var live = G.Live;
-            if (live != null) { if (old != null) live.Remove((IntPtr)old); live.Add((IntPtr)np); }
-            *dst = (byte*)np;
-            *cap = (int)nc;
-            Grows++;
-            return 0;
-        }
-        catch { return Abi.AK_ERR_HOST; }
-    }
-
-    public static IntPtr Fn => (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, int, byte**, int*, int>)&Grow;
-}
 
 public static unsafe class G
 {
@@ -193,32 +153,6 @@ public static unsafe class G
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static string Str(byte* b, ak_span s) => s.len == 0 || SkipStrings ? "" : Encoding.UTF8.GetString(b + s.off, (int)s.len);
-
-    /// Decision 11: the buffers a RETAINED decode has been handed by grow and not yet taken
-    /// back (null in drop mode). Thread-static: the core calls grow on the decoding thread.
-    [ThreadStatic] internal static HashSet<IntPtr> Live;
-
-    /// A delivered message's buffer into its facade bag (null when none or empty); the
-    /// native buffer is freed and the slot cleared.
-    internal static byte[] Take(ref ak_unk_buf u)
-    {
-        if (u.data == IntPtr.Zero) return null;
-        byte[] r = null;
-        if (u.len != 0) { r = new byte[u.len]; new ReadOnlySpan<byte>((void*)u.data, (int)u.len).CopyTo(r); }
-        Live?.Remove(u.data);
-        NativeMemory.Free((void*)u.data);
-        u = default;
-        return r;
-    }
-
-    /// A non-NULL slot the facade has no place for (inactive, absent, a map entry): freed.
-    internal static void Drop(ref ak_unk_buf u)
-    {
-        if (u.data == IntPtr.Zero) return;
-        Live?.Remove(u.data);
-        NativeMemory.Free((void*)u.data);
-        u = default;
-    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static byte[] Bytes(byte* b, ak_span s)
@@ -236,24 +170,10 @@ public static unsafe class G
         g.nanos = s.Nanos;
     }
 
-    internal static void U_Timestamp(ref ak_ufix_Timestamp g, Timestamp s, Stage st)
-    {
-        g = default;   // the fill is total: every member not assigned below is zero
-        g.seconds = s.Seconds;
-        g.nanos = s.Nanos;
-        g.unknown = st.Blob(s.UnknownFields);
-    }
-
     internal static void D_Timestamp(ref ak_dfix_Timestamp d, Timestamp t, byte* b)
     {
         t.Seconds = d.seconds;
         t.Nanos = d.nanos;
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
-    }
-
-    internal static void F_Timestamp(ref ak_dfix_Timestamp d)
-    {
-        Drop(ref d.unknown);
     }
 
     internal static void E_Duration(ref ak_efix_Duration g, Duration s, Stage st)
@@ -263,24 +183,10 @@ public static unsafe class G
         g.nanos = s.Nanos;
     }
 
-    internal static void U_Duration(ref ak_ufix_Duration g, Duration s, Stage st)
-    {
-        g = default;   // the fill is total: every member not assigned below is zero
-        g.seconds = s.Seconds;
-        g.nanos = s.Nanos;
-        g.unknown = st.Blob(s.UnknownFields);
-    }
-
     internal static void D_Duration(ref ak_dfix_Duration d, Duration t, byte* b)
     {
         t.Seconds = d.seconds;
         t.Nanos = d.nanos;
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
-    }
-
-    internal static void F_Duration(ref ak_dfix_Duration d)
-    {
-        Drop(ref d.unknown);
     }
 
     internal static void E_ResultRaw(ref ak_efix_ResultRaw g, ResultRaw s, Stage st)
@@ -299,44 +205,19 @@ public static unsafe class G
         g.manual_deletion = (byte)(s.ManualDeletion ? 1 : 0);
     }
 
-    internal static void U_ResultRaw(ref ak_ufix_ResultRaw g, ResultRaw s, Stage st)
-    {
-        g = default;   // the fill is total: every member not assigned below is zero
-        g.session_id = st.Str(s.SessionId);
-        g.name = st.Str(s.Name);
-        g.owner_task_id = st.Str(s.OwnerTaskId);
-        g.status = (int)s.Status;
-        if (s.CreatedAt != null) { U_Timestamp(ref g.created_at, s.CreatedAt, st); g.presence |= AkPresent.ResultRaw_created_at; }
-        if (s.CompletedAt != null) { U_Timestamp(ref g.completed_at, s.CompletedAt, st); g.presence |= AkPresent.ResultRaw_completed_at; }
-        g.result_id = st.Str(s.ResultId);
-        g.size = s.Size;
-        g.created_by = st.Str(s.CreatedBy);
-        g.opaque_id = st.Bytes(s.OpaqueId);
-        g.manual_deletion = (byte)(s.ManualDeletion ? 1 : 0);
-        g.unknown = st.Blob(s.UnknownFields);
-    }
-
     internal static void D_ResultRaw(ref ak_dfix_ResultRaw d, ResultRaw t, byte* b)
     {
         t.SessionId = Str(b, d.session_id);
         t.Name = Str(b, d.name);
         t.OwnerTaskId = Str(b, d.owner_task_id);
         t.Status = (ResultStatus)d.status;
-        if ((d.presence & AkPresent.ResultRaw_created_at) != 0) D_Timestamp(ref d.created_at, t.CreatedAt ??= new Timestamp(), b); else F_Timestamp(ref d.created_at);
-        if ((d.presence & AkPresent.ResultRaw_completed_at) != 0) D_Timestamp(ref d.completed_at, t.CompletedAt ??= new Timestamp(), b); else F_Timestamp(ref d.completed_at);
+        if ((d.presence & AkPresent.ResultRaw_created_at) != 0) D_Timestamp(ref d.created_at, t.CreatedAt ??= new Timestamp(), b);
+        if ((d.presence & AkPresent.ResultRaw_completed_at) != 0) D_Timestamp(ref d.completed_at, t.CompletedAt ??= new Timestamp(), b);
         t.ResultId = Str(b, d.result_id);
         t.Size = d.size;
         t.CreatedBy = Str(b, d.created_by);
         t.OpaqueId = Bytes(b, d.opaque_id);
         t.ManualDeletion = (d.manual_deletion != 0);
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
-    }
-
-    internal static void F_ResultRaw(ref ak_dfix_ResultRaw d)
-    {
-        Drop(ref d.unknown);
-        F_Timestamp(ref d.created_at);
-        F_Timestamp(ref d.completed_at);
     }
 
     internal static void E_TaskOptions(ref ak_efix_TaskOptions g, TaskOptions s, Stage st)
@@ -353,24 +234,9 @@ public static unsafe class G
         g.engine_type = st.Str(s.EngineType);
     }
 
-    internal static void U_TaskOptions(ref ak_ufix_TaskOptions g, TaskOptions s, Stage st)
-    {
-        g = default;   // the fill is total: every member not assigned below is zero
-        if (s.MaxDuration != null) { U_Duration(ref g.max_duration, s.MaxDuration, st); g.presence |= AkPresent.TaskOptions_max_duration; }
-        g.max_retries = s.MaxRetries;
-        g.priority = s.Priority;
-        g.partition_id = st.Str(s.PartitionId);
-        g.application_name = st.Str(s.ApplicationName);
-        g.application_version = st.Str(s.ApplicationVersion);
-        g.application_namespace = st.Str(s.ApplicationNamespace);
-        g.application_service = st.Str(s.ApplicationService);
-        g.engine_type = st.Str(s.EngineType);
-        g.unknown = st.Blob(s.UnknownFields);
-    }
-
     internal static void D_TaskOptions(ref ak_dfix_TaskOptions d, TaskOptions t, byte* b)
     {
-        if ((d.presence & AkPresent.TaskOptions_max_duration) != 0) D_Duration(ref d.max_duration, t.MaxDuration ??= new Duration(), b); else F_Duration(ref d.max_duration);
+        if ((d.presence & AkPresent.TaskOptions_max_duration) != 0) D_Duration(ref d.max_duration, t.MaxDuration ??= new Duration(), b);
         t.MaxRetries = d.max_retries;
         t.Priority = d.priority;
         t.PartitionId = Str(b, d.partition_id);
@@ -379,13 +245,6 @@ public static unsafe class G
         t.ApplicationNamespace = Str(b, d.application_namespace);
         t.ApplicationService = Str(b, d.application_service);
         t.EngineType = Str(b, d.engine_type);
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
-    }
-
-    internal static void F_TaskOptions(ref ak_dfix_TaskOptions d)
-    {
-        Drop(ref d.unknown);
-        F_Duration(ref d.max_duration);
     }
 
     internal static void E_TaskOutput(ref ak_efix_TaskOutput g, TaskOutput s, Stage st)
@@ -395,24 +254,10 @@ public static unsafe class G
         g.error = st.Str(s.Error);
     }
 
-    internal static void U_TaskOutput(ref ak_ufix_TaskOutput g, TaskOutput s, Stage st)
-    {
-        g = default;   // the fill is total: every member not assigned below is zero
-        g.success = (byte)(s.Success ? 1 : 0);
-        g.error = st.Str(s.Error);
-        g.unknown = st.Blob(s.UnknownFields);
-    }
-
     internal static void D_TaskOutput(ref ak_dfix_TaskOutput d, TaskOutput t, byte* b)
     {
         t.Success = (d.success != 0);
         t.Error = Str(b, d.error);
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
-    }
-
-    internal static void F_TaskOutput(ref ak_dfix_TaskOutput d)
-    {
-        Drop(ref d.unknown);
     }
 
     internal static void E_TaskDetailed(ref ak_efix_TaskDetailed g, TaskDetailed s, Stage st)
@@ -443,35 +288,6 @@ public static unsafe class G
         g.created_by = st.Str(s.CreatedBy);
     }
 
-    internal static void U_TaskDetailed(ref ak_ufix_TaskDetailed g, TaskDetailed s, Stage st)
-    {
-        g = default;   // the fill is total: every member not assigned below is zero
-        g.id = st.Str(s.Id);
-        g.session_id = st.Str(s.SessionId);
-        g.owner_pod_id = st.Str(s.OwnerPodId);
-        g.status = (int)s.Status;
-        g.status_message = st.Str(s.StatusMessage);
-        if (s.Options != null) { U_TaskOptions(ref g.options, s.Options, st); g.presence |= AkPresent.TaskDetailed_options; }
-        if (s.CreatedAt != null) { U_Timestamp(ref g.created_at, s.CreatedAt, st); g.presence |= AkPresent.TaskDetailed_created_at; }
-        if (s.SubmittedAt != null) { U_Timestamp(ref g.submitted_at, s.SubmittedAt, st); g.presence |= AkPresent.TaskDetailed_submitted_at; }
-        if (s.StartedAt != null) { U_Timestamp(ref g.started_at, s.StartedAt, st); g.presence |= AkPresent.TaskDetailed_started_at; }
-        if (s.EndedAt != null) { U_Timestamp(ref g.ended_at, s.EndedAt, st); g.presence |= AkPresent.TaskDetailed_ended_at; }
-        if (s.PodTtl != null) { U_Timestamp(ref g.pod_ttl, s.PodTtl, st); g.presence |= AkPresent.TaskDetailed_pod_ttl; }
-        if (s.Output != null) { U_TaskOutput(ref g.output, s.Output, st); g.presence |= AkPresent.TaskDetailed_output; }
-        g.pod_hostname = st.Str(s.PodHostname);
-        if (s.ReceivedAt != null) { U_Timestamp(ref g.received_at, s.ReceivedAt, st); g.presence |= AkPresent.TaskDetailed_received_at; }
-        if (s.AcquiredAt != null) { U_Timestamp(ref g.acquired_at, s.AcquiredAt, st); g.presence |= AkPresent.TaskDetailed_acquired_at; }
-        if (s.CreationToEndDuration != null) { U_Duration(ref g.creation_to_end_duration, s.CreationToEndDuration, st); g.presence |= AkPresent.TaskDetailed_creation_to_end_duration; }
-        if (s.ProcessingToEndDuration != null) { U_Duration(ref g.processing_to_end_duration, s.ProcessingToEndDuration, st); g.presence |= AkPresent.TaskDetailed_processing_to_end_duration; }
-        g.initial_task_id = st.Str(s.InitialTaskId);
-        if (s.ReceivedToEndDuration != null) { U_Duration(ref g.received_to_end_duration, s.ReceivedToEndDuration, st); g.presence |= AkPresent.TaskDetailed_received_to_end_duration; }
-        if (s.ProcessedAt != null) { U_Timestamp(ref g.processed_at, s.ProcessedAt, st); g.presence |= AkPresent.TaskDetailed_processed_at; }
-        if (s.FetchedAt != null) { U_Timestamp(ref g.fetched_at, s.FetchedAt, st); g.presence |= AkPresent.TaskDetailed_fetched_at; }
-        g.payload_id = st.Str(s.PayloadId);
-        g.created_by = st.Str(s.CreatedBy);
-        g.unknown = st.Blob(s.UnknownFields);
-    }
-
     internal static void D_TaskDetailed(ref ak_dfix_TaskDetailed d, TaskDetailed t, byte* b)
     {
         t.Id = Str(b, d.id);
@@ -479,44 +295,24 @@ public static unsafe class G
         t.OwnerPodId = Str(b, d.owner_pod_id);
         t.Status = (TaskStatus)d.status;
         t.StatusMessage = Str(b, d.status_message);
-        if ((d.presence & AkPresent.TaskDetailed_options) != 0) D_TaskOptions(ref d.options, t.Options ??= new TaskOptions(), b); else F_TaskOptions(ref d.options);
-        if ((d.presence & AkPresent.TaskDetailed_created_at) != 0) D_Timestamp(ref d.created_at, t.CreatedAt ??= new Timestamp(), b); else F_Timestamp(ref d.created_at);
-        if ((d.presence & AkPresent.TaskDetailed_submitted_at) != 0) D_Timestamp(ref d.submitted_at, t.SubmittedAt ??= new Timestamp(), b); else F_Timestamp(ref d.submitted_at);
-        if ((d.presence & AkPresent.TaskDetailed_started_at) != 0) D_Timestamp(ref d.started_at, t.StartedAt ??= new Timestamp(), b); else F_Timestamp(ref d.started_at);
-        if ((d.presence & AkPresent.TaskDetailed_ended_at) != 0) D_Timestamp(ref d.ended_at, t.EndedAt ??= new Timestamp(), b); else F_Timestamp(ref d.ended_at);
-        if ((d.presence & AkPresent.TaskDetailed_pod_ttl) != 0) D_Timestamp(ref d.pod_ttl, t.PodTtl ??= new Timestamp(), b); else F_Timestamp(ref d.pod_ttl);
-        if ((d.presence & AkPresent.TaskDetailed_output) != 0) D_TaskOutput(ref d.output, t.Output ??= new TaskOutput(), b); else F_TaskOutput(ref d.output);
+        if ((d.presence & AkPresent.TaskDetailed_options) != 0) D_TaskOptions(ref d.options, t.Options ??= new TaskOptions(), b);
+        if ((d.presence & AkPresent.TaskDetailed_created_at) != 0) D_Timestamp(ref d.created_at, t.CreatedAt ??= new Timestamp(), b);
+        if ((d.presence & AkPresent.TaskDetailed_submitted_at) != 0) D_Timestamp(ref d.submitted_at, t.SubmittedAt ??= new Timestamp(), b);
+        if ((d.presence & AkPresent.TaskDetailed_started_at) != 0) D_Timestamp(ref d.started_at, t.StartedAt ??= new Timestamp(), b);
+        if ((d.presence & AkPresent.TaskDetailed_ended_at) != 0) D_Timestamp(ref d.ended_at, t.EndedAt ??= new Timestamp(), b);
+        if ((d.presence & AkPresent.TaskDetailed_pod_ttl) != 0) D_Timestamp(ref d.pod_ttl, t.PodTtl ??= new Timestamp(), b);
+        if ((d.presence & AkPresent.TaskDetailed_output) != 0) D_TaskOutput(ref d.output, t.Output ??= new TaskOutput(), b);
         t.PodHostname = Str(b, d.pod_hostname);
-        if ((d.presence & AkPresent.TaskDetailed_received_at) != 0) D_Timestamp(ref d.received_at, t.ReceivedAt ??= new Timestamp(), b); else F_Timestamp(ref d.received_at);
-        if ((d.presence & AkPresent.TaskDetailed_acquired_at) != 0) D_Timestamp(ref d.acquired_at, t.AcquiredAt ??= new Timestamp(), b); else F_Timestamp(ref d.acquired_at);
-        if ((d.presence & AkPresent.TaskDetailed_creation_to_end_duration) != 0) D_Duration(ref d.creation_to_end_duration, t.CreationToEndDuration ??= new Duration(), b); else F_Duration(ref d.creation_to_end_duration);
-        if ((d.presence & AkPresent.TaskDetailed_processing_to_end_duration) != 0) D_Duration(ref d.processing_to_end_duration, t.ProcessingToEndDuration ??= new Duration(), b); else F_Duration(ref d.processing_to_end_duration);
+        if ((d.presence & AkPresent.TaskDetailed_received_at) != 0) D_Timestamp(ref d.received_at, t.ReceivedAt ??= new Timestamp(), b);
+        if ((d.presence & AkPresent.TaskDetailed_acquired_at) != 0) D_Timestamp(ref d.acquired_at, t.AcquiredAt ??= new Timestamp(), b);
+        if ((d.presence & AkPresent.TaskDetailed_creation_to_end_duration) != 0) D_Duration(ref d.creation_to_end_duration, t.CreationToEndDuration ??= new Duration(), b);
+        if ((d.presence & AkPresent.TaskDetailed_processing_to_end_duration) != 0) D_Duration(ref d.processing_to_end_duration, t.ProcessingToEndDuration ??= new Duration(), b);
         t.InitialTaskId = Str(b, d.initial_task_id);
-        if ((d.presence & AkPresent.TaskDetailed_received_to_end_duration) != 0) D_Duration(ref d.received_to_end_duration, t.ReceivedToEndDuration ??= new Duration(), b); else F_Duration(ref d.received_to_end_duration);
-        if ((d.presence & AkPresent.TaskDetailed_processed_at) != 0) D_Timestamp(ref d.processed_at, t.ProcessedAt ??= new Timestamp(), b); else F_Timestamp(ref d.processed_at);
-        if ((d.presence & AkPresent.TaskDetailed_fetched_at) != 0) D_Timestamp(ref d.fetched_at, t.FetchedAt ??= new Timestamp(), b); else F_Timestamp(ref d.fetched_at);
+        if ((d.presence & AkPresent.TaskDetailed_received_to_end_duration) != 0) D_Duration(ref d.received_to_end_duration, t.ReceivedToEndDuration ??= new Duration(), b);
+        if ((d.presence & AkPresent.TaskDetailed_processed_at) != 0) D_Timestamp(ref d.processed_at, t.ProcessedAt ??= new Timestamp(), b);
+        if ((d.presence & AkPresent.TaskDetailed_fetched_at) != 0) D_Timestamp(ref d.fetched_at, t.FetchedAt ??= new Timestamp(), b);
         t.PayloadId = Str(b, d.payload_id);
         t.CreatedBy = Str(b, d.created_by);
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
-    }
-
-    internal static void F_TaskDetailed(ref ak_dfix_TaskDetailed d)
-    {
-        Drop(ref d.unknown);
-        F_TaskOptions(ref d.options);
-        F_Timestamp(ref d.created_at);
-        F_Timestamp(ref d.submitted_at);
-        F_Timestamp(ref d.started_at);
-        F_Timestamp(ref d.ended_at);
-        F_Timestamp(ref d.pod_ttl);
-        F_TaskOutput(ref d.output);
-        F_Timestamp(ref d.received_at);
-        F_Timestamp(ref d.acquired_at);
-        F_Duration(ref d.creation_to_end_duration);
-        F_Duration(ref d.processing_to_end_duration);
-        F_Duration(ref d.received_to_end_duration);
-        F_Timestamp(ref d.processed_at);
-        F_Timestamp(ref d.fetched_at);
     }
 
     internal static void E_TaskSummary(ref ak_efix_TaskSummary g, TaskSummary s, Stage st)
@@ -532,38 +328,16 @@ public static unsafe class G
         g.count_data_dependencies = s.CountDataDependencies;
     }
 
-    internal static void U_TaskSummary(ref ak_ufix_TaskSummary g, TaskSummary s, Stage st)
-    {
-        g = default;   // the fill is total: every member not assigned below is zero
-        g.id = st.Str(s.Id);
-        g.session_id = st.Str(s.SessionId);
-        if (s.Options != null) { U_TaskOptions(ref g.options, s.Options, st); g.presence |= AkPresent.TaskSummary_options; }
-        g.status = (int)s.Status;
-        if (s.CreatedAt != null) { U_Timestamp(ref g.created_at, s.CreatedAt, st); g.presence |= AkPresent.TaskSummary_created_at; }
-        g.error = st.Str(s.Error);
-        g.status_message = st.Str(s.StatusMessage);
-        g.count_data_dependencies = s.CountDataDependencies;
-        g.unknown = st.Blob(s.UnknownFields);
-    }
-
     internal static void D_TaskSummary(ref ak_dfix_TaskSummary d, TaskSummary t, byte* b)
     {
         t.Id = Str(b, d.id);
         t.SessionId = Str(b, d.session_id);
-        if ((d.presence & AkPresent.TaskSummary_options) != 0) D_TaskOptions(ref d.options, t.Options ??= new TaskOptions(), b); else F_TaskOptions(ref d.options);
+        if ((d.presence & AkPresent.TaskSummary_options) != 0) D_TaskOptions(ref d.options, t.Options ??= new TaskOptions(), b);
         t.Status = (TaskStatus)d.status;
-        if ((d.presence & AkPresent.TaskSummary_created_at) != 0) D_Timestamp(ref d.created_at, t.CreatedAt ??= new Timestamp(), b); else F_Timestamp(ref d.created_at);
+        if ((d.presence & AkPresent.TaskSummary_created_at) != 0) D_Timestamp(ref d.created_at, t.CreatedAt ??= new Timestamp(), b);
         t.Error = Str(b, d.error);
         t.StatusMessage = Str(b, d.status_message);
         t.CountDataDependencies = d.count_data_dependencies;
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
-    }
-
-    internal static void F_TaskSummary(ref ak_dfix_TaskSummary d)
-    {
-        Drop(ref d.unknown);
-        F_TaskOptions(ref d.options);
-        F_Timestamp(ref d.created_at);
     }
 
     internal static void E_Probe(ref ak_efix_Probe g, Probe s, Stage st)
@@ -591,40 +365,12 @@ public static unsafe class G
         }
     }
 
-    internal static void U_Probe(ref ak_ufix_Probe g, Probe s, Stage st)
-    {
-        g = default;   // the fill is total: every member not assigned below is zero
-        g.id = st.Str(s.Id);
-        if (s.OptCount.HasValue) { g.opt_count = s.OptCount.Value; g.presence |= AkPresent.Probe_opt_count; }
-        if (s.OptLabel != null) { g.opt_label = st.StrPresent(s.OptLabel); g.presence |= AkPresent.Probe_opt_label; }
-        if (s.OptFlag.HasValue) { g.opt_flag = (byte)(s.OptFlag.Value ? 1 : 0); g.presence |= AkPresent.Probe_opt_flag; }
-        // The discriminant carries the ACTIVE MEMBER'S TAG; the facade's case is tag-valued.
-        g.body_case = (uint)s.BodyCase;
-        switch (s.BodyCase)
-        {
-            case ProbeBodyCase.AsInt:
-                g.body_as_int = s.AsInt; break;
-            case ProbeBodyCase.AsText:
-                g.body_as_text = st.StrPresent(s.AsText ?? ""); break;
-            case ProbeBodyCase.AsBlob:
-                g.body_as_blob = st.BytesPresent(s.AsBlob ?? Array.Empty<byte>()); break;
-            case ProbeBodyCase.AsStamp:
-                if (s.AsStamp != null) U_Timestamp(ref g.body_as_stamp, s.AsStamp, st); break;
-            case ProbeBodyCase.AsNothing:
-                if (s.AsNothing != null) U_Empty(ref g.body_as_nothing, s.AsNothing, st); break;
-            default: break;
-        }
-        g.unknown = st.Blob(s.UnknownFields);
-    }
-
     internal static void D_Probe(ref ak_dfix_Probe d, Probe t, byte* b)
     {
         t.Id = Str(b, d.id);
         t.OptCount = (d.presence & AkPresent.Probe_opt_count) != 0 ? d.opt_count : null;
         t.OptLabel = (d.presence & AkPresent.Probe_opt_label) != 0 ? Str(b, d.opt_label) : null;
         t.OptFlag = (d.presence & AkPresent.Probe_opt_flag) != 0 ? (d.opt_flag != 0) : null;
-        if (d.body_case != 13) F_Timestamp(ref d.body_as_stamp);
-        if (d.body_case != 14) F_Empty(ref d.body_as_nothing);
         t.BodyCase = (ProbeBodyCase)d.body_case;
         switch (d.body_case)
         {
@@ -640,14 +386,6 @@ public static unsafe class G
                 t.AsNothing = new Empty(); D_Empty(ref d.body_as_nothing, t.AsNothing, b); break;
             default: break;
         }
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
-    }
-
-    internal static void F_Probe(ref ak_dfix_Probe d)
-    {
-        Drop(ref d.unknown);
-        F_Timestamp(ref d.body_as_stamp);
-        F_Empty(ref d.body_as_nothing);
     }
 
     internal static void E_Empty(ref ak_efix_Empty g, Empty s, Stage st)
@@ -655,20 +393,8 @@ public static unsafe class G
         g = default;   // the fill is total: every member not assigned below is zero
     }
 
-    internal static void U_Empty(ref ak_ufix_Empty g, Empty s, Stage st)
-    {
-        g = default;   // the fill is total: every member not assigned below is zero
-        g.unknown = st.Blob(s.UnknownFields);
-    }
-
     internal static void D_Empty(ref ak_dfix_Empty d, Empty t, byte* b)
     {
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
-    }
-
-    internal static void F_Empty(ref ak_dfix_Empty d)
-    {
-        Drop(ref d.unknown);
     }
 
     internal static void E_UploadResultData(ref ak_efix_UploadResultData g, UploadResultData s, Stage st)
@@ -680,27 +406,11 @@ public static unsafe class G
         g.data_chunk = new ak_str { data = Abi.AK_STR_DIRECT, len = (nuint)(s.DataChunk == null ? 0 : s.DataChunk.Length), tc = IntPtr.Zero };
     }
 
-    internal static void U_UploadResultData(ref ak_ufix_UploadResultData g, UploadResultData s, Stage st)
-    {
-        g = default;   // the fill is total: every member not assigned below is zero
-        g.session_id = st.Str(s.SessionId);
-        g.result_id = st.Str(s.ResultId);
-        // ABI v1 section 8: the sentinel says the bytes are an argument of the call.
-        g.data_chunk = new ak_str { data = Abi.AK_STR_DIRECT, len = (nuint)(s.DataChunk == null ? 0 : s.DataChunk.Length), tc = IntPtr.Zero };
-        g.unknown = st.Blob(s.UnknownFields);
-    }
-
     internal static void D_UploadResultData(ref ak_dfix_UploadResultData d, UploadResultData t, byte* b)
     {
         t.SessionId = Str(b, d.session_id);
         t.ResultId = Str(b, d.result_id);
         t.DataChunk = Bytes(b, d.data_chunk);
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
-    }
-
-    internal static void F_UploadResultData(ref ak_dfix_UploadResultData d)
-    {
-        Drop(ref d.unknown);
     }
 
     internal static void E_MetricsBatch(ref ak_efix_MetricsBatch g, MetricsBatch s, Stage st)
@@ -709,22 +419,9 @@ public static unsafe class G
         g.id = st.Str(s.Id);
     }
 
-    internal static void U_MetricsBatch(ref ak_ufix_MetricsBatch g, MetricsBatch s, Stage st)
-    {
-        g = default;   // the fill is total: every member not assigned below is zero
-        g.id = st.Str(s.Id);
-        g.unknown = st.Blob(s.UnknownFields);
-    }
-
     internal static void D_MetricsBatch(ref ak_dfix_MetricsBatch d, MetricsBatch t, byte* b)
     {
         t.Id = Str(b, d.id);
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
-    }
-
-    internal static void F_MetricsBatch(ref ak_dfix_MetricsBatch d)
-    {
-        Drop(ref d.unknown);
     }
 
     internal static void E_Pair(ref ak_efix_Pair g, Pair s, Stage st)
@@ -734,24 +431,10 @@ public static unsafe class G
         g.value = s.Value;
     }
 
-    internal static void U_Pair(ref ak_ufix_Pair g, Pair s, Stage st)
-    {
-        g = default;   // the fill is total: every member not assigned below is zero
-        g.key = st.Str(s.Key);
-        g.value = s.Value;
-        g.unknown = st.Blob(s.UnknownFields);
-    }
-
     internal static void D_Pair(ref ak_dfix_Pair d, Pair t, byte* b)
     {
         t.Key = Str(b, d.key);
         t.Value = d.value;
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
-    }
-
-    internal static void F_Pair(ref ak_dfix_Pair d)
-    {
-        Drop(ref d.unknown);
     }
 
     internal static void E_ListResultsResponse(ref ak_efix_ListResultsResponse g, ListResultsResponse s, Stage st)
@@ -761,24 +444,10 @@ public static unsafe class G
         g.total = s.Total;
     }
 
-    internal static void U_ListResultsResponse(ref ak_ufix_ListResultsResponse g, ListResultsResponse s, Stage st)
-    {
-        g = default;   // the fill is total: every member not assigned below is zero
-        g.page = s.Page;
-        g.total = s.Total;
-        g.unknown = st.Blob(s.UnknownFields);
-    }
-
     internal static void D_ListResultsResponse(ref ak_dfix_ListResultsResponse d, ListResultsResponse t, byte* b)
     {
         t.Page = d.page;
         t.Total = d.total;
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
-    }
-
-    internal static void F_ListResultsResponse(ref ak_dfix_ListResultsResponse d)
-    {
-        Drop(ref d.unknown);
     }
 
     internal static void E_ListTasksDetailedResponse(ref ak_efix_ListTasksDetailedResponse g, ListTasksDetailedResponse s, Stage st)
@@ -788,24 +457,10 @@ public static unsafe class G
         g.total = s.Total;
     }
 
-    internal static void U_ListTasksDetailedResponse(ref ak_ufix_ListTasksDetailedResponse g, ListTasksDetailedResponse s, Stage st)
-    {
-        g = default;   // the fill is total: every member not assigned below is zero
-        g.page = s.Page;
-        g.total = s.Total;
-        g.unknown = st.Blob(s.UnknownFields);
-    }
-
     internal static void D_ListTasksDetailedResponse(ref ak_dfix_ListTasksDetailedResponse d, ListTasksDetailedResponse t, byte* b)
     {
         t.Page = d.page;
         t.Total = d.total;
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
-    }
-
-    internal static void F_ListTasksDetailedResponse(ref ak_dfix_ListTasksDetailedResponse d)
-    {
-        Drop(ref d.unknown);
     }
 
     internal static void E_ListTaskSummaryResponse(ref ak_efix_ListTaskSummaryResponse g, ListTaskSummaryResponse s, Stage st)
@@ -813,20 +468,8 @@ public static unsafe class G
         g = default;   // the fill is total: every member not assigned below is zero
     }
 
-    internal static void U_ListTaskSummaryResponse(ref ak_ufix_ListTaskSummaryResponse g, ListTaskSummaryResponse s, Stage st)
-    {
-        g = default;   // the fill is total: every member not assigned below is zero
-        g.unknown = st.Blob(s.UnknownFields);
-    }
-
     internal static void D_ListTaskSummaryResponse(ref ak_dfix_ListTaskSummaryResponse d, ListTaskSummaryResponse t, byte* b)
     {
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
-    }
-
-    internal static void F_ListTaskSummaryResponse(ref ak_dfix_ListTaskSummaryResponse d)
-    {
-        Drop(ref d.unknown);
     }
 
     internal static void E_ListProbeResponse(ref ak_efix_ListProbeResponse g, ListProbeResponse s, Stage st)
@@ -834,20 +477,8 @@ public static unsafe class G
         g = default;   // the fill is total: every member not assigned below is zero
     }
 
-    internal static void U_ListProbeResponse(ref ak_ufix_ListProbeResponse g, ListProbeResponse s, Stage st)
-    {
-        g = default;   // the fill is total: every member not assigned below is zero
-        g.unknown = st.Blob(s.UnknownFields);
-    }
-
     internal static void D_ListProbeResponse(ref ak_dfix_ListProbeResponse d, ListProbeResponse t, byte* b)
     {
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
-    }
-
-    internal static void F_ListProbeResponse(ref ak_dfix_ListProbeResponse d)
-    {
-        Drop(ref d.unknown);
     }
 
     internal static void E_ListMetricsResponse(ref ak_efix_ListMetricsResponse g, ListMetricsResponse s, Stage st)
@@ -855,20 +486,8 @@ public static unsafe class G
         g = default;   // the fill is total: every member not assigned below is zero
     }
 
-    internal static void U_ListMetricsResponse(ref ak_ufix_ListMetricsResponse g, ListMetricsResponse s, Stage st)
-    {
-        g = default;   // the fill is total: every member not assigned below is zero
-        g.unknown = st.Blob(s.UnknownFields);
-    }
-
     internal static void D_ListMetricsResponse(ref ak_dfix_ListMetricsResponse d, ListMetricsResponse t, byte* b)
     {
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
-    }
-
-    internal static void F_ListMetricsResponse(ref ak_dfix_ListMetricsResponse d)
-    {
-        Drop(ref d.unknown);
     }
 
     internal static void E_UploadResultDataMessage(ref ak_efix_UploadResultDataMessage g, UploadResultDataMessage s, Stage st)
@@ -877,23 +496,9 @@ public static unsafe class G
         if (s.Upload != null) { E_UploadResultData(ref g.upload, s.Upload, st); g.presence |= AkPresent.UploadResultDataMessage_upload; }
     }
 
-    internal static void U_UploadResultDataMessage(ref ak_ufix_UploadResultDataMessage g, UploadResultDataMessage s, Stage st)
-    {
-        g = default;   // the fill is total: every member not assigned below is zero
-        if (s.Upload != null) { U_UploadResultData(ref g.upload, s.Upload, st); g.presence |= AkPresent.UploadResultDataMessage_upload; }
-        g.unknown = st.Blob(s.UnknownFields);
-    }
-
     internal static void D_UploadResultDataMessage(ref ak_dfix_UploadResultDataMessage d, UploadResultDataMessage t, byte* b)
     {
-        if ((d.presence & AkPresent.UploadResultDataMessage_upload) != 0) D_UploadResultData(ref d.upload, t.Upload ??= new UploadResultData(), b); else F_UploadResultData(ref d.upload);
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
-    }
-
-    internal static void F_UploadResultDataMessage(ref ak_dfix_UploadResultDataMessage d)
-    {
-        Drop(ref d.unknown);
-        F_UploadResultData(ref d.upload);
+        if ((d.presence & AkPresent.UploadResultDataMessage_upload) != 0) D_UploadResultData(ref d.upload, t.Upload ??= new UploadResultData(), b);
     }
 
     internal static void E_DualResponse(ref ak_efix_DualResponse g, DualResponse s, Stage st)
@@ -901,20 +506,8 @@ public static unsafe class G
         g = default;   // the fill is total: every member not assigned below is zero
     }
 
-    internal static void U_DualResponse(ref ak_ufix_DualResponse g, DualResponse s, Stage st)
-    {
-        g = default;   // the fill is total: every member not assigned below is zero
-        g.unknown = st.Blob(s.UnknownFields);
-    }
-
     internal static void D_DualResponse(ref ak_dfix_DualResponse d, DualResponse t, byte* b)
     {
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
-    }
-
-    internal static void F_DualResponse(ref ak_dfix_DualResponse d)
-    {
-        Drop(ref d.unknown);
     }
 
 }
@@ -940,7 +533,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; }
     private int _cap_results;
 
     public CoreFfi_ListResultsResponse(bool utf16 = false)
@@ -965,9 +558,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             {
                 int k = n - off; if (k > chunk) k = chunk;
                 _fwd++;
-                int rc = run->Retain != 0
-                    ? Abi.ak_uelem_ResultRaw(ctx, (ak_ufix_ResultRaw*)((ak_ufix_ResultRaw*)run->S_results + off), k)
-                    : Abi.ak_elem_ResultRaw(ctx, (ak_efix_ResultRaw*)((ak_efix_ResultRaw*)run->S_results + off), k);
+                int rc = Abi.ak_elem_ResultRaw(ctx, (ak_efix_ResultRaw*)((ak_efix_ResultRaw*)run->S_results + off), k);
                 if (rc < 0) return rc;
             }
             return 0;
@@ -977,7 +568,6 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
 
     public int Fill(ListResultsResponse src) { Go(src, false, false, out _, out _); return 0; }
     public void Encode(ListResultsResponse src, out byte* p, out int len) { int rc = Go(src, false, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
-    public void EncodeU(ListResultsResponse src, out byte* p, out int len) { int rc = Go(src, true, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public int TryEncode(ListResultsResponse src, bool retain, out byte* p, out int len) => Go(src, retain, true, out p, out len);
     public byte[] EncodeToArray(ListResultsResponse src, bool retain = false)
     {
@@ -994,16 +584,15 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
         _run->Chunk = Chunk;
-        _run->Retain = retain ? 1 : 0;
+        if (retain) throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10): no ak_uencode");
         {
             var lst = src.Results;
             int n = lst == null ? 0 : lst.Count;
             _run->N_results = n;
-            Arr.Ensure(ref _run->S_results, ref _cap_results, n, Math.Max(sizeof(ak_efix_ResultRaw), sizeof(ak_ufix_ResultRaw)));
+            Arr.Ensure(ref _run->S_results, ref _cap_results, n, sizeof(ak_efix_ResultRaw));
             for (int i = 0; i < n; i++)
             {
-                if (retain) G.U_ResultRaw(ref ((ak_ufix_ResultRaw*)_run->S_results)[i], lst[i], _st);
-                else G.E_ResultRaw(ref ((ak_efix_ResultRaw*)_run->S_results)[i], lst[i], _st);
+                G.E_ResultRaw(ref ((ak_efix_ResultRaw*)_run->S_results)[i], lst[i], _st);
             }
         }
         var vt = new ak_evt_ListResultsResponse
@@ -1011,15 +600,6 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             loop_results = &Loop_results,
         };
         nint rc;
-        if (retain)
-        {
-            var fix = new ak_ufix_ListResultsResponse();
-            G.U_ListResultsResponse(ref fix, src, _st);
-            if (!call) return 0;
-            _fwd++;
-            rc = Abi.ak_uencode_ListResultsResponse(_run, _ctx, &vt, &fix);
-        }
-        else
         {
             var fix = new ak_efix_ListResultsResponse();
             G.E_ListResultsResponse(ref fix, src, _st);
@@ -1063,127 +643,27 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
-    /// Decision 11: every message position of this root, in plan.unk_positions order
-    /// (the options' member order).
-    public static readonly string[] UnkPositionNames = { "self", "results", "results_created_at", "results_completed_at" };
-
-    /// A retained decode ended with a buffer grow handed out that no delivered group
-    /// carried back to the host: a host defect, never a core code.
-    public const int UNDELIVERED = -1001;
-    public int Undelivered { get; private set; }
-    private ak_dec_ListResultsResponse_opts* _uo;
-    private HashSet<IntPtr> _live;
-    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
-    private static long _resets;
-    public long ResetCalls => _resets;
-    public const bool UnknownCompiledOut = false;
+    /// WP5 step 10: this build has unknown fields COMPILED OUT (no options, no resets).
+    public const bool UnknownCompiledOut = true;
+    public const int UNDELIVERED = -1001;   // never returned by this build
+    public int Undelivered => 0;
+    public long ResetCalls => 0;
 
     private void EnsureDec()
     {
         if (_dctx != IntPtr.Zero) return;
-        _dctx = Abi.ak_dec_ctx_new_ListResultsResponse(null);   // rule 6: bound to this root, drop mode
+        _dctx = Abi.ak_dec_ctx_new_ListResultsResponse();   // rule 6: bound to this root; no options exist
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListResultsResponse returned NULL");
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
-    /// The options, rewritten before every retained decode: every entry names the one
-    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
-    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
-    private ak_dec_ListResultsResponse_opts* Arm(int zero)
-    {
-        if (_uo == null) _uo = (ak_dec_ListResultsResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListResultsResponse_opts));
-        *_uo = default;
-        var g = UnkHost.Fn;
-        if (zero != 0) _uo->self.grow = g;
-        if (zero != 1) _uo->results.grow = g;
-        if (zero != 2) _uo->results_created_at.grow = g;
-        if (zero != 3) _uo->results_completed_at.grow = g;
-        return _uo;
-    }
-
-    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
-    private int ArmFor(int mode)
-    {
-        Undelivered = 0;
-        _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ListResultsResponse(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
-        return Abi.ak_dec_reset_ListResultsResponse(_dctx, Arm(mode));
-    }
-
-    /// After every decode: the core forgets the options (reset with NULL), and a buffer
-    /// still outstanding is freed; after a success that is UNDELIVERED.
-    private int Disarm(int rc)
-    {
-        _resets++;
-        Abi.ak_dec_reset_ListResultsResponse(_dctx, null);
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
-        if (rc < 0) return rc;
-        Undelivered = left;
-        return UNDELIVERED;
-    }
-
-    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
-    public static void ClearPosition(ListResultsResponse t, int position)
-    {
-        switch (position)
-        {
-            case 0:
-            {
-                t.UnknownFields = null;
-                break;
-            }
-            case 1:
-            {
-                if (t.Results != null) foreach (var e0 in t.Results)
-                {
-                    e0.UnknownFields = null;
-                }
-                break;
-            }
-            case 2:
-            {
-                if (t.Results != null) foreach (var e0 in t.Results)
-                {
-                    if (e0.CreatedAt != null) { var e1 = e0.CreatedAt;
-
-                        e1.UnknownFields = null;
-                    }
-                }
-                break;
-            }
-            case 3:
-            {
-                if (t.Results != null) foreach (var e0 in t.Results)
-                {
-                    if (e0.CompletedAt != null) { var e1 = e0.CompletedAt;
-
-                        e1.UnknownFields = null;
-                    }
-                }
-                break;
-            }
-            default: throw new ArgumentOutOfRangeException(nameof(position));
-        }
-    }
+    private int ArmFor(int mode) => mode == -2 ? 0 : throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10)");
+    private int Disarm(int rc) => rc;
 
     public ListResultsResponse Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
-    public ListResultsResponse DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out ListResultsResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
-
-    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
-    /// UnkPositionNames), whose entry is all zero when armed.
-    public int TryDecodeZeroing(byte[] src, int len, int position, out ListResultsResponse result) => DecodeArmed(src, len, position, out result);
 
     private int DecodeArmed(byte[] src, int len, int mode, out ListResultsResponse result)
     {
@@ -1224,7 +704,6 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
     public ListResultsResponse Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
-    public ListResultsResponse PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
 
     public int TryPull(byte[] src, int len, bool retain, out ListResultsResponse result)
     {
@@ -1298,7 +777,6 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
-        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -1329,7 +807,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; }
     private int _cap_tasks;
     private int _cap_tasks_parent_task_ids, _capo_tasks_parent_task_ids;
     private int _cap_tasks_data_dependencies, _capo_tasks_data_dependencies;
@@ -1366,9 +844,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             {
                 int k = n - off; if (k > chunk) k = chunk;
                 _fwd++;
-                int rc = run->Retain != 0
-                    ? Abi.ak_uelemu_TaskDetailed(ctx, (ak_ufix_TaskDetailed*)((ak_ufix_TaskDetailed*)run->S_tasks + off), k, off)
-                    : Abi.ak_elemu_TaskDetailed(ctx, (ak_efix_TaskDetailed*)((ak_efix_TaskDetailed*)run->S_tasks + off), k, off);
+                int rc = Abi.ak_elemu_TaskDetailed(ctx, (ak_efix_TaskDetailed*)((ak_efix_TaskDetailed*)run->S_tasks + off), k, off);
                 if (rc < 0) return rc;
             }
             return 0;
@@ -1458,7 +934,6 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 
     public int Fill(ListTasksDetailedResponse src) { Go(src, false, false, out _, out _); return 0; }
     public void Encode(ListTasksDetailedResponse src, out byte* p, out int len) { int rc = Go(src, false, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
-    public void EncodeU(ListTasksDetailedResponse src, out byte* p, out int len) { int rc = Go(src, true, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public int TryEncode(ListTasksDetailedResponse src, bool retain, out byte* p, out int len) => Go(src, retain, true, out p, out len);
     public byte[] EncodeToArray(ListTasksDetailedResponse src, bool retain = false)
     {
@@ -1475,16 +950,15 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
         _run->Chunk = Chunk;
-        _run->Retain = retain ? 1 : 0;
+        if (retain) throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10): no ak_uencode");
         {
             var lst = src.Tasks;
             int n = lst == null ? 0 : lst.Count;
             _run->N_tasks = n;
-            Arr.Ensure(ref _run->S_tasks, ref _cap_tasks, n, Math.Max(sizeof(ak_efix_TaskDetailed), sizeof(ak_ufix_TaskDetailed)));
+            Arr.Ensure(ref _run->S_tasks, ref _cap_tasks, n, sizeof(ak_efix_TaskDetailed));
             for (int i = 0; i < n; i++)
             {
-                if (retain) G.U_TaskDetailed(ref ((ak_ufix_TaskDetailed*)_run->S_tasks)[i], lst[i], _st);
-                else G.E_TaskDetailed(ref ((ak_efix_TaskDetailed*)_run->S_tasks)[i], lst[i], _st);
+                G.E_TaskDetailed(ref ((ak_efix_TaskDetailed*)_run->S_tasks)[i], lst[i], _st);
             }
             {
                 int tot = 0;
@@ -1580,15 +1054,6 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             elem_tasks = _evt_tasks,
         };
         nint rc;
-        if (retain)
-        {
-            var fix = new ak_ufix_ListTasksDetailedResponse();
-            G.U_ListTasksDetailedResponse(ref fix, src, _st);
-            if (!call) return 0;
-            _fwd++;
-            rc = Abi.ak_uencode_ListTasksDetailedResponse(_run, _ctx, &vt, &fix);
-        }
-        else
         {
             var fix = new ak_efix_ListTasksDetailedResponse();
             G.E_ListTasksDetailedResponse(ref fix, src, _st);
@@ -1698,307 +1163,35 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Tasks[(int)token];
             var il = (e.Options ??= new TaskOptions()).Options;
-            // plan: a duplicate key replaces the earlier value. The facade map has no bag:
-            // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
-            for (int k = 0; k < n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
+            // plan: a duplicate key replaces the earlier value.
+            for (int k = 0; k < n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
         }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     private static readonly byte[] One = new byte[1];
 
-    /// Decision 11: every message position of this root, in plan.unk_positions order
-    /// (the options' member order).
-    public static readonly string[] UnkPositionNames = { "self", "tasks", "tasks_options", "tasks_options_options", "tasks_options_max_duration", "tasks_created_at", "tasks_submitted_at", "tasks_started_at", "tasks_ended_at", "tasks_pod_ttl", "tasks_output", "tasks_received_at", "tasks_acquired_at", "tasks_creation_to_end_duration", "tasks_processing_to_end_duration", "tasks_received_to_end_duration", "tasks_processed_at", "tasks_fetched_at" };
-
-    /// A retained decode ended with a buffer grow handed out that no delivered group
-    /// carried back to the host: a host defect, never a core code.
-    public const int UNDELIVERED = -1001;
-    public int Undelivered { get; private set; }
-    private ak_dec_ListTasksDetailedResponse_opts* _uo;
-    private HashSet<IntPtr> _live;
-    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
-    private static long _resets;
-    public long ResetCalls => _resets;
-    public const bool UnknownCompiledOut = false;
+    /// WP5 step 10: this build has unknown fields COMPILED OUT (no options, no resets).
+    public const bool UnknownCompiledOut = true;
+    public const int UNDELIVERED = -1001;   // never returned by this build
+    public int Undelivered => 0;
+    public long ResetCalls => 0;
 
     private void EnsureDec()
     {
         if (_dctx != IntPtr.Zero) return;
-        _dctx = Abi.ak_dec_ctx_new_ListTasksDetailedResponse(null);   // rule 6: bound to this root, drop mode
+        _dctx = Abi.ak_dec_ctx_new_ListTasksDetailedResponse();   // rule 6: bound to this root; no options exist
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListTasksDetailedResponse returned NULL");
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
-    /// The options, rewritten before every retained decode: every entry names the one
-    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
-    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
-    private ak_dec_ListTasksDetailedResponse_opts* Arm(int zero)
-    {
-        if (_uo == null) _uo = (ak_dec_ListTasksDetailedResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListTasksDetailedResponse_opts));
-        *_uo = default;
-        var g = UnkHost.Fn;
-        if (zero != 0) _uo->self.grow = g;
-        if (zero != 1) _uo->tasks.grow = g;
-        if (zero != 2) _uo->tasks_options.grow = g;
-        if (zero != 3) _uo->tasks_options_options.grow = g;
-        if (zero != 4) _uo->tasks_options_max_duration.grow = g;
-        if (zero != 5) _uo->tasks_created_at.grow = g;
-        if (zero != 6) _uo->tasks_submitted_at.grow = g;
-        if (zero != 7) _uo->tasks_started_at.grow = g;
-        if (zero != 8) _uo->tasks_ended_at.grow = g;
-        if (zero != 9) _uo->tasks_pod_ttl.grow = g;
-        if (zero != 10) _uo->tasks_output.grow = g;
-        if (zero != 11) _uo->tasks_received_at.grow = g;
-        if (zero != 12) _uo->tasks_acquired_at.grow = g;
-        if (zero != 13) _uo->tasks_creation_to_end_duration.grow = g;
-        if (zero != 14) _uo->tasks_processing_to_end_duration.grow = g;
-        if (zero != 15) _uo->tasks_received_to_end_duration.grow = g;
-        if (zero != 16) _uo->tasks_processed_at.grow = g;
-        if (zero != 17) _uo->tasks_fetched_at.grow = g;
-        return _uo;
-    }
-
-    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
-    private int ArmFor(int mode)
-    {
-        Undelivered = 0;
-        _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ListTasksDetailedResponse(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
-        return Abi.ak_dec_reset_ListTasksDetailedResponse(_dctx, Arm(mode));
-    }
-
-    /// After every decode: the core forgets the options (reset with NULL), and a buffer
-    /// still outstanding is freed; after a success that is UNDELIVERED.
-    private int Disarm(int rc)
-    {
-        _resets++;
-        Abi.ak_dec_reset_ListTasksDetailedResponse(_dctx, null);
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
-        if (rc < 0) return rc;
-        Undelivered = left;
-        return UNDELIVERED;
-    }
-
-    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
-    public static void ClearPosition(ListTasksDetailedResponse t, int position)
-    {
-        switch (position)
-        {
-            case 0:
-            {
-                t.UnknownFields = null;
-                break;
-            }
-            case 1:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    e0.UnknownFields = null;
-                }
-                break;
-            }
-            case 2:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.Options != null) { var e1 = e0.Options;
-
-                        e1.UnknownFields = null;
-                    }
-                }
-                break;
-            }
-            case 3:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.Options != null) { var e1 = e0.Options;
-
-                        // a map entry: the facade map has no bag (U-map-entry), nothing to clear
-                    }
-                }
-                break;
-            }
-            case 4:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.Options != null) { var e1 = e0.Options;
-
-                        if (e1.MaxDuration != null) { var e2 = e1.MaxDuration;
-
-                            e2.UnknownFields = null;
-                        }
-                    }
-                }
-                break;
-            }
-            case 5:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.CreatedAt != null) { var e1 = e0.CreatedAt;
-
-                        e1.UnknownFields = null;
-                    }
-                }
-                break;
-            }
-            case 6:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.SubmittedAt != null) { var e1 = e0.SubmittedAt;
-
-                        e1.UnknownFields = null;
-                    }
-                }
-                break;
-            }
-            case 7:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.StartedAt != null) { var e1 = e0.StartedAt;
-
-                        e1.UnknownFields = null;
-                    }
-                }
-                break;
-            }
-            case 8:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.EndedAt != null) { var e1 = e0.EndedAt;
-
-                        e1.UnknownFields = null;
-                    }
-                }
-                break;
-            }
-            case 9:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.PodTtl != null) { var e1 = e0.PodTtl;
-
-                        e1.UnknownFields = null;
-                    }
-                }
-                break;
-            }
-            case 10:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.Output != null) { var e1 = e0.Output;
-
-                        e1.UnknownFields = null;
-                    }
-                }
-                break;
-            }
-            case 11:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.ReceivedAt != null) { var e1 = e0.ReceivedAt;
-
-                        e1.UnknownFields = null;
-                    }
-                }
-                break;
-            }
-            case 12:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.AcquiredAt != null) { var e1 = e0.AcquiredAt;
-
-                        e1.UnknownFields = null;
-                    }
-                }
-                break;
-            }
-            case 13:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.CreationToEndDuration != null) { var e1 = e0.CreationToEndDuration;
-
-                        e1.UnknownFields = null;
-                    }
-                }
-                break;
-            }
-            case 14:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.ProcessingToEndDuration != null) { var e1 = e0.ProcessingToEndDuration;
-
-                        e1.UnknownFields = null;
-                    }
-                }
-                break;
-            }
-            case 15:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.ReceivedToEndDuration != null) { var e1 = e0.ReceivedToEndDuration;
-
-                        e1.UnknownFields = null;
-                    }
-                }
-                break;
-            }
-            case 16:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.ProcessedAt != null) { var e1 = e0.ProcessedAt;
-
-                        e1.UnknownFields = null;
-                    }
-                }
-                break;
-            }
-            case 17:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.FetchedAt != null) { var e1 = e0.FetchedAt;
-
-                        e1.UnknownFields = null;
-                    }
-                }
-                break;
-            }
-            default: throw new ArgumentOutOfRangeException(nameof(position));
-        }
-    }
+    private int ArmFor(int mode) => mode == -2 ? 0 : throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10)");
+    private int Disarm(int rc) => rc;
 
     public ListTasksDetailedResponse Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
-    public ListTasksDetailedResponse DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out ListTasksDetailedResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
-
-    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
-    /// UnkPositionNames), whose entry is all zero when armed.
-    public int TryDecodeZeroing(byte[] src, int len, int position, out ListTasksDetailedResponse result) => DecodeArmed(src, len, position, out result);
 
     private int DecodeArmed(byte[] src, int len, int mode, out ListTasksDetailedResponse result)
     {
@@ -2045,7 +1238,6 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
     public ListTasksDetailedResponse Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
-    public ListTasksDetailedResponse PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
 
     public int TryPull(byte[] src, int len, bool retain, out ListTasksDetailedResponse result)
     {
@@ -2120,9 +1312,8 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                 case OP_ADD when outer == 1 && inner == 5:
                 {
                     var xs = (ak_dfix_TaskOptionsOptionsEntry*)body; var e = t.Tasks[(int)r.token]; var il = (e.Options ??= new TaskOptions()).Options;
-                    // plan: a duplicate key replaces the earlier value. The facade map has no bag:
-                    // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
-                    for (int k = 0; k < (int)r.n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
+                    // plan: a duplicate key replaces the earlier value.
+                    for (int k = 0; k < (int)r.n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
                     break;
                 }
                 default: break;
@@ -2153,7 +1344,6 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         }
         if (_evt_tasks != null) { NativeMemory.Free(_evt_tasks); _evt_tasks = null; }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
-        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -2178,7 +1368,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; }
     private int _cap_probes;
 
     public CoreFfi_ListProbeResponse(bool utf16 = false)
@@ -2203,9 +1393,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             {
                 int k = n - off; if (k > chunk) k = chunk;
                 _fwd++;
-                int rc = run->Retain != 0
-                    ? Abi.ak_uelem_Probe(ctx, (ak_ufix_Probe*)((ak_ufix_Probe*)run->S_probes + off), k)
-                    : Abi.ak_elem_Probe(ctx, (ak_efix_Probe*)((ak_efix_Probe*)run->S_probes + off), k);
+                int rc = Abi.ak_elem_Probe(ctx, (ak_efix_Probe*)((ak_efix_Probe*)run->S_probes + off), k);
                 if (rc < 0) return rc;
             }
             return 0;
@@ -2215,7 +1403,6 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
 
     public int Fill(ListProbeResponse src) { Go(src, false, false, out _, out _); return 0; }
     public void Encode(ListProbeResponse src, out byte* p, out int len) { int rc = Go(src, false, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
-    public void EncodeU(ListProbeResponse src, out byte* p, out int len) { int rc = Go(src, true, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public int TryEncode(ListProbeResponse src, bool retain, out byte* p, out int len) => Go(src, retain, true, out p, out len);
     public byte[] EncodeToArray(ListProbeResponse src, bool retain = false)
     {
@@ -2232,16 +1419,15 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
         _run->Chunk = Chunk;
-        _run->Retain = retain ? 1 : 0;
+        if (retain) throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10): no ak_uencode");
         {
             var lst = src.Probes;
             int n = lst == null ? 0 : lst.Count;
             _run->N_probes = n;
-            Arr.Ensure(ref _run->S_probes, ref _cap_probes, n, Math.Max(sizeof(ak_efix_Probe), sizeof(ak_ufix_Probe)));
+            Arr.Ensure(ref _run->S_probes, ref _cap_probes, n, sizeof(ak_efix_Probe));
             for (int i = 0; i < n; i++)
             {
-                if (retain) G.U_Probe(ref ((ak_ufix_Probe*)_run->S_probes)[i], lst[i], _st);
-                else G.E_Probe(ref ((ak_efix_Probe*)_run->S_probes)[i], lst[i], _st);
+                G.E_Probe(ref ((ak_efix_Probe*)_run->S_probes)[i], lst[i], _st);
             }
         }
         var vt = new ak_evt_ListProbeResponse
@@ -2249,15 +1435,6 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             loop_probes = &Loop_probes,
         };
         nint rc;
-        if (retain)
-        {
-            var fix = new ak_ufix_ListProbeResponse();
-            G.U_ListProbeResponse(ref fix, src, _st);
-            if (!call) return 0;
-            _fwd++;
-            rc = Abi.ak_uencode_ListProbeResponse(_run, _ctx, &vt, &fix);
-        }
-        else
         {
             var fix = new ak_efix_ListProbeResponse();
             G.E_ListProbeResponse(ref fix, src, _st);
@@ -2301,113 +1478,27 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
-    /// Decision 11: every message position of this root, in plan.unk_positions order
-    /// (the options' member order).
-    public static readonly string[] UnkPositionNames = { "self", "probes", "probes_body" };
-
-    /// A retained decode ended with a buffer grow handed out that no delivered group
-    /// carried back to the host: a host defect, never a core code.
-    public const int UNDELIVERED = -1001;
-    public int Undelivered { get; private set; }
-    private ak_dec_ListProbeResponse_opts* _uo;
-    private HashSet<IntPtr> _live;
-    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
-    private static long _resets;
-    public long ResetCalls => _resets;
-    public const bool UnknownCompiledOut = false;
+    /// WP5 step 10: this build has unknown fields COMPILED OUT (no options, no resets).
+    public const bool UnknownCompiledOut = true;
+    public const int UNDELIVERED = -1001;   // never returned by this build
+    public int Undelivered => 0;
+    public long ResetCalls => 0;
 
     private void EnsureDec()
     {
         if (_dctx != IntPtr.Zero) return;
-        _dctx = Abi.ak_dec_ctx_new_ListProbeResponse(null);   // rule 6: bound to this root, drop mode
+        _dctx = Abi.ak_dec_ctx_new_ListProbeResponse();   // rule 6: bound to this root; no options exist
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListProbeResponse returned NULL");
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
-    /// The options, rewritten before every retained decode: every entry names the one
-    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
-    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
-    private ak_dec_ListProbeResponse_opts* Arm(int zero)
-    {
-        if (_uo == null) _uo = (ak_dec_ListProbeResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListProbeResponse_opts));
-        *_uo = default;
-        var g = UnkHost.Fn;
-        if (zero != 0) _uo->self.grow = g;
-        if (zero != 1) _uo->probes.grow = g;
-        if (zero != 2) _uo->probes_body.grow = g;
-        return _uo;
-    }
-
-    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
-    private int ArmFor(int mode)
-    {
-        Undelivered = 0;
-        _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ListProbeResponse(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
-        return Abi.ak_dec_reset_ListProbeResponse(_dctx, Arm(mode));
-    }
-
-    /// After every decode: the core forgets the options (reset with NULL), and a buffer
-    /// still outstanding is freed; after a success that is UNDELIVERED.
-    private int Disarm(int rc)
-    {
-        _resets++;
-        Abi.ak_dec_reset_ListProbeResponse(_dctx, null);
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
-        if (rc < 0) return rc;
-        Undelivered = left;
-        return UNDELIVERED;
-    }
-
-    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
-    public static void ClearPosition(ListProbeResponse t, int position)
-    {
-        switch (position)
-        {
-            case 0:
-            {
-                t.UnknownFields = null;
-                break;
-            }
-            case 1:
-            {
-                if (t.Probes != null) foreach (var e0 in t.Probes)
-                {
-                    e0.UnknownFields = null;
-                }
-                break;
-            }
-            case 2:
-            {
-                if (t.Probes != null) foreach (var e0 in t.Probes)
-                {
-                    if (e0.AsStamp != null) e0.AsStamp.UnknownFields = null;
-                    if (e0.AsNothing != null) e0.AsNothing.UnknownFields = null;
-                }
-                break;
-            }
-            default: throw new ArgumentOutOfRangeException(nameof(position));
-        }
-    }
+    private int ArmFor(int mode) => mode == -2 ? 0 : throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10)");
+    private int Disarm(int rc) => rc;
 
     public ListProbeResponse Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
-    public ListProbeResponse DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out ListProbeResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
-
-    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
-    /// UnkPositionNames), whose entry is all zero when armed.
-    public int TryDecodeZeroing(byte[] src, int len, int position, out ListProbeResponse result) => DecodeArmed(src, len, position, out result);
 
     private int DecodeArmed(byte[] src, int len, int mode, out ListProbeResponse result)
     {
@@ -2448,7 +1539,6 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
     public ListProbeResponse Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
-    public ListProbeResponse PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
 
     public int TryPull(byte[] src, int len, bool retain, out ListProbeResponse result)
     {
@@ -2522,7 +1612,6 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
-        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -2549,7 +1638,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; }
     private int _cap_tasks;
     private int _cap_tasks_options_options, _capo_tasks_options_options;
     private ak_evt_TaskSummary* _evt_tasks;
@@ -2578,9 +1667,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             {
                 int k = n - off; if (k > chunk) k = chunk;
                 _fwd++;
-                int rc = run->Retain != 0
-                    ? Abi.ak_uelemu_TaskSummary(ctx, (ak_ufix_TaskSummary*)((ak_ufix_TaskSummary*)run->S_tasks + off), k, off)
-                    : Abi.ak_elemu_TaskSummary(ctx, (ak_efix_TaskSummary*)((ak_efix_TaskSummary*)run->S_tasks + off), k, off);
+                int rc = Abi.ak_elemu_TaskSummary(ctx, (ak_efix_TaskSummary*)((ak_efix_TaskSummary*)run->S_tasks + off), k, off);
                 if (rc < 0) return rc;
             }
             return 0;
@@ -2606,7 +1693,6 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
 
     public int Fill(ListTaskSummaryResponse src) { Go(src, false, false, out _, out _); return 0; }
     public void Encode(ListTaskSummaryResponse src, out byte* p, out int len) { int rc = Go(src, false, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
-    public void EncodeU(ListTaskSummaryResponse src, out byte* p, out int len) { int rc = Go(src, true, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public int TryEncode(ListTaskSummaryResponse src, bool retain, out byte* p, out int len) => Go(src, retain, true, out p, out len);
     public byte[] EncodeToArray(ListTaskSummaryResponse src, bool retain = false)
     {
@@ -2623,16 +1709,15 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
         _run->Chunk = Chunk;
-        _run->Retain = retain ? 1 : 0;
+        if (retain) throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10): no ak_uencode");
         {
             var lst = src.Tasks;
             int n = lst == null ? 0 : lst.Count;
             _run->N_tasks = n;
-            Arr.Ensure(ref _run->S_tasks, ref _cap_tasks, n, Math.Max(sizeof(ak_efix_TaskSummary), sizeof(ak_ufix_TaskSummary)));
+            Arr.Ensure(ref _run->S_tasks, ref _cap_tasks, n, sizeof(ak_efix_TaskSummary));
             for (int i = 0; i < n; i++)
             {
-                if (retain) G.U_TaskSummary(ref ((ak_ufix_TaskSummary*)_run->S_tasks)[i], lst[i], _st);
-                else G.E_TaskSummary(ref ((ak_efix_TaskSummary*)_run->S_tasks)[i], lst[i], _st);
+                G.E_TaskSummary(ref ((ak_efix_TaskSummary*)_run->S_tasks)[i], lst[i], _st);
             }
             {
                 int tot = 0;
@@ -2656,15 +1741,6 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             elem_tasks = _evt_tasks,
         };
         nint rc;
-        if (retain)
-        {
-            var fix = new ak_ufix_ListTaskSummaryResponse();
-            G.U_ListTaskSummaryResponse(ref fix, src, _st);
-            if (!call) return 0;
-            _fwd++;
-            rc = Abi.ak_uencode_ListTaskSummaryResponse(_run, _ctx, &vt, &fix);
-        }
-        else
         {
             var fix = new ak_efix_ListTaskSummaryResponse();
             G.E_ListTaskSummaryResponse(ref fix, src, _st);
@@ -2718,163 +1794,35 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Tasks[(int)token];
             var il = (e.Options ??= new TaskOptions()).Options;
-            // plan: a duplicate key replaces the earlier value. The facade map has no bag:
-            // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
-            for (int k = 0; k < n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
+            // plan: a duplicate key replaces the earlier value.
+            for (int k = 0; k < n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
         }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     private static readonly byte[] One = new byte[1];
 
-    /// Decision 11: every message position of this root, in plan.unk_positions order
-    /// (the options' member order).
-    public static readonly string[] UnkPositionNames = { "self", "tasks", "tasks_options", "tasks_options_options", "tasks_options_max_duration", "tasks_created_at" };
-
-    /// A retained decode ended with a buffer grow handed out that no delivered group
-    /// carried back to the host: a host defect, never a core code.
-    public const int UNDELIVERED = -1001;
-    public int Undelivered { get; private set; }
-    private ak_dec_ListTaskSummaryResponse_opts* _uo;
-    private HashSet<IntPtr> _live;
-    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
-    private static long _resets;
-    public long ResetCalls => _resets;
-    public const bool UnknownCompiledOut = false;
+    /// WP5 step 10: this build has unknown fields COMPILED OUT (no options, no resets).
+    public const bool UnknownCompiledOut = true;
+    public const int UNDELIVERED = -1001;   // never returned by this build
+    public int Undelivered => 0;
+    public long ResetCalls => 0;
 
     private void EnsureDec()
     {
         if (_dctx != IntPtr.Zero) return;
-        _dctx = Abi.ak_dec_ctx_new_ListTaskSummaryResponse(null);   // rule 6: bound to this root, drop mode
+        _dctx = Abi.ak_dec_ctx_new_ListTaskSummaryResponse();   // rule 6: bound to this root; no options exist
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListTaskSummaryResponse returned NULL");
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
-    /// The options, rewritten before every retained decode: every entry names the one
-    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
-    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
-    private ak_dec_ListTaskSummaryResponse_opts* Arm(int zero)
-    {
-        if (_uo == null) _uo = (ak_dec_ListTaskSummaryResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListTaskSummaryResponse_opts));
-        *_uo = default;
-        var g = UnkHost.Fn;
-        if (zero != 0) _uo->self.grow = g;
-        if (zero != 1) _uo->tasks.grow = g;
-        if (zero != 2) _uo->tasks_options.grow = g;
-        if (zero != 3) _uo->tasks_options_options.grow = g;
-        if (zero != 4) _uo->tasks_options_max_duration.grow = g;
-        if (zero != 5) _uo->tasks_created_at.grow = g;
-        return _uo;
-    }
-
-    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
-    private int ArmFor(int mode)
-    {
-        Undelivered = 0;
-        _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ListTaskSummaryResponse(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
-        return Abi.ak_dec_reset_ListTaskSummaryResponse(_dctx, Arm(mode));
-    }
-
-    /// After every decode: the core forgets the options (reset with NULL), and a buffer
-    /// still outstanding is freed; after a success that is UNDELIVERED.
-    private int Disarm(int rc)
-    {
-        _resets++;
-        Abi.ak_dec_reset_ListTaskSummaryResponse(_dctx, null);
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
-        if (rc < 0) return rc;
-        Undelivered = left;
-        return UNDELIVERED;
-    }
-
-    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
-    public static void ClearPosition(ListTaskSummaryResponse t, int position)
-    {
-        switch (position)
-        {
-            case 0:
-            {
-                t.UnknownFields = null;
-                break;
-            }
-            case 1:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    e0.UnknownFields = null;
-                }
-                break;
-            }
-            case 2:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.Options != null) { var e1 = e0.Options;
-
-                        e1.UnknownFields = null;
-                    }
-                }
-                break;
-            }
-            case 3:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.Options != null) { var e1 = e0.Options;
-
-                        // a map entry: the facade map has no bag (U-map-entry), nothing to clear
-                    }
-                }
-                break;
-            }
-            case 4:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.Options != null) { var e1 = e0.Options;
-
-                        if (e1.MaxDuration != null) { var e2 = e1.MaxDuration;
-
-                            e2.UnknownFields = null;
-                        }
-                    }
-                }
-                break;
-            }
-            case 5:
-            {
-                if (t.Tasks != null) foreach (var e0 in t.Tasks)
-                {
-                    if (e0.CreatedAt != null) { var e1 = e0.CreatedAt;
-
-                        e1.UnknownFields = null;
-                    }
-                }
-                break;
-            }
-            default: throw new ArgumentOutOfRangeException(nameof(position));
-        }
-    }
+    private int ArmFor(int mode) => mode == -2 ? 0 : throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10)");
+    private int Disarm(int rc) => rc;
 
     public ListTaskSummaryResponse Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
-    public ListTaskSummaryResponse DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out ListTaskSummaryResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
-
-    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
-    /// UnkPositionNames), whose entry is all zero when armed.
-    public int TryDecodeZeroing(byte[] src, int len, int position, out ListTaskSummaryResponse result) => DecodeArmed(src, len, position, out result);
 
     private int DecodeArmed(byte[] src, int len, int mode, out ListTaskSummaryResponse result)
     {
@@ -2917,7 +1865,6 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
     public ListTaskSummaryResponse Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
-    public ListTaskSummaryResponse PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
 
     public int TryPull(byte[] src, int len, bool retain, out ListTaskSummaryResponse result)
     {
@@ -2968,9 +1915,8 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                 case OP_ADD when outer == 1 && inner == 1:
                 {
                     var xs = (ak_dfix_TaskOptionsOptionsEntry*)body; var e = t.Tasks[(int)r.token]; var il = (e.Options ??= new TaskOptions()).Options;
-                    // plan: a duplicate key replaces the earlier value. The facade map has no bag:
-                    // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
-                    for (int k = 0; k < (int)r.n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
+                    // plan: a duplicate key replaces the earlier value.
+                    for (int k = 0; k < (int)r.n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
                     break;
                 }
                 default: break;
@@ -2997,7 +1943,6 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         }
         if (_evt_tasks != null) { NativeMemory.Free(_evt_tasks); _evt_tasks = null; }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
-        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -3022,7 +1967,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; }
 
     public CoreFfi_UploadResultDataMessage(bool utf16 = false)
     {
@@ -3034,7 +1979,6 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
 
     public int Fill(UploadResultDataMessage src) { Go(src, false, false, out _, out _); return 0; }
     public void Encode(UploadResultDataMessage src, out byte* p, out int len) { int rc = Go(src, false, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
-    public void EncodeU(UploadResultDataMessage src, out byte* p, out int len) { int rc = Go(src, true, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public int TryEncode(UploadResultDataMessage src, bool retain, out byte* p, out int len) => Go(src, retain, true, out p, out len);
     public byte[] EncodeToArray(UploadResultDataMessage src, bool retain = false)
     {
@@ -3051,7 +1995,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
         _run->Chunk = Chunk;
-        _run->Retain = retain ? 1 : 0;
+        if (retain) throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10): no ak_uencode");
         var vt = new ak_evt_UploadResultDataMessage
         {
             _reserved = IntPtr.Zero,
@@ -3059,15 +2003,6 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         // ABI v1 section 8: the one direct-argument field of this tree, pinned for the call.
         byte[] direct = src.Upload?.DataChunk ?? Array.Empty<byte>();
         nint rc;
-        if (retain)
-        {
-            var fix = new ak_ufix_UploadResultDataMessage();
-            G.U_UploadResultDataMessage(ref fix, src, _st);
-            if (!call) return 0;
-            _fwd++;
-            fixed (byte* dp = direct) rc = Abi.ak_uencode_UploadResultDataMessage(_run, _ctx, &vt, &fix, dp, (nuint)direct.Length);
-        }
-        else
         {
             var fix = new ak_efix_UploadResultDataMessage();
             G.E_UploadResultDataMessage(ref fix, src, _st);
@@ -3098,103 +2033,27 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
-    /// Decision 11: every message position of this root, in plan.unk_positions order
-    /// (the options' member order).
-    public static readonly string[] UnkPositionNames = { "self", "upload" };
-
-    /// A retained decode ended with a buffer grow handed out that no delivered group
-    /// carried back to the host: a host defect, never a core code.
-    public const int UNDELIVERED = -1001;
-    public int Undelivered { get; private set; }
-    private ak_dec_UploadResultDataMessage_opts* _uo;
-    private HashSet<IntPtr> _live;
-    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
-    private static long _resets;
-    public long ResetCalls => _resets;
-    public const bool UnknownCompiledOut = false;
+    /// WP5 step 10: this build has unknown fields COMPILED OUT (no options, no resets).
+    public const bool UnknownCompiledOut = true;
+    public const int UNDELIVERED = -1001;   // never returned by this build
+    public int Undelivered => 0;
+    public long ResetCalls => 0;
 
     private void EnsureDec()
     {
         if (_dctx != IntPtr.Zero) return;
-        _dctx = Abi.ak_dec_ctx_new_UploadResultDataMessage(null);   // rule 6: bound to this root, drop mode
+        _dctx = Abi.ak_dec_ctx_new_UploadResultDataMessage();   // rule 6: bound to this root; no options exist
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_UploadResultDataMessage returned NULL");
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
-    /// The options, rewritten before every retained decode: every entry names the one
-    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
-    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
-    private ak_dec_UploadResultDataMessage_opts* Arm(int zero)
-    {
-        if (_uo == null) _uo = (ak_dec_UploadResultDataMessage_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_UploadResultDataMessage_opts));
-        *_uo = default;
-        var g = UnkHost.Fn;
-        if (zero != 0) _uo->self.grow = g;
-        if (zero != 1) _uo->upload.grow = g;
-        return _uo;
-    }
-
-    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
-    private int ArmFor(int mode)
-    {
-        Undelivered = 0;
-        _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_UploadResultDataMessage(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
-        return Abi.ak_dec_reset_UploadResultDataMessage(_dctx, Arm(mode));
-    }
-
-    /// After every decode: the core forgets the options (reset with NULL), and a buffer
-    /// still outstanding is freed; after a success that is UNDELIVERED.
-    private int Disarm(int rc)
-    {
-        _resets++;
-        Abi.ak_dec_reset_UploadResultDataMessage(_dctx, null);
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
-        if (rc < 0) return rc;
-        Undelivered = left;
-        return UNDELIVERED;
-    }
-
-    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
-    public static void ClearPosition(UploadResultDataMessage t, int position)
-    {
-        switch (position)
-        {
-            case 0:
-            {
-                t.UnknownFields = null;
-                break;
-            }
-            case 1:
-            {
-                if (t.Upload != null) { var e0 = t.Upload;
-
-                    e0.UnknownFields = null;
-                }
-                break;
-            }
-            default: throw new ArgumentOutOfRangeException(nameof(position));
-        }
-    }
+    private int ArmFor(int mode) => mode == -2 ? 0 : throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10)");
+    private int Disarm(int rc) => rc;
 
     public UploadResultDataMessage Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
-    public UploadResultDataMessage DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out UploadResultDataMessage result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
-
-    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
-    /// UnkPositionNames), whose entry is all zero when armed.
-    public int TryDecodeZeroing(byte[] src, int len, int position, out UploadResultDataMessage result) => DecodeArmed(src, len, position, out result);
 
     private int DecodeArmed(byte[] src, int len, int mode, out UploadResultDataMessage result)
     {
@@ -3234,7 +2093,6 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
     public UploadResultDataMessage Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
-    public UploadResultDataMessage PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
 
     public int TryPull(byte[] src, int len, bool retain, out UploadResultDataMessage result)
     {
@@ -3301,7 +2159,6 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
-        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -3331,7 +2188,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; }
     private int _cap_batches;
     private int _cap_batches_ticks, _capo_batches_ticks;
     private int _cap_batches_values, _capo_batches_values;
@@ -3368,9 +2225,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             {
                 int k = n - off; if (k > chunk) k = chunk;
                 _fwd++;
-                int rc = run->Retain != 0
-                    ? Abi.ak_uelemu_MetricsBatch(ctx, (ak_ufix_MetricsBatch*)((ak_ufix_MetricsBatch*)run->S_batches + off), k, off)
-                    : Abi.ak_elemu_MetricsBatch(ctx, (ak_efix_MetricsBatch*)((ak_efix_MetricsBatch*)run->S_batches + off), k, off);
+                int rc = Abi.ak_elemu_MetricsBatch(ctx, (ak_efix_MetricsBatch*)((ak_efix_MetricsBatch*)run->S_batches + off), k, off);
                 if (rc < 0) return rc;
             }
             return 0;
@@ -3460,7 +2315,6 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
 
     public int Fill(ListMetricsResponse src) { Go(src, false, false, out _, out _); return 0; }
     public void Encode(ListMetricsResponse src, out byte* p, out int len) { int rc = Go(src, false, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
-    public void EncodeU(ListMetricsResponse src, out byte* p, out int len) { int rc = Go(src, true, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public int TryEncode(ListMetricsResponse src, bool retain, out byte* p, out int len) => Go(src, retain, true, out p, out len);
     public byte[] EncodeToArray(ListMetricsResponse src, bool retain = false)
     {
@@ -3477,16 +2331,15 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
         _run->Chunk = Chunk;
-        _run->Retain = retain ? 1 : 0;
+        if (retain) throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10): no ak_uencode");
         {
             var lst = src.Batches;
             int n = lst == null ? 0 : lst.Count;
             _run->N_batches = n;
-            Arr.Ensure(ref _run->S_batches, ref _cap_batches, n, Math.Max(sizeof(ak_efix_MetricsBatch), sizeof(ak_ufix_MetricsBatch)));
+            Arr.Ensure(ref _run->S_batches, ref _cap_batches, n, sizeof(ak_efix_MetricsBatch));
             for (int i = 0; i < n; i++)
             {
-                if (retain) G.U_MetricsBatch(ref ((ak_ufix_MetricsBatch*)_run->S_batches)[i], lst[i], _st);
-                else G.E_MetricsBatch(ref ((ak_efix_MetricsBatch*)_run->S_batches)[i], lst[i], _st);
+                G.E_MetricsBatch(ref ((ak_efix_MetricsBatch*)_run->S_batches)[i], lst[i], _st);
             }
             {
                 int tot = 0;
@@ -3585,15 +2438,6 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             elem_batches = _evt_batches,
         };
         nint rc;
-        if (retain)
-        {
-            var fix = new ak_ufix_ListMetricsResponse();
-            G.U_ListMetricsResponse(ref fix, src, _st);
-            if (!call) return 0;
-            _fwd++;
-            rc = Abi.ak_uencode_ListMetricsResponse(_run, _ctx, &vt, &fix);
-        }
-        else
         {
             var fix = new ak_efix_ListMetricsResponse();
             G.E_ListMetricsResponse(ref fix, src, _st);
@@ -3710,103 +2554,27 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
-    /// Decision 11: every message position of this root, in plan.unk_positions order
-    /// (the options' member order).
-    public static readonly string[] UnkPositionNames = { "self", "batches" };
-
-    /// A retained decode ended with a buffer grow handed out that no delivered group
-    /// carried back to the host: a host defect, never a core code.
-    public const int UNDELIVERED = -1001;
-    public int Undelivered { get; private set; }
-    private ak_dec_ListMetricsResponse_opts* _uo;
-    private HashSet<IntPtr> _live;
-    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
-    private static long _resets;
-    public long ResetCalls => _resets;
-    public const bool UnknownCompiledOut = false;
+    /// WP5 step 10: this build has unknown fields COMPILED OUT (no options, no resets).
+    public const bool UnknownCompiledOut = true;
+    public const int UNDELIVERED = -1001;   // never returned by this build
+    public int Undelivered => 0;
+    public long ResetCalls => 0;
 
     private void EnsureDec()
     {
         if (_dctx != IntPtr.Zero) return;
-        _dctx = Abi.ak_dec_ctx_new_ListMetricsResponse(null);   // rule 6: bound to this root, drop mode
+        _dctx = Abi.ak_dec_ctx_new_ListMetricsResponse();   // rule 6: bound to this root; no options exist
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListMetricsResponse returned NULL");
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
-    /// The options, rewritten before every retained decode: every entry names the one
-    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
-    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
-    private ak_dec_ListMetricsResponse_opts* Arm(int zero)
-    {
-        if (_uo == null) _uo = (ak_dec_ListMetricsResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListMetricsResponse_opts));
-        *_uo = default;
-        var g = UnkHost.Fn;
-        if (zero != 0) _uo->self.grow = g;
-        if (zero != 1) _uo->batches.grow = g;
-        return _uo;
-    }
-
-    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
-    private int ArmFor(int mode)
-    {
-        Undelivered = 0;
-        _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ListMetricsResponse(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
-        return Abi.ak_dec_reset_ListMetricsResponse(_dctx, Arm(mode));
-    }
-
-    /// After every decode: the core forgets the options (reset with NULL), and a buffer
-    /// still outstanding is freed; after a success that is UNDELIVERED.
-    private int Disarm(int rc)
-    {
-        _resets++;
-        Abi.ak_dec_reset_ListMetricsResponse(_dctx, null);
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
-        if (rc < 0) return rc;
-        Undelivered = left;
-        return UNDELIVERED;
-    }
-
-    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
-    public static void ClearPosition(ListMetricsResponse t, int position)
-    {
-        switch (position)
-        {
-            case 0:
-            {
-                t.UnknownFields = null;
-                break;
-            }
-            case 1:
-            {
-                if (t.Batches != null) foreach (var e0 in t.Batches)
-                {
-                    e0.UnknownFields = null;
-                }
-                break;
-            }
-            default: throw new ArgumentOutOfRangeException(nameof(position));
-        }
-    }
+    private int ArmFor(int mode) => mode == -2 ? 0 : throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10)");
+    private int Disarm(int rc) => rc;
 
     public ListMetricsResponse Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
-    public ListMetricsResponse DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out ListMetricsResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
-
-    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
-    /// UnkPositionNames), whose entry is all zero when armed.
-    public int TryDecodeZeroing(byte[] src, int len, int position, out ListMetricsResponse result) => DecodeArmed(src, len, position, out result);
 
     private int DecodeArmed(byte[] src, int len, int mode, out ListMetricsResponse result)
     {
@@ -3853,7 +2621,6 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
     public ListMetricsResponse Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
-    public ListMetricsResponse PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
 
     public int TryPull(byte[] src, int len, bool retain, out ListMetricsResponse result)
     {
@@ -3959,7 +2726,6 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         }
         if (_evt_batches != null) { NativeMemory.Free(_evt_batches); _evt_batches = null; }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
-        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -3985,7 +2751,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; }
     private int _cap_left;
     private int _cap_right;
 
@@ -4011,9 +2777,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             {
                 int k = n - off; if (k > chunk) k = chunk;
                 _fwd++;
-                int rc = run->Retain != 0
-                    ? Abi.ak_uelem_Pair(ctx, (ak_ufix_Pair*)((ak_ufix_Pair*)run->S_left + off), k)
-                    : Abi.ak_elem_Pair(ctx, (ak_efix_Pair*)((ak_efix_Pair*)run->S_left + off), k);
+                int rc = Abi.ak_elem_Pair(ctx, (ak_efix_Pair*)((ak_efix_Pair*)run->S_left + off), k);
                 if (rc < 0) return rc;
             }
             return 0;
@@ -4035,9 +2799,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             {
                 int k = n - off; if (k > chunk) k = chunk;
                 _fwd++;
-                int rc = run->Retain != 0
-                    ? Abi.ak_uelem_Pair(ctx, (ak_ufix_Pair*)((ak_ufix_Pair*)run->S_right + off), k)
-                    : Abi.ak_elem_Pair(ctx, (ak_efix_Pair*)((ak_efix_Pair*)run->S_right + off), k);
+                int rc = Abi.ak_elem_Pair(ctx, (ak_efix_Pair*)((ak_efix_Pair*)run->S_right + off), k);
                 if (rc < 0) return rc;
             }
             return 0;
@@ -4047,7 +2809,6 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
 
     public int Fill(DualResponse src) { Go(src, false, false, out _, out _); return 0; }
     public void Encode(DualResponse src, out byte* p, out int len) { int rc = Go(src, false, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
-    public void EncodeU(DualResponse src, out byte* p, out int len) { int rc = Go(src, true, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public int TryEncode(DualResponse src, bool retain, out byte* p, out int len) => Go(src, retain, true, out p, out len);
     public byte[] EncodeToArray(DualResponse src, bool retain = false)
     {
@@ -4064,27 +2825,25 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
         _run->Chunk = Chunk;
-        _run->Retain = retain ? 1 : 0;
+        if (retain) throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10): no ak_uencode");
         {
             var lst = src.Left;
             int n = lst == null ? 0 : lst.Count;
             _run->N_left = n;
-            Arr.Ensure(ref _run->S_left, ref _cap_left, n, Math.Max(sizeof(ak_efix_Pair), sizeof(ak_ufix_Pair)));
+            Arr.Ensure(ref _run->S_left, ref _cap_left, n, sizeof(ak_efix_Pair));
             for (int i = 0; i < n; i++)
             {
-                if (retain) G.U_Pair(ref ((ak_ufix_Pair*)_run->S_left)[i], lst[i], _st);
-                else G.E_Pair(ref ((ak_efix_Pair*)_run->S_left)[i], lst[i], _st);
+                G.E_Pair(ref ((ak_efix_Pair*)_run->S_left)[i], lst[i], _st);
             }
         }
         {
             var lst = src.Right;
             int n = lst == null ? 0 : lst.Count;
             _run->N_right = n;
-            Arr.Ensure(ref _run->S_right, ref _cap_right, n, Math.Max(sizeof(ak_efix_Pair), sizeof(ak_ufix_Pair)));
+            Arr.Ensure(ref _run->S_right, ref _cap_right, n, sizeof(ak_efix_Pair));
             for (int i = 0; i < n; i++)
             {
-                if (retain) G.U_Pair(ref ((ak_ufix_Pair*)_run->S_right)[i], lst[i], _st);
-                else G.E_Pair(ref ((ak_efix_Pair*)_run->S_right)[i], lst[i], _st);
+                G.E_Pair(ref ((ak_efix_Pair*)_run->S_right)[i], lst[i], _st);
             }
         }
         var vt = new ak_evt_DualResponse
@@ -4093,15 +2852,6 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             loop_right = &Loop_right,
         };
         nint rc;
-        if (retain)
-        {
-            var fix = new ak_ufix_DualResponse();
-            G.U_DualResponse(ref fix, src, _st);
-            if (!call) return 0;
-            _fwd++;
-            rc = Abi.ak_uencode_DualResponse(_run, _ctx, &vt, &fix);
-        }
-        else
         {
             var fix = new ak_efix_DualResponse();
             G.E_DualResponse(ref fix, src, _st);
@@ -4158,112 +2908,27 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
-    /// Decision 11: every message position of this root, in plan.unk_positions order
-    /// (the options' member order).
-    public static readonly string[] UnkPositionNames = { "self", "left", "right" };
-
-    /// A retained decode ended with a buffer grow handed out that no delivered group
-    /// carried back to the host: a host defect, never a core code.
-    public const int UNDELIVERED = -1001;
-    public int Undelivered { get; private set; }
-    private ak_dec_DualResponse_opts* _uo;
-    private HashSet<IntPtr> _live;
-    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
-    private static long _resets;
-    public long ResetCalls => _resets;
-    public const bool UnknownCompiledOut = false;
+    /// WP5 step 10: this build has unknown fields COMPILED OUT (no options, no resets).
+    public const bool UnknownCompiledOut = true;
+    public const int UNDELIVERED = -1001;   // never returned by this build
+    public int Undelivered => 0;
+    public long ResetCalls => 0;
 
     private void EnsureDec()
     {
         if (_dctx != IntPtr.Zero) return;
-        _dctx = Abi.ak_dec_ctx_new_DualResponse(null);   // rule 6: bound to this root, drop mode
+        _dctx = Abi.ak_dec_ctx_new_DualResponse();   // rule 6: bound to this root; no options exist
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_DualResponse returned NULL");
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
-    /// The options, rewritten before every retained decode: every entry names the one
-    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
-    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
-    private ak_dec_DualResponse_opts* Arm(int zero)
-    {
-        if (_uo == null) _uo = (ak_dec_DualResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_DualResponse_opts));
-        *_uo = default;
-        var g = UnkHost.Fn;
-        if (zero != 0) _uo->self.grow = g;
-        if (zero != 1) _uo->left.grow = g;
-        if (zero != 2) _uo->right.grow = g;
-        return _uo;
-    }
-
-    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
-    private int ArmFor(int mode)
-    {
-        Undelivered = 0;
-        _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_DualResponse(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
-        return Abi.ak_dec_reset_DualResponse(_dctx, Arm(mode));
-    }
-
-    /// After every decode: the core forgets the options (reset with NULL), and a buffer
-    /// still outstanding is freed; after a success that is UNDELIVERED.
-    private int Disarm(int rc)
-    {
-        _resets++;
-        Abi.ak_dec_reset_DualResponse(_dctx, null);
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
-        if (rc < 0) return rc;
-        Undelivered = left;
-        return UNDELIVERED;
-    }
-
-    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
-    public static void ClearPosition(DualResponse t, int position)
-    {
-        switch (position)
-        {
-            case 0:
-            {
-                t.UnknownFields = null;
-                break;
-            }
-            case 1:
-            {
-                if (t.Left != null) foreach (var e0 in t.Left)
-                {
-                    e0.UnknownFields = null;
-                }
-                break;
-            }
-            case 2:
-            {
-                if (t.Right != null) foreach (var e0 in t.Right)
-                {
-                    e0.UnknownFields = null;
-                }
-                break;
-            }
-            default: throw new ArgumentOutOfRangeException(nameof(position));
-        }
-    }
+    private int ArmFor(int mode) => mode == -2 ? 0 : throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10)");
+    private int Disarm(int rc) => rc;
 
     public DualResponse Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
-    public DualResponse DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out DualResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
-
-    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
-    /// UnkPositionNames), whose entry is all zero when armed.
-    public int TryDecodeZeroing(byte[] src, int len, int position, out DualResponse result) => DecodeArmed(src, len, position, out result);
 
     private int DecodeArmed(byte[] src, int len, int mode, out DualResponse result)
     {
@@ -4305,7 +2970,6 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
     public DualResponse Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
-    public DualResponse PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
 
     public int TryPull(byte[] src, int len, bool retain, out DualResponse result)
     {
@@ -4386,7 +3050,6 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
-        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 

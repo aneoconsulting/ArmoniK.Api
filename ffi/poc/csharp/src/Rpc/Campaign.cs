@@ -239,6 +239,9 @@ public static class CampaignMain
 
     private static async Task<int> Rpc(string[] a)
     {
+        // WP5 step 10: the client's binding variant must match the core it loaded.
+        var vwhy = AbiVariant.CheckLoadedCore();
+        if (vwhy != null) { Console.WriteLine("# ABORT: core variant mismatch: " + vwhy); Console.WriteLine("# no samples written"); return 1; }
         var sock = Opt(a, "--sock", null);
         var transport = Opt(a, "--transport", "shipped");
         bool pinned = transport == "pinned";

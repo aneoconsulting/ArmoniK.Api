@@ -26,7 +26,22 @@
        codec (FIX-PLAN WP5 step 4, R-E7). obj-strict/bin-strict stay excluded so an
        old tree cannot be globbed. -->
   <PropertyGroup>
-    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**;obj-floor/**;bin-floor/**;obj-strict/**;bin-strict/**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**;obj-floor/**;bin-floor/**;obj-strict/**;bin-strict/**;obj-nounk/**;bin-nounk/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <!-- FIX-PLAN WP5 step 10: the NO-UNKNOWN build, `dotnet build /p:AkNounk=true`. Unknown
+       fields are COMPILED OUT: GeneratedNounk/ (rendered from the plans relowered with
+       unknown="drop": no u-groups, no options, no resets, no capture in the managed codec)
+       REPLACES the same files of Generated/, the define AK_NO_UNKNOWN_FIELDS is set
+       (Directory.Build.targets), and the output goes to bin-nounk/ obj-nounk/, so both
+       builds exist side by side. Not a run-time switch. -->
+  <PropertyGroup Condition="'$(AkNounk)' == 'true'">
+    <BaseOutputPath>$(MSBuildProjectDirectory)/bin-nounk/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildProjectDirectory)/obj-nounk/</BaseIntermediateOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Generated/Abi.cs;Generated/CoreFfi.cs;Generated/CoreArms.cs;Generated/Codec.cs;Generated/Dispatch.cs</DefaultItemExcludes>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AkNounk)' != 'true'">
+    <DefaultItemExcludes>$(DefaultItemExcludes);GeneratedNounk/**</DefaultItemExcludes>
   </PropertyGroup>
 
 </Project>

@@ -123,16 +123,6 @@ public struct ak_dfix_TaskOptionsOptionsEntry
 {
     public ak_span key;
     public ak_span value;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_TaskOptionsOptionsEntry
-{
-    public ak_str key;
-    public ak_str value;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -149,16 +139,6 @@ public struct ak_dfix_ChunkElementAttrsEntry
 {
     public ak_span key;
     public ak_span value;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_ChunkElementAttrsEntry
-{
-    public ak_str key;
-    public ak_str value;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -175,16 +155,6 @@ public struct ak_dfix_SurrogateAttrsEntry
 {
     public ak_span key;
     public ak_span value;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_SurrogateAttrsEntry
-{
-    public ak_str key;
-    public ak_str value;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -201,16 +171,6 @@ public struct ak_dfix_Timestamp
 {
     public long seconds;
     public int nanos;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_Timestamp
-{
-    public long seconds;
-    public int nanos;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -227,16 +187,6 @@ public struct ak_dfix_Duration
 {
     public long seconds;
     public int nanos;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_Duration
-{
-    public long seconds;
-    public int nanos;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -271,25 +221,6 @@ public struct ak_dfix_ResultRaw
     public ak_span created_by;
     public ak_span opaque_id;
     public byte manual_deletion;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_ResultRaw
-{
-    public ak_str session_id;
-    public ak_str name;
-    public ak_str owner_task_id;
-    public int status;
-    public ak_ufix_Timestamp created_at;
-    public ak_ufix_Timestamp completed_at;
-    public ak_str result_id;
-    public long size;
-    public ak_str created_by;
-    public ak_str opaque_id;
-    public byte manual_deletion;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -320,23 +251,6 @@ public struct ak_dfix_TaskOptions
     public ak_span application_namespace;
     public ak_span application_service;
     public ak_span engine_type;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_TaskOptions
-{
-    public ak_ufix_Duration max_duration;
-    public int max_retries;
-    public int priority;
-    public ak_str partition_id;
-    public ak_str application_name;
-    public ak_str application_version;
-    public ak_str application_namespace;
-    public ak_str application_service;
-    public ak_str engine_type;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -353,16 +267,6 @@ public struct ak_dfix_TaskOutput
 {
     public byte success;
     public ak_span error;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_TaskOutput
-{
-    public byte success;
-    public ak_str error;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -421,37 +325,6 @@ public struct ak_dfix_TaskDetailed
     public ak_dfix_Timestamp fetched_at;
     public ak_span payload_id;
     public ak_span created_by;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_TaskDetailed
-{
-    public ak_str id;
-    public ak_str session_id;
-    public ak_str owner_pod_id;
-    public int status;
-    public ak_str status_message;
-    public ak_ufix_TaskOptions options;
-    public ak_ufix_Timestamp created_at;
-    public ak_ufix_Timestamp submitted_at;
-    public ak_ufix_Timestamp started_at;
-    public ak_ufix_Timestamp ended_at;
-    public ak_ufix_Timestamp pod_ttl;
-    public ak_ufix_TaskOutput output;
-    public ak_str pod_hostname;
-    public ak_ufix_Timestamp received_at;
-    public ak_ufix_Timestamp acquired_at;
-    public ak_ufix_Duration creation_to_end_duration;
-    public ak_ufix_Duration processing_to_end_duration;
-    public ak_str initial_task_id;
-    public ak_ufix_Duration received_to_end_duration;
-    public ak_ufix_Timestamp processed_at;
-    public ak_ufix_Timestamp fetched_at;
-    public ak_str payload_id;
-    public ak_str created_by;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -480,22 +353,6 @@ public struct ak_dfix_TaskSummary
     public ak_span error;
     public ak_span status_message;
     public long count_data_dependencies;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_TaskSummary
-{
-    public ak_str id;
-    public ak_str session_id;
-    public ak_ufix_TaskOptions options;
-    public int status;
-    public ak_ufix_Timestamp created_at;
-    public ak_str error;
-    public ak_str status_message;
-    public long count_data_dependencies;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -508,14 +365,6 @@ public struct ak_efix_Empty
 [StructLayout(LayoutKind.Sequential)]
 public struct ak_dfix_Empty
 {
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_Empty
-{
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -548,24 +397,6 @@ public struct ak_dfix_Probe
     public ak_span body_as_blob;
     public ak_dfix_Timestamp body_as_stamp;
     public ak_dfix_Empty body_as_nothing;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_Probe
-{
-    public ak_str id;
-    public int opt_count;
-    public ak_str opt_label;
-    public byte opt_flag;
-    public uint body_case;
-    public long body_as_int;
-    public ak_str body_as_text;
-    public ak_str body_as_blob;
-    public ak_ufix_Timestamp body_as_stamp;
-    public ak_ufix_Empty body_as_nothing;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -584,17 +415,6 @@ public struct ak_dfix_UploadResultData
     public ak_span session_id;
     public ak_span result_id;
     public ak_span data_chunk;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_UploadResultData
-{
-    public ak_str session_id;
-    public ak_str result_id;
-    public ak_str data_chunk;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -609,15 +429,6 @@ public struct ak_efix_MetricsBatch
 public struct ak_dfix_MetricsBatch
 {
     public ak_span id;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_MetricsBatch
-{
-    public ak_str id;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -634,16 +445,6 @@ public struct ak_dfix_Pair
 {
     public ak_span key;
     public int value;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_Pair
-{
-    public ak_str key;
-    public int value;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -660,16 +461,6 @@ public struct ak_dfix_ListResultsResponse
 {
     public int page;
     public int total;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_ListResultsResponse
-{
-    public int page;
-    public int total;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -686,16 +477,6 @@ public struct ak_dfix_ListTasksDetailedResponse
 {
     public int page;
     public int total;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_ListTasksDetailedResponse
-{
-    public int page;
-    public int total;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -708,14 +489,6 @@ public struct ak_efix_ListTaskSummaryResponse
 [StructLayout(LayoutKind.Sequential)]
 public struct ak_dfix_ListTaskSummaryResponse
 {
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_ListTaskSummaryResponse
-{
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -728,14 +501,6 @@ public struct ak_efix_ListProbeResponse
 [StructLayout(LayoutKind.Sequential)]
 public struct ak_dfix_ListProbeResponse
 {
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_ListProbeResponse
-{
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -748,14 +513,6 @@ public struct ak_efix_ListMetricsResponse
 [StructLayout(LayoutKind.Sequential)]
 public struct ak_dfix_ListMetricsResponse
 {
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_ListMetricsResponse
-{
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -770,15 +527,6 @@ public struct ak_efix_UploadResultDataMessage
 public struct ak_dfix_UploadResultDataMessage
 {
     public ak_dfix_UploadResultData upload;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_UploadResultDataMessage
-{
-    public ak_ufix_UploadResultData upload;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -791,14 +539,6 @@ public struct ak_efix_DualResponse
 [StructLayout(LayoutKind.Sequential)]
 public struct ak_dfix_DualResponse
 {
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_DualResponse
-{
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -815,16 +555,6 @@ public struct ak_dfix_ChunkLeaf
 {
     public ak_span k;
     public int v;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_ChunkLeaf
-{
-    public ak_str k;
-    public int v;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -837,14 +567,6 @@ public struct ak_efix_ChunkInner
 [StructLayout(LayoutKind.Sequential)]
 public struct ak_dfix_ChunkInner
 {
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_ChunkInner
-{
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -861,16 +583,6 @@ public struct ak_dfix_ChunkElement
 {
     public ak_span id;
     public ak_dfix_ChunkInner inner;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_ChunkElement
-{
-    public ak_str id;
-    public ak_ufix_ChunkInner inner;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -885,15 +597,6 @@ public struct ak_efix_ChunkedResponse
 public struct ak_dfix_ChunkedResponse
 {
     public int page;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_ChunkedResponse
-{
-    public int page;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -906,14 +609,6 @@ public struct ak_efix_ChunkedResponseWide
 [StructLayout(LayoutKind.Sequential)]
 public struct ak_dfix_ChunkedResponseWide
 {
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_ChunkedResponseWide
-{
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -932,17 +627,6 @@ public struct ak_dfix_LeafElement
     public ak_span id;
     public long n;
     public ak_dfix_Timestamp stamp;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_LeafElement
-{
-    public ak_str id;
-    public long n;
-    public ak_ufix_Timestamp stamp;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -955,14 +639,6 @@ public struct ak_efix_LeafResponse
 [StructLayout(LayoutKind.Sequential)]
 public struct ak_dfix_LeafResponse
 {
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_LeafResponse
-{
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -977,15 +653,6 @@ public struct ak_efix_SurrogateInner
 public struct ak_dfix_SurrogateInner
 {
     public ak_span text;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_SurrogateInner
-{
-    public ak_str text;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -1004,17 +671,6 @@ public struct ak_dfix_Surrogate
     public ak_span text;
     public ak_dfix_SurrogateInner nested;
     public ak_span raw;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_Surrogate
-{
-    public ak_str text;
-    public ak_ufix_SurrogateInner nested;
-    public ak_str raw;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -1047,24 +703,6 @@ public struct ak_dfix_WireZoo
     public int v_enum;
     public ak_dfix_Timestamp v_msg;
     public int v_big_tag;
-    public ak_unk_buf unknown;
-    public uint presence;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_ufix_WireZoo
-{
-    public int v_int32;
-    public long v_int64;
-    public byte v_bool;
-    public double v_double;
-    public uint v_fixed32;
-    public ak_str v_string;
-    public ak_str v_bytes;
-    public int v_enum;
-    public ak_ufix_Timestamp v_msg;
-    public int v_big_tag;
-    public ak_blob unknown;
     public uint presence;
 }
 
@@ -1558,341 +1196,6 @@ public unsafe struct ak_dvt_SurrogateAttrsEntry
     public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_SurrogateAttrsEntry*, void> apply;
 }
 
-/// Decision 11: Timestamp's unknown-field configuration, read IN PLACE by the core from
-/// the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_Timestamp_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-}
-
-/// Decision 11: Duration's unknown-field configuration, read IN PLACE by the core from
-/// the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_Duration_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-}
-
-/// Decision 11: ResultRaw's unknown-field configuration, read IN PLACE by the core from
-/// the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_ResultRaw_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_opts created_at;
-    public ak_unk_opts completed_at;
-}
-
-/// Decision 11: TaskOptions's unknown-field configuration, read IN PLACE by the core
-/// from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_TaskOptions_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_pool options;
-    public ak_unk_opts max_duration;
-}
-
-/// Decision 11: TaskOutput's unknown-field configuration, read IN PLACE by the core
-/// from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_TaskOutput_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-}
-
-/// Decision 11: TaskDetailed's unknown-field configuration, read IN PLACE by the core
-/// from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_TaskDetailed_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_opts options;
-    public ak_unk_pool options_options;
-    public ak_unk_opts options_max_duration;
-    public ak_unk_opts created_at;
-    public ak_unk_opts submitted_at;
-    public ak_unk_opts started_at;
-    public ak_unk_opts ended_at;
-    public ak_unk_opts pod_ttl;
-    public ak_unk_opts output;
-    public ak_unk_opts received_at;
-    public ak_unk_opts acquired_at;
-    public ak_unk_opts creation_to_end_duration;
-    public ak_unk_opts processing_to_end_duration;
-    public ak_unk_opts received_to_end_duration;
-    public ak_unk_opts processed_at;
-    public ak_unk_opts fetched_at;
-}
-
-/// Decision 11: TaskSummary's unknown-field configuration, read IN PLACE by the core
-/// from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_TaskSummary_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_opts options;
-    public ak_unk_pool options_options;
-    public ak_unk_opts options_max_duration;
-    public ak_unk_opts created_at;
-}
-
-/// Decision 11: Probe's unknown-field configuration, read IN PLACE by the core from the
-/// reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_Probe_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_opts body;
-}
-
-/// Decision 11: Empty's unknown-field configuration, read IN PLACE by the core from the
-/// reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_Empty_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-}
-
-/// Decision 11: UploadResultData's unknown-field configuration, read IN PLACE by the
-/// core from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_UploadResultData_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-}
-
-/// Decision 11: MetricsBatch's unknown-field configuration, read IN PLACE by the core
-/// from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_MetricsBatch_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-}
-
-/// Decision 11: Pair's unknown-field configuration, read IN PLACE by the core from the
-/// reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_Pair_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-}
-
-/// Decision 11: ListResultsResponse's unknown-field configuration, read IN PLACE by the
-/// core from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_ListResultsResponse_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_pool results;
-    public ak_unk_pool results_created_at;
-    public ak_unk_pool results_completed_at;
-}
-
-/// Decision 11: ListTasksDetailedResponse's unknown-field configuration, read IN PLACE
-/// by the core from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_ListTasksDetailedResponse_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_pool tasks;
-    public ak_unk_pool tasks_options;
-    public ak_unk_pool tasks_options_options;
-    public ak_unk_pool tasks_options_max_duration;
-    public ak_unk_pool tasks_created_at;
-    public ak_unk_pool tasks_submitted_at;
-    public ak_unk_pool tasks_started_at;
-    public ak_unk_pool tasks_ended_at;
-    public ak_unk_pool tasks_pod_ttl;
-    public ak_unk_pool tasks_output;
-    public ak_unk_pool tasks_received_at;
-    public ak_unk_pool tasks_acquired_at;
-    public ak_unk_pool tasks_creation_to_end_duration;
-    public ak_unk_pool tasks_processing_to_end_duration;
-    public ak_unk_pool tasks_received_to_end_duration;
-    public ak_unk_pool tasks_processed_at;
-    public ak_unk_pool tasks_fetched_at;
-}
-
-/// Decision 11: ListTaskSummaryResponse's unknown-field configuration, read IN PLACE by
-/// the core from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_ListTaskSummaryResponse_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_pool tasks;
-    public ak_unk_pool tasks_options;
-    public ak_unk_pool tasks_options_options;
-    public ak_unk_pool tasks_options_max_duration;
-    public ak_unk_pool tasks_created_at;
-}
-
-/// Decision 11: ListProbeResponse's unknown-field configuration, read IN PLACE by the
-/// core from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_ListProbeResponse_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_pool probes;
-    public ak_unk_pool probes_body;
-}
-
-/// Decision 11: ListMetricsResponse's unknown-field configuration, read IN PLACE by the
-/// core from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_ListMetricsResponse_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_pool batches;
-}
-
-/// Decision 11: UploadResultDataMessage's unknown-field configuration, read IN PLACE by
-/// the core from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_UploadResultDataMessage_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_opts upload;
-}
-
-/// Decision 11: DualResponse's unknown-field configuration, read IN PLACE by the core
-/// from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_DualResponse_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_pool left;
-    public ak_unk_pool right;
-}
-
-/// Decision 11: ChunkLeaf's unknown-field configuration, read IN PLACE by the core from
-/// the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_ChunkLeaf_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-}
-
-/// Decision 11: ChunkInner's unknown-field configuration, read IN PLACE by the core
-/// from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_ChunkInner_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_pool leaves;
-}
-
-/// Decision 11: ChunkElement's unknown-field configuration, read IN PLACE by the core
-/// from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_ChunkElement_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_pool attrs;
-    public ak_unk_opts inner;
-    public ak_unk_pool inner_leaves;
-}
-
-/// Decision 11: ChunkedResponse's unknown-field configuration, read IN PLACE by the
-/// core from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_ChunkedResponse_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_pool items;
-    public ak_unk_pool items_attrs;
-    public ak_unk_pool items_inner;
-    public ak_unk_pool items_inner_leaves;
-}
-
-/// Decision 11: ChunkedResponseWide's unknown-field configuration, read IN PLACE by the
-/// core from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_ChunkedResponseWide_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_pool items;
-    public ak_unk_pool items_attrs;
-    public ak_unk_pool items_inner;
-    public ak_unk_pool items_inner_leaves;
-}
-
-/// Decision 11: LeafElement's unknown-field configuration, read IN PLACE by the core
-/// from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_LeafElement_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_opts stamp;
-}
-
-/// Decision 11: LeafResponse's unknown-field configuration, read IN PLACE by the core
-/// from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_LeafResponse_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_pool items;
-    public ak_unk_pool items_stamp;
-}
-
-/// Decision 11: Surrogate's unknown-field configuration, read IN PLACE by the core from
-/// the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_Surrogate_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_opts nested;
-    public ak_unk_pool attrs;
-}
-
-/// Decision 11: SurrogateInner's unknown-field configuration, read IN PLACE by the core
-/// from the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_SurrogateInner_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-}
-
-/// Decision 11: WireZoo's unknown-field configuration, read IN PLACE by the core from
-/// the reset that arms it until the next reset (plan.unk_opts_layout).
-[StructLayout(LayoutKind.Sequential)]
-public struct ak_dec_WireZoo_opts
-{
-    public IntPtr host;
-    public ak_unk_opts self;
-    public ak_unk_opts v_msg;
-}
-
 /// ABI v1 section 6: plain exports, declared per symbol, so a missing one is a load
 /// failure. Every declaration carries both language levels.
 public static unsafe partial class Abi
@@ -2279,14 +1582,6 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_Timestamp(void* obj, IntPtr ctx, ak_evt_Timestamp* vt, ak_ufix_Timestamp* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_Timestamp(void* obj, IntPtr ctx, ak_evt_Timestamp* vt, ak_ufix_Timestamp* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_decode_Timestamp(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Timestamp* vt);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2307,14 +1602,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern nint ak_encode_Duration(void* obj, IntPtr ctx, ak_evt_Duration* vt, ak_efix_Duration* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_Duration(void* obj, IntPtr ctx, ak_evt_Duration* vt, ak_ufix_Duration* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_Duration(void* obj, IntPtr ctx, ak_evt_Duration* vt, ak_ufix_Duration* fix);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -2343,14 +1630,6 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_ResultRaw(void* obj, IntPtr ctx, ak_evt_ResultRaw* vt, ak_ufix_ResultRaw* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_ResultRaw(void* obj, IntPtr ctx, ak_evt_ResultRaw* vt, ak_ufix_ResultRaw* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_decode_ResultRaw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ResultRaw* vt);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2371,14 +1650,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern nint ak_encode_TaskOptions(void* obj, IntPtr ctx, ak_evt_TaskOptions* vt, ak_efix_TaskOptions* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_TaskOptions(void* obj, IntPtr ctx, ak_evt_TaskOptions* vt, ak_ufix_TaskOptions* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_TaskOptions(void* obj, IntPtr ctx, ak_evt_TaskOptions* vt, ak_ufix_TaskOptions* fix);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -2407,14 +1678,6 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_TaskOutput(void* obj, IntPtr ctx, ak_evt_TaskOutput* vt, ak_ufix_TaskOutput* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_TaskOutput(void* obj, IntPtr ctx, ak_evt_TaskOutput* vt, ak_ufix_TaskOutput* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_decode_TaskOutput(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskOutput* vt);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2435,14 +1698,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern nint ak_encode_TaskDetailed(void* obj, IntPtr ctx, ak_evt_TaskDetailed* vt, ak_efix_TaskDetailed* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_TaskDetailed(void* obj, IntPtr ctx, ak_evt_TaskDetailed* vt, ak_ufix_TaskDetailed* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_TaskDetailed(void* obj, IntPtr ctx, ak_evt_TaskDetailed* vt, ak_ufix_TaskDetailed* fix);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -2471,14 +1726,6 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_TaskSummary(void* obj, IntPtr ctx, ak_evt_TaskSummary* vt, ak_ufix_TaskSummary* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_TaskSummary(void* obj, IntPtr ctx, ak_evt_TaskSummary* vt, ak_ufix_TaskSummary* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_decode_TaskSummary(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskSummary* vt);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2499,14 +1746,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern nint ak_encode_Probe(void* obj, IntPtr ctx, ak_evt_Probe* vt, ak_efix_Probe* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_Probe(void* obj, IntPtr ctx, ak_evt_Probe* vt, ak_ufix_Probe* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_Probe(void* obj, IntPtr ctx, ak_evt_Probe* vt, ak_ufix_Probe* fix);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -2535,14 +1774,6 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_Empty(void* obj, IntPtr ctx, ak_evt_Empty* vt, ak_ufix_Empty* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_Empty(void* obj, IntPtr ctx, ak_evt_Empty* vt, ak_ufix_Empty* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_decode_Empty(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Empty* vt);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2563,14 +1794,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern nint ak_encode_UploadResultData(void* obj, IntPtr ctx, ak_evt_UploadResultData* vt, ak_efix_UploadResultData* fix, byte* direct, nuint direct_len);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_UploadResultData(void* obj, IntPtr ctx, ak_evt_UploadResultData* vt, ak_ufix_UploadResultData* fix, byte* direct, nuint direct_len);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_UploadResultData(void* obj, IntPtr ctx, ak_evt_UploadResultData* vt, ak_ufix_UploadResultData* fix, byte* direct, nuint direct_len);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -2599,14 +1822,6 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_MetricsBatch(void* obj, IntPtr ctx, ak_evt_MetricsBatch* vt, ak_ufix_MetricsBatch* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_MetricsBatch(void* obj, IntPtr ctx, ak_evt_MetricsBatch* vt, ak_ufix_MetricsBatch* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_decode_MetricsBatch(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_MetricsBatch* vt);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2627,14 +1842,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern nint ak_encode_Pair(void* obj, IntPtr ctx, ak_evt_Pair* vt, ak_efix_Pair* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_Pair(void* obj, IntPtr ctx, ak_evt_Pair* vt, ak_ufix_Pair* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_Pair(void* obj, IntPtr ctx, ak_evt_Pair* vt, ak_ufix_Pair* fix);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -2663,14 +1870,6 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_ListResultsResponse(void* obj, IntPtr ctx, ak_evt_ListResultsResponse* vt, ak_ufix_ListResultsResponse* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_ListResultsResponse(void* obj, IntPtr ctx, ak_evt_ListResultsResponse* vt, ak_ufix_ListResultsResponse* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_decode_ListResultsResponse(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListResultsResponse* vt);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2691,14 +1890,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern nint ak_encode_ListTasksDetailedResponse(void* obj, IntPtr ctx, ak_evt_ListTasksDetailedResponse* vt, ak_efix_ListTasksDetailedResponse* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_ListTasksDetailedResponse(void* obj, IntPtr ctx, ak_evt_ListTasksDetailedResponse* vt, ak_ufix_ListTasksDetailedResponse* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_ListTasksDetailedResponse(void* obj, IntPtr ctx, ak_evt_ListTasksDetailedResponse* vt, ak_ufix_ListTasksDetailedResponse* fix);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -2727,14 +1918,6 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_ListTaskSummaryResponse(void* obj, IntPtr ctx, ak_evt_ListTaskSummaryResponse* vt, ak_ufix_ListTaskSummaryResponse* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_ListTaskSummaryResponse(void* obj, IntPtr ctx, ak_evt_ListTaskSummaryResponse* vt, ak_ufix_ListTaskSummaryResponse* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_decode_ListTaskSummaryResponse(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListTaskSummaryResponse* vt);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2755,14 +1938,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern nint ak_encode_ListProbeResponse(void* obj, IntPtr ctx, ak_evt_ListProbeResponse* vt, ak_efix_ListProbeResponse* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_ListProbeResponse(void* obj, IntPtr ctx, ak_evt_ListProbeResponse* vt, ak_ufix_ListProbeResponse* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_ListProbeResponse(void* obj, IntPtr ctx, ak_evt_ListProbeResponse* vt, ak_ufix_ListProbeResponse* fix);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -2791,14 +1966,6 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_ListMetricsResponse(void* obj, IntPtr ctx, ak_evt_ListMetricsResponse* vt, ak_ufix_ListMetricsResponse* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_ListMetricsResponse(void* obj, IntPtr ctx, ak_evt_ListMetricsResponse* vt, ak_ufix_ListMetricsResponse* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_decode_ListMetricsResponse(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListMetricsResponse* vt);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2819,14 +1986,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern nint ak_encode_UploadResultDataMessage(void* obj, IntPtr ctx, ak_evt_UploadResultDataMessage* vt, ak_efix_UploadResultDataMessage* fix, byte* direct, nuint direct_len);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_UploadResultDataMessage(void* obj, IntPtr ctx, ak_evt_UploadResultDataMessage* vt, ak_ufix_UploadResultDataMessage* fix, byte* direct, nuint direct_len);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_UploadResultDataMessage(void* obj, IntPtr ctx, ak_evt_UploadResultDataMessage* vt, ak_ufix_UploadResultDataMessage* fix, byte* direct, nuint direct_len);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -2855,14 +2014,6 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_DualResponse(void* obj, IntPtr ctx, ak_evt_DualResponse* vt, ak_ufix_DualResponse* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_DualResponse(void* obj, IntPtr ctx, ak_evt_DualResponse* vt, ak_ufix_DualResponse* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_decode_DualResponse(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_DualResponse* vt);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2883,14 +2034,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern nint ak_encode_ChunkLeaf(void* obj, IntPtr ctx, ak_evt_ChunkLeaf* vt, ak_efix_ChunkLeaf* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_ChunkLeaf(void* obj, IntPtr ctx, ak_evt_ChunkLeaf* vt, ak_ufix_ChunkLeaf* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_ChunkLeaf(void* obj, IntPtr ctx, ak_evt_ChunkLeaf* vt, ak_ufix_ChunkLeaf* fix);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -2919,14 +2062,6 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_ChunkInner(void* obj, IntPtr ctx, ak_evt_ChunkInner* vt, ak_ufix_ChunkInner* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_ChunkInner(void* obj, IntPtr ctx, ak_evt_ChunkInner* vt, ak_ufix_ChunkInner* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_decode_ChunkInner(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkInner* vt);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2947,14 +2082,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern nint ak_encode_ChunkElement(void* obj, IntPtr ctx, ak_evt_ChunkElement* vt, ak_efix_ChunkElement* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_ChunkElement(void* obj, IntPtr ctx, ak_evt_ChunkElement* vt, ak_ufix_ChunkElement* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_ChunkElement(void* obj, IntPtr ctx, ak_evt_ChunkElement* vt, ak_ufix_ChunkElement* fix);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -2983,14 +2110,6 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_ChunkedResponse(void* obj, IntPtr ctx, ak_evt_ChunkedResponse* vt, ak_ufix_ChunkedResponse* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_ChunkedResponse(void* obj, IntPtr ctx, ak_evt_ChunkedResponse* vt, ak_ufix_ChunkedResponse* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_decode_ChunkedResponse(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkedResponse* vt);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -3011,14 +2130,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern nint ak_encode_ChunkedResponseWide(void* obj, IntPtr ctx, ak_evt_ChunkedResponseWide* vt, ak_efix_ChunkedResponseWide* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_ChunkedResponseWide(void* obj, IntPtr ctx, ak_evt_ChunkedResponseWide* vt, ak_ufix_ChunkedResponseWide* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_ChunkedResponseWide(void* obj, IntPtr ctx, ak_evt_ChunkedResponseWide* vt, ak_ufix_ChunkedResponseWide* fix);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -3047,14 +2158,6 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_LeafElement(void* obj, IntPtr ctx, ak_evt_LeafElement* vt, ak_ufix_LeafElement* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_LeafElement(void* obj, IntPtr ctx, ak_evt_LeafElement* vt, ak_ufix_LeafElement* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_decode_LeafElement(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_LeafElement* vt);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -3075,14 +2178,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern nint ak_encode_LeafResponse(void* obj, IntPtr ctx, ak_evt_LeafResponse* vt, ak_efix_LeafResponse* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_LeafResponse(void* obj, IntPtr ctx, ak_evt_LeafResponse* vt, ak_ufix_LeafResponse* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_LeafResponse(void* obj, IntPtr ctx, ak_evt_LeafResponse* vt, ak_ufix_LeafResponse* fix);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -3111,14 +2206,6 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_Surrogate(void* obj, IntPtr ctx, ak_evt_Surrogate* vt, ak_ufix_Surrogate* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_Surrogate(void* obj, IntPtr ctx, ak_evt_Surrogate* vt, ak_ufix_Surrogate* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_decode_Surrogate(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Surrogate* vt);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -3139,14 +2226,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern nint ak_encode_SurrogateInner(void* obj, IntPtr ctx, ak_evt_SurrogateInner* vt, ak_efix_SurrogateInner* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_SurrogateInner(void* obj, IntPtr ctx, ak_evt_SurrogateInner* vt, ak_ufix_SurrogateInner* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_SurrogateInner(void* obj, IntPtr ctx, ak_evt_SurrogateInner* vt, ak_ufix_SurrogateInner* fix);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -3175,14 +2254,6 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial nint ak_uencode_WireZoo(void* obj, IntPtr ctx, ak_evt_WireZoo* vt, ak_ufix_WireZoo* fix);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern nint ak_uencode_WireZoo(void* obj, IntPtr ctx, ak_evt_WireZoo* vt, ak_ufix_WireZoo* fix);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_decode_WireZoo(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_WireZoo* vt);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -3207,26 +2278,10 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_uelemu_ChunkElement(IntPtr ctx, ak_ufix_ChunkElement* elems, int n, long tok0);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_uelemu_ChunkElement(IntPtr ctx, ak_ufix_ChunkElement* elems, int n, long tok0);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_elem_ChunkElementAttrsEntry(IntPtr ctx, ak_efix_ChunkElementAttrsEntry* elems, int n);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_elem_ChunkElementAttrsEntry(IntPtr ctx, ak_efix_ChunkElementAttrsEntry* elems, int n);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_uelem_ChunkElementAttrsEntry(IntPtr ctx, ak_ufix_ChunkElementAttrsEntry* elems, int n);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_uelem_ChunkElementAttrsEntry(IntPtr ctx, ak_ufix_ChunkElementAttrsEntry* elems, int n);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -3239,26 +2294,10 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_uelem_ChunkLeaf(IntPtr ctx, ak_ufix_ChunkLeaf* elems, int n);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_uelem_ChunkLeaf(IntPtr ctx, ak_ufix_ChunkLeaf* elems, int n);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_elem_LeafElement(IntPtr ctx, ak_efix_LeafElement* elems, int n);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_elem_LeafElement(IntPtr ctx, ak_efix_LeafElement* elems, int n);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_uelem_LeafElement(IntPtr ctx, ak_ufix_LeafElement* elems, int n);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_uelem_LeafElement(IntPtr ctx, ak_ufix_LeafElement* elems, int n);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -3271,26 +2310,10 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_uelemu_MetricsBatch(IntPtr ctx, ak_ufix_MetricsBatch* elems, int n, long tok0);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_uelemu_MetricsBatch(IntPtr ctx, ak_ufix_MetricsBatch* elems, int n, long tok0);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_elem_Pair(IntPtr ctx, ak_efix_Pair* elems, int n);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_elem_Pair(IntPtr ctx, ak_efix_Pair* elems, int n);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_uelem_Pair(IntPtr ctx, ak_ufix_Pair* elems, int n);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_uelem_Pair(IntPtr ctx, ak_ufix_Pair* elems, int n);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -3303,26 +2326,10 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_uelem_Probe(IntPtr ctx, ak_ufix_Probe* elems, int n);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_uelem_Probe(IntPtr ctx, ak_ufix_Probe* elems, int n);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_elem_ResultRaw(IntPtr ctx, ak_efix_ResultRaw* elems, int n);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_elem_ResultRaw(IntPtr ctx, ak_efix_ResultRaw* elems, int n);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_uelem_ResultRaw(IntPtr ctx, ak_ufix_ResultRaw* elems, int n);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_uelem_ResultRaw(IntPtr ctx, ak_ufix_ResultRaw* elems, int n);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -3335,26 +2342,10 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_uelem_SurrogateAttrsEntry(IntPtr ctx, ak_ufix_SurrogateAttrsEntry* elems, int n);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_uelem_SurrogateAttrsEntry(IntPtr ctx, ak_ufix_SurrogateAttrsEntry* elems, int n);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_elemu_TaskDetailed(IntPtr ctx, ak_efix_TaskDetailed* elems, int n, long tok0);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_elemu_TaskDetailed(IntPtr ctx, ak_efix_TaskDetailed* elems, int n, long tok0);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_uelemu_TaskDetailed(IntPtr ctx, ak_ufix_TaskDetailed* elems, int n, long tok0);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_uelemu_TaskDetailed(IntPtr ctx, ak_ufix_TaskDetailed* elems, int n, long tok0);
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -3367,14 +2358,6 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_uelem_TaskOptionsOptionsEntry(IntPtr ctx, ak_ufix_TaskOptionsOptionsEntry* elems, int n);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_uelem_TaskOptionsOptionsEntry(IntPtr ctx, ak_ufix_TaskOptionsOptionsEntry* elems, int n);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_elemu_TaskSummary(IntPtr ctx, ak_efix_TaskSummary* elems, int n, long tok0);
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -3383,474 +2366,234 @@ public static unsafe partial class Abi
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_uelemu_TaskSummary(IntPtr ctx, ak_ufix_TaskSummary* elems, int n, long tok0);
+    internal static partial IntPtr ak_dec_ctx_new_Timestamp();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_uelemu_TaskSummary(IntPtr ctx, ak_ufix_TaskSummary* elems, int n, long tok0);
+    internal static extern IntPtr ak_dec_ctx_new_Timestamp();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_Timestamp(ak_dec_Timestamp_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_Duration();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_Timestamp(ak_dec_Timestamp_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_Duration();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_Timestamp(IntPtr ctx, ak_dec_Timestamp_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_ResultRaw();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_Timestamp(IntPtr ctx, ak_dec_Timestamp_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_ResultRaw();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_Duration(ak_dec_Duration_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_TaskOptions();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_Duration(ak_dec_Duration_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_TaskOptions();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_Duration(IntPtr ctx, ak_dec_Duration_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_TaskOutput();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_Duration(IntPtr ctx, ak_dec_Duration_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_TaskOutput();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_ResultRaw(ak_dec_ResultRaw_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_TaskDetailed();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_ResultRaw(ak_dec_ResultRaw_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_TaskDetailed();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_ResultRaw(IntPtr ctx, ak_dec_ResultRaw_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_TaskSummary();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_ResultRaw(IntPtr ctx, ak_dec_ResultRaw_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_TaskSummary();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_TaskOptions(ak_dec_TaskOptions_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_Probe();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_TaskOptions(ak_dec_TaskOptions_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_Probe();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_TaskOptions(IntPtr ctx, ak_dec_TaskOptions_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_Empty();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_TaskOptions(IntPtr ctx, ak_dec_TaskOptions_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_Empty();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_TaskOutput(ak_dec_TaskOutput_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_UploadResultData();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_TaskOutput(ak_dec_TaskOutput_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_UploadResultData();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_TaskOutput(IntPtr ctx, ak_dec_TaskOutput_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_MetricsBatch();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_TaskOutput(IntPtr ctx, ak_dec_TaskOutput_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_MetricsBatch();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_TaskDetailed(ak_dec_TaskDetailed_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_Pair();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_TaskDetailed(ak_dec_TaskDetailed_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_Pair();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_TaskDetailed(IntPtr ctx, ak_dec_TaskDetailed_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_ListResultsResponse();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_TaskDetailed(IntPtr ctx, ak_dec_TaskDetailed_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_ListResultsResponse();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_TaskSummary(ak_dec_TaskSummary_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_ListTasksDetailedResponse();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_TaskSummary(ak_dec_TaskSummary_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_ListTasksDetailedResponse();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_TaskSummary(IntPtr ctx, ak_dec_TaskSummary_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_ListTaskSummaryResponse();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_TaskSummary(IntPtr ctx, ak_dec_TaskSummary_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_ListTaskSummaryResponse();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_Probe(ak_dec_Probe_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_ListProbeResponse();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_Probe(ak_dec_Probe_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_ListProbeResponse();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_Probe(IntPtr ctx, ak_dec_Probe_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_ListMetricsResponse();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_Probe(IntPtr ctx, ak_dec_Probe_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_ListMetricsResponse();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_Empty(ak_dec_Empty_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_UploadResultDataMessage();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_Empty(ak_dec_Empty_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_UploadResultDataMessage();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_Empty(IntPtr ctx, ak_dec_Empty_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_DualResponse();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_Empty(IntPtr ctx, ak_dec_Empty_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_DualResponse();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_UploadResultData(ak_dec_UploadResultData_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_ChunkLeaf();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_UploadResultData(ak_dec_UploadResultData_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_ChunkLeaf();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_UploadResultData(IntPtr ctx, ak_dec_UploadResultData_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_ChunkInner();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_UploadResultData(IntPtr ctx, ak_dec_UploadResultData_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_ChunkInner();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_MetricsBatch(ak_dec_MetricsBatch_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_ChunkElement();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_MetricsBatch(ak_dec_MetricsBatch_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_ChunkElement();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_MetricsBatch(IntPtr ctx, ak_dec_MetricsBatch_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_ChunkedResponse();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_MetricsBatch(IntPtr ctx, ak_dec_MetricsBatch_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_ChunkedResponse();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_Pair(ak_dec_Pair_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_ChunkedResponseWide();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_Pair(ak_dec_Pair_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_ChunkedResponseWide();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_Pair(IntPtr ctx, ak_dec_Pair_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_LeafElement();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_Pair(IntPtr ctx, ak_dec_Pair_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_LeafElement();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_ListResultsResponse(ak_dec_ListResultsResponse_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_LeafResponse();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_ListResultsResponse(ak_dec_ListResultsResponse_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_LeafResponse();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_ListResultsResponse(IntPtr ctx, ak_dec_ListResultsResponse_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_Surrogate();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_ListResultsResponse(IntPtr ctx, ak_dec_ListResultsResponse_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_Surrogate();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_ListTasksDetailedResponse(ak_dec_ListTasksDetailedResponse_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_SurrogateInner();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_ListTasksDetailedResponse(ak_dec_ListTasksDetailedResponse_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_SurrogateInner();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_ListTasksDetailedResponse(IntPtr ctx, ak_dec_ListTasksDetailedResponse_opts* opts);
+    internal static partial IntPtr ak_dec_ctx_new_WireZoo();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_ListTasksDetailedResponse(IntPtr ctx, ak_dec_ListTasksDetailedResponse_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_ListTaskSummaryResponse(ak_dec_ListTaskSummaryResponse_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_ListTaskSummaryResponse(ak_dec_ListTaskSummaryResponse_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_ListTaskSummaryResponse(IntPtr ctx, ak_dec_ListTaskSummaryResponse_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_ListTaskSummaryResponse(IntPtr ctx, ak_dec_ListTaskSummaryResponse_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_ListProbeResponse(ak_dec_ListProbeResponse_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_ListProbeResponse(ak_dec_ListProbeResponse_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_ListProbeResponse(IntPtr ctx, ak_dec_ListProbeResponse_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_ListProbeResponse(IntPtr ctx, ak_dec_ListProbeResponse_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_ListMetricsResponse(ak_dec_ListMetricsResponse_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_ListMetricsResponse(ak_dec_ListMetricsResponse_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_ListMetricsResponse(IntPtr ctx, ak_dec_ListMetricsResponse_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_ListMetricsResponse(IntPtr ctx, ak_dec_ListMetricsResponse_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_UploadResultDataMessage(ak_dec_UploadResultDataMessage_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_UploadResultDataMessage(ak_dec_UploadResultDataMessage_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_UploadResultDataMessage(IntPtr ctx, ak_dec_UploadResultDataMessage_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_UploadResultDataMessage(IntPtr ctx, ak_dec_UploadResultDataMessage_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_DualResponse(ak_dec_DualResponse_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_DualResponse(ak_dec_DualResponse_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_DualResponse(IntPtr ctx, ak_dec_DualResponse_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_DualResponse(IntPtr ctx, ak_dec_DualResponse_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_ChunkLeaf(ak_dec_ChunkLeaf_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_ChunkLeaf(ak_dec_ChunkLeaf_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_ChunkLeaf(IntPtr ctx, ak_dec_ChunkLeaf_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_ChunkLeaf(IntPtr ctx, ak_dec_ChunkLeaf_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_ChunkInner(ak_dec_ChunkInner_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_ChunkInner(ak_dec_ChunkInner_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_ChunkInner(IntPtr ctx, ak_dec_ChunkInner_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_ChunkInner(IntPtr ctx, ak_dec_ChunkInner_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_ChunkElement(ak_dec_ChunkElement_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_ChunkElement(ak_dec_ChunkElement_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_ChunkElement(IntPtr ctx, ak_dec_ChunkElement_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_ChunkElement(IntPtr ctx, ak_dec_ChunkElement_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_ChunkedResponse(ak_dec_ChunkedResponse_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_ChunkedResponse(ak_dec_ChunkedResponse_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_ChunkedResponse(IntPtr ctx, ak_dec_ChunkedResponse_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_ChunkedResponse(IntPtr ctx, ak_dec_ChunkedResponse_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_ChunkedResponseWide(ak_dec_ChunkedResponseWide_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_ChunkedResponseWide(ak_dec_ChunkedResponseWide_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_ChunkedResponseWide(IntPtr ctx, ak_dec_ChunkedResponseWide_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_ChunkedResponseWide(IntPtr ctx, ak_dec_ChunkedResponseWide_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_LeafElement(ak_dec_LeafElement_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_LeafElement(ak_dec_LeafElement_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_LeafElement(IntPtr ctx, ak_dec_LeafElement_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_LeafElement(IntPtr ctx, ak_dec_LeafElement_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_LeafResponse(ak_dec_LeafResponse_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_LeafResponse(ak_dec_LeafResponse_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_LeafResponse(IntPtr ctx, ak_dec_LeafResponse_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_LeafResponse(IntPtr ctx, ak_dec_LeafResponse_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_Surrogate(ak_dec_Surrogate_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_Surrogate(ak_dec_Surrogate_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_Surrogate(IntPtr ctx, ak_dec_Surrogate_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_Surrogate(IntPtr ctx, ak_dec_Surrogate_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_SurrogateInner(ak_dec_SurrogateInner_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_SurrogateInner(ak_dec_SurrogateInner_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_SurrogateInner(IntPtr ctx, ak_dec_SurrogateInner_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_SurrogateInner(IntPtr ctx, ak_dec_SurrogateInner_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new_WireZoo(ak_dec_WireZoo_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new_WireZoo(ak_dec_WireZoo_opts* opts);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_dec_reset_WireZoo(IntPtr ctx, ak_dec_WireZoo_opts* opts);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_dec_reset_WireZoo(IntPtr ctx, ak_dec_WireZoo_opts* opts);
+    internal static extern IntPtr ak_dec_ctx_new_WireZoo();
 #endif
 }
 
@@ -3987,16 +2730,6 @@ public static unsafe class AbiLayout
             var v = default(ak_dfix_TaskOptionsOptionsEntry); ak_dfix_TaskOptionsOptionsEntry* z = &v;
             s.F.Add(("key", (int)((byte*)&z->key - (byte*)z), Fsz(&z->key)));
             s.F.Add(("value", (int)((byte*)&z->value - (byte*)z), Fsz(&z->value)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_TaskOptionsOptionsEntry", Size = sizeof(ak_ufix_TaskOptionsOptionsEntry), Fields = typeof(ak_ufix_TaskOptionsOptionsEntry).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_TaskOptionsOptionsEntry); ak_ufix_TaskOptionsOptionsEntry* z = &v;
-            s.F.Add(("key", (int)((byte*)&z->key - (byte*)z), Fsz(&z->key)));
-            s.F.Add(("value", (int)((byte*)&z->value - (byte*)z), Fsz(&z->value)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4013,16 +2746,6 @@ public static unsafe class AbiLayout
             var v = default(ak_dfix_ChunkElementAttrsEntry); ak_dfix_ChunkElementAttrsEntry* z = &v;
             s.F.Add(("key", (int)((byte*)&z->key - (byte*)z), Fsz(&z->key)));
             s.F.Add(("value", (int)((byte*)&z->value - (byte*)z), Fsz(&z->value)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_ChunkElementAttrsEntry", Size = sizeof(ak_ufix_ChunkElementAttrsEntry), Fields = typeof(ak_ufix_ChunkElementAttrsEntry).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_ChunkElementAttrsEntry); ak_ufix_ChunkElementAttrsEntry* z = &v;
-            s.F.Add(("key", (int)((byte*)&z->key - (byte*)z), Fsz(&z->key)));
-            s.F.Add(("value", (int)((byte*)&z->value - (byte*)z), Fsz(&z->value)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4039,16 +2762,6 @@ public static unsafe class AbiLayout
             var v = default(ak_dfix_SurrogateAttrsEntry); ak_dfix_SurrogateAttrsEntry* z = &v;
             s.F.Add(("key", (int)((byte*)&z->key - (byte*)z), Fsz(&z->key)));
             s.F.Add(("value", (int)((byte*)&z->value - (byte*)z), Fsz(&z->value)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_SurrogateAttrsEntry", Size = sizeof(ak_ufix_SurrogateAttrsEntry), Fields = typeof(ak_ufix_SurrogateAttrsEntry).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_SurrogateAttrsEntry); ak_ufix_SurrogateAttrsEntry* z = &v;
-            s.F.Add(("key", (int)((byte*)&z->key - (byte*)z), Fsz(&z->key)));
-            s.F.Add(("value", (int)((byte*)&z->value - (byte*)z), Fsz(&z->value)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4065,16 +2778,6 @@ public static unsafe class AbiLayout
             var v = default(ak_dfix_Timestamp); ak_dfix_Timestamp* z = &v;
             s.F.Add(("seconds", (int)((byte*)&z->seconds - (byte*)z), Fsz(&z->seconds)));
             s.F.Add(("nanos", (int)((byte*)&z->nanos - (byte*)z), Fsz(&z->nanos)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_Timestamp", Size = sizeof(ak_ufix_Timestamp), Fields = typeof(ak_ufix_Timestamp).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_Timestamp); ak_ufix_Timestamp* z = &v;
-            s.F.Add(("seconds", (int)((byte*)&z->seconds - (byte*)z), Fsz(&z->seconds)));
-            s.F.Add(("nanos", (int)((byte*)&z->nanos - (byte*)z), Fsz(&z->nanos)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4091,16 +2794,6 @@ public static unsafe class AbiLayout
             var v = default(ak_dfix_Duration); ak_dfix_Duration* z = &v;
             s.F.Add(("seconds", (int)((byte*)&z->seconds - (byte*)z), Fsz(&z->seconds)));
             s.F.Add(("nanos", (int)((byte*)&z->nanos - (byte*)z), Fsz(&z->nanos)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_Duration", Size = sizeof(ak_ufix_Duration), Fields = typeof(ak_ufix_Duration).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_Duration); ak_ufix_Duration* z = &v;
-            s.F.Add(("seconds", (int)((byte*)&z->seconds - (byte*)z), Fsz(&z->seconds)));
-            s.F.Add(("nanos", (int)((byte*)&z->nanos - (byte*)z), Fsz(&z->nanos)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4135,25 +2828,6 @@ public static unsafe class AbiLayout
             s.F.Add(("created_by", (int)((byte*)&z->created_by - (byte*)z), Fsz(&z->created_by)));
             s.F.Add(("opaque_id", (int)((byte*)&z->opaque_id - (byte*)z), Fsz(&z->opaque_id)));
             s.F.Add(("manual_deletion", (int)((byte*)&z->manual_deletion - (byte*)z), Fsz(&z->manual_deletion)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_ResultRaw", Size = sizeof(ak_ufix_ResultRaw), Fields = typeof(ak_ufix_ResultRaw).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_ResultRaw); ak_ufix_ResultRaw* z = &v;
-            s.F.Add(("session_id", (int)((byte*)&z->session_id - (byte*)z), Fsz(&z->session_id)));
-            s.F.Add(("name", (int)((byte*)&z->name - (byte*)z), Fsz(&z->name)));
-            s.F.Add(("owner_task_id", (int)((byte*)&z->owner_task_id - (byte*)z), Fsz(&z->owner_task_id)));
-            s.F.Add(("status", (int)((byte*)&z->status - (byte*)z), Fsz(&z->status)));
-            s.F.Add(("created_at", (int)((byte*)&z->created_at - (byte*)z), Fsz(&z->created_at)));
-            s.F.Add(("completed_at", (int)((byte*)&z->completed_at - (byte*)z), Fsz(&z->completed_at)));
-            s.F.Add(("result_id", (int)((byte*)&z->result_id - (byte*)z), Fsz(&z->result_id)));
-            s.F.Add(("size", (int)((byte*)&z->size - (byte*)z), Fsz(&z->size)));
-            s.F.Add(("created_by", (int)((byte*)&z->created_by - (byte*)z), Fsz(&z->created_by)));
-            s.F.Add(("opaque_id", (int)((byte*)&z->opaque_id - (byte*)z), Fsz(&z->opaque_id)));
-            s.F.Add(("manual_deletion", (int)((byte*)&z->manual_deletion - (byte*)z), Fsz(&z->manual_deletion)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4184,23 +2858,6 @@ public static unsafe class AbiLayout
             s.F.Add(("application_namespace", (int)((byte*)&z->application_namespace - (byte*)z), Fsz(&z->application_namespace)));
             s.F.Add(("application_service", (int)((byte*)&z->application_service - (byte*)z), Fsz(&z->application_service)));
             s.F.Add(("engine_type", (int)((byte*)&z->engine_type - (byte*)z), Fsz(&z->engine_type)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_TaskOptions", Size = sizeof(ak_ufix_TaskOptions), Fields = typeof(ak_ufix_TaskOptions).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_TaskOptions); ak_ufix_TaskOptions* z = &v;
-            s.F.Add(("max_duration", (int)((byte*)&z->max_duration - (byte*)z), Fsz(&z->max_duration)));
-            s.F.Add(("max_retries", (int)((byte*)&z->max_retries - (byte*)z), Fsz(&z->max_retries)));
-            s.F.Add(("priority", (int)((byte*)&z->priority - (byte*)z), Fsz(&z->priority)));
-            s.F.Add(("partition_id", (int)((byte*)&z->partition_id - (byte*)z), Fsz(&z->partition_id)));
-            s.F.Add(("application_name", (int)((byte*)&z->application_name - (byte*)z), Fsz(&z->application_name)));
-            s.F.Add(("application_version", (int)((byte*)&z->application_version - (byte*)z), Fsz(&z->application_version)));
-            s.F.Add(("application_namespace", (int)((byte*)&z->application_namespace - (byte*)z), Fsz(&z->application_namespace)));
-            s.F.Add(("application_service", (int)((byte*)&z->application_service - (byte*)z), Fsz(&z->application_service)));
-            s.F.Add(("engine_type", (int)((byte*)&z->engine_type - (byte*)z), Fsz(&z->engine_type)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4217,16 +2874,6 @@ public static unsafe class AbiLayout
             var v = default(ak_dfix_TaskOutput); ak_dfix_TaskOutput* z = &v;
             s.F.Add(("success", (int)((byte*)&z->success - (byte*)z), Fsz(&z->success)));
             s.F.Add(("error", (int)((byte*)&z->error - (byte*)z), Fsz(&z->error)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_TaskOutput", Size = sizeof(ak_ufix_TaskOutput), Fields = typeof(ak_ufix_TaskOutput).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_TaskOutput); ak_ufix_TaskOutput* z = &v;
-            s.F.Add(("success", (int)((byte*)&z->success - (byte*)z), Fsz(&z->success)));
-            s.F.Add(("error", (int)((byte*)&z->error - (byte*)z), Fsz(&z->error)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4285,37 +2932,6 @@ public static unsafe class AbiLayout
             s.F.Add(("fetched_at", (int)((byte*)&z->fetched_at - (byte*)z), Fsz(&z->fetched_at)));
             s.F.Add(("payload_id", (int)((byte*)&z->payload_id - (byte*)z), Fsz(&z->payload_id)));
             s.F.Add(("created_by", (int)((byte*)&z->created_by - (byte*)z), Fsz(&z->created_by)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_TaskDetailed", Size = sizeof(ak_ufix_TaskDetailed), Fields = typeof(ak_ufix_TaskDetailed).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_TaskDetailed); ak_ufix_TaskDetailed* z = &v;
-            s.F.Add(("id", (int)((byte*)&z->id - (byte*)z), Fsz(&z->id)));
-            s.F.Add(("session_id", (int)((byte*)&z->session_id - (byte*)z), Fsz(&z->session_id)));
-            s.F.Add(("owner_pod_id", (int)((byte*)&z->owner_pod_id - (byte*)z), Fsz(&z->owner_pod_id)));
-            s.F.Add(("status", (int)((byte*)&z->status - (byte*)z), Fsz(&z->status)));
-            s.F.Add(("status_message", (int)((byte*)&z->status_message - (byte*)z), Fsz(&z->status_message)));
-            s.F.Add(("options", (int)((byte*)&z->options - (byte*)z), Fsz(&z->options)));
-            s.F.Add(("created_at", (int)((byte*)&z->created_at - (byte*)z), Fsz(&z->created_at)));
-            s.F.Add(("submitted_at", (int)((byte*)&z->submitted_at - (byte*)z), Fsz(&z->submitted_at)));
-            s.F.Add(("started_at", (int)((byte*)&z->started_at - (byte*)z), Fsz(&z->started_at)));
-            s.F.Add(("ended_at", (int)((byte*)&z->ended_at - (byte*)z), Fsz(&z->ended_at)));
-            s.F.Add(("pod_ttl", (int)((byte*)&z->pod_ttl - (byte*)z), Fsz(&z->pod_ttl)));
-            s.F.Add(("output", (int)((byte*)&z->output - (byte*)z), Fsz(&z->output)));
-            s.F.Add(("pod_hostname", (int)((byte*)&z->pod_hostname - (byte*)z), Fsz(&z->pod_hostname)));
-            s.F.Add(("received_at", (int)((byte*)&z->received_at - (byte*)z), Fsz(&z->received_at)));
-            s.F.Add(("acquired_at", (int)((byte*)&z->acquired_at - (byte*)z), Fsz(&z->acquired_at)));
-            s.F.Add(("creation_to_end_duration", (int)((byte*)&z->creation_to_end_duration - (byte*)z), Fsz(&z->creation_to_end_duration)));
-            s.F.Add(("processing_to_end_duration", (int)((byte*)&z->processing_to_end_duration - (byte*)z), Fsz(&z->processing_to_end_duration)));
-            s.F.Add(("initial_task_id", (int)((byte*)&z->initial_task_id - (byte*)z), Fsz(&z->initial_task_id)));
-            s.F.Add(("received_to_end_duration", (int)((byte*)&z->received_to_end_duration - (byte*)z), Fsz(&z->received_to_end_duration)));
-            s.F.Add(("processed_at", (int)((byte*)&z->processed_at - (byte*)z), Fsz(&z->processed_at)));
-            s.F.Add(("fetched_at", (int)((byte*)&z->fetched_at - (byte*)z), Fsz(&z->fetched_at)));
-            s.F.Add(("payload_id", (int)((byte*)&z->payload_id - (byte*)z), Fsz(&z->payload_id)));
-            s.F.Add(("created_by", (int)((byte*)&z->created_by - (byte*)z), Fsz(&z->created_by)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4344,22 +2960,6 @@ public static unsafe class AbiLayout
             s.F.Add(("error", (int)((byte*)&z->error - (byte*)z), Fsz(&z->error)));
             s.F.Add(("status_message", (int)((byte*)&z->status_message - (byte*)z), Fsz(&z->status_message)));
             s.F.Add(("count_data_dependencies", (int)((byte*)&z->count_data_dependencies - (byte*)z), Fsz(&z->count_data_dependencies)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_TaskSummary", Size = sizeof(ak_ufix_TaskSummary), Fields = typeof(ak_ufix_TaskSummary).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_TaskSummary); ak_ufix_TaskSummary* z = &v;
-            s.F.Add(("id", (int)((byte*)&z->id - (byte*)z), Fsz(&z->id)));
-            s.F.Add(("session_id", (int)((byte*)&z->session_id - (byte*)z), Fsz(&z->session_id)));
-            s.F.Add(("options", (int)((byte*)&z->options - (byte*)z), Fsz(&z->options)));
-            s.F.Add(("status", (int)((byte*)&z->status - (byte*)z), Fsz(&z->status)));
-            s.F.Add(("created_at", (int)((byte*)&z->created_at - (byte*)z), Fsz(&z->created_at)));
-            s.F.Add(("error", (int)((byte*)&z->error - (byte*)z), Fsz(&z->error)));
-            s.F.Add(("status_message", (int)((byte*)&z->status_message - (byte*)z), Fsz(&z->status_message)));
-            s.F.Add(("count_data_dependencies", (int)((byte*)&z->count_data_dependencies - (byte*)z), Fsz(&z->count_data_dependencies)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4372,14 +2972,6 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dfix_Empty", Size = sizeof(ak_dfix_Empty), Fields = typeof(ak_dfix_Empty).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dfix_Empty); ak_dfix_Empty* z = &v;
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_Empty", Size = sizeof(ak_ufix_Empty), Fields = typeof(ak_ufix_Empty).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_Empty); ak_ufix_Empty* z = &v;
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4412,24 +3004,6 @@ public static unsafe class AbiLayout
             s.F.Add(("body_as_blob", (int)((byte*)&z->body_as_blob - (byte*)z), Fsz(&z->body_as_blob)));
             s.F.Add(("body_as_stamp", (int)((byte*)&z->body_as_stamp - (byte*)z), Fsz(&z->body_as_stamp)));
             s.F.Add(("body_as_nothing", (int)((byte*)&z->body_as_nothing - (byte*)z), Fsz(&z->body_as_nothing)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_Probe", Size = sizeof(ak_ufix_Probe), Fields = typeof(ak_ufix_Probe).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_Probe); ak_ufix_Probe* z = &v;
-            s.F.Add(("id", (int)((byte*)&z->id - (byte*)z), Fsz(&z->id)));
-            s.F.Add(("opt_count", (int)((byte*)&z->opt_count - (byte*)z), Fsz(&z->opt_count)));
-            s.F.Add(("opt_label", (int)((byte*)&z->opt_label - (byte*)z), Fsz(&z->opt_label)));
-            s.F.Add(("opt_flag", (int)((byte*)&z->opt_flag - (byte*)z), Fsz(&z->opt_flag)));
-            s.F.Add(("body_case", (int)((byte*)&z->body_case - (byte*)z), Fsz(&z->body_case)));
-            s.F.Add(("body_as_int", (int)((byte*)&z->body_as_int - (byte*)z), Fsz(&z->body_as_int)));
-            s.F.Add(("body_as_text", (int)((byte*)&z->body_as_text - (byte*)z), Fsz(&z->body_as_text)));
-            s.F.Add(("body_as_blob", (int)((byte*)&z->body_as_blob - (byte*)z), Fsz(&z->body_as_blob)));
-            s.F.Add(("body_as_stamp", (int)((byte*)&z->body_as_stamp - (byte*)z), Fsz(&z->body_as_stamp)));
-            s.F.Add(("body_as_nothing", (int)((byte*)&z->body_as_nothing - (byte*)z), Fsz(&z->body_as_nothing)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4448,17 +3022,6 @@ public static unsafe class AbiLayout
             s.F.Add(("session_id", (int)((byte*)&z->session_id - (byte*)z), Fsz(&z->session_id)));
             s.F.Add(("result_id", (int)((byte*)&z->result_id - (byte*)z), Fsz(&z->result_id)));
             s.F.Add(("data_chunk", (int)((byte*)&z->data_chunk - (byte*)z), Fsz(&z->data_chunk)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_UploadResultData", Size = sizeof(ak_ufix_UploadResultData), Fields = typeof(ak_ufix_UploadResultData).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_UploadResultData); ak_ufix_UploadResultData* z = &v;
-            s.F.Add(("session_id", (int)((byte*)&z->session_id - (byte*)z), Fsz(&z->session_id)));
-            s.F.Add(("result_id", (int)((byte*)&z->result_id - (byte*)z), Fsz(&z->result_id)));
-            s.F.Add(("data_chunk", (int)((byte*)&z->data_chunk - (byte*)z), Fsz(&z->data_chunk)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4473,15 +3036,6 @@ public static unsafe class AbiLayout
             var s = new S { Name = "ak_dfix_MetricsBatch", Size = sizeof(ak_dfix_MetricsBatch), Fields = typeof(ak_dfix_MetricsBatch).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dfix_MetricsBatch); ak_dfix_MetricsBatch* z = &v;
             s.F.Add(("id", (int)((byte*)&z->id - (byte*)z), Fsz(&z->id)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_MetricsBatch", Size = sizeof(ak_ufix_MetricsBatch), Fields = typeof(ak_ufix_MetricsBatch).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_MetricsBatch); ak_ufix_MetricsBatch* z = &v;
-            s.F.Add(("id", (int)((byte*)&z->id - (byte*)z), Fsz(&z->id)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4498,16 +3052,6 @@ public static unsafe class AbiLayout
             var v = default(ak_dfix_Pair); ak_dfix_Pair* z = &v;
             s.F.Add(("key", (int)((byte*)&z->key - (byte*)z), Fsz(&z->key)));
             s.F.Add(("value", (int)((byte*)&z->value - (byte*)z), Fsz(&z->value)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_Pair", Size = sizeof(ak_ufix_Pair), Fields = typeof(ak_ufix_Pair).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_Pair); ak_ufix_Pair* z = &v;
-            s.F.Add(("key", (int)((byte*)&z->key - (byte*)z), Fsz(&z->key)));
-            s.F.Add(("value", (int)((byte*)&z->value - (byte*)z), Fsz(&z->value)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4524,16 +3068,6 @@ public static unsafe class AbiLayout
             var v = default(ak_dfix_ListResultsResponse); ak_dfix_ListResultsResponse* z = &v;
             s.F.Add(("page", (int)((byte*)&z->page - (byte*)z), Fsz(&z->page)));
             s.F.Add(("total", (int)((byte*)&z->total - (byte*)z), Fsz(&z->total)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_ListResultsResponse", Size = sizeof(ak_ufix_ListResultsResponse), Fields = typeof(ak_ufix_ListResultsResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_ListResultsResponse); ak_ufix_ListResultsResponse* z = &v;
-            s.F.Add(("page", (int)((byte*)&z->page - (byte*)z), Fsz(&z->page)));
-            s.F.Add(("total", (int)((byte*)&z->total - (byte*)z), Fsz(&z->total)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4550,16 +3084,6 @@ public static unsafe class AbiLayout
             var v = default(ak_dfix_ListTasksDetailedResponse); ak_dfix_ListTasksDetailedResponse* z = &v;
             s.F.Add(("page", (int)((byte*)&z->page - (byte*)z), Fsz(&z->page)));
             s.F.Add(("total", (int)((byte*)&z->total - (byte*)z), Fsz(&z->total)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_ListTasksDetailedResponse", Size = sizeof(ak_ufix_ListTasksDetailedResponse), Fields = typeof(ak_ufix_ListTasksDetailedResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_ListTasksDetailedResponse); ak_ufix_ListTasksDetailedResponse* z = &v;
-            s.F.Add(("page", (int)((byte*)&z->page - (byte*)z), Fsz(&z->page)));
-            s.F.Add(("total", (int)((byte*)&z->total - (byte*)z), Fsz(&z->total)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4572,14 +3096,6 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dfix_ListTaskSummaryResponse", Size = sizeof(ak_dfix_ListTaskSummaryResponse), Fields = typeof(ak_dfix_ListTaskSummaryResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dfix_ListTaskSummaryResponse); ak_dfix_ListTaskSummaryResponse* z = &v;
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_ListTaskSummaryResponse", Size = sizeof(ak_ufix_ListTaskSummaryResponse), Fields = typeof(ak_ufix_ListTaskSummaryResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_ListTaskSummaryResponse); ak_ufix_ListTaskSummaryResponse* z = &v;
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4592,14 +3108,6 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dfix_ListProbeResponse", Size = sizeof(ak_dfix_ListProbeResponse), Fields = typeof(ak_dfix_ListProbeResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dfix_ListProbeResponse); ak_dfix_ListProbeResponse* z = &v;
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_ListProbeResponse", Size = sizeof(ak_ufix_ListProbeResponse), Fields = typeof(ak_ufix_ListProbeResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_ListProbeResponse); ak_ufix_ListProbeResponse* z = &v;
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4612,14 +3120,6 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dfix_ListMetricsResponse", Size = sizeof(ak_dfix_ListMetricsResponse), Fields = typeof(ak_dfix_ListMetricsResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dfix_ListMetricsResponse); ak_dfix_ListMetricsResponse* z = &v;
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_ListMetricsResponse", Size = sizeof(ak_ufix_ListMetricsResponse), Fields = typeof(ak_ufix_ListMetricsResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_ListMetricsResponse); ak_ufix_ListMetricsResponse* z = &v;
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4634,15 +3134,6 @@ public static unsafe class AbiLayout
             var s = new S { Name = "ak_dfix_UploadResultDataMessage", Size = sizeof(ak_dfix_UploadResultDataMessage), Fields = typeof(ak_dfix_UploadResultDataMessage).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dfix_UploadResultDataMessage); ak_dfix_UploadResultDataMessage* z = &v;
             s.F.Add(("upload", (int)((byte*)&z->upload - (byte*)z), Fsz(&z->upload)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_UploadResultDataMessage", Size = sizeof(ak_ufix_UploadResultDataMessage), Fields = typeof(ak_ufix_UploadResultDataMessage).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_UploadResultDataMessage); ak_ufix_UploadResultDataMessage* z = &v;
-            s.F.Add(("upload", (int)((byte*)&z->upload - (byte*)z), Fsz(&z->upload)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4655,14 +3146,6 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dfix_DualResponse", Size = sizeof(ak_dfix_DualResponse), Fields = typeof(ak_dfix_DualResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dfix_DualResponse); ak_dfix_DualResponse* z = &v;
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_DualResponse", Size = sizeof(ak_ufix_DualResponse), Fields = typeof(ak_ufix_DualResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_DualResponse); ak_ufix_DualResponse* z = &v;
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4679,16 +3162,6 @@ public static unsafe class AbiLayout
             var v = default(ak_dfix_ChunkLeaf); ak_dfix_ChunkLeaf* z = &v;
             s.F.Add(("k", (int)((byte*)&z->k - (byte*)z), Fsz(&z->k)));
             s.F.Add(("v", (int)((byte*)&z->v - (byte*)z), Fsz(&z->v)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_ChunkLeaf", Size = sizeof(ak_ufix_ChunkLeaf), Fields = typeof(ak_ufix_ChunkLeaf).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_ChunkLeaf); ak_ufix_ChunkLeaf* z = &v;
-            s.F.Add(("k", (int)((byte*)&z->k - (byte*)z), Fsz(&z->k)));
-            s.F.Add(("v", (int)((byte*)&z->v - (byte*)z), Fsz(&z->v)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4701,14 +3174,6 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dfix_ChunkInner", Size = sizeof(ak_dfix_ChunkInner), Fields = typeof(ak_dfix_ChunkInner).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dfix_ChunkInner); ak_dfix_ChunkInner* z = &v;
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_ChunkInner", Size = sizeof(ak_ufix_ChunkInner), Fields = typeof(ak_ufix_ChunkInner).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_ChunkInner); ak_ufix_ChunkInner* z = &v;
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4725,16 +3190,6 @@ public static unsafe class AbiLayout
             var v = default(ak_dfix_ChunkElement); ak_dfix_ChunkElement* z = &v;
             s.F.Add(("id", (int)((byte*)&z->id - (byte*)z), Fsz(&z->id)));
             s.F.Add(("inner", (int)((byte*)&z->inner - (byte*)z), Fsz(&z->inner)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_ChunkElement", Size = sizeof(ak_ufix_ChunkElement), Fields = typeof(ak_ufix_ChunkElement).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_ChunkElement); ak_ufix_ChunkElement* z = &v;
-            s.F.Add(("id", (int)((byte*)&z->id - (byte*)z), Fsz(&z->id)));
-            s.F.Add(("inner", (int)((byte*)&z->inner - (byte*)z), Fsz(&z->inner)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4749,15 +3204,6 @@ public static unsafe class AbiLayout
             var s = new S { Name = "ak_dfix_ChunkedResponse", Size = sizeof(ak_dfix_ChunkedResponse), Fields = typeof(ak_dfix_ChunkedResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dfix_ChunkedResponse); ak_dfix_ChunkedResponse* z = &v;
             s.F.Add(("page", (int)((byte*)&z->page - (byte*)z), Fsz(&z->page)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_ChunkedResponse", Size = sizeof(ak_ufix_ChunkedResponse), Fields = typeof(ak_ufix_ChunkedResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_ChunkedResponse); ak_ufix_ChunkedResponse* z = &v;
-            s.F.Add(("page", (int)((byte*)&z->page - (byte*)z), Fsz(&z->page)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4770,14 +3216,6 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dfix_ChunkedResponseWide", Size = sizeof(ak_dfix_ChunkedResponseWide), Fields = typeof(ak_dfix_ChunkedResponseWide).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dfix_ChunkedResponseWide); ak_dfix_ChunkedResponseWide* z = &v;
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_ChunkedResponseWide", Size = sizeof(ak_ufix_ChunkedResponseWide), Fields = typeof(ak_ufix_ChunkedResponseWide).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_ChunkedResponseWide); ak_ufix_ChunkedResponseWide* z = &v;
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4796,17 +3234,6 @@ public static unsafe class AbiLayout
             s.F.Add(("id", (int)((byte*)&z->id - (byte*)z), Fsz(&z->id)));
             s.F.Add(("n", (int)((byte*)&z->n - (byte*)z), Fsz(&z->n)));
             s.F.Add(("stamp", (int)((byte*)&z->stamp - (byte*)z), Fsz(&z->stamp)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_LeafElement", Size = sizeof(ak_ufix_LeafElement), Fields = typeof(ak_ufix_LeafElement).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_LeafElement); ak_ufix_LeafElement* z = &v;
-            s.F.Add(("id", (int)((byte*)&z->id - (byte*)z), Fsz(&z->id)));
-            s.F.Add(("n", (int)((byte*)&z->n - (byte*)z), Fsz(&z->n)));
-            s.F.Add(("stamp", (int)((byte*)&z->stamp - (byte*)z), Fsz(&z->stamp)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4819,14 +3246,6 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dfix_LeafResponse", Size = sizeof(ak_dfix_LeafResponse), Fields = typeof(ak_dfix_LeafResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dfix_LeafResponse); ak_dfix_LeafResponse* z = &v;
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_LeafResponse", Size = sizeof(ak_ufix_LeafResponse), Fields = typeof(ak_ufix_LeafResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_LeafResponse); ak_ufix_LeafResponse* z = &v;
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4841,15 +3260,6 @@ public static unsafe class AbiLayout
             var s = new S { Name = "ak_dfix_SurrogateInner", Size = sizeof(ak_dfix_SurrogateInner), Fields = typeof(ak_dfix_SurrogateInner).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dfix_SurrogateInner); ak_dfix_SurrogateInner* z = &v;
             s.F.Add(("text", (int)((byte*)&z->text - (byte*)z), Fsz(&z->text)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_SurrogateInner", Size = sizeof(ak_ufix_SurrogateInner), Fields = typeof(ak_ufix_SurrogateInner).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_SurrogateInner); ak_ufix_SurrogateInner* z = &v;
-            s.F.Add(("text", (int)((byte*)&z->text - (byte*)z), Fsz(&z->text)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4868,17 +3278,6 @@ public static unsafe class AbiLayout
             s.F.Add(("text", (int)((byte*)&z->text - (byte*)z), Fsz(&z->text)));
             s.F.Add(("nested", (int)((byte*)&z->nested - (byte*)z), Fsz(&z->nested)));
             s.F.Add(("raw", (int)((byte*)&z->raw - (byte*)z), Fsz(&z->raw)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_Surrogate", Size = sizeof(ak_ufix_Surrogate), Fields = typeof(ak_ufix_Surrogate).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_Surrogate); ak_ufix_Surrogate* z = &v;
-            s.F.Add(("text", (int)((byte*)&z->text - (byte*)z), Fsz(&z->text)));
-            s.F.Add(("nested", (int)((byte*)&z->nested - (byte*)z), Fsz(&z->nested)));
-            s.F.Add(("raw", (int)((byte*)&z->raw - (byte*)z), Fsz(&z->raw)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -4911,24 +3310,6 @@ public static unsafe class AbiLayout
             s.F.Add(("v_enum", (int)((byte*)&z->v_enum - (byte*)z), Fsz(&z->v_enum)));
             s.F.Add(("v_msg", (int)((byte*)&z->v_msg - (byte*)z), Fsz(&z->v_msg)));
             s.F.Add(("v_big_tag", (int)((byte*)&z->v_big_tag - (byte*)z), Fsz(&z->v_big_tag)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
-            s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_ufix_WireZoo", Size = sizeof(ak_ufix_WireZoo), Fields = typeof(ak_ufix_WireZoo).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_ufix_WireZoo); ak_ufix_WireZoo* z = &v;
-            s.F.Add(("v_int32", (int)((byte*)&z->v_int32 - (byte*)z), Fsz(&z->v_int32)));
-            s.F.Add(("v_int64", (int)((byte*)&z->v_int64 - (byte*)z), Fsz(&z->v_int64)));
-            s.F.Add(("v_bool", (int)((byte*)&z->v_bool - (byte*)z), Fsz(&z->v_bool)));
-            s.F.Add(("v_double", (int)((byte*)&z->v_double - (byte*)z), Fsz(&z->v_double)));
-            s.F.Add(("v_fixed32", (int)((byte*)&z->v_fixed32 - (byte*)z), Fsz(&z->v_fixed32)));
-            s.F.Add(("v_string", (int)((byte*)&z->v_string - (byte*)z), Fsz(&z->v_string)));
-            s.F.Add(("v_bytes", (int)((byte*)&z->v_bytes - (byte*)z), Fsz(&z->v_bytes)));
-            s.F.Add(("v_enum", (int)((byte*)&z->v_enum - (byte*)z), Fsz(&z->v_enum)));
-            s.F.Add(("v_msg", (int)((byte*)&z->v_msg - (byte*)z), Fsz(&z->v_msg)));
-            s.F.Add(("v_big_tag", (int)((byte*)&z->v_big_tag - (byte*)z), Fsz(&z->v_big_tag)));
-            s.F.Add(("unknown", (int)((byte*)&z->unknown - (byte*)z), Fsz(&z->unknown)));
             s.F.Add(("presence", (int)((byte*)&z->presence - (byte*)z), Fsz(&z->presence)));
             all.Add(s);
         }
@@ -5389,283 +3770,6 @@ public static unsafe class AbiLayout
             s.F.Add(("apply", (int)((byte*)&z->apply - (byte*)z), sizeof(IntPtr)));
             all.Add(s);
         }
-        {
-            var s = new S { Name = "ak_dec_Timestamp_opts", Size = sizeof(ak_dec_Timestamp_opts), Fields = typeof(ak_dec_Timestamp_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_Timestamp_opts); ak_dec_Timestamp_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_Duration_opts", Size = sizeof(ak_dec_Duration_opts), Fields = typeof(ak_dec_Duration_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_Duration_opts); ak_dec_Duration_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_ResultRaw_opts", Size = sizeof(ak_dec_ResultRaw_opts), Fields = typeof(ak_dec_ResultRaw_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_ResultRaw_opts); ak_dec_ResultRaw_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("created_at", (int)((byte*)&z->created_at - (byte*)z), Fsz(&z->created_at)));
-            s.F.Add(("completed_at", (int)((byte*)&z->completed_at - (byte*)z), Fsz(&z->completed_at)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_TaskOptions_opts", Size = sizeof(ak_dec_TaskOptions_opts), Fields = typeof(ak_dec_TaskOptions_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_TaskOptions_opts); ak_dec_TaskOptions_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("options", (int)((byte*)&z->options - (byte*)z), Fsz(&z->options)));
-            s.F.Add(("max_duration", (int)((byte*)&z->max_duration - (byte*)z), Fsz(&z->max_duration)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_TaskOutput_opts", Size = sizeof(ak_dec_TaskOutput_opts), Fields = typeof(ak_dec_TaskOutput_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_TaskOutput_opts); ak_dec_TaskOutput_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_TaskDetailed_opts", Size = sizeof(ak_dec_TaskDetailed_opts), Fields = typeof(ak_dec_TaskDetailed_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_TaskDetailed_opts); ak_dec_TaskDetailed_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("options", (int)((byte*)&z->options - (byte*)z), Fsz(&z->options)));
-            s.F.Add(("options_options", (int)((byte*)&z->options_options - (byte*)z), Fsz(&z->options_options)));
-            s.F.Add(("options_max_duration", (int)((byte*)&z->options_max_duration - (byte*)z), Fsz(&z->options_max_duration)));
-            s.F.Add(("created_at", (int)((byte*)&z->created_at - (byte*)z), Fsz(&z->created_at)));
-            s.F.Add(("submitted_at", (int)((byte*)&z->submitted_at - (byte*)z), Fsz(&z->submitted_at)));
-            s.F.Add(("started_at", (int)((byte*)&z->started_at - (byte*)z), Fsz(&z->started_at)));
-            s.F.Add(("ended_at", (int)((byte*)&z->ended_at - (byte*)z), Fsz(&z->ended_at)));
-            s.F.Add(("pod_ttl", (int)((byte*)&z->pod_ttl - (byte*)z), Fsz(&z->pod_ttl)));
-            s.F.Add(("output", (int)((byte*)&z->output - (byte*)z), Fsz(&z->output)));
-            s.F.Add(("received_at", (int)((byte*)&z->received_at - (byte*)z), Fsz(&z->received_at)));
-            s.F.Add(("acquired_at", (int)((byte*)&z->acquired_at - (byte*)z), Fsz(&z->acquired_at)));
-            s.F.Add(("creation_to_end_duration", (int)((byte*)&z->creation_to_end_duration - (byte*)z), Fsz(&z->creation_to_end_duration)));
-            s.F.Add(("processing_to_end_duration", (int)((byte*)&z->processing_to_end_duration - (byte*)z), Fsz(&z->processing_to_end_duration)));
-            s.F.Add(("received_to_end_duration", (int)((byte*)&z->received_to_end_duration - (byte*)z), Fsz(&z->received_to_end_duration)));
-            s.F.Add(("processed_at", (int)((byte*)&z->processed_at - (byte*)z), Fsz(&z->processed_at)));
-            s.F.Add(("fetched_at", (int)((byte*)&z->fetched_at - (byte*)z), Fsz(&z->fetched_at)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_TaskSummary_opts", Size = sizeof(ak_dec_TaskSummary_opts), Fields = typeof(ak_dec_TaskSummary_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_TaskSummary_opts); ak_dec_TaskSummary_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("options", (int)((byte*)&z->options - (byte*)z), Fsz(&z->options)));
-            s.F.Add(("options_options", (int)((byte*)&z->options_options - (byte*)z), Fsz(&z->options_options)));
-            s.F.Add(("options_max_duration", (int)((byte*)&z->options_max_duration - (byte*)z), Fsz(&z->options_max_duration)));
-            s.F.Add(("created_at", (int)((byte*)&z->created_at - (byte*)z), Fsz(&z->created_at)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_Probe_opts", Size = sizeof(ak_dec_Probe_opts), Fields = typeof(ak_dec_Probe_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_Probe_opts); ak_dec_Probe_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("body", (int)((byte*)&z->body - (byte*)z), Fsz(&z->body)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_Empty_opts", Size = sizeof(ak_dec_Empty_opts), Fields = typeof(ak_dec_Empty_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_Empty_opts); ak_dec_Empty_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_UploadResultData_opts", Size = sizeof(ak_dec_UploadResultData_opts), Fields = typeof(ak_dec_UploadResultData_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_UploadResultData_opts); ak_dec_UploadResultData_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_MetricsBatch_opts", Size = sizeof(ak_dec_MetricsBatch_opts), Fields = typeof(ak_dec_MetricsBatch_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_MetricsBatch_opts); ak_dec_MetricsBatch_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_Pair_opts", Size = sizeof(ak_dec_Pair_opts), Fields = typeof(ak_dec_Pair_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_Pair_opts); ak_dec_Pair_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_ListResultsResponse_opts", Size = sizeof(ak_dec_ListResultsResponse_opts), Fields = typeof(ak_dec_ListResultsResponse_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_ListResultsResponse_opts); ak_dec_ListResultsResponse_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("results", (int)((byte*)&z->results - (byte*)z), Fsz(&z->results)));
-            s.F.Add(("results_created_at", (int)((byte*)&z->results_created_at - (byte*)z), Fsz(&z->results_created_at)));
-            s.F.Add(("results_completed_at", (int)((byte*)&z->results_completed_at - (byte*)z), Fsz(&z->results_completed_at)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_ListTasksDetailedResponse_opts", Size = sizeof(ak_dec_ListTasksDetailedResponse_opts), Fields = typeof(ak_dec_ListTasksDetailedResponse_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_ListTasksDetailedResponse_opts); ak_dec_ListTasksDetailedResponse_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("tasks", (int)((byte*)&z->tasks - (byte*)z), Fsz(&z->tasks)));
-            s.F.Add(("tasks_options", (int)((byte*)&z->tasks_options - (byte*)z), Fsz(&z->tasks_options)));
-            s.F.Add(("tasks_options_options", (int)((byte*)&z->tasks_options_options - (byte*)z), Fsz(&z->tasks_options_options)));
-            s.F.Add(("tasks_options_max_duration", (int)((byte*)&z->tasks_options_max_duration - (byte*)z), Fsz(&z->tasks_options_max_duration)));
-            s.F.Add(("tasks_created_at", (int)((byte*)&z->tasks_created_at - (byte*)z), Fsz(&z->tasks_created_at)));
-            s.F.Add(("tasks_submitted_at", (int)((byte*)&z->tasks_submitted_at - (byte*)z), Fsz(&z->tasks_submitted_at)));
-            s.F.Add(("tasks_started_at", (int)((byte*)&z->tasks_started_at - (byte*)z), Fsz(&z->tasks_started_at)));
-            s.F.Add(("tasks_ended_at", (int)((byte*)&z->tasks_ended_at - (byte*)z), Fsz(&z->tasks_ended_at)));
-            s.F.Add(("tasks_pod_ttl", (int)((byte*)&z->tasks_pod_ttl - (byte*)z), Fsz(&z->tasks_pod_ttl)));
-            s.F.Add(("tasks_output", (int)((byte*)&z->tasks_output - (byte*)z), Fsz(&z->tasks_output)));
-            s.F.Add(("tasks_received_at", (int)((byte*)&z->tasks_received_at - (byte*)z), Fsz(&z->tasks_received_at)));
-            s.F.Add(("tasks_acquired_at", (int)((byte*)&z->tasks_acquired_at - (byte*)z), Fsz(&z->tasks_acquired_at)));
-            s.F.Add(("tasks_creation_to_end_duration", (int)((byte*)&z->tasks_creation_to_end_duration - (byte*)z), Fsz(&z->tasks_creation_to_end_duration)));
-            s.F.Add(("tasks_processing_to_end_duration", (int)((byte*)&z->tasks_processing_to_end_duration - (byte*)z), Fsz(&z->tasks_processing_to_end_duration)));
-            s.F.Add(("tasks_received_to_end_duration", (int)((byte*)&z->tasks_received_to_end_duration - (byte*)z), Fsz(&z->tasks_received_to_end_duration)));
-            s.F.Add(("tasks_processed_at", (int)((byte*)&z->tasks_processed_at - (byte*)z), Fsz(&z->tasks_processed_at)));
-            s.F.Add(("tasks_fetched_at", (int)((byte*)&z->tasks_fetched_at - (byte*)z), Fsz(&z->tasks_fetched_at)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_ListTaskSummaryResponse_opts", Size = sizeof(ak_dec_ListTaskSummaryResponse_opts), Fields = typeof(ak_dec_ListTaskSummaryResponse_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_ListTaskSummaryResponse_opts); ak_dec_ListTaskSummaryResponse_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("tasks", (int)((byte*)&z->tasks - (byte*)z), Fsz(&z->tasks)));
-            s.F.Add(("tasks_options", (int)((byte*)&z->tasks_options - (byte*)z), Fsz(&z->tasks_options)));
-            s.F.Add(("tasks_options_options", (int)((byte*)&z->tasks_options_options - (byte*)z), Fsz(&z->tasks_options_options)));
-            s.F.Add(("tasks_options_max_duration", (int)((byte*)&z->tasks_options_max_duration - (byte*)z), Fsz(&z->tasks_options_max_duration)));
-            s.F.Add(("tasks_created_at", (int)((byte*)&z->tasks_created_at - (byte*)z), Fsz(&z->tasks_created_at)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_ListProbeResponse_opts", Size = sizeof(ak_dec_ListProbeResponse_opts), Fields = typeof(ak_dec_ListProbeResponse_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_ListProbeResponse_opts); ak_dec_ListProbeResponse_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("probes", (int)((byte*)&z->probes - (byte*)z), Fsz(&z->probes)));
-            s.F.Add(("probes_body", (int)((byte*)&z->probes_body - (byte*)z), Fsz(&z->probes_body)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_ListMetricsResponse_opts", Size = sizeof(ak_dec_ListMetricsResponse_opts), Fields = typeof(ak_dec_ListMetricsResponse_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_ListMetricsResponse_opts); ak_dec_ListMetricsResponse_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("batches", (int)((byte*)&z->batches - (byte*)z), Fsz(&z->batches)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_UploadResultDataMessage_opts", Size = sizeof(ak_dec_UploadResultDataMessage_opts), Fields = typeof(ak_dec_UploadResultDataMessage_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_UploadResultDataMessage_opts); ak_dec_UploadResultDataMessage_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("upload", (int)((byte*)&z->upload - (byte*)z), Fsz(&z->upload)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_DualResponse_opts", Size = sizeof(ak_dec_DualResponse_opts), Fields = typeof(ak_dec_DualResponse_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_DualResponse_opts); ak_dec_DualResponse_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("left", (int)((byte*)&z->left - (byte*)z), Fsz(&z->left)));
-            s.F.Add(("right", (int)((byte*)&z->right - (byte*)z), Fsz(&z->right)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_ChunkLeaf_opts", Size = sizeof(ak_dec_ChunkLeaf_opts), Fields = typeof(ak_dec_ChunkLeaf_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_ChunkLeaf_opts); ak_dec_ChunkLeaf_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_ChunkInner_opts", Size = sizeof(ak_dec_ChunkInner_opts), Fields = typeof(ak_dec_ChunkInner_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_ChunkInner_opts); ak_dec_ChunkInner_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("leaves", (int)((byte*)&z->leaves - (byte*)z), Fsz(&z->leaves)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_ChunkElement_opts", Size = sizeof(ak_dec_ChunkElement_opts), Fields = typeof(ak_dec_ChunkElement_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_ChunkElement_opts); ak_dec_ChunkElement_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("attrs", (int)((byte*)&z->attrs - (byte*)z), Fsz(&z->attrs)));
-            s.F.Add(("inner", (int)((byte*)&z->inner - (byte*)z), Fsz(&z->inner)));
-            s.F.Add(("inner_leaves", (int)((byte*)&z->inner_leaves - (byte*)z), Fsz(&z->inner_leaves)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_ChunkedResponse_opts", Size = sizeof(ak_dec_ChunkedResponse_opts), Fields = typeof(ak_dec_ChunkedResponse_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_ChunkedResponse_opts); ak_dec_ChunkedResponse_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("items", (int)((byte*)&z->items - (byte*)z), Fsz(&z->items)));
-            s.F.Add(("items_attrs", (int)((byte*)&z->items_attrs - (byte*)z), Fsz(&z->items_attrs)));
-            s.F.Add(("items_inner", (int)((byte*)&z->items_inner - (byte*)z), Fsz(&z->items_inner)));
-            s.F.Add(("items_inner_leaves", (int)((byte*)&z->items_inner_leaves - (byte*)z), Fsz(&z->items_inner_leaves)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_ChunkedResponseWide_opts", Size = sizeof(ak_dec_ChunkedResponseWide_opts), Fields = typeof(ak_dec_ChunkedResponseWide_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_ChunkedResponseWide_opts); ak_dec_ChunkedResponseWide_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("items", (int)((byte*)&z->items - (byte*)z), Fsz(&z->items)));
-            s.F.Add(("items_attrs", (int)((byte*)&z->items_attrs - (byte*)z), Fsz(&z->items_attrs)));
-            s.F.Add(("items_inner", (int)((byte*)&z->items_inner - (byte*)z), Fsz(&z->items_inner)));
-            s.F.Add(("items_inner_leaves", (int)((byte*)&z->items_inner_leaves - (byte*)z), Fsz(&z->items_inner_leaves)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_LeafElement_opts", Size = sizeof(ak_dec_LeafElement_opts), Fields = typeof(ak_dec_LeafElement_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_LeafElement_opts); ak_dec_LeafElement_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("stamp", (int)((byte*)&z->stamp - (byte*)z), Fsz(&z->stamp)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_LeafResponse_opts", Size = sizeof(ak_dec_LeafResponse_opts), Fields = typeof(ak_dec_LeafResponse_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_LeafResponse_opts); ak_dec_LeafResponse_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("items", (int)((byte*)&z->items - (byte*)z), Fsz(&z->items)));
-            s.F.Add(("items_stamp", (int)((byte*)&z->items_stamp - (byte*)z), Fsz(&z->items_stamp)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_Surrogate_opts", Size = sizeof(ak_dec_Surrogate_opts), Fields = typeof(ak_dec_Surrogate_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_Surrogate_opts); ak_dec_Surrogate_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("nested", (int)((byte*)&z->nested - (byte*)z), Fsz(&z->nested)));
-            s.F.Add(("attrs", (int)((byte*)&z->attrs - (byte*)z), Fsz(&z->attrs)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_SurrogateInner_opts", Size = sizeof(ak_dec_SurrogateInner_opts), Fields = typeof(ak_dec_SurrogateInner_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_SurrogateInner_opts); ak_dec_SurrogateInner_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            all.Add(s);
-        }
-        {
-            var s = new S { Name = "ak_dec_WireZoo_opts", Size = sizeof(ak_dec_WireZoo_opts), Fields = typeof(ak_dec_WireZoo_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
-            var v = default(ak_dec_WireZoo_opts); ak_dec_WireZoo_opts* z = &v;
-            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
-            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
-            s.F.Add(("v_msg", (int)((byte*)&z->v_msg - (byte*)z), Fsz(&z->v_msg)));
-            all.Add(s);
-        }
         return all;
     }
 
@@ -5683,14 +3787,7 @@ public static unsafe class AbiLayout
         { var v = default(ak_dfix_TaskOptionsOptionsEntry); ak_dfix_TaskOptionsOptionsEntry* z = &v; mine.Add(("sizeof ak_dfix_TaskOptionsOptionsEntry", sizeof(ak_dfix_TaskOptionsOptionsEntry)));
           mine.Add(("ak_dfix_TaskOptionsOptionsEntry.key", (int)((byte*)&z->key - (byte*)z)));
           mine.Add(("ak_dfix_TaskOptionsOptionsEntry.value", (int)((byte*)&z->value - (byte*)z)));
-          mine.Add(("ak_dfix_TaskOptionsOptionsEntry.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_TaskOptionsOptionsEntry.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_TaskOptionsOptionsEntry); ak_ufix_TaskOptionsOptionsEntry* z = &v; mine.Add(("sizeof ak_ufix_TaskOptionsOptionsEntry", sizeof(ak_ufix_TaskOptionsOptionsEntry)));
-          mine.Add(("ak_ufix_TaskOptionsOptionsEntry.key", (int)((byte*)&z->key - (byte*)z)));
-          mine.Add(("ak_ufix_TaskOptionsOptionsEntry.value", (int)((byte*)&z->value - (byte*)z)));
-          mine.Add(("ak_ufix_TaskOptionsOptionsEntry.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_TaskOptionsOptionsEntry.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_ChunkElementAttrsEntry); ak_efix_ChunkElementAttrsEntry* z = &v; mine.Add(("sizeof ak_efix_ChunkElementAttrsEntry", sizeof(ak_efix_ChunkElementAttrsEntry)));
           mine.Add(("ak_efix_ChunkElementAttrsEntry.key", (int)((byte*)&z->key - (byte*)z)));
@@ -5700,14 +3797,7 @@ public static unsafe class AbiLayout
         { var v = default(ak_dfix_ChunkElementAttrsEntry); ak_dfix_ChunkElementAttrsEntry* z = &v; mine.Add(("sizeof ak_dfix_ChunkElementAttrsEntry", sizeof(ak_dfix_ChunkElementAttrsEntry)));
           mine.Add(("ak_dfix_ChunkElementAttrsEntry.key", (int)((byte*)&z->key - (byte*)z)));
           mine.Add(("ak_dfix_ChunkElementAttrsEntry.value", (int)((byte*)&z->value - (byte*)z)));
-          mine.Add(("ak_dfix_ChunkElementAttrsEntry.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_ChunkElementAttrsEntry.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_ChunkElementAttrsEntry); ak_ufix_ChunkElementAttrsEntry* z = &v; mine.Add(("sizeof ak_ufix_ChunkElementAttrsEntry", sizeof(ak_ufix_ChunkElementAttrsEntry)));
-          mine.Add(("ak_ufix_ChunkElementAttrsEntry.key", (int)((byte*)&z->key - (byte*)z)));
-          mine.Add(("ak_ufix_ChunkElementAttrsEntry.value", (int)((byte*)&z->value - (byte*)z)));
-          mine.Add(("ak_ufix_ChunkElementAttrsEntry.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_ChunkElementAttrsEntry.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_SurrogateAttrsEntry); ak_efix_SurrogateAttrsEntry* z = &v; mine.Add(("sizeof ak_efix_SurrogateAttrsEntry", sizeof(ak_efix_SurrogateAttrsEntry)));
           mine.Add(("ak_efix_SurrogateAttrsEntry.key", (int)((byte*)&z->key - (byte*)z)));
@@ -5717,14 +3807,7 @@ public static unsafe class AbiLayout
         { var v = default(ak_dfix_SurrogateAttrsEntry); ak_dfix_SurrogateAttrsEntry* z = &v; mine.Add(("sizeof ak_dfix_SurrogateAttrsEntry", sizeof(ak_dfix_SurrogateAttrsEntry)));
           mine.Add(("ak_dfix_SurrogateAttrsEntry.key", (int)((byte*)&z->key - (byte*)z)));
           mine.Add(("ak_dfix_SurrogateAttrsEntry.value", (int)((byte*)&z->value - (byte*)z)));
-          mine.Add(("ak_dfix_SurrogateAttrsEntry.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_SurrogateAttrsEntry.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_SurrogateAttrsEntry); ak_ufix_SurrogateAttrsEntry* z = &v; mine.Add(("sizeof ak_ufix_SurrogateAttrsEntry", sizeof(ak_ufix_SurrogateAttrsEntry)));
-          mine.Add(("ak_ufix_SurrogateAttrsEntry.key", (int)((byte*)&z->key - (byte*)z)));
-          mine.Add(("ak_ufix_SurrogateAttrsEntry.value", (int)((byte*)&z->value - (byte*)z)));
-          mine.Add(("ak_ufix_SurrogateAttrsEntry.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_SurrogateAttrsEntry.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_Timestamp); ak_efix_Timestamp* z = &v; mine.Add(("sizeof ak_efix_Timestamp", sizeof(ak_efix_Timestamp)));
           mine.Add(("ak_efix_Timestamp.seconds", (int)((byte*)&z->seconds - (byte*)z)));
@@ -5734,14 +3817,7 @@ public static unsafe class AbiLayout
         { var v = default(ak_dfix_Timestamp); ak_dfix_Timestamp* z = &v; mine.Add(("sizeof ak_dfix_Timestamp", sizeof(ak_dfix_Timestamp)));
           mine.Add(("ak_dfix_Timestamp.seconds", (int)((byte*)&z->seconds - (byte*)z)));
           mine.Add(("ak_dfix_Timestamp.nanos", (int)((byte*)&z->nanos - (byte*)z)));
-          mine.Add(("ak_dfix_Timestamp.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_Timestamp.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_Timestamp); ak_ufix_Timestamp* z = &v; mine.Add(("sizeof ak_ufix_Timestamp", sizeof(ak_ufix_Timestamp)));
-          mine.Add(("ak_ufix_Timestamp.seconds", (int)((byte*)&z->seconds - (byte*)z)));
-          mine.Add(("ak_ufix_Timestamp.nanos", (int)((byte*)&z->nanos - (byte*)z)));
-          mine.Add(("ak_ufix_Timestamp.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_Timestamp.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_Duration); ak_efix_Duration* z = &v; mine.Add(("sizeof ak_efix_Duration", sizeof(ak_efix_Duration)));
           mine.Add(("ak_efix_Duration.seconds", (int)((byte*)&z->seconds - (byte*)z)));
@@ -5751,14 +3827,7 @@ public static unsafe class AbiLayout
         { var v = default(ak_dfix_Duration); ak_dfix_Duration* z = &v; mine.Add(("sizeof ak_dfix_Duration", sizeof(ak_dfix_Duration)));
           mine.Add(("ak_dfix_Duration.seconds", (int)((byte*)&z->seconds - (byte*)z)));
           mine.Add(("ak_dfix_Duration.nanos", (int)((byte*)&z->nanos - (byte*)z)));
-          mine.Add(("ak_dfix_Duration.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_Duration.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_Duration); ak_ufix_Duration* z = &v; mine.Add(("sizeof ak_ufix_Duration", sizeof(ak_ufix_Duration)));
-          mine.Add(("ak_ufix_Duration.seconds", (int)((byte*)&z->seconds - (byte*)z)));
-          mine.Add(("ak_ufix_Duration.nanos", (int)((byte*)&z->nanos - (byte*)z)));
-          mine.Add(("ak_ufix_Duration.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_Duration.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_ResultRaw); ak_efix_ResultRaw* z = &v; mine.Add(("sizeof ak_efix_ResultRaw", sizeof(ak_efix_ResultRaw)));
           mine.Add(("ak_efix_ResultRaw.session_id", (int)((byte*)&z->session_id - (byte*)z)));
@@ -5786,23 +3855,7 @@ public static unsafe class AbiLayout
           mine.Add(("ak_dfix_ResultRaw.created_by", (int)((byte*)&z->created_by - (byte*)z)));
           mine.Add(("ak_dfix_ResultRaw.opaque_id", (int)((byte*)&z->opaque_id - (byte*)z)));
           mine.Add(("ak_dfix_ResultRaw.manual_deletion", (int)((byte*)&z->manual_deletion - (byte*)z)));
-          mine.Add(("ak_dfix_ResultRaw.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_ResultRaw.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_ResultRaw); ak_ufix_ResultRaw* z = &v; mine.Add(("sizeof ak_ufix_ResultRaw", sizeof(ak_ufix_ResultRaw)));
-          mine.Add(("ak_ufix_ResultRaw.session_id", (int)((byte*)&z->session_id - (byte*)z)));
-          mine.Add(("ak_ufix_ResultRaw.name", (int)((byte*)&z->name - (byte*)z)));
-          mine.Add(("ak_ufix_ResultRaw.owner_task_id", (int)((byte*)&z->owner_task_id - (byte*)z)));
-          mine.Add(("ak_ufix_ResultRaw.status", (int)((byte*)&z->status - (byte*)z)));
-          mine.Add(("ak_ufix_ResultRaw.created_at", (int)((byte*)&z->created_at - (byte*)z)));
-          mine.Add(("ak_ufix_ResultRaw.completed_at", (int)((byte*)&z->completed_at - (byte*)z)));
-          mine.Add(("ak_ufix_ResultRaw.result_id", (int)((byte*)&z->result_id - (byte*)z)));
-          mine.Add(("ak_ufix_ResultRaw.size", (int)((byte*)&z->size - (byte*)z)));
-          mine.Add(("ak_ufix_ResultRaw.created_by", (int)((byte*)&z->created_by - (byte*)z)));
-          mine.Add(("ak_ufix_ResultRaw.opaque_id", (int)((byte*)&z->opaque_id - (byte*)z)));
-          mine.Add(("ak_ufix_ResultRaw.manual_deletion", (int)((byte*)&z->manual_deletion - (byte*)z)));
-          mine.Add(("ak_ufix_ResultRaw.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_ResultRaw.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_TaskOptions); ak_efix_TaskOptions* z = &v; mine.Add(("sizeof ak_efix_TaskOptions", sizeof(ak_efix_TaskOptions)));
           mine.Add(("ak_efix_TaskOptions.max_duration", (int)((byte*)&z->max_duration - (byte*)z)));
@@ -5826,21 +3879,7 @@ public static unsafe class AbiLayout
           mine.Add(("ak_dfix_TaskOptions.application_namespace", (int)((byte*)&z->application_namespace - (byte*)z)));
           mine.Add(("ak_dfix_TaskOptions.application_service", (int)((byte*)&z->application_service - (byte*)z)));
           mine.Add(("ak_dfix_TaskOptions.engine_type", (int)((byte*)&z->engine_type - (byte*)z)));
-          mine.Add(("ak_dfix_TaskOptions.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_TaskOptions.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_TaskOptions); ak_ufix_TaskOptions* z = &v; mine.Add(("sizeof ak_ufix_TaskOptions", sizeof(ak_ufix_TaskOptions)));
-          mine.Add(("ak_ufix_TaskOptions.max_duration", (int)((byte*)&z->max_duration - (byte*)z)));
-          mine.Add(("ak_ufix_TaskOptions.max_retries", (int)((byte*)&z->max_retries - (byte*)z)));
-          mine.Add(("ak_ufix_TaskOptions.priority", (int)((byte*)&z->priority - (byte*)z)));
-          mine.Add(("ak_ufix_TaskOptions.partition_id", (int)((byte*)&z->partition_id - (byte*)z)));
-          mine.Add(("ak_ufix_TaskOptions.application_name", (int)((byte*)&z->application_name - (byte*)z)));
-          mine.Add(("ak_ufix_TaskOptions.application_version", (int)((byte*)&z->application_version - (byte*)z)));
-          mine.Add(("ak_ufix_TaskOptions.application_namespace", (int)((byte*)&z->application_namespace - (byte*)z)));
-          mine.Add(("ak_ufix_TaskOptions.application_service", (int)((byte*)&z->application_service - (byte*)z)));
-          mine.Add(("ak_ufix_TaskOptions.engine_type", (int)((byte*)&z->engine_type - (byte*)z)));
-          mine.Add(("ak_ufix_TaskOptions.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_TaskOptions.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_TaskOutput); ak_efix_TaskOutput* z = &v; mine.Add(("sizeof ak_efix_TaskOutput", sizeof(ak_efix_TaskOutput)));
           mine.Add(("ak_efix_TaskOutput.success", (int)((byte*)&z->success - (byte*)z)));
@@ -5850,14 +3889,7 @@ public static unsafe class AbiLayout
         { var v = default(ak_dfix_TaskOutput); ak_dfix_TaskOutput* z = &v; mine.Add(("sizeof ak_dfix_TaskOutput", sizeof(ak_dfix_TaskOutput)));
           mine.Add(("ak_dfix_TaskOutput.success", (int)((byte*)&z->success - (byte*)z)));
           mine.Add(("ak_dfix_TaskOutput.error", (int)((byte*)&z->error - (byte*)z)));
-          mine.Add(("ak_dfix_TaskOutput.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_TaskOutput.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_TaskOutput); ak_ufix_TaskOutput* z = &v; mine.Add(("sizeof ak_ufix_TaskOutput", sizeof(ak_ufix_TaskOutput)));
-          mine.Add(("ak_ufix_TaskOutput.success", (int)((byte*)&z->success - (byte*)z)));
-          mine.Add(("ak_ufix_TaskOutput.error", (int)((byte*)&z->error - (byte*)z)));
-          mine.Add(("ak_ufix_TaskOutput.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_TaskOutput.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_TaskDetailed); ak_efix_TaskDetailed* z = &v; mine.Add(("sizeof ak_efix_TaskDetailed", sizeof(ak_efix_TaskDetailed)));
           mine.Add(("ak_efix_TaskDetailed.id", (int)((byte*)&z->id - (byte*)z)));
@@ -5909,35 +3941,7 @@ public static unsafe class AbiLayout
           mine.Add(("ak_dfix_TaskDetailed.fetched_at", (int)((byte*)&z->fetched_at - (byte*)z)));
           mine.Add(("ak_dfix_TaskDetailed.payload_id", (int)((byte*)&z->payload_id - (byte*)z)));
           mine.Add(("ak_dfix_TaskDetailed.created_by", (int)((byte*)&z->created_by - (byte*)z)));
-          mine.Add(("ak_dfix_TaskDetailed.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_TaskDetailed.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_TaskDetailed); ak_ufix_TaskDetailed* z = &v; mine.Add(("sizeof ak_ufix_TaskDetailed", sizeof(ak_ufix_TaskDetailed)));
-          mine.Add(("ak_ufix_TaskDetailed.id", (int)((byte*)&z->id - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.session_id", (int)((byte*)&z->session_id - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.owner_pod_id", (int)((byte*)&z->owner_pod_id - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.status", (int)((byte*)&z->status - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.status_message", (int)((byte*)&z->status_message - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.options", (int)((byte*)&z->options - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.created_at", (int)((byte*)&z->created_at - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.submitted_at", (int)((byte*)&z->submitted_at - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.started_at", (int)((byte*)&z->started_at - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.ended_at", (int)((byte*)&z->ended_at - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.pod_ttl", (int)((byte*)&z->pod_ttl - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.output", (int)((byte*)&z->output - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.pod_hostname", (int)((byte*)&z->pod_hostname - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.received_at", (int)((byte*)&z->received_at - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.acquired_at", (int)((byte*)&z->acquired_at - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.creation_to_end_duration", (int)((byte*)&z->creation_to_end_duration - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.processing_to_end_duration", (int)((byte*)&z->processing_to_end_duration - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.initial_task_id", (int)((byte*)&z->initial_task_id - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.received_to_end_duration", (int)((byte*)&z->received_to_end_duration - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.processed_at", (int)((byte*)&z->processed_at - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.fetched_at", (int)((byte*)&z->fetched_at - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.payload_id", (int)((byte*)&z->payload_id - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.created_by", (int)((byte*)&z->created_by - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_TaskDetailed.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_TaskSummary); ak_efix_TaskSummary* z = &v; mine.Add(("sizeof ak_efix_TaskSummary", sizeof(ak_efix_TaskSummary)));
           mine.Add(("ak_efix_TaskSummary.id", (int)((byte*)&z->id - (byte*)z)));
@@ -5959,31 +3963,13 @@ public static unsafe class AbiLayout
           mine.Add(("ak_dfix_TaskSummary.error", (int)((byte*)&z->error - (byte*)z)));
           mine.Add(("ak_dfix_TaskSummary.status_message", (int)((byte*)&z->status_message - (byte*)z)));
           mine.Add(("ak_dfix_TaskSummary.count_data_dependencies", (int)((byte*)&z->count_data_dependencies - (byte*)z)));
-          mine.Add(("ak_dfix_TaskSummary.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_TaskSummary.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_TaskSummary); ak_ufix_TaskSummary* z = &v; mine.Add(("sizeof ak_ufix_TaskSummary", sizeof(ak_ufix_TaskSummary)));
-          mine.Add(("ak_ufix_TaskSummary.id", (int)((byte*)&z->id - (byte*)z)));
-          mine.Add(("ak_ufix_TaskSummary.session_id", (int)((byte*)&z->session_id - (byte*)z)));
-          mine.Add(("ak_ufix_TaskSummary.options", (int)((byte*)&z->options - (byte*)z)));
-          mine.Add(("ak_ufix_TaskSummary.status", (int)((byte*)&z->status - (byte*)z)));
-          mine.Add(("ak_ufix_TaskSummary.created_at", (int)((byte*)&z->created_at - (byte*)z)));
-          mine.Add(("ak_ufix_TaskSummary.error", (int)((byte*)&z->error - (byte*)z)));
-          mine.Add(("ak_ufix_TaskSummary.status_message", (int)((byte*)&z->status_message - (byte*)z)));
-          mine.Add(("ak_ufix_TaskSummary.count_data_dependencies", (int)((byte*)&z->count_data_dependencies - (byte*)z)));
-          mine.Add(("ak_ufix_TaskSummary.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_TaskSummary.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_Empty); ak_efix_Empty* z = &v; mine.Add(("sizeof ak_efix_Empty", sizeof(ak_efix_Empty)));
           mine.Add(("ak_efix_Empty.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_dfix_Empty); ak_dfix_Empty* z = &v; mine.Add(("sizeof ak_dfix_Empty", sizeof(ak_dfix_Empty)));
-          mine.Add(("ak_dfix_Empty.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_Empty.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_Empty); ak_ufix_Empty* z = &v; mine.Add(("sizeof ak_ufix_Empty", sizeof(ak_ufix_Empty)));
-          mine.Add(("ak_ufix_Empty.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_Empty.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_Probe); ak_efix_Probe* z = &v; mine.Add(("sizeof ak_efix_Probe", sizeof(ak_efix_Probe)));
           mine.Add(("ak_efix_Probe.id", (int)((byte*)&z->id - (byte*)z)));
@@ -6009,22 +3995,7 @@ public static unsafe class AbiLayout
           mine.Add(("ak_dfix_Probe.body_as_blob", (int)((byte*)&z->body_as_blob - (byte*)z)));
           mine.Add(("ak_dfix_Probe.body_as_stamp", (int)((byte*)&z->body_as_stamp - (byte*)z)));
           mine.Add(("ak_dfix_Probe.body_as_nothing", (int)((byte*)&z->body_as_nothing - (byte*)z)));
-          mine.Add(("ak_dfix_Probe.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_Probe.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_Probe); ak_ufix_Probe* z = &v; mine.Add(("sizeof ak_ufix_Probe", sizeof(ak_ufix_Probe)));
-          mine.Add(("ak_ufix_Probe.id", (int)((byte*)&z->id - (byte*)z)));
-          mine.Add(("ak_ufix_Probe.opt_count", (int)((byte*)&z->opt_count - (byte*)z)));
-          mine.Add(("ak_ufix_Probe.opt_label", (int)((byte*)&z->opt_label - (byte*)z)));
-          mine.Add(("ak_ufix_Probe.opt_flag", (int)((byte*)&z->opt_flag - (byte*)z)));
-          mine.Add(("ak_ufix_Probe.body_case", (int)((byte*)&z->body_case - (byte*)z)));
-          mine.Add(("ak_ufix_Probe.body_as_int", (int)((byte*)&z->body_as_int - (byte*)z)));
-          mine.Add(("ak_ufix_Probe.body_as_text", (int)((byte*)&z->body_as_text - (byte*)z)));
-          mine.Add(("ak_ufix_Probe.body_as_blob", (int)((byte*)&z->body_as_blob - (byte*)z)));
-          mine.Add(("ak_ufix_Probe.body_as_stamp", (int)((byte*)&z->body_as_stamp - (byte*)z)));
-          mine.Add(("ak_ufix_Probe.body_as_nothing", (int)((byte*)&z->body_as_nothing - (byte*)z)));
-          mine.Add(("ak_ufix_Probe.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_Probe.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_UploadResultData); ak_efix_UploadResultData* z = &v; mine.Add(("sizeof ak_efix_UploadResultData", sizeof(ak_efix_UploadResultData)));
           mine.Add(("ak_efix_UploadResultData.session_id", (int)((byte*)&z->session_id - (byte*)z)));
@@ -6036,15 +4007,7 @@ public static unsafe class AbiLayout
           mine.Add(("ak_dfix_UploadResultData.session_id", (int)((byte*)&z->session_id - (byte*)z)));
           mine.Add(("ak_dfix_UploadResultData.result_id", (int)((byte*)&z->result_id - (byte*)z)));
           mine.Add(("ak_dfix_UploadResultData.data_chunk", (int)((byte*)&z->data_chunk - (byte*)z)));
-          mine.Add(("ak_dfix_UploadResultData.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_UploadResultData.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_UploadResultData); ak_ufix_UploadResultData* z = &v; mine.Add(("sizeof ak_ufix_UploadResultData", sizeof(ak_ufix_UploadResultData)));
-          mine.Add(("ak_ufix_UploadResultData.session_id", (int)((byte*)&z->session_id - (byte*)z)));
-          mine.Add(("ak_ufix_UploadResultData.result_id", (int)((byte*)&z->result_id - (byte*)z)));
-          mine.Add(("ak_ufix_UploadResultData.data_chunk", (int)((byte*)&z->data_chunk - (byte*)z)));
-          mine.Add(("ak_ufix_UploadResultData.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_UploadResultData.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_MetricsBatch); ak_efix_MetricsBatch* z = &v; mine.Add(("sizeof ak_efix_MetricsBatch", sizeof(ak_efix_MetricsBatch)));
           mine.Add(("ak_efix_MetricsBatch.id", (int)((byte*)&z->id - (byte*)z)));
@@ -6052,13 +4015,7 @@ public static unsafe class AbiLayout
         }
         { var v = default(ak_dfix_MetricsBatch); ak_dfix_MetricsBatch* z = &v; mine.Add(("sizeof ak_dfix_MetricsBatch", sizeof(ak_dfix_MetricsBatch)));
           mine.Add(("ak_dfix_MetricsBatch.id", (int)((byte*)&z->id - (byte*)z)));
-          mine.Add(("ak_dfix_MetricsBatch.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_MetricsBatch.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_MetricsBatch); ak_ufix_MetricsBatch* z = &v; mine.Add(("sizeof ak_ufix_MetricsBatch", sizeof(ak_ufix_MetricsBatch)));
-          mine.Add(("ak_ufix_MetricsBatch.id", (int)((byte*)&z->id - (byte*)z)));
-          mine.Add(("ak_ufix_MetricsBatch.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_MetricsBatch.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_Pair); ak_efix_Pair* z = &v; mine.Add(("sizeof ak_efix_Pair", sizeof(ak_efix_Pair)));
           mine.Add(("ak_efix_Pair.key", (int)((byte*)&z->key - (byte*)z)));
@@ -6068,14 +4025,7 @@ public static unsafe class AbiLayout
         { var v = default(ak_dfix_Pair); ak_dfix_Pair* z = &v; mine.Add(("sizeof ak_dfix_Pair", sizeof(ak_dfix_Pair)));
           mine.Add(("ak_dfix_Pair.key", (int)((byte*)&z->key - (byte*)z)));
           mine.Add(("ak_dfix_Pair.value", (int)((byte*)&z->value - (byte*)z)));
-          mine.Add(("ak_dfix_Pair.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_Pair.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_Pair); ak_ufix_Pair* z = &v; mine.Add(("sizeof ak_ufix_Pair", sizeof(ak_ufix_Pair)));
-          mine.Add(("ak_ufix_Pair.key", (int)((byte*)&z->key - (byte*)z)));
-          mine.Add(("ak_ufix_Pair.value", (int)((byte*)&z->value - (byte*)z)));
-          mine.Add(("ak_ufix_Pair.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_Pair.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_ListResultsResponse); ak_efix_ListResultsResponse* z = &v; mine.Add(("sizeof ak_efix_ListResultsResponse", sizeof(ak_efix_ListResultsResponse)));
           mine.Add(("ak_efix_ListResultsResponse.page", (int)((byte*)&z->page - (byte*)z)));
@@ -6085,14 +4035,7 @@ public static unsafe class AbiLayout
         { var v = default(ak_dfix_ListResultsResponse); ak_dfix_ListResultsResponse* z = &v; mine.Add(("sizeof ak_dfix_ListResultsResponse", sizeof(ak_dfix_ListResultsResponse)));
           mine.Add(("ak_dfix_ListResultsResponse.page", (int)((byte*)&z->page - (byte*)z)));
           mine.Add(("ak_dfix_ListResultsResponse.total", (int)((byte*)&z->total - (byte*)z)));
-          mine.Add(("ak_dfix_ListResultsResponse.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_ListResultsResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_ListResultsResponse); ak_ufix_ListResultsResponse* z = &v; mine.Add(("sizeof ak_ufix_ListResultsResponse", sizeof(ak_ufix_ListResultsResponse)));
-          mine.Add(("ak_ufix_ListResultsResponse.page", (int)((byte*)&z->page - (byte*)z)));
-          mine.Add(("ak_ufix_ListResultsResponse.total", (int)((byte*)&z->total - (byte*)z)));
-          mine.Add(("ak_ufix_ListResultsResponse.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_ListResultsResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_ListTasksDetailedResponse); ak_efix_ListTasksDetailedResponse* z = &v; mine.Add(("sizeof ak_efix_ListTasksDetailedResponse", sizeof(ak_efix_ListTasksDetailedResponse)));
           mine.Add(("ak_efix_ListTasksDetailedResponse.page", (int)((byte*)&z->page - (byte*)z)));
@@ -6102,47 +4045,25 @@ public static unsafe class AbiLayout
         { var v = default(ak_dfix_ListTasksDetailedResponse); ak_dfix_ListTasksDetailedResponse* z = &v; mine.Add(("sizeof ak_dfix_ListTasksDetailedResponse", sizeof(ak_dfix_ListTasksDetailedResponse)));
           mine.Add(("ak_dfix_ListTasksDetailedResponse.page", (int)((byte*)&z->page - (byte*)z)));
           mine.Add(("ak_dfix_ListTasksDetailedResponse.total", (int)((byte*)&z->total - (byte*)z)));
-          mine.Add(("ak_dfix_ListTasksDetailedResponse.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_ListTasksDetailedResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_ListTasksDetailedResponse); ak_ufix_ListTasksDetailedResponse* z = &v; mine.Add(("sizeof ak_ufix_ListTasksDetailedResponse", sizeof(ak_ufix_ListTasksDetailedResponse)));
-          mine.Add(("ak_ufix_ListTasksDetailedResponse.page", (int)((byte*)&z->page - (byte*)z)));
-          mine.Add(("ak_ufix_ListTasksDetailedResponse.total", (int)((byte*)&z->total - (byte*)z)));
-          mine.Add(("ak_ufix_ListTasksDetailedResponse.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_ListTasksDetailedResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_ListTaskSummaryResponse); ak_efix_ListTaskSummaryResponse* z = &v; mine.Add(("sizeof ak_efix_ListTaskSummaryResponse", sizeof(ak_efix_ListTaskSummaryResponse)));
           mine.Add(("ak_efix_ListTaskSummaryResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_dfix_ListTaskSummaryResponse); ak_dfix_ListTaskSummaryResponse* z = &v; mine.Add(("sizeof ak_dfix_ListTaskSummaryResponse", sizeof(ak_dfix_ListTaskSummaryResponse)));
-          mine.Add(("ak_dfix_ListTaskSummaryResponse.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_ListTaskSummaryResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_ListTaskSummaryResponse); ak_ufix_ListTaskSummaryResponse* z = &v; mine.Add(("sizeof ak_ufix_ListTaskSummaryResponse", sizeof(ak_ufix_ListTaskSummaryResponse)));
-          mine.Add(("ak_ufix_ListTaskSummaryResponse.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_ListTaskSummaryResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_ListProbeResponse); ak_efix_ListProbeResponse* z = &v; mine.Add(("sizeof ak_efix_ListProbeResponse", sizeof(ak_efix_ListProbeResponse)));
           mine.Add(("ak_efix_ListProbeResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_dfix_ListProbeResponse); ak_dfix_ListProbeResponse* z = &v; mine.Add(("sizeof ak_dfix_ListProbeResponse", sizeof(ak_dfix_ListProbeResponse)));
-          mine.Add(("ak_dfix_ListProbeResponse.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_ListProbeResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_ListProbeResponse); ak_ufix_ListProbeResponse* z = &v; mine.Add(("sizeof ak_ufix_ListProbeResponse", sizeof(ak_ufix_ListProbeResponse)));
-          mine.Add(("ak_ufix_ListProbeResponse.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_ListProbeResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_ListMetricsResponse); ak_efix_ListMetricsResponse* z = &v; mine.Add(("sizeof ak_efix_ListMetricsResponse", sizeof(ak_efix_ListMetricsResponse)));
           mine.Add(("ak_efix_ListMetricsResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_dfix_ListMetricsResponse); ak_dfix_ListMetricsResponse* z = &v; mine.Add(("sizeof ak_dfix_ListMetricsResponse", sizeof(ak_dfix_ListMetricsResponse)));
-          mine.Add(("ak_dfix_ListMetricsResponse.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_ListMetricsResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_ListMetricsResponse); ak_ufix_ListMetricsResponse* z = &v; mine.Add(("sizeof ak_ufix_ListMetricsResponse", sizeof(ak_ufix_ListMetricsResponse)));
-          mine.Add(("ak_ufix_ListMetricsResponse.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_ListMetricsResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_UploadResultDataMessage); ak_efix_UploadResultDataMessage* z = &v; mine.Add(("sizeof ak_efix_UploadResultDataMessage", sizeof(ak_efix_UploadResultDataMessage)));
           mine.Add(("ak_efix_UploadResultDataMessage.upload", (int)((byte*)&z->upload - (byte*)z)));
@@ -6150,24 +4071,13 @@ public static unsafe class AbiLayout
         }
         { var v = default(ak_dfix_UploadResultDataMessage); ak_dfix_UploadResultDataMessage* z = &v; mine.Add(("sizeof ak_dfix_UploadResultDataMessage", sizeof(ak_dfix_UploadResultDataMessage)));
           mine.Add(("ak_dfix_UploadResultDataMessage.upload", (int)((byte*)&z->upload - (byte*)z)));
-          mine.Add(("ak_dfix_UploadResultDataMessage.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_UploadResultDataMessage.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_UploadResultDataMessage); ak_ufix_UploadResultDataMessage* z = &v; mine.Add(("sizeof ak_ufix_UploadResultDataMessage", sizeof(ak_ufix_UploadResultDataMessage)));
-          mine.Add(("ak_ufix_UploadResultDataMessage.upload", (int)((byte*)&z->upload - (byte*)z)));
-          mine.Add(("ak_ufix_UploadResultDataMessage.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_UploadResultDataMessage.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_DualResponse); ak_efix_DualResponse* z = &v; mine.Add(("sizeof ak_efix_DualResponse", sizeof(ak_efix_DualResponse)));
           mine.Add(("ak_efix_DualResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_dfix_DualResponse); ak_dfix_DualResponse* z = &v; mine.Add(("sizeof ak_dfix_DualResponse", sizeof(ak_dfix_DualResponse)));
-          mine.Add(("ak_dfix_DualResponse.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_DualResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_DualResponse); ak_ufix_DualResponse* z = &v; mine.Add(("sizeof ak_ufix_DualResponse", sizeof(ak_ufix_DualResponse)));
-          mine.Add(("ak_ufix_DualResponse.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_DualResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_ChunkLeaf); ak_efix_ChunkLeaf* z = &v; mine.Add(("sizeof ak_efix_ChunkLeaf", sizeof(ak_efix_ChunkLeaf)));
           mine.Add(("ak_efix_ChunkLeaf.k", (int)((byte*)&z->k - (byte*)z)));
@@ -6177,25 +4087,13 @@ public static unsafe class AbiLayout
         { var v = default(ak_dfix_ChunkLeaf); ak_dfix_ChunkLeaf* z = &v; mine.Add(("sizeof ak_dfix_ChunkLeaf", sizeof(ak_dfix_ChunkLeaf)));
           mine.Add(("ak_dfix_ChunkLeaf.k", (int)((byte*)&z->k - (byte*)z)));
           mine.Add(("ak_dfix_ChunkLeaf.v", (int)((byte*)&z->v - (byte*)z)));
-          mine.Add(("ak_dfix_ChunkLeaf.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_ChunkLeaf.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_ChunkLeaf); ak_ufix_ChunkLeaf* z = &v; mine.Add(("sizeof ak_ufix_ChunkLeaf", sizeof(ak_ufix_ChunkLeaf)));
-          mine.Add(("ak_ufix_ChunkLeaf.k", (int)((byte*)&z->k - (byte*)z)));
-          mine.Add(("ak_ufix_ChunkLeaf.v", (int)((byte*)&z->v - (byte*)z)));
-          mine.Add(("ak_ufix_ChunkLeaf.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_ChunkLeaf.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_ChunkInner); ak_efix_ChunkInner* z = &v; mine.Add(("sizeof ak_efix_ChunkInner", sizeof(ak_efix_ChunkInner)));
           mine.Add(("ak_efix_ChunkInner.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_dfix_ChunkInner); ak_dfix_ChunkInner* z = &v; mine.Add(("sizeof ak_dfix_ChunkInner", sizeof(ak_dfix_ChunkInner)));
-          mine.Add(("ak_dfix_ChunkInner.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_ChunkInner.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_ChunkInner); ak_ufix_ChunkInner* z = &v; mine.Add(("sizeof ak_ufix_ChunkInner", sizeof(ak_ufix_ChunkInner)));
-          mine.Add(("ak_ufix_ChunkInner.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_ChunkInner.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_ChunkElement); ak_efix_ChunkElement* z = &v; mine.Add(("sizeof ak_efix_ChunkElement", sizeof(ak_efix_ChunkElement)));
           mine.Add(("ak_efix_ChunkElement.id", (int)((byte*)&z->id - (byte*)z)));
@@ -6205,14 +4103,7 @@ public static unsafe class AbiLayout
         { var v = default(ak_dfix_ChunkElement); ak_dfix_ChunkElement* z = &v; mine.Add(("sizeof ak_dfix_ChunkElement", sizeof(ak_dfix_ChunkElement)));
           mine.Add(("ak_dfix_ChunkElement.id", (int)((byte*)&z->id - (byte*)z)));
           mine.Add(("ak_dfix_ChunkElement.inner", (int)((byte*)&z->inner - (byte*)z)));
-          mine.Add(("ak_dfix_ChunkElement.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_ChunkElement.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_ChunkElement); ak_ufix_ChunkElement* z = &v; mine.Add(("sizeof ak_ufix_ChunkElement", sizeof(ak_ufix_ChunkElement)));
-          mine.Add(("ak_ufix_ChunkElement.id", (int)((byte*)&z->id - (byte*)z)));
-          mine.Add(("ak_ufix_ChunkElement.inner", (int)((byte*)&z->inner - (byte*)z)));
-          mine.Add(("ak_ufix_ChunkElement.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_ChunkElement.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_ChunkedResponse); ak_efix_ChunkedResponse* z = &v; mine.Add(("sizeof ak_efix_ChunkedResponse", sizeof(ak_efix_ChunkedResponse)));
           mine.Add(("ak_efix_ChunkedResponse.page", (int)((byte*)&z->page - (byte*)z)));
@@ -6220,24 +4111,13 @@ public static unsafe class AbiLayout
         }
         { var v = default(ak_dfix_ChunkedResponse); ak_dfix_ChunkedResponse* z = &v; mine.Add(("sizeof ak_dfix_ChunkedResponse", sizeof(ak_dfix_ChunkedResponse)));
           mine.Add(("ak_dfix_ChunkedResponse.page", (int)((byte*)&z->page - (byte*)z)));
-          mine.Add(("ak_dfix_ChunkedResponse.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_ChunkedResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_ChunkedResponse); ak_ufix_ChunkedResponse* z = &v; mine.Add(("sizeof ak_ufix_ChunkedResponse", sizeof(ak_ufix_ChunkedResponse)));
-          mine.Add(("ak_ufix_ChunkedResponse.page", (int)((byte*)&z->page - (byte*)z)));
-          mine.Add(("ak_ufix_ChunkedResponse.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_ChunkedResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_ChunkedResponseWide); ak_efix_ChunkedResponseWide* z = &v; mine.Add(("sizeof ak_efix_ChunkedResponseWide", sizeof(ak_efix_ChunkedResponseWide)));
           mine.Add(("ak_efix_ChunkedResponseWide.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_dfix_ChunkedResponseWide); ak_dfix_ChunkedResponseWide* z = &v; mine.Add(("sizeof ak_dfix_ChunkedResponseWide", sizeof(ak_dfix_ChunkedResponseWide)));
-          mine.Add(("ak_dfix_ChunkedResponseWide.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_ChunkedResponseWide.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_ChunkedResponseWide); ak_ufix_ChunkedResponseWide* z = &v; mine.Add(("sizeof ak_ufix_ChunkedResponseWide", sizeof(ak_ufix_ChunkedResponseWide)));
-          mine.Add(("ak_ufix_ChunkedResponseWide.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_ChunkedResponseWide.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_LeafElement); ak_efix_LeafElement* z = &v; mine.Add(("sizeof ak_efix_LeafElement", sizeof(ak_efix_LeafElement)));
           mine.Add(("ak_efix_LeafElement.id", (int)((byte*)&z->id - (byte*)z)));
@@ -6249,26 +4129,13 @@ public static unsafe class AbiLayout
           mine.Add(("ak_dfix_LeafElement.id", (int)((byte*)&z->id - (byte*)z)));
           mine.Add(("ak_dfix_LeafElement.n", (int)((byte*)&z->n - (byte*)z)));
           mine.Add(("ak_dfix_LeafElement.stamp", (int)((byte*)&z->stamp - (byte*)z)));
-          mine.Add(("ak_dfix_LeafElement.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_LeafElement.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_LeafElement); ak_ufix_LeafElement* z = &v; mine.Add(("sizeof ak_ufix_LeafElement", sizeof(ak_ufix_LeafElement)));
-          mine.Add(("ak_ufix_LeafElement.id", (int)((byte*)&z->id - (byte*)z)));
-          mine.Add(("ak_ufix_LeafElement.n", (int)((byte*)&z->n - (byte*)z)));
-          mine.Add(("ak_ufix_LeafElement.stamp", (int)((byte*)&z->stamp - (byte*)z)));
-          mine.Add(("ak_ufix_LeafElement.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_LeafElement.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_LeafResponse); ak_efix_LeafResponse* z = &v; mine.Add(("sizeof ak_efix_LeafResponse", sizeof(ak_efix_LeafResponse)));
           mine.Add(("ak_efix_LeafResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_dfix_LeafResponse); ak_dfix_LeafResponse* z = &v; mine.Add(("sizeof ak_dfix_LeafResponse", sizeof(ak_dfix_LeafResponse)));
-          mine.Add(("ak_dfix_LeafResponse.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_LeafResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_LeafResponse); ak_ufix_LeafResponse* z = &v; mine.Add(("sizeof ak_ufix_LeafResponse", sizeof(ak_ufix_LeafResponse)));
-          mine.Add(("ak_ufix_LeafResponse.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_LeafResponse.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_SurrogateInner); ak_efix_SurrogateInner* z = &v; mine.Add(("sizeof ak_efix_SurrogateInner", sizeof(ak_efix_SurrogateInner)));
           mine.Add(("ak_efix_SurrogateInner.text", (int)((byte*)&z->text - (byte*)z)));
@@ -6276,13 +4143,7 @@ public static unsafe class AbiLayout
         }
         { var v = default(ak_dfix_SurrogateInner); ak_dfix_SurrogateInner* z = &v; mine.Add(("sizeof ak_dfix_SurrogateInner", sizeof(ak_dfix_SurrogateInner)));
           mine.Add(("ak_dfix_SurrogateInner.text", (int)((byte*)&z->text - (byte*)z)));
-          mine.Add(("ak_dfix_SurrogateInner.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_SurrogateInner.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_SurrogateInner); ak_ufix_SurrogateInner* z = &v; mine.Add(("sizeof ak_ufix_SurrogateInner", sizeof(ak_ufix_SurrogateInner)));
-          mine.Add(("ak_ufix_SurrogateInner.text", (int)((byte*)&z->text - (byte*)z)));
-          mine.Add(("ak_ufix_SurrogateInner.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_SurrogateInner.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_Surrogate); ak_efix_Surrogate* z = &v; mine.Add(("sizeof ak_efix_Surrogate", sizeof(ak_efix_Surrogate)));
           mine.Add(("ak_efix_Surrogate.text", (int)((byte*)&z->text - (byte*)z)));
@@ -6294,15 +4155,7 @@ public static unsafe class AbiLayout
           mine.Add(("ak_dfix_Surrogate.text", (int)((byte*)&z->text - (byte*)z)));
           mine.Add(("ak_dfix_Surrogate.nested", (int)((byte*)&z->nested - (byte*)z)));
           mine.Add(("ak_dfix_Surrogate.raw", (int)((byte*)&z->raw - (byte*)z)));
-          mine.Add(("ak_dfix_Surrogate.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_Surrogate.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        { var v = default(ak_ufix_Surrogate); ak_ufix_Surrogate* z = &v; mine.Add(("sizeof ak_ufix_Surrogate", sizeof(ak_ufix_Surrogate)));
-          mine.Add(("ak_ufix_Surrogate.text", (int)((byte*)&z->text - (byte*)z)));
-          mine.Add(("ak_ufix_Surrogate.nested", (int)((byte*)&z->nested - (byte*)z)));
-          mine.Add(("ak_ufix_Surrogate.raw", (int)((byte*)&z->raw - (byte*)z)));
-          mine.Add(("ak_ufix_Surrogate.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_Surrogate.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
         { var v = default(ak_efix_WireZoo); ak_efix_WireZoo* z = &v; mine.Add(("sizeof ak_efix_WireZoo", sizeof(ak_efix_WireZoo)));
           mine.Add(("ak_efix_WireZoo.v_int32", (int)((byte*)&z->v_int32 - (byte*)z)));
@@ -6328,24 +4181,9 @@ public static unsafe class AbiLayout
           mine.Add(("ak_dfix_WireZoo.v_enum", (int)((byte*)&z->v_enum - (byte*)z)));
           mine.Add(("ak_dfix_WireZoo.v_msg", (int)((byte*)&z->v_msg - (byte*)z)));
           mine.Add(("ak_dfix_WireZoo.v_big_tag", (int)((byte*)&z->v_big_tag - (byte*)z)));
-          mine.Add(("ak_dfix_WireZoo.unknown", (int)((byte*)&z->unknown - (byte*)z)));
           mine.Add(("ak_dfix_WireZoo.presence", (int)((byte*)&z->presence - (byte*)z)));
         }
-        { var v = default(ak_ufix_WireZoo); ak_ufix_WireZoo* z = &v; mine.Add(("sizeof ak_ufix_WireZoo", sizeof(ak_ufix_WireZoo)));
-          mine.Add(("ak_ufix_WireZoo.v_int32", (int)((byte*)&z->v_int32 - (byte*)z)));
-          mine.Add(("ak_ufix_WireZoo.v_int64", (int)((byte*)&z->v_int64 - (byte*)z)));
-          mine.Add(("ak_ufix_WireZoo.v_bool", (int)((byte*)&z->v_bool - (byte*)z)));
-          mine.Add(("ak_ufix_WireZoo.v_double", (int)((byte*)&z->v_double - (byte*)z)));
-          mine.Add(("ak_ufix_WireZoo.v_fixed32", (int)((byte*)&z->v_fixed32 - (byte*)z)));
-          mine.Add(("ak_ufix_WireZoo.v_string", (int)((byte*)&z->v_string - (byte*)z)));
-          mine.Add(("ak_ufix_WireZoo.v_bytes", (int)((byte*)&z->v_bytes - (byte*)z)));
-          mine.Add(("ak_ufix_WireZoo.v_enum", (int)((byte*)&z->v_enum - (byte*)z)));
-          mine.Add(("ak_ufix_WireZoo.v_msg", (int)((byte*)&z->v_msg - (byte*)z)));
-          mine.Add(("ak_ufix_WireZoo.v_big_tag", (int)((byte*)&z->v_big_tag - (byte*)z)));
-          mine.Add(("ak_ufix_WireZoo.unknown", (int)((byte*)&z->unknown - (byte*)z)));
-          mine.Add(("ak_ufix_WireZoo.presence", (int)((byte*)&z->presence - (byte*)z)));
-        }
-        var core = new uint[574];
+        var core = new uint[340];
         nuint have;
         fixed (uint* c = core) have = Abi.ak_layout_facts(c, (nuint)core.Length);
         if ((int)have != mine.Count) bad.Add($"the core reports {have} layout facts, this binding has {mine.Count}");
@@ -6354,15 +4192,15 @@ public static unsafe class AbiLayout
             if (core[i] != (uint)mine[i].Item2) bad.Add($"{mine[i].Item1}: core {core[i]}, C# {mine[i].Item2}");
         return bad;
     }
-    public const int FactCount = 574;
+    public const int FactCount = 340;
 }
 
 /// WP5 step 10: this binding's unknown-field variant, and a check that the LOADED core
-/// is the same variant (the u-family export `ak_uencode_Timestamp` present).
+/// is the same variant (the u-family export `ak_uencode_Timestamp` absent).
 public static class AbiVariant
 {
-    public const bool UnknownCompiledOut = false;
-    public const string Name = "full";
+    public const bool UnknownCompiledOut = true;
+    public const string Name = "no-unknown";
     /// null when the loaded core matches this binding's variant, else what is wrong.
     public static string CheckLoadedCore()
     {

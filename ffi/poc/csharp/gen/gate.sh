@@ -135,6 +135,44 @@ for lvl in 8 6; do
   run "net$lvl probe rows" "${CX[@]}" --manifest "$SCRATCH/probe/manifest.json"
 done
 
+# ============================================================== WP5 step 10
+# The NO-UNKNOWN variant: unknown fields COMPILED OUT of the core (ak-core
+# --no-default-features, target-core*-nounk) and of this binding (/p:AkNounk=true:
+# GeneratedNounk/, rendered from the plans relowered with unknown="drop"; bin-nounk/).
+# Gated on its own: the loaded core is the variant (no u-family export), its layout (240
+# facts shapes, 340 corpus), byte identity, its own crossing counts, the corpus with every
+# unknown row in the dropped form, rule 6.
+step "8. the NO-UNKNOWN variant (WP5 step 10): its own build, core and gate"
+HN8="$SLICE/src/Harness/bin-nounk/Release/net8.0"; HN6="$SLICE/src/Harness/bin-nounk/publish-net6"
+CN8="$SLICE/src/Corpus/bin-nounk/Release/net8.0"; CN6="$SLICE/src/Corpus/bin-nounk/publish-net6"
+b build src/Harness/Harness.csproj -c Release -f net8.0 -p:AkNounk=true
+b publish src/Harness/Harness.csproj -c Release -f net6.0 -r linux-x64 --self-contained -p:AkNounk=true -o "$HN6"
+b build src/Corpus/Corpus.csproj -c Release -f net8.0 -p:AkNounk=true
+b publish src/Corpus/Corpus.csproj -c Release -f net6.0 -r linux-x64 --self-contained -p:AkNounk=true -o "$CN6"
+b build src/Rpc/Rpc.csproj -c Release -p:AkNounk=true
+b build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkNounk=true
+for lvl in 8 6; do
+  if [ $lvl = 8 ]; then H="$HN8"; HX=(dotnet "$HN8/harness.dll"); C="$CN8"; CX=(dotnet "$CN8/corpus.dll");
+  else H="$HN6"; HX=("$HN6/harness"); C="$CN6"; CX=("$CN6/corpus"); fi
+  step "8.$lvl no-unknown, net${lvl}.0"
+  core "$H" target-core-nounk
+  run "net$lvl nounk layout (by name both ways, 240 section-10 facts)" "${HX[@]}" layout "$SLICE/target-core-nounk/layout.json"
+  run "net$lvl nounk conformance (byte identity)" "${HX[@]}" conformance
+  run "net$lvl nounk coreffi (the loaded core is the variant)" "${HX[@]}" coreffi
+  core "$H" target-core
+  control "net$lvl nounk binding on the FULL core (the variant check must refuse it)" "${HX[@]}" coreffi
+  core "$H" target-core-count-nounk
+  AK_CROSSINGS_EXPECT="$SLICE/gen/crossings-nounk.txt" run "net$lvl nounk coreffi counting (counts = gen/crossings-nounk.txt)" "${HX[@]}" coreffi
+  core "$H" target-core-nounk
+  core "$C" target-core-corpus-nounk
+  run "net$lvl nounk corpus variant" "${CX[@]}" --variant
+  run "net$lvl nounk corpus layout" "${CX[@]}" --layout "$SLICE/target-core-corpus-nounk/layout.json"
+  AK_CORPUS_DROP_STRICT=1 run "net$lvl nounk corpus (every unknown row in the dropped form)" "${CX[@]}"
+  run "net$lvl nounk wrong root" "${CX[@]}" --wrong-root
+done
+echo "# crossing counts, no-unknown against the full build's (gen/crossings-nounk.txt vs gen/crossings.txt):"
+diff <(grep -v '^#' "$SLICE/gen/crossings.txt") <(grep -v '^#' "$SLICE/gen/crossings-nounk.txt") | sed 's/^/#   /'
+
 echo
 if [ $FAILS -eq 0 ]; then echo "GATE PASSED"; else echo "GATE FAILED: $FAILS"; fi
 exit $FAILS

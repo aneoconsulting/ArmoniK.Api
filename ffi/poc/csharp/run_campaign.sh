@@ -55,6 +55,14 @@ if [ -z "${AK_CPU_CLIENT:-}" ] || { [ "$SUITE" = rpc ] && [ -z "${AK_CPU_SERVER:
   else echo "AK_CPU_CLIENT (and AK_CPU_SERVER for rpc) must be set (requirement 4)" >&2; exit 2; fi
 fi
 R8="$SLICE/src/Rpc/bin/Release/net8.0"
+# WP5 step 10: the NO-UNKNOWN build (/p:AkNounk=true, unknown fields compiled out of the
+# binding and of its core, target-core*-nounk), side by side with the full one.
+RN8="$SLICE/src/Rpc/bin-nounk/Release/net8.0"
+HN8="$SLICE/src/Harness/bin-nounk/Release/net8.0"
+B8="$SLICE/src/BenchDotNet/bin/Release/net8.0"
+BN8="$SLICE/src/BenchDotNet/bin-nounk/Release/net8.0"
+# The builds of a launch, in its order: full first on odd launches, no-unknown first on even.
+builds_of() { if [ $(( $1 % 2 )) = 1 ]; then echo "full nounk"; else echo "nounk full"; fi; }
 H8="$SLICE/src/Harness/bin/Release/net8.0"
 
 sysf() { [ -r "$1" ] && cat "$1" 2>/dev/null || echo "n/a"; }
@@ -73,13 +81,16 @@ header() {  # requirement 27: the machine and the build, in every log
 }
 
 ensure_core() {
-  if [ ! -f "$SLICE/target-core/release/libak_core.so" ] || [ ! -f "$SLICE/target-core-count/release/libak_core.so" ]; then
+  if [ ! -f "$SLICE/target-core/release/libak_core.so" ] || [ ! -f "$SLICE/target-core-count/release/libak_core.so" ] \
+     || [ ! -f "$SLICE/target-core-nounk/release/libak_core.so" ] || [ ! -f "$SLICE/target-core-count-nounk/release/libak_core.so" ]; then
     "$SLICE/gen/build_core.sh" > "$OUT/build-core.log" 2>&1 || { cat "$OUT/build-core.log"; exit 1; }
   fi
 }
 build() {
   ( cd "$SLICE" && dotnet build src/Rpc/Rpc.csproj -c Release > "$SCRATCH/campaign-build.out" 2>&1 ) || { tail -30 "$SCRATCH/campaign-build.out"; exit 1; }
   ( cd "$SLICE" && dotnet build src/Harness/Harness.csproj -c Release -f net8.0 >> "$SCRATCH/campaign-build.out" 2>&1 ) || { tail -30 "$SCRATCH/campaign-build.out"; exit 1; }
+  ( cd "$SLICE" && dotnet build src/Rpc/Rpc.csproj -c Release -p:AkNounk=true >> "$SCRATCH/campaign-build.out" 2>&1 ) || { tail -30 "$SCRATCH/campaign-build.out"; exit 1; }
+  ( cd "$SLICE" && dotnet build src/Harness/Harness.csproj -c Release -f net8.0 -p:AkNounk=true >> "$SCRATCH/campaign-build.out" 2>&1 ) || { tail -30 "$SCRATCH/campaign-build.out"; exit 1; }
 }
 gate_first() {  # requirement 26
   # A passed gate is reused when the commit it ran at has the SAME content as HEAD in every
@@ -115,17 +126,21 @@ case "$SUITE" in
     # BDN's artifacts directory holds only a copy of that log, so it stays in SCRATCH.
     GATE="$(gate_first)" || exit 1; ensure_core; build
     ( cd "$SLICE" && dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release >> "$SCRATCH/campaign-build.out" 2>&1 ) || { tail -30 "$SCRATCH/campaign-build.out"; exit 1; }
-    B8="$SLICE/src/BenchDotNet/bin/Release/net8.0"
+    ( cd "$SLICE" && dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkNounk=true >> "$SCRATCH/campaign-build.out" 2>&1 ) || { tail -30 "$SCRATCH/campaign-build.out"; exit 1; }
     cp "$SLICE/target-core/release/libak_core.so" "$B8/"
+    cp "$SLICE/target-core-nounk/release/libak_core.so" "$BN8/"
     EXTRA=(--rounds "$ROUNDS"); [ $SMOKE = 1 ] && EXTRA=(--smoke)
     for l in $(seq 1 "$LAUNCHES"); do
       f="$OUT/codec-launch$l.jsonl"
-      { header "rpc,init-guard"; echo "$GATE"; } > "$f"
-      for u in $(dotnet "$B8/BenchDotNet.dll" --launch "$l" --list-units); do
-        ul="$OUT/codec-launch$l.${u/:/-}.bdn.log"
-        taskset -c "$AK_CPU_CLIENT" dotnet "$B8/BenchDotNet.dll" --launch "$l" --unit "$u" --out "$f" --artifacts "$SCRATCH/bdn-launch$l" "${EXTRA[@]}" \
-          > "$ul" 2>&1 || { echo "codec launch $l unit $u failed ($f, $ul)" >&2; exit 1; }
-        if tail -n 3 "$f" | grep -q "^# jit check:      FAIL"; then echo "codec launch $l unit $u: JIT tier check FAILED (see $f)" >&2; fi
+      { header "rpc,init-guard (full) and rpc,init-guard without unknown-fields (no-unknown)"; echo "$GATE"; echo "# builds, in this launch's order: $(builds_of "$l") (WP5 step 10; each process checks its core is its variant)"; } > "$f"
+      for bld in $(builds_of "$l"); do
+        if [ "$bld" = full ]; then BX="$B8"; else BX="$BN8"; fi
+        for u in $(dotnet "$BX/BenchDotNet.dll" --launch "$l" --list-units); do
+          ul="$OUT/codec-launch$l.${u/:/-}.bdn.log"
+          taskset -c "$AK_CPU_CLIENT" dotnet "$BX/BenchDotNet.dll" --launch "$l" --unit "$u" --out "$f" --artifacts "$SCRATCH/bdn-launch$l" "${EXTRA[@]}" \
+            > "$ul" 2>&1 || { echo "codec launch $l unit $u ($bld) failed ($f, $ul)" >&2; exit 1; }
+          if tail -n 3 "$f" | grep -q "^# jit check:      FAIL"; then echo "codec launch $l unit $u: JIT tier check FAILED (see $f)" >&2; fi
+        done
       done
     done ;;
   calib)
@@ -134,12 +149,16 @@ case "$SUITE" in
     cp "$SLICE/target-core-count/release/libak_core.so" "$H8/"
     AK_CROSSINGS_EXPECT="$SLICE/gen/crossings.txt" dotnet "$H8/harness.dll" coreffi > "$OUT/calib-crossing-counts.log" 2>&1 \
       || { echo "crossing counts differ from gen/crossings.txt: the run stops ($OUT/calib-crossing-counts.log)" >&2; exit 1; }
+    cp "$SLICE/target-core-count-nounk/release/libak_core.so" "$HN8/"
+    AK_CROSSINGS_EXPECT="$SLICE/gen/crossings-nounk.txt" dotnet "$HN8/harness.dll" coreffi > "$OUT/calib-crossing-counts-nounk.log" 2>&1 \
+      || { echo "no-unknown crossing counts differ from gen/crossings-nounk.txt: the run stops ($OUT/calib-crossing-counts-nounk.log)" >&2; exit 1; }
+    cp "$SLICE/target-core-nounk/release/libak_core.so" "$HN8/"
     cp "$SLICE/target-core/release/libak_core.so" "$H8/"
     cp "$SLICE/target-core/release/libak_core.so" "$R8/"
     ITERS=10000000; [ $SMOKE = 1 ] && ITERS=100000
     for l in $(seq 1 "$LAUNCHES"); do
       f="$OUT/calib-launch$l.jsonl"
-      { header "rpc,init-guard"; echo "$GATE"; echo "# crossing counts: equal to gen/crossings.txt (calib-crossing-counts.log)"; } > "$f"
+      { header "rpc,init-guard"; echo "$GATE"; echo "# crossing counts: equal to gen/crossings.txt (calib-crossing-counts.log) and, no-unknown build, to gen/crossings-nounk.txt (calib-crossing-counts-nounk.log)"; } > "$f"
       if command -v perf > /dev/null; then
         # Requirement 20: cycles and instructions per iteration, from perf stat, per process.
         taskset -c "$AK_CPU_CLIENT" perf stat -x, -e cycles,instructions -o "$OUT/calib-launch$l.perf" \
@@ -153,28 +172,35 @@ case "$SUITE" in
   rpc)
     GATE="$(gate_first)" || exit 1; ensure_core; build
     cp "$SLICE/target-core/release/libak_core.so" "$R8/"
+    cp "$SLICE/target-core-nounk/release/libak_core.so" "$RN8/"
     CALLS=64; [ $SMOKE = 1 ] && CALLS=16
+    # Req 12 (amended): the full client runs A B C-retain C-drop D-retain D-drop (+ extras),
+    # the no-unknown client A B C-nounk D-nounk (A and B its in-process controls), one after
+    # the other against the same server process, in an order alternated by launch.
     for t in shipped pinned; do
       for l in $(seq 1 "$LAUNCHES"); do
-        f="$OUT/rpc-$t-launch$l.jsonl"
-        [ $PLANT = 1 ] && f="$OUT/rpc-$t-launch$l.PLANT.jsonl"
         sock="/tmp/ak-cs-campaign-$$.sock"; rm -f "$sock"   # a Unix socket path is at most 108 bytes
-        { header "rpc,init-guard"; echo "$GATE"; } > "$f"
         taskset -c "$AK_CPU_SERVER" dotnet "$R8/akrpc.dll" campaign --suite rpc-server --sock "$sock" --transport "$t" > "$OUT/rpc-$t-launch$l.server.log" 2>&1 &
         SPID=$!
         for i in $(seq 1 100); do [ -S "$sock" ] && break; sleep 0.1; done
         [ -S "$sock" ] || { echo "server did not start" >&2; kill $SPID; exit 1; }
-        [ $PLANT = 1 ] && export AK_CAMPAIGN_PLANT=len
-        taskset -c "$AK_CPU_CLIENT" dotnet "$R8/akrpc.dll" campaign --suite rpc --sock "$sock" --transport "$t" \
-          --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" >> "$f" 2>&1; rc=$?
-        unset AK_CAMPAIGN_PLANT
+        for bld in $(builds_of "$l"); do
+          if [ "$bld" = full ]; then RX="$R8"; sfx=""; else RX="$RN8"; sfx=".nounk"; fi
+          f="$OUT/rpc-$t-launch$l$sfx.jsonl"
+          [ $PLANT = 1 ] && f="$OUT/rpc-$t-launch$l$sfx.PLANT.jsonl"
+          { header "rpc,init-guard$([ "$bld" = nounk ] && echo ' without unknown-fields (no-unknown build)')"; echo "$GATE"; echo "# client build: $bld (WP5 step 10); builds in this launch's order: $(builds_of "$l")"; } > "$f"
+          [ $PLANT = 1 ] && export AK_CAMPAIGN_PLANT=len
+          taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" campaign --suite rpc --sock "$sock" --transport "$t" \
+            --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" >> "$f" 2>&1; rc=$?
+          unset AK_CAMPAIGN_PLANT
+          if [ $PLANT = 1 ]; then
+            if [ $rc -eq 0 ]; then echo "CONTROL PASSED: a wrong length did not abort ($f)" >&2; kill $SPID; exit 1; fi
+            echo "control ($t, launch $l, $bld): aborted as required, $(grep -c '^{' "$f") samples written"
+            continue
+          fi
+          [ $rc -eq 0 ] || { echo "rpc $t launch $l ($bld) aborted ($f)" >&2; kill $SPID; exit 1; }
+        done
         kill $SPID; wait $SPID 2>/dev/null
-        if [ $PLANT = 1 ]; then
-          if [ $rc -eq 0 ]; then echo "CONTROL PASSED: a wrong length did not abort ($f)" >&2; exit 1; fi
-          echo "control ($t, launch $l): aborted as required, $(grep -c '^{' "$f") samples written"
-          continue
-        fi
-        [ $rc -eq 0 ] || { echo "rpc $t launch $l aborted ($f)" >&2; exit 1; }
       done
     done ;;
   *) echo "unknown suite $SUITE" >&2; exit 2 ;;
