@@ -887,7 +887,7 @@ static void dec_task_options(ak::Dec *d, TaskOptions *out, uint32_t depth) {
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
     if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
-      case 10ull: {  // field 1, wire type 2: map_entry
+      case 10ull: {  // field 1, wire type 2: append_message
         size_t off, n; d->len_body(&off, &n);
         if (d->err != 0) return;
         if (depth + 1 > kLimit) { d->err = ak::ERR_DEPTH; return; }
@@ -2028,7 +2028,7 @@ static void dec_chunk_element(ak::Dec *d, ChunkElement *out, uint32_t depth) {
           if (rc != 0) { d->err = rc; return; } }
         break;
       }
-      case 18ull: {  // field 2, wire type 2: map_entry
+      case 18ull: {  // field 2, wire type 2: append_message
         size_t off, n; d->len_body(&off, &n);
         if (d->err != 0) return;
         if (depth + 1 > kLimit) { d->err = ak::ERR_DEPTH; return; }
@@ -2261,7 +2261,7 @@ static void dec_surrogate(ak::Dec *d, Surrogate *out, uint32_t depth) {
         if (sub.err != 0) { d->err = sub.err; return; }
         break;
       }
-      case 26ull: {  // field 3, wire type 2: map_entry
+      case 26ull: {  // field 3, wire type 2: append_message
         size_t off, n; d->len_body(&off, &n);
         if (d->err != 0) return;
         if (depth + 1 > kLimit) { d->err = ak::ERR_DEPTH; return; }
