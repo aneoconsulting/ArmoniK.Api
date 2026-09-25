@@ -18,7 +18,8 @@ def _payload_ids(ir):
     return out
 
 
-def emit(ir, ns=N.PKG):
+def emit(ir, ns=N.PKG, nounk=False):
+    """`nounk`: the no-unknown build's tree (WP5 step 10), whose arm R has no CodecRetain."""
     o = [HEAD, "package %s;" % ns, "", "import ak.Dec;", "import ak.Enc;", "",
          "/** Payload id -> build, encode, decode, for every arm. One switch, generated,",
          " *  so the measured path carries no reflection. */",
@@ -84,6 +85,23 @@ def emit(ir, ns=N.PKG):
     o.append("    }")
     o.append("  }")
     # ---- arm R in retain mode (CodecRetain), for the campaign's unknown_mode switch
+    o.append("")
+    o.append("  /** The Enc site count that fits every arm R class of this tree. */")
+    o.append("  public static final int R_SITES = %s;" % ("Codec.SITES" if nounk else
+             "Math.max(Codec.SITES, CodecRetain.SITES)"))
+    if nounk:
+        o.append("")
+        o.append("  /** The no-unknown build (WP5 step 10) has no retain codec. */")
+        o.append("  public static void encodeRRetain(String id, Object o, Enc e) {")
+        o.append("    throw new UnsupportedOperationException(\"no-unknown build: no retain mode\");")
+        o.append("  }")
+        o.append("")
+        o.append("  public static Object decodeRRetain(String id, Dec d, byte[] buf, int off, int len) {")
+        o.append("    throw new UnsupportedOperationException(\"no-unknown build: no retain mode\");")
+        o.append("  }")
+        o.append("}")
+        o.append("")
+        return "\n".join(o)
     o.append("")
     o.append("  public static void encodeRRetain(String id, Object o, Enc e) {")
     o.append("    switch (id) {")

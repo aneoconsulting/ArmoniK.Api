@@ -34,12 +34,15 @@ public final class RunConformance {
       arms.add(new FfiPullArm("ffi-pull-walk", true));
       // Decision 11 (WP5 step 9): the same bindings with every position armed and the
       // u-group encode. The payload set carries no unknown field, so the bytes must not move.
-      FfiArm fr = new FfiArm("ffi-retain", true, false);
-      fr.b.retain = true;
-      arms.add(fr);
-      FfiPullArm pr = new FfiPullArm("ffi-pull-retain", false);
-      pr.b.retain = true;
-      arms.add(pr);
+      // The no-unknown build (WP5 step 10) has no retain mode: those two arms are absent.
+      if (ak.Variant.UNKNOWN_FIELDS) {
+        FfiArm fr = new FfiArm("ffi-retain", true, false);
+        ak.shapes.FfiArms.setRetain(fr.b, true);
+        arms.add(fr);
+        FfiPullArm pr = new FfiPullArm("ffi-pull-retain", false);
+        ak.shapes.FfiArms.setRetain(pr.b, true);
+        arms.add(pr);
+      }
       // Decision 13's arm is emitted at BOTH levels (the java8 tree carries it too, so it
       // is gated on arms b and c). Reflection, so a build without it is a stated skip and
       // never a silent pass.

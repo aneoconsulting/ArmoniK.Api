@@ -11,6 +11,13 @@
 # controls, each of which MUST FAIL, and the rule gaps the corpus does not reach directly.
 #
 #   gen/build.sh first (it builds build/jnicorpus and both class trees).
+#
+# AK_VARIANT=nounk runs it on the NO-UNKNOWN build (FIX-PLAN WP5 step 10): the class trees
+# generated from the plan relowered with unknown="drop" (build/cls{17,8}-nounk), the corpus
+# core built without `unknown-fields` (build/jnicorpus-nounk), the arms that exist there
+# (R, ffi, ffi-pull, ffi-pull-walk, ffi-borrow: every unknown row read and re-encoded in the
+# DROPPED form), the same planted controls and rule gaps, and instead of the retain
+# controls (3b, 3c) section 3d: the variant's layout facts and rule 6 on its contexts.
 set -u
 cd "$(dirname "$0")/.."
 J17=${J17:-/usr/lib/jvm/java-17-openjdk-amd64}
@@ -19,12 +26,21 @@ unset JAVA_TOOL_OPTIONS || true
 # The generator state the build used: the core snapshot's poc/codec/gen (gen/build.sh).
 [ -z "${AK_CODECGEN:-}" ] && [ -d build/snap/ffi/poc/codec/gen ] && export AK_CODECGEN=$PWD/build/snap/ffi/poc/codec/gen
 CP=$(cat deps/cp.txt)
-SHIM=$PWD/build/jnicorpus/libakjni.so
-ARMS=R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow,ffi-retain,ffi-pull-retain,ffi-pull-walk-retain,ffi-borrow-retain
+VARIANT=${AK_VARIANT:-full}
+if [ "$VARIANT" = nounk ]; then
+  SX=-nounk
+  ARMS=R,ffi,ffi-pull,ffi-pull-walk,ffi-borrow
+else
+  SX=
+  ARMS=R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow,ffi-retain,ffi-pull-retain,ffi-pull-walk-retain,ffi-borrow-retain
+fi
+SHIM=$PWD/build/jnicorpus$SX/libakjni.so
+CLS17=build/cls17$SX
+CLS8=build/cls8$SX
 export AK_CORPUS_TIMEOUT_MS=${AK_CORPUS_TIMEOUT_MS:-5000}
-echo "== java slice corpus gate; tree ${AK_COMMIT:-$(git rev-parse --short HEAD)}$(git diff --quiet HEAD -- . ../codec/gen || echo ' + uncommitted changes')"
+echo "== java slice corpus gate ($VARIANT build); tree ${AK_COMMIT:-$(git rev-parse --short HEAD)}$(git diff --quiet HEAD -- . ../codec/gen || echo ' + uncommitted changes')"
 echo "   $(cat build/core-rev.txt 2>/dev/null)"
-echo "   corpus core built with: $(grep -ho ',"features":"\[[^]]*\]' core-build/current/target-corpus/release/.fingerprint/ak-core-*/lib-ak_core.json | sort -u | tr -d '\\' | tr '\n' ' ')"
+echo "   corpus core built with: $(grep -ho ',"features":"\[[^]]*\]' core-build/current/target-corpus$SX/release/.fingerprint/ak-core-*/lib-ak_core.json | sort -u | tr -d '\\' | tr '\n' ' ')"
 echo "   shim $SHIM -> $(ldd "$SHIM" | awk '/libak_core/ {print $3}')"
 echo "   the loaded core is the corpus-schema build: $(nm -D --defined-only "$(ldd "$SHIM" | awk '/libak_core/ {print $3}')" | grep -c ' T ak_decode_WireZoo') ak_decode_WireZoo export(s)"
 echo "   per-row timeout ${AK_CORPUS_TIMEOUT_MS} ms"
@@ -35,7 +51,7 @@ echo "===== 1. generators current ====="
 python3 -S gen/generate.py --check | grep -vE "^ok " | tail -6
 python3 -S gen/generate.py --check >/dev/null 2>&1 || { echo "STALE generated files"; fail=1; }
 
-for lv in "target $J17 build/cls17" "floor $J8 build/cls8"; do
+for lv in "target $J17 $CLS17" "floor $J8 $CLS8"; do
   set -- $lv
   echo
   echo "===== 2. the corpus, $1 ($2, $3), arms $ARMS ====="
@@ -47,14 +63,14 @@ echo "===== 3. controls (target), each MUST FAIL ====="
 SUB="S-Probe,U-root,X-lenwrap,E-map,T-dec-,X-tag-zero-ListResults"
 bad=0
 for p in proj reenc accept; do
-  if AK_CORPUS_ONLY=$SUB AK_CORPUS_PLANT=$p python3 -S gen/corpus.py "$J17/bin" build/cls17 "$ARMS" "$SHIM" \
+  if AK_CORPUS_ONLY=$SUB AK_CORPUS_PLANT=$p python3 -S gen/corpus.py "$J17/bin" $CLS17 "$ARMS" "$SHIM" \
        > build/corpus-ctl.txt 2>&1; then
     echo "  control $p: PASSED -- the harness is blind to it"; bad=$((bad+1))
   else
     echo "  control $p: failed as required: $(grep '^RESULT' build/corpus-ctl.txt)"
   fi
 done
-if AK_CORPUS_ONLY=$SUB AK_SKIP_INIT=1 python3 -S gen/corpus.py "$J17/bin" build/cls17 ffi,ffi-pull,ffi-pull-walk,ffi-borrow "$SHIM" \
+if AK_CORPUS_ONLY=$SUB AK_SKIP_INIT=1 python3 -S gen/corpus.py "$J17/bin" $CLS17 ffi,ffi-pull,ffi-pull-walk,ffi-borrow "$SHIM" \
      > build/corpus-ctl.txt 2>&1; then
   echo "  control noinit: PASSED -- init-guard is not in the build"; bad=$((bad+1))
 else
@@ -64,6 +80,17 @@ else
 fi
 [ $bad -eq 0 ] || { echo "CONTROLS FAILED: $bad"; fail=1; }
 
+if [ "$VARIANT" = nounk ]; then
+echo
+echo "===== 3d. the no-unknown build: its core, its layout facts, rule 6 (target, then floor) ====="
+so=$(ldd "$SHIM" | awk '/libak_core/ {print $3}')
+echo "  core $so: $(nm -D --defined-only "$so" | grep -cE ' T ak_(uencode|uelem|uelemu|dec_reset)_') u-family/reset exports, $(nm -D --defined-only "$so" | grep -c ' T ak_dec_ctx_new_') ak_dec_ctx_new_<Root>"
+for lv in "$J17 $CLS17" "$J8 $CLS8"; do
+  set -- $lv
+  "$1/bin/java" -cp "$2:$CP" -Dak.lib="$SHIM" ak.RunVariant corpus 2>&1 | grep -v "^Picked up"
+  [ "${PIPESTATUS[0]}" -eq 0 ] || fail=1
+done
+else
 echo
 echo "===== 3b. decision 11 (WP5 step 9): per-position discard, pull == push, wrong root (target) ====="
 "$J17/bin/java" -cp "build/cls17:$CP" -Dak.lib="$SHIM" ak.RunUnkControls 2>&1 | grep -v "^Picked up"
@@ -87,10 +114,12 @@ else
   echo "  control unk-leakplant (no reclaim): failed as required: $(grep -m1 'LEFT BEHIND' build/unk-leakplant.txt | sed 's/^ *//')"
 fi
 
+fi
+
 echo
 echo "===== 4. rule gaps the corpus does not reach directly (target) ====="
 mkdir -p build/rulegaps
-"$J17/bin/java" -cp "build/cls17:$CP" -Dak.lib="$SHIM" ak.RunRuleGaps build/rulegaps 2>&1 | grep -v "^Picked up"
+"$J17/bin/java" -cp "$CLS17:$CP" -Dak.lib="$SHIM" ak.RunRuleGaps build/rulegaps 2>&1 | grep -v "^Picked up"
 PROTOC=build/tools/protoc-3.19.0
 C=../../corpus/generated
 echo "-- protobuf C++ ($($PROTOC --version)) reading the two merge vectors, corpus.proto:"

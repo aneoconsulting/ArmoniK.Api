@@ -8,7 +8,9 @@ becomes one sample line; nothing is summarised or dropped. CPU time comes from t
 A meta line per benchmark records what JMH ran with: warm-up and measurement iterations,
 the mode, forks, the JVM, its arguments.
 
-  gen/jmh_to_jsonl.py <jmh.json> <cpu.tsv> <launch> <coder> >> <log.jsonl>
+  gen/jmh_to_jsonl.py <jmh.json> <cpu.tsv> <launch> <coder> [<build>] >> <log.jsonl>
+
+`build` (WP5 step 10): full (default) or no-unknown, written on every sample.
 """
 import json
 import sys
@@ -17,6 +19,7 @@ import sys
 def main():
     res = json.load(open(sys.argv[1]))
     launch, coder = int(sys.argv[3]), sys.argv[4]
+    build = sys.argv[5] if len(sys.argv) > 5 else "full"
     cpu = {}
     for line in open(sys.argv[2]):
         cell, kind, idx, c, n = line.rstrip("\n").split("\t")
@@ -45,7 +48,7 @@ def main():
                 if content.startswith("corpus:"):
                     cont, extra = "corpus", {"root": content[7:]}
                 rec = {"slice": "java", "suite": "codec", "arm": arm, "payload": payload,
-                    "content": cont, "dir": d, "unknown_mode": mode, "coder": coder,
+                    "content": cont, "dir": d, "unknown_mode": mode, "build": build, "coder": coder,
                     "engine": "jmh", "launch": launch, "round": i + 1, "cpu_ns": c,
                     "wall_ns": int(round(wall)), "iters": n}
                 rec.update(extra)

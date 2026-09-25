@@ -72,6 +72,18 @@ say "core (corpus schema, init-guard)"
 CARGO_TARGET_DIR=$HERE/$CB/target-corpus cargo build --release --features corpus,init-guard \
   --manifest-path $CORE >/dev/null
 
+# The NO-UNKNOWN build (FIX-PLAN WP5 step 10): ak-core without its default `unknown-fields`
+# feature (plan.py, THE NO-UNKNOWN VARIANT), each in a target dir of its own (a variant
+# build over a shared dir overwrites libak_core.so for the other variant's shims).
+NOUNK=(--no-default-features)
+say "core (no-unknown: timed, counting, corpus schema; init-guard)"
+CARGO_TARGET_DIR=$HERE/$CB/target-nounk cargo build --release "${NOUNK[@]}" --features init-guard \
+  --manifest-path $CORE >/dev/null
+CARGO_TARGET_DIR=$HERE/$CB/target-count-nounk cargo build --release "${NOUNK[@]}" --features count,init-guard \
+  --manifest-path $CORE >/dev/null
+CARGO_TARGET_DIR=$HERE/$CB/target-corpus-nounk cargo build --release "${NOUNK[@]}" --features corpus,init-guard \
+  --manifest-path $CORE >/dev/null
+
 # ---- 3. the JNI shim, one per core build, plus a no-guard and a tax build
 say "shim"
 shim() {   # $1 = output dir, $2 = core target dir, $3 = generated native dir, $4... = cflags
@@ -87,10 +99,19 @@ shim jnicnt    $CB/target-count  native/generated
 shim jnong     $CB/target        native/generated         -DAK_NO_GUARD
 shim jnitax    $CB/target        native/generated         -DAK_CROSSING_TAX
 shim jnicorpus $CB/target-corpus native/generated_corpus
-# Each shim must resolve to THIS build's core, never another key's.
-for s in jni jnicnt jnong jnitax jnicorpus; do
+# The no-unknown build's shims, over c_abi's second header (native/generated*_nounk).
+shim jni-nounk       $CB/target-nounk        native/generated_nounk
+shim jnicnt-nounk    $CB/target-count-nounk  native/generated_nounk
+shim jnicorpus-nounk $CB/target-corpus-nounk native/generated_corpus_nounk
+# Each shim must resolve to THIS build's core, never another key's -- and to the core of ITS
+# variant: a full core exports the u-family (ak_uencode_*), a no-unknown core none.
+for s in jni jnicnt jnong jnitax jnicorpus jni-nounk jnicnt-nounk jnicorpus-nounk; do
   ldd build/$s/libakjni.so | grep -q "$HERE/$CB/" \
     || { echo "shim $s does not link $CB: $(ldd build/$s/libakjni.so | grep ak_core)"; exit 1; }
+  so=$(ldd build/$s/libakjni.so | awk '/libak_core/ {print $3}')
+  nu=$(nm -D --defined-only "$so" | grep -c ' T ak_uencode_' || true)
+  case $s in *-nounk) [ "$nu" = 0 ] || { echo "shim $s links a core WITH the u-family ($nu)"; exit 1; } ;;
+             *)       [ "$nu" -gt 0 ] || { echo "shim $s links a core WITHOUT the u-family"; exit 1; } ;; esac
 done
 
 # ---- 3b. ABI v1 section 9, the RPC half. A SEPARATE core build (the `rpc` feature links
@@ -104,6 +125,14 @@ gcc -O2 -fPIC -shared -std=c11 -Wall -Wextra -Wno-unused-parameter \
     -o build/jnirpc/libakjni.so native/generated/shim.c native/tax.c native/rpc.c \
     -L"$CB/target-rpc/release" -lak_core \
     -Wl,-rpath,"$HERE/$CB/target-rpc/release"
+CARGO_TARGET_DIR=$HERE/$CB/target-rpc-nounk cargo build --release "${NOUNK[@]}" --features rpc,init-guard \
+  --manifest-path $CORE >/dev/null
+mkdir -p build/jnirpc-nounk
+gcc -O2 -fPIC -shared -std=c11 -Wall -Wextra -Wno-unused-parameter \
+    -I"$J17/include" -I"$J17/include/linux" -Inative/generated_nounk \
+    -o build/jnirpc-nounk/libakjni.so native/generated_nounk/shim.c native/tax.c native/rpc.c \
+    -L"$CB/target-rpc-nounk/release" -lak_core \
+    -Wl,-rpath,"$HERE/$CB/target-rpc-nounk/release"
 
 # ---- 4. the incumbent's generated Java
 say "protoc"
@@ -133,6 +162,16 @@ mkdir -p build/cls17
        src/generated_corpus/shared -name '*.java' ! -name 'Pin.java') \
   $(find build/pbjava -name '*.java')
 
+# ---- 5a. the no-unknown build's classes (WP5 step 10): the same hand-written sources over
+# the tree generated from the plan relowered with unknown="drop", minus the two retain-only
+# controls. Same package names as the full tree, so a class tree of its own.
+say "classes: the no-unknown build (java17 on JDK 17)"
+rm -rf build/cls17-nounk && mkdir -p build/cls17-nounk
+"$J17/bin/javac" -nowarn -encoding UTF-8 -d build/cls17-nounk -cp "$CP" \
+  $(find src/java src/generated_nounk/java17 src/generated_nounk/shared src/generated_corpus_nounk/java17 \
+       src/generated_corpus_nounk/shared -name '*.java' ! -name 'Pin.java' ! -name 'RunUnkControls.java' ! -name 'RunUnkLeak.java') \
+  $(find build/pbjava -name '*.java')
+
 # ---- 5b. the codec suite on JMH (CAMPAIGN.md req 22a), target only: the annotation
 # processor generates the benchmark stubs and META-INF/BenchmarkList into build/jmh17.
 if [ -f deps/jmh/cp.txt ]; then
@@ -140,6 +179,9 @@ if [ -f deps/jmh/cp.txt ]; then
   JMHCP=$(cat deps/jmh/cp.txt)
   rm -rf build/jmh17 && mkdir -p build/jmh17
   "$J17/bin/javac" -nowarn -encoding UTF-8 -d build/jmh17 -cp "build/cls17:$CP:$JMHCP" \
+    -processorpath "$JMHCP" src/jmh/ak/*.java
+  rm -rf build/jmh17-nounk && mkdir -p build/jmh17-nounk
+  "$J17/bin/javac" -nowarn -encoding UTF-8 -d build/jmh17-nounk -cp "build/cls17-nounk:$CP:$JMHCP" \
     -processorpath "$JMHCP" src/jmh/ak/*.java
 else
   say "JMH: deps/jmh/cp.txt missing (cd deps/jmh && mvn dependency:build-classpath -Dmdep.outputFile=cp.txt)"
@@ -159,6 +201,14 @@ mkdir -p build/cls8
        src/generated_corpus/shared -name '*.java' \
        ! -name 'Ffm*.java' ! -name 'Pin.java' ! -name 'RunR14.java' \
        ! -name 'Campaign*.java') \
+  $(find build/pbjava -name '*.java')
+say "classes: the no-unknown build (java8 source tree, JDK 8 javac)"
+rm -rf build/cls8-nounk && mkdir -p build/cls8-nounk
+"$J8/bin/javac" -nowarn -encoding UTF-8 -source 8 -target 8 -d build/cls8-nounk -cp "$CP" \
+  $(find src/java src/generated_nounk/java8 src/generated_nounk/shared src/generated_corpus_nounk/java8 \
+       src/generated_corpus_nounk/shared -name '*.java' \
+       ! -name 'Ffm*.java' ! -name 'Pin.java' ! -name 'RunR14.java' \
+       ! -name 'Campaign*.java' ! -name 'RunUnkControls.java' ! -name 'RunUnkLeak.java') \
   $(find build/pbjava -name '*.java')
 
 # ---- 7. the two secondary probes, both newer than the target and built separately
