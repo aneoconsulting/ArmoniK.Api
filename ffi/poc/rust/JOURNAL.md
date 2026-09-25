@@ -2219,3 +2219,26 @@ corpus's own merge (`spec.load()`), so `fixed32` and the corpus-only messages ex
 - `one_core.sh`'s R0 check (a second `codec.rs`) caught the first bench file name.
 - Retain decodes cost two `ak_dec_reset_<Root>` forward calls that the core's context
   counters do not count (stated in the checklist).
+
+## 2026-09-25 -- FIX-PLAN WP5 step 8: decision 11's confirmed implementation rules
+
+- plan.py: rules 1-7 stated; positions: a oneof is ONE position (members with positions of
+  their own refused); `unk_opts_layout` types each entry `ak_unk_opts` (occurs once per
+  decode) or `ak_unk_pool` (can occur more: an element, a map entry, anything under one);
+  FIXED gains `ak_unk_pool`, loses `ak_dec_ctx_new`; `ak_dec_reset_<Root>` returns i32.
+- core: the host's struct is read IN PLACE through a generated per-root offset table;
+  taking a buffer clears it in the host's struct; discard is decided at arm time from the
+  entry as armed; a context carries its root and every decode/parse/reset of another root
+  returns AK_ERR_INVALID_STATE; context creation is not init-guarded (as ak_enc_ctx_new).
+- oneof: the buffer moves, emptied, from the previous message member's slot to the new
+  one's (at most one member slot holds it) -- chosen so the group layout and the shared
+  leaf decoders stay as they are; reported for confirmation.
+- Rust binding: `DecCtxs` (one bound context per root); harness and campaign re-pointed.
+- Controls (corpus --unk-controls): pool n=2 (no grow for two elements, one grow for the
+  third; AK_ERR_CAPACITY without grow; entries cleared), in-place refill in `new_tasks`
+  (and its no-refill control, AK_ERR_CAPACITY), oneof switch (one fresh buffer, final bag =
+  the last member's run), wrong root (decode, parse and reset refused with -8).
+- Found: the noinit corpus control crashed native arms too, because `DecCtxs::new` asserted
+  on a NULL context from the init-guarded constructor; context creation is now unguarded,
+  like `ak_enc_ctx_new`. one_core.sh's decode sentinel moved to `ak_dec_ctx_free`.
+- Crossing counts: identical to gen/crossings.txt (no re-baseline).

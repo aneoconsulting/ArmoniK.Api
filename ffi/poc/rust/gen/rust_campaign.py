@@ -151,6 +151,7 @@ def emit(p):
         o.append("    fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {")
         o.append("        if retain { binding::parse_walk_with_%s_unk(c.dec, b, toks) } else { binding::parse_walk_with_%s(c.dec, b, toks) }" % (s, s))
         o.append("    }")
+        o.append("    fn dec_ctx(c: &Ctx) -> *mut ak_abi::ak_dec_ctx { c.dec.%s }" % s)
         o.append("    fn touch_f(v: &Self::F) -> u64 { touch_f_%s(v, 0) }" % s)
         o.append("    fn touch_p(v: &Self::P) -> u64 { touch_p_%s(v, 0) }" % s)
         o.append("}")

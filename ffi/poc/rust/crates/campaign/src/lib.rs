@@ -98,6 +98,8 @@ pub trait Ops {
     fn f_decode(c: &Ctx, b: &[u8], retain: bool) -> Result<Self::F, i32>;
     fn f_encode(c: &Ctx, v: &Self::F, retain: bool) -> Result<usize, i32>;
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32>;
+    /// Decision 11 rule 6: this root's (bound) decode context.
+    fn dec_ctx(c: &Ctx) -> *mut ak_abi::ak_dec_ctx;
     fn touch_f(v: &Self::F) -> u64;
     fn touch_p(v: &Self::P) -> u64;
 }

@@ -230,27 +230,27 @@ fn records_vs_calls(c: &core_ffi_arm::Ctx, st: &mut PullState) -> usize {
             unsafe {
                 // push, counted in the core
                 $push(&b);
-                ak_dec_counters_reset(c.dec);
+                ak_dec_counters_reset(dx(c, $root));
                 $push(&b);
                 let mut cs = AkCounters::default();
-                ak_dec_counters(c.dec, &mut cs);
+                ak_dec_counters(dx(c, $root), &mut cs);
                 // pull, the drain form: its forward count includes the parse, the
                 // footprint read (which the host reports itself, R5) and one call per
                 // chunk. Its reverse count is zero by construction and is MEASURED here
                 // rather than asserted, because "zero upcalls" is the family's whole claim.
                 $pull(&b, st);
-                ak_dec_counters_reset(c.dec);
+                ak_dec_counters_reset(dx(c, $root));
                 $pull(&b, st);
                 let mut cp = AkCounters::default();
-                ak_dec_counters(c.dec, &mut cp);
+                ak_dec_counters(dx(c, $root), &mut cp);
                 // the same drain with one chunk large enough for the whole stream
                 $pull(&b, &mut big);
-                ak_dec_counters_reset(c.dec);
+                ak_dec_counters_reset(dx(c, $root));
                 $pull(&b, &mut big);
                 let mut c1 = AkCounters::default();
-                ak_dec_counters(c.dec, &mut c1);
+                ak_dec_counters(dx(c, $root), &mut c1);
                 // the records themselves, which need no counting build
-                let recs = count_records(c);
+                let recs = count_records(dx(c, $root));
                 let counting = cfg!(feature = "count");
                 let agree = !counting || (recs as u64 == cs.reverse && cp.reverse == 0);
                 if !agree { bad += 1; }
@@ -326,11 +326,11 @@ fn records_vs_calls(c: &core_ffi_arm::Ctx, st: &mut PullState) -> usize {
 }
 
 /// Walk the record stream and count headers. Reads the core's buffer in place.
-fn count_records(c: &core_ffi_arm::Ctx) -> usize {
+fn count_records(dec: *mut ak_dec_ctx) -> usize {
     unsafe {
         let mut p: *const u8 = std::ptr::null();
         let mut n: usize = 0;
-        if ak_bdr_ptr(c.dec, &mut p, &mut n) < 0 {
+        if ak_bdr_ptr(dec, &mut p, &mut n) < 0 {
             return 0;
         }
         let recs = std::slice::from_raw_parts(p as *const u64, n / 8);
@@ -351,7 +351,7 @@ fn footprints(c: &core_ffi_arm::Ctx, st: &mut PullState) {
         ($pid:expr, $root:expr, $b:expr, $pull:expr) => {{
             let b = $b;
             let _ = $pull(&b);
-            let n = pull::footprint(c);
+            let n = pull::footprint(dx(c, $root));
             println!("{:<7} {:<10} {:>10} {:>12} {:>10.3}",
                      $pid, $root, b.len(), n, n as f64 / b.len() as f64);
         }};
@@ -428,7 +428,7 @@ fn timings() -> Vec<Case> {
             }));
             cases.push(mk($pid, "core-ffi-parse-only", move |n| {
                 for _ in 0..n {
-                    unsafe { std::hint::black_box($parse(ctx.dec, bytes.as_ptr(), bytes.len())); }
+                    unsafe { std::hint::black_box($parse(dx(ctx, $pid), bytes.as_ptr(), bytes.len())); }
                 }
             }));
         }};
@@ -590,4 +590,20 @@ fn decompose(cases: &[Case]) {
     println!("# All five columns are ns per DECODE, not per element. Divide by the element");
     println!("# count of section 1 for a per-element figure, and only where the element count");
     println!("# is what the work scales with.");
+}
+
+/// Decision 11 rule 6 (WP5 step 8): contexts are root-bound; the one this payload's root
+/// decodes with, keyed by the payload or message label ("P2.2" or "M2").
+fn dx(c: &core_ffi_arm::Ctx, key: &str) -> *mut ak_dec_ctx {
+    let d = &c.dec;
+    match &key[1..2] {
+        "1" => d.list_results_response,
+        "2" => d.list_tasks_detailed_response,
+        "3" => d.list_probe_response,
+        "4" => d.list_task_summary_response,
+        "5" => d.upload_result_data_message,
+        "6" => d.list_metrics_response,
+        "7" => d.dual_response,
+        k => panic!("no root for {k}"),
+    }
 }
