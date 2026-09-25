@@ -8,11 +8,60 @@ are listed at the foot as instrumentation.
 
 | | |
 |---|---|
-| **Status** | Work unit 6 done: **FIX-PLAN WP3, the campaign harness** (`run_campaign.sh`, design/CAMPAIGN.md with 0e8e9eb's amendments). It is campaign-ready except for requirement 10 (core-ffi retain waits on rendering decision 11's options in `py_capi`) and the items marked in the checklist below. The smoke run is in `logs/python/campaign/` (instrumentation). Work unit 5 (WP5 step 5) is below and still holds |
+| **Status** | Work unit 7 done: **decision 11 through the C ABI** (FIX-PLAN WP5 step 9). The shim renders root-bound contexts, per-root `ak_dec_<Root>_opts` armed per decode, a C grow, slots taken into the facade's `_unknown`, and the `ak_uencode_*` family. **ffi-retain** passes the whole corpus at 3.12 and 3.7 (no retention gap except the disputed U-map-entry), and the decision 11 controls pass. **CAMPAIGN requirement 10 is now met**: core-ffi retain is timed in the pyperf codec suite. WP3 harness (work unit 6) below |
 | **Floor** (owner D1: 3.7) | **Builds and passes every gate on CPython 3.7.5** (Ubuntu 18.04's packages from archive.ubuntu.com, `fetch_py37.sh`): logs 90-97 |
 | **Target** (owner D1: 3.12) | Built and gated on **3.12.3**: logs 90-96, 98. grpcio 1.84.0, protobuf 7.36.2 (upb) |
 | **Incumbent** (R14) | protobuf on **upb** through gRPC's generated marshaller path (`SerializeToString` / `FromString`), `verify_r14.py` (log 52). On the 3.7 floor: protobuf 4.24.4 (upb), for the conformance gate only |
 | **Core** | `poc/codec`, the one core (R0), this checkout (commit in each log header; the `AK_UPSTREAM` snapshot mechanism is retired). Four builds, all `init-guard`: plain, `count`, `rpc`, `corpus` |
+
+## Decision 11 through the C ABI (work unit 7, WP5 step 9)
+
+`py_capi` (in `poc/codec/gen/`) renders:
+- **Decode:** `decode_<b>_<R>(buf, acc, T, retain, zero)`:
+  - `ak_dec_ctx_new_<R>(NULL)` (the context is bound to its root);
+  - `ak_dec_reset_<R>(ctx, retain ? &opts : NULL)`, return checked;
+  - the decode;
+  - `ak_dec_reset_<R>(ctx, NULL)`, return checked.
+
+  `ak_dec_<R>_opts` is laid out from `plan.unk_opts_layout` in the decode's frame, so it
+  stays unmoved while armed. Every armed position uses `ak_py_grow` (realloc; NULL/0 means
+  a fresh buffer; each buffer carries a header linking it into the HostCtx's live list).
+- **Delivery:** at every delivery, `setgroup` turns the group's own slot into the facade's
+  `_unknown` and frees it. Absent children's and inactive oneof members' non-NULL slots are
+  freed through `dropgroup_<M>`. Map entries' buffers are freed at `add`, because the facade
+  dict has no bag for them (the U-map-entry gap). `ak_py_reclaim` frees whatever a failed
+  decode never delivered.
+- **Encode:** `fillu_`/`loopu_` fill the `ak_ufix` groups, including each message's
+  `_unknown` as `unknown: ak_blob`, and call `ak_uencode_<R>` and `ak_uelem*_`.
+- **`native/binding.c`:** `encode(..., acc, retain)`, `decode(..., acc, retain, zero_mask)`,
+  `unk_positions(root)`, `wrong_root(a, b)`, `last_reclaimed()`.
+
+Drop mode is the same code path with every entry zero. Crossing counts are unchanged (log 98,
+160 rows at both levels), and the per-decode resets add no counted crossing.
+
+**Gate at 883ae3b, 3.12 and 3.7** (logs `90`-`98`, rerun; the header names the snapshot):
+- Conformance passes on both shims.
+- **Corpus, 6 arms** (the corpus now has 702 rows):
+  - ffi-cext, ffi-attr, ffi-chunk256 and **ffi-retain** each pass 680 with 0 failures
+    (6 disputed, 16 not in the C ABI).
+  - py-drop and py-retain each pass 696.
+  - Drop arms are byte-identical to each other on 542 rows, and ffi-retain is identical to
+    py-retain on 542 rows.
+  - **The retained form is written on every unknown-field row by both retain arms**; the only
+    exception is `U-map-entry`, which is disputed and excluded (its reading is reported).
+  - 3.7 re-encodes all 3,278 (arm, row) pairs to the 3.12 bytes.
+- **Decision 11 controls:**
+  - Zeroed position: 1,373 (row, position) pairs over 311 rows, 315 of which remove a bag,
+    0 mismatches.
+  - Wrong root: all 812 ordered pairs are refused with -8 and nothing is delivered; the
+    positive control passes on 29 of 29 roots.
+  - Leak: 0 undelivered buffers after a successful retain decode.
+  - noinit now also covers ffi-retain.
+- RPC gate, R-D1, U1 and the 3.7 source check all pass.
+
+**Requirement 10:** the pyperf codec suite times core-ffi in drop AND retain, shapes and the
+unknown rows, plus host-gen drop and retain and the incumbent at its default. Smoke,
+instrumentation: `logs/python/campaign/codec-*`, 378 plus 60 values.
 
 ## WP3: the campaign harness (work unit 6)
 
@@ -71,7 +120,7 @@ raw measurement exported.
 | 7 | met | 16 payloads; the content sets on P2.4 (SHAPES.md P10 row; the Rust slice's recode rule); every corpus U-* row whose root the C ABI carries, disputed excluded (311 rows; the Nest rows and U-map-entry named with the reason) |
 | 8 | met | incumbent-prod (SerializeToString / FromString), incumbent-best (SerializePartialToString, ParseFromString into a reused message), core-ffi (push), host-gen; core-ffi-attr as a labelled extra. No pull arm exists in this slice |
 | 9 | met | encode, decode (bare), decode+read through one reader for every arm |
-| 10 | **not met: pending the decision 11 port** | host-gen drop and retain are timed; incumbent at upb's default (retain, stated); core-ffi drop is timed; **core-ffi retain is not built**: `py_capi` renders decision 11's transitional drop mode (29d515e), and rendering the options is the next task |
+| 10 | **met** (work unit 7) | core-ffi drop and retain (decision 11, every position armed; `ak_uencode_*` on encode), host-gen drop and retain, incumbent at upb's default (retain, stated) |
 | 11 | met (argued) | the same object graph is re-serialised each iteration; neither upb-python nor the facades memoise a serialised size or form, so nothing is amortised. Stated, not rebuilt per iteration |
 | 12 | met | cells A, B, C, D |
 | 13 | met | `camp_server.py`, a separate pinned process; (a) pre-serialised P2.2; (b) the server decodes with upb, identically for every cell |
@@ -87,7 +136,7 @@ raw measurement exported.
 | 23 | met | defaults 5 rounds x 3 launches, every sample written (smoke: 1 x 1) |
 | 24 | met | codec: pyperf's warm-up (3 values) and loop calibration, exported; rpc: one sample's calls per cell before round 1 |
 | 25 | met | M_TOP_PAD before any allocation (J26); GC ON, `gc.collect()` before every sample, stated |
-| 26 | met, one gap | codec, rpc and calib refuse without a `gate.ok` for the trees they read (they run the gate first), and each codec case is also checked in process. The gap is req 10: the corpus runs core-ffi in drop mode only |
+| 26 | met | codec, rpc and calib refuse without a `gate.ok` for the trees they read; the corpus runs every codec arm in both unknown-field modes (ffi-retain added) |
 | 27 | met | header: commit (a dirty tree is refused unless `--allow-dirty`), machine, CPU sets, versions, build, transport, warm-up, repeats |
 | 28 | met | one JSON object per sample with the listed fields |
 | 29 | met by parameter | `--out`; the smoke is in `logs/python/campaign/` |
@@ -241,12 +290,10 @@ stale text (JOURNAL J28).
 
 ## Next step
 
-1. Render decision 11's options (`ak_unk_opts` per position, `ak_dec_reset_<Root>`) in
-   `py_capi` and add core-ffi retain to the corpus gate and the codec suite (requirement 10).
-2. The owner's run: `AK_CPU_CLIENT=.. AK_CPU_SERVER=.. AK_ISOLATION=.. ./run_campaign.sh --suite
-   gate|calib|codec|rpc --out ffi/logs/python/campaign`, with no `--smoke`.
-3. Re-render and re-gate whenever `plan.py`, `c_abi.py` or the core changes; the gate stamp
-   notices on its own.
+1. The owner's campaign run: `./run_campaign.sh --suite gate|calib|codec|rpc --out
+   ffi/logs/python/campaign`, without `--smoke`, with the CPU sets exported.
+2. Re-render (`gen/generate.py`) and re-gate (`./gate.sh python3.12 build/py37/python3.7`)
+   whenever `plan.py`, `c_abi.py` or the core changes.
 
 ## Log index
 

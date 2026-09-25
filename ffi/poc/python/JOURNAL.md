@@ -1123,3 +1123,30 @@ through camp_codec's builders, including their correctness check.
   for AK_* and PYTHONPATH.
 - **Cost:** a pyperf worker per benchmark makes the full unknown family (3,732 benchmarks)
   the expensive part of a launch.
+
+## Work unit 7: decision 11 through the C ABI (FIX-PLAN WP5 step 9)
+
+### J42. Rendering the options, and the controls that show them working
+
+`py_capi` now arms `ak_dec_<Root>_opts` per decode, on the decode's own frame, with every
+position backed by one C grow. The grow puts a small header in front of each buffer, which
+links it into a per-decode live list, so buffers need no other bookkeeping:
+- a delivered slot is unlinked and freed after its bytes become the facade's `_unknown`;
+- an absent child's, an inactive oneof member's or a map entry's slot is freed at delivery;
+- whatever a failed decode never delivered is freed at the end (rule 3).
+
+Contexts are created bound to their root once per call. A context shared across calls was
+considered and not used: a plain facade's `__init__` or a `pyacc` accessor runs Python code
+inside a decode callback, so the GIL can switch threads mid-decode, and another thread could
+then reach the same context. Encode gained the retain family (`fillu_`/`loopu_` over
+`ak_ufix` groups, `ak_uencode_*`, `ak_uelem*_`).
+
+Checked on the first build: conformance passed and the crossing counts matched
+`counts_expected.txt` exactly (the resets are not counted). The zeroed-position control
+decodes each unknown-field row once per position with that position's entry zeroed. It
+compares the facade's bags against the all-armed decode with that position's bags removed:
+0 mismatches over 1,373 pairs, and 315 of those pairs remove a bag, so a failure would show.
+Wrong root: all 812 cross pairs are refused with -8 and nothing is delivered; the same-root
+positive control passes on all 29 roots. The whole corpus passes on ffi-retain with the
+retained form on every row except the disputed U-map-entry, and ffi-retain is byte-identical
+to py-retain. All of this holds at 3.12 and 3.7.
