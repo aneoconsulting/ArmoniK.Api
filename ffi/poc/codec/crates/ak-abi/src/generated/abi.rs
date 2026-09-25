@@ -3,9 +3,10 @@
 //! The per-message part of the C ABI: section 6's groups and vtables, section 7's
 //! decode fixes. Both the core and the host binding compile against this file.
 #![allow(non_camel_case_types, non_upper_case_globals)]
-// The fixed vocabulary (ak_str, ak_span, ak_blob, ak_uspan, ak_loop_f, ak_unk_f,
+// The fixed vocabulary (ak_str, ak_span, ak_blob, ak_unk_buf, ak_unk_opts, ak_loop_f,
 // AK_TOKEN_ROOT) is plan.FIXED's, rendered into ak-abi's lib.rs (WP5 step 6).
-use super::super::{ak_blob, ak_dec_ctx, ak_enc_ctx, ak_loop_f, ak_span, ak_str, ak_unk_f};
+use super::super::{ak_blob, ak_dec_ctx, ak_enc_ctx, ak_loop_f, ak_span, ak_str, ak_unk_buf,
+    ak_unk_opts};
 use core::ffi::c_void;
 
 /// Encode group for `TaskOptionsOptionsEntry`.
@@ -30,12 +31,14 @@ impl ak_efix_TaskOptionsOptionsEntry {
 pub struct ak_dfix_TaskOptionsOptionsEntry {
     pub key: ak_span,
     pub value: ak_span,
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_TaskOptionsOptionsEntry {
     pub const ZERO: Self = ak_dfix_TaskOptionsOptionsEntry {
         key: ak_span { off: 0, len: 0, coder: 0 },
         value: ak_span { off: 0, len: 0, coder: 0 },
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -80,12 +83,14 @@ impl ak_efix_Timestamp {
 pub struct ak_dfix_Timestamp {
     pub seconds: i64,
     pub nanos: i32,
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_Timestamp {
     pub const ZERO: Self = ak_dfix_Timestamp {
         seconds: 0,
         nanos: 0,
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -130,12 +135,14 @@ impl ak_efix_Duration {
 pub struct ak_dfix_Duration {
     pub seconds: i64,
     pub nanos: i32,
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_Duration {
     pub const ZERO: Self = ak_dfix_Duration {
         seconds: 0,
         nanos: 0,
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -209,6 +216,7 @@ pub struct ak_dfix_ResultRaw {
     pub created_by: ak_span,
     pub opaque_id: ak_span,
     pub manual_deletion: u8,
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_ResultRaw {
@@ -224,6 +232,7 @@ impl ak_dfix_ResultRaw {
         created_by: ak_span { off: 0, len: 0, coder: 0 },
         opaque_id: ak_span { off: 0, len: 0, coder: 0 },
         manual_deletion: 0,
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -312,6 +321,7 @@ pub struct ak_dfix_TaskOptions {
     pub application_namespace: ak_span,
     pub application_service: ak_span,
     pub engine_type: ak_span,
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_TaskOptions {
@@ -325,6 +335,7 @@ impl ak_dfix_TaskOptions {
         application_namespace: ak_span { off: 0, len: 0, coder: 0 },
         application_service: ak_span { off: 0, len: 0, coder: 0 },
         engine_type: ak_span { off: 0, len: 0, coder: 0 },
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -385,12 +396,14 @@ impl ak_efix_TaskOutput {
 pub struct ak_dfix_TaskOutput {
     pub success: u8,
     pub error: ak_span,
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_TaskOutput {
     pub const ZERO: Self = ak_dfix_TaskOutput {
         success: 0,
         error: ak_span { off: 0, len: 0, coder: 0 },
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -512,6 +525,7 @@ pub struct ak_dfix_TaskDetailed {
     pub fetched_at: ak_dfix_Timestamp,
     pub payload_id: ak_span,
     pub created_by: ak_span,
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_TaskDetailed {
@@ -539,6 +553,7 @@ impl ak_dfix_TaskDetailed {
         fetched_at: ak_dfix_Timestamp::ZERO,
         payload_id: ak_span { off: 0, len: 0, coder: 0 },
         created_by: ak_span { off: 0, len: 0, coder: 0 },
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -673,6 +688,7 @@ pub struct ak_dfix_TaskSummary {
     pub error: ak_span,
     pub status_message: ak_span,
     pub count_data_dependencies: i64,
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_TaskSummary {
@@ -685,6 +701,7 @@ impl ak_dfix_TaskSummary {
         error: ak_span { off: 0, len: 0, coder: 0 },
         status_message: ak_span { off: 0, len: 0, coder: 0 },
         count_data_dependencies: 0,
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -772,6 +789,7 @@ pub struct ak_dfix_Probe {
     pub body_as_blob: ak_span,
     pub body_as_stamp: ak_dfix_Timestamp,
     pub body_as_nothing: ak_dfix_Empty,
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_Probe {
@@ -786,6 +804,7 @@ impl ak_dfix_Probe {
         body_as_blob: ak_span { off: 0, len: 0, coder: 0 },
         body_as_stamp: ak_dfix_Timestamp::ZERO,
         body_as_nothing: ak_dfix_Empty::ZERO,
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -846,10 +865,12 @@ impl ak_efix_Empty {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dfix_Empty {
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_Empty {
     pub const ZERO: Self = ak_dfix_Empty {
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -893,6 +914,7 @@ pub struct ak_dfix_UploadResultData {
     pub session_id: ak_span,
     pub result_id: ak_span,
     pub data_chunk: ak_span,
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_UploadResultData {
@@ -900,6 +922,7 @@ impl ak_dfix_UploadResultData {
         session_id: ak_span { off: 0, len: 0, coder: 0 },
         result_id: ak_span { off: 0, len: 0, coder: 0 },
         data_chunk: ak_span { off: 0, len: 0, coder: 0 },
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -943,11 +966,13 @@ impl ak_efix_MetricsBatch {
 #[derive(Clone, Copy)]
 pub struct ak_dfix_MetricsBatch {
     pub id: ak_span,
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_MetricsBatch {
     pub const ZERO: Self = ak_dfix_MetricsBatch {
         id: ak_span { off: 0, len: 0, coder: 0 },
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -990,12 +1015,14 @@ impl ak_efix_Pair {
 pub struct ak_dfix_Pair {
     pub key: ak_span,
     pub value: i32,
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_Pair {
     pub const ZERO: Self = ak_dfix_Pair {
         key: ak_span { off: 0, len: 0, coder: 0 },
         value: 0,
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -1040,12 +1067,14 @@ impl ak_efix_ListResultsResponse {
 pub struct ak_dfix_ListResultsResponse {
     pub page: i32,
     pub total: i32,
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_ListResultsResponse {
     pub const ZERO: Self = ak_dfix_ListResultsResponse {
         page: 0,
         total: 0,
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -1090,12 +1119,14 @@ impl ak_efix_ListTasksDetailedResponse {
 pub struct ak_dfix_ListTasksDetailedResponse {
     pub page: i32,
     pub total: i32,
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_ListTasksDetailedResponse {
     pub const ZERO: Self = ak_dfix_ListTasksDetailedResponse {
         page: 0,
         total: 0,
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -1134,10 +1165,12 @@ impl ak_efix_ListTaskSummaryResponse {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dfix_ListTaskSummaryResponse {
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_ListTaskSummaryResponse {
     pub const ZERO: Self = ak_dfix_ListTaskSummaryResponse {
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -1172,10 +1205,12 @@ impl ak_efix_ListProbeResponse {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dfix_ListProbeResponse {
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_ListProbeResponse {
     pub const ZERO: Self = ak_dfix_ListProbeResponse {
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -1210,10 +1245,12 @@ impl ak_efix_ListMetricsResponse {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dfix_ListMetricsResponse {
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_ListMetricsResponse {
     pub const ZERO: Self = ak_dfix_ListMetricsResponse {
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -1252,11 +1289,13 @@ pub const AK_EFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD: u32 = 1 << 0;
 #[derive(Clone, Copy)]
 pub struct ak_dfix_UploadResultDataMessage {
     pub upload: ak_dfix_UploadResultData,
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_UploadResultDataMessage {
     pub const ZERO: Self = ak_dfix_UploadResultDataMessage {
         upload: ak_dfix_UploadResultData::ZERO,
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -1295,10 +1334,12 @@ impl ak_efix_DualResponse {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dfix_DualResponse {
+    pub unknown: ak_unk_buf,
     pub presence: u32,
 }
 impl ak_dfix_DualResponse {
     pub const ZERO: Self = ak_dfix_DualResponse {
+        unknown: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 },
         presence: 0,
     };
 }
@@ -1331,9 +1372,6 @@ pub struct ak_dvt_ListResultsResponse {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListResultsResponse),
     >,
-    /// Unknown fields of the root: `None` drops them, set captures them.
-    pub unknown: Option<ak_unk_f>,
-    pub unk_results: Option<ak_unk_f>,
     pub add_results: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_ResultRaw, i32),
     >,
@@ -1355,9 +1393,6 @@ pub struct ak_dvt_ListTasksDetailedResponse {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListTasksDetailedResponse),
     >,
-    /// Unknown fields of the root: `None` drops them, set captures them.
-    pub unknown: Option<ak_unk_f>,
-    pub unk_tasks: Option<ak_unk_f>,
     pub new_tasks: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void) -> i64,
     >,
@@ -1395,9 +1430,6 @@ pub struct ak_dvt_ListProbeResponse {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListProbeResponse),
     >,
-    /// Unknown fields of the root: `None` drops them, set captures them.
-    pub unknown: Option<ak_unk_f>,
-    pub unk_probes: Option<ak_unk_f>,
     pub add_probes: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_Probe, i32),
     >,
@@ -1419,9 +1451,6 @@ pub struct ak_dvt_ListTaskSummaryResponse {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListTaskSummaryResponse),
     >,
-    /// Unknown fields of the root: `None` drops them, set captures them.
-    pub unknown: Option<ak_unk_f>,
-    pub unk_tasks: Option<ak_unk_f>,
     pub new_tasks: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void) -> i64,
     >,
@@ -1448,8 +1477,6 @@ pub struct ak_dvt_UploadResultDataMessage {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_UploadResultDataMessage),
     >,
-    /// Unknown fields of the root: `None` drops them, set captures them.
-    pub unknown: Option<ak_unk_f>,
 }
 
 /// Encode vtable for `ListMetricsResponse`.
@@ -1468,9 +1495,6 @@ pub struct ak_dvt_ListMetricsResponse {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListMetricsResponse),
     >,
-    /// Unknown fields of the root: `None` drops them, set captures them.
-    pub unknown: Option<ak_unk_f>,
-    pub unk_batches: Option<ak_unk_f>,
     pub new_batches: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void) -> i64,
     >,
@@ -1509,13 +1533,9 @@ pub struct ak_dvt_DualResponse {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_DualResponse),
     >,
-    /// Unknown fields of the root: `None` drops them, set captures them.
-    pub unknown: Option<ak_unk_f>,
-    pub unk_left: Option<ak_unk_f>,
     pub add_left: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_Pair, i32),
     >,
-    pub unk_right: Option<ak_unk_f>,
     pub add_right: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_Pair, i32),
     >,
@@ -1536,8 +1556,6 @@ pub struct ak_dvt_TaskOptionsOptionsEntry {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_TaskOptionsOptionsEntry),
     >,
-    /// Unknown fields of the root: `None` drops them, set captures them.
-    pub unknown: Option<ak_unk_f>,
 }
 
 /// Encode vtable for `ResultRaw`.
@@ -1555,8 +1573,6 @@ pub struct ak_dvt_ResultRaw {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ResultRaw),
     >,
-    /// Unknown fields of the root: `None` drops them, set captures them.
-    pub unknown: Option<ak_unk_f>,
 }
 
 /// Encode vtable for `TaskDetailed`.
@@ -1577,8 +1593,6 @@ pub struct ak_dvt_TaskDetailed {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_TaskDetailed),
     >,
-    /// Unknown fields of the root: `None` drops them, set captures them.
-    pub unknown: Option<ak_unk_f>,
     pub add_parent_task_ids: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_span, i32),
     >,
@@ -1591,7 +1605,6 @@ pub struct ak_dvt_TaskDetailed {
     pub add_retry_of_ids: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_span, i32),
     >,
-    pub unk_options_options: Option<ak_unk_f>,
     pub add_options_options: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_TaskOptionsOptionsEntry, i32),
     >,
@@ -1611,9 +1624,6 @@ pub struct ak_dvt_TaskSummary {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_TaskSummary),
     >,
-    /// Unknown fields of the root: `None` drops them, set captures them.
-    pub unknown: Option<ak_unk_f>,
-    pub unk_options_options: Option<ak_unk_f>,
     pub add_options_options: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_TaskOptionsOptionsEntry, i32),
     >,
@@ -1634,8 +1644,6 @@ pub struct ak_dvt_Probe {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_Probe),
     >,
-    /// Unknown fields of the root: `None` drops them, set captures them.
-    pub unknown: Option<ak_unk_f>,
 }
 
 /// Encode vtable for `MetricsBatch`.
@@ -1656,8 +1664,6 @@ pub struct ak_dvt_MetricsBatch {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_MetricsBatch),
     >,
-    /// Unknown fields of the root: `None` drops them, set captures them.
-    pub unknown: Option<ak_unk_f>,
     pub add_ticks: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const i64, i32),
     >,
@@ -1690,9 +1696,155 @@ pub struct ak_dvt_Pair {
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_Pair),
     >,
-    /// Unknown fields of the root: `None` drops them, set captures them.
-    pub unknown: Option<ak_unk_f>,
 }
+
+/// Decision 11: `ListResultsResponse`'s unknown-field options, one entry per message position
+/// (plan.unk_positions order). All zero = drop mode.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dec_ListResultsResponse_opts {
+    /// ONE per struct: passed as `sink` to whichever position's grow is called.
+    pub host: *mut c_void,
+    /// `ListResultsResponse`
+    pub self_: ak_unk_opts,
+    /// `ResultRaw`
+    pub results: ak_unk_opts,
+    /// `Timestamp`
+    pub results_created_at: ak_unk_opts,
+    /// `Timestamp`
+    pub results_completed_at: ak_unk_opts,
+}
+pub const AK_DEC_LISTRESULTSRESPONSE_OPTS_N: usize = 4;
+
+/// Decision 11: `ListTasksDetailedResponse`'s unknown-field options, one entry per message position
+/// (plan.unk_positions order). All zero = drop mode.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dec_ListTasksDetailedResponse_opts {
+    /// ONE per struct: passed as `sink` to whichever position's grow is called.
+    pub host: *mut c_void,
+    /// `ListTasksDetailedResponse`
+    pub self_: ak_unk_opts,
+    /// `TaskDetailed`
+    pub tasks: ak_unk_opts,
+    /// `TaskOptions`
+    pub tasks_options: ak_unk_opts,
+    /// `TaskOptionsOptionsEntry`
+    pub tasks_options_options: ak_unk_opts,
+    /// `Duration`
+    pub tasks_options_max_duration: ak_unk_opts,
+    /// `Timestamp`
+    pub tasks_created_at: ak_unk_opts,
+    /// `Timestamp`
+    pub tasks_submitted_at: ak_unk_opts,
+    /// `Timestamp`
+    pub tasks_started_at: ak_unk_opts,
+    /// `Timestamp`
+    pub tasks_ended_at: ak_unk_opts,
+    /// `Timestamp`
+    pub tasks_pod_ttl: ak_unk_opts,
+    /// `TaskOutput`
+    pub tasks_output: ak_unk_opts,
+    /// `Timestamp`
+    pub tasks_received_at: ak_unk_opts,
+    /// `Timestamp`
+    pub tasks_acquired_at: ak_unk_opts,
+    /// `Duration`
+    pub tasks_creation_to_end_duration: ak_unk_opts,
+    /// `Duration`
+    pub tasks_processing_to_end_duration: ak_unk_opts,
+    /// `Duration`
+    pub tasks_received_to_end_duration: ak_unk_opts,
+    /// `Timestamp`
+    pub tasks_processed_at: ak_unk_opts,
+    /// `Timestamp`
+    pub tasks_fetched_at: ak_unk_opts,
+}
+pub const AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS_N: usize = 18;
+
+/// Decision 11: `ListProbeResponse`'s unknown-field options, one entry per message position
+/// (plan.unk_positions order). All zero = drop mode.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dec_ListProbeResponse_opts {
+    /// ONE per struct: passed as `sink` to whichever position's grow is called.
+    pub host: *mut c_void,
+    /// `ListProbeResponse`
+    pub self_: ak_unk_opts,
+    /// `Probe`
+    pub probes: ak_unk_opts,
+    /// `Timestamp`
+    pub probes_body_as_stamp: ak_unk_opts,
+    /// `Empty`
+    pub probes_body_as_nothing: ak_unk_opts,
+}
+pub const AK_DEC_LISTPROBERESPONSE_OPTS_N: usize = 4;
+
+/// Decision 11: `ListTaskSummaryResponse`'s unknown-field options, one entry per message position
+/// (plan.unk_positions order). All zero = drop mode.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dec_ListTaskSummaryResponse_opts {
+    /// ONE per struct: passed as `sink` to whichever position's grow is called.
+    pub host: *mut c_void,
+    /// `ListTaskSummaryResponse`
+    pub self_: ak_unk_opts,
+    /// `TaskSummary`
+    pub tasks: ak_unk_opts,
+    /// `TaskOptions`
+    pub tasks_options: ak_unk_opts,
+    /// `TaskOptionsOptionsEntry`
+    pub tasks_options_options: ak_unk_opts,
+    /// `Duration`
+    pub tasks_options_max_duration: ak_unk_opts,
+    /// `Timestamp`
+    pub tasks_created_at: ak_unk_opts,
+}
+pub const AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS_N: usize = 6;
+
+/// Decision 11: `UploadResultDataMessage`'s unknown-field options, one entry per message position
+/// (plan.unk_positions order). All zero = drop mode.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dec_UploadResultDataMessage_opts {
+    /// ONE per struct: passed as `sink` to whichever position's grow is called.
+    pub host: *mut c_void,
+    /// `UploadResultDataMessage`
+    pub self_: ak_unk_opts,
+    /// `UploadResultData`
+    pub upload: ak_unk_opts,
+}
+pub const AK_DEC_UPLOADRESULTDATAMESSAGE_OPTS_N: usize = 2;
+
+/// Decision 11: `ListMetricsResponse`'s unknown-field options, one entry per message position
+/// (plan.unk_positions order). All zero = drop mode.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dec_ListMetricsResponse_opts {
+    /// ONE per struct: passed as `sink` to whichever position's grow is called.
+    pub host: *mut c_void,
+    /// `ListMetricsResponse`
+    pub self_: ak_unk_opts,
+    /// `MetricsBatch`
+    pub batches: ak_unk_opts,
+}
+pub const AK_DEC_LISTMETRICSRESPONSE_OPTS_N: usize = 2;
+
+/// Decision 11: `DualResponse`'s unknown-field options, one entry per message position
+/// (plan.unk_positions order). All zero = drop mode.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_dec_DualResponse_opts {
+    /// ONE per struct: passed as `sink` to whichever position's grow is called.
+    pub host: *mut c_void,
+    /// `DualResponse`
+    pub self_: ak_unk_opts,
+    /// `Pair`
+    pub left: ak_unk_opts,
+    /// `Pair`
+    pub right: ak_unk_opts,
+}
+pub const AK_DEC_DUALRESPONSE_OPTS_N: usize = 3;
 
 // ABI v1 section 6: what a host calls in the codec are PLAIN EXPORTS, not a
 // table, so a missing symbol is a load failure, which is loud.
@@ -1718,6 +1870,10 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_ListResultsResponse,
     ) -> i32;
+    /// A decode context armed with these options (NULL = drop everywhere).
+    pub fn ak_dec_ctx_new_ListResultsResponse(opts: *const ak_dec_ListResultsResponse_opts) -> *mut ak_dec_ctx;
+    /// Re-arm every position of this root from `opts` (copied; NULL = drop everywhere).
+    pub fn ak_dec_reset_ListResultsResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListResultsResponse_opts);
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -1747,6 +1903,10 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_ListTasksDetailedResponse,
     ) -> i32;
+    /// A decode context armed with these options (NULL = drop everywhere).
+    pub fn ak_dec_ctx_new_ListTasksDetailedResponse(opts: *const ak_dec_ListTasksDetailedResponse_opts) -> *mut ak_dec_ctx;
+    /// Re-arm every position of this root from `opts` (copied; NULL = drop everywhere).
+    pub fn ak_dec_reset_ListTasksDetailedResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListTasksDetailedResponse_opts);
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -1776,6 +1936,10 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_ListProbeResponse,
     ) -> i32;
+    /// A decode context armed with these options (NULL = drop everywhere).
+    pub fn ak_dec_ctx_new_ListProbeResponse(opts: *const ak_dec_ListProbeResponse_opts) -> *mut ak_dec_ctx;
+    /// Re-arm every position of this root from `opts` (copied; NULL = drop everywhere).
+    pub fn ak_dec_reset_ListProbeResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListProbeResponse_opts);
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -1805,6 +1969,10 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_ListTaskSummaryResponse,
     ) -> i32;
+    /// A decode context armed with these options (NULL = drop everywhere).
+    pub fn ak_dec_ctx_new_ListTaskSummaryResponse(opts: *const ak_dec_ListTaskSummaryResponse_opts) -> *mut ak_dec_ctx;
+    /// Re-arm every position of this root from `opts` (copied; NULL = drop everywhere).
+    pub fn ak_dec_reset_ListTaskSummaryResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListTaskSummaryResponse_opts);
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -1839,6 +2007,10 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_UploadResultDataMessage,
     ) -> i32;
+    /// A decode context armed with these options (NULL = drop everywhere).
+    pub fn ak_dec_ctx_new_UploadResultDataMessage(opts: *const ak_dec_UploadResultDataMessage_opts) -> *mut ak_dec_ctx;
+    /// Re-arm every position of this root from `opts` (copied; NULL = drop everywhere).
+    pub fn ak_dec_reset_UploadResultDataMessage(ctx: *mut ak_dec_ctx, opts: *const ak_dec_UploadResultDataMessage_opts);
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -1868,6 +2040,10 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_ListMetricsResponse,
     ) -> i32;
+    /// A decode context armed with these options (NULL = drop everywhere).
+    pub fn ak_dec_ctx_new_ListMetricsResponse(opts: *const ak_dec_ListMetricsResponse_opts) -> *mut ak_dec_ctx;
+    /// Re-arm every position of this root from `opts` (copied; NULL = drop everywhere).
+    pub fn ak_dec_reset_ListMetricsResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListMetricsResponse_opts);
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -1897,6 +2073,10 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_DualResponse,
     ) -> i32;
+    /// A decode context armed with these options (NULL = drop everywhere).
+    pub fn ak_dec_ctx_new_DualResponse(opts: *const ak_dec_DualResponse_opts) -> *mut ak_dec_ctx;
+    /// Re-arm every position of this root from `opts` (copied; NULL = drop everywhere).
+    pub fn ak_dec_reset_DualResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_DualResponse_opts);
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.

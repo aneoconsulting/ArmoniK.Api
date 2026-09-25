@@ -324,6 +324,12 @@ pub struct DecCtxImpl {
     /// context rather than a local of the entry point because the whole point of pull is
     /// that the host reads it AFTER the call returns.
     pub bdr: ak_rt::Bdr,
+    /// Decision 11 (WP5 step 7): the unknown-field options this context is armed with --
+    /// the root they are for (`plan.unk_root_id`, 0 = not armed, drop mode), the ONE host
+    /// pointer, and the core's own copy of the positions, consumed as buffers are placed.
+    pub unk_root: u32,
+    pub unk_host: *mut c_void,
+    pub unk: Vec<UnkPos>,
 }
 
 #[no_mangle]
@@ -402,6 +408,9 @@ pub extern "C" fn ak_dec_ctx_new() -> *mut ak_dec_ctx {
         hdr: CtxHeader { kind: AK_CTX_DEC, err: AK_OK },
         c: Default::default(),
         bdr: ak_rt::Bdr::new(),
+        unk_root: 0,
+        unk_host: core::ptr::null_mut(),
+        unk: Vec::new(),
     })) as *mut ak_dec_ctx
 }
 
@@ -1001,81 +1010,108 @@ pub(crate) unsafe fn enc_blob(cx: *mut EncCtxImpl, tag: u32, site: u32, s: &ak_s
     true
 }
 
-/// ABI v1 open decision 11 candidate: the decode side's capture buffer.
-///
-/// Unknown runs are collected as spans into the buffer the host handed in -- the core
-/// copies nothing and allocates nothing, which is the property the whole decode design
-/// rests on -- and delivered in batches, the way an element run is, so the cost is
-/// crossings per chunk and not per field. The host materialises them if it intends to
-/// re-encode, because that buffer may be recycled.
-///
-/// `cb == None` is today's behaviour and the case that has to stay free: an unknown tag is
-/// skipped and dropped, and the only thing the capture costs is one null test on a branch
-/// the existing payload set never takes.
-pub(crate) struct UnkBuf {
-    pub cb: Option<ak_unk_f>,
-    pub ctx: *mut ak_dec_ctx,
-    pub obj: *mut c_void,
-    /// Which element of the enclosing run the spans being collected belong to.
-    pub token: i64,
-    pub spans: [ak_uspan; UNK_CHUNK],
-    pub n: usize,
+/// Decision 11 (WP5 step 7, the owner's mechanism): one message position of the context's
+/// armed options. `handed` records that its pre-allocated buffer has been MOVED into a slot,
+/// so it can never be placed a second time (plan: UNKNOWN FIELDS ON DECODE, PLACEMENT).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct UnkPos {
+    pub o: ak_unk_opts,
+    pub handed: bool,
 }
 
-pub(crate) const UNK_CHUNK: usize = 32;
+/// What a decoder carries for its message: the context and the message's position, or a
+/// NULL position (drop mode, or a context armed for another root). Copy, two words.
+#[derive(Clone, Copy)]
+pub struct UnkCx {
+    pub dcx: *mut DecCtxImpl,
+    pub pos: *mut UnkPos,
+}
 
-impl UnkBuf {
-    #[inline]
-    pub fn new(cb: Option<ak_unk_f>, ctx: *mut ak_dec_ctx, obj: *mut c_void) -> Self {
-        UnkBuf {
-            cb,
-            ctx,
-            obj,
-            token: AK_TOKEN_ROOT,
-            spans: [ak_uspan { token: 0, off: 0, len: 0 }; UNK_CHUNK],
-            n: 0,
-        }
-    }
-
-    /// R-D6: what the host reported through `ak_fail` during a delivery, so a decoder
-    /// holding only this buffer (a leaf fix decoder has no context of its own) can stop.
+impl UnkCx {
+    /// The root's position, if this context is armed for this root.
     #[inline(always)]
-    pub unsafe fn host_err(&self) -> i32 {
-        if self.ctx.is_null() {
-            AK_OK
+    pub unsafe fn root(dcx: *mut DecCtxImpl, root_id: u32) -> UnkCx {
+        let pos = if (*dcx).unk_root == root_id && !(*dcx).unk.is_empty() {
+            (*dcx).unk.as_mut_ptr()
         } else {
-            (*(self.ctx as *const DecCtxImpl)).hdr.err
-        }
+            core::ptr::null_mut()
+        };
+        UnkCx { dcx, pos }
     }
 
+    /// The position `rel` entries after this one (`plan.unk_offset`).
     #[inline(always)]
-    pub unsafe fn push(&mut self, off: usize, len: usize) {
-        if self.cb.is_none() {
-            return;
-        }
-        self.spans[self.n] = ak_uspan { token: self.token, off: off as u32, len: len as u32 };
-        self.n += 1;
-        if self.n == UNK_CHUNK {
-            self.flush();
+    pub unsafe fn at(self, rel: usize) -> UnkCx {
+        if self.pos.is_null() {
+            self
+        } else {
+            UnkCx { dcx: self.dcx, pos: self.pos.add(rel) }
         }
     }
+}
 
-    #[inline]
-    pub unsafe fn flush(&mut self) {
-        if self.n == 0 {
-            return;
-        }
-        if let Some(cb) = self.cb {
-            // R-D6: no delivery after the host failed the operation.
-            if self.host_err() != AK_OK {
-                self.n = 0;
-                return;
-            }
-            ak_rt::bump!((*(self.ctx as *mut DecCtxImpl)).c, reverse);
-            cb(self.ctx, self.obj, self.spans.as_ptr(), self.n as i32);
-        }
-        self.n = 0;
+/// Arm (or, with `n == 0`, disarm) a context for one root: the core's own copy, so the
+/// host's struct need not outlive the call.
+pub(crate) unsafe fn unk_arm(dcx: *mut DecCtxImpl, root_id: u32, host: *mut c_void,
+                             first: *const ak_unk_opts, n: usize) {
+    let cx = &mut *dcx;
+    cx.unk.clear();
+    if n == 0 || first.is_null() {
+        cx.unk_root = 0;
+        cx.unk_host = core::ptr::null_mut();
+        return;
     }
+    cx.unk_root = root_id;
+    cx.unk_host = host;
+    let src = core::slice::from_raw_parts(first, n);
+    cx.unk.extend(src.iter().map(|o| UnkPos { o: *o, handed: false }));
+}
+
+/// Copy one unknown run of a message into that message's own buffer slot (plan: UNKNOWN
+/// FIELDS ON DECODE). Returns AK_OK or the error that fails the decode.
+#[inline(never)]
+pub(crate) unsafe fn unk_put(u: UnkCx, slot: &mut ak_unk_buf, run: &[u8]) -> i32 {
+    let e = &mut *u.pos;
+    if slot.data.is_null() {
+        if !e.o.buf.data.is_null() {
+            // PLACEMENT: the pre-allocated buffer is MOVED, so it cannot be placed twice.
+            debug_assert!(!e.handed);
+            *slot = ak_unk_buf { data: e.o.buf.data, len: 0, cap: e.o.buf.cap };
+            e.o.buf = ak_unk_buf { data: core::ptr::null_mut(), len: 0, cap: 0 };
+            e.handed = true;
+        } else if e.o.grow.is_none() {
+            // DISCARD (an all-zero entry), or a buffer already handed out and no grow.
+            return if e.handed { AK_ERR_CAPACITY } else { AK_OK };
+        }
+    }
+    let need = slot.len as usize + run.len();
+    if need > slot.cap as usize {
+        let Some(grow) = e.o.grow else { return AK_ERR_CAPACITY };
+        if need > i32::MAX as usize {
+            return AK_ERR_LIMIT;
+        }
+        let mut dst = slot.data as *mut u8;
+        let mut cap = slot.cap as i32;
+        let cx = &mut *u.dcx;
+        ak_rt::bump!(cx.c, reverse);
+        ak_rt::bump!(cx.c, grows);
+        let rc = grow(cx.unk_host, need as i32, &mut dst, &mut cap);
+        if rc < 0 {
+            return rc;
+        }
+        if cx.hdr.err != AK_OK {
+            return cx.hdr.err;
+        }
+        if dst.is_null() || (cap as i64) < need as i64 {
+            return AK_ERR_CAPACITY;
+        }
+        slot.data = dst as *mut c_void;
+        slot.cap = cap as u32;
+    }
+    core::ptr::copy_nonoverlapping(run.as_ptr(), (slot.data as *mut u8).add(slot.len as usize), run.len());
+    slot.len += run.len() as u32;
+    AK_OK
 }
 
 /// ABI v1 open decision 11 candidate: the unknown-field bag, appended verbatim.

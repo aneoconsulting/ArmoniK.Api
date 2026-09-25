@@ -1235,12 +1235,9 @@ Tcs tcs_host() {
             o.append("  sink.pending = NULL;")
         o.append("  struct ak_dvt_%s vt;" % root)
         o.append("  vt.apply = apply_%s;" % snake(root))
-        o.append("  vt.unknown = NULL;")
         for path, f in slots:
             sn = slot_name(path)
             et = elem_type(f)
-            if et:
-                o.append("  vt.unk_%s = NULL;" % sn)
             elem_ty = f.entry if f.card == "map" else et
             if elem_ty is None or ir.msg(elem_ty).leaf:
                 o.append("  vt.add_%s = add_%s_%s;" % (sn, snake(root), sn))
@@ -1320,26 +1317,11 @@ def _emit_decode_unk(ir, o, root):
     rs = snake(root)
     slots = loop_slots(ir, root)
 
-    def capture(fname, slot):
-        o.append("static void %s(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {"
-                 % fname)
-        o.append("  AK_DGUARD_BEGIN")
-        o.append("    Sink_%s *s = (Sink_%s *)obj;" % (root, root))
-        o.append("    for (int32_t i = 0; i < n; ++i) {")
-        o.append("      AkPending pd;")
-        o.append("      pd.slot = %d;" % slot)
-        o.append("      pd.token = sp[i].token;")
-        o.append("      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);")
-        o.append("      s->pending->push_back(pd);")
-        o.append("    }")
-        o.append("  AK_DGUARD_END")
-        o.append("}")
-        o.append("")
-
-    capture("unknown_%s" % rs, 0)
-    for si, (path, f) in enumerate(slots):
-        if elem_type(f):
-            capture("unk_%s_%s" % (rs, slot_name(path)), si + 1)
+    # WP5 step 7 (decision 11): the `unknown` / `unk_<slot>` callbacks are gone from the
+    # ABI; unknown fields travel as data in the groups, configured by `ak_dec_<Root>_opts`.
+    # This backend does not render the options yet, so this entry point decodes in DROP
+    # mode (its context is never armed) and `pending` stays empty: a transitional state,
+    # to be replaced by the cpp slice rendering the options (see plan.py).
     o.append("int32_t decode_with_%s_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out) {"
              % (rs, root))
     o.append("  AK_INIT_OR_RETURN();")
@@ -1350,12 +1332,9 @@ def _emit_decode_unk(ir, o, root):
     o.append("  sink.pending = &pending;")
     o.append("  struct ak_dvt_%s vt;" % root)
     o.append("  vt.apply = apply_%s;" % rs)
-    o.append("  vt.unknown = unknown_%s;" % rs)
     for path, f in slots:
         sn = slot_name(path)
         et = elem_type(f)
-        if et:
-            o.append("  vt.unk_%s = unk_%s_%s;" % (sn, rs, sn))
         elem_ty = f.entry if f.card == "map" else et
         if elem_ty is None or ir.msg(elem_ty).leaf:
             o.append("  vt.add_%s = add_%s_%s;" % (sn, rs, sn))

@@ -26,11 +26,13 @@ import java_names as N
 WHO = "java_layout.py"
 
 # (size, align) on the SysV x86-64 C ABI of every leaf of the plan's abi vocabulary.
-# `ak_str` is {const void*, size_t, fn ptr}; `ak_span` is three u32; `ak_blob` is two words.
+# `ak_str` is {const void*, size_t, fn ptr}; `ak_span` is three u32; `ak_blob` is two words;
+# `ak_unk_buf` is a pointer and two u32.
 LEAF = {
     "i32": (4, 4), "i64": (8, 8), "u8": (1, 1), "f64": (8, 8), "u32": (4, 4),
     "u64": (8, 8), "usize": (8, 8), "ptr": (8, 8),
     "ak_str": (24, 8), "ak_span": (12, 4), "ak_blob": (16, 8),
+    "ak_unk_buf": (16, 8),   # decision 11 (WP5 step 7): {void *data; u32 len; u32 cap}
 }
 
 

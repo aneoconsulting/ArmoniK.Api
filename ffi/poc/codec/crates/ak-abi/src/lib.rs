@@ -79,8 +79,6 @@ pub type ak_transcode_fn = unsafe extern "C" fn(src: *const c_void, len: usize, 
 pub type ak_log_fn = unsafe extern "C" fn(ctx: *mut c_void, level: u32, msg: *const u8, msg_len: usize);
 /// ABI v1 section 6: a host-driven loop over one repeated/packed/map field.
 pub type ak_loop_f = unsafe extern "C" fn(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32;
-/// Decision 11 candidate: captured unknown-field runs, delivered by token.
-pub type ak_unk_f = unsafe extern "C" fn(ctx: *mut ak_dec_ctx, obj: *mut c_void, spans: *const ak_uspan, n: i32);
 
 /// ABI v1 section 4, encode: a blob as DATA in the group. `len` counts SOURCE code units; `tc == NULL` means the field is ABSENT.
 #[repr(C)]
@@ -125,13 +123,38 @@ impl Default for ak_blob {
     }
 }
 
-/// One captured unknown run: which object (a token) and where in the input.
+/// Decision 11 (WP5 step 7): one message occurrence's unknown-field buffer, host memory the core copies the runs into.
 #[repr(C)]
-#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
-pub struct ak_uspan {
-    pub token: i64,
-    pub off: u32,
+#[derive(Clone, Copy)]
+pub struct ak_unk_buf {
+    pub data: *mut c_void,
     pub len: u32,
+    pub cap: u32,
+}
+impl Default for ak_unk_buf {
+    fn default() -> Self {
+        ak_unk_buf {
+            data: ::core::ptr::null_mut(),
+            len: 0,
+            cap: 0,
+        }
+    }
+}
+
+/// Decision 11: one message position's configuration; all zero = its unknowns are discarded.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_unk_opts {
+    pub buf: ak_unk_buf,
+    pub grow: Option<ak_grow_fn>,
+}
+impl Default for ak_unk_opts {
+    fn default() -> Self {
+        ak_unk_opts {
+            buf: ak_unk_buf::default(),
+            grow: None,
+        }
+    }
 }
 
 /// ak_init's out-parameter (ABI v1 section 3/5): a code and a detail.

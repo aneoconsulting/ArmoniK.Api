@@ -221,7 +221,7 @@ def _dec_message(p, m, o):
             o.append("                dec_%s(&mut sub, c, depth + 1);" % snake(f.of))
             o.append("                if sub.err != 0 { d.err = sub.err; return; }")
             o.append("            }")
-        elif op == "append_message":
+        elif op == "append_message" and f.card != "map":
             o.append(pat)
             o.append("                let (off, n) = d.len_body();")
             o.append("                let mut sub = Dec::new(&buf[off..off + n]);")
@@ -257,7 +257,8 @@ def _dec_message(p, m, o):
             o.append("                let v = %s;" % _read(f, "d"))
             o.append("                if d.err == 0 { out.%s.push(v); }" % f.name)
             o.append("            }")
-        elif op == "map_entry":
+        # WP5 step 7: to the decode plan a map IS a repeated pair message (decision 11).
+        elif op == "append_message" and f.card == "map":
             entry = p.msg(f.entry)
             o.append(pat)
             o.append("                let (off, n) = d.len_body();")

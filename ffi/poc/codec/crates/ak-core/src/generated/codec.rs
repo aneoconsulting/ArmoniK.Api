@@ -6,7 +6,7 @@
 //! here, a facade object there (R-E1).
 #![allow(non_snake_case, non_camel_case_types, unused_unsafe, unused_variables,
     unused_assignments, unused_mut, unused_macros, clippy::all)]
-use crate::{enc_blob, enc_raw, DecCtxImpl, EncCtxImpl, UnkBuf};
+use crate::{enc_blob, enc_raw, unk_put, DecCtxImpl, EncCtxImpl, UnkCx};
 use ak_abi::*;
 use ak_rt::dec::Dec;
 use core::ffi::c_void;
@@ -2422,24 +2422,24 @@ pub unsafe extern "C" fn ak_run_u8(ctx: *mut ak_enc_ctx, p: *const u8, n: usize)
 }
 
 #[inline]
-unsafe fn dec_empty_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Empty {
+unsafe fn dec_empty_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Empty {
     let mut out = ak_dfix_Empty::ZERO;
-    dec_empty_fix_into(d, base, unk, &mut out);
+    dec_empty_fix_into(d, base, u, &mut out);
     out
 }
 
 /// Decode INTO an existing group: what a oneof's message member needs to merge a
 /// repeated occurrence (plan rule), and what `dec_empty_fix` wraps.
 #[inline]
-unsafe fn dec_empty_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, out: &mut ak_dfix_Empty) {
+unsafe fn dec_empty_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfix_Empty) {
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
     let mut cur = 0u32;
     macro_rules! flush { () => { }; }
     while !d.at_end() {
-        // Decision 11 candidate: where this field's tag-and-value run starts,
-        // so an unknown one can be handed over as a span rather than dropped.
+        // Decision 11: where this field's tag-and-value run starts, so an
+        // unknown one can be copied into the message's own buffer.
         let s0 = d.pos;
         let k = d.varint();
         if d.err != 0 { break; }
@@ -2448,11 +2448,9 @@ unsafe fn dec_empty_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, out: &m
         match tag {
             _ => {
                 d.skip(tag, wire);
-                if !unk.is_null() {
-                    (*unk).push(base0 + s0, d.pos - s0);
-                    // R-D6: the push may have delivered a chunk; stop if the host failed.
-                    let he = (*unk).host_err();
-                    if he != AK_OK && d.err == 0 { d.err = he; }
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
                 }
             }
         }
@@ -2460,24 +2458,24 @@ unsafe fn dec_empty_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, out: &m
 }
 
 #[inline]
-unsafe fn dec_pair_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Pair {
+unsafe fn dec_pair_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Pair {
     let mut out = ak_dfix_Pair::ZERO;
-    dec_pair_fix_into(d, base, unk, &mut out);
+    dec_pair_fix_into(d, base, u, &mut out);
     out
 }
 
 /// Decode INTO an existing group: what a oneof's message member needs to merge a
 /// repeated occurrence (plan rule), and what `dec_pair_fix` wraps.
 #[inline]
-unsafe fn dec_pair_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, out: &mut ak_dfix_Pair) {
+unsafe fn dec_pair_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfix_Pair) {
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
     let mut cur = 0u32;
     macro_rules! flush { () => { }; }
     while !d.at_end() {
-        // Decision 11 candidate: where this field's tag-and-value run starts,
-        // so an unknown one can be handed over as a span rather than dropped.
+        // Decision 11: where this field's tag-and-value run starts, so an
+        // unknown one can be copied into the message's own buffer.
         let s0 = d.pos;
         let k = d.varint();
         if d.err != 0 { break; }
@@ -2496,11 +2494,9 @@ unsafe fn dec_pair_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, out: &mu
             }
             _ => {
                 d.skip(tag, wire);
-                if !unk.is_null() {
-                    (*unk).push(base0 + s0, d.pos - s0);
-                    // R-D6: the push may have delivered a chunk; stop if the host failed.
-                    let he = (*unk).host_err();
-                    if he != AK_OK && d.err == 0 { d.err = he; }
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
                 }
             }
         }
@@ -2508,24 +2504,24 @@ unsafe fn dec_pair_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, out: &mu
 }
 
 #[inline]
-unsafe fn dec_probe_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Probe {
+unsafe fn dec_probe_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Probe {
     let mut out = ak_dfix_Probe::ZERO;
-    dec_probe_fix_into(d, base, unk, &mut out);
+    dec_probe_fix_into(d, base, u, &mut out);
     out
 }
 
 /// Decode INTO an existing group: what a oneof's message member needs to merge a
 /// repeated occurrence (plan rule), and what `dec_probe_fix` wraps.
 #[inline]
-unsafe fn dec_probe_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, out: &mut ak_dfix_Probe) {
+unsafe fn dec_probe_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfix_Probe) {
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
     let mut cur = 0u32;
     macro_rules! flush { () => { }; }
     while !d.at_end() {
-        // Decision 11 candidate: where this field's tag-and-value run starts,
-        // so an unknown one can be handed over as a span rather than dropped.
+        // Decision 11: where this field's tag-and-value run starts, so an
+        // unknown one can be copied into the message's own buffer.
         let s0 = d.pos;
         let k = d.varint();
         if d.err != 0 { break; }
@@ -2582,8 +2578,10 @@ unsafe fn dec_probe_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, out: &m
                 let mut os = Dec::new(&buf0[off..off + n]);
                 // Plan rule: the SAME member again merges; another member,
                 // or none, starts from empty.
-                if out.body_case != 13 { out.body_as_stamp = ak_dfix_Timestamp::ZERO; }
-                dec_timestamp_fix_into(&mut os, base0 + off, ::core::ptr::null_mut(), &mut out.body_as_stamp);
+                // Decision 11: a buffer already placed in this member's slot is
+                // KEPT, emptied: never dropped, never in two slots.
+                if out.body_case != 13 { let k = out.body_as_stamp.unknown; out.body_as_stamp = ak_dfix_Timestamp::ZERO; out.body_as_stamp.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap }; }
+                dec_timestamp_fix_into(&mut os, base0 + off, u.at(1), &mut out.body_as_stamp);
                 if os.err != 0 { d.err = os.err; }
                 // Last one wins: a later member replaces the case.
                 out.body_case = 13;
@@ -2594,19 +2592,19 @@ unsafe fn dec_probe_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, out: &m
                 let mut os = Dec::new(&buf0[off..off + n]);
                 // Plan rule: the SAME member again merges; another member,
                 // or none, starts from empty.
-                if out.body_case != 14 { out.body_as_nothing = ak_dfix_Empty::ZERO; }
-                dec_empty_fix_into(&mut os, base0 + off, ::core::ptr::null_mut(), &mut out.body_as_nothing);
+                // Decision 11: a buffer already placed in this member's slot is
+                // KEPT, emptied: never dropped, never in two slots.
+                if out.body_case != 14 { let k = out.body_as_nothing.unknown; out.body_as_nothing = ak_dfix_Empty::ZERO; out.body_as_nothing.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap }; }
+                dec_empty_fix_into(&mut os, base0 + off, u.at(2), &mut out.body_as_nothing);
                 if os.err != 0 { d.err = os.err; }
                 // Last one wins: a later member replaces the case.
                 out.body_case = 14;
             }
             _ => {
                 d.skip(tag, wire);
-                if !unk.is_null() {
-                    (*unk).push(base0 + s0, d.pos - s0);
-                    // R-D6: the push may have delivered a chunk; stop if the host failed.
-                    let he = (*unk).host_err();
-                    if he != AK_OK && d.err == 0 { d.err = he; }
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
                 }
             }
         }
@@ -2614,24 +2612,24 @@ unsafe fn dec_probe_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, out: &m
 }
 
 #[inline]
-unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_ResultRaw {
+unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ResultRaw {
     let mut out = ak_dfix_ResultRaw::ZERO;
-    dec_result_raw_fix_into(d, base, unk, &mut out);
+    dec_result_raw_fix_into(d, base, u, &mut out);
     out
 }
 
 /// Decode INTO an existing group: what a oneof's message member needs to merge a
 /// repeated occurrence (plan rule), and what `dec_result_raw_fix` wraps.
 #[inline]
-unsafe fn dec_result_raw_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, out: &mut ak_dfix_ResultRaw) {
+unsafe fn dec_result_raw_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfix_ResultRaw) {
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
     let mut cur = 0u32;
     macro_rules! flush { () => { }; }
     while !d.at_end() {
-        // Decision 11 candidate: where this field's tag-and-value run starts,
-        // so an unknown one can be handed over as a span rather than dropped.
+        // Decision 11: where this field's tag-and-value run starts, so an
+        // unknown one can be copied into the message's own buffer.
         let s0 = d.pos;
         let k = d.varint();
         if d.err != 0 { break; }
@@ -2668,6 +2666,7 @@ unsafe fn dec_result_raw_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, ou
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_RESULTRAW_PRESENT_CREATED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -2681,7 +2680,14 @@ unsafe fn dec_result_raw_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, ou
                         if cur != 0 { flush!(); cur = 0; }
                         out.created_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(1), &mut out.created_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -2694,6 +2700,7 @@ unsafe fn dec_result_raw_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, ou
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_RESULTRAW_PRESENT_COMPLETED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -2707,7 +2714,14 @@ unsafe fn dec_result_raw_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, ou
                         if cur != 0 { flush!(); cur = 0; }
                         out.completed_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(2), &mut out.completed_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -2739,11 +2753,9 @@ unsafe fn dec_result_raw_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, ou
             }
             _ => {
                 d.skip(tag, wire);
-                if !unk.is_null() {
-                    (*unk).push(base0 + s0, d.pos - s0);
-                    // R-D6: the push may have delivered a chunk; stop if the host failed.
-                    let he = (*unk).host_err();
-                    if he != AK_OK && d.err == 0 { d.err = he; }
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
                 }
             }
         }
@@ -2751,24 +2763,24 @@ unsafe fn dec_result_raw_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, ou
 }
 
 #[inline]
-unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_TaskOptionsOptionsEntry {
+unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_TaskOptionsOptionsEntry {
     let mut out = ak_dfix_TaskOptionsOptionsEntry::ZERO;
-    dec_task_options_options_entry_fix_into(d, base, unk, &mut out);
+    dec_task_options_options_entry_fix_into(d, base, u, &mut out);
     out
 }
 
 /// Decode INTO an existing group: what a oneof's message member needs to merge a
 /// repeated occurrence (plan rule), and what `dec_task_options_options_entry_fix` wraps.
 #[inline]
-unsafe fn dec_task_options_options_entry_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, out: &mut ak_dfix_TaskOptionsOptionsEntry) {
+unsafe fn dec_task_options_options_entry_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfix_TaskOptionsOptionsEntry) {
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
     let mut cur = 0u32;
     macro_rules! flush { () => { }; }
     while !d.at_end() {
-        // Decision 11 candidate: where this field's tag-and-value run starts,
-        // so an unknown one can be handed over as a span rather than dropped.
+        // Decision 11: where this field's tag-and-value run starts, so an
+        // unknown one can be copied into the message's own buffer.
         let s0 = d.pos;
         let k = d.varint();
         if d.err != 0 { break; }
@@ -2789,11 +2801,9 @@ unsafe fn dec_task_options_options_entry_fix_into(d: &mut Dec, base: usize, unk:
             }
             _ => {
                 d.skip(tag, wire);
-                if !unk.is_null() {
-                    (*unk).push(base0 + s0, d.pos - s0);
-                    // R-D6: the push may have delivered a chunk; stop if the host failed.
-                    let he = (*unk).host_err();
-                    if he != AK_OK && d.err == 0 { d.err = he; }
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
                 }
             }
         }
@@ -2801,24 +2811,24 @@ unsafe fn dec_task_options_options_entry_fix_into(d: &mut Dec, base: usize, unk:
 }
 
 #[inline]
-unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, unk: *mut UnkBuf) -> ak_dfix_Timestamp {
+unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Timestamp {
     let mut out = ak_dfix_Timestamp::ZERO;
-    dec_timestamp_fix_into(d, base, unk, &mut out);
+    dec_timestamp_fix_into(d, base, u, &mut out);
     out
 }
 
 /// Decode INTO an existing group: what a oneof's message member needs to merge a
 /// repeated occurrence (plan rule), and what `dec_timestamp_fix` wraps.
 #[inline]
-unsafe fn dec_timestamp_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, out: &mut ak_dfix_Timestamp) {
+unsafe fn dec_timestamp_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfix_Timestamp) {
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
     let mut cur = 0u32;
     macro_rules! flush { () => { }; }
     while !d.at_end() {
-        // Decision 11 candidate: where this field's tag-and-value run starts,
-        // so an unknown one can be handed over as a span rather than dropped.
+        // Decision 11: where this field's tag-and-value run starts, so an
+        // unknown one can be copied into the message's own buffer.
         let s0 = d.pos;
         let k = d.varint();
         if d.err != 0 { break; }
@@ -2835,11 +2845,9 @@ unsafe fn dec_timestamp_fix_into(d: &mut Dec, base: usize, unk: *mut UnkBuf, out
             }
             _ => {
                 d.skip(tag, wire);
-                if !unk.is_null() {
-                    (*unk).push(base0 + s0, d.pos - s0);
-                    // R-D6: the push may have delivered a chunk; stop if the host failed.
-                    let he = (*unk).host_err();
-                    if he != AK_OK && d.err == 0 { d.err = he; }
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
                 }
             }
         }
@@ -2857,6 +2865,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
     vt: *const ak_dvt_ListTasksDetailedResponse,
     d: &mut Dec,
     base: usize,
+    u: UnkCx,
 ) {
     let tok = match (*vt).new_tasks {
         Some(f) => {
@@ -2871,67 +2880,36 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
-    // Retain (plan rule): the element's OWN unknown fields, keyed by its token,
-    // through the slot's `unk_` callback. Before WP5 a non-leaf element captured
-    // nothing, so retain mode dropped them (`U-element-*`, `U-chunkelem-*`).
-    let mut ub_el = UnkBuf::new((*vt).unk_tasks, ctx, obj);
-    ub_el.token = tok;
-    let uk_el: *mut UnkBuf = if ub_el.cb.is_some() { &mut ub_el } else { ::core::ptr::null_mut() };
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_PARENT_TASK_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     let mut a_parent_task_ids: [::core::mem::MaybeUninit<ak_span>; N_PARENT_TASK_IDS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_PARENT_TASK_IDS];
     let mut n_parent_task_ids: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_parent_task_ids: usize = 0;
-    let _ = done_parent_task_ids;
-    let uk_parent_task_ids: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_DATA_DEPENDENCIES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     let mut a_data_dependencies: [::core::mem::MaybeUninit<ak_span>; N_DATA_DEPENDENCIES] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_DATA_DEPENDENCIES];
     let mut n_data_dependencies: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_data_dependencies: usize = 0;
-    let _ = done_data_dependencies;
-    let uk_data_dependencies: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_EXPECTED_OUTPUT_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     let mut a_expected_output_ids: [::core::mem::MaybeUninit<ak_span>; N_EXPECTED_OUTPUT_IDS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_EXPECTED_OUTPUT_IDS];
     let mut n_expected_output_ids: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_expected_output_ids: usize = 0;
-    let _ = done_expected_output_ids;
-    let uk_expected_output_ids: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_RETRY_OF_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     let mut a_retry_of_ids: [::core::mem::MaybeUninit<ak_span>; N_RETRY_OF_IDS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_RETRY_OF_IDS];
     let mut n_retry_of_ids: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_retry_of_ids: usize = 0;
-    let _ = done_retry_of_ids;
-    let uk_retry_of_ids: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
     let mut a_options_options: [::core::mem::MaybeUninit<ak_dfix_TaskOptionsOptionsEntry>; N_OPTIONS_OPTIONS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_OPTIONS_OPTIONS];
     let mut n_options_options: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_options_options: usize = 0;
-    let _ = done_options_options;
-    let uk_options_options: *mut UnkBuf = ::core::ptr::null_mut();
     macro_rules! flush_parent_task_ids {
         () => {
             if n_parent_task_ids > 0 {
@@ -2941,9 +2919,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         add(ctx, obj, tok, a_parent_task_ids.as_ptr() as *const ak_span, n_parent_task_ids as i32);
                     }
                 }
-                done_parent_task_ids += n_parent_task_ids;
                 n_parent_task_ids = 0;
-                if !uk_parent_task_ids.is_null() { (*uk_parent_task_ids).flush(); }
                 if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
@@ -2957,9 +2933,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         add(ctx, obj, tok, a_data_dependencies.as_ptr() as *const ak_span, n_data_dependencies as i32);
                     }
                 }
-                done_data_dependencies += n_data_dependencies;
                 n_data_dependencies = 0;
-                if !uk_data_dependencies.is_null() { (*uk_data_dependencies).flush(); }
                 if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
@@ -2973,9 +2947,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         add(ctx, obj, tok, a_expected_output_ids.as_ptr() as *const ak_span, n_expected_output_ids as i32);
                     }
                 }
-                done_expected_output_ids += n_expected_output_ids;
                 n_expected_output_ids = 0;
-                if !uk_expected_output_ids.is_null() { (*uk_expected_output_ids).flush(); }
                 if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
@@ -2989,9 +2961,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         add(ctx, obj, tok, a_retry_of_ids.as_ptr() as *const ak_span, n_retry_of_ids as i32);
                     }
                 }
-                done_retry_of_ids += n_retry_of_ids;
                 n_retry_of_ids = 0;
-                if !uk_retry_of_ids.is_null() { (*uk_retry_of_ids).flush(); }
                 if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
@@ -3005,9 +2975,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         add(ctx, obj, tok, a_options_options.as_ptr() as *const ak_dfix_TaskOptionsOptionsEntry, n_options_options as i32);
                     }
                 }
-                done_options_options += n_options_options;
                 n_options_options = 0;
-                if !uk_options_options.is_null() { (*uk_options_options).flush(); }
                 if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
@@ -3097,6 +3065,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_OPTIONS;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -3107,8 +3076,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
-                        if !uk_options_options.is_null() { (*uk_options_options).token = (done_options_options + n_options_options) as i64; }
-                        a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, uk_options_options));
+                        a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, u.at(2)));
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -3120,6 +3088,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         let mut c2 = Dec::new(buf2);
                         out.options.presence |= AK_DFIX_TASKOPTIONS_PRESENT_MAX_DURATION;
                         while !c2.at_end() {
+                            let s0 = c2.pos;
                             let k = c2.varint();
                             if c2.err != 0 { break; }
                             let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -3133,7 +3102,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                                 if cur != 0 { flush!(); cur = 0; }
                                 out.options.max_duration.nanos = c2.varint() as i32;
                             }
-                                _ => c2.skip(tag, wire),
+                                _ => {
+                                    c2.skip(tag, wire);
+                                    // Decision 11: the inlined child's OWN buffer.
+                                    if c2.err == 0 && !u.pos.is_null() {
+                                        let rc = unk_put(u.at(3), &mut out.options.max_duration.unknown, &buf2[s0..c2.pos]);
+                                        if rc != 0 { c2.err = rc; }
+                                    }
+                                }
                             }
                         }
                         if c2.err != 0 { c1.err = c2.err; }
@@ -3182,7 +3158,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.engine_type = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(1), &mut out.options.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -3195,6 +3178,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_CREATED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -3208,7 +3192,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         if cur != 0 { flush!(); cur = 0; }
                         out.created_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(4), &mut out.created_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -3221,6 +3212,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_SUBMITTED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -3234,7 +3226,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         if cur != 0 { flush!(); cur = 0; }
                         out.submitted_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(5), &mut out.submitted_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -3247,6 +3246,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_STARTED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -3260,7 +3260,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         if cur != 0 { flush!(); cur = 0; }
                         out.started_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(6), &mut out.started_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -3273,6 +3280,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_ENDED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -3286,7 +3294,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         if cur != 0 { flush!(); cur = 0; }
                         out.ended_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(7), &mut out.ended_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -3299,6 +3314,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_POD_TTL;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -3312,7 +3328,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         if cur != 0 { flush!(); cur = 0; }
                         out.pod_ttl.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(8), &mut out.pod_ttl.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -3325,6 +3348,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_OUTPUT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -3340,7 +3364,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.output.error = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(9), &mut out.output.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -3359,6 +3390,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -3372,7 +3404,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         if cur != 0 { flush!(); cur = 0; }
                         out.received_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(10), &mut out.received_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -3385,6 +3424,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_ACQUIRED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -3398,7 +3438,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         if cur != 0 { flush!(); cur = 0; }
                         out.acquired_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(11), &mut out.acquired_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -3411,6 +3458,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_CREATION_TO_END_DURATION;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -3424,7 +3472,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         if cur != 0 { flush!(); cur = 0; }
                         out.creation_to_end_duration.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(12), &mut out.creation_to_end_duration.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -3437,6 +3492,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_PROCESSING_TO_END_DURATION;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -3450,7 +3506,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         if cur != 0 { flush!(); cur = 0; }
                         out.processing_to_end_duration.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(13), &mut out.processing_to_end_duration.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -3469,6 +3532,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -3482,7 +3546,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         if cur != 0 { flush!(); cur = 0; }
                         out.received_to_end_duration.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(14), &mut out.received_to_end_duration.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -3495,6 +3566,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_PROCESSED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -3508,7 +3580,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         if cur != 0 { flush!(); cur = 0; }
                         out.processed_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(15), &mut out.processed_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -3521,6 +3600,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_FETCHED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -3534,7 +3614,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         if cur != 0 { flush!(); cur = 0; }
                         out.fetched_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(16), &mut out.fetched_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -3554,19 +3641,15 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
             _ => {
                 if cur != 0 { flush!(); cur = 0; }
                 d.skip(tag, wire);
-                if !uk_el.is_null() {
-                    (*uk_el).push(base0 + s0, d.pos - s0);
-                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
                 }
             }
         }
     }
     if d.err == 0 {
         flush!();
-    }
-    if d.err == 0 && !uk_el.is_null() {
-        (*uk_el).flush();
-        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
     }
     if d.err == 0 {
         if let Some(ap) = (*vt).apply_tasks {
@@ -3588,6 +3671,7 @@ unsafe fn dec_list_task_summary_response_tasks_element(
     vt: *const ak_dvt_ListTaskSummaryResponse,
     d: &mut Dec,
     base: usize,
+    u: UnkCx,
 ) {
     let tok = match (*vt).new_tasks {
         Some(f) => {
@@ -3602,23 +3686,12 @@ unsafe fn dec_list_task_summary_response_tasks_element(
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
-    // Retain (plan rule): the element's OWN unknown fields, keyed by its token,
-    // through the slot's `unk_` callback. Before WP5 a non-leaf element captured
-    // nothing, so retain mode dropped them (`U-element-*`, `U-chunkelem-*`).
-    let mut ub_el = UnkBuf::new((*vt).unk_tasks, ctx, obj);
-    ub_el.token = tok;
-    let uk_el: *mut UnkBuf = if ub_el.cb.is_some() { &mut ub_el } else { ::core::ptr::null_mut() };
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
     let mut a_options_options: [::core::mem::MaybeUninit<ak_dfix_TaskOptionsOptionsEntry>; N_OPTIONS_OPTIONS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_OPTIONS_OPTIONS];
     let mut n_options_options: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_options_options: usize = 0;
-    let _ = done_options_options;
-    let uk_options_options: *mut UnkBuf = ::core::ptr::null_mut();
     macro_rules! flush_options_options {
         () => {
             if n_options_options > 0 {
@@ -3628,9 +3701,7 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                         add(ctx, obj, tok, a_options_options.as_ptr() as *const ak_dfix_TaskOptionsOptionsEntry, n_options_options as i32);
                     }
                 }
-                done_options_options += n_options_options;
                 n_options_options = 0;
-                if !uk_options_options.is_null() { (*uk_options_options).flush(); }
                 if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
@@ -3668,6 +3739,7 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKSUMMARY_PRESENT_OPTIONS;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -3678,8 +3750,7 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                         if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
-                        if !uk_options_options.is_null() { (*uk_options_options).token = (done_options_options + n_options_options) as i64; }
-                        a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, uk_options_options));
+                        a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, u.at(2)));
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -3691,6 +3762,7 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                         let mut c2 = Dec::new(buf2);
                         out.options.presence |= AK_DFIX_TASKOPTIONS_PRESENT_MAX_DURATION;
                         while !c2.at_end() {
+                            let s0 = c2.pos;
                             let k = c2.varint();
                             if c2.err != 0 { break; }
                             let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -3704,7 +3776,14 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                                 if cur != 0 { flush!(); cur = 0; }
                                 out.options.max_duration.nanos = c2.varint() as i32;
                             }
-                                _ => c2.skip(tag, wire),
+                                _ => {
+                                    c2.skip(tag, wire);
+                                    // Decision 11: the inlined child's OWN buffer.
+                                    if c2.err == 0 && !u.pos.is_null() {
+                                        let rc = unk_put(u.at(3), &mut out.options.max_duration.unknown, &buf2[s0..c2.pos]);
+                                        if rc != 0 { c2.err = rc; }
+                                    }
+                                }
                             }
                         }
                         if c2.err != 0 { c1.err = c2.err; }
@@ -3753,7 +3832,14 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                         if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.engine_type = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(1), &mut out.options.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -3770,6 +3856,7 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKSUMMARY_PRESENT_CREATED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -3783,7 +3870,14 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                         if cur != 0 { flush!(); cur = 0; }
                         out.created_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(4), &mut out.created_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -3807,19 +3901,15 @@ unsafe fn dec_list_task_summary_response_tasks_element(
             _ => {
                 if cur != 0 { flush!(); cur = 0; }
                 d.skip(tag, wire);
-                if !uk_el.is_null() {
-                    (*uk_el).push(base0 + s0, d.pos - s0);
-                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
                 }
             }
         }
     }
     if d.err == 0 {
         flush!();
-    }
-    if d.err == 0 && !uk_el.is_null() {
-        (*uk_el).flush();
-        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
     }
     if d.err == 0 {
         if let Some(ap) = (*vt).apply_tasks {
@@ -3841,6 +3931,7 @@ unsafe fn dec_list_metrics_response_batches_element(
     vt: *const ak_dvt_ListMetricsResponse,
     d: &mut Dec,
     base: usize,
+    u: UnkCx,
 ) {
     let tok = match (*vt).new_batches {
         Some(f) => {
@@ -3855,67 +3946,36 @@ unsafe fn dec_list_metrics_response_batches_element(
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
-    // Retain (plan rule): the element's OWN unknown fields, keyed by its token,
-    // through the slot's `unk_` callback. Before WP5 a non-leaf element captured
-    // nothing, so retain mode dropped them (`U-element-*`, `U-chunkelem-*`).
-    let mut ub_el = UnkBuf::new((*vt).unk_batches, ctx, obj);
-    ub_el.token = tok;
-    let uk_el: *mut UnkBuf = if ub_el.cb.is_some() { &mut ub_el } else { ::core::ptr::null_mut() };
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_TICKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
     let mut a_ticks: [::core::mem::MaybeUninit<i64>; N_TICKS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_TICKS];
     let mut n_ticks: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_ticks: usize = 0;
-    let _ = done_ticks;
-    let uk_ticks: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_VALUES: usize = ak_rt::arena_n(::core::mem::size_of::<f64>());
     let mut a_values: [::core::mem::MaybeUninit<f64>; N_VALUES] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_VALUES];
     let mut n_values: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_values: usize = 0;
-    let _ = done_values;
-    let uk_values: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_CODES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
     let mut a_codes: [::core::mem::MaybeUninit<i32>; N_CODES] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_CODES];
     let mut n_codes: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_codes: usize = 0;
-    let _ = done_codes;
-    let uk_codes: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_FLAGS: usize = ak_rt::arena_n(::core::mem::size_of::<u8>());
     let mut a_flags: [::core::mem::MaybeUninit<u8>; N_FLAGS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_FLAGS];
     let mut n_flags: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_flags: usize = 0;
-    let _ = done_flags;
-    let uk_flags: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_STATUSES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
     let mut a_statuses: [::core::mem::MaybeUninit<i32>; N_STATUSES] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_STATUSES];
     let mut n_statuses: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_statuses: usize = 0;
-    let _ = done_statuses;
-    let uk_statuses: *mut UnkBuf = ::core::ptr::null_mut();
     macro_rules! flush_ticks {
         () => {
             if n_ticks > 0 {
@@ -3925,9 +3985,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                         add(ctx, obj, tok, a_ticks.as_ptr() as *const i64, n_ticks as i32);
                     }
                 }
-                done_ticks += n_ticks;
                 n_ticks = 0;
-                if !uk_ticks.is_null() { (*uk_ticks).flush(); }
                 if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
@@ -3941,9 +3999,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                         add(ctx, obj, tok, a_values.as_ptr() as *const f64, n_values as i32);
                     }
                 }
-                done_values += n_values;
                 n_values = 0;
-                if !uk_values.is_null() { (*uk_values).flush(); }
                 if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
@@ -3957,9 +4013,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                         add(ctx, obj, tok, a_codes.as_ptr() as *const i32, n_codes as i32);
                     }
                 }
-                done_codes += n_codes;
                 n_codes = 0;
-                if !uk_codes.is_null() { (*uk_codes).flush(); }
                 if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
@@ -3973,9 +4027,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                         add(ctx, obj, tok, a_flags.as_ptr() as *const u8, n_flags as i32);
                     }
                 }
-                done_flags += n_flags;
                 n_flags = 0;
-                if !uk_flags.is_null() { (*uk_flags).flush(); }
                 if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
@@ -3989,9 +4041,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                         add(ctx, obj, tok, a_statuses.as_ptr() as *const i32, n_statuses as i32);
                     }
                 }
-                done_statuses += n_statuses;
                 n_statuses = 0;
-                if !uk_statuses.is_null() { (*uk_statuses).flush(); }
                 if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
@@ -4117,19 +4167,15 @@ unsafe fn dec_list_metrics_response_batches_element(
             _ => {
                 if cur != 0 { flush!(); cur = 0; }
                 d.skip(tag, wire);
-                if !uk_el.is_null() {
-                    (*uk_el).push(base0 + s0, d.pos - s0);
-                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
                 }
             }
         }
     }
     if d.err == 0 {
         flush!();
-    }
-    if d.err == 0 && !uk_el.is_null() {
-        (*uk_el).flush();
-        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
     }
     if d.err == 0 {
         if let Some(ap) = (*vt).apply_batches {
@@ -4178,12 +4224,6 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
     let mut a_results: [::core::mem::MaybeUninit<ak_dfix_ResultRaw>; N_RESULTS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_RESULTS];
     let mut n_results: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_results: usize = 0;
-    let _ = done_results;
-    let mut ub_results = UnkBuf::new((*vt).unk_results, ctx, obj);
-    let uk_results: *mut UnkBuf = if ub_results.cb.is_some() { &mut ub_results } else { ::core::ptr::null_mut() };
     macro_rules! flush_results {
         () => {
             if n_results > 0 {
@@ -4193,9 +4233,7 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
                         add(ctx, obj, AK_TOKEN_ROOT, a_results.as_ptr() as *const ak_dfix_ResultRaw, n_results as i32);
                     }
                 }
-                done_results += n_results;
                 n_results = 0;
-                if !uk_results.is_null() { (*uk_results).flush(); }
                 if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
@@ -4205,9 +4243,9 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
             flush_results!();
         };
     }
-    // Decision 11 candidate: the ROOT message's own unknown fields.
-    let mut ub_root = UnkBuf::new((*vt).unknown, ctx, obj);
-    let uk_root: *mut UnkBuf = if ub_root.cb.is_some() { &mut ub_root } else { ::core::ptr::null_mut() };
+    // Decision 11: the positions this context is armed with for this root, or
+    // none (drop mode: every capture below is one null test).
+    let u = UnkCx::root(dcx, 1);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -4221,8 +4259,7 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
                 if n_results == N_RESULTS { flush_results!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                if !uk_results.is_null() { (*uk_results).token = (done_results + n_results) as i64; }
-                a_results[n_results].write(dec_result_raw_fix(&mut es, base0 + off, uk_results));
+                a_results[n_results].write(dec_result_raw_fix(&mut es, base0 + off, u.at(1)));
                 if es.err != 0 { d.err = es.err; }
                 n_results += 1;
             }
@@ -4237,19 +4274,15 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
             _ => {
                 if cur != 0 { flush!(); cur = 0; }
                 d.skip(tag, wire);
-                if !uk_root.is_null() {
-                    (*uk_root).push(base0 + s0, d.pos - s0);
-                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
                 }
             }
         }
     }
     if d.err == 0 {
         flush!();
-    }
-    if d.err == 0 && !uk_root.is_null() {
-        (*uk_root).flush();
-        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
     }
     // R-D6: `apply` only if nothing -- the reader or the host -- failed.
     if d.err == 0 && (*dcx).hdr.err == AK_OK {
@@ -4299,9 +4332,9 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
         () => {
         };
     }
-    // Decision 11 candidate: the ROOT message's own unknown fields.
-    let mut ub_root = UnkBuf::new((*vt).unknown, ctx, obj);
-    let uk_root: *mut UnkBuf = if ub_root.cb.is_some() { &mut ub_root } else { ::core::ptr::null_mut() };
+    // Decision 11: the positions this context is armed with for this root, or
+    // none (drop mode: every capture below is one null test).
+    let u = UnkCx::root(dcx, 2);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -4314,7 +4347,7 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_list_tasks_detailed_response_tasks_element(ctx, dcx, obj, vt, &mut sub, base0 + off);
+                dec_list_tasks_detailed_response_tasks_element(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1));
                 if sub.err != 0 { d.err = sub.err; }
             }
             2 if wire == 0 => {
@@ -4328,19 +4361,15 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
             _ => {
                 if cur != 0 { flush!(); cur = 0; }
                 d.skip(tag, wire);
-                if !uk_root.is_null() {
-                    (*uk_root).push(base0 + s0, d.pos - s0);
-                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
                 }
             }
         }
     }
     if d.err == 0 {
         flush!();
-    }
-    if d.err == 0 && !uk_root.is_null() {
-        (*uk_root).flush();
-        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
     }
     // R-D6: `apply` only if nothing -- the reader or the host -- failed.
     if d.err == 0 && (*dcx).hdr.err == AK_OK {
@@ -4392,12 +4421,6 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
     let mut a_probes: [::core::mem::MaybeUninit<ak_dfix_Probe>; N_PROBES] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_PROBES];
     let mut n_probes: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_probes: usize = 0;
-    let _ = done_probes;
-    let mut ub_probes = UnkBuf::new((*vt).unk_probes, ctx, obj);
-    let uk_probes: *mut UnkBuf = if ub_probes.cb.is_some() { &mut ub_probes } else { ::core::ptr::null_mut() };
     macro_rules! flush_probes {
         () => {
             if n_probes > 0 {
@@ -4407,9 +4430,7 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
                         add(ctx, obj, AK_TOKEN_ROOT, a_probes.as_ptr() as *const ak_dfix_Probe, n_probes as i32);
                     }
                 }
-                done_probes += n_probes;
                 n_probes = 0;
-                if !uk_probes.is_null() { (*uk_probes).flush(); }
                 if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
@@ -4419,9 +4440,9 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
             flush_probes!();
         };
     }
-    // Decision 11 candidate: the ROOT message's own unknown fields.
-    let mut ub_root = UnkBuf::new((*vt).unknown, ctx, obj);
-    let uk_root: *mut UnkBuf = if ub_root.cb.is_some() { &mut ub_root } else { ::core::ptr::null_mut() };
+    // Decision 11: the positions this context is armed with for this root, or
+    // none (drop mode: every capture below is one null test).
+    let u = UnkCx::root(dcx, 3);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -4435,27 +4456,22 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
                 if n_probes == N_PROBES { flush_probes!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                if !uk_probes.is_null() { (*uk_probes).token = (done_probes + n_probes) as i64; }
-                a_probes[n_probes].write(dec_probe_fix(&mut es, base0 + off, uk_probes));
+                a_probes[n_probes].write(dec_probe_fix(&mut es, base0 + off, u.at(1)));
                 if es.err != 0 { d.err = es.err; }
                 n_probes += 1;
             }
             _ => {
                 if cur != 0 { flush!(); cur = 0; }
                 d.skip(tag, wire);
-                if !uk_root.is_null() {
-                    (*uk_root).push(base0 + s0, d.pos - s0);
-                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
                 }
             }
         }
     }
     if d.err == 0 {
         flush!();
-    }
-    if d.err == 0 && !uk_root.is_null() {
-        (*uk_root).flush();
-        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
     }
     // R-D6: `apply` only if nothing -- the reader or the host -- failed.
     if d.err == 0 && (*dcx).hdr.err == AK_OK {
@@ -4505,9 +4521,9 @@ pub unsafe extern "C" fn ak_decode_ListTaskSummaryResponse(
         () => {
         };
     }
-    // Decision 11 candidate: the ROOT message's own unknown fields.
-    let mut ub_root = UnkBuf::new((*vt).unknown, ctx, obj);
-    let uk_root: *mut UnkBuf = if ub_root.cb.is_some() { &mut ub_root } else { ::core::ptr::null_mut() };
+    // Decision 11: the positions this context is armed with for this root, or
+    // none (drop mode: every capture below is one null test).
+    let u = UnkCx::root(dcx, 4);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -4520,25 +4536,21 @@ pub unsafe extern "C" fn ak_decode_ListTaskSummaryResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_list_task_summary_response_tasks_element(ctx, dcx, obj, vt, &mut sub, base0 + off);
+                dec_list_task_summary_response_tasks_element(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1));
                 if sub.err != 0 { d.err = sub.err; }
             }
             _ => {
                 if cur != 0 { flush!(); cur = 0; }
                 d.skip(tag, wire);
-                if !uk_root.is_null() {
-                    (*uk_root).push(base0 + s0, d.pos - s0);
-                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
                 }
             }
         }
     }
     if d.err == 0 {
         flush!();
-    }
-    if d.err == 0 && !uk_root.is_null() {
-        (*uk_root).flush();
-        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
     }
     // R-D6: `apply` only if nothing -- the reader or the host -- failed.
     if d.err == 0 && (*dcx).hdr.err == AK_OK {
@@ -4588,9 +4600,9 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
         () => {
         };
     }
-    // Decision 11 candidate: the ROOT message's own unknown fields.
-    let mut ub_root = UnkBuf::new((*vt).unknown, ctx, obj);
-    let uk_root: *mut UnkBuf = if ub_root.cb.is_some() { &mut ub_root } else { ::core::ptr::null_mut() };
+    // Decision 11: the positions this context is armed with for this root, or
+    // none (drop mode: every capture below is one null test).
+    let u = UnkCx::root(dcx, 5);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -4607,6 +4619,7 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -4629,7 +4642,14 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
                         let (off, n) = c1.len_body();
                         out.upload.data_chunk = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(1), &mut out.upload.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -4637,19 +4657,15 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
             _ => {
                 if cur != 0 { flush!(); cur = 0; }
                 d.skip(tag, wire);
-                if !uk_root.is_null() {
-                    (*uk_root).push(base0 + s0, d.pos - s0);
-                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
                 }
             }
         }
     }
     if d.err == 0 {
         flush!();
-    }
-    if d.err == 0 && !uk_root.is_null() {
-        (*uk_root).flush();
-        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
     }
     // R-D6: `apply` only if nothing -- the reader or the host -- failed.
     if d.err == 0 && (*dcx).hdr.err == AK_OK {
@@ -4699,9 +4715,9 @@ pub unsafe extern "C" fn ak_decode_ListMetricsResponse(
         () => {
         };
     }
-    // Decision 11 candidate: the ROOT message's own unknown fields.
-    let mut ub_root = UnkBuf::new((*vt).unknown, ctx, obj);
-    let uk_root: *mut UnkBuf = if ub_root.cb.is_some() { &mut ub_root } else { ::core::ptr::null_mut() };
+    // Decision 11: the positions this context is armed with for this root, or
+    // none (drop mode: every capture below is one null test).
+    let u = UnkCx::root(dcx, 6);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -4714,25 +4730,21 @@ pub unsafe extern "C" fn ak_decode_ListMetricsResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_list_metrics_response_batches_element(ctx, dcx, obj, vt, &mut sub, base0 + off);
+                dec_list_metrics_response_batches_element(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1));
                 if sub.err != 0 { d.err = sub.err; }
             }
             _ => {
                 if cur != 0 { flush!(); cur = 0; }
                 d.skip(tag, wire);
-                if !uk_root.is_null() {
-                    (*uk_root).push(base0 + s0, d.pos - s0);
-                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
                 }
             }
         }
     }
     if d.err == 0 {
         flush!();
-    }
-    if d.err == 0 && !uk_root.is_null() {
-        (*uk_root).flush();
-        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
     }
     // R-D6: `apply` only if nothing -- the reader or the host -- failed.
     if d.err == 0 && (*dcx).hdr.err == AK_OK {
@@ -4784,24 +4796,12 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
     let mut a_left: [::core::mem::MaybeUninit<ak_dfix_Pair>; N_LEFT] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_LEFT];
     let mut n_left: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_left: usize = 0;
-    let _ = done_left;
-    let mut ub_left = UnkBuf::new((*vt).unk_left, ctx, obj);
-    let uk_left: *mut UnkBuf = if ub_left.cb.is_some() { &mut ub_left } else { ::core::ptr::null_mut() };
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_RIGHT: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_Pair>());
     let mut a_right: [::core::mem::MaybeUninit<ak_dfix_Pair>; N_RIGHT] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_RIGHT];
     let mut n_right: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_right: usize = 0;
-    let _ = done_right;
-    let mut ub_right = UnkBuf::new((*vt).unk_right, ctx, obj);
-    let uk_right: *mut UnkBuf = if ub_right.cb.is_some() { &mut ub_right } else { ::core::ptr::null_mut() };
     macro_rules! flush_left {
         () => {
             if n_left > 0 {
@@ -4811,9 +4811,7 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
                         add(ctx, obj, AK_TOKEN_ROOT, a_left.as_ptr() as *const ak_dfix_Pair, n_left as i32);
                     }
                 }
-                done_left += n_left;
                 n_left = 0;
-                if !uk_left.is_null() { (*uk_left).flush(); }
                 if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
@@ -4827,9 +4825,7 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
                         add(ctx, obj, AK_TOKEN_ROOT, a_right.as_ptr() as *const ak_dfix_Pair, n_right as i32);
                     }
                 }
-                done_right += n_right;
                 n_right = 0;
-                if !uk_right.is_null() { (*uk_right).flush(); }
                 if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
         };
@@ -4840,9 +4836,9 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
             flush_right!();
         };
     }
-    // Decision 11 candidate: the ROOT message's own unknown fields.
-    let mut ub_root = UnkBuf::new((*vt).unknown, ctx, obj);
-    let uk_root: *mut UnkBuf = if ub_root.cb.is_some() { &mut ub_root } else { ::core::ptr::null_mut() };
+    // Decision 11: the positions this context is armed with for this root, or
+    // none (drop mode: every capture below is one null test).
+    let u = UnkCx::root(dcx, 7);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -4856,8 +4852,7 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
                 if n_left == N_LEFT { flush_left!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                if !uk_left.is_null() { (*uk_left).token = (done_left + n_left) as i64; }
-                a_left[n_left].write(dec_pair_fix(&mut es, base0 + off, uk_left));
+                a_left[n_left].write(dec_pair_fix(&mut es, base0 + off, u.at(1)));
                 if es.err != 0 { d.err = es.err; }
                 n_left += 1;
             }
@@ -4866,27 +4861,22 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
                 if n_right == N_RIGHT { flush_right!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                if !uk_right.is_null() { (*uk_right).token = (done_right + n_right) as i64; }
-                a_right[n_right].write(dec_pair_fix(&mut es, base0 + off, uk_right));
+                a_right[n_right].write(dec_pair_fix(&mut es, base0 + off, u.at(2)));
                 if es.err != 0 { d.err = es.err; }
                 n_right += 1;
             }
             _ => {
                 if cur != 0 { flush!(); cur = 0; }
                 d.skip(tag, wire);
-                if !uk_root.is_null() {
-                    (*uk_root).push(base0 + s0, d.pos - s0);
-                    if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
                 }
             }
         }
     }
     if d.err == 0 {
         flush!();
-    }
-    if d.err == 0 && !uk_root.is_null() {
-        (*uk_root).flush();
-        if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
     }
     // R-D6: `apply` only if nothing -- the reader or the host -- failed.
     if d.err == 0 && (*dcx).hdr.err == AK_OK {
@@ -4898,6 +4888,272 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
     // The host may have failed the operation from inside a reverse call; the
     // sticky slot in the context is where it said so (ABI v1 section 5).
     if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
+}
+
+// `ak_dec_ListResultsResponse_opts` is `host` then 4 `ak_unk_opts` back to back: the core reads it as
+// an array, so the layout is asserted here.
+const _: () = {
+    assert!(::core::mem::offset_of!(ak_dec_ListResultsResponse_opts, self_) == 8);
+    assert!(::core::mem::offset_of!(ak_dec_ListResultsResponse_opts, results_completed_at) == 8 + 3 * ::core::mem::size_of::<ak_unk_opts>());
+    assert!(::core::mem::size_of::<ak_dec_ListResultsResponse_opts>() == 8 + 4 * ::core::mem::size_of::<ak_unk_opts>());
+};
+
+/// Decision 11: re-arm every unknown-field position of `ListResultsResponse` (copied; NULL =
+/// drop everywhere).
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_reset_ListResultsResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListResultsResponse_opts) {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return;
+    }
+    if ctx.is_null() { return; }
+    if opts.is_null() {
+        crate::unk_arm(ctx as *mut DecCtxImpl, 1, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
+    } else {
+        crate::unk_arm(ctx as *mut DecCtxImpl, 1, (*opts).host, &(*opts).self_, 4);
+    }
+}
+
+/// Decision 11: a decode context armed for `ListResultsResponse` at creation.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_ctx_new_ListResultsResponse(opts: *const ak_dec_ListResultsResponse_opts) -> *mut ak_dec_ctx {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return ::core::ptr::null_mut();
+    }
+    let ctx = crate::ak_dec_ctx_new();
+    ak_dec_reset_ListResultsResponse(ctx, opts);
+    ctx
+}
+
+// `ak_dec_ListTasksDetailedResponse_opts` is `host` then 18 `ak_unk_opts` back to back: the core reads it as
+// an array, so the layout is asserted here.
+const _: () = {
+    assert!(::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, self_) == 8);
+    assert!(::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, tasks_fetched_at) == 8 + 17 * ::core::mem::size_of::<ak_unk_opts>());
+    assert!(::core::mem::size_of::<ak_dec_ListTasksDetailedResponse_opts>() == 8 + 18 * ::core::mem::size_of::<ak_unk_opts>());
+};
+
+/// Decision 11: re-arm every unknown-field position of `ListTasksDetailedResponse` (copied; NULL =
+/// drop everywhere).
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_reset_ListTasksDetailedResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListTasksDetailedResponse_opts) {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return;
+    }
+    if ctx.is_null() { return; }
+    if opts.is_null() {
+        crate::unk_arm(ctx as *mut DecCtxImpl, 2, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
+    } else {
+        crate::unk_arm(ctx as *mut DecCtxImpl, 2, (*opts).host, &(*opts).self_, 18);
+    }
+}
+
+/// Decision 11: a decode context armed for `ListTasksDetailedResponse` at creation.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_ctx_new_ListTasksDetailedResponse(opts: *const ak_dec_ListTasksDetailedResponse_opts) -> *mut ak_dec_ctx {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return ::core::ptr::null_mut();
+    }
+    let ctx = crate::ak_dec_ctx_new();
+    ak_dec_reset_ListTasksDetailedResponse(ctx, opts);
+    ctx
+}
+
+// `ak_dec_ListProbeResponse_opts` is `host` then 4 `ak_unk_opts` back to back: the core reads it as
+// an array, so the layout is asserted here.
+const _: () = {
+    assert!(::core::mem::offset_of!(ak_dec_ListProbeResponse_opts, self_) == 8);
+    assert!(::core::mem::offset_of!(ak_dec_ListProbeResponse_opts, probes_body_as_nothing) == 8 + 3 * ::core::mem::size_of::<ak_unk_opts>());
+    assert!(::core::mem::size_of::<ak_dec_ListProbeResponse_opts>() == 8 + 4 * ::core::mem::size_of::<ak_unk_opts>());
+};
+
+/// Decision 11: re-arm every unknown-field position of `ListProbeResponse` (copied; NULL =
+/// drop everywhere).
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_reset_ListProbeResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListProbeResponse_opts) {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return;
+    }
+    if ctx.is_null() { return; }
+    if opts.is_null() {
+        crate::unk_arm(ctx as *mut DecCtxImpl, 3, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
+    } else {
+        crate::unk_arm(ctx as *mut DecCtxImpl, 3, (*opts).host, &(*opts).self_, 4);
+    }
+}
+
+/// Decision 11: a decode context armed for `ListProbeResponse` at creation.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_ctx_new_ListProbeResponse(opts: *const ak_dec_ListProbeResponse_opts) -> *mut ak_dec_ctx {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return ::core::ptr::null_mut();
+    }
+    let ctx = crate::ak_dec_ctx_new();
+    ak_dec_reset_ListProbeResponse(ctx, opts);
+    ctx
+}
+
+// `ak_dec_ListTaskSummaryResponse_opts` is `host` then 6 `ak_unk_opts` back to back: the core reads it as
+// an array, so the layout is asserted here.
+const _: () = {
+    assert!(::core::mem::offset_of!(ak_dec_ListTaskSummaryResponse_opts, self_) == 8);
+    assert!(::core::mem::offset_of!(ak_dec_ListTaskSummaryResponse_opts, tasks_created_at) == 8 + 5 * ::core::mem::size_of::<ak_unk_opts>());
+    assert!(::core::mem::size_of::<ak_dec_ListTaskSummaryResponse_opts>() == 8 + 6 * ::core::mem::size_of::<ak_unk_opts>());
+};
+
+/// Decision 11: re-arm every unknown-field position of `ListTaskSummaryResponse` (copied; NULL =
+/// drop everywhere).
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_reset_ListTaskSummaryResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListTaskSummaryResponse_opts) {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return;
+    }
+    if ctx.is_null() { return; }
+    if opts.is_null() {
+        crate::unk_arm(ctx as *mut DecCtxImpl, 4, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
+    } else {
+        crate::unk_arm(ctx as *mut DecCtxImpl, 4, (*opts).host, &(*opts).self_, 6);
+    }
+}
+
+/// Decision 11: a decode context armed for `ListTaskSummaryResponse` at creation.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_ctx_new_ListTaskSummaryResponse(opts: *const ak_dec_ListTaskSummaryResponse_opts) -> *mut ak_dec_ctx {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return ::core::ptr::null_mut();
+    }
+    let ctx = crate::ak_dec_ctx_new();
+    ak_dec_reset_ListTaskSummaryResponse(ctx, opts);
+    ctx
+}
+
+// `ak_dec_UploadResultDataMessage_opts` is `host` then 2 `ak_unk_opts` back to back: the core reads it as
+// an array, so the layout is asserted here.
+const _: () = {
+    assert!(::core::mem::offset_of!(ak_dec_UploadResultDataMessage_opts, self_) == 8);
+    assert!(::core::mem::offset_of!(ak_dec_UploadResultDataMessage_opts, upload) == 8 + 1 * ::core::mem::size_of::<ak_unk_opts>());
+    assert!(::core::mem::size_of::<ak_dec_UploadResultDataMessage_opts>() == 8 + 2 * ::core::mem::size_of::<ak_unk_opts>());
+};
+
+/// Decision 11: re-arm every unknown-field position of `UploadResultDataMessage` (copied; NULL =
+/// drop everywhere).
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_reset_UploadResultDataMessage(ctx: *mut ak_dec_ctx, opts: *const ak_dec_UploadResultDataMessage_opts) {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return;
+    }
+    if ctx.is_null() { return; }
+    if opts.is_null() {
+        crate::unk_arm(ctx as *mut DecCtxImpl, 5, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
+    } else {
+        crate::unk_arm(ctx as *mut DecCtxImpl, 5, (*opts).host, &(*opts).self_, 2);
+    }
+}
+
+/// Decision 11: a decode context armed for `UploadResultDataMessage` at creation.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_ctx_new_UploadResultDataMessage(opts: *const ak_dec_UploadResultDataMessage_opts) -> *mut ak_dec_ctx {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return ::core::ptr::null_mut();
+    }
+    let ctx = crate::ak_dec_ctx_new();
+    ak_dec_reset_UploadResultDataMessage(ctx, opts);
+    ctx
+}
+
+// `ak_dec_ListMetricsResponse_opts` is `host` then 2 `ak_unk_opts` back to back: the core reads it as
+// an array, so the layout is asserted here.
+const _: () = {
+    assert!(::core::mem::offset_of!(ak_dec_ListMetricsResponse_opts, self_) == 8);
+    assert!(::core::mem::offset_of!(ak_dec_ListMetricsResponse_opts, batches) == 8 + 1 * ::core::mem::size_of::<ak_unk_opts>());
+    assert!(::core::mem::size_of::<ak_dec_ListMetricsResponse_opts>() == 8 + 2 * ::core::mem::size_of::<ak_unk_opts>());
+};
+
+/// Decision 11: re-arm every unknown-field position of `ListMetricsResponse` (copied; NULL =
+/// drop everywhere).
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_reset_ListMetricsResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListMetricsResponse_opts) {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return;
+    }
+    if ctx.is_null() { return; }
+    if opts.is_null() {
+        crate::unk_arm(ctx as *mut DecCtxImpl, 6, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
+    } else {
+        crate::unk_arm(ctx as *mut DecCtxImpl, 6, (*opts).host, &(*opts).self_, 2);
+    }
+}
+
+/// Decision 11: a decode context armed for `ListMetricsResponse` at creation.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_ctx_new_ListMetricsResponse(opts: *const ak_dec_ListMetricsResponse_opts) -> *mut ak_dec_ctx {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return ::core::ptr::null_mut();
+    }
+    let ctx = crate::ak_dec_ctx_new();
+    ak_dec_reset_ListMetricsResponse(ctx, opts);
+    ctx
+}
+
+// `ak_dec_DualResponse_opts` is `host` then 3 `ak_unk_opts` back to back: the core reads it as
+// an array, so the layout is asserted here.
+const _: () = {
+    assert!(::core::mem::offset_of!(ak_dec_DualResponse_opts, self_) == 8);
+    assert!(::core::mem::offset_of!(ak_dec_DualResponse_opts, right) == 8 + 2 * ::core::mem::size_of::<ak_unk_opts>());
+    assert!(::core::mem::size_of::<ak_dec_DualResponse_opts>() == 8 + 3 * ::core::mem::size_of::<ak_unk_opts>());
+};
+
+/// Decision 11: re-arm every unknown-field position of `DualResponse` (copied; NULL =
+/// drop everywhere).
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_reset_DualResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_DualResponse_opts) {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return;
+    }
+    if ctx.is_null() { return; }
+    if opts.is_null() {
+        crate::unk_arm(ctx as *mut DecCtxImpl, 7, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
+    } else {
+        crate::unk_arm(ctx as *mut DecCtxImpl, 7, (*opts).host, &(*opts).self_, 3);
+    }
+}
+
+/// Decision 11: a decode context armed for `DualResponse` at creation.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_ctx_new_DualResponse(opts: *const ak_dec_DualResponse_opts) -> *mut ak_dec_ctx {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return ::core::ptr::null_mut();
+    }
+    let ctx = crate::ak_dec_ctx_new();
+    ak_dec_reset_DualResponse(ctx, opts);
+    ctx
 }
 
 // ====================================================================================
@@ -4918,6 +5174,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
     dcx: *mut DecCtxImpl,
     d: &mut Dec,
     base: usize,
+    u: UnkCx,
 ) {
     // The codec MINTS the token because there is nobody to ask during a parse.
     // A token is an index (ABI v1 section 10), and the host's replay pushes its
@@ -4935,55 +5192,30 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
     let mut a_parent_task_ids: [::core::mem::MaybeUninit<ak_span>; N_PARENT_TASK_IDS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_PARENT_TASK_IDS];
     let mut n_parent_task_ids: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_parent_task_ids: usize = 0;
-    let _ = done_parent_task_ids;
-    let uk_parent_task_ids: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_DATA_DEPENDENCIES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     let mut a_data_dependencies: [::core::mem::MaybeUninit<ak_span>; N_DATA_DEPENDENCIES] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_DATA_DEPENDENCIES];
     let mut n_data_dependencies: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_data_dependencies: usize = 0;
-    let _ = done_data_dependencies;
-    let uk_data_dependencies: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_EXPECTED_OUTPUT_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     let mut a_expected_output_ids: [::core::mem::MaybeUninit<ak_span>; N_EXPECTED_OUTPUT_IDS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_EXPECTED_OUTPUT_IDS];
     let mut n_expected_output_ids: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_expected_output_ids: usize = 0;
-    let _ = done_expected_output_ids;
-    let uk_expected_output_ids: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_RETRY_OF_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     let mut a_retry_of_ids: [::core::mem::MaybeUninit<ak_span>; N_RETRY_OF_IDS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_RETRY_OF_IDS];
     let mut n_retry_of_ids: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_retry_of_ids: usize = 0;
-    let _ = done_retry_of_ids;
-    let uk_retry_of_ids: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
     let mut a_options_options: [::core::mem::MaybeUninit<ak_dfix_TaskOptionsOptionsEntry>; N_OPTIONS_OPTIONS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_OPTIONS_OPTIONS];
     let mut n_options_options: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_options_options: usize = 0;
-    let _ = done_options_options;
-    let uk_options_options: *mut UnkBuf = ::core::ptr::null_mut();
     macro_rules! flush_parent_task_ids {
         () => {
             if n_parent_task_ids > 0 {
@@ -4997,9 +5229,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     a_parent_task_ids.as_ptr() as *const u8,
                     n_parent_task_ids * ::core::mem::size_of::<ak_span>(),
                 );
-                done_parent_task_ids += n_parent_task_ids;
                 n_parent_task_ids = 0;
-                if !uk_parent_task_ids.is_null() { (*uk_parent_task_ids).flush(); }
             }
         };
     }
@@ -5016,9 +5246,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     a_data_dependencies.as_ptr() as *const u8,
                     n_data_dependencies * ::core::mem::size_of::<ak_span>(),
                 );
-                done_data_dependencies += n_data_dependencies;
                 n_data_dependencies = 0;
-                if !uk_data_dependencies.is_null() { (*uk_data_dependencies).flush(); }
             }
         };
     }
@@ -5035,9 +5263,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     a_expected_output_ids.as_ptr() as *const u8,
                     n_expected_output_ids * ::core::mem::size_of::<ak_span>(),
                 );
-                done_expected_output_ids += n_expected_output_ids;
                 n_expected_output_ids = 0;
-                if !uk_expected_output_ids.is_null() { (*uk_expected_output_ids).flush(); }
             }
         };
     }
@@ -5054,9 +5280,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     a_retry_of_ids.as_ptr() as *const u8,
                     n_retry_of_ids * ::core::mem::size_of::<ak_span>(),
                 );
-                done_retry_of_ids += n_retry_of_ids;
                 n_retry_of_ids = 0;
-                if !uk_retry_of_ids.is_null() { (*uk_retry_of_ids).flush(); }
             }
         };
     }
@@ -5073,9 +5297,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     a_options_options.as_ptr() as *const u8,
                     n_options_options * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>(),
                 );
-                done_options_options += n_options_options;
                 n_options_options = 0;
-                if !uk_options_options.is_null() { (*uk_options_options).flush(); }
             }
         };
     }
@@ -5090,6 +5312,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
     }
     let mut cur = 0u32;
     while !d.at_end() {
+        let s0 = d.pos;
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5163,6 +5386,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_OPTIONS;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5173,8 +5397,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                         if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
-                        if !uk_options_options.is_null() { (*uk_options_options).token = (done_options_options + n_options_options) as i64; }
-                        a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, uk_options_options));
+                        a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, u.at(2)));
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -5186,6 +5409,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                         let mut c2 = Dec::new(buf2);
                         out.options.presence |= AK_DFIX_TASKOPTIONS_PRESENT_MAX_DURATION;
                         while !c2.at_end() {
+                            let s0 = c2.pos;
                             let k = c2.varint();
                             if c2.err != 0 { break; }
                             let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5199,7 +5423,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                                 if cur != 0 { flush!(); cur = 0; }
                                 out.options.max_duration.nanos = c2.varint() as i32;
                             }
-                                _ => c2.skip(tag, wire),
+                                _ => {
+                                    c2.skip(tag, wire);
+                                    // Decision 11: the inlined child's OWN buffer.
+                                    if c2.err == 0 && !u.pos.is_null() {
+                                        let rc = unk_put(u.at(3), &mut out.options.max_duration.unknown, &buf2[s0..c2.pos]);
+                                        if rc != 0 { c2.err = rc; }
+                                    }
+                                }
                             }
                         }
                         if c2.err != 0 { c1.err = c2.err; }
@@ -5248,7 +5479,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                         if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.engine_type = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(1), &mut out.options.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -5261,6 +5499,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_CREATED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5274,7 +5513,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                         if cur != 0 { flush!(); cur = 0; }
                         out.created_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(4), &mut out.created_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -5287,6 +5533,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_SUBMITTED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5300,7 +5547,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                         if cur != 0 { flush!(); cur = 0; }
                         out.submitted_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(5), &mut out.submitted_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -5313,6 +5567,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_STARTED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5326,7 +5581,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                         if cur != 0 { flush!(); cur = 0; }
                         out.started_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(6), &mut out.started_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -5339,6 +5601,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_ENDED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5352,7 +5615,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                         if cur != 0 { flush!(); cur = 0; }
                         out.ended_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(7), &mut out.ended_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -5365,6 +5635,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_POD_TTL;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5378,7 +5649,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                         if cur != 0 { flush!(); cur = 0; }
                         out.pod_ttl.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(8), &mut out.pod_ttl.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -5391,6 +5669,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_OUTPUT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5406,7 +5685,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                         if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.output.error = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(9), &mut out.output.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -5425,6 +5711,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5438,7 +5725,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                         if cur != 0 { flush!(); cur = 0; }
                         out.received_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(10), &mut out.received_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -5451,6 +5745,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_ACQUIRED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5464,7 +5759,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                         if cur != 0 { flush!(); cur = 0; }
                         out.acquired_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(11), &mut out.acquired_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -5477,6 +5779,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_CREATION_TO_END_DURATION;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5490,7 +5793,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                         if cur != 0 { flush!(); cur = 0; }
                         out.creation_to_end_duration.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(12), &mut out.creation_to_end_duration.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -5503,6 +5813,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_PROCESSING_TO_END_DURATION;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5516,7 +5827,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                         if cur != 0 { flush!(); cur = 0; }
                         out.processing_to_end_duration.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(13), &mut out.processing_to_end_duration.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -5535,6 +5853,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5548,7 +5867,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                         if cur != 0 { flush!(); cur = 0; }
                         out.received_to_end_duration.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(14), &mut out.received_to_end_duration.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -5561,6 +5887,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_PROCESSED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5574,7 +5901,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                         if cur != 0 { flush!(); cur = 0; }
                         out.processed_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(15), &mut out.processed_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -5587,6 +5921,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKDETAILED_PRESENT_FETCHED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5600,7 +5935,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                         if cur != 0 { flush!(); cur = 0; }
                         out.fetched_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(16), &mut out.fetched_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -5617,7 +5959,14 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.created_by = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
+            _ => {
+                if cur != 0 { flush!(); cur = 0; }
+                d.skip(tag, wire);
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
+                }
+            }
         }
     }
     if d.err == 0 {
@@ -5640,6 +5989,7 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
     dcx: *mut DecCtxImpl,
     d: &mut Dec,
     base: usize,
+    u: UnkCx,
 ) {
     // The codec MINTS the token because there is nobody to ask during a parse.
     // A token is an index (ABI v1 section 10), and the host's replay pushes its
@@ -5657,11 +6007,6 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
     let mut a_options_options: [::core::mem::MaybeUninit<ak_dfix_TaskOptionsOptionsEntry>; N_OPTIONS_OPTIONS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_OPTIONS_OPTIONS];
     let mut n_options_options: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_options_options: usize = 0;
-    let _ = done_options_options;
-    let uk_options_options: *mut UnkBuf = ::core::ptr::null_mut();
     macro_rules! flush_options_options {
         () => {
             if n_options_options > 0 {
@@ -5675,9 +6020,7 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                     a_options_options.as_ptr() as *const u8,
                     n_options_options * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>(),
                 );
-                done_options_options += n_options_options;
                 n_options_options = 0;
-                if !uk_options_options.is_null() { (*uk_options_options).flush(); }
             }
         };
     }
@@ -5688,6 +6031,7 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
     }
     let mut cur = 0u32;
     while !d.at_end() {
+        let s0 = d.pos;
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5713,6 +6057,7 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKSUMMARY_PRESENT_OPTIONS;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5723,8 +6068,7 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                         if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
-                        if !uk_options_options.is_null() { (*uk_options_options).token = (done_options_options + n_options_options) as i64; }
-                        a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, uk_options_options));
+                        a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, u.at(2)));
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -5736,6 +6080,7 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                         let mut c2 = Dec::new(buf2);
                         out.options.presence |= AK_DFIX_TASKOPTIONS_PRESENT_MAX_DURATION;
                         while !c2.at_end() {
+                            let s0 = c2.pos;
                             let k = c2.varint();
                             if c2.err != 0 { break; }
                             let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5749,7 +6094,14 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                                 if cur != 0 { flush!(); cur = 0; }
                                 out.options.max_duration.nanos = c2.varint() as i32;
                             }
-                                _ => c2.skip(tag, wire),
+                                _ => {
+                                    c2.skip(tag, wire);
+                                    // Decision 11: the inlined child's OWN buffer.
+                                    if c2.err == 0 && !u.pos.is_null() {
+                                        let rc = unk_put(u.at(3), &mut out.options.max_duration.unknown, &buf2[s0..c2.pos]);
+                                        if rc != 0 { c2.err = rc; }
+                                    }
+                                }
                             }
                         }
                         if c2.err != 0 { c1.err = c2.err; }
@@ -5798,7 +6150,14 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                         if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.engine_type = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(1), &mut out.options.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -5815,6 +6174,7 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_TASKSUMMARY_PRESENT_CREATED_AT;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -5828,7 +6188,14 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                         if cur != 0 { flush!(); cur = 0; }
                         out.created_at.nanos = c1.varint() as i32;
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(4), &mut out.created_at.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
@@ -5849,7 +6216,14 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                 if cur != 0 { flush!(); cur = 0; }
                 out.count_data_dependencies = d.varint() as i64;
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
+            _ => {
+                if cur != 0 { flush!(); cur = 0; }
+                d.skip(tag, wire);
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
+                }
+            }
         }
     }
     if d.err == 0 {
@@ -5872,6 +6246,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
     dcx: *mut DecCtxImpl,
     d: &mut Dec,
     base: usize,
+    u: UnkCx,
 ) {
     // The codec MINTS the token because there is nobody to ask during a parse.
     // A token is an index (ABI v1 section 10), and the host's replay pushes its
@@ -5889,55 +6264,30 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
     let mut a_ticks: [::core::mem::MaybeUninit<i64>; N_TICKS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_TICKS];
     let mut n_ticks: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_ticks: usize = 0;
-    let _ = done_ticks;
-    let uk_ticks: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_VALUES: usize = ak_rt::arena_n(::core::mem::size_of::<f64>());
     let mut a_values: [::core::mem::MaybeUninit<f64>; N_VALUES] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_VALUES];
     let mut n_values: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_values: usize = 0;
-    let _ = done_values;
-    let uk_values: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_CODES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
     let mut a_codes: [::core::mem::MaybeUninit<i32>; N_CODES] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_CODES];
     let mut n_codes: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_codes: usize = 0;
-    let _ = done_codes;
-    let uk_codes: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_FLAGS: usize = ak_rt::arena_n(::core::mem::size_of::<u8>());
     let mut a_flags: [::core::mem::MaybeUninit<u8>; N_FLAGS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_FLAGS];
     let mut n_flags: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_flags: usize = 0;
-    let _ = done_flags;
-    let uk_flags: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_STATUSES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
     let mut a_statuses: [::core::mem::MaybeUninit<i32>; N_STATUSES] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_STATUSES];
     let mut n_statuses: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_statuses: usize = 0;
-    let _ = done_statuses;
-    let uk_statuses: *mut UnkBuf = ::core::ptr::null_mut();
     macro_rules! flush_ticks {
         () => {
             if n_ticks > 0 {
@@ -5951,9 +6301,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                     a_ticks.as_ptr() as *const u8,
                     n_ticks * ::core::mem::size_of::<i64>(),
                 );
-                done_ticks += n_ticks;
                 n_ticks = 0;
-                if !uk_ticks.is_null() { (*uk_ticks).flush(); }
             }
         };
     }
@@ -5970,9 +6318,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                     a_values.as_ptr() as *const u8,
                     n_values * ::core::mem::size_of::<f64>(),
                 );
-                done_values += n_values;
                 n_values = 0;
-                if !uk_values.is_null() { (*uk_values).flush(); }
             }
         };
     }
@@ -5989,9 +6335,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                     a_codes.as_ptr() as *const u8,
                     n_codes * ::core::mem::size_of::<i32>(),
                 );
-                done_codes += n_codes;
                 n_codes = 0;
-                if !uk_codes.is_null() { (*uk_codes).flush(); }
             }
         };
     }
@@ -6008,9 +6352,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                     a_flags.as_ptr() as *const u8,
                     n_flags * ::core::mem::size_of::<u8>(),
                 );
-                done_flags += n_flags;
                 n_flags = 0;
-                if !uk_flags.is_null() { (*uk_flags).flush(); }
             }
         };
     }
@@ -6027,9 +6369,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                     a_statuses.as_ptr() as *const u8,
                     n_statuses * ::core::mem::size_of::<i32>(),
                 );
-                done_statuses += n_statuses;
                 n_statuses = 0;
-                if !uk_statuses.is_null() { (*uk_statuses).flush(); }
             }
         };
     }
@@ -6044,6 +6384,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
     }
     let mut cur = 0u32;
     while !d.at_end() {
+        let s0 = d.pos;
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -6150,7 +6491,14 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                 }
                 if ps.err != 0 { d.err = ps.err; }
             }
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
+            _ => {
+                if cur != 0 { flush!(); cur = 0; }
+                d.skip(tag, wire);
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
+                }
+            }
         }
     }
     if d.err == 0 {
@@ -6203,11 +6551,6 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
     let mut a_results: [::core::mem::MaybeUninit<ak_dfix_ResultRaw>; N_RESULTS] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_RESULTS];
     let mut n_results: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_results: usize = 0;
-    let _ = done_results;
-    let uk_results: *mut UnkBuf = ::core::ptr::null_mut();
     macro_rules! flush_results {
         () => {
             if n_results > 0 {
@@ -6221,9 +6564,7 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
                     a_results.as_ptr() as *const u8,
                     n_results * ::core::mem::size_of::<ak_dfix_ResultRaw>(),
                 );
-                done_results += n_results;
                 n_results = 0;
-                if !uk_results.is_null() { (*uk_results).flush(); }
             }
         };
     }
@@ -6232,8 +6573,10 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
             flush_results!();
         };
     }
+    let u = UnkCx::root(dcx, 1);
     let mut cur = 0u32;
     while !d.at_end() {
+        let s0 = d.pos;
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -6244,8 +6587,7 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
                 if n_results == N_RESULTS { flush_results!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                if !uk_results.is_null() { (*uk_results).token = (done_results + n_results) as i64; }
-                a_results[n_results].write(dec_result_raw_fix(&mut es, base0 + off, uk_results));
+                a_results[n_results].write(dec_result_raw_fix(&mut es, base0 + off, u.at(1)));
                 if es.err != 0 { d.err = es.err; }
                 n_results += 1;
             }
@@ -6257,11 +6599,16 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 out.total = d.varint() as i32;
             }
-            // Decision 11's capture is NOT built for this family: the bag is a
-            // candidate and pull is a family, and pricing one through the other
-            // would make neither answerable. Unknown fields are skipped here,
-            // which is what the default push path does too.
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
+            // Decision 11 (WP5 step 7): the same capture as push; the buffers ride in
+            // the groups the records carry and pass to the host when it reads them.
+            _ => {
+                if cur != 0 { flush!(); cur = 0; }
+                d.skip(tag, wire);
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
+                }
+            }
         }
     }
     if d.err == 0 {
@@ -6315,8 +6662,10 @@ pub unsafe extern "C" fn ak_parse_ListTasksDetailedResponse(
         () => {
         };
     }
+    let u = UnkCx::root(dcx, 2);
     let mut cur = 0u32;
     while !d.at_end() {
+        let s0 = d.pos;
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -6326,7 +6675,7 @@ pub unsafe extern "C" fn ak_parse_ListTasksDetailedResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_list_tasks_detailed_response_tasks_element_pull(dcx, &mut sub, base0 + off);
+                dec_list_tasks_detailed_response_tasks_element_pull(dcx, &mut sub, base0 + off, u.at(1));
                 if sub.err != 0 { d.err = sub.err; }
             }
             2 if wire == 0 => {
@@ -6337,11 +6686,16 @@ pub unsafe extern "C" fn ak_parse_ListTasksDetailedResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 out.total = d.varint() as i32;
             }
-            // Decision 11's capture is NOT built for this family: the bag is a
-            // candidate and pull is a family, and pricing one through the other
-            // would make neither answerable. Unknown fields are skipped here,
-            // which is what the default push path does too.
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
+            // Decision 11 (WP5 step 7): the same capture as push; the buffers ride in
+            // the groups the records carry and pass to the host when it reads them.
+            _ => {
+                if cur != 0 { flush!(); cur = 0; }
+                d.skip(tag, wire);
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
+                }
+            }
         }
     }
     if d.err == 0 {
@@ -6397,11 +6751,6 @@ pub unsafe extern "C" fn ak_parse_ListProbeResponse(
     let mut a_probes: [::core::mem::MaybeUninit<ak_dfix_Probe>; N_PROBES] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_PROBES];
     let mut n_probes: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_probes: usize = 0;
-    let _ = done_probes;
-    let uk_probes: *mut UnkBuf = ::core::ptr::null_mut();
     macro_rules! flush_probes {
         () => {
             if n_probes > 0 {
@@ -6415,9 +6764,7 @@ pub unsafe extern "C" fn ak_parse_ListProbeResponse(
                     a_probes.as_ptr() as *const u8,
                     n_probes * ::core::mem::size_of::<ak_dfix_Probe>(),
                 );
-                done_probes += n_probes;
                 n_probes = 0;
-                if !uk_probes.is_null() { (*uk_probes).flush(); }
             }
         };
     }
@@ -6426,8 +6773,10 @@ pub unsafe extern "C" fn ak_parse_ListProbeResponse(
             flush_probes!();
         };
     }
+    let u = UnkCx::root(dcx, 3);
     let mut cur = 0u32;
     while !d.at_end() {
+        let s0 = d.pos;
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -6438,16 +6787,20 @@ pub unsafe extern "C" fn ak_parse_ListProbeResponse(
                 if n_probes == N_PROBES { flush_probes!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                if !uk_probes.is_null() { (*uk_probes).token = (done_probes + n_probes) as i64; }
-                a_probes[n_probes].write(dec_probe_fix(&mut es, base0 + off, uk_probes));
+                a_probes[n_probes].write(dec_probe_fix(&mut es, base0 + off, u.at(1)));
                 if es.err != 0 { d.err = es.err; }
                 n_probes += 1;
             }
-            // Decision 11's capture is NOT built for this family: the bag is a
-            // candidate and pull is a family, and pricing one through the other
-            // would make neither answerable. Unknown fields are skipped here,
-            // which is what the default push path does too.
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
+            // Decision 11 (WP5 step 7): the same capture as push; the buffers ride in
+            // the groups the records carry and pass to the host when it reads them.
+            _ => {
+                if cur != 0 { flush!(); cur = 0; }
+                d.skip(tag, wire);
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
+                }
+            }
         }
     }
     if d.err == 0 {
@@ -6501,8 +6854,10 @@ pub unsafe extern "C" fn ak_parse_ListTaskSummaryResponse(
         () => {
         };
     }
+    let u = UnkCx::root(dcx, 4);
     let mut cur = 0u32;
     while !d.at_end() {
+        let s0 = d.pos;
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -6512,14 +6867,19 @@ pub unsafe extern "C" fn ak_parse_ListTaskSummaryResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_list_task_summary_response_tasks_element_pull(dcx, &mut sub, base0 + off);
+                dec_list_task_summary_response_tasks_element_pull(dcx, &mut sub, base0 + off, u.at(1));
                 if sub.err != 0 { d.err = sub.err; }
             }
-            // Decision 11's capture is NOT built for this family: the bag is a
-            // candidate and pull is a family, and pricing one through the other
-            // would make neither answerable. Unknown fields are skipped here,
-            // which is what the default push path does too.
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
+            // Decision 11 (WP5 step 7): the same capture as push; the buffers ride in
+            // the groups the records carry and pass to the host when it reads them.
+            _ => {
+                if cur != 0 { flush!(); cur = 0; }
+                d.skip(tag, wire);
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
+                }
+            }
         }
     }
     if d.err == 0 {
@@ -6573,8 +6933,10 @@ pub unsafe extern "C" fn ak_parse_UploadResultDataMessage(
         () => {
         };
     }
+    let u = UnkCx::root(dcx, 5);
     let mut cur = 0u32;
     while !d.at_end() {
+        let s0 = d.pos;
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -6588,6 +6950,7 @@ pub unsafe extern "C" fn ak_parse_UploadResultDataMessage(
                 let mut c1 = Dec::new(buf1);
                 out.presence |= AK_DFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD;
                 while !c1.at_end() {
+                    let s0 = c1.pos;
                     let k = c1.varint();
                     if c1.err != 0 { break; }
                     let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -6610,16 +6973,28 @@ pub unsafe extern "C" fn ak_parse_UploadResultDataMessage(
                         let (off, n) = c1.len_body();
                         out.upload.data_chunk = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
-                        _ => c1.skip(tag, wire),
+                        _ => {
+                            c1.skip(tag, wire);
+                            // Decision 11: the inlined child's OWN buffer.
+                            if c1.err == 0 && !u.pos.is_null() {
+                                let rc = unk_put(u.at(1), &mut out.upload.unknown, &buf1[s0..c1.pos]);
+                                if rc != 0 { c1.err = rc; }
+                            }
+                        }
                     }
                 }
                 if c1.err != 0 { d.err = c1.err; }
             }
-            // Decision 11's capture is NOT built for this family: the bag is a
-            // candidate and pull is a family, and pricing one through the other
-            // would make neither answerable. Unknown fields are skipped here,
-            // which is what the default push path does too.
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
+            // Decision 11 (WP5 step 7): the same capture as push; the buffers ride in
+            // the groups the records carry and pass to the host when it reads them.
+            _ => {
+                if cur != 0 { flush!(); cur = 0; }
+                d.skip(tag, wire);
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
+                }
+            }
         }
     }
     if d.err == 0 {
@@ -6673,8 +7048,10 @@ pub unsafe extern "C" fn ak_parse_ListMetricsResponse(
         () => {
         };
     }
+    let u = UnkCx::root(dcx, 6);
     let mut cur = 0u32;
     while !d.at_end() {
+        let s0 = d.pos;
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -6684,14 +7061,19 @@ pub unsafe extern "C" fn ak_parse_ListMetricsResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_list_metrics_response_batches_element_pull(dcx, &mut sub, base0 + off);
+                dec_list_metrics_response_batches_element_pull(dcx, &mut sub, base0 + off, u.at(1));
                 if sub.err != 0 { d.err = sub.err; }
             }
-            // Decision 11's capture is NOT built for this family: the bag is a
-            // candidate and pull is a family, and pricing one through the other
-            // would make neither answerable. Unknown fields are skipped here,
-            // which is what the default push path does too.
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
+            // Decision 11 (WP5 step 7): the same capture as push; the buffers ride in
+            // the groups the records carry and pass to the host when it reads them.
+            _ => {
+                if cur != 0 { flush!(); cur = 0; }
+                d.skip(tag, wire);
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
+                }
+            }
         }
     }
     if d.err == 0 {
@@ -6747,22 +7129,12 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
     let mut a_left: [::core::mem::MaybeUninit<ak_dfix_Pair>; N_LEFT] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_LEFT];
     let mut n_left: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_left: usize = 0;
-    let _ = done_left;
-    let uk_left: *mut UnkBuf = ::core::ptr::null_mut();
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_RIGHT: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_Pair>());
     let mut a_right: [::core::mem::MaybeUninit<ak_dfix_Pair>; N_RIGHT] =
         [const { ::core::mem::MaybeUninit::uninit() }; N_RIGHT];
     let mut n_right: usize = 0;
-    // How many elements of this slot have already been handed over, so an
-    // unknown run can name its element as an INDEX (decision 11 candidate).
-    let mut done_right: usize = 0;
-    let _ = done_right;
-    let uk_right: *mut UnkBuf = ::core::ptr::null_mut();
     macro_rules! flush_left {
         () => {
             if n_left > 0 {
@@ -6776,9 +7148,7 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
                     a_left.as_ptr() as *const u8,
                     n_left * ::core::mem::size_of::<ak_dfix_Pair>(),
                 );
-                done_left += n_left;
                 n_left = 0;
-                if !uk_left.is_null() { (*uk_left).flush(); }
             }
         };
     }
@@ -6795,9 +7165,7 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
                     a_right.as_ptr() as *const u8,
                     n_right * ::core::mem::size_of::<ak_dfix_Pair>(),
                 );
-                done_right += n_right;
                 n_right = 0;
-                if !uk_right.is_null() { (*uk_right).flush(); }
             }
         };
     }
@@ -6807,8 +7175,10 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
             flush_right!();
         };
     }
+    let u = UnkCx::root(dcx, 7);
     let mut cur = 0u32;
     while !d.at_end() {
+        let s0 = d.pos;
         let k = d.varint();
         if d.err != 0 { break; }
         let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
@@ -6819,8 +7189,7 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
                 if n_left == N_LEFT { flush_left!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                if !uk_left.is_null() { (*uk_left).token = (done_left + n_left) as i64; }
-                a_left[n_left].write(dec_pair_fix(&mut es, base0 + off, uk_left));
+                a_left[n_left].write(dec_pair_fix(&mut es, base0 + off, u.at(1)));
                 if es.err != 0 { d.err = es.err; }
                 n_left += 1;
             }
@@ -6829,16 +7198,20 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
                 if n_right == N_RIGHT { flush_right!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                if !uk_right.is_null() { (*uk_right).token = (done_right + n_right) as i64; }
-                a_right[n_right].write(dec_pair_fix(&mut es, base0 + off, uk_right));
+                a_right[n_right].write(dec_pair_fix(&mut es, base0 + off, u.at(2)));
                 if es.err != 0 { d.err = es.err; }
                 n_right += 1;
             }
-            // Decision 11's capture is NOT built for this family: the bag is a
-            // candidate and pull is a family, and pricing one through the other
-            // would make neither answerable. Unknown fields are skipped here,
-            // which is what the default push path does too.
-            _ => { if cur != 0 { flush!(); cur = 0; } d.skip(tag, wire); }
+            // Decision 11 (WP5 step 7): the same capture as push; the buffers ride in
+            // the groups the records carry and pass to the host when it reads them.
+            _ => {
+                if cur != 0 { flush!(); cur = 0; }
+                d.skip(tag, wire);
+                if d.err == 0 && !u.pos.is_null() {
+                    let rc = unk_put(u, &mut out.unknown, &buf0[s0..d.pos]);
+                    if rc != 0 { d.err = rc; }
+                }
+            }
         }
     }
     if d.err == 0 {

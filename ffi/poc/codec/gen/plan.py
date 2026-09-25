@@ -89,13 +89,16 @@ DecAction (decode plan element)                op, field, read
     set_blob          last one wins; `utf8` -> validated
     merge_child       singular message: a repeated occurrence MERGES into the one already
                       decoded (protobuf semantics), it does not replace it (R-E4)
-    append_message    repeated message: each occurrence is a NEW element
+    append_message    repeated message: each occurrence is a NEW element. A MAP is this
+                      too (WP5 step 7, decision 11): a repeated field of its synthetic pair
+                      message (`field.card == "map"`, element type `field.entry`), each entry
+                      a message position of its own with its own unknown-field buffer; the
+                      pair's own decode plan reads key and value, and a duplicate key
+                      replaces the earlier value (the host's map insert)
     append_blob       repeated string/bytes: each occurrence a new element; `utf8`
     packed_run        the LEN form of a packed field: values until the run ends
     packed_one        the unpacked form of the same field, at the kind's own wire type
                       only (a packed int64 arriving as fixed64 is an unknown field, R-E2)
-    map_entry         a pair message; a duplicate key replaces the earlier value (the
-                      host's map insert); the pair's own decode plan reads key and value
     oneof_set         sets the case to this member; a scalar/blob member replaces; a
                       MESSAGE member merges if the case already is this member and starts
                       from empty otherwise (R-E4)
@@ -129,7 +132,8 @@ ENCODE RULES (stated once, applied by every backend)
 DECODE RULES (stated once, applied by every backend)
 ------------
     * dispatch on (field number, wire type) through the table; not in the table -> the
-      field is UNKNOWN: skipped (drop) or captured verbatim (retain);
+      field is UNKNOWN: skipped (drop) or captured verbatim (retain; through the C ABI, see
+      UNKNOWN FIELDS ON DECODE below);
     * field number 0 -> ERR_MALFORMED, on every message (R-E4, R-E5);
     * wire types 6 and 7, and an END_GROUP (4) with no group open -> ERR_MALFORMED;
     * wire type 3 opens a GROUP, skipped whole to the END_GROUP whose field number matches
@@ -163,6 +167,61 @@ DECODE RULES (stated once, applied by every backend)
     * a host that reports failure (`ak_fail`, or a negative token) stops the decode at the
       next check, which follows every upcall (ABI v1 section 5, R-D6).
 
+UNKNOWN FIELDS ON DECODE, THROUGH THE C ABI (ABI v1 decision 11, mechanism specified by
+------------------------------------------------ the owner 2026-09-24; WP5 step 7)
+    * encode is unchanged: every encode u-group (root and each inlined child) carries its
+      own `unknown: ak_blob`, written verbatim after the known fields (`unknown_tail`);
+    * a MESSAGE POSITION is the root, each element of a repeated message field, each map
+      entry (a map is a repeated pair message), each inlined singular child and each oneof
+      message member, reached from a root by a static path. `unk_positions(p, root)` lists
+      them: PREORDER, the message itself first, then for each message-typed field in TAG
+      ORDER (singular, oneof member, repeated, map) that field's own positions. A message's
+      subtree is therefore contiguous, and a position's index relative to any enclosing
+      message is the same whatever root reached it (`unk_offset`);
+    * every decode group `ak_dfix_M` ends with `unknown: ak_unk_buf` (before `presence`),
+      so each message occurrence carries ONE buffer slot of its own: the core copies that
+      message's unknown tag-and-value runs into it, in wire order, verbatim (copied, not
+      referenced: the runs need not be contiguous in the input). Buffers are never shared,
+      so a sub-message can be re-encoded outside its parent with its own bag;
+    * configuration: per root, `ak_dec_<Root>_opts { void *host; ak_unk_opts <position>
+      ...; }`, one `ak_unk_opts { ak_unk_buf buf; ak_grow_fn grow; }` per position in
+      `unk_positions` order, named by `unk_opts_members` (`self` for the root). `host` is
+      ONE per struct and is passed as `sink` to whichever position's grow is called; a host
+      that must tell positions apart gives them different grow functions (owner amendment,
+      2026-09-24). It is passed at context creation, `ak_dec_ctx_new_<Root>(opts)`, and at
+      reset, `ak_dec_reset_<Root>(ctx, opts)`; the core keeps its own copy, so the host's
+      struct need not outlive the call. NULL opts = every entry zero. A context armed for
+      one root decodes every OTHER root in drop mode; a context never armed is in drop mode;
+    * DISCARD: an all-zero entry (no buffer, no grow) drops the unknowns at that position
+      only. Every entry zero is drop mode, the same code path;
+    * PLACEMENT: when a message occurrence meets its first unknown run and its slot has no
+      buffer, the position's pre-allocated `buf` is MOVED into the slot (the context's entry
+      no longer has it) if it still has one; otherwise `grow(host, want, &data, &cap)` is
+      called with data = NULL and cap = 0 (a fresh buffer). When a run does not fit, the
+      slot's buffer is grown in place: `grow(host, want = len + run, &data, &cap)` with the
+      CURRENT data/cap, and the host returns a buffer of at least `want` bytes whose first
+      `cap`-on-entry bytes are preserved (realloc semantics; it may move). So one buffer is
+      never placed in two slots: the pre-allocated one is moved out on first use, and a
+      handed-out buffer is never passed to grow again. A repeated position's pre-allocated
+      buffer serves the first element that needs one; later elements get theirs from grow;
+    * `ak_grow_fn`'s signature is the transcoders' (ABI v1 section 4) unchanged: its `want`
+      and `cap` are i32, so a buffer past i32::MAX bytes is refused with ERR_LIMIT;
+    * errors: grow returns a negative code -> the decode fails with it; a position with a
+      buffer but no grow whose buffer is too small or already handed out -> ERR_CAPACITY
+      (never a silent partial copy); grow returning less than `want` -> ERR_CAPACITY;
+    * OWNERSHIP: a buffer placed in a slot passes to the host when the group carrying it is
+      delivered: at `apply`/`apply_<slot>`/`add_<slot>` (push) or when the record is read
+      (pull). Every non-NULL slot of a delivered group is the host's, including one inside
+      an inactive oneof member (the core keeps a member's buffer, emptied, when the case
+      moves to another member and back, and never drops a placed buffer). A failed decode
+      delivers nothing: every buffer it placed or grew stays the host's, which the host
+      knows from its own buffers and its grow calls. `ak_dec_reset_<Root>` re-arms every
+      position;
+    * reverse calls: none unless a position has no buffer left or one is too small; then
+      one `grow` (counted as a reverse crossing and a grow);
+    * recursive messages stay refused from the C ABI (owner, 2026-09-24), so the positions
+      of an expressible root are finite.
+
 ABI LAYOUT (derived here once; every language's declaration is rendered from it)
 ----------
     presence_bits(m)        {field: bit} -- a singular message child and every explicit
@@ -170,7 +229,8 @@ ABI LAYOUT (derived here once; every language's declaration is rendered from it)
     group_fields(m, enc)    [(member, abi type)] of `ak_efix_M` (enc) / `ak_dfix_M`; the
                             `ak_ufix_M` group is the e-group with child groups swapped for
                             u-groups plus a trailing `unknown: ak_blob`; every group ends
-                            with `presence: u32`
+                            with `presence: u32`; a DECODE group has `unknown:
+                            ak_unk_buf` right before it (decision 11, WP5 step 7)
     loop_slots(p, name)     [(path, field)] the vtable slots, INCLUDING those of inlined
                             children (ABI v1 section 6)
     slot_elem(f)            (decode element type, encode element type) of a slot's run
@@ -180,7 +240,8 @@ ABI LAYOUT (derived here once; every language's declaration is rendered from it)
                             group (a group inlines its whole singular subtree), so it is
                             REFUSED at generator time rather than emitted wrong
     The abi type vocabulary: i32 i64 u8 (bool) u32 (fixed32, oneof case) f64, ak_str
-    (encode blob), ak_span (decode blob), ak_blob (unknown bag), ak_efix_M / ak_dfix_M /
+    (encode blob), ak_span (decode blob), ak_blob (unknown bag, encode), ak_unk_buf
+    (unknown buffer, decode), ak_efix_M / ak_dfix_M /
     ak_ufix_M (a nested group). A backend maps each to its own spelling and never adds a
     member, reorders one, or re-derives a layout.
     plan.rpc: the RPC structs (`ak_bytes`, `ak_completion`, `ak_client_opts`) and the RPC
@@ -434,7 +495,9 @@ class MessagePlan:
         is therefore stated once, here, as the canonical form, and the divergence is
         reported to the aggregating session rather than silently resolved either way."""
         self.encode.append(EncStep("map", f))
-        self.decode[(f.tag, LEN)] = DecAction("map_entry", f)
+        # WP5 step 7 (decision 11): to the decoder a map IS a repeated pair message, so it
+        # takes the repeated-message action; `f.card == "map"` and `f.entry` say which.
+        self.decode[(f.tag, LEN)] = DecAction("append_message", f)
 
     def __repr__(self):
         return "<plan %s leaf=%s%s>" % (self.name, self.leaf, " synthetic" if self.synthetic else "")
@@ -567,6 +630,9 @@ def group_fields(m, enc):
                 out.append((n, "ak_%sfix_%s" % ("e" if enc else "d", g.of)))
             else:
                 out.append((n, ABI_SCALAR[g.kind]))
+    if not enc:
+        # Decision 11 (WP5 step 7): the message occurrence's own unknown-field buffer.
+        out.append(("unknown", "ak_unk_buf"))
     return out
 
 
@@ -923,9 +989,6 @@ class FixedAbi:
          "ABI v1 section 3: the host's log sink."),
         ("ak_loop_f", [("ctx", "*mut ak_enc_ctx"), ("obj", "*const void"), ("token", "i64")], "i32",
          "ABI v1 section 6: a host-driven loop over one repeated/packed/map field."),
-        ("ak_unk_f", [("ctx", "*mut ak_dec_ctx"), ("obj", "*mut void"),
-                      ("spans", "*const ak_uspan"), ("n", "i32")], None,
-         "Decision 11 candidate: captured unknown-field runs, delivered by token."),
     ]
 
     # (name, doc, [(member, type)]). Laid out repr(C) / C order, members as listed.
@@ -937,8 +1000,12 @@ class FixedAbi:
          [("off", "u32"), ("len", "u32"), ("coder", "u32")]),
         ("ak_blob", "Decision 11's unknown-field bag: two words, raw tag-and-value runs.",
          [("data", "*const void"), ("len", "usize")]),
-        ("ak_uspan", "One captured unknown run: which object (a token) and where in the input.",
-         [("token", "i64"), ("off", "u32"), ("len", "u32")]),
+        ("ak_unk_buf", "Decision 11 (WP5 step 7): one message occurrence's unknown-field "
+                       "buffer, host memory the core copies the runs into.",
+         [("data", "*mut void"), ("len", "u32"), ("cap", "u32")]),
+        ("ak_unk_opts", "Decision 11: one message position's configuration; all zero = its "
+                        "unknowns are discarded.",
+         [("buf", "ak_unk_buf"), ("grow", "ak_grow_fn?")]),
         ("ak_err", "ak_init's out-parameter (ABI v1 section 3/5): a code and a detail.",
          [("code", "i32"), ("detail", "u32")]),
         ("ak_init_opts", "ak_init's options (ABI v1 section 3).",
@@ -953,7 +1020,8 @@ class FixedAbi:
          [("op", "u32"), ("slot", "u32"), ("token", "i64"), ("n", "u32"), ("bytes", "u32")]),
     ]
     # The sizes a renderer asserts (LP64 / 64-bit hosts, which is every host this ships to).
-    sizes = {"ak_str": 24, "ak_span": 12, "ak_blob": 16, "ak_uspan": 16, "ak_err": 8,
+    sizes = {"ak_str": 24, "ak_span": 12, "ak_blob": 16, "ak_unk_buf": 16, "ak_unk_opts": 24,
+             "ak_err": 8,
              "ak_init_opts": 24, "AkCounters": 48, "ak_bdr_rec": 24}
 
     # (name, type, value, doc). `AK_STR_DIRECT` is a pointer VALUE, `AK_TOKEN_ROOT` an i64.
@@ -1088,18 +1156,16 @@ def enc_vtable(p, name):
 
 
 def dec_vtable(p, name):
-    """`ak_dvt_<name>` members, in order: `apply`, `unknown`, then per loop slot: `unk`
-    (the slot's elements' unknown runs, when it has an element type), then `add` (a
-    batchable run) or `new`, `applyelem` and one `addinner` per inner slot of a non-leaf
-    element. Each row is (kind, slot name, x): x is the element type (unk, add, new,
-    applyelem), the inner FieldPlan (addinner) or None. A non-leaf element inside a non-leaf
-    element is refused."""
-    rows = [("apply", "", None), ("unknown", "", None)]
+    """`ak_dvt_<name>` members, in order: `apply`, then per loop slot: `add` (a batchable
+    run) or `new`, `applyelem` and one `addinner` per inner slot of a non-leaf element. Each
+    row is (kind, slot name, x): x is the element type (add, new, applyelem), the inner
+    FieldPlan (addinner) or None. A non-leaf element inside a non-leaf element is refused.
+    WP5 step 7: the `unknown` and `unk_<slot>` callbacks are gone; unknown fields travel as
+    data in the groups (decision 11, see UNKNOWN FIELDS ON DECODE)."""
+    rows = [("apply", "", None)]
     for path, f in loop_slots(p, name):
         sn = slot_name(path)
         et = elem_type(f)
-        if et:
-            rows.append(("unk", sn, et))
         if batchable(p, f):
             rows.append(("add", sn, et))
         else:
@@ -1126,14 +1192,10 @@ def enc_slots(p):
 
 
 def dec_slots(p):
-    """Every decode callback of a ROOT's vtable that a binding wires, as (root, kind, slot
-    name, x); the unknown-field slots are omitted (a binding that captures wires them
-    itself)."""
+    """Every decode callback of a ROOT's vtable, as (root, kind, slot name, x)."""
     out = []
     for name in p.roots:
         for kind, sn, x in dec_vtable(p, name):
-            if kind in ("unknown", "unk"):
-                continue
             out.append((name, kind, sn, x))
     return out
 
@@ -1161,3 +1223,95 @@ def pull_records(p, root):
             for k, (ipath, _iff) in enumerate(loop_slots(p, et)):
                 out.append((BDR["AK_BDR_ADD"], pull_slot(j, k), "addinner", "%s_%s" % (sn, slot_name(ipath))))
     return out
+
+
+# =================================================================== unknown fields (decision 11)
+#
+# WP5 step 7. The owner's mechanism (ABI v1 decision 11, "Mechanism, specified
+# 2026-09-24"), stated once; the contract is the module docstring's UNKNOWN FIELDS ON
+# DECODE. What a backend renders from here: the positions and their order, the options
+# struct and its member names, and the two entry points per root.
+
+def _unk_key(f):
+    """A message-typed field's path element: the group member name (a oneof member is
+    `<oneof>_<member>`, as in `group_fields`)."""
+    return "%s_%s" % (f.oneof, f.name) if f.oneof else f.name
+
+
+def _unk_child(f):
+    if f.kind == "message":
+        return f.of
+    if f.card == "map":
+        return f.entry
+    return None
+
+
+def unk_positions(p, name, _trail=None):
+    """[(path tuple, message name)] of every message position in `name`'s decode, `name`
+    itself first (path ()), then in TAG ORDER each message-typed field's positions, depth
+    first (preorder). A recursive message has no finite list and is refused (it cannot
+    cross the C ABI, `check_expressible`)."""
+    memo = p.__dict__.setdefault("_unk_memo", {})
+    if _trail is None and name in memo:
+        return memo[name]
+    trail = (_trail or frozenset()) | {name}
+    out = [((), name)]
+    for f in p.msg(name).fields:
+        c = _unk_child(f)
+        if c is None:
+            continue
+        if c in trail:
+            raise NotExpressible("REFUSED: %s reaches %s again (%s.%s): a recursive message has "
+                                 "no finite set of unknown-field positions" % (name, c, name, f.name))
+        for path, m in unk_positions(p, c, trail):
+            out.append(((_unk_key(f),) + path, m))
+    if _trail is None:
+        memo[name] = out
+    return out
+
+
+def unk_offset(p, name, f):
+    """The index, relative to message `name`'s own position, of the position its
+    message-typed field `f` opens (an inlined child, a oneof member, a repeated element or a
+    map entry). The same whatever root reached `name`."""
+    k = (_unk_key(f),)
+    for i, (path, _m) in enumerate(unk_positions(p, name)):
+        if path == k:
+            return i
+    raise KeyError("%s.%s is not a message position" % (name, f.name))
+
+
+def unk_opts_name(root):
+    return "ak_dec_%s_opts" % root
+
+
+def unk_opts_members(p, root):
+    """The members of `ak_dec_<root>_opts` after `host`, in order: (member name, message
+    name). The root is `self`; every other position is its path joined by `_`. A name
+    collision is refused rather than renamed."""
+    out, seen = [], set()
+    for path, m in unk_positions(p, root):
+        n = "_".join(path) if path else "self"
+        if n in seen:
+            raise NotImplementedError("unknown-field position name %r occurs twice under %s"
+                                      % (n, root))
+        seen.add(n)
+        out.append((n, m))
+    return out
+
+
+def unk_root_id(p, root):
+    """The id a context records when armed for `root`: its 1-based index in `p.roots`
+    (0 = not armed)."""
+    return p.roots.index(root) + 1
+
+
+def unk_entry_points(p, root):
+    """The two per-root entry points of decision 11, (name, [(param, type)], return, doc)."""
+    o = unk_opts_name(root)
+    return [
+        ("ak_dec_ctx_new_%s" % root, [("opts", "*const %s" % o)], "*mut ak_dec_ctx",
+         "A decode context armed with these options (NULL = drop everywhere)."),
+        ("ak_dec_reset_%s" % root, [("ctx", "*mut ak_dec_ctx"), ("opts", "*const %s" % o)], None,
+         "Re-arm every position of this root from `opts` (copied; NULL = drop everywhere)."),
+    ]

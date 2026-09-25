@@ -25,7 +25,8 @@ plan): one C header renderer for both C-consuming hosts.
 through `AK_NEWREF` / `AK_CALL0` / `AK_CALL1`, defined under `#if PY_VERSION_HEX >=` with a
 3.7-compatible `#else`, so the floor and the target compile the same generated file.
 
-Unknown fields: DROPPED in this shim (every `ak_unk_f` slot NULL, the `ak_encode_*` family).
+Unknown fields: DROPPED in this shim (the `ak_encode_*` family; no context is armed with
+`ak_dec_<Root>_opts`, so every decode is in drop mode -- decision 11, WP5 step 7).
 Retention through the C ABI is not rendered here; the pure-Python codec renders both modes.
 
 A backend: imports `plan` only.

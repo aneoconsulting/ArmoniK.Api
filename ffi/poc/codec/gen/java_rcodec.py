@@ -221,7 +221,7 @@ def _dec_action(p, m, act, o):
         # Plan rule: a repeated occurrence MERGES into the one already decoded (R-E4).
         o.append("            if (%s == null) %s = new %s();" % (r, r, f.of))
         _sub(o, 12, "dec%s(d, %s, depth + 1)" % (f.of, r))
-    elif op == "append_message":
+    elif op == "append_message" and f.card != "map":
         o.append("            { %s x = new %s();" % (f.of, f.of))
         _sub(o, 14, "dec%s(d, x, depth + 1)" % f.of)
         o.append("              %s.add(x); }" % r)
@@ -241,7 +241,8 @@ def _dec_action(p, m, act, o):
     elif op == "packed_one":
         jt = N.FSCALAR[f.kind]
         o.append("            { %s[] one = {%s}; %s = append(%s, one, 1); }" % (jt, _read(f), r, r))
-    elif op == "map_entry":
+    # WP5 step 7: to the decode plan a map IS a repeated pair message (decision 11).
+    elif op == "append_message" and f.card == "map":
         N.check_map(p, f)
         entry = p.msg(f.entry)
         st_t = N.string_type()
