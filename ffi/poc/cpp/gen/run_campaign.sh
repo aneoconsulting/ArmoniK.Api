@@ -65,6 +65,40 @@ if [ -n "$(comm -12 <(expand "$AK_CPU_CLIENT" | tr ' ' '\n' | sort) <(expand "$A
   echo "REFUSED: AK_CPU_CLIENT ($AK_CPU_CLIENT) and AK_CPU_SERVER ($AK_CPU_SERVER) overlap" >&2; exit 2
 fi
 
+# ---- one NUMA node, no SMT sibling shared between CLIENT and SERVER (requirement 4) ----
+TOPO=$(python3 - "$(expand "$AK_CPU_CLIENT")" "$(expand "$AK_CPU_SERVER")" <<'PYTOPO'
+import glob, os, sys
+cl = [int(x) for x in sys.argv[1].split()]
+sv = [int(x) for x in sys.argv[2].split()]
+def rng(s):
+    out = set()
+    for p in s.split(","):
+        if "-" in p:
+            a, b = p.split("-"); out.update(range(int(a), int(b) + 1))
+        elif p:
+            out.add(int(p))
+    return out
+def sib(c):
+    try:
+        return rng(open("/sys/devices/system/cpu/cpu%d/topology/thread_siblings_list" % c).read().strip())
+    except OSError:
+        return {c}
+def node(c):
+    n = glob.glob("/sys/devices/system/cpu/cpu%d/node*" % c)
+    return os.path.basename(n[0]) if n else "node?"
+bad = []
+for c in cl:
+    shared = (sib(c) - {c}) & set(sv)
+    if shared:
+        bad.append("cpu %d (CLIENT) is an SMT sibling of %s (SERVER)" % (c, sorted(shared)))
+nodes = sorted(set(node(c) for c in cl + sv))
+if len(nodes) > 1:
+    bad.append("the sets span NUMA nodes %s" % nodes)
+print("; ".join(bad))
+PYTOPO
+)
+if [ -n "$TOPO" ]; then echo "REFUSED (requirement 4): $TOPO" >&2; exit 2; fi
+
 # ---- a dirty tree is refused (requirement 27) ---------------------------------------
 DIRTY=$(git -C "$REPO" status --porcelain -- ffi/poc/cpp ffi/poc/codec ffi/schema ffi/corpus 2>/dev/null)
 if [ -n "$DIRTY" ] && [ "${AK_CAMPAIGN_ALLOW_DIRTY:-0}" != 1 ]; then
@@ -157,10 +191,12 @@ run_gate() {
       && echo ">>> FAIL: control noinit (corpus) passed" || echo "  control noinit (corpus): failed as required"
     echo "===== crossing counts (requirement 19): the counting core against the committed counts ====="
     (cd "$FFI/schema/generated" && "$B/counts_a17_shared" > "$OUT/counts.log" 2>&1)
-    awk '/===== shared =====/,/===== static =====/' "$FFI/logs/cpp/counts.log" | grep -E '^  P' > "$OUT/.want"
+    # The committed baseline (logs/cpp/counts-baseline.log, re-taken deliberately when the
+    # core's ABI changes a count, with the reason in its header).
+    grep -E '^  P' "$FFI/logs/cpp/counts-baseline.log" > "$OUT/.want"
     grep -E '^  P' "$OUT/counts.log" > "$OUT/.got"
     if diff "$OUT/.want" "$OUT/.got" > "$OUT/.diff"; then
-      echo "  $(wc -l < "$OUT/.got") count rows identical to logs/cpp/counts.log"
+      echo "  $(wc -l < "$OUT/.got") count rows identical to logs/cpp/counts-baseline.log"
     else
       head -10 "$OUT/.diff"; echo ">>> FAIL: crossing counts differ from the committed ones"
     fi
