@@ -45,6 +45,10 @@ export AK_SNAPSHOT="${AK_SNAPSHOT:-HEAD}"
 SHA=$(git rev-parse --short "$AK_SNAPSHOT")
 export AK_SNAPSHOT_DIR="$HERE/build/snap/$SHA"
 export AK_CODECGEN="$AK_SNAPSHOT_DIR/ffi/poc/codec/gen"
+# The gate stamp is keyed on the TREES this run reads (poc/python, poc/codec, schema, corpus at
+# the snapshot), not on HEAD, so another slice's commit does not force a re-gate and a change
+# to anything the build reads does.
+STAMP="$(for d in ffi/poc/python ffi/poc/codec ffi/schema ffi/corpus; do git rev-parse "$SHA:$d"; done | sha256sum | cut -c1-16)"
 TAG=$("$PY" -c 'import sys;print("py%d.%d"%sys.version_info[:2])')
 if [ -n "$SMOKE" ]; then
   LAUNCHES=1; ROUNDS=1; TARGET_MS=2; CALLS=16; CITERS=200000
@@ -57,7 +61,7 @@ fi
 echo "# python campaign runner: suite $SUITE, out $OUT, snapshot $SHA, launches $LAUNCHES, rounds $ROUNDS ${SMOKE:+(SMOKE: instrumentation only)}"
 
 need_gate() {
-  if [ "$(cat "$OUT/gate.ok" 2>/dev/null)" != "$SHA $(git rev-parse --short HEAD)" ]; then
+  if [ "$(cat "$OUT/gate.ok" 2>/dev/null)" != "$STAMP" ]; then
     echo "   no gate.ok for this commit in $OUT: running the gate first (requirement 26)"
     "$0" --suite gate --out "$OUT" $SMOKE $DIRTY
   fi
@@ -75,7 +79,7 @@ case "$SUITE" in
     grep -q '^# ABORTED, NO FIGURE' "$OUT/gate/rpc-control.jsonl" && [ "$(grep -c '^{' "$OUT/gate/rpc-control.jsonl" || true)" -eq 0 ] \
       || { echo "   CONTROL: aborted but still wrote samples"; exit 1; }
     echo "   failed as required, no sample written: $(grep ABORTED "$OUT/gate/rpc-control.jsonl")"
-    echo "$SHA $(git rev-parse --short HEAD)" > "$OUT/gate.ok"
+    echo "$STAMP" > "$OUT/gate.ok"
     echo "GATE PASSED"
     ;;
   codec)
