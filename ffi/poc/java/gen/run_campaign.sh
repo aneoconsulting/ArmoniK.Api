@@ -131,19 +131,31 @@ JAVA="$J17/bin/java $JVM_FLAGS -cp build/cls17:$CP -Dak.camp.rounds=$ROUNDS"
 
 case "$SUITE" in
 codec)
+  # Req 22a (owner): the codec suite is timed by JMH. One JMH invocation per (launch, coder
+  # state), `-f 1`, so JMH forks one fresh JVM per cell, and the launches are the forks of
+  # req 23 (AK_LAUNCHES, default 3); the arm order inside each (payload, content, dir) block
+  # is rotated between launches (req 22). SingleShotTime: one JMH iteration = one sample of
+  # `iters` operations; warm-up iterations = AK_WARM (5), measurement iterations = rounds.
+  # Every raw iteration is exported (gen/jmh_to_jsonl.py); JMH's own JSON is kept beside it.
+  JMHCP=$(cat deps/jmh/cp.txt)
   EXTRA=""; WARM=${AK_WARM:-5}
   [ "$SMOKE" = 1 ] && { EXTRA="-Dak.camp.budget=${AK_SMOKE_BUDGET:-65536} -Dak.camp.maxiters=${AK_SMOKE_MAXITERS:-50}"; WARM=1; }
   for l in $(seq 1 "$LAUNCHES"); do
-    # req 24: protobuf-java's content-set rows in both String coder states (JDK 17 compact
-    # strings on, and off with -XX:-CompactStrings), each its own process.
+    CELLS=$("$J17/bin/java" -cp "build/cls17:$CP" -Dak.camp.launch="$l" ${AK_CODEC_PROPS:-} ak.CampaignCodec | tr '\n' ',' | sed 's/,$//')
     for coder in compact utf16; do
-      f="$OUT/codec-$coder-launch-$l.jsonl"
-      header "$f" "coder=$coder launch=$l warm-up=$WARM sample(s) per (arm,payload,content,dir) before round 1"
+      f="$OUT/codec-$coder-launch-$l.jsonl"; base="$OUT/codec-$coder-launch-$l"
+      header "$f" "engine=JMH 1.37 SingleShotTime, -f 1 per cell, warm-up $WARM iteration(s) + $ROUNDS measurement iteration(s) per cell, coder=$coder launch=$l, $(echo "$CELLS" | tr ',' '\n' | wc -l) cells"
       CF=""; [ "$coder" = utf16 ] && CF="-XX:-CompactStrings"
-      echo "# command: $PIN_C java $CF ... ak.CampaignCodec" >> "$f"
-      $PIN_C $JAVA $CF -Dak.lib="$HERE/build/jni/libakjni.so" -Dak.camp.launch="$l" \
-        -Dak.camp.coder="$coder" -Dak.camp.out="$f" -Dak.camp.warm="$WARM" $EXTRA \
-        ${AK_CODEC_PROPS:-} ak.CampaignCodec || { echo "codec launch $l ($coder) FAILED; no figure"; exit 1; }
+      echo "# command: $PIN_C java org.openjdk.jmh.Main ak.CodecJmh.sample -f 1 -wi $WARM -i $ROUNDS -foe true -jvmArgs '$JVM_FLAGS $CF ...'" >> "$f"
+      echo "# cpu_ns: the measuring thread's CPU clock read inside the benchmark method; wall_ns: JMH's raw per-iteration time" >> "$f"
+      rm -f "$base.cpu.tsv"
+      $PIN_C "$J17/bin/java" -cp "build/jmh17:build/cls17:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.CodecJmh.sample' \
+        -f 1 -wi "$WARM" -i "$ROUNDS" -foe true -p cell="$CELLS" \
+        -jvmArgs "$JVM_FLAGS $CF -Dak.lib=$HERE/build/jni/libakjni.so -Dak.jmh.cpuout=$base.cpu.tsv $EXTRA" \
+        -rf json -rff "$base.jmh.json" > "$base.jmh.txt" 2>&1 \
+        || { echo "codec launch $l ($coder) FAILED (JMH, -foe true); no figure: $base.jmh.txt"; exit 1; }
+      python3 -S gen/jmh_to_jsonl.py "$base.jmh.json" "$base.cpu.tsv" "$l" "$coder" >> "$f" \
+        || { echo "codec launch $l ($coder): conversion FAILED; no figure"; exit 1; }
       echo "codec launch $l ($coder): $(grep -c '"cpu_ns"' "$f") samples -> $f"
     done
   done ;;

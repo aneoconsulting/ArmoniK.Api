@@ -45,12 +45,12 @@ import java.util.Map;
  * render it yet. The hook is the {@code unknown_mode} of an arm: the run records
  * {@code core-ffi/retain} as pending in a meta line and produces no sample for it.
  *
- * <p>Properties: ak.camp.ids (payload ids, default all 16), ak.camp.sets (content sets,
- * default 0,1,2), ak.camp.rounds (5), ak.camp.launch, ak.camp.budget (bytes serialised per
- * sample, default 32 MiB, which sets iters = budget / payload size clamped to
- * [1, ak.camp.maxiters=4000]), ak.camp.warm (warm-up samples per cell before round 1,
- * default 5), ak.camp.coder (label of the String coder state of this JVM: compact | utf16,
- * set by the runner with -XX:-CompactStrings), ak.camp.out (the log to append to).
+ * <p><b>Timed by JMH</b> (req 22a, owner 2026-09-25): {@code src/jmh/ak/CodecJmh.java} runs
+ * one cell per JMH benchmark (one fork per cell), using {@link #make}, {@link #canonical},
+ * {@link #check} and {@link #iters} from here. {@code main} lists the cells for a launch
+ * (properties ak.camp.ids, ak.camp.sets, ak.camp.launch). The self-timed loop this class
+ * had (the first WP3 smoke run) is retired. Properties read by the arms: ak.camp.budget
+ * (bytes serialised per sample, default 32 MiB) and ak.camp.maxiters (4000).
  */
 public final class CampaignCodec {
   static final String[] SET_NAMES = {"ascii", "latin1", "wide"};
@@ -205,113 +205,99 @@ public final class CampaignCodec {
     }
   }
 
-  // ---- the run -------------------------------------------------------------------
+  // ---- what the JMH suite (ak.CodecJmh) uses ----------------------------------------
+  //
+  // Req 22a (owner, 2026-09-25): the codec suite is timed by JMH. This class keeps the arms
+  // and the pre-timing check; the self-timed loop it had is retired. `main` now only lists
+  // the cells (arm|mode|payload|content|dir) the runner hands JMH as the `cell` parameter.
 
-  public static void main(String[] args) throws Exception {
-    String[] ids = System.getProperty("ak.camp.ids", String.join(",", Arms.IDS)).split(",");
-    String[] setsS = System.getProperty("ak.camp.sets", "0,1,2").split(",");
+  static final String[] ARMS = {"incumbent-prod|default", "incumbent-best|default",
+      "core-ffi|drop", "core-ffi-pull|drop", "host-gen|drop", "host-gen|retain"};
+
+  static CArm make(String arm, String mode) {
+    if (arm.equals("incumbent-prod")) return new Pbj(true);
+    if (arm.equals("incumbent-best")) return new Pbj(false);
+    if (arm.equals("core-ffi") && mode.equals("drop")) return new Ffi(false);
+    if (arm.equals("core-ffi-pull")) return new Ffi(true);
+    if (arm.equals("host-gen")) return new HostGen(mode.equals("retain"));
+    // core-ffi/retain: ABI v1 decision 11's options are not rendered by the Java backend yet.
+    throw new IllegalArgumentException("no arm " + arm + "/" + mode + " (core-ffi/retain is pending decision 11)");
+  }
+
+  /** The canonical wire of (payload, content): arm R's encoding, checked against the
+   *  manifest's sha256 on the ASCII set; P7.1 (decode-only) is its committed vector. */
+  static byte[] canonical(String id, int cs) {
+    byte[] w;
+    if (!Arms.encodable(id)) {
+      if (cs != Values.ASCII) throw new IllegalArgumentException(id + " is ASCII only");
+      w = Payloads.vector(id);
+    } else {
+      HostGen ref = new HostGen(false);
+      ref.prepare(id, cs, 1);
+      w = ref.once(id);
+    }
+    if (cs == Values.ASCII && !Values.sha256Hex(w).equals(Payloads.row(id).sha256))
+      throw new IllegalStateException(id + ": arm R's encoding differs from the manifest (sha256)");
+    return w;
+  }
+
+  /** Req 26 inside the harness: an encoding arm reproduces the canonical bytes (for
+   *  protobuf-java, bytes that arm R reads back to the canonical form, because P2.5 is written
+   *  in protobuf-java's both-fields form); a decoding arm reads the canonical bytes to an
+   *  object that arm R re-encodes to them. Throws on any mismatch. */
+  static void check(CArm a, String id, int cs, byte[] w, String dir) throws Exception {
+    HostGen ref = new HostGen(false);
+    if (dir.equals("encode")) {
+      a.prepare(id, cs, 1);
+      byte[] got = a.once(id);
+      if (a instanceof Pbj) {
+        ref.pool = new Object[] {Arms.decodeR(id, new Dec(), got, 0, got.length)};
+        got = ref.once(id);
+      }
+      if (!Arrays.equals(got, w))
+        throw new IllegalStateException(id + "/" + cs + " " + a.name() + "/" + a.mode() + ": encoding differs");
+    } else if (!(a instanceof Pbj)) {
+      Object x = a instanceof Ffi ? (((Ffi) a).pull ? FfiArms.parse(((Ffi) a).b, id, w, 0, w.length)
+                                                    : FfiArms.decode(((Ffi) a).b, id, w, 0, w.length))
+          : Arms.decodeR(id, new Dec(), w, 0, w.length);
+      ref.pool = new Object[] {x};
+      if (!Arrays.equals(ref.once(id), w))
+        throw new IllegalStateException(id + "/" + cs + " " + a.name() + ": decode does not round-trip");
+    } else {
+      Message m = PbArms.parseArray(id, w);
+      ref.pool = new Object[] {Arms.decodeR(id, new Dec(), m.toByteArray(), 0, m.getSerializedSize())};
+      if (!Arrays.equals(ref.once(id), w))
+        throw new IllegalStateException(id + "/" + cs + " " + a.name() + ": decode does not round-trip");
+    }
+  }
+
+  static int iters(int len) {
     long budget = Long.getLong("ak.camp.budget", 32L << 20);
     int maxIters = Integer.getInteger("ak.camp.maxiters", 4000);
-    int warm = Integer.getInteger("ak.camp.warm", 5);
-    String coder = System.getProperty("ak.camp.coder", "compact");
-    String out = System.getProperty("ak.camp.out");
+    return (int) Math.max(1, Math.min(maxIters, budget / Math.max(1, len)));
+  }
 
-    List<CArm> arms = new ArrayList<CArm>();
-    arms.add(new Pbj(true));
-    arms.add(new Pbj(false));
-    arms.add(new Ffi(false));
-    arms.add(new Ffi(true));
-    arms.add(new HostGen(false));
-    arms.add(new HostGen(true));
-    Campaign.meta("{\"suite\":\"codec\",\"pending\":\"core-ffi/retain: ABI v1 decision 11's"
-        + " mechanism is not rendered by the Java binding yet (req 10)\"}");
-
-    int[] sets = new int[setsS.length];
-    for (int i = 0; i < sets.length; i++) sets[i] = Integer.parseInt(setsS[i].trim());
-
-    // ---- the canonical wire per (payload, content), and the pre-timing check (req 26):
-    // every encoding arm reproduces the canonical bytes (protobuf-java: the prod and best
-    // entry points agree with each other, and arm R reads them back to the canonical form,
-    // because P2.5 is written in protobuf-java's both-fields form), and every decoding arm
-    // reads the canonical bytes back to them.
-    Map<String, byte[]> wire = new HashMap<String, byte[]>();
-    Map<String, Integer> iters = new HashMap<String, Integer>();
-    HostGen ref = new HostGen(false);
-    for (String id : ids) {
-      for (int cs : sets) {
-        String key = id + "/" + cs;
-        byte[] w;
-        if (!Arms.encodable(id)) {
-          if (cs != Values.ASCII) continue;         // P7.1: decode-only, one committed vector
-          w = Payloads.vector(id);
-        } else {
-          ref.prepare(id, cs, 1);
-          w = ref.once(id);
-        }
-        if (cs == Values.ASCII && !Values.sha256Hex(w).equals(Payloads.row(id).sha256))
-          Campaign.abort(id + ": arm R's encoding differs from the manifest (sha256)");
-        wire.put(key, w);
-        iters.put(key, (int) Math.max(1, Math.min(maxIters, budget / Math.max(1, w.length))));
-        for (CArm a : arms) {
-          if (a.encodes() && Arms.encodable(id)) {
-            a.prepare(id, cs, 1);
-            byte[] got = a.once(id);
-            if (a instanceof Pbj) {
-              Object back = Arms.decodeR(id, new Dec(), got, 0, got.length);
-              ref.pool[0] = back;
-              if (!Arrays.equals(ref.once(id), w)) Campaign.abort(id + "/" + cs + " " + a.name() + ": encoding not equivalent");
-            } else if (!Arrays.equals(got, w)) {
-              Campaign.abort(id + "/" + cs + " " + a.name() + "/" + a.mode() + ": encoding differs");
-            }
+  /** The cell list, one per line, arms rotated by `ak.camp.launch` inside each
+   *  (payload, content, dir) block (req 22: arm order rotated between launches). */
+  public static void main(String[] args) {
+    String[] ids = System.getProperty("ak.camp.ids", String.join(",", Arms.IDS)).split(",");
+    String[] sets = System.getProperty("ak.camp.sets", "0,1,2").split(",");
+    int launch = Campaign.LAUNCH;
+    List<String> arms = new ArrayList<String>(Arrays.asList(ARMS));
+    StringBuilder sb = new StringBuilder();
+    for (String id : ids)
+      for (String c : sets) {
+        int cs = Integer.parseInt(c.trim());
+        if (!Arms.encodable(id) && cs != Values.ASCII) continue;
+        for (String dir : new String[] {"encode", "decode", "decode-read"}) {
+          if (dir.equals("encode") && !Arms.encodable(id)) continue;
+          for (String a : Campaign.rotate(arms, launch - 1)) {
+            if (dir.equals("encode") && a.startsWith("core-ffi-pull")) continue;
+            sb.append(a).append('|').append(id).append('|').append(SET_NAMES[cs]).append('|')
+              .append(dir).append('\n');
           }
         }
       }
-    }
-
-    List<String[]> cells = new ArrayList<String[]>();   // {id, cs, dir}
-    for (String id : ids)
-      for (int cs : sets)
-        if (wire.containsKey(id + "/" + cs))
-          for (String dir : new String[] {"encode", "decode", "decode-read"})
-            if (!dir.equals("encode") || Arms.encodable(id))
-              cells.add(new String[] {id, "" + cs, dir});
-
-    // ---- warm-up (req 24): `warm` untimed samples of every (cell, arm) before round 1,
-    // the same number for every arm.
-    for (int k = 0; k < warm; k++)
-      for (String[] c : cells)
-        for (CArm a : arms)
-          sample(a, c, wire, iters, false, 0, coder);
-    Campaign.meta("{\"warmup_samples_per_cell\":" + warm + ",\"jit_ms_after_warmup\":" + Campaign.jitMs() + "}");
-
-    for (int r = 1; r <= Campaign.ROUNDS; r++) {
-      for (String[] c : cells)
-        for (CArm a : Campaign.rotate(arms, r))
-          sample(a, c, wire, iters, true, r, coder);
-      Campaign.meta("{\"round\":" + r + ",\"jit_ms\":" + Campaign.jitMs() + "}");
-    }
-    Campaign.meta("{\"sink\":" + sink + "}");
-    Campaign.flush(out);
-  }
-
-  static void sample(CArm a, String[] c, Map<String, byte[]> wire, Map<String, Integer> iters,
-                     boolean record, int round, String coder) throws Exception {
-    String id = c[0], dir = c[2];
-    int cs = Integer.parseInt(c[1]);
-    if (dir.equals("encode") && !a.encodes()) return;
-    String key = id + "/" + cs;
-    int n = iters.get(key);
-    byte[] w = wire.get(key);
-    if (dir.equals("encode")) a.prepare(id, cs, n);
-    SINK.reset(2 * w.length + 4096);                   // untimed: no arm grows the sink
-    long c0 = Campaign.threadCpuNs(), t0 = System.nanoTime();
-    if (dir.equals("encode")) a.encode(id, n);
-    else a.decode(id, w, n, dir.equals("decode-read"));
-    long t1 = System.nanoTime(), c1 = Campaign.threadCpuNs();
-    if (!record) return;
-    Campaign.add(new Campaign.Sample().s("suite", "codec").s("arm", a.name()).s("payload", id)
-        .s("content", SET_NAMES[cs]).s("dir", dir).s("unknown_mode", a.mode())
-        .s("coder", coder).n("launch", Campaign.LAUNCH).n("round", round)
-        .n("cpu_ns", c1 - c0).n("wall_ns", t1 - t0).n("iters", n));
+    System.out.print(sb);
   }
 }

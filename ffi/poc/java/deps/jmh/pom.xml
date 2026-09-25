@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- JMH for the campaign's codec suite (design/CAMPAIGN.md req 22a, owner 2026-09-25).
+     Dependency resolution only, kept apart from ../pom.xml so the incumbent's classpath does
+     not change. The annotation processor generates the benchmark stubs at javac time. -->
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>ffi.poc</groupId>
+  <artifactId>java-slice-jmh</artifactId>
+  <version>1</version>
+  <packaging>pom</packaging>
+  <dependencies>
+    <dependency><groupId>org.openjdk.jmh</groupId><artifactId>jmh-core</artifactId><version>1.37</version></dependency>
+    <dependency><groupId>org.openjdk.jmh</groupId><artifactId>jmh-generator-annprocess</artifactId><version>1.37</version></dependency>
+  </dependencies>
+</project>

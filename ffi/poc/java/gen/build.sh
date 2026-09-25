@@ -133,6 +133,18 @@ mkdir -p build/cls17
        src/generated_corpus/shared -name '*.java' ! -name 'Pin.java') \
   $(find build/pbjava -name '*.java')
 
+# ---- 5b. the codec suite on JMH (CAMPAIGN.md req 22a), target only: the annotation
+# processor generates the benchmark stubs and META-INF/BenchmarkList into build/jmh17.
+if [ -f deps/jmh/cp.txt ]; then
+  say "JMH codec suite (JDK 17)"
+  JMHCP=$(cat deps/jmh/cp.txt)
+  rm -rf build/jmh17 && mkdir -p build/jmh17
+  "$J17/bin/javac" -nowarn -encoding UTF-8 -d build/jmh17 -cp "build/cls17:$CP:$JMHCP" \
+    -processorpath "$JMHCP" src/jmh/ak/*.java
+else
+  say "JMH: deps/jmh/cp.txt missing (cd deps/jmh && mvn dependency:build-classpath -Dmdep.outputFile=cp.txt)"
+fi
+
 # ---- 6. arm b and c: the Java 8 implementation. Same sources, compiled at release 8.
 # Compiled by the JDK 8 compiler, not by `--release 8` on JDK 17. `--release` builds
 # against ct.sym, which does not carry `sun.misc.Unsafe` -- an undocumented API that the
