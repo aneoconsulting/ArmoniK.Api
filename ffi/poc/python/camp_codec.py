@@ -24,9 +24,8 @@ Arms (requirement 8) and unknown-field modes (requirement 10):
   incumbent-best   the library's other entry points, labelled: SerializePartialToString,
                    and ParseFromString into one reused message
   core-ffi         the generated shim over the core, C extension facade, push decode.
-                   drop: timed. retain: PENDING the decision 11 port (the shim passes no
-                   `ak_unk_opts`; the core is being given the mechanism in poc/codec now),
-                   reported in the header, never timed as something it is not
+                   drop and retain (decision 11: every position armed with the host's grow on
+                   decode, the ak_uencode_* family on encode)
   core-ffi-attr    labelled extra: the same shim over the plain facade (GetAttr/SetAttr)
   host-gen         the pure-Python codec generated from the same plan: drop AND retain
 Directions (requirement 9): encode; decode (the bare call); decode+read (decode, then read
@@ -155,6 +154,7 @@ def shapes_cases(log, only=None):
                 ("incumbent-prod", "incumbent-default"): upb.SerializeToString,
                 ("incumbent-best", "incumbent-default"): upb.SerializePartialToString,
                 ("core-ffi", "drop"): lambda _f=fc, _r=root: arms._ffi.encode("cext", _r, _f),
+                ("core-ffi", "retain"): lambda _f=fc, _r=root: arms._ffi.encode("cext", _r, _f, None, True),
                 ("core-ffi-attr", "drop"): lambda _f=fp, _r=root: arms._ffi.encode("attr", _r, _f),
                 ("host-gen", "drop"): lambda _f=fp, _r=root: getattr(arms.pycodec, "encode_root_" + _r)(_f),
                 ("host-gen", "retain"): lambda _f=fp, _r=root: getattr(arms.pycodec_retain, "encode_root_" + _r)(_f),
@@ -168,6 +168,7 @@ def shapes_cases(log, only=None):
                 ("incumbent-prod", "incumbent-default"): lambda _b=ref, _R=R: _R.FromString(_b),
                 ("incumbent-best", "incumbent-default"): best_dec,
                 ("core-ffi", "drop"): lambda _b=ref, _r=root: arms._ffi.decode("cext", _r, _b, arms.TY_CEXT),
+                ("core-ffi", "retain"): lambda _b=ref, _r=root: arms._ffi.decode("cext", _r, _b, arms.TY_CEXT, None, True),
                 ("core-ffi-attr", "drop"): lambda _b=ref, _r=root: arms._ffi.decode("attr", _r, _b, arms.TY_PLAIN),
                 ("host-gen", "drop"): lambda _b=ref, _r=root: getattr(arms.pycodec, "decode_root_" + _r)(_b, arms.CT_PLAIN),
                 ("host-gen", "retain"): lambda _b=ref, _r=root: getattr(arms.pycodec_retain, "decode_root_" + _r)(_b, arms.CT_PLAIN),
@@ -202,7 +203,6 @@ def shapes_cases(log, only=None):
                 else:
                     rd = (lambda _f=f, _p=plan: arms._read(_f(), _p))
                 cases.append(Case(pid, cs, "decode+read", arm, mode, loop(rd)))
-    log.note("core-ffi retain: PENDING decision 11 port -- not timed (requirement 10)")
     log.note("payload set: %s; content sets latin1/wide on %s" % (", ".join(arms.PAYLOADS), ", ".join(CONTENT_PAYLOADS)))
     return cases, gates
 
@@ -241,17 +241,20 @@ def unknown_cases(log, only=None):
         op = pyd.__dict__["decode_root_" + root](buf, CP)
         opr = pyr.__dict__["decode_root_" + root](buf, CP)
         oc = ffi.decode("cext", root, buf, TC)
+        ocr = ffi.decode("cext", root, buf, TC, None, True)
         accepted = {a["sha256"] for a in r.get("accepted_encodings", [])}
         import hashlib
         enc = {
             ("incumbent-prod", "incumbent-default"): m.SerializeToString,
             ("core-ffi", "drop"): lambda _o=oc, _r=root: ffi.encode("cext", _r, _o),
+            ("core-ffi", "retain"): lambda _o=ocr, _r=root: ffi.encode("cext", _r, _o, None, True),
             ("host-gen", "drop"): lambda _o=op, _r=root: pyd.__dict__["encode_root_" + _r](_o),
             ("host-gen", "retain"): lambda _o=opr, _r=root: pyr.__dict__["encode_root_" + _r](_o),
         }
         dec = {
             ("incumbent-prod", "incumbent-default"): lambda _b=buf, _R=R: _R.FromString(_b),
             ("core-ffi", "drop"): lambda _b=buf, _r=root: ffi.decode("cext", _r, _b, TC),
+            ("core-ffi", "retain"): lambda _b=buf, _r=root: ffi.decode("cext", _r, _b, TC, None, True),
             ("host-gen", "drop"): lambda _b=buf, _r=root: pyd.__dict__["decode_root_" + _r](_b, CP),
             ("host-gen", "retain"): lambda _b=buf, _r=root: pyr.__dict__["decode_root_" + _r](_b, CP),
         }
@@ -272,7 +275,6 @@ def unknown_cases(log, only=None):
             rd = ((lambda _f=f, _p=plan: AP.read_pb(_f(), _p)) if arm.startswith("incumbent")
                   else (lambda _f=f, _p=plan: AP.read(_f(), _p)))
             cases.append(Case(vid, "ascii", "decode+read", arm, mode, loop(rd)))
-    log.note("core-ffi retain: PENDING decision 11 port -- not timed (requirement 10)")
     log.note("unknown-field rows (%d): %s" % (len(rows), ", ".join(rows)))
     skipped = sorted(k for k, r in man.items() if k.startswith("U-") and k not in rows)
     log.note("U-* rows not run, with the reason: %s" % ", ".join(
@@ -304,7 +306,7 @@ def main():
                warmup="per arm, before round 1: calibration to the target, then one sample's iterations",
                clock="CLOCK_THREAD_CPUTIME_ID (cpu_ns), perf_counter_ns (wall_ns), totals over iters",
                incumbent_path="Message.SerializeToString / Message.FromString (grpcio's generated marshaller)",
-               core_ffi_unknown="drop timed; retain pending the decision 11 port")
+               core_ffi_unknown="drop and retain (decision 11, every position armed)")
     cases, gates = (shapes_cases if FAMILY == "shapes" else unknown_cases)(log)
     if gates:
         log.close(False, "correctness gate failed before timing: " + "; ".join(gates[:5]))

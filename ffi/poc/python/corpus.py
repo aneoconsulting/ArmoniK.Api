@@ -8,6 +8,7 @@ timeout (a hang or a crash is a row result, not the end of the run):
 | `ffi-cext`   | `_akffi_corpus`: the corpus-schema core (`corpus,init-guard`) behind the generated shim, C extension facade | dropped |
 | `ffi-attr`   | the same shim, the plain facade through `PyObject_GetAttr/SetAttr` | dropped |
 | `ffi-chunk256` | the same shim built with 256-byte element chunks and 3-value packed runs (C ext facade), so every run crosses in many chunks | dropped |
+| `ffi-retain` | the same shim, C ext facade, decision 11 armed at every position (`ak_dec_<Root>_opts`, the host's grow) and the `ak_uencode_*` family on the way back | retained |
 | `py-drop`    | the generated pure-Python codec (`gen/out/corpus/pycodec.py`), plain facade | dropped |
 | `py-retain`  | the same backend in retain mode (`pycodec_retain.py`) | retained |
 
@@ -45,8 +46,9 @@ FFI = os.path.dirname(os.path.dirname(HERE))
 CORPUS = os.path.join(FFI, "corpus", "generated")
 TAG = "py%d.%d" % sys.version_info[:2]
 GEN = os.path.join(HERE, "gen", "out", "corpus")
-ARMS = ["ffi-cext", "ffi-attr", "ffi-chunk256", "py-drop", "py-retain"]
+ARMS = ["ffi-cext", "ffi-attr", "ffi-chunk256", "ffi-retain", "py-drop", "py-retain"]
 DROP_ARMS = ["ffi-cext", "ffi-attr", "ffi-chunk256", "py-drop"]
+RETAIN_ARMS = ["ffi-retain", "py-retain"]
 
 
 def rpath(rel):
@@ -83,13 +85,14 @@ class Arm:
             self.roots = set(mod.roots())
             self.layout = dict(mod.layout_host())
             b = "attr" if name == "ffi-attr" else "cext"
+            retain = name == "ffi-retain"
             if b == "cext":
                 self.ctors = {n: getattr(mod, "C" + n) for n in names}
             else:
                 self.ctors = plain
             ty = tuple(self.ctors[n] for n in names)
-            self.decode = lambda buf, root: mod.decode(b, root, buf, ty)
-            self.encode = lambda obj, root: mod.encode(b, root, obj)
+            self.decode = lambda buf, root: mod.decode(b, root, buf, ty, None, retain)
+            self.encode = lambda obj, root: mod.encode(b, root, obj, None, retain)
         else:
             codec = __import__("pycodec_retain" if name == "py-retain" else "pycodec")
             self.codec = codec
@@ -530,9 +533,9 @@ def summarise(man, ids, results, out=sys.stdout):
     return fails, hung
 
 
-def cross_arm(ids, results, out=sys.stdout):
-    """CONTRACT 5.5: byte identity between the slice's own arms (the three drop arms)."""
-    arms = [a for a in DROP_ARMS if a in results]
+def cross_arm(ids, results, out=sys.stdout, family=None):
+    """CONTRACT 5.5: byte identity between the slice's own arms, per unknown-field mode."""
+    arms = [a for a in (family or DROP_ARMS) if a in results]
     bad = 0
     n = 0
     for vid in ids:
@@ -544,7 +547,7 @@ def cross_arm(ids, results, out=sys.stdout):
         if len(set(encs.values())) != 1:
             bad += 1
             print("   DIFFER %s: %s" % (vid, ", ".join("%s=%s" % (a, h[:10]) for a, h in encs.items())), file=out)
-    print("   %d rows re-encoded by at least two drop arms; %d differ" % (n, bad), file=out)
+    print("   %d rows re-encoded by at least two of these arms; %d differ" % (n, bad), file=out)
     return bad
 
 
@@ -562,9 +565,102 @@ def refusals(ids, man, results, out=sys.stdout):
         print("   %-40s %s" % (vid, " | ".join(c[:28] for c in cells)), file=out)
 
 
+def d11_controls(out=sys.stdout):
+    """Decision 11's controls through the C ABI, in one process (the ffi-retain arm's shim).
+
+    zeroed position: on every `unknown`-class row this shim can decode, for every position of
+    its root, decode with that position's entry left all-zero; the value must be the
+    all-armed value with exactly that position's bags cleared (known fields unchanged).
+    wrong root (rule 6): a context bound to root a, reset and decode as root b: both refused
+    with AK_ERR_INVALID_STATE (-8) and nothing delivered; a == b is the positive control
+    (both succeed on an empty input and the trap apply runs).
+    leak: every successful retain decode reclaims 0 undelivered buffers."""
+    import facts as F
+    arm = Arm("ffi-retain")
+    mod, fac = arm.mod, arm.fac
+    names = [n[1:] for n in mod.types()]
+    ty = tuple(arm.ctors[n] for n in names)
+    man = json.load(open(os.path.join(CORPUS, "manifest.json")))["vectors"]
+
+    def bags(obj, msg, pos=(), key=(), acc=None):
+        acc = {} if acc is None else acc
+        u = getattr(obj, "_unknown", b"") or b""
+        if u:
+            acc[key] = (".".join(pos), bytes(u))
+        for f, k, c in F.walk(fac, msg):
+            if k != "message":
+                continue
+            v = getattr(obj, f["name"])
+            if c == "oneof":
+                if v is not None and getattr(obj, "%s_case" % f["oneof"]) == f["tag"]:
+                    bags(v, f["of"], pos + (f["oneof"],), key + (f["name"],), acc)
+            elif c == "repeated":
+                for i, x in enumerate(v):
+                    bags(x, f["of"], pos + (f["name"],), key + ((f["name"], i),), acc)
+            elif v is not None:
+                bags(v, f["of"], pos + (f["name"],), key + (f["name"],), acc)
+        return acc
+    bad = 0
+    rows = sorted(k for k, r in man.items() if r["class"] == "unknown" and r["expect"] == "accept"
+                  and r.get("verdict") != "disputed" and r["root"] in arm.roots)
+    checked = changed = 0
+    leaks = []
+    for vid in rows:
+        r = man[vid]
+        root = r["root"]
+        buf = open(rpath(r["file"]), "rb").read()
+        A = mod.decode("cext", root, buf, ty, None, True)
+        if mod.last_reclaimed():
+            leaks.append(vid)
+        bA = bags(A, root)
+        pA = strip_unknown(arm.project(A, root))
+        for i, entry in enumerate(mod.unk_positions(root)):
+            _n, _kind, path = entry.split("|")
+            o = mod.decode("cext", root, buf, ty, None, True, 1 << i)
+            want = {k: v for k, v in bA.items() if v[0] != path}
+            got = bags(o, root)
+            checked += 1
+            if len(want) != len(bA):
+                changed += 1
+            if got != want or strip_unknown(arm.project(o, root)) != pA:
+                bad += 1
+                print("   ZEROED-POSITION MISMATCH %s position %d (%s): got %d bag(s), want %d"
+                      % (vid, i, entry, len(got), len(want)), file=out)
+    print("   zeroed position: %d (row, position) pairs over %d rows; %d where zeroing removes a bag; %d mismatch"
+          % (checked, len(rows), changed, bad), file=out)
+    print("   leak: %d successful retain decode(s) reclaimed an undelivered buffer%s"
+          % (len(leaks), (": " + ", ".join(leaks)) if leaks else ""), file=out)
+    bad += len(leaks)
+    if changed == 0:
+        print("   ZEROED-POSITION CONTROL IS BLIND: no zeroing removed any bag", file=out)
+        bad += 1
+    roots = sorted(arm.roots)
+    wr_bad = pos_ok = 0
+    for a in roots:
+        for b in roots:
+            rr, dr, delivered = mod.wrong_root(a, b)
+            if a == b:
+                if rr == 0 and dr == 0 and delivered:
+                    pos_ok += 1
+                else:
+                    wr_bad += 1
+                    print("   WRONG-ROOT positive control failed for %s: %r" % (a, (rr, dr, delivered)), file=out)
+            elif not (rr == -8 and dr == -8 and not delivered):
+                wr_bad += 1
+                print("   WRONG ROOT ACCEPTED: ctx %s, root %s -> reset %d decode %d delivered %s"
+                      % (a, b, rr, dr, delivered), file=out)
+    print("   wrong root: %d ordered pairs refused with -8 and nothing delivered; positive control %d of %d roots; %d failure(s)"
+          % (len(roots) * (len(roots) - 1) - (wr_bad if wr_bad else 0), pos_ok, len(roots), wr_bad), file=out)
+    bad += wr_bad
+    print("D11 CONTROLS %s" % ("PASS" if not bad else "FAIL (%d)" % bad), file=out)
+    return 1 if bad else 0
+
+
 def main(argv):
     if "--worker" in argv:
         return worker(argv[argv.index("--worker") + 1])
+    if "--d11" in argv:
+        return d11_controls()
     arms = ARMS
     if "--arms" in argv:
         arms = argv[argv.index("--arms") + 1].split(",")
@@ -604,6 +700,17 @@ def main(argv):
         fails += nd
     print("\n## between-arm byte identity (CONTRACT 5.5), drop arms")
     bad = cross_arm(ids, results)
+    print("\n## between-arm byte identity, retain arms (ffi-retain against py-retain)")
+    bad += cross_arm(ids, results, family=RETAIN_ARMS)
+    print("\n## retain arms: rows where the retained form was NOT written (a retention gap)")
+    for a in RETAIN_ARMS:
+        if a not in results:
+            continue
+        gap = [v for v in ids if man["vectors"][v]["class"] == "unknown" and not results[a][v].get("notabi")
+               and (results[a][v].get("form") or "").startswith("unknown-dropped")]
+        dis = [v for v in ids if results[a][v].get("disputed") and man["vectors"][v]["class"] == "unknown"]
+        print("   %-12s %d row(s) wrote the dropped form: %s%s" % (a, len(gap), ", ".join(gap) or "none",
+              ("; disputed (excluded, reading reported above): " + ", ".join(dis)) if dis else ""))
     print("\n## C4: the refusal each arm returned, per reject vector")
     refusals(ids, man, results)
     print("\n# rows that hung or crashed a worker: %d" % hung)
@@ -615,7 +722,7 @@ def main(argv):
         print("\n===== controls (each MUST FAIL) =====")
         sub = ["S-Probe", "U-root", "X-lenwrap-lrr", "E-map", "T-dec-root", "B-P2"]
         bad_ctl = 0
-        for plant, carms in (("proj", ARMS), ("reenc", ARMS), ("accept", ARMS), ("noinit", ["ffi-cext", "ffi-attr"])):
+        for plant, carms in (("proj", ARMS), ("reenc", ARMS), ("accept", ARMS), ("noinit", ["ffi-cext", "ffi-attr", "ffi-retain"])):
             m2, ids2, res2 = run(carms, sub, timeout, plant=plant)
             nf = sum(1 for a in res2 for v in ids2 if res2[a][v].get("fails"))
             per = {a: sum(1 for v in ids2 if res2[a][v].get("fails")) for a in res2}
@@ -631,6 +738,10 @@ def main(argv):
                       % (plant, nf, len(ids2), ", ".join("%s=%d" % kv for kv in per.items())))
                 print("      e.g. %s" % ex[:150])
         print("CONTROLS %s" % ("ALL FAILED AS REQUIRED" if not bad_ctl else "BLIND: %d" % bad_ctl))
+        print("\n===== decision 11 controls (zeroed position, wrong root, leak) =====")
+        r11 = subprocess.run([sys.executable, os.path.abspath(__file__), "--d11"], capture_output=True, text=True)
+        sys.stdout.write(r11.stdout + r11.stderr[-2000:])
+        bad_ctl += 1 if r11.returncode else 0
         rc = rc or (1 if bad_ctl else 0)
     return rc
 

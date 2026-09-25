@@ -37,8 +37,9 @@ import pyperf  # noqa: E402
 
 ARMS = {
     "shapes": [("incumbent-prod", "incumbent-default"), ("incumbent-best", "incumbent-default"),
-               ("core-ffi", "drop"), ("core-ffi-attr", "drop"), ("host-gen", "drop"), ("host-gen", "retain")],
-    "unknown": [("incumbent-prod", "incumbent-default"), ("core-ffi", "drop"),
+               ("core-ffi", "drop"), ("core-ffi", "retain"), ("core-ffi-attr", "drop"),
+               ("host-gen", "drop"), ("host-gen", "retain")],
+    "unknown": [("incumbent-prod", "incumbent-default"), ("core-ffi", "drop"), ("core-ffi", "retain"),
                 ("host-gen", "drop"), ("host-gen", "retain")],
 }
 DIRS = ["encode", "decode", "decode+read"]

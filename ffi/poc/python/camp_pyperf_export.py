@@ -68,7 +68,7 @@ def main():
                                   "with phase warmup / calibration",
                gc="ON (bench_time_func leaves it); gc.collect() before every timed call, untimed",
                allocator="M_TOP_PAD in every worker at import (J26)",
-               core_ffi_unknown="drop timed; retain pending the decision 11 options in py_capi",
+               core_ffi_unknown="drop and retain (decision 11: every position armed; ak_uencode_* on encode)",
                raw_json=os.path.basename(opt("--json")))
     if missing:
         log.close(False, "%d pyperf values have no side record (wall): harness defect" % missing)
