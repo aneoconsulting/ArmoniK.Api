@@ -1,0 +1,98 @@
+# crossing-count BASELINE for gen/run_campaign.sh's gate (CAMPAIGN.md requirement 19): the counting core (--features count,init-guard) at 60f7661 (core 29d515e, ABI v1 decision 11), shared linkage.
+# Differs from logs/cpp/counts.log (pre-decision-11 core) on ONE row: P1.2 decode reverse 5 -> 8. Cause: every decode group gained 'unknown: ak_unk_buf' (16 B), ak_dfix_ResultRaw three times (itself and two inlined Timestamps), so fewer groups fit ABI v1 7.3's 32 KB arena and the 1,000-element run is delivered in more chunks. The campaign gate stopped on it, as requirement 19 says it must; this file is the deliberate re-baseline.
+counting build, linkage=shared, -std=201703
+Per-element columns are forward / reverse.
+
+  P1.1   encode                 forward      2  reverse      1  transcode       24   per element  0.500 /  0.250
+  P1.1   encode zeroed-fill     forward      2  reverse      1  transcode       24   per element  0.500 /  0.250
+  P1.1   encode UNBATCHED       forward      5  reverse      1  transcode       24   per element  1.250 /  0.250
+  P1.1   encode host transcoder forward      2  reverse     25  transcode       24   per element  0.500 /  6.250
+  P1.1   decode                 forward      1  reverse      2  transcode        0   per element  0.250 /  0.500
+  P1.2   encode                 forward      8  reverse      1  transcode     6000   per element  0.008 /  0.001
+  P1.2   encode zeroed-fill     forward      8  reverse      1  transcode     6000   per element  0.008 /  0.001
+  P1.2   encode UNBATCHED       forward   1001  reverse      1  transcode     6000   per element  1.001 /  0.001
+  P1.2   encode host transcoder forward      8  reverse   6001  transcode     6000   per element  0.008 /  6.001
+  P1.2   decode                 forward      1  reverse      8  transcode        0   per element  0.001 /  0.008
+  P1.3   encode                 forward      3  reverse      1  transcode        0   per element  0.010 /  0.003
+  P1.3   encode zeroed-fill     forward      3  reverse      1  transcode        0   per element  0.010 /  0.003
+  P1.3   encode UNBATCHED       forward    301  reverse      1  transcode        0   per element  1.003 /  0.003
+  P1.3   encode host transcoder forward      3  reverse      1  transcode        0   per element  0.010 /  0.003
+  P1.3   decode                 forward      1  reverse      3  transcode        0   per element  0.003 /  0.010
+  P2.1   encode                 forward      7  reverse      6  transcode       35   per element  7.000 /  6.000
+  P2.1   encode zeroed-fill     forward      7  reverse      6  transcode       35   per element  7.000 /  6.000
+  P2.1   encode UNBATCHED       forward     18  reverse      6  transcode       35   per element 18.000 /  6.000
+  P2.1   encode host transcoder forward      7  reverse     41  transcode       35   per element  7.000 / 41.000
+  P2.1   decode                 forward      1  reverse      8  transcode        0   per element  1.000 /  8.000
+  P2.2   encode                 forward   2511  reverse   2501  transcode    17167   per element  5.022 /  5.002
+  P2.2   encode zeroed-fill     forward   2511  reverse   2501  transcode    17167   per element  5.022 /  5.002
+  P2.2   encode UNBATCHED       forward   8501  reverse   2501  transcode    17167   per element 17.002 /  5.002
+  P2.2   encode host transcoder forward   2511  reverse  19668  transcode    17167   per element  5.022 / 39.336
+  P2.2   decode                 forward      1  reverse   3501  transcode        0   per element  0.002 /  7.002
+  P2.3   encode                 forward    629  reverse    626  transcode    17792   per element  5.032 /  5.008
+  P2.3   encode zeroed-fill     forward    629  reverse    626  transcode    17792   per element  5.032 /  5.008
+  P2.3   encode UNBATCHED       forward  15626  reverse    626  transcode    17792   per element 125.008 /  5.008
+  P2.3   encode host transcoder forward    629  reverse  18418  transcode    17792   per element  5.032 / 147.344
+  P2.3   decode                 forward      1  reverse    876  transcode        0   per element  0.008 /  7.008
+  P2.4   encode                 forward    403  reverse    401  transcode    26267   per element  5.037 /  5.013
+  P2.4   encode zeroed-fill     forward    403  reverse    401  transcode    26267   per element  5.037 /  5.013
+  P2.4   encode UNBATCHED       forward  24881  reverse    401  transcode    26267   per element 311.012 /  5.013
+  P2.4   encode host transcoder forward    403  reverse  26668  transcode    26267   per element  5.037 / 333.350
+  P2.4   decode                 forward      1  reverse    561  transcode        0   per element  0.013 /  7.013
+  P2.5   encode                 forward    102  reverse    101  transcode      640   per element  5.100 /  5.050
+  P2.5   encode zeroed-fill     forward    102  reverse    101  transcode      640   per element  5.100 /  5.050
+  P2.5   encode UNBATCHED       forward    341  reverse    101  transcode      640   per element 17.050 /  5.050
+  P2.5   encode host transcoder forward    102  reverse    741  transcode      640   per element  5.100 / 37.050
+  P2.5   decode                 forward      1  reverse    141  transcode        0   per element  0.050 /  7.050
+  P3.1   encode                 forward      2  reverse      1  transcode      430   per element  0.010 /  0.005
+  P3.1   encode zeroed-fill     forward      2  reverse      1  transcode      430   per element  0.010 /  0.005
+  P3.1   encode UNBATCHED       forward    201  reverse      1  transcode      430   per element  1.005 /  0.005
+  P3.1   encode host transcoder forward      2  reverse    431  transcode      430   per element  0.010 /  2.155
+  P3.1   decode                 forward      1  reverse      2  transcode        0   per element  0.005 /  0.010
+  P4.1   encode                 forward    203  reverse    201  transcode     3467   per element  1.015 /  1.005
+  P4.1   encode zeroed-fill     forward    203  reverse    201  transcode     3467   per element  1.015 /  1.005
+  P4.1   encode UNBATCHED       forward   1001  reverse    201  transcode     3467   per element  5.005 /  1.005
+  P4.1   encode host transcoder forward    203  reverse   3668  transcode     3467   per element  1.015 / 18.340
+  P4.1   decode                 forward      1  reverse    601  transcode        0   per element  0.005 /  3.005
+  P5.1   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.1   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.1   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.1   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
+  P5.1   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.2   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.2   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.2   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.2   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
+  P5.2   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.3   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.3   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.3   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.3   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
+  P5.3   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P5.4   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.4   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.4   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
+  P5.4   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
+  P5.4   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
+  P6.1   encode                 forward   1002  reverse   1001  transcode      200   per element  5.010 /  5.005
+  P6.1   encode zeroed-fill     forward   1002  reverse   1001  transcode      200   per element  5.010 /  5.005
+  P6.1   encode UNBATCHED       forward   1201  reverse   1001  transcode      200   per element  6.005 /  5.005
+  P6.1   encode host transcoder forward   1002  reverse   1201  transcode      200   per element  5.010 /  6.005
+  P6.1   decode                 forward      1  reverse   1401  transcode        0   per element  0.005 /  7.005
+
+-- the batching predicate's decomposition (ABI v1 decision 1) --
+  payload element group      sizeof  chunk cap       used  chunk bytes
+  P1.1   ResultRaw             200        163          4          800   fits L1?
+  P1.2   ResultRaw             200        163        163        32600           
+  P1.3   ResultRaw             200        163        163        32600           
+  P2.1   TaskDetailed          616         53          1          616   fits L1?
+  P2.2   TaskDetailed          616         53         53        32648           
+  P2.3   TaskDetailed          616         53         53        32648           
+  P2.4   TaskDetailed          616         53         53        32648           
+  P2.5   TaskDetailed          616         53         20        12320   fits L1?
+  P3.1   Probe                 144        227        200        28800           
+  P4.1   TaskSummary           312        105        105        32760           
+  P6.1   MetricsBatch           32       1024        200         6400   fits L1?
+  P2.3 and P2.4 are the two payloads where UNBATCHING adds 125 and 311
+  forward crossings per element rather than 1, and they are the two where
+  batching wins decisively. Everywhere else the delta tracks the chunk
+  bytes touched, not the crossing count.
