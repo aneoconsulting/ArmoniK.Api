@@ -1,6 +1,6 @@
 # Fix plan after the 2026-09-24 adversarial review
 
-Status: **WP1 to WP5 done; decision 11 (unknown fields) implemented in all five slices with the owner's rules; WP3 harnesses campaign-ready on each ecosystem's standard framework; `ffi/campaign.sh` written** (2026-09-25). Next: WP6 (STATE hygiene and a targeted re-review). Open: whether the RPC grid gets a retain cell.
+Status: **WP1 to WP5 done; decision 11 (unknown fields) implemented in all five slices with the owner's rules; the RPC grid runs C and D in retain and drop in all five slices; the no-unknown build (unknown fields compiled out, `Options(unknown="drop")`) rendered, gated and in the campaign harness of all five slices; WP3 harnesses on each ecosystem's standard framework; `ffi/campaign.sh` written** (2026-09-25). Crossing counts, no-unknown against drop, push decode: only P1.2 decode reverse 8 to 5 in every slice (java's pull path also drains fewer chunks). Next: WP6 (STATE hygiene, every gate re-run from a clean tree, a targeted re-review).
 assumed to be neither the author nor anyone with the review session's context.
 Everything needed is in this file or in the paths it names.
 
