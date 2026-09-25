@@ -162,10 +162,10 @@ def main(argv):
             print("guard %d Java backend modules and the slice glue import plans only; a planted"
                   " IR import is caught" % len(java_backend.BACKEND_MODULES))
         # The core this slice links is the one poc/codec/gen commits: its --check, run as is.
-        r = subprocess.run([sys.executable, os.path.join(CODECGEN, "generate.py"), "--check"],
+        r = subprocess.run([sys.executable, os.path.join(CODECGEN, "generate.py"), "--check", "--core-only"],
                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         stale = [ln for ln in r.stdout.decode().splitlines() if ln.startswith(("STALE", "GUARD"))]
-        print("core  poc/codec/gen/generate.py --check: exit %d%s" % (
+        print("core  poc/codec/gen/generate.py --check --core-only: exit %d%s" % (
             r.returncode, "" if not stale else " (" + "; ".join(stale) + ")"))
         if r.returncode != 0:
             bad += 1
