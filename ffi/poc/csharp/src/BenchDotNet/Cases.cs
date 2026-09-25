@@ -29,6 +29,39 @@ public static class Cases
     private static readonly string[] DecArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:drop", "host-gen:retain", "core-ffi:drop", "core-ffi:retain", "core-ffi-pull:drop" };
     private static readonly string[] UnkArms = { "incumbent-prod:default", "host-gen:drop", "host-gen:retain", "core-ffi:drop", "core-ffi:retain" };
 
+    /// The process unit (JOURNAL 51): one process per "arm:mode", so each process holds at
+    /// most a few hundred cases. BDN keeps tens of kB per case alive for the whole run, and
+    /// every forced GC it runs between iterations walks that live heap: with all 1,780 cases
+    /// in one process the per-case overhead tripled. Null = every case (a single process).
+    public static string Unit;
+
+    /// The units of a launch, in its order: the arm order rotated by launch - 1
+    /// (requirement 22), and within an arm the modes rotated by launch - 1 too.
+    public static List<string> Units(int launch)
+    {
+        int k = (launch - 1) % Arms.Length;
+        var arms = Arms.Skip(k).Concat(Arms.Take(k));
+        var all = EncArms.Concat(DecArms).Concat(UnkArms).Distinct().ToList();
+        var o = new List<string>();
+        foreach (var a in arms)
+        {
+            var modes = all.Where(x => x.StartsWith(a + ":", StringComparison.Ordinal)).ToList();
+            int r = (launch - 1) % modes.Count;
+            o.AddRange(modes.Skip(r).Concat(modes.Take(r)));
+        }
+        return o;
+    }
+
+    /// Two sacrificial cases run first in every process: copies of its first two cases, with
+    /// content "prime". They are timed by BDN but never exported. They absorb the tier-up of
+    /// runtime helpers that BDN's own engine touches first (cast cache, span fill): without
+    /// them the first two cases of each process read back hot code at tier 0 (JOURNAL 51).
+    public const string Prime = "prime";
+    public static IEnumerable<string> PrimeCases() =>
+        All().Take(2).Select(k => { var c = Case.Parse(k); c.Content = Prime; return c.Key; });
+
+    private static bool InUnit(string am) => Unit == null || am == Unit;
+
     public static string CorpusDir()
     {
         var d = AppContext.BaseDirectory;
@@ -42,19 +75,25 @@ public static class Cases
     }
 
     private static List<string> _unk;
+    private static Dictionary<string, (string Root, string File)> _rows;
     /// Requirement 7: every corpus U-* row whose root this slice implements, disputed rows
     /// excluded (accept rows only: a row that is refused has nothing to decode or re-encode).
+    /// Only (root, file) per row is kept: the parsed manifest (about 40 MB of JSON tree) is
+    /// dropped, because every forced GC BenchmarkDotNet runs between iterations walks the
+    /// live heap, and its size set the per-case overhead (JOURNAL 51).
     public static List<string> UnknownRows()
     {
         if (_unk != null) return _unk;
         var man = Json.Parse(File.ReadAllText(Path.Combine(CorpusDir(), "manifest.json")))["vectors"];
         _unk = new List<string>();
+        _rows = new Dictionary<string, (string, string)>(StringComparer.Ordinal);
         foreach (var id in man.Keys.OrderBy(x => x, StringComparer.Ordinal))
         {
             var v = man[id];
             if (!id.StartsWith("U-", StringComparison.Ordinal) || v["verdict"].AsString == "disputed" || v["expect"].AsString != "accept") continue;
             if (OpsTable.ForRoot(v["root"].AsString) == null) continue;
             _unk.Add(id);
+            _rows[id] = (v["root"].AsString, v["file"].AsString);
         }
         return _unk;
     }
@@ -69,9 +108,9 @@ public static class Cases
             var sets = pid == "P1.2" || pid == "P2.2" ? new[] { 0, 1, 2 } : new[] { 0 };
             foreach (var cs in sets)
             {
-                foreach (var am in EncArms) { var f = am.Split(':'); yield return string.Join("|", f[0], "encode", pid, Values.SetNames[cs], f[1]); }
+                foreach (var am in EncArms.Where(InUnit)) { var f = am.Split(':'); yield return string.Join("|", f[0], "encode", pid, Values.SetNames[cs], f[1]); }
                 foreach (var dir in new[] { "decode", "decode-read" })
-                    foreach (var am in DecArms) { var f = am.Split(':'); yield return string.Join("|", f[0], dir, pid, Values.SetNames[cs], f[1]); }
+                    foreach (var am in DecArms.Where(InUnit)) { var f = am.Split(':'); yield return string.Join("|", f[0], dir, pid, Values.SetNames[cs], f[1]); }
             }
         }
         if (Environment.GetEnvironmentVariable("AK_BDN_NO_UNKNOWN") == "1") yield break;
@@ -79,7 +118,7 @@ public static class Cases
         {
             if (keep != null && !keep.Contains(id)) continue;
             foreach (var dir in new[] { "decode", "decode-read", "decode-reencode" })
-                foreach (var am in UnkArms) { var f = am.Split(':'); yield return string.Join("|", f[0], dir, id, "corpus", f[1]); }
+                foreach (var am in UnkArms.Where(InUnit)) { var f = am.Split(':'); yield return string.Join("|", f[0], dir, id, "corpus", f[1]); }
         }
     }
 
@@ -123,13 +162,11 @@ public static class Cases
         return n;
     }
 
-    private static Json _man;
     private static (RootOps, byte[]) Row(string id)
     {
-        var dir = CorpusDir();
-        _man ??= Json.Parse(File.ReadAllText(Path.Combine(dir, "manifest.json")))["vectors"];
-        var v = _man[id];
-        return (OpsTable.ForRoot(v["root"].AsString), File.ReadAllBytes(Path.Combine(dir, v["file"].AsString)));
+        UnknownRows();
+        var (root, file) = _rows[id];
+        return (OpsTable.ForRoot(root), File.ReadAllBytes(Path.Combine(CorpusDir(), file)));
     }
 
     /// The operation a case times: one call, returning something the engine consumes.
@@ -140,7 +177,7 @@ public static class Cases
         if (c.Content == "corpus") (ops, wire) = Row(c.Payload);
         else
         {
-            Values.ContentSet = Array.IndexOf(Values.SetNames, c.Content);
+            Values.ContentSet = c.Content == Prime ? Values.Ascii : Array.IndexOf(Values.SetNames, c.Content);
             ops = OpsTable.ForPayload(c.Payload);
             Values.ContentSet = Values.Ascii;
             wire = ops.IncumbentBytes();

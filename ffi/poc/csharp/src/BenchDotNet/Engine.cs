@@ -5,8 +5,9 @@
 //     only its own summary, never the exported rows (they carry the raw wall time);
 //   * CPU: BDN measures WALL time per iteration (Stopwatch). CPU time is added by a
 //     diagnoser (CpuDiagnoser) that reads getrusage(RUSAGE_SELF) across BDN's
-//     BeforeActualRun..AfterActualRun span (warm-up + actual stages): one extra row per
-//     case, round 0. Per-iteration CPU is not available
+//     BeforeActualRun..AfterActualRun span, which is the ACTUAL stage (BDN signals it after
+//     the warm-up), including BDN's forced GCs between iterations (their pause time is
+//     recorded beside it, gc_pause_ns): one extra row per case, round 0. Per-iteration CPU is not available
 //     from BDN; that is stated in the header;
 //   * warm-up: a FIXED number of warm-up iterations for every case (WithWarmupCount), after
 //     BDN's own jitting stage; both counts are exported per case;
@@ -45,30 +46,39 @@ internal static unsafe class ProcCpu
     public static long Wall() => (long)(System.Diagnostics.Stopwatch.GetTimestamp() * (1e9 / System.Diagnostics.Stopwatch.Frequency));
 }
 
-/// CPU time of the process across BeforeActualRun -> AfterActualRun (warm-up + actual stages;
-/// BDN has no signal between them, and none per iteration).
+/// CPU time of the process across BeforeActualRun -> AfterActualRun: the actual stage and
+/// BDN's forced GCs between its iterations (BDN has no signal per iteration).
 public sealed class CpuDiagnoser : IDiagnoser
 {
-    public static readonly Dictionary<string, (long Cpu, long Wall, int G0, int G1, int G2, long Heap)> Stage = new Dictionary<string, (long, long, int, int, int, long)>();
+    public static readonly Dictionary<string, (DateTime T0, DateTime T1, DateTime T2)> Times = new Dictionary<string, (DateTime, DateTime, DateTime)>();
+    private DateTime _t0, _t1;
+    public static readonly Dictionary<string, (long Cpu, long Wall, int G0, int G1, int G2, long Heap, long Pause)> Stage = new Dictionary<string, (long, long, int, int, int, long, long)>();
     private long _c0, _w0, _heap;
+    private TimeSpan _p0;
     private int _g0, _g1, _g2;
     public IEnumerable<string> Ids => new[] { "AkProcessCpu" };
     public IEnumerable<IExporter> Exporters => Array.Empty<IExporter>();
     public IEnumerable<IAnalyser> Analysers => Array.Empty<IAnalyser>();
     public RunMode GetRunMode(BenchmarkCase benchmarkCase) => RunMode.NoOverhead;
     public bool RequiresBlockingAcknowledgments(BenchmarkCase benchmarkCase) => true;
+    private static readonly bool Trace = Environment.GetEnvironmentVariable("AK_BDN_TRACE") == "1";
     public void Handle(HostSignal signal, DiagnoserActionParameters parameters)
     {
+        if (Trace) Console.Error.WriteLine("AKTRACE {0} {1} {2} {3} {4}", ProcCpu.Wall() / 1000000, signal, (long)GC.GetTotalPauseDuration().TotalMilliseconds, GC.CollectionCount(2), GC.GetTotalMemory(false) / 1000000);
+        if (signal == HostSignal.BeforeAnythingElse) _t0 = DateTime.UtcNow;
         if (signal == HostSignal.BeforeActualRun)
         {
-            _heap = GC.GetTotalMemory(false); _g0 = GC.CollectionCount(0); _g1 = GC.CollectionCount(1); _g2 = GC.CollectionCount(2);
+            _t1 = DateTime.UtcNow;
+            _heap = GC.GetTotalMemory(false); _p0 = GC.GetTotalPauseDuration(); _g0 = GC.CollectionCount(0); _g1 = GC.CollectionCount(1); _g2 = GC.CollectionCount(2);
             _w0 = ProcCpu.Wall(); _c0 = ProcCpu.Ns();
         }
         else if (signal == HostSignal.AfterActualRun)
         {
             long c1 = ProcCpu.Ns(), w1 = ProcCpu.Wall();
+            Times[parameters.BenchmarkCase.Parameters["Case"].ToString()] = (_t0, _t1, DateTime.UtcNow);
             Stage[parameters.BenchmarkCase.Parameters["Case"].ToString()] = (c1 - _c0, w1 - _w0,
-                GC.CollectionCount(0) - _g0, GC.CollectionCount(1) - _g1, GC.CollectionCount(2) - _g2, _heap);
+                GC.CollectionCount(0) - _g0, GC.CollectionCount(1) - _g1, GC.CollectionCount(2) - _g2, _heap,
+                (long)((GC.GetTotalPauseDuration() - _p0).TotalMilliseconds * 1e6));
         }
     }
     public IEnumerable<Metric> ProcessResults(DiagnoserResults results) => Array.Empty<Metric>();
@@ -117,12 +127,18 @@ public sealed class JsonLinesExporter : IExporter
         return sb.Append('}').ToString();
     }
 
+    public static int JitQuietCases, JitTier0Cases;
+
     public IEnumerable<string> ExportToFiles(Summary summary, ILogger consoleLogger)
     {
+        // The runtime delivers JIT events late (its dispatch thread); give it time to drain.
+        long seen = -1;
+        for (int i = 0; i < 20 && seen != JitTiers.Received; i++) { seen = JitTiers.Received; Thread.Sleep(250); }
         var o = new List<string>();
         foreach (var r in summary.Reports)
         {
             var c = Case.Parse(r.BenchmarkCase.Parameters["Case"].ToString());
+            if (c.Content == Cases.Prime) { o.Add("# prime case (BDN engine warm-up, timed by BDN, not exported): " + c.Key + (r.Success ? "" : " FAILED")); continue; }
             if (!r.Success || r.AllMeasurements == null || r.AllMeasurements.Count == 0)
             {
                 o.Add("# FAILED CASE (no measurement): " + c.Key);
@@ -138,9 +154,17 @@ public sealed class JsonLinesExporter : IExporter
             // Every stage BDN ran for this case, as mode/stage: count, ops, ns (requirement 24).
             var stages = string.Join(",", all.GroupBy(m => m.IterationMode + "/" + m.IterationStage)
                 .Select(g => string.Format(CultureInfo.InvariantCulture, "\"{0}\":[{1},{2},{3}]", g.Key, g.Count(), g.Sum(m => m.Operations), (long)Math.Round(g.Sum(m => m.Nanoseconds)))));
+            string jit = "\"jit\":\"not recorded\",";
+            if (CpuDiagnoser.Times.TryGetValue(c.Key, out var tt))
+            {
+                var ts = CodecSuite.SetupEnd.TryGetValue(c.Key, out var se) ? se : tt.T0;
+                jit = JitTiers.Summarise(tt.T0, ts, tt.T1, tt.T2, out int sc, out int hot) + ",";
+                if (sc == 0) JitQuietCases++;
+                if (hot > 0) JitTier0Cases++;
+            }
             if (CpuDiagnoser.Stage.TryGetValue(c.Key, out var st))
                 o.Add(J(c, _launch, 0, st.Cpu, st.Wall, act.Sum(m => m.Operations),
-                    "\"engine\":\"bdn\",\"bdn_stages\":{" + stages + "}," + string.Format(CultureInfo.InvariantCulture, "\"gc\":[{0},{1},{2}],\"heap_bytes\":{3},", st.G0, st.G1, st.G2, st.Heap) + "\"note\":\"round 0 = CPU (getrusage RUSAGE_SELF) and wall of the process across BDN BeforeActualRun..AfterActualRun, which spans the warm-up AND actual stages (pilot and jitting precede it); iters = actual-stage ops only, so cpu_ns/iters is NOT a per-op CPU figure, cpu_ns/wall_ns is the occupancy of that span; bdn_stages = [iterations, ops, ns] per mode/stage; gc = gen0/gen1/gen2 collections across the span; heap_bytes = GC.GetTotalMemory(false) at its start\""));
+                    "\"engine\":\"bdn\",\"bdn_stages\":{" + stages + "}," + jit + string.Format(CultureInfo.InvariantCulture, "\"gc\":[{0},{1},{2}],\"gc_pause_ns\":{4},\"heap_bytes\":{3},", st.G0, st.G1, st.G2, st.Heap, st.Pause) + "\"note\":\"round 0 = CPU (getrusage RUSAGE_SELF) and wall of the process across BDN BeforeActualRun..AfterActualRun: the actual stage (jitting, pilot and warm-up precede it) INCLUDING the GCs BDN forces between iterations; iters = actual-stage ops; gc_pause_ns = GC pause time inside the span (the forced collections and any the arm caused); bdn_stages = [iterations, ops, ns] per mode/stage; gc = gen0/gen1/gen2 collections across the span (BDN forces 4 full collections per iteration); heap_bytes = GC.GetTotalMemory(false) at its start; jit_pre / jit_span = methods compiled (measured code by name: not the BDN engine, not this harness's instrumentation, not the case's setup) before the span (jitting, pilot, warm-up) and inside it, by tier; tier0_left = methods compiled in this case whose last version at the end of the span is a tier-0 form; hot_tier0 = those of them the runtime promotes later in the process (hot code measured at tier 0)\""));
         }
         File.AppendAllLines(_path, o);
         return new[] { _path };
