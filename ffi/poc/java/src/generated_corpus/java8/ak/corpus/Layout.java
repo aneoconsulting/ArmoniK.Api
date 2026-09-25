@@ -678,6 +678,205 @@ public final class Layout {
   public static final int AK_UFIX_WIREZOO__UNKNOWN = 144;
   public static final int AK_UFIX_WIREZOO__PRESENCE = 160;
 
+  public static final int AK_UNK_OPTS_SIZE = 24;   // align 8
+  public static final int AK_UNK_OPTS__BUF = 0;
+  public static final int AK_UNK_OPTS__GROW = 16;
+
+  public static final int AK_UNK_POOL_SIZE = 24;   // align 8
+  public static final int AK_UNK_POOL__BUFS = 0;
+  public static final int AK_UNK_POOL__N = 8;
+  public static final int AK_UNK_POOL__GROW = 16;
+
+  public static final int AK_DEC_TIMESTAMP_OPTS_SIZE = 32;   // align 8
+  public static final int AK_DEC_TIMESTAMP_OPTS__HOST = 0;
+  public static final int AK_DEC_TIMESTAMP_OPTS__SELF = 8;
+
+  public static final int AK_DEC_DURATION_OPTS_SIZE = 32;   // align 8
+  public static final int AK_DEC_DURATION_OPTS__HOST = 0;
+  public static final int AK_DEC_DURATION_OPTS__SELF = 8;
+
+  public static final int AK_DEC_RESULTRAW_OPTS_SIZE = 80;   // align 8
+  public static final int AK_DEC_RESULTRAW_OPTS__HOST = 0;
+  public static final int AK_DEC_RESULTRAW_OPTS__SELF = 8;
+  public static final int AK_DEC_RESULTRAW_OPTS__CREATED_AT = 32;
+  public static final int AK_DEC_RESULTRAW_OPTS__COMPLETED_AT = 56;
+
+  public static final int AK_DEC_TASKOPTIONS_OPTS_SIZE = 80;   // align 8
+  public static final int AK_DEC_TASKOPTIONS_OPTS__HOST = 0;
+  public static final int AK_DEC_TASKOPTIONS_OPTS__SELF = 8;
+  public static final int AK_DEC_TASKOPTIONS_OPTS__OPTIONS = 32;
+  public static final int AK_DEC_TASKOPTIONS_OPTS__MAX_DURATION = 56;
+
+  public static final int AK_DEC_TASKOUTPUT_OPTS_SIZE = 32;   // align 8
+  public static final int AK_DEC_TASKOUTPUT_OPTS__HOST = 0;
+  public static final int AK_DEC_TASKOUTPUT_OPTS__SELF = 8;
+
+  public static final int AK_DEC_TASKDETAILED_OPTS_SIZE = 416;   // align 8
+  public static final int AK_DEC_TASKDETAILED_OPTS__HOST = 0;
+  public static final int AK_DEC_TASKDETAILED_OPTS__SELF = 8;
+  public static final int AK_DEC_TASKDETAILED_OPTS__OPTIONS = 32;
+  public static final int AK_DEC_TASKDETAILED_OPTS__OPTIONS_OPTIONS = 56;
+  public static final int AK_DEC_TASKDETAILED_OPTS__OPTIONS_MAX_DURATION = 80;
+  public static final int AK_DEC_TASKDETAILED_OPTS__CREATED_AT = 104;
+  public static final int AK_DEC_TASKDETAILED_OPTS__SUBMITTED_AT = 128;
+  public static final int AK_DEC_TASKDETAILED_OPTS__STARTED_AT = 152;
+  public static final int AK_DEC_TASKDETAILED_OPTS__ENDED_AT = 176;
+  public static final int AK_DEC_TASKDETAILED_OPTS__POD_TTL = 200;
+  public static final int AK_DEC_TASKDETAILED_OPTS__OUTPUT = 224;
+  public static final int AK_DEC_TASKDETAILED_OPTS__RECEIVED_AT = 248;
+  public static final int AK_DEC_TASKDETAILED_OPTS__ACQUIRED_AT = 272;
+  public static final int AK_DEC_TASKDETAILED_OPTS__CREATION_TO_END_DURATION = 296;
+  public static final int AK_DEC_TASKDETAILED_OPTS__PROCESSING_TO_END_DURATION = 320;
+  public static final int AK_DEC_TASKDETAILED_OPTS__RECEIVED_TO_END_DURATION = 344;
+  public static final int AK_DEC_TASKDETAILED_OPTS__PROCESSED_AT = 368;
+  public static final int AK_DEC_TASKDETAILED_OPTS__FETCHED_AT = 392;
+
+  public static final int AK_DEC_TASKSUMMARY_OPTS_SIZE = 128;   // align 8
+  public static final int AK_DEC_TASKSUMMARY_OPTS__HOST = 0;
+  public static final int AK_DEC_TASKSUMMARY_OPTS__SELF = 8;
+  public static final int AK_DEC_TASKSUMMARY_OPTS__OPTIONS = 32;
+  public static final int AK_DEC_TASKSUMMARY_OPTS__OPTIONS_OPTIONS = 56;
+  public static final int AK_DEC_TASKSUMMARY_OPTS__OPTIONS_MAX_DURATION = 80;
+  public static final int AK_DEC_TASKSUMMARY_OPTS__CREATED_AT = 104;
+
+  public static final int AK_DEC_PROBE_OPTS_SIZE = 56;   // align 8
+  public static final int AK_DEC_PROBE_OPTS__HOST = 0;
+  public static final int AK_DEC_PROBE_OPTS__SELF = 8;
+  public static final int AK_DEC_PROBE_OPTS__BODY = 32;
+
+  public static final int AK_DEC_EMPTY_OPTS_SIZE = 32;   // align 8
+  public static final int AK_DEC_EMPTY_OPTS__HOST = 0;
+  public static final int AK_DEC_EMPTY_OPTS__SELF = 8;
+
+  public static final int AK_DEC_UPLOADRESULTDATA_OPTS_SIZE = 32;   // align 8
+  public static final int AK_DEC_UPLOADRESULTDATA_OPTS__HOST = 0;
+  public static final int AK_DEC_UPLOADRESULTDATA_OPTS__SELF = 8;
+
+  public static final int AK_DEC_METRICSBATCH_OPTS_SIZE = 32;   // align 8
+  public static final int AK_DEC_METRICSBATCH_OPTS__HOST = 0;
+  public static final int AK_DEC_METRICSBATCH_OPTS__SELF = 8;
+
+  public static final int AK_DEC_PAIR_OPTS_SIZE = 32;   // align 8
+  public static final int AK_DEC_PAIR_OPTS__HOST = 0;
+  public static final int AK_DEC_PAIR_OPTS__SELF = 8;
+
+  public static final int AK_DEC_LISTRESULTSRESPONSE_OPTS_SIZE = 104;   // align 8
+  public static final int AK_DEC_LISTRESULTSRESPONSE_OPTS__HOST = 0;
+  public static final int AK_DEC_LISTRESULTSRESPONSE_OPTS__SELF = 8;
+  public static final int AK_DEC_LISTRESULTSRESPONSE_OPTS__RESULTS = 32;
+  public static final int AK_DEC_LISTRESULTSRESPONSE_OPTS__RESULTS_CREATED_AT = 56;
+  public static final int AK_DEC_LISTRESULTSRESPONSE_OPTS__RESULTS_COMPLETED_AT = 80;
+
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS_SIZE = 440;   // align 8
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__HOST = 0;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__SELF = 8;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS = 32;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_OPTIONS = 56;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_OPTIONS_OPTIONS = 80;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_OPTIONS_MAX_DURATION = 104;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_CREATED_AT = 128;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_SUBMITTED_AT = 152;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_STARTED_AT = 176;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_ENDED_AT = 200;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_POD_TTL = 224;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_OUTPUT = 248;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_RECEIVED_AT = 272;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_ACQUIRED_AT = 296;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_CREATION_TO_END_DURATION = 320;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_PROCESSING_TO_END_DURATION = 344;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_RECEIVED_TO_END_DURATION = 368;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_PROCESSED_AT = 392;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_FETCHED_AT = 416;
+
+  public static final int AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS_SIZE = 152;   // align 8
+  public static final int AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__HOST = 0;
+  public static final int AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__SELF = 8;
+  public static final int AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__TASKS = 32;
+  public static final int AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__TASKS_OPTIONS = 56;
+  public static final int AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__TASKS_OPTIONS_OPTIONS = 80;
+  public static final int AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__TASKS_OPTIONS_MAX_DURATION = 104;
+  public static final int AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__TASKS_CREATED_AT = 128;
+
+  public static final int AK_DEC_LISTPROBERESPONSE_OPTS_SIZE = 80;   // align 8
+  public static final int AK_DEC_LISTPROBERESPONSE_OPTS__HOST = 0;
+  public static final int AK_DEC_LISTPROBERESPONSE_OPTS__SELF = 8;
+  public static final int AK_DEC_LISTPROBERESPONSE_OPTS__PROBES = 32;
+  public static final int AK_DEC_LISTPROBERESPONSE_OPTS__PROBES_BODY = 56;
+
+  public static final int AK_DEC_LISTMETRICSRESPONSE_OPTS_SIZE = 56;   // align 8
+  public static final int AK_DEC_LISTMETRICSRESPONSE_OPTS__HOST = 0;
+  public static final int AK_DEC_LISTMETRICSRESPONSE_OPTS__SELF = 8;
+  public static final int AK_DEC_LISTMETRICSRESPONSE_OPTS__BATCHES = 32;
+
+  public static final int AK_DEC_UPLOADRESULTDATAMESSAGE_OPTS_SIZE = 56;   // align 8
+  public static final int AK_DEC_UPLOADRESULTDATAMESSAGE_OPTS__HOST = 0;
+  public static final int AK_DEC_UPLOADRESULTDATAMESSAGE_OPTS__SELF = 8;
+  public static final int AK_DEC_UPLOADRESULTDATAMESSAGE_OPTS__UPLOAD = 32;
+
+  public static final int AK_DEC_DUALRESPONSE_OPTS_SIZE = 80;   // align 8
+  public static final int AK_DEC_DUALRESPONSE_OPTS__HOST = 0;
+  public static final int AK_DEC_DUALRESPONSE_OPTS__SELF = 8;
+  public static final int AK_DEC_DUALRESPONSE_OPTS__LEFT = 32;
+  public static final int AK_DEC_DUALRESPONSE_OPTS__RIGHT = 56;
+
+  public static final int AK_DEC_CHUNKLEAF_OPTS_SIZE = 32;   // align 8
+  public static final int AK_DEC_CHUNKLEAF_OPTS__HOST = 0;
+  public static final int AK_DEC_CHUNKLEAF_OPTS__SELF = 8;
+
+  public static final int AK_DEC_CHUNKINNER_OPTS_SIZE = 56;   // align 8
+  public static final int AK_DEC_CHUNKINNER_OPTS__HOST = 0;
+  public static final int AK_DEC_CHUNKINNER_OPTS__SELF = 8;
+  public static final int AK_DEC_CHUNKINNER_OPTS__LEAVES = 32;
+
+  public static final int AK_DEC_CHUNKELEMENT_OPTS_SIZE = 104;   // align 8
+  public static final int AK_DEC_CHUNKELEMENT_OPTS__HOST = 0;
+  public static final int AK_DEC_CHUNKELEMENT_OPTS__SELF = 8;
+  public static final int AK_DEC_CHUNKELEMENT_OPTS__ATTRS = 32;
+  public static final int AK_DEC_CHUNKELEMENT_OPTS__INNER = 56;
+  public static final int AK_DEC_CHUNKELEMENT_OPTS__INNER_LEAVES = 80;
+
+  public static final int AK_DEC_CHUNKEDRESPONSE_OPTS_SIZE = 128;   // align 8
+  public static final int AK_DEC_CHUNKEDRESPONSE_OPTS__HOST = 0;
+  public static final int AK_DEC_CHUNKEDRESPONSE_OPTS__SELF = 8;
+  public static final int AK_DEC_CHUNKEDRESPONSE_OPTS__ITEMS = 32;
+  public static final int AK_DEC_CHUNKEDRESPONSE_OPTS__ITEMS_ATTRS = 56;
+  public static final int AK_DEC_CHUNKEDRESPONSE_OPTS__ITEMS_INNER = 80;
+  public static final int AK_DEC_CHUNKEDRESPONSE_OPTS__ITEMS_INNER_LEAVES = 104;
+
+  public static final int AK_DEC_CHUNKEDRESPONSEWIDE_OPTS_SIZE = 128;   // align 8
+  public static final int AK_DEC_CHUNKEDRESPONSEWIDE_OPTS__HOST = 0;
+  public static final int AK_DEC_CHUNKEDRESPONSEWIDE_OPTS__SELF = 8;
+  public static final int AK_DEC_CHUNKEDRESPONSEWIDE_OPTS__ITEMS = 32;
+  public static final int AK_DEC_CHUNKEDRESPONSEWIDE_OPTS__ITEMS_ATTRS = 56;
+  public static final int AK_DEC_CHUNKEDRESPONSEWIDE_OPTS__ITEMS_INNER = 80;
+  public static final int AK_DEC_CHUNKEDRESPONSEWIDE_OPTS__ITEMS_INNER_LEAVES = 104;
+
+  public static final int AK_DEC_LEAFELEMENT_OPTS_SIZE = 56;   // align 8
+  public static final int AK_DEC_LEAFELEMENT_OPTS__HOST = 0;
+  public static final int AK_DEC_LEAFELEMENT_OPTS__SELF = 8;
+  public static final int AK_DEC_LEAFELEMENT_OPTS__STAMP = 32;
+
+  public static final int AK_DEC_LEAFRESPONSE_OPTS_SIZE = 80;   // align 8
+  public static final int AK_DEC_LEAFRESPONSE_OPTS__HOST = 0;
+  public static final int AK_DEC_LEAFRESPONSE_OPTS__SELF = 8;
+  public static final int AK_DEC_LEAFRESPONSE_OPTS__ITEMS = 32;
+  public static final int AK_DEC_LEAFRESPONSE_OPTS__ITEMS_STAMP = 56;
+
+  public static final int AK_DEC_SURROGATE_OPTS_SIZE = 80;   // align 8
+  public static final int AK_DEC_SURROGATE_OPTS__HOST = 0;
+  public static final int AK_DEC_SURROGATE_OPTS__SELF = 8;
+  public static final int AK_DEC_SURROGATE_OPTS__NESTED = 32;
+  public static final int AK_DEC_SURROGATE_OPTS__ATTRS = 56;
+
+  public static final int AK_DEC_SURROGATEINNER_OPTS_SIZE = 32;   // align 8
+  public static final int AK_DEC_SURROGATEINNER_OPTS__HOST = 0;
+  public static final int AK_DEC_SURROGATEINNER_OPTS__SELF = 8;
+
+  public static final int AK_DEC_WIREZOO_OPTS_SIZE = 56;   // align 8
+  public static final int AK_DEC_WIREZOO_OPTS__HOST = 0;
+  public static final int AK_DEC_WIREZOO_OPTS__SELF = 8;
+  public static final int AK_DEC_WIREZOO_OPTS__V_MSG = 32;
+
   /** The same facts the core exports, in the core's order (cpp_layout.facts). */
   public static final int[] HOST = {
     56,

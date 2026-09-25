@@ -4,6 +4,8 @@
 #   R, R-retain                       arm R, unknown fields dropped and retained
 #   ffi, ffi-pull, ffi-pull-walk      the core through JNI (push; pull drained; pull in place)
 #   ffi-borrow                        decision 13's borrowed facade
+#   ffi-retain, ffi-pull-retain, ffi-pull-walk-retain, ffi-borrow-retain
+#                                     the same, every decision 11 position armed, u-group encode
 # on the target (java17 tree, JDK 17) and the floor (java8 tree, JDK 8), every row of every
 # arm under a per-row timeout, against a core built with `corpus,init-guard`; then planted
 # controls, each of which MUST FAIL, and the rule gaps the corpus does not reach directly.
@@ -18,7 +20,7 @@ unset JAVA_TOOL_OPTIONS || true
 [ -z "${AK_CODECGEN:-}" ] && [ -d build/snap/ffi/poc/codec/gen ] && export AK_CODECGEN=$PWD/build/snap/ffi/poc/codec/gen
 CP=$(cat deps/cp.txt)
 SHIM=$PWD/build/jnicorpus/libakjni.so
-ARMS=R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow
+ARMS=R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow,ffi-retain,ffi-pull-retain,ffi-pull-walk-retain,ffi-borrow-retain
 export AK_CORPUS_TIMEOUT_MS=${AK_CORPUS_TIMEOUT_MS:-5000}
 echo "== java slice corpus gate; tree ${AK_COMMIT:-$(git rev-parse --short HEAD)}$(git diff --quiet HEAD -- . ../codec/gen || echo ' + uncommitted changes')"
 echo "   $(cat build/core-rev.txt 2>/dev/null)"
@@ -61,6 +63,15 @@ else
   grep -m3 "^      C" build/corpus-ctl.txt | cut -c1-160 | sed 's/^/    /'
 fi
 [ $bad -eq 0 ] || { echo "CONTROLS FAILED: $bad"; fail=1; }
+
+echo
+echo "===== 3b. decision 11 (WP5 step 9): per-position discard, pull == push, wrong root (target) ====="
+"$J17/bin/java" -cp "build/cls17:$CP" -Dak.lib="$SHIM" ak.RunUnkControls 2>&1 | grep -v "^Picked up" || fail=1
+if "$J17/bin/java" -cp "build/cls17:$CP" -Dak.lib="$SHIM" -Dak.unk.plant=1 ak.RunUnkControls > build/unk-plant.txt 2>&1; then
+  echo "  control unk-plant (mask ignored): PASSED -- the discard check is blind"; fail=1
+else
+  echo "  control unk-plant (mask ignored): failed as required: $(grep 'discard mismatches' build/unk-plant.txt)"
+fi
 
 echo
 echo "===== 4. rule gaps the corpus does not reach directly (target) ====="

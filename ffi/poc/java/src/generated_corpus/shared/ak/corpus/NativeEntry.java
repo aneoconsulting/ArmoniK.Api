@@ -34,164 +34,323 @@ public final class NativeEntry {
   }
 
   public static native long encodeTimestamp(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeTimestamp(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewTimestamp(long opts);
+  public static native int decResetTimestamp(long ctx, long opts);
   public static native int decodeTimestamp(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseTimestamp(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeDuration(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeDuration(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewDuration(long opts);
+  public static native int decResetDuration(long ctx, long opts);
   public static native int decodeDuration(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseDuration(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeResultRaw(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeResultRaw(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewResultRaw(long opts);
+  public static native int decResetResultRaw(long ctx, long opts);
   public static native int decodeResultRaw(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseResultRaw(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeTaskOptions(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeTaskOptions(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewTaskOptions(long opts);
+  public static native int decResetTaskOptions(long ctx, long opts);
   public static native int decodeTaskOptions(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseTaskOptions(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeTaskOutput(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeTaskOutput(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewTaskOutput(long opts);
+  public static native int decResetTaskOutput(long ctx, long opts);
   public static native int decodeTaskOutput(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseTaskOutput(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeTaskDetailed(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeTaskDetailed(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewTaskDetailed(long opts);
+  public static native int decResetTaskDetailed(long ctx, long opts);
   public static native int decodeTaskDetailed(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseTaskDetailed(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeTaskSummary(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeTaskSummary(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewTaskSummary(long opts);
+  public static native int decResetTaskSummary(long ctx, long opts);
   public static native int decodeTaskSummary(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseTaskSummary(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeProbe(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeProbe(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewProbe(long opts);
+  public static native int decResetProbe(long ctx, long opts);
   public static native int decodeProbe(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseProbe(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeEmpty(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeEmpty(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewEmpty(long opts);
+  public static native int decResetEmpty(long ctx, long opts);
   public static native int decodeEmpty(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseEmpty(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeUploadResultData(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeUploadResultData(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewUploadResultData(long opts);
+  public static native int decResetUploadResultData(long ctx, long opts);
   /** ABI v1 section 8: the direct field pinned for the call. */
   public static native long encodeDirectUploadResultData(Object self, long ctx, long vt, long fix, byte[] data, int dlen);
+  public static native long uencodeDirectUploadResultData(Object self, long ctx, long vt, long fix, byte[] data, int dlen);
   public static native int decodeUploadResultData(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseUploadResultData(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeMetricsBatch(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeMetricsBatch(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewMetricsBatch(long opts);
+  public static native int decResetMetricsBatch(long ctx, long opts);
   public static native int decodeMetricsBatch(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseMetricsBatch(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodePair(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodePair(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewPair(long opts);
+  public static native int decResetPair(long ctx, long opts);
   public static native int decodePair(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parsePair(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeListResultsResponse(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeListResultsResponse(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewListResultsResponse(long opts);
+  public static native int decResetListResultsResponse(long ctx, long opts);
   public static native int decodeListResultsResponse(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseListResultsResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeListTasksDetailedResponse(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeListTasksDetailedResponse(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewListTasksDetailedResponse(long opts);
+  public static native int decResetListTasksDetailedResponse(long ctx, long opts);
   public static native int decodeListTasksDetailedResponse(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseListTasksDetailedResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeListTaskSummaryResponse(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeListTaskSummaryResponse(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewListTaskSummaryResponse(long opts);
+  public static native int decResetListTaskSummaryResponse(long ctx, long opts);
   public static native int decodeListTaskSummaryResponse(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseListTaskSummaryResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeListProbeResponse(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeListProbeResponse(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewListProbeResponse(long opts);
+  public static native int decResetListProbeResponse(long ctx, long opts);
   public static native int decodeListProbeResponse(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseListProbeResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeListMetricsResponse(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeListMetricsResponse(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewListMetricsResponse(long opts);
+  public static native int decResetListMetricsResponse(long ctx, long opts);
   public static native int decodeListMetricsResponse(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseListMetricsResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeUploadResultDataMessage(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeUploadResultDataMessage(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewUploadResultDataMessage(long opts);
+  public static native int decResetUploadResultDataMessage(long ctx, long opts);
   /** ABI v1 section 8: the direct field pinned for the call. */
   public static native long encodeDirectUploadResultDataMessage(Object self, long ctx, long vt, long fix, byte[] data, int dlen);
+  public static native long uencodeDirectUploadResultDataMessage(Object self, long ctx, long vt, long fix, byte[] data, int dlen);
   public static native int decodeUploadResultDataMessage(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseUploadResultDataMessage(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeDualResponse(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeDualResponse(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewDualResponse(long opts);
+  public static native int decResetDualResponse(long ctx, long opts);
   public static native int decodeDualResponse(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseDualResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeChunkLeaf(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeChunkLeaf(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewChunkLeaf(long opts);
+  public static native int decResetChunkLeaf(long ctx, long opts);
   public static native int decodeChunkLeaf(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseChunkLeaf(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeChunkInner(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeChunkInner(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewChunkInner(long opts);
+  public static native int decResetChunkInner(long ctx, long opts);
   public static native int decodeChunkInner(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseChunkInner(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeChunkElement(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeChunkElement(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewChunkElement(long opts);
+  public static native int decResetChunkElement(long ctx, long opts);
   public static native int decodeChunkElement(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseChunkElement(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeChunkedResponse(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeChunkedResponse(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewChunkedResponse(long opts);
+  public static native int decResetChunkedResponse(long ctx, long opts);
   public static native int decodeChunkedResponse(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseChunkedResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeChunkedResponseWide(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeChunkedResponseWide(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewChunkedResponseWide(long opts);
+  public static native int decResetChunkedResponseWide(long ctx, long opts);
   public static native int decodeChunkedResponseWide(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseChunkedResponseWide(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeLeafElement(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeLeafElement(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewLeafElement(long opts);
+  public static native int decResetLeafElement(long ctx, long opts);
   public static native int decodeLeafElement(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseLeafElement(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeLeafResponse(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeLeafResponse(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewLeafResponse(long opts);
+  public static native int decResetLeafResponse(long ctx, long opts);
   public static native int decodeLeafResponse(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseLeafResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeSurrogate(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeSurrogate(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewSurrogate(long opts);
+  public static native int decResetSurrogate(long ctx, long opts);
   public static native int decodeSurrogate(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseSurrogate(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeSurrogateInner(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeSurrogateInner(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewSurrogateInner(long opts);
+  public static native int decResetSurrogateInner(long ctx, long opts);
   public static native int decodeSurrogateInner(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseSurrogateInner(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeWireZoo(Object self, long ctx, long vt, long fix);
+  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */
+  public static native long uencodeWireZoo(Object self, long ctx, long vt, long fix);
+  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */
+  public static native long decCtxNewWireZoo(long opts);
+  public static native int decResetWireZoo(long ctx, long opts);
   public static native int decodeWireZoo(Object self, long ctx, long buf, long len, long vt);
   /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
   public static native int parseWireZoo(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native int elemuChunkElement(long ctx, long elems, int n, long tok0);
+  public static native int uelemuChunkElement(long ctx, long elems, int n, long tok0);
   public static native int elemChunkElementAttrsEntry(long ctx, long elems, int n);
+  public static native int uelemChunkElementAttrsEntry(long ctx, long elems, int n);
   public static native int elemChunkLeaf(long ctx, long elems, int n);
+  public static native int uelemChunkLeaf(long ctx, long elems, int n);
   public static native int elemLeafElement(long ctx, long elems, int n);
+  public static native int uelemLeafElement(long ctx, long elems, int n);
   public static native int elemuMetricsBatch(long ctx, long elems, int n, long tok0);
+  public static native int uelemuMetricsBatch(long ctx, long elems, int n, long tok0);
   public static native int elemPair(long ctx, long elems, int n);
+  public static native int uelemPair(long ctx, long elems, int n);
   public static native int elemProbe(long ctx, long elems, int n);
+  public static native int uelemProbe(long ctx, long elems, int n);
   public static native int elemResultRaw(long ctx, long elems, int n);
+  public static native int uelemResultRaw(long ctx, long elems, int n);
   public static native int elemSurrogateAttrsEntry(long ctx, long elems, int n);
+  public static native int uelemSurrogateAttrsEntry(long ctx, long elems, int n);
   public static native int elemuTaskDetailed(long ctx, long elems, int n, long tok0);
+  public static native int uelemuTaskDetailed(long ctx, long elems, int n, long tok0);
   public static native int elemTaskOptionsOptionsEntry(long ctx, long elems, int n);
+  public static native int uelemTaskOptionsOptionsEntry(long ctx, long elems, int n);
   public static native int elemuTaskSummary(long ctx, long elems, int n, long tok0);
+  public static native int uelemuTaskSummary(long ctx, long elems, int n, long tok0);
 }

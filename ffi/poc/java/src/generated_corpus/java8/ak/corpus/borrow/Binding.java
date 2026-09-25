@@ -45,7 +45,15 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   }
 
   public long encCtx = Native.encCtxNew();
-  public long decCtx = Native.decCtxNew();
+
+  /** The decode context of the last decode (decision 11 rule 6: one context per ROOT,
+   *  created on first use with NULL options, i.e. drop mode). Read by the counting harness. */
+  public long decCtx;
+
+  /** Decision 11: retain unknown fields. Decode arms every position of the root's options
+   *  with the shim's grow; encode goes through the u-groups (`ak_uencode_*`), re-emitting
+   *  each message's `unknownFields`. Off: drop mode, and the arms' pre-decision-11 path. */
+  public boolean retain = false;
 
   /** The batching predicate of ABI v1 section 6, as a flag rather than a verdict: the two
    *  arms are paired in one process (R4), never two ratios to a third arm. */
@@ -89,7 +97,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
 
   @Override public void close() {
     Native.encCtxFree(encCtx);
-    Native.decCtxFree(decCtx);
+    freeUnkState();
     arena.close();
     if (wireNative != 0) Mem.free(wireNative);
     Mem.free(vt);
@@ -520,6 +528,15 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_TIMESTAMP__PRESENCE, pres);
   }
 
+  /** Fill the encode group of `Timestamp`. */
+  void fillTimestampU(long g, Timestamp o) {
+    int pres = 0;
+    Mem.U.putLong(g + ak.corpus.Layout.AK_UFIX_TIMESTAMP__SECONDS, o.seconds);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_TIMESTAMP__NANOS, o.nanos);
+    putBlob(g + ak.corpus.Layout.AK_UFIX_TIMESTAMP__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_TIMESTAMP__PRESENCE, pres);
+  }
+
   /** Fill the encode group of `Duration`. */
   void fillDuration(long g, Duration o) {
     int pres = 0;
@@ -536,6 +553,15 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if (o.nanos != 0) 
       Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_DURATION__NANOS, o.nanos);
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_DURATION__PRESENCE, pres);
+  }
+
+  /** Fill the encode group of `Duration`. */
+  void fillDurationU(long g, Duration o) {
+    int pres = 0;
+    Mem.U.putLong(g + ak.corpus.Layout.AK_UFIX_DURATION__SECONDS, o.seconds);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_DURATION__NANOS, o.nanos);
+    putBlob(g + ak.corpus.Layout.AK_UFIX_DURATION__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_DURATION__PRESENCE, pres);
   }
 
   /** Fill the encode group of `ResultRaw`. */
@@ -597,6 +623,40 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_RESULTRAW__PRESENCE, pres);
   }
 
+  /** Fill the encode group of `ResultRaw`. */
+  void fillResultRawU(long g, ResultRaw o) {
+    int pres = 0;
+    putStr(g + ak.corpus.Layout.AK_UFIX_RESULTRAW__SESSION_ID, o.session_id);
+    putStr(g + ak.corpus.Layout.AK_UFIX_RESULTRAW__NAME, o.name);
+    putStr(g + ak.corpus.Layout.AK_UFIX_RESULTRAW__OWNER_TASK_ID, o.owner_task_id);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_RESULTRAW__STATUS, o.status);
+    if (o.created_at != null) {
+      pres |= 1;
+      fillTimestampU(g + ak.corpus.Layout.AK_UFIX_RESULTRAW__CREATED_AT, o.created_at);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_RESULTRAW__CREATED_AT, ak.corpus.Layout.AK_UFIX_TIMESTAMP_SIZE);
+    }
+    if (o.completed_at != null) {
+      pres |= 2;
+      fillTimestampU(g + ak.corpus.Layout.AK_UFIX_RESULTRAW__COMPLETED_AT, o.completed_at);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_RESULTRAW__COMPLETED_AT, ak.corpus.Layout.AK_UFIX_TIMESTAMP_SIZE);
+    }
+    putStr(g + ak.corpus.Layout.AK_UFIX_RESULTRAW__RESULT_ID, o.result_id);
+    Mem.U.putLong(g + ak.corpus.Layout.AK_UFIX_RESULTRAW__SIZE, o.size);
+    putStr(g + ak.corpus.Layout.AK_UFIX_RESULTRAW__CREATED_BY, o.created_by);
+    putBytes(g + ak.corpus.Layout.AK_UFIX_RESULTRAW__OPAQUE_ID, o.opaque_id);
+    Mem.U.putByte(g + ak.corpus.Layout.AK_UFIX_RESULTRAW__MANUAL_DELETION, (byte) (o.manual_deletion ? 1 : 0));
+    putBlob(g + ak.corpus.Layout.AK_UFIX_RESULTRAW__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_RESULTRAW__PRESENCE, pres);
+  }
+
   /** Fill the encode group of `TaskOptions`. */
   void fillTaskOptions(long g, TaskOptions o) {
     int pres = 0;
@@ -640,6 +700,30 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_TASKOPTIONS__PRESENCE, pres);
   }
 
+  /** Fill the encode group of `TaskOptions`. */
+  void fillTaskOptionsU(long g, TaskOptions o) {
+    int pres = 0;
+    if (o.max_duration != null) {
+      pres |= 1;
+      fillDurationU(g + ak.corpus.Layout.AK_UFIX_TASKOPTIONS__MAX_DURATION, o.max_duration);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_TASKOPTIONS__MAX_DURATION, ak.corpus.Layout.AK_UFIX_DURATION_SIZE);
+    }
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_TASKOPTIONS__MAX_RETRIES, o.max_retries);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_TASKOPTIONS__PRIORITY, o.priority);
+    putStr(g + ak.corpus.Layout.AK_UFIX_TASKOPTIONS__PARTITION_ID, o.partition_id);
+    putStr(g + ak.corpus.Layout.AK_UFIX_TASKOPTIONS__APPLICATION_NAME, o.application_name);
+    putStr(g + ak.corpus.Layout.AK_UFIX_TASKOPTIONS__APPLICATION_VERSION, o.application_version);
+    putStr(g + ak.corpus.Layout.AK_UFIX_TASKOPTIONS__APPLICATION_NAMESPACE, o.application_namespace);
+    putStr(g + ak.corpus.Layout.AK_UFIX_TASKOPTIONS__APPLICATION_SERVICE, o.application_service);
+    putStr(g + ak.corpus.Layout.AK_UFIX_TASKOPTIONS__ENGINE_TYPE, o.engine_type);
+    putBlob(g + ak.corpus.Layout.AK_UFIX_TASKOPTIONS__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_TASKOPTIONS__PRESENCE, pres);
+  }
+
   /** Fill the encode group of `TaskOutput`. */
   void fillTaskOutput(long g, TaskOutput o) {
     int pres = 0;
@@ -655,6 +739,15 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       Mem.U.putByte(g + ak.corpus.Layout.AK_EFIX_TASKOUTPUT__SUCCESS, (byte) (o.success ? 1 : 0));
     putStr(g + ak.corpus.Layout.AK_EFIX_TASKOUTPUT__ERROR, o.error);
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_TASKOUTPUT__PRESENCE, pres);
+  }
+
+  /** Fill the encode group of `TaskOutput`. */
+  void fillTaskOutputU(long g, TaskOutput o) {
+    int pres = 0;
+    Mem.U.putByte(g + ak.corpus.Layout.AK_UFIX_TASKOUTPUT__SUCCESS, (byte) (o.success ? 1 : 0));
+    putStr(g + ak.corpus.Layout.AK_UFIX_TASKOUTPUT__ERROR, o.error);
+    putBlob(g + ak.corpus.Layout.AK_UFIX_TASKOUTPUT__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_TASKOUTPUT__PRESENCE, pres);
   }
 
   /** Fill the encode group of `TaskDetailed`. */
@@ -870,6 +963,148 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_TASKDETAILED__PRESENCE, pres);
   }
 
+  /** Fill the encode group of `TaskDetailed`. */
+  void fillTaskDetailedU(long g, TaskDetailed o) {
+    int pres = 0;
+    putStr(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__ID, o.id);
+    putStr(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__SESSION_ID, o.session_id);
+    putStr(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__OWNER_POD_ID, o.owner_pod_id);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__STATUS, o.status);
+    putStr(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__STATUS_MESSAGE, o.status_message);
+    if (o.options != null) {
+      pres |= 1;
+      fillTaskOptionsU(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__OPTIONS, o.options);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__OPTIONS, ak.corpus.Layout.AK_UFIX_TASKOPTIONS_SIZE);
+    }
+    if (o.created_at != null) {
+      pres |= 2;
+      fillTimestampU(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__CREATED_AT, o.created_at);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__CREATED_AT, ak.corpus.Layout.AK_UFIX_TIMESTAMP_SIZE);
+    }
+    if (o.submitted_at != null) {
+      pres |= 4;
+      fillTimestampU(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__SUBMITTED_AT, o.submitted_at);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__SUBMITTED_AT, ak.corpus.Layout.AK_UFIX_TIMESTAMP_SIZE);
+    }
+    if (o.started_at != null) {
+      pres |= 8;
+      fillTimestampU(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__STARTED_AT, o.started_at);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__STARTED_AT, ak.corpus.Layout.AK_UFIX_TIMESTAMP_SIZE);
+    }
+    if (o.ended_at != null) {
+      pres |= 16;
+      fillTimestampU(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__ENDED_AT, o.ended_at);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__ENDED_AT, ak.corpus.Layout.AK_UFIX_TIMESTAMP_SIZE);
+    }
+    if (o.pod_ttl != null) {
+      pres |= 32;
+      fillTimestampU(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__POD_TTL, o.pod_ttl);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__POD_TTL, ak.corpus.Layout.AK_UFIX_TIMESTAMP_SIZE);
+    }
+    if (o.output != null) {
+      pres |= 64;
+      fillTaskOutputU(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__OUTPUT, o.output);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__OUTPUT, ak.corpus.Layout.AK_UFIX_TASKOUTPUT_SIZE);
+    }
+    putStr(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__POD_HOSTNAME, o.pod_hostname);
+    if (o.received_at != null) {
+      pres |= 128;
+      fillTimestampU(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__RECEIVED_AT, o.received_at);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__RECEIVED_AT, ak.corpus.Layout.AK_UFIX_TIMESTAMP_SIZE);
+    }
+    if (o.acquired_at != null) {
+      pres |= 256;
+      fillTimestampU(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__ACQUIRED_AT, o.acquired_at);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__ACQUIRED_AT, ak.corpus.Layout.AK_UFIX_TIMESTAMP_SIZE);
+    }
+    if (o.creation_to_end_duration != null) {
+      pres |= 512;
+      fillDurationU(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__CREATION_TO_END_DURATION, o.creation_to_end_duration);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__CREATION_TO_END_DURATION, ak.corpus.Layout.AK_UFIX_DURATION_SIZE);
+    }
+    if (o.processing_to_end_duration != null) {
+      pres |= 1024;
+      fillDurationU(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__PROCESSING_TO_END_DURATION, o.processing_to_end_duration);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__PROCESSING_TO_END_DURATION, ak.corpus.Layout.AK_UFIX_DURATION_SIZE);
+    }
+    putStr(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__INITIAL_TASK_ID, o.initial_task_id);
+    if (o.received_to_end_duration != null) {
+      pres |= 2048;
+      fillDurationU(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__RECEIVED_TO_END_DURATION, o.received_to_end_duration);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__RECEIVED_TO_END_DURATION, ak.corpus.Layout.AK_UFIX_DURATION_SIZE);
+    }
+    if (o.processed_at != null) {
+      pres |= 4096;
+      fillTimestampU(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__PROCESSED_AT, o.processed_at);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__PROCESSED_AT, ak.corpus.Layout.AK_UFIX_TIMESTAMP_SIZE);
+    }
+    if (o.fetched_at != null) {
+      pres |= 8192;
+      fillTimestampU(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__FETCHED_AT, o.fetched_at);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__FETCHED_AT, ak.corpus.Layout.AK_UFIX_TIMESTAMP_SIZE);
+    }
+    putStr(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__PAYLOAD_ID, o.payload_id);
+    putStr(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__CREATED_BY, o.created_by);
+    putBlob(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_TASKDETAILED__PRESENCE, pres);
+  }
+
   /** Fill the encode group of `TaskSummary`. */
   void fillTaskSummary(long g, TaskSummary o) {
     int pres = 0;
@@ -922,6 +1157,37 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_TASKSUMMARY__PRESENCE, pres);
   }
 
+  /** Fill the encode group of `TaskSummary`. */
+  void fillTaskSummaryU(long g, TaskSummary o) {
+    int pres = 0;
+    putStr(g + ak.corpus.Layout.AK_UFIX_TASKSUMMARY__ID, o.id);
+    putStr(g + ak.corpus.Layout.AK_UFIX_TASKSUMMARY__SESSION_ID, o.session_id);
+    if (o.options != null) {
+      pres |= 1;
+      fillTaskOptionsU(g + ak.corpus.Layout.AK_UFIX_TASKSUMMARY__OPTIONS, o.options);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_TASKSUMMARY__OPTIONS, ak.corpus.Layout.AK_UFIX_TASKOPTIONS_SIZE);
+    }
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_TASKSUMMARY__STATUS, o.status);
+    if (o.created_at != null) {
+      pres |= 2;
+      fillTimestampU(g + ak.corpus.Layout.AK_UFIX_TASKSUMMARY__CREATED_AT, o.created_at);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_TASKSUMMARY__CREATED_AT, ak.corpus.Layout.AK_UFIX_TIMESTAMP_SIZE);
+    }
+    putStr(g + ak.corpus.Layout.AK_UFIX_TASKSUMMARY__ERROR, o.error);
+    putStr(g + ak.corpus.Layout.AK_UFIX_TASKSUMMARY__STATUS_MESSAGE, o.status_message);
+    Mem.U.putLong(g + ak.corpus.Layout.AK_UFIX_TASKSUMMARY__COUNT_DATA_DEPENDENCIES, o.count_data_dependencies);
+    putBlob(g + ak.corpus.Layout.AK_UFIX_TASKSUMMARY__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_TASKSUMMARY__PRESENCE, pres);
+  }
+
   /** Fill the encode group of `Empty`. */
   void fillEmpty(long g, Empty o) {
     int pres = 0;
@@ -932,6 +1198,13 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   void fillEmptySparse(long g, Empty o) {
     int pres = 0;   // the clear already wrote every other slot
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_EMPTY__PRESENCE, pres);
+  }
+
+  /** Fill the encode group of `Empty`. */
+  void fillEmptyU(long g, Empty o) {
+    int pres = 0;
+    putBlob(g + ak.corpus.Layout.AK_UFIX_EMPTY__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_EMPTY__PRESENCE, pres);
   }
 
   /** Fill the encode group of `Probe`. */
@@ -1040,6 +1313,62 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_PROBE__PRESENCE, pres);
   }
 
+  /** Fill the encode group of `Probe`. */
+  void fillProbeU(long g, Probe o) {
+    int pres = 0;
+    putStr(g + ak.corpus.Layout.AK_UFIX_PROBE__ID, o.id);
+    if (o.has_opt_count) {
+      pres |= 1;
+      Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_PROBE__OPT_COUNT, o.opt_count);
+    } else {
+      Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_PROBE__OPT_COUNT, 0);
+    }
+    if (o.opt_label != null) {
+      pres |= 2;
+      putStr(g + ak.corpus.Layout.AK_UFIX_PROBE__OPT_LABEL, o.opt_label);
+    } else {
+      absentStr(g + ak.corpus.Layout.AK_UFIX_PROBE__OPT_LABEL);
+    }
+    if (o.has_opt_flag) {
+      pres |= 4;
+      Mem.U.putByte(g + ak.corpus.Layout.AK_UFIX_PROBE__OPT_FLAG, (byte) (o.opt_flag ? 1 : 0));
+    } else {
+      Mem.U.putByte(g + ak.corpus.Layout.AK_UFIX_PROBE__OPT_FLAG, (byte) (false ? 1 : 0));
+    }
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_PROBE__BODY_CASE, o.body_case);
+    if (o.body_case == Probe.BODY_CASE_AS_INT) {
+      Mem.U.putLong(g + ak.corpus.Layout.AK_UFIX_PROBE__BODY_AS_INT, o.body_as_int);
+    }
+    if (o.body_case == Probe.BODY_CASE_AS_TEXT) {
+      putStr(g + ak.corpus.Layout.AK_UFIX_PROBE__BODY_AS_TEXT, o.body_as_text);
+    }
+    if (o.body_case == Probe.BODY_CASE_AS_BLOB) {
+      putBytes(g + ak.corpus.Layout.AK_UFIX_PROBE__BODY_AS_BLOB, o.body_as_blob);
+    }
+    if (o.body_case == Probe.BODY_CASE_AS_STAMP) {
+      if (o.body_as_stamp != null) {
+        fillTimestampU(g + ak.corpus.Layout.AK_UFIX_PROBE__BODY_AS_STAMP, o.body_as_stamp);
+      } else {
+        // The total fill is unconditional (ABI v1 section 6): the codec
+        // does not reset the group between elements, so an unwritten
+        // child silently inherits the previous element's value.
+        Mem.zero(g + ak.corpus.Layout.AK_UFIX_PROBE__BODY_AS_STAMP, ak.corpus.Layout.AK_UFIX_TIMESTAMP_SIZE);
+      }
+    }
+    if (o.body_case == Probe.BODY_CASE_AS_NOTHING) {
+      if (o.body_as_nothing != null) {
+        fillEmptyU(g + ak.corpus.Layout.AK_UFIX_PROBE__BODY_AS_NOTHING, o.body_as_nothing);
+      } else {
+        // The total fill is unconditional (ABI v1 section 6): the codec
+        // does not reset the group between elements, so an unwritten
+        // child silently inherits the previous element's value.
+        Mem.zero(g + ak.corpus.Layout.AK_UFIX_PROBE__BODY_AS_NOTHING, ak.corpus.Layout.AK_UFIX_EMPTY_SIZE);
+      }
+    }
+    putBlob(g + ak.corpus.Layout.AK_UFIX_PROBE__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_PROBE__PRESENCE, pres);
+  }
+
   /** Fill the encode group of `UploadResultData`. */
   void fillUploadResultData(long g, UploadResultData o) {
     int pres = 0;
@@ -1058,6 +1387,16 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_UPLOADRESULTDATA__PRESENCE, pres);
   }
 
+  /** Fill the encode group of `UploadResultData`. */
+  void fillUploadResultDataU(long g, UploadResultData o) {
+    int pres = 0;
+    putStr(g + ak.corpus.Layout.AK_UFIX_UPLOADRESULTDATA__SESSION_ID, o.session_id);
+    putStr(g + ak.corpus.Layout.AK_UFIX_UPLOADRESULTDATA__RESULT_ID, o.result_id);
+    putDirect(g + ak.corpus.Layout.AK_UFIX_UPLOADRESULTDATA__DATA_CHUNK, o.data_chunk);
+    putBlob(g + ak.corpus.Layout.AK_UFIX_UPLOADRESULTDATA__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_UPLOADRESULTDATA__PRESENCE, pres);
+  }
+
   /** Fill the encode group of `MetricsBatch`. */
   void fillMetricsBatch(long g, MetricsBatch o) {
     int pres = 0;
@@ -1070,6 +1409,14 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     int pres = 0;   // the clear already wrote every other slot
     putStr(g + ak.corpus.Layout.AK_EFIX_METRICSBATCH__ID, o.id);
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_METRICSBATCH__PRESENCE, pres);
+  }
+
+  /** Fill the encode group of `MetricsBatch`. */
+  void fillMetricsBatchU(long g, MetricsBatch o) {
+    int pres = 0;
+    putStr(g + ak.corpus.Layout.AK_UFIX_METRICSBATCH__ID, o.id);
+    putBlob(g + ak.corpus.Layout.AK_UFIX_METRICSBATCH__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_METRICSBATCH__PRESENCE, pres);
   }
 
   /** Fill the encode group of `Pair`. */
@@ -1087,6 +1434,15 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if (o.value != 0) 
       Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_PAIR__VALUE, o.value);
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_PAIR__PRESENCE, pres);
+  }
+
+  /** Fill the encode group of `Pair`. */
+  void fillPairU(long g, Pair o) {
+    int pres = 0;
+    putStr(g + ak.corpus.Layout.AK_UFIX_PAIR__KEY, o.key);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_PAIR__VALUE, o.value);
+    putBlob(g + ak.corpus.Layout.AK_UFIX_PAIR__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_PAIR__PRESENCE, pres);
   }
 
   /** Fill the encode group of `ListResultsResponse`. */
@@ -1107,6 +1463,15 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_LISTRESULTSRESPONSE__PRESENCE, pres);
   }
 
+  /** Fill the encode group of `ListResultsResponse`. */
+  void fillListResultsResponseU(long g, ListResultsResponse o) {
+    int pres = 0;
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_LISTRESULTSRESPONSE__PAGE, o.page);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_LISTRESULTSRESPONSE__TOTAL, o.total);
+    putBlob(g + ak.corpus.Layout.AK_UFIX_LISTRESULTSRESPONSE__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_LISTRESULTSRESPONSE__PRESENCE, pres);
+  }
+
   /** Fill the encode group of `ListTasksDetailedResponse`. */
   void fillListTasksDetailedResponse(long g, ListTasksDetailedResponse o) {
     int pres = 0;
@@ -1125,6 +1490,15 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_LISTTASKSDETAILEDRESPONSE__PRESENCE, pres);
   }
 
+  /** Fill the encode group of `ListTasksDetailedResponse`. */
+  void fillListTasksDetailedResponseU(long g, ListTasksDetailedResponse o) {
+    int pres = 0;
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_LISTTASKSDETAILEDRESPONSE__PAGE, o.page);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_LISTTASKSDETAILEDRESPONSE__TOTAL, o.total);
+    putBlob(g + ak.corpus.Layout.AK_UFIX_LISTTASKSDETAILEDRESPONSE__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_LISTTASKSDETAILEDRESPONSE__PRESENCE, pres);
+  }
+
   /** Fill the encode group of `ListTaskSummaryResponse`. */
   void fillListTaskSummaryResponse(long g, ListTaskSummaryResponse o) {
     int pres = 0;
@@ -1135,6 +1509,13 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   void fillListTaskSummaryResponseSparse(long g, ListTaskSummaryResponse o) {
     int pres = 0;   // the clear already wrote every other slot
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_LISTTASKSUMMARYRESPONSE__PRESENCE, pres);
+  }
+
+  /** Fill the encode group of `ListTaskSummaryResponse`. */
+  void fillListTaskSummaryResponseU(long g, ListTaskSummaryResponse o) {
+    int pres = 0;
+    putBlob(g + ak.corpus.Layout.AK_UFIX_LISTTASKSUMMARYRESPONSE__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_LISTTASKSUMMARYRESPONSE__PRESENCE, pres);
   }
 
   /** Fill the encode group of `ListProbeResponse`. */
@@ -1149,6 +1530,13 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_LISTPROBERESPONSE__PRESENCE, pres);
   }
 
+  /** Fill the encode group of `ListProbeResponse`. */
+  void fillListProbeResponseU(long g, ListProbeResponse o) {
+    int pres = 0;
+    putBlob(g + ak.corpus.Layout.AK_UFIX_LISTPROBERESPONSE__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_LISTPROBERESPONSE__PRESENCE, pres);
+  }
+
   /** Fill the encode group of `ListMetricsResponse`. */
   void fillListMetricsResponse(long g, ListMetricsResponse o) {
     int pres = 0;
@@ -1159,6 +1547,13 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   void fillListMetricsResponseSparse(long g, ListMetricsResponse o) {
     int pres = 0;   // the clear already wrote every other slot
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_LISTMETRICSRESPONSE__PRESENCE, pres);
+  }
+
+  /** Fill the encode group of `ListMetricsResponse`. */
+  void fillListMetricsResponseU(long g, ListMetricsResponse o) {
+    int pres = 0;
+    putBlob(g + ak.corpus.Layout.AK_UFIX_LISTMETRICSRESPONSE__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_LISTMETRICSRESPONSE__PRESENCE, pres);
   }
 
   /** Fill the encode group of `UploadResultDataMessage`. */
@@ -1186,6 +1581,22 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_UPLOADRESULTDATAMESSAGE__PRESENCE, pres);
   }
 
+  /** Fill the encode group of `UploadResultDataMessage`. */
+  void fillUploadResultDataMessageU(long g, UploadResultDataMessage o) {
+    int pres = 0;
+    if (o.upload != null) {
+      pres |= 1;
+      fillUploadResultDataU(g + ak.corpus.Layout.AK_UFIX_UPLOADRESULTDATAMESSAGE__UPLOAD, o.upload);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_UPLOADRESULTDATAMESSAGE__UPLOAD, ak.corpus.Layout.AK_UFIX_UPLOADRESULTDATA_SIZE);
+    }
+    putBlob(g + ak.corpus.Layout.AK_UFIX_UPLOADRESULTDATAMESSAGE__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_UPLOADRESULTDATAMESSAGE__PRESENCE, pres);
+  }
+
   /** Fill the encode group of `DualResponse`. */
   void fillDualResponse(long g, DualResponse o) {
     int pres = 0;
@@ -1196,6 +1607,13 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   void fillDualResponseSparse(long g, DualResponse o) {
     int pres = 0;   // the clear already wrote every other slot
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_DUALRESPONSE__PRESENCE, pres);
+  }
+
+  /** Fill the encode group of `DualResponse`. */
+  void fillDualResponseU(long g, DualResponse o) {
+    int pres = 0;
+    putBlob(g + ak.corpus.Layout.AK_UFIX_DUALRESPONSE__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_DUALRESPONSE__PRESENCE, pres);
   }
 
   /** Fill the encode group of `ChunkLeaf`. */
@@ -1215,6 +1633,15 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_CHUNKLEAF__PRESENCE, pres);
   }
 
+  /** Fill the encode group of `ChunkLeaf`. */
+  void fillChunkLeafU(long g, ChunkLeaf o) {
+    int pres = 0;
+    putStr(g + ak.corpus.Layout.AK_UFIX_CHUNKLEAF__K, o.k);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_CHUNKLEAF__V, o.v);
+    putBlob(g + ak.corpus.Layout.AK_UFIX_CHUNKLEAF__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_CHUNKLEAF__PRESENCE, pres);
+  }
+
   /** Fill the encode group of `ChunkInner`. */
   void fillChunkInner(long g, ChunkInner o) {
     int pres = 0;
@@ -1225,6 +1652,13 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   void fillChunkInnerSparse(long g, ChunkInner o) {
     int pres = 0;   // the clear already wrote every other slot
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_CHUNKINNER__PRESENCE, pres);
+  }
+
+  /** Fill the encode group of `ChunkInner`. */
+  void fillChunkInnerU(long g, ChunkInner o) {
+    int pres = 0;
+    putBlob(g + ak.corpus.Layout.AK_UFIX_CHUNKINNER__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_CHUNKINNER__PRESENCE, pres);
   }
 
   /** Fill the encode group of `ChunkElement`. */
@@ -1254,6 +1688,23 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_CHUNKELEMENT__PRESENCE, pres);
   }
 
+  /** Fill the encode group of `ChunkElement`. */
+  void fillChunkElementU(long g, ChunkElement o) {
+    int pres = 0;
+    putStr(g + ak.corpus.Layout.AK_UFIX_CHUNKELEMENT__ID, o.id);
+    if (o.inner != null) {
+      pres |= 1;
+      fillChunkInnerU(g + ak.corpus.Layout.AK_UFIX_CHUNKELEMENT__INNER, o.inner);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_CHUNKELEMENT__INNER, ak.corpus.Layout.AK_UFIX_CHUNKINNER_SIZE);
+    }
+    putBlob(g + ak.corpus.Layout.AK_UFIX_CHUNKELEMENT__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_CHUNKELEMENT__PRESENCE, pres);
+  }
+
   /** Fill the encode group of `ChunkedResponse`. */
   void fillChunkedResponse(long g, ChunkedResponse o) {
     int pres = 0;
@@ -1269,6 +1720,14 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_CHUNKEDRESPONSE__PRESENCE, pres);
   }
 
+  /** Fill the encode group of `ChunkedResponse`. */
+  void fillChunkedResponseU(long g, ChunkedResponse o) {
+    int pres = 0;
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_CHUNKEDRESPONSE__PAGE, o.page);
+    putBlob(g + ak.corpus.Layout.AK_UFIX_CHUNKEDRESPONSE__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_CHUNKEDRESPONSE__PRESENCE, pres);
+  }
+
   /** Fill the encode group of `ChunkedResponseWide`. */
   void fillChunkedResponseWide(long g, ChunkedResponseWide o) {
     int pres = 0;
@@ -1279,6 +1738,13 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   void fillChunkedResponseWideSparse(long g, ChunkedResponseWide o) {
     int pres = 0;   // the clear already wrote every other slot
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_CHUNKEDRESPONSEWIDE__PRESENCE, pres);
+  }
+
+  /** Fill the encode group of `ChunkedResponseWide`. */
+  void fillChunkedResponseWideU(long g, ChunkedResponseWide o) {
+    int pres = 0;
+    putBlob(g + ak.corpus.Layout.AK_UFIX_CHUNKEDRESPONSEWIDE__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_CHUNKEDRESPONSEWIDE__PRESENCE, pres);
   }
 
   /** Fill the encode group of `LeafElement`. */
@@ -1311,6 +1777,24 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_LEAFELEMENT__PRESENCE, pres);
   }
 
+  /** Fill the encode group of `LeafElement`. */
+  void fillLeafElementU(long g, LeafElement o) {
+    int pres = 0;
+    putStr(g + ak.corpus.Layout.AK_UFIX_LEAFELEMENT__ID, o.id);
+    Mem.U.putLong(g + ak.corpus.Layout.AK_UFIX_LEAFELEMENT__N, o.n);
+    if (o.stamp != null) {
+      pres |= 1;
+      fillTimestampU(g + ak.corpus.Layout.AK_UFIX_LEAFELEMENT__STAMP, o.stamp);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_LEAFELEMENT__STAMP, ak.corpus.Layout.AK_UFIX_TIMESTAMP_SIZE);
+    }
+    putBlob(g + ak.corpus.Layout.AK_UFIX_LEAFELEMENT__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_LEAFELEMENT__PRESENCE, pres);
+  }
+
   /** Fill the encode group of `LeafResponse`. */
   void fillLeafResponse(long g, LeafResponse o) {
     int pres = 0;
@@ -1321,6 +1805,13 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   void fillLeafResponseSparse(long g, LeafResponse o) {
     int pres = 0;   // the clear already wrote every other slot
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_LEAFRESPONSE__PRESENCE, pres);
+  }
+
+  /** Fill the encode group of `LeafResponse`. */
+  void fillLeafResponseU(long g, LeafResponse o) {
+    int pres = 0;
+    putBlob(g + ak.corpus.Layout.AK_UFIX_LEAFRESPONSE__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_LEAFRESPONSE__PRESENCE, pres);
   }
 
   /** Fill the encode group of `SurrogateInner`. */
@@ -1335,6 +1826,14 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     int pres = 0;   // the clear already wrote every other slot
     putStr(g + ak.corpus.Layout.AK_EFIX_SURROGATEINNER__TEXT, o.text);
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_SURROGATEINNER__PRESENCE, pres);
+  }
+
+  /** Fill the encode group of `SurrogateInner`. */
+  void fillSurrogateInnerU(long g, SurrogateInner o) {
+    int pres = 0;
+    putStr(g + ak.corpus.Layout.AK_UFIX_SURROGATEINNER__TEXT, o.text);
+    putBlob(g + ak.corpus.Layout.AK_UFIX_SURROGATEINNER__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_SURROGATEINNER__PRESENCE, pres);
   }
 
   /** Fill the encode group of `Surrogate`. */
@@ -1364,6 +1863,24 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     }
     putBytes(g + ak.corpus.Layout.AK_EFIX_SURROGATE__RAW, o.raw);
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_SURROGATE__PRESENCE, pres);
+  }
+
+  /** Fill the encode group of `Surrogate`. */
+  void fillSurrogateU(long g, Surrogate o) {
+    int pres = 0;
+    putStr(g + ak.corpus.Layout.AK_UFIX_SURROGATE__TEXT, o.text);
+    if (o.nested != null) {
+      pres |= 1;
+      fillSurrogateInnerU(g + ak.corpus.Layout.AK_UFIX_SURROGATE__NESTED, o.nested);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_SURROGATE__NESTED, ak.corpus.Layout.AK_UFIX_SURROGATEINNER_SIZE);
+    }
+    putBytes(g + ak.corpus.Layout.AK_UFIX_SURROGATE__RAW, o.raw);
+    putBlob(g + ak.corpus.Layout.AK_UFIX_SURROGATE__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_SURROGATE__PRESENCE, pres);
   }
 
   /** Fill the encode group of `WireZoo`. */
@@ -1416,6 +1933,31 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Mem.U.putInt(g + ak.corpus.Layout.AK_EFIX_WIREZOO__PRESENCE, pres);
   }
 
+  /** Fill the encode group of `WireZoo`. */
+  void fillWireZooU(long g, WireZoo o) {
+    int pres = 0;
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_WIREZOO__V_INT32, o.v_int32);
+    Mem.U.putLong(g + ak.corpus.Layout.AK_UFIX_WIREZOO__V_INT64, o.v_int64);
+    Mem.U.putByte(g + ak.corpus.Layout.AK_UFIX_WIREZOO__V_BOOL, (byte) (o.v_bool ? 1 : 0));
+    Mem.U.putDouble(g + ak.corpus.Layout.AK_UFIX_WIREZOO__V_DOUBLE, o.v_double);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_WIREZOO__V_FIXED32, o.v_fixed32);
+    putStr(g + ak.corpus.Layout.AK_UFIX_WIREZOO__V_STRING, o.v_string);
+    putBytes(g + ak.corpus.Layout.AK_UFIX_WIREZOO__V_BYTES, o.v_bytes);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_WIREZOO__V_ENUM, o.v_enum);
+    if (o.v_msg != null) {
+      pres |= 1;
+      fillTimestampU(g + ak.corpus.Layout.AK_UFIX_WIREZOO__V_MSG, o.v_msg);
+    } else {
+      // The total fill is unconditional (ABI v1 section 6): the codec
+      // does not reset the group between elements, so an unwritten
+      // child silently inherits the previous element's value.
+      Mem.zero(g + ak.corpus.Layout.AK_UFIX_WIREZOO__V_MSG, ak.corpus.Layout.AK_UFIX_TIMESTAMP_SIZE);
+    }
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_WIREZOO__V_BIG_TAG, o.v_big_tag);
+    putBlob(g + ak.corpus.Layout.AK_UFIX_WIREZOO__UNKNOWN, o.unknownFields);
+    Mem.U.putInt(g + ak.corpus.Layout.AK_UFIX_WIREZOO__PRESENCE, pres);
+  }
+
   /** Read the decode group of `Timestamp` into the facade. ABI v1 7.4: resolve a
    *  span against the base pointer you already hold -- one add and then the
    *  same copy (rather than indexing the managed array). */
@@ -1424,6 +1966,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if (pres == 0) { /* keep the branch honest: the absent path is P1.3 */ }
     o.seconds = Mem.U.getLong(g + ak.corpus.Layout.AK_DFIX_TIMESTAMP__SECONDS);
     o.nanos = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_TIMESTAMP__NANOS);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_TIMESTAMP__UNKNOWN);
   }
 
   /** Read the decode group of `Duration` into the facade. ABI v1 7.4: resolve a
@@ -1434,6 +1977,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if (pres == 0) { /* keep the branch honest: the absent path is P1.3 */ }
     o.seconds = Mem.U.getLong(g + ak.corpus.Layout.AK_DFIX_DURATION__SECONDS);
     o.nanos = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_DURATION__NANOS);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_DURATION__UNKNOWN);
   }
 
   /** Read the decode group of `ResultRaw` into the facade. ABI v1 7.4: resolve a
@@ -1449,16 +1993,17 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if ((pres & 1) != 0) {
       if (o.created_at == null) o.created_at = new Timestamp();
       applyTimestamp(g + ak.corpus.Layout.AK_DFIX_RESULTRAW__CREATED_AT, o.created_at);
-    }
+    } else freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_RESULTRAW__CREATED_AT);
     if ((pres & 2) != 0) {
       if (o.completed_at == null) o.completed_at = new Timestamp();
       applyTimestamp(g + ak.corpus.Layout.AK_DFIX_RESULTRAW__COMPLETED_AT, o.completed_at);
-    }
+    } else freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_RESULTRAW__COMPLETED_AT);
     o.result_id = getStr(g + ak.corpus.Layout.AK_DFIX_RESULTRAW__RESULT_ID);
     o.size = Mem.U.getLong(g + ak.corpus.Layout.AK_DFIX_RESULTRAW__SIZE);
     o.created_by = getStr(g + ak.corpus.Layout.AK_DFIX_RESULTRAW__CREATED_BY);
     o.opaque_id = getBytes(g + ak.corpus.Layout.AK_DFIX_RESULTRAW__OPAQUE_ID);
     o.manual_deletion = Mem.U.getByte(g + ak.corpus.Layout.AK_DFIX_RESULTRAW__MANUAL_DELETION) != 0;
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_RESULTRAW__UNKNOWN);
   }
 
   /** Read the decode group of `TaskOptions` into the facade. ABI v1 7.4: resolve a
@@ -1470,7 +2015,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if ((pres & 1) != 0) {
       if (o.max_duration == null) o.max_duration = new Duration();
       applyDuration(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONS__MAX_DURATION, o.max_duration);
-    }
+    } else freeUnkDuration(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONS__MAX_DURATION);
     o.max_retries = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONS__MAX_RETRIES);
     o.priority = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONS__PRIORITY);
     o.partition_id = getStr(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONS__PARTITION_ID);
@@ -1479,6 +2024,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     o.application_namespace = getStr(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONS__APPLICATION_NAMESPACE);
     o.application_service = getStr(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONS__APPLICATION_SERVICE);
     o.engine_type = getStr(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONS__ENGINE_TYPE);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONS__UNKNOWN);
   }
 
   /** Read the decode group of `TaskOutput` into the facade. ABI v1 7.4: resolve a
@@ -1489,6 +2035,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if (pres == 0) { /* keep the branch honest: the absent path is P1.3 */ }
     o.success = Mem.U.getByte(g + ak.corpus.Layout.AK_DFIX_TASKOUTPUT__SUCCESS) != 0;
     o.error = getStr(g + ak.corpus.Layout.AK_DFIX_TASKOUTPUT__ERROR);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_TASKOUTPUT__UNKNOWN);
   }
 
   /** Read the decode group of `TaskDetailed` into the facade. ABI v1 7.4: resolve a
@@ -1505,63 +2052,64 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if ((pres & 1) != 0) {
       if (o.options == null) o.options = new TaskOptions();
       applyTaskOptions(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__OPTIONS, o.options);
-    }
+    } else freeUnkTaskOptions(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__OPTIONS);
     if ((pres & 2) != 0) {
       if (o.created_at == null) o.created_at = new Timestamp();
       applyTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__CREATED_AT, o.created_at);
-    }
+    } else freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__CREATED_AT);
     if ((pres & 4) != 0) {
       if (o.submitted_at == null) o.submitted_at = new Timestamp();
       applyTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__SUBMITTED_AT, o.submitted_at);
-    }
+    } else freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__SUBMITTED_AT);
     if ((pres & 8) != 0) {
       if (o.started_at == null) o.started_at = new Timestamp();
       applyTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__STARTED_AT, o.started_at);
-    }
+    } else freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__STARTED_AT);
     if ((pres & 16) != 0) {
       if (o.ended_at == null) o.ended_at = new Timestamp();
       applyTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__ENDED_AT, o.ended_at);
-    }
+    } else freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__ENDED_AT);
     if ((pres & 32) != 0) {
       if (o.pod_ttl == null) o.pod_ttl = new Timestamp();
       applyTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__POD_TTL, o.pod_ttl);
-    }
+    } else freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__POD_TTL);
     if ((pres & 64) != 0) {
       if (o.output == null) o.output = new TaskOutput();
       applyTaskOutput(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__OUTPUT, o.output);
-    }
+    } else freeUnkTaskOutput(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__OUTPUT);
     o.pod_hostname = getStr(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__POD_HOSTNAME);
     if ((pres & 128) != 0) {
       if (o.received_at == null) o.received_at = new Timestamp();
       applyTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__RECEIVED_AT, o.received_at);
-    }
+    } else freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__RECEIVED_AT);
     if ((pres & 256) != 0) {
       if (o.acquired_at == null) o.acquired_at = new Timestamp();
       applyTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__ACQUIRED_AT, o.acquired_at);
-    }
+    } else freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__ACQUIRED_AT);
     if ((pres & 512) != 0) {
       if (o.creation_to_end_duration == null) o.creation_to_end_duration = new Duration();
       applyDuration(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__CREATION_TO_END_DURATION, o.creation_to_end_duration);
-    }
+    } else freeUnkDuration(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__CREATION_TO_END_DURATION);
     if ((pres & 1024) != 0) {
       if (o.processing_to_end_duration == null) o.processing_to_end_duration = new Duration();
       applyDuration(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__PROCESSING_TO_END_DURATION, o.processing_to_end_duration);
-    }
+    } else freeUnkDuration(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__PROCESSING_TO_END_DURATION);
     o.initial_task_id = getStr(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__INITIAL_TASK_ID);
     if ((pres & 2048) != 0) {
       if (o.received_to_end_duration == null) o.received_to_end_duration = new Duration();
       applyDuration(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__RECEIVED_TO_END_DURATION, o.received_to_end_duration);
-    }
+    } else freeUnkDuration(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__RECEIVED_TO_END_DURATION);
     if ((pres & 4096) != 0) {
       if (o.processed_at == null) o.processed_at = new Timestamp();
       applyTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__PROCESSED_AT, o.processed_at);
-    }
+    } else freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__PROCESSED_AT);
     if ((pres & 8192) != 0) {
       if (o.fetched_at == null) o.fetched_at = new Timestamp();
       applyTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__FETCHED_AT, o.fetched_at);
-    }
+    } else freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__FETCHED_AT);
     o.payload_id = getStr(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__PAYLOAD_ID);
     o.created_by = getStr(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__CREATED_BY);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__UNKNOWN);
   }
 
   /** Read the decode group of `TaskSummary` into the facade. ABI v1 7.4: resolve a
@@ -1575,15 +2123,16 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if ((pres & 1) != 0) {
       if (o.options == null) o.options = new TaskOptions();
       applyTaskOptions(g + ak.corpus.Layout.AK_DFIX_TASKSUMMARY__OPTIONS, o.options);
-    }
+    } else freeUnkTaskOptions(g + ak.corpus.Layout.AK_DFIX_TASKSUMMARY__OPTIONS);
     o.status = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_TASKSUMMARY__STATUS);
     if ((pres & 2) != 0) {
       if (o.created_at == null) o.created_at = new Timestamp();
       applyTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKSUMMARY__CREATED_AT, o.created_at);
-    }
+    } else freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKSUMMARY__CREATED_AT);
     o.error = getStr(g + ak.corpus.Layout.AK_DFIX_TASKSUMMARY__ERROR);
     o.status_message = getStr(g + ak.corpus.Layout.AK_DFIX_TASKSUMMARY__STATUS_MESSAGE);
     o.count_data_dependencies = Mem.U.getLong(g + ak.corpus.Layout.AK_DFIX_TASKSUMMARY__COUNT_DATA_DEPENDENCIES);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_TASKSUMMARY__UNKNOWN);
   }
 
   /** Read the decode group of `Empty` into the facade. ABI v1 7.4: resolve a
@@ -1592,6 +2141,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   void applyEmpty(long g, Empty o) {
     int pres = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_EMPTY__PRESENCE);
     if (pres == 0) { /* keep the branch honest: the absent path is P1.3 */ }
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_EMPTY__UNKNOWN);
   }
 
   /** Read the decode group of `Probe` into the facade. ABI v1 7.4: resolve a
@@ -1616,8 +2166,11 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       o.body_as_blob = getBytes(g + ak.corpus.Layout.AK_DFIX_PROBE__BODY_AS_BLOB);
     if (o.body_case == Probe.BODY_CASE_AS_STAMP)
       { o.body_as_stamp = new Timestamp(); applyTimestamp(g + ak.corpus.Layout.AK_DFIX_PROBE__BODY_AS_STAMP, o.body_as_stamp); }
+    else freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_PROBE__BODY_AS_STAMP);
     if (o.body_case == Probe.BODY_CASE_AS_NOTHING)
       { o.body_as_nothing = new Empty(); applyEmpty(g + ak.corpus.Layout.AK_DFIX_PROBE__BODY_AS_NOTHING, o.body_as_nothing); }
+    else freeUnkEmpty(g + ak.corpus.Layout.AK_DFIX_PROBE__BODY_AS_NOTHING);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_PROBE__UNKNOWN);
   }
 
   /** Read the decode group of `UploadResultData` into the facade. ABI v1 7.4: resolve a
@@ -1629,6 +2182,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     o.session_id = getStr(g + ak.corpus.Layout.AK_DFIX_UPLOADRESULTDATA__SESSION_ID);
     o.result_id = getStr(g + ak.corpus.Layout.AK_DFIX_UPLOADRESULTDATA__RESULT_ID);
     o.data_chunk = getBytes(g + ak.corpus.Layout.AK_DFIX_UPLOADRESULTDATA__DATA_CHUNK);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_UPLOADRESULTDATA__UNKNOWN);
   }
 
   /** Read the decode group of `MetricsBatch` into the facade. ABI v1 7.4: resolve a
@@ -1638,6 +2192,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     int pres = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_METRICSBATCH__PRESENCE);
     if (pres == 0) { /* keep the branch honest: the absent path is P1.3 */ }
     o.id = getStr(g + ak.corpus.Layout.AK_DFIX_METRICSBATCH__ID);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_METRICSBATCH__UNKNOWN);
   }
 
   /** Read the decode group of `Pair` into the facade. ABI v1 7.4: resolve a
@@ -1648,6 +2203,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if (pres == 0) { /* keep the branch honest: the absent path is P1.3 */ }
     o.key = getStr(g + ak.corpus.Layout.AK_DFIX_PAIR__KEY);
     o.value = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_PAIR__VALUE);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_PAIR__UNKNOWN);
   }
 
   /** Read the decode group of `ListResultsResponse` into the facade. ABI v1 7.4: resolve a
@@ -1658,6 +2214,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if (pres == 0) { /* keep the branch honest: the absent path is P1.3 */ }
     o.page = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_LISTRESULTSRESPONSE__PAGE);
     o.total = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_LISTRESULTSRESPONSE__TOTAL);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_LISTRESULTSRESPONSE__UNKNOWN);
   }
 
   /** Read the decode group of `ListTasksDetailedResponse` into the facade. ABI v1 7.4: resolve a
@@ -1668,6 +2225,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if (pres == 0) { /* keep the branch honest: the absent path is P1.3 */ }
     o.page = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_LISTTASKSDETAILEDRESPONSE__PAGE);
     o.total = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_LISTTASKSDETAILEDRESPONSE__TOTAL);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_LISTTASKSDETAILEDRESPONSE__UNKNOWN);
   }
 
   /** Read the decode group of `ListTaskSummaryResponse` into the facade. ABI v1 7.4: resolve a
@@ -1676,6 +2234,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   void applyListTaskSummaryResponse(long g, ListTaskSummaryResponse o) {
     int pres = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_LISTTASKSUMMARYRESPONSE__PRESENCE);
     if (pres == 0) { /* keep the branch honest: the absent path is P1.3 */ }
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_LISTTASKSUMMARYRESPONSE__UNKNOWN);
   }
 
   /** Read the decode group of `ListProbeResponse` into the facade. ABI v1 7.4: resolve a
@@ -1684,6 +2243,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   void applyListProbeResponse(long g, ListProbeResponse o) {
     int pres = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_LISTPROBERESPONSE__PRESENCE);
     if (pres == 0) { /* keep the branch honest: the absent path is P1.3 */ }
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_LISTPROBERESPONSE__UNKNOWN);
   }
 
   /** Read the decode group of `ListMetricsResponse` into the facade. ABI v1 7.4: resolve a
@@ -1692,6 +2252,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   void applyListMetricsResponse(long g, ListMetricsResponse o) {
     int pres = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_LISTMETRICSRESPONSE__PRESENCE);
     if (pres == 0) { /* keep the branch honest: the absent path is P1.3 */ }
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_LISTMETRICSRESPONSE__UNKNOWN);
   }
 
   /** Read the decode group of `UploadResultDataMessage` into the facade. ABI v1 7.4: resolve a
@@ -1703,7 +2264,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if ((pres & 1) != 0) {
       if (o.upload == null) o.upload = new UploadResultData();
       applyUploadResultData(g + ak.corpus.Layout.AK_DFIX_UPLOADRESULTDATAMESSAGE__UPLOAD, o.upload);
-    }
+    } else freeUnkUploadResultData(g + ak.corpus.Layout.AK_DFIX_UPLOADRESULTDATAMESSAGE__UPLOAD);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_UPLOADRESULTDATAMESSAGE__UNKNOWN);
   }
 
   /** Read the decode group of `DualResponse` into the facade. ABI v1 7.4: resolve a
@@ -1712,6 +2274,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   void applyDualResponse(long g, DualResponse o) {
     int pres = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_DUALRESPONSE__PRESENCE);
     if (pres == 0) { /* keep the branch honest: the absent path is P1.3 */ }
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_DUALRESPONSE__UNKNOWN);
   }
 
   /** Read the decode group of `ChunkLeaf` into the facade. ABI v1 7.4: resolve a
@@ -1722,6 +2285,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if (pres == 0) { /* keep the branch honest: the absent path is P1.3 */ }
     o.k = getStr(g + ak.corpus.Layout.AK_DFIX_CHUNKLEAF__K);
     o.v = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_CHUNKLEAF__V);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_CHUNKLEAF__UNKNOWN);
   }
 
   /** Read the decode group of `ChunkInner` into the facade. ABI v1 7.4: resolve a
@@ -1730,6 +2294,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   void applyChunkInner(long g, ChunkInner o) {
     int pres = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_CHUNKINNER__PRESENCE);
     if (pres == 0) { /* keep the branch honest: the absent path is P1.3 */ }
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_CHUNKINNER__UNKNOWN);
   }
 
   /** Read the decode group of `ChunkElement` into the facade. ABI v1 7.4: resolve a
@@ -1742,7 +2307,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if ((pres & 1) != 0) {
       if (o.inner == null) o.inner = new ChunkInner();
       applyChunkInner(g + ak.corpus.Layout.AK_DFIX_CHUNKELEMENT__INNER, o.inner);
-    }
+    } else freeUnkChunkInner(g + ak.corpus.Layout.AK_DFIX_CHUNKELEMENT__INNER);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_CHUNKELEMENT__UNKNOWN);
   }
 
   /** Read the decode group of `ChunkedResponse` into the facade. ABI v1 7.4: resolve a
@@ -1752,6 +2318,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     int pres = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_CHUNKEDRESPONSE__PRESENCE);
     if (pres == 0) { /* keep the branch honest: the absent path is P1.3 */ }
     o.page = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_CHUNKEDRESPONSE__PAGE);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_CHUNKEDRESPONSE__UNKNOWN);
   }
 
   /** Read the decode group of `ChunkedResponseWide` into the facade. ABI v1 7.4: resolve a
@@ -1760,6 +2327,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   void applyChunkedResponseWide(long g, ChunkedResponseWide o) {
     int pres = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_CHUNKEDRESPONSEWIDE__PRESENCE);
     if (pres == 0) { /* keep the branch honest: the absent path is P1.3 */ }
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_CHUNKEDRESPONSEWIDE__UNKNOWN);
   }
 
   /** Read the decode group of `LeafElement` into the facade. ABI v1 7.4: resolve a
@@ -1773,7 +2341,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if ((pres & 1) != 0) {
       if (o.stamp == null) o.stamp = new Timestamp();
       applyTimestamp(g + ak.corpus.Layout.AK_DFIX_LEAFELEMENT__STAMP, o.stamp);
-    }
+    } else freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_LEAFELEMENT__STAMP);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_LEAFELEMENT__UNKNOWN);
   }
 
   /** Read the decode group of `LeafResponse` into the facade. ABI v1 7.4: resolve a
@@ -1782,6 +2351,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   void applyLeafResponse(long g, LeafResponse o) {
     int pres = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_LEAFRESPONSE__PRESENCE);
     if (pres == 0) { /* keep the branch honest: the absent path is P1.3 */ }
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_LEAFRESPONSE__UNKNOWN);
   }
 
   /** Read the decode group of `SurrogateInner` into the facade. ABI v1 7.4: resolve a
@@ -1791,6 +2361,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     int pres = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_SURROGATEINNER__PRESENCE);
     if (pres == 0) { /* keep the branch honest: the absent path is P1.3 */ }
     o.text = getStr(g + ak.corpus.Layout.AK_DFIX_SURROGATEINNER__TEXT);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_SURROGATEINNER__UNKNOWN);
   }
 
   /** Read the decode group of `Surrogate` into the facade. ABI v1 7.4: resolve a
@@ -1803,8 +2374,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if ((pres & 1) != 0) {
       if (o.nested == null) o.nested = new SurrogateInner();
       applySurrogateInner(g + ak.corpus.Layout.AK_DFIX_SURROGATE__NESTED, o.nested);
-    }
+    } else freeUnkSurrogateInner(g + ak.corpus.Layout.AK_DFIX_SURROGATE__NESTED);
     o.raw = getBytes(g + ak.corpus.Layout.AK_DFIX_SURROGATE__RAW);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_SURROGATE__UNKNOWN);
   }
 
   /** Read the decode group of `WireZoo` into the facade. ABI v1 7.4: resolve a
@@ -1824,9 +2396,546 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     if ((pres & 1) != 0) {
       if (o.v_msg == null) o.v_msg = new Timestamp();
       applyTimestamp(g + ak.corpus.Layout.AK_DFIX_WIREZOO__V_MSG, o.v_msg);
-    }
+    } else freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_WIREZOO__V_MSG);
     o.v_big_tag = Mem.U.getInt(g + ak.corpus.Layout.AK_DFIX_WIREZOO__V_BIG_TAG);
+    o.unknownFields = takeUnk(g + ak.corpus.Layout.AK_DFIX_WIREZOO__UNKNOWN);
   }
+
+  void freeUnkTaskOptionsOptionsEntry(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONSOPTIONSENTRY__UNKNOWN);
+  }
+
+  void freeUnkChunkElementAttrsEntry(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_CHUNKELEMENTATTRSENTRY__UNKNOWN);
+  }
+
+  void freeUnkSurrogateAttrsEntry(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_SURROGATEATTRSENTRY__UNKNOWN);
+  }
+
+  void freeUnkTimestamp(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_TIMESTAMP__UNKNOWN);
+  }
+
+  void freeUnkDuration(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_DURATION__UNKNOWN);
+  }
+
+  void freeUnkResultRaw(long g) {
+    freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_RESULTRAW__CREATED_AT);
+    freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_RESULTRAW__COMPLETED_AT);
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_RESULTRAW__UNKNOWN);
+  }
+
+  void freeUnkTaskOptions(long g) {
+    freeUnkDuration(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONS__MAX_DURATION);
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONS__UNKNOWN);
+  }
+
+  void freeUnkTaskOutput(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_TASKOUTPUT__UNKNOWN);
+  }
+
+  void freeUnkTaskDetailed(long g) {
+    freeUnkTaskOptions(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__OPTIONS);
+    freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__CREATED_AT);
+    freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__SUBMITTED_AT);
+    freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__STARTED_AT);
+    freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__ENDED_AT);
+    freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__POD_TTL);
+    freeUnkTaskOutput(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__OUTPUT);
+    freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__RECEIVED_AT);
+    freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__ACQUIRED_AT);
+    freeUnkDuration(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__CREATION_TO_END_DURATION);
+    freeUnkDuration(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__PROCESSING_TO_END_DURATION);
+    freeUnkDuration(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__RECEIVED_TO_END_DURATION);
+    freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__PROCESSED_AT);
+    freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__FETCHED_AT);
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_TASKDETAILED__UNKNOWN);
+  }
+
+  void freeUnkTaskSummary(long g) {
+    freeUnkTaskOptions(g + ak.corpus.Layout.AK_DFIX_TASKSUMMARY__OPTIONS);
+    freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_TASKSUMMARY__CREATED_AT);
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_TASKSUMMARY__UNKNOWN);
+  }
+
+  void freeUnkEmpty(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_EMPTY__UNKNOWN);
+  }
+
+  void freeUnkProbe(long g) {
+    freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_PROBE__BODY_AS_STAMP);
+    freeUnkEmpty(g + ak.corpus.Layout.AK_DFIX_PROBE__BODY_AS_NOTHING);
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_PROBE__UNKNOWN);
+  }
+
+  void freeUnkUploadResultData(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_UPLOADRESULTDATA__UNKNOWN);
+  }
+
+  void freeUnkMetricsBatch(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_METRICSBATCH__UNKNOWN);
+  }
+
+  void freeUnkPair(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_PAIR__UNKNOWN);
+  }
+
+  void freeUnkListResultsResponse(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_LISTRESULTSRESPONSE__UNKNOWN);
+  }
+
+  void freeUnkListTasksDetailedResponse(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_LISTTASKSDETAILEDRESPONSE__UNKNOWN);
+  }
+
+  void freeUnkListTaskSummaryResponse(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_LISTTASKSUMMARYRESPONSE__UNKNOWN);
+  }
+
+  void freeUnkListProbeResponse(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_LISTPROBERESPONSE__UNKNOWN);
+  }
+
+  void freeUnkListMetricsResponse(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_LISTMETRICSRESPONSE__UNKNOWN);
+  }
+
+  void freeUnkUploadResultDataMessage(long g) {
+    freeUnkUploadResultData(g + ak.corpus.Layout.AK_DFIX_UPLOADRESULTDATAMESSAGE__UPLOAD);
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_UPLOADRESULTDATAMESSAGE__UNKNOWN);
+  }
+
+  void freeUnkDualResponse(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_DUALRESPONSE__UNKNOWN);
+  }
+
+  void freeUnkChunkLeaf(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_CHUNKLEAF__UNKNOWN);
+  }
+
+  void freeUnkChunkInner(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_CHUNKINNER__UNKNOWN);
+  }
+
+  void freeUnkChunkElement(long g) {
+    freeUnkChunkInner(g + ak.corpus.Layout.AK_DFIX_CHUNKELEMENT__INNER);
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_CHUNKELEMENT__UNKNOWN);
+  }
+
+  void freeUnkChunkedResponse(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_CHUNKEDRESPONSE__UNKNOWN);
+  }
+
+  void freeUnkChunkedResponseWide(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_CHUNKEDRESPONSEWIDE__UNKNOWN);
+  }
+
+  void freeUnkLeafElement(long g) {
+    freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_LEAFELEMENT__STAMP);
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_LEAFELEMENT__UNKNOWN);
+  }
+
+  void freeUnkLeafResponse(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_LEAFRESPONSE__UNKNOWN);
+  }
+
+  void freeUnkSurrogateInner(long g) {
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_SURROGATEINNER__UNKNOWN);
+  }
+
+  void freeUnkSurrogate(long g) {
+    freeUnkSurrogateInner(g + ak.corpus.Layout.AK_DFIX_SURROGATE__NESTED);
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_SURROGATE__UNKNOWN);
+  }
+
+  void freeUnkWireZoo(long g) {
+    freeUnkTimestamp(g + ak.corpus.Layout.AK_DFIX_WIREZOO__V_MSG);
+    dropUnk(g + ak.corpus.Layout.AK_DFIX_WIREZOO__UNKNOWN);
+  }
+
+  // ---- decision 11: root-bound contexts, in-place options, the bags ----------
+  final long[] decCtxs = new long[29];
+  final long[] unkOpts = new long[29];
+  final long[] unkMask = {-1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L};
+  /** Each root's positions, in the options struct's order (plan.unk_opts_layout). */
+  public static final String[][] UNK_POSITIONS = {
+    {"self"},
+    {"self"},
+    {"self", "created_at", "completed_at"},
+    {"self", "options", "max_duration"},
+    {"self"},
+    {"self", "options", "options_options", "options_max_duration", "created_at", "submitted_at", "started_at", "ended_at", "pod_ttl", "output", "received_at", "acquired_at", "creation_to_end_duration", "processing_to_end_duration", "received_to_end_duration", "processed_at", "fetched_at"},
+    {"self", "options", "options_options", "options_max_duration", "created_at"},
+    {"self", "body"},
+    {"self"},
+    {"self"},
+    {"self"},
+    {"self"},
+    {"self", "results", "results_created_at", "results_completed_at"},
+    {"self", "tasks", "tasks_options", "tasks_options_options", "tasks_options_max_duration", "tasks_created_at", "tasks_submitted_at", "tasks_started_at", "tasks_ended_at", "tasks_pod_ttl", "tasks_output", "tasks_received_at", "tasks_acquired_at", "tasks_creation_to_end_duration", "tasks_processing_to_end_duration", "tasks_received_to_end_duration", "tasks_processed_at", "tasks_fetched_at"},
+    {"self", "tasks", "tasks_options", "tasks_options_options", "tasks_options_max_duration", "tasks_created_at"},
+    {"self", "probes", "probes_body"},
+    {"self", "batches"},
+    {"self", "upload"},
+    {"self", "left", "right"},
+    {"self"},
+    {"self", "leaves"},
+    {"self", "attrs", "inner", "inner_leaves"},
+    {"self", "items", "items_attrs", "items_inner", "items_inner_leaves"},
+    {"self", "items", "items_attrs", "items_inner", "items_inner_leaves"},
+    {"self", "stamp"},
+    {"self", "items", "items_stamp"},
+    {"self", "nested", "attrs"},
+    {"self"},
+    {"self", "v_msg"},
+  };
+  public static final String[] ROOTS = {"Timestamp", "Duration", "ResultRaw", "TaskOptions", "TaskOutput", "TaskDetailed", "TaskSummary", "Probe", "Empty", "UploadResultData", "MetricsBatch", "Pair", "ListResultsResponse", "ListTasksDetailedResponse", "ListTaskSummaryResponse", "ListProbeResponse", "ListMetricsResponse", "UploadResultDataMessage", "DualResponse", "ChunkLeaf", "ChunkInner", "ChunkElement", "ChunkedResponse", "ChunkedResponseWide", "LeafElement", "LeafResponse", "Surrogate", "SurrogateInner", "WireZoo"};
+
+  long decCtxOf(int ri) {
+    long c = decCtxs[ri];
+    if (c != 0) return c;
+    switch (ri) {
+      case 0: c = ak.corpus.NativeEntry.decCtxNewTimestamp(0L); break;
+      case 1: c = ak.corpus.NativeEntry.decCtxNewDuration(0L); break;
+      case 2: c = ak.corpus.NativeEntry.decCtxNewResultRaw(0L); break;
+      case 3: c = ak.corpus.NativeEntry.decCtxNewTaskOptions(0L); break;
+      case 4: c = ak.corpus.NativeEntry.decCtxNewTaskOutput(0L); break;
+      case 5: c = ak.corpus.NativeEntry.decCtxNewTaskDetailed(0L); break;
+      case 6: c = ak.corpus.NativeEntry.decCtxNewTaskSummary(0L); break;
+      case 7: c = ak.corpus.NativeEntry.decCtxNewProbe(0L); break;
+      case 8: c = ak.corpus.NativeEntry.decCtxNewEmpty(0L); break;
+      case 9: c = ak.corpus.NativeEntry.decCtxNewUploadResultData(0L); break;
+      case 10: c = ak.corpus.NativeEntry.decCtxNewMetricsBatch(0L); break;
+      case 11: c = ak.corpus.NativeEntry.decCtxNewPair(0L); break;
+      case 12: c = ak.corpus.NativeEntry.decCtxNewListResultsResponse(0L); break;
+      case 13: c = ak.corpus.NativeEntry.decCtxNewListTasksDetailedResponse(0L); break;
+      case 14: c = ak.corpus.NativeEntry.decCtxNewListTaskSummaryResponse(0L); break;
+      case 15: c = ak.corpus.NativeEntry.decCtxNewListProbeResponse(0L); break;
+      case 16: c = ak.corpus.NativeEntry.decCtxNewListMetricsResponse(0L); break;
+      case 17: c = ak.corpus.NativeEntry.decCtxNewUploadResultDataMessage(0L); break;
+      case 18: c = ak.corpus.NativeEntry.decCtxNewDualResponse(0L); break;
+      case 19: c = ak.corpus.NativeEntry.decCtxNewChunkLeaf(0L); break;
+      case 20: c = ak.corpus.NativeEntry.decCtxNewChunkInner(0L); break;
+      case 21: c = ak.corpus.NativeEntry.decCtxNewChunkElement(0L); break;
+      case 22: c = ak.corpus.NativeEntry.decCtxNewChunkedResponse(0L); break;
+      case 23: c = ak.corpus.NativeEntry.decCtxNewChunkedResponseWide(0L); break;
+      case 24: c = ak.corpus.NativeEntry.decCtxNewLeafElement(0L); break;
+      case 25: c = ak.corpus.NativeEntry.decCtxNewLeafResponse(0L); break;
+      case 26: c = ak.corpus.NativeEntry.decCtxNewSurrogate(0L); break;
+      case 27: c = ak.corpus.NativeEntry.decCtxNewSurrogateInner(0L); break;
+      case 28: c = ak.corpus.NativeEntry.decCtxNewWireZoo(0L); break;
+      default: throw new IllegalArgumentException("root " + ri);
+    }
+    if (c == 0) throw new IllegalStateException("ak_dec_ctx_new_<Root> failed");
+    return decCtxs[ri] = c;
+  }
+
+  /** A context bound to `root` (for the wrong-root control). */
+  public long contextOf(String root) { return decCtxOf(java.util.Arrays.asList(ROOTS).indexOf(root)); }
+
+  long unkOptsOf(int ri) {
+    long x = unkOpts[ri];
+    if (x != 0) return x;
+    long grow = Native.unkGrow();
+    switch (ri) {
+      case 0: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_TIMESTAMP_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_TIMESTAMP_OPTS_SIZE);
+        if ((unkMask[0] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TIMESTAMP_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        break;
+      }
+      case 1: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_DURATION_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_DURATION_OPTS_SIZE);
+        if ((unkMask[1] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_DURATION_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        break;
+      }
+      case 2: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_RESULTRAW_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_RESULTRAW_OPTS_SIZE);
+        if ((unkMask[2] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_RESULTRAW_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[2] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_RESULTRAW_OPTS__CREATED_AT + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // created_at (ak_unk_opts)
+        if ((unkMask[2] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_RESULTRAW_OPTS__COMPLETED_AT + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // completed_at (ak_unk_opts)
+        break;
+      }
+      case 3: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_TASKOPTIONS_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_TASKOPTIONS_OPTS_SIZE);
+        if ((unkMask[3] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKOPTIONS_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[3] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKOPTIONS_OPTS__OPTIONS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // options (ak_unk_pool)
+        if ((unkMask[3] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKOPTIONS_OPTS__MAX_DURATION + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // max_duration (ak_unk_opts)
+        break;
+      }
+      case 4: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_TASKOUTPUT_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_TASKOUTPUT_OPTS_SIZE);
+        if ((unkMask[4] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKOUTPUT_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        break;
+      }
+      case 5: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS_SIZE);
+        if ((unkMask[5] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[5] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__OPTIONS + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // options (ak_unk_opts)
+        if ((unkMask[5] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__OPTIONS_OPTIONS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // options_options (ak_unk_pool)
+        if ((unkMask[5] & (1L << 3)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__OPTIONS_MAX_DURATION + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // options_max_duration (ak_unk_opts)
+        if ((unkMask[5] & (1L << 4)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__CREATED_AT + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // created_at (ak_unk_opts)
+        if ((unkMask[5] & (1L << 5)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__SUBMITTED_AT + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // submitted_at (ak_unk_opts)
+        if ((unkMask[5] & (1L << 6)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__STARTED_AT + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // started_at (ak_unk_opts)
+        if ((unkMask[5] & (1L << 7)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__ENDED_AT + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // ended_at (ak_unk_opts)
+        if ((unkMask[5] & (1L << 8)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__POD_TTL + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // pod_ttl (ak_unk_opts)
+        if ((unkMask[5] & (1L << 9)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__OUTPUT + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // output (ak_unk_opts)
+        if ((unkMask[5] & (1L << 10)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__RECEIVED_AT + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // received_at (ak_unk_opts)
+        if ((unkMask[5] & (1L << 11)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__ACQUIRED_AT + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // acquired_at (ak_unk_opts)
+        if ((unkMask[5] & (1L << 12)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__CREATION_TO_END_DURATION + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // creation_to_end_duration (ak_unk_opts)
+        if ((unkMask[5] & (1L << 13)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__PROCESSING_TO_END_DURATION + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // processing_to_end_duration (ak_unk_opts)
+        if ((unkMask[5] & (1L << 14)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__RECEIVED_TO_END_DURATION + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // received_to_end_duration (ak_unk_opts)
+        if ((unkMask[5] & (1L << 15)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__PROCESSED_AT + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // processed_at (ak_unk_opts)
+        if ((unkMask[5] & (1L << 16)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__FETCHED_AT + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // fetched_at (ak_unk_opts)
+        break;
+      }
+      case 6: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_TASKSUMMARY_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_TASKSUMMARY_OPTS_SIZE);
+        if ((unkMask[6] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKSUMMARY_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[6] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKSUMMARY_OPTS__OPTIONS + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // options (ak_unk_opts)
+        if ((unkMask[6] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKSUMMARY_OPTS__OPTIONS_OPTIONS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // options_options (ak_unk_pool)
+        if ((unkMask[6] & (1L << 3)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKSUMMARY_OPTS__OPTIONS_MAX_DURATION + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // options_max_duration (ak_unk_opts)
+        if ((unkMask[6] & (1L << 4)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKSUMMARY_OPTS__CREATED_AT + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // created_at (ak_unk_opts)
+        break;
+      }
+      case 7: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_PROBE_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_PROBE_OPTS_SIZE);
+        if ((unkMask[7] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_PROBE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[7] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_PROBE_OPTS__BODY + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // body (ak_unk_opts)
+        break;
+      }
+      case 8: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_EMPTY_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_EMPTY_OPTS_SIZE);
+        if ((unkMask[8] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_EMPTY_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        break;
+      }
+      case 9: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_UPLOADRESULTDATA_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_UPLOADRESULTDATA_OPTS_SIZE);
+        if ((unkMask[9] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_UPLOADRESULTDATA_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        break;
+      }
+      case 10: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_METRICSBATCH_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_METRICSBATCH_OPTS_SIZE);
+        if ((unkMask[10] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_METRICSBATCH_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        break;
+      }
+      case 11: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_PAIR_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_PAIR_OPTS_SIZE);
+        if ((unkMask[11] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_PAIR_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        break;
+      }
+      case 12: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_LISTRESULTSRESPONSE_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_LISTRESULTSRESPONSE_OPTS_SIZE);
+        if ((unkMask[12] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTRESULTSRESPONSE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[12] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTRESULTSRESPONSE_OPTS__RESULTS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // results (ak_unk_pool)
+        if ((unkMask[12] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTRESULTSRESPONSE_OPTS__RESULTS_CREATED_AT + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // results_created_at (ak_unk_pool)
+        if ((unkMask[12] & (1L << 3)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTRESULTSRESPONSE_OPTS__RESULTS_COMPLETED_AT + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // results_completed_at (ak_unk_pool)
+        break;
+      }
+      case 13: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS_SIZE);
+        if ((unkMask[13] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[13] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks (ak_unk_pool)
+        if ((unkMask[13] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_OPTIONS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_options (ak_unk_pool)
+        if ((unkMask[13] & (1L << 3)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_OPTIONS_OPTIONS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_options_options (ak_unk_pool)
+        if ((unkMask[13] & (1L << 4)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_OPTIONS_MAX_DURATION + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_options_max_duration (ak_unk_pool)
+        if ((unkMask[13] & (1L << 5)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_CREATED_AT + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_created_at (ak_unk_pool)
+        if ((unkMask[13] & (1L << 6)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_SUBMITTED_AT + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_submitted_at (ak_unk_pool)
+        if ((unkMask[13] & (1L << 7)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_STARTED_AT + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_started_at (ak_unk_pool)
+        if ((unkMask[13] & (1L << 8)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_ENDED_AT + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_ended_at (ak_unk_pool)
+        if ((unkMask[13] & (1L << 9)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_POD_TTL + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_pod_ttl (ak_unk_pool)
+        if ((unkMask[13] & (1L << 10)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_OUTPUT + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_output (ak_unk_pool)
+        if ((unkMask[13] & (1L << 11)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_RECEIVED_AT + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_received_at (ak_unk_pool)
+        if ((unkMask[13] & (1L << 12)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_ACQUIRED_AT + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_acquired_at (ak_unk_pool)
+        if ((unkMask[13] & (1L << 13)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_CREATION_TO_END_DURATION + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_creation_to_end_duration (ak_unk_pool)
+        if ((unkMask[13] & (1L << 14)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_PROCESSING_TO_END_DURATION + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_processing_to_end_duration (ak_unk_pool)
+        if ((unkMask[13] & (1L << 15)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_RECEIVED_TO_END_DURATION + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_received_to_end_duration (ak_unk_pool)
+        if ((unkMask[13] & (1L << 16)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_PROCESSED_AT + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_processed_at (ak_unk_pool)
+        if ((unkMask[13] & (1L << 17)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_FETCHED_AT + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_fetched_at (ak_unk_pool)
+        break;
+      }
+      case 14: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS_SIZE);
+        if ((unkMask[14] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[14] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__TASKS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks (ak_unk_pool)
+        if ((unkMask[14] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__TASKS_OPTIONS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_options (ak_unk_pool)
+        if ((unkMask[14] & (1L << 3)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__TASKS_OPTIONS_OPTIONS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_options_options (ak_unk_pool)
+        if ((unkMask[14] & (1L << 4)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__TASKS_OPTIONS_MAX_DURATION + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_options_max_duration (ak_unk_pool)
+        if ((unkMask[14] & (1L << 5)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__TASKS_CREATED_AT + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_created_at (ak_unk_pool)
+        break;
+      }
+      case 15: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_LISTPROBERESPONSE_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_LISTPROBERESPONSE_OPTS_SIZE);
+        if ((unkMask[15] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTPROBERESPONSE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[15] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTPROBERESPONSE_OPTS__PROBES + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // probes (ak_unk_pool)
+        if ((unkMask[15] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTPROBERESPONSE_OPTS__PROBES_BODY + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // probes_body (ak_unk_pool)
+        break;
+      }
+      case 16: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_LISTMETRICSRESPONSE_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_LISTMETRICSRESPONSE_OPTS_SIZE);
+        if ((unkMask[16] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTMETRICSRESPONSE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[16] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTMETRICSRESPONSE_OPTS__BATCHES + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // batches (ak_unk_pool)
+        break;
+      }
+      case 17: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_UPLOADRESULTDATAMESSAGE_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_UPLOADRESULTDATAMESSAGE_OPTS_SIZE);
+        if ((unkMask[17] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_UPLOADRESULTDATAMESSAGE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[17] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_UPLOADRESULTDATAMESSAGE_OPTS__UPLOAD + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // upload (ak_unk_opts)
+        break;
+      }
+      case 18: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_DUALRESPONSE_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_DUALRESPONSE_OPTS_SIZE);
+        if ((unkMask[18] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_DUALRESPONSE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[18] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_DUALRESPONSE_OPTS__LEFT + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // left (ak_unk_pool)
+        if ((unkMask[18] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_DUALRESPONSE_OPTS__RIGHT + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // right (ak_unk_pool)
+        break;
+      }
+      case 19: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_CHUNKLEAF_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_CHUNKLEAF_OPTS_SIZE);
+        if ((unkMask[19] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKLEAF_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        break;
+      }
+      case 20: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_CHUNKINNER_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_CHUNKINNER_OPTS_SIZE);
+        if ((unkMask[20] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKINNER_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[20] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKINNER_OPTS__LEAVES + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // leaves (ak_unk_pool)
+        break;
+      }
+      case 21: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_CHUNKELEMENT_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_CHUNKELEMENT_OPTS_SIZE);
+        if ((unkMask[21] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKELEMENT_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[21] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKELEMENT_OPTS__ATTRS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // attrs (ak_unk_pool)
+        if ((unkMask[21] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKELEMENT_OPTS__INNER + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // inner (ak_unk_opts)
+        if ((unkMask[21] & (1L << 3)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKELEMENT_OPTS__INNER_LEAVES + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // inner_leaves (ak_unk_pool)
+        break;
+      }
+      case 22: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSE_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSE_OPTS_SIZE);
+        if ((unkMask[22] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[22] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSE_OPTS__ITEMS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // items (ak_unk_pool)
+        if ((unkMask[22] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSE_OPTS__ITEMS_ATTRS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // items_attrs (ak_unk_pool)
+        if ((unkMask[22] & (1L << 3)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSE_OPTS__ITEMS_INNER + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // items_inner (ak_unk_pool)
+        if ((unkMask[22] & (1L << 4)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSE_OPTS__ITEMS_INNER_LEAVES + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // items_inner_leaves (ak_unk_pool)
+        break;
+      }
+      case 23: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSEWIDE_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSEWIDE_OPTS_SIZE);
+        if ((unkMask[23] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSEWIDE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[23] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSEWIDE_OPTS__ITEMS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // items (ak_unk_pool)
+        if ((unkMask[23] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSEWIDE_OPTS__ITEMS_ATTRS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // items_attrs (ak_unk_pool)
+        if ((unkMask[23] & (1L << 3)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSEWIDE_OPTS__ITEMS_INNER + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // items_inner (ak_unk_pool)
+        if ((unkMask[23] & (1L << 4)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSEWIDE_OPTS__ITEMS_INNER_LEAVES + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // items_inner_leaves (ak_unk_pool)
+        break;
+      }
+      case 24: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_LEAFELEMENT_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_LEAFELEMENT_OPTS_SIZE);
+        if ((unkMask[24] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LEAFELEMENT_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[24] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LEAFELEMENT_OPTS__STAMP + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // stamp (ak_unk_opts)
+        break;
+      }
+      case 25: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_LEAFRESPONSE_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_LEAFRESPONSE_OPTS_SIZE);
+        if ((unkMask[25] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LEAFRESPONSE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[25] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LEAFRESPONSE_OPTS__ITEMS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // items (ak_unk_pool)
+        if ((unkMask[25] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LEAFRESPONSE_OPTS__ITEMS_STAMP + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // items_stamp (ak_unk_pool)
+        break;
+      }
+      case 26: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_SURROGATE_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_SURROGATE_OPTS_SIZE);
+        if ((unkMask[26] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_SURROGATE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[26] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_SURROGATE_OPTS__NESTED + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // nested (ak_unk_opts)
+        if ((unkMask[26] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_SURROGATE_OPTS__ATTRS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // attrs (ak_unk_pool)
+        break;
+      }
+      case 27: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_SURROGATEINNER_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_SURROGATEINNER_OPTS_SIZE);
+        if ((unkMask[27] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_SURROGATEINNER_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        break;
+      }
+      case 28: {
+        x = Mem.alloc(ak.corpus.Layout.AK_DEC_WIREZOO_OPTS_SIZE);
+        Mem.zero(x, ak.corpus.Layout.AK_DEC_WIREZOO_OPTS_SIZE);
+        if ((unkMask[28] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_WIREZOO_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
+        if ((unkMask[28] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_WIREZOO_OPTS__V_MSG + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // v_msg (ak_unk_opts)
+        break;
+      }
+      default: throw new IllegalArgumentException("root " + ri);
+    }
+    return unkOpts[ri] = x;
+  }
+
+  /** Arm only the positions whose bit is set in `mask` (bit i = UNK_POSITIONS[root][i]);
+   *  an entry left all zero discards that position's unknowns (decision 11, "Discard"). */
+  public void setUnkPositions(String root, long mask) {
+    int ri = java.util.Arrays.asList(ROOTS).indexOf(root);
+    unkMask[ri] = mask;
+    if (unkOpts[ri] != 0) { Mem.free(unkOpts[ri]); unkOpts[ri] = 0; }
+  }
+
+  void freeUnkState() {
+    for (int i = 0; i < decCtxs.length; i++) {
+      if (decCtxs[i] != 0) Native.decCtxFree(decCtxs[i]);
+      if (unkOpts[i] != 0) Mem.free(unkOpts[i]);
+      decCtxs[i] = unkOpts[i] = 0;
+    }
+  }
+
+  /** A delivered slot's buffer: copied into a byte[] (null when empty) and freed. The data
+   *  pointer is read first, so a NULL slot (drop mode, no unknowns) costs no crossing. */
+  static byte[] takeUnk(long slot) {
+    long d = Mem.U.getLong(slot);
+    if (d == 0) return null;
+    return Native.unkTake(d, Mem.U.getInt(slot + 8));
+  }
+
+  /** A delivered slot the facade has no place for: freed. */
+  static void dropUnk(long slot) {
+    long d = Mem.U.getLong(slot);
+    if (d != 0) Native.unkFree(d);
+  }
+
+  /** A u-group's bag (`ak_blob {data, len}`): the message's captured unknown runs, staged. */
+  void putBlob(long dst, byte[] b) {
+    if (b == null || b.length == 0) {
+      Mem.U.putLong(dst, 0L);
+      Mem.U.putLong(dst + 8, 0L);
+      return;
+    }
+    long p = arena.allocRaw(b.length);
+    Mem.copyFromBytes(b, 0, p, b.length);
+    Mem.U.putLong(dst, p);
+    Mem.U.putLong(dst + 8, b.length);
+  }
+
 
   int loop0(long ctx, long token) {   // TaskOptions.options
     TaskOptions e = (TaskOptions) elemOf(0, token);
@@ -1887,6 +2996,37 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     }
     if (i > 0) {
       int rc = ak.corpus.NativeEntry.elemTaskOptionsOptionsEntry(ctx, chunkp, i);
+      if (rc < 0) { arena.release(mk); return rc; }
+    }
+    arena.release(mk);
+    return 0;
+  }
+
+  int loop0U(long ctx, long token) {   // TaskOptions.options
+    TaskOptions e = (TaskOptions) elemOf(0, token);
+    final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY_SIZE) : 1;
+    long mk = arena.mark();
+    long chunkp = arena.alloc((long) chunk * ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY_SIZE);
+    java.util.TreeMap<ak.Utf8View, ak.Utf8View> mp = e.options;
+    int n = mp.size();
+    if (n == 0) { arena.release(mk); return 0; }
+    int i = 0;
+    long strMark = arena.mark();
+    for (java.util.Map.Entry<ak.Utf8View, ak.Utf8View> en : mp.entrySet()) {
+      long gp = chunkp + (long) i * ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY_SIZE;
+      putStr(gp + ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY__KEY, en.getKey());
+      putStr(gp + ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY__VALUE, en.getValue());
+      putBlob(gp + ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY__UNKNOWN, null);   // a facade map entry has no bag
+      Mem.U.putInt(gp + ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY__PRESENCE, 0);
+      if (++i == chunk) {
+        int rc = ak.corpus.NativeEntry.uelemTaskOptionsOptionsEntry(ctx, chunkp, i);
+        if (rc < 0) { arena.release(mk); return rc; }
+        i = 0;
+        arena.release(strMark);
+      }
+    }
+    if (i > 0) {
+      int rc = ak.corpus.NativeEntry.uelemTaskOptionsOptionsEntry(ctx, chunkp, i);
       if (rc < 0) { arena.release(mk); return rc; }
     }
     arena.release(mk);
@@ -2176,6 +3316,38 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     return 0;
   }
 
+  int loop5U(long ctx, long token) {   // TaskDetailed.options_options
+    TaskDetailed e = (TaskDetailed) elemOf(5, token);
+    if (e.options == null) return 0;
+    final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY_SIZE) : 1;
+    long mk = arena.mark();
+    long chunkp = arena.alloc((long) chunk * ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY_SIZE);
+    java.util.TreeMap<ak.Utf8View, ak.Utf8View> mp = e.options.options;
+    int n = mp.size();
+    if (n == 0) { arena.release(mk); return 0; }
+    int i = 0;
+    long strMark = arena.mark();
+    for (java.util.Map.Entry<ak.Utf8View, ak.Utf8View> en : mp.entrySet()) {
+      long gp = chunkp + (long) i * ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY_SIZE;
+      putStr(gp + ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY__KEY, en.getKey());
+      putStr(gp + ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY__VALUE, en.getValue());
+      putBlob(gp + ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY__UNKNOWN, null);   // a facade map entry has no bag
+      Mem.U.putInt(gp + ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY__PRESENCE, 0);
+      if (++i == chunk) {
+        int rc = ak.corpus.NativeEntry.uelemTaskOptionsOptionsEntry(ctx, chunkp, i);
+        if (rc < 0) { arena.release(mk); return rc; }
+        i = 0;
+        arena.release(strMark);
+      }
+    }
+    if (i > 0) {
+      int rc = ak.corpus.NativeEntry.uelemTaskOptionsOptionsEntry(ctx, chunkp, i);
+      if (rc < 0) { arena.release(mk); return rc; }
+    }
+    arena.release(mk);
+    return 0;
+  }
+
   int loop6(long ctx, long token) {   // TaskSummary.options_options
     TaskSummary e = (TaskSummary) elemOf(6, token);
     if (e.options == null) return 0;
@@ -2237,6 +3409,38 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     }
     if (i > 0) {
       int rc = ak.corpus.NativeEntry.elemTaskOptionsOptionsEntry(ctx, chunkp, i);
+      if (rc < 0) { arena.release(mk); return rc; }
+    }
+    arena.release(mk);
+    return 0;
+  }
+
+  int loop6U(long ctx, long token) {   // TaskSummary.options_options
+    TaskSummary e = (TaskSummary) elemOf(6, token);
+    if (e.options == null) return 0;
+    final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY_SIZE) : 1;
+    long mk = arena.mark();
+    long chunkp = arena.alloc((long) chunk * ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY_SIZE);
+    java.util.TreeMap<ak.Utf8View, ak.Utf8View> mp = e.options.options;
+    int n = mp.size();
+    if (n == 0) { arena.release(mk); return 0; }
+    int i = 0;
+    long strMark = arena.mark();
+    for (java.util.Map.Entry<ak.Utf8View, ak.Utf8View> en : mp.entrySet()) {
+      long gp = chunkp + (long) i * ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY_SIZE;
+      putStr(gp + ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY__KEY, en.getKey());
+      putStr(gp + ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY__VALUE, en.getValue());
+      putBlob(gp + ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY__UNKNOWN, null);   // a facade map entry has no bag
+      Mem.U.putInt(gp + ak.corpus.Layout.AK_UFIX_TASKOPTIONSOPTIONSENTRY__PRESENCE, 0);
+      if (++i == chunk) {
+        int rc = ak.corpus.NativeEntry.uelemTaskOptionsOptionsEntry(ctx, chunkp, i);
+        if (rc < 0) { arena.release(mk); return rc; }
+        i = 0;
+        arena.release(strMark);
+      }
+    }
+    if (i > 0) {
+      int rc = ak.corpus.NativeEntry.uelemTaskOptionsOptionsEntry(ctx, chunkp, i);
       if (rc < 0) { arena.release(mk); return rc; }
     }
     arena.release(mk);
@@ -2425,6 +3629,34 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     return 0;
   }
 
+  int loop12U(long ctx, long token) {   // ListResultsResponse.results
+    ListResultsResponse e = (ListResultsResponse) elemOf(12, token);
+    final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_UFIX_RESULTRAW_SIZE) : 1;
+    long mk = arena.mark();
+    long chunkp = arena.alloc((long) chunk * ak.corpus.Layout.AK_UFIX_RESULTRAW_SIZE);
+    java.util.List<ResultRaw> a = e.results;
+    int n = a.size();
+    if (n == 0) { arena.release(mk); return 0; }
+    int i = 0;
+    long strMark = arena.mark();
+    for (int k = 0; k < n; k++) {
+      long gp = chunkp + (long) i * ak.corpus.Layout.AK_UFIX_RESULTRAW_SIZE;
+      fillResultRawU(gp, a.get(k));
+      if (++i == chunk) {
+        int rc = ak.corpus.NativeEntry.uelemResultRaw(ctx, chunkp, i);
+        if (rc < 0) { arena.release(mk); return rc; }
+        i = 0;
+        arena.release(strMark);
+      }
+    }
+    if (i > 0) {
+      int rc = ak.corpus.NativeEntry.uelemResultRaw(ctx, chunkp, i);
+      if (rc < 0) { arena.release(mk); return rc; }
+    }
+    arena.release(mk);
+    return 0;
+  }
+
   int loop13(long ctx, long token) {   // ListTasksDetailedResponse.tasks
     ListTasksDetailedResponse e = (ListTasksDetailedResponse) elemOf(13, token);
     final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_EFIX_TASKDETAILED_SIZE) : 1;
@@ -2487,6 +3719,37 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     }
     if (i > 0) {
       int rc = ak.corpus.NativeEntry.elemuTaskDetailed(ctx, chunkp, i, tok0);
+      if (rc < 0) { arena.release(mk); return rc; }
+    }
+    arena.release(mk);
+    return 0;
+  }
+
+  int loop13U(long ctx, long token) {   // ListTasksDetailedResponse.tasks
+    ListTasksDetailedResponse e = (ListTasksDetailedResponse) elemOf(13, token);
+    final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_UFIX_TASKDETAILED_SIZE) : 1;
+    long mk = arena.mark();
+    long chunkp = arena.alloc((long) chunk * ak.corpus.Layout.AK_UFIX_TASKDETAILED_SIZE);
+    java.util.List<TaskDetailed> a = e.tasks;
+    int n = a.size();
+    if (n == 0) { arena.release(mk); return 0; }
+    int i = 0;
+    long strMark = arena.mark();
+    long tok0 = tokenBase();
+    for (int k = 0; k < n; k++) {
+      long gp = chunkp + (long) i * ak.corpus.Layout.AK_UFIX_TASKDETAILED_SIZE;
+      pushToken(a.get(k));
+      fillTaskDetailedU(gp, a.get(k));
+      if (++i == chunk) {
+        int rc = ak.corpus.NativeEntry.uelemuTaskDetailed(ctx, chunkp, i, tok0);
+        if (rc < 0) { arena.release(mk); return rc; }
+        tok0 = tokenBase();
+        i = 0;
+        arena.release(strMark);
+      }
+    }
+    if (i > 0) {
+      int rc = ak.corpus.NativeEntry.uelemuTaskDetailed(ctx, chunkp, i, tok0);
       if (rc < 0) { arena.release(mk); return rc; }
     }
     arena.release(mk);
@@ -2561,6 +3824,37 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     return 0;
   }
 
+  int loop14U(long ctx, long token) {   // ListTaskSummaryResponse.tasks
+    ListTaskSummaryResponse e = (ListTaskSummaryResponse) elemOf(14, token);
+    final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_UFIX_TASKSUMMARY_SIZE) : 1;
+    long mk = arena.mark();
+    long chunkp = arena.alloc((long) chunk * ak.corpus.Layout.AK_UFIX_TASKSUMMARY_SIZE);
+    java.util.List<TaskSummary> a = e.tasks;
+    int n = a.size();
+    if (n == 0) { arena.release(mk); return 0; }
+    int i = 0;
+    long strMark = arena.mark();
+    long tok0 = tokenBase();
+    for (int k = 0; k < n; k++) {
+      long gp = chunkp + (long) i * ak.corpus.Layout.AK_UFIX_TASKSUMMARY_SIZE;
+      pushToken(a.get(k));
+      fillTaskSummaryU(gp, a.get(k));
+      if (++i == chunk) {
+        int rc = ak.corpus.NativeEntry.uelemuTaskSummary(ctx, chunkp, i, tok0);
+        if (rc < 0) { arena.release(mk); return rc; }
+        tok0 = tokenBase();
+        i = 0;
+        arena.release(strMark);
+      }
+    }
+    if (i > 0) {
+      int rc = ak.corpus.NativeEntry.uelemuTaskSummary(ctx, chunkp, i, tok0);
+      if (rc < 0) { arena.release(mk); return rc; }
+    }
+    arena.release(mk);
+    return 0;
+  }
+
   int loop15(long ctx, long token) {   // ListProbeResponse.probes
     ListProbeResponse e = (ListProbeResponse) elemOf(15, token);
     final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_EFIX_PROBE_SIZE) : 1;
@@ -2617,6 +3911,34 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     }
     if (i > 0) {
       int rc = ak.corpus.NativeEntry.elemProbe(ctx, chunkp, i);
+      if (rc < 0) { arena.release(mk); return rc; }
+    }
+    arena.release(mk);
+    return 0;
+  }
+
+  int loop15U(long ctx, long token) {   // ListProbeResponse.probes
+    ListProbeResponse e = (ListProbeResponse) elemOf(15, token);
+    final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_UFIX_PROBE_SIZE) : 1;
+    long mk = arena.mark();
+    long chunkp = arena.alloc((long) chunk * ak.corpus.Layout.AK_UFIX_PROBE_SIZE);
+    java.util.List<Probe> a = e.probes;
+    int n = a.size();
+    if (n == 0) { arena.release(mk); return 0; }
+    int i = 0;
+    long strMark = arena.mark();
+    for (int k = 0; k < n; k++) {
+      long gp = chunkp + (long) i * ak.corpus.Layout.AK_UFIX_PROBE_SIZE;
+      fillProbeU(gp, a.get(k));
+      if (++i == chunk) {
+        int rc = ak.corpus.NativeEntry.uelemProbe(ctx, chunkp, i);
+        if (rc < 0) { arena.release(mk); return rc; }
+        i = 0;
+        arena.release(strMark);
+      }
+    }
+    if (i > 0) {
+      int rc = ak.corpus.NativeEntry.uelemProbe(ctx, chunkp, i);
       if (rc < 0) { arena.release(mk); return rc; }
     }
     arena.release(mk);
@@ -2691,6 +4013,37 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     return 0;
   }
 
+  int loop16U(long ctx, long token) {   // ListMetricsResponse.batches
+    ListMetricsResponse e = (ListMetricsResponse) elemOf(16, token);
+    final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_UFIX_METRICSBATCH_SIZE) : 1;
+    long mk = arena.mark();
+    long chunkp = arena.alloc((long) chunk * ak.corpus.Layout.AK_UFIX_METRICSBATCH_SIZE);
+    java.util.List<MetricsBatch> a = e.batches;
+    int n = a.size();
+    if (n == 0) { arena.release(mk); return 0; }
+    int i = 0;
+    long strMark = arena.mark();
+    long tok0 = tokenBase();
+    for (int k = 0; k < n; k++) {
+      long gp = chunkp + (long) i * ak.corpus.Layout.AK_UFIX_METRICSBATCH_SIZE;
+      pushToken(a.get(k));
+      fillMetricsBatchU(gp, a.get(k));
+      if (++i == chunk) {
+        int rc = ak.corpus.NativeEntry.uelemuMetricsBatch(ctx, chunkp, i, tok0);
+        if (rc < 0) { arena.release(mk); return rc; }
+        tok0 = tokenBase();
+        i = 0;
+        arena.release(strMark);
+      }
+    }
+    if (i > 0) {
+      int rc = ak.corpus.NativeEntry.uelemuMetricsBatch(ctx, chunkp, i, tok0);
+      if (rc < 0) { arena.release(mk); return rc; }
+    }
+    arena.release(mk);
+    return 0;
+  }
+
   int loop17(long ctx, long token) {   // DualResponse.left
     DualResponse e = (DualResponse) elemOf(17, token);
     final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_EFIX_PAIR_SIZE) : 1;
@@ -2753,6 +4106,34 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     return 0;
   }
 
+  int loop17U(long ctx, long token) {   // DualResponse.left
+    DualResponse e = (DualResponse) elemOf(17, token);
+    final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_UFIX_PAIR_SIZE) : 1;
+    long mk = arena.mark();
+    long chunkp = arena.alloc((long) chunk * ak.corpus.Layout.AK_UFIX_PAIR_SIZE);
+    java.util.List<Pair> a = e.left;
+    int n = a.size();
+    if (n == 0) { arena.release(mk); return 0; }
+    int i = 0;
+    long strMark = arena.mark();
+    for (int k = 0; k < n; k++) {
+      long gp = chunkp + (long) i * ak.corpus.Layout.AK_UFIX_PAIR_SIZE;
+      fillPairU(gp, a.get(k));
+      if (++i == chunk) {
+        int rc = ak.corpus.NativeEntry.uelemPair(ctx, chunkp, i);
+        if (rc < 0) { arena.release(mk); return rc; }
+        i = 0;
+        arena.release(strMark);
+      }
+    }
+    if (i > 0) {
+      int rc = ak.corpus.NativeEntry.uelemPair(ctx, chunkp, i);
+      if (rc < 0) { arena.release(mk); return rc; }
+    }
+    arena.release(mk);
+    return 0;
+  }
+
   int loop18(long ctx, long token) {   // DualResponse.right
     DualResponse e = (DualResponse) elemOf(18, token);
     final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_EFIX_PAIR_SIZE) : 1;
@@ -2809,6 +4190,34 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     }
     if (i > 0) {
       int rc = ak.corpus.NativeEntry.elemPair(ctx, chunkp, i);
+      if (rc < 0) { arena.release(mk); return rc; }
+    }
+    arena.release(mk);
+    return 0;
+  }
+
+  int loop18U(long ctx, long token) {   // DualResponse.right
+    DualResponse e = (DualResponse) elemOf(18, token);
+    final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_UFIX_PAIR_SIZE) : 1;
+    long mk = arena.mark();
+    long chunkp = arena.alloc((long) chunk * ak.corpus.Layout.AK_UFIX_PAIR_SIZE);
+    java.util.List<Pair> a = e.right;
+    int n = a.size();
+    if (n == 0) { arena.release(mk); return 0; }
+    int i = 0;
+    long strMark = arena.mark();
+    for (int k = 0; k < n; k++) {
+      long gp = chunkp + (long) i * ak.corpus.Layout.AK_UFIX_PAIR_SIZE;
+      fillPairU(gp, a.get(k));
+      if (++i == chunk) {
+        int rc = ak.corpus.NativeEntry.uelemPair(ctx, chunkp, i);
+        if (rc < 0) { arena.release(mk); return rc; }
+        i = 0;
+        arena.release(strMark);
+      }
+    }
+    if (i > 0) {
+      int rc = ak.corpus.NativeEntry.uelemPair(ctx, chunkp, i);
       if (rc < 0) { arena.release(mk); return rc; }
     }
     arena.release(mk);
@@ -2895,6 +4304,34 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     }
     if (i > 0) {
       int rc = ak.corpus.NativeEntry.elemChunkLeaf(ctx, chunkp, i);
+      if (rc < 0) { arena.release(mk); return rc; }
+    }
+    arena.release(mk);
+    return 0;
+  }
+
+  int loop20U(long ctx, long token) {   // ChunkInner.leaves
+    ChunkInner e = (ChunkInner) elemOf(20, token);
+    final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_UFIX_CHUNKLEAF_SIZE) : 1;
+    long mk = arena.mark();
+    long chunkp = arena.alloc((long) chunk * ak.corpus.Layout.AK_UFIX_CHUNKLEAF_SIZE);
+    java.util.List<ChunkLeaf> a = e.leaves;
+    int n = a.size();
+    if (n == 0) { arena.release(mk); return 0; }
+    int i = 0;
+    long strMark = arena.mark();
+    for (int k = 0; k < n; k++) {
+      long gp = chunkp + (long) i * ak.corpus.Layout.AK_UFIX_CHUNKLEAF_SIZE;
+      fillChunkLeafU(gp, a.get(k));
+      if (++i == chunk) {
+        int rc = ak.corpus.NativeEntry.uelemChunkLeaf(ctx, chunkp, i);
+        if (rc < 0) { arena.release(mk); return rc; }
+        i = 0;
+        arena.release(strMark);
+      }
+    }
+    if (i > 0) {
+      int rc = ak.corpus.NativeEntry.uelemChunkLeaf(ctx, chunkp, i);
       if (rc < 0) { arena.release(mk); return rc; }
     }
     arena.release(mk);
@@ -3020,6 +4457,37 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     return 0;
   }
 
+  int loop22U(long ctx, long token) {   // ChunkElement.attrs
+    ChunkElement e = (ChunkElement) elemOf(22, token);
+    final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_UFIX_CHUNKELEMENTATTRSENTRY_SIZE) : 1;
+    long mk = arena.mark();
+    long chunkp = arena.alloc((long) chunk * ak.corpus.Layout.AK_UFIX_CHUNKELEMENTATTRSENTRY_SIZE);
+    java.util.TreeMap<ak.Utf8View, ak.Utf8View> mp = e.attrs;
+    int n = mp.size();
+    if (n == 0) { arena.release(mk); return 0; }
+    int i = 0;
+    long strMark = arena.mark();
+    for (java.util.Map.Entry<ak.Utf8View, ak.Utf8View> en : mp.entrySet()) {
+      long gp = chunkp + (long) i * ak.corpus.Layout.AK_UFIX_CHUNKELEMENTATTRSENTRY_SIZE;
+      putStr(gp + ak.corpus.Layout.AK_UFIX_CHUNKELEMENTATTRSENTRY__KEY, en.getKey());
+      putStr(gp + ak.corpus.Layout.AK_UFIX_CHUNKELEMENTATTRSENTRY__VALUE, en.getValue());
+      putBlob(gp + ak.corpus.Layout.AK_UFIX_CHUNKELEMENTATTRSENTRY__UNKNOWN, null);   // a facade map entry has no bag
+      Mem.U.putInt(gp + ak.corpus.Layout.AK_UFIX_CHUNKELEMENTATTRSENTRY__PRESENCE, 0);
+      if (++i == chunk) {
+        int rc = ak.corpus.NativeEntry.uelemChunkElementAttrsEntry(ctx, chunkp, i);
+        if (rc < 0) { arena.release(mk); return rc; }
+        i = 0;
+        arena.release(strMark);
+      }
+    }
+    if (i > 0) {
+      int rc = ak.corpus.NativeEntry.uelemChunkElementAttrsEntry(ctx, chunkp, i);
+      if (rc < 0) { arena.release(mk); return rc; }
+    }
+    arena.release(mk);
+    return 0;
+  }
+
   int loop23(long ctx, long token) {   // ChunkElement.inner_marks
     ChunkElement e = (ChunkElement) elemOf(23, token);
     if (e.inner == null) return 0;
@@ -3110,6 +4578,35 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     return 0;
   }
 
+  int loop24U(long ctx, long token) {   // ChunkElement.inner_leaves
+    ChunkElement e = (ChunkElement) elemOf(24, token);
+    if (e.inner == null) return 0;
+    final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_UFIX_CHUNKLEAF_SIZE) : 1;
+    long mk = arena.mark();
+    long chunkp = arena.alloc((long) chunk * ak.corpus.Layout.AK_UFIX_CHUNKLEAF_SIZE);
+    java.util.List<ChunkLeaf> a = e.inner.leaves;
+    int n = a.size();
+    if (n == 0) { arena.release(mk); return 0; }
+    int i = 0;
+    long strMark = arena.mark();
+    for (int k = 0; k < n; k++) {
+      long gp = chunkp + (long) i * ak.corpus.Layout.AK_UFIX_CHUNKLEAF_SIZE;
+      fillChunkLeafU(gp, a.get(k));
+      if (++i == chunk) {
+        int rc = ak.corpus.NativeEntry.uelemChunkLeaf(ctx, chunkp, i);
+        if (rc < 0) { arena.release(mk); return rc; }
+        i = 0;
+        arena.release(strMark);
+      }
+    }
+    if (i > 0) {
+      int rc = ak.corpus.NativeEntry.uelemChunkLeaf(ctx, chunkp, i);
+      if (rc < 0) { arena.release(mk); return rc; }
+    }
+    arena.release(mk);
+    return 0;
+  }
+
   int loop25(long ctx, long token) {   // ChunkedResponse.items
     ChunkedResponse e = (ChunkedResponse) elemOf(25, token);
     final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_EFIX_CHUNKELEMENT_SIZE) : 1;
@@ -3172,6 +4669,37 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     }
     if (i > 0) {
       int rc = ak.corpus.NativeEntry.elemuChunkElement(ctx, chunkp, i, tok0);
+      if (rc < 0) { arena.release(mk); return rc; }
+    }
+    arena.release(mk);
+    return 0;
+  }
+
+  int loop25U(long ctx, long token) {   // ChunkedResponse.items
+    ChunkedResponse e = (ChunkedResponse) elemOf(25, token);
+    final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_UFIX_CHUNKELEMENT_SIZE) : 1;
+    long mk = arena.mark();
+    long chunkp = arena.alloc((long) chunk * ak.corpus.Layout.AK_UFIX_CHUNKELEMENT_SIZE);
+    java.util.List<ChunkElement> a = e.items;
+    int n = a.size();
+    if (n == 0) { arena.release(mk); return 0; }
+    int i = 0;
+    long strMark = arena.mark();
+    long tok0 = tokenBase();
+    for (int k = 0; k < n; k++) {
+      long gp = chunkp + (long) i * ak.corpus.Layout.AK_UFIX_CHUNKELEMENT_SIZE;
+      pushToken(a.get(k));
+      fillChunkElementU(gp, a.get(k));
+      if (++i == chunk) {
+        int rc = ak.corpus.NativeEntry.uelemuChunkElement(ctx, chunkp, i, tok0);
+        if (rc < 0) { arena.release(mk); return rc; }
+        tok0 = tokenBase();
+        i = 0;
+        arena.release(strMark);
+      }
+    }
+    if (i > 0) {
+      int rc = ak.corpus.NativeEntry.uelemuChunkElement(ctx, chunkp, i, tok0);
       if (rc < 0) { arena.release(mk); return rc; }
     }
     arena.release(mk);
@@ -3246,6 +4774,37 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     return 0;
   }
 
+  int loop26U(long ctx, long token) {   // ChunkedResponseWide.items
+    ChunkedResponseWide e = (ChunkedResponseWide) elemOf(26, token);
+    final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_UFIX_CHUNKELEMENT_SIZE) : 1;
+    long mk = arena.mark();
+    long chunkp = arena.alloc((long) chunk * ak.corpus.Layout.AK_UFIX_CHUNKELEMENT_SIZE);
+    java.util.List<ChunkElement> a = e.items;
+    int n = a.size();
+    if (n == 0) { arena.release(mk); return 0; }
+    int i = 0;
+    long strMark = arena.mark();
+    long tok0 = tokenBase();
+    for (int k = 0; k < n; k++) {
+      long gp = chunkp + (long) i * ak.corpus.Layout.AK_UFIX_CHUNKELEMENT_SIZE;
+      pushToken(a.get(k));
+      fillChunkElementU(gp, a.get(k));
+      if (++i == chunk) {
+        int rc = ak.corpus.NativeEntry.uelemuChunkElement(ctx, chunkp, i, tok0);
+        if (rc < 0) { arena.release(mk); return rc; }
+        tok0 = tokenBase();
+        i = 0;
+        arena.release(strMark);
+      }
+    }
+    if (i > 0) {
+      int rc = ak.corpus.NativeEntry.uelemuChunkElement(ctx, chunkp, i, tok0);
+      if (rc < 0) { arena.release(mk); return rc; }
+    }
+    arena.release(mk);
+    return 0;
+  }
+
   int loop27(long ctx, long token) {   // LeafResponse.items
     LeafResponse e = (LeafResponse) elemOf(27, token);
     final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_EFIX_LEAFELEMENT_SIZE) : 1;
@@ -3302,6 +4861,34 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     }
     if (i > 0) {
       int rc = ak.corpus.NativeEntry.elemLeafElement(ctx, chunkp, i);
+      if (rc < 0) { arena.release(mk); return rc; }
+    }
+    arena.release(mk);
+    return 0;
+  }
+
+  int loop27U(long ctx, long token) {   // LeafResponse.items
+    LeafResponse e = (LeafResponse) elemOf(27, token);
+    final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_UFIX_LEAFELEMENT_SIZE) : 1;
+    long mk = arena.mark();
+    long chunkp = arena.alloc((long) chunk * ak.corpus.Layout.AK_UFIX_LEAFELEMENT_SIZE);
+    java.util.List<LeafElement> a = e.items;
+    int n = a.size();
+    if (n == 0) { arena.release(mk); return 0; }
+    int i = 0;
+    long strMark = arena.mark();
+    for (int k = 0; k < n; k++) {
+      long gp = chunkp + (long) i * ak.corpus.Layout.AK_UFIX_LEAFELEMENT_SIZE;
+      fillLeafElementU(gp, a.get(k));
+      if (++i == chunk) {
+        int rc = ak.corpus.NativeEntry.uelemLeafElement(ctx, chunkp, i);
+        if (rc < 0) { arena.release(mk); return rc; }
+        i = 0;
+        arena.release(strMark);
+      }
+    }
+    if (i > 0) {
+      int rc = ak.corpus.NativeEntry.uelemLeafElement(ctx, chunkp, i);
       if (rc < 0) { arena.release(mk); return rc; }
     }
     arena.release(mk);
@@ -3373,6 +4960,37 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     return 0;
   }
 
+  int loop28U(long ctx, long token) {   // Surrogate.attrs
+    Surrogate e = (Surrogate) elemOf(28, token);
+    final int chunk = batch ? Math.max(1, 32768 / ak.corpus.Layout.AK_UFIX_SURROGATEATTRSENTRY_SIZE) : 1;
+    long mk = arena.mark();
+    long chunkp = arena.alloc((long) chunk * ak.corpus.Layout.AK_UFIX_SURROGATEATTRSENTRY_SIZE);
+    java.util.TreeMap<ak.Utf8View, ak.Utf8View> mp = e.attrs;
+    int n = mp.size();
+    if (n == 0) { arena.release(mk); return 0; }
+    int i = 0;
+    long strMark = arena.mark();
+    for (java.util.Map.Entry<ak.Utf8View, ak.Utf8View> en : mp.entrySet()) {
+      long gp = chunkp + (long) i * ak.corpus.Layout.AK_UFIX_SURROGATEATTRSENTRY_SIZE;
+      putStr(gp + ak.corpus.Layout.AK_UFIX_SURROGATEATTRSENTRY__KEY, en.getKey());
+      putStr(gp + ak.corpus.Layout.AK_UFIX_SURROGATEATTRSENTRY__VALUE, en.getValue());
+      putBlob(gp + ak.corpus.Layout.AK_UFIX_SURROGATEATTRSENTRY__UNKNOWN, null);   // a facade map entry has no bag
+      Mem.U.putInt(gp + ak.corpus.Layout.AK_UFIX_SURROGATEATTRSENTRY__PRESENCE, 0);
+      if (++i == chunk) {
+        int rc = ak.corpus.NativeEntry.uelemSurrogateAttrsEntry(ctx, chunkp, i);
+        if (rc < 0) { arena.release(mk); return rc; }
+        i = 0;
+        arena.release(strMark);
+      }
+    }
+    if (i > 0) {
+      int rc = ak.corpus.NativeEntry.uelemSurrogateAttrsEntry(ctx, chunkp, i);
+      if (rc < 0) { arena.release(mk); return rc; }
+    }
+    arena.release(mk);
+    return 0;
+  }
+
   int loop29(long ctx, long token) {   // Surrogate.texts
     Surrogate e = (Surrogate) elemOf(29, token);
     java.util.List<ak.Utf8View> a = e.texts;
@@ -3434,35 +5052,35 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   @Override public int encLoop(long ctx, int slot, long token) {
     try {
       switch (slot) {
-        case 0: return zeroed ? loop0Zeroed(ctx, token) : loop0(ctx, token);
+        case 0: return retain ? loop0U(ctx, token) : zeroed ? loop0Zeroed(ctx, token) : loop0(ctx, token);
         case 1: return zeroed ? loop1Zeroed(ctx, token) : loop1(ctx, token);
         case 2: return zeroed ? loop2Zeroed(ctx, token) : loop2(ctx, token);
         case 3: return zeroed ? loop3Zeroed(ctx, token) : loop3(ctx, token);
         case 4: return zeroed ? loop4Zeroed(ctx, token) : loop4(ctx, token);
-        case 5: return zeroed ? loop5Zeroed(ctx, token) : loop5(ctx, token);
-        case 6: return zeroed ? loop6Zeroed(ctx, token) : loop6(ctx, token);
+        case 5: return retain ? loop5U(ctx, token) : zeroed ? loop5Zeroed(ctx, token) : loop5(ctx, token);
+        case 6: return retain ? loop6U(ctx, token) : zeroed ? loop6Zeroed(ctx, token) : loop6(ctx, token);
         case 7: return zeroed ? loop7Zeroed(ctx, token) : loop7(ctx, token);
         case 8: return zeroed ? loop8Zeroed(ctx, token) : loop8(ctx, token);
         case 9: return zeroed ? loop9Zeroed(ctx, token) : loop9(ctx, token);
         case 10: return zeroed ? loop10Zeroed(ctx, token) : loop10(ctx, token);
         case 11: return zeroed ? loop11Zeroed(ctx, token) : loop11(ctx, token);
-        case 12: return zeroed ? loop12Zeroed(ctx, token) : loop12(ctx, token);
-        case 13: return zeroed ? loop13Zeroed(ctx, token) : loop13(ctx, token);
-        case 14: return zeroed ? loop14Zeroed(ctx, token) : loop14(ctx, token);
-        case 15: return zeroed ? loop15Zeroed(ctx, token) : loop15(ctx, token);
-        case 16: return zeroed ? loop16Zeroed(ctx, token) : loop16(ctx, token);
-        case 17: return zeroed ? loop17Zeroed(ctx, token) : loop17(ctx, token);
-        case 18: return zeroed ? loop18Zeroed(ctx, token) : loop18(ctx, token);
+        case 12: return retain ? loop12U(ctx, token) : zeroed ? loop12Zeroed(ctx, token) : loop12(ctx, token);
+        case 13: return retain ? loop13U(ctx, token) : zeroed ? loop13Zeroed(ctx, token) : loop13(ctx, token);
+        case 14: return retain ? loop14U(ctx, token) : zeroed ? loop14Zeroed(ctx, token) : loop14(ctx, token);
+        case 15: return retain ? loop15U(ctx, token) : zeroed ? loop15Zeroed(ctx, token) : loop15(ctx, token);
+        case 16: return retain ? loop16U(ctx, token) : zeroed ? loop16Zeroed(ctx, token) : loop16(ctx, token);
+        case 17: return retain ? loop17U(ctx, token) : zeroed ? loop17Zeroed(ctx, token) : loop17(ctx, token);
+        case 18: return retain ? loop18U(ctx, token) : zeroed ? loop18Zeroed(ctx, token) : loop18(ctx, token);
         case 19: return zeroed ? loop19Zeroed(ctx, token) : loop19(ctx, token);
-        case 20: return zeroed ? loop20Zeroed(ctx, token) : loop20(ctx, token);
+        case 20: return retain ? loop20U(ctx, token) : zeroed ? loop20Zeroed(ctx, token) : loop20(ctx, token);
         case 21: return zeroed ? loop21Zeroed(ctx, token) : loop21(ctx, token);
-        case 22: return zeroed ? loop22Zeroed(ctx, token) : loop22(ctx, token);
+        case 22: return retain ? loop22U(ctx, token) : zeroed ? loop22Zeroed(ctx, token) : loop22(ctx, token);
         case 23: return zeroed ? loop23Zeroed(ctx, token) : loop23(ctx, token);
-        case 24: return zeroed ? loop24Zeroed(ctx, token) : loop24(ctx, token);
-        case 25: return zeroed ? loop25Zeroed(ctx, token) : loop25(ctx, token);
-        case 26: return zeroed ? loop26Zeroed(ctx, token) : loop26(ctx, token);
-        case 27: return zeroed ? loop27Zeroed(ctx, token) : loop27(ctx, token);
-        case 28: return zeroed ? loop28Zeroed(ctx, token) : loop28(ctx, token);
+        case 24: return retain ? loop24U(ctx, token) : zeroed ? loop24Zeroed(ctx, token) : loop24(ctx, token);
+        case 25: return retain ? loop25U(ctx, token) : zeroed ? loop25Zeroed(ctx, token) : loop25(ctx, token);
+        case 26: return retain ? loop26U(ctx, token) : zeroed ? loop26Zeroed(ctx, token) : loop26(ctx, token);
+        case 27: return retain ? loop27U(ctx, token) : zeroed ? loop27Zeroed(ctx, token) : loop27(ctx, token);
+        case 28: return retain ? loop28U(ctx, token) : zeroed ? loop28Zeroed(ctx, token) : loop28(ctx, token);
         case 29: return zeroed ? loop29Zeroed(ctx, token) : loop29(ctx, token);
         default: return ak.Native.ERR_ABI;
       }
@@ -3495,6 +5113,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     for (int i = 0; i < n; i++) {
       long g = p + (long) i * ak.corpus.Layout.AK_DFIX_TASKOPTIONSOPTIONSENTRY_SIZE;
       e.options.put(getStr(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONSOPTIONSENTRY__KEY), getStr(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONSOPTIONSENTRY__VALUE));
+      freeUnkTaskOptionsOptionsEntry(g);   // a facade map entry has no bag (U-map-entry)
     }
   }
 
@@ -3546,6 +5165,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     for (int i = 0; i < n; i++) {
       long g = p + (long) i * ak.corpus.Layout.AK_DFIX_TASKOPTIONSOPTIONSENTRY_SIZE;
       e.options.options.put(getStr(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONSOPTIONSENTRY__KEY), getStr(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONSOPTIONSENTRY__VALUE));
+      freeUnkTaskOptionsOptionsEntry(g);   // a facade map entry has no bag (U-map-entry)
     }
   }
 
@@ -3561,6 +5181,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     for (int i = 0; i < n; i++) {
       long g = p + (long) i * ak.corpus.Layout.AK_DFIX_TASKOPTIONSOPTIONSENTRY_SIZE;
       e.options.options.put(getStr(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONSOPTIONSENTRY__KEY), getStr(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONSOPTIONSENTRY__VALUE));
+      freeUnkTaskOptionsOptionsEntry(g);   // a facade map entry has no bag (U-map-entry)
     }
   }
 
@@ -3704,6 +5325,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     for (int i = 0; i < n; i++) {
       long g = p + (long) i * ak.corpus.Layout.AK_DFIX_TASKOPTIONSOPTIONSENTRY_SIZE;
       e.options.options.put(getStr(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONSOPTIONSENTRY__KEY), getStr(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONSOPTIONSENTRY__VALUE));
+      freeUnkTaskOptionsOptionsEntry(g);   // a facade map entry has no bag (U-map-entry)
     }
   }
 
@@ -3730,6 +5352,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     for (int i = 0; i < n; i++) {
       long g = p + (long) i * ak.corpus.Layout.AK_DFIX_TASKOPTIONSOPTIONSENTRY_SIZE;
       e.options.options.put(getStr(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONSOPTIONSENTRY__KEY), getStr(g + ak.corpus.Layout.AK_DFIX_TASKOPTIONSOPTIONSENTRY__VALUE));
+      freeUnkTaskOptionsOptionsEntry(g);   // a facade map entry has no bag (U-map-entry)
     }
   }
 
@@ -3891,6 +5514,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     for (int i = 0; i < n; i++) {
       long g = p + (long) i * ak.corpus.Layout.AK_DFIX_CHUNKELEMENTATTRSENTRY_SIZE;
       e.attrs.put(getStr(g + ak.corpus.Layout.AK_DFIX_CHUNKELEMENTATTRSENTRY__KEY), getStr(g + ak.corpus.Layout.AK_DFIX_CHUNKELEMENTATTRSENTRY__VALUE));
+      freeUnkChunkElementAttrsEntry(g);   // a facade map entry has no bag (U-map-entry)
     }
   }
 
@@ -3947,6 +5571,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     for (int i = 0; i < n; i++) {
       long g = p + (long) i * ak.corpus.Layout.AK_DFIX_CHUNKELEMENTATTRSENTRY_SIZE;
       e.attrs.put(getStr(g + ak.corpus.Layout.AK_DFIX_CHUNKELEMENTATTRSENTRY__KEY), getStr(g + ak.corpus.Layout.AK_DFIX_CHUNKELEMENTATTRSENTRY__VALUE));
+      freeUnkChunkElementAttrsEntry(g);   // a facade map entry has no bag (U-map-entry)
     }
   }
 
@@ -4003,6 +5628,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     for (int i = 0; i < n; i++) {
       long g = p + (long) i * ak.corpus.Layout.AK_DFIX_CHUNKELEMENTATTRSENTRY_SIZE;
       e.attrs.put(getStr(g + ak.corpus.Layout.AK_DFIX_CHUNKELEMENTATTRSENTRY__KEY), getStr(g + ak.corpus.Layout.AK_DFIX_CHUNKELEMENTATTRSENTRY__VALUE));
+      freeUnkChunkElementAttrsEntry(g);   // a facade map entry has no bag (U-map-entry)
     }
   }
 
@@ -4059,6 +5685,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     for (int i = 0; i < n; i++) {
       long g = p + (long) i * ak.corpus.Layout.AK_DFIX_SURROGATEATTRSENTRY_SIZE;
       e.attrs.put(getStr(g + ak.corpus.Layout.AK_DFIX_SURROGATEATTRSENTRY__KEY), getStr(g + ak.corpus.Layout.AK_DFIX_SURROGATEATTRSENTRY__VALUE));
+      freeUnkSurrogateAttrsEntry(g);   // a facade map entry has no bag (U-map-entry)
     }
   }
 
@@ -4216,9 +5843,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_TIMESTAMP_SIZE);
-    fillTimestamp(g, o);
-    long rc = ak.corpus.NativeEntry.encodeTimestamp(this, encCtx, evtTimestamp, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_TIMESTAMP_SIZE : ak.corpus.Layout.AK_EFIX_TIMESTAMP_SIZE);
+    if (retain) fillTimestampU(g, o); else fillTimestamp(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeTimestamp(this, encCtx, evtTimestamp, g) : ak.corpus.NativeEntry.encodeTimestamp(this, encCtx, evtTimestamp, g);
     return encLast = check((int) rc);
   }
 
@@ -4226,7 +5853,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Timestamp r = new Timestamp();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(0);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetTimestamp(decCtx, unkOptsOf(0)));
     int rc = ak.corpus.NativeEntry.decodeTimestamp(this, decCtx, wireNative, len, dvtTimestamp);
+    if (retain) ak.corpus.NativeEntry.decResetTimestamp(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4238,9 +5870,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_DURATION_SIZE);
-    fillDuration(g, o);
-    long rc = ak.corpus.NativeEntry.encodeDuration(this, encCtx, evtDuration, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_DURATION_SIZE : ak.corpus.Layout.AK_EFIX_DURATION_SIZE);
+    if (retain) fillDurationU(g, o); else fillDuration(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeDuration(this, encCtx, evtDuration, g) : ak.corpus.NativeEntry.encodeDuration(this, encCtx, evtDuration, g);
     return encLast = check((int) rc);
   }
 
@@ -4248,7 +5880,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Duration r = new Duration();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(1);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetDuration(decCtx, unkOptsOf(1)));
     int rc = ak.corpus.NativeEntry.decodeDuration(this, decCtx, wireNative, len, dvtDuration);
+    if (retain) ak.corpus.NativeEntry.decResetDuration(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4260,9 +5897,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_RESULTRAW_SIZE);
-    fillResultRaw(g, o);
-    long rc = ak.corpus.NativeEntry.encodeResultRaw(this, encCtx, evtResultRaw, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_RESULTRAW_SIZE : ak.corpus.Layout.AK_EFIX_RESULTRAW_SIZE);
+    if (retain) fillResultRawU(g, o); else fillResultRaw(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeResultRaw(this, encCtx, evtResultRaw, g) : ak.corpus.NativeEntry.encodeResultRaw(this, encCtx, evtResultRaw, g);
     return encLast = check((int) rc);
   }
 
@@ -4270,7 +5907,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     ResultRaw r = new ResultRaw();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(2);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetResultRaw(decCtx, unkOptsOf(2)));
     int rc = ak.corpus.NativeEntry.decodeResultRaw(this, decCtx, wireNative, len, dvtResultRaw);
+    if (retain) ak.corpus.NativeEntry.decResetResultRaw(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4282,9 +5924,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_TASKOPTIONS_SIZE);
-    fillTaskOptions(g, o);
-    long rc = ak.corpus.NativeEntry.encodeTaskOptions(this, encCtx, evtTaskOptions, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_TASKOPTIONS_SIZE : ak.corpus.Layout.AK_EFIX_TASKOPTIONS_SIZE);
+    if (retain) fillTaskOptionsU(g, o); else fillTaskOptions(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeTaskOptions(this, encCtx, evtTaskOptions, g) : ak.corpus.NativeEntry.encodeTaskOptions(this, encCtx, evtTaskOptions, g);
     return encLast = check((int) rc);
   }
 
@@ -4292,7 +5934,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     TaskOptions r = new TaskOptions();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(3);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetTaskOptions(decCtx, unkOptsOf(3)));
     int rc = ak.corpus.NativeEntry.decodeTaskOptions(this, decCtx, wireNative, len, dvtTaskOptions);
+    if (retain) ak.corpus.NativeEntry.decResetTaskOptions(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4304,9 +5951,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_TASKOUTPUT_SIZE);
-    fillTaskOutput(g, o);
-    long rc = ak.corpus.NativeEntry.encodeTaskOutput(this, encCtx, evtTaskOutput, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_TASKOUTPUT_SIZE : ak.corpus.Layout.AK_EFIX_TASKOUTPUT_SIZE);
+    if (retain) fillTaskOutputU(g, o); else fillTaskOutput(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeTaskOutput(this, encCtx, evtTaskOutput, g) : ak.corpus.NativeEntry.encodeTaskOutput(this, encCtx, evtTaskOutput, g);
     return encLast = check((int) rc);
   }
 
@@ -4314,7 +5961,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     TaskOutput r = new TaskOutput();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(4);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetTaskOutput(decCtx, unkOptsOf(4)));
     int rc = ak.corpus.NativeEntry.decodeTaskOutput(this, decCtx, wireNative, len, dvtTaskOutput);
+    if (retain) ak.corpus.NativeEntry.decResetTaskOutput(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4326,9 +5978,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_TASKDETAILED_SIZE);
-    fillTaskDetailed(g, o);
-    long rc = ak.corpus.NativeEntry.encodeTaskDetailed(this, encCtx, evtTaskDetailed, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_TASKDETAILED_SIZE : ak.corpus.Layout.AK_EFIX_TASKDETAILED_SIZE);
+    if (retain) fillTaskDetailedU(g, o); else fillTaskDetailed(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeTaskDetailed(this, encCtx, evtTaskDetailed, g) : ak.corpus.NativeEntry.encodeTaskDetailed(this, encCtx, evtTaskDetailed, g);
     return encLast = check((int) rc);
   }
 
@@ -4336,7 +5988,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     TaskDetailed r = new TaskDetailed();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(5);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetTaskDetailed(decCtx, unkOptsOf(5)));
     int rc = ak.corpus.NativeEntry.decodeTaskDetailed(this, decCtx, wireNative, len, dvtTaskDetailed);
+    if (retain) ak.corpus.NativeEntry.decResetTaskDetailed(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4348,9 +6005,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_TASKSUMMARY_SIZE);
-    fillTaskSummary(g, o);
-    long rc = ak.corpus.NativeEntry.encodeTaskSummary(this, encCtx, evtTaskSummary, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_TASKSUMMARY_SIZE : ak.corpus.Layout.AK_EFIX_TASKSUMMARY_SIZE);
+    if (retain) fillTaskSummaryU(g, o); else fillTaskSummary(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeTaskSummary(this, encCtx, evtTaskSummary, g) : ak.corpus.NativeEntry.encodeTaskSummary(this, encCtx, evtTaskSummary, g);
     return encLast = check((int) rc);
   }
 
@@ -4358,7 +6015,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     TaskSummary r = new TaskSummary();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(6);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetTaskSummary(decCtx, unkOptsOf(6)));
     int rc = ak.corpus.NativeEntry.decodeTaskSummary(this, decCtx, wireNative, len, dvtTaskSummary);
+    if (retain) ak.corpus.NativeEntry.decResetTaskSummary(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4370,9 +6032,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_PROBE_SIZE);
-    fillProbe(g, o);
-    long rc = ak.corpus.NativeEntry.encodeProbe(this, encCtx, evtProbe, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_PROBE_SIZE : ak.corpus.Layout.AK_EFIX_PROBE_SIZE);
+    if (retain) fillProbeU(g, o); else fillProbe(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeProbe(this, encCtx, evtProbe, g) : ak.corpus.NativeEntry.encodeProbe(this, encCtx, evtProbe, g);
     return encLast = check((int) rc);
   }
 
@@ -4380,7 +6042,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Probe r = new Probe();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(7);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetProbe(decCtx, unkOptsOf(7)));
     int rc = ak.corpus.NativeEntry.decodeProbe(this, decCtx, wireNative, len, dvtProbe);
+    if (retain) ak.corpus.NativeEntry.decResetProbe(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4392,9 +6059,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_EMPTY_SIZE);
-    fillEmpty(g, o);
-    long rc = ak.corpus.NativeEntry.encodeEmpty(this, encCtx, evtEmpty, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_EMPTY_SIZE : ak.corpus.Layout.AK_EFIX_EMPTY_SIZE);
+    if (retain) fillEmptyU(g, o); else fillEmpty(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeEmpty(this, encCtx, evtEmpty, g) : ak.corpus.NativeEntry.encodeEmpty(this, encCtx, evtEmpty, g);
     return encLast = check((int) rc);
   }
 
@@ -4402,7 +6069,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Empty r = new Empty();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(8);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetEmpty(decCtx, unkOptsOf(8)));
     int rc = ak.corpus.NativeEntry.decodeEmpty(this, decCtx, wireNative, len, dvtEmpty);
+    if (retain) ak.corpus.NativeEntry.decResetEmpty(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4414,15 +6086,16 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_UPLOADRESULTDATA_SIZE);
-    fillUploadResultData(g, o);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_UPLOADRESULTDATA_SIZE : ak.corpus.Layout.AK_EFIX_UPLOADRESULTDATA_SIZE);
+    if (retain) fillUploadResultDataU(g, o); else fillUploadResultData(g, o);
     // ABI v1 section 8: the bulk field is a DIRECT ARGUMENT of the
     // call, so the host pins its own array for the duration and the
     // bytes are never staged. The generator-time refusal has already
     // proved this tree makes no reverse call, which is what makes a
     // critical section legal here.
     byte[] direct = (o.data_chunk == null) ? ak.Native.NO_BYTES : o.data_chunk;
-    long rc = ak.corpus.NativeEntry.encodeDirectUploadResultData(this, encCtx, evtUploadResultData, g, direct, direct.length);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeDirectUploadResultData(this, encCtx, evtUploadResultData, g, direct, direct.length)
+        : ak.corpus.NativeEntry.encodeDirectUploadResultData(this, encCtx, evtUploadResultData, g, direct, direct.length);
     return encLast = check((int) rc);
   }
 
@@ -4430,7 +6103,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     UploadResultData r = new UploadResultData();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(9);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetUploadResultData(decCtx, unkOptsOf(9)));
     int rc = ak.corpus.NativeEntry.decodeUploadResultData(this, decCtx, wireNative, len, dvtUploadResultData);
+    if (retain) ak.corpus.NativeEntry.decResetUploadResultData(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4442,9 +6120,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_METRICSBATCH_SIZE);
-    fillMetricsBatch(g, o);
-    long rc = ak.corpus.NativeEntry.encodeMetricsBatch(this, encCtx, evtMetricsBatch, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_METRICSBATCH_SIZE : ak.corpus.Layout.AK_EFIX_METRICSBATCH_SIZE);
+    if (retain) fillMetricsBatchU(g, o); else fillMetricsBatch(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeMetricsBatch(this, encCtx, evtMetricsBatch, g) : ak.corpus.NativeEntry.encodeMetricsBatch(this, encCtx, evtMetricsBatch, g);
     return encLast = check((int) rc);
   }
 
@@ -4452,7 +6130,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     MetricsBatch r = new MetricsBatch();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(10);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetMetricsBatch(decCtx, unkOptsOf(10)));
     int rc = ak.corpus.NativeEntry.decodeMetricsBatch(this, decCtx, wireNative, len, dvtMetricsBatch);
+    if (retain) ak.corpus.NativeEntry.decResetMetricsBatch(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4464,9 +6147,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_PAIR_SIZE);
-    fillPair(g, o);
-    long rc = ak.corpus.NativeEntry.encodePair(this, encCtx, evtPair, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_PAIR_SIZE : ak.corpus.Layout.AK_EFIX_PAIR_SIZE);
+    if (retain) fillPairU(g, o); else fillPair(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodePair(this, encCtx, evtPair, g) : ak.corpus.NativeEntry.encodePair(this, encCtx, evtPair, g);
     return encLast = check((int) rc);
   }
 
@@ -4474,7 +6157,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Pair r = new Pair();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(11);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetPair(decCtx, unkOptsOf(11)));
     int rc = ak.corpus.NativeEntry.decodePair(this, decCtx, wireNative, len, dvtPair);
+    if (retain) ak.corpus.NativeEntry.decResetPair(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4486,9 +6174,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_LISTRESULTSRESPONSE_SIZE);
-    fillListResultsResponse(g, o);
-    long rc = ak.corpus.NativeEntry.encodeListResultsResponse(this, encCtx, evtListResultsResponse, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_LISTRESULTSRESPONSE_SIZE : ak.corpus.Layout.AK_EFIX_LISTRESULTSRESPONSE_SIZE);
+    if (retain) fillListResultsResponseU(g, o); else fillListResultsResponse(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeListResultsResponse(this, encCtx, evtListResultsResponse, g) : ak.corpus.NativeEntry.encodeListResultsResponse(this, encCtx, evtListResultsResponse, g);
     return encLast = check((int) rc);
   }
 
@@ -4496,7 +6184,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     ListResultsResponse r = new ListResultsResponse();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(12);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetListResultsResponse(decCtx, unkOptsOf(12)));
     int rc = ak.corpus.NativeEntry.decodeListResultsResponse(this, decCtx, wireNative, len, dvtListResultsResponse);
+    if (retain) ak.corpus.NativeEntry.decResetListResultsResponse(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4508,9 +6201,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_LISTTASKSDETAILEDRESPONSE_SIZE);
-    fillListTasksDetailedResponse(g, o);
-    long rc = ak.corpus.NativeEntry.encodeListTasksDetailedResponse(this, encCtx, evtListTasksDetailedResponse, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_LISTTASKSDETAILEDRESPONSE_SIZE : ak.corpus.Layout.AK_EFIX_LISTTASKSDETAILEDRESPONSE_SIZE);
+    if (retain) fillListTasksDetailedResponseU(g, o); else fillListTasksDetailedResponse(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeListTasksDetailedResponse(this, encCtx, evtListTasksDetailedResponse, g) : ak.corpus.NativeEntry.encodeListTasksDetailedResponse(this, encCtx, evtListTasksDetailedResponse, g);
     return encLast = check((int) rc);
   }
 
@@ -4518,7 +6211,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     ListTasksDetailedResponse r = new ListTasksDetailedResponse();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(13);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetListTasksDetailedResponse(decCtx, unkOptsOf(13)));
     int rc = ak.corpus.NativeEntry.decodeListTasksDetailedResponse(this, decCtx, wireNative, len, dvtListTasksDetailedResponse);
+    if (retain) ak.corpus.NativeEntry.decResetListTasksDetailedResponse(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4530,9 +6228,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_LISTTASKSUMMARYRESPONSE_SIZE);
-    fillListTaskSummaryResponse(g, o);
-    long rc = ak.corpus.NativeEntry.encodeListTaskSummaryResponse(this, encCtx, evtListTaskSummaryResponse, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_LISTTASKSUMMARYRESPONSE_SIZE : ak.corpus.Layout.AK_EFIX_LISTTASKSUMMARYRESPONSE_SIZE);
+    if (retain) fillListTaskSummaryResponseU(g, o); else fillListTaskSummaryResponse(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeListTaskSummaryResponse(this, encCtx, evtListTaskSummaryResponse, g) : ak.corpus.NativeEntry.encodeListTaskSummaryResponse(this, encCtx, evtListTaskSummaryResponse, g);
     return encLast = check((int) rc);
   }
 
@@ -4540,7 +6238,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     ListTaskSummaryResponse r = new ListTaskSummaryResponse();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(14);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetListTaskSummaryResponse(decCtx, unkOptsOf(14)));
     int rc = ak.corpus.NativeEntry.decodeListTaskSummaryResponse(this, decCtx, wireNative, len, dvtListTaskSummaryResponse);
+    if (retain) ak.corpus.NativeEntry.decResetListTaskSummaryResponse(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4552,9 +6255,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_LISTPROBERESPONSE_SIZE);
-    fillListProbeResponse(g, o);
-    long rc = ak.corpus.NativeEntry.encodeListProbeResponse(this, encCtx, evtListProbeResponse, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_LISTPROBERESPONSE_SIZE : ak.corpus.Layout.AK_EFIX_LISTPROBERESPONSE_SIZE);
+    if (retain) fillListProbeResponseU(g, o); else fillListProbeResponse(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeListProbeResponse(this, encCtx, evtListProbeResponse, g) : ak.corpus.NativeEntry.encodeListProbeResponse(this, encCtx, evtListProbeResponse, g);
     return encLast = check((int) rc);
   }
 
@@ -4562,7 +6265,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     ListProbeResponse r = new ListProbeResponse();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(15);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetListProbeResponse(decCtx, unkOptsOf(15)));
     int rc = ak.corpus.NativeEntry.decodeListProbeResponse(this, decCtx, wireNative, len, dvtListProbeResponse);
+    if (retain) ak.corpus.NativeEntry.decResetListProbeResponse(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4574,9 +6282,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_LISTMETRICSRESPONSE_SIZE);
-    fillListMetricsResponse(g, o);
-    long rc = ak.corpus.NativeEntry.encodeListMetricsResponse(this, encCtx, evtListMetricsResponse, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_LISTMETRICSRESPONSE_SIZE : ak.corpus.Layout.AK_EFIX_LISTMETRICSRESPONSE_SIZE);
+    if (retain) fillListMetricsResponseU(g, o); else fillListMetricsResponse(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeListMetricsResponse(this, encCtx, evtListMetricsResponse, g) : ak.corpus.NativeEntry.encodeListMetricsResponse(this, encCtx, evtListMetricsResponse, g);
     return encLast = check((int) rc);
   }
 
@@ -4584,7 +6292,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     ListMetricsResponse r = new ListMetricsResponse();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(16);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetListMetricsResponse(decCtx, unkOptsOf(16)));
     int rc = ak.corpus.NativeEntry.decodeListMetricsResponse(this, decCtx, wireNative, len, dvtListMetricsResponse);
+    if (retain) ak.corpus.NativeEntry.decResetListMetricsResponse(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4596,15 +6309,16 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_UPLOADRESULTDATAMESSAGE_SIZE);
-    fillUploadResultDataMessage(g, o);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_UPLOADRESULTDATAMESSAGE_SIZE : ak.corpus.Layout.AK_EFIX_UPLOADRESULTDATAMESSAGE_SIZE);
+    if (retain) fillUploadResultDataMessageU(g, o); else fillUploadResultDataMessage(g, o);
     // ABI v1 section 8: the bulk field is a DIRECT ARGUMENT of the
     // call, so the host pins its own array for the duration and the
     // bytes are never staged. The generator-time refusal has already
     // proved this tree makes no reverse call, which is what makes a
     // critical section legal here.
     byte[] direct = (o.upload == null || o.upload.data_chunk == null) ? ak.Native.NO_BYTES : o.upload.data_chunk;
-    long rc = ak.corpus.NativeEntry.encodeDirectUploadResultDataMessage(this, encCtx, evtUploadResultDataMessage, g, direct, direct.length);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeDirectUploadResultDataMessage(this, encCtx, evtUploadResultDataMessage, g, direct, direct.length)
+        : ak.corpus.NativeEntry.encodeDirectUploadResultDataMessage(this, encCtx, evtUploadResultDataMessage, g, direct, direct.length);
     return encLast = check((int) rc);
   }
 
@@ -4612,7 +6326,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     UploadResultDataMessage r = new UploadResultDataMessage();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(17);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetUploadResultDataMessage(decCtx, unkOptsOf(17)));
     int rc = ak.corpus.NativeEntry.decodeUploadResultDataMessage(this, decCtx, wireNative, len, dvtUploadResultDataMessage);
+    if (retain) ak.corpus.NativeEntry.decResetUploadResultDataMessage(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4624,9 +6343,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_DUALRESPONSE_SIZE);
-    fillDualResponse(g, o);
-    long rc = ak.corpus.NativeEntry.encodeDualResponse(this, encCtx, evtDualResponse, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_DUALRESPONSE_SIZE : ak.corpus.Layout.AK_EFIX_DUALRESPONSE_SIZE);
+    if (retain) fillDualResponseU(g, o); else fillDualResponse(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeDualResponse(this, encCtx, evtDualResponse, g) : ak.corpus.NativeEntry.encodeDualResponse(this, encCtx, evtDualResponse, g);
     return encLast = check((int) rc);
   }
 
@@ -4634,7 +6353,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     DualResponse r = new DualResponse();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(18);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetDualResponse(decCtx, unkOptsOf(18)));
     int rc = ak.corpus.NativeEntry.decodeDualResponse(this, decCtx, wireNative, len, dvtDualResponse);
+    if (retain) ak.corpus.NativeEntry.decResetDualResponse(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4646,9 +6370,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_CHUNKLEAF_SIZE);
-    fillChunkLeaf(g, o);
-    long rc = ak.corpus.NativeEntry.encodeChunkLeaf(this, encCtx, evtChunkLeaf, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_CHUNKLEAF_SIZE : ak.corpus.Layout.AK_EFIX_CHUNKLEAF_SIZE);
+    if (retain) fillChunkLeafU(g, o); else fillChunkLeaf(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeChunkLeaf(this, encCtx, evtChunkLeaf, g) : ak.corpus.NativeEntry.encodeChunkLeaf(this, encCtx, evtChunkLeaf, g);
     return encLast = check((int) rc);
   }
 
@@ -4656,7 +6380,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     ChunkLeaf r = new ChunkLeaf();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(19);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetChunkLeaf(decCtx, unkOptsOf(19)));
     int rc = ak.corpus.NativeEntry.decodeChunkLeaf(this, decCtx, wireNative, len, dvtChunkLeaf);
+    if (retain) ak.corpus.NativeEntry.decResetChunkLeaf(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4668,9 +6397,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_CHUNKINNER_SIZE);
-    fillChunkInner(g, o);
-    long rc = ak.corpus.NativeEntry.encodeChunkInner(this, encCtx, evtChunkInner, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_CHUNKINNER_SIZE : ak.corpus.Layout.AK_EFIX_CHUNKINNER_SIZE);
+    if (retain) fillChunkInnerU(g, o); else fillChunkInner(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeChunkInner(this, encCtx, evtChunkInner, g) : ak.corpus.NativeEntry.encodeChunkInner(this, encCtx, evtChunkInner, g);
     return encLast = check((int) rc);
   }
 
@@ -4678,7 +6407,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     ChunkInner r = new ChunkInner();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(20);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetChunkInner(decCtx, unkOptsOf(20)));
     int rc = ak.corpus.NativeEntry.decodeChunkInner(this, decCtx, wireNative, len, dvtChunkInner);
+    if (retain) ak.corpus.NativeEntry.decResetChunkInner(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4690,9 +6424,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_CHUNKELEMENT_SIZE);
-    fillChunkElement(g, o);
-    long rc = ak.corpus.NativeEntry.encodeChunkElement(this, encCtx, evtChunkElement, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_CHUNKELEMENT_SIZE : ak.corpus.Layout.AK_EFIX_CHUNKELEMENT_SIZE);
+    if (retain) fillChunkElementU(g, o); else fillChunkElement(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeChunkElement(this, encCtx, evtChunkElement, g) : ak.corpus.NativeEntry.encodeChunkElement(this, encCtx, evtChunkElement, g);
     return encLast = check((int) rc);
   }
 
@@ -4700,7 +6434,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     ChunkElement r = new ChunkElement();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(21);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetChunkElement(decCtx, unkOptsOf(21)));
     int rc = ak.corpus.NativeEntry.decodeChunkElement(this, decCtx, wireNative, len, dvtChunkElement);
+    if (retain) ak.corpus.NativeEntry.decResetChunkElement(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4712,9 +6451,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_CHUNKEDRESPONSE_SIZE);
-    fillChunkedResponse(g, o);
-    long rc = ak.corpus.NativeEntry.encodeChunkedResponse(this, encCtx, evtChunkedResponse, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_CHUNKEDRESPONSE_SIZE : ak.corpus.Layout.AK_EFIX_CHUNKEDRESPONSE_SIZE);
+    if (retain) fillChunkedResponseU(g, o); else fillChunkedResponse(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeChunkedResponse(this, encCtx, evtChunkedResponse, g) : ak.corpus.NativeEntry.encodeChunkedResponse(this, encCtx, evtChunkedResponse, g);
     return encLast = check((int) rc);
   }
 
@@ -4722,7 +6461,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     ChunkedResponse r = new ChunkedResponse();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(22);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetChunkedResponse(decCtx, unkOptsOf(22)));
     int rc = ak.corpus.NativeEntry.decodeChunkedResponse(this, decCtx, wireNative, len, dvtChunkedResponse);
+    if (retain) ak.corpus.NativeEntry.decResetChunkedResponse(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4734,9 +6478,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_CHUNKEDRESPONSEWIDE_SIZE);
-    fillChunkedResponseWide(g, o);
-    long rc = ak.corpus.NativeEntry.encodeChunkedResponseWide(this, encCtx, evtChunkedResponseWide, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_CHUNKEDRESPONSEWIDE_SIZE : ak.corpus.Layout.AK_EFIX_CHUNKEDRESPONSEWIDE_SIZE);
+    if (retain) fillChunkedResponseWideU(g, o); else fillChunkedResponseWide(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeChunkedResponseWide(this, encCtx, evtChunkedResponseWide, g) : ak.corpus.NativeEntry.encodeChunkedResponseWide(this, encCtx, evtChunkedResponseWide, g);
     return encLast = check((int) rc);
   }
 
@@ -4744,7 +6488,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     ChunkedResponseWide r = new ChunkedResponseWide();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(23);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetChunkedResponseWide(decCtx, unkOptsOf(23)));
     int rc = ak.corpus.NativeEntry.decodeChunkedResponseWide(this, decCtx, wireNative, len, dvtChunkedResponseWide);
+    if (retain) ak.corpus.NativeEntry.decResetChunkedResponseWide(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4756,9 +6505,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_LEAFELEMENT_SIZE);
-    fillLeafElement(g, o);
-    long rc = ak.corpus.NativeEntry.encodeLeafElement(this, encCtx, evtLeafElement, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_LEAFELEMENT_SIZE : ak.corpus.Layout.AK_EFIX_LEAFELEMENT_SIZE);
+    if (retain) fillLeafElementU(g, o); else fillLeafElement(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeLeafElement(this, encCtx, evtLeafElement, g) : ak.corpus.NativeEntry.encodeLeafElement(this, encCtx, evtLeafElement, g);
     return encLast = check((int) rc);
   }
 
@@ -4766,7 +6515,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     LeafElement r = new LeafElement();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(24);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetLeafElement(decCtx, unkOptsOf(24)));
     int rc = ak.corpus.NativeEntry.decodeLeafElement(this, decCtx, wireNative, len, dvtLeafElement);
+    if (retain) ak.corpus.NativeEntry.decResetLeafElement(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4778,9 +6532,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_LEAFRESPONSE_SIZE);
-    fillLeafResponse(g, o);
-    long rc = ak.corpus.NativeEntry.encodeLeafResponse(this, encCtx, evtLeafResponse, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_LEAFRESPONSE_SIZE : ak.corpus.Layout.AK_EFIX_LEAFRESPONSE_SIZE);
+    if (retain) fillLeafResponseU(g, o); else fillLeafResponse(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeLeafResponse(this, encCtx, evtLeafResponse, g) : ak.corpus.NativeEntry.encodeLeafResponse(this, encCtx, evtLeafResponse, g);
     return encLast = check((int) rc);
   }
 
@@ -4788,7 +6542,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     LeafResponse r = new LeafResponse();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(25);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetLeafResponse(decCtx, unkOptsOf(25)));
     int rc = ak.corpus.NativeEntry.decodeLeafResponse(this, decCtx, wireNative, len, dvtLeafResponse);
+    if (retain) ak.corpus.NativeEntry.decResetLeafResponse(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4800,9 +6559,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_SURROGATE_SIZE);
-    fillSurrogate(g, o);
-    long rc = ak.corpus.NativeEntry.encodeSurrogate(this, encCtx, evtSurrogate, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_SURROGATE_SIZE : ak.corpus.Layout.AK_EFIX_SURROGATE_SIZE);
+    if (retain) fillSurrogateU(g, o); else fillSurrogate(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeSurrogate(this, encCtx, evtSurrogate, g) : ak.corpus.NativeEntry.encodeSurrogate(this, encCtx, evtSurrogate, g);
     return encLast = check((int) rc);
   }
 
@@ -4810,7 +6569,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Surrogate r = new Surrogate();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(26);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetSurrogate(decCtx, unkOptsOf(26)));
     int rc = ak.corpus.NativeEntry.decodeSurrogate(this, decCtx, wireNative, len, dvtSurrogate);
+    if (retain) ak.corpus.NativeEntry.decResetSurrogate(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4822,9 +6586,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_SURROGATEINNER_SIZE);
-    fillSurrogateInner(g, o);
-    long rc = ak.corpus.NativeEntry.encodeSurrogateInner(this, encCtx, evtSurrogateInner, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_SURROGATEINNER_SIZE : ak.corpus.Layout.AK_EFIX_SURROGATEINNER_SIZE);
+    if (retain) fillSurrogateInnerU(g, o); else fillSurrogateInner(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeSurrogateInner(this, encCtx, evtSurrogateInner, g) : ak.corpus.NativeEntry.encodeSurrogateInner(this, encCtx, evtSurrogateInner, g);
     return encLast = check((int) rc);
   }
 
@@ -4832,7 +6596,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     SurrogateInner r = new SurrogateInner();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(27);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetSurrogateInner(decCtx, unkOptsOf(27)));
     int rc = ak.corpus.NativeEntry.decodeSurrogateInner(this, decCtx, wireNative, len, dvtSurrogateInner);
+    if (retain) ak.corpus.NativeEntry.decResetSurrogateInner(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4844,9 +6613,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     encTokN = 0;
     encRoot = o;
     lastHostError = null;
-    long g = arena.alloc(ak.corpus.Layout.AK_EFIX_WIREZOO_SIZE);
-    fillWireZoo(g, o);
-    long rc = ak.corpus.NativeEntry.encodeWireZoo(this, encCtx, evtWireZoo, g);
+    long g = arena.alloc(retain ? ak.corpus.Layout.AK_UFIX_WIREZOO_SIZE : ak.corpus.Layout.AK_EFIX_WIREZOO_SIZE);
+    if (retain) fillWireZooU(g, o); else fillWireZoo(g, o);
+    long rc = retain ? ak.corpus.NativeEntry.uencodeWireZoo(this, encCtx, evtWireZoo, g) : ak.corpus.NativeEntry.encodeWireZoo(this, encCtx, evtWireZoo, g);
     return encLast = check((int) rc);
   }
 
@@ -4854,7 +6623,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     WireZoo r = new WireZoo();
     beginDecode(wire, off, len);
     decRoot = r;
+    decCtx = decCtxOf(28);
+    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // and unmoved while armed), decode, disarm. Drop mode needs no reset.
+    if (retain) check(ak.corpus.NativeEntry.decResetWireZoo(decCtx, unkOptsOf(28)));
     int rc = ak.corpus.NativeEntry.decodeWireZoo(this, decCtx, wireNative, len, dvtWireZoo);
+    if (retain) ak.corpus.NativeEntry.decResetWireZoo(decCtx, 0L);
     check(rc);
     return r;
   }
@@ -4899,6 +6673,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(0);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetTimestamp(decCtx, unkOptsOf(0)));
     check(ak.corpus.NativeEntry.parseTimestamp(this, decCtx, wire, off, len));
     Timestamp r = new Timestamp();
     decRoot = r;
@@ -4925,6 +6701,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayTimestamp(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetTimestamp(decCtx, 0L);
     return r;
   }
 
@@ -4958,6 +6736,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(1);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetDuration(decCtx, unkOptsOf(1)));
     check(ak.corpus.NativeEntry.parseDuration(this, decCtx, wire, off, len));
     Duration r = new Duration();
     decRoot = r;
@@ -4984,6 +6764,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayDuration(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetDuration(decCtx, 0L);
     return r;
   }
 
@@ -5017,6 +6799,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(2);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetResultRaw(decCtx, unkOptsOf(2)));
     check(ak.corpus.NativeEntry.parseResultRaw(this, decCtx, wire, off, len));
     ResultRaw r = new ResultRaw();
     decRoot = r;
@@ -5043,6 +6827,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayResultRaw(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetResultRaw(decCtx, 0L);
     return r;
   }
 
@@ -5076,6 +6862,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(3);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetTaskOptions(decCtx, unkOptsOf(3)));
     check(ak.corpus.NativeEntry.parseTaskOptions(this, decCtx, wire, off, len));
     TaskOptions r = new TaskOptions();
     decRoot = r;
@@ -5102,6 +6890,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayTaskOptions(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetTaskOptions(decCtx, 0L);
     return r;
   }
 
@@ -5141,6 +6931,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(4);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetTaskOutput(decCtx, unkOptsOf(4)));
     check(ak.corpus.NativeEntry.parseTaskOutput(this, decCtx, wire, off, len));
     TaskOutput r = new TaskOutput();
     decRoot = r;
@@ -5167,6 +6959,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayTaskOutput(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetTaskOutput(decCtx, 0L);
     return r;
   }
 
@@ -5200,6 +6994,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(5);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetTaskDetailed(decCtx, unkOptsOf(5)));
     check(ak.corpus.NativeEntry.parseTaskDetailed(this, decCtx, wire, off, len));
     TaskDetailed r = new TaskDetailed();
     decRoot = r;
@@ -5226,6 +7022,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayTaskDetailed(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetTaskDetailed(decCtx, 0L);
     return r;
   }
 
@@ -5269,6 +7067,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(6);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetTaskSummary(decCtx, unkOptsOf(6)));
     check(ak.corpus.NativeEntry.parseTaskSummary(this, decCtx, wire, off, len));
     TaskSummary r = new TaskSummary();
     decRoot = r;
@@ -5295,6 +7095,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayTaskSummary(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetTaskSummary(decCtx, 0L);
     return r;
   }
 
@@ -5334,6 +7136,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(7);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetProbe(decCtx, unkOptsOf(7)));
     check(ak.corpus.NativeEntry.parseProbe(this, decCtx, wire, off, len));
     Probe r = new Probe();
     decRoot = r;
@@ -5360,6 +7164,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayProbe(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetProbe(decCtx, 0L);
     return r;
   }
 
@@ -5393,6 +7199,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(8);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetEmpty(decCtx, unkOptsOf(8)));
     check(ak.corpus.NativeEntry.parseEmpty(this, decCtx, wire, off, len));
     Empty r = new Empty();
     decRoot = r;
@@ -5419,6 +7227,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayEmpty(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetEmpty(decCtx, 0L);
     return r;
   }
 
@@ -5452,6 +7262,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(9);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetUploadResultData(decCtx, unkOptsOf(9)));
     check(ak.corpus.NativeEntry.parseUploadResultData(this, decCtx, wire, off, len));
     UploadResultData r = new UploadResultData();
     decRoot = r;
@@ -5478,6 +7290,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayUploadResultData(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetUploadResultData(decCtx, 0L);
     return r;
   }
 
@@ -5511,6 +7325,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(10);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetMetricsBatch(decCtx, unkOptsOf(10)));
     check(ak.corpus.NativeEntry.parseMetricsBatch(this, decCtx, wire, off, len));
     MetricsBatch r = new MetricsBatch();
     decRoot = r;
@@ -5537,6 +7353,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayMetricsBatch(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetMetricsBatch(decCtx, 0L);
     return r;
   }
 
@@ -5580,6 +7398,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(11);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetPair(decCtx, unkOptsOf(11)));
     check(ak.corpus.NativeEntry.parsePair(this, decCtx, wire, off, len));
     Pair r = new Pair();
     decRoot = r;
@@ -5606,6 +7426,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayPair(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetPair(decCtx, 0L);
     return r;
   }
 
@@ -5639,6 +7461,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(12);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetListResultsResponse(decCtx, unkOptsOf(12)));
     check(ak.corpus.NativeEntry.parseListResultsResponse(this, decCtx, wire, off, len));
     ListResultsResponse r = new ListResultsResponse();
     decRoot = r;
@@ -5665,6 +7489,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayListResultsResponse(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetListResultsResponse(decCtx, 0L);
     return r;
   }
 
@@ -5704,6 +7530,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(13);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetListTasksDetailedResponse(decCtx, unkOptsOf(13)));
     check(ak.corpus.NativeEntry.parseListTasksDetailedResponse(this, decCtx, wire, off, len));
     ListTasksDetailedResponse r = new ListTasksDetailedResponse();
     decRoot = r;
@@ -5730,6 +7558,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayListTasksDetailedResponse(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetListTasksDetailedResponse(decCtx, 0L);
     return r;
   }
 
@@ -5785,6 +7615,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(14);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetListTaskSummaryResponse(decCtx, unkOptsOf(14)));
     check(ak.corpus.NativeEntry.parseListTaskSummaryResponse(this, decCtx, wire, off, len));
     ListTaskSummaryResponse r = new ListTaskSummaryResponse();
     decRoot = r;
@@ -5811,6 +7643,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayListTaskSummaryResponse(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetListTaskSummaryResponse(decCtx, 0L);
     return r;
   }
 
@@ -5862,6 +7696,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(15);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetListProbeResponse(decCtx, unkOptsOf(15)));
     check(ak.corpus.NativeEntry.parseListProbeResponse(this, decCtx, wire, off, len));
     ListProbeResponse r = new ListProbeResponse();
     decRoot = r;
@@ -5888,6 +7724,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayListProbeResponse(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetListProbeResponse(decCtx, 0L);
     return r;
   }
 
@@ -5927,6 +7765,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(16);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetListMetricsResponse(decCtx, unkOptsOf(16)));
     check(ak.corpus.NativeEntry.parseListMetricsResponse(this, decCtx, wire, off, len));
     ListMetricsResponse r = new ListMetricsResponse();
     decRoot = r;
@@ -5953,6 +7793,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayListMetricsResponse(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetListMetricsResponse(decCtx, 0L);
     return r;
   }
 
@@ -6008,6 +7850,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(17);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetUploadResultDataMessage(decCtx, unkOptsOf(17)));
     check(ak.corpus.NativeEntry.parseUploadResultDataMessage(this, decCtx, wire, off, len));
     UploadResultDataMessage r = new UploadResultDataMessage();
     decRoot = r;
@@ -6034,6 +7878,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayUploadResultDataMessage(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetUploadResultDataMessage(decCtx, 0L);
     return r;
   }
 
@@ -6067,6 +7913,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(18);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetDualResponse(decCtx, unkOptsOf(18)));
     check(ak.corpus.NativeEntry.parseDualResponse(this, decCtx, wire, off, len));
     DualResponse r = new DualResponse();
     decRoot = r;
@@ -6093,6 +7941,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayDualResponse(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetDualResponse(decCtx, 0L);
     return r;
   }
 
@@ -6133,6 +7983,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(19);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetChunkLeaf(decCtx, unkOptsOf(19)));
     check(ak.corpus.NativeEntry.parseChunkLeaf(this, decCtx, wire, off, len));
     ChunkLeaf r = new ChunkLeaf();
     decRoot = r;
@@ -6159,6 +8011,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayChunkLeaf(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetChunkLeaf(decCtx, 0L);
     return r;
   }
 
@@ -6192,6 +8046,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(20);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetChunkInner(decCtx, unkOptsOf(20)));
     check(ak.corpus.NativeEntry.parseChunkInner(this, decCtx, wire, off, len));
     ChunkInner r = new ChunkInner();
     decRoot = r;
@@ -6218,6 +8074,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayChunkInner(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetChunkInner(decCtx, 0L);
     return r;
   }
 
@@ -6258,6 +8116,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(21);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetChunkElement(decCtx, unkOptsOf(21)));
     check(ak.corpus.NativeEntry.parseChunkElement(this, decCtx, wire, off, len));
     ChunkElement r = new ChunkElement();
     decRoot = r;
@@ -6284,6 +8144,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayChunkElement(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetChunkElement(decCtx, 0L);
     return r;
   }
 
@@ -6326,6 +8188,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(22);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetChunkedResponse(decCtx, unkOptsOf(22)));
     check(ak.corpus.NativeEntry.parseChunkedResponse(this, decCtx, wire, off, len));
     ChunkedResponse r = new ChunkedResponse();
     decRoot = r;
@@ -6352,6 +8216,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayChunkedResponse(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetChunkedResponse(decCtx, 0L);
     return r;
   }
 
@@ -6406,6 +8272,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(23);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetChunkedResponseWide(decCtx, unkOptsOf(23)));
     check(ak.corpus.NativeEntry.parseChunkedResponseWide(this, decCtx, wire, off, len));
     ChunkedResponseWide r = new ChunkedResponseWide();
     decRoot = r;
@@ -6432,6 +8300,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayChunkedResponseWide(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetChunkedResponseWide(decCtx, 0L);
     return r;
   }
 
@@ -6486,6 +8356,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(24);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetLeafElement(decCtx, unkOptsOf(24)));
     check(ak.corpus.NativeEntry.parseLeafElement(this, decCtx, wire, off, len));
     LeafElement r = new LeafElement();
     decRoot = r;
@@ -6512,6 +8384,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayLeafElement(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetLeafElement(decCtx, 0L);
     return r;
   }
 
@@ -6545,6 +8419,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(25);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetLeafResponse(decCtx, unkOptsOf(25)));
     check(ak.corpus.NativeEntry.parseLeafResponse(this, decCtx, wire, off, len));
     LeafResponse r = new LeafResponse();
     decRoot = r;
@@ -6571,6 +8447,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayLeafResponse(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetLeafResponse(decCtx, 0L);
     return r;
   }
 
@@ -6610,6 +8488,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(26);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetSurrogate(decCtx, unkOptsOf(26)));
     check(ak.corpus.NativeEntry.parseSurrogate(this, decCtx, wire, off, len));
     Surrogate r = new Surrogate();
     decRoot = r;
@@ -6636,6 +8516,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replaySurrogate(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetSurrogate(decCtx, 0L);
     return r;
   }
 
@@ -6676,6 +8558,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(27);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetSurrogateInner(decCtx, unkOptsOf(27)));
     check(ak.corpus.NativeEntry.parseSurrogateInner(this, decCtx, wire, off, len));
     SurrogateInner r = new SurrogateInner();
     decRoot = r;
@@ -6702,6 +8586,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replaySurrogateInner(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetSurrogateInner(decCtx, 0L);
     return r;
   }
 
@@ -6735,6 +8621,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Neither `decErrReset` nor `bdrReset`: `ak_parse_*` clears the
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
+    decCtx = decCtxOf(28);   // decision 11 rule 6: the root's own context
+    if (retain) check(ak.corpus.NativeEntry.decResetWireZoo(decCtx, unkOptsOf(28)));
     check(ak.corpus.NativeEntry.parseWireZoo(this, decCtx, wire, off, len));
     WireZoo r = new WireZoo();
     decRoot = r;
@@ -6761,6 +8649,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayWireZoo(pullChunk, pullChunk + got);
       }
     }
+    // Disarmed only after the records are read: they carry the buffers (decision 11).
+    if (retain) ak.corpus.NativeEntry.decResetWireZoo(decCtx, 0L);
     return r;
   }
 

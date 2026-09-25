@@ -65,10 +65,13 @@ public final class RunCorpus {
         public byte[] encode(String r, Object o) { return ak.corpus.Dispatch.encRRetain(r, o); }
         public String project(String r, Object o) { return ak.corpus.Project.project(r, o); }
       };
-    if (name.equals("ffi") || name.equals("ffi-pull") || name.equals("ffi-pull-walk")) {
+    if (name.equals("ffi") || name.equals("ffi-pull") || name.equals("ffi-pull-walk")
+        || name.equals("ffi-retain") || name.equals("ffi-pull-retain") || name.equals("ffi-pull-walk-retain")) {
       final ak.corpus.Binding b = new ak.corpus.Binding();
-      final boolean pull = !name.equals("ffi");
-      b.pullWalk = name.equals("ffi-pull-walk");
+      final boolean pull = name.startsWith("ffi-pull");
+      b.pullWalk = name.startsWith("ffi-pull-walk");
+      // Decision 11 (WP5 step 9): every position armed, u-group encode.
+      b.retain = name.endsWith("-retain");
       return new Arm() {
         public Object decode(String r, byte[] w) {
           return pull ? ak.corpus.Dispatch.parseFfi(b, r, w) : ak.corpus.Dispatch.decFfi(b, r, w);
@@ -77,8 +80,9 @@ public final class RunCorpus {
         public String project(String r, Object o) { return ak.corpus.Project.project(r, o); }
       };
     }
-    if (name.equals("ffi-borrow")) {
+    if (name.equals("ffi-borrow") || name.equals("ffi-borrow-retain")) {
       final ak.corpus.borrow.Binding b = new ak.corpus.borrow.Binding();
+      b.retain = name.endsWith("-retain");
       return new Arm() {
         public Object decode(String r, byte[] w) { return ak.corpus.borrow.Dispatch.decFfi(b, r, w); }
         public byte[] encode(String r, Object o) { return ak.corpus.borrow.Dispatch.encFfi(b, r, o); }

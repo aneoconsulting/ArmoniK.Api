@@ -468,6 +468,74 @@ public final class Layout {
   public static final int AK_UFIX_DUALRESPONSE__UNKNOWN = 0;
   public static final int AK_UFIX_DUALRESPONSE__PRESENCE = 16;
 
+  public static final int AK_UNK_OPTS_SIZE = 24;   // align 8
+  public static final int AK_UNK_OPTS__BUF = 0;
+  public static final int AK_UNK_OPTS__GROW = 16;
+
+  public static final int AK_UNK_POOL_SIZE = 24;   // align 8
+  public static final int AK_UNK_POOL__BUFS = 0;
+  public static final int AK_UNK_POOL__N = 8;
+  public static final int AK_UNK_POOL__GROW = 16;
+
+  public static final int AK_DEC_LISTRESULTSRESPONSE_OPTS_SIZE = 104;   // align 8
+  public static final int AK_DEC_LISTRESULTSRESPONSE_OPTS__HOST = 0;
+  public static final int AK_DEC_LISTRESULTSRESPONSE_OPTS__SELF = 8;
+  public static final int AK_DEC_LISTRESULTSRESPONSE_OPTS__RESULTS = 32;
+  public static final int AK_DEC_LISTRESULTSRESPONSE_OPTS__RESULTS_CREATED_AT = 56;
+  public static final int AK_DEC_LISTRESULTSRESPONSE_OPTS__RESULTS_COMPLETED_AT = 80;
+
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS_SIZE = 440;   // align 8
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__HOST = 0;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__SELF = 8;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS = 32;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_OPTIONS = 56;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_OPTIONS_OPTIONS = 80;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_OPTIONS_MAX_DURATION = 104;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_CREATED_AT = 128;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_SUBMITTED_AT = 152;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_STARTED_AT = 176;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_ENDED_AT = 200;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_POD_TTL = 224;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_OUTPUT = 248;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_RECEIVED_AT = 272;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_ACQUIRED_AT = 296;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_CREATION_TO_END_DURATION = 320;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_PROCESSING_TO_END_DURATION = 344;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_RECEIVED_TO_END_DURATION = 368;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_PROCESSED_AT = 392;
+  public static final int AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_FETCHED_AT = 416;
+
+  public static final int AK_DEC_LISTPROBERESPONSE_OPTS_SIZE = 80;   // align 8
+  public static final int AK_DEC_LISTPROBERESPONSE_OPTS__HOST = 0;
+  public static final int AK_DEC_LISTPROBERESPONSE_OPTS__SELF = 8;
+  public static final int AK_DEC_LISTPROBERESPONSE_OPTS__PROBES = 32;
+  public static final int AK_DEC_LISTPROBERESPONSE_OPTS__PROBES_BODY = 56;
+
+  public static final int AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS_SIZE = 152;   // align 8
+  public static final int AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__HOST = 0;
+  public static final int AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__SELF = 8;
+  public static final int AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__TASKS = 32;
+  public static final int AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__TASKS_OPTIONS = 56;
+  public static final int AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__TASKS_OPTIONS_OPTIONS = 80;
+  public static final int AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__TASKS_OPTIONS_MAX_DURATION = 104;
+  public static final int AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__TASKS_CREATED_AT = 128;
+
+  public static final int AK_DEC_UPLOADRESULTDATAMESSAGE_OPTS_SIZE = 56;   // align 8
+  public static final int AK_DEC_UPLOADRESULTDATAMESSAGE_OPTS__HOST = 0;
+  public static final int AK_DEC_UPLOADRESULTDATAMESSAGE_OPTS__SELF = 8;
+  public static final int AK_DEC_UPLOADRESULTDATAMESSAGE_OPTS__UPLOAD = 32;
+
+  public static final int AK_DEC_LISTMETRICSRESPONSE_OPTS_SIZE = 56;   // align 8
+  public static final int AK_DEC_LISTMETRICSRESPONSE_OPTS__HOST = 0;
+  public static final int AK_DEC_LISTMETRICSRESPONSE_OPTS__SELF = 8;
+  public static final int AK_DEC_LISTMETRICSRESPONSE_OPTS__BATCHES = 32;
+
+  public static final int AK_DEC_DUALRESPONSE_OPTS_SIZE = 80;   // align 8
+  public static final int AK_DEC_DUALRESPONSE_OPTS__HOST = 0;
+  public static final int AK_DEC_DUALRESPONSE_OPTS__SELF = 8;
+  public static final int AK_DEC_DUALRESPONSE_OPTS__LEFT = 32;
+  public static final int AK_DEC_DUALRESPONSE_OPTS__RIGHT = 56;
+
   /** The same facts the core exports, in the core's order (cpp_layout.facts). */
   public static final int[] HOST = {
     56,
