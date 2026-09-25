@@ -121,8 +121,20 @@ in its container shows it executes (section 9).
     of the client process for RPC cells (the server is another process).
     `Process.TotalProcessorTime` and any counter coarser than 1 microsecond are not
     allowed. **Wall time** is recorded beside CPU for RPC cells.
-22. **Interleaving:** within a process, arms (codec) or cells (RPC) are interleaved
-    per round, in a rotated order, so a drift affects every arm alike.
+22. **Order of arms** (amended 2026-09-25, owner): on a machine that meets section 2,
+    arms and cells may run in blocks, one after another, and need not be
+    interleaved within a process. The order of arms is **rotated between launches**
+    (launch 1: A, B, C; launch 2: B, C, A; ...), so a slow drift across a run does not
+    fall on the same arm every time. Interleaving within a process remains allowed.
+22a. **Benchmark engine** (owner, 2026-09-25): a slice may time through its
+    ecosystem's standard benchmark framework. **For .NET, BenchmarkDotNet is the
+    default engine.** The framework's configuration must still satisfy requirements
+    21, 23, 24, 27 and 28: every raw measurement is exported (the framework's
+    outlier handling may produce its own summary, but no raw measurement is
+    dropped from the committed output), the JIT tier and warm-up it used are
+    recorded, the process is pinned to `CLIENT`, and the output is converted to the
+    JSON lines of section 7. Where the framework measures wall time only, that is
+    stated, and CPU time is added through a diagnoser or column where it can be.
 23. **Repeats:** at least **5 rounds per process** and **3 separate process
     launches** per slice and suite. Every round's value is committed, not only a
     summary.
