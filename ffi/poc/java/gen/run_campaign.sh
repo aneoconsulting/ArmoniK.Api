@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+# The java slice's campaign runner (design/CAMPAIGN.md, W11). The one entry point the owner
+# runs on the campaign machine:
+#
+#   gen/run_campaign.sh --suite codec|rpc|calib|gate --out <dir>
+#
+# Environment:
+#   AK_CPU_CLIENT, AK_CPU_SERVER   the CLIENT and SERVER cpu lists (req 4), for taskset.
+#                                  Required unless AK_CAMPAIGN_SMOKE=1 (then recorded as unset).
+#   AK_ISOLATION                   how the CPUs are isolated (req 3), recorded verbatim
+#   AK_LAUNCHES (3), AK_ROUNDS (5) req 23
+#   AK_CAMPAIGN_SMOKE=1            req 32: 1 launch, 1 round, reduced iterations, and every
+#                                  figure in the log is marked instrumentation
+#   AK_CAMPAIGN_ALLOW_DIRTY=1      development only: a dirty tree is otherwise refused
+#                                  (req 27); the header says DIRTY
+#   AK_CAMPAIGN_NO_BUILD=1         reuse the existing build (the header still records it)
+#
+# Order inside one invocation: build -> header -> correctness gate (req 26; the gate suite
+# writes a stamp for the commit, and a timing suite runs the gate itself when no stamp for
+# this commit exists in <out>) -> the suite. Target JDK 17 only is timed; the Java 8 floor
+# (arms b and c) is run by the gate and never timed (req 5).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+HERE=$PWD
+SUITE=""; OUT=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --suite) SUITE=$2; shift 2 ;;
+    --out) OUT=$2; shift 2 ;;
+    *) echo "usage: $0 --suite codec|rpc|calib|gate --out <dir>" >&2; exit 2 ;;
+  esac
+done
+case "$SUITE" in codec|rpc|calib|gate) ;; *) echo "usage: $0 --suite codec|rpc|calib|gate --out <dir>" >&2; exit 2 ;; esac
+[ -n "$OUT" ] || { echo "--out is required" >&2; exit 2; }
+mkdir -p "$OUT"; OUT=$(cd "$OUT" && pwd)
+
+J17=${J17:-/usr/lib/jvm/java-17-openjdk-amd64}
+J8=${J8:-/usr/lib/jvm/java-8-openjdk-amd64}
+unset JAVA_TOOL_OPTIONS || true
+SMOKE=${AK_CAMPAIGN_SMOKE:-0}
+LAUNCHES=${AK_LAUNCHES:-3}; ROUNDS=${AK_ROUNDS:-5}
+if [ "$SMOKE" = 1 ]; then LAUNCHES=1; ROUNDS=1; fi
+
+# ---- req 27: a dirty tree is refused
+TOP=$(git rev-parse --show-toplevel)
+COMMIT=$(git rev-parse --short HEAD)
+# poc/codec, schema and corpus reach the build only through gen/build.sh's `git archive` of
+# the commit, so only this slice's own directory can make the build differ from the commit.
+DIRTY=$(cd "$TOP" && git status --porcelain -- ffi/poc/java | grep -v '^?? ffi/poc/java/build' || true)
+if [ -n "$DIRTY" ]; then
+  if [ "${AK_CAMPAIGN_ALLOW_DIRTY:-0}" != 1 ]; then
+    echo "REFUSED: the tree is dirty (req 27):"; echo "$DIRTY" | head -20; exit 1
+  fi
+  COMMIT="$COMMIT-DIRTY"
+fi
+
+# ---- req 4: the CPU sets
+if [ -z "${AK_CPU_CLIENT:-}" ] || [ -z "${AK_CPU_SERVER:-}" ]; then
+  if [ "$SMOKE" != 1 ] && [ "$SUITE" != gate ]; then
+    echo "REFUSED: AK_CPU_CLIENT and AK_CPU_SERVER must be set (req 4)"; exit 1
+  fi
+fi
+pin() {  # $1 = cpu list or empty
+  if [ -n "$1" ]; then echo "taskset -c $1"; fi
+}
+PIN_C=$(pin "${AK_CPU_CLIENT:-}"); PIN_S=$(pin "${AK_CPU_SERVER:-}")
+
+# ---- build (req 6: flags printed in the header)
+if [ "${AK_CAMPAIGN_NO_BUILD:-0}" != 1 ]; then
+  bash gen/build.sh > "$OUT/build-$COMMIT.log" 2>&1 || { echo "BUILD FAILED: $OUT/build-$COMMIT.log"; exit 1; }
+fi
+CP=$(cat deps/cp.txt)
+export AK_CODECGEN=${AK_CODECGEN:-$HERE/build/snap/ffi/poc/codec/gen}
+
+# Fixed JVM settings for every timed JVM (req 6, 25): heap fixed, the default collector
+# (G1) on, tiered compilation on, nothing else.
+JVM_FLAGS="-Xms4g -Xmx4g -XX:+UseG1GC -Xss8m"
+
+sysf() { cat "$1" 2>/dev/null | head -1 || echo "n/a"; }
+header() {  # $1 = file, $2 = suite description
+  local f=$1
+  {
+    echo "# campaign log, java slice (design/CAMPAIGN.md W11 draft)  suite=$SUITE  $2"
+    echo "# commit $COMMIT   (dirty tree refused unless AK_CAMPAIGN_ALLOW_DIRTY=1)"
+    [ "$SMOKE" = 1 ] && echo "# SMOKE RUN (req 32): 1 launch, 1 round, reduced iterations. EVERY FIGURE BELOW IS CONTAINER INSTRUMENTATION, NOT A RESULT."
+    echo "# machine: cpu=\"$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //')\" nproc=$(nproc) smt=$(sysf /sys/devices/system/cpu/smt/active)"
+    echo "#   governor=$(sysf /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor) no_turbo=$(sysf /sys/devices/system/cpu/intel_pstate/no_turbo) boost=$(sysf /sys/devices/system/cpu/cpufreq/boost) kernel=$(uname -r)"
+    echo "#   isolation=\"${AK_ISOLATION:-not stated}\" isolated_cpus=$(sysf /sys/devices/system/cpu/isolated) numa_nodes=$(ls -d /sys/devices/system/node/node* 2>/dev/null | wc -l)"
+    echo "#   AK_CPU_CLIENT=${AK_CPU_CLIENT:-unset} AK_CPU_SERVER=${AK_CPU_SERVER:-unset} (taskset; OS = the rest)"
+    echo "# runtime: target $("$J17/bin/java" -version 2>&1 | head -1)   floor (gated only) $("$J8/bin/java" -version 2>&1 | head -1)"
+    echo "# incumbent: $(echo "$CP" | tr ':' '\n' | grep -oE 'protobuf-java-[0-9.]+\.jar|grpc-(api|netty-shaded|protobuf)-[0-9.]+\.jar' | sort -u | tr '\n' ' ')"
+    echo "# build: $(cat build/core-rev.txt 2>/dev/null | sed 's/^ *//')"
+    echo "#   core cargo profile release, features $(grep -ho ',"features":"\[[^]]*\]' core-build/current/target/release/.fingerprint/ak-core-*/lib-ak_core.json 2>/dev/null | sort -u | tr -d '\\' | sed 's/^,"features":"//' | tr '\n' ' ') (shared library, cdylib); shim gcc -O2 -std=c11"
+    echo "#   JVM: $JVM_FLAGS (tiered JIT on, default thresholds)"
+    echo "# repeats: $LAUNCHES launch(es) x $ROUNDS round(s) per process (req 23)"
+  } > "$f"
+}
+
+gate_ok() { [ -f "$OUT/gate-$COMMIT.ok" ]; }
+
+run_gate() {
+  local f="$OUT/gate-$COMMIT.log"
+  header "$f" "correctness gate: payload set on arms a/b/c, full corpus on 8 and 17 with controls, crossing counts against the committed reference"
+  local rc=0
+  { echo "## gen/gate.sh"; bash gen/gate.sh; } >> "$f" 2>&1 || rc=1
+  { echo; echo "## gen/corpus.sh"; bash gen/corpus.sh; } >> "$f" 2>&1 || rc=1
+  # req 19: the crossing counts are machine-independent and gate the run
+  "$J17/bin/java" -cp "build/cls17:$CP" -Dak.lib="$HERE/build/jnicnt/libakjni.so" ak.RunCounts \
+    2>/dev/null | grep -E '^P[0-9]' > "$OUT/counts-$COMMIT.txt" || true
+  if diff -u gen/campaign/counts.ref "$OUT/counts-$COMMIT.txt" > "$OUT/counts-$COMMIT.diff"; then
+    echo "## crossing counts: identical to gen/campaign/counts.ref ($(wc -l < gen/campaign/counts.ref) rows)" >> "$f"
+  else
+    echo "## crossing counts DIFFER from gen/campaign/counts.ref (req 19): see counts-$COMMIT.diff" >> "$f"; rc=1
+  fi
+  if [ $rc = 0 ]; then echo "GATE PASSED" >> "$f"; date -u +%FT%TZ > "$OUT/gate-$COMMIT.ok"
+  else echo "GATE FAILED: no timing suite runs at this commit" >> "$f"; fi
+  echo "gate: $(tail -1 "$f")  ($f)"
+  return $rc
+}
+
+if [ "$SUITE" = gate ]; then run_gate; exit $?; fi
+gate_ok || run_gate || exit 1
+
+JAVA="$J17/bin/java $JVM_FLAGS -cp build/cls17:$CP -Dak.camp.rounds=$ROUNDS"
+
+case "$SUITE" in
+codec)
+  EXTRA=""
+  [ "$SMOKE" = 1 ] && EXTRA="-Dak.camp.budget=${AK_SMOKE_BUDGET:-65536} -Dak.camp.maxiters=${AK_SMOKE_MAXITERS:-50} -Dak.camp.warm=1"
+  for l in $(seq 1 "$LAUNCHES"); do
+    # req 24: protobuf-java's content-set rows in both String coder states (JDK 17 compact
+    # strings on, and off with -XX:-CompactStrings), each its own process.
+    for coder in compact utf16; do
+      f="$OUT/codec-$coder-launch-$l.jsonl"
+      header "$f" "coder=$coder launch=$l warm-up=${AK_WARM:-5} samples per (arm,payload,content,dir) before round 1"
+      CF=""; [ "$coder" = utf16 ] && CF="-XX:-CompactStrings"
+      echo "# command: $PIN_C java $CF ... ak.CampaignCodec" >> "$f"
+      $PIN_C $JAVA $CF -Dak.lib="$HERE/build/jni/libakjni.so" -Dak.camp.launch="$l" \
+        -Dak.camp.coder="$coder" -Dak.camp.out="$f" -Dak.camp.warm="${AK_WARM:-5}" $EXTRA \
+        ${AK_CODEC_PROPS:-} ak.CampaignCodec || { echo "codec launch $l ($coder) FAILED; no figure"; exit 1; }
+      echo "codec launch $l ($coder): $(grep -c '"cpu_ns"' "$f") samples -> $f"
+    done
+  done ;;
+rpc)
+  EXTRA=""
+  [ "$SMOKE" = 1 ] && EXTRA="-Dak.camp.calls=${AK_SMOKE_CALLS:-64} -Dak.camp.chunk=16 -Dak.camp.warm=1"
+  for l in $(seq 1 "$LAUNCHES"); do
+    for tr in shipped pinned; do
+      f="$OUT/rpc-$tr-launch-$l.jsonl"
+      sock="$HERE/build/campaign-$$-$tr-$l.sock"
+      header "$f" "transport=$tr launch=$l (cells A-D in ONE client process, server in its own process)"
+      echo "# server: $PIN_S java ... ak.CampaignRpc --serve (grpc-java, pre-serialised P2.2; direction b parses with protobuf-java)" >> "$f"
+      $PIN_S $JAVA -Dak.camp.transport="$tr" -Dak.lib="$HERE/build/jnirpc/libakjni.so" \
+        ak.CampaignRpc --serve "$sock" > "$OUT/rpc-server-$tr-$l.txt" 2>&1 &
+      spid=$!
+      for i in $(seq 1 120); do grep -q SERVING "$OUT/rpc-server-$tr-$l.txt" 2>/dev/null && break; sleep 0.5; done
+      grep -q SERVING "$OUT/rpc-server-$tr-$l.txt" || { kill $spid; echo "server did not start"; exit 1; }
+      rc=0
+      $PIN_C $JAVA -Dak.camp.transport="$tr" -Dak.camp.socket="$sock" -Dak.camp.launch="$l" \
+        -Dak.lib="$HERE/build/jnirpc/libakjni.so" -Dak.rpclib="$HERE/build/jnirpc/libakjni.so" \
+        -Dak.camp.out="$f" $EXTRA ${AK_RPC_PROPS:-} ak.CampaignRpc || rc=$?
+      kill $spid 2>/dev/null || true; wait $spid 2>/dev/null || true
+      rm -f "$sock"
+      [ $rc = 0 ] || { echo "rpc launch $l ($tr) FAILED (req 18); no figure"; exit 1; }
+      echo "rpc launch $l ($tr): $(grep -c '"cpu_ns"' "$f") samples -> $f"
+    done
+  done ;;
+calib)
+  N=${AK_CALIB_ITERS:-20000000}; [ "$SMOKE" = 1 ] && N=${AK_SMOKE_CALIB_ITERS:-200000}
+  PERF=""; command -v perf >/dev/null && PERF="perf stat -x, -e cycles,instructions"
+  RUST=$HERE/../rust
+  for l in $(seq 1 "$LAUNCHES"); do
+    f="$OUT/calib-launch-$l.jsonl"
+    header "$f" "launch=$l iterations=$N perf=${PERF:-unavailable in this environment}"
+    $PIN_C $PERF $JAVA -Dak.lib="$HERE/build/jni/libakjni.so" -Dak.camp.launch="$l" \
+      -Dak.camp.calibiters="$N" -Dak.camp.out="$f" ak.CampaignCalib 2>> "$f.perf"
+    $PIN_C $PERF "$J17/bin/java" $JVM_FLAGS -cp build/probe -Dak.lib="$HERE/build/probe/libprobe.so" \
+      -Dak.camp.calibiters="$N" -Dak.camp.rounds="$ROUNDS" -Dak.camp.launch="$l" CampaignRev \
+      >> "$f" 2>> "$f.perf"
+    # The Rust slice's own crossing benchmark, in this machine's same pinning (R13).
+    ( export CARGO_TARGET_DIR=$HERE/build/rustcal
+      cd "$RUST" && cargo build --release --bin bench >/dev/null 2>&1 \
+      && AK_BENCH_ONLY=P1.1 $PIN_C $PERF "$CARGO_TARGET_DIR/release/bench" 2>>"$f.perf" \
+         | grep -iE 'crossing' | sed 's/^/# rust-bench: /' ) >> "$f" || echo "# rust-bench: not run" >> "$f"
+    [ -n "$PERF" ] || echo "# perf: unavailable here, so no cycles/instructions (req 20)" >> "$f"
+    echo "calib launch $l -> $f"
+  done ;;
+esac

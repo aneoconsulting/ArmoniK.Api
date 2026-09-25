@@ -20,6 +20,8 @@ cd "$(dirname "$0")/.."
 J17=${J17:-/usr/lib/jvm/java-17-openjdk-amd64}
 J8=${J8:-/usr/lib/jvm/java-8-openjdk-amd64}
 unset JAVA_TOOL_OPTIONS || true
+# The generator state the build used: the core snapshot's poc/codec/gen (gen/build.sh).
+[ -z "${AK_CODECGEN:-}" ] && [ -d build/snap/ffi/poc/codec/gen ] && export AK_CODECGEN=$PWD/build/snap/ffi/poc/codec/gen
 CP=$(cat deps/cp.txt)
 LIB=$PWD/build/jni/libakjni.so
 CNT=$PWD/build/jnicnt/libakjni.so

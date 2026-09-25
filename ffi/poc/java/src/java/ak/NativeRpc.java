@@ -73,4 +73,8 @@ public final class NativeRpc {
   public static native int queueNext(long q, long timeoutMs, long[] out);
 
   public static native void callDestroy(long handle);
+
+  /** CLOCK_PROCESS_CPUTIME_ID in ns (CAMPAIGN.md req 21: the RPC client process's CPU at a
+   *  resolution finer than 1 us; the JDK's getProcessCpuTime reads times(), 10 ms ticks). */
+  public static native long processCpuNs();
 }

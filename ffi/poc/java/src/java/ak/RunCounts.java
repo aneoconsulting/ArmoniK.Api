@@ -26,8 +26,7 @@ public final class RunCounts {
     log.append("java.version=").append(System.getProperty("java.version"))
        .append("  lib=").append(System.getProperty("ak.lib")).append('\n');
     log.append("\nforward = a JNI call into the core; reverse = an upcall out of it.\n");
-    log.append("This machine's prices, measured in `logs/java/crossing.log`:\n");
-    log.append("  forward about 11 ns, reverse about 80 ns with the method id cached.\n\n");
+    log.append("\n");
 
     String[] cfg = {"batched", "unbatched"};
     log.append(String.format("%-6s %-10s %9s %9s %9s %9s %9s %9s %9s%n",
