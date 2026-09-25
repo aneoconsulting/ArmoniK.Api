@@ -687,3 +687,16 @@ first plant run showed a negative count from that).
 
 Found on the way (D41): corpus.sh 3b piped RunUnkControls into `grep -v`, which masked
 its exit status; now taken from PIPESTATUS. Gate at 973e5ba: `logs/java/wp5s9-leak/gate.log`.
+
+### J27. Req 12 amended: RPC cells per unknown-field mode (2026-09-25)
+
+`ak.CampaignRpc` runs C-retain, C-drop, D-retain, D-drop beside A and B (one client
+process, rotated). Retain is a per-thread Binding with `retain = true`. Before timing each
+C/D cell decodes P2.2 in its mode and re-encodes it: byte-identical. After the run the
+shim's `unkLive` and every Binding's reclaim counters are read (meta `unk_leak`), and a
+non-zero value aborts: 0 / 0 / 0 on both transports, 201 retain and 201 drop Bindings.
+The first six-cell smoke was OOM-killed (7.7 GB RSS, memcg): every sample starts fresh
+threads, each thread built its own Binding, and none was ever closed -- a harness leak that
+predates this change and grew with the two extra cells. Each sample thread now closes its
+Bindings when it ends (peak RSS ~4.5 GB, the 4 GB heap). C-nounk and D-nounk wait for
+the compiled-out no-unknown variant in poc/codec. Smoke: `logs/java/campaign/rpc-*`.
