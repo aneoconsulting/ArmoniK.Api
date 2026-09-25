@@ -31,7 +31,8 @@ import re
 
 from plan import (FIXED, as_plan, abi_order_topo, direct_fields, element_types, elem_type,
                   group_fields, loop_slots, presence_bits, slot_elem, slot_name,
-                  ugroup_fields, vtable_messages)
+                  ugroup_fields, unk_entry_points, unk_opts_layout, unk_opts_name,
+                  vtable_messages)
 import cs_names as N
 
 LOOP_FN = "delegate* unmanaged[Cdecl]<IntPtr, void*, long, int>"
@@ -192,6 +193,32 @@ def vtable_decls(p):
     return out
 
 
+def opts_decls(p):
+    """[(struct name, [(member, C# type)])]: decision 11's per-root options struct
+    `ak_dec_<Root>_opts { void *host; <entry> <position>...; }`, members named and typed by
+    plan.unk_opts_layout (an `ak_unk_opts` for a position that occurs once per decode, an
+    `ak_unk_pool` for one that can occur more; rule 1)."""
+    out = []
+    for root in p.roots:
+        out.append((unk_opts_name(root), [("host", "IntPtr")] +
+                    [(n, t) for n, _m, t in unk_opts_layout(p, root)]))
+    return out
+
+
+def unk_imports(p):
+    """[(ret, name, args)]: plan.unk_entry_points per root, `ak_dec_ctx_new_<Root>` and
+    `ak_dec_reset_<Root>` (rule 6: root-bound contexts; the untyped ak_dec_ctx_new is gone)."""
+    out = []
+    for root in p.roots:
+        o = unk_opts_name(root)
+        for name, params, ret, _doc in unk_entry_points(p, root):
+            args = []
+            for pn, t in params:
+                args.append(("%s* %s" % (o, _pname(pn))) if t == "*mut %s" % o else "%s %s" % (cs_param(t), _pname(pn)))
+            out.append((cs_param(ret), name, ", ".join(args)))
+    return out
+
+
 def root_imports(p):
     """[(ret, name, args)] of the per-message-set entry points, as rust_abi declares them."""
     out = []
@@ -251,6 +278,13 @@ def emit_abi(x, ns, lib="ak_core"):
     for vname, fields in vts:
         _struct(o, vname, fields, unsafe=True)
 
+    # ---- decision 11: the per-root unknown-field options (plan.unk_opts_layout)
+    opts = opts_decls(p)
+    for oname_, fields in opts:
+        _struct(o, oname_, fields, "Decision 11: %s's unknown-field configuration, read IN PLACE by "
+                "the core from the reset that arms it until the next reset (plan.unk_opts_layout)."
+                % oname_[len("ak_dec_"):-len("_opts")])
+
     # ---- the imports
     o.doc("ABI v1 section 6: plain exports, declared per symbol, so a missing one is a load "
           "failure. Every declaration carries both language levels.")
@@ -269,7 +303,7 @@ def emit_abi(x, ns, lib="ak_core"):
     o += "    public static readonly IntPtr AK_STR_DIRECT = (IntPtr)1;"
     o += ""
     emit_import(o, "int", lc.init[0], "%s* opts, ak_err* err" % oname)
-    for ret, name, args in _fixed_imports() + root_imports(p):
+    for ret, name, args in _fixed_imports() + root_imports(p) + unk_imports(p):
         emit_import(o, ret, name, args)
     o += "}"
     o += ""
@@ -315,7 +349,7 @@ def emit_abi(x, ns, lib="ak_core"):
     o += "    public static List<S> Table()"
     o += "    {"
     o += "        var all = new List<S>();"
-    allstructs = ([(n, fs) for n, _, fs in _fixed_structs()] + groups + vts)
+    allstructs = ([(n, fs) for n, _, fs in _fixed_structs()] + groups + vts + opts)
     for sname, fields in allstructs:
         o += "        {"
         o += "            var s = new S { Name = \"%s\", Size = sizeof(%s), Fields = typeof(%s).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };" % (sname, sname, sname)
