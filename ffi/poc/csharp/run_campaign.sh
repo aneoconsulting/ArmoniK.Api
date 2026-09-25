@@ -140,7 +140,7 @@ case "$SUITE" in
       for l in $(seq 1 "$LAUNCHES"); do
         f="$OUT/rpc-$t-launch$l.jsonl"
         [ $PLANT = 1 ] && f="$OUT/rpc-$t-launch$l.PLANT.jsonl"
-        sock="$SCRATCH/ak-campaign-$$.sock"; rm -f "$sock"
+        sock="/tmp/ak-cs-campaign-$$.sock"; rm -f "$sock"   # a Unix socket path is at most 108 bytes
         { header "rpc,init-guard"; echo "$GATE"; } > "$f"
         taskset -c "$AK_CPU_SERVER" dotnet "$R8/akrpc.dll" campaign --suite rpc-server --sock "$sock" --transport "$t" > "$OUT/rpc-$t-launch$l.server.log" 2>&1 &
         SPID=$!
