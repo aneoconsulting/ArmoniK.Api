@@ -1,14 +1,14 @@
 # python slice: build, WP5 step 5 (plan-rendered shim, init-guard cores)
-# date:      2026-09-25T06:41:16Z
-# commit:    154803d
+# date:      2026-09-25T15:32:25Z
+# commit:    17b5fd5
 # phase:     correctness only; nothing here is a timing
 
-   core source: /home/user/ArmoniK.Api/ffi/poc/python/build/snap/154803d/ffi/poc/codec (snapshot of 154803d)
-   commit:      154803d (snapshot)
+   core source: /home/user/ArmoniK.Api/ffi/poc/python/build/snap/17b5fd5/ffi/poc/codec (snapshot of 17b5fd5)
+   commit:      17b5fd5 (snapshot)
    core tree:   0429a9d823d38672
-   targets:     /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-154803d/{plain,count,rpc,corpus}
+   targets:     /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-17b5fd5/{plain,count,rpc,corpus}
 == 1. R0: one core, at poc/codec, reached by path ==
-   snapshot mode: the core is the archived poc/codec of 154803d, reached by path; one_core.sh
+   snapshot mode: the core is the archived poc/codec of 17b5fd5, reached by path; one_core.sh
    checks the working tree (other slices), which is not what this build reads
 
 == 2. R1: the generated tree is current with the plans ==
@@ -16,12 +16,12 @@ guard 2 python backend modules import plans only; a planted IR import is caught
 generated tree is current with the plans (10 files)
 
 == 3. the shared core, every build WITH init-guard (R-G7) ==
-   cargo (plain --features init-guard): 16 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-154803d/plain.stderr
+   cargo (plain --features init-guard): 16 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-17b5fd5/plain.stderr
    exported ak_* entry points: 100
-   cargo (count --features count,init-guard): 16 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-154803d/count.stderr
-   cargo (rpc --features rpc,init-guard): 16 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-154803d/rpc.stderr
+   cargo (count --features count,init-guard): 16 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-17b5fd5/count.stderr
+   cargo (rpc --features rpc,init-guard): 16 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-17b5fd5/rpc.stderr
    the rpc core: 14 section 9 entry points
-   cargo (corpus --features corpus,init-guard): 38 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-154803d/corpus.stderr
+   cargo (corpus --features corpus,init-guard): 38 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-17b5fd5/corpus.stderr
    the corpus core: 1 ak_decode_WireZoo export(s)
 
 == python 3.12 (3.12.3, sys.hexversion 0x30c03f0) ==

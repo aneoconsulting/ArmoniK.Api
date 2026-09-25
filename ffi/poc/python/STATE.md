@@ -31,6 +31,33 @@ dadea5f for the timed suites). The gate stamp is keyed on the source trees the b
 and it accepted the later suites, so those trees are the same at both commits. From now on
 the header prints the resolved snapshot sha, where this run's logs print `HEAD`.
 
+### CAMPAIGN.md 22a (cbd3252): the codec suite on pyperf
+
+`run_campaign.sh --suite codec` times with **pyperf 2.10.0** (`camp_pyperf.py`, installed into
+`build/pyperf` by the runner). The mapping is one pyperf invocation per launch (at least 3,
+with the benchmark order rotated a third of the list per launch), `--processes 1 --values
+ROUNDS --warmups 3 --min-time 0.1 --affinity $AK_CPU_CLIENT --copy-env`. Each benchmark gets
+a fresh worker per launch plus pyperf's loop-calibration worker. The time_func returns
+**CLOCK_THREAD_CPUTIME_ID**, so pyperf's values are CPU time per loop; the wall time of the
+same call is written to a side file and joined back. `camp_pyperf_export.py` writes every raw
+measurement into section 7: values (`phase` "value", `round` = the value's index), warm-ups
+("warmup") and calibration ("calibration"). A value without its wall record stops the
+export. The raw pyperf JSON is committed next to it. The cases, arms, directions, modes and
+per-case correctness check are camp_codec's; its own loop is kept only for by-hand comparison
+and is not driven by the runner. RPC and calib stay on the slice runner (requirements 13 and
+18). Cost: the full unknown family is 3,732 benchmarks x 2 workers per launch. The smoke ran a
+five-row subset (`--only`, stated in the log).
+
+Smoke (instrumentation, `logs/python/campaign/codec-*`): the gate re-passed at 17b5fd5.
+Shapes: 324 values, 2,621 raw measurements. Unknown (5 rows): 48 values, 672 raw measurements.
+
+Checklist deltas from 22a: **22** interleaving within a process is replaced by pyperf's model
+(one worker per benchmark), with the order rotated between launches; **23** launches =
+pyperf invocations, rounds = values per worker; **24** warm-up and calibration are pyperf's,
+recorded and exported; **21** CPU time is the pyperf value, wall beside; **25** GC ON in every
+worker (`gc.collect()` before each timed call) and M_TOP_PAD at worker import; **28** every
+raw measurement exported.
+
 ### Checklist (CAMPAIGN.md section 10)
 
 | # | status | how, or why not |
@@ -56,9 +83,9 @@ the header prints the resolved snapshot sha, where this run's logs print `HEAD`.
 | 19 | met | calib compares the counting build with `counts_expected.txt` and stops on a difference; gate step 98 does the same against log 85 |
 | 20 | partly met | host forward and fwd+reverse measured separately (reverse alone is the difference, left to the summary); the rust slice's `bench` is built from the snapshot and run pinned. `perf stat` is implemented but `perf` is absent in this container, so cycles and instructions are unverified |
 | 21 | met | codec: CLOCK_THREAD_CPUTIME_ID; rpc: CLOCK_PROCESS_CPUTIME_ID of the client, wall beside |
-| 22 | met | rotated by one per round, within each (payload, content, direction) or (transport, direction, in flight) |
+| 22 | met (22a) | codec: pyperf, one worker per benchmark, order rotated between launches; rpc: rotated by one per round within (transport, direction, in flight) |
 | 23 | met | defaults 5 rounds x 3 launches, every sample written (smoke: 1 x 1) |
-| 24 | met | per arm or cell: calibration, then one sample's iterations before round 1, the same rule for every arm |
+| 24 | met | codec: pyperf's warm-up (3 values) and loop calibration, exported; rpc: one sample's calls per cell before round 1 |
 | 25 | met | M_TOP_PAD before any allocation (J26); GC ON, `gc.collect()` before every sample, stated |
 | 26 | met, one gap | codec, rpc and calib refuse without a `gate.ok` for the trees they read (they run the gate first), and each codec case is also checked in process. The gap is req 10: the corpus runs core-ffi in drop mode only |
 | 27 | met | header: commit (a dirty tree is refused unless `--allow-dirty`), machine, CPU sets, versions, build, transport, warm-up, repeats |
