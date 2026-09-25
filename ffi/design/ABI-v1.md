@@ -1326,6 +1326,56 @@ Each blocks something. None is settled by a measurement that exists today.
    decoded (FIX-PLAN R-A6). It was found by a shape-coverage vector rather than by
    a benchmark.
 
+   **Mechanism, specified 2026-09-24 by the owner** (replaces the `unknown` and
+   `unk_<slot>` decode callbacks; the retain/drop decision itself stays open):
+
+   - **Encode is unchanged.** Each encode group, root and every inlined child,
+     carries its own `unknown: ak_blob`, written verbatim after the known fields.
+   - **Decode: one buffer per message position, as data in the decode group.**
+     Every message position in a decode group (the root or element itself, each
+     inlined singular child, each oneof message member, each map entry, a map
+     being a repeated entry message to the codec) carries one slot
+     `ak_unk_buf { void *data; uint32_t len; uint32_t cap; }`. The core copies that
+     message's unknown runs into it (runs need not be contiguous in the input, so
+     they are copied, not referenced). Buffers are per message, never shared, so a
+     sub-message can be re-encoded outside its parent with its own bag.
+   - **Configuration: a per-root options struct, generated from the plan, with one
+     entry per message position**, the buffer descriptor inlined:
+
+     ```c
+     typedef struct {
+         ak_unk_buf  buf;    /* one pre-allocated buffer for this position */
+         ak_grow_fn  grow;   /* called when buf is absent, too small, or already handed out */
+         void       *host;   /* passed back to grow */
+     } ak_unk_opts;          /* all zero: unknowns at this position are discarded */
+
+     typedef struct {        /* generated per root, same traversal as the groups */
+         ak_unk_opts self;
+         ak_unk_opts tasks;
+         ak_unk_opts tasks_options;
+         ak_unk_opts tasks_created_at;
+         /* ... one per message position */
+     } ak_dec_ListTasksDetailedResponse_opts;
+     ```
+
+     It is passed at context creation and at reset, typed per root:
+     `ak_dec_reset_<Root>(ctx, const ak_dec_<Root>_opts *)`. No extra crossing: both
+     are calls the host already makes.
+   - **Ownership:** a buffer placed in a slot passes to the host at `apply` (push)
+     or when the record is read (pull). The core never places one buffer in two
+     slots. A repeated position (for example `tasks`) has one pre-allocated buffer,
+     used by the first element that needs one; later elements get theirs from
+     `grow`. Reset re-arms every position.
+   - **Discard:** an all-zero entry drops unknowns at that position only, so a host
+     may keep them at one position and drop them at another. With every entry zero
+     the decoder is in drop mode, with no second code path.
+   - **Reverse calls:** none, unless a position has no buffer left or one is too
+     small; then one `grow`.
+   - **Layout cost:** every decode group grows by one `ak_unk_buf` per message
+     position it contains, even when unknowns are discarded; to be measured in the
+     campaign.
+   - **Recursive messages stay refused** from the C ABI (owner, 2026-09-24).
+
 12. **The diagnostic contract**, and it is worse than "five failures render as
    one string". `ak_init` now owns the log and tracing bridges (section 3), which
    settles *who*. What is still open is *what*: five distinct transport failures
