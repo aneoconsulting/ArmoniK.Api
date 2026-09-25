@@ -47,7 +47,7 @@ def offset_asserts(pa):
     lay = java_layout.build(pa)
     o = ["/* The Java binding's group offsets (java_layout), checked by the C compiler. */"]
     for sname in sorted(lay.groups):
-        if not sname.startswith(("ak_efix_", "ak_dfix_", "ak_ufix_")):
+        if not sname.startswith(("ak_efix_", "ak_dfix_", "ak_ufix_", "ak_unk_", "ak_dec_")):
             continue
         size, _al, members = lay.groups[sname]
         o.append("AK_SASSERT(sizeof(struct %s) == %d, \"sizeof %s\");" % (sname, size, sname))
