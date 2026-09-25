@@ -127,8 +127,12 @@ in its container shows it executes (section 9).
     (launch 1: A, B, C; launch 2: B, C, A; ...), so a slow drift across a run does not
     fall on the same arm every time. Interleaving within a process remains allowed.
 22a. **Benchmark engine** (owner, 2026-09-25): a slice may time through its
-    ecosystem's standard benchmark framework. **For .NET, BenchmarkDotNet is the
-    default engine.** The framework's configuration must still satisfy requirements
+    ecosystem's standard benchmark framework, and **the codec suite of every slice
+    uses one** (owner, 2026-09-25): **.NET BenchmarkDotNet, Java JMH, C++ Google
+    Benchmark, Python pyperf, Rust criterion.** Suites the framework cannot express
+    without breaking requirement 18 (abort on any failed call) or requirement 13
+    (separate server process), in practice the RPC grid, may stay on the slice's
+    runner, stated in the checklist. The framework's configuration must still satisfy requirements
     21, 23, 24, 27 and 28: every raw measurement is exported (the framework's
     outlier handling may produce its own summary, but no raw measurement is
     dropped from the committed output), the JIT tier and warm-up it used are
