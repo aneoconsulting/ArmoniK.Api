@@ -32,7 +32,8 @@ Four things here are decisions rather than transliterations, and each is an arm:
   push-family deficit to exactly that copy, so `wireNative` measures the other choice.
 """
 from plan import (abi_order_topo, direct_fields, elem_type, group_fields, loop_slots,
-                  presence_bits, slot_name, vtable_messages)
+                  presence_bits, slot_name, ugroup_fields, unk_opts_layout, unk_opts_name,
+                  vtable_messages)
 import plan as A
 import java_layout as L
 import java_names as N
@@ -47,6 +48,13 @@ LAYOUT = ["ak.shapes.Layout"]
 ENTRY = ["ak.NativeEntry"]
 
 ARENA_BYTES = 32 * 1024
+
+# The marker `_group_members` gives the unknown-field member (decision 11).
+UNK = object()
+
+
+def _ufix(name):
+    return "ak_ufix_%s" % name
 
 
 def _efix(name):
@@ -65,7 +73,7 @@ def _size(sname):
     return "%s.%s" % (LAYOUT[0], L.const(sname))
 
 
-def _group_members(ir, m, enc):
+def _group_members(ir, m, enc, u=False):
     """(field-or-None, member name, oneof-or-None) in the plan's GROUP ORDER
     (`plan.group_fields`), carrying the field so the fill knows what to write. `None`
     marks a oneof discriminant. The member list is the plan's; this only finds the field
@@ -78,11 +86,11 @@ def _group_members(ir, m, enc):
         for g in members:
             by_member["%s_%s" % (oname, g.name)] = (g, oname)
     out = []
-    for member, _abi in group_fields(m, enc):
-        if _abi == "ak_unk_buf":
-            # WP5 step 7 (decision 11): the decode group's unknown-field buffer. Not rendered
-            # by this backend yet: its bindings never arm a context, so the slot is always
-            # empty (drop mode). Rendering the options is the Java slice's next step.
+    for member, _abi in (ugroup_fields(m) if u else group_fields(m, enc)):
+        if _abi in ("ak_unk_buf", "ak_blob") and member == "unknown":
+            # Decision 11 (WP5 step 9): the decode group's unknown-field buffer (`ak_unk_buf`)
+            # and the u-group's bag (`ak_blob`), both rendered.
+            out.append((None, member, UNK))
             continue
         if member not in by_member:
             raise NotImplementedError("group member %s.%s has no field" % (m.name, member))
@@ -103,7 +111,7 @@ def _fill_scalar(o, ind, f, sname, member, src):
         o.append("%sMem.U.%s(g + %s, %s);" % (p, m, _off(sname, member), src))
 
 
-def _emit_fill(ir, o, name, sparse):
+def _emit_fill(ir, o, name, sparse, u=False):
     """`fillX(long g, X o)`: the by-value group of ABI v1 section 6.
 
     The total fill is the specified path (section 6: "every scalar, every count and all
@@ -112,9 +120,9 @@ def _emit_fill(ir, o, name, sparse):
     correct ONLY because a bulk clear precedes it.
     """
     m = ir.msg(name)
-    sname = _efix(name)
+    sname = _ufix(name) if u else _efix(name)
     bits = presence_bits(m)
-    suffix = "Sparse" if sparse else ""
+    suffix = "Sparse" if sparse else "U" if u else ""
     o.append("")
     o.append("  /** %s the encode group of `%s`. */"
              % ("Sparsely fill" if sparse else "Fill", name))
@@ -123,7 +131,11 @@ def _emit_fill(ir, o, name, sparse):
         o.append("    int pres = 0;")
     else:
         o.append("    int pres = 0;   // the clear already wrote every other slot")
-    for f, member, oname in _group_members(ir, m, True):
+    for f, member, oname in _group_members(ir, m, True, u):
+        if oname is UNK:
+            # Decision 11: the message's own bag, re-emitted verbatim after its known fields.
+            o.append("    putBlob(g + %s, o.%s);" % (_off(sname, member), N.UNKNOWN))
+            continue
         if f is None:
             o.append("    if (o.%s_case != 0) Mem.U.putInt(g + %s, o.%s_case);"
                      % (oname, _off(sname, member), oname)
@@ -137,10 +149,10 @@ def _emit_fill(ir, o, name, sparse):
             o.append("    if (o.%s_case == %s.%s_CASE_%s) {"
                      % (oname, name, N.screaming(oname), N.screaming(f.name)))
             _fill_one(ir, o, 6, f, sname, member, src, bits, name, sparse=False,
-                      oneof=True)
+                      oneof=True, u=u)
             o.append("    }")
             continue
-        _fill_one(ir, o, 4, f, sname, member, src, bits, name, sparse)
+        _fill_one(ir, o, 4, f, sname, member, src, bits, name, sparse, u=u)
     for fname, bit in bits.items():
         pass
     o.append("    Mem.U.putInt(g + %s, pres);" % _off(sname, "presence"))
@@ -148,7 +160,7 @@ def _emit_fill(ir, o, name, sparse):
 
 
 def _fill_one(ir, o, ind, f, sname, member, src, bits, owner, sparse,
-              oneof=False):
+              oneof=False, u=False):
     p = " " * ind
     if f.kind == "message":
         # A ONEOF member has no presence bit: the discriminant carries presence, which is
@@ -158,7 +170,7 @@ def _fill_one(ir, o, ind, f, sname, member, src, bits, owner, sparse,
         o.append("%sif (%s != null) {" % (p, src))
         if bit is not None:
             o.append("%s  pres |= %d;" % (p, 1 << bit))
-        o.append("%s  fill%s(g + %s, %s);" % (p, f.of, _off(sname, member), src))
+        o.append("%s  fill%s%s(g + %s, %s);" % (p, f.of, "U" if u else "", _off(sname, member), src))
         if not sparse:
             o.append("%s} else {" % p)
             o.append("%s  // The total fill is unconditional (ABI v1 section 6): the codec"
@@ -166,7 +178,8 @@ def _fill_one(ir, o, ind, f, sname, member, src, bits, owner, sparse,
             o.append("%s  // does not reset the group between elements, so an unwritten"
                      % p)
             o.append("%s  // child silently inherits the previous element's value." % p)
-            o.append("%s  Mem.zero(g + %s, %s);" % (p, _off(sname, member), _size(_efix(f.of))))
+            o.append("%s  Mem.zero(g + %s, %s);" % (p, _off(sname, member),
+                                                   _size(_ufix(f.of) if u else _efix(f.of))))
         o.append("%s}" % p)
         return
     if f.kind in ("string", "bytes"):
@@ -240,6 +253,11 @@ def _emit_apply(ir, o, name):
     o.append("    int pres = Mem.U.getInt(g + %s);" % _off(sname, "presence"))
     o.append("    if (pres == 0) { /* keep the branch honest: the absent path is P1.3 */ }")
     for f, member, oname in _group_members(ir, m, False):
+        if oname is UNK:
+            # Decision 11: this occurrence's buffer is the host's at delivery (push `apply`,
+            # or the pull record being read): copied into the facade's bag and freed.
+            o.append("    o.%s = takeUnk(g + %s);" % (N.UNKNOWN, _off(sname, member)))
+            continue
         if f is None:
             o.append("    o.%s_case = Mem.U.getInt(g + %s);" % (oname, _off(sname, member)))
             continue
@@ -248,6 +266,11 @@ def _emit_apply(ir, o, name):
             o.append("    if (o.%s_case == %s.%s_CASE_%s)"
                      % (oname, name, N.screaming(oname), N.screaming(f.name)))
             _apply_one(ir, o, 6, f, sname, member, dst, bits, oneof=True)
+            if f.kind == "message":
+                # Rule 4: the oneof's one buffer lives in the ACTIVE member's slot; any other
+                # member slot that is non-NULL (the emptied buffer after a switch to a
+                # scalar member) is the host's too, and has nowhere to go: freed.
+                o.append("    else freeUnk%s(g + %s);" % (f.of, _off(sname, member)))
             continue
         _apply_one(ir, o, 4, f, sname, member, dst, bits, oneof=False)
     o.append("  }")
@@ -275,7 +298,7 @@ def _apply_one(ir, o, ind, f, sname, member, dst, bits, oneof):
         o.append("%sif ((pres & %d) != 0) {" % (p, 1 << bit))
         o.append("%s  if (%s == null) %s = %s;" % (p, dst, dst, ctor))
         o.append("%s  apply%s(g + %s, %s);" % (p, f.of, _off(sname, member), dst))
-        o.append("%s}" % p)
+        o.append("%s} else freeUnk%s(g + %s);" % (p, f.of, _off(sname, member)))
         return
     if f.kind == "string":
         if f.explicit:
@@ -305,6 +328,124 @@ def _apply_one(ir, o, ind, f, sname, member, dst, bits, oneof):
         o.append("%s%s = %s;" % (p, dst, expr))
 
 
+def _emit_free_unk(ir, o, name):
+    """`freeUnk<M>(long g)`: free every non-NULL buffer in a decode group the facade will
+    not take (an absent child's subtree, an inactive oneof member, a map entry): decision
+    11 makes every non-NULL slot of a delivered group the host's."""
+    m = ir.msg(name)
+    sname = _dfix(name)
+    o.append("")
+    o.append("  void freeUnk%s(long g) {" % name)
+    for f, member, oname in _group_members(ir, m, False):
+        if oname is UNK:
+            o.append("    dropUnk(g + %s);" % _off(sname, member))
+        elif f is not None and f.kind == "message":
+            o.append("    freeUnk%s(g + %s);" % (f.of, _off(sname, member)))
+    o.append("  }")
+
+
+def _emit_unk_state(ir, o):
+    """Decision 11 on the Java side (WP5 step 9): one decode context per ROOT (rule 6), one
+    options struct per root in native memory, kept alive and unmoved for the Binding's life
+    (rule 1: the core reads it in place while armed), every position armed with the shim's
+    grow and no pre-allocated buffer, and the delivery helpers."""
+    roots = list(ir.roots)
+    n = len(roots)
+    o.append("")
+    o.append("  // ---- decision 11: root-bound contexts, in-place options, the bags ----------")
+    o.append("  final long[] decCtxs = new long[%d];" % n)
+    o.append("  final long[] unkOpts = new long[%d];" % n)
+    o.append("  final long[] unkMask = {%s};" % ", ".join(["-1L"] * n))
+    o.append("  /** Each root's positions, in the options struct's order (plan.unk_opts_layout). */")
+    o.append("  public static final String[][] UNK_POSITIONS = {")
+    for r in roots:
+        o.append("    {%s}," % ", ".join('"%s"' % mn for mn, _m, _t in unk_opts_layout(ir, r)))
+    o.append("  };")
+    o.append("  public static final String[] ROOTS = {%s};" % ", ".join('"%s"' % r for r in roots))
+    o.append("")
+    o.append("  long decCtxOf(int ri) {")
+    o.append("    long c = decCtxs[ri];")
+    o.append("    if (c != 0) return c;")
+    o.append("    switch (ri) {")
+    for i, r in enumerate(roots):
+        o.append("      case %d: c = %s.decCtxNew%s(0L); break;" % (i, ENTRY[0], r))
+    o.append("      default: throw new IllegalArgumentException(\"root \" + ri);")
+    o.append("    }")
+    o.append("    if (c == 0) throw new IllegalStateException(\"ak_dec_ctx_new_<Root> failed\");")
+    o.append("    return decCtxs[ri] = c;")
+    o.append("  }")
+    o.append("")
+    o.append("  /** A context bound to `root` (for the wrong-root control). */")
+    o.append("  public long contextOf(String root) { return decCtxOf(java.util.Arrays.asList(ROOTS).indexOf(root)); }")
+    o.append("")
+    o.append("  long unkOptsOf(int ri) {")
+    o.append("    long x = unkOpts[ri];")
+    o.append("    if (x != 0) return x;")
+    o.append("    long grow = Native.unkGrow();")
+    o.append("    switch (ri) {")
+    for i, r in enumerate(roots):
+        on = unk_opts_name(r)
+        o.append("      case %d: {" % i)
+        o.append("        x = Mem.alloc(%s);" % _size(on))
+        o.append("        Mem.zero(x, %s);" % _size(on))
+        for k, (mn, _m, ty) in enumerate(unk_opts_layout(ir, r)):
+            o.append("        if ((unkMask[%d] & (1L << %d)) != 0) Mem.U.putLong(x + %s + %s, grow);   // %s (%s)"
+                     % (i, k, _off(on, mn), _off(ty, "grow"), mn, ty))
+        o.append("        break;")
+        o.append("      }")
+    o.append("      default: throw new IllegalArgumentException(\"root \" + ri);")
+    o.append("    }")
+    o.append("    return unkOpts[ri] = x;")
+    o.append("  }")
+    o.append(UNK_HELPERS)
+
+
+UNK_HELPERS = """
+  /** Arm only the positions whose bit is set in `mask` (bit i = UNK_POSITIONS[root][i]);
+   *  an entry left all zero discards that position's unknowns (decision 11, "Discard"). */
+  public void setUnkPositions(String root, long mask) {
+    int ri = java.util.Arrays.asList(ROOTS).indexOf(root);
+    unkMask[ri] = mask;
+    if (unkOpts[ri] != 0) { Mem.free(unkOpts[ri]); unkOpts[ri] = 0; }
+  }
+
+  void freeUnkState() {
+    for (int i = 0; i < decCtxs.length; i++) {
+      if (decCtxs[i] != 0) Native.decCtxFree(decCtxs[i]);
+      if (unkOpts[i] != 0) Mem.free(unkOpts[i]);
+      decCtxs[i] = unkOpts[i] = 0;
+    }
+  }
+
+  /** A delivered slot's buffer: copied into a byte[] (null when empty) and freed. The data
+   *  pointer is read first, so a NULL slot (drop mode, no unknowns) costs no crossing. */
+  static byte[] takeUnk(long slot) {
+    long d = Mem.U.getLong(slot);
+    if (d == 0) return null;
+    return Native.unkTake(d, Mem.U.getInt(slot + 8));
+  }
+
+  /** A delivered slot the facade has no place for: freed. */
+  static void dropUnk(long slot) {
+    long d = Mem.U.getLong(slot);
+    if (d != 0) Native.unkFree(d);
+  }
+
+  /** A u-group's bag (`ak_blob {data, len}`): the message's captured unknown runs, staged. */
+  void putBlob(long dst, byte[] b) {
+    if (b == null || b.length == 0) {
+      Mem.U.putLong(dst, 0L);
+      Mem.U.putLong(dst + 8, 0L);
+      return;
+    }
+    long p = arena.allocRaw(b.length);
+    Mem.copyFromBytes(b, 0, p, b.length);
+    Mem.U.putLong(dst, p);
+    Mem.U.putLong(dst + 8, b.length);
+  }
+"""
+
+
 # --------------------------------------------------------------------- encode loops
 
 def _chunk_n(ir, name):
@@ -315,7 +456,7 @@ def _chunk_n(ir, name):
     return "Math.max(1, %d / %s)" % (ARENA_BYTES, _size(_efix(name)))
 
 
-def _emit_loop(ir, o, owner, path, f, slot, zeroed):
+def _emit_loop(ir, o, owner, path, f, slot, zeroed, u=False):
     """One loop slot: the host drives iteration over its own container.
 
     ABI v1 section 6: batched element runs are host-driven and chunked at 32 KB; the host
@@ -324,7 +465,7 @@ def _emit_loop(ir, o, owner, path, f, slot, zeroed):
     """
     sn = slot_name(path)
     et = elem_type(f)
-    suffix = "Zeroed" if zeroed else ""
+    suffix = "Zeroed" if zeroed else "U" if u else ""
     src = "e" + "".join(".%s" % p for p in path[:-1]) if len(path) > 1 else "e"
     o.append("")
     o.append("  int loop%d%s(long ctx, long token) {   // %s.%s" % (slot, suffix, owner, sn))
@@ -394,9 +535,10 @@ def _emit_loop(ir, o, owner, path, f, slot, zeroed):
     # a repeated message, or a map (which ABI v1 section 11 makes a repeated pair message)
     leaf = ir.msg(et).leaf
     entry = f.card == "map"
-    o.append("    final int chunk = batch ? %s : 1;" % _chunk_n(ir, et))
+    G = _ufix if u else _efix
+    o.append("    final int chunk = batch ? %s : 1;" % ("Math.max(1, %d / %s)" % (ARENA_BYTES, _size(G(et)))))
     o.append("    %s" % mark)
-    o.append("    long chunkp = arena.alloc((long) chunk * %s);" % _size(_efix(et)))
+    o.append("    long chunkp = arena.alloc((long) chunk * %s);" % _size(G(et)))
     if zeroed:
         o.append("    // Decision 9's candidate, with the cpp slice's correction: clear")
         o.append("    // only the elements that will be FILLED. Clearing the whole 32 KB")
@@ -421,18 +563,20 @@ def _emit_loop(ir, o, owner, path, f, slot, zeroed):
         src = "Codec.utf8Sorted(mp)" if N.string_type() == "String" else "mp.entrySet()"
         o.append("    for (java.util.Map.Entry<%s, %s> en : %s) {"
                  % (N.string_type(), N.string_type(), src))
-        o.append("      long gp = chunkp + (long) i * %s;" % _size(_efix(et)))
-        o.append("      putStr(gp + %s, en.getKey());" % _off(_efix(et), "key"))
-        o.append("      putStr(gp + %s, en.getValue());" % _off(_efix(et), "value"))
-        o.append("      Mem.U.putInt(gp + %s, 0);" % _off(_efix(et), "presence"))
+        o.append("      long gp = chunkp + (long) i * %s;" % _size(G(et)))
+        o.append("      putStr(gp + %s, en.getKey());" % _off(G(et), "key"))
+        o.append("      putStr(gp + %s, en.getValue());" % _off(G(et), "value"))
+        if u:
+            o.append("      putBlob(gp + %s, null);   // a facade map entry has no bag" % _off(G(et), "unknown"))
+        o.append("      Mem.U.putInt(gp + %s, 0);" % _off(G(et), "presence"))
     else:
         o.append("    for (int k = 0; k < n; k++) {")
-        o.append("      long gp = chunkp + (long) i * %s;" % _size(_efix(et)))
+        o.append("      long gp = chunkp + (long) i * %s;" % _size(G(et)))
         if not leaf:
             o.append("      pushToken(a.get(k));")
-        o.append("      fill%s%s(gp, a.get(k));" % (et, "Sparse" if zeroed else ""))
+        o.append("      fill%s%s(gp, a.get(k));" % (et, "Sparse" if zeroed else "U" if u else ""))
     o.append("      if (++i == chunk) {")
-    o.append("        int rc = %s;" % _run_call(et, leaf, entry))
+    o.append("        int rc = %s;" % _run_call(et, leaf, entry, u))
     o.append("        if (rc < 0) { arena.release(mk); return rc; }")
     if not leaf:
         o.append("        tok0 = tokenBase();")
@@ -444,7 +588,7 @@ def _emit_loop(ir, o, owner, path, f, slot, zeroed):
     o.append("      }")
     o.append("    }")
     o.append("    if (i > 0) {")
-    o.append("      int rc = %s;" % _run_call(et, leaf, entry))
+    o.append("      int rc = %s;" % _run_call(et, leaf, entry, u))
     o.append("      if (rc < 0) { arena.release(mk); return rc; }")
     o.append("    }")
     o.append("    arena.release(mk);")
@@ -452,10 +596,11 @@ def _emit_loop(ir, o, owner, path, f, slot, zeroed):
     o.append("  }")
 
 
-def _run_call(et, leaf, entry):
+def _run_call(et, leaf, entry, u=False):
+    U = "u" if u else ""
     if leaf:
-        return "%s.elem%s(ctx, chunkp, i)" % (ENTRY[0], et)
-    return "%s.elemu%s(ctx, chunkp, i, tok0)" % (ENTRY[0], et)
+        return "%s.%selem%s(ctx, chunkp, i)" % (ENTRY[0], U, et)
+    return "%s.%selemu%s(ctx, chunkp, i, tok0)" % (ENTRY[0], U, et)
 
 
 # --------------------------------------------------------------------- decode slots
@@ -519,6 +664,7 @@ def _emit_dec_slot(ir, o, owner, kind, sn, fld, slot):
         o.append("      long g = p + (long) i * %s;" % _size(_dfix(et)))
         o.append("      %s.put(getStr(g + %s), getStr(g + %s));"
                  % (cont, _off(_dfix(et), "key"), _off(_dfix(et), "value")))
+        o.append("      freeUnk%s(g);   // a facade map entry has no bag (U-map-entry)" % et)
         o.append("    }")
     elif f2.kind in ("string", "bytes"):
         o.append("    for (int i = 0; i < n; i++)")
@@ -676,10 +822,14 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None, layout="ak.shapes.Layout",
             continue
         _emit_fill(ir, o, name, sparse=False)
         _emit_fill(ir, o, name, sparse=True)
+        _emit_fill(ir, o, name, sparse=False, u=True)
     for name in abi_order_topo(ir):
         if ir.msg(name).synthetic:
             continue
         _emit_apply(ir, o, name)
+    for name in abi_order_topo(ir):
+        _emit_free_unk(ir, o, name)
+    _emit_unk_state(ir, o)
     # A synthetic map-entry group has no facade class of its own: ABI v1 section 11
     # gives a map no case, so the host reads the pair's two spans where the run arrives
     # and puts them straight into its own map. Nothing to apply into.
@@ -688,6 +838,8 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None, layout="ak.shapes.Layout",
     for i, (msg, path, f) in enumerate(enc):
         _emit_loop(ir, o, msg, path, f, i, zeroed=False)
         _emit_loop(ir, o, msg, path, f, i, zeroed=True)
+        if elem_type(f):
+            _emit_loop(ir, o, msg, path, f, i, zeroed=False, u=True)
 
     o.append("")
     o.append("  /** The reverse call of ABI v1 section 6, dispatched on the slot the")
@@ -698,8 +850,12 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None, layout="ak.shapes.Layout",
     o.append("    try {")
     o.append("      switch (slot) {")
     for i, (msg, path, f) in enumerate(enc):
-        o.append("        case %d: return zeroed ? loop%dZeroed(ctx, token)"
-                 " : loop%d(ctx, token);" % (i, i, i))
+        if elem_type(f):
+            o.append("        case %d: return retain ? loop%dU(ctx, token) : zeroed ? loop%dZeroed(ctx, token)"
+                     " : loop%d(ctx, token);" % (i, i, i, i))
+        else:
+            o.append("        case %d: return zeroed ? loop%dZeroed(ctx, token)"
+                     " : loop%d(ctx, token);" % (i, i, i))
     o.append("        default: return ak.Native.ERR_ABI;")
     o.append("      }")
     o.append("    } catch (Throwable t) {")
@@ -760,10 +916,8 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None, layout="ak.shapes.Layout",
         o.append("    encTokN = 0;")
         o.append("    encRoot = o;")
         o.append("    lastHostError = null;")
-        o.append("    long g = arena.alloc(%s);" % _size(_efix(root)))
-        if False:
-            pass
-        o.append("    fill%s%s(g, o);" % (root, ""))
+        o.append("    long g = arena.alloc(retain ? %s : %s);" % (_size(_ufix(root)), _size(_efix(root))))
+        o.append("    if (retain) fill%sU(g, o); else fill%s(g, o);" % (root, root))
         if direct:
             dpath, dfield = direct[0]
             expr = "o" + "".join(".%s" % s for s in dpath)
@@ -775,11 +929,14 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None, layout="ak.shapes.Layout",
             guards = ["o" + "".join(".%s" % s for s in dpath[:k + 1]) + " == null"
                       for k in range(len(dpath))]
             o.append("    byte[] direct = (%s) ? ak.Native.NO_BYTES : %s;" % (" || ".join(guards), expr))
-            o.append("    long rc = %s.encodeDirect%s(this, encCtx, evt%s, g,"
-                     " direct, direct.length);" % (ENTRY[0], root, root))
-        else:
-            o.append("    long rc = %s.encode%s(this, encCtx, evt%s, g);"
+            o.append("    long rc = retain ? %s.uencodeDirect%s(this, encCtx, evt%s, g, direct, direct.length)"
                      % (ENTRY[0], root, root))
+            o.append("        : %s.encodeDirect%s(this, encCtx, evt%s, g, direct, direct.length);"
+                     % (ENTRY[0], root, root))
+        else:
+            o.append("    long rc = retain ? %s.uencode%s(this, encCtx, evt%s, g)"
+                     " : %s.encode%s(this, encCtx, evt%s, g);"
+                     % (ENTRY[0], root, root, ENTRY[0], root, root))
         # The core's encode returns the encoded length. Recording it here is what
         # lets `takeBytes` allocate the result without asking again: D6 removed one
         # redundant crossing from the `ffi` arm and left the same one standing in the
@@ -789,10 +946,16 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None, layout="ak.shapes.Layout",
         o.append("")
         o.append("  public %s decode%s(byte[] wire, int off, int len) {" % (root, root))
         o.append("    %s r = new %s();" % (root, root))
+        ri = ir.roots.index(root)
         o.append("    beginDecode(wire, off, len);")
         o.append("    decRoot = r;")
+        o.append("    decCtx = decCtxOf(%d);" % ri)
+        o.append("    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive")
+        o.append("    // and unmoved while armed), decode, disarm. Drop mode needs no reset.")
+        o.append("    if (retain) check(%s.decReset%s(decCtx, unkOptsOf(%d)));" % (ENTRY[0], root, ri))
         o.append("    int rc = %s.decode%s(this, decCtx, wireNative, len,"
                  " dvt%s);" % (ENTRY[0], root, root))
+        o.append("    if (retain) %s.decReset%s(decCtx, 0L);" % (ENTRY[0], root))
         o.append("    check(rc);")
         o.append("    return r;")
         o.append("  }")
@@ -850,7 +1013,15 @@ PRELUDE = '''
   }
 
   public long encCtx = Native.encCtxNew();
-  public long decCtx = Native.decCtxNew();
+
+  /** The decode context of the last decode (decision 11 rule 6: one context per ROOT,
+   *  created on first use with NULL options, i.e. drop mode). Read by the counting harness. */
+  public long decCtx;
+
+  /** Decision 11: retain unknown fields. Decode arms every position of the root's options
+   *  with the shim's grow; encode goes through the u-groups (`ak_uencode_*`), re-emitting
+   *  each message's `unknownFields`. Off: drop mode, and the arms' pre-decision-11 path. */
+  public boolean retain = false;
 
   /** The batching predicate of ABI v1 section 6, as a flag rather than a verdict: the two
    *  arms are paired in one process (R4), never two ratios to a third arm. */
@@ -894,7 +1065,7 @@ PRELUDE = '''
 
   @Override public void close() {
     Native.encCtxFree(encCtx);
-    Native.decCtxFree(decCtx);
+    freeUnkState();
     arena.close();
     if (wireNative != 0) Mem.free(wireNative);
     Mem.free(vt);

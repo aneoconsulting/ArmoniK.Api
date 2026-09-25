@@ -208,45 +208,48 @@ def emit_c(p, entry):
     o.append("}")
 
     for root in p.roots:
-        o.append("")
-        o.append("JNIEXPORT jlong JNICALL %sencode%s(JNIEnv *env, jclass cls, jobject self,"
-                 " jlong ctx, jlong vt, jlong fix) {" % (J, root))
-        o.append("  (void) cls;")
-        o.append("  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;")
-        o.append("  AK_TAX();")
-        dargs = ", NULL, 0" if direct_fields(p, root) else ""
-        o.append("  intptr_t rc = ak_encode_%s((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,"
-                 % root)
-        o.append("      (const struct ak_evt_%s *)(intptr_t) vt," % root)
-        o.append("      (const struct ak_efix_%s *)(intptr_t) fix%s);" % (root, dargs))
-        o.append("  ak_pop();")
-        o.append("  return (jlong) rc;")
-        o.append("}")
-        if direct_fields(p, root):
-            dpath = ".".join(direct_fields(p, root)[0][0])
-            o.append("")
-            o.append("/* ABI v1 section 8: `%s` is a DIRECT ARGUMENT, a `byte[]` pinned with" % dpath)
-            o.append(" * GetPrimitiveArrayCritical for the call. The generator-time refusal")
-            o.append(" * (plan.check_direct) proved this tree makes no reverse call, which is what")
-            o.append(" * makes a critical section legal here. */")
-            o.append("JNIEXPORT jlong JNICALL %sencodeDirect%s(JNIEnv *env, jclass cls, jobject self,"
-                     " jlong ctx, jlong vt, jlong fix, jbyteArray data, jint dlen) {" % (J, root))
-            o.append("  (void) cls;")
-            o.append("  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;")
-            o.append("  void *p = (*env)->GetPrimitiveArrayCritical(env, data, NULL);")
-            o.append("  /* R-D9: a NULL pin (the JVM threw OutOfMemoryError) is refused, never")
-            o.append("   * handed to the core as a NULL span with a nonzero length. */")
-            o.append("  if (p == NULL) { ak_pop(); return (jlong) AK_ERR_HOST; }")
-            o.append("  AK_TAX();")
-            o.append("  intptr_t rc = ak_encode_%s((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,"
-                     % root)
-            o.append("      (const struct ak_evt_%s *)(intptr_t) vt," % root)
-            o.append("      (const struct ak_efix_%s *)(intptr_t) fix, (const uint8_t *) p, (size_t) dlen);"
-                     % root)
-            o.append("  (*env)->ReleasePrimitiveArrayCritical(env, data, p, JNI_ABORT);")
-            o.append("  ak_pop();")
-            o.append("  return (jlong) rc;")
-            o.append("}")
+      for U, G in (("", "e"), ("u", "u")):
+          o.append("")
+          o.append("JNIEXPORT jlong JNICALL %s%sencode%s(JNIEnv *env, jclass cls, jobject self,"
+                   " jlong ctx, jlong vt, jlong fix) {" % (J, U, root))
+          o.append("  (void) cls;")
+          o.append("  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;")
+          o.append("  AK_TAX();")
+          dargs = ", NULL, 0" if direct_fields(p, root) else ""
+          o.append("  intptr_t rc = ak_%sencode_%s((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,"
+                   % (U, root))
+          o.append("      (const struct ak_evt_%s *)(intptr_t) vt," % root)
+          o.append("      (const struct ak_%sfix_%s *)(intptr_t) fix%s);" % (G, root, dargs))
+          o.append("  ak_pop();")
+          o.append("  return (jlong) rc;")
+          o.append("}")
+          if direct_fields(p, root):
+              dpath = ".".join(direct_fields(p, root)[0][0])
+              o.append("")
+              o.append("/* ABI v1 section 8: `%s` is a DIRECT ARGUMENT, a `byte[]` pinned with" % dpath)
+              o.append(" * GetPrimitiveArrayCritical for the call. The generator-time refusal")
+              o.append(" * (plan.check_direct) proved this tree makes no reverse call, which is what")
+              o.append(" * makes a critical section legal here. */")
+              o.append("JNIEXPORT jlong JNICALL %s%sencodeDirect%s(JNIEnv *env, jclass cls, jobject self,"
+                       " jlong ctx, jlong vt, jlong fix, jbyteArray data, jint dlen) {" % (J, U, root))
+              o.append("  (void) cls;")
+              o.append("  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;")
+              o.append("  void *p = (*env)->GetPrimitiveArrayCritical(env, data, NULL);")
+              o.append("  /* R-D9: a NULL pin (the JVM threw OutOfMemoryError) is refused, never")
+              o.append("   * handed to the core as a NULL span with a nonzero length. */")
+              o.append("  if (p == NULL) { ak_pop(); return (jlong) AK_ERR_HOST; }")
+              o.append("  AK_TAX();")
+              o.append("  intptr_t rc = ak_%sencode_%s((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,"
+                       % (U, root))
+              o.append("      (const struct ak_evt_%s *)(intptr_t) vt," % root)
+              o.append("      (const struct ak_%sfix_%s *)(intptr_t) fix, (const uint8_t *) p, (size_t) dlen);"
+                       % (G, root))
+              o.append("  (*env)->ReleasePrimitiveArrayCritical(env, data, p, JNI_ABORT);")
+              o.append("  ak_pop();")
+              o.append("  return (jlong) rc;")
+              o.append("}")
+
+    for root in p.roots:
         o.append("")
         o.append("JNIEXPORT jint JNICALL %sdecode%s(JNIEnv *env, jclass cls, jobject self,"
                  " jlong ctx, jlong buf, jlong len, jlong vt) {" % (J, root))
@@ -258,6 +261,18 @@ def emit_c(p, entry):
         o.append("      (const struct ak_dvt_%s *)(intptr_t) vt);" % root)
         o.append("  ak_pop();")
         o.append("  return (jint) rc;")
+        o.append("}")
+        o.append("")
+        # Decision 11 rule 6: a decode context is BOUND to its root; the options are read IN
+        # PLACE from native memory the binding keeps alive and unmoved while armed.
+        o.append("JNIEXPORT jlong JNICALL %sdecCtxNew%s(JNIEnv *e, jclass c, jlong opts) {" % (J, root))
+        o.append("  (void) e; (void) c;")
+        o.append("  return (jlong)(intptr_t) ak_dec_ctx_new_%s((struct ak_dec_%s_opts *)(intptr_t) opts);" % (root, root))
+        o.append("}")
+        o.append("JNIEXPORT jint JNICALL %sdecReset%s(JNIEnv *e, jclass c, jlong ctx, jlong opts) {" % (J, root))
+        o.append("  (void) e; (void) c;")
+        o.append("  return (jint) ak_dec_reset_%s((ak_dec_ctx *)(intptr_t) ctx,"
+                 " (struct ak_dec_%s_opts *)(intptr_t) opts);" % (root, root))
         o.append("}")
         o.append("")
         o.append("/* PULL. `ak_parse_%s` deposits records and calls nobody, so the wire is pinned" % root)
@@ -275,22 +290,23 @@ def emit_c(p, entry):
         o.append("}")
 
     for et in sorted(element_types(p)):
+      for U, G in (("", "e"), ("u", "u")):
         o.append("")
         if p.msg(et).leaf:
-            o.append("JNIEXPORT jint JNICALL %selem%s(JNIEnv *env, jclass cls, jlong ctx,"
-                     " jlong elems, jint n) {" % (J, et))
+            o.append("JNIEXPORT jint JNICALL %s%selem%s(JNIEnv *env, jclass cls, jlong ctx,"
+                     " jlong elems, jint n) {" % (J, U, et))
             o.append("  (void) env; (void) cls;")
             o.append("  AK_TAX();")
-            o.append("  return (jint) ak_elem_%s((ak_enc_ctx *)(intptr_t) ctx," % et)
-            o.append("      (const struct ak_efix_%s *)(intptr_t) elems, (int32_t) n);" % et)
+            o.append("  return (jint) ak_%selem_%s((ak_enc_ctx *)(intptr_t) ctx," % (U, et))
+            o.append("      (const struct ak_%sfix_%s *)(intptr_t) elems, (int32_t) n);" % (G, et))
             o.append("}")
         else:
-            o.append("JNIEXPORT jint JNICALL %selemu%s(JNIEnv *env, jclass cls, jlong ctx,"
-                     " jlong elems, jint n, jlong tok0) {" % (J, et))
+            o.append("JNIEXPORT jint JNICALL %s%selemu%s(JNIEnv *env, jclass cls, jlong ctx,"
+                     " jlong elems, jint n, jlong tok0) {" % (J, U, et))
             o.append("  (void) env; (void) cls;")
             o.append("  AK_TAX();")
-            o.append("  return (jint) ak_elemu_%s((ak_enc_ctx *)(intptr_t) ctx," % et)
-            o.append("      (const struct ak_efix_%s *)(intptr_t) elems, (int32_t) n, (int64_t) tok0);" % et)
+            o.append("  return (jint) ak_%selemu_%s((ak_enc_ctx *)(intptr_t) ctx," % (U, et))
+            o.append("      (const struct ak_%sfix_%s *)(intptr_t) elems, (int32_t) n, (int64_t) tok0);" % (G, et))
             o.append("}")
 
     o.append(FIXED)
@@ -370,8 +386,43 @@ JNIEXPORT jint JNICALL Java_ak_Native_encLen(JNIEnv *e, jclass c, jlong x) {
   int32_t rc = ak_enc_take((ak_enc_ctx *)(intptr_t) x, &p, &n);
   return rc != AK_OK ? (jint) rc : (jint) n;
 }
-JNIEXPORT jlong JNICALL Java_ak_Native_decCtxNew(JNIEnv *e, jclass c) {
-  (void) e; (void) c;  return (jlong)(intptr_t) ak_dec_ctx_new();
+/* ---- decision 11: the host side of the unknown-field buffers (WP5 step 9) ------------
+ *
+ * The binding arms every position with this grow and no pre-allocated buffer, so every
+ * message occurrence that meets an unknown run gets a fresh malloc (data NULL, cap 0) and
+ * a buffer that is too small is realloc'ed (its first cap bytes preserved). The buffers
+ * are the host's once delivered: `unkTake` copies one into a byte[] and frees it,
+ * `unkFree` frees one the facade has no place for (a map entry's, an inactive oneof
+ * member's). Plain C: no JVM upcall, so a grow is a reverse crossing into the shim only. */
+static int32_t ak_java_grow(void *sink, int32_t want, uint8_t **dst, int32_t *cap) {
+  (void) sink;
+  if (want < 0) return AK_ERR_LIMIT;
+  int64_t c = *dst == NULL ? 0 : (int64_t) *cap;
+  int64_t n = c * 2;
+  if (n < want) n = want;
+  if (n < 64) n = 64;
+  if (n > 0x7fffffff) n = want;
+  uint8_t *p = (uint8_t *) realloc(*dst, (size_t) n);
+  if (p == NULL) return AK_ERR_CAPACITY;
+  *dst = p;
+  *cap = (int32_t) n;
+  return AK_OK;
+}
+JNIEXPORT jlong JNICALL Java_ak_Native_unkGrow(JNIEnv *e, jclass c) {
+  (void) e; (void) c;  return (jlong)(intptr_t) ak_java_grow;
+}
+JNIEXPORT jbyteArray JNICALL Java_ak_Native_unkTake(JNIEnv *env, jclass c, jlong data, jint len) {
+  (void) c;
+  jbyteArray out = NULL;
+  if (len > 0) {
+    out = (*env)->NewByteArray(env, len);
+    if (out != NULL) (*env)->SetByteArrayRegion(env, out, 0, len, (const jbyte *)(intptr_t) data);
+  }
+  free((void *)(intptr_t) data);
+  return out;
+}
+JNIEXPORT void JNICALL Java_ak_Native_unkFree(JNIEnv *e, jclass c, jlong data) {
+  (void) e; (void) c;  free((void *)(intptr_t) data);
 }
 JNIEXPORT void JNICALL Java_ak_Native_decCtxFree(JNIEnv *e, jclass c, jlong x) {
   (void) e; (void) c;  ak_dec_ctx_free((ak_dec_ctx *)(intptr_t) x);
@@ -524,9 +575,16 @@ def emit_java(p, entry):
     for root in p.roots:
         o.append("")
         o.append("  public static native long encode%s(Object self, long ctx, long vt, long fix);" % root)
+        o.append("  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */")
+        o.append("  public static native long uencode%s(Object self, long ctx, long vt, long fix);" % root)
+        o.append("  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */")
+        o.append("  public static native long decCtxNew%s(long opts);" % root)
+        o.append("  public static native int decReset%s(long ctx, long opts);" % root)
         if direct_fields(p, root):
             o.append("  /** ABI v1 section 8: the direct field pinned for the call. */")
             o.append("  public static native long encodeDirect%s(Object self, long ctx, long vt,"
+                     " long fix, byte[] data, int dlen);" % root)
+            o.append("  public static native long uencodeDirect%s(Object self, long ctx, long vt,"
                      " long fix, byte[] data, int dlen);" % root)
         o.append("  public static native int decode%s(Object self, long ctx, long buf, long len, long vt);" % root)
         o.append("  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */")
@@ -535,8 +593,10 @@ def emit_java(p, entry):
     for et in sorted(element_types(p)):
         if p.msg(et).leaf:
             o.append("  public static native int elem%s(long ctx, long elems, int n);" % et)
+            o.append("  public static native int uelem%s(long ctx, long elems, int n);" % et)
         else:
             o.append("  public static native int elemu%s(long ctx, long elems, int n, long tok0);" % et)
+            o.append("  public static native int uelemu%s(long ctx, long elems, int n, long tok0);" % et)
     o.append("}")
     o.append("")
     return "\n".join(o)
