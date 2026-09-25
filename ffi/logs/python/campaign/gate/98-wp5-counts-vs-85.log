@@ -1,6 +1,6 @@
 # python slice: crossing counts, plan-rendered shim against the pre-port shim
-# date:      2026-09-25T18:22:56Z
-# commit:    8d2e7ac + uncommitted changes in poc/python or poc/codec
+# date:      2026-09-25T19:00:36Z
+# commit:    aed38df
 # phase:     correctness only; nothing here is a timing
 
    py3.12: 160 rows, IDENTICAL to logs/python/85 (3.12, pre-port shim)

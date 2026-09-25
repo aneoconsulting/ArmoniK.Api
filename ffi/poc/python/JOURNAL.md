@@ -1150,3 +1150,37 @@ Wrong root: all 812 cross pairs are refused with -8 and nothing is delivered; th
 positive control passes on all 29 roots. The whole corpus passes on ffi-retain with the
 retained form on every row except the disputed U-map-entry, and ffi-retain is byte-identical
 to py-retain. All of this holds at 3.12 and 3.7.
+
+### J43. Per-thread contexts (correction from the aggregating session)
+
+J42 created a decode context per decode call. The aggregating session pointed out that this
+adds an allocation and a crossing to every core-ffi decode, drop mode included, which the
+other slices do not pay and production would not: it would bias the campaign's core-ffi
+figures. The GIL reason in J42 is real, but it asks for a context per thread, not per call.
+
+Sweeping the same rule across the generator found the encode path doing the same thing
+(`ak_enc_ctx_new`/`ak_enc_ctx_free` per encode since WP5 step 5, e7728e4); C# holds one and
+resets it. Both paths now use a pthread-key block per thread: one decode context per root,
+created on that thread's first decode of the root, and one encode context, `ak_enc_reset`
+per encode. The key's destructor frees a block at thread exit, and module `m_free` frees the
+calling thread's block. A re-entered decode or encode on a busy slot gets a temporary context.
+
+Per decode now: drop mode makes one reset and the decode; retain makes reset(&opts), the
+decode, then reset(NULL), since the options live in the frame and must be forgotten. The
+counting build resets the context's counters per call, so the counts stay per call on a
+reused context. Crossing counts are identical to log 85 at both levels.
+
+The new control checks whether the change is actually in the build. `tls_created()` counts
+contexts made through the key:
+- 39,808 more decode+encodes on one thread create 0 contexts;
+- 8 threads at a 1 us switch interval create exactly 8 x 29 = 232 (28 roots with unknown
+  rows, plus the encoder), with byte-identical re-encodings and no reclaimed buffer.
+
+A per-call context would show up as a count in the tens of thousands. The generated tree has
+`ak_dec_ctx_new_*` only in `ak_py_ctx_new`, which is called from the thread-key path and the
+wrong-root control.
+
+The gate at 6feff87 (python at acb5128) is unchanged from J42 on every figure at 3.12 and 3.7.
+The first smoke rerun failed with ENOSPC; the disk was full across the shared container. I
+freed about 4 GB of my own stale snapshot builds (`build/cargo-<sha>`, `build/snap/<sha>`,
+scratchpad) and reran it. Not exercised: the re-entrant temporary-context path.

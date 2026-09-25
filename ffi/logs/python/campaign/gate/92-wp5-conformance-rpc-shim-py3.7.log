@@ -1,6 +1,6 @@
 # python slice: conformance on _akffi_rpc, py3.7
-# date:      2026-09-25T18:21:46Z
-# commit:    8d2e7ac + uncommitted changes in poc/python or poc/codec
+# date:      2026-09-25T18:59:35Z
+# commit:    aed38df
 # phase:     correctness only; nothing here is a timing
 
 # python slice, work unit 2: conformance on the COMPOSED arm (README R2)
@@ -9,7 +9,7 @@
 # manifest:    validated against prost 0.14.4 and a second encoder (W2)
 # shim:        _akffi_rpc (_akffi_rpc.cpython-37m-x86_64-linux-gnu.so)
 # section 9:   present (call_unary, call_unary_q, call_unary_cb)
-# core loaded: poc/python/build/cargo-883ae3b/rpc/release/libak_core.so
+# core loaded: poc/python/build/cargo-973e5ba/rpc/release/libak_core.so
 
 ## R1: the generated tree is current with shapes.json
    guard 2 python backend modules import plans only; a planted IR import is caught
@@ -368,7 +368,7 @@ generated tree is current with the plans (10 files)
         ok*   core-ffi / pyacc (C attrgetter)  (a permutation of the same triples; SHAPES.md P7.1)
 
 ## crossing counts, counting build, BOTH halves (README R5)
-#  shim: _akffi_count; core loaded: poc/python/build/cargo-883ae3b/count/release/libak_core.so
+#  shim: _akffi_count; core loaded: poc/python/build/cargo-973e5ba/count/release/libak_core.so
 #  The core counts its own crossings and the shim counts what it does to
 #  CPython. Neither half can count the other's, which is why both are here.
 #  'shim' = calls the shim makes INTO CPython (value reads, list access, attribute
