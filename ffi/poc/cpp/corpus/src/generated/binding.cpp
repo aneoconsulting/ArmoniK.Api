@@ -7809,21 +7809,7 @@ int32_t decode_with_timestamp(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Times
   sink.pending = NULL;
   struct ak_dvt_Timestamp vt;
   vt.apply = apply_timestamp;
-  vt.unknown = NULL;
   return ak_decode_Timestamp(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_timestamp(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_Timestamp *s = (Sink_Timestamp *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_timestamp_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out) {
@@ -7835,7 +7821,6 @@ int32_t decode_with_timestamp_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, T
   sink.pending = &pending;
   struct ak_dvt_Timestamp vt;
   vt.apply = apply_timestamp;
-  vt.unknown = unknown_timestamp;
   int32_t rc = ak_decode_Timestamp(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
   // Applied after the decode, not during it (see AkPending).
@@ -7877,21 +7862,7 @@ int32_t decode_with_duration(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Durati
   sink.pending = NULL;
   struct ak_dvt_Duration vt;
   vt.apply = apply_duration;
-  vt.unknown = NULL;
   return ak_decode_Duration(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_duration(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_Duration *s = (Sink_Duration *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_duration_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out) {
@@ -7903,7 +7874,6 @@ int32_t decode_with_duration_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Du
   sink.pending = &pending;
   struct ak_dvt_Duration vt;
   vt.apply = apply_duration;
-  vt.unknown = unknown_duration;
   int32_t rc = ak_decode_Duration(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
   // Applied after the decode, not during it (see AkPending).
@@ -7956,21 +7926,7 @@ int32_t decode_with_result_raw(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Resu
   sink.pending = NULL;
   struct ak_dvt_ResultRaw vt;
   vt.apply = apply_result_raw;
-  vt.unknown = NULL;
   return ak_decode_ResultRaw(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_result_raw(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ResultRaw *s = (Sink_ResultRaw *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_result_raw_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out) {
@@ -7982,7 +7938,6 @@ int32_t decode_with_result_raw_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, 
   sink.pending = &pending;
   struct ak_dvt_ResultRaw vt;
   vt.apply = apply_result_raw;
-  vt.unknown = unknown_result_raw;
   int32_t rc = ak_decode_ResultRaw(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
   // Applied after the decode, not during it (see AkPending).
@@ -8048,36 +8003,8 @@ int32_t decode_with_task_options(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Ta
   sink.pending = NULL;
   struct ak_dvt_TaskOptions vt;
   vt.apply = apply_task_options;
-  vt.unknown = NULL;
-  vt.unk_options = NULL;
   vt.add_options = add_task_options_options;
   return ak_decode_TaskOptions(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_task_options(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_TaskOptions *s = (Sink_TaskOptions *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
-}
-
-static void unk_task_options_options(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_TaskOptions *s = (Sink_TaskOptions *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 1;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_task_options_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out) {
@@ -8089,8 +8016,6 @@ int32_t decode_with_task_options_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n
   sink.pending = &pending;
   struct ak_dvt_TaskOptions vt;
   vt.apply = apply_task_options;
-  vt.unknown = unknown_task_options;
-  vt.unk_options = unk_task_options_options;
   vt.add_options = add_task_options_options;
   int32_t rc = ak_decode_TaskOptions(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
@@ -8133,21 +8058,7 @@ int32_t decode_with_task_output(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Tas
   sink.pending = NULL;
   struct ak_dvt_TaskOutput vt;
   vt.apply = apply_task_output;
-  vt.unknown = NULL;
   return ak_decode_TaskOutput(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_task_output(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_TaskOutput *s = (Sink_TaskOutput *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_task_output_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out) {
@@ -8159,7 +8070,6 @@ int32_t decode_with_task_output_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n,
   sink.pending = &pending;
   struct ak_dvt_TaskOutput vt;
   vt.apply = apply_task_output;
-  vt.unknown = unknown_task_output;
   int32_t rc = ak_decode_TaskOutput(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
   // Applied after the decode, not during it (see AkPending).
@@ -8324,40 +8234,12 @@ int32_t decode_with_task_detailed(ak_dec_ctx *ctx, const uint8_t *b, size_t n, T
   sink.pending = NULL;
   struct ak_dvt_TaskDetailed vt;
   vt.apply = apply_task_detailed;
-  vt.unknown = NULL;
   vt.add_parent_task_ids = add_task_detailed_parent_task_ids;
   vt.add_data_dependencies = add_task_detailed_data_dependencies;
   vt.add_expected_output_ids = add_task_detailed_expected_output_ids;
   vt.add_retry_of_ids = add_task_detailed_retry_of_ids;
-  vt.unk_options_options = NULL;
   vt.add_options_options = add_task_detailed_options_options;
   return ak_decode_TaskDetailed(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_task_detailed(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_TaskDetailed *s = (Sink_TaskDetailed *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
-}
-
-static void unk_task_detailed_options_options(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_TaskDetailed *s = (Sink_TaskDetailed *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 5;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_task_detailed_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out) {
@@ -8369,12 +8251,10 @@ int32_t decode_with_task_detailed_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t 
   sink.pending = &pending;
   struct ak_dvt_TaskDetailed vt;
   vt.apply = apply_task_detailed;
-  vt.unknown = unknown_task_detailed;
   vt.add_parent_task_ids = add_task_detailed_parent_task_ids;
   vt.add_data_dependencies = add_task_detailed_data_dependencies;
   vt.add_expected_output_ids = add_task_detailed_expected_output_ids;
   vt.add_retry_of_ids = add_task_detailed_retry_of_ids;
-  vt.unk_options_options = unk_task_detailed_options_options;
   vt.add_options_options = add_task_detailed_options_options;
   int32_t rc = ak_decode_TaskDetailed(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
@@ -8441,36 +8321,8 @@ int32_t decode_with_task_summary(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Ta
   sink.pending = NULL;
   struct ak_dvt_TaskSummary vt;
   vt.apply = apply_task_summary;
-  vt.unknown = NULL;
-  vt.unk_options_options = NULL;
   vt.add_options_options = add_task_summary_options_options;
   return ak_decode_TaskSummary(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_task_summary(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_TaskSummary *s = (Sink_TaskSummary *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
-}
-
-static void unk_task_summary_options_options(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_TaskSummary *s = (Sink_TaskSummary *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 1;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_task_summary_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out) {
@@ -8482,8 +8334,6 @@ int32_t decode_with_task_summary_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n
   sink.pending = &pending;
   struct ak_dvt_TaskSummary vt;
   vt.apply = apply_task_summary;
-  vt.unknown = unknown_task_summary;
-  vt.unk_options_options = unk_task_summary_options_options;
   vt.add_options_options = add_task_summary_options_options;
   int32_t rc = ak_decode_TaskSummary(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
@@ -8543,21 +8393,7 @@ int32_t decode_with_probe(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *ou
   sink.pending = NULL;
   struct ak_dvt_Probe vt;
   vt.apply = apply_probe;
-  vt.unknown = NULL;
   return ak_decode_Probe(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_probe(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_Probe *s = (Sink_Probe *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_probe_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out) {
@@ -8569,7 +8405,6 @@ int32_t decode_with_probe_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe
   sink.pending = &pending;
   struct ak_dvt_Probe vt;
   vt.apply = apply_probe;
-  vt.unknown = unknown_probe;
   int32_t rc = ak_decode_Probe(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
   // Applied after the decode, not during it (see AkPending).
@@ -8609,21 +8444,7 @@ int32_t decode_with_empty(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *ou
   sink.pending = NULL;
   struct ak_dvt_Empty vt;
   vt.apply = apply_empty;
-  vt.unknown = NULL;
   return ak_decode_Empty(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_empty(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_Empty *s = (Sink_Empty *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_empty_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out) {
@@ -8635,7 +8456,6 @@ int32_t decode_with_empty_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty
   sink.pending = &pending;
   struct ak_dvt_Empty vt;
   vt.apply = apply_empty;
-  vt.unknown = unknown_empty;
   int32_t rc = ak_decode_Empty(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
   // Applied after the decode, not during it (see AkPending).
@@ -8678,21 +8498,7 @@ int32_t decode_with_upload_result_data(ak_dec_ctx *ctx, const uint8_t *b, size_t
   sink.pending = NULL;
   struct ak_dvt_UploadResultData vt;
   vt.apply = apply_upload_result_data;
-  vt.unknown = NULL;
   return ak_decode_UploadResultData(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_upload_result_data(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_UploadResultData *s = (Sink_UploadResultData *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_upload_result_data_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out) {
@@ -8704,7 +8510,6 @@ int32_t decode_with_upload_result_data_unk(ak_dec_ctx *ctx, const uint8_t *b, si
   sink.pending = &pending;
   struct ak_dvt_UploadResultData vt;
   vt.apply = apply_upload_result_data;
-  vt.unknown = unknown_upload_result_data;
   int32_t rc = ak_decode_UploadResultData(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
   // Applied after the decode, not during it (see AkPending).
@@ -8785,26 +8590,12 @@ int32_t decode_with_metrics_batch(ak_dec_ctx *ctx, const uint8_t *b, size_t n, M
   sink.pending = NULL;
   struct ak_dvt_MetricsBatch vt;
   vt.apply = apply_metrics_batch;
-  vt.unknown = NULL;
   vt.add_ticks = add_metrics_batch_ticks;
   vt.add_values = add_metrics_batch_values;
   vt.add_codes = add_metrics_batch_codes;
   vt.add_flags = add_metrics_batch_flags;
   vt.add_statuses = add_metrics_batch_statuses;
   return ak_decode_MetricsBatch(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_metrics_batch(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_MetricsBatch *s = (Sink_MetricsBatch *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_metrics_batch_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out) {
@@ -8816,7 +8607,6 @@ int32_t decode_with_metrics_batch_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t 
   sink.pending = &pending;
   struct ak_dvt_MetricsBatch vt;
   vt.apply = apply_metrics_batch;
-  vt.unknown = unknown_metrics_batch;
   vt.add_ticks = add_metrics_batch_ticks;
   vt.add_values = add_metrics_batch_values;
   vt.add_codes = add_metrics_batch_codes;
@@ -8863,21 +8653,7 @@ int32_t decode_with_pair(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out)
   sink.pending = NULL;
   struct ak_dvt_Pair vt;
   vt.apply = apply_pair;
-  vt.unknown = NULL;
   return ak_decode_Pair(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_pair(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_Pair *s = (Sink_Pair *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_pair_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out) {
@@ -8889,7 +8665,6 @@ int32_t decode_with_pair_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *
   sink.pending = &pending;
   struct ak_dvt_Pair vt;
   vt.apply = apply_pair;
-  vt.unknown = unknown_pair;
   int32_t rc = ak_decode_Pair(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
   // Applied after the decode, not during it (see AkPending).
@@ -8940,36 +8715,8 @@ int32_t decode_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, siz
   sink.pending = NULL;
   struct ak_dvt_ListResultsResponse vt;
   vt.apply = apply_list_results_response;
-  vt.unknown = NULL;
-  vt.unk_results = NULL;
   vt.add_results = add_list_results_response_results;
   return ak_decode_ListResultsResponse(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_list_results_response(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ListResultsResponse *s = (Sink_ListResultsResponse *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
-}
-
-static void unk_list_results_response_results(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ListResultsResponse *s = (Sink_ListResultsResponse *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 1;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_list_results_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out) {
@@ -8981,8 +8728,6 @@ int32_t decode_with_list_results_response_unk(ak_dec_ctx *ctx, const uint8_t *b,
   sink.pending = &pending;
   struct ak_dvt_ListResultsResponse vt;
   vt.apply = apply_list_results_response;
-  vt.unknown = unknown_list_results_response;
-  vt.unk_results = unk_list_results_response_results;
   vt.add_results = add_list_results_response_results;
   int32_t rc = ak_decode_ListResultsResponse(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
@@ -9132,8 +8877,6 @@ int32_t decode_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t 
   sink.pending = NULL;
   struct ak_dvt_ListTasksDetailedResponse vt;
   vt.apply = apply_list_tasks_detailed_response;
-  vt.unknown = NULL;
-  vt.unk_tasks = NULL;
   vt.new_tasks = new_list_tasks_detailed_response_tasks;
   vt.apply_tasks = apply_list_tasks_detailed_response_tasks;
   vt.add_tasks_parent_task_ids = add_list_tasks_detailed_response_tasks_parent_task_ids;
@@ -9142,32 +8885,6 @@ int32_t decode_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t 
   vt.add_tasks_retry_of_ids = add_list_tasks_detailed_response_tasks_retry_of_ids;
   vt.add_tasks_options_options = add_list_tasks_detailed_response_tasks_options_options;
   return ak_decode_ListTasksDetailedResponse(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_list_tasks_detailed_response(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ListTasksDetailedResponse *s = (Sink_ListTasksDetailedResponse *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
-}
-
-static void unk_list_tasks_detailed_response_tasks(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ListTasksDetailedResponse *s = (Sink_ListTasksDetailedResponse *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 1;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_list_tasks_detailed_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
@@ -9179,8 +8896,6 @@ int32_t decode_with_list_tasks_detailed_response_unk(ak_dec_ctx *ctx, const uint
   sink.pending = &pending;
   struct ak_dvt_ListTasksDetailedResponse vt;
   vt.apply = apply_list_tasks_detailed_response;
-  vt.unknown = unknown_list_tasks_detailed_response;
-  vt.unk_tasks = unk_list_tasks_detailed_response_tasks;
   vt.new_tasks = new_list_tasks_detailed_response_tasks;
   vt.apply_tasks = apply_list_tasks_detailed_response_tasks;
   vt.add_tasks_parent_task_ids = add_list_tasks_detailed_response_tasks_parent_task_ids;
@@ -9270,38 +8985,10 @@ int32_t decode_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b
   sink.pending = NULL;
   struct ak_dvt_ListTaskSummaryResponse vt;
   vt.apply = apply_list_task_summary_response;
-  vt.unknown = NULL;
-  vt.unk_tasks = NULL;
   vt.new_tasks = new_list_task_summary_response_tasks;
   vt.apply_tasks = apply_list_task_summary_response_tasks;
   vt.add_tasks_options_options = add_list_task_summary_response_tasks_options_options;
   return ak_decode_ListTaskSummaryResponse(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_list_task_summary_response(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ListTaskSummaryResponse *s = (Sink_ListTaskSummaryResponse *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
-}
-
-static void unk_list_task_summary_response_tasks(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ListTaskSummaryResponse *s = (Sink_ListTaskSummaryResponse *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 1;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_list_task_summary_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
@@ -9313,8 +9000,6 @@ int32_t decode_with_list_task_summary_response_unk(ak_dec_ctx *ctx, const uint8_
   sink.pending = &pending;
   struct ak_dvt_ListTaskSummaryResponse vt;
   vt.apply = apply_list_task_summary_response;
-  vt.unknown = unknown_list_task_summary_response;
-  vt.unk_tasks = unk_list_task_summary_response_tasks;
   vt.new_tasks = new_list_task_summary_response_tasks;
   vt.apply_tasks = apply_list_task_summary_response_tasks;
   vt.add_tasks_options_options = add_list_task_summary_response_tasks_options_options;
@@ -9369,36 +9054,8 @@ int32_t decode_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_
   sink.pending = NULL;
   struct ak_dvt_ListProbeResponse vt;
   vt.apply = apply_list_probe_response;
-  vt.unknown = NULL;
-  vt.unk_probes = NULL;
   vt.add_probes = add_list_probe_response_probes;
   return ak_decode_ListProbeResponse(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_list_probe_response(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ListProbeResponse *s = (Sink_ListProbeResponse *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
-}
-
-static void unk_list_probe_response_probes(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ListProbeResponse *s = (Sink_ListProbeResponse *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 1;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_list_probe_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out) {
@@ -9410,8 +9067,6 @@ int32_t decode_with_list_probe_response_unk(ak_dec_ctx *ctx, const uint8_t *b, s
   sink.pending = &pending;
   struct ak_dvt_ListProbeResponse vt;
   vt.apply = apply_list_probe_response;
-  vt.unknown = unknown_list_probe_response;
-  vt.unk_probes = unk_list_probe_response_probes;
   vt.add_probes = add_list_probe_response_probes;
   int32_t rc = ak_decode_ListProbeResponse(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
@@ -9523,8 +9178,6 @@ int32_t decode_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, siz
   sink.pending = NULL;
   struct ak_dvt_ListMetricsResponse vt;
   vt.apply = apply_list_metrics_response;
-  vt.unknown = NULL;
-  vt.unk_batches = NULL;
   vt.new_batches = new_list_metrics_response_batches;
   vt.apply_batches = apply_list_metrics_response_batches;
   vt.add_batches_ticks = add_list_metrics_response_batches_ticks;
@@ -9533,32 +9186,6 @@ int32_t decode_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, siz
   vt.add_batches_flags = add_list_metrics_response_batches_flags;
   vt.add_batches_statuses = add_list_metrics_response_batches_statuses;
   return ak_decode_ListMetricsResponse(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_list_metrics_response(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ListMetricsResponse *s = (Sink_ListMetricsResponse *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
-}
-
-static void unk_list_metrics_response_batches(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ListMetricsResponse *s = (Sink_ListMetricsResponse *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 1;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_list_metrics_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out) {
@@ -9570,8 +9197,6 @@ int32_t decode_with_list_metrics_response_unk(ak_dec_ctx *ctx, const uint8_t *b,
   sink.pending = &pending;
   struct ak_dvt_ListMetricsResponse vt;
   vt.apply = apply_list_metrics_response;
-  vt.unknown = unknown_list_metrics_response;
-  vt.unk_batches = unk_list_metrics_response_batches;
   vt.new_batches = new_list_metrics_response_batches;
   vt.apply_batches = apply_list_metrics_response_batches;
   vt.add_batches_ticks = add_list_metrics_response_batches_ticks;
@@ -9623,21 +9248,7 @@ int32_t decode_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b
   sink.pending = NULL;
   struct ak_dvt_UploadResultDataMessage vt;
   vt.apply = apply_upload_result_data_message;
-  vt.unknown = NULL;
   return ak_decode_UploadResultDataMessage(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_upload_result_data_message(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_UploadResultDataMessage *s = (Sink_UploadResultDataMessage *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_upload_result_data_message_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
@@ -9649,7 +9260,6 @@ int32_t decode_with_upload_result_data_message_unk(ak_dec_ctx *ctx, const uint8_
   sink.pending = &pending;
   struct ak_dvt_UploadResultDataMessage vt;
   vt.apply = apply_upload_result_data_message;
-  vt.unknown = unknown_upload_result_data_message;
   int32_t rc = ak_decode_UploadResultDataMessage(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
   // Applied after the decode, not during it (see AkPending).
@@ -9707,51 +9317,9 @@ int32_t decode_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, D
   sink.pending = NULL;
   struct ak_dvt_DualResponse vt;
   vt.apply = apply_dual_response;
-  vt.unknown = NULL;
-  vt.unk_left = NULL;
   vt.add_left = add_dual_response_left;
-  vt.unk_right = NULL;
   vt.add_right = add_dual_response_right;
   return ak_decode_DualResponse(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_dual_response(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_DualResponse *s = (Sink_DualResponse *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
-}
-
-static void unk_dual_response_left(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_DualResponse *s = (Sink_DualResponse *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 1;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
-}
-
-static void unk_dual_response_right(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_DualResponse *s = (Sink_DualResponse *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 2;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_dual_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out) {
@@ -9763,10 +9331,7 @@ int32_t decode_with_dual_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t 
   sink.pending = &pending;
   struct ak_dvt_DualResponse vt;
   vt.apply = apply_dual_response;
-  vt.unknown = unknown_dual_response;
-  vt.unk_left = unk_dual_response_left;
   vt.add_left = add_dual_response_left;
-  vt.unk_right = unk_dual_response_right;
   vt.add_right = add_dual_response_right;
   int32_t rc = ak_decode_DualResponse(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
@@ -9815,21 +9380,7 @@ int32_t decode_with_chunk_leaf(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Chun
   sink.pending = NULL;
   struct ak_dvt_ChunkLeaf vt;
   vt.apply = apply_chunk_leaf;
-  vt.unknown = NULL;
   return ak_decode_ChunkLeaf(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_chunk_leaf(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ChunkLeaf *s = (Sink_ChunkLeaf *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_chunk_leaf_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out) {
@@ -9841,7 +9392,6 @@ int32_t decode_with_chunk_leaf_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, 
   sink.pending = &pending;
   struct ak_dvt_ChunkLeaf vt;
   vt.apply = apply_chunk_leaf;
-  vt.unknown = unknown_chunk_leaf;
   int32_t rc = ak_decode_ChunkLeaf(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
   // Applied after the decode, not during it (see AkPending).
@@ -9898,37 +9448,9 @@ int32_t decode_with_chunk_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Chu
   sink.pending = NULL;
   struct ak_dvt_ChunkInner vt;
   vt.apply = apply_chunk_inner;
-  vt.unknown = NULL;
   vt.add_marks = add_chunk_inner_marks;
-  vt.unk_leaves = NULL;
   vt.add_leaves = add_chunk_inner_leaves;
   return ak_decode_ChunkInner(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_chunk_inner(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ChunkInner *s = (Sink_ChunkInner *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
-}
-
-static void unk_chunk_inner_leaves(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ChunkInner *s = (Sink_ChunkInner *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 2;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_chunk_inner_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out) {
@@ -9940,9 +9462,7 @@ int32_t decode_with_chunk_inner_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n,
   sink.pending = &pending;
   struct ak_dvt_ChunkInner vt;
   vt.apply = apply_chunk_inner;
-  vt.unknown = unknown_chunk_inner;
   vt.add_marks = add_chunk_inner_marks;
-  vt.unk_leaves = unk_chunk_inner_leaves;
   vt.add_leaves = add_chunk_inner_leaves;
   int32_t rc = ak_decode_ChunkInner(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
@@ -10040,53 +9560,11 @@ int32_t decode_with_chunk_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, C
   sink.pending = NULL;
   struct ak_dvt_ChunkElement vt;
   vt.apply = apply_chunk_element;
-  vt.unknown = NULL;
   vt.add_labels = add_chunk_element_labels;
-  vt.unk_attrs = NULL;
   vt.add_attrs = add_chunk_element_attrs;
   vt.add_inner_marks = add_chunk_element_inner_marks;
-  vt.unk_inner_leaves = NULL;
   vt.add_inner_leaves = add_chunk_element_inner_leaves;
   return ak_decode_ChunkElement(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_chunk_element(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ChunkElement *s = (Sink_ChunkElement *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
-}
-
-static void unk_chunk_element_attrs(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ChunkElement *s = (Sink_ChunkElement *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 2;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
-}
-
-static void unk_chunk_element_inner_leaves(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ChunkElement *s = (Sink_ChunkElement *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 4;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_chunk_element_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out) {
@@ -10098,12 +9576,9 @@ int32_t decode_with_chunk_element_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t 
   sink.pending = &pending;
   struct ak_dvt_ChunkElement vt;
   vt.apply = apply_chunk_element;
-  vt.unknown = unknown_chunk_element;
   vt.add_labels = add_chunk_element_labels;
-  vt.unk_attrs = unk_chunk_element_attrs;
   vt.add_attrs = add_chunk_element_attrs;
   vt.add_inner_marks = add_chunk_element_inner_marks;
-  vt.unk_inner_leaves = unk_chunk_element_inner_leaves;
   vt.add_inner_leaves = add_chunk_element_inner_leaves;
   int32_t rc = ak_decode_ChunkElement(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
@@ -10223,8 +9698,6 @@ int32_t decode_with_chunked_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n
   sink.pending = NULL;
   struct ak_dvt_ChunkedResponse vt;
   vt.apply = apply_chunked_response;
-  vt.unknown = NULL;
-  vt.unk_items = NULL;
   vt.new_items = new_chunked_response_items;
   vt.apply_items = apply_chunked_response_items;
   vt.add_items_labels = add_chunked_response_items_labels;
@@ -10232,32 +9705,6 @@ int32_t decode_with_chunked_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n
   vt.add_items_inner_marks = add_chunked_response_items_inner_marks;
   vt.add_items_inner_leaves = add_chunked_response_items_inner_leaves;
   return ak_decode_ChunkedResponse(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_chunked_response(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ChunkedResponse *s = (Sink_ChunkedResponse *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
-}
-
-static void unk_chunked_response_items(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ChunkedResponse *s = (Sink_ChunkedResponse *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 1;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_chunked_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out) {
@@ -10269,8 +9716,6 @@ int32_t decode_with_chunked_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size
   sink.pending = &pending;
   struct ak_dvt_ChunkedResponse vt;
   vt.apply = apply_chunked_response;
-  vt.unknown = unknown_chunked_response;
-  vt.unk_items = unk_chunked_response_items;
   vt.new_items = new_chunked_response_items;
   vt.apply_items = apply_chunked_response_items;
   vt.add_items_labels = add_chunked_response_items_labels;
@@ -10394,8 +9839,6 @@ int32_t decode_with_chunked_response_wide(ak_dec_ctx *ctx, const uint8_t *b, siz
   sink.pending = NULL;
   struct ak_dvt_ChunkedResponseWide vt;
   vt.apply = apply_chunked_response_wide;
-  vt.unknown = NULL;
-  vt.unk_items = NULL;
   vt.new_items = new_chunked_response_wide_items;
   vt.apply_items = apply_chunked_response_wide_items;
   vt.add_items_labels = add_chunked_response_wide_items_labels;
@@ -10403,32 +9846,6 @@ int32_t decode_with_chunked_response_wide(ak_dec_ctx *ctx, const uint8_t *b, siz
   vt.add_items_inner_marks = add_chunked_response_wide_items_inner_marks;
   vt.add_items_inner_leaves = add_chunked_response_wide_items_inner_leaves;
   return ak_decode_ChunkedResponseWide(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_chunked_response_wide(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ChunkedResponseWide *s = (Sink_ChunkedResponseWide *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
-}
-
-static void unk_chunked_response_wide_items(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_ChunkedResponseWide *s = (Sink_ChunkedResponseWide *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 1;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_chunked_response_wide_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out) {
@@ -10440,8 +9857,6 @@ int32_t decode_with_chunked_response_wide_unk(ak_dec_ctx *ctx, const uint8_t *b,
   sink.pending = &pending;
   struct ak_dvt_ChunkedResponseWide vt;
   vt.apply = apply_chunked_response_wide;
-  vt.unknown = unknown_chunked_response_wide;
-  vt.unk_items = unk_chunked_response_wide_items;
   vt.new_items = new_chunked_response_wide_items;
   vt.apply_items = apply_chunked_response_wide_items;
   vt.add_items_labels = add_chunked_response_wide_items_labels;
@@ -10494,21 +9909,7 @@ int32_t decode_with_leaf_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Le
   sink.pending = NULL;
   struct ak_dvt_LeafElement vt;
   vt.apply = apply_leaf_element;
-  vt.unknown = NULL;
   return ak_decode_LeafElement(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_leaf_element(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_LeafElement *s = (Sink_LeafElement *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_leaf_element_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out) {
@@ -10520,7 +9921,6 @@ int32_t decode_with_leaf_element_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n
   sink.pending = &pending;
   struct ak_dvt_LeafElement vt;
   vt.apply = apply_leaf_element;
-  vt.unknown = unknown_leaf_element;
   int32_t rc = ak_decode_LeafElement(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
   // Applied after the decode, not during it (see AkPending).
@@ -10569,36 +9969,8 @@ int32_t decode_with_leaf_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, L
   sink.pending = NULL;
   struct ak_dvt_LeafResponse vt;
   vt.apply = apply_leaf_response;
-  vt.unknown = NULL;
-  vt.unk_items = NULL;
   vt.add_items = add_leaf_response_items;
   return ak_decode_LeafResponse(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_leaf_response(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_LeafResponse *s = (Sink_LeafResponse *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
-}
-
-static void unk_leaf_response_items(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_LeafResponse *s = (Sink_LeafResponse *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 1;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_leaf_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out) {
@@ -10610,8 +9982,6 @@ int32_t decode_with_leaf_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t 
   sink.pending = &pending;
   struct ak_dvt_LeafResponse vt;
   vt.apply = apply_leaf_response;
-  vt.unknown = unknown_leaf_response;
-  vt.unk_items = unk_leaf_response_items;
   vt.add_items = add_leaf_response_items;
   int32_t rc = ak_decode_LeafResponse(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
@@ -10693,37 +10063,9 @@ int32_t decode_with_surrogate(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surro
   sink.pending = NULL;
   struct ak_dvt_Surrogate vt;
   vt.apply = apply_surrogate;
-  vt.unknown = NULL;
-  vt.unk_attrs = NULL;
   vt.add_attrs = add_surrogate_attrs;
   vt.add_texts = add_surrogate_texts;
   return ak_decode_Surrogate(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_surrogate(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_Surrogate *s = (Sink_Surrogate *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
-}
-
-static void unk_surrogate_attrs(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_Surrogate *s = (Sink_Surrogate *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 1;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_surrogate_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out) {
@@ -10735,8 +10077,6 @@ int32_t decode_with_surrogate_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, S
   sink.pending = &pending;
   struct ak_dvt_Surrogate vt;
   vt.apply = apply_surrogate;
-  vt.unknown = unknown_surrogate;
-  vt.unk_attrs = unk_surrogate_attrs;
   vt.add_attrs = add_surrogate_attrs;
   vt.add_texts = add_surrogate_texts;
   int32_t rc = ak_decode_Surrogate(ctx, &sink, b, n, &vt);
@@ -10779,21 +10119,7 @@ int32_t decode_with_surrogate_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n,
   sink.pending = NULL;
   struct ak_dvt_SurrogateInner vt;
   vt.apply = apply_surrogate_inner;
-  vt.unknown = NULL;
   return ak_decode_SurrogateInner(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_surrogate_inner(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_SurrogateInner *s = (Sink_SurrogateInner *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_surrogate_inner_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out) {
@@ -10805,7 +10131,6 @@ int32_t decode_with_surrogate_inner_unk(ak_dec_ctx *ctx, const uint8_t *b, size_
   sink.pending = &pending;
   struct ak_dvt_SurrogateInner vt;
   vt.apply = apply_surrogate_inner;
-  vt.unknown = unknown_surrogate_inner;
   int32_t rc = ak_decode_SurrogateInner(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
   // Applied after the decode, not during it (see AkPending).
@@ -10856,21 +10181,7 @@ int32_t decode_with_wire_zoo(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZo
   sink.pending = NULL;
   struct ak_dvt_WireZoo vt;
   vt.apply = apply_wire_zoo;
-  vt.unknown = NULL;
   return ak_decode_WireZoo(ctx, &sink, b, n, &vt);
-}
-
-static void unknown_wire_zoo(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *sp, int32_t n) {
-  AK_DGUARD_BEGIN
-    Sink_WireZoo *s = (Sink_WireZoo *)obj;
-    for (int32_t i = 0; i < n; ++i) {
-      AkPending pd;
-      pd.slot = 0;
-      pd.token = sp[i].token;
-      pd.bytes.assign((const char *)(s->base + sp[i].off), sp[i].len);
-      s->pending->push_back(pd);
-    }
-  AK_DGUARD_END
 }
 
 int32_t decode_with_wire_zoo_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out) {
@@ -10882,7 +10193,6 @@ int32_t decode_with_wire_zoo_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Wi
   sink.pending = &pending;
   struct ak_dvt_WireZoo vt;
   vt.apply = apply_wire_zoo;
-  vt.unknown = unknown_wire_zoo;
   int32_t rc = ak_decode_WireZoo(ctx, &sink, b, n, &vt);
   if (rc < 0) return rc;
   // Applied after the decode, not during it (see AkPending).

@@ -585,7 +585,7 @@ static void dec_task_options(ak::Dec *d, TaskOptions *out, uint32_t depth) {
     uint32_t tag = (uint32_t)(k >> 3), wire = (uint32_t)(k & 7);
     if (tag == 0 || (k >> 3) > 536870911uLL) { d->err = ak::ERR_MALFORMED; return; }
     switch (((uint64_t)tag << 3) | wire) {
-      case 10ull: {  // field 1, wire type 2: map_entry
+      case 10ull: {  // field 1, wire type 2: append_message
         size_t off, n; d->len_body(&off, &n);
         if (d->err != 0) return;
         if (depth + 1 > kLimit) { d->err = ak::ERR_DEPTH; return; }

@@ -2828,8 +2828,6 @@ int32_t decode_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, siz
   sink.base = b;
   struct ak_dvt_ListResultsResponse vt;
   vt.apply = apply_list_results_response;
-  vt.unknown = NULL;
-  vt.unk_results = NULL;
   vt.add_results = add_list_results_response_results;
   return ak_decode_ListResultsResponse(ctx, &sink, b, n, &vt);
 }
@@ -2961,8 +2959,6 @@ int32_t decode_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t 
   sink.base = b;
   struct ak_dvt_ListTasksDetailedResponse vt;
   vt.apply = apply_list_tasks_detailed_response;
-  vt.unknown = NULL;
-  vt.unk_tasks = NULL;
   vt.new_tasks = new_list_tasks_detailed_response_tasks;
   vt.apply_tasks = apply_list_tasks_detailed_response_tasks;
   vt.add_tasks_parent_task_ids = add_list_tasks_detailed_response_tasks_parent_task_ids;
@@ -3003,8 +2999,6 @@ int32_t decode_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_
   sink.base = b;
   struct ak_dvt_ListProbeResponse vt;
   vt.apply = apply_list_probe_response;
-  vt.unknown = NULL;
-  vt.unk_probes = NULL;
   vt.add_probes = add_list_probe_response_probes;
   return ak_decode_ListProbeResponse(ctx, &sink, b, n, &vt);
 }
@@ -3070,8 +3064,6 @@ int32_t decode_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b
   sink.base = b;
   struct ak_dvt_ListTaskSummaryResponse vt;
   vt.apply = apply_list_task_summary_response;
-  vt.unknown = NULL;
-  vt.unk_tasks = NULL;
   vt.new_tasks = new_list_task_summary_response_tasks;
   vt.apply_tasks = apply_list_task_summary_response_tasks;
   vt.add_tasks_options_options = add_list_task_summary_response_tasks_options_options;
@@ -3101,7 +3093,6 @@ int32_t decode_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b
   sink.base = b;
   struct ak_dvt_UploadResultDataMessage vt;
   vt.apply = apply_upload_result_data_message;
-  vt.unknown = NULL;
   return ak_decode_UploadResultDataMessage(ctx, &sink, b, n, &vt);
 }
 
@@ -3194,8 +3185,6 @@ int32_t decode_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, siz
   sink.base = b;
   struct ak_dvt_ListMetricsResponse vt;
   vt.apply = apply_list_metrics_response;
-  vt.unknown = NULL;
-  vt.unk_batches = NULL;
   vt.new_batches = new_list_metrics_response_batches;
   vt.apply_batches = apply_list_metrics_response_batches;
   vt.add_batches_ticks = add_list_metrics_response_batches_ticks;
@@ -3245,10 +3234,7 @@ int32_t decode_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, D
   sink.base = b;
   struct ak_dvt_DualResponse vt;
   vt.apply = apply_dual_response;
-  vt.unknown = NULL;
-  vt.unk_left = NULL;
   vt.add_left = add_dual_response_left;
-  vt.unk_right = NULL;
   vt.add_right = add_dual_response_right;
   return ak_decode_DualResponse(ctx, &sink, b, n, &vt);
 }
