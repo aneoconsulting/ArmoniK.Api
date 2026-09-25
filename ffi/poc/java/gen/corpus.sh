@@ -66,11 +66,25 @@ fi
 
 echo
 echo "===== 3b. decision 11 (WP5 step 9): per-position discard, pull == push, wrong root (target) ====="
-"$J17/bin/java" -cp "build/cls17:$CP" -Dak.lib="$SHIM" ak.RunUnkControls 2>&1 | grep -v "^Picked up" || fail=1
+"$J17/bin/java" -cp "build/cls17:$CP" -Dak.lib="$SHIM" ak.RunUnkControls 2>&1 | grep -v "^Picked up"
+[ "${PIPESTATUS[0]}" -eq 0 ] || fail=1
 if "$J17/bin/java" -cp "build/cls17:$CP" -Dak.lib="$SHIM" -Dak.unk.plant=1 ak.RunUnkControls > build/unk-plant.txt 2>&1; then
   echo "  control unk-plant (mask ignored): PASSED -- the discard check is blind"; fail=1
 else
   echo "  control unk-plant (mask ignored): failed as required: $(grep 'discard mismatches' build/unk-plant.txt)"
+fi
+
+echo
+echo "===== 3c. decision 11 rule 3: buffers of a failed retain decode are reclaimed (target, then floor) ====="
+for lv in "$J17 build/cls17" "$J8 build/cls8"; do
+  set -- $lv
+  "$1/bin/java" -cp "$2:$CP" -Dak.lib="$SHIM" ak.RunUnkLeak 2>&1 | grep -v "^Picked up"
+  [ "${PIPESTATUS[0]}" -eq 0 ] || fail=1
+done
+if "$J17/bin/java" -cp "build/cls17:$CP" -Dak.lib="$SHIM" -Dak.unk.leakplant=1 ak.RunUnkLeak > build/unk-leakplant.txt 2>&1; then
+  echo "  control unk-leakplant (no reclaim): PASSED -- the leak check is blind"; fail=1
+else
+  echo "  control unk-leakplant (no reclaim): failed as required: $(grep -m1 'LEFT BEHIND' build/unk-leakplant.txt | sed 's/^ *//')"
 fi
 
 echo
