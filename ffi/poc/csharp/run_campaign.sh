@@ -108,7 +108,7 @@ case "$SUITE" in
     # per-case overhead tripled (JOURNAL 51). Every unit appends its own header block and rows
     # to DIR/codec-launch<N>.jsonl; BDN's console log per unit is DIR/codec-launch<N>.<unit>.bdn.log.
     # BDN's artifacts directory holds only a copy of that log, so it stays in SCRATCH.
-    GATE="$(gate_first)"; ensure_core; build
+    GATE="$(gate_first)" || exit 1; ensure_core; build
     ( cd "$SLICE" && dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release >> "$SCRATCH/campaign-build.out" 2>&1 ) || { tail -30 "$SCRATCH/campaign-build.out"; exit 1; }
     B8="$SLICE/src/BenchDotNet/bin/Release/net8.0"
     cp "$SLICE/target-core/release/libak_core.so" "$B8/"
@@ -124,7 +124,7 @@ case "$SUITE" in
       done
     done ;;
   calib)
-    GATE="$(gate_first)"; ensure_core; build
+    GATE="$(gate_first)" || exit 1; ensure_core; build
     # Requirement 19: the crossing counts of the counting build must equal the committed ones.
     cp "$SLICE/target-core-count/release/libak_core.so" "$H8/"
     AK_CROSSINGS_EXPECT="$SLICE/gen/crossings.txt" dotnet "$H8/harness.dll" coreffi > "$OUT/calib-crossing-counts.log" 2>&1 \
@@ -146,7 +146,7 @@ case "$SUITE" in
       fi
     done ;;
   rpc)
-    GATE="$(gate_first)"; ensure_core; build
+    GATE="$(gate_first)" || exit 1; ensure_core; build
     cp "$SLICE/target-core/release/libak_core.so" "$R8/"
     CALLS=64; [ $SMOKE = 1 ] && CALLS=16
     for t in shipped pinned; do
